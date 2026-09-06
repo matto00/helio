@@ -9,6 +9,9 @@ import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
 import scala.concurrent.duration.DurationInt
+import java.net.InetAddress
+import scala.util.Try
+import com.helio.services.sources.ContentSourceSupport
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Config for [[RowSupplyingConnector]] — a fixture distinct from `ConnectorSpec`'s
@@ -31,16 +34,32 @@ object RowSupplyingConnector extends ConnectorDriver[RowSupplyingConfig] {
     authKind = "none"
   )
 
-  def testConnection(config: RowSupplyingConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+  def testConnection(
+      config: RowSupplyingConfig,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future.successful(Right(()))
 
-  def fetch(config: RowSupplyingConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext)
+  def fetch(
+      config: RowSupplyingConfig,
+      maxRows: Int,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext)
       : Future[Either[String, FetchOutcome]] =
     Future.successful(
       Right(FetchOutcome(config.rows.take(maxRows), truncated = config.rows.size > maxRows, availableRowCount = Some(config.rows.size.toLong)))
     )
 
-  def inferSchema(config: RowSupplyingConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+  def inferSchema(
+      config: RowSupplyingConfig,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
     fetch(config, maxRows = 100, ConnectorResolveContext.Internal).map(_.map(outcome => SchemaInferenceEngine.inferSchemaFromRows(outcome.rows)))
 }
 

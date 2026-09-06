@@ -2,12 +2,26 @@ package com.helio.domain.connectors
 
 import com.helio.domain.engine.SchemaInferenceEngine
 import com.helio.domain.model.{InferredSchema, SqlSourceConfig}
+import com.helio.services.sources.{ContentSourceSupport, EgressCheck}
 import org.slf4j.LoggerFactory
 import spray.json._
 
+import java.net.InetAddress
 import java.sql.{Connection, DriverManager, Types}
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.Try
+
+/** HEL-952: thrown by [[SqlConnectorDriver.connect]] when [[SqlConnectorDriver.checkConfigEgress]]
+ *  refuses the config's host — a typed refusal (not a bare `RuntimeException`) so the task-7
+ *  mutation check can assert the test fails for the RIGHT reason (this exception, not a timeout /
+ *  missing driver / fixture error), and so a later ticket (HEL-953) has a typed thing to map to a
+ *  4xx. `execute`/`testConnection`'s `.toEither.left.map` handlers special-case this one exception
+ *  type to surface its (non-sensitive — hostname/address-class only, never a credential) refusal
+ *  message verbatim rather than the generic "SQL execution failed"/"SQL connection failed"
+ *  category message every OTHER connection failure still gets — this is what lets a caller (and
+ *  the task-7 mutation check) tell "the guard refused this" apart from "the driver/network
+ *  failed" without message-substring-matching a raw JDBC exception. */
+final case class SqlEgressRefusedException(refusalMessage: String) extends RuntimeException(refusalMessage)
 
 object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
 
@@ -53,22 +67,67 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
       s"jdbc:${other}://${config.host}:${config.port}/${config.database}"
   }
 
-  /** Opens a JDBC connection for the given config. Throws on failure. */
-  def connect(config: SqlSourceConfig): Connection = {
-    val url = buildJdbcUrl(config)
-    DriverManager.getConnection(url, config.user, config.password)
-  }
+  /** HEL-952 design.md Decision 1/2: validates `config.host` — the EXACT string [[buildJdbcUrl]]
+   *  interpolates into the JDBC URL — via the shared `ContentSourceSupport.checkEgressHost` policy
+   *  core (no policy duplicated). `failOnUnresolvable` distinguishes the two dispositions design.md
+   *  Decisions 2/3 require for the SAME "does not resolve right now" outcome: connect time
+   *  (Decision 2, the security boundary) fails closed on it — an unresolvable host can never be
+   *  connected to, so there is nothing to preserve; create time (Decision 3) tolerates it — a
+   *  source naming a not-yet-provisioned host, or hitting a transient DNS blip, must still be
+   *  creatable, and the connect-time check re-validates on every actual use anyway so nothing
+   *  escapes. `Disallowed`/`Invalid` are ALWAYS fatal, at either time. */
+  def checkConfigEgress(
+      config: SqlSourceConfig,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr),
+      failOnUnresolvable: Boolean = true
+  ): Either[String, Unit] =
+    ContentSourceSupport.checkEgressHost(config.host, resolveHost, isBlocked) match {
+      case EgressCheck.Allowed(_)                            => Right(())
+      case EgressCheck.Unresolvable(_) if !failOnUnresolvable => Right(())
+      case EgressCheck.Unresolvable(msg)                     => Left(s"Egress refused: $msg")
+      case EgressCheck.Invalid(msg)                          => Left(s"Egress refused: $msg")
+      case EgressCheck.Disallowed(msg)                       => Left(s"Egress refused: $msg")
+    }
+
+  /** Opens a JDBC connection for the given config. Throws [[SqlEgressRefusedException]] if
+   *  `checkConfigEgress` refuses the host (HEL-952 design.md Decision 2 — the security boundary:
+   *  every SQL operation reaches this one chokepoint), or a driver exception on any other
+   *  connection failure. `resolveHost`/`isBlocked` default to real DNS / the real production
+   *  denylist; tests inject overrides via the task-2a seam.
+   *
+   *  Residual risk (design.md Decision 4, stated in full there): the connection below is NOT
+   *  pinned to the address `checkConfigEgress` just validated — the JDBC driver re-resolves the
+   *  hostname independently inside `DriverManager.getConnection`, leaving a DNS-rebinding TOCTOU
+   *  window this ticket ships unpinned-and-documented rather than closed. HEL-998 tracks the
+   *  per-dialect socket-factory pin that would close it. */
+  def connect(
+      config: SqlSourceConfig,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  ): Connection =
+    checkConfigEgress(config, resolveHost, isBlocked, failOnUnresolvable = true) match {
+      case Left(msg) => throw SqlEgressRefusedException(msg)
+      case Right(()) =>
+        val url = buildJdbcUrl(config)
+        DriverManager.getConnection(url, config.user, config.password)
+    }
 
 
   /** Executes the query and returns rows as a sequence of column-name → JsValue maps.
    *  Uses `scala.concurrent.blocking` to avoid starving the Pekko dispatcher.
    *  Query timeout is set to 30 seconds; row count is capped at `maxRows`. */
-  def execute(config: SqlSourceConfig, maxRows: Int)(implicit ec: ExecutionContext)
+  def execute(
+      config: SqlSourceConfig,
+      maxRows: Int,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext)
       : Future[Either[String, Seq[Map[String, JsValue]]]] =
     Future {
       blocking {
         Try {
-          val conn = connect(config)
+          val conn = connect(config, resolveHost, isBlocked)
           try {
             val stmt = conn.prepareStatement(config.query)
             stmt.setQueryTimeout(30)
@@ -105,11 +164,18 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
           } finally {
             conn.close()
           }
-        }.toEither.left.map { e =>
-          // HEL-311: keep the "SQL execution failed" category prefix (not
-          // sensitive), drop the raw JDBC/driver message tail, log the cause.
-          log.error("SQL execution failed", e)
-          "SQL execution failed"
+        }.toEither.left.map {
+          // HEL-952 task 3.1: surface the guard's own refusal message verbatim (non-sensitive —
+          // hostname/address-class only) rather than the generic category message, so a caller
+          // can tell "the guard refused this" apart from any other connection failure.
+          case SqlEgressRefusedException(msg) =>
+            log.warn(s"SQL execution refused by egress guard: $msg")
+            msg
+          case e =>
+            // HEL-311: keep the "SQL execution failed" category prefix (not
+            // sensitive), drop the raw JDBC/driver message tail, log the cause.
+            log.error("SQL execution failed", e)
+            "SQL execution failed"
         }
       }
     }
@@ -127,24 +193,38 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
 
   /** Opens and immediately closes a JDBC connection — no query is executed.
    *  Uses `scala.concurrent.blocking` on the caller-supplied `ec`, matching `execute`. */
-  def testConnection(config: SqlSourceConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+  def testConnection(
+      config: SqlSourceConfig,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future {
       blocking {
         Try {
-          connect(config).close()
-        }.toEither.left.map { e =>
-          // Distinct category prefix from `execute`'s "SQL execution failed" so
-          // log/test consumers can't confuse a connection failure with a query failure.
-          log.error("SQL connection failed", e)
-          "SQL connection failed"
+          connect(config, resolveHost, isBlocked).close()
+        }.toEither.left.map {
+          case SqlEgressRefusedException(msg) =>
+            log.warn(s"SQL connection refused by egress guard: $msg")
+            msg
+          case e =>
+            // Distinct category prefix from `execute`'s "SQL execution failed" so
+            // log/test consumers can't confuse a connection failure with a query failure.
+            log.error("SQL connection failed", e)
+            "SQL connection failed"
         }
       }
     }
 
   /** Forwards to the existing `execute`/`inferSchema(rows)` methods on the caller-supplied `ec`,
    *  matching `SourceService.inferSql`'s existing `maxRows = 100` sample size. */
-  def inferSchema(config: SqlSourceConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
-    execute(config, maxRows = 100).map(_.map(rows => inferSchema(rows)))
+  def inferSchema(
+      config: SqlSourceConfig,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+    execute(config, maxRows = 100, resolveHost, isBlocked).map(_.map(rows => inferSchema(rows)))
 
   /** HEL-861 design D3: probes with `maxRows + 1` — the JDBC cap (`execute`'s `setMaxRows`) never
    *  lets rows beyond the cap arrive, so the true total is unknowable without a second `COUNT(*)`
@@ -152,9 +232,15 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
    *  result is provably complete. `execute` itself is unchanged — this `+ 1` lives only here, so
    *  `inferSchema` (100) and `previewSql` (10) keep their current behaviour. `availableRowCount`
    *  stays `None`: proving truncation this way does not reveal the true total. */
-  def fetch(config: SqlSourceConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext)
+  def fetch(
+      config: SqlSourceConfig,
+      maxRows: Int,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext)
       : Future[Either[String, FetchOutcome]] =
-    execute(config, maxRows + 1).map(_.map { rows =>
+    execute(config, maxRows + 1, resolveHost, isBlocked).map(_.map { rows =>
       val all = toRows(rows)
       FetchOutcome(all.take(maxRows), truncated = all.size > maxRows, availableRowCount = None)
     })

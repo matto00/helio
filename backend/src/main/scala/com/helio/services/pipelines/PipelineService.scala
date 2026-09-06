@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
-import com.helio.services.sources.{DataSourceService, SourceService}
+import com.helio.services.sources.{ContentSourceSupport, DataSourceService, SourceService}
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, DateBucketAnalyzeStepResponse, DeletePipelineStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, OutputAnalyzeResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, RootSourceSchemaResponse, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, WindowAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{CreateSourceRequest, RestApiConfigPayload, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticDataSourceRequest}
@@ -25,6 +25,7 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 import slick.jdbc.PostgresProfile.api._
 
+import java.net.InetAddress
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -1522,7 +1523,15 @@ final class PipelineService(
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(_) =>
-                SqlConnectorDriver.inferSchema(domainConfig, ConnectorResolveContext.Internal).map {
+                // HEL-952 design.md Decision 4a: reuses the SAME sqlResolveHost/sqlIsBlocked
+                // override `sourceService` was constructed with (Option-guarded — this
+                // constructor param is nullable, matching every other optional collaborator in
+                // this file), rather than always falling back to real DNS/denylist here.
+                val (resolveHost, isBlocked) = Option(sourceService) match {
+                  case Some(svc) => (svc.sqlResolveHost, svc.sqlIsBlocked)
+                  case None      => (ContentSourceSupport.defaultResolveHost _, (h: String, addr: InetAddress) => ContentSourceSupport.isBlockedAddress(addr))
+                }
+                SqlConnectorDriver.inferSchema(domainConfig, ConnectorResolveContext.Internal, resolveHost, isBlocked).map {
                   case Left(err)     => Left(ServiceError.BadGateway(err))
                   case Right(schema) => Right((name, toSchemaFields(schema)))
                 }

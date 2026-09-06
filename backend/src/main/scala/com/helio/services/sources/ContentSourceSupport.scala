@@ -193,23 +193,78 @@ object ContentSourceSupport {
           case Some("http") | Some("https") =>
             Option(uri.getHost) match {
               case None => EgressCheck.Invalid(s"URL is missing a host: $url")
-              case Some(host) =>
-                resolveHost(host) match {
-                  case Failure(e) =>
-                    // HEL-311: keep the curated "Could not resolve host" prefix
-                    // and the (caller-supplied) hostname, drop the raw DNS
-                    // resolver exception tail; log the cause.
-                    log.warn(s"Could not resolve host '$host'", e)
-                    EgressCheck.Unresolvable(s"Could not resolve host '$host'")
-                  case Success(addresses) if addresses.isEmpty =>
-                    EgressCheck.Unresolvable(s"Could not resolve host '$host': no addresses returned")
-                  case Success(addresses) if addresses.exists(a => isBlocked(host, a)) =>
-                    EgressCheck.Disallowed(s"URL host '$host' resolves to a disallowed address")
-                  case Success(addresses) => EgressCheck.Allowed(addresses.head)
-                }
+              case Some(host) => checkResolvedHost(host, resolveHost, isBlocked)
             }
           case other =>
             EgressCheck.Invalid(s"Unsupported URL scheme: ${other.getOrElse("(none)")}. Only http/https are allowed.")
+        }
+    }
+
+  /** Extracted verbatim from [[checkEgress]]'s resolve-and-classify block (design.md Decision 1,
+   *  round-3 CR3) so [[checkEgressHost]] can share the exact same address-class policy
+   *  (`isBlocked`), the multi-A-record `addresses.exists(...)` rule, and message strings, without
+   *  duplicating any of it. `noun` (defaulted to `"URL host"` for [[checkEgress]]'s call site)
+   *  parameterises the curated message so a bare JDBC host validated via [[checkEgressHost]]
+   *  doesn't read as though it came from a URL. */
+  private[sources] def checkResolvedHost(
+      host: String,
+      resolveHost: String => Try[Array[InetAddress]] = defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => isBlockedAddress(addr),
+      noun: String = "URL host"
+  ): EgressCheck =
+    resolveHost(host) match {
+      case Failure(e) =>
+        // HEL-311: keep the curated "Could not resolve host" prefix
+        // and the (caller-supplied) hostname, drop the raw DNS
+        // resolver exception tail; log the cause.
+        log.warn(s"Could not resolve host '$host'", e)
+        EgressCheck.Unresolvable(s"Could not resolve host '$host'")
+      case Success(addresses) if addresses.isEmpty =>
+        EgressCheck.Unresolvable(s"Could not resolve host '$host': no addresses returned")
+      case Success(addresses) if addresses.exists(a => isBlocked(host, a)) =>
+        EgressCheck.Disallowed(s"$noun '$host' resolves to a disallowed address")
+      case Success(addresses) => EgressCheck.Allowed(addresses.head)
+    }
+
+  /** Strict charset gate (design.md Decision 1, task 1.2/1.2a) applied to a bare host BEFORE any
+   *  `URI` construction is attempted — refuses any character outside `[A-Za-z0-9.\-:\[\]]`. This
+   *  is the primary defence against a host string that would be reinterpreted (not rejected) by
+   *  the multi-arg `URI` constructor (`evil.test/@internal`, `host,other`, etc. — see design.md's
+   *  withdrawn CR1 claim for why the constructor alone cannot be relied on). Deliberately excludes
+   *  `_` (round-2 non-blocking note): `my_db.internal` is refused here, matching the single-arg
+   *  `URI` parse `checkEgress` already used, which also rejects underscored hostnames — this
+   *  extends existing accepted behaviour rather than introducing a new break. */
+  private val hostCharsetPattern = """^[A-Za-z0-9.\-:\[\]]+$""".r
+
+  /** Host-level SSRF entry point for a caller with no URL to speak of — a bare JDBC host
+   *  (design.md Decision 1). Validates the CALLER-SUPPLIED `host` string exactly as it will be
+   *  interpolated into the destination (a JDBC URL, here), not a re-parsed/normalised form of it.
+   *
+   *  Two independent defences run before resolution, both required (design.md's CR1 correction):
+   *  the charset gate above, and a round-trip identity check that the multi-arg `URI` constructor's
+   *  `getHost` equals the supplied host (normalising the IPv6 bracket form) — the backstop that
+   *  fails closed if the charset gate is ever loosened. Only once both pass does the SAME shared
+   *  policy core ([[checkResolvedHost]]) resolve and classify it — no policy is duplicated. */
+  def checkEgressHost(
+      host: String,
+      resolveHost: String => Try[Array[InetAddress]] = defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => isBlockedAddress(addr)
+  ): EgressCheck =
+    hostCharsetPattern.findFirstIn(host) match {
+      case None =>
+        EgressCheck.Invalid(s"Invalid host: '$host' contains a disallowed character")
+      case Some(_) =>
+        Try(new URI("https", null, host, -1, null, null, null)).toOption match {
+          case None =>
+            EgressCheck.Invalid(s"Invalid host: '$host'")
+          case Some(uri) =>
+            val normalizedExpected = if (host.contains(":") && !host.startsWith("[")) s"[$host]" else host
+            Option(uri.getHost) match {
+              case Some(resolved) if resolved == host || resolved == normalizedExpected =>
+                checkResolvedHost(host, resolveHost, isBlocked, noun = "Host")
+              case _ =>
+                EgressCheck.Invalid(s"Invalid host: '$host' does not round-trip through URI parsing")
+            }
         }
     }
 

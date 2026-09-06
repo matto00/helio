@@ -4,12 +4,14 @@ import com.helio.domain.connectors.ConnectorFieldDescriptor
 import com.helio.domain.connectors.ConnectorMetadata
 import com.helio.domain.connectors.{ConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.model.SqlSourceConfig
+import com.helio.services.sources.ContentSourceSupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
+import java.net.InetAddress
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -18,6 +20,12 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
+
+  // HEL-952 task 8.1b: admits this spec's known-safe "localhost" host past the egress
+  // guard (real, unmodified isBlockedAddress for every other host) -- repairs every
+  // loopback-based fixture in this file now that SqlConnectorDriver enforces the guard.
+  private val admitLocalhost: (String, InetAddress) => Boolean =
+    (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
 
   private var embeddedPostgres: EmbeddedPostgres = _
 
@@ -194,12 +202,12 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
 
     "succeed (open+close only) against a reachable database, even with an unexecutable query" in {
       // liveConfig's query is invalid SQL — if testConnection executed it, this would fail.
-      await(SqlConnectorDriver.testConnection(liveConfig(), ConnectorResolveContext.Internal)) shouldBe Right(())
+      await(SqlConnectorDriver.testConnection(liveConfig(), ConnectorResolveContext.Internal, isBlocked = admitLocalhost)) shouldBe Right(())
     }
 
     "fail with a distinct 'SQL connection failed' message when the database is unreachable" in {
       val unreachable = liveConfig().copy(port = 1)
-      await(SqlConnectorDriver.testConnection(unreachable, ConnectorResolveContext.Internal)) shouldBe Left("SQL connection failed")
+      await(SqlConnectorDriver.testConnection(unreachable, ConnectorResolveContext.Internal, isBlocked = admitLocalhost)) shouldBe Left("SQL connection failed")
     }
   }
 
@@ -207,9 +215,9 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
 
     "match SqlConnectorDriver.toRows(SqlConnectorDriver.execute(config, maxRows)) for a real query" in {
       val runnable = liveConfig(query = "SELECT 1 AS one")
-      val expected = await(SqlConnectorDriver.execute(runnable, maxRows = 100)).map(SqlConnectorDriver.toRows)
+      val expected = await(SqlConnectorDriver.execute(runnable, maxRows = 100, isBlocked = admitLocalhost)).map(SqlConnectorDriver.toRows)
 
-      val viaTrait = await(SqlConnectorDriver.fetch(runnable, maxRows = 100, ConnectorResolveContext.Internal))
+      val viaTrait = await(SqlConnectorDriver.fetch(runnable, maxRows = 100, ConnectorResolveContext.Internal, isBlocked = admitLocalhost))
       viaTrait.map(_.rows) shouldBe expected
       viaTrait shouldBe Right(FetchOutcome(Vector(JsObject("one" -> JsNumber(1))), truncated = false, availableRowCount = None))
     }
@@ -219,10 +227,10 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
 
     "derive the same fields SourceService.inferSql would derive from the same query" in {
       val runnable = liveConfig(query = "SELECT 1 AS one, 'x' AS label")
-      val rows      = await(SqlConnectorDriver.execute(runnable, maxRows = 100)).getOrElse(fail("expected Right"))
+      val rows      = await(SqlConnectorDriver.execute(runnable, maxRows = 100, isBlocked = admitLocalhost)).getOrElse(fail("expected Right"))
       val expected  = SqlConnectorDriver.inferSchema(rows)
 
-      val result = await(SqlConnectorDriver.inferSchema(runnable, ConnectorResolveContext.Internal))
+      val result = await(SqlConnectorDriver.inferSchema(runnable, ConnectorResolveContext.Internal, isBlocked = admitLocalhost))
       result.map(_.fields.map(_.name)) shouldBe Right(expected.fields.map(_.name))
     }
   }

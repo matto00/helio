@@ -1,0 +1,75 @@
+# HEL-952 skeptic-final-1 CR1 mutation check — RED transcript
+#
+# Mutation applied: SourceService.createSql's `checkConfigEgress(...)` match was temporarily
+# replaced with a hardcoded `Right(())` (the create-time call site only -- connect-time's own
+# guard in SqlConnectorDriver.connect was untouched). Only SourceServiceSpec was run. Expected/
+# observed: exactly the 4 new "reject createSql for a host resolving to <class> ..." tests go
+# red, each for the RIGHT reason -- the result is `Right(CreateSourceResponse(...))` carrying a
+# REAL persisted SqlSourceResponse (a real row, a real generated id) with `fetchError =
+# Some("Egress refused: ...")` from the (untouched) connect-time guard, not the expected
+# `Left(BadRequest)` -- i.e. the row IS persisted and the caller gets a 200-shaped response,
+# exactly the failure mode AC1/the spec scenario forbid. Not a timeout, missing driver, or
+# fixture error. Restored immediately after in the paired GREEN transcript.
+#
+[info] welcome to sbt 1.10.10 (Arch Linux Java 21.0.12)
+[info] loading settings for project backend-build from plugins.sbt...
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/target/scala-2.13/classes ...
+[info] done compiling
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+20:15:35,637 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+20:15:35,638 |-INFO in ch.qos.logback.classic.util.ContextInitializer@45bd7b14 - No custom configurators were discovered as a service.
+20:15:35,638 |-INFO in ch.qos.logback.classic.util.ContextInitializer@45bd7b14 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:15:35,638 |-INFO in ch.qos.logback.classic.util.ContextInitializer@45bd7b14 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:15:35,639 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+20:15:35,641 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [file:/home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/target/scala-2.13/classes/logback.xml]
+20:15:35,670 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+20:15:35,671 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@f768b5 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+20:15:35,671 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - The 'condition' attribute in <if> element is deprecated and slated for removal. Use <condition> element instead.
+20:15:35,671 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - See also https://logback.qos.ch/codes.html#conditionAttributeDeprecation
+20:15:35,672 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@521c8173 - End of configuration.
+20:15:35,672 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@663be28c - Registering current configuration as safe fallback point
+20:15:35,674 |-INFO in ch.qos.logback.classic.util.ContextInitializer@45bd7b14 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 34 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+[info] SourceServiceSpec:
+[info] SourceService.createSql
+[info] - should create the DataType with fields derived via the shared projection when the query succeeds
+[info] - should surface fetchError (not fail the request) and infer no schema when the query fails
+[info] - should reject createSql for a host resolving to loopback with BadRequest, persisting nothing *** FAILED ***
+[info]   Right(CreateSourceResponse(SqlSourceResponse("c043d288-788d-46c8-99db-5e90afdb4ff3", "Blocked", "2026-09-06T03:15:37.018873500Z", "2026-09-06T03:15:37.018873500Z", SqlSourceConfigPayload("postgresql", "sql-loopback.egress-guard.test", 34627, "postgres", "postgres", "***", "SELECT 1"), None, Vector()), None, Some("Egress refused: Host 'sql-loopback.egress-guard.test' resolves to a disallowed address"), None)) was not an instance of scala.util.Left, but an instance of scala.util.Right (SourceServiceSpec.scala:184)
+[info] - should reject createSql for a host resolving to link-local (cloud metadata) with BadRequest, persisting nothing *** FAILED ***
+[info]   Right(CreateSourceResponse(SqlSourceResponse("3dc60da1-c1bb-4ade-9bc7-f047dfc30a97", "Blocked", "2026-09-06T03:15:37.064719392Z", "2026-09-06T03:15:37.064719392Z", SqlSourceConfigPayload("postgresql", "sql-metadata.egress-guard.test", 34627, "postgres", "postgres", "***", "SELECT 1"), None, Vector()), None, Some("Egress refused: Host 'sql-metadata.egress-guard.test' resolves to a disallowed address"), None)) was not an instance of scala.util.Left, but an instance of scala.util.Right (SourceServiceSpec.scala:184)
+[info] - should reject createSql for a host resolving to RFC1918 private with BadRequest, persisting nothing *** FAILED ***
+[info]   Right(CreateSourceResponse(SqlSourceResponse("00a18bd2-aef6-48f7-adb5-31e7cc6c12b6", "Blocked", "2026-09-06T03:15:37.097181395Z", "2026-09-06T03:15:37.097181395Z", SqlSourceConfigPayload("postgresql", "sql-private.egress-guard.test", 34627, "postgres", "postgres", "***", "SELECT 1"), None, Vector()), None, Some("Egress refused: Host 'sql-private.egress-guard.test' resolves to a disallowed address"), None)) was not an instance of scala.util.Left, but an instance of scala.util.Right (SourceServiceSpec.scala:184)
+[info] - should reject createSql for a host resolving to IPv6 unique-local with BadRequest, persisting nothing *** FAILED ***
+[info]   Right(CreateSourceResponse(SqlSourceResponse("56ccd05b-fec4-4af6-a6da-1df9ab34a748", "Blocked", "2026-09-06T03:15:37.131428306Z", "2026-09-06T03:15:37.131428306Z", SqlSourceConfigPayload("postgresql", "sql-uniquelocal.egress-guard.test", 34627, "postgres", "postgres", "***", "SELECT 1"), None, Vector()), None, Some("Egress refused: Host 'sql-uniquelocal.egress-guard.test' resolves to a disallowed address"), None)) was not an instance of scala.util.Left, but an instance of scala.util.Right (SourceServiceSpec.scala:184)
+[info] - should still create the source for a host resolving to a permitted address via the injected resolver
+[info] SourceService.createRest
+[info] - should create the DataType with override-aware fields when the fetch succeeds
+[info] - should surface fetchError and infer no schema when the fetch fails
+[info] - should reject a GET+body request immediately with a BadRequest via the bare-url branch, without persisting an orphaned implicit Connector
+[info] - should reject a GET+body request immediately with a BadRequest via the connectorId branch
+[info] SourceService.inferSql
+[info] - should return the inferred schema for a successful query
+[info] - should return a BadGateway ServiceError when the query fails
+[info] SourceService.inferRest
+[info] - should return the inferred schema for a successful fetch
+[info] - should return a BadGateway ServiceError carrying the connector's error message when the fetch fails
+[info] SourceService.refresh (SQL)
+[info] - should re-infer the schema onto the source's inferredSchema column
+[info] SourceService.refresh (REST)
+[info] - should re-infer the schema onto the source's inferredSchema column
+[info] SourceService.preview (REST)
+[info] - should returns flat dotted keys for a nested response, matching the advertised schema
+[info] - should surfaces a broken rootSelector as BadGateway, not a 200 with zero rows
+[info] Run completed in 2 seconds, 532 milliseconds.
+[info] Total number of tests run: 19
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 15, failed 4, canceled 0, ignored 0, pending 0
+[info] *** 4 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.sources.SourceServiceSpec
+[error] (Test / testOnly) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 5 s, completed Sep 5, 2026, 8:15:37 PM

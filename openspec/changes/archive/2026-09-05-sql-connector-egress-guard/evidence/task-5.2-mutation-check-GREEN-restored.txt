@@ -1,0 +1,61 @@
+# HEL-952 skeptic-final-1 CR1 mutation check — GREEN (restored) transcript
+#
+# The mutation described in task-5.2-mutation-check-RED.txt (SourceService.createSql's
+# checkConfigEgress call site hardcoded to Right(())) has been reverted to the real
+# implementation. This transcript shows the full SourceServiceSpec suite green again.
+#
+[info] welcome to sbt 1.10.10 (Arch Linux Java 21.0.12)
+[info] loading settings for project backend-build from plugins.sbt...
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/target/scala-2.13/classes ...
+[info] done compiling
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+20:15:51,592 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+20:15:51,593 |-INFO in ch.qos.logback.classic.util.ContextInitializer@34353755 - No custom configurators were discovered as a service.
+20:15:51,593 |-INFO in ch.qos.logback.classic.util.ContextInitializer@34353755 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:15:51,593 |-INFO in ch.qos.logback.classic.util.ContextInitializer@34353755 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:15:51,595 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+20:15:51,596 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [file:/home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/target/scala-2.13/classes/logback.xml]
+20:15:51,623 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+20:15:51,625 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@411e37b3 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+20:15:51,625 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - The 'condition' attribute in <if> element is deprecated and slated for removal. Use <condition> element instead.
+20:15:51,625 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - See also https://logback.qos.ch/codes.html#conditionAttributeDeprecation
+20:15:51,625 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@26cb6e1b - End of configuration.
+20:15:51,625 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@43c14146 - Registering current configuration as safe fallback point
+20:15:51,627 |-INFO in ch.qos.logback.classic.util.ContextInitializer@34353755 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 32 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+[info] SourceServiceSpec:
+[info] SourceService.createSql
+[info] - should create the DataType with fields derived via the shared projection when the query succeeds
+[info] - should surface fetchError (not fail the request) and infer no schema when the query fails
+[info] - should reject createSql for a host resolving to loopback with BadRequest, persisting nothing
+[info] - should reject createSql for a host resolving to link-local (cloud metadata) with BadRequest, persisting nothing
+[info] - should reject createSql for a host resolving to RFC1918 private with BadRequest, persisting nothing
+[info] - should reject createSql for a host resolving to IPv6 unique-local with BadRequest, persisting nothing
+[info] - should still create the source for a host resolving to a permitted address via the injected resolver
+[info] SourceService.createRest
+[info] - should create the DataType with override-aware fields when the fetch succeeds
+[info] - should surface fetchError and infer no schema when the fetch fails
+[info] - should reject a GET+body request immediately with a BadRequest via the bare-url branch, without persisting an orphaned implicit Connector
+[info] - should reject a GET+body request immediately with a BadRequest via the connectorId branch
+[info] SourceService.inferSql
+[info] - should return the inferred schema for a successful query
+[info] - should return a BadGateway ServiceError when the query fails
+[info] SourceService.inferRest
+[info] - should return the inferred schema for a successful fetch
+[info] - should return a BadGateway ServiceError carrying the connector's error message when the fetch fails
+[info] SourceService.refresh (SQL)
+[info] - should re-infer the schema onto the source's inferredSchema column
+[info] SourceService.refresh (REST)
+[info] - should re-infer the schema onto the source's inferredSchema column
+[info] SourceService.preview (REST)
+[info] - should returns flat dotted keys for a nested response, matching the advertised schema
+[info] - should surfaces a broken rootSelector as BadGateway, not a 200 with zero rows
+[info] Run completed in 2 seconds, 593 milliseconds.
+[info] Total number of tests run: 19
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 19, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] Total time: 5 s, completed Sep 5, 2026, 8:15:53 PM

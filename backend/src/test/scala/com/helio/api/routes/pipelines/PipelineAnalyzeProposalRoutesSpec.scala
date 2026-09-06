@@ -1,6 +1,7 @@
 package com.helio.api.routes.pipelines
 
 import com.helio.api.routes.pipelines.PipelineRoutes
+import com.helio.services.sources.{ContentSourceSupport, SourceService}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
@@ -25,6 +26,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json._
 
+import java.net.InetAddress
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -135,7 +137,16 @@ class PipelineAnalyzeProposalRoutesSpec
 
   private def routesWith(connector: RestApiConnectorDriver): Route = {
     implicit val ec: ExecutionContext = routeEc
-    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, connector)
+    // HEL-952 task 8.1b: `resolveInlineSourceSchema`'s sql branch reuses `sourceService`'s
+    // sqlResolveHost/sqlIsBlocked (design.md Decision 4a) — admits this spec's known-safe
+    // "localhost" host past the egress guard (real, unmodified isBlockedAddress for every other
+    // host), repairing the inline-sql-source analyze coverage below.
+    val admitLocalhost: (String, InetAddress) => Boolean =
+      (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
+    val sourceService = new SourceService(
+      dataSourceRepo, connector, sqlIsBlocked = admitLocalhost
+    )
+    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, connector, sourceService = sourceService)
     new PipelineRoutes(service, dummyUser).routes
   }
 

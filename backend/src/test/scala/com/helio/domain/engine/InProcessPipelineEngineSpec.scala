@@ -4,6 +4,7 @@ import com.helio.domain.model.{AssertionSink, CsvSourceConfig, ImageSourceConfig
 import com.helio.domain.model.{CsvSource, ImageSource, PdfSource, RestSource, SqlSource, TextSource, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.InProcessPipelineEngine
+import com.helio.services.sources.ContentSourceSupport
 import com.helio.domain.steps._
 import com.helio.domain.model.{DataFieldType, DataSource, DataSourceId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -20,6 +21,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
+import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 import java.time.Instant
@@ -42,9 +44,15 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
   // LocalFileSystem with absolute baseDir; LocalFileSystem.resolve passes absolute
   // paths through unchanged, so tests can write CSVs to tmp and reference by absolute path.
   private val fileSystem = new LocalFileSystem(Paths.get("/"))
+  // HEL-952 task 8.1b: admits this spec's known-safe "localhost" SQL host past the egress guard
+  // (real, unmodified isBlockedAddress for every other host) — repairs the SqlSource loadRows
+  // coverage below now that the engine's SqlSource branch enforces the guard.
+  private val admitLocalhost: (String, InetAddress) => Boolean =
+    (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
+
   // No connector — used by every existing loadRows case (static/csv/text/pdf/
   // image) plus HEL-758's own "no connector configured" RestSource guard test.
-  private val engine = new InProcessPipelineEngine(fileSystem)
+  private val engine = new InProcessPipelineEngine(fileSystem, sqlIsBlocked = admitLocalhost)
 
   // HEL-758 (design.md D7 pattern, copied from PipelineApplyProposalSpecBase):
   // a stub RestApiConnectorDriver keyed on `config.url` so the same connector

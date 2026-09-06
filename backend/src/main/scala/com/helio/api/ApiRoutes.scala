@@ -109,6 +109,12 @@ final class ApiRoutes(
     // "lying resolver" test pattern once fetchUrl started pinning the actual
     // TCP connection to the resolved address).
     dataSourceUrlIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr),
+    // HEL-952: same fromEnv-once, real-in-production-never-overridden-by-Main convention as
+    // dataSourceUrlResolveHost/dataSourceUrlIsBlocked above, threaded to every SQL-path
+    // construction below (SourceService/PipelineService/PipelineRunService's InProcessPipelineEngine)
+    // rather than each falling back to its own default independently.
+    sqlUrlResolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+    sqlUrlIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr),
     // HEL-447: nullable-optional wiring mirrors apiTokenRepo/binaryRefRepo/
     // imageUploadRepo above — fixtures that don't pass an AlertRuleRepository
     // simply don't get the /api/alert-rules routes mounted
@@ -258,7 +264,7 @@ final class ApiRoutes(
       val connectorCredentialRepo = new ConnectorCredentialRepository(ctx, secretBackend)
       new ConnectorRepository(ctx, connectorCredentialRepo)
     }
-  private val sourceService     = new SourceService(dataSourceRepo, connector, auditService, connectorRepoOpt.orNull)
+  private val sourceService     = new SourceService(dataSourceRepo, connector, auditService, connectorRepoOpt.orNull, sqlUrlResolveHost, sqlUrlIsBlocked)
   // HEL-904 task 4.1: `DataTypeService`/`DataTypeRoutes` deleted outright —
   // DataTypes no longer exist.
   // HEL-365: builds the panel-capabilities report from Outputs/node
@@ -298,6 +304,13 @@ final class ApiRoutes(
     // HEL-862: threads the same implicit ActorSystem this class already has,
     // so a scheduled/manual run over a URL-backed CSV source can re-fetch it.
     system,
+    // HEL-952: PipelineRunService's `resolveHost`/`isBlocked` govern BOTH URL-backed source
+    // fetches (csv/text/pdf/image) AND — now that InProcessPipelineEngine's SqlSource branch
+    // enforces the connect-time guard — a real pipeline run over a SqlSource. Threads the SAME
+    // sqlUrlResolveHost/sqlUrlIsBlocked this class already exposes for SourceService, so a real
+    // run agrees with create-time validation on what counts as a blocked host.
+    resolveHost = sqlUrlResolveHost,
+    isBlocked = sqlUrlIsBlocked,
     // HEL-904 (task 3.1/3.14): resolves per-Output alert evaluation +
     // node_snapshots dual-write — `null` in fixtures that don't pass a
     // DbContext (outputRepoOpt/nodeSnapshotRepoOpt above).

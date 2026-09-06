@@ -21,6 +21,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.pipelines.PipelineRunService
+import com.helio.services.sources.ContentSourceSupport
 import com.helio.spark.{PipelineRunCache, RunStatus}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -228,6 +229,10 @@ class PipelineRunRoutesSpec
     implicit val ec: ExecutionContext = routeEc
     val service = new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, runRepo, cache, registry, fileSystem, binRefRepo, alertEvalSvc, connector,
+      // HEL-952 task 8.1b: admits this spec's known-safe "localhost" SQL host past the egress
+      // guard (real, unmodified isBlockedAddress for every other host) — repairs the SqlSource
+      // run tests below now that InProcessPipelineEngine's SqlSource branch enforces the guard.
+      isBlocked = (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr),
       outputRepo = outRepo, nodeSnapshotRepo = nodeSnapRepo
     )
     concat(

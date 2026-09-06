@@ -1,0 +1,63 @@
+# HEL-952 task 7 mutation check — RED transcript
+#
+# Mutation applied: SqlConnectorDriver.connect's `checkConfigEgress(...)` match was temporarily
+# replaced with a hardcoded `Right(())` (the call site, not the policy source
+# ContentSourceSupport.isBlockedAddress -- that function is shared with the REST egress guard
+# and neutralising it would have reddened tests well outside this ticket's scope). Only
+# SqlConnectorEgressGuardSpec was run. Expected/observed: exactly ONE test goes red -- "be
+# REFUSED by the connect-time guard, not succeed with rows" -- on the refusal assertion itself
+# (Right(List(Map("one" -> 1))) returned where Left was expected), not a timeout, missing
+# driver, or fixture error. Restored immediately after in the paired GREEN transcript.
+#
+[info] welcome to sbt 1.10.10 (Arch Linux Java 21.0.12)
+[info] loading settings for project backend-build from plugins.sbt...
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/target/scala-2.13/classes ...
+[info] done compiling
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] SqlConnectorEgressGuardSpec:
+18:47:19,278 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+18:47:19,278 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3123c406 - No custom configurators were discovered as a service.
+18:47:19,278 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3123c406 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+18:47:19,279 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3123c406 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+18:47:19,280 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+18:47:19,282 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [file:/home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/target/scala-2.13/classes/logback.xml]
+18:47:19,310 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+18:47:19,312 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@21c18982 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+18:47:19,312 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - The 'condition' attribute in <if> element is deprecated and slated for removal. Use <condition> element instead.
+18:47:19,312 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - See also https://logback.qos.ch/codes.html#conditionAttributeDeprecation
+18:47:19,312 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@47725d39 - End of configuration.
+18:47:19,313 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@2b0d0e7f - Registering current configuration as safe fallback point
+18:47:19,315 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3123c406 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 34 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+[info] SqlConnectorDriver.execute against a loopback target
+[info] - should be REFUSED by the connect-time guard, not succeed with rows (task 3.3, post-guard) *** FAILED ***
+[info]   Right(List(Map("one" -> 1))) was not an instance of scala.util.Left, but an instance of scala.util.Right (SqlConnectorEgressGuardSpec.scala:69)
+[info] SqlConnectorDriver.checkConfigEgress
+[info] - should refuse a host resolving to loopback (127.0.0.1)
+[info] - should refuse a host resolving to link-local (GCP/AWS metadata) (169.254.169.254)
+[info] - should refuse a host resolving to private 10/8 (10.0.0.1)
+[info] - should refuse a host resolving to private 192.168/16 (192.168.1.1)
+[info] - should refuse a host resolving to private 172.16/12 (172.16.0.1)
+[info] - should refuse a host resolving to IPv6 loopback (::1)
+[info] - should refuse a host resolving to IPv6 ULA (fd12:3456::1)
+[info] - should refuse a DNS name resolving to an internal address, proving it checks the resolved address, not the hostname string
+[info] - should refuse when one resolved address is public and another (same host) is internal
+[info] - should refuse (fail closed) an unresolvable host at connect time
+[info] - should tolerate an unresolvable host when failOnUnresolvable = false (create-time disposition)
+[info] SqlConnectorDriver against a legitimate (test-admitted) host
+[info] - should resolve to Allowed via checkEgressHost when mapped to a public address
+[info] - should actually connect end-to-end and return rows when isBlocked admits the known test host
+[info] the mutation check (task 7)
+[info] - should prove a neutralised isBlocked makes the loopback host Allowed instead of refused — the exact inverse of the refusal assertion above
+[info] Run completed in 1 second, 90 milliseconds.
+[info] Total number of tests run: 15
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 14, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.domain.connectors.SqlConnectorEgressGuardSpec
+[error] (Test / testOnly) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 4 s, completed Sep 5, 2026, 6:47:20 PM

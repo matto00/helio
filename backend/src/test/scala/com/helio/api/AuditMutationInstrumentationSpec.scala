@@ -1,5 +1,6 @@
 package com.helio.api
 
+import com.helio.services.sources.ContentSourceSupport
 import com.helio.api.http.{AuthDirectives, SessionCookies}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -165,7 +166,11 @@ class AuditMutationInstrumentationSpec
       auditEventRepo = auditEventRepo,
       mfaRepo = mfaRepo,
       apiTokenRepo = apiTokenRepo,
-      dbContext = dbContext
+      dbContext = dbContext,
+      // HEL-952 task 8.1b: admits this spec's known-safe "localhost" SQL host past the
+      // egress guard (real, unmodified isBlockedAddress for every other host) — repairs the
+      // sql-refresh audit tests below now that createSql/refresh enforce the guard.
+      sqlUrlIsBlocked = (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
     ).routes
     val csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
     Directives.mapRequest { (req: HttpRequest) =>
