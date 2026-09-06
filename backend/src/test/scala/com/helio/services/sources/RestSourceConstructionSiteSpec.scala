@@ -23,10 +23,12 @@ import java.io.File
  *  `openspec/specs/rest-api-connector/spec.md`, "RestSource has exactly one create-time
  *  construction site", for the full rationale.
  *
- *  `DataSourceRepository.rowToDomain` is excluded from the count BY NAME (the specific file+line
- *  pattern it matches today), never by a path or package prefix -- a prefix exclusion would also
- *  swallow a future create-time site added anywhere else in the persistence package, which is
- *  precisely the silent erosion this test exists to catch. */
+ *  `DataSourceRepository.rowToDomain` is excluded from the count BY NAME -- its file path plus
+ *  the exact source text of its construction line, never by a line number (an edit anywhere else
+ *  in the file shifting that line would then falsely un-exclude it -- verified concretely below,
+ *  not merely reasoned about) and never by a path or package prefix (which would also swallow a
+ *  future create-time site added anywhere else in the persistence package). Text is what actually
+ *  identifies the site; a line number only adds fragility. */
 class RestSourceConstructionSiteSpec extends AnyWordSpec with Matchers {
 
   /** Mirrors `CredentialSurfaceEnumerationSpec.repoRoot` -- robust to whether sbt forks tests
@@ -86,19 +88,24 @@ class RestSourceConstructionSiteSpec extends AnyWordSpec with Matchers {
 
   /** Named exclusion (design.md / spec rationale above) -- the ONLY site this test allows besides
    *  `SourceService.createRestWithConfig`'s own create-time call. Matched by file path AND the
-   *  exact source line, not by directory/package prefix. */
-  private val excludedRehydrationSite = Site(
-    file = "backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala",
-    line = 60,
-    text = "RestSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag, row.inferredSchema)"
-  )
+   *  exact trimmed source text of its construction line -- deliberately NOT by line number, which
+   *  would make this test fail spuriously on any unrelated edit that shifts that line (e.g. a
+   *  blank line inserted anywhere earlier in the file) -- verified concretely below, not merely
+   *  reasoned about. Never matched by directory/package prefix either, so a genuinely new
+   *  create-time site anywhere else in the persistence package -- including this same file -- is
+   *  still caught. */
+  private val excludedRehydrationFile = "backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala"
+  private val excludedRehydrationText = "RestSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag, row.inferredSchema)"
+
+  private def isExcludedRehydrationSite(s: Site): Boolean =
+    s.file == excludedRehydrationFile && s.text == excludedRehydrationText
 
   "RestSource construction sites in backend/src/main" should {
 
     "consist of exactly one create-time construction site (SourceService.createRestWithConfig), " +
       "plus the named, excluded DataSourceRepository.rowToDomain rehydration site" in {
         val sites            = findConstructionSites()
-        val nonExcludedSites = sites.filterNot(s => s.file == excludedRehydrationSite.file && s.line == excludedRehydrationSite.line)
+        val nonExcludedSites = sites.filterNot(isExcludedRehydrationSite)
 
         withClue(
           s"expected exactly one create-time construction site; found ${nonExcludedSites.size}: " +
@@ -109,9 +116,10 @@ class RestSourceConstructionSiteSpec extends AnyWordSpec with Matchers {
         nonExcludedSites.head.file shouldBe "backend/src/main/scala/com/helio/services/sources/SourceService.scala"
 
         // The named exclusion is present exactly where expected -- if `rowToDomain`'s
-        // construction ever moves or changes, this assertion (not a silent prefix match) is what
-        // notices and forces the exclusion to be re-examined rather than quietly widening.
-        sites should contain(excludedRehydrationSite)
+        // construction ever moves or changes text, this assertion (not a silent prefix match) is
+        // what notices and forces the exclusion to be re-examined rather than quietly widening.
+        // Matched on file+text only (see isExcludedRehydrationSite) -- never on line number.
+        sites.exists(isExcludedRehydrationSite) shouldBe true
       }
 
     "does not count a comment mentioning RestSource( toward the total (verified concretely, not assumed)" in {

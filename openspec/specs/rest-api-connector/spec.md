@@ -603,16 +603,25 @@ a second constructor.
 
 The enforcement mechanism is a source-text scan of `backend/src/main`, not a structural or
 bytecode check — the accompanying test states this plainly rather than claiming more rigor than a
-text scan has. `DataSourceRepository.rowToDomain` is excluded from the count by name (the fully
-qualified site, not a path or package prefix), so a new create-time construction site added
-anywhere else in `backend/src/main` — including elsewhere in the persistence package — is still
-caught.
+text scan has. `DataSourceRepository.rowToDomain` is excluded from the count by its file path and
+the exact source text of its construction line — never by line number (an unrelated edit
+elsewhere in the file that shifts that line must not make the check spuriously fail or spuriously
+stop excluding the legitimate site) and never by a path or package prefix (which would also
+swallow a future create-time site added anywhere else in the persistence package). A new
+create-time construction site added anywhere else in `backend/src/main` — including elsewhere in
+that same file — is still caught.
 
 #### Scenario: A second create-time construction site is caught
 - **WHEN** a second call to `RestSource(...)` is added anywhere in `backend/src/main` outside the
   named, excluded `DataSourceRepository.rowToDomain` read path
 - **THEN** the architecture check fails, and its failure message names every construction site it
   found
+
+#### Scenario: An unrelated edit elsewhere in the excluded file does not trip the check
+- **WHEN** a line is inserted or removed anywhere in `DataSourceRepository.scala` above the
+  `rowToDomain` rehydration call, unrelated to `RestSource` construction
+- **THEN** the check still passes — the exclusion is identified by the rehydration line's file
+  path and exact source text, not by a line number that such an edit would shift
 
 #### Scenario: The named exclusion does not mask other sites
 - **WHEN** `DataSourceRepository.rowToDomain`'s existing `RestSource(...)` rehydration call is
