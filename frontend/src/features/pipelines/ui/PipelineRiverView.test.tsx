@@ -614,15 +614,35 @@ describe("nodePath wiring (HEL-985)", () => {
     };
   }
 
-  /** D3 — locate a step by its visible label, then walk to the nearest
-   *  ancestor carrying `title`. Never `getByTitle`: that makes the query
-   *  itself the assertion, producing an "unable to find element" failure
-   *  indistinguishable from an unrelated fixture break. */
+  /** HEL-990 D1/D2/D3 — locate a step by its visible label, then walk to
+   *  the nearest ancestor matching one of the two known step-wrapper
+   *  classes (`.pipeline-detail-page__step-section` for the standard and
+   *  root-2 render sites, `.pipeline-detail-page__tail-chain-step` for the
+   *  compact single-step-lane site — `sectionFor()` above cannot reach the
+   *  latter). Scoping to these two classes, rather than a bare `[title]`
+   *  walk, means the query no longer depends on the ambient fact that no
+   *  OTHER ancestor of a step card happens to carry a `title` today (a lane
+   *  tooltip, a root-column tooltip, etc. would silently hijack a bare
+   *  `[title]` walk). `closest` (nearest-ancestor, not top-down
+   *  `querySelector`) is load-bearing under nesting (E4): a lane can render
+   *  inside another step's own `.pipeline-detail-page__step-section`, so
+   *  `closest` must resolve the step's OWN wrapper, not an outer one.
+   *  Never `getByTitle`: that makes the query itself the assertion,
+   *  producing an "unable to find element" failure indistinguishable from
+   *  an unrelated fixture break. Two distinct failure messages (D2) so a
+   *  missing wrapper (fixture/structure break) and a wrapper present but
+   *  wired-away `title` (the actual regression this guards) are never
+   *  conflated. */
   function titleFor(label: string): string {
     const labelEl = screen.getByText(label);
-    const withTitle = labelEl.closest("[title]");
-    if (withTitle === null) throw new Error(`No title-bearing ancestor for "${label}"`);
-    return withTitle.getAttribute("title") ?? "";
+    const wrapper = labelEl.closest(
+      ".pipeline-detail-page__step-section, .pipeline-detail-page__tail-chain-step",
+    );
+    if (wrapper === null) throw new Error(`No step wrapper for "${label}"`);
+    if (!wrapper.hasAttribute("title")) {
+      throw new Error(`Step wrapper for "${label}" has no title attribute`);
+    }
+    return wrapper.getAttribute("title") ?? "";
   }
 
   it("renders the expected shape before any title is asserted (design.md risk 1)", () => {
@@ -672,5 +692,93 @@ describe("nodePath wiring (HEL-985)", () => {
   it("renders a distinct root:root-2-headed title inside root 2's own lane (E3, RootColumn.tsx:114)", () => {
     render(<PipelineRiverView {...wiringProps()} />);
     expect(titleFor("Root two step")).toBe("root:root-2 > r2a");
+  });
+
+  // HEL-990 D4a — GUARD, not the proof. Green on the pre-change (bare
+  // `closest("[title]")`) helper too, because the step's own wrapper still
+  // carries its `title` and is found first regardless of an ancestor's
+  // `title`. This only demonstrates that a titled strict ancestor does not
+  // change the resolved wrapper on the HARDENED helper; it does not by
+  // itself demonstrate the hardening was necessary. See D4b below for the
+  // falsifiable half.
+  it("D4a guard — a titled ancestor of the standard-site wrapper does not hijack the resolved title", () => {
+    render(<PipelineRiverView {...wiringProps()} />);
+    const labelEl = screen.getByText("Two lane first");
+    const resolved = labelEl.closest(
+      ".pipeline-detail-page__step-section, .pipeline-detail-page__tail-chain-step",
+    ) as HTMLElement;
+    const laneColumn = labelEl.closest(".pipeline-detail-page__lane-column") as HTMLElement;
+    expect(laneColumn).not.toBeNull();
+    laneColumn.setAttribute("title", "ancestor tooltip");
+    try {
+      expect(laneColumn.contains(resolved)).toBe(true);
+      expect(laneColumn).not.toBe(resolved);
+      expect(titleFor("Two lane first")).toBe("root:root-1 > r1a > r1b > r1c > laneA");
+      expect(titleFor("Two lane first")).not.toBe("ancestor tooltip");
+    } finally {
+      laneColumn.removeAttribute("title");
+    }
+  });
+
+  it("D4a guard — a titled ancestor of the compact-site wrapper does not hijack the resolved title", () => {
+    render(<PipelineRiverView {...wiringProps()} />);
+    const labelEl = screen.getByText("Solo lane step");
+    const resolved = labelEl.closest(
+      ".pipeline-detail-page__step-section, .pipeline-detail-page__tail-chain-step",
+    ) as HTMLElement;
+    const tailChain = labelEl.closest(".pipeline-detail-page__tail-chain") as HTMLElement;
+    expect(tailChain).not.toBeNull();
+    tailChain.setAttribute("title", "ancestor tooltip");
+    try {
+      expect(tailChain.contains(resolved)).toBe(true);
+      expect(tailChain).not.toBe(resolved);
+      expect(titleFor("Solo lane step")).toBe("root:root-1 > r1a > r1b > lane1a");
+      expect(titleFor("Solo lane step")).not.toBe("ancestor tooltip");
+    } finally {
+      tailChain.removeAttribute("title");
+    }
+  });
+
+  // HEL-990 D4b — the actual proof. This is the only configuration where
+  // the old (bare `[title]`) and new (scoped + hasAttribute) helpers
+  // differ: a titled ancestor containing a step wrapper that itself has NO
+  // `title`. No real render path reaches this (every real wrapper that
+  // renders at all also carries its `title` via the same prop), so it's
+  // built synthetically. Old helper: `closest("[title]")` walks past the
+  // title-less wrapper straight to the titled ancestor and returns ITS
+  // title — silently wrong, no throw. New helper: finds the class-matching
+  // wrapper first, sees no `title` on it, and throws the D2 absent-
+  // attribute message. Appended nodes are removed in `finally` since RTL's
+  // auto-cleanup only unmounts React trees, not manually appended DOM.
+  it("D4b proof — an absent title on the standard-site wrapper throws, even under a titled ancestor", () => {
+    render(<PipelineRiverView {...wiringProps()} />);
+    const ancestor = document.createElement("div");
+    ancestor.setAttribute("title", "outer tooltip");
+    const wrapper = document.createElement("div");
+    wrapper.className = "pipeline-detail-page__step-section";
+    wrapper.textContent = "D4b synthetic standard label";
+    ancestor.appendChild(wrapper);
+    document.body.appendChild(ancestor);
+    try {
+      expect(() => titleFor("D4b synthetic standard label")).toThrow(/has no title attribute/);
+    } finally {
+      document.body.removeChild(ancestor);
+    }
+  });
+
+  it("D4b proof — an absent title on the compact-site wrapper throws, even under a titled ancestor", () => {
+    render(<PipelineRiverView {...wiringProps()} />);
+    const ancestor = document.createElement("div");
+    ancestor.setAttribute("title", "outer tooltip");
+    const wrapper = document.createElement("div");
+    wrapper.className = "pipeline-detail-page__tail-chain-step";
+    wrapper.textContent = "D4b synthetic compact label";
+    ancestor.appendChild(wrapper);
+    document.body.appendChild(ancestor);
+    try {
+      expect(() => titleFor("D4b synthetic compact label")).toThrow(/has no title attribute/);
+    } finally {
+      document.body.removeChild(ancestor);
+    }
   });
 });
