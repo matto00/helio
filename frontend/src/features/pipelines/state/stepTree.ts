@@ -260,9 +260,17 @@ export function reorderLane(
   const nextSteps = [...lane.steps];
   const [moved] = nextSteps.splice(fromIndex, 1);
   nextSteps.splice(toIndex, 0, moved);
+  // HEL-973 evaluation-1 CR1 -- a ROOT lane's own head (i === 0) is the sole carrier of
+  // `rootId` (mirrors the backend's V98 head-marker semantics: parentless iff root-id-bearing).
+  // A reorder that moves a different step into the head slot must move `rootId` WITH it, or
+  // the new head becomes parentless-and-rootless: `buildLaneGraph` then drops it into
+  // `unassignedRootLevel`, orphaning the whole root (evaluation-1.md CR1's live repro). For a
+  // non-root lane (`lane.parentStepId !== undefined`) no step ever carries `rootId`, so this is
+  // a no-op there.
   const relinked = nextSteps.map((step, i) => ({
     ...step,
     parentStepId: i === 0 ? lane.parentStepId : nextSteps[i - 1].id,
+    ...(lane.parentStepId === undefined ? { rootId: i === 0 ? lane.rootId : undefined } : {}),
   }));
 
   // A lane's own id is its root step's id, which callers never move to a

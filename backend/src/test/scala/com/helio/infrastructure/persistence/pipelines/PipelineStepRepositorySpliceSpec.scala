@@ -612,4 +612,160 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       stepRepo.trunkOf(all).map(_.id) shouldBe Vector(a.id, b.id) // unchanged
     }
   }
+
+  // ── HEL-973: multi-root reorder semantics (design.md Decisions 2/6/7) ─────
+  //
+  // `seedPipeline()` above always creates a SINGLE root whose id equals the pipeline id
+  // (task 4.4's single-root regression relies on exactly that fixture, unchanged above).
+  // The tests below build a genuinely SECOND root via `PipelineRootRepository.add`
+  // (already available from HEL-913) and a trunk attached to it via `explicitRootId`.
+
+  private def addSecondRoot(pid: PipelineId): PipelineRootId = {
+    import PostgresProfile.api._
+    val rootRepo = new PipelineRootRepository(new DbContext(db, db))
+    val ownerId  = "00000000-0000-0000-0000-000000000001"
+    val dsId     = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ($dsId, 'ds2', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())"""
+    ))
+    await(rootRepo.add(pid, DataSourceId(dsId), AuthenticatedUser(UserId(ownerId)))).id
+  }
+
+  /** Raw `root_id` column for every step of `pid` -- read directly by SQL (NOT via
+   *  `PipelineStepRepository.rootIdsOf`, which is the production helper AC2 must stay
+   *  independent of) since the `PipelineStep` domain trait does not surface `root_id`
+   *  (task 4.4a deferred). `None` for a non-head step (V98's CHECK). */
+  private def rawRootIdColumn(pid: PipelineId): Map[PipelineStepId, Option[PipelineRootId]] = {
+    import PostgresProfile.api._
+    val rows = await(db.run(
+      sql"SELECT id, root_id FROM pipeline_steps WHERE pipeline_id = ${pid.value}".as[(String, Option[String])]
+    ))
+    rows.map { case (id, rid) => PipelineStepId(id) -> rid.map(PipelineRootId(_)) }.toMap
+  }
+
+  /** Every step's OWNING root, computed independently of any production helper (design.md
+   *  Decision 7 / tasks 4.2, 4.6): walk `parentStepId` to the parentless ancestor and read
+   *  THAT ancestor's raw `root_id` column. Total over trunk and tail steps alike. Deliberately
+   *  duplicates none of `trunkOfRoot`'s logic -- calling the implementation's own helper here
+   *  would re-derive the expected value from the source under test and assert nothing. */
+  private def owningRootMap(pid: PipelineId, steps: Vector[PipelineStep]): Map[PipelineStepId, PipelineRootId] = {
+    val byId       = steps.map(s => s.id -> s).toMap
+    val rootColumn = rawRootIdColumn(pid)
+    def ancestorRootId(s: PipelineStep): PipelineRootId = s.parentStepId match {
+      case None      => rootColumn(s.id).getOrElse(fail(s"parentless step ${s.id.value} has no root_id -- V98 violation"))
+      case Some(pId) => ancestorRootId(byId(pId))
+    }
+    steps.map(s => s.id -> ancestorRootId(s)).toMap
+  }
+
+  /** Each root's exactly-one parentless head, carrying that root's own id (Decision 7's
+   *  head-marker column invariant). Returns a Map[rootId -> headStepId] for a clean equality
+   *  assertion; fails loudly if any root has zero or more than one such head. */
+  private def headMarkerMap(pid: PipelineId, steps: Vector[PipelineStep]): Map[PipelineRootId, PipelineStepId] = {
+    val rootColumn = rawRootIdColumn(pid)
+    val heads      = steps.filter(s => s.parentStepId.isEmpty && rootColumn.get(s.id).flatten.isDefined)
+    val byRoot     = heads.groupBy(s => rootColumn(s.id).get)
+    byRoot.map { case (rootId, hs) =>
+      withClue(s"root ${rootId.value} must have exactly one parentless head: ") { hs.size shouldBe 1 }
+      rootId -> hs.head.id
+    }
+  }
+
+  "reorderTrunkInternal on a two-root pipeline (HEL-973)" should {
+
+    "AC1 (restated): applies each root's requested relative order within that root, never merging a step of one root into the other's chain" in {
+      val pid   = seedPipeline()
+      val root1 = PipelineRootId(pid.value) // seedPipeline's own root -- id == pipeline id
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = Some(root1)))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id), explicitRootId = None))
+      val root2 = addSecondRoot(pid)
+      val x = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = Some(root2)))
+      val y = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(x.id), explicitRootId = None))
+
+      val Right(_) = await(stepRepo.reorderTrunkInternal(pid, Seq(b.id, x.id, a.id, y.id))): @unchecked
+
+      val all = await(stepRepo.listByPipelineInternal(pid))
+      stepRepo.trunkOfRoot(all, owningRootMap(pid, all).map { case (k, v) => k -> v }, root1).map(_.id) shouldBe Vector(b.id, a.id)
+      stepRepo.trunkOfRoot(all, owningRootMap(pid, all).map { case (k, v) => k -> v }, root2).map(_.id) shouldBe Vector(x.id, y.id)
+      // No step of root2 anywhere in root1's chain or vice versa.
+      owningRootMap(pid, all)(b.id) shouldBe root1
+      owningRootMap(pid, all)(a.id) shouldBe root1
+      owningRootMap(pid, all)(x.id) shouldBe root2
+      owningRootMap(pid, all)(y.id) shouldBe root2
+    }
+
+    "AC2 (load-bearing, derived-plus-column): no step changes its owning root as a side effect, and each root keeps exactly one head" in {
+      val pid   = seedPipeline()
+      val root1 = PipelineRootId(pid.value)
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = Some(root1)))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id), explicitRootId = None))
+      val root2 = addSecondRoot(pid)
+      val x = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = Some(root2)))
+      val y = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(x.id), explicitRootId = None))
+
+      val before = await(stepRepo.listByPipelineInternal(pid))
+      val ownershipBefore = owningRootMap(pid, before)
+      val headsBefore     = headMarkerMap(pid, before)
+
+      val Right(_) = await(stepRepo.reorderTrunkInternal(pid, Seq(b.id, x.id, a.id, y.id))): @unchecked
+
+      val after = await(stepRepo.listByPipelineInternal(pid))
+      val ownershipAfter = owningRootMap(pid, after)
+
+      // (a) full before/after derived owning-root map, for EVERY step -- asserted immediately,
+      // BEFORE computing `headsAfter` below, so this axis's red is independently observable
+      // (evaluation-1.md non-blocking suggestion): under the task 4.3 mutation, `headsAfter`'s
+      // own head-count check would otherwise throw first and mask whether axis (a) itself ever
+      // fired.
+      ownershipAfter shouldBe ownershipBefore
+
+      val headsAfter = headMarkerMap(pid, after)
+      // Sanity: the head marker itself DID move within root1 (A -> B), confirming this isn't
+      // vacuously true because nothing changed at all.
+      headsBefore(root1) shouldBe a.id
+      headsAfter(root1) shouldBe b.id
+
+      // (b) head-marker column invariant: exactly one parentless head per root, before and after.
+      headsBefore.keySet shouldBe Set(root1, root2)
+      headsAfter.keySet shouldBe Set(root1, root2)
+    }
+
+    "single-root pipeline is unaffected by the widened union contract (regression)" in {
+      val pid = seedPipeline()
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = None))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id), explicitRootId = None))
+      val c = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(b.id), explicitRootId = None))
+
+      val Right(reordered) = await(stepRepo.reorderTrunkInternal(pid, Seq(c.id, a.id, b.id))): @unchecked
+      stepRepo.trunkOf(reordered).map(_.id) shouldBe Vector(c.id, a.id, b.id)
+      rawRootIdColumn(pid)(c.id) shouldBe Some(PipelineRootId(pid.value))
+    }
+
+    "rejects a payload omitting another root's trunk on a two-root pipeline (422), writing nothing" in {
+      val pid   = seedPipeline()
+      val root1 = PipelineRootId(pid.value)
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = Some(root1)))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id), explicitRootId = None))
+      val root2 = addSecondRoot(pid)
+      val x = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = Some(root2)))
+      val y = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(x.id), explicitRootId = None))
+
+      val before        = await(stepRepo.listByPipelineInternal(pid))
+      val rootColBefore = rawRootIdColumn(pid)
+
+      // Only root1's trunk is named -- root2's ids (x, y) are omitted entirely.
+      val result = await(stepRepo.reorderTrunkInternal(pid, Seq(b.id, a.id)))
+      result.isLeft shouldBe true
+      result.left.getOrElse("") should include(x.id.value)
+      result.left.getOrElse("") should include(y.id.value)
+
+      val after        = await(stepRepo.listByPipelineInternal(pid))
+      val rootColAfter = rawRootIdColumn(pid)
+      // A rejected request writes nothing at all -- raw column equality is the right assertion
+      // here (unlike AC2's derived-map assertion above), because nothing changed.
+      after.map(s => (s.id, s.position, s.parentStepId, rootColAfter(s.id))) shouldBe
+        before.map(s => (s.id, s.position, s.parentStepId, rootColBefore(s.id)))
+    }
+  }
 }

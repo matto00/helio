@@ -2092,15 +2092,20 @@ final class PipelineService(
         }
     }
 
-  /** Atomic TRUNK reorder (HEL-407, request-shape contract revised HEL-908 design.md decision
-   *  15) — requires Editor or Owner. Viewer grantees get 403. `req.stepIds` must be exactly the
-   *  pipeline's CURRENT TRUNK step ids (via `PipelineStepRepository.trunkOf`), in the desired
-   *  new order — no tail ids, no missing/duplicate trunk ids; otherwise 422 with a message
-   *  naming the specific violation (`PipelineStepRepository.reorderTrunkInternal`'s own
+  /** Atomic whole-pipeline TRUNK reorder (HEL-407, request-shape contract revised HEL-908
+   *  design.md decision 15; HEL-973 makes it root-aware) — requires Editor or Owner. Viewer
+   *  grantees get 403. `req.stepIds` must be exactly a permutation of the UNION of every root's
+   *  current trunk step ids (via `PipelineStepRepository.trunkOfRoot`), roots interleaved by
+   *  position with no semantic weight given to that interleaving (HEL-973 owner ruling,
+   *  design.md Decision 1) — no tail ids, no missing/duplicate trunk ids; otherwise 422 with a
+   *  message naming the specific violation (`PipelineStepRepository.reorderTrunkInternal`'s own
    *  validation, re-derived from a fresh read rather than trusted from this pre-check, so a
-   *  race cannot silently corrupt structure). Per the human's ruling on trunk-to-trunk reorder
-   *  ("the tail follows its trunk step"), a moved trunk node's tail travels with it automatically
-   *  — no tail row is touched by this operation. */
+   *  race cannot silently corrupt structure). Root membership is invariant under reorder by
+   *  construction (design.md Decision 2): a step's owning root after the call always equals its
+   *  owning root before it. Per the human's ruling on trunk-to-trunk reorder ("the tail follows
+   *  its trunk step"), a moved trunk node's tail travels with it automatically — no tail row is
+   *  touched by this operation. HEL-913's fail-closed 400 for a multi-root pipeline is removed:
+   *  a multi-root reorder is now real, specified behaviour. */
   def reorderSteps(pipelineId: PipelineId, req: ReorderPipelineStepsRequest, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineStepResponse]]] =
     pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None =>
@@ -2113,24 +2118,9 @@ final class PipelineService(
         editorCheckF.flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
-            // HEL-913 task 7.3d-i (coordinator ruling): `reorderTrunkInternal`'s notion of "the
-            // trunk" (`PipelineStepRepository.trunkOf`) is root-unaware, and its `idx == 0`
-            // update writes `root_id` from `firstRootIdAction` (the pipeline's lowest-positioned
-            // root) UNCONDITIONALLY -- on a multi-root pipeline this can silently reassign a
-            // step from root B's trunk onto root A, a silent cross-root corruption, not merely
-            // an ambiguity. Fenced closed here rather than left reachable: a named 400 when the
-            // pipeline has more than one root, the same posture 7.3b takes for an ambiguous
-            // parentless step. The actual multi-root reorder semantics (per-root vs. whole-
-            // pipeline-interleaved) are HEL-973, blocked by this ticket -- not resolved here.
-            pipelineRepo.listRootDataSourceIdsInternal(pipelineId).flatMap { roots =>
-              if (roots.size > 1)
-                Future.successful(Left(ServiceError.BadRequest(
-                  s"This pipeline has ${roots.size} roots -- reordering a multi-root pipeline's steps is not yet supported (HEL-973)"
-                )))
-              else
-            // Safe: editor/owner access confirmed above. Use internal reorder — trunk-only
-            // contract enforced inside reorderTrunkInternal against a fresh read, not trusted
-            // from a pre-check here.
+            // Safe: editor/owner access confirmed above. Use internal reorder — the union-of-
+            // every-root's-trunk permutation contract is enforced inside reorderTrunkInternal
+            // against a fresh read, not trusted from a pre-check here.
             pipelineStepRepo.reorderTrunkInternal(pipelineId, req.stepIds.map(PipelineStepId(_)))
               .flatMap {
                 case Left(err) => Future.successful(Left(ServiceError.UnprocessableEntity(err)))
@@ -2151,7 +2141,6 @@ final class PipelineService(
                   }
               }
               .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
-            }
         }
     }
 

@@ -744,6 +744,176 @@ describe("PipelineDetailPage", () => {
       expect(toasts[0].variant).toBe("error");
       expect(toasts[0].message).toMatch(/failed to reorder steps/i);
     });
+
+    // HEL-973 task 6.2 — the payload must be EXACTLY each root's own trunk lane, never a
+    // filter over every root-level lane: a root with a tail has SEVERAL root-level lanes
+    // (buildLaneGraph seeds one per root-level step), and the tail's id would 422 if included.
+    it("on a two-root pipeline whose one root has a tail, the persisted payload is exactly the two roots' trunk ids and contains no tail id", async () => {
+      const twoRootPipeline: PipelineSummary = {
+        ...defaultPipeline,
+        roots: [
+          { id: "root-1", dataSourceId: "src-1", dataSourceName: "Orders" },
+          { id: "root-2", dataSourceId: "src-2", dataSourceName: "Shipments" },
+        ],
+      };
+      getPipelineByIdMock.mockResolvedValue(twoRootPipeline);
+      getPipelineStepsMock.mockResolvedValue([
+        // root-1's trunk: a1 (head) -> b1 -> c1. "Move step up" below moves c1 past b1,
+        // never touching a1's head position, so the trunk's own root-carrying head is
+        // undisturbed by this interaction.
+        {
+          id: "a1",
+          pipelineId: "pipe-1",
+          position: 0,
+          rootId: "root-1",
+          type: "rename",
+          config: { renames: {} },
+          createdAt: "",
+          updatedAt: "",
+        },
+        {
+          id: "b1",
+          pipelineId: "pipe-1",
+          position: 0,
+          parentStepId: "a1",
+          type: "filter",
+          config: { combinator: "AND", conditions: [] },
+          createdAt: "",
+          updatedAt: "",
+        },
+        {
+          id: "c1",
+          pipelineId: "pipe-1",
+          position: 0,
+          parentStepId: "b1",
+          type: "limit",
+          config: { count: 5 },
+          createdAt: "",
+          updatedAt: "",
+        },
+        // A root-level TAIL off root-1 (its own lane, sibling of a1 at the root) -- must
+        // never be sent: this is exactly what a `filter`-over-every-root-level-lane reading
+        // (task 6.1's named wrong reading) would incorrectly include.
+        {
+          id: "tail1",
+          pipelineId: "pipe-1",
+          position: 1,
+          rootId: "root-1",
+          type: "cast",
+          config: { casts: {} },
+          createdAt: "",
+          updatedAt: "",
+        },
+        {
+          id: "x1",
+          pipelineId: "pipe-1",
+          position: 0,
+          rootId: "root-2",
+          type: "rename",
+          config: { renames: {} },
+          createdAt: "",
+          updatedAt: "",
+        },
+      ]);
+      reorderPipelineStepsMock.mockResolvedValue([]);
+
+      const store = makeStore([], { currentPipeline: twoRootPipeline });
+      renderDetailPage("pipe-1", store);
+      await screen.findAllByRole("button", { name: /Rename column/i, expanded: false });
+
+      const limitSection = screen
+        .getByRole("button", { name: /Limit rows/i, expanded: false })
+        .closest(".pipeline-detail-page__step-section");
+      expect(limitSection).not.toBeNull();
+      fireEvent.click(
+        within(limitSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+      );
+
+      expect(reorderPipelineStepsMock).toHaveBeenCalledTimes(1);
+      const persistedIds = reorderPipelineStepsMock.mock.calls[0][1];
+      expect(persistedIds).not.toContain("tail1");
+      expect(new Set(persistedIds)).toEqual(new Set(["a1", "b1", "c1", "x1"]));
+    });
+
+    // HEL-973 evaluation-1.md CR3 — the previous test deliberately never moves the lane
+    // HEAD (its own comment says so), which is exactly the case that fails live: moving a
+    // different step INTO the head slot must carry that root's `rootId` onto the new head
+    // (CR1, `reorderLane`), or the orphaned root's whole chain (including its tail) gets
+    // swept into another root's payload by `buildLaneGraph`'s totality sweep.
+    it("on a two-root pipeline with a tail, moving a root's SECOND trunk step into the head slot still produces exactly both roots' trunk ids with no tail id", async () => {
+      const twoRootPipeline: PipelineSummary = {
+        ...defaultPipeline,
+        roots: [
+          { id: "root-1", dataSourceId: "src-1", dataSourceName: "Orders" },
+          { id: "root-2", dataSourceId: "src-2", dataSourceName: "Shipments" },
+        ],
+      };
+      getPipelineByIdMock.mockResolvedValue(twoRootPipeline);
+      getPipelineStepsMock.mockResolvedValue([
+        // root-1's trunk: a1 (head) -> b1. "Move step up" on b1 below moves it INTO the head
+        // slot, displacing a1 -- the case CR3 adds coverage for.
+        {
+          id: "a1",
+          pipelineId: "pipe-1",
+          position: 0,
+          rootId: "root-1",
+          type: "rename",
+          config: { renames: {} },
+          createdAt: "",
+          updatedAt: "",
+        },
+        {
+          id: "b1",
+          pipelineId: "pipe-1",
+          position: 0,
+          parentStepId: "a1",
+          type: "filter",
+          config: { combinator: "AND", conditions: [] },
+          createdAt: "",
+          updatedAt: "",
+        },
+        // A root-level TAIL off root-1 -- must never be sent, and must not silently absorb
+        // root-1's whole (now-orphaned, pre-fix) chain via the totality sweep.
+        {
+          id: "tail1",
+          pipelineId: "pipe-1",
+          position: 1,
+          rootId: "root-1",
+          type: "cast",
+          config: { casts: {} },
+          createdAt: "",
+          updatedAt: "",
+        },
+        {
+          id: "x1",
+          pipelineId: "pipe-1",
+          position: 0,
+          rootId: "root-2",
+          type: "rename",
+          config: { renames: {} },
+          createdAt: "",
+          updatedAt: "",
+        },
+      ]);
+      reorderPipelineStepsMock.mockResolvedValue([]);
+
+      const store = makeStore([], { currentPipeline: twoRootPipeline });
+      renderDetailPage("pipe-1", store);
+      await screen.findAllByRole("button", { name: /Rename column/i, expanded: false });
+
+      const filterSection = screen
+        .getByRole("button", { name: /Filter rows/i, expanded: false })
+        .closest(".pipeline-detail-page__step-section");
+      expect(filterSection).not.toBeNull();
+      fireEvent.click(
+        within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+      );
+
+      expect(reorderPipelineStepsMock).toHaveBeenCalledTimes(1);
+      const persistedIds = reorderPipelineStepsMock.mock.calls[0][1];
+      expect(persistedIds).not.toContain("tail1");
+      expect(new Set(persistedIds)).toEqual(new Set(["a1", "b1", "x1"]));
+    });
   });
 
   // HEL-407 (design.md Decision 8) — reorder needs no new analyze-trigger

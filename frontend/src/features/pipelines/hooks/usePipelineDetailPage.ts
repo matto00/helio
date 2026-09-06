@@ -976,37 +976,59 @@ export function usePipelineDetailPage() {
   // lost reorder.
   //
   // HEL-908 design.md decision 15 — `PUT /steps/order`'s request-shape
-  // contract is TRUNK-ONLY (exactly the current PRIMARY-lane ids, in the
-  // new order) — `reorderTrunkInternal` REJECTS a request containing a
-  // non-primary-lane id. `newOrder` here is still the full flat `Step[]`
-  // (every lane, whatever shape the caller computed it in), so the
-  // persisted request is derived via the primary lane of
-  // `buildLaneGraph(newOrder)`, not a raw "every non-temp id" filter — a
-  // non-lane-filtered array would 422 the instant any pipeline has more
-  // than one lane. A non-primary lane's own attachment (`parentStepId`
-  // pointing at its parent step's id) needs no request at all: per the
-  // human's ruling ("the tail follows its trunk step"), the backend never
-  // touches non-primary-lane rows during a primary-lane reorder.
+  // contract is TRUNK-ONLY — `reorderTrunkInternal` REJECTS a request
+  // containing a non-trunk id. `newOrder` here is still the full flat
+  // `Step[]` (every lane, whatever shape the caller computed it in).
+  //
+  // HEL-973: the endpoint's contract widened to the UNION of EVERY root's
+  // trunk (design.md Decision 4) — a root-0-only payload (HEL-968's stopgap)
+  // now 422s for every omitted root's ids on a multi-root pipeline. The
+  // payload is therefore built from EXACTLY ONE lane PER ROOT — for each
+  // root, the lane seeded by that root's own `position == 0` root-level step
+  // — never a filter over every root-level lane: `buildLaneGraph` seeds one
+  // lane per root-level step, and a root with a tail has several, the extras
+  // being TAIL roots whose ids this endpoint rejects (that reading would
+  // 422). A non-trunk lane's own attachment (`parentStepId` pointing at its
+  // parent step's id) needs no request at all: per the human's ruling ("the
+  // tail follows its trunk step"), the backend never touches non-trunk rows
+  // during a trunk reorder.
   const handleReorderSteps = useCallback(
     async (newOrder: Step[]) => {
       if (!id) return;
       const previousOrder = stepsRef.current;
-      setSteps(newOrder);
       // Temp (`step-N`) steps have no backend row yet — a still-in-flight POST
       // from handleAddStep/handleInstantiateShape. Sending one would fail the
       // server's set-equality check, so exclude them (mirrors handleRemoveStep's
       // temp-id no-op convention above).
-      // HEL-968: reorder is still root-0-only (multi-root reorder semantics
-      // are HEL-973's, out of scope here) -- resolve "the primary lane" as
-      // root 0's own root-level lane rather than a retired `primaryLaneId`.
       const reorderedGraph = buildLaneGraph(newOrder, roots);
-      const firstRootId = roots[0]?.id;
-      const primaryLane = reorderedGraph.lanes.find(
-        (l) => l.parentStepId === undefined && l.rootId === firstRootId,
-      );
-      const persistedIds = (primaryLane?.steps ?? [])
-        .filter((s) => !s.id.startsWith("step-"))
-        .map((s) => s.id);
+      // HEL-973 evaluation-1 CR2 -- computed BEFORE the optimistic `setSteps` below (and
+      // BEFORE the try/catch) so a root whose trunk lane came back empty never reaches the
+      // wire as a silently truncated request. `trunkLane?.steps ?? []` alone turned "this
+      // root's chain got orphaned" (CR1's defect) into a WRONG request instead of an OBVIOUS
+      // one — compare each root's post-reorder trunk lane against whether it demonstrably had
+      // steps beforehand, and refuse (toast, no optimistic mutation applied) rather than send
+      // a partial payload that would silently omit that root's ids.
+      const previousGraph = buildLaneGraph(previousOrder, roots);
+      const persistedIds: string[] = [];
+      for (const r of roots) {
+        const trunkLane = reorderedGraph.lanes.find(
+          (l) => l.parentStepId === undefined && l.rootId === r.id,
+        );
+        const hadStepsBefore = previousGraph.lanes.some(
+          (l) => l.parentStepId === undefined && l.rootId === r.id && l.steps.length > 0,
+        );
+        if ((trunkLane?.steps.length ?? 0) === 0 && hadStepsBefore) {
+          pushToast({
+            variant: "error",
+            message: `Failed to reorder steps: root ${r.id} lost its trunk lane during the reorder.`,
+          });
+          return;
+        }
+        persistedIds.push(
+          ...(trunkLane?.steps ?? []).filter((s) => !s.id.startsWith("step-")).map((s) => s.id),
+        );
+      }
+      setSteps(newOrder);
       try {
         const response = await reorderPipelineSteps(id, persistedIds);
         // Reconcile by mapping over the *optimistic* newOrder, replacing each
