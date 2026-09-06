@@ -581,3 +581,41 @@ its `baseUrl`, or any credential material.
 #### Scenario: A matching-kind Connector still fetches
 - **WHEN** a REST source bound to a `rest_api` Connector is fetched
 - **THEN** resolution succeeds and the request is composed and issued exactly as before
+
+### Requirement: `RestSource` has exactly one create-time construction site
+
+`RestSource(...)` SHALL be constructed from create-time (user-/caller-supplied) input at exactly
+one site in `backend/src/main`: `SourceService.createRestWithConfig`. This is the guarantee the
+kind-mismatch guard (the two requirements above) actually depends on — a second create-time
+construction site would be a second, unguarded door onto the same class, silently reintroducing
+the mismatch this ticket closes.
+
+This is phrased precisely as **exactly one create-time construction site**, not "exactly one
+construction site" — the latter is false on current `main` and asserting it would plant a false
+premise. `DataSourceRepository.rowToDomain` also constructs a `RestSource`, but it rehydrates a
+row that was already validated at create time; it is a read path, not a second, unguarded write
+path, and it is not what this requirement covers. That read path is not left unguarded, either: a
+row that reached the database in a mismatched state (e.g. one written before this ticket, or via
+some other route this requirement does not anticipate) is still caught downstream, every time it
+is used, by the fetch-time checkpoint in `RestApiConnectorDriver.resolveConnector` (the previous
+requirement) — that checkpoint is what actually satisfies AC 5 for such a row, not the absence of
+a second constructor.
+
+The enforcement mechanism is a source-text scan of `backend/src/main`, not a structural or
+bytecode check — the accompanying test states this plainly rather than claiming more rigor than a
+text scan has. `DataSourceRepository.rowToDomain` is excluded from the count by name (the fully
+qualified site, not a path or package prefix), so a new create-time construction site added
+anywhere else in `backend/src/main` — including elsewhere in the persistence package — is still
+caught.
+
+#### Scenario: A second create-time construction site is caught
+- **WHEN** a second call to `RestSource(...)` is added anywhere in `backend/src/main` outside the
+  named, excluded `DataSourceRepository.rowToDomain` read path
+- **THEN** the architecture check fails, and its failure message names every construction site it
+  found
+
+#### Scenario: The named exclusion does not mask other sites
+- **WHEN** `DataSourceRepository.rowToDomain`'s existing `RestSource(...)` rehydration call is
+  present, exactly as today
+- **THEN** the check does not fail on that basis alone — the exclusion applies only to that named
+  site, not to its containing file or package

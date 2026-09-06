@@ -1,0 +1,17 @@
+[info] welcome to sbt 1.10.10 (Arch Linux Java 21.0.12)
+[info] loading settings for project backend-build from plugins.sbt...
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/connector-picker-kind-mismatch/HEL-845/backend/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/connector-picker-kind-mismatch/HEL-845/backend/)
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] RestSourceConstructionSiteSpec:
+[info] RestSource construction sites in backend/src/main
+[info] - should consist of exactly one create-time construction site (SourceService.createRestWithConfig), plus the named, excluded DataSourceRepository.rowToDomain rehydration site
+[info] - should does not count a comment mentioning RestSource( toward the total (verified concretely, not assumed)
+[info] - should does not count resolveRestSource( as a match (the false-positive substring this test's evidence run found)
+[info] Run completed in 477 milliseconds.
+[info] Total number of tests run: 3
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 3, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] Total time: 1 s, completed Sep 6, 2026, 1:22:48 PM
