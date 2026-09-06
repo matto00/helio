@@ -53,14 +53,30 @@ jobs:
       # strictly weaker enforcement.
       - run: npm run check:no-credential-leak
       - run: npm run check:no-credential-leak:selftest
-      # HEL-996: check:openspec:selftest existed as a runnable npm script, wired only into
-      # .husky/pre-commit:13 -- bypassable with `git commit -n`, the same defect this ticket's
-      # own euid-0 CI-fatal-skip change closes for check:no-credential-leak's self-test. CI here,
-      # not .husky/pre-commit, for the same reason as HEL-913/HEL-846 above: CI is merge-blocking
-      # and cannot be bypassed, and wiring `.husky/**` itself would trip the gate-chain-change
-      # requirements for strictly weaker enforcement. check:dependabot:selftest and both
-      # check:node-root-encoding self-tests were already CI-wired (AC4 survey); this was the
-      # sole remaining gap.
+      # HEL-996: check:openspec[:selftest] existed as runnable npm scripts, wired only into
+      # .husky/pre-commit -- but unlike HEL-913/HEL-846 above, that was not an oversight: `openspec`
+      # is a globally-installed CLI (~/.local/bin/openspec on a dev machine), not a repo
+      # devDependency -- see scripts/check-openspec-version.mjs's header ("detection, not a true
+      # dependency pin" -- proper pinning is a local devDependency plus rewiring every Concertino
+      # `core/` invocation, tracked separately). These checks could not run on a bare CI runner at
+      # all until it is installed here. Install the exact version scripts/check-openspec-version.mjs
+      # pins (`EXPECTED`), single-sourced via `--print-expected` (design.md Decision 6) rather than
+      # hardcoded a second time. The assignment form is required, not `npm i -g
+      # @fission-ai/openspec@$(...)` inline: bash -e does not trip on a failing command
+      # substitution in argument position, so an empty print would silently install `latest` and
+      # stay green.
+      - name: Install openspec CLI
+        run: |
+          V="$(node scripts/check-openspec-version.mjs --print-expected)"
+          [ -n "$V" ] || exit 1
+          npm i -g "@fission-ai/openspec@$V"
+      # Runtime assertion that what actually landed on PATH is EXPECTED -- closes the
+      # empty-print/wrong-print/stale-cache/registry-redirect variants that the install step's own
+      # exit code cannot (design.md Decision 6).
+      - run: npm run check:openspec-version
+      # Wiring the gate and its self-test together, not the self-test alone: a self-test exists to
+      # certify a gate, and shipping it alone would leave that gate still never running in CI.
+      - run: npm run check:openspec
       - run: npm run check:openspec:selftest
       - run: npm test
 

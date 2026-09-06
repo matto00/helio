@@ -49,32 +49,32 @@
 
 ## 4. Delivery-time amendment (coordinator ruling: install-in-ci)
 
-- [ ] 4.0 FIRST, as its own commit before any re-archive: commit the un-archive reset — the change-dir
+- [x] 4.0 FIRST, as its own commit before any re-archive: commit the un-archive reset — the change-dir
       restoration out of `openspec/changes/archive/` AND both `openspec/specs/**` files reset to their
       pre-archive state. Verify with `git diff main -- openspec/specs/` returning empty AND
       `git grep -n "self-test is enforced in continuous integration" HEAD -- openspec/specs/` returning no
       hits, so canonical specs cannot end up carrying both the old and the renamed requirement
       (skeptic-design-2 CR2).
-- [ ] 4.1 Add a `--print-expected` flag to `scripts/check-openspec-version.mjs` that prints the `EXPECTED`
+- [x] 4.1 Add a `--print-expected` flag to `scripts/check-openspec-version.mjs` that prints the `EXPECTED`
       constant to STDOUT ONLY — one line, bare version, no banner or prefix — and exits 0, leaving the default
       no-argument behaviour untouched (design.md Decision 6).
-- [ ] 4.2 In `.github/workflows/ci.yml`'s `frontend` job, install openspec before the openspec checks, using a
+- [x] 4.2 In `.github/workflows/ci.yml`'s `frontend` job, install openspec before the openspec checks, using a
       FAILABLE substitution — `V="$(node scripts/check-openspec-version.mjs --print-expected)"` then
       `[ -n "$V" ] || exit 1` then `npm i -g "@fission-ai/openspec@$V"`. Do NOT inline `$(...)` directly in the
       npm argument: `set -e` does not fire for a failing substitution in argument position, so an empty print
       would install `latest` and stay green (skeptic-design-2 CR1a). Do NOT hardcode the version a second time.
-- [ ] 4.2a Add `- run: npm run check:openspec-version` immediately AFTER the install step and BEFORE the openspec
+- [x] 4.2a Add `- run: npm run check:openspec-version` immediately AFTER the install step and BEFORE the openspec
       checks — a runtime assertion that the CLI actually on the runner's PATH equals `EXPECTED`, closing the
       empty-print/wrong-print/stale-cache/registry-redirect variants that 4.2 alone cannot (CR1b).
-- [ ] 4.3 Wire BOTH `- run: npm run check:openspec` (the gate) and `- run: npm run check:openspec:selftest`,
+- [x] 4.3 Wire BOTH `- run: npm run check:openspec` (the gate) and `- run: npm run check:openspec:selftest`,
       replacing the self-test-only step from task 1.5, with a comment recording that the CLI's absence — not an
       oversight — is why these were pre-commit-only (AC4's "why this one differed").
-- [ ] 4.4 Assert that `--print-expected` prints exactly the version `check:openspec-version` enforces, on stdout
+- [x] 4.4 Assert that `--print-expected` prints exactly the version `check:openspec-version` enforces, on stdout
       only. Note this is an authoring-time content check and is NOT the guard for a failed runtime invocation —
       4.2 and 4.2a are (skeptic-design-2 CR1).
-- [ ] 4.5 Re-verify `npm run check:openspec-version` still passes with no arguments, unchanged.
+- [x] 4.5 Re-verify `npm run check:openspec-version` still passes with no arguments, unchanged.
 - [ ] 4.6 Confirm in CI that the install step, `check:openspec-version`, and both openspec checks pass on the
       runner.
-- [ ] 4.7 Add a short comment at the `ci.yml` install step pointing at `scripts/check-openspec-version.mjs`'s
+- [x] 4.7 Add a short comment at the `ci.yml` install step pointing at `scripts/check-openspec-version.mjs`'s
       header ("detection, not a true dependency pin - tracked separately"), so the next reader finds the deferred
       devDependency fix without re-deriving it (skeptic-design-2 non-blocking note 2).
