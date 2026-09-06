@@ -26,6 +26,18 @@ import { execFileSync } from "node:child_process";
  *  docs are written against. Bump deliberately, after re-validating both repos. */
 const EXPECTED = "1.10.0";
 
+// HEL-996 design.md Decision 6 — single-sources the CI install step's version
+// off this same constant, so there is exactly one place to bump. Prints the
+// bare version to STDOUT ONLY (one line, no banner/prefix) and exits 0,
+// leaving the default no-argument behaviour below completely untouched. All
+// other output in this script is console.error, which `$(...)` ignores; keep
+// it that way here too, since a stray console.log would poison the captured
+// string in ci.yml's `V="$(node ... --print-expected)"`.
+if (process.argv.includes("--print-expected")) {
+  console.log(EXPECTED);
+  process.exit(0);
+}
+
 function readInstalledVersion() {
   try {
     return execFileSync("openspec", ["--version"], {
