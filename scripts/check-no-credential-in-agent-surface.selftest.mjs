@@ -29,6 +29,9 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const scriptPath = join(repoRoot, "scripts/check-no-credential-in-agent-surface.mjs");
+// HEL-996: this self-test's own path, used to spawn itself as a subprocess
+// for the forced-skip probe cases (design.md Decision 4).
+const selfPath = fileURLToPath(import.meta.url);
 const fixtureDir = join(repoRoot, "backend/src/test/resources/db/fixtures");
 const plantedFile = join(fixtureDir, ".hel927-selftest-planted.sql");
 
@@ -143,6 +146,21 @@ const skippedCases = [];
 function skip(name, reason) {
   skippedCases.push(name);
   console.log(`  SKIP - ${name} (${reason})`);
+}
+
+// HEL-996 test-only forced-skip hook (design.md Decision 4). The euid-0
+// hard-failure branch below is unreachable on a non-root developer machine
+// and on `ubuntu-latest` CI runners, so without a probe it would ship as an
+// unexecuted claim -- the exact defect class this ticket exists to close.
+// This hook can only ADD a synthetic skipped case, never clear or suppress
+// a real one, so it cannot be misused to make a genuinely skipped case
+// report success; its presence also doubles as the recursion guard so a
+// child spawned by the probe cases below does not itself spawn probes.
+if (process.env.HEL996_FORCE_SKIP_SELFTEST === "1") {
+  skip(
+    "hel996-forced-skip-probe",
+    "HEL996_FORCE_SKIP_SELFTEST forced for CI-fatal-branch coverage",
+  );
 }
 
 function removeHel993McpUnreadableFile() {
@@ -1038,6 +1056,64 @@ try {
     duplicateDeliveryIdResult.stderr,
   );
   removeHel846MutatedScripts();
+
+  // ── HEL-996 case 1 & 2: a forced skip is a hard failure when CI is set,
+  //    and stays a non-fatal warning when CI is cleared. ──────────────────
+  // Placed at the END of the try block, after every other case has cleaned
+  // up: the spawned child re-plants the same fixed-path fixtures used above
+  // in this same worktree, so its own `finally` would delete a still-live
+  // parent plant if this ran interleaved (skeptic-design-1 note 1).
+  //
+  // The forced-skip hook (`HEL996_FORCE_SKIP_SELFTEST`) is ALSO the
+  // recursion guard: only the top-level, non-forced run reaches this block
+  // at all, so a spawned child -- which always runs with the hook set --
+  // never re-spawns probes of its own (design.md Decision 4).
+  if (!process.env.HEL996_FORCE_SKIP_SELFTEST) {
+    console.log(
+      "case: forced skip with CI set -> hard failure naming the skip and the fatal branch",
+    );
+    const forcedSkipCiResult = spawnSync("node", [selfPath], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { ...process.env, HEL996_FORCE_SKIP_SELFTEST: "1", CI: "1" },
+    });
+    check(
+      "forced skip with CI set exits non-zero",
+      forcedSkipCiResult.status !== 0,
+      `status=${forcedSkipCiResult.status} stderr=${forcedSkipCiResult.stderr}`,
+    );
+    check(
+      "output names the synthetic skipped case",
+      forcedSkipCiResult.stdout.includes("hel996-forced-skip-probe"),
+      forcedSkipCiResult.stdout,
+    );
+    check(
+      "output carries the fatal-skip-in-CI token",
+      forcedSkipCiResult.stderr.includes("FATAL SKIP IN CI"),
+      forcedSkipCiResult.stderr,
+    );
+
+    // ── HEL-996 case 2: the same forced skip stays a non-fatal warning when
+    //    CI is cleared (the local-developer-running-as-root case). ──────────
+    console.log("case: forced skip with CI cleared -> non-fatal, still names the skip");
+    const forcedSkipEnvNoCi = { ...process.env, HEL996_FORCE_SKIP_SELFTEST: "1" };
+    delete forcedSkipEnvNoCi.CI;
+    const forcedSkipNoCiResult = spawnSync("node", [selfPath], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: forcedSkipEnvNoCi,
+    });
+    check(
+      "forced skip with CI cleared exits zero",
+      forcedSkipNoCiResult.status === 0,
+      `status=${forcedSkipNoCiResult.status} stderr=${forcedSkipNoCiResult.stderr}`,
+    );
+    check(
+      "output still names the synthetic skipped case",
+      forcedSkipNoCiResult.stdout.includes("hel996-forced-skip-probe"),
+      forcedSkipNoCiResult.stdout,
+    );
+  }
 } finally {
   removePlanted();
   removeMcpPlantedSecret();
@@ -1062,10 +1138,23 @@ if (failures > 0) {
   // A silent skip would be exactly the defect class this ticket exists to
   // close (design.md Risks/Trade-offs) — never claim full coverage without
   // naming what was skipped and why (skeptic-design-2.md non-blocking note).
-  console.log(
-    `\ncheck-no-credential-in-agent-surface.selftest: OK WITH SKIPS (${skippedCases.length} case(s) ` +
-      `skipped, running as euid 0): ${skippedCases.join("; ")}`,
-  );
+  //
+  // HEL-996: a skip reaching a merge-blocking CI run must never be reported
+  // as success -- that is precisely how the euid-0 branch dodged coverage
+  // for HEL-846's CI wiring (design.md Decisions 2-3). Key this on the
+  // accumulated `skippedCases` list, not on `isRoot`, so any future skip
+  // reason inherits the guard for free. Outside CI (a developer legitimately
+  // running as root locally) this remains a visible, non-fatal skip at
+  // exit 0, so the local hook stays usable.
+  const skipSummary = `${skippedCases.length} case(s) skipped: ${skippedCases.join("; ")}`;
+  if (process.env.CI) {
+    console.error(
+      `\ncheck-no-credential-in-agent-surface.selftest: FATAL SKIP IN CI (${skipSummary}) -- ` +
+        `a skipped case can never be reported as coverage in a merge-blocking run.`,
+    );
+    process.exit(1);
+  }
+  console.log(`\ncheck-no-credential-in-agent-surface.selftest: OK WITH SKIPS (${skipSummary})`);
 } else {
   console.log("\ncheck-no-credential-in-agent-surface.selftest: OK");
 }

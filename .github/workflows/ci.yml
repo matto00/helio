@@ -53,6 +53,15 @@ jobs:
       # strictly weaker enforcement.
       - run: npm run check:no-credential-leak
       - run: npm run check:no-credential-leak:selftest
+      # HEL-996: check:openspec:selftest existed as a runnable npm script, wired only into
+      # .husky/pre-commit:13 -- bypassable with `git commit -n`, the same defect this ticket's
+      # own euid-0 CI-fatal-skip change closes for check:no-credential-leak's self-test. CI here,
+      # not .husky/pre-commit, for the same reason as HEL-913/HEL-846 above: CI is merge-blocking
+      # and cannot be bypassed, and wiring `.husky/**` itself would trip the gate-chain-change
+      # requirements for strictly weaker enforcement. check:dependabot:selftest and both
+      # check:node-root-encoding self-tests were already CI-wired (AC4 survey); this was the
+      # sole remaining gap.
+      - run: npm run check:openspec:selftest
       - run: npm test
 
   backend:
