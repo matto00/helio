@@ -1,7 +1,7 @@
 package com.helio.domain.connectors
 
 import com.helio.domain.engine.SchemaInferenceEngine
-import com.helio.domain.model.{ApiKeyPlacement, Connector, ConnectorId, EphemeralRestConfig, InferredSchema, QueryParams, RestApiConfig}
+import com.helio.domain.model.{ApiKeyPlacement, Connector, ConnectorId, DataSourceKind, EphemeralRestConfig, InferredSchema, QueryParams, RestApiConfig}
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.sources.ContentSourceSupport
@@ -78,6 +78,13 @@ class RestApiConnectorDriver(
           case ConnectorResolveContext.Internal     => repo.findByIdInternal(ConnectorId(connectorId))
         }
         found.map {
+          // HEL-845 design.md Decision 2b: rejected here, before any URI composition or
+          // credential decryption downstream in buildResolvedRequest -- the only guard reachable
+          // for a mismatched row that already exists (create-time checks in SourceService cannot
+          // reach a row created before this change, or via a caller that bypasses it). Curated:
+          // names neither the Connector's id, baseUrl, nor credential material.
+          case Some(c) if c.kind != DataSourceKind.RestApi =>
+            Left(s"Connector ${c.name} is a '${c.kind}' Connector; a REST source requires a '${DataSourceKind.RestApi}' Connector")
           case Some(c) => Right(c)
           // HEL-311: curated, never leaks the raw id or an internal message (task 2.3).
           case None    => Left("Connector not found")

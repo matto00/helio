@@ -6,15 +6,23 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { faPlug } from "@fortawesome/free-solid-svg-icons";
 
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { Select } from "../../../../shared/ui/Select";
+import { EmptyState } from "../../../../shared/ui/EmptyState";
 import { fetchConnectors } from "../../../connectors/state/connectorsSlice";
 import { CreateConnectorModal } from "../../../connectors/ui/CreateConnectorModal";
 import type { Connector } from "../../../connectors/types/connector";
 import "./ConnectorSelectField.css";
 
 const CREATE_NEW_VALUE = "__create_new__";
+
+// HEL-845 design.md Decision 5: the guarantee against binding a REST source to a
+// mismatched-kind Connector lives server-side (SourceService.createRest / RestApiConnectorDriver
+// .resolveConnector) — this filter is an affordance only, keeping the user out of a known-bad
+// state before they can enter it. It enforces nothing on its own.
+const REST_API_KIND = "rest_api";
 
 interface ConnectorSelectFieldProps {
   connector: Connector | null;
@@ -33,8 +41,10 @@ export function ConnectorSelectField({ connector, onChange }: ConnectorSelectFie
     }
   }, [status, dispatch]);
 
+  const restConnectors = connectors.filter((c) => c.kind === REST_API_KIND);
+
   const options = [
-    ...connectors.map((c) => ({ value: c.id, label: `${c.name} (${c.kind})` })),
+    ...restConnectors.map((c) => ({ value: c.id, label: `${c.name} (${c.kind})` })),
     { value: CREATE_NEW_VALUE, label: "+ Create new Connector" },
   ];
 
@@ -43,29 +53,47 @@ export function ConnectorSelectField({ connector, onChange }: ConnectorSelectFie
       setCreateOpen(true);
       return;
     }
-    const selected = connectors.find((c) => c.id === value) ?? null;
+    const selected = restConnectors.find((c) => c.id === value) ?? null;
     onChange(selected);
   }
+
+  // Decision 5: an empty filtered list (no rest_api Connector exists yet) gets an explanatory
+  // empty state rather than a bare control offering only "+ Create new Connector" — the
+  // distinguishing test is that the explanation text is present, not merely that the option
+  // list excludes non-matching kinds.
+  const showEmptyState = status !== "loading" && restConnectors.length === 0;
 
   return (
     <div className="connector-select-field">
       <span className="connector-select-field__label">Connector</span>
-      <Select
-        value={connector?.id ?? ""}
-        options={options}
-        onChange={handleSelect}
-        placeholder="Select a Connector…"
-        ariaLabel="Connector"
-      />
-      {connector ? (
-        <p className="connector-select-field__note">
-          Requests use <strong>{connector.name}</strong> ({connector.kind}) — its saved credential
-          is applied automatically; there is no separate auth field here.
-        </p>
+      {showEmptyState ? (
+        <EmptyState
+          variant="sidebar"
+          icon={faPlug}
+          title="No REST Connector yet"
+          description="No REST Connector exists yet. Create one to authenticate this source's requests."
+          cta={{ label: "+ Create new Connector", onClick: () => setCreateOpen(true) }}
+        />
       ) : (
-        <p className="connector-select-field__note">
-          A Connector must be selected before this source can be tested or saved.
-        </p>
+        <>
+          <Select
+            value={connector?.id ?? ""}
+            options={options}
+            onChange={handleSelect}
+            placeholder="Select a Connector…"
+            ariaLabel="Connector"
+          />
+          {connector ? (
+            <p className="connector-select-field__note">
+              Requests use <strong>{connector.name}</strong> ({connector.kind}) — its saved
+              credential is applied automatically; there is no separate auth field here.
+            </p>
+          ) : (
+            <p className="connector-select-field__note">
+              A Connector must be selected before this source can be tested or saved.
+            </p>
+          )}
+        </>
       )}
       {createOpen &&
         // Portalled to <body>, not rendered inline: ConnectorSelectField
