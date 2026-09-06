@@ -1008,6 +1008,15 @@ export function usePipelineDetailPage() {
       // one — compare each root's post-reorder trunk lane against whether it demonstrably had
       // steps beforehand, and refuse (toast, no optimistic mutation applied) rather than send
       // a partial payload that would silently omit that root's ids.
+      //
+      // DELIBERATELY UNTESTED, because it is currently UNREACHABLE. No live path can produce
+      // "this root had steps, and its trunk lane came back empty": non-first roots have no
+      // reorder affordance at all today (`PipelineRiverView` wires move handlers only for
+      // root 0; `LaneColumn` uses `NOOP_MOVE`), which is pre-existing HEL-968 behaviour
+      // tracked as HEL-1007. A test for this branch would have to fabricate a
+      // state no live path can reach, which is how vacuous coverage gets written -- an honest
+      // "not covered, and here is why" is worth more than a green test asserting a fiction.
+      // HEL-1007, which restores reorder to every root, is also what makes this testable.
       const previousGraph = buildLaneGraph(previousOrder, roots);
       const persistedIds: string[] = [];
       for (const r of roots) {
@@ -1018,9 +1027,12 @@ export function usePipelineDetailPage() {
           (l) => l.parentStepId === undefined && l.rootId === r.id && l.steps.length > 0,
         );
         if ((trunkLane?.steps.length ?? 0) === 0 && hadStepsBefore) {
+          // Name the root by its bound source, never its raw UUID -- a user-facing string
+          // rendering a bare id is a defect on its own terms, independent of whether this
+          // branch is currently reachable (see the coverage note above).
           pushToast({
             variant: "error",
-            message: `Failed to reorder steps: root ${r.id} lost its trunk lane during the reorder.`,
+            message: `Failed to reorder steps: the "${r.dataSourceName}" root lost its trunk lane during the reorder.`,
           });
           return;
         }
