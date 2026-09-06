@@ -1,6 +1,6 @@
 package com.helio.services.pipelines
 
-
+import com.helio.services.sources.ContentSourceSupport
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.PipelineRunService
 import com.helio.domain.connectors.RestApiConnectorDriver
@@ -134,6 +134,10 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     service = new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
       cache, registry = null, fileSystem, connector = stubConnector,
+      // HEL-952 task 8.1b: admits this spec's known-safe "localhost" SQL host past the egress
+      // guard (real, unmodified isBlockedAddress for every other host) — repairs the sql
+      // base-source run/preview coverage below now that a real pipeline run enforces the guard.
+      isBlocked = (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr),
       outputRepo = outputRepo,
       nodeSnapshotRepo = nodeSnapshotRepo
     )

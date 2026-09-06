@@ -1,0 +1,31 @@
+[info] welcome to sbt 1.10.10 (Arch Linux Java 21.0.12)
+[info] loading settings for project backend-build from plugins.sbt...
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/target/scala-2.13/test-classes ...
+[info] done compiling
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] SqlConnectorEgressGuardSpec:
+18:38:08,454 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+18:38:08,455 |-INFO in ch.qos.logback.classic.util.ContextInitializer@39ca25c9 - No custom configurators were discovered as a service.
+18:38:08,455 |-INFO in ch.qos.logback.classic.util.ContextInitializer@39ca25c9 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+18:38:08,455 |-INFO in ch.qos.logback.classic.util.ContextInitializer@39ca25c9 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+18:38:08,457 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+18:38:08,458 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [file:/home/matt/Development/helio/.claude/worktrees/bug/sql-connector-ssrf-egress-guard/HEL-952/backend/target/scala-2.13/classes/logback.xml]
+18:38:08,488 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+18:38:08,491 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@19c26a56 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+18:38:08,491 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - The 'condition' attribute in <if> element is deprecated and slated for removal. Use <condition> element instead.
+18:38:08,491 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - See also https://logback.qos.ch/codes.html#conditionAttributeDeprecation
+18:38:08,492 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@42b26931 - End of configuration.
+18:38:08,492 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@3e1476c1 - Registering current configuration as safe fallback point
+18:38:08,495 |-INFO in ch.qos.logback.classic.util.ContextInitializer@39ca25c9 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 37 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+[info] SqlConnectorDriver.execute against a loopback target
+[info] - should currently succeed and return rows — proving the SSRF is real (task 2.2, pre-guard)
+[info] Run completed in 1 second, 81 milliseconds.
+[info] Total number of tests run: 1
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 1, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] Total time: 4 s, completed Sep 5, 2026, 6:38:09 PM

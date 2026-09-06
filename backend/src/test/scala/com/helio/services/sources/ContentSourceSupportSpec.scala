@@ -168,6 +168,56 @@ class ContentSourceSupportSpec extends AnyWordSpec with Matchers with ScalatestR
     }
   }
 
+  // HEL-952 tasks 1.2/1.3/1.3a/1.4: the bare-host entry point a JDBC destination needs — no URL,
+  // no scheme, just a host string that must be validated EXACTLY as it will be interpolated.
+  "ContentSourceSupport.checkEgressHost" should {
+    val fakeResolvePublic: String => Try[Array[InetAddress]] =
+      _ => Success(Array(InetAddress.getByName("93.184.216.34")))
+    val neverCalledResolve: String => Try[Array[InetAddress]] =
+      _ => Failure(new AssertionError("resolveHost should not have been called"))
+
+    // task 1.3: one rejected form per injection shape — each must be Invalid, and none may
+    // reach resolveHost (proving the charset gate runs BEFORE any resolution is attempted).
+    Seq(
+      "evil.test/@internal",
+      "evil.test#@internal",
+      "evil.test?x@internal",
+      "a:b@internal",
+      "host,other",
+      "evil test"
+    ).foreach { badHost =>
+      s"reject '$badHost' as Invalid without ever resolving it" in {
+        ContentSourceSupport.checkEgressHost(badHost, neverCalledResolve) shouldBe a[EgressCheck.Invalid]
+      }
+    }
+
+    "validate the EXACT string that will be interpolated into the destination — not a re-parsed form" in {
+      var seenHost: Option[String] = None
+      val capturingResolve: String => Try[Array[InetAddress]] = h => {
+        seenHost = Some(h)
+        Success(Array(InetAddress.getByName("93.184.216.34")))
+      }
+      val host = "db.example.test"
+      ContentSourceSupport.checkEgressHost(host, capturingResolve) shouldBe a[EgressCheck.Allowed]
+      seenHost shouldBe Some(host)
+    }
+
+    "return Allowed for a host resolving to a public address" in {
+      ContentSourceSupport.checkEgressHost("db.example.test", fakeResolvePublic) shouldBe a[EgressCheck.Allowed]
+    }
+
+    "return Unresolvable for a non-resolving host" in {
+      val failingResolve: String => Try[Array[InetAddress]] = _ => Failure(new UnknownHostException("nope"))
+      ContentSourceSupport.checkEgressHost("nonexistent.test", failingResolve) shouldBe a[EgressCheck.Unresolvable]
+    }
+
+    "round-trip an IPv6 loopback in bracket form rather than refusing it as a mismatch" in {
+      val resolveLoopback6: String => Try[Array[InetAddress]] = _ => Success(Array(InetAddress.getByName("::1")))
+      ContentSourceSupport.checkEgressHost("::1", resolveLoopback6) shouldBe a[EgressCheck.Disallowed]
+      ContentSourceSupport.checkEgressHost("[::1]", resolveLoopback6) shouldBe a[EgressCheck.Disallowed]
+    }
+  }
+
   "ContentSourceSupport.validateUrl" should {
 
     "reject non-http(s) schemes before ever attempting to resolve a host" in {

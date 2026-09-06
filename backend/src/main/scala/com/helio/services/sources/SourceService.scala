@@ -10,9 +10,11 @@ import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import spray.json._
 
+import java.net.InetAddress
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** Business logic for REST + SQL data sources.
  *
@@ -35,7 +37,14 @@ final class SourceService(
     // legacy-`url` dual-support create path (task 1.2a), which synthesizes an implicit
     // Connector — a null connectorRepo degrades that one path to a curated 500 (task 1.2a
     // has no repository to persist the synthesized Connector through), never a silent no-op.
-    connectorRepo: ConnectorRepository = null
+    connectorRepo: ConnectorRepository = null,
+    // HEL-952 design.md Decision 4a: threaded to every SQL-path call this class makes
+    // (`SqlConnectorDriver`/`CreateSourceEnvelope.build`/`ConnectionTest.run`) — real DNS/denylist
+    // in production (never overridden by `Main.scala`); a test admits a known test hostname
+    // without weakening the guard for any other host, mirroring `connector`'s own
+    // instance-level resolveHost/isBlocked for REST.
+    val sqlResolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+    val sqlIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
 )(implicit ec: ExecutionContext) {
 
   private def audit(resourceId: Option[String], user: AuthenticatedUser, action: String = "data_source.create"): Unit =
@@ -52,20 +61,29 @@ final class SourceService(
       case Left(err) =>
         Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(_) =>
-        val now = Instant.now()
-        val source = SqlSource(
-          id        = DataSourceId(UUID.randomUUID().toString),
-          name      = request.name,
-          ownerId   = user.id,
-          createdAt = now,
-          updatedAt = now,
-          config    = sqlConfig
-        )
-        dataSourceRepo.insert(source, user).flatMap { inserted =>
-          CreateSourceEnvelope.build(SqlConnectorDriver, sqlConfig, inserted, now, dataSourceRepo, user).map { response =>
-            audit(Some(inserted.id.value), user)
-            Right(response)
-          }
+        // HEL-952 design.md Decision 3: create-time UX check — Disallowed/Invalid are fatal,
+        // Unresolvable is tolerated (a not-yet-provisioned host, or a transient DNS blip, must
+        // still be creatable). The connect-time guard (Decision 2) is the actual security
+        // boundary and re-validates on every real use, so nothing escapes this tolerance.
+        SqlConnectorDriver.checkConfigEgress(sqlConfig, sqlResolveHost, sqlIsBlocked, failOnUnresolvable = false) match {
+          case Left(err) =>
+            Future.successful(Left(ServiceError.BadRequest(err)))
+          case Right(()) =>
+            val now = Instant.now()
+            val source = SqlSource(
+              id        = DataSourceId(UUID.randomUUID().toString),
+              name      = request.name,
+              ownerId   = user.id,
+              createdAt = now,
+              updatedAt = now,
+              config    = sqlConfig
+            )
+            dataSourceRepo.insert(source, user).flatMap { inserted =>
+              CreateSourceEnvelope.build(SqlConnectorDriver, sqlConfig, inserted, now, dataSourceRepo, user, resolveHost = sqlResolveHost, isBlocked = sqlIsBlocked).map { response =>
+                audit(Some(inserted.id.value), user)
+                Right(response)
+              }
+            }
         }
     }
   }
@@ -174,7 +192,7 @@ final class SourceService(
     SqlConnectorDriver.checkQuery(sqlConfig.query) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(_) =>
-        SqlConnectorDriver.inferSchema(sqlConfig, ConnectorResolveContext.Internal).map {
+        SqlConnectorDriver.inferSchema(sqlConfig, ConnectorResolveContext.Internal, sqlResolveHost, sqlIsBlocked).map {
           case Left(err)     => Left(ServiceError.BadGateway(err))
           case Right(schema) => Right(toInferredSchema(schema))
         }
@@ -217,7 +235,7 @@ final class SourceService(
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
     SqlConnectorDriver.checkQuery(sqlConfig.query) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(_)  => ConnectionTest.run(SqlConnectorDriver, sqlConfig, ConnectorResolveContext.Internal).map(Right(_))
+      case Right(_)  => ConnectionTest.run(SqlConnectorDriver, sqlConfig, ConnectorResolveContext.Internal, sqlResolveHost, sqlIsBlocked).map(Right(_))
     }
   }
 
@@ -282,7 +300,7 @@ final class SourceService(
     }
 
   private def refreshSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
-    SqlConnectorDriver.inferSchema(source.config, ConnectorResolveContext.Internal).flatMap {
+    SqlConnectorDriver.inferSchema(source.config, ConnectorResolveContext.Internal, sqlResolveHost, sqlIsBlocked).flatMap {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
         // (SqlConnectorDriver logs the raw JDBC cause server-side) — pass through
@@ -325,7 +343,7 @@ final class SourceService(
     }
 
   private def previewSql(source: SqlSource, user: AuthenticatedUser): Future[Either[ServiceError, PreviewSourceResponse]] =
-    SqlConnectorDriver.execute(source.config, maxRows = 10).map {
+    SqlConnectorDriver.execute(source.config, maxRows = 10, sqlResolveHost, sqlIsBlocked).map {
       case Left(err) =>
         // HEL-311: `err` is already a generic, curated category message
         // (SqlConnectorDriver logs the raw JDBC cause server-side) — pass through

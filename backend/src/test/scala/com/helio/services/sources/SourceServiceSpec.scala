@@ -23,9 +23,11 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import spray.json._
 
+import java.net.InetAddress
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
+import scala.util.{Success, Try}
 
 /** Service-level coverage for HEL-473: `SourceService`'s create/infer/refresh paths now dispatch
  *  through `ConnectorDriver[Config].inferSchema` (the SPI trait method, HEL-449) and the shared
@@ -98,8 +100,27 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
   private def restConnector(response: Either[String, JsValue]): RestApiConnectorDriver =
     new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(response)))
 
+  // HEL-952 task 8.1b: admits this spec's known-safe "localhost" SQL host past the egress guard
+  // (real, unmodified isBlockedAddress for every other host) — repairs the createSql/inferSql/
+  // refresh(SQL) coverage below now that SqlConnectorDriver.connect enforces the guard.
+  private val admitLocalhostSql: (String, InetAddress) => Boolean =
+    (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
+
   private def service(connector: RestApiConnectorDriver): SourceService =
-    new SourceService(dataSourceRepo, connector, connectorRepo = connectorRepo)
+    new SourceService(dataSourceRepo, connector, connectorRepo = connectorRepo, sqlIsBlocked = admitLocalhostSql)
+
+  // HEL-952 skeptic-final-1 CR1: a fake resolver mapping one synthetic hostname per blocked
+  // class to a real disallowed address, `isBlocked` left as the REAL default denylist —
+  // mirrors `RestConnectorEgressGuardSpec.resolverFor` exactly. Used only by the create-time
+  // rejection block below, never by the "still works" tests above (which rely on
+  // admitLocalhostSql + real DNS for "localhost").
+  private def resolverFor(host: String, addr: String): String => Try[Array[InetAddress]] =
+    h => if (h == host) Success(Array(InetAddress.getByName(addr))) else ContentSourceSupport.defaultResolveHost(h)
+
+  private def serviceWithSqlResolver(resolveHost: String => Try[Array[InetAddress]]): SourceService =
+    new SourceService(dataSourceRepo, restConnector(Right(JsArray())), connectorRepo = connectorRepo, sqlResolveHost = resolveHost)
+
+  private def sourceCount(): Int = await(dataSourceRepo.findAll(owner, Page(offset = 0, limit = 1000))).total
 
   private val restConfigPayload =
     RestApiConfigPayload(url = Some("http://example.invalid/data"), method = Some("GET"), auth = None, headers = None)
@@ -136,6 +157,51 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
 
       result.fetchError shouldBe defined
       result.inferredSchema shouldBe None
+    }
+
+    // HEL-952 skeptic-final-1 CR1: the create-time guard (design.md Decision 3) is the ONLY
+    // thing standing between AC1's "cannot be created" and a 200-with-fetchError that silently
+    // persists a row pointed at a blocked address — SqlConnectorEgressGuardSpec's
+    // `checkConfigEgress` matrix never touches `SourceService`/`DataSourceRepository`, so
+    // without this block the create-time guard had zero coverage. One synthetic hostname per
+    // blocked class, via `resolverFor` (real `isBlocked` denylist, fake resolver) — mirrors
+    // `RestConnectorEgressGuardSpec`'s "reject a baseUrl resolving to ..., persisting nothing"
+    // block exactly, at the SQL create path instead of the Connector create path.
+    Seq(
+      "loopback"                     -> ("sql-loopback.egress-guard.test", "127.0.0.1"),
+      "link-local (cloud metadata)"   -> ("sql-metadata.egress-guard.test", "169.254.169.254"),
+      "RFC1918 private"               -> ("sql-private.egress-guard.test", "10.0.0.5"),
+      "IPv6 unique-local"             -> ("sql-uniquelocal.egress-guard.test", "fd00::1")
+    ).foreach { case (label, (host, addr)) =>
+      s"reject createSql for a host resolving to $label with BadRequest, persisting nothing" in {
+        cleanDb()
+        val svc     = serviceWithSqlResolver(resolverFor(host, addr))
+        val before  = sourceCount()
+        val request = SqlCreateSourceRequest("Blocked", DataSourceKind.Sql, sqlConfig("SELECT 1").copy(host = host))
+
+        val result = await(svc.createSql(request, user))
+
+        result shouldBe a[Left[_, _]]
+        result.left.toOption.get shouldBe a[ServiceError.BadRequest]
+        sourceCount() shouldBe before
+      }
+    }
+
+    // HEL-952 skeptic-final-2 non-blocking item 3: deliberately does NOT use a fake-resolved
+    // real public address here (an earlier draft resolved a synthetic hostname to a real IP,
+    // which meant a real outbound JDBC connect attempt in CI). `admitLocalhostSql` + real DNS
+    // for the literal "localhost" hostname proves exactly the same thing — the create-time gate
+    // allows a permitted host — without depending on network reachability to an address this
+    // process doesn't control, and the point of this test is only that the gate does not
+    // reject, not that any particular address is reachable.
+    "still create the source for a host the isBlocked override admits (a permitted host)" in {
+      cleanDb()
+      val svc     = service(restConnector(Right(JsArray())))
+      val request = SqlCreateSourceRequest("Permitted", DataSourceKind.Sql, sqlConfig("SELECT 1"))
+
+      val result = await(svc.createSql(request, user))
+
+      result shouldBe a[Right[_, _]]
     }
   }
 

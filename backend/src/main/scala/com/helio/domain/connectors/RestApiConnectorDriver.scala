@@ -370,7 +370,15 @@ class RestApiConnectorDriver(
 
   /** Issues the same request/auth/header pipeline as `fetch`, but only inspects the response
    *  status — never calls `parseJson` on the body, so a non-JSON 200 response still succeeds. */
-  def testConnection(config: RestApiConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+  // HEL-952 design.md Decision 4a (round-3 CR1): the trait's `resolveHost`/`isBlocked` params
+  // exist for SqlConnectorDriver's per-call seam (no constructor); this class already carries its
+  // own instance-level `resolveHost`/`isBlocked` from construction (line ~55) and ignores these.
+  def testConnection(
+      config: RestApiConfig,
+      resolveContext: ConnectorResolveContext,
+      @annotation.unused overrideResolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      @annotation.unused overrideIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     buildResolvedRequest(config, resolveContext).flatMap {
       case Left(err)       => Future.successful(Left(err))
       case Right(request)  => issueTest(request)
@@ -385,7 +393,12 @@ class RestApiConnectorDriver(
    *  inference runs, so `observedRowCount = Some(rows.size)` is free -- populated here, not in
    *  `SchemaInferenceEngine.inferSchemaFromRows` itself, which has no notion of a "total" (it
    *  only ever sees whatever rows it's handed). */
-  def inferSchema(config: RestApiConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+  def inferSchema(
+      config: RestApiConfig,
+      resolveContext: ConnectorResolveContext,
+      @annotation.unused overrideResolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      @annotation.unused overrideIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
     fetch(config, resolveContext).map(_.flatMap(json => toRowsEither(json, config.rootSelector))
       .map(rows => SchemaInferenceEngine.inferSchemaFromRows(rows).copy(observedRowCount = Some(rows.size.toLong))))
 
@@ -397,7 +410,13 @@ class RestApiConnectorDriver(
    *  HEL-861 design D2: the full row vector is already materialized here before `.take(maxRows)`,
    *  so the pre-`take` size is the true available count, free. `truncated` is strictly `all.size >
    *  maxRows` — a source of exactly `maxRows` rows is NOT truncated. */
-  def fetch(config: RestApiConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, FetchOutcome]] =
+  def fetch(
+      config: RestApiConfig,
+      maxRows: Int,
+      resolveContext: ConnectorResolveContext,
+      @annotation.unused overrideResolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      @annotation.unused overrideIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, FetchOutcome]] =
     fetch(config, resolveContext).map(_.flatMap(json => toRowsEither(json, config.rootSelector)).map { all =>
       FetchOutcome(all.take(maxRows), truncated = all.size > maxRows, availableRowCount = Some(all.size.toLong))
     })

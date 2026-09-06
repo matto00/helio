@@ -16,6 +16,9 @@ import spray.json.JsValue
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
+import java.net.InetAddress
+import scala.util.Try
+import com.helio.services.sources.ContentSourceSupport
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Config for [[EnvelopeFixtureConnector]] — a fixture distinct from `NewConnectorInferenceSpec`'s
@@ -36,13 +39,29 @@ object EnvelopeFixtureConnector extends ConnectorDriver[EnvelopeFixtureConfig] {
     authKind = "none"
   )
 
-  def testConnection(config: EnvelopeFixtureConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+  def testConnection(
+      config: EnvelopeFixtureConfig,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future.successful(Right(()))
 
-  def fetch(config: EnvelopeFixtureConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, FetchOutcome]] =
+  def fetch(
+      config: EnvelopeFixtureConfig,
+      maxRows: Int,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, FetchOutcome]] =
     Future.successful(Right(FetchOutcome(Vector.empty, truncated = false, availableRowCount = None)))
 
-  def inferSchema(config: EnvelopeFixtureConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+  def inferSchema(
+      config: EnvelopeFixtureConfig,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
     Future.successful(config.result)
 }
 

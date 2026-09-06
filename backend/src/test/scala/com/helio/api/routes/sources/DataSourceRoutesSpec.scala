@@ -259,6 +259,10 @@ class DataSourceRoutesSpec
         stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
         new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
         dataSourceUrlIsBlocked = testIsBlocked,
+        // HEL-952 task 8.1b: same "localhost"-only admission as dataSourceUrlIsBlocked above,
+        // for the SQL path — repairs the /api/sources/test SQL-connection coverage below now
+        // that SqlConnectorDriver.connect enforces the egress guard.
+        sqlUrlIsBlocked = testIsBlocked,
         // HEL-822: dbContext wired so SourceService.createRest's bare-url dual-support path has
         // a real ConnectorRepository to synthesize an implicit Connector through.
         dbContext = ctx

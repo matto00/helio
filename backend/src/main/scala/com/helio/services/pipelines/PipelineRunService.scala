@@ -101,7 +101,10 @@ final class PipelineRunService(
         case other   => Future.successful(Left(s"URL-backed fetch is not supported for source kind '$other'"))
       }
 
-  private val engine = new InProcessPipelineEngine(fileSystem, connector, urlFetchSeam)
+  // HEL-952 design.md Decision 4a: reuses the SAME resolveHost/isBlocked this class already
+  // takes for URL-backed sources — one override per ApiRoutes construction, not a second,
+  // independently-drifting SQL-specific pair.
+  private val engine = new InProcessPipelineEngine(fileSystem, connector, urlFetchSeam, resolveHost, isBlocked)
 
   // HEL-330 (design.md Decision 3): the two execution call sites (`executeRun`, `previewStep`)
   // depend on this trait reference, not `engine` directly.

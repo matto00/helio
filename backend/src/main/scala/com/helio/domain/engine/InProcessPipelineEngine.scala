@@ -6,12 +6,13 @@ import com.helio.domain.steps.{JoinStep, LookupStep, SecondaryInput, UnionStep}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
-import com.helio.services.sources.{ImageSourceSupport, PdfTextSupport}
+import com.helio.services.sources.{ContentSourceSupport, ImageSourceSupport, PdfTextSupport}
 import PipelineRowJson.{Row, parseStaticRows}
 
+import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /** HEL-859 (design.md Decisions 1-3): wraps a step-execution failure with the
  *  failing step's id and kind, plus a curated `reason`. `reason` is derived by
@@ -155,7 +156,12 @@ class InProcessPipelineEngine(
     fileSystem: FileSystem,
     connector:  RestApiConnectorDriver = null,
     urlFetch: (String, String) => Future[Either[String, Array[Byte]]] =
-      (_: String, _: String) => Future.successful(Left("URL-backed source fetch is not configured"))
+      (_: String, _: String) => Future.successful(Left("URL-backed source fetch is not configured")),
+    // HEL-952 design.md Decision 4a/task 2a.1a: threaded to `SqlConnectorDriver.fetch` for
+    // SqlSource runs — real DNS/denylist in production; an engine-level spec admits its known
+    // test host without weakening the guard for any other host.
+    sqlResolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+    sqlIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
 )(implicit ec: ExecutionContext) {
 
   /** Row bound for a real `rest_api`/`sql` run (design.md D2) — distinct from
@@ -642,7 +648,7 @@ class InProcessPipelineEngine(
             )
         }
     case s: SqlSource =>
-      SqlConnectorDriver.fetch(s.config, maxRunRows, ConnectorResolveContext.Internal).flatMap {
+      SqlConnectorDriver.fetch(s.config, maxRunRows, ConnectorResolveContext.Internal, sqlResolveHost, sqlIsBlocked).flatMap {
         case Left(err)      => Future.failed(new IllegalArgumentException(err))
         case Right(outcome) =>
           Future.successful(

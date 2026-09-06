@@ -3,6 +3,7 @@ package com.helio.api.routes.pipelines
 import com.helio.api._
 import com.helio.api.http.AuthDirectives
 import com.helio.api.http.SessionCookies
+import com.helio.services.sources.ContentSourceSupport
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity}
@@ -176,7 +177,12 @@ abstract class PipelineApplyProposalSpecBase
       // HEL-822: SourceService.createRest's bare-url dual-support path needs a real
       // ConnectorRepository (constructed by ApiRoutes when dbContext is present) to
       // synthesize an implicit Connector for this fixture's inline `{"url": ...}` sources.
-      dbContext = ctx
+      dbContext = ctx,
+      // HEL-952 task 8.1b: admits this fixture's known-safe "localhost" SQL host past the
+      // egress guard (real, unmodified isBlockedAddress for every other host) — repairs the
+      // inline-sql-source create/run coverage in sibling specs sharing this base now that
+      // createSql/connect enforce the guard.
+      sqlUrlIsBlocked = (host, addr) => if (host == "localhost") false else ContentSourceSupport.isBlockedAddress(addr)
     ).routes
 
     seedFixtures()

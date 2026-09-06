@@ -6,8 +6,10 @@ import com.helio.domain.connectors.{ConnectorDriver, ConnectorResolveContext}
 import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 
+import java.net.InetAddress
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** Shared create-time envelope construction (HEL-468), replacing the two structurally-identical
  *  copies that used to live inline in `SourceService.createSql`/`createRest`. Generic over any
@@ -35,9 +37,15 @@ object CreateSourceEnvelope {
       now:            Instant,
       dataSourceRepo: DataSourceRepository,
       user:           AuthenticatedUser,
-      overrides:      Map[String, FieldOverridePayload] = Map.empty
+      overrides:      Map[String, FieldOverridePayload] = Map.empty,
+      // HEL-952 design.md Decision 4a (round-3 CR2): forwarded to `connector.inferSchema` so a
+      // SourceService-level override (e.g. a test admitting a known test host) actually reaches
+      // the `SqlConnectorDriver.connect` call this method's `inferSchema` eventually triggers —
+      // without this, the override is passed but never used.
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
   )(implicit ec: ExecutionContext): Future[CreateSourceResponse] =
-    connector.inferSchema(config, ConnectorResolveContext.Owned(user)).flatMap {
+    connector.inferSchema(config, ConnectorResolveContext.Owned(user), resolveHost, isBlocked).flatMap {
       case Left(err) =>
         Future.successful(CreateSourceResponse(
           source         = DataSourceResponse.fromDomain(source),

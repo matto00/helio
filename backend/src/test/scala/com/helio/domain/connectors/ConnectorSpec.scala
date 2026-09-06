@@ -6,6 +6,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json.{JsNumber, JsObject, JsValue}
 
+import java.net.InetAddress
+import scala.util.Try
+import com.helio.services.sources.ContentSourceSupport
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -25,15 +28,31 @@ object FixtureConnector extends ConnectorDriver[FixtureConfig] {
     authKind = "none"
   )
 
-  def testConnection(config: FixtureConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+  def testConnection(
+      config: FixtureConfig,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future.successful(if (config.reachable) Right(()) else Left("fixture unreachable"))
 
-  def inferSchema(config: FixtureConfig, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
+  def inferSchema(
+      config: FixtureConfig,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
     Future.successful(
       Right(InferredSchema(Seq(InferredField("id", "Id", DataFieldType.IntegerType, nullable = false))))
     )
 
-  def fetch(config: FixtureConfig, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext)
+  def fetch(
+      config: FixtureConfig,
+      maxRows: Int,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext)
       : Future[Either[String, FetchOutcome]] = {
     val all = (1 to config.rowCount).map(i => JsObject("id" -> JsNumber(i))).toVector
     Future.successful(

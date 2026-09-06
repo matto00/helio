@@ -3,7 +3,9 @@ package com.helio.services.sources
 import com.helio.api.protocols.sources.TestConnectionResponse
 import com.helio.domain.connectors.{ConnectorDriver, ConnectorResolveContext}
 
+import java.net.InetAddress
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** Shared connection-test envelope construction (HEL-480), the third sibling alongside
  *  `CreateSourceEnvelope`/`SchemaInferenceFacade` — generic over any `ConnectorDriver[Config]`
@@ -19,8 +21,16 @@ object ConnectionTest {
    *  connector's `testConnection`) with `ok = false`. This result is always the `Right` side of the
    *  caller's `ServiceError` channel — a connector-level test failure is a domain outcome, not an
    *  HTTP error (design.md Decision 1). */
-  def run[Config](connector: ConnectorDriver[Config], config: Config, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[TestConnectionResponse] =
-    connector.testConnection(config, resolveContext).map {
+  def run[Config](
+      connector: ConnectorDriver[Config],
+      config: Config,
+      resolveContext: ConnectorResolveContext,
+      // HEL-952 design.md Decision 4a (round-3 CR2): forwarded to `connector.testConnection` —
+      // without this a SourceService-level override never reaches `SqlConnectorDriver.connect`.
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[TestConnectionResponse] =
+    connector.testConnection(config, resolveContext, resolveHost, isBlocked).map {
       case Right(())  => TestConnectionResponse(ok = true, error = None)
       case Left(err)  => TestConnectionResponse(ok = false, error = Some(err))
     }

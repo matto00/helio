@@ -1,9 +1,12 @@
 package com.helio.domain.connectors
 
 import com.helio.domain.model.{AuthenticatedUser, InferredSchema}
+import com.helio.services.sources.ContentSourceSupport
 import spray.json.JsValue
 
+import java.net.InetAddress
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** HEL-822: how a `ConnectorDriver[Config]` implementation that references a `Connector`
  *  (currently only `RestApiConnectorDriver`) is allowed to resolve `connectorId`.
@@ -126,15 +129,38 @@ trait ConnectorDriver[Config] {
 
   /** Cheap reachability/auth check — does not perform a full data fetch.
    *  `resolveContext` (HEL-822) governs how an implementation that references a `Connector`
-   *  resolves it; implementations with no such reference ignore it. */
-  def testConnection(config: Config, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, Unit]]
+   *  resolves it; implementations with no such reference ignore it.
+   *
+   *  `resolveHost`/`isBlocked` (HEL-952 design.md Decision 4a) exist ONLY so a test can inject a
+   *  fake resolver / admit a known test hostname past the SSRF denylist without weakening the
+   *  guard for any other host — `SqlConnectorDriver` (a singleton `object` with no constructor
+   *  seam) needs these threaded per-call; `RestApiConnectorDriver` already carries its own
+   *  instance-level `resolveHost`/`isBlocked` from construction and ignores these. No production
+   *  call site overrides either default. */
+  def testConnection(
+      config: Config,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, Unit]]
 
   /** Infers a schema from a live sample of the connector's data. See `testConnection` for
-   *  `resolveContext`. */
-  def inferSchema(config: Config, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]]
+   *  `resolveContext`/`resolveHost`/`isBlocked`. */
+  def inferSchema(
+      config: Config,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]]
 
   /** Fetches up to `maxRows` normalized rows (one `JsObject` per row), plus whether the cap
    *  truncated the read and the true total when it is known for free (HEL-861: see
-   *  `FetchOutcome`). See `testConnection` for `resolveContext`. */
-  def fetch(config: Config, maxRows: Int, resolveContext: ConnectorResolveContext)(implicit ec: ExecutionContext): Future[Either[String, FetchOutcome]]
+   *  `FetchOutcome`). See `testConnection` for `resolveContext`/`resolveHost`/`isBlocked`. */
+  def fetch(
+      config: Config,
+      maxRows: Int,
+      resolveContext: ConnectorResolveContext,
+      resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+  )(implicit ec: ExecutionContext): Future[Either[String, FetchOutcome]]
 }
