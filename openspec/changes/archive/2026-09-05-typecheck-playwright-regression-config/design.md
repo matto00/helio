@@ -45,6 +45,33 @@ green result that was never measuring the thing it was cited for.
 **D3 — Do not modify `playwright.regression.config.ts` unless the new coverage reports real type errors.** It is
 measured clean; if that changes, fix the errors in the file, and never by narrowing the include.
 
+## Gate-Chain Implications Checklist
+
+**What does it execute?** Nothing new. This change adds no script and no gate. It widens by exactly one file the
+input set of an existing gate, `check:e2e-types` (`tsc --noEmit -p e2e/tsconfig.json`, `.husky/pre-commit` line 7).
+
+**What environment does it inherit, and from where?** Unchanged — the husky hook's environment, as before. The gate
+reads no new environment variable, needs no credential, opens no network or database connection, and does not
+consult `GIT_DIR`, so the HEL-657/HEL-805 poisoned-`GIT_DIR` mechanism does not apply.
+
+**Does it write anything outside its own sandbox?** No. `tsc --noEmit` emits no files; the config change adds no
+output path. The gate remains read-only.
+
+**Does it behave differently from a linked worktree than from a main checkout?** No. tsconfig `include` globs
+resolve relative to the config file's own directory, so `e2e/tsconfig.json` reaches the same two sibling files
+whichever checkout it lives in. This is the property whose *absence* caused HEL-880 for jest, where regex patterns
+were resolved against the invocation directory instead. Verified: the gate was run from inside this delivery
+worktree, which is itself nested under `.claude/worktrees/`.
+
+**What happens on its first run?** It passes. `playwright.regression.config.ts` was measured to compile clean under
+the e2e compiler options before wiring (D3), and the full pre-commit chain ran green on the commit. No
+bootstrapping, cache, or generated artifact is involved. The failure mode if it had *not* been clean is loud and
+immediate — a red `check:e2e-types` blocking every commit — never silent.
+
+**Isolation-test evidence.** The gate is enforceable, not nominal: a deliberate type error injected into
+`playwright.regression.config.ts` makes `check:e2e-types` fail (`TS2322`, exit 2), and removing it restores exit 0.
+See `.concertino/gate-chain-isolation-evidence/e2e__tsconfig.json.md`.
+
 ## Risks / Trade-offs
 
 - **[Newly-covered file fails to compile, blocking every commit via `check:e2e-types`.]** → Measured clean before
@@ -60,5 +87,7 @@ measured clean; if that changes, fix the errors in the file, and never by narrow
 - Self-approved: `skip_specs: true` — build tooling, no behaviour change. Inventing a requirement to satisfy
   validation would be wrong.
 - Self-approved: no new pre-commit gate. This change rides an existing one.
-- No Gate-Chain Implications Checklist is required: this change adds no script to the commit-gate chain and does
-  not touch `.husky/**`. It only widens the input set of a gate that already exists.
+- An earlier draft of this design waived the Gate-Chain Implications Checklist on the grounds that no script and no
+  `.husky/**` file is touched. The delivery gate rejected that, and it was right: `e2e/tsconfig.json` is the input
+  the `check:e2e-types` pre-commit gate consumes, so widening it can break every commit in the repo. "No script
+  changed" is not the same as "the gate chain is unaffected". The checklist is answered above.
