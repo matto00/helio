@@ -1,0 +1,64 @@
+[info] welcome to sbt 1.10.10 (Arch Linux Java 21.0.12)
+[info] loading settings for project backend-build from plugins.sbt...
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/task/guard-previewoutputs-closure-slice/HEL-994/backend/project
+[info] loading settings for project root from build.sbt...
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/task/guard-previewoutputs-closure-slice/HEL-994/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/task/guard-previewoutputs-closure-slice/HEL-994/backend/target/scala-2.13/classes ...
+[info] done compiling
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+17:50:38,328 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+17:50:38,329 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5cb44f4b - No custom configurators were discovered as a service.
+17:50:38,329 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5cb44f4b - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+17:50:38,329 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5cb44f4b - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+17:50:38,331 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+17:50:38,333 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [file:/home/matt/Development/helio/.claude/worktrees/task/guard-previewoutputs-closure-slice/HEL-994/backend/target/scala-2.13/classes/logback.xml]
+17:50:38,372 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+17:50:38,376 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@25b1e89b - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+17:50:38,376 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - The 'condition' attribute in <if> element is deprecated and slated for removal. Use <condition> element instead.
+17:50:38,376 |-WARN in ch.qos.logback.core.model.processor.conditional.IfModelHandler - See also https://logback.qos.ch/codes.html#conditionAttributeDeprecation
+17:50:38,377 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@1878c388 - End of configuration.
+17:50:38,378 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@68dc0064 - Registering current configuration as safe fallback point
+17:50:38,381 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5cb44f4b - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 49 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+SLF4J(W): A number (1) of logging calls during the initialization phase have been intercepted and are
+SLF4J(W): now being replayed. These are subject to the filtering rules of the underlying logging system.
+SLF4J(W): See also https://www.slf4j.org/codes.html#replay
+[info] PipelineRunServiceSpec:
+[info] PipelineRunService.executeRun (HEL-509 / 419-B assertion persistence)
+[info] PipelineRunService.onRunSuccess (HEL-570 assert fail-policy)
+[info] PipelineRunService (HEL-412 disable/enable)
+[info] PipelineRunService onRunSuccess (HEL-462 schema-drift baseline capture)
+[info] PipelineRunService.history (HEL-576 assertion summary)
+[info] PipelineRunService.recordUnrunnable (HEL-755 design.md D3)
+[info] PipelineRunService.submit (HEL-758 rest_api/sql base-source execution)
+[info] PipelineRunService (HEL-862 URL-backed CSV, no ActorSystem threaded)
+[info] PipelineRunService.previewStep (HEL-758 rest_api/sql base-source execution)
+[info] PipelineRunService.previewOutputs (HEL-906 cycle 10, P1.4's preview_outputs(pipelineId, outputId?) dependency)
+[info] - should closure-guard: single-Output arm's stepRowCounts key set observes exactly the target's OWN dependency closure (HEL-994 AC1, D1, D5)
+[info] - should closure-guard: all-Outputs arm's stepRowCounts key sets observe each Output's OWN closure, doubling as D3's non-degeneracy positive control (HEL-994 AC1, AC3, D1, D3, D5) *** FAILED ***
+[info]   java.util.NoSuchElementException: key not found: (Some(a857a117-011a-44b2-acf6-cb8526a6da40),None)
+[info]   at scala.collection.immutable.Map$Map1.apply(Map.scala:263)
+[info]   at com.helio.services.pipelines.PipelineRunService.$anonfun$previewOutputs$14(PipelineRunService.scala:369)
+[info]   at scala.collection.immutable.Vector1.map(Vector.scala:2155)
+[info]   at scala.collection.immutable.Vector1.map(Vector.scala:386)
+[info]   at com.helio.services.pipelines.PipelineRunService.$anonfun$previewOutputs$13(PipelineRunService.scala:369)
+[info]   at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:467)
+[info]   at java.base/java.util.concurrent.ForkJoinTask$RunnableExecuteAction.exec(ForkJoinTask.java:1423)
+[info]   at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+[info]   at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+[info]   at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+[info]   ...
+[info] PipelineRunService and a compute step with a statically unparseable expression (HEL-888)
+[info] PipelineRunService truncation reporting (HEL-861)
+[info] PipelineRunService (HEL-905 P1.2: tree-walk materialized-node persistence)
+[info] PipelineRunService.composeTruncationNotice (HEL-861)
+[info] PipelineRunService.previewStep / evaluateNodeRowsForBackfill (HEL-970 lane-aware closure)
+[info] Run completed in 2 seconds, 436 milliseconds.
+[info] Total number of tests run: 2
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 1, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.PipelineRunServiceSpec
+[error] (Test / testOnly) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 6 s, completed Sep 5, 2026, 5:50:40 PM
