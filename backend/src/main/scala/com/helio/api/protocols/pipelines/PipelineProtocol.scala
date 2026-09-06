@@ -201,7 +201,11 @@ final case class TruncatedReadResponse(
  *  could measure a true total (REST always can; SQL never can) -- never a run-wide total.
  *  `truncationNotice` is composed once, server-side, and is `None` when nothing was truncated,
  *  so every surface (API, MCP, UI) reads the identical, already-correct sentence.
- *  `sourceRowCount` keeps its pre-existing meaning (rows actually read) unchanged. */
+ *  `sourceRowCount` keeps its pre-existing meaning (rows actually read) unchanged.
+ *  `truncatedReads` (HEL-890): the per-source detail backing `sourceTruncated` -- it includes
+ *  the PRIMARY source's own entry when the primary itself was truncated (so a one-entry vector is
+ *  not necessarily a secondary), and is the empty vector, never omitted, when nothing in the run
+ *  was truncated. */
 final case class RunResultResponse(
     rows: Vector[JsObject],
     rowCount: Int,
