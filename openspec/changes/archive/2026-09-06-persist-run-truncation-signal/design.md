@@ -150,3 +150,39 @@ truthful, and it is also the cheapest possible DDL on an existing table.
 - **False positives:** the acceptance criteria call out no-false-positives explicitly. The derived flag is
   `reads.nonEmpty`, and the live spec already fixes the boundary case (a source landing exactly at the cap is *not*
   truncated). Tests must cover the at-cap boundary persisting as complete, not as truncated.
+
+## Gate-Chain Implications Checklist
+
+This change edits `scripts/check-schema-drift.mjs`, which a Husky pre-commit hook invokes, so it
+touches the commit-gate chain. The edit is **comment-only** — a nine-line warning above
+`parseCaseClasses` documenting that its `case class` regex is not paren-balanced and silently drops
+any field declared after a nested `)`. No executable line changes.
+
+**What does it execute?** Nothing new. `parseCaseClasses` and the regex on the following line are
+byte-identical to `main`; only a comment block above the function was added. The script's behaviour
+under the pre-commit hook is unchanged, which the isolation transcript below confirms empirically
+rather than by inspection.
+
+**What environment does it inherit, and from where?** Unchanged. It is invoked by
+`.husky/pre-commit` and inherits that hook's environment — `repoRoot` derived from the script's own
+location, no new environment variable read, no new process spawned.
+
+**Does it write anything outside its own sandbox?** No. It reads source files and writes only to
+stdout/stderr, exactly as before; no filesystem write was added.
+
+**Does it behave differently from a linked worktree than from a main checkout?** No. The isolation
+harness runs it under an environment shaped like a pre-commit hook invoked from a linked worktree
+and it passes there; the comment cannot introduce a path- or worktree-dependent difference.
+
+**What happens on its first run?** Identical to every subsequent run — the script is stateless,
+holds no cache, and creates nothing on first invocation.
+
+**Isolation evidence:**
+`.concertino/runs/HEL-873/evidence/.concertino/gate-chain-isolation-evidence/scripts__check-schema-drift.mjs.md`
+(`PASS scripts/check-schema-drift.mjs`).
+
+**Deliberately not fixed here:** the regex itself. Fixing it properly (paren-balancing, or a real
+tokenizer) is a behavioural change to a commit gate that every worktree on this machine depends on,
+and it belongs in its own ticket with its own review rather than riding along on a persistence
+change. This ticket keeps the field-ordering workaround and documents the hazard where the next
+person will actually encounter it.
