@@ -438,7 +438,13 @@ object PipelineAnalyzeService {
   }
 
 
-  private def inferOutputSchema(
+  // HEL-872 (design.md Decision 4): widened from object-private to
+  // `private[engine]` for exactly one reason -- the registry-vs-dispatch
+  // coverage guard in `PipelineAnalyzeServiceSpec` must call this directly,
+  // never through `analyze`/`analyzeNodes` (which short-circuit on
+  // `validateStepConfig` and never reach inference on a rejected config).
+  // Not a general API; do not widen further or call from outside that guard.
+  private[engine] def inferOutputSchema(
       op:              String,
       config:          String,
       inputSchema:     Vector[SchemaField],
@@ -474,6 +480,7 @@ object PipelineAnalyzeService {
       case "stringops"                  => inferStringOps(config, inputSchema)
       case "lookup"                     => inferLookup(config, inputSchema, secondarySchema)
       case "assert"                     => inferAssert(config, inputSchema)
+      case "groupby"                    => inferGroupBy(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -1001,6 +1008,35 @@ object PipelineAnalyzeService {
         log.warn(s"$op config error", ex)
         (fallback, Some(s"$op config error"))
     }
+
+  /** groupby (HEL-872, design.md Decisions 1-3) -- `groupby` had NO dispatch case at all
+   *  before this ticket (every analyze call for a `groupby` step fell to the `unknown`-op
+   *  arm below, reporting a spurious "Unknown op: 'groupby'" on every valid step). Output
+   *  is the group-key fields (in config order, typed from `inputSchema` by name -- a key
+   *  column absent from `inputSchema` is a documented best-effort `string`, mirroring this
+   *  file's existing fallback convention) followed by one aggregate column named via
+   *  `GroupByStep.outputColumnName` and typed via `aggResultType`, matching
+   *  `GroupByStep.apply`'s runtime shape exactly. `aggFunction` is lowercased ONCE and that
+   *  same value feeds both the column name and `aggResultType` -- `aggResultType` matches
+   *  the raw string and falls back to `"string"`, while `validateGroupBy` already lowercases
+   *  before checking `SupportedFunctions`, so an un-lowercased `"SUM"` would otherwise
+   *  project `"string"` instead of `"float"`. */
+  private def inferGroupBy(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    parseConfig("groupby", config) { json =>
+      val cfg = GroupByConfig.decode(config)
+      val fn  = cfg.aggFunction.toLowerCase
+      val keyFields = cfg.groupBy.map { name =>
+        // Best-effort `string` when the groupBy column is absent from the input
+        // schema (design.md Decision 3) -- never a confident but possibly-wrong type.
+        val fieldType = inputSchema.find(_.name == name).map(_.`type`).getOrElse("string")
+        SchemaField(name = name, `type` = fieldType)
+      }
+      val aggField = SchemaField(
+        name    = GroupByStep.outputColumnName(cfg),
+        `type` = aggResultType(fn, cfg.aggColumn, inputSchema)
+      )
+      keyFields :+ aggField
+    } (inputSchema)
 
   /** Determine the output type of an aggregation function applied to `field`. */
   private def aggResultType(fn: String, field: String, inputSchema: Vector[SchemaField]): String =
