@@ -9,7 +9,11 @@ own copy of a credential.
 
 ### Requirement: Connector CRUD lifecycle
 The system SHALL allow an authenticated owner to create, read, list, update (non-secret
-fields only), rotate the credential, and delete a Connector.
+fields only), rotate the credential, and delete a Connector. A Connector created through the direct
+authenticated create path SHALL still require a credential unless its auth type is `none`; that path SHALL
+NOT be relaxed to express pendingness. A Connector MAY additionally be created in a *pending*,
+credential-less state through the agent-initiated handoff path, and SHALL become usable only once a
+credential is bound through the completion path.
 
 #### Scenario: Create a Connector
 - **WHEN** an authenticated user submits a name, kind (`rest_api` first), base host/URL, and
@@ -51,6 +55,31 @@ fields only), rotate the credential, and delete a Connector.
 #### Scenario: Delete a Connector with no dependents
 - **WHEN** an authenticated owner deletes a Connector that no data source references
 - **THEN** the system deletes the Connector and its associated credential
+
+#### Scenario: The direct create path still requires a credential
+- **WHEN** an authenticated owner posts a Connector with an auth type other than `none` and no credential
+- **THEN** the request is refused
+- **AND** no Connector row is created
+
+#### Scenario: A pending Connector is listed with its status
+- **WHEN** an owner lists Connectors and one of them is pending
+- **THEN** that entry is identified as pending
+- **AND** the entry carries no credential value
+
+#### Scenario: Credential rotation refuses a pending Connector
+- **WHEN** the credential-rotation operation is invoked on a Connector that is pending
+- **THEN** the request is refused with a 400-class error directing the caller to the completion path
+- **AND** no credential is bound, so no outstanding completion token is left live against a usable Connector
+
+#### Scenario: A pending Connector can be deleted by its owner
+- **WHEN** an owner deletes a pending Connector
+- **THEN** the Connector row is removed and its outstanding completion tokens are removed with it
+- **AND** no credential binding is attempted
+
+#### Scenario: Completion transitions a pending Connector to usable
+- **WHEN** a credential is bound to a pending Connector through the completion path
+- **THEN** subsequent reads no longer report it as pending
+- **AND** it becomes acceptable to the source-creation and fetch paths
 
 ### Requirement: Ownership and access control mirror data sources
 The system SHALL scope every Connector to a single owner using the same ownership/RLS model
