@@ -12,7 +12,6 @@ import spray.json.{JsObject, JsString}
 import java.security.SecureRandom
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Security-critical service.
@@ -29,7 +28,8 @@ import scala.concurrent.{ExecutionContext, Future}
  *  - 60-char dummy BCrypt hash for constant-time login compare
  *  - 30-day session expiry (`30L * 24 * 60 * 60` seconds)
  *  - 32-byte hex session tokens
- *  - 16-byte hex CSRF state tokens with 5-minute TTL in an in-memory store */
+ *  - 16-byte hex CSRF state tokens with 5-minute TTL, persisted via the injected
+ *    [[OAuthStateStore]] (HEL-1019: Postgres-backed, cross-process — not an in-memory store) */
 /** Internal carrier from `AuthService` to the route layer: the wire-facing
  *  [[AuthResponse]] no longer includes the raw token (HEL-287 CodeQL #8 —
  *  the token is delivered via `Set-Cookie`, not the JSON body), but the
@@ -77,7 +77,14 @@ final class AuthService(
     // for other collaborators in this file; unlike mfaService this is a raw
     // nullable (matching every other service in this ticket) since `null`
     // is a "not configured" signal, not a domain-meaningful absence.
-    auditService: AuditService = null
+    auditService: AuditService = null,
+    // HEL-1019: injected collaborator, REQUIRED — the pre-HEL-1019 `object AuthService`
+    // companion held CSRF state in a JVM-wide `ConcurrentHashMap`, which made two
+    // `new AuthService(...)` instances share one store and lost state across the two
+    // Cloud Run processes production actually runs. Callers must pass a real
+    // `com.helio.infrastructure.persistence.auth.OAuthStateRepository` (Postgres-backed,
+    // cross-process) so two independently constructed `AuthService`s never share state.
+    stateStore: OAuthStateStore
 )(implicit ec: ExecutionContext) {
 
   import AuthService._
@@ -209,14 +216,16 @@ final class AuthService(
     else Future.successful(user)
 
 
-  /** Instance forwarder to [[AuthService.generateCsrfState]] so OAuth routes
-   *  can call `authService.generateCsrfState()` without leaking the companion. */
-  def generateCsrfState(): String =
-    AuthService.generateCsrfState()
+  /** HEL-1019: delegates to the injected [[OAuthStateStore]] (Postgres-backed in production) so
+   *  the state survives across processes. `Future`-returning because the store is now a database
+   *  call — see design.md Decision "the state API becomes asynchronous". */
+  def generateCsrfState(): Future[String] =
+    stateStore.issue()
 
-  /** Instance forwarder to [[AuthService.validateCsrfState]]. */
-  def validateCsrfState(state: String): Boolean =
-    AuthService.validateCsrfState(state)
+  /** HEL-1019: delegates to the injected [[OAuthStateStore]]. `Future[Boolean]`, see
+   *  `generateCsrfState` above. */
+  def validateCsrfState(state: String): Future[Boolean] =
+    stateStore.validateAndConsume(state)
 
 
   private def authResultOf(session: UserSession, user: User): AuthResult =
@@ -287,26 +296,4 @@ object AuthService {
       createdAt = now,
       expiresAt = now.plusSeconds(SessionTtlSeconds)
     )
-
-
-  /** In-memory CSRF state store: state -> expiry (epochSecond). In production
-   *  this would be a session cookie or distributed store; behaviour preserved
-   *  from the pre-CS2b `AuthSupport.csrfStateStore`. */
-  private val csrfStateStore     = new ConcurrentHashMap[String, Long]()
-  private val CsrfStateTtlSeconds = 300L // 5 minutes — unchanged from pre-CS2b.
-
-  /** Generate a 16-byte hex (32-char) CSRF state token and store its expiry. */
-  def generateCsrfState(): String = {
-    val bytes = new Array[Byte](16)
-    rng.nextBytes(bytes)
-    val state = bytes.map("%02x".format(_)).mkString
-    csrfStateStore.put(state, Instant.now().getEpochSecond + CsrfStateTtlSeconds)
-    state
-  }
-
-  /** Remove + validate. Returns `true` iff the state existed and has not expired. */
-  def validateCsrfState(state: String): Boolean = {
-    val expiryOpt = Option(csrfStateStore.remove(state))
-    expiryOpt.exists(_ > Instant.now().getEpochSecond)
-  }
 }

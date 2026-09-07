@@ -2,7 +2,8 @@ package com.helio.services.auth
 
 import com.helio.services.auth.{AuthResult, AuthService, LoginOutcome, UserTierConfig}
 import com.helio.api.protocols.auth.{LoginRequest, RegisterRequest}
-import com.helio.infrastructure.persistence.auth.UserRepository
+import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.auth.{OAuthStateRepository, UserRepository}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -26,6 +27,7 @@ class AuthServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var userRepo: UserRepository           = _
+  private var oauthStateStore: OAuthStateRepository = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -39,6 +41,10 @@ class AuthServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     userRepo = new UserRepository(db)
+    // HEL-1019: this spec doesn't exercise OAuth, but `AuthService` now requires a real
+    // `OAuthStateStore` collaborator — the embedded superuser connection stands in for both
+    // pools here, matching every other single-pool test fixture in this codebase.
+    oauthStateStore = new OAuthStateRepository(new DbContext(db, db))
   }
 
   override def afterAll(): Unit = {
@@ -54,7 +60,11 @@ class AuthServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
   }
 
   private def serviceWith(ownerEmails: Set[String]): AuthService =
-    new AuthService(userRepo, UserTierConfig(ownerEmails, UserTierConfig.DefaultBetaDailyMessageLimit))
+    new AuthService(
+      userRepo,
+      UserTierConfig(ownerEmails, UserTierConfig.DefaultBetaDailyMessageLimit),
+      stateStore = oauthStateStore
+    )
 
   private def register(service: AuthService, email: String, password: String = "password123"): AuthResult =
     await(service.register(RegisterRequest(email, password, None))) match {
