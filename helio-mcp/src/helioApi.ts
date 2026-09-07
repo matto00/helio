@@ -38,6 +38,7 @@ import type {
   PatchSet,
   PatchSetApplyResponse,
   PatchSetUndoResponse,
+  PipelineAnalyzeConciseResponse,
   PipelineAnalyzeProposalResponse,
   PipelineAnalyzeResponse,
   PipelineProposal,
@@ -287,8 +288,22 @@ export class HelioApi {
     return { ...summary, steps };
   }
 
-  analyzePipeline(pipelineId: string): Promise<PipelineAnalyzeResponse> {
-    return this.http.get<PipelineAnalyzeResponse>(`/api/pipelines/${pipelineId}/analyze`);
+  /** `concise` (HEL-865 design.md D5): opt-in, forwarded as a query param, mirroring
+   *  `runPipeline`'s `dry ? { dry: "true" } : undefined` precedent. The two modes return WHOLLY
+   *  DIFFERENT top-level shapes (`PipelineAnalyzeConciseResponse` `{nodes}` vs
+   *  `PipelineAnalyzeResponse` `{id,name,sourceSchemas,steps}`), hence the overload rather than a
+   *  merely widened parameter — absent/false keeps today's return type and byte-identical
+   *  response, matching HEL-914's precedent for the REST half. */
+  analyzePipeline(pipelineId: string, concise?: false): Promise<PipelineAnalyzeResponse>;
+  analyzePipeline(pipelineId: string, concise: true): Promise<PipelineAnalyzeConciseResponse>;
+  analyzePipeline(
+    pipelineId: string,
+    concise?: boolean,
+  ): Promise<PipelineAnalyzeResponse | PipelineAnalyzeConciseResponse> {
+    return this.http.get<PipelineAnalyzeResponse | PipelineAnalyzeConciseResponse>(
+      `/api/pipelines/${pipelineId}/analyze`,
+      concise ? { concise: "true" } : undefined,
+    );
   }
 
   /** Persisted run history for a pipeline, most-recent-first (`startedAt
