@@ -212,7 +212,11 @@ class PipelineRepository(
       pipeline   <- filteredPipelines
       root       <- rootsTable if root.pipelineId === pipeline.id && root.position === 0
       dataSource <- dataSourcesTable if dataSource.id === root.dataSourceId
-    } yield (pipeline, root.dataSourceId, dataSource.name)
+      // HEL-873 (design.md Decision 3): `lastRunTruncated` is deliberately kept OFF `PipelineRow`/
+      // `*` (mirrors `lastSourceSchema`'s table-local-only convention) so the 9-arity `*` mapper
+      // and every `PipelineRow(...)` construction site (`create`/`createAction`) stay unchanged --
+      // it is read here, targeted, and written via the equally targeted `updateLastRun` projection.
+    } yield (pipeline, root.dataSourceId, dataSource.name, pipeline.lastRunTruncated)
 
   /** HEL-913 task 7.2: every root (position-ordered) for the given pipeline ids, each joined to
     * its `DataSource` name -- the multi-root sibling of `summaryQuery`'s position-0-only join.
@@ -231,7 +235,7 @@ class PipelineRepository(
       PipelineRootSummary(rid, dsId, dsName)
     }.toVector).toMap)
 
-  private def rowToSummary(p: PipelineRow, sourceDataSourceId: String, srcName: String, roots: Vector[PipelineRootSummary]): PipelineSummary =
+  private def rowToSummary(p: PipelineRow, sourceDataSourceId: String, srcName: String, roots: Vector[PipelineRootSummary], lastRunTruncated: Option[Boolean]): PipelineSummary =
     PipelineSummary(
       id                   = p.id,
       name                 = p.name,
@@ -241,6 +245,7 @@ class PipelineRepository(
       lastRunStatus        = p.lastRunStatus,
       lastRunAt            = p.lastRunAt.map(_.toString),
       lastRunRowCount      = p.lastRunRowCount,
+      lastRunTruncated     = lastRunTruncated,
       ownerId              = p.ownerId.toString,
       tag                  = p.tag
     )
@@ -254,7 +259,7 @@ class PipelineRepository(
           for {
             headOpt <- summaryQuery(pipelinesTable.filter(_.id === id.value)).result.headOption
             roots   <- rootsByPipelineId(Set(id.value))
-          } yield headOpt.map { case (p, srcId, srcName) => rowToSummary(p, srcId, srcName, roots.getOrElse(id.value, Vector.empty)) }
+          } yield headOpt.map { case (p, srcId, srcName, truncated) => rowToSummary(p, srcId, srcName, roots.getOrElse(id.value, Vector.empty), truncated) }
         }
     }
 
@@ -265,7 +270,7 @@ class PipelineRepository(
       for {
         headOpt <- summaryQuery(pipelinesTable.filter(p => p.id === id.value && p.ownerId === ownerUuid)).result.headOption
         roots   <- rootsByPipelineId(Set(id.value))
-      } yield headOpt.map { case (p, srcId, srcName) => rowToSummary(p, srcId, srcName, roots.getOrElse(id.value, Vector.empty)) }
+      } yield headOpt.map { case (p, srcId, srcName, truncated) => rowToSummary(p, srcId, srcName, roots.getOrElse(id.value, Vector.empty), truncated) }
     }
   }
 
@@ -354,6 +359,7 @@ class PipelineRepository(
             lastRunStatus        = None,
             lastRunAt            = None,
             lastRunRowCount      = None,
+            lastRunTruncated     = None,
             ownerId              = user.id.value,
             tag                  = tag
           ))
@@ -412,6 +418,7 @@ class PipelineRepository(
         lastRunStatus        = None,
         lastRunAt            = None,
         lastRunRowCount      = None,
+        lastRunTruncated     = None,
         ownerId              = user.id.value,
         tag                  = tag
       )
@@ -459,14 +466,18 @@ class PipelineRepository(
       status: String,
       at: Instant,
       rowCount: Option[Long],
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      // HEL-873 (design.md Decision 3): no default -- written in the SAME statement as
+      // `rowCount` so the pair can never be written apart (the pair-drift the design explicitly
+      // guards against). `None` is the not-recorded state; a real run passes `Some(...)`.
+      truncated: Option[Boolean]
   ): Future[Unit] = {
     val ownerUuid = UUID.fromString(user.id.value)
     ctx.withUserContext(user.id.value)(
       pipelinesTable
         .filter(r => r.id === id.value && r.ownerId === ownerUuid)
-        .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.updatedAt))
-        .update((Some(status), Some(at), rowCount, at))
+        .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.lastRunTruncated, r.updatedAt))
+        .update((Some(status), Some(at), rowCount, truncated, at))
     ).map(_ => ())
   }
 
@@ -489,13 +500,18 @@ class PipelineRepository(
       id: PipelineId,
       status: String,
       at: Instant,
-      rowCount: Option[Long] = None
+      // HEL-873 (evaluation-1.md non-blocking suggestion): no default on `truncated`, mirroring
+      // `updateRunTerminalInternal`'s identical no-default discipline on the sibling table -- a
+      // forgotten call site must fail to compile rather than silently write NULL to a terminal
+      // row. `rowCount` keeps its pre-existing default (unrelated to this ticket's invariant).
+      rowCount: Option[Long] = None,
+      truncated: Option[Boolean]
   ): Future[Unit] =
     ctx.withSystemContext(
       pipelinesTable
         .filter(_.id === id.value)
-        .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.updatedAt))
-        .update((Some(status), Some(at), rowCount, at))
+        .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.lastRunTruncated, r.updatedAt))
+        .update((Some(status), Some(at), rowCount, truncated, at))
     ).map(_ => ())
 
   /** Owner-scoped baseline write (HEL-462). Persists the source schema
@@ -545,7 +561,7 @@ class PipelineRepository(
       for {
         rows  <- query.result
         roots <- rootsByPipelineId(rows.map(_._1.id).toSet)
-      } yield rows.map { case (p, srcId, srcName) => rowToSummary(p, srcId, srcName, roots.getOrElse(p.id, Vector.empty)) }.toVector
+      } yield rows.map { case (p, srcId, srcName, truncated) => rowToSummary(p, srcId, srcName, roots.getOrElse(p.id, Vector.empty), truncated) }.toVector
     }
   }
 }
@@ -583,6 +599,9 @@ object PipelineRepository {
       lastRunStatus: Option[String],
       lastRunAt: Option[String],
       lastRunRowCount: Option[Long],
+      // HEL-873 (design.md Decision 3): NULL/None is "not recorded" -- see `pipelines
+      // .last_run_truncated`'s own doc on `PipelineTable` below.
+      lastRunTruncated: Option[Boolean] = None,
       ownerId: String = "",
       tag: Option[String] = None
   )
@@ -619,6 +638,12 @@ object PipelineRepository {
     // Read/written exclusively via the targeted `findLastSourceSchema` /
     // `updateLastSourceSchema` projections above.
     def lastSourceSchema   = column[Option[String]]("last_source_schema")
+
+    // HEL-873 (design.md Decision 3): denormalised alongside `lastRunRowCount`, written in the
+    // SAME `updateLastRun`/`updateLastRunInternal` statement so the pair can never be written
+    // apart. Kept off `*`/`PipelineRow`, mirroring `lastSourceSchema` above -- read only via the
+    // targeted `summaryQuery` projection (`PipelineSummary.lastRunTruncated`).
+    def lastRunTruncated   = column[Option[Boolean]]("last_run_truncated")
 
     def * =
       (id, name, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId, tag)

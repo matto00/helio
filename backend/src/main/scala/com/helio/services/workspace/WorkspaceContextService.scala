@@ -371,6 +371,7 @@ final class WorkspaceContextService(
       lastRunStatus        = summary.lastRunStatus,
       lastRunAt            = summary.lastRunAt,
       lastRunRowCount      = summary.lastRunRowCount,
+      lastRunTruncated     = summary.lastRunTruncated,
       tag                  = summary.tag,
       steps                = steps,
       stepsError           = stepsError,

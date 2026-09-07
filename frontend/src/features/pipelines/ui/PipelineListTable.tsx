@@ -5,6 +5,7 @@ import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 import { useScrollEdges } from "../../../shared/ui/useScrollEdges";
 import { StatusChip } from "../../../shared/ui/StatusChip";
 import type { PipelineSummary } from "../types/pipelineStep";
+import { TruncatedRowCountBadge } from "./TruncatedRowCountBadge";
 import "./PipelineListTable.css";
 
 interface Props {
@@ -120,8 +121,13 @@ export function PipelineListTable({ pipelines, currentUserId, onShare }: Props) 
                 </td>
                 <td className="pipeline-list-table__td">
                   {pipeline.lastRunRowCount != null ? (
-                    pipeline.lastRunRowCount.toLocaleString() +
-                    (pipeline.lastRunRowCount === 1 ? " row" : " rows")
+                    <>
+                      {pipeline.lastRunRowCount.toLocaleString() +
+                        (pipeline.lastRunRowCount === 1 ? " row" : " rows")}
+                      {/* HEL-873 (design.md Decision 4): icon + text, never colour alone.
+                          `null`/`false` (not-recorded / complete) both render nothing extra. */}
+                      {pipeline.lastRunTruncated === true && <TruncatedRowCountBadge />}
+                    </>
                   ) : (
                     <span className="pipeline-list-table__dash">—</span>
                   )}

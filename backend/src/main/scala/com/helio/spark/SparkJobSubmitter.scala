@@ -7,7 +7,7 @@ import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DataSourceI
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository.parseStaticPayload
-import com.helio.services.pipelines.TriggerSource
+import com.helio.services.pipelines.{PipelineRunService, TriggerSource}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
@@ -80,9 +80,18 @@ class SparkJobSubmitter(
           val rows     = collectRows(resultDf)
           val now      = Instant.now()
           cache.update(runIdStr, RunStatus.Succeeded, rows = Some(rows))
-          pipelineRepo.updateLastRunInternal(pipeline.id, RunStatus.Succeeded, now)
+          // HEL-873 (evaluation-1.md non-blocking suggestion): `truncated` has no default -- same
+          // discipline as `updateRunTerminalInternal` below. `false`, not `None`, since this path
+          // never omits a row count either -- "recorded, nothing truncated" is the honest value.
+          pipelineRepo.updateLastRunInternal(pipeline.id, RunStatus.Succeeded, now, truncated = Some(false))
           if (pipelineRunRepo != null) {
-            pipelineRunRepo.updateRunTerminalInternal(runId, RunStatus.Succeeded, now, rowCount = Some(rows.size))
+            // HEL-873 (design.md task 2.8): this path is dormant (nothing calls `submit`), but
+            // `truncatedReadsJson` takes NO default -- an explicit value here is what keeps a
+            // future, real terminal write from silently regressing to NULL. This Spark path does
+            // not track truncation (`SourceReadStats(truncated = false, ...)` is hardcoded
+            // above), so "recorded, nothing truncated" (`EmptyTruncationJson`) is the honest
+            // value, not "not recorded".
+            pipelineRunRepo.updateRunTerminalInternal(runId, RunStatus.Succeeded, now, rowCount = Some(rows.size), errorLog = None, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
           }
         } catch {
           case ex: Throwable =>
@@ -96,9 +105,13 @@ class SparkJobSubmitter(
             log.error(s"Spark pipeline job failed for pipeline ${pipeline.id.value}, run $runIdStr", ex)
             val errorMsg = "Pipeline execution failed"
             cache.update(runIdStr, RunStatus.Failed, error = Some(errorMsg))
-            pipelineRepo.updateLastRunInternal(pipeline.id, RunStatus.Failed, now)
+            // HEL-873: a failed run persists no row count, so `truncated = false` is the same
+            // "recorded, nothing truncated" convention `PipelineRunService`'s failure paths use.
+            pipelineRepo.updateLastRunInternal(pipeline.id, RunStatus.Failed, now, truncated = Some(false))
             if (pipelineRunRepo != null) {
-              pipelineRunRepo.updateRunTerminalInternal(runId, RunStatus.Failed, now, errorLog = Some(errorMsg))
+              // HEL-873 (design.md Decision 2a): a failed run writes a recorded, empty signal,
+              // never NULL.
+              pipelineRunRepo.updateRunTerminalInternal(runId, RunStatus.Failed, now, rowCount = None, errorLog = Some(errorMsg), truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
             }
         }
       }

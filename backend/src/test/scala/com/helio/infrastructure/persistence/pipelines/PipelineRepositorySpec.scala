@@ -69,7 +69,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "set lastRunStatus to succeeded and lastRunAt to the given instant" in {
       val pid = seedPipeline()
       val at  = Instant.now().truncatedTo(temporal.ChronoUnit.MILLIS)
-      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = None, systemUser))
+      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = None, systemUser, truncated = Some(false)))
 
       val found = await(pipelineRepo.findById(pid, systemUser))
       found shouldBe defined
@@ -80,7 +80,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "set lastRunStatus to failed" in {
       val pid = seedPipeline()
       val at  = Instant.now()
-      await(pipelineRepo.updateLastRun(pid, "failed", at, rowCount = None, systemUser))
+      await(pipelineRepo.updateLastRun(pid, "failed", at, rowCount = None, systemUser, truncated = Some(false)))
 
       val found = await(pipelineRepo.findById(pid, systemUser))
       found.get.lastRunStatus shouldBe Some("failed")
@@ -89,7 +89,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "reflect updated status in listSummaries" in {
       val pid = seedPipeline()
       val at  = Instant.now()
-      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = None, systemUser))
+      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = None, systemUser, truncated = Some(false)))
 
       val summaries = await(pipelineRepo.listSummaries(systemUser))
       val summary   = summaries.find(_.id == pid.value)
@@ -101,7 +101,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "persist lastRunRowCount when provided and reflect it in listSummaries" in {
       val pid = seedPipeline()
       val at  = Instant.now()
-      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = Some(1234L), systemUser))
+      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = Some(1234L), systemUser, truncated = Some(false)))
 
       val summaries = await(pipelineRepo.listSummaries(systemUser))
       val summary   = summaries.find(_.id == pid.value)
@@ -112,7 +112,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "leave lastRunRowCount as None when no rowCount is provided" in {
       val pid = seedPipeline()
       val at  = Instant.now()
-      await(pipelineRepo.updateLastRun(pid, "failed", at, rowCount = None, systemUser))
+      await(pipelineRepo.updateLastRun(pid, "failed", at, rowCount = None, systemUser, truncated = Some(false)))
 
       val summaries = await(pipelineRepo.listSummaries(systemUser))
       val summary   = summaries.find(_.id == pid.value)
@@ -264,7 +264,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     "updateLastRun is a silent no-op for a non-owner" in {
       val pid = seedPipeline()
       val at  = Instant.now()
-      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = Some(99L), otherUser))
+      await(pipelineRepo.updateLastRun(pid, "succeeded", at, rowCount = Some(99L), otherUser, truncated = Some(false)))
       val found = await(pipelineRepo.findByIdInternal(pid)).get
       found.lastRunStatus shouldBe None
     }

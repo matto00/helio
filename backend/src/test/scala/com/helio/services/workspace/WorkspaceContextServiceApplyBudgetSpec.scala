@@ -293,6 +293,7 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
           lastRunStatus = Some("success"),
           lastRunAt = Some("2024-01-01T00:00:00Z"),
           lastRunRowCount = Some(100L),
+          lastRunTruncated = Some(false),
           tag = None,
           steps = Vector(WorkspaceContextPipelineStep(0, "cast", Vector("amount"), None)),
           stepsError = None,

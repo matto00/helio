@@ -2,6 +2,7 @@ package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository
+import com.helio.services.pipelines.PipelineRunService
 import com.helio.domain.model.{AssertionResult, AuthenticatedUser, PipelineId, PipelineRunId, UserId}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -9,6 +10,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
+import spray.json._
 
 import java.time.Instant
 import java.util.UUID
@@ -98,7 +100,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     "insertDryRun persists triggerSource manual" in {
       val pid   = seedPipeline()
       val runId = PipelineRunId(UUID.randomUUID().toString)
-      await(pipelineRunRepo.insertDryRun(runId, pid, Instant.now(), rowCount = 1, systemUser))
+      await(pipelineRunRepo.insertDryRun(runId, pid, Instant.now(), rowCount = 1, systemUser, truncatedReadsJson = PipelineRunService.EmptyTruncationJson))
 
       val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       runs.head.triggerSource shouldBe "manual"
@@ -107,7 +109,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     "insertDryRunInternal persists triggerSource manual" in {
       val pid   = seedPipeline()
       val runId = PipelineRunId(UUID.randomUUID().toString)
-      await(pipelineRunRepo.insertDryRunInternal(runId, pid, Instant.now(), rowCount = 1))
+      await(pipelineRunRepo.insertDryRunInternal(runId, pid, Instant.now(), rowCount = 1, truncatedReadsJson = PipelineRunService.EmptyTruncationJson))
 
       val runs = await(pipelineRunRepo.listByPipelineInternal(pid))
       runs.head.triggerSource shouldBe "manual"
@@ -120,7 +122,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       await(pipelineRunRepo.insertRun(runId, pid, start, systemUser))
 
       val end = Instant.now()
-      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", end, rowCount = Some(42), errorLog = None, systemUser))
+      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", end, rowCount = Some(42), errorLog = None, systemUser, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
 
       val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       runs.head.status      shouldBe "succeeded"
@@ -136,7 +138,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       await(pipelineRunRepo.insertRun(runId, pid, start, systemUser))
 
       val end = Instant.now()
-      await(pipelineRunRepo.updateRunTerminal(runId, "failed", end, rowCount = None, errorLog = Some("boom"), systemUser))
+      await(pipelineRunRepo.updateRunTerminal(runId, "failed", end, rowCount = None, errorLog = Some("boom"), systemUser, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
 
       val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       runs.head.status   shouldBe "failed"
@@ -192,7 +194,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val pid    = seedPipeline()
       val runId  = PipelineRunId(UUID.randomUUID().toString)
       val now    = Instant.now()
-      await(pipelineRunRepo.insertDryRun(runId, pid, now, rowCount = 3, systemUser))
+      await(pipelineRunRepo.insertDryRun(runId, pid, now, rowCount = 3, systemUser, truncatedReadsJson = PipelineRunService.EmptyTruncationJson))
 
       val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       runs should have size 1
@@ -209,7 +211,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val base = Instant.now()
       for (i <- 1 to 12) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds(i.toLong), rowCount = i, systemUser))
+        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds(i.toLong), rowCount = i, systemUser, truncatedReadsJson = PipelineRunService.EmptyTruncationJson))
       }
 
       val before = await(pipelineRunRepo.listByPipeline(pid, systemUser))
@@ -235,7 +237,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       }
       for (i <- 1 to 12) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i, systemUser))
+        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i, systemUser, truncatedReadsJson = PipelineRunService.EmptyTruncationJson))
       }
 
       await(pipelineRunRepo.deleteOldDryRuns(pid, systemUser, keepN = 10))
@@ -269,7 +271,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     "insertDryRun is a silent no-op for a non-owner (CS2)" in {
       val pid   = seedPipeline()
       val runId = PipelineRunId(UUID.randomUUID().toString)
-      await(pipelineRunRepo.insertDryRun(runId, pid, Instant.now(), rowCount = 5, otherUser))
+      await(pipelineRunRepo.insertDryRun(runId, pid, Instant.now(), rowCount = 5, otherUser, truncatedReadsJson = PipelineRunService.EmptyTruncationJson))
       await(pipelineRunRepo.listByPipeline(pid, systemUser)) shouldBe empty
     }
 
@@ -278,7 +280,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val runId = PipelineRunId(UUID.randomUUID().toString)
       await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), systemUser))
       await(pipelineRunRepo.updateRunTerminal(
-        runId, "succeeded", Instant.now(), rowCount = Some(42), errorLog = None, otherUser
+        runId, "succeeded", Instant.now(), rowCount = Some(42), errorLog = None, otherUser, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)
       ))
       // Owner's view still shows queued — the cross-user write was rejected.
       val runs = await(pipelineRunRepo.listByPipeline(pid, systemUser))
@@ -306,7 +308,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       }
       for (i <- 1 to 5) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i, systemUser))
+        await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i, systemUser, truncatedReadsJson = PipelineRunService.EmptyTruncationJson))
       }
 
       await(pipelineRunRepo.deleteOldRuns(pid, systemUser, keepN = 10))
@@ -401,5 +403,91 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     // method itself was removed (dead: zero production callers survived
     // task 4.1's DataType-service deletion, and its backing
     // `pipelines.output_data_type_id` column is dropped by this same task).
+
+    // HEL-873: `truncated_reads` three-state persistence.
+    "insertRunInternal leaves truncated_reads NULL (queued, not-recorded-by-construction)" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunInternal(runId, pid, Instant.now()))
+
+      val runs = await(pipelineRunRepo.listByPipelineInternal(pid))
+      runs.head.truncatedReads shouldBe None
+    }
+
+    "updateRunTerminalInternal persists a non-empty truncated_reads array" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunInternal(runId, pid, Instant.now()))
+      val payload = """[{"dataSourceName":"ds","rowsRead":1000,"availableRowCount":3303}]"""
+      await(pipelineRunRepo.updateRunTerminalInternal(
+        runId, "succeeded", Instant.now(), rowCount = Some(1000), errorLog = None, truncatedReadsJson = Some(payload)
+      ))
+
+      val runs = await(pipelineRunRepo.listByPipelineInternal(pid))
+      // Compared as parsed JSON, not raw string equality -- Postgres's JSONB storage does not
+      // preserve key order or whitespace.
+      runs.head.truncatedReads.map(_.parseJson) shouldBe Some(payload.parseJson)
+      // Red-arm check (systematic-debugging.md): a run that actually persisted the
+      // recorded-and-complete literal must NOT read back as this non-empty payload -- confirms
+      // the assertion above can fail.
+      runs.head.truncatedReads.map(_.parseJson) should not be Some(PipelineRunService.EmptyTruncationJson.parseJson)
+    }
+
+    "updateRunTerminalInternal persists the recorded-and-complete literal (not NULL) for a complete run" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunInternal(runId, pid, Instant.now()))
+      await(pipelineRunRepo.updateRunTerminalInternal(
+        runId, "succeeded", Instant.now(), rowCount = Some(5), errorLog = None, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)
+      ))
+
+      val runs = await(pipelineRunRepo.listByPipelineInternal(pid))
+      // Compared as parsed JSON (Postgres JSONB does not preserve key order/whitespace) --
+      // `EmptyTruncationJson` is the OBJECT encoding, `{"primaryAvailableRowCount":null,
+      // "reads":[]}`, not a bare `"[]"` (evaluation-2.md item 2: a bare array is NOT this
+      // column's recorded-and-complete shape and would decode to not-recorded on read).
+      runs.head.truncatedReads.map(_.parseJson) shouldBe Some(PipelineRunService.EmptyTruncationJson.parseJson)
+      runs.head.truncatedReads should not be None
+    }
+
+    "updateRunTerminalInternal persists the recorded-and-complete literal (not NULL) for a failed run" in {
+      val pid   = seedPipeline()
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunInternal(runId, pid, Instant.now()))
+      await(pipelineRunRepo.updateRunTerminalInternal(
+        runId, "failed", Instant.now(), rowCount = None, errorLog = Some("boom"), truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)
+      ))
+
+      val runs = await(pipelineRunRepo.listByPipelineInternal(pid))
+      runs.head.status          shouldBe "failed"
+      runs.head.rowCount        shouldBe None
+      runs.head.truncatedReads.map(_.parseJson)  shouldBe Some(PipelineRunService.EmptyTruncationJson.parseJson)
+    }
+
+    "insertDryRunInternal over a truncated source persists a recorded, non-empty signal" in {
+      val pid     = seedPipeline()
+      val runId   = PipelineRunId(UUID.randomUUID().toString)
+      val payload = """[{"dataSourceName":"ds","rowsRead":1000,"availableRowCount":3303}]"""
+      await(pipelineRunRepo.insertDryRunInternal(runId, pid, Instant.now(), rowCount = 1000, truncatedReadsJson = payload))
+
+      val runs = await(pipelineRunRepo.listByPipelineInternal(pid))
+      runs.head.status         shouldBe "dry_run"
+      runs.head.truncatedReads.map(_.parseJson) shouldBe Some(payload.parseJson)
+    }
+
+    "a row with a NULL truncated_reads column (pre-existing shape) reads back as not-recorded" in {
+      import PostgresProfile.api._
+      val pid   = seedPipeline()
+      val runId = UUID.randomUUID().toString
+      // Inserted directly, bypassing every repository method -- exercises the REAL historical
+      // shape a pre-HEL-873 row has, not a repository-mediated approximation of it.
+      await(db.run(sqlu"""
+        INSERT INTO pipeline_runs (id, pipeline_id, status, started_at, completed_at, row_count, trigger_source)
+        VALUES ($runId, ${pid.value}, 'succeeded', now(), now(), 500, 'manual')
+      """))
+
+      val runs = await(pipelineRunRepo.listByPipelineInternal(pid))
+      runs.head.truncatedReads shouldBe None
+    }
   }
 }

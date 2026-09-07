@@ -147,3 +147,52 @@ describe("RunHistoryModal — HEL sweep F-159/F-137", () => {
     expect(screen.getByText("Dry run")).toBeInTheDocument();
   });
 });
+
+describe("RunHistoryModal — HEL-873 persisted truncation signal", () => {
+  it("marks a truncated run's row count partial and leaves a complete run's unmarked", () => {
+    const truncatedRun = makeRun({
+      id: "run-truncated",
+      truncation: {
+        truncated: true,
+        primaryAvailableRowCount: 3303,
+        reads: [{ dataSourceName: "big-source", rowsRead: 1000, availableRowCount: 3303 }],
+        notice: "cut",
+      },
+    });
+    const completeRun = makeRun({
+      id: "run-complete",
+      // skeptic-final-1.md non-blocking note: `primaryAvailableRowCount`/`notice` are OMITTED on
+      // the wire for a complete run (spray-json drops an absent Option field rather than sending
+      // `null`) -- the live API confirmed `{"truncated":false,"reads":[]}`. Omitted here too,
+      // not `null`, so this fixture matches a shape the backend can actually produce.
+      truncation: { truncated: false, reads: [] },
+    });
+    render(<RunHistoryModal runs={[truncatedRun, completeRun]} onClose={jest.fn()} />);
+
+    // Exactly one "Partial" marker -- the truncated run's, not the complete run's.
+    expect(screen.getAllByText(/Partial/)).toHaveLength(1);
+  });
+
+  it("renders no marker for a not-recorded run (truncation absent) — never asserted as complete", () => {
+    const run = makeRun({ truncation: undefined });
+    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+
+    expect(screen.queryByText(/Partial/)).not.toBeInTheDocument();
+  });
+
+  it("gives the truncated marker an accessible name — not colour alone", () => {
+    const run = makeRun({
+      truncation: {
+        truncated: true,
+        primaryAvailableRowCount: 3303,
+        reads: [{ dataSourceName: "big-source", rowsRead: 1000, availableRowCount: 3303 }],
+        notice: "cut",
+      },
+    });
+    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+
+    expect(
+      screen.getByRole("img", { name: /Partial: this row count was truncated/ }),
+    ).toBeInTheDocument();
+  });
+});

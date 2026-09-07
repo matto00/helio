@@ -47,6 +47,46 @@
       },
       "required": ["passed", "warnFailed", "errorFailed", "failures"],
       "additionalProperties": false
+    },
+    "TruncatedReadResponse": {
+      "type": "object",
+      "description": "One truncated read (HEL-861), primary source included when it was itself truncated.",
+      "properties": {
+        "dataSourceName": {
+          "type": "string"
+        },
+        "rowsRead": {
+          "type": "integer"
+        },
+        "availableRowCount": {
+          "type": "integer"
+        }
+      },
+      "required": ["dataSourceName", "rowsRead"],
+      "additionalProperties": false
+    },
+    "RunTruncationRecord": {
+      "type": "object",
+      "description": "HEL-873: the persisted three-state truncation signal. `truncated` is run-wide and derived from `reads.nonEmpty` -- never an independently-writable flag. `reads` is ALWAYS present on this object (present-and-empty beats absent, HEL-890) -- empty on a recorded, complete run. This whole object being ABSENT from `PipelineRunRecord.truncation` is the distinct NOT-RECORDED state, never confusable with `truncated: false`.",
+      "properties": {
+        "truncated": {
+          "type": "boolean"
+        },
+        "primaryAvailableRowCount": {
+          "type": "integer"
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TruncatedReadResponse"
+          }
+        },
+        "notice": {
+          "type": "string"
+        }
+      },
+      "required": ["truncated", "reads"],
+      "additionalProperties": false
     }
   },
   "properties": {
@@ -83,6 +123,10 @@
     },
     "assertions": {
       "$ref": "#/$defs/AssertionSummary"
+    },
+    "truncation": {
+      "description": "HEL-873: absent means NOT RECORDED (predates this capability, or the run has not reached a terminal status) -- never rendered as `truncated: false`.",
+      "$ref": "#/$defs/RunTruncationRecord"
     }
   },
   "required": [

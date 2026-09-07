@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
-import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, OutputPreviewEntry, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse, TruncatedReadResponse}
+import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, OutputPreviewEntry, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse, RunTruncationRecord, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, Output, OutputId, Pipeline, PipelineId, PipelineRootId, PipelineRunId, PipelineStep, PipelineStepId, TruncatedRead, TruncationSink}
 import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeDependencyClosure, NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException, StepKey}
@@ -141,6 +141,31 @@ final class PipelineRunService(
     )
   }
 
+  /** HEL-873 (design.md Decision 1/2, evaluation-1.md CR1): serializes to the raw JSON text
+    * stored in `pipeline_runs.truncated_reads` -- an OBJECT, `{"primaryAvailableRowCount": …,
+    * "reads": [...]}`, not a bare array. A bare array cannot distinguish "the primary's own read
+    * happens to be `reads.head`" from "the head entry is an unrelated truncated secondary" --
+    * `truncationFields` only prepends the primary's own entry when the PRIMARY ITSELF was
+    * truncated, so a complete-primary/truncated-secondary run has no primary entry in `reads` at
+    * all, and inferring `primaryAvailableRowCount` from `reads.headOption` would silently publish
+    * a secondary source's count under a primary-scoped name. Persisting the scalar explicitly,
+    * alongside the detail vector it does NOT depend on, removes that inference entirely rather
+    * than guarding it. Hand-rolled rather than relying on `PipelineProtocol
+    * .truncatedReadResponseFormat` (a trait member, not reachable from this class without mixing
+    * the whole trait in). Mirrors [[PipelineRunService.parseTruncationRecord]], its read-side
+    * inverse. */
+  private def truncatedReadsToJson(primaryAvailableRowCount: Option[Long], reads: Vector[TruncatedReadResponse]): String =
+    JsObject(
+      "primaryAvailableRowCount" -> primaryAvailableRowCount.map(JsNumber(_)).getOrElse(JsNull),
+      "reads" -> JsArray(reads.map { r =>
+        JsObject(
+          "dataSourceName"    -> JsString(r.dataSourceName),
+          "rowsRead"          -> JsNumber(r.rowsRead),
+          "availableRowCount" -> r.availableRowCount.map(JsNumber(_)).getOrElse(JsNull)
+        )
+      })
+    ).compactPrint
+
   /** HEL-477 design.md Decision 5: only run *submission* is audited, not
    *  every internal status transition — fired once, from `submit` itself,
    *  regardless of whether the run subsequently succeeds/fails/blocks. */
@@ -213,10 +238,11 @@ final class PipelineRunService(
     insertWork
       .flatMap { _ =>
         if (pipelineRunRepo != null)
-          pipelineRunRepo.updateRunTerminal(runId, "failed", now, rowCount = None, errorLog = Some(reason), user)
+          // HEL-873 (design.md Decision 2a): a failed/never-attempted run records `[]`, never NULL.
+          pipelineRunRepo.updateRunTerminal(runId, "failed", now, rowCount = None, errorLog = Some(reason), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
         else Future.successful(())
       }
-      .flatMap { _ => pipelineRepo.updateLastRun(pipelineId, "failed", now, rowCount = None, user) }
+      .flatMap { _ => pipelineRepo.updateLastRun(pipelineId, "failed", now, rowCount = None, user, truncated = Some(false)) }
       .map { _ =>
         // HEL-861 (design D4/task 3.5): no source read occurred here -- the run was never
         // attempted -- so leaving sourceTruncated/etc. on their defaulted `false`/`None` is
@@ -744,12 +770,71 @@ final class PipelineRunService(
                   errorLog           = r.errorLog,
                   triggerSource      = r.triggerSource,
                   triggeredByTokenId = r.triggeredByTokenId.map(_.toString),
-                  assertions         = summarizeAssertions(assertionRows)
+                  assertions         = summarizeAssertions(assertionRows),
+                  truncation         = r.truncatedReads.flatMap(parseTruncationRecord)
                 )
               }
             }.map(Right(_))
           }
       }
+
+  /** HEL-873 (design.md Decision 2, task 3.3; evaluation-1.md CR1/CR4): maps a non-null
+    * `truncated_reads` column to a present [[RunTruncationRecord]] -- NULL (the column absent
+    * entirely, never reaching this method at all -- see the `.flatMap` at the call site above) is
+    * the distinct "not recorded" state. `truncated` is derived, never trusted from a second
+    * stored flag (there is none). `notice` is RECOMPOSED here via the same
+    * [[PipelineRunService.composeTruncationNotice]] the live run result uses (design.md
+    * Decision 1) -- never a second, persisted phrasing. `primaryAvailableRowCount` is read back
+    * VERBATIM from the persisted scalar (never inferred from `reads.headOption` -- see
+    * `truncatedReadsToJson`'s doc for why that inference is unsound).
+    *
+    * TOTAL over malformed input (CR4): `Try` wraps the whole decode, including
+    * `json.parseJson`'s own `ParsingException` on unparseable text, a non-object array element,
+    * and a missing required field -- ANY of those degrade this one record to `None` (not
+    * recorded), never to an empty-and-complete [[RunTruncationRecord]]. Collapsing an
+    * undecodable row to `[]` would assert completeness for a row whose truncation facts could not
+    * actually be read, which is precisely the defect this capability exists to remove. A failure
+    * here is logged (same level as a structurally-wrong-but-parseable JSON value) and never
+    * propagates -- one bad row must not fail the whole `GET /api/pipelines/:id/run-history`
+    * request for every other run. */
+  private def parseTruncationRecord(json: String): Option[RunTruncationRecord] =
+    Try {
+      val obj = json.parseJson.asJsObject
+      val primaryAvailableRowCount = obj.fields.get("primaryAvailableRowCount").flatMap {
+        case JsNull => None
+        case other  => Some(other.convertTo[Long])
+      }
+      // HEL-873 (evaluation-2.md non-blocking suggestion): a `case JsArray(elements)` match
+      // expresses "must be a JSON array" as a pattern rather than a cast -- still inside this
+      // `Try`, so a non-array `reads` (any other JsValue) falls through to `MatchError`, caught
+      // and degraded to not-recorded exactly like every other malformed shape (CR4).
+      val reads = (obj.fields("reads") match {
+        case JsArray(elements) => elements
+        case other             => throw new IllegalArgumentException(s"reads must be a JSON array, got: $other")
+      }).map { v =>
+        val readObj = v.asJsObject
+        TruncatedReadResponse(
+          dataSourceName    = readObj.fields("dataSourceName").convertTo[String],
+          rowsRead          = readObj.fields("rowsRead").convertTo[Long],
+          availableRowCount = readObj.fields.get("availableRowCount").flatMap {
+            case JsNull => None
+            case other  => Some(other.convertTo[Long])
+          }
+        )
+      }.toVector
+      val domainReads = reads.map(r => TruncatedRead(r.dataSourceName, r.rowsRead, r.availableRowCount))
+      RunTruncationRecord(
+        truncated                = reads.nonEmpty,
+        primaryAvailableRowCount = primaryAvailableRowCount,
+        reads                    = reads,
+        notice                   = PipelineRunService.composeTruncationNotice(domainReads, InProcessPipelineEngine.MaxRunRows)
+      )
+    } match {
+      case Success(record) => Some(record)
+      case Failure(ex) =>
+        log.error(s"HEL-873: pipeline_runs.truncated_reads carried undecodable JSON, treating as not-recorded: $json", ex)
+        None
+    }
 
   /** Per-run pass/fail-by-severity summary (design.md Decision 1): `failures`
    *  carries only the FAILED results -- a passing result is just a count. */
@@ -865,10 +950,11 @@ final class PipelineRunService(
           if (!isDry) {
             val updateRun =
               if (pipelineRunRepo != null)
-                pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user)
+                // HEL-873 (design.md Decision 2a): a failed run records `[]`, never NULL.
+                pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
               else Future.successful(())
             updateRun.flatMap { _ =>
-              pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user)
+              pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, truncated = Some(false))
             }.flatMap { _ =>
               persistAssertions(runId, assertionSink.results)
             }
@@ -889,14 +975,16 @@ final class PipelineRunService(
         // is never blocked (design.md Decision 5), hence the `.map(_ => None)`.
         // HEL-905 (design.md Decision 5): a dry run persists nothing -- it never reaches
         // onUnblockedRunSuccess's per-node writes, only its own (unchanged) history/SSE bookkeeping.
-        val followUp: Future[Option[String]] =
-          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results).map(_ => None)
-          else
-            onRunSuccess(roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionSink.results)
-        // R10: the lowest-positioned root's stats (`roots.head`, position-ordered by the
-        // caller) -- same tiebreak as `TreeWalkResult.rows`/`primaryStats` above.
+        // HEL-873 (design.md task 2.4): computed BEFORE the success branch (moved up from below)
+        // so the persisted write paths -- `onDryRunSuccess`/`onRunSuccess` -- have `truncatedReads`
+        // in scope. R10: the lowest-positioned root's stats (`roots.head`, position-ordered by
+        // the caller) -- same tiebreak as `TreeWalkResult.rows`/`primaryStats` above.
         val (truncated, availableRowCount, notice, truncatedReads) =
           truncationFields(roots.head._2.name, sourceCount, primaryStats, truncationSink)
+        val followUp: Future[Option[String]] =
+          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results, availableRowCount, truncatedReads).map(_ => None)
+          else
+            onRunSuccess(roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionSink.results, availableRowCount, truncatedReads)
         followUp.map { blockedSummary =>
           val response = RunResultResponse(
             jsRows, jsRows.size, stepCounts, sourceCount, runId = Some(runId.value),
@@ -931,12 +1019,18 @@ final class PipelineRunService(
       pidStr:           String,
       rowCount:         Int,
       user:             AuthenticatedUser,
-      assertionResults: Vector[AssertionResult]
+      assertionResults: Vector[AssertionResult],
+      // HEL-873 (evaluation-1.md CR1): persisted verbatim alongside `truncatedReads`, never
+      // re-inferred from it on read -- see `truncatedReadsToJson`'s doc.
+      primaryAvailableRowCount: Option[Long],
+      // HEL-873 (design.md Decision 2a): a dry run inserts an already-terminal row in one
+      // statement (bypassing `updateRunTerminalInternal` entirely) -- it must never persist NULL.
+      truncatedReads:   Vector[TruncatedReadResponse]
   ): Future[Unit] = {
     publish(pidStr, RunStatusEvent("dry_run", rowCount = Some(rowCount)))
     if (pipelineRunRepo != null)
       pipelineRunRepo
-        .insertDryRun(runId, pipelineId, startAt, rowCount, user)
+        .insertDryRun(runId, pipelineId, startAt, rowCount, user, truncatedReadsToJson(primaryAvailableRowCount, truncatedReads))
         .flatMap(_ => pipelineRunRepo.deleteOldDryRuns(pipelineId, user))
         .recoverWith { case _ => Future.successful(()) }
         // HEL-509 (419-B, design.md Decision 5): insertAssertions must be
@@ -968,11 +1062,13 @@ final class PipelineRunService(
       jsRows:             Vector[JsObject],
       nodeOutcomes:       Map[NodeKey, NodeOutcome],
       user:               AuthenticatedUser,
-      assertionResults:   Vector[AssertionResult]
+      assertionResults:   Vector[AssertionResult],
+      primaryAvailableRowCount: Option[Long],
+      truncatedReads:     Vector[TruncatedReadResponse]
   ): Future[Option[String]] = {
     val blockingFailures = assertionResults.filter(r => r.severity == "error" && !r.passed)
     if (blockingFailures.nonEmpty) onBlockedRun(pipelineId, runId, pidStr, user, assertionResults, blockingFailures)
-    else onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionResults)
+    else onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionResults, primaryAvailableRowCount, truncatedReads)
   }
 
   /** Blocked branch (design.md Decisions 2-4): terminal status `"failed"`
@@ -993,10 +1089,12 @@ final class PipelineRunService(
     val summary = summarizeBlockingFailures(blockingFailures)
     publish(pidStr, RunStatusEvent("failed", errorLog = Some(summary)))
     val now = Instant.now()
-    val updateMeta = pipelineRepo.updateLastRun(pipelineId, "failed", now, rowCount = None, user).map(_ => ())
+    // HEL-873 (design.md Decision 2a): a blocked run is persisted as a failed run -- `[]`, never
+    // NULL.
+    val updateMeta = pipelineRepo.updateLastRun(pipelineId, "failed", now, rowCount = None, user, truncated = Some(false)).map(_ => ())
     val updateRun =
       if (pipelineRunRepo != null)
-        pipelineRunRepo.updateRunTerminal(runId, "failed", now, rowCount = None, errorLog = Some(summary), user).map(_ => ())
+        pipelineRunRepo.updateRunTerminal(runId, "failed", now, rowCount = None, errorLog = Some(summary), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)).map(_ => ())
       else Future.successful(())
     val assertionsInsert = persistAssertions(runId, assertionResults)
     for {
@@ -1018,7 +1116,9 @@ final class PipelineRunService(
       jsRows:             Vector[JsObject],
       nodeOutcomes:       Map[NodeKey, NodeOutcome],
       user:               AuthenticatedUser,
-      assertionResults:   Vector[AssertionResult]
+      assertionResults:   Vector[AssertionResult],
+      primaryAvailableRowCount: Option[Long],
+      truncatedReads:     Vector[TruncatedReadResponse]
   ): Future[Option[String]] = {
     publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
     val now = Instant.now()
@@ -1146,10 +1246,14 @@ final class PipelineRunService(
             .map(_ => ())
         }
       else Future.successful(())
-    val updateMeta = pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user).map(_ => ())
+    // HEL-873 (design.md Decision 2/tasks 2.2/2.3): a successful run always writes a non-null
+    // value -- `[]` when nothing was truncated -- written in the SAME statement as `rowCount`/
+    // `status` on both tables.
+    val truncatedReadsJson = truncatedReadsToJson(primaryAvailableRowCount, truncatedReads)
+    val updateMeta = pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, truncated = Some(truncatedReads.nonEmpty)).map(_ => ())
     val updateRun =
       if (pipelineRunRepo != null)
-        pipelineRunRepo.updateRunTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user).map(_ => ())
+        pipelineRunRepo.updateRunTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user, truncatedReadsJson = Some(truncatedReadsJson)).map(_ => ())
       else Future.successful(())
     // HEL-509 (419-B): insertRun already ran during preExec, so the parent
     // `pipeline_runs` row exists before this real-run success path runs —
@@ -1252,6 +1356,14 @@ final class PipelineRunService(
  *  unrunnable kind needs only a one-line addition here, no new plumbing. */
 object PipelineRunService {
   val SparkUnsupportedKinds: Set[String] = Set.empty[String]
+
+  /** HEL-873 (evaluation-1.md CR1): the recorded-and-complete `truncated_reads` payload -- a
+    * literal matching `truncatedReadsToJson(None, Vector.empty)`'s object shape (never a bare
+    * `"[]"`, which the read side no longer accepts as valid JSON for this column). Every
+    * failure/blocked terminal write uses this same constant, including `SparkJobSubmitter`'s two
+    * dormant call sites, so there is exactly one "recorded, nothing truncated, no primary count"
+    * literal in the codebase to keep in sync with the write-side object shape. */
+  val EmptyTruncationJson: String = """{"primaryAvailableRowCount":null,"reads":[]}"""
 
   private val truncationConsequenceSentence: String =
     "Results computed from this run — including any filter, sort, or aggregate — describe only " +
