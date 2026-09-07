@@ -99,7 +99,15 @@ class OAuthRoutes(
   val routes: Route =
     concat(
       path("google") {
-        get { redirect(buildGoogleAuthUrl(authService.generateCsrfState()), StatusCodes.Found) }
+        get {
+          // HEL-1019: generateCsrfState is now a database call (Future[String]) — the state
+          // store moved out of process memory so a callback landing on a different Cloud Run
+          // instance (or a cold-booted one) can still validate it. `onSuccess` rather than
+          // `Await.result`: CLAUDE.md forbids blocking the Pekko dispatcher.
+          onSuccess(authService.generateCsrfState()) { state =>
+            redirect(buildGoogleAuthUrl(state), StatusCodes.Found)
+          }
+        }
       },
       path("google" / "callback") {
         get {
@@ -110,17 +118,27 @@ class OAuthRoutes(
       }
     )
 
-  private def handleCallback(codeOpt: Option[String], errorOpt: Option[String], stateOpt: Option[String]): Route =
-    if (!stateOpt.exists(authService.validateCsrfState))
-      complete(StatusCodes.BadRequest, ErrorResponse("Invalid or missing OAuth state parameter"))
-    else errorOpt match {
-      case Some("access_denied") => complete(StatusCodes.BadRequest, ErrorResponse("OAuth access denied"))
-      case Some(err)             => complete(StatusCodes.BadRequest, ErrorResponse(s"OAuth error: $err"))
-      case None => codeOpt match {
-        case None       => complete(StatusCodes.BadRequest, ErrorResponse("OAuth error: missing authorization code"))
-        case Some(code) => completeOAuthExchange(code)
+  private def handleCallback(codeOpt: Option[String], errorOpt: Option[String], stateOpt: Option[String]): Route = {
+    // HEL-1019: validateCsrfState is now a database call (Future[Boolean]) — see routes above.
+    // The state check MUST still happen, and be rejected with the same 400, before any
+    // authorization-code exchange with Google is attempted.
+    val stateValidF: Future[Boolean] = stateOpt match {
+      case None        => Future.successful(false)
+      case Some(state) => authService.validateCsrfState(state)
+    }
+    onSuccess(stateValidF) { stateValid =>
+      if (!stateValid)
+        complete(StatusCodes.BadRequest, ErrorResponse("Invalid or missing OAuth state parameter"))
+      else errorOpt match {
+        case Some("access_denied") => complete(StatusCodes.BadRequest, ErrorResponse("OAuth access denied"))
+        case Some(err)             => complete(StatusCodes.BadRequest, ErrorResponse(s"OAuth error: $err"))
+        case None => codeOpt match {
+          case None       => complete(StatusCodes.BadRequest, ErrorResponse("OAuth error: missing authorization code"))
+          case Some(code) => completeOAuthExchange(code)
+        }
       }
     }
+  }
 
   private def completeOAuthExchange(code: String): Route = {
     val result = for {

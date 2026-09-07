@@ -13,7 +13,7 @@ import com.helio.api.routes.auth.OAuthRoutes
 import com.helio.api._
 import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, UserId, UserMfa}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
-import com.helio.infrastructure.persistence.auth.{MfaRepository, UserRepository}
+import com.helio.infrastructure.persistence.auth.{MfaRepository, OAuthStateRepository, UserRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.audit.AuditService
 import com.helio.services.auth.{AuthService, MfaService, UserTierConfig}
@@ -54,6 +54,7 @@ class GoogleOAuthRoutesSpec
   private var mfaRepo: MfaRepository             = _
   private var auditEventRepo: AuditEventRepository = _
   private var auditService: AuditService           = _
+  private var oauthStateStore: OAuthStateRepository = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -77,6 +78,11 @@ class GoogleOAuthRoutesSpec
     // assert on `auth.register`/`auth.login` rows written by `completeOAuth`.
     auditEventRepo = new AuditEventRepository(new DbContext(db, db)(typedSystem.executionContext))(typedSystem.executionContext)
     auditService    = new AuditService(auditEventRepo)
+    // HEL-1019: real Postgres-backed store — this spec's existing single-process HTTP tests all
+    // route through it identically to the real production wiring; the load-bearing
+    // cross-process proof lives in `OAuthStateRepositorySpec`, which constructs two independent
+    // `OAuthStateRepository` instances directly (no HTTP layer needed for that proof).
+    oauthStateStore = new OAuthStateRepository(new DbContext(db, db)(typedSystem.executionContext))(typedSystem.executionContext)
   }
 
   override def afterAll(): Unit = {
@@ -100,13 +106,15 @@ class GoogleOAuthRoutesSpec
       // `None`/`null` behaves as "audit disabled", matching every other service in this ticket.
       withAudit: Boolean = false
   ): AuthService =
-    new AuthService(userRepo, tierConfig, mfaService, if (withAudit) auditService else null)(typedSystem.executionContext)
+    new AuthService(userRepo, tierConfig, mfaService, if (withAudit) auditService else null, oauthStateStore)(
+      typedSystem.executionContext
+    )
 
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
     // HEL-471: audit_events is append-only (BEFORE TRUNCATE/UPDATE/DELETE trigger) — it cannot be
     // part of this TRUNCATE; per-test filtering on `allAuditRows()` reads without wiping.
-    await(db.run(sqlu"TRUNCATE TABLE mfa_login_challenges, mfa_backup_codes, user_mfa, user_sessions, users RESTART IDENTITY CASCADE"))
+    await(db.run(sqlu"TRUNCATE TABLE mfa_login_challenges, mfa_backup_codes, user_mfa, user_sessions, users, oauth_states RESTART IDENTITY CASCADE"))
   }
 
   /** Reads every persisted audit row (system context — this is a test, no caller-scoped ACL to
@@ -207,18 +215,71 @@ class GoogleOAuthRoutesSpec
 
       Get("/api/auth/google/callback?code=some-code") ~> route ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse].message should include("state")
+        // HEL-1019 evaluation-1.md CR2/CR3: assert the exact wire body, not a substring — the
+        // field is `message` (ErrorResponse is `jsonFormat1(ErrorResponse.apply)` over `message`,
+        // ResourceProtocol.scala), never `error`.
+        responseAs[ErrorResponse].message shouldBe "Invalid or missing OAuth state parameter"
       }
     }
 
-    "return 400 when state is invalid" in {
+    "return 400 when state is invalid (forged / never issued)" in {
       cleanDb()
       val oauthRoutes = new OAuthRoutes(makeAuthService(), "test-client-id", "test-secret", "http://localhost/callback")
       val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
 
       Get("/api/auth/google/callback?code=some-code&state=bad-state") ~> route ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[ErrorResponse].message should include("state")
+        responseAs[ErrorResponse].message shouldBe "Invalid or missing OAuth state parameter"
+      }
+    }
+
+    "return 400 with the exact body when state has expired (tasks.md 4.4)" in {
+      cleanDb()
+      val oauthRoutes = new OAuthRoutes(makeAuthService(), "test-client-id", "test-secret", "http://localhost/callback")
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
+
+      var stateParam = ""
+      Get("/api/auth/google") ~> route ~> check {
+        stateParam = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+
+      // Backdate this specific row's expiry directly in the shared `db` fixture, exactly as
+      // OAuthStateRepositorySpec's own expiry test does — rather than sleeping 300s.
+      import slick.jdbc.PostgresProfile.api._
+      await(db.run(sqlu"UPDATE oauth_states SET expires_at = now() - interval '1 second' WHERE state = $stateParam"))
+
+      Get(s"/api/auth/google/callback?code=some-code&state=$stateParam") ~> route ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message shouldBe "Invalid or missing OAuth state parameter"
+      }
+    }
+
+    "return 400 with the exact body on replay of an already-consumed state (tasks.md 4.5)" in {
+      cleanDb()
+      val oauthRoutes = new OAuthRoutes(makeAuthService(), "test-client-id", "test-secret", "http://localhost/callback") {
+        override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
+          Future.failed(new RuntimeException("Google token exchange failed: 400 Bad Request"))
+        override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] =
+          Future.successful(GoogleProfile("x", None, None, None))
+      }
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
+
+      var stateParam = ""
+      Get("/api/auth/google") ~> route ~> check {
+        stateParam = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+
+      // First callback consumes the state (fails downstream at the token exchange, which is
+      // irrelevant here — the state check itself must have passed to reach that failure).
+      Get(s"/api/auth/google/callback?code=some-code&state=$stateParam") ~> route ~> check {
+        status shouldBe StatusCodes.BadGateway
+      }
+
+      // Second callback with the SAME state must be rejected by the state check, with the exact
+      // body — single-use holds at the route level, not just in the repository spec.
+      Get(s"/api/auth/google/callback?code=some-code&state=$stateParam") ~> route ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message shouldBe "Invalid or missing OAuth state parameter"
       }
     }
   }

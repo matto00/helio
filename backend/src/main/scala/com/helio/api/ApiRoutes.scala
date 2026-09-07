@@ -49,7 +49,7 @@ import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, Agent
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.services.audit.AuditService
-import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, OAuthStateRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRootRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
@@ -247,7 +247,12 @@ final class ApiRoutes(
   // None`, which AuthService's own defaulted ctor param treats identically
   // to the feature being entirely absent (design.md D3).
   private val mfaServiceOpt: Option[MfaService] = Option(mfaRepo).map(new MfaService(_, userRepo, auditService))
-  private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService)
+  // HEL-1019: mirrors patchSetApplicationRepo's always-constructed-even-with-null-dbContext
+  // pattern below — dbContext being null only matters to a fixture that never exercises
+  // GET /api/auth/google[/callback], since OAuthStateRepository doesn't touch the DB at
+  // construction time.
+  private val oauthStateStore   = new OAuthStateRepository(dbContext)
+  private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore)
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService, outputRepoOpt.orNull)
   // HEL-904 task 4.1: `PanelService` no longer takes `dataTypeRepo`/
   // `metricRepo` — Text/Markdown's data-bound "Source mode" and metrics are
