@@ -108,7 +108,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
     // surface 6's own precedent) -- the single Add-panel entry point once a
     // dashboard is selected, regardless of whether the onboarding checklist
     // or the "No panels yet" empty state is also on screen underneath it.
-    await page.getByRole("button", { name: "Dashboard actions" }).click();
+    await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
     await page.getByRole("menuitem", { name: "Add panel" }).click();
 
     const picker = page.getByRole("dialog", { name: "Add panel" });
@@ -181,7 +181,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
       // Phone chrome: "Add panel" is reached via the command bar's
       // dashboard-actions kebab (HEL-813 surface 6's own precedent), not a
       // header-row button, at these widths.
-      await page.getByRole("button", { name: "Dashboard actions" }).click();
+      await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
       await page.getByRole("menuitem", { name: "Add panel" }).click();
 
       const picker = page.getByRole("dialog", { name: "Add panel" });
@@ -217,7 +217,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
     const { throughputId } = await seedThroughputOutput(page, request);
 
     await page.goto("/");
-    await page.getByRole("button", { name: "Dashboard actions" }).click();
+    await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
     await page.getByRole("menuitem", { name: "Add panel" }).click();
 
     const picker = page.getByRole("dialog", { name: "Add panel" });

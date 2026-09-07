@@ -184,7 +184,7 @@ test.describe("HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof
       if (i === 0) {
         await io.click(page.getByRole("button", { name: "Add panel" }));
       } else {
-        await io.click(page.getByRole("button", { name: "Dashboard actions" }));
+        await io.click(page.getByRole("button", { name: "Dashboard actions", exact: true }));
         await io.click(page.getByRole("menuitem", { name: "Add panel" }));
       }
       const picker = page.getByRole("dialog", { name: "Add panel" });
