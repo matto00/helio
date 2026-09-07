@@ -164,10 +164,16 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "Analyze a pipeline: returns the source schema and, per step, its input/output schema and any " +
         "validation error. This is how you learn the exact columns an Output attached to a given " +
         "step (or the source, for nodeStepId: null) will have " +
-        "before running it.",
-      inputSchema: { pipelineId: z.string().min(1) },
+        "before running it. Optional concise: true (HEL-865) returns a bounded, per-node " +
+        "projection instead — a DIFFERENT shape ({ nodes: [{path, op, validationError?}] }, no " +
+        "column lists) — for a large/deep pipeline where the full response is unwieldy. Full " +
+        "response is the default and is unchanged.",
+      inputSchema: { pipelineId: z.string().min(1), concise: z.boolean().optional() },
     },
-    ({ pipelineId }) => guarded(() => api.analyzePipeline(pipelineId)),
+    ({ pipelineId, concise }) =>
+      guarded(() =>
+        concise ? api.analyzePipeline(pipelineId, true) : api.analyzePipeline(pipelineId),
+      ),
   );
 
   server.registerTool(
@@ -267,9 +273,16 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "separate call. Fetching it never updates any memory entry's lastUsedAt (a pure read). " +
         "Read this first to reason about what exists (e.g. which Output is single-row, which shape " +
         "ids are available, or which pipeline already produces a needed field) instead of fanning " +
-        "out many calls yourself. Same payload as the helio://workspace/context resource.",
-      inputSchema: {},
+        "out many calls yourself. Same payload as the helio://workspace/context resource. On a " +
+        "large workspace (HEL-865: ~25 data sources / ~43 pipelines at realistic per-entity " +
+        "fidelity) the full response can exceed this tool's byte budget. Optional concise: true " +
+        "returns every data source and pipeline entry (no entities dropped) but omits per-step " +
+        "output-column lists and per-source inferredSchema listings, replacing each with its " +
+        "element count — Output schemas are always returned in full either way. The omitted " +
+        "per-step columns remain obtainable per-pipeline via analyze_pipeline. truncation.applied " +
+        "and truncation.omittedDetailKinds report whether/what was omitted.",
+      inputSchema: { concise: z.boolean().optional() },
     },
-    () => guarded(() => buildWorkspaceContext(api)),
+    ({ concise }) => guarded(() => buildWorkspaceContext(api, undefined, concise)),
   );
 }

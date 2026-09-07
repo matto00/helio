@@ -224,6 +224,12 @@ export interface WorkspaceContextTruncation {
   estimatedSizeBytes: number;
   structuralFloorExceedsBudget: boolean;
   paginationTruncatedResources: string[];
+  /** HEL-865 design.md D4: which kinds of per-entity detail concise mode omitted from this
+   *  response. ALWAYS present (`[]`, never omitted/undefined) — mirrors this file's other
+   *  "always present, empty when there's nothing to report" fields (HEL-861/HEL-890 convention,
+   *  `helioApi.ts:104-137`), so an omitting response is never indistinguishable from one with the
+   *  field unset. Empty for every full-mode response. */
+  omittedDetailKinds: string[];
 }
 
 /** Env-var-overridable default budget (design.md D8/D9 precedent, carried
@@ -243,7 +249,16 @@ const PLACEHOLDER_TRUNCATION: WorkspaceContextTruncation = {
   estimatedSizeBytes: 0,
   structuralFloorExceedsBudget: false,
   paginationTruncatedResources: [],
+  omittedDetailKinds: [],
 };
+
+/** HEL-865 design.md D2: the fixed set of detail kinds concise mode omits — per-step projected
+ *  column lists (replaced by a count) and per-source `inferredSchema` listings (replaced by a
+ *  field count). Named here once so the truncation report and the projection below agree. */
+const CONCISE_OMITTED_DETAIL_KINDS: string[] = [
+  "pipelineStepOutputColumns",
+  "dataSourceInferredSchema",
+];
 
 /** Which of `dataSources`/`dashboards` were truncated by their `limit=200`
  *  fetch (compares each already-fetched page's `items.length` against its
@@ -281,17 +296,19 @@ export function applyBudget(
   context: WorkspaceContext,
   budgetBytes: number,
   paginationTruncated: string[],
+  omittedDetailKinds: string[] = [],
 ): WorkspaceContext {
   const size = coreSize(context);
   const exceeds = size > budgetBytes;
   return {
     ...context,
     truncation: {
-      applied: false,
+      applied: omittedDetailKinds.length > 0,
       budgetBytes,
       estimatedSizeBytes: size,
       structuralFloorExceedsBudget: exceeds,
       paginationTruncatedResources: paginationTruncated,
+      omittedDetailKinds,
     },
   };
 }
@@ -312,8 +329,16 @@ export interface WorkspaceContext {
      *  (`name`/`type` pairs only — no nullability/displayName, matching
      *  `Output.schema`'s own slim shape) — replaces the retired per-DataType
      *  `columns`/`sampleRows`/`columnStats`. `[]` when the source has never
-     *  had its schema inferred. */
-    inferredSchema: Array<{ name: string; type: string }>;
+     *  had its schema inferred.
+     *
+     *  HEL-865 design.md D2: in concise mode this array is replaced by
+     *  `inferredSchemaFieldCount` (the list's element count) instead — the two
+     *  keys are mutually exclusive per entry, mirroring the analyze half's
+     *  mode-dependent shape (`PipelineAnalyzeResponse` vs `{nodes}`). Full mode
+     *  never carries `inferredSchemaFieldCount`, so this field is unchanged in
+     *  the default response. */
+    inferredSchema?: Array<{ name: string; type: string }>;
+    inferredSchemaFieldCount?: number;
   }>;
   pipelines: Array<{
     id: string;
@@ -327,10 +352,15 @@ export interface WorkspaceContext {
     lastRunRowCount: number | null;
     /** HEL-366: free-form grouping key; `null` when unset. */
     tag: string | null;
+    /** HEL-865 design.md D2: in concise mode each step's `outputColumns` list is replaced by
+     *  `outputColumnCount` (the list's element count) instead — mutually exclusive per entry,
+     *  same pattern as `dataSources[].inferredSchema`/`inferredSchemaFieldCount` above. Full mode
+     *  never carries `outputColumnCount`, so this field is unchanged in the default response. */
     steps: Array<{
       position: number;
       type: string;
-      outputColumns: string[];
+      outputColumns?: string[];
+      outputColumnCount?: number;
       validationError: string | null;
     }>;
     /** set when the analyze fan-out for this pipeline failed */
@@ -422,10 +452,20 @@ function panelCount(layout: {
  *  (env-var overridable, same convention as the backend's own default) so
  *  existing callers with a single argument are unaffected. `applyBudget` is
  *  the LAST step before returning — a pure in-memory pass over the
- *  already-bounded structure built above (no new fetch). */
+ *  already-bounded structure built above (no new fetch).
+ *
+ *  `concise` (HEL-865 design.md D2/D3): opt-in, defaults to `false` so every existing caller keeps
+ *  every field value it had. The full response is NOT strictly byte-identical to the pre-change
+ *  output: it additively gains `truncation.omittedDetailKinds: []`, which D4 requires always be
+ *  present rather than `undefined`. No pre-existing field changes. When `true`, omits depth (never breadth — every data source and
+ *  pipeline entry the full response would have returned is still present): each pipeline step's
+ *  `outputColumns` list is replaced by `outputColumnCount`, and each data source's `inferredSchema`
+ *  is replaced by `inferredSchemaFieldCount`. Every Output's own `schema` is retained in full in
+ *  both modes (design D2 — it is the field-mapping grounding source). */
 export async function buildWorkspaceContext(
   api: HelioApi,
   budgetBytes: number = DEFAULT_BUDGET_BYTES,
+  concise = false,
 ): Promise<WorkspaceContext> {
   // HEL-521 (420-C) design.md Decision 6: kicked off here (concurrently with the fail-fast
   // Promise.all below) but deliberately NOT a member of that array — buildAgentContext's own
@@ -476,12 +516,15 @@ export async function buildWorkspaceContext(
           try {
             const analyzed = await api.analyzePipeline(summary.id);
             return {
-              steps: analyzed.steps.map((step) => ({
-                position: step.position,
-                type: step.type,
-                outputColumns: step.outputSchema.map((f) => f.name),
-                validationError: step.validationError,
-              })),
+              steps: analyzed.steps.map((step) => {
+                const outputColumns = step.outputSchema.map((f) => f.name);
+                return {
+                  position: step.position,
+                  type: step.type,
+                  ...(concise ? { outputColumnCount: outputColumns.length } : { outputColumns }),
+                  validationError: step.validationError,
+                };
+              }),
             };
           } catch (err) {
             return { steps: [], stepsError: (err as Error).message };
@@ -542,16 +585,19 @@ export async function buildWorkspaceContext(
       pipelines: pipelineSummaries.length,
       dashboards: dashboardsPage.total,
     },
-    dataSources: sourcesPage.items.map((s) => ({
-      id: s.id,
-      name: s.name,
-      type: s.type,
-      tag: s.tag ?? null,
-      inferredSchema: (s.inferredSchema?.fields ?? []).map((f) => ({
+    dataSources: sourcesPage.items.map((s) => {
+      const inferredSchema = (s.inferredSchema?.fields ?? []).map((f) => ({
         name: f.name,
         type: f.dataType,
-      })),
-    })),
+      }));
+      return {
+        id: s.id,
+        name: s.name,
+        type: s.type,
+        tag: s.tag ?? null,
+        ...(concise ? { inferredSchemaFieldCount: inferredSchema.length } : { inferredSchema }),
+      };
+    }),
     pipelines,
     dashboards: dashboardsPage.items.map((d) => ({
       id: d.id,
@@ -577,5 +623,6 @@ export async function buildWorkspaceContext(
     context,
     budgetBytes,
     paginationTruncatedResources(sourcesPage, dashboardsPage),
+    concise ? CONCISE_OMITTED_DETAIL_KINDS : [],
   );
 }

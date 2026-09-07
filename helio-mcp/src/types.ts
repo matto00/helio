@@ -519,6 +519,21 @@ export interface PipelineAnalyzeResponse {
   sourceSchemaDrift?: SourceSchemaDriftResponse;
 }
 
+/** `GET /api/pipelines/:id/analyze?concise=true` — HEL-914's opt-in per-node projection, reachable
+ *  from the MCP surface as of HEL-865 (design.md D5). A WHOLLY SEPARATE top-level shape from
+ *  `PipelineAnalyzeResponse` (`{nodes}` vs `{id,name,sourceSchemas,steps}`) — mirrors the backend's
+ *  `PipelineAnalyzeProtocol.scala` `PipelineAnalyzeConciseResponse`/`ConciseAnalyzeNode` and
+ *  `schemas/pipelines/pipeline-analyze-concise-response.schema.json`. `validationError` is omitted
+ *  (not `null`) on the wire when the node has no validation error — spray-json drops `Option = None`. */
+export interface ConciseAnalyzeNode {
+  path: string;
+  op: string;
+  validationError?: string;
+}
+export interface PipelineAnalyzeConciseResponse {
+  nodes: ConciseAnalyzeNode[];
+}
+
 /** `PATCH /api/panels/:id` request body — mirrors the backend's
  *  `UpdatePanelRequest` (`PanelProtocol.scala`). `title`/`type`/`config`/
  *  `appearance` are each independently optional: an omitted field leaves it
