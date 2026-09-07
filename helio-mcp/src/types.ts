@@ -727,6 +727,19 @@ export interface ConnectorSummary {
   name: string;
   kind: string;
   host: string;
+  // HEL-955 design.md D4a/D6: an agent must not mistake a pending Connector (no credential
+  // bound yet) for a usable one. No field describing the auth shape a human is
+  // mid-configuring, and never the completion token.
+  pending: boolean;
+}
+
+/** HEL-955 task 5.1: `POST /api/connectors/pending`'s response -- a credentialed-host
+ *  `create_connector` call mints a pending Connector and returns its completion URL/token in
+ *  one call. The token is returned HERE ONLY, never re-readable afterwards (design.md D9). */
+export interface CreatePendingConnectorResult {
+  connectorId: string;
+  completionUrl: string;
+  expiresAt: string;
 }
 
 /** HEL-886 design.md Decision 1: `POST /api/connectors`' response, mapped into the same

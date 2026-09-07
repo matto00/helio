@@ -39,6 +39,13 @@ export interface Connector {
   updatedAt: string;
   /** HEL-824 design.md Decision 1b — always present, computed server-side. */
   dependentCount: number;
+  /** HEL-955 design.md D1/D10: structural pendingness (no credential bound yet) plus the
+   *  owner-visible completion signal, once completed through the out-of-band handoff. */
+  pending: boolean;
+  // spray-json omits an Option=None field entirely rather than writing `null` — both are
+  // absent-or-present here, never a literal `null` on the wire.
+  completedAt?: string;
+  completedBy?: string;
 }
 
 export interface CreateConnectorRequest {

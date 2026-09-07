@@ -41,6 +41,7 @@ const savedConnector: Connector = {
   createdAt: "2026-08-01T00:00:00Z",
   updatedAt: "2026-08-01T00:00:00Z",
   dependentCount: 0,
+  pending: false,
 };
 
 const implicitConnector: Connector = {
@@ -49,6 +50,7 @@ const implicitConnector: Connector = {
   name: "Legacy source host",
   config: { authType: "none", implicit: true },
   dependentCount: 1,
+  pending: false,
 };
 
 function buildStore(items: Connector[] = []) {
@@ -101,6 +103,43 @@ describe("ConnectorsPage", () => {
 
     expect(screen.getByText("Legacy source host")).toBeInTheDocument();
     expect(screen.getByText("Auto-created")).toBeInTheDocument();
+  });
+
+  // HEL-955 design.md D10 / skeptic-final-1.md CR3: the owner-visible completion signal must
+  // actually be rendered, and an anonymous completion must be visibly distinguished from a named
+  // principal -- design.md's own residual-risk acceptance is argued only on that distinction
+  // existing.
+  it("renders the D10 completion signal, distinguishing anonymous from a named principal", async () => {
+    const anonymouslyCompleted: Connector = {
+      ...savedConnector,
+      id: "conn-anon",
+      name: "Anon-completed API",
+      completedAt: "2026-08-15T12:00:00Z",
+      completedBy: "anonymous",
+    };
+    const namedCompleted: Connector = {
+      ...savedConnector,
+      id: "conn-named",
+      name: "Owner-completed API",
+      completedAt: "2026-08-16T09:30:00Z",
+      completedBy: "u-42",
+    };
+
+    renderPage([anonymouslyCompleted, namedCompleted]);
+
+    const anonSignal = await screen.findByTestId("completion-signal-conn-anon");
+    expect(anonSignal).toHaveTextContent(/completed anonymously/i);
+    expect(anonSignal).not.toHaveTextContent("u-42");
+
+    const namedSignal = screen.getByTestId("completion-signal-conn-named");
+    expect(namedSignal).toHaveTextContent(/completed by u-42/i);
+    expect(namedSignal).not.toHaveTextContent(/anonymously/i);
+  });
+
+  it("renders no completion signal for a Connector that has never been completed", async () => {
+    renderPage([savedConnector]);
+    await screen.findByText("Stripe");
+    expect(screen.queryByTestId("completion-signal-conn-1")).not.toBeInTheDocument();
   });
 
   it("opens the create modal and creates a connector", async () => {

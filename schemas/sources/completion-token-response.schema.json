@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/completion-token-response.schema.json",
+  "title": "CompletionTokenResponse",
+  "description": "Response of POST /api/connectors/pending and POST /api/connectors/:id/completion-token (HEL-955 design.md D9). The ONLY responses that ever carry the raw completion-token secret -- never re-readable afterward.",
+  "type": "object",
+  "properties": {
+    "connectorId": { "type": "string" },
+    "token": {
+      "type": "string",
+      "description": "The raw completion-token secret. Returned ONLY here, exactly once. The client composes the completion URL from this value plus its own frontend origin (e.g. /connectors/complete?token=...) -- never a fully-qualified URL from the backend."
+    },
+    "expiresAt": { "type": "string", "format": "date-time" }
+  },
+  "required": ["connectorId", "token", "expiresAt"],
+  "additionalProperties": false
+}

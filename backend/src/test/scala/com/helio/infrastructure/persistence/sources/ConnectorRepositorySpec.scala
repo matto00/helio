@@ -161,7 +161,7 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       // Structural proof: Connector has exactly these fields, none capable of
       // carrying ciphertext/plaintext (design.md Decision 1/2).
       connector.productElementNames.toSet shouldBe
-        Set("id", "ownerId", "name", "kind", "baseUrl", "config", "credentialId", "createdAt", "updatedAt")
+        Set("id", "ownerId", "name", "kind", "baseUrl", "config", "credentialId", "createdAt", "updatedAt", "completedAt", "completedBy")
     }
   }
 
@@ -245,7 +245,7 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       result shouldBe Right(true)
 
       await(repo.findByIdOwned(connector.id, AuthenticatedUser(owner))) shouldBe None
-      await(credentialRepo.get(connector.credentialId, owner)) shouldBe None
+      await(credentialRepo.get(connector.credentialId.get, owner)) shouldBe None
     }
   }
 
@@ -277,7 +277,7 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       try {
         // Test-only caller of decryptForUse (design.md Decision 6a) — never
         // reached from any route.
-        val decrypted = await(credentialRepo.decryptForUse(connector.credentialId, owner))
+        val decrypted = await(credentialRepo.decryptForUse(connector.credentialId.get, owner))
         decrypted shouldBe Some(realCredential)
 
         val httpClient = HttpClient.newHttpClient()
@@ -419,8 +419,8 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
 
       updatedConnector.credentialId should not be oldCredentialId
 
-      await(credentialRepo.decryptForUse(updatedConnector.credentialId, owner)) shouldBe Some("new-plaintext-value")
-      await(credentialRepo.get(oldCredentialId, owner)) shouldBe None
+      await(credentialRepo.decryptForUse(updatedConnector.credentialId.get, owner)) shouldBe Some("new-plaintext-value")
+      await(credentialRepo.get(oldCredentialId.get, owner)) shouldBe None
 
       // The connectors row itself now points at the new credential id.
       val fetched = await(repo.findByIdOwned(connector.id, user))
@@ -461,7 +461,7 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       val fetched = await(repo.findByIdOwned(connector.id, user))
       fetched shouldBe defined
       fetched.get.credentialId shouldBe connector.credentialId
-      await(credentialRepo.decryptForUse(connector.credentialId, owner)) shouldBe Some("original-secret")
+      await(credentialRepo.decryptForUse(connector.credentialId.get, owner)) shouldBe Some("original-secret")
     }
 
     // HEL-824 task 2.6: proves a dependent source picks up rotation transparently -- the
@@ -492,7 +492,7 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       val resolvedConnector = await(repo.findByIdInternal(connector.id))
       resolvedConnector shouldBe defined
 
-      val decrypted = await(credentialRepo.decryptForUse(resolvedConnector.get.credentialId, owner))
+      val decrypted = await(credentialRepo.decryptForUse(resolvedConnector.get.credentialId.get, owner))
       decrypted shouldBe Some("after-rotation-secret")
     }
   }

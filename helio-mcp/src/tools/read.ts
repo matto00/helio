@@ -47,10 +47,15 @@ export function buildListConnectorsResult(items: ConnectorSummary[]): CallToolRe
       ...result.content,
       {
         type: "text",
+        // HEL-955 skeptic-final-1.md non-blocking note: this hint predates the pending-Connector
+        // handoff -- a credentialed host no longer requires a human to start from scratch at the
+        // in-app /connectors page. It now goes through create_connector too (which mints a
+        // pending Connector and returns a completion URL for the human to finish out-of-band).
         text:
-          "No Connectors exist yet. Call create_connector to create one — it creates " +
-          "unauthenticated (authType: none) Connectors only; a credentialed host is " +
-          "completed by a human at the in-app /connectors page.",
+          "No Connectors exist yet. Call create_connector to create one — for an unauthenticated " +
+          "host use authType: none (or omit it); for a credentialed host, supply the intended " +
+          "authType (and apiKeyName/apiKeyPlacement for api_key) to mint a PENDING Connector and " +
+          "a completion URL a human must open to supply the actual credential.",
       },
     ],
   };

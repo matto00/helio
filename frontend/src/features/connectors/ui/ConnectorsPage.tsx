@@ -20,6 +20,18 @@ import { CreateConnectorModal } from "./CreateConnectorModal";
 import { EditConnectorModal } from "./EditConnectorModal";
 import "./ConnectorsPage.css";
 
+// HEL-955 design.md D10 / skeptic-final-1.md CR3: the owner-visible completion signal --
+// design.md's own Risks section states the up-to-24-hour residual-risk acceptance holds "only
+// because of D10's owner-visible completion signal", so it must actually be rendered, not merely
+// stored/typed. Distinguishes an out-of-band anonymous completion from a named principal (the
+// completing session's own user id) -- the whole point of the signal.
+function completionLabel(connector: Connector): string | null {
+  if (!connector.completedAt) return null;
+  const when = new Date(connector.completedAt).toLocaleString();
+  const by = connector.completedBy === "anonymous" ? "anonymously" : `by ${connector.completedBy}`;
+  return `Completed ${by} · ${when}`;
+}
+
 function authTypeLabel(connector: Connector): string {
   switch (connector.config.authType) {
     case "bearer":
@@ -92,18 +104,32 @@ export function ConnectorsPage() {
               const isConfirmingDelete = confirmDeleteId === connector.id;
               const conflict = deleteConflict[connector.id];
               const isImplicit = connector.config.implicit === true;
+              const completion = completionLabel(connector);
               return (
                 <Fragment key={connector.id}>
                   <tr className="connectors-page__row">
                     <td className="connectors-page__td">
                       <div className="connectors-page__name-cell">
                         {connector.name}
+                        {connector.pending && (
+                          <StatusChip intent="warning" dashed>
+                            Pending completion
+                          </StatusChip>
+                        )}
                         {isImplicit && (
                           <StatusChip intent="neutral" dashed>
                             Auto-created
                           </StatusChip>
                         )}
                       </div>
+                      {completion && (
+                        <div
+                          className="connectors-page__completion-signal"
+                          data-testid={`completion-signal-${connector.id}`}
+                        >
+                          {completion}
+                        </div>
+                      )}
                     </td>
                     <td className="connectors-page__td">{connector.kind}</td>
                     <td className="connectors-page__td connectors-page__td--mono">

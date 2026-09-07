@@ -35,11 +35,11 @@ class ConnectorSummaryCredentialAbsenceSpec extends AnyWordSpec with Matchers wi
   private val fakeCredentialMarker = "test-fake-connector-credential-do-not-use"
 
   "ConnectorSummary's wire formatter" should {
-    "pin the exact {id, name, kind, host} field set — no fifth field, ever silently added" in {
-      val summary = ConnectorSummary(id = "conn-1", name = "Stripe", kind = "rest_api", host = "https://api.stripe.com")
+    "pin the exact {id, name, kind, host, pending} field set — no sixth field, ever silently added" in {
+      val summary = ConnectorSummary(id = "conn-1", name = "Stripe", kind = "rest_api", host = "https://api.stripe.com", pending = false)
       val json    = summary.toJson.asJsObject
 
-      json.fields.keySet shouldBe Set("id", "name", "kind", "host")
+      json.fields.keySet shouldBe Set("id", "name", "kind", "host", "pending")
     }
   }
 
@@ -56,7 +56,7 @@ class ConnectorSummaryCredentialAbsenceSpec extends AnyWordSpec with Matchers wi
         kind         = "rest_api",
         baseUrl      = "https://api.stripe.com",
         config       = s"""{"authType":"bearer","leakedCredential":"$fakeCredentialMarker"}""",
-        credentialId = ConnectorCredentialId(UUID.randomUUID().toString),
+        credentialId = Some(ConnectorCredentialId(UUID.randomUUID().toString)),
         createdAt    = now,
         updatedAt    = now
       )

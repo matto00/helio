@@ -6,7 +6,7 @@
  */
 
 import type { HelioApi } from "../helioApi.js";
-import type { CreateConnectorResult } from "../types.js";
+import type { CreateConnectorResult, CreatePendingConnectorResult } from "../types.js";
 import { HelioApiError } from "../httpClient.js";
 import {
   augmentFetchErrorWithConnectorsHint,
@@ -20,8 +20,10 @@ function textOf(result: { content: Array<{ type: string; text?: string }> }): st
 function makeFakeApi(): {
   api: HelioApi;
   calls: Array<{ name: string; kind: string; baseUrl: string }>;
+  pendingCalls: Array<{ name: string; kind: string; baseUrl: string; authType: string }>;
 } {
   const calls: Array<{ name: string; kind: string; baseUrl: string }> = [];
+  const pendingCalls: Array<{ name: string; kind: string; baseUrl: string; authType: string }> = [];
   const fake = {
     createConnector: async (input: {
       name: string;
@@ -31,8 +33,22 @@ function makeFakeApi(): {
       calls.push(input);
       return { id: "conn-1", name: input.name, kind: input.kind, host: input.baseUrl };
     },
+    // HEL-955: any authType !== "none" now mints a PENDING Connector instead of refusing.
+    createPendingConnector: async (input: {
+      name: string;
+      kind: string;
+      baseUrl: string;
+      authType: string;
+    }): Promise<CreatePendingConnectorResult> => {
+      pendingCalls.push(input);
+      return {
+        connectorId: "conn-pending-1",
+        completionUrl: "/connectors/complete?token=fake-token",
+        expiresAt: "2026-01-01T01:00:00Z",
+      };
+    },
   };
-  return { api: fake as unknown as HelioApi, calls };
+  return { api: fake as unknown as HelioApi, calls, pendingCalls };
 }
 
 describe("createConnectorHandler (HEL-886 design.md Decision 2)", () => {
@@ -75,8 +91,11 @@ describe("createConnectorHandler (HEL-886 design.md Decision 2)", () => {
     expect(parsed.note).toContain("401/403");
   });
 
-  it("refuses authType: bearer with a /connectors-naming message and makes ZERO http calls", async () => {
-    const { api, calls } = makeFakeApi();
+  // HEL-955 design.md D1/D7/D9: `authType !== "none"` no longer refuses outright -- it mints a
+  // PENDING Connector (no credential passes through this call) and returns its completion URL.
+  // `api.createConnector` (the no-credential path) must never be invoked in this branch.
+  it("authType: bearer creates a PENDING Connector via createPendingConnector, never api.createConnector", async () => {
+    const { api, calls, pendingCalls } = makeFakeApi();
 
     const result = await createConnectorHandler(api, {
       name: "GitHub",
@@ -84,32 +103,38 @@ describe("createConnectorHandler (HEL-886 design.md Decision 2)", () => {
       authType: "bearer",
     });
 
-    expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("/connectors");
+    expect(result.isError).toBeFalsy();
     expect(calls).toHaveLength(0);
+    expect(pendingCalls).toEqual([
+      { name: "GitHub", kind: "rest_api", baseUrl: "https://api.github.com", authType: "bearer" },
+    ]);
+    expect(textOf(result)).toContain("PENDING");
+    expect(textOf(result)).toContain("/connectors/complete");
   });
 
-  it("refuses authType: api_key with a /connectors-naming message and makes ZERO http calls", async () => {
-    const { api, calls } = makeFakeApi();
+  it("authType: api_key creates a PENDING Connector, never api.createConnector", async () => {
+    const { api, calls, pendingCalls } = makeFakeApi();
 
     const result = await createConnectorHandler(api, {
       name: "GitHub",
       baseUrl: "https://api.github.com",
       authType: "api_key",
+      apiKeyName: "X-Api-Key",
+      apiKeyPlacement: "header",
     });
 
-    expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("/connectors");
+    expect(result.isError).toBeFalsy();
     expect(calls).toHaveLength(0);
+    expect(pendingCalls).toHaveLength(1);
   });
 
   // evaluation-1.md CR1: this is the GENERAL case -- an authType the schema/handler never
   // predicted, not one of the two named enum values. `connectorSchema.ts` widened `authType`
   // to a free-form string specifically so a value like this reaches this handler (rather than
-  // dying at a bare Zod enum error), and this handler already refuses anything !== "none"
-  // unconditionally -- so an arbitrary value gets the exact same actionable refusal proof.
-  it("refuses an arbitrary unpredicted authType (e.g. oauth) with a /connectors-naming message and makes ZERO http calls", async () => {
-    const { api, calls } = makeFakeApi();
+  // dying at a bare Zod enum error), and this handler already treats anything !== "none" as
+  // credentialed -- so an arbitrary value gets the same pending-creation path.
+  it("an arbitrary unpredicted authType (e.g. oauth) also creates a PENDING Connector, never api.createConnector", async () => {
+    const { api, calls, pendingCalls } = makeFakeApi();
 
     const result = await createConnectorHandler(api, {
       name: "GitHub",
@@ -117,9 +142,9 @@ describe("createConnectorHandler (HEL-886 design.md Decision 2)", () => {
       authType: "oauth",
     });
 
-    expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("/connectors");
+    expect(result.isError).toBeFalsy();
     expect(calls).toHaveLength(0);
+    expect(pendingCalls).toHaveLength(1);
   });
 
   it("surfaces a backend error verbatim (Decision 6)", async () => {

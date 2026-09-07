@@ -1032,7 +1032,7 @@ class WorkspaceContextServiceSpec
       // (design.md Decision 6 / spec "A Connector with credential-shaped defaultHeaders is
       // still projected safely").
       val serialized = connectorSummaryFormat.write(entry).asJsObject
-      serialized.fields.keySet shouldBe Set("id", "name", "kind", "host")
+      serialized.fields.keySet shouldBe Set("id", "name", "kind", "host", "pending")
       serialized.compactPrint should not include "sk-super-secret"
       serialized.compactPrint should not include "defaultHeaders"
       serialized.compactPrint should not include "Authorization"

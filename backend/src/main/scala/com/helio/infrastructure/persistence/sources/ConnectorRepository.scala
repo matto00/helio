@@ -33,9 +33,11 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
       kind         = row.kind,
       baseUrl      = row.baseUrl,
       config       = row.config,
-      credentialId = ConnectorCredentialId(row.credentialId.toString),
+      credentialId = row.credentialId.map(id => ConnectorCredentialId(id.toString)),
       createdAt    = row.createdAt,
-      updatedAt    = row.updatedAt
+      updatedAt    = row.updatedAt,
+      completedAt  = row.completedAt,
+      completedBy  = row.completedBy
     )
 
   /** Two-transaction-plus-compensation create (design.md Decision 2).
@@ -73,7 +75,7 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
         kind         = kind,
         baseUrl      = baseUrl,
         config       = config,
-        credentialId = UUID.fromString(credentialMeta.id.value),
+        credentialId = Some(UUID.fromString(credentialMeta.id.value)),
         createdAt    = now,
         updatedAt    = now
       )
@@ -86,6 +88,92 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
           Future.failed(insertFailure)
         }
     }
+
+  /** HEL-955 design.md D1: mints a Connector with **no** credential row -- `credentialId` is
+   *  `None`, `isPending` is `true`. Never calls `credentialRepo.create` -- a pending Connector
+   *  is completed later via [[bindCredential]], reached only through the completion-token flow
+   *  (`ConnectorCompletionService`), never through this method a second time. */
+  def createPending(
+      ownerId: UserId,
+      name: String,
+      kind: String,
+      baseUrl: String,
+      config: String
+  ): Future[Connector] = {
+    val id  = UUID.randomUUID()
+    val now = Instant.now()
+    val row = ConnectorRow(
+      id           = id,
+      ownerId      = UUID.fromString(ownerId.value),
+      name         = name,
+      kind         = kind,
+      baseUrl      = baseUrl,
+      config       = config,
+      credentialId = None,
+      createdAt    = now,
+      updatedAt    = now,
+      completedAt  = None,
+      completedBy  = None
+    )
+    ctx.withUserContext(ownerId.value)(table += row).map(_ => rowToDomain(row))
+  }
+
+  /** HEL-955 design.md D3/task 4.3: mints the credential row (the SAME write path every other
+   *  credential goes through -- `credentialRepo.create`, no second credential-write path). Kept
+   *  separate from [[repointPendingCredential]] so the caller (`ConnectorCompletionService`) can
+   *  consume the completion token BETWEEN encryption and the repoint -- encryption failure here
+   *  propagates as a failed `Future` before any token is touched (task 4.3: "does not consume
+   *  the token" on encryption failure). */
+  def encryptCredential(ownerId: UserId, credentialName: String, credentialPlaintext: String) =
+    credentialRepo.create(ownerId, credentialName, credentialPlaintext)
+
+  /** HEL-955 design.md D3/D10: the ONLY place a Connector's `credential_id` transitions from
+   *  `NULL` to non-null. Filtered on `id = ... AND credential_id IS NULL` so this can never
+   *  re-bind an already-complete Connector -- defence in depth alongside the completion token's
+   *  own single-use consumption, which the caller has already performed by the time this runs.
+   *  Runs on the **privileged pool** -- reached only from the anonymous completion endpoint,
+   *  which has no `app.current_user_id` to set (mirrors
+   *  `ShareTokenRepository.findActiveByHash`'s justification). Returns `false` when the
+   *  Connector no longer exists or is no longer pending; the caller compensates by deleting the
+   *  just-minted credential row (never orphaning it) and treats this identically to "token
+   *  invalid" so no oracle is created. */
+  def repointPendingCredential(
+      id: ConnectorId,
+      credentialId: ConnectorCredentialId,
+      completedBy: String
+  ): Future[Boolean] = {
+    val now = Instant.now()
+    val action = table
+      .filter(r => r.id === UUID.fromString(id.value) && r.credentialId.isEmpty)
+      .map(r => (r.credentialId, r.completedAt, r.completedBy, r.updatedAt))
+      .update((Some(UUID.fromString(credentialId.value)), Some(now), Some(completedBy), now))
+    ctx.withSystemContext(action).map(_ > 0)
+  }
+
+  /** Best-effort compensation used by `ConnectorCompletionService` when a just-minted
+   *  credential could not be repointed (token consumption raced, or the Connector vanished
+   *  concurrently) -- never leaves an orphaned `connector_credentials` row. */
+  def compensateDeleteCredential(credentialId: ConnectorCredentialId, ownerId: UserId): Future[Boolean] =
+    credentialRepo.delete(credentialId, ownerId).recover { case _ => false }
+
+  /** HEL-955 design.md D4a: unscoped lookup by id, no ownership check, runs under the
+   *  privileged pool -- used ONLY by the completion flow, which has no authenticated session to
+   *  scope by. Mirrors `findByIdInternal`'s existing justification exactly. */
+  def findByIdUnscoped(id: ConnectorId): Future[Option[Connector]] =
+    ctx.withSystemContext(table.filter(_.id === UUID.fromString(id.value)).result.headOption)
+      .map(_.map(rowToDomain))
+
+  /** HEL-955 design.md D9: owner-scoped Connectors matching a re-mint candidate's owner + kind
+   *  (baseUrl/auth-shape comparison is done by the caller, `ConnectorCompletionService`, since
+   *  normalization is a pure policy concern that does not belong in the persistence layer). */
+  def findPendingByOwnerAndKind(ownerId: UserId, kind: String): Future[Vector[Connector]] = {
+    val ownerUuid = UUID.fromString(ownerId.value)
+    ctx.withUserContext(ownerId.value)(
+      table.filter(r => r.ownerId === ownerUuid && r.kind === kind && r.credentialId.isEmpty)
+        .sortBy(_.createdAt.desc)
+        .result
+    ).map(_.map(rowToDomain).toVector)
+  }
 
   def findByIdOwned(id: ConnectorId, user: AuthenticatedUser): Future[Option[Connector]] = {
     val ownerUuid = UUID.fromString(user.id.value)
@@ -127,23 +215,32 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
       newCredentialPlaintext: String,
       credentialName: String,
       user: AuthenticatedUser
-  ): Future[Either[ConnectorRotationNotFound.type, Connector]] =
+  ): Future[Either[ConnectorRotationRefusal, Connector]] =
     findByIdOwned(id, user).flatMap {
       case None => Future.successful(Left(ConnectorRotationNotFound))
+      // HEL-955 design.md D4a: rotation is not completion -- refused against a pending
+      // Connector so a credential can never be bound through a path that knows nothing about
+      // completion tokens (which would leave an outstanding token live against a now-usable
+      // Connector, exactly the open slot D3 exists to close). The caller (`ConnectorEntityService`)
+      // maps this to a 400-class error naming the completion path.
+      case Some(existing) if existing.isPending =>
+        Future.successful(Left(ConnectorRotationPending))
       case Some(existing) =>
         credentialRepo.create(user.id, credentialName, newCredentialPlaintext).flatMap { newCredentialMeta =>
           val now = Instant.now()
           val repointAction = table
             .filter(_.id === UUID.fromString(id.value))
             .map(r => (r.credentialId, r.updatedAt))
-            .update((UUID.fromString(newCredentialMeta.id.value), now))
+            .update((Some(UUID.fromString(newCredentialMeta.id.value)), now))
           ctx.withUserContext(user.id.value)(repointAction)
             .flatMap { updatedCount =>
               if (updatedCount > 0) {
                 // Best-effort delete of the OLD credential row -- never block success on it.
-                credentialRepo.delete(existing.credentialId, user.id).recover { case _ => false }
+                // `existing.credentialId` is non-empty here (the pending branch above already
+                // excluded `None`).
+                existing.credentialId.foreach(old => credentialRepo.delete(old, user.id).recover { case _ => false })
                 Future.successful(
-                  Right(existing.copy(credentialId = newCredentialMeta.id, updatedAt = now))
+                  Right(existing.copy(credentialId = Some(newCredentialMeta.id), updatedAt = now))
                 )
               } else {
                 // Repoint failed (e.g. row disappeared concurrently) -- compensate by deleting
@@ -193,7 +290,16 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
             ctx.withUserContext(user.id.value)(table.filter(_.id === UUID.fromString(id.value)).delete)
               .flatMap { deletedCount =>
                 if (deletedCount > 0)
-                  credentialRepo.delete(existing.credentialId, user.id).map(_ => Right(true))
+                  // HEL-955 design.md D4a: `credential_id` is now `Option` -- a pending
+                  // Connector has no credential row to delete (and its outstanding completion
+                  // tokens cascade via `ON DELETE CASCADE` on `connector_completion_tokens`,
+                  // set up in V103). Binding nothing, this makes the Risks note's claim that an
+                  // abandoned pending Connector is "deletable through the existing owner CRUD
+                  // path" actually true.
+                  existing.credentialId match {
+                    case Some(credId) => credentialRepo.delete(credId, user.id).map(_ => Right(true))
+                    case None         => Future.successful(Right(true))
+                  }
                 else
                   Future.successful(Right(false))
               }
@@ -207,10 +313,16 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
  *  `ServiceError.Conflict`. */
 case object ConnectorHasDependents
 
-/** Marker for the not-found branch of [[ConnectorRepository.rotateCredential]] -- kept distinct
- *  from `ServiceError` for the same reason as [[ConnectorHasDependents]]: the repository layer
- *  stays HTTP-agnostic, the service layer maps this to `ServiceError.NotFound`. */
-case object ConnectorRotationNotFound
+/** Marker sealed trait for [[ConnectorRepository.rotateCredential]]'s refusal branches -- kept
+ *  distinct from `ServiceError` so the repository layer stays HTTP-agnostic; the service layer
+ *  maps each to its own HTTP status. */
+sealed trait ConnectorRotationRefusal
+case object ConnectorRotationNotFound extends ConnectorRotationRefusal
+
+/** HEL-955 design.md D4a: rotation against a pending Connector is refused -- rotation is not
+ *  completion (see `rotateCredential`'s doc comment). The service layer maps this to a
+ *  400-class error naming the completion path. */
+case object ConnectorRotationPending extends ConnectorRotationRefusal
 
 object ConnectorRepository {
   implicit val instantColumnType: BaseColumnType[Instant] =
@@ -229,9 +341,11 @@ object ConnectorRepository {
       kind: String,
       baseUrl: String,
       config: String,
-      credentialId: UUID,
+      credentialId: Option[UUID],
       createdAt: Instant,
-      updatedAt: Instant
+      updatedAt: Instant,
+      completedAt: Option[Instant] = None,
+      completedBy: Option[String] = None
   )
 
   class ConnectorTable(tag: Tag) extends Table[ConnectorRow](tag, "connectors") {
@@ -241,10 +355,12 @@ object ConnectorRepository {
     def kind         = column[String]("kind")
     def baseUrl      = column[String]("base_url")
     def config       = column[String]("config")(jsonbStringType)
-    def credentialId = column[UUID]("credential_id")
+    def credentialId = column[Option[UUID]]("credential_id")
     def createdAt    = column[Instant]("created_at")
     def updatedAt    = column[Instant]("updated_at")
+    def completedAt  = column[Option[Instant]]("completed_at")
+    def completedBy  = column[Option[String]]("completed_by")
 
-    def * = (id, ownerId, name, kind, baseUrl, config, credentialId, createdAt, updatedAt).mapTo[ConnectorRow]
+    def * = (id, ownerId, name, kind, baseUrl, config, credentialId, createdAt, updatedAt, completedAt, completedBy).mapTo[ConnectorRow]
   }
 }

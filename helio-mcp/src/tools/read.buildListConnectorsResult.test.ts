@@ -18,7 +18,13 @@ describe("buildListConnectorsResult (HEL-886 design.md Decision 5)", () => {
 
   it("a non-empty list yields exactly one content block and no hint", () => {
     const items: ConnectorSummary[] = [
-      { id: "conn-1", name: "Sleeper", kind: "rest_api", host: "https://api.sleeper.app" },
+      {
+        id: "conn-1",
+        name: "Sleeper",
+        kind: "rest_api",
+        host: "https://api.sleeper.app",
+        pending: false,
+      },
     ];
 
     const result = buildListConnectorsResult(items);

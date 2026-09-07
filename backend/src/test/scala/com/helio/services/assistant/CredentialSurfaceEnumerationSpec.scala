@@ -82,9 +82,16 @@ class CredentialSurfaceEnumerationSpec extends AnyWordSpec with Matchers {
       "helio-mcp/src/tools/connectorHandlers.ts"           -> "refuses any authType other than \"none\" BEFORE api.createConnector is ever called, and that call itself carries no user-suppliable credential parameter -- every 'credential' occurrence here is refusal/pointer prose, never a value in transit",
       "helio-mcp/src/helioApi.createConnector.test.ts"     -> "asserts the actual POST body carries a hardcoded credential: \"\" and no other credential-shaped key, by inspecting the wire payload directly rather than trusting the method's type signature",
       "helio-mcp/src/server.test.ts"                       -> "only enumerates the five credential-shaped PARAMETER NAMES the tool's advertised schema must still expose as always-rejecting properties -- asserts on property presence, never a secret value",
+      // HEL-955: `createConnectorHandler` no longer refuses authType !== "none" outright -- it
+      // mints a PENDING Connector (no credential passes through the call). This test asserts on
+      // that pending-creation path and its `note`/`isError` prose, and on the SAME zero-HTTP-call
+      // proof the pre-existing entries above assert (`calls`/`pendingCalls` inspection) -- every
+      // "credential" occurrence here is prose (variable/test names, description text), never a
+      // secret value in transit.
+      "helio-mcp/src/tools/connectorHandlers.test.ts"      -> "asserts the pending-creation path makes zero calls to api.createConnector and that api.createPendingConnector's input carries no credential-shaped field -- 'credential' occurrences are prose/test-description only",
     )
 
-    "match exactly the thirteen allow-listed files, each for its documented reason" in {
+    "match exactly the fourteen allow-listed files, each for its documented reason" in {
       val actual = filesContainingToken(new File(root, "helio-mcp/src"), "credential").toSet
       actual shouldBe allowedMatches.keySet
 

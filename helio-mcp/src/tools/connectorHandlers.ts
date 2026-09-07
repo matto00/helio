@@ -26,42 +26,57 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
   }
 }
 
-/** `create_connector`'s full validate-then-call logic (design.md Decisions 2/4b(i)). Refuses
- *  any `authType !== "none"` BEFORE any HTTP call (Decision 2) -- the no-half-created-state
- *  proof is that `api.createConnector` is never invoked in that branch. Every success result
- *  carries the constant `note` (Decision 4b(i)), unconditionally -- this does not depend on
- *  4b(ii)'s best-effort `fetchError` augmentation below. */
+/** `create_connector`'s full validate-then-call logic (design.md Decisions 2/4b(i), extended by
+ *  HEL-955 design.md D1/D7/D9). `authType: "none"` (or omitted) keeps the original HEL-886
+ *  no-credential path unchanged byte-for-byte. Any OTHER `authType` no longer refuses outright
+ *  -- it now creates (or re-mints onto, D9) a PENDING Connector and returns its completion URL,
+ *  never a credential value: the `api.createPendingConnector` call carries only the intended
+ *  auth SHAPE, never a secret, so "no secret passes through a model context" remains a
+ *  structural property of this handler. */
 export async function createConnectorHandler(
   api: HelioApi,
-  input: { name: string; baseUrl: string; kind?: string; authType?: string },
+  input: {
+    name: string;
+    baseUrl: string;
+    kind?: string;
+    authType?: string;
+    apiKeyName?: string;
+    apiKeyPlacement?: string;
+  },
 ): Promise<CallToolResult> {
-  if (input.authType !== undefined && input.authType !== "none") {
-    return {
-      content: [
-        {
-          type: "text",
-          text:
-            `create_connector only creates unauthenticated Connectors (authType: none) — ` +
-            `authType "${input.authType}" needs a credential, which cannot be supplied through ` +
-            "MCP. A human must create this Connector at the in-app /connectors page " +
-            "(frontend/src/app/AppRoutes.tsx) instead. No Connector was created.",
-        },
-      ],
-      isError: true,
-    };
+  if (input.authType === undefined || input.authType === "none") {
+    return guarded(async () => {
+      const connector = await api.createConnector({
+        name: input.name,
+        kind: input.kind ?? "rest_api",
+        baseUrl: input.baseUrl,
+      });
+      return {
+        ...connector,
+        note:
+          "This Connector was created with no credential (authType: none). If the host " +
+          "actually requires authentication, requests against it will fail with 401/403 — " +
+          "a human must create a credentialed Connector at the in-app /connectors page instead.",
+      };
+    });
   }
   return guarded(async () => {
-    const connector = await api.createConnector({
+    const pending = await api.createPendingConnector({
       name: input.name,
       kind: input.kind ?? "rest_api",
       baseUrl: input.baseUrl,
+      authType: input.authType as string,
+      apiKeyName: input.apiKeyName,
+      apiKeyPlacement: input.apiKeyPlacement,
     });
     return {
-      ...connector,
+      ...pending,
       note:
-        "This Connector was created with no credential (authType: none). If the host " +
-        "actually requires authentication, requests against it will fail with 401/403 — " +
-        "a human must create a credentialed Connector at the in-app /connectors page instead.",
+        `This Connector is PENDING -- it has no credential yet. Send the completion URL ` +
+        `"${pending.completionUrl}" (opened at your Helio app's own URL) to a human, who must ` +
+        `submit the real credential there before this Connector (or any REST source referencing ` +
+        `it) can be used. The URL expires at ${pending.expiresAt}; re-run create_connector with ` +
+        "the same name/baseUrl/authType afterwards to mint a fresh one.",
     };
   });
 }

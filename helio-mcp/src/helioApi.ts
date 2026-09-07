@@ -26,6 +26,7 @@ import type {
   ConnectorMetadataResponse,
   ConnectorSummary,
   CreateConnectorResult,
+  CreatePendingConnectorResult,
   CreateSourceResult,
   CsvPreview,
   DashboardProposal,
@@ -342,10 +343,16 @@ export class HelioApi {
   listConnectorInstances(): Promise<ConnectorSummary[]> {
     return this.http
       .get<{
-        items: Array<{ id: string; name: string; kind: string; baseUrl: string }>;
+        items: Array<{ id: string; name: string; kind: string; baseUrl: string; pending: boolean }>;
       }>("/api/connectors")
       .then((res) =>
-        res.items.map((c) => ({ id: c.id, name: c.name, kind: c.kind, host: c.baseUrl })),
+        res.items.map((c) => ({
+          id: c.id,
+          name: c.name,
+          kind: c.kind,
+          host: c.baseUrl,
+          pending: c.pending,
+        })),
       );
   }
 
@@ -371,6 +378,38 @@ export class HelioApi {
         credential: "",
       })
       .then((c) => ({ id: c.id, name: c.name, kind: c.kind, host: c.baseUrl }));
+  }
+
+  /** HEL-955 design.md D9/task 5.1: creates (or re-mints onto, per D9) a pending Connector for
+   *  a CREDENTIALED host -- distinct from `createConnector` above, which only ever creates
+   *  `authType: "none"` Connectors. Never carries a credential value; the completion secret
+   *  returned here is the token itself, handed to a human out-of-band -- this call never
+   *  decrypts or stores a credential. `completionUrl` is a relative path (`/connectors/
+   *  complete?token=...`) -- the caller has no reliable notion of the frontend's own origin, so
+   *  the tool's result text (see `connectorHandlers.ts`) tells the human to open it at their
+   *  Helio app URL rather than presenting it as a directly-clickable absolute link. */
+  createPendingConnector(input: {
+    name: string;
+    kind: string;
+    baseUrl: string;
+    authType: string;
+    apiKeyName?: string;
+    apiKeyPlacement?: string;
+  }): Promise<CreatePendingConnectorResult> {
+    return this.http
+      .post<{ connectorId: string; token: string; expiresAt: string }>("/api/connectors/pending", {
+        name: input.name,
+        kind: input.kind,
+        baseUrl: input.baseUrl,
+        authType: input.authType,
+        apiKeyName: input.apiKeyName,
+        apiKeyPlacement: input.apiKeyPlacement,
+      })
+      .then((r) => ({
+        connectorId: r.connectorId,
+        completionUrl: `/connectors/complete?token=${encodeURIComponent(r.token)}`,
+        expiresAt: r.expiresAt,
+      }));
   }
 
   /** List every registered smart pipeline shape with its catalog metadata (HEL-391/402) —

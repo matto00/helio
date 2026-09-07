@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/pending-connector-auth-shape-response.schema.json",
+  "title": "PendingConnectorAuthShapeResponse",
+  "description": "Response of GET /api/connectors/completion?token=... (HEL-955 evaluation-1.md CR4, design.md D9) -- the pending Connector's INTENDED auth shape ONLY, so the completion page can render its credential field from the actual persisted shape instead of asking the human to guess. Never the credential itself (there isn't one yet) and never defaultHeaders/implicit (HEL-828's concern). Every invalid-token failure mode returns the same byte-identical curated refusal as POST /api/connectors/completion.",
+  "type": "object",
+  "properties": {
+    "authType": { "type": "string" },
+    "apiKeyName": { "type": "string" },
+    "apiKeyPlacement": { "type": "string", "enum": ["header", "query"] }
+  },
+  "required": ["authType"],
+  "additionalProperties": false
+}
