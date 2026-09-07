@@ -24,6 +24,17 @@ function renderMenu(overrides: Partial<Parameters<typeof ActionsMenu>[0]> = {}) 
 // keyboard: Enter/Space opened it but never moved real focus into the menu,
 // arrow keys did nothing, and Tab-away left it visually open with focus on
 // an unrelated control.
+//
+// HEL-1003 D5 triage (all 6 `toHaveFocus` assertions below): kept as-is,
+// genuinely falsifiable under jsdom. Every element these assertions move
+// focus between (the trigger and the menu's own `menuitem`s) is rendered at
+// full opacity/size with no `display:none`/`clip`/`0x0` layout involved — the
+// component this test renders never applies the resting visually-hidden
+// treatment (that's host CSS in `DashboardList.css`, not part of
+// `ActionsMenu` itself). D0a's failure mode ("jsdom will happily focus a
+// hidden 0x0 element") does not apply here because nothing under test is
+// hidden; these assertions test real focus-movement logic (Enter/ArrowUp/
+// ArrowDown/Home/End/Escape wiring), which jsdom tracks correctly.
 describe("ActionsMenu — keyboard operability (HEL a11y sweep F-007)", () => {
   it("Enter on the trigger opens the menu and moves real focus to the first enabled item", () => {
     renderMenu();

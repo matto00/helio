@@ -233,18 +233,44 @@
 }
 
 /* The per-row actions menu (vertical ellipsis) is an inline flex child of the
- * row that shows on hover. When hidden, display:none removes it from layout
- * so the row button fills the full width. */
+ * row that shows on hover/focus. At rest it must remain a real, focusable DOM
+ * node (a keyboard user calling .focus() on the trigger must land on it, not
+ * fall through to <body>) while staying unpainted and consuming no row width.
+ * `display: none` cannot do this — browsers refuse to focus a display:none
+ * descendant — so this uses the same visually-hidden recipe as the shared
+ * `.sr-only` utility (canonical source: theme.css:340, `.sr-only`). The
+ * `.sr-only` class itself can't be used here: it's a markup class applied to
+ * text nodes, and `ActionsMenu.tsx`'s wrapper (`<div className="popover
+ * actions-menu">`) takes no `className` prop; also, hidden-at-rest vs.
+ * painted-on-reveal is a CSS *state*, not a fixed property of the element, so
+ * a static class can't express it. See design.md D1 (HEL-1003) for the full
+ * rationale, including why `display: none` regresses keyboard reachability.
+ */
 .dashboard-list__item-row .popover.actions-menu {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
   flex-shrink: 0;
 }
 
+/* Reveal rule MUST undo every declaration the resting rule above sets, not
+ * just `display` — otherwise the trigger stays focusable but is trapped in a
+ * 1x1 box (flex-shrink shrinks it to ~3x24 instead of 24x24) and is never
+ * painted again, on hover OR keyboard focus. See design.md D1. */
 .dashboard-list__item-row:hover .popover.actions-menu,
 .dashboard-list__item-row:focus-within .popover.actions-menu,
 .dashboard-list__item-row:has(.actions-menu__trigger[aria-expanded="true"]) .popover.actions-menu {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
 }
 
 /* Strip the trigger's pill (border + tinted background) inside sidebar rows

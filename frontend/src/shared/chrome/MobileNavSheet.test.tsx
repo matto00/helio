@@ -399,6 +399,14 @@ describe("MobileNavSheet", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
+  // HEL-1003 D5 triage (the 6 `toHaveFocus` assertions in this describe
+  // block): kept as-is, genuinely falsifiable under jsdom. `MobileNavSheet`
+  // is out of scope for this change (design.md D2 — its focus trap is
+  // correct and untouched), and none of these assertions focus a
+  // `display:none`/`clip`/0x0 element — they move focus among the sheet's
+  // own always-rendered items (list buttons, the dialog panel, the trigger).
+  // D0a's "jsdom will happily focus a hidden element" failure mode does not
+  // apply: nothing under test here is hidden.
   it("focuses the active item on open, never the create action", () => {
     renderSheet({ createAction: makeCreateAction() });
 
