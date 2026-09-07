@@ -76,7 +76,11 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       rowCount           = None,
       errorLog           = None,
       triggerSource      = triggerSource,
-      triggeredByTokenId = triggeredByTokenId.map(UUID.fromString)
+      triggeredByTokenId = triggeredByTokenId.map(UUID.fromString),
+      // HEL-873 (design.md Decision 2a): a queued row's truncation facts do not exist yet -- it
+      // has not reached a terminal status and persists no row count, so NULL here is the one
+      // decided, non-escalation exception to "every terminal row is non-null" (task 2.7).
+      truncatedReads     = None
     )
     ctx.withSystemContext(runsTable += row).map(_ => ())
   }
@@ -89,7 +93,11 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       completedAt: Instant,
       rowCount: Option[Int],
       errorLog: Option[String],
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      // HEL-873 (design.md Decision 2a): every terminal write is required to pass a real value --
+      // no default -- so a forgotten call site fails to compile rather than silently writing NULL
+      // to a terminal row (the exact SparkJobSubmitter hazard task 2.8 calls out).
+      truncatedReadsJson: Option[String]
   ): Future[Unit] = {
     val ownerUuid = UUID.fromString(user.id.value)
     val ownedRunQuery = for {
@@ -98,46 +106,54 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     } yield run.id
     ctx.withUserContext(user.id.value)(ownedRunQuery.result.headOption).flatMap {
       case None      => Future.successful(())
-      case Some(rid) => updateRunTerminalInternal(PipelineRunId(rid), status, completedAt, rowCount, errorLog)
+      case Some(rid) => updateRunTerminalInternal(PipelineRunId(rid), status, completedAt, rowCount, errorLog, truncatedReadsJson)
     }
   }
 
-  /** ACL-bypassing terminal update for the privileged Spark driver path. */
+  /** ACL-bypassing terminal update for the privileged Spark driver path.
+    * `truncatedReadsJson` has NO default (see `updateRunTerminal`'s doc) --
+    * `SparkJobSubmitter`'s two call sites pass `PipelineRunService.EmptyTruncationJson`
+    * explicitly (task 2.8, evaluation-2.md item 2). */
   def updateRunTerminalInternal(
       runId: PipelineRunId,
       status: String,
       completedAt: Instant,
-      rowCount: Option[Int] = None,
-      errorLog: Option[String] = None
+      rowCount: Option[Int],
+      errorLog: Option[String],
+      truncatedReadsJson: Option[String]
   ): Future[Unit] =
     ctx.withSystemContext(
       runsTable
         .filter(_.id === runId.value)
-        .map(r => (r.status, r.completedAt, r.rowCount, r.errorLog))
-        .update((status, Some(completedAt), rowCount, errorLog))
+        .map(r => (r.status, r.completedAt, r.rowCount, r.errorLog, r.truncatedReads))
+        .update((status, Some(completedAt), rowCount, errorLog, truncatedReadsJson))
     ).map(_ => ())
 
   /** Owner-scoped dry-run insert. Silent no-op when the caller does not own
     * the parent pipeline. Dry runs are always triggered interactively (the
     * scheduler never dry-runs), so `triggerSource` is always `"manual"` --
-    * no caller-supplied parameter. */
-  def insertDryRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, user: AuthenticatedUser): Future[Unit] =
+    * no caller-supplied parameter. `truncatedReadsJson` (HEL-873, design.md
+    * Decision 2a): a dry run inserts an already-terminal row in one
+    * statement, so it must never leave this NULL, unlike `insertRunInternal`'s
+    * queued row. */
+  def insertDryRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, user: AuthenticatedUser, truncatedReadsJson: String): Future[Unit] =
     ctx.withUserContext(user.id.value)(pipelineOwnedAction(pipelineId, user)).flatMap {
       case false => Future.successful(())
-      case true  => insertDryRunInternal(runId, pipelineId, startedAt, rowCount)
+      case true  => insertDryRunInternal(runId, pipelineId, startedAt, rowCount, truncatedReadsJson)
     }
 
   /** ACL-bypassing dry-run insert for the privileged Spark driver path. */
-  def insertDryRunInternal(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int): Future[Unit] = {
+  def insertDryRunInternal(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, truncatedReadsJson: String): Future[Unit] = {
     val row = PipelineRunRow(
-      id            = runId.value,
-      pipelineId    = pipelineId.value,
-      status        = "dry_run",
-      startedAt     = startedAt,
-      completedAt   = Some(startedAt),
-      rowCount      = Some(rowCount),
-      errorLog      = None,
-      triggerSource = "manual"
+      id             = runId.value,
+      pipelineId     = pipelineId.value,
+      status         = "dry_run",
+      startedAt      = startedAt,
+      completedAt    = Some(startedAt),
+      rowCount       = Some(rowCount),
+      errorLog       = None,
+      triggerSource  = "manual",
+      truncatedReads = Some(truncatedReadsJson)
     )
     ctx.withSystemContext(runsTable += row).map(_ => ())
   }
@@ -325,7 +341,19 @@ object PipelineRunRepository {
       // api_tokens(id) type; converted to/from the domain-facing
       // ApiTokenId.value string at the repository boundary (insertRunInternal's
       // param, PipelineRunService.history's mapping).
-      triggeredByTokenId: Option[UUID] = None
+      triggeredByTokenId: Option[UUID] = None,
+      // HEL-873 (design.md Decision 2, evaluation-1.md CR1, evaluation-2.md item 2): NULL means
+      // "not recorded" -- predates this column or has not reached a terminal status. A present
+      // value is an OBJECT, `{"primaryAvailableRowCount": <long|null>, "reads": [...]}` -- NOT a
+      // bare JSON array (an earlier cycle's encoding, changed before this column ever shipped to
+      // production). `reads` empty means recorded-and-complete; `reads` non-empty means truncated.
+      // `PipelineRunService.EmptyTruncationJson` is the canonical recorded-and-complete literal --
+      // use it, never a bare `"[]"`, which is NOT an object and therefore decodes to NOT-RECORDED
+      // (`PipelineRunService.parseTruncationRecord`'s `Try` degrades any non-object value that
+      // way, per CR4). Raw JSON text at this layer -- decoded to a `RunTruncationRecord` at the
+      // service boundary, mirroring every other `jsonbStringType`-mapped column in this codebase
+      // (see `PanelRepository`/`AlertRuleRepository`).
+      truncatedReads: Option[String] = None
   )
 
   class PipelineRunTable(tag: Tag) extends Table[PipelineRunRow](tag, "pipeline_runs") {
@@ -338,8 +366,13 @@ object PipelineRunRepository {
     def errorLog           = column[Option[String]]("error_log")
     def triggerSource      = column[String]("trigger_source")
     def triggeredByTokenId = column[Option[UUID]]("triggered_by_token_id")
+    // No explicit `jsonbStringType` needed here (unlike a non-Option JSONB column elsewhere in
+    // this codebase) -- Slick derives `TypedType[Option[String]]` from the ambient `String`
+    // column type automatically, and `jsonbStringType`'s mapping is identity at the Scala level
+    // anyway (it exists purely to document the column's JSONB-backed intent).
+    def truncatedReads     = column[Option[String]]("truncated_reads")
 
-    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource, triggeredByTokenId).mapTo[PipelineRunRow]
+    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource, triggeredByTokenId, truncatedReads).mapTo[PipelineRunRow]
   }
 
 

@@ -59,6 +59,11 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   // exercising the real REST-truncation path end to end through PipelineRunService.
   private val RestBigUrl        = "https://pipeline-run-service.test/big"
   private val RestBigTotalRows  = 3303
+  // HEL-873 (evaluation-1.md CR2): a source returning EXACTLY `InProcessPipelineEngine
+  // .MaxRunRows` rows -- the true at-cap boundary the no-false-positives acceptance criterion
+  // names. Derived from the real constant, not a hardcoded `1000`, so this fixture can never
+  // silently drift out of sync with the cap it is supposed to sit exactly on.
+  private val RestAtCapUrl = "https://pipeline-run-service.test/at-cap"
   // HEL-891 (task 1.1, fixture (i)): a heterogeneous JSON source exercising every shape the
   // pipeline-output schema-union fix must handle in one run. Row 0 deliberately lacks `rec`
   // (shape a). See design.md D2a: a `static` source can't express sparseness, so this is a
@@ -91,6 +96,10 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     else if (config.connectorId == RestBigUrl)
       Future.successful(Right(JsArray(
         (1 to RestBigTotalRows).map(i => JsObject("id" -> JsNumber(i))).toVector
+      )))
+    else if (config.connectorId == RestAtCapUrl)
+      Future.successful(Right(JsArray(
+        (1 to InProcessPipelineEngine.MaxRunRows).map(i => JsObject("id" -> JsNumber(i))).toVector
       )))
     else if (config.connectorId == RestHeterogeneousUrl)
       Future.successful(Right(JsArray(Vector(heterogeneousRow0, heterogeneousRow1))))
@@ -1591,6 +1600,246 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       response.truncatedReads.map(_.dataSourceName) shouldBe Vector(
         "primary-source", "union-secondary", "lookup-secondary"
       )
+    }
+  }
+
+  "PipelineRunService persisted truncation signal (HEL-873)" should {
+
+    "a truncated run persists non-empty reads and reads back as truncated with a byte-identical notice" in {
+      val dsId = seedRestDs(RestBigUrl)
+      val pid  = seedPipeline(dsId)
+      await(insertStep(pid, "limit", LimitConfig(2000), dummyUser))
+
+      val liveResult = await(service.submit(pid, isDry = false, dummyUser))
+      liveResult shouldBe a[Right[_, _]]
+      val liveNotice = liveResult.toOption.get.truncationNotice.get
+
+      val history = await(service.history(pid, dummyUser))
+      history shouldBe a[Right[_, _]]
+      val record = history.toOption.get.head
+      val truncation = record.truncation
+      truncation shouldBe defined
+      truncation.get.truncated shouldBe true
+      truncation.get.reads should have size 1
+      truncation.get.reads.head.availableRowCount shouldBe Some(3303L)
+      // Red-arm check: the recomposed notice must be the SAME sentence the live run returned --
+      // asserting mere `isDefined` here would pass even if recomposition silently drifted.
+      truncation.get.notice shouldBe Some(liveNotice)
+    }
+
+    // evaluation-1.md CR1 / evaluation-2.md item 3: the persisted `primaryAvailableRowCount` must
+    // be the PRIMARY source's own count, never inferred from `reads.headOption` --
+    // `truncationFields` only prepends the primary's own entry to `reads` when the primary
+    // ITSELF was truncated, so a complete-primary (under RestSuccessUrl's own tiny row count) run
+    // has NO primary entry in `reads` at all -- the SECONDARY, `ds-secondary`, is `reads.head`
+    // instead. This test genuinely IS red against the pre-fix inference:
+    // `reads.headOption.flatMap(_.availableRowCount)` reads `ds-secondary`'s own
+    // `Some(RestBigTotalRows.toLong)` (3303), which fails both `primaryAvailableRowCount shouldBe
+    // livePrimaryAvailable` (`Some(1L)`, the live primary's own scalar) and the explicit `should
+    // not be Some(RestBigTotalRows.toLong)` anchor below -- confirmed by temporarily reverting the
+    // CR1 fix and observing exactly that failure. This is the strongest evidence for CR1 in this
+    // cycle, not a redundant companion check.
+    "a complete-primary run with a truncated secondary persists the PRIMARY's own availableRowCount, not the secondary's" in {
+      val primaryDsId = seedRestDs(RestSuccessUrl) // primary is UNDER the cap
+      val pid = seedPipeline(primaryDsId)
+      val secondaryDsId = seedRestDsNamed(RestBigUrl, "ds-secondary") // secondary is OVER the cap
+      await(insertStep(
+        pid, "union", UnionConfig(secondaryInput = SecondaryInput.Source(secondaryDsId), mode = "byPosition"), dummyUser
+      ))
+
+      val liveResult = await(service.submit(pid, isDry = false, dummyUser))
+      liveResult shouldBe a[Right[_, _]]
+      // The live result's own `sourceAvailableRowCount` is scoped to the PRIMARY -- REST always
+      // reports it regardless of truncation (the sibling "primary under the cap" test above
+      // confirms `Some(1L)` for this exact stub arm's single-row payload), so this is `Some(1L)`,
+      // NOT the secondary's `Some(3303L)`.
+      val livePrimaryAvailable = liveResult.toOption.get.sourceAvailableRowCount
+
+      val record = await(service.history(pid, dummyUser)).toOption.get.head
+      record.truncation shouldBe defined
+      // Truncated overall (the secondary was), but the persisted PRIMARY scalar must match the
+      // LIVE primary scalar -- not the secondary's 3303, which is what `reads.headOption` would
+      // have returned before the CR1 fix (the secondary is `reads.head` here, since the primary
+      // was never truncated and therefore has no entry in `reads` at all).
+      record.truncation.get.primaryAvailableRowCount shouldBe livePrimaryAvailable
+      // The secondary's own entry legitimately carries its own 3303 available count in `reads` --
+      // that is correct and expected. The defect this test targets is that number leaking onto
+      // the PRIMARY-scoped field, which the assertion above already rules out; this one confirms
+      // `reads` itself is unaffected by the fix (still names the secondary, still carries its own
+      // count).
+      record.truncation.get.reads.map(_.dataSourceName) should contain("ds-secondary")
+      record.truncation.get.reads.find(_.dataSourceName == "ds-secondary").get.availableRowCount shouldBe Some(RestBigTotalRows.toLong)
+      // Red-arm anchor: before the CR1 fix, `primaryAvailableRowCount` was read off
+      // `reads.headOption`, which IS the secondary here (the primary has no entry at all) --
+      // this must NOT equal the secondary's count.
+      record.truncation.get.primaryAvailableRowCount should not be Some(RestBigTotalRows.toLong)
+    }
+
+    "a complete run persists a recorded-and-empty signal (never NULL) and reads back as not-truncated" in {
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+
+      await(service.submit(pid, isDry = false, dummyUser)) shouldBe a[Right[_, _]]
+
+      val history = await(service.history(pid, dummyUser))
+      val record = history.toOption.get.head
+      val truncation = record.truncation
+      truncation shouldBe defined
+      truncation.get.truncated shouldBe false
+      truncation.get.reads shouldBe empty
+    }
+
+    // evaluation-2.md non-blocking suggestion: `PipelineRunService.EmptyTruncationJson` is a
+    // hand-written literal that must stay consistent with what the real write path
+    // (`truncatedReadsToJson(None, Vector.empty)`) actually produces for a complete run -- both
+    // are private, so this asserts the equivalence indirectly, against the REAL persisted column
+    // value from an actual complete run, rather than by reflection.
+    // `EmptyTruncationJson` is used ONLY by the paths where no source read was attempted or
+    // completed at all (failure/blocked/never-attempted terminal writes) -- NOT by an ordinary
+    // successful run, even a non-truncated one: REST always reports its own `availableRowCount`
+    // regardless of truncation (`RestSuccessUrl`'s stub returns `Some(1)` for its own one-row
+    // payload), so a genuinely complete REST run persists `{"primaryAvailableRowCount":1,
+    // "reads":[]}`, NOT the `null`-scalar literal. A failed run is therefore the real call site
+    // to check this constant against.
+    "the real write path for a failed run persists exactly PipelineRunService.EmptyTruncationJson" in {
+      import PostgresProfile.api._
+      val dsId = seedRestDs(RestFailureUrl)
+      val pid  = seedPipeline(dsId)
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Left[_, _]]
+
+      val runId = await(db.run(
+        sql"SELECT id FROM pipeline_runs WHERE pipeline_id = ${pid.value}".as[String]
+      )).head
+      val persisted = await(db.run(
+        sql"SELECT truncated_reads::text FROM pipeline_runs WHERE id = $runId".as[String]
+      )).head
+      persisted.parseJson shouldBe PipelineRunService.EmptyTruncationJson.parseJson
+    }
+
+    // evaluation-1.md CR2: a source of EXACTLY `InProcessPipelineEngine.MaxRunRows` rows -- the
+    // true at-cap boundary, not a duplicate of the "well under any cap" complete-run test above.
+    "a source at EXACTLY the row cap persists as complete, not truncated (the true at-cap boundary)" in {
+      val dsId = seedRestDs(RestAtCapUrl)
+      val pid  = seedPipeline(dsId)
+
+      val result = await(service.submit(pid, isDry = false, dummyUser))
+      result shouldBe a[Right[_, _]]
+      result.toOption.get.sourceRowCount shouldBe InProcessPipelineEngine.MaxRunRows.toLong
+      // Live-result parity with the persisted assertions below -- the boundary must read the
+      // same both ways.
+      result.toOption.get.sourceTruncated shouldBe false
+
+      val record = await(service.history(pid, dummyUser)).toOption.get.head
+      record.truncation shouldBe defined
+      record.truncation.get.truncated shouldBe false
+      record.truncation.get.reads shouldBe empty
+    }
+
+    "a failed run persists a recorded signal ([]), never NULL" in {
+      val dsId = seedRestDs(RestFailureUrl)
+      val pid  = seedPipeline(dsId)
+
+      await(service.submit(pid, isDry = false, dummyUser)) shouldBe a[Left[_, _]]
+
+      val history = await(service.history(pid, dummyUser))
+      val record = history.toOption.get.head
+      record.status shouldBe "failed"
+      record.rowCount shouldBe None
+      record.truncation shouldBe defined
+      record.truncation.get.truncated shouldBe false
+      record.truncation.get.reads shouldBe empty
+    }
+
+    "a dry run over a truncated source persists a recorded, non-empty signal" in {
+      val dsId = seedRestDs(RestBigUrl)
+      val pid  = seedPipeline(dsId)
+      await(insertStep(pid, "limit", LimitConfig(2000), dummyUser))
+
+      await(service.submit(pid, isDry = true, dummyUser)) shouldBe a[Right[_, _]]
+
+      val history = await(service.history(pid, dummyUser))
+      val record = history.toOption.get.head
+      record.status shouldBe "dry_run"
+      record.truncation shouldBe defined
+      record.truncation.get.truncated shouldBe true
+      record.truncation.get.reads should have size 1
+    }
+
+    "a row persisted before this capability shipped (NULL column) reads back as not-recorded, never as complete" in {
+      import PostgresProfile.api._
+      val dsId  = seedRestDs(RestSuccessUrl)
+      val pid   = seedPipeline(dsId)
+      val runId = UUID.randomUUID().toString
+      // Inserted directly (bypassing every write path this ticket touches) -- the real
+      // pre-HEL-873 shape, not an approximation of it.
+      await(db.run(sqlu"""
+        INSERT INTO pipeline_runs (id, pipeline_id, status, started_at, completed_at, row_count, trigger_source)
+        VALUES ($runId, ${pid.value}, 'succeeded', now(), now(), 500, 'manual')
+      """))
+
+      val record = await(service.history(pid, dummyUser)).toOption.get.head
+      // `None` here already IS "not recorded, never collapsed into recorded-complete" -- there is
+      // no weaker intermediate assertion that would pass on the pre-fix defect (collapsing to
+      // `Some(RunTruncationRecord(false, None, Vector.empty, None))`) and fail here, so a second
+      // `should not be Some(...)` line would be trivially implied by this one, not independent
+      // evidence (evaluation-1.md non-blocking suggestion).
+      record.truncation shouldBe None
+    }
+
+    // evaluation-1.md CR4: `parseTruncationRecord` must be TOTAL over any persisted content, not
+    // just the non-array case the pre-fix code handled. Three distinct malformed shapes, each
+    // exercising a different failure mode (`ParsingException`, `NoSuchElementException` on a
+    // missing required field, `ClassCastException` on a non-array `reads`) -- every one degrades
+    // to not-recorded (`None`), never to `[]` (which would assert completeness this capability
+    // forbids), and NONE of them fails the surrounding `GET .../run-history` request for the
+    // other, well-formed rows in the same response.
+    "an undecodable truncated_reads value degrades that row to not-recorded, never to empty-and-complete, and never fails the request" in {
+      import PostgresProfile.api._
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+
+      // Every payload here IS valid JSON syntax -- the `truncated_reads` column is a genuine
+      // Postgres JSONB type, which validates JSON syntax on write, so a literally unparseable
+      // string could never actually reach this column via any real insert. `parseTruncationRecord`
+      // still wraps `json.parseJson` in the same `Try` as the rest of the decode (CR4's fix is
+      // general, not shape-specific), but the three shapes exercised here are the ones an actual
+      // row could carry: valid JSON that is the wrong SHAPE for this decoder.
+      val malformedPayloads = Vector(
+        """"just a string"""",              // valid JSON, but not an object -- .asJsObject throws
+        """{"reads":"not-an-array"}""",     // reads is not a JSON array -- ClassCastException
+        """{"reads":[{"rowsRead":5}]}"""    // a read entry is missing dataSourceName -- NoSuchElementException
+      )
+      val malformedRunIds = malformedPayloads.map { payload =>
+        val runId = UUID.randomUUID().toString
+        await(db.run(sqlu"""
+          INSERT INTO pipeline_runs
+            (id, pipeline_id, status, started_at, completed_at, row_count, trigger_source, truncated_reads)
+          VALUES ($runId, ${pid.value}, 'succeeded', now(), now(), 5, 'manual', $payload::jsonb)
+        """))
+        runId
+      }
+
+      // A real, well-formed run alongside the malformed rows -- proves one bad row does not fail
+      // the whole request (CR4's explicit requirement).
+      val liveResult = await(service.submit(pid, isDry = false, dummyUser))
+      liveResult shouldBe a[Right[_, _]]
+      val wellFormedRunId = liveResult.toOption.get.runId.get
+
+      val history = await(service.history(pid, dummyUser))
+      history shouldBe a[Right[_, _]]
+      val records = history.toOption.get
+      records should have size (malformedPayloads.size + 1)
+
+      malformedRunIds.foreach { runId =>
+        val record = records.find(_.id == runId).get
+        // Red-arm check: `None` here, never a present-and-empty record -- collapsing an
+        // undecodable row to `[]` would assert completeness this capability forbids.
+        record.truncation shouldBe None
+      }
+      // The well-formed run submitted above is unaffected by its malformed siblings.
+      records.find(_.id == wellFormedRunId).get.truncation shouldBe defined
     }
   }
 

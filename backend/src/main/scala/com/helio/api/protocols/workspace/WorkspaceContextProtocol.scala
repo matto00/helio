@@ -131,6 +131,8 @@ final case class WorkspaceContextPipeline(
     lastRunStatus: Option[String],
     lastRunAt: Option[String],
     lastRunRowCount: Option[Long],
+    // HEL-873: absent means not recorded, mirroring `PipelineSummaryResponse.lastRunTruncated`.
+    lastRunTruncated: Option[Boolean],
     tag: Option[String],
     steps: Vector[WorkspaceContextPipelineStep],
     stepsError: Option[String],
@@ -259,7 +261,7 @@ trait WorkspaceContextProtocol
   implicit val workspaceContextPipelineStepFormat: RootJsonFormat[WorkspaceContextPipelineStep] =
     jsonFormat4(WorkspaceContextPipelineStep.apply)
   implicit val workspaceContextPipelineFormat: RootJsonFormat[WorkspaceContextPipeline] =
-    jsonFormat12(WorkspaceContextPipeline.apply)
+    jsonFormat13(WorkspaceContextPipeline.apply)
   implicit val workspaceContextDashboardFormat: RootJsonFormat[WorkspaceContextDashboard] =
     jsonFormat3(WorkspaceContextDashboard.apply)
   implicit val workspaceContextTruncationFormat: RootJsonFormat[WorkspaceContextTruncation] =

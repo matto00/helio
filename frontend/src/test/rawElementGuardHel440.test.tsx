@@ -84,6 +84,7 @@ const pipelineFooterNoopProps = {
   lastRunAt: null,
   lastRunRowCount: null,
   lastRunStatus: null,
+  lastRunTruncated: null,
 };
 
 describe("HEL-440 raw-element guard — migrated rename controls", () => {

@@ -167,17 +167,29 @@ export function PipelineDetailPage() {
 
       {/* ── HEL-861: run-truncation warning — shown only when the last run's source read (or a
           join/union/lookup secondary read) was capped. Renders the server-composed notice
-          verbatim (design.md D7) so the human sees exactly what an MCP agent reads. ── */}
-      {runSourceTruncated && runTruncationNotice && (
-        <div className="pipeline-detail-page__truncation-banner" role="alert">
-          <span className="pipeline-detail-page__truncation-banner-icon" aria-hidden="true">
-            ⚠
-          </span>
-          <span className="pipeline-detail-page__truncation-banner-text">
-            {runTruncationNotice}
-          </span>
-        </div>
-      )}
+          verbatim (design.md D7) so the human sees exactly what an MCP agent reads.
+          HEL-873 (design.md task 5.3): falls back to the PERSISTED signal when no live Redux
+          run state is present (a fresh page load) — `runs[0]` is the most recent run (the
+          backend sorts `startedAt` descending), so its recomposed `truncation.notice` is what a
+          reloaded page shows instead of nothing. A fresh run in THIS session always supersedes
+          the persisted value, since `runSourceTruncated`/`runTruncationNotice` are checked first. ── */}
+      {(() => {
+        const persistedNotice = runs[0]?.truncation?.notice ?? null;
+        const showLive = runSourceTruncated && runTruncationNotice;
+        const showPersisted =
+          !showLive && currentPipeline.lastRunTruncated === true && persistedNotice;
+        const noticeText = showLive ? runTruncationNotice : persistedNotice;
+        return (
+          (showLive || showPersisted) && (
+            <div className="pipeline-detail-page__truncation-banner" role="alert">
+              <span className="pipeline-detail-page__truncation-banner-icon" aria-hidden="true">
+                ⚠
+              </span>
+              <span className="pipeline-detail-page__truncation-banner-text">{noticeText}</span>
+            </div>
+          )
+        );
+      })()}
 
       {/* ── Steps / Outputs tab bar (task 4.1). Evaluation-1 cycle-2 CR6:
           completed the ARIA tabs pattern -- `id`/`aria-controls` linking each
@@ -341,6 +353,7 @@ export function PipelineDetailPage() {
         lastRunAt={currentPipeline.lastRunAt}
         lastRunRowCount={currentPipeline.lastRunRowCount}
         lastRunStatus={currentPipeline.lastRunStatus}
+        lastRunTruncated={currentPipeline.lastRunTruncated ?? null}
       />
 
       {/* ── Run history modal (opened from the header's actions menu) ── */}

@@ -1743,6 +1743,74 @@ describe("PipelineDetailPage", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  // HEL-873 (design.md task 5.3, spec "A truncated run is still identifiable after a reload"):
+  // with EMPTY Redux run state (no `runSourceTruncated`/`runTruncationNotice` from a live run in
+  // THIS session — a fresh page load), the banner and the footer's partial marker must still
+  // render from the PERSISTED signal (`currentPipeline.lastRunTruncated` + the most recent
+  // `run-history` record's `truncation.notice`).
+  it("renders the persisted truncation banner and footer marker after a reload with empty Redux run state", () => {
+    const persistedNotice =
+      'Source "big-source" truncated: this run read the first 1000 rows returned, out of 3303 ' +
+      "available, because of the 1000-row run cap.";
+    const store = makeStore([], {
+      // No live run state -- exactly what a fresh page load looks like.
+      runSourceTruncated: false,
+      runTruncationNotice: null,
+      currentPipeline: {
+        ...defaultPipeline,
+        lastRunStatus: "succeeded",
+        lastRunAt: "2026-05-01T10:00:00Z",
+        lastRunRowCount: 1000,
+        lastRunTruncated: true,
+      },
+      runHistory: {
+        "pipe-1": [
+          {
+            id: "run-1",
+            pipelineId: "pipe-1",
+            status: "succeeded",
+            startedAt: "2026-05-01T09:59:00Z",
+            completedAt: "2026-05-01T10:00:00Z",
+            rowCount: 1000,
+            errorLog: null,
+            triggerSource: "manual",
+            assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
+            truncation: {
+              truncated: true,
+              primaryAvailableRowCount: 3303,
+              reads: [{ dataSourceName: "big-source", rowsRead: 1000, availableRowCount: 3303 }],
+              notice: persistedNotice,
+            },
+          },
+        ],
+      },
+    });
+    renderDetailPage("pipe-1", store);
+
+    // The banner renders the recomposed, persisted notice.
+    expect(screen.getByRole("alert")).toHaveTextContent("truncated");
+    // The footer's rows-written figure is marked partial.
+    expect(screen.getAllByText(/Partial/).length).toBeGreaterThan(0);
+  });
+
+  it("renders no truncation banner or marker for a not-recorded pipeline (lastRunTruncated absent)", () => {
+    const store = makeStore([], {
+      runSourceTruncated: false,
+      runTruncationNotice: null,
+      currentPipeline: {
+        ...defaultPipeline,
+        lastRunStatus: "succeeded",
+        lastRunAt: "2026-05-01T10:00:00Z",
+        lastRunRowCount: 500,
+        lastRunTruncated: undefined,
+      },
+    });
+    renderDetailPage("pipe-1", store);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Partial/)).not.toBeInTheDocument();
+  });
+
   it("status indicator shows 'Queued' when runStatus is queued", () => {
     const store = makeStore([], { runStatus: "queued", runId: "run-1" });
     renderDetailPage("pipe-1", store);

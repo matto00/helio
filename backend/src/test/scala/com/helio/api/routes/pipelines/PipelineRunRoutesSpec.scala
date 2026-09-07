@@ -366,7 +366,7 @@ class PipelineRunRoutesSpec
       val pid   = seedPipeline(dsId)
       val runId = PipelineRunId(UUID.randomUUID().toString)
       await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), dummyUser))
-      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", Instant.now(), rowCount = Some(5), errorLog = None, dummyUser))
+      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", Instant.now(), rowCount = Some(5), errorLog = None, dummyUser, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
 
       Get(s"/pipelines/${pid.value}/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.OK

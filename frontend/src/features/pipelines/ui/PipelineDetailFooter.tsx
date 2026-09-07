@@ -25,6 +25,7 @@ import type { SchemaField } from "../types/pipelineStep";
 import { StatusChip } from "../../../shared/ui/StatusChip";
 import { TextField } from "../../../shared/ui/TextField";
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
+import { TruncatedRowCountBadge } from "./TruncatedRowCountBadge";
 
 interface SseLike {
   status: RunStatusEventData["status"] | null;
@@ -64,6 +65,10 @@ interface PipelineDetailFooterProps {
   lastRunAt: string | null;
   lastRunRowCount: number | null;
   lastRunStatus: "succeeded" | "failed" | null;
+  /** HEL-873: `null` means NOT RECORDED (predates this capability), rendered
+   *  identically to `false` here (design.md Decision 4 — neither state gets
+   *  an affirmative marker, only truncated gets one). */
+  lastRunTruncated: boolean | null;
 }
 
 export function PipelineDetailFooter({
@@ -92,6 +97,7 @@ export function PipelineDetailFooter({
   lastRunAt,
   lastRunRowCount,
   lastRunStatus,
+  lastRunTruncated,
 }: PipelineDetailFooterProps) {
   return (
     <div className="pipeline-detail-page__footer-region">
@@ -105,6 +111,9 @@ export function PipelineDetailFooter({
             <span className="pipeline-detail-page__meta-bar-item">
               <span className="pipeline-detail-page__meta-bar-label">Rows written:</span>{" "}
               {lastRunRowCount.toLocaleString()}
+              {/* HEL-873 (design.md Decision 4): icon + text, never colour alone. Complete
+                  (`false`) and not-recorded (`null`) both render nothing extra here. */}
+              {lastRunTruncated === true && <TruncatedRowCountBadge />}
             </span>
           )}
           {lastRunStatus != null && (

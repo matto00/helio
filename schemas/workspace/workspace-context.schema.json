@@ -377,6 +377,10 @@
         "lastRunRowCount": {
           "type": ["integer", "null"]
         },
+        "lastRunTruncated": {
+          "type": ["boolean", "null"],
+          "description": "HEL-873: absent on the wire (not null) when not recorded -- same spray-json Option-omission convention as lastRunStatus above. Never rendered/read as `false` when absent."
+        },
         "tag": {
           "type": ["string", "null"]
         },

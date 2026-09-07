@@ -59,3 +59,24 @@ describe("PipelineListTable — whole-row navigation (HEL UI-sweep F-069)", () =
     expect(screen.queryByText("Pipeline detail page")).not.toBeInTheDocument();
   });
 });
+
+describe("PipelineListTable — HEL-873 persisted truncation signal", () => {
+  it("marks a truncated pipeline's lastRunRowCount partial and leaves a complete one unmarked", () => {
+    const truncated: PipelineSummary = { ...pipeline, id: "p-truncated", lastRunTruncated: true };
+    const complete: PipelineSummary = {
+      ...pipeline,
+      id: "p-complete",
+      lastRunTruncated: false,
+    };
+    renderTable({ pipelines: [truncated, complete] });
+
+    expect(screen.getAllByText(/Partial/)).toHaveLength(1);
+  });
+
+  it("renders no marker for a not-recorded pipeline (lastRunTruncated absent)", () => {
+    const notRecorded: PipelineSummary = { ...pipeline, lastRunTruncated: undefined };
+    renderTable({ pipelines: [notRecorded] });
+
+    expect(screen.queryByText(/Partial/)).not.toBeInTheDocument();
+  });
+});

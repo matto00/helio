@@ -33,6 +33,15 @@ const proposalReviewTsx = join(repoRoot, "frontend/src/features/dashboards/ui/Pr
 
 // Extract `case class <Name>(<params>)` (handles multi-line param lists).
 // Returns Map<className, fieldName[]>.
+//
+// HEL-873 (evaluation-1.md non-blocking suggestion, spinoff pending): this regex is NOT
+// paren-balanced -- `[^)]*` truncates the param capture at the FIRST `)` it sees, including one
+// nested inside a default value's own call (e.g. `assertions: AssertionSummary =
+// AssertionSummary()`), a param-type application, or an inline comment. Any field declared AFTER
+// such a nested `)` silently vanishes from this check with no warning. Known workaround in
+// PipelineProtocol.scala (HEL-873): fields with an `= Foo()`-shaped default are kept LAST in
+// their case class. Fix properly by brace/paren-balancing this regex (or parsing params via a
+// real tokenizer) rather than adding more field-ordering workarounds at every call site.
 function parseCaseClasses(src) {
   const map = new Map();
   const re = /case class\s+(\w+)\s*\(([^)]*)\)/gs;

@@ -668,7 +668,7 @@ class OutputRoutesSpec
       val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-5", OutputKind.Table, explicitRootId = None))
       val runId = PipelineRunId(java.util.UUID.randomUUID().toString)
       await(pipelineRunRepo.insertRunInternal(runId, pipelineId, Instant.now()))
-      await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", Instant.now().plusSeconds(1), Some(0)))
+      await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", Instant.now().plusSeconds(1), Some(0), errorLog = None, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
 
       Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -1007,7 +1007,7 @@ class OutputRoutesSpec
   private def seedRunWithAssertions(pipelineId: PipelineId, stepId: PipelineStepId, passing: Boolean): Unit = {
     val runId = PipelineRunId(UUID.randomUUID().toString)
     await(pipelineRunRepo.insertRunInternal(runId, pipelineId, Instant.now()))
-    await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", Instant.now(), Some(1)))
+    await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", Instant.now(), Some(1), errorLog = None, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
     await(pipelineRunRepo.insertAssertions(runId, Seq(
       AssertionResult(stepId.value, "notNull", Some("amount"), "error", passed = passing, observed = None, message = None)
     )))
@@ -1020,7 +1020,7 @@ class OutputRoutesSpec
    *  gives it a strictly later `startedAt`. */
   private def seedDryRunWithAssertions(pipelineId: PipelineId, stepId: PipelineStepId, passing: Boolean): Unit = {
     val runId = PipelineRunId(UUID.randomUUID().toString)
-    await(pipelineRunRepo.insertDryRunInternal(runId, pipelineId, Instant.now(), rowCount = 1))
+    await(pipelineRunRepo.insertDryRunInternal(runId, pipelineId, Instant.now(), rowCount = 1, truncatedReadsJson = PipelineRunService.EmptyTruncationJson))
     await(pipelineRunRepo.insertAssertions(runId, Seq(
       AssertionResult(stepId.value, "notNull", Some("amount"), "error", passed = passing, observed = None, message = None)
     )))

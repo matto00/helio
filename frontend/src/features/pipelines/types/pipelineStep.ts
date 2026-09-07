@@ -530,6 +530,10 @@ export interface PipelineSummary {
   lastRunStatus: "succeeded" | "failed" | null;
   lastRunAt: string | null;
   lastRunRowCount: number | null;
+  // HEL-873: `null`/absent means NOT RECORDED (predates this capability) --
+  // a distinct state from `false`, never rendered as "complete". See
+  // `RunTruncationRecord`'s own doc.
+  lastRunTruncated?: boolean | null;
   ownerId?: string | null;
 }
 
@@ -560,6 +564,35 @@ export interface AssertionSummary {
   failures: AssertionFailureDetail[];
 }
 
+// HEL-873: mirrors the backend's `TruncatedReadResponse` (one entry per
+// truncated read, primary included).
+export interface TruncatedReadRecord {
+  dataSourceName: string;
+  rowsRead: number;
+  // spray-json OMITS a `None` Option field from the wire rather than sending `null`
+  // (skeptic-final-1.md non-blocking note) -- optional, not `| null`-required, to match what the
+  // backend's `TruncatedReadResponse` (jsonFormat3 over `Option[Long]`) actually sends.
+  availableRowCount?: number | null;
+}
+
+// HEL-873: the persisted three-state truncation signal on a run record.
+// `truncated` is derived, never independently writable. `reads` is ALWAYS
+// present when this whole object is present -- empty on a recorded, complete
+// run (present-and-empty beats absent, HEL-890). This object being absent on
+// `PipelineRunRecord.truncation` (`undefined`) is the distinct NOT-RECORDED
+// state -- never collapsed into `truncated: false`.
+export interface RunTruncationRecord {
+  truncated: boolean;
+  // Both fields below are optional, not `| null`-required (skeptic-final-1.md non-blocking
+  // note): spray-json omits an absent `Option[Long]`/`Option[String]` field from the wire rather
+  // than sending `null` -- a live complete run returns `{"truncated":false,"reads":[]}`, with
+  // neither key present at all. Every reader already treats them as possibly-missing
+  // (`?.primaryAvailableRowCount`/`?.notice ?? null`), so this only makes the type honest.
+  primaryAvailableRowCount?: number | null;
+  reads: TruncatedReadRecord[];
+  notice?: string | null;
+}
+
 export interface PipelineRunRecord {
   id: string;
   pipelineId: string;
@@ -570,6 +603,8 @@ export interface PipelineRunRecord {
   errorLog: string | null;
   triggerSource: "manual" | "scheduled" | "external";
   assertions: AssertionSummary;
+  // Absent means NOT RECORDED -- see `RunTruncationRecord`'s own doc.
+  truncation?: RunTruncationRecord;
 }
 
 export type GrantRole = "viewer" | "editor";

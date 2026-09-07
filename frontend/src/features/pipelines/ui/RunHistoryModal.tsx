@@ -6,6 +6,7 @@ import type { AssertionSummary, PipelineRunRecord } from "../types/pipelineStep"
 import { Modal } from "../../../shared/ui/Modal";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { StatusChip } from "../../../shared/ui/StatusChip";
+import { TruncatedRowCountBadge } from "./TruncatedRowCountBadge";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
   if (!completedAt) return "—";
@@ -128,6 +129,9 @@ function RunRow({ run }: { run: PipelineRunRecord }) {
         </span>
         <span className="run-history-modal__row-count">
           {run.rowCount != null ? `${run.rowCount.toLocaleString()} rows` : "—"}
+          {/* HEL-873 (design.md Decision 4): icon + text, never colour alone. `truncation`
+              absent (not recorded) and `truncated: false` (complete) both render nothing extra. */}
+          {run.truncation?.truncated === true && <TruncatedRowCountBadge />}
         </span>
         <StatusBadge status={run.status} />
         <TriggerSourceBadge triggerSource={run.triggerSource} />

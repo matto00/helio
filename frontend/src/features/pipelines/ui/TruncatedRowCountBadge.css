@@ -1,0 +1,20 @@
+/* HEL-873 (evaluation-1.md CR3): reuses the same --app-warning token family HEL-861's sibling
+   truncation banner already establishes (PipelineDetailPage.css's
+   .pipeline-detail-page__truncation-banner) -- one signal, one colour vocabulary. Icon + text
+   (never colour alone), per DESIGN.md. */
+.truncated-row-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  /* skeptic-final-1.md: the gap from the preceding row count is a real margin on this element,
+     not a whitespace text node inside it -- a whitespace-only text run at the START of a flex
+     container's content is discarded outright by the CSS Flexbox spec, which silently swallowed
+     the component's old `{" "}` and collided the badge with the number on two of its three
+     surfaces (only the detail-page footer accidentally escaped it, via a space in that call
+     site's own JSX, OUTSIDE this component). Margin is unaffected by that collapsing rule. */
+  margin-left: var(--space-1);
+  color: var(--app-warning);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}

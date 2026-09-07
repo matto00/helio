@@ -111,6 +111,9 @@ final case class PipelineSummaryResponse(
     lastRunStatus: Option[String],
     lastRunAt: Option[String],
     lastRunRowCount: Option[Long],
+    // HEL-873: absent means not recorded, mirroring `PipelineRunRecord.truncation`'s absence
+    // semantics -- never rendered as "not truncated".
+    lastRunTruncated: Option[Boolean] = None,
     ownerId: Option[String] = None,
     tag: Option[String] = None
 )
@@ -152,7 +155,14 @@ final case class AssertionSummary(
  *  trigger source -- the audit read path this ticket's acceptance criteria
  *  ask for (no new endpoint; existing `GET /api/pipelines/:id/run-history`).
  *  `assertions` (HEL-576, design.md Decision 1): the run's pass/fail-by-
- *  severity assertion summary, zero-valued for a run with no `assert` steps. */
+ *  severity assertion summary, zero-valued for a run with no `assert` steps.
+ *  `truncation` (HEL-873): absent means NOT RECORDED -- predates this capability, or the run
+ *  never reached a terminal status -- a distinct state from `truncated = false`, never collapsed
+ *  into it. See [[RunTruncationRecord]]'s own doc for the full three-state contract. Declared
+ *  BEFORE `assertions` below (not after) so `check-schema-drift.mjs`'s naive case-class parser --
+ *  which truncates its param capture at the first unmatched `)`, i.e. `AssertionSummary()`'s own
+ *  closing paren -- still sees it; a field placed after `assertions` would silently vanish from
+ *  that check. */
 final case class PipelineRunRecord(
     id: String,
     pipelineId: String,
@@ -163,6 +173,7 @@ final case class PipelineRunRecord(
     errorLog: Option[String],
     triggerSource: String,
     triggeredByTokenId: Option[String] = None,
+    truncation: Option[RunTruncationRecord] = None,
     assertions: AssertionSummary = AssertionSummary()
 )
 /** `GET /api/outputs/:id/assertion-status` response (HEL-576, design.md
@@ -184,6 +195,32 @@ final case class TruncatedReadResponse(
     dataSourceName: String,
     rowsRead: Long,
     availableRowCount: Option[Long]
+)
+
+/** The persisted three-state truncation signal on a `PipelineRunRecord` (HEL-873, design.md
+ *  Decision 2). `truncated` is run-wide, derived as `reads.nonEmpty` -- never stored as an
+ *  independently-writable flag, so it cannot disagree with `reads`. `primaryAvailableRowCount`
+ *  is PRIMARY-source-scoped (matching `RunResultResponse.sourceAvailableRowCount`'s own scoping,
+ *  renamed per HEL-890's convention) and is persisted VERBATIM alongside `reads`, never inferred
+ *  from it (evaluation-1.md CR1): `truncationFields` prepends the primary's own entry to `reads`
+ *  ONLY when the primary itself was truncated, so on a complete-primary/truncated-secondary run
+ *  `reads.head` is an unrelated secondary source -- reading `primaryAvailableRowCount` off
+ *  `reads.headOption` would silently publish that secondary's count under a primary-scoped name,
+ *  which is exactly the "plausible number with nothing to distrust it" this capability exists to
+ *  remove. `reads` is always present when this record itself is present -- empty on a recorded,
+ *  complete run, per HEL-890's "present-and-empty beats absent". `notice` is recomposed from
+ *  `reads` by the same `PipelineRunService.composeTruncationNotice` the live run result uses,
+ *  never a second, independently-stored phrasing.
+ *
+ *  This whole record being ABSENT (`Option.empty` on `PipelineRunRecord.truncation`) is the
+ *  distinct "not recorded" state -- a run persisted before this capability shipped, or one that
+ *  has not yet reached a terminal status. It is never confusable with `truncated = false`,
+ *  because there is no record at all to read a `false` off of. */
+final case class RunTruncationRecord(
+    truncated: Boolean,
+    primaryAvailableRowCount: Option[Long],
+    reads: Vector[TruncatedReadResponse],
+    notice: Option[String]
 )
 
 /** `runId` (HEL-369) surfaces the persisted run's id so `HookTriggerService`
@@ -293,14 +330,13 @@ trait PipelineProtocol
     jsonFormat3(PipelineRootSummaryResponse.apply)
   implicit val removePipelineRootResponseFormat: RootJsonFormat[RemovePipelineRootResponse] =
     jsonFormat2(RemovePipelineRootResponse.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat8(PipelineSummaryResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat9(PipelineSummaryResponse.apply)
 
   implicit val assertionFailureDetailFormat: RootJsonFormat[AssertionFailureDetail] =
     jsonFormat4(AssertionFailureDetail.apply)
   implicit val assertionSummaryFormat: RootJsonFormat[AssertionSummary]           = jsonFormat4(AssertionSummary.apply)
   implicit val assertionStatusResponseFormat: RootJsonFormat[AssertionStatusResponse] =
     jsonFormat3(AssertionStatusResponse.apply)
-  implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat10(PipelineRunRecord.apply)
   implicit val runSubmitResponseFormat: RootJsonFormat[RunSubmitResponse] = jsonFormat1(RunSubmitResponse.apply)
   implicit val runStatusResponseFormat: RootJsonFormat[RunStatusResponse] = new RootJsonFormat[RunStatusResponse] {
     def write(r: RunStatusResponse): JsValue = {
@@ -331,6 +367,12 @@ trait PipelineProtocol
   implicit val truncatedReadResponseFormat: RootJsonFormat[TruncatedReadResponse] =
     jsonFormat3(TruncatedReadResponse.apply)
   implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat11(RunResultResponse.apply)
+
+  // HEL-873: MUST be declared here -- AFTER truncatedReadResponseFormat (RunTruncationRecord's
+  // own dependency) and therefore also after (not before) pipelineRunRecordFormat's original
+  // declaration point above; moved down for exactly this reason.
+  implicit val runTruncationRecordFormat: RootJsonFormat[RunTruncationRecord] = jsonFormat4(RunTruncationRecord.apply)
+  implicit val pipelineRunRecordFormat: RootJsonFormat[PipelineRunRecord] = jsonFormat11(PipelineRunRecord.apply)
 
   // HEL-906 cycle 10: same declaration-order constraint as above -- both depend on
   // runResultResponseFormat already being in scope.
