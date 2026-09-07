@@ -12,6 +12,7 @@ const testConnector = {
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
   dependentCount: 0,
+  pending: false,
 };
 
 describe("detectTemplateParameterNames", () => {

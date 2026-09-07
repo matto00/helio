@@ -5,6 +5,7 @@ import { faCompass } from "@fortawesome/free-solid-svg-icons";
 import { ChatPage } from "../features/assistant/ui/ChatPage";
 import { ProtectedRoute } from "../features/auth/ui/ProtectedRoute";
 import { ConnectorsPage } from "../features/connectors/ui/ConnectorsPage";
+import { ConnectorCompletionPage } from "../features/connectors/ui/ConnectorCompletionPage";
 import { PublicOnlyRoute } from "../features/auth/ui/PublicOnlyRoute";
 import { LoginPage } from "../features/auth/ui/LoginPage";
 import { MfaVerifyPage } from "../features/auth/ui/MfaVerifyPage";
@@ -87,6 +88,11 @@ export function AppRoutes() {
           matches the public API route (`/api/dashboards/:id/panels`) so `buildShareUrl` in
           DashboardShareDialog.tsx composes a URL that resolves here. */}
       <Route path="/dashboards/:dashboardId/panels" element={<PublicDashboardViewerPage />} />
+
+      {/* HEL-955 design.md D8: pending-Connector completion -- must be outside ProtectedRoute
+          so the out-of-band human handed this link (who is not, and need not be, logged in)
+          doesn't get redirected to /login. */}
+      <Route path="/connectors/complete" element={<ConnectorCompletionPage />} />
 
       {/* Protected routes (redirect to /login when unauthenticated) */}
       <Route element={<ProtectedRoute />}>

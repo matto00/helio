@@ -68,7 +68,7 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
   private val NaturalJoinHintCount = 3
 
   private val connectorFixture: Vector[ConnectorSummary] =
-    Vector(ConnectorSummary(id = "conn-1", name = "My API", kind = "rest_api", host = "https://api.example.com"))
+    Vector(ConnectorSummary(id = "conn-1", name = "My API", kind = "rest_api", host = "https://api.example.com", pending = false))
 
   private def baseResponse(
       dataTypes: Vector[WorkspaceContextOutput],

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/create-pending-connector-request.schema.json",
+  "title": "CreatePendingConnectorRequest",
+  "description": "POST /api/connectors/pending (HEL-955 design.md D9/task 5.1) -- creates (or re-mints onto, per D9) a pending Connector for a credentialed host. Never carries a credential value: authType/apiKeyName/apiKeyPlacement are the intended auth SHAPE only, part of the D9 re-mint match key. The actual secret arrives later, out-of-band, through the completion endpoint.",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "kind": { "type": "string", "minLength": 1 },
+    "baseUrl": { "type": "string", "minLength": 1 },
+    "authType": {
+      "type": "string",
+      "minLength": 1,
+      "description": "e.g. \"bearer\" or \"api_key\" -- never \"none\" (a no-auth Connector is created complete via POST /api/connectors instead)."
+    },
+    "apiKeyName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Header or query parameter NAME the api_key credential will be attached under -- present only when authType = \"api_key\". Never the credential value itself."
+    },
+    "apiKeyPlacement": {
+      "type": "string",
+      "enum": ["header", "query"],
+      "description": "Present only when authType = \"api_key\"."
+    }
+  },
+  "required": ["name", "kind", "baseUrl", "authType"],
+  "additionalProperties": false
+}

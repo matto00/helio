@@ -85,6 +85,12 @@ class RestApiConnectorDriver(
           // names neither the Connector's id, baseUrl, nor credential material.
           case Some(c) if c.kind != DataSourceKind.RestApi =>
             Left(s"Connector ${c.name} is a '${c.kind}' Connector; a REST source requires a '${DataSourceKind.RestApi}' Connector")
+          // HEL-955 design.md D4: the authoritative pending guard -- beside the existing kind
+          // guard, before URI composition and before any `decryptForUse` call, on BOTH the
+          // Owned and Internal branches (this method is the single funnel for both). Curated:
+          // names neither the completion token nor any credential material.
+          case Some(c) if c.isPending =>
+            Left(s"Connector ${c.name} is pending completion; a human must supply its credential before it can be used")
           case Some(c) => Right(c)
           // HEL-311: curated, never leaks the raw id or an internal message (task 2.3).
           case None    => Left("Connector not found")
@@ -119,10 +125,16 @@ class RestApiConnectorDriver(
       case Left(err) => Future.successful(Left(err))
       case Right(connector) =>
         val authShape = ConnectorAuthShape.parse(connector.config)
-        val credentialFut = credentialRepoOpt match {
-          case None => Future.successful(Right(""): Either[String, String])
-          case Some(credRepo) =>
-            credRepo.decryptForUse(connector.credentialId, connector.ownerId).map {
+        val credentialFut = (credentialRepoOpt, connector.credentialId) match {
+          case (_, None) =>
+            // HEL-955: unreachable in practice -- resolveConnector above already rejects a
+            // pending Connector -- but kept as a defensive, curated fail-closed branch rather
+            // than a `.get` that could throw, so a future refactor of resolveConnector cannot
+            // silently reopen a decrypt-of-nothing path.
+            Future.successful(Left("Connector credential not found"): Either[String, String])
+          case (None, Some(_)) => Future.successful(Right(""): Either[String, String])
+          case (Some(credRepo), Some(credentialId)) =>
+            credRepo.decryptForUse(credentialId, connector.ownerId).map {
               case Some(plaintext) => Right(plaintext)
               case None            => Left("Connector credential not found")
             }

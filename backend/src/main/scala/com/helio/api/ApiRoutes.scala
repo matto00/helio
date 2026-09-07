@@ -32,7 +32,8 @@ import com.helio.services.auth.{ApiTokenService, AuthService, BetaAccessService,
 import com.helio.services.assistant.{AssistantConversationService, AssistantService}
 import com.helio.services.panels.{AutoLayoutService, PanelCapabilityService, PanelService}
 import com.helio.services.proposals.{CombinedProposalService, DashboardAuthoringService, DashboardProposalService}
-import com.helio.services.sources.{ConnectorEntityService, ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
+import com.helio.services.sources.{ConnectorCompletionService, ConnectorEntityService, ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
+import com.helio.infrastructure.persistence.sources.ConnectorCompletionTokenRepository
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.services.sharing.{ShareTokenService, ShareTokenValidatorImpl}
 import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
@@ -514,6 +515,20 @@ final class ApiRoutes(
         isBlocked = dataSourceUrlIsBlocked
       )
     }
+  // HEL-955: same nullable-optional wiring pattern as shareTokenServiceOpt/connectorEntityServiceOpt
+  // above -- fixtures that don't pass a DbContext simply don't get the completion routes mounted.
+  // Expiry read once from env (design.md D9: min(configured, 24h)) -- fromEnv-once convention.
+  private val connectorCompletionTokenRepoOpt: Option[ConnectorCompletionTokenRepository] =
+    Option(dbContext).map(new ConnectorCompletionTokenRepository(_))
+  private val connectorCompletionServiceOpt: Option[ConnectorCompletionService] =
+    for {
+      connectorRepo <- connectorRepoOpt
+      tokenRepo     <- connectorCompletionTokenRepoOpt
+    } yield new ConnectorCompletionService(
+      connectorRepo,
+      tokenRepo,
+      defaultExpiry = ConnectorCompletionService.clampExpiry(sys.env.get("CONNECTOR_COMPLETION_EXPIRY_MINUTES"))
+    )
   // HEL-371: unconditional (not Option-guarded, unlike workspaceTeardownServiceOpt
   // above) — every dependency (dashboardService/dataSourceService/dataTypeService/
   // pipelineService) is already constructed unconditionally above, so there is
@@ -682,7 +697,12 @@ final class ApiRoutes(
               authDirectives.optionalAuthenticate { userOpt =>
                 concat(
                   new PublicDashboardRoutes(panelRepo, aclDirective, userOpt, outputRepoOpt, Option(pipelineRepo), nodeSnapshotRepoOpt).routes,
-                  imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes)
+                  imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes),
+                  // HEL-955 design.md D5: optional-auth so an unauthenticated human can complete
+                  // a pending Connector out-of-band, while an authenticated caller is still
+                  // checked against ownership inside the service. Still behind rate-limiting and
+                  // CSRF (both wrap this whole branch already).
+                  connectorCompletionServiceOpt.fold(reject: Route)(svc => new ConnectorCompletionRoutes(svc, userOpt).routes)
                 )
               },
               authDirectives.authenticate { authenticatedUser =>
@@ -773,7 +793,13 @@ final class ApiRoutes(
                   // (design.md Decision 7) -- serves the new /api/connectors entity CRUD surface,
                   // gated on connectorEntityServiceOpt like every other nullable-DbContext route
                   // family (workspaceTeardownServiceOpt above).
+                  // HEL-955 task 5.1: mounted BEFORE ConnectorEntityRoutes so the literal
+                  // "pending" path segment is never shadowed by ConnectorEntityRoutes'
+                  // `ConnectorIdSegment` matcher.
+                  connectorCompletionServiceOpt.fold(reject: Route)(svc => new ConnectorPendingRoutes(svc, authenticatedUser).routes),
                   connectorEntityServiceOpt.fold(reject: Route)(svc => new ConnectorEntityRoutes(svc, authenticatedUser).routes),
+                  // HEL-955 design.md D9: owner-initiated completion-token re-mint.
+                  connectorCompletionServiceOpt.fold(reject: Route)(svc => new ConnectorCompletionTokenRoutes(svc, authenticatedUser).routes),
                   // HEL-391: distinct top-level `pipeline-shapes` prefix, NOT nested under
                   // `pipelines` — mount order relative to PipelineRoutes doesn't matter (design.md
                   // Decision 6).

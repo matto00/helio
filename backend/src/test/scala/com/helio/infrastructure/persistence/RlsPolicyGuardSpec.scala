@@ -135,7 +135,9 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V93 — connectors, direct owner (HEL-821)
     "connectors" -> None,
     // V101 — share_tokens, direct owner (HEL-590)
-    "share_tokens" -> None
+    "share_tokens" -> None,
+    // V103 — connector_completion_tokens, direct owner (HEL-955), mirrors share_tokens_owner.
+    "connector_completion_tokens" -> None
   )
 
   override def beforeAll(): Unit = {

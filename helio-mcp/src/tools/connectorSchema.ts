@@ -69,6 +69,12 @@ export const createConnectorInputSchema = {
   baseUrl: z.string().min(1),
   kind: z.string().min(1).optional(),
   authType: z.string().min(1).optional(),
+  // HEL-955 design.md D9: the intended auth shape's NON-SECRET metadata (a header/query
+  // parameter NAME, and where it's sent) -- never a credential value. Accepted alongside
+  // `authType` so a credentialed-host `create_connector` call can specify a pending Connector's
+  // shape; the actual secret always arrives later, out-of-band, through the completion page.
+  apiKeyName: z.string().min(1).optional(),
+  apiKeyPlacement: z.enum(["header", "query"]).optional(),
   // Explicit, always-rejecting fields (Decision 3, shared mechanism with
   // create_rest_data_source) — loud, not silent, naming the /connectors out-of-band path.
   auth: rejectCredentialField("auth", CREDENTIAL_REJECT_OPTS),

@@ -3,7 +3,7 @@ package com.helio.services.sources
 import com.helio.api.protocols.sources.{CreateConnectorRequest, UpdateConnectorRequest}
 import com.helio.domain.connectors.ConnectorAuthShape
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.sources.{ConnectorHasDependents, ConnectorRepository, ConnectorRotationNotFound}
+import com.helio.infrastructure.persistence.sources.{ConnectorHasDependents, ConnectorRepository, ConnectorRotationNotFound, ConnectorRotationPending}
 import com.helio.services.ServiceError
 import spray.json._
 
@@ -151,6 +151,12 @@ final class ConnectorEntityService(
         .flatMap {
           case Right(connector)                => dependentCount(id).map(n => Right((connector, n)))
           case Left(ConnectorRotationNotFound) => Future.successful(Left(ServiceError.NotFound("Connector not found")))
+          // HEL-955 design.md D4a: rotation refuses a pending Connector -- named 400-class error
+          // directing the caller to the completion path (rotation is not completion).
+          case Left(ConnectorRotationPending) =>
+            Future.successful(Left(ServiceError.BadRequest(
+              "This Connector is pending completion; use the completion link to bind its credential, not rotation"
+            )))
         }
 
   def delete(id: ConnectorId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =

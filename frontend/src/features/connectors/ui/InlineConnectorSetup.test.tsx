@@ -49,6 +49,7 @@ const createdConnector: Connector = {
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
   dependentCount: 0,
+  pending: false,
 };
 
 const reference: UnresolvedConnectorRef = {

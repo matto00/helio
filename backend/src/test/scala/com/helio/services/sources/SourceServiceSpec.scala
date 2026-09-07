@@ -5,13 +5,13 @@ import com.helio.services.ServiceError
 import com.helio.api.protocols.sources.{CreateSourceRequest, FieldOverridePayload, RestApiConfigPayload, SqlCreateSourceRequest, SqlInferRequest}
 import com.helio.api.protocols.sources.SqlSourceConfigPayload
 import com.helio.services.sources.SourceService
-import com.helio.domain.connectors.RestApiConnectorDriver
+import com.helio.domain.connectors.{ConnectorAuthShape, RestApiConnectorDriver}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
+import com.helio.infrastructure.persistence.sources.{ConnectorCompletionTokenRepository, ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
@@ -45,6 +45,8 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
   private var db: JdbcBackend.Database             = _
   private var dataSourceRepo: DataSourceRepository = _
   private var connectorRepo: ConnectorRepository   = _
+  private var completionTokenRepo: ConnectorCompletionTokenRepository = _
+  private var completionService: ConnectorCompletionService = _
 
   private val owner = UserId(UUID.randomUUID().toString)
   private val user  = AuthenticatedUser(owner)
@@ -61,6 +63,8 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
     val ctx        = new DbContext(db, db)
     dataSourceRepo = new DataSourceRepository(ctx)
     connectorRepo  = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider())))
+    completionTokenRepo = new ConnectorCompletionTokenRepository(ctx)
+    completionService   = new ConnectorCompletionService(connectorRepo, completionTokenRepo)
     // HEL-822: SourceService.createRest's bare-url dual-support path now writes a real
     // `connectors`/`connector_credentials` row FK'd to `users` — seed one for `owner` (this
     // spec never needed a real `users` row before HEL-822).
@@ -360,6 +364,70 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
 
       val result = await(svc.createRest(request, user))
       result shouldBe a[Right[_, _]]
+    }
+
+    // HEL-955 design.md D4/task 3.2: a SEPARATE create-time check from the kind guard above --
+    // a pending Connector of the CORRECT kind must still be refused.
+    "refuse creation against a pending (correct-kind) Connector, distinctly from the kind-mismatch message" in {
+      cleanDb()
+      val pending = await(connectorRepo.createPending(
+        ownerId = owner, name = s"pending-${UUID.randomUUID()}", kind = "rest_api", baseUrl = "http://example.invalid",
+        config = """{"authType":"bearer"}"""
+      ))
+      val svc     = service(restConnector(Right(JsArray())))
+      val payload = RestApiConfigPayload(connectorId = Some(pending.id.value), method = Some("GET"))
+      val request = CreateSourceRequest("Pending", DataSourceKind.RestApi, payload, None)
+
+      val result = await(svc.createRest(request, user))
+      result.isLeft shouldBe true
+      val err = result.left.getOrElse(fail("expected Left")) match {
+        case bad: ServiceError.BadRequest => bad
+        case other                        => fail(s"expected BadRequest, got $other")
+      }
+      err.message should include("pending")
+      err.message should not include "rest_api' Connector"
+    }
+
+    // Evaluation-1.md CR2 / task 8.4: the ticket's own acceptance criterion -- a completed
+    // Connector must actually become usable, demonstrated by SourceService's REST create path
+    // itself, not merely by `isPending shouldBe false` (which re-derives the guards' own
+    // predicate and proves nothing about whether `repointPendingCredential` bound a real,
+    // decryptable, USABLE credential).
+    "refuses createRest while the Connector is pending, then SUCCEEDS against the SAME Connector once completed" in {
+      cleanDb()
+      val pending = await(connectorRepo.createPending(
+        ownerId = owner, name = s"round-trip-${UUID.randomUUID()}", kind = "rest_api", baseUrl = "http://example.invalid",
+        config = """{"authType":"bearer"}"""
+      ))
+      val svc     = service(restConnector(Right(JsArray())))
+      val payload = RestApiConfigPayload(connectorId = Some(pending.id.value), method = Some("GET"))
+      val request = CreateSourceRequest("RoundTrip", DataSourceKind.RestApi, payload, None)
+
+      // 1. Refused while pending.
+      await(svc.createRest(request, user)).isLeft shouldBe true
+
+      // 2. Mint a completion token and complete it with a real credential, through the SAME
+      //    encrypt -> consume -> repointPendingCredential path the anonymous endpoint uses.
+      val minted = await(completionService.createOrRemintPending(
+        pending.name, "rest_api", pending.baseUrl, ConnectorAuthShape(authType = "bearer"), user
+      )).getOrElse(fail("expected Right"))
+      minted.connectorId shouldBe pending.id
+      await(completionService.complete(minted.rawToken, "the-real-round-trip-secret", requestingUser = None)) shouldBe Right(())
+
+      // 3. Now SUCCEEDS -- same connectorId, same request shape.
+      val created = await(svc.createRest(request, user)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"createRest failed after completion: $e")
+      }
+      created.fetchError shouldBe None
+
+      // 4. The bound credential is not merely present -- it decrypts back to the exact value
+      //    submitted at completion (round-trip proof `isPending shouldBe false` cannot give).
+      val completed = await(connectorRepo.findByIdOwned(pending.id, user)).get
+      completed.isPending shouldBe false
+      val credentialId = completed.credentialId.getOrElse(fail("expected a bound credentialId"))
+      val credentialRepo = new ConnectorCredentialRepository(new DbContext(db, db), new EncryptedSecretBackend(new EnvMasterKeyProvider()))
+      await(credentialRepo.decryptForUse(credentialId, owner)) shouldBe Some("the-real-round-trip-secret")
     }
   }
 

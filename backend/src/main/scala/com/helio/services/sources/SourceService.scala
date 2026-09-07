@@ -109,7 +109,10 @@ final class SourceService(
                 case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
                 case Right(()) => checkConnectorKind(restConfig.connectorId, user).flatMap {
                   case Left(err) => Future.successful(Left(err))
-                  case Right(()) => createRestWithConfig(request, restConfig, user)
+                  case Right(()) => checkConnectorPending(restConfig.connectorId, user).flatMap {
+                    case Left(err) => Future.successful(Left(err))
+                    case Right(()) => createRestWithConfig(request, restConfig, user)
+                  }
                 }
               }
           }
@@ -186,6 +189,24 @@ final class SourceService(
             s"Connector ${c.name} is a '${c.kind}' Connector; a REST source requires a '${DataSourceKind.RestApi}' Connector"
           ))
         case Some(_) => Right(())
+      }
+
+  /** HEL-955 design.md D4/task 3.2: a SEPARATE check from [[checkConnectorKind]] above --
+   *  deliberately not folded in -- so a pending Connector of the correct kind is still refused
+   *  at create time, independent of whether the kind guard is ever touched again. Owner-scoped
+   *  via `findByIdOwned`, same as `checkConnectorKind`, so it cannot be used as an existence
+   *  oracle for another tenant's Connector id. The `RestApiConnectorDriver.resolveConnector`
+   *  guard remains authoritative (design.md D4) -- this is belt-and-braces at create time. */
+  private def checkConnectorPending(connectorId: String, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    if (connectorRepo == null)
+      Future.successful(Left(ServiceError.BadRequest("REST sources require a Connector; the Connector service is unavailable")))
+    else
+      connectorRepo.findByIdOwned(ConnectorId(connectorId), user).map {
+        case Some(c) if c.isPending =>
+          Left(ServiceError.BadRequest(
+            s"Connector ${c.name} is pending completion; a human must supply its credential before it can be used"
+          ))
+        case _ => Right(())
       }
 
   private def createRestWithConfig(request: CreateSourceRequest, restConfig: RestApiConfig, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] = {

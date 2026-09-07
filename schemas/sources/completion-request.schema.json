@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/completion-request.schema.json",
+  "title": "CompletionRequest",
+  "description": "POST /api/connectors/completion (HEL-955 design.md D5) -- the anonymous/optional-auth submission that binds a credential to a pending Connector. Token and credential travel in the BODY only, never the query string. Every failure mode (unknown/expired/consumed/superseded token, wrong owner, empty/invalid credential, encryption failure) returns the same byte-identical curated refusal -- this endpoint is not an existence oracle.",
+  "type": "object",
+  "properties": {
+    "token": { "type": "string", "minLength": 1 },
+    "credential": { "type": "string", "minLength": 1 }
+  },
+  "required": ["token", "credential"],
+  "additionalProperties": false
+}

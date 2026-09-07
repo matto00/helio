@@ -33,6 +33,7 @@ jest.mock("../../connectors/services/connectorEntityService", () => ({
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
       dependentCount: 0,
+      pending: false,
     },
   ]),
   createConnector: jest.fn().mockResolvedValue({
@@ -45,6 +46,7 @@ jest.mock("../../connectors/services/connectorEntityService", () => ({
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
     dependentCount: 0,
+    pending: false,
   }),
   updateConnector: jest.fn(),
   deleteConnector: jest.fn(),
@@ -492,6 +494,7 @@ describe("AddSourceModal — REST API connection test (HEL-480)", () => {
         createdAt: "2026-01-01T00:00:00Z",
         updatedAt: "2026-01-01T00:00:00Z",
         dependentCount: 0,
+        pending: false,
       },
     ]);
     // jsdom does not implement showModal/close natively (Modal.tsx uses a

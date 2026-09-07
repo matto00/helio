@@ -113,7 +113,7 @@ class ConnectorEntityRoutesSpec
         // Structural + textual proof: the whole response body never contains
         // the plaintext credential.
         meta.productElementNames.toSet shouldBe
-          Set("id", "ownerId", "name", "kind", "baseUrl", "config", "createdAt", "updatedAt", "dependentCount")
+          Set("id", "ownerId", "name", "kind", "baseUrl", "config", "createdAt", "updatedAt", "dependentCount", "pending", "completedAt", "completedBy")
         responseAs[String] should not include "sk_super_secret_key"
       }
     }

@@ -20,7 +20,16 @@ final case class ConnectorId(value: String) extends AnyVal
  *  `config` holds kind-specific, non-secret extras only (e.g. SQL's port/database
  *  name) -- see design.md Decision 1 for why the narrower, mostly-queryable
  *  Connector surface gets real columns for name/kind/baseUrl instead of folding
- *  everything into one opaque blob the way `data_sources.config` does. */
+ *  everything into one opaque blob the way `data_sources.config` does.
+ *
+ *  `credentialId` is `Option` (HEL-955 design.md D1): pendingness is the absence of a
+ *  credential, not a status column. `isPending` is `credentialId.isEmpty`. An `authType: "none"`
+ *  Connector still has a real credential row holding an encrypted empty string
+ *  (`ImplicitConnectorConfig`) -- pending is genuinely *no row*, never conflated with no-auth.
+ *
+ *  `completedAt`/`completedBy` (HEL-955 design.md D10) record the owner-visible completion
+ *  signal, independent of `connector_completion_tokens.consumed_at` (that row is cascaded on
+ *  delete). `completedBy` is the authenticated principal, or the literal `"anonymous"`. */
 final case class Connector(
     id: ConnectorId,
     ownerId: UserId,
@@ -28,7 +37,11 @@ final case class Connector(
     kind: String,
     baseUrl: String,
     config: String, // raw JSON text, mirrors DataSourceRepository's jsonbStringType convention
-    credentialId: ConnectorCredentialId,
+    credentialId: Option[ConnectorCredentialId],
     createdAt: Instant,
-    updatedAt: Instant
-)
+    updatedAt: Instant,
+    completedAt: Option[Instant] = None,
+    completedBy: Option[String] = None
+) {
+  def isPending: Boolean = credentialId.isEmpty
+}
