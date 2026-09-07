@@ -2,6 +2,8 @@ package com.helio.domain.engine
 
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.engine.PipelineAnalyzeService._
+import com.helio.domain.model.PipelineStep
+import com.helio.domain.steps.{GroupByConfig, GroupByStep}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -1105,6 +1107,169 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyzeNodes(Vector(nodeOnUnknownRoot), Map("rootA" -> Vector(field("order_id", "string"))))
 
       result("x1").inputSchema shouldBe empty
+    }
+
+    // HEL-872 (AC1/AC2): `groupby` had NO dispatch case at all before this ticket -- every
+    // analyze call for a valid `groupby` step fell to the `unknown`-op arm, reporting a
+    // spurious "Unknown op: 'groupby'" and an identity-passthrough outputSchema. These cases
+    // assert the fix by deriving the EXPECTED schema from what `GroupByStep.apply` actually
+    // emits on real fixture rows (design.md Decision 5) -- not by re-deriving the expectation
+    // from the config, which would assert nothing.
+
+    /** Named mapping (task 4.7) from a canonical wire type to the runtime value type
+     *  `GroupByStep.apply` actually produces for it, so the correspondence is visible as one
+     *  judgment rather than inlined per assertion. */
+    val canonicalTypeToRuntimeClass: Map[String, Class[_]] = Map(
+      "integer" -> classOf[java.lang.Long],
+      "float"   -> classOf[java.lang.Double]
+    )
+
+    "groupby — a valid step reports no validationError (AC1, was 'Unknown op: groupby')" in {
+      val steps  = Vector(step("groupby", """{"groupBy":["order_id"],"aggColumn":"amount","aggFunction":"sum"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+    }
+
+    "groupby — sum over a float column projects sum_<col>: float, matching GroupByStep.apply's actual emitted rows" in {
+      val cfg    = GroupByConfig(groupBy = Vector("order_id"), aggColumn = "amount", aggFunction = "sum")
+      val steps  = Vector(step("groupby", """{"groupBy":["order_id"],"aggColumn":"amount","aggFunction":"sum"}"""))
+      val result = analyze(steps, baseSchema)
+
+      val rows: Seq[PipelineRowJson.Row] = Seq(
+        Map("order_id" -> "o1", "amount" -> 1.5, "created_at" -> "t1"),
+        Map("order_id" -> "o1", "amount" -> 2.5, "created_at" -> "t2")
+      )
+      val emitted    = GroupByStep.apply(rows, cfg)
+      val outputCol  = GroupByStep.outputColumnName(cfg)
+      val emittedVal = emitted.head(outputCol)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema.find(_.name == outputCol).map(_.`type`) shouldBe Some("float")
+      emittedVal.getClass shouldBe canonicalTypeToRuntimeClass("float")
+    }
+
+    "groupby — count over a float column still projects count_<col>: integer -- type follows the FUNCTION, not the input column" in {
+      val cfg    = GroupByConfig(groupBy = Vector("order_id"), aggColumn = "amount", aggFunction = "count")
+      val steps  = Vector(step("groupby", """{"groupBy":["order_id"],"aggColumn":"amount","aggFunction":"count"}"""))
+      val result = analyze(steps, baseSchema)
+
+      val rows: Seq[PipelineRowJson.Row] = Seq(
+        Map("order_id" -> "o1", "amount" -> 1.5, "created_at" -> "t1"),
+        Map("order_id" -> "o1", "amount" -> 2.5, "created_at" -> "t2")
+      )
+      val emitted    = GroupByStep.apply(rows, cfg)
+      val outputCol  = GroupByStep.outputColumnName(cfg)
+      val emittedVal = emitted.head(outputCol)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema.find(_.name == outputCol).map(_.`type`) shouldBe Some("integer")
+      emittedVal.getClass shouldBe canonicalTypeToRuntimeClass("integer")
+    }
+
+    "groupby — multi-column groupBy projects key fields in config order, typed from the input schema by name" in {
+      val steps  = Vector(step("groupby", """{"groupBy":["order_id","created_at"],"aggColumn":"amount","aggFunction":"sum"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema.map(_.name) shouldBe Vector("order_id", "created_at", "sum_amount")
+      result(0).outputSchema.map(_.`type`) shouldBe Vector("string", "string", "float")
+    }
+
+    "groupby — a groupBy column absent from the input schema falls back to best-effort string, not a confidently wrong type" in {
+      val steps  = Vector(step("groupby", """{"groupBy":["missing_col"],"aggColumn":"amount","aggFunction":"sum"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema.find(_.name == "missing_col").map(_.`type`) shouldBe Some("string")
+    }
+
+    "groupby — a mixed/upper-case aggFunction ('SUM') still projects sum_amount: float, not string (skeptic CR3)" in {
+      val cfg    = GroupByConfig(groupBy = Vector("order_id"), aggColumn = "amount", aggFunction = "SUM")
+      val steps  = Vector(step("groupby", """{"groupBy":["order_id"],"aggColumn":"amount","aggFunction":"SUM"}"""))
+      val result = analyze(steps, baseSchema)
+
+      val outputCol = GroupByStep.outputColumnName(cfg)
+      outputCol shouldBe "sum_amount"
+      result(0).validationError shouldBe None
+      result(0).outputSchema.find(_.name == outputCol).map(_.`type`) shouldBe Some("float")
+    }
+  }
+
+  /** HEL-872 AC3 (PRIMARY DELIVERABLE) -- a registry-vs-dispatch coverage guard.
+   *
+   *  Calls `inferOutputSchema` DIRECTLY, never through `analyze`/`analyzeNodes`: those
+   *  short-circuit on `validateStepConfig` and never invoke inference at all on a config that
+   *  fails validation, so a guard routed through them would certify a kind as "covered"
+   *  without ever having reached its `infer*` body (design.md Decision 4 / skeptic CR2 -- 13
+   *  kinds override `requiredConfigProblems`, 8 more have per-kind validators in
+   *  `validateStepConfig`). Every probe below uses a FULLY VALID config and a compatible
+   *  input schema per kind, and asserts `validationError` is `None` -- never merely "not an
+   *  Unknown op" (the vacuous form this ticket exists to forbid). A probe config that turns
+   *  out fiddly is fixed here, or named in `exemptions` with a reason -- never covered by
+   *  relaxing the assertion. */
+  "PipelineAnalyzeService.inferOutputSchema coverage guard" should {
+
+    val contentSchema: Vector[SchemaField] = Vector(field("content", "string-body"))
+
+    /** One fully-valid (config, inputSchema) probe per registered kind. Must cover every key
+     *  in `PipelineStep.Registry.keySet` (asserted below) or the guard itself fails to compile
+     *  a meaningful check against a kind that was silently dropped from this map. */
+    val probesByKind: Map[String, (String, Vector[SchemaField])] = Map(
+      "rename"             -> ("""{"renames":{"order_id":"id"}}""", baseSchema),
+      "filter"             -> ("""{"expression":"amount > 0"}""", baseSchema),
+      "join"               -> ("""{"joinKey":"order_id","joinType":"inner","secondaryInput":{"kind":"source","dataSourceId":"ds-1"}}""", baseSchema),
+      "compute"            -> ("""{"column":"tax","expression":"$amount * 0.1","type":"number"}""", baseSchema),
+      "groupby"            -> ("""{"groupBy":["order_id"],"aggColumn":"amount","aggFunction":"sum"}""", baseSchema),
+      "cast"               -> ("""{"casts":{"amount":"integer"}}""", baseSchema),
+      "select"             -> ("""{"fields":["order_id","amount"]}""", baseSchema),
+      "limit"              -> ("""{"n":100}""", baseSchema),
+      "sort"               -> ("""{"by":"amount","dir":"desc"}""", baseSchema),
+      "aggregate" -> (
+        """{"groupBy":[{"name":"created_at","type":"string"}],"aggregations":[{"alias":"total_amount","fn":"sum","field":"amount"}]}""",
+        baseSchema
+      ),
+      "splittext"          -> ("""{"field":"content"}""", contentSchema),
+      "extractheadings"    -> ("""{"field":"content"}""", contentSchema),
+      "chunkbytokencount"  -> ("""{"field":"content"}""", contentSchema),
+      "datebucket"         -> ("""{"field":"created_at","granularity":"day"}""", baseSchema),
+      "pivot"              -> ("""{"index":["order_id"],"column":"created_at","values":"amount","agg":"sum"}""", baseSchema),
+      "window"             -> ("""{"partitionBy":["order_id"],"orderBy":[],"function":"rank","outputColumn":"rnk"}""", baseSchema),
+      "unpivot"            -> ("""{"idVars":["order_id"],"valueVars":["amount"],"varName":"month","valueName":"value"}""", baseSchema),
+      "dedupe"             -> ("""{"keys":["order_id"],"keep":"first"}""", baseSchema),
+      "fillnull"           -> ("""{"columns":["amount"],"strategy":"mean"}""", baseSchema),
+      "stringops"          -> ("""{"operation":"trim","field":"order_id","outputColumn":"order_id"}""", baseSchema),
+      "union"              -> ("""{"mode":"byName","secondaryInput":{"kind":"source","dataSourceId":"ds-2"}}""", baseSchema),
+      "lookup"             -> ("""{"columns":[]}""", baseSchema),
+      "assert"             -> ("""{"rules":[]}""", baseSchema)
+    )
+
+    /** Kinds deliberately excluded from `probesByKind`, by NAME with a stated reason -- never
+     *  a predicate or pattern, which could silently absorb a future kind (design.md Decision
+     *  4). Empty today: every registered kind has an achievable direct-invocation probe. */
+    val exemptions: Map[String, String] = Map.empty
+
+    "the exemptions map is a subset of the registry" in {
+      exemptions.keySet.subsetOf(PipelineStep.Registry.keySet) shouldBe true
+    }
+
+    "no kind is exempted -- every registered kind has an achievable direct-invocation probe" in {
+      exemptions shouldBe empty
+    }
+
+    "every kind in PipelineStep.Registry has an inferOutputSchema branch reachable by direct invocation" in {
+      val expectedKinds = PipelineStep.Registry.keySet -- exemptions.keySet
+
+      expectedKinds.foreach { kind =>
+        val (config, inputSchema) = probesByKind.getOrElse(
+          kind,
+          fail(s"'$kind' has no inferOutputSchema branch -- no coverage-guard probe is registered for it")
+        )
+        val (_, validationError) = inferOutputSchema(kind, config, inputSchema)
+        withClue(s"'$kind' has no inferOutputSchema branch (validationError=$validationError): ") {
+          validationError shouldBe None
+        }
+      }
     }
   }
 }

@@ -57,11 +57,19 @@ object GroupByStep {
   // the runtime `match` below and the analyze-time validator.
   val SupportedFunctions: Vector[String] = Vector("sum", "count")
 
+  /** HEL-872 (design.md Decision 1): the single definition of the emitted
+   *  aggregate column name, shared by [[apply]] (runtime) and
+   *  `PipelineAnalyzeService.inferGroupBy` (analyze-time projection) so the
+   *  two cannot drift apart the way `groupby`'s dispatch case itself drifted
+   *  from the registry. Lowercases `aggFunction`, matching `apply`. */
+  def outputColumnName(cfg: GroupByConfig): String =
+    cfg.aggFunction.toLowerCase + "_" + cfg.aggColumn
+
   def apply(rows: Seq[PipelineRowJson.Row], cfg: GroupByConfig): Seq[PipelineRowJson.Row] = {
     val groupCols = cfg.groupBy
     val aggCol    = cfg.aggColumn
     val aggFn     = cfg.aggFunction.toLowerCase
-    val outputCol = aggFn + "_" + aggCol
+    val outputCol = outputColumnName(cfg)
     if (!SupportedFunctions.contains(aggFn))
       throw new IllegalArgumentException(
         "Unsupported aggregation function: " + aggFn + ". Supported: " + SupportedFunctions.mkString(", ")

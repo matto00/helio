@@ -489,12 +489,30 @@ class PipelineAnalyzeRoutesSpec
         step.validationError shouldBe defined
         step.validationError.get should include("bogus_type")
         step.validationError.get should include("Unsupported join type")
-        // design Decision 7a: `groupby`/`join` have no `inferOutputSchema`
-        // dispatch case, so the valid-config (no validationError) path is
-        // unassertable for these two kinds — validateStepConfig runs before
-        // dispatch and never falls through to the fallback for an invalid
-        // enum, so this negative-path coverage is unaffected and honest; the
-        // positive path is deliberately not asserted here.
+      }
+    }
+
+    // HEL-872 (AC5): the HEL-860 comment this test previously carried claimed `groupby`/`join`
+    // had no `inferOutputSchema` dispatch case, so their valid-config (no validationError) path
+    // could not be checked here. That was already half-false (HEL-911 gave `join` a dispatch
+    // case) and is now wholly false -- `groupby` has one too (this ticket). Assert the positive
+    // path through the REAL route end to end (validateStepConfig -> dispatch), the route-level
+    // counterpart to PipelineAnalyzeServiceSpec's direct-invocation AC1 test.
+    "return 200 with no validationError for a valid groupby step" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+      await(pipelineStepRepo.insertRootStep(
+        PipelineId(pid), "groupby",
+        GroupByConfig(Vector("order_id"), "amount", "sum"),
+        dummyUser
+      ))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val step = responseAs[PipelineAnalyzeResponse].steps(0)
+        step.validationError shouldBe None
+        step.outputSchema.map(_.name) should contain("sum_amount")
       }
     }
 
