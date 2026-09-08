@@ -53,6 +53,11 @@ jobs:
       # strictly weaker enforcement.
       - run: npm run check:no-credential-leak
       - run: npm run check:no-credential-leak:selftest
+      # HEL-1037: check:tokens[:selftest] is wired into BOTH .husky/pre-commit and here -- CI
+      # matters independently because a local-only guard is blind to whatever a contributor
+      # skips with `git commit -n`.
+      - run: npm run check:tokens
+      - run: npm run check:tokens:selftest
       # HEL-996: check:openspec[:selftest] existed as runnable npm scripts, wired only into
       # .husky/pre-commit -- but unlike HEL-913/HEL-846 above, that was not an oversight: `openspec`
       # is a globally-installed CLI (~/.local/bin/openspec on a dev machine), not a repo
