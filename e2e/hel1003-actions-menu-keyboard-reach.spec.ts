@@ -28,6 +28,14 @@ async function registerAndLogin(page: Page, request: APIRequestContext, label: s
   await page.fill("#password", password);
   await page.click("button[type=submit]");
   await page.waitForURL("/");
+  // HEL-1030 — same precondition wait as `hel510-keyboard-shortcuts.spec.ts`'s
+  // `registerAndLogin`: hold until the authenticated shell has actually committed (rather than
+  // just navigated) before any test proceeds to act on it. This file's own actions are
+  // locator-driven clicks/evaluates that already auto-wait for their target, so this file hasn't
+  // been observed to hit the mount race those raw `keyboard.press` calls did — but the
+  // precondition is identical, so the wait belongs here too rather than relying on each
+  // downstream action's own implicit retry to paper over it.
+  await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
 }
 
 async function createDashboard(page: Page, name: string) {
