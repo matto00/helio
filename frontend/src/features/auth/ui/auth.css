@@ -35,7 +35,11 @@
   border-radius: var(--app-radius-lg);
   background: var(--app-surface);
   box-shadow: var(--app-shadow-soft);
-  animation: auth-card-in 0.45s cubic-bezier(0.3, 0.9, 0.4, 1) both;
+  /* HEL-441 D3 — moved to the entrance token; the curve was already
+     byte-identical to `--transition-slow`, only the duration differed
+     (0.45s vs 0.28s). Measured on the running app: the shared curve is
+     front-loaded, so this lands ~50ms earlier, not a perceived jump. */
+  animation: auth-card-in var(--transition-slow) both;
 }
 
 @keyframes auth-card-in {

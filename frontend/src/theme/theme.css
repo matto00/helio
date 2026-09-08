@@ -63,6 +63,12 @@
 
   --app-transition: 0.16s ease;
   --transition-slow: 0.28s cubic-bezier(0.3, 0.9, 0.4, 1);
+  /* HEL-441 D1/D2 — the loop-role duration shared by the `Spinner` primitive
+     and its last unconverted local copy (`PipelineDetailPage`'s run-status
+     spinner). A single-use loop may keep its own literal (see
+     `streaming-text-blink`/`pipeline-run-pulse`); this one has two
+     consumers, so it gets a token per D1's governing rule. */
+  --app-spin-duration: 0.7s;
   /* Dedicated shimmer-loop duration (HEL-528). `--app-transition`/`--transition-slow` are
      transition SHORTHANDS tuned for hover and one-shot entrances; a 0.28s infinite sweep
      strobes, so a continuous loop gets its own token rather than reusing either. */
