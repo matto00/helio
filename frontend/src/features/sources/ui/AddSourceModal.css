@@ -108,7 +108,7 @@
 }
 
 .add-source-modal__hint {
-  margin: var(--space-sm) 0 0;
+  margin: var(--space-2) 0 0;
   font-size: var(--text-sm);
   color: var(--app-text-muted);
 }
