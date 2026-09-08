@@ -429,7 +429,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
         "a.b" -> JsNumber(1.0),
         "a"   -> JsObject("b" -> JsNumber(2.0))
       )
-      val flattened = JsonFlattener.flattenJsObject(nested)
+      val flattened = JsonFlattener.flattenJsObjectUnclassified(nested)
 
       flattened.fields.keySet shouldBe Set("a.b")
       val expectedValue = flattened.fields("a.b")
@@ -442,7 +442,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
     // that SourceService.applyComputedFields makes (obj.fields of an already-flattened row).
     "evaluate: source computed field over a flattened row (SourceService.applyComputedFields seam)" in {
       val sourceRow  = JsObject("stats" -> JsObject("pts_ppr" -> JsNumber(12.0)))
-      val flattened  = JsonFlattener.flattenJsObject(sourceRow)
+      val flattened  = JsonFlattener.flattenJsObjectUnclassified(sourceRow)
       val result     = ExpressionEvaluator.evaluate("$stats.pts_ppr * 2", flattened.fields)
       result shouldBe Right(JsNumber(24.0))
     }

@@ -109,8 +109,12 @@ object SchemaInferenceEngine {
   private case class PathAcc(dataType: Option[DataFieldType], presentNonNullCount: Int)
 
   private def inferFromObjects(objects: Seq[JsObject]): Seq[InferredField] = {
+    // HEL-1015 design D1: classify map-vs-struct ONCE over the whole batch and pass the same
+    // set to every per-object `leaves` call, so the schema this method returns and the rows
+    // `PipelineRowJson.jsRowToRow` materialises from the same batch always agree.
+    val mapPaths = JsonFlattener.detectMapPaths(objects)
     val accByPath = objects.foldLeft(Map.empty[String, PathAcc]) { (acc, obj) =>
-      JsonFlattener.leaves(obj).foldLeft(acc) { case (m, (path, value)) =>
+      JsonFlattener.leaves(obj, mapPaths).foldLeft(acc) { case (m, (path, value)) =>
         val prior = m.getOrElse(path, PathAcc(None, presentNonNullCount = 0))
         value match {
           case JsNull =>

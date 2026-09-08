@@ -417,8 +417,14 @@ final class SourceService(
             // advertised schema and the executed rows — otherwise this fix would create a
             // *new* three-way divergence on a user-facing surface. Non-object rows (a bare
             // scalar/array REST root) pass through unchanged, same as `jsRowToRow`'s fallback.
+            //
+            // HEL-1015 design D1/D6: classify over the FULL `jsRows` batch and only THEN
+            // `take(10)` for display -- ordering, not logic. Classifying over the 10 displayed
+            // rows would re-create the three-way divergence this comment already warns about,
+            // because inference (`SchemaInferenceEngine`) always classifies over the full batch.
+            val mapPaths = JsonFlattener.detectMapPaths(jsRows.collect { case o: JsObject => o })
             val normalizedRows: Vector[JsValue] = jsRows.take(10).map {
-              case obj: JsObject => JsonFlattener.flattenJsObject(obj)
+              case obj: JsObject => JsonFlattener.flattenJsObject(obj, mapPaths)
               case other         => other
             }
             // HEL-904: companion-type computed fields are retired (ticket.md item 8).
