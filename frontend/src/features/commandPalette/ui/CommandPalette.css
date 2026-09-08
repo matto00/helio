@@ -104,6 +104,18 @@
   white-space: nowrap;
 }
 
+/* HEL-516 design.md Decision 5 — spacing between the title text and the combo's FIRST cap.
+   skeptic-final-1.md CR2: this targets the wrapping `.command-palette__item-combo` span, not
+   individual `.ui-keycap`s — targeting every cap also widened the gap BETWEEN caps within the
+   same combo, doubling the help overlay's 4px intra-combo spacing (owned solely by
+   `KeyCap.css`'s `.ui-keycap + .ui-keycap` rule, untouched here). No rule reserves space for an
+   absent combo (conditionally rendered, not hidden), so an action without a shortcut is never
+   misaligned. */
+.command-palette__item-title .command-palette__item-combo {
+  display: inline-flex;
+  margin-inline-start: var(--space-2);
+}
+
 .command-palette__item-subtitle {
   font-size: var(--text-xs);
   color: var(--app-text-muted);

@@ -14,7 +14,7 @@ import { PanelGridSkeleton } from "./grid/PanelGridSkeleton";
 import { panelGridConfig } from "./grid/panelGridConfig";
 import { OutputPicker } from "./OutputPicker";
 import { useCreatePanelAction } from "../hooks/useCreatePanelAction";
-import { fetchPanels, setPanelCreationModalOpen } from "../state/panelsSlice";
+import { fetchPanels, panelsMatchDashboard, setPanelCreationModalOpen } from "../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { StatusMessage } from "../../../shared/chrome/StatusMessage";
 import { EmptyState } from "../../../shared/ui/EmptyState";
@@ -105,7 +105,7 @@ export function PanelList() {
   const showPanelGridSkeleton =
     selectedDashboardId !== null &&
     (status === "loading" || (status === "idle" && staleDashboardId !== selectedDashboardId)) &&
-    (items.length === 0 || items[0].dashboardId !== selectedDashboardId);
+    !panelsMatchDashboard(items, selectedDashboardId);
 
   // HEL-528 evaluation-1.md CR3 — the dashboards fetch itself (`App.tsx`'s
   // unconditional `fetchDashboards()` mount effect) has not resolved yet, so

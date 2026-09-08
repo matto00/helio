@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import "./HelpOverlay.css";
@@ -117,8 +117,21 @@ export function HelpOverlayHost({ children }: HelpOverlayHostProps) {
     { guardWhileOverlayOpen: true },
   );
 
+  // HEL-516 skeptic-final-1.md CR1 — this was a fresh object literal every render (a real
+  // defect shipped by HEL-510, found while investigating this ticket's palette section-order
+  // artifact, not a HEL-516 authored bug): every consumer of `useHelpOverlay()` — currently only
+  // `BuiltInCommandActions`, via `buildShortcutsHelpAction` — depends on this VALUE in its own
+  // `useMemo`, so an unstable context value here churned `useCommandActions`'s register/dispose
+  // cycle on every render, silently reordering the palette's registration (unrelated actions'
+  // sections got pushed to the tail of `commandRegistry.ts`'s insertion-order `Map`). `setIsOpen`
+  // is already a stable `useState` setter, so wrapping it is the entire fix — no new dependency.
+  const contextValue = useMemo<HelpOverlayContextValue>(
+    () => ({ open: () => setIsOpen(true) }),
+    [],
+  );
+
   return (
-    <HelpOverlayContext.Provider value={{ open: () => setIsOpen(true) }}>
+    <HelpOverlayContext.Provider value={contextValue}>
       {children}
       <HelpOverlay open={isOpen} onClose={() => setIsOpen(false)} />
     </HelpOverlayContext.Provider>

@@ -4,6 +4,8 @@ import { Outlet, useLocation } from "react-router-dom";
 
 import "./App.css";
 import { CreatePipelineModal } from "../features/pipelines/ui/CreatePipelineModal";
+import { AddSourceModal } from "../features/sources/ui/AddSourceModal";
+import { OutputPicker } from "../features/panels/ui/OutputPicker";
 import { QuickLauncherOverlay } from "../features/assistant/ui/QuickLauncherOverlay";
 import { RefinementChatDrawer } from "../features/dashboards/ui/RefinementChatDrawer";
 import { DashboardShareDialog } from "../features/dashboards/ui/DashboardShareDialog";
@@ -12,13 +14,19 @@ import {
   useShareDialog,
 } from "../features/dashboards/state/shareDialogContext";
 import { BuiltInCommandActions } from "../features/commandPalette/BuiltInCommandActions";
+import { CreateCommandActions } from "../features/commandPalette/CreateCommandActions";
 import { CommandPaletteProvider } from "../features/commandPalette/CommandPaletteProvider";
 import { GlobalCommandShortcuts } from "../features/commandPalette/GlobalCommandShortcuts";
 import { CommandPalette } from "../features/commandPalette/ui/CommandPalette";
 import { HelpOverlayHost } from "../shared/chrome/HelpOverlay";
 import { fetchDashboards } from "../features/dashboards/state/dashboardsSlice";
 import { setCreatePipelineModalOpen } from "../features/pipelines/state/pipelinesSlice";
-import { fetchPanels } from "../features/panels/state/panelsSlice";
+import {
+  fetchPanels,
+  panelsMatchDashboard,
+  setPanelCreationModalOpen,
+} from "../features/panels/state/panelsSlice";
+import { setAddSourceModalOpen } from "../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { usePickerSelection } from "../shared/chrome/usePickerSelection";
 import { resolveDashboardBackground } from "../theme/appearance";
@@ -65,6 +73,54 @@ export function AppShell() {
   // background) and in `PanelList` (grid background) before Save actually persists it.
   const [draftAppearance, setDraftAppearance] = useState<DashboardAppearance | null>(null);
   const pipelines = useAppSelector((state) => state.pipelines);
+  // HEL-516 design.md D1/D3 — shell-mounted so "Add source"/"Add panel" work from any route, not
+  // just `/sources`/`/`, mirroring the F-045 `CreatePipelineModal` precedent above.
+  const addSourceModalOpen = useAppSelector((state) => state.sources.addModalOpen);
+  const panels = useAppSelector((state) => state.panels);
+
+  // HEL-516 design.md D3b/task 1.2a — off `/`, `panels.items` may be empty or hold ANOTHER
+  // dashboard's panels (a dashboard switch leaves the previous dashboard's items in the store
+  // while its own `fetchPanels` above is in flight). `panelsMatchDashboard` is the same
+  // predicate `PanelList` uses to decide whether to show its own skeleton, extracted so this
+  // mount and that component can't drift apart (design.md D3b explicitly forbids a second
+  // source of truth). When they don't match, re-dispatch the fetch and withhold the picker
+  // until it resolves — deliberately STRICTER than `/`, which has no such loading gate.
+  //
+  // `panelsMatchDashboard` alone is not sufficient here, though: a dashboard with GENUINELY
+  // zero panels resolves `items` to `[]` forever, which `panelsMatchDashboard` can never call a
+  // match (it requires a non-empty `items[0]` to read a `dashboardId` off). `PanelList`'s own
+  // `showPanelGridSkeleton` tolerates that ambiguity because it ALSO checks `status`/
+  // `staleDashboardId` alongside the items check — once a fetch resolves, the skeleton hides
+  // regardless of whether `items` came back empty or matching. This mount needs the same
+  // extra check to tell "not yet fetched for this dashboard" apart from "fetched, and it's
+  // genuinely empty": `loadedDashboardId` records which dashboard the LAST dispatched
+  // `fetchPanels` targeted (set at `.pending`, unchanged by `.fulfilled`), so pairing it with
+  // `status === "succeeded"` is precise even when `items` is `[]`.
+  const currentDashboardPanelsReady =
+    selectedDashboardId !== null &&
+    (panelsMatchDashboard(panels.items, selectedDashboardId) ||
+      (panels.items.length === 0 &&
+        panels.loadedDashboardId === selectedDashboardId &&
+        panels.status === "succeeded"));
+  useEffect(() => {
+    if (
+      panels.panelCreationModalOpen &&
+      selectedDashboardId !== null &&
+      !onDashboardView &&
+      !currentDashboardPanelsReady &&
+      panels.status !== "loading"
+    ) {
+      void dispatch(fetchPanels(selectedDashboardId));
+    }
+  }, [
+    dispatch,
+    currentDashboardPanelsReady,
+    panels.panelCreationModalOpen,
+    panels.items,
+    panels.status,
+    selectedDashboardId,
+    onDashboardView,
+  ]);
 
   // Drives the desktop breadcrumb text baked into the sr-only <h1> below and
   // the document.title effect — the one place both of those still need the
@@ -208,6 +264,29 @@ export function AppShell() {
         {location.pathname !== "/pipelines" && pipelines.createModalOpen && (
           <CreatePipelineModal onClose={() => dispatch(setCreatePipelineModalOpen(false))} />
         )}
+        {/* HEL-516 design.md D1/D3 — mounted at the shell exactly like `CreatePipelineModal`
+          above, skipped ONLY on the exact route `/sources` (which mounts its own instance —
+          `/sources/:id` is a sibling route, NOT a child, so it DOES get this mount). Without
+          this, "Add source" from the palette would silently no-op on every other route. */}
+        {location.pathname !== "/sources" && addSourceModalOpen && (
+          <AddSourceModal onClose={() => dispatch(setAddSourceModalOpen(false))} />
+        )}
+        {/* HEL-516 design.md D1/D3/D3b — mounted at the shell, skipped ONLY on the exact route
+          `/` (which mounts its own instance via `PanelList`). Gated on `selectedDashboardId`
+          because `OutputPicker`'s `dashboardId` prop is required (mirrors
+          `RefinementChatDrawer`'s gate just below), and additionally withheld until
+          `currentDashboardPanelsReady` so `currentDashboardPanels` is never stale/wrong (D3b) —
+          never pass `[]`. */}
+        {!onDashboardView &&
+          panels.panelCreationModalOpen &&
+          selectedDashboardId !== null &&
+          currentDashboardPanelsReady && (
+            <OutputPicker
+              dashboardId={selectedDashboardId}
+              currentDashboardPanels={panels.items}
+              onClose={() => dispatch(setPanelCreationModalOpen(false))}
+            />
+          )}
         {/* HEL-411 design.md D6 — gated on selectedDashboardId !== null: RefinementChatDrawer's
           dashboardId prop is required (the drawer always targets the currently-open dashboard,
           never a user-typed id), so it's simply not mounted when nothing is selected. */}
@@ -234,6 +313,7 @@ export function AppShell() {
           <HelpOverlayHost>
             <GlobalCommandShortcuts onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)} />
             <BuiltInCommandActions onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)} />
+            <CreateCommandActions />
             <CommandPalette />
           </HelpOverlayHost>
         </CommandPaletteProvider>

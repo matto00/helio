@@ -28,6 +28,7 @@ import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { OrbitMark } from "../shared/chrome/OrbitMark";
 import { SaveStateIndicator } from "../shared/chrome/SaveStateIndicator";
 import { pickerIdForPathname } from "../shared/chrome/sections";
+import { formatCombo, isMacPlatform, shortcuts } from "../shared/chrome/shortcuts";
 import { usePickerSelection } from "../shared/chrome/usePickerSelection";
 import { ActionsMenu, type ActionsMenuItem } from "../shared/chrome/ActionsMenu";
 import { IconButton } from "../shared/ui/IconButton";
@@ -64,6 +65,17 @@ export function CommandBar({
 
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const authStatus = useAppSelector((state) => state.auth.status);
+
+  // HEL-516 design.md Decision 5/task 6.4b — derived BY ID from `shortcuts.ts`'s single
+  // declaration (`quick-launcher`: Cmd/Ctrl+J) rather than the previous hand-typed, WRONG
+  // "(Ctrl/Cmd+K)" literal below, so this title can never drift from the binding that actually
+  // fires. This makes the string platform-specific (via `formatCombo`) instead of today's
+  // both-platforms "Ctrl/Cmd" wording — the intended consequence of deriving from the
+  // declaration, not a regression.
+  const quickLauncherCombo = shortcuts.find((s) => s.id === "quick-launcher")?.combo;
+  const quickLauncherShortcutLabel = quickLauncherCombo
+    ? formatCombo(quickLauncherCombo, { mac: isMacPlatform() }).join("+")
+    : "";
   const currentUser = useAppSelector((state) => state.auth.currentUser);
 
   const onDashboardView = location.pathname === "/";
@@ -277,7 +289,7 @@ export function CommandBar({
             size="sm"
             onClick={onOpenQuickLauncher}
             aria-label="Open assistant"
-            title="Assistant (Ctrl/Cmd+K)"
+            title={`Assistant (${quickLauncherShortcutLabel})`}
           />
         )}
         {/* Every dashboard-scoped action behind ONE kebab, so the dashboard
@@ -285,9 +297,12 @@ export function CommandBar({
             the title keeps the width it was losing to a row of icons.
             "Add panel" also lives here rather than in a bar above the grid —
             that bar cost a full row of vertical space on every dashboard.
-            Gated as the individual triggers were: `PanelCreationModal` is
-            mounted by `PanelList` alone (route `/`), so neither item may
-            outlive the surface that responds to it. */}
+            HEL-516 (design.md Decision 6): `OutputPicker` is now ALSO mounted at the app
+            shell (`App.tsx`), so this gate is no longer about reach — both the palette's
+            global "Add panel" and this kebab's contextual one work from any route today.
+            The gate STAYS by owner ruling: the palette is global by definition, this kebab is
+            contextual by position, and the two affordances doing different jobs is correct,
+            not a leftover reach restriction. */}
         {onDashboardView && selectedDashboard !== null && (
           <ActionsMenu label="Dashboard actions" items={dashboardActionItems} />
         )}

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import type { ShortcutCombo } from "../../../shared/chrome/shortcuts";
+
 /**
  * `command-action-registry` spec — the single typed contract every command-palette entry
  * conforms to. Only `id`, `title`, and `run` are required; a minimal action needs nothing else.
@@ -26,6 +28,12 @@ export interface CommandAction {
    * registrant supplied, sorted after locally-matched actions within its section.
    */
   matchesQuery?: boolean;
+  /** HEL-516 design.md Decision 5 — an optional keyboard shortcut to display next to this
+   * action, rendered via the existing `shared/ui/KeyCap` (the same pipeline the help overlay
+   * uses — no second cap component, no re-declared cap styling). For an action whose shortcut
+   * IS a declared global binding, read the combo from `shortcuts.ts` by id rather than
+   * re-typing it as a literal, so the displayed cap can't drift from the binding that fires. */
+  shortcut?: ShortcutCombo;
   /** Invoked when the user selects this entry. */
   run: () => void;
 }

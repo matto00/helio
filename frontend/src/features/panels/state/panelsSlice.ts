@@ -256,6 +256,18 @@ export {
 } from "./panelThunks";
 export { markDashboardPanelsStale } from "./panelActions";
 
+/** HEL-516 design.md D3b/task 1.2a — extracted from `PanelList.tsx`'s
+ *  `showPanelGridSkeleton` clause (`items.length === 0 || items[0].dashboardId !==
+ *  selectedDashboardId`), which was an inline condition, not a reusable predicate. A dashboard
+ *  switch leaves the previous dashboard's panels in `items` while the new dashboard's
+ *  `fetchPanels` is in flight (`fetchPanels.pending` does not clear `items`) — this is the single
+ *  source of truth for "do `items` genuinely belong to `dashboardId` right now", consumed by both
+ *  `PanelList` (inverted, to decide when to show the skeleton) and the app-shell `OutputPicker`
+ *  mount (to decide whether it's safe to pass `items` as `currentDashboardPanels` off-route). */
+export function panelsMatchDashboard(items: Panel[], dashboardId: string): boolean {
+  return items.length > 0 && items[0].dashboardId === dashboardId;
+}
+
 export function buildBatchRequest(
   pending: Record<string, PanelUpdateFields>,
 ): UpdatePanelsBatchRequest {
