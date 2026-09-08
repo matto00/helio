@@ -556,6 +556,10 @@
 .pipeline-detail-page__drop-indicator {
   height: 2px;
   margin: 0 var(--space-3);
+  /* HEL-442 D2: sub-scale, below the 6px floor — a deliberate LEAVE. This is
+   * a 2px-tall drag-drop indicator line; --app-radius-sm (6px) exceeds half
+   * the element's own height and would render as a pointed/diamond cap
+   * instead of a subtly rounded line end. */
   border-radius: 1px;
   background: var(--app-accent);
 }
@@ -902,6 +906,9 @@
 
 .pipeline-detail-page__compute-fields-hint-item {
   padding: 1px 6px;
+  /* HEL-442 D2: sub-scale, below the 6px floor — a deliberate LEAVE. This is
+   * a micro-badge with 1px vertical padding; --app-radius-sm (6px) would be
+   * a visibly rounder pill shape than the compact chip this is meant to be. */
   border-radius: 4px;
   background: var(--app-surface-soft);
   color: var(--app-text);

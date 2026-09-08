@@ -79,6 +79,10 @@
   font-size: 0.85em;
   background: color-mix(in srgb, currentColor 10%, transparent);
   padding: 0.1em 0.3em;
+  /* HEL-442 D2: sub-scale, below the 6px floor — a deliberate LEAVE. This
+   * inline code chip is tightly padded (0.1em); --app-radius-sm (6px) would
+   * visibly round past the chip's own corner into an obviously oversized
+   * shape at this size. */
   border-radius: 3px;
 }
 
@@ -90,6 +94,9 @@
 .markdown-panel pre {
   background: color-mix(in srgb, currentColor 7%, transparent);
   padding: 0.75em 1em;
+  /* HEL-442 D2: sub-scale, below the 6px floor — a deliberate LEAVE. Measured
+   * against --app-radius-sm (6px): the softer 4px reads correctly as a code
+   * block, and 6px looked like a visibly different (rounder) shape. */
   border-radius: 4px;
   overflow-x: auto;
 }

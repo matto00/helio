@@ -16,5 +16,8 @@
 
 .divider-panel__rule {
   flex-shrink: 0;
+  /* HEL-442 D2: sub-scale, below the 6px floor — a deliberate LEAVE. This is
+   * a hairline rule bar, not a card; snapping to --app-radius-sm (6px) would
+   * be a visible 6x increase on a decorative detail this thin. */
   border-radius: 1px;
 }

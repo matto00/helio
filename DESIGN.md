@@ -95,6 +95,12 @@ hardcode a value a token exists for.** **[mechanical]**
 | Intent            | `--app-success`, `--app-warning`, `--app-error` (+ `--app-*-surface` washes), `--app-info` (→ accent). `--app-danger` aliases error.                                                   |
 | Overlay / texture | `--app-overlay` (modal backdrop), `--canvas-dot` (neutral dot field)                                                                                                                   |
 
+**`--app-accent-mid` on a border is CORRECT, not drift** (HEL-442 audit correction): the "never accent-tinted" rule
+above governs the DEFAULT hairline (`--app-border-subtle`/`--app-border-strong`), not every border in the app.
+`--app-accent-mid` is the token this table already names FOR "selection borders" one row up — the ~46 sites where it
+appears are explicit state pseudo-classes (`:focus-visible`/`:hover`/`:checked`/`--active`/`--selected`), affordance
+idioms (dashed drop-target outlines), or semantic tinting, not a default hairline drawn in accent. Do not "fix" them.
+
 - **[mechanical]** No hardcoded hex/rgb/rgba in component CSS or TSX where a
   token applies. Intent colors always come from the intent tokens.
 - **Documented exception:** accent _preset swatches_ (`AccentPicker`),
@@ -280,8 +286,34 @@ expanders without the spacing they were measured against.
 
 - Radius: `--app-radius-sm` 6px (controls), `--app-radius-md` 9px (menus,
   small cards), `--app-radius-lg` 14px (cards, modals), `--app-radius-pill`.
+  **`50%` is an ALLOWED value for a circle, not drift to be exempted or
+  "normalized" onto `--app-radius-pill`** (HEL-442 D1): avatars, `Spinner`,
+  the `Toggle` knob, `AccentPicker` swatches and `StatusChip` all use `50%`
+  because it is the semantically correct expression of a circle and, unlike
+  a fixed-px token, survives a size change without distorting the shape. On
+  a square element `50%` and `9999px` render identically, but treating `50%`
+  as an exception would invite a future ticket to "resolve" it and visibly
+  break every one of those circles.
+  A handful of sub-scale radii below the 6px floor (`1px`/`3px`/`4px` on
+  `DividerPanel`, `MarkdownPanel`, `PipelineDetailPage`) are deliberately
+  LEFT literal rather than snapped to `--app-radius-sm` (HEL-442 D2):
+  snapping is a visible 2–5px increase on decorative detail (a hairline
+  rule, a drag-drop indicator line, a code-block/badge corner), and
+  measurement showed the token looked like a different, worse shape at that
+  size — the same "locally tidier, globally worse" trap HEL-441 hit with
+  motion durations. Each site carries an inline comment recording why.
 - Shadow: `--app-shadow-card` (resting cards), `--app-shadow-soft`
   (overlays/hover-lift). Borders do the separating; shadows stay soft.
+  **Two families of `box-shadow` declarations exist that neither elevation
+  token applies to** (HEL-442 D0): zero-blur "spread ring" focus/selection
+  indicators (`0 0 0 3px var(--app-accent-dim)` and similar — a different
+  mechanism from the `--app-focus-ring` outline token, converging them is
+  HEL-1022's remit) and scroll-fade edge insets (`inset Npx 0 Npx -Npx
+color-mix(...)`, in four distinct values across `DataGrid`/list tables/
+  `ConnectorsPage`). Neither carries a y-offset with a blur — the shape an
+  elevation shadow takes — so neither is drift; `frontend/src/theme/
+elevationTokenGuard.css.test.ts` pins each declaration by exact file,
+  text and count rather than exempting the properties wholesale.
 - Motion: `--app-transition` (0.16s, hover/color), `--transition-slow`
   (0.28s, entrances), `--app-skeleton-shimmer` (1.6s, the `Skeleton`
   primitive's shimmer loop), `--app-spin-duration` (0.7s, the loop role
