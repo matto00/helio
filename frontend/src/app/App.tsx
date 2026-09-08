@@ -15,6 +15,7 @@ import { BuiltInCommandActions } from "../features/commandPalette/BuiltInCommand
 import { CommandPaletteProvider } from "../features/commandPalette/CommandPaletteProvider";
 import { GlobalCommandShortcuts } from "../features/commandPalette/GlobalCommandShortcuts";
 import { CommandPalette } from "../features/commandPalette/ui/CommandPalette";
+import { HelpOverlayHost } from "../shared/chrome/HelpOverlay";
 import { fetchDashboards } from "../features/dashboards/state/dashboardsSlice";
 import { setCreatePipelineModalOpen } from "../features/pipelines/state/pipelinesSlice";
 import { fetchPanels } from "../features/panels/state/panelsSlice";
@@ -230,9 +231,11 @@ export function AppShell() {
           `palette-takes-k-launcher-moves` resolution), BuiltInCommandActions seeds navigation/
           theme/"Open assistant" actions. */}
         <CommandPaletteProvider>
-          <GlobalCommandShortcuts onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)} />
-          <BuiltInCommandActions onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)} />
-          <CommandPalette />
+          <HelpOverlayHost>
+            <GlobalCommandShortcuts onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)} />
+            <BuiltInCommandActions onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)} />
+            <CommandPalette />
+          </HelpOverlayHost>
         </CommandPaletteProvider>
         {/* HEL-590 (evaluation-1.md CR4) — mounted at shell level, a sibling of Sidebar/MobileShell
           above, not nested inside `.app-sidebar` (which is `display: none` below the desktop

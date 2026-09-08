@@ -149,4 +149,21 @@ describe("CommandPalette", () => {
     expect(input).toHaveValue("");
     expect(screen.getAllByRole("option")).toHaveLength(2);
   });
+
+  // HEL-510 tasks.md 3.1 — the palette renders AS a Modal, so `command-palette` must NOT set
+  // `guardWhileOverlayOpen`, and its typing exemption must still apply while focus is inside its
+  // own (typing-target) search input, once the palette is already open.
+  it("Cmd/Ctrl+K still fires while the palette is open, with focus inside its own search input", async () => {
+    renderPalette([makeAction("a", "Alpha")]);
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const input = await screen.findByLabelText("Search commands");
+    expect(getDialog()).toHaveAttribute("open");
+
+    fireEvent.change(input, { target: { value: "Alpha" } });
+    fireEvent.keyDown(input, { key: "k", ctrlKey: true });
+
+    expect(getDialog()).toHaveAttribute("open");
+    expect(input).toHaveValue("Alpha");
+  });
 });

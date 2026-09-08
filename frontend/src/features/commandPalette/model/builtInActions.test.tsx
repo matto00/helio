@@ -1,6 +1,7 @@
 import {
   buildNavigationActions,
   buildOpenAssistantAction,
+  buildShortcutsHelpAction,
   buildThemeAction,
 } from "./builtInActions";
 import { isNavSection, sections } from "../../../shared/chrome/sections";
@@ -58,5 +59,23 @@ describe("buildOpenAssistantAction", () => {
   it("is findable by chat/assistant keywords", () => {
     const action = buildOpenAssistantAction(jest.fn());
     expect(action.keywords).toEqual(expect.arrayContaining(["assistant", "chat"]));
+  });
+});
+
+describe("buildShortcutsHelpAction", () => {
+  it("exists with the expected title", () => {
+    const action = buildShortcutsHelpAction(jest.fn());
+    expect(action.title).toBe("Keyboard shortcuts");
+  });
+
+  it("opens the help overlay when run", () => {
+    const openHelpOverlay = jest.fn();
+    buildShortcutsHelpAction(openHelpOverlay).run();
+    expect(openHelpOverlay).toHaveBeenCalled();
+  });
+
+  it("is findable by shortcuts/keyboard keywords", () => {
+    const action = buildShortcutsHelpAction(jest.fn());
+    expect(action.keywords).toEqual(expect.arrayContaining(["shortcuts", "keyboard"]));
   });
 });

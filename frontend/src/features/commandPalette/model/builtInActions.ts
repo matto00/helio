@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { MessageCircle, SunMoon } from "lucide-react";
+import { Keyboard, MessageCircle, SunMoon } from "lucide-react";
 import type { NavigateFunction } from "react-router-dom";
 
 import { isNavSection, sections } from "../../../shared/chrome/sections";
@@ -46,5 +46,18 @@ export function buildOpenAssistantAction(openQuickLauncher: () => void): Command
     keywords: ["assistant", "chat"],
     icon: createElement(MessageCircle),
     run: openQuickLauncher,
+  };
+}
+
+/** HEL-510 — makes the help overlay discoverable from the palette itself, not just the `?`
+ * binding (`shortcuts.ts`'s `help-overlay` entry). */
+export function buildShortcutsHelpAction(openHelpOverlay: () => void): CommandAction {
+  return {
+    id: "help.shortcuts",
+    title: "Keyboard shortcuts",
+    section: GENERAL_SECTION,
+    keywords: ["shortcuts", "keyboard", "help", "hotkeys"],
+    icon: createElement(Keyboard),
+    run: openHelpOverlay,
   };
 }

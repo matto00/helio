@@ -1,5 +1,3 @@
-import { useEffect } from "react";
-
 import { setDashboardLayoutLocally } from "../../dashboards/state/dashboardsSlice";
 import {
   redoLayout,
@@ -8,16 +6,16 @@ import {
   undoLayout,
 } from "../state/layoutHistorySlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { useShortcut } from "../../../shared/chrome/useShortcut";
 
-function isEditableFocused(): boolean {
-  const el = document.activeElement;
-  if (!el || !(el instanceof HTMLElement)) return false;
-  const tag = el.tagName;
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
-  if (el.isContentEditable) return true;
-  return false;
-}
-
+/**
+ * HEL-510 — migrated onto `useShortcut` (design.md Decision 3): this hook is now a pure consumer,
+ * owning no `window` listener of its own. The shared `isTypingTarget` guard (applied by
+ * `useShortcut` itself, default `allowWhileTyping: false`) replaces the private
+ * `isEditableFocused` this file used to carry. `layout-undo`/`layout-redo`'s Shift-exactness
+ * (`shortcuts.ts` Decision 2) is what keeps these mutually exclusive; neither sets
+ * `guardWhileOverlayOpen`, preserving today's behavior exactly (design.md Decision 4 table).
+ */
 export function useLayoutUndoRedo(dashboardId: string | null): void {
   const dispatch = useAppDispatch();
 
@@ -29,30 +27,25 @@ export function useLayoutUndoRedo(dashboardId: string | null): void {
   const undoTarget = useAppSelector(selectUndoLayout(dashboardId));
   const redoTarget = useAppSelector(selectRedoLayout(dashboardId));
 
-  useEffect(() => {
-    if (!dashboardId) return;
+  useShortcut(
+    "layout-undo",
+    (event) => {
+      if (!dashboardId || !undoTarget || !currentLayout) return;
+      event.preventDefault();
+      dispatch(undoLayout({ dashboardId, currentLayout }));
+      dispatch(setDashboardLayoutLocally({ dashboardId, layout: undoTarget }));
+    },
+    { when: dashboardId !== null },
+  );
 
-    function handleKeyDown(event: KeyboardEvent) {
-      if (!dashboardId) return;
-      if (isEditableFocused()) return;
-
-      const isUndo = (event.metaKey || event.ctrlKey) && event.key === "z" && !event.shiftKey;
-      const isRedo = (event.metaKey || event.ctrlKey) && event.key === "z" && event.shiftKey;
-
-      if (isUndo && undoTarget && currentLayout) {
-        event.preventDefault();
-        dispatch(undoLayout({ dashboardId, currentLayout }));
-        dispatch(setDashboardLayoutLocally({ dashboardId, layout: undoTarget }));
-      } else if (isRedo && redoTarget && currentLayout) {
-        event.preventDefault();
-        dispatch(redoLayout({ dashboardId, currentLayout }));
-        dispatch(setDashboardLayoutLocally({ dashboardId, layout: redoTarget }));
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [dashboardId, dispatch, currentLayout, undoTarget, redoTarget]);
+  useShortcut(
+    "layout-redo",
+    (event) => {
+      if (!dashboardId || !redoTarget || !currentLayout) return;
+      event.preventDefault();
+      dispatch(redoLayout({ dashboardId, currentLayout }));
+      dispatch(setDashboardLayoutLocally({ dashboardId, layout: redoTarget }));
+    },
+    { when: dashboardId !== null },
+  );
 }

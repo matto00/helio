@@ -1,0 +1,52 @@
+/* HEL-510 — tokens only, no hardcoded color/spacing/type (DESIGN.md §6/§7). The entrance
+   animation and overlay backdrop are inherited from `Modal.css`'s `.ui-modal` — this file adds
+   no second animation, matching the sibling `command-palette` surface. */
+
+.help-overlay__list {
+  overflow-y: auto;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.help-overlay__group-label {
+  margin-bottom: var(--space-2);
+}
+
+.help-overlay__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.help-overlay__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.help-overlay__row-label {
+  color: var(--app-text);
+  font-size: var(--text-sm);
+}
+
+.help-overlay__row-combo {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* HEL-1022 (DESIGN.md §8) — always :focus-visible, never bare :focus, for a ring; the token
+   value, never a hand-rolled one; matches the sibling `.command-palette__item:focus-visible`
+   (CommandPalette.css:80-82). Nothing in this overlay is focusable outside Modal's own
+   trap/close-button chrome today, but this rule guards any future focusable row content. */
+.help-overlay__row:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: -2px;
+}
