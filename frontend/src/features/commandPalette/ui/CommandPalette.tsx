@@ -12,6 +12,7 @@ import { useCommandPalette, useCommandRegistryActions, useSetCommandQuery } from
 import { SECTION_DISPLAY_ORDER } from "../model/builtInActions";
 import { rankActions } from "../model/ranking";
 import type { CommandAction } from "../model/types";
+import { useRecentPaletteActions } from "../useRecentPaletteActions";
 
 const UNSECTIONED = "";
 
@@ -99,7 +100,20 @@ export function CommandPalette() {
     }
   }, [isOpen, setQuery]);
 
-  const results = useMemo(() => rankActions(registeredActions, query), [registeredActions, query]);
+  // HEL-519 design.md D5, task 5.1 — recents are synthesized here, at the call site, and
+  // PREPENDED to the ranked default list; never threaded into `rankActions`, which has no access
+  // to visit history and must stay a pure function of (actions, query). On an empty query with a
+  // non-empty history, this section is added ON TOP of the existing default presentation (which
+  // already includes Navigation/General/Create) — never a replacement of it. On any non-empty
+  // query, or an empty history, `results` is exactly what `rankActions` returned, unchanged.
+  const recentActions = useRecentPaletteActions();
+  const results = useMemo(() => {
+    const ranked = rankActions(registeredActions, query);
+    if (query.trim() === "" && recentActions.length > 0) {
+      return [...recentActions, ...ranked];
+    }
+    return ranked;
+  }, [registeredActions, query, recentActions]);
   const groups = useMemo(() => groupBySection(results), [results]);
 
   useEffect(() => {

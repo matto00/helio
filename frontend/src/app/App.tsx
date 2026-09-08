@@ -18,6 +18,7 @@ import { CreateCommandActions } from "../features/commandPalette/CreateCommandAc
 import { CommandPaletteProvider } from "../features/commandPalette/CommandPaletteProvider";
 import { GlobalCommandShortcuts } from "../features/commandPalette/GlobalCommandShortcuts";
 import { CommandPalette } from "../features/commandPalette/ui/CommandPalette";
+import { RecentVisitsRouteObserver } from "../features/commandPalette/RecentVisitsRouteObserver";
 import { HelpOverlayHost } from "../shared/chrome/HelpOverlay";
 import { fetchDashboards } from "../features/dashboards/state/dashboardsSlice";
 import { setCreatePipelineModalOpen } from "../features/pipelines/state/pipelinesSlice";
@@ -309,6 +310,11 @@ export function AppShell() {
           (palette) and Cmd/Ctrl+J (quick-launcher, moved off K per the
           `palette-takes-k-launcher-moves` resolution), BuiltInCommandActions seeds navigation/
           theme/"Open assistant" actions. */}
+        {/* HEL-519 design.md D2 — records arrivals at `/sources/:id`/`/pipelines/:id`.
+          Unconditional, matching `QuickLauncherOverlay`'s own always-mounted precedent above;
+          it observes the route itself, not any palette/picker interaction, so it fires
+          identically for a pasted URL, a bookmark, or browser back/forward. */}
+        <RecentVisitsRouteObserver />
         <CommandPaletteProvider>
           <HelpOverlayHost>
             <GlobalCommandShortcuts onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)} />

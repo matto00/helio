@@ -12,6 +12,10 @@ import type { CommandAction } from "./types";
 const NAVIGATION_SECTION = "Navigation";
 const GENERAL_SECTION = "General";
 const CREATE_SECTION = "Create";
+// HEL-519 design.md D5, task 5.2 — the recents section's own display-order string, imported by
+// `useRecentPaletteActions.ts` (kept HERE, alongside the array it's an entry of, rather than
+// re-declared as a literal in the recents module where it could drift from this array).
+export const RECENT_SECTION = "Recent";
 
 /** skeptic-final-1.md CR1 — the palette's top-level section order is DATA, declared once here,
  * rather than an emergent property of whichever registrant's mount effect happened to commit
@@ -22,6 +26,10 @@ const CREATE_SECTION = "Create";
  * a one-line edit to this array, not a mount-order archaeology exercise. The owner has final say
  * on the actual order (escalated separately) — this is the mechanism, not the ruling. */
 export const SECTION_DISPLAY_ORDER: readonly string[] = [
+  // HEL-519 design.md D5, task 5.2 — Recent leads. An unlisted section is not dropped by
+  // `groupBySection` (it sorts after every listed one), so omitting this entry would still
+  // "work" while placing recents last — the opposite of intent.
+  RECENT_SECTION,
   NAVIGATION_SECTION,
   GENERAL_SECTION,
   CREATE_SECTION,
