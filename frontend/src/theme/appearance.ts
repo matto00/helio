@@ -144,6 +144,11 @@ function toRgbString(color: RgbColor, alpha = 1): string {
   return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
 }
 
+function toHexColor(color: RgbColor): string {
+  const channel = (value: number) => value.toString(16).padStart(2, "0");
+  return `#${channel(color.r)}${channel(color.g)}${channel(color.b)}`;
+}
+
 function getRelativeLuminance(color: RgbColor): number {
   const channels = [color.r, color.g, color.b].map((channel) => {
     const normalized = channel / 255;
@@ -302,6 +307,93 @@ export function getDashboardBgContrastRatio(
   return getContrastRatio(resolvedBg, textColor);
 }
 
+// HEL-1046 — the literal-hex surfaces a `:focus-visible` ring can land on,
+// copied from theme.css's two `:root[data-theme=...]` blocks (dark
+// `--app-bg`/`--app-surface`/`--app-surface-soft`/`--app-surface-raised`/
+// `--app-surface-strong`, then the light equivalents in the same order).
+// SYNC OBLIGATION: if theme.css changes any of these five tokens in either
+// theme block, update this list too — `focusRingTokenGuard.css.test.ts`
+// re-parses theme.css directly and will go red if this list drifts from it.
+// Deliberately excludes `--app-bg-accent`/`--app-bg-secondary` (those are
+// themselves `color-mix(... var(--app-accent) ...)` outputs, so scoring the
+// ring against them would make the derivation circular on its own accent).
+const FOCUS_RING_SURFACES: readonly string[] = [
+  // dark theme (:root[data-theme="dark"])
+  "#121110",
+  "#1a1816",
+  "#161514",
+  "#232019",
+  "#262320",
+  // light theme (:root[data-theme="light"])
+  "#f4f2ed",
+  "#fdfcfa",
+  "#efece6",
+  "#ffffff",
+  "#ffffff",
+];
+
+const FOCUS_RING_CONTRAST_TARGET = 3.0;
+
+function minContrastAgainstFocusRingSurfaces(color: RgbColor): number {
+  let min = Number.POSITIVE_INFINITY;
+  for (const hex of FOCUS_RING_SURFACES) {
+    const surface = parseHexColor(hex);
+    if (surface === null) {
+      continue;
+    }
+    const ratio = getContrastRatio(color, surface);
+    if (ratio < min) {
+      min = ratio;
+    }
+  }
+  return min;
+}
+
+function darkenTowardBlack(color: RgbColor, percent: number): RgbColor {
+  const factor = 1 - percent / 100;
+  return {
+    r: Math.round(color.r * factor),
+    g: Math.round(color.g * factor),
+    b: Math.round(color.b * factor),
+  };
+}
+
+/**
+ * Derives the MINIMUM darkening of `hex` (toward black, in TypeScript — not
+ * CSS `color-mix`, so the result is an exact 8-bit hex with no rounding path
+ * back below the 3:1 floor) that clears `FOCUS_RING_CONTRAST_TARGET` against
+ * every surface in `FOCUS_RING_SURFACES` (both themes). Theme-independent by
+ * construction (design.md D3): one value serves both themes because the
+ * search takes the minimum contrast over ALL surfaces, not a per-theme pair.
+ *
+ * Returns `null` only for an unparseable hex — callers fall back to the
+ * static `:root` default in that case (same contract as `buildAccentTokens`
+ * returning `{}`), never to a thrown error or an unsafe value.
+ */
+export function deriveFocusRingColor(hex: string): string | null {
+  const rgb = parseHexColor(hex);
+  if (rgb === null) {
+    return null;
+  }
+
+  if (minContrastAgainstFocusRingSurfaces(rgb) >= FOCUS_RING_CONTRAST_TARGET) {
+    return hex.toLowerCase();
+  }
+
+  for (let percent = 1; percent <= 100; percent++) {
+    const darkened = darkenTowardBlack(rgb, percent);
+    if (minContrastAgainstFocusRingSurfaces(darkened) >= FOCUS_RING_CONTRAST_TARGET) {
+      return toHexColor(darkened);
+    }
+  }
+
+  // Unreachable for any real accent — design.md D1 proves the 3:1 window is
+  // non-empty (width 0.0953), and black (`#000000`) trivially clears every
+  // surface here. Kept as an explicit, safe last resort rather than a thrown
+  // error, so the derivation stays total (task 1.2).
+  return "#000000";
+}
+
 export function buildAccentTokens(hex: string): Record<string, string> {
   const rgb = parseHexColor(hex);
   if (rgb === null) {
@@ -322,6 +414,7 @@ export function buildAccentTokens(hex: string): Record<string, string> {
   return {
     "--app-accent": hex,
     "--app-accent-ink": ink,
+    "--app-focus-ring-color": deriveFocusRingColor(hex) ?? hex,
   };
 }
 

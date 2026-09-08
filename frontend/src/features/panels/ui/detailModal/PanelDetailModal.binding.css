@@ -86,7 +86,7 @@
 }
 
 .panel-detail-modal__output-link:focus-visible {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: 2px;
 }
 
@@ -113,7 +113,7 @@
 }
 
 .panel-detail-modal__swap-output-btn:focus-visible {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: 2px;
 }
 
@@ -135,7 +135,7 @@
 }
 
 .panel-detail-modal__type-search:focus {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: 1px;
 }
 
@@ -311,7 +311,7 @@
 }
 
 .panel-detail-modal__mode-toggle-btn:focus-visible {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: 2px;
 }
 

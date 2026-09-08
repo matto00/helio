@@ -158,8 +158,14 @@
   --app-border-subtle: rgba(242, 239, 233, 0.09);
   --app-border-strong: rgba(242, 239, 233, 0.18);
 
-  /* Runtime-set: --app-accent (user choice), --app-accent-ink (readable text
-     on solid accent). Defaults below match DefaultAccentColor. */
+  /* Runtime-set: --app-accent, --app-accent-ink, --app-focus-ring-color
+     (appearance.ts's `applyAccentTokens`, keyed on the user's chosen accent).
+     `applyAccentTokens` writes them as INLINE style on `<html>`, which
+     outranks this whole `:root[data-theme=...]` block — so the values below
+     NEVER render once the effect has run at least once. They exist only as
+     the pre-hydration static fallback (HEL-1046 D6/D5); they are not a
+     per-theme tuning and must not be edited to "look right" here, only kept
+     parseable. See also the light block's copy below. */
   --app-accent: #f97316;
   --app-accent-ink: #16130f;
   --app-accent-strong: color-mix(in srgb, var(--app-accent) 78%, white);
@@ -206,6 +212,11 @@
   --app-border-subtle: rgba(33, 29, 25, 0.11);
   --app-border-strong: rgba(33, 29, 25, 0.2);
 
+  /* Same dead-until-first-effect-run situation as the dark block above:
+     `applyAccentTokens` writes `--app-accent`/`--app-accent-ink`/
+     `--app-focus-ring-color` inline on `<html>`, which outranks this block.
+     Never renders once the effect has run; kept parseable as the
+     pre-hydration static fallback only (HEL-1046 D6/D5). */
   --app-accent: #ea580c;
   --app-accent-ink: #ffffff;
   --app-accent-strong: color-mix(in srgb, var(--app-accent) 76%, black);
@@ -285,19 +296,52 @@ a {
   background: var(--app-accent-mid);
 }
 
-/* Standard focus ring — 2px accent, 2px offset. Use `outline-offset: -2px`
+/* Standard focus ring — 2px, 2px offset. Use `outline-offset: -2px`
    only where the ring would otherwise be clipped (flush list items).
    HEL-1022: `--app-focus-ring` centralizes the outline VALUE (color + width
    + style) so every per-component override below references one definition
    instead of hand-copying the literal `2px solid var(--app-accent)` --
    `outline-offset` still varies legitimately per component (2px default,
    -2px for flush items, -3px for BottomNav's documented carve-out) and is
-   NOT part of this token. Never used for `:focus` (bare) -- see DESIGN.md
-   §8's focus-visible contract: a ring painted on PROGRAMMATIC focus (an
-   auto-focused dialog's first field opened by mouse) is exactly the wrong
-   behavior `:focus-visible` exists to prevent. */
+   NOT part of this token. Consumed by bare `:focus` in exactly ONE place --
+   `PanelDetailModal.binding.css`'s `.panel-detail-modal__type-search:focus`
+   (HEL-1046 cycle 4; `focusRingTokenGuard.css.test.ts`'s whitelist guard
+   requires it to stay a token consumer, so this comment and that guard
+   cannot silently drift apart again). Every OTHER consumer of this token is
+   `:focus-visible` -- see DESIGN.md §8's focus-visible contract: a ring
+   painted on PROGRAMMATIC focus (an auto-focused dialog's first field
+   opened by mouse) is exactly the wrong behavior `:focus-visible` exists to
+   prevent. `.panel-detail-modal__type-search` itself appears to be orphaned
+   CSS left behind by HEL-909's `BindingEditor.tsx` removal -- no component
+   in the current tree renders that class (grep confirms zero references
+   outside these two declarations) -- so DESIGN.md §8's "legitimate
+   persistent, modality-independent indicator" carve-out is recorded there
+   as the rule this rule WOULD satisfy if it were live, not as a claim that
+   it currently is.
+
+   HEL-1046: the ring's COLOUR is `--app-focus-ring-color`, a token dedicated
+   to the ring rather than `--app-accent` itself. A focus indicator carries a
+   3:1 non-text WCAG obligation that a decorative accent does not, and
+   binding the two together (the pre-HEL-1046 state) is what let the ring
+   fall below 3:1 in the shipped light theme while `--app-accent` itself was
+   never wrong for its own (decorative) purpose. `--app-accent` is left
+   completely untouched by this token so brand rendering elsewhere doesn't
+   move. `--app-focus-ring-color` is derived (`appearance.ts`'s
+   `deriveFocusRingColor`) as the MINIMUM darkening of the chosen accent that
+   clears 3:1 against every surface in both themes — see that function's
+   doc comment and DESIGN.md §8 for the derivation, and
+   `focusRingTokenGuard.css.test.ts` for the guard that asserts it stays
+   true rather than trusting this comment. Declared ONCE here (not per
+   theme) because the value is theme-independent by construction: the
+   derivation's minimum is taken over every surface in BOTH theme blocks, so
+   one value already serves both. It is `#f97316` (dark's
+   `DefaultAccentColorByTheme`) derived to 3:1 — `#db6513` — used as the
+   static pre-hydration fallback because `getInitialTheme` defaults to
+   `"dark"` and `#db6513` also clears 3:1 in light (3.03) if light paints
+   first anyway. */
 :root {
-  --app-focus-ring: 2px solid var(--app-accent);
+  --app-focus-ring-color: #db6513;
+  --app-focus-ring: 2px solid var(--app-focus-ring-color);
 }
 
 :focus-visible {
