@@ -18,10 +18,31 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Loaded non-blocking: `media="print"` keeps this stylesheet out of the
+         critical rendering path, and the onload handler promotes it to `all`
+         once it arrives. A plain `rel="stylesheet"` here is render-blocking, so
+         an unreachable fonts.googleapis.com/fonts.gstatic.com stalls the whole
+         app -- prod AND the local dev server -- until the TCP timeout rather
+         than degrading to the fallback stack in theme.css. Text paints
+         immediately in the fallback face and swaps when (or if) the webfonts
+         land; `display=swap` is what makes that swap flicker-free.
+         The <noscript> copy preserves the blocking load for no-JS agents,
+         which is the standard pairing for this pattern. -->
     <link
       href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="
+        this.media = 'all';
+        this.onload = null;
+      "
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
   </head>
   <body>
     <div id="root"></div>
