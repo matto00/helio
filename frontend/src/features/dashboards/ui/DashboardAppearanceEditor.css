@@ -18,11 +18,6 @@
   display: block;
   margin-bottom: var(--space-1);
   color: var(--app-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--eyebrow-size);
-  font-weight: var(--eyebrow-weight);
-  letter-spacing: var(--eyebrow-tracking);
-  text-transform: uppercase;
 }
 
 .dashboard-appearance-editor__swatch {

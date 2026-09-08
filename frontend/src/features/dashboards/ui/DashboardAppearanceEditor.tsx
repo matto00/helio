@@ -168,7 +168,9 @@ export function DashboardAppearanceEditor({
             >
               <div className="dashboard-appearance-editor__header">
                 <div>
-                  <span className="dashboard-appearance-editor__label">Dashboard appearance</span>
+                  <span className="eyebrow dashboard-appearance-editor__label">
+                    Dashboard appearance
+                  </span>
                   <strong>{dashboard.name}</strong>
                 </div>
                 <div className="dashboard-appearance-editor__swatches" aria-hidden="true">

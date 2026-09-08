@@ -153,12 +153,7 @@
 
 .source-detail-panel__section-title {
   margin: 0 0 6px;
-  font-family: var(--font-mono);
-  font-size: var(--eyebrow-size);
-  font-weight: var(--eyebrow-weight);
   color: var(--app-text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--eyebrow-tracking);
 }
 
 .source-detail-panel__preview-empty {

@@ -95,7 +95,7 @@ export function MfaSecuritySection() {
         <>
           <div className="mfa-security-section__status">
             <span
-              className={`mfa-security-section__badge ${
+              className={`eyebrow mfa-security-section__badge ${
                 mfa.enabled ? "mfa-security-section__badge--on" : "mfa-security-section__badge--off"
               }`}
             >

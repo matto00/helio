@@ -75,7 +75,7 @@ export function SchemaFieldViewer<F>({
   return (
     <div className={classes}>
       <div className="schema-field-viewer__header">
-        <span className="schema-field-viewer__title">{title}</span>
+        <span className="eyebrow schema-field-viewer__title">{title}</span>
         <span className="schema-field-viewer__count">
           {search.totalCount} field{search.totalCount === 1 ? "" : "s"}
         </span>

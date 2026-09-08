@@ -92,11 +92,6 @@
 .connectors-page__th {
   text-align: left;
   padding: var(--space-2) var(--space-3);
-  font-family: var(--font-mono);
-  font-size: var(--eyebrow-size);
-  font-weight: var(--eyebrow-weight);
-  letter-spacing: var(--eyebrow-tracking);
-  text-transform: uppercase;
   color: var(--app-text-muted);
   border-bottom: 1px solid var(--app-border-subtle);
 }

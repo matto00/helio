@@ -763,11 +763,6 @@
  * sibling eyebrow (`.pipeline-detail-page__meta-bar-label`, `.pipelines-
  * page__section-title`, `.eyebrow` utility) uses. */
 .pipeline-detail-page__footer-output-label {
-  font-family: var(--font-mono);
-  font-size: var(--eyebrow-size);
-  font-weight: var(--eyebrow-weight);
-  letter-spacing: var(--eyebrow-tracking);
-  text-transform: uppercase;
   color: var(--app-text-muted);
 }
 

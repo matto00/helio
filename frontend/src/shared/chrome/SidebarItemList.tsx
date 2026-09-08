@@ -298,7 +298,7 @@ export function SidebarItemList({
   return (
     <section className="dashboard-list" aria-label={heading.toLowerCase()}>
       <header className="dashboard-list__header">
-        <h2>{heading}</h2>
+        <h2 className="eyebrow">{heading}</h2>
         {onAdd !== undefined ? (
           <div className="dashboard-list__header-actions">
             <IconButton

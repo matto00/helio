@@ -24,11 +24,6 @@
   padding: 0 var(--space-3);
   height: var(--control-sm);
   border-radius: var(--app-radius-pill);
-  font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  font-weight: var(--weight-medium);
-  letter-spacing: var(--eyebrow-tracking);
-  text-transform: uppercase;
 }
 
 .mfa-security-section__badge--on {

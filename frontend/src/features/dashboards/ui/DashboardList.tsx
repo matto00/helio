@@ -201,7 +201,7 @@ export function DashboardList() {
   return (
     <section className="dashboard-list" aria-label="dashboards">
       <header className="dashboard-list__header">
-        <h2>Dashboards</h2>
+        <h2 className="eyebrow">Dashboards</h2>
         <div className="dashboard-list__header-actions">
           <IconButton
             icon="+"

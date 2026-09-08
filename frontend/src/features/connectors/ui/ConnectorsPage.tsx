@@ -81,12 +81,12 @@ const SORT_COLUMNS: readonly SortColumn<Connector, SortKey>[] = [
 // `SourceListTable`'s "Updated" column exactly (same relative-time
 // formatter, same trailing position).
 const HEADER_COLUMNS: readonly SortableTableColumn<SortKey>[] = [
-  { key: "name", header: "Name", className: "connectors-page__th" },
-  { key: "kind", header: "Kind", className: "connectors-page__th" },
-  { key: "baseUrl", header: "Base URL", className: "connectors-page__th" },
-  { key: "credential", header: "Credential", className: "connectors-page__th" },
-  { key: "dependents", header: "Dependents", className: "connectors-page__th" },
-  { key: "updatedAt", header: "Updated", className: "connectors-page__th" },
+  { key: "name", header: "Name", className: "eyebrow connectors-page__th" },
+  { key: "kind", header: "Kind", className: "eyebrow connectors-page__th" },
+  { key: "baseUrl", header: "Base URL", className: "eyebrow connectors-page__th" },
+  { key: "credential", header: "Credential", className: "eyebrow connectors-page__th" },
+  { key: "dependents", header: "Dependents", className: "eyebrow connectors-page__th" },
+  { key: "updatedAt", header: "Updated", className: "eyebrow connectors-page__th" },
 ];
 
 export function ConnectorsPage() {
@@ -202,7 +202,7 @@ export function ConnectorsPage() {
               sortState={sortState}
               onSort={toggleSort}
               trailingHeaderCells={
-                <th className="connectors-page__th connectors-page__th--actions">
+                <th className="eyebrow connectors-page__th connectors-page__th--actions">
                   <span className="sr-only">Actions</span>
                 </th>
               }

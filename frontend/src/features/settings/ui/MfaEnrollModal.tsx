@@ -132,7 +132,9 @@ export function MfaEnrollModal({ open, onClose }: MfaEnrollModalProps) {
             noValidate
           >
             <div className="mfa-enroll-modal__field">
-              <label htmlFor="mfa-confirm-code">Enter the 6-digit code from your app</label>
+              <label className="eyebrow" htmlFor="mfa-confirm-code">
+                Enter the 6-digit code from your app
+              </label>
               <TextField
                 id="mfa-confirm-code"
                 type="text"

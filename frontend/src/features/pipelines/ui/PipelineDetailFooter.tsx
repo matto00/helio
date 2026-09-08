@@ -136,7 +136,7 @@ export function PipelineDetailFooter({
            *  formerly "(Edit) output name", which drifted from the visible
            *  label once it changed. PipelineDetailPage.test.tsx's assertions
            *  were updated alongside this (see crossPackageRequests). */}
-          <span className="pipeline-detail-page__footer-output-label">PIPELINE</span>
+          <span className="eyebrow pipeline-detail-page__footer-output-label">PIPELINE</span>
           {editingOutputName ? (
             <TextField
               className="pipeline-detail-page__footer-output-input"
@@ -156,7 +156,7 @@ export function PipelineDetailFooter({
               {outputName || pipelineName}
             </button>
           )}
-          <span className="pipeline-detail-page__footer-output-label">OUTPUT</span>
+          <span className="eyebrow pipeline-detail-page__footer-output-label">OUTPUT</span>
           {/* HEL-1022 — rendering every field as an inline chip here (no cap)
            *  is what let a ~200-field REST source's schema balloon this
            *  footer to ~15 wrapped rows, eating the canvas and shoving the

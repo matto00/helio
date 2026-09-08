@@ -87,12 +87,12 @@ const SORT_COLUMNS: readonly SortColumn<PipelineSummary, SortKey>[] = [
 // `SourceListTable`'s "Updated" column exactly (same relative-time
 // formatter, same trailing position).
 const HEADER_COLUMNS: readonly SortableTableColumn<SortKey>[] = [
-  { key: "name", header: "Name", className: "pipeline-list-table__th" },
-  { key: "sources", header: "Sources", className: "pipeline-list-table__th" },
-  { key: "lastRunStatus", header: "Status", className: "pipeline-list-table__th" },
-  { key: "lastRunAt", header: "Last run at", className: "pipeline-list-table__th" },
-  { key: "lastRunRowCount", header: "Rows written", className: "pipeline-list-table__th" },
-  { key: "updatedAt", header: "Updated", className: "pipeline-list-table__th" },
+  { key: "name", header: "Name", className: "eyebrow pipeline-list-table__th" },
+  { key: "sources", header: "Sources", className: "eyebrow pipeline-list-table__th" },
+  { key: "lastRunStatus", header: "Status", className: "eyebrow pipeline-list-table__th" },
+  { key: "lastRunAt", header: "Last run at", className: "eyebrow pipeline-list-table__th" },
+  { key: "lastRunRowCount", header: "Rows written", className: "eyebrow pipeline-list-table__th" },
+  { key: "updatedAt", header: "Updated", className: "eyebrow pipeline-list-table__th" },
 ];
 
 export function PipelineListTable({ pipelines, currentUserId, onShare }: Props) {
@@ -131,7 +131,7 @@ export function PipelineListTable({ pipelines, currentUserId, onShare }: Props) 
       onSort={toggleSort}
       trailingHeaderCells={
         showActions && (
-          <th className="pipeline-list-table__th pipeline-list-table__th--actions">
+          <th className="eyebrow pipeline-list-table__th pipeline-list-table__th--actions">
             <span className="sr-only">Actions</span>
           </th>
         )
