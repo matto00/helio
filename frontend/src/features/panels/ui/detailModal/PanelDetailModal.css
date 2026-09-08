@@ -54,7 +54,7 @@
 }
 
 .panel-detail-modal__edit-btn:focus-visible {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: 2px;
 }
 
@@ -161,6 +161,6 @@
 }
 
 .panel-detail-modal__btn:focus-visible {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: 2px;
 }

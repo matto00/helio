@@ -688,12 +688,93 @@ Every data-backed view handles all three, **consistently**:
   correct a11y behavior (overlays MUST auto-focus on open) but must not
   flash an orange ring at someone who opened it by mouse. `--app-focus-ring`
   (`theme.css`) centralizes the outline VALUE — `2px solid
-var(--app-accent)` — so every component references one token instead of
-  hand-copying the literal; the global rule is `outline:
+var(--app-focus-ring-color)` — so every component references one token
+  instead of hand-copying the literal; the global rule is `outline:
 var(--app-focus-ring); outline-offset: 2px`. `outline-offset` still varies
   legitimately per component and is NOT part of the token — use `-2px` only
   where the ring would clip (flush list items); see §3's `-3px` carve-out
   for `BottomNav`. **[mechanical]**
+  - **`--app-focus-ring-color` is a dedicated token, DERIVED — not
+    `--app-accent` itself, and not a hand-picked palette value** (HEL-1046).
+    A focus indicator carries a 3:1 non-text WCAG contrast obligation that a
+    decorative accent does not; binding the two (the pre-HEL-1046 state) is
+    what let the ring fall to 2.58–2.99 against `--app-surface-soft` in the
+    shipped light theme while `--app-accent` was never wrong for its own
+    purpose. `appearance.ts`'s `deriveFocusRingColor(hex)` computes the
+    token as **the minimum darkening (toward black, in TypeScript — never
+    CSS `color-mix`) of the chosen accent that clears 3:1 against every
+    surface declared in BOTH `:root[data-theme=...]` blocks**, taking the
+    minimum over all of them rather than a chosen "worst" pair. This is why
+    it is theme-independent by construction: one value already serves both
+    themes, so no `ThemeProvider` re-application on theme switch is needed.
+    Measured need per preset (Red/Purple/Blue 0% — already pass, rendered
+    unchanged; Pink 1%; Orange 12%; Cyan 18%; Green 21%; Yellow 28%).
+    **This justification — derived rather than chosen — is the entire
+    reason the token is safe to leave alone.** Hand-tuning it toward brand
+    at a future edit silently re-couples the two obligations this token
+    exists to separate; `focusRingTokenGuard.css.test.ts` asserts the
+    property (>= 3:1, re-deriving the binding surfaces from `theme.css`
+    itself rather than a hardcoded pair) so drift fails loudly instead of
+    shipping unnoticed, as it did the first time. `--app-accent` itself is
+    never modified by this token — brand rendering elsewhere is untouched.
+    The static `:root` value (`#db6513`, the derivation applied to
+    `DefaultAccentColorByTheme.dark`) is what actually paints on first load
+    and on an unparseable-accent fallback, before `ThemeProvider`'s effect
+    runs; it must stay equal to that derivation (also guarded) rather than
+    drift into an independently hand-typed hex.
+    **"Every component references one token instead of hand-copying the
+    literal" (above) was NOT true when HEL-1046 was first written** — **17**
+    focus-indicator rules across **8** component stylesheets
+    (`DashboardList.css`, `DashboardAppearanceEditor.css`,
+    `PanelDetailModal.css`/`.sections.css`/`.binding.css`/`.appearance.css`,
+    `OutputPicker.css`, `TableDisplayFields.css`) hand-copied
+    `outline: 2px solid var(--app-accent);` directly, painting the raw,
+    undarkened accent and defeating the 3:1 floor exactly like the original
+    defect. Broken down: 15 `:focus-visible` rules, 1 bare `:focus` rule
+    (`PanelDetailModal.binding.css`'s `.panel-detail-modal__type-search`),
+    and 1 state class (`OutputPicker.css`'s `.output-picker__card--focused`,
+    driven by `aria-selected` rather than a pseudo-class). Verified by
+    `git grep -n "outline: 2px solid var(--app-accent);" <commit> -- '*.css'`
+    at the pre-fix commit, not transcribed from a prior review's count —
+    two earlier tallies in this same review (15, then 16) both undercounted.
+    Cycle-2 review caught this because every other gate could not:
+    `check:tokens` only proves a `var(--*)` reference resolves, not which
+    token a component chose, and the contrast guard above reads `theme.css`
+    only. Fixed by repointing all 17 at `var(--app-focus-ring)`, keeping
+    each site's own `outline-offset` (still not part of the token). The
+    sentence is true now, checked by a second [mechanical] guard in
+    `focusRingTokenGuard.css.test.ts` that walks every `.css` file under
+    `frontend/src` and fails on any `outline` colour that is not
+    `var(--app-focus-ring)`, `none`, or an explicitly pinned exception.
+    **The one pinned exception is `App.css:43`'s skip link**
+    (`outline: 2px solid var(--app-text);`, HEL-772) — a deliberate,
+    high-contrast, modality-independent ring on a `position: fixed`,
+    viewport-top-anchored surface, not an accidental accent hand-copy, so it
+    is excepted by name rather than silently allowed by a loose pattern.
+    **A second, DIFFERENT kind of exception exists in the same guard's
+    whitelist: `PanelDetailModal.binding.css`'s
+    `.panel-detail-modal__type-search:focus` is the ONE bare-`:focus` (not
+    `:focus-visible`) consumer of `--app-focus-ring`** — the whitelist
+    requires it to stay a token consumer, same as every `:focus-visible`
+    site, so `theme.css`'s own header comment on the token no longer
+    claims "never bare `:focus`" (that claim, written cycle-1, went stale
+    the moment this site was repointed cycle-2 — corrected cycle-4).
+    **Investigated rather than assumed:** `grep -rn` for
+    `type-search`/`type-list` across `frontend/src` returns zero hits
+    outside these two CSS declarations — no component in the current tree
+    renders this class. `git log` traces it to `PanelDetailModal.binding.css`
+    surviving HEL-909's removal of `BindingEditor.tsx` (#509, "retire
+    wizard/BindingEditor/Types/Metrics pages"), which almost certainly
+    rendered it. So this is most plausibly orphaned CSS, not a live,
+    deliberately-chosen instance of the carve-out below — recorded here as
+    what that carve-out WOULD require if the rule ever renders again (a
+    type-ahead search input announcing "you're typing into me," which the
+    class name and styling support), not as a claim that a real user
+    currently sees this behavior. Removing genuinely dead CSS is outside
+    HEL-1046's scope (a focus-ring colour fix) and no existing ticket owns
+    a dead-CSS sweep of this file, so it is left in place, correctly
+    described, rather than silently deleted or silently misrepresented as
+    live.
   - **The one legitimate exception is a persistent, modality-independent
     indicator** — an element that should look "active" regardless of HOW it
     got focus, because the state itself (not the input device) is what's
