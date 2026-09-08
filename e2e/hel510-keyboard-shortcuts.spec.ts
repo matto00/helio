@@ -23,6 +23,19 @@ async function registerAndLogin(page: Page, request: APIRequestContext, label: s
   await page.fill("#password", password);
   await page.click("button[type=submit]");
   await page.waitForURL("/");
+  // HEL-1030 — every test in this file presses a global keyboard shortcut ("?"/Cmd+K) as its
+  // very first interaction with the authenticated shell. The listener those shortcuts dispatch
+  // through (`useShortcut`'s window `keydown` registration) attaches lazily in a passive effect
+  // that commits strictly after the shell's first render — a real, if narrow, race that exists
+  // for ANY global-shortcut trigger fired immediately post-navigation (confirmed present, at a
+  // comparable or higher rate, on `0638f749` — the commit before this ticket's shortcut registry
+  // shipped — via a throwaway Cmd+K probe run at the same worker count; this file's tests merely
+  // draw against that same pre-existing race far more often because five of its eight tests all
+  // share this exact precondition). Waiting on a real, always-present post-mount element (rather
+  // than a bare timeout) is a precondition wait, not a retry/timeout loosening: it holds until
+  // the shell — and therefore every `useShortcut` consumer mounted alongside it — has actually
+  // committed, which is the one thing every failure observed under load had in common.
+  await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
 }
 
 function helpOverlayDialog(page: Page) {
@@ -56,6 +69,14 @@ test.describe("HEL-510 keyboard-shortcut help overlay", () => {
     await page.keyboard.press("?");
     const rowsList = page.locator(".help-overlay__rows").first();
     await expect(rowsList).toBeVisible();
+    // HEL-1030 — `Modal.css`'s `.ui-modal[open]` plays a `--transition-slow` (280ms) entrance
+    // animation on `transform`. `toBeVisible()` above is satisfied as soon as the dialog is in
+    // the DOM and not display:none, well before that animation settles — so the geometry read
+    // below could otherwise land mid-animation and see a transiently shifted `x`. Wait for the
+    // dialog's own running animations to finish (not a blind timeout) before measuring.
+    await helpOverlayDialog(page).evaluate(
+      (el) => Promise.all(el.getAnimations().map((a) => a.finished)) as Promise<unknown>,
+    );
 
     const computed = await rowsList.evaluate((el) => {
       const cs = getComputedStyle(el);
