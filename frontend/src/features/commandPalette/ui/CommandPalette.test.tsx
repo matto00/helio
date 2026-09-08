@@ -11,10 +11,18 @@ beforeEach(() => {
   });
 });
 
+import { configureStore } from "@reduxjs/toolkit";
+import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
+
 import { CommandPaletteProvider } from "../CommandPaletteProvider";
 import { GlobalCommandShortcuts } from "../GlobalCommandShortcuts";
 import { useCommandActions } from "../hooks";
 import { OverlayProvider } from "../../../shared/chrome/OverlayProvider";
+import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
+import { pipelinesReducer } from "../../pipelines/state/pipelinesSlice";
+import { sourcesReducer } from "../../sources/state/sourcesSlice";
+import { recentHistoryStore } from "../model/recentHistoryStore";
 import type { CommandAction } from "../model/types";
 import { CommandPalette } from "./CommandPalette";
 
@@ -23,19 +31,34 @@ function Registrant({ actions }: { actions: CommandAction[] }) {
   return null;
 }
 
-function renderPalette(actions: CommandAction[] = []) {
+// HEL-519 — `CommandPalette` now reads `state.dashboards`/`sources`/`pipelines` (recents' title
+// lookup) and the router (`useResourceNavigator`), so every render here needs a real Provider +
+// Router, not just the palette's own context. A fresh store per render keeps tests isolated from
+// each other's dispatched state.
+function renderPalette(actions: CommandAction[] = [], initialPath = "/") {
   const onOpenQuickLauncher = jest.fn();
+  const store = configureStore({
+    reducer: {
+      dashboards: dashboardsReducer,
+      sources: sourcesReducer,
+      pipelines: pipelinesReducer,
+    },
+  });
   render(
-    <OverlayProvider>
-      <CommandPaletteProvider>
-        <GlobalCommandShortcuts onOpenQuickLauncher={onOpenQuickLauncher} />
-        <Registrant actions={actions} />
-        <button type="button">Prior focus target</button>
-        <CommandPalette />
-      </CommandPaletteProvider>
-    </OverlayProvider>,
+    <Provider store={store}>
+      <MemoryRouter initialEntries={[initialPath]}>
+        <OverlayProvider>
+          <CommandPaletteProvider>
+            <GlobalCommandShortcuts onOpenQuickLauncher={onOpenQuickLauncher} />
+            <Registrant actions={actions} />
+            <button type="button">Prior focus target</button>
+            <CommandPalette />
+          </CommandPaletteProvider>
+        </OverlayProvider>
+      </MemoryRouter>
+    </Provider>,
   );
-  return { onOpenQuickLauncher };
+  return { onOpenQuickLauncher, store };
 }
 
 function makeAction(id: string, title: string, run: () => void = jest.fn()): CommandAction {
@@ -215,5 +238,204 @@ describe("CommandPalette", () => {
     );
 
     expect(labels).toEqual(["Navigation", "General", "Create"]);
+  });
+});
+
+// HEL-519 design.md D5, tasks 5.1/5.2 — the Recent section: prepends on empty query, never
+// replaces HEL-516's existing sections, and disappears once the user types.
+describe("CommandPalette — Recent section (HEL-519)", () => {
+  afterEach(() => {
+    // The palette reads the real, module-singleton `recentHistoryStore` (not an injectable test
+    // double — see design.md D2's non-unification rationale) so every recorded entry must be
+    // cleaned up, or it would leak into the tests above/below.
+    for (const entry of recentHistoryStore.getEntries()) {
+      recentHistoryStore.pruneMissing(entry.kind, new Set());
+    }
+  });
+
+  it("prepends Recent AND still renders the pre-existing sections on an empty query", async () => {
+    const store = configureStore({
+      reducer: {
+        dashboards: dashboardsReducer,
+        sources: sourcesReducer,
+        pipelines: pipelinesReducer,
+      },
+      preloadedState: {
+        sources: {
+          items: [{ id: "s1", name: "My Source" } as never],
+          status: "succeeded" as const,
+          error: null,
+          errorKind: null,
+          selectedSourceId: null,
+          addModalOpen: false,
+        },
+      },
+    });
+    recentHistoryStore.recordVisit("source", "s1");
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={["/"]}>
+          <OverlayProvider>
+            <CommandPaletteProvider>
+              <Registrant
+                actions={[
+                  { id: "nav.a", title: "Go to Dashboards", section: "Navigation", run: jest.fn() },
+                ]}
+              />
+              <CommandPalette />
+            </CommandPaletteProvider>
+          </OverlayProvider>
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    await screen.findByLabelText("Search commands");
+
+    const labels = Array.from(document.querySelectorAll(".command-palette__group-label")).map(
+      (el) => el.textContent,
+    );
+    expect(labels).toEqual(["Recent", "Navigation"]);
+    expect(screen.getByText("My Source")).toBeInTheDocument();
+  });
+
+  // evaluation-1.md CR1 — the previous version of this test was unfailable for TWO independent
+  // reasons, both fixed here:
+  //   1. It recorded a visit for a source id ("s1") that was never present in ANY store's
+  //      `sources.items`, so `useRecentPaletteActions`'s `resolveTitle` always returned `null`
+  //      and `recentActions` was ALWAYS empty — the assertion passed whether or not
+  //      `CommandPalette.tsx`'s empty-query gate existed. The evaluator proved this by deleting
+  //      that gate (`query.trim() === ""` at `CommandPalette.tsx:112`) and watching all tests,
+  //      including this one, stay green.
+  //   2. Independently (found while fixing #1): this test's render tree never mounted
+  //      `GlobalCommandShortcuts`, the ONLY thing that wires Ctrl/Cmd+K to `open()`
+  //      (`GlobalCommandShortcuts.tsx`). Without it the keydown below is a no-op, the palette's
+  //      `<dialog>` never receives its `open` attribute, and every `getByRole` query below would
+  //      have silently failed to find anything (`Modal` still renders its children
+  //      unconditionally into the DOM, so `getByText`/`querySelector` — used by the "prepends
+  //      Recent" test above — would have stayed vacuously true regardless).
+  //
+  // FIX: preload the SAME store shape the "prepends Recent" test above uses so "My Source" is
+  // genuinely resolvable, AND mount `GlobalCommandShortcuts` so Ctrl+K genuinely opens the
+  // palette (`getDialog()` asserts the `open` attribute directly, matching this file's other
+  // real-open tests).
+  //
+  // WHAT THIS PROVES: once a query is non-empty, a recent entry that DOES resolve to a real,
+  // renderable, on-screen action is excluded from the result list — not merely "an
+  // already-empty/never-opened list stayed empty". WHAT THIS CANNOT PROVE: recents contributing
+  // nothing to SCORING/ordering for a query that happens to textually match a recent's title (no
+  // registered action here shares a name with "My Source", so that overlap case is untested here;
+  // `ranking.test.ts` covers `rankActions`'s own scoring behavior in isolation).
+  //
+  // FAILABLE BY MUTATION — run, not merely asserted: reverting `CommandPalette.tsx:112` to drop
+  // the `query.trim() === ""` check (prepending `recentActions` unconditionally) turns this test
+  // RED (`getAllByRole("option")` returns 2 — "My Source" survives the "dashboards" filter);
+  // restoring the gate turns it back green. Both runs observed directly, not inferred.
+  it("typing a query leaves recents behind (task 5.1/D5)", async () => {
+    const store = configureStore({
+      reducer: {
+        dashboards: dashboardsReducer,
+        sources: sourcesReducer,
+        pipelines: pipelinesReducer,
+      },
+      preloadedState: {
+        sources: {
+          items: [{ id: "s1", name: "My Source" } as never],
+          status: "succeeded" as const,
+          error: null,
+          errorKind: null,
+          selectedSourceId: null,
+          addModalOpen: false,
+        },
+      },
+    });
+    recentHistoryStore.recordVisit("source", "s1");
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={["/"]}>
+          <OverlayProvider>
+            <CommandPaletteProvider>
+              {/* GlobalCommandShortcuts is what actually wires Ctrl/Cmd+K to `open()` — without
+                it, the keydown below is a no-op and the palette's `<dialog>` never gets its
+                `open` attribute, which silently starves every `getByRole` query below (content
+                still exists in the DOM either way, since `Modal` doesn't conditionally mount its
+                children — only `getByText`/`querySelector`, used elsewhere in this file, survive
+                that). Omitting this mount was the root cause of evaluation-1.md CR1: this test's
+                FIRST version never actually opened the palette, so `getAllByRole("option")`
+                would have thrown regardless of which code path ran. */}
+              <GlobalCommandShortcuts onOpenQuickLauncher={() => {}} />
+              <Registrant actions={[makeAction("nav.a", "Go to Dashboards")]} />
+              <CommandPalette />
+            </CommandPaletteProvider>
+          </OverlayProvider>
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const input = await screen.findByLabelText("Search commands");
+    expect(getDialog()).toHaveAttribute("open");
+
+    // Sanity precondition: "My Source" IS present before typing (otherwise this test would be
+    // exactly the unfailable shape it's replacing).
+    expect(screen.getByRole("option", { name: "My Source" })).toBeInTheDocument();
+
+    // Nothing named "My Source" matches "dashboards", so once typing starts the result must
+    // filter to exactly the one real registered action — recents contribute nothing.
+    fireEvent.change(input, { target: { value: "dashboards" } });
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    expect(screen.getByText("Go to Dashboards")).toBeInTheDocument();
+    expect(screen.queryByText("My Source")).not.toBeInTheDocument();
+  });
+
+  it("an empty history leaves the default presentation COMPLETELY unchanged", async () => {
+    renderPalette([makeAction("nav.a", "Go to Dashboards")]);
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    await screen.findByLabelText("Search commands");
+
+    const labels = Array.from(document.querySelectorAll(".command-palette__group-label")).map(
+      (el) => el.textContent,
+    );
+    expect(labels).not.toContain("Recent");
+  });
+
+  // skeptic-final-1.md CR1 — THE missing test that let the defect through. `/` is the app's
+  // default landing route and NEVER fetches `sources`/`pipelines` (only `SidebarBody.tsx`'s
+  // per-section effect does, gated on the pathname's picker section) — a lazy-resolve-only
+  // design rendered exactly one of three recorded kinds there. `sources`/`pipelines` are left at
+  // their genuinely-empty initial state below (NOT preloaded), on `/`, to reproduce that exact
+  // condition; only the PERSISTED `title` on each entry (`recordVisit`'s third argument) can
+  // make all three render here.
+  //
+  // WHAT THIS PROVES: on the route users land on by default, with all three kinds' slices
+  // unloaded, all three recorded kinds render. WHAT THIS CANNOT PROVE: that every real recording
+  // site actually supplies a title in production (`recentVisitsListeners.test.ts`'s "persists
+  // the dashboard's title" and `RecentVisitsRouteObserver.test.tsx`'s equivalent test cover
+  // that, at the two real call sites, directly).
+  //
+  // FAILABLE BY MUTATION — run, not merely asserted: reverting `recordVisit`'s calls in this test
+  // to omit the title argument (simulating the pre-fix "resolve from slice only" behavior) turns
+  // this test RED — ALL THREE rows vanish here, since this test's own store (unlike the real
+  // app's `AppShell`) never dispatches `fetchDashboards()` either, so `dashboards.items` is
+  // empty too. That is a STRONGER red than the real app would show (where `fetchDashboards()`
+  // does fire unconditionally on boot, so only source/pipeline would actually vanish in
+  // production) — confirmed by running the mutation and observing the failure directly, not
+  // assumed from reasoning. Restoring the title arguments turns it back green.
+  it("renders all three kinds on / with NO slice loaded (skeptic-final-1.md CR1)", async () => {
+    recentHistoryStore.recordVisit("dashboard", "d1", "My Dashboard");
+    recentHistoryStore.recordVisit("source", "s1", "My Source");
+    recentHistoryStore.recordVisit("pipeline", "p1", "My Pipeline");
+
+    renderPalette([makeAction("nav.a", "Go to Dashboards")], "/");
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    await screen.findByLabelText("Search commands");
+
+    expect(screen.getByRole("option", { name: "My Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "My Source" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "My Pipeline" })).toBeInTheDocument();
   });
 });
