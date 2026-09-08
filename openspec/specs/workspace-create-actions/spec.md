@@ -4,7 +4,9 @@
 The workspace's create actions — dashboard, data source, pipeline and panel — exposed as reusable
 per-feature hooks returning one uniform descriptor, so every surface that needs one consumes the
 same flow instead of re-deriving it.
+
 ## Requirements
+
 ### Requirement: Each workspace create action is exposed as a reusable descriptor
 Each of the workspace's create actions — dashboard, data source, pipeline, and panel — SHALL be exposed
 by its owning feature as a reusable hook, rather than being written inline in each component that needs
@@ -77,3 +79,17 @@ opens-later-unasked defect as setting a flag nothing is mounted to read, arrivin
 - **WHEN** the surface that mounts a create flow's modal unmounts with that flow's visibility flag set
 - **THEN** the flag is cleared, so re-entering that surface does not open the flow unbidden
 
+### Requirement: Create-action seams are consumable by surfaces other than empty states
+Each workspace create-action seam SHALL be consumable by any surface that offers creation, not only by an
+empty state, and every such consumer SHALL obtain creation behavior from the seam rather than reimplementing
+it. Where a consumer's needs exceed a seam's current shape, the seam SHALL be extended rather than
+duplicated, so a resource never acquires two divergent creation paths.
+
+#### Scenario: A second consumer reuses the same seam
+- **WHEN** a surface other than an empty state offers creation of a workspace resource
+- **THEN** it invokes that resource's existing create-action seam, and no second creation path for that
+  resource exists
+
+#### Scenario: Availability rules travel with the seam
+- **WHEN** a seam reports that its action is unavailable — such as panel creation with no dashboard selected
+- **THEN** every consumer of that seam reflects the same unavailability, without restating the rule itself
