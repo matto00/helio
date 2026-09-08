@@ -134,79 +134,17 @@ const spacingIsDisallowed = (line: string): boolean => !line.includes("var(--spa
 // (design.md's widened grep, comment-stripped) — see `enumeration.md` in
 // this change dir for the full repo-wide table.
 const SPACING_BASELINE: BaselineEntry[] = [
-  { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 85 },
-  { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 91 },
-  // HEL-1022 — re-pinned: the multi-source chip CSS this ticket inserted
-  // above both of these pushed them down by +7 (`.source-kind`'s own
-  // `padding: 2px 6px`, 99 -> 106) and +161 (`.schedule-disabled-badge`'s
-  // `padding: 2px 6px`, 182 -> 343, since the chip block landed above the
-  // schedule section). Verified via `git diff` against the pre-change file:
-  // same two declarations, same values, only shifted — no entries added or
-  // removed.
-  { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 333 },
+  // Re-derived by a fresh regex scan of the post-merge tree (frontend/src/theme's own
+  // SPACING_PATTERN/spacingIsDisallowed against SWEPT_FILES) rather than composed from
+  // prior line-shift arithmetic — two tickets (HEL-442 and HEL-732) independently re-pinned
+  // PipelineDetailPage.css against diverging bases, so no single prior offset is valid
+  // against the merged tree. 62 entries total (42 in PipelineDetailPage.css alone, matching
+  // HEL-442's own reported count for that file), same multiset as both pre-merge sides —
+  // nothing added or removed, only re-derived from scratch.
+  { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 80 },
+  { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 86 },
   { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 106 },
-  // HEL-908 task 3.4 — this file's baseline is line-number-pinned (see the
-  // file doc comment); shifted by +59 for every pre-existing hit at or after
-  // original line 335 (e.g. 394 -> 453, 1018 -> 1077 below), matching the
-  // tail-chain CSS block this ticket inserted above them (verified via
-  // `git diff --unified=0` offset arithmetic against a clean base, not
-  // guessed — the sole surviving hunk after the add-tail-button CSS was
-  // reverted alongside its button). Corrected Cycle-2 (evaluation-1
-  // non-blocking suggestion): a prior cycle's comment cited +26, which does
-  // not match the entries actually re-pinned below; the re-pin itself was
-  // always correct (verified: no entries added or removed), only this
-  // comment's stated offset was wrong.
-  //
-  // HEL-943 — re-pinned again, +23 for every pre-existing hit at or after
-  // original line 469 (e.g. 469 -> 492 below), matching the "Branch"
-  // affordance CSS this ticket expanded in place (verified via `git diff
-  // --unified=0` hunk arithmetic against the pre-change file: two hunks,
-  // +14 and +9 lines respectively, both entirely above line 469 — no
-  // entries added or removed, only shifted).
-  //
-  // HEL-912 — re-pinned a third time: `git diff --unified=0` against the
-  // pre-change file shows exactly two hunks, +29 lines after original line
-  // 432 (the new `.pipeline-detail-page__lane-row`/`__lane-column` rules)
-  // and +15 lines after original line 1510 (their mobile-stacking rules,
-  // added inside the EXISTING phone-breakpoint media block rather than a
-  // new one — see that block's own comment). Every entry below <=432 is
-  // unshifted; every entry >432 and <=1510 shifts by +29; every entry
-  // >1510 shifts by +44 (29+15). No entries added or removed, only
-  // shifted.
-  //
-  // HEL-912 evaluation-1.md CR7 — re-pinned a FOURTH time for the
-  // `.pipeline-detail-page__lane-header` rule (task 7.1's per-lane mobile
-  // header, built to close the gap the evaluator found between the ticked
-  // task and the CSS comment claiming it existed): `git diff --unified=0`
-  // against the post-`22ed8642` file shows a +12-net hunk after (the
-  // then-current) line 454 (a 6-line comment replaced by an 18-line
-  // comment + rule) and a +4 pure-insert hunk after line 1554 (the reveal
-  // rule inside the existing phone-breakpoint block). Every entry <455 is
-  // unshifted; every entry in [455, 1554] shifts by +12; every entry >1554
-  // shifts by +16 (12+4). No entries added or removed, only shifted.
-  // HEL-1022 — re-pinned: this ticket's edits to PipelineDetailPage.css net
-  // out to -22 lines overall, but NOT as one uniform shift — two separate
-  // insert/delete hunks land at different points, so the offset is
-  // piecewise. Verified via `git diff` against the pre-change file (no
-  // entries added or removed, only shifted — every remapped line's content
-  // was byte-for-byte diffed against its old position to confirm it's the
-  // SAME declaration, not a coincidental match):
-  //   - lines <=364: unshifted (0)
-  //   - lines 365-545: +9 then -9 nets to 0 (a 9-line comment inserted after
-  //     364, a 9-line dead rule -- the retired "Branch" hint -- deleted at
-  //     398-406)
-  //   - lines 546-1675: -18 (the retired `.root-column--add`/`.add-root-btn`
-  //     rules, 18 lines, deleted at 546-563 -- canvas's own "+ Add root" box
-  //     moved into the header per this ticket)
-  //   - lines >=1676: -22 (-18 above, plus a further -4 for that rule's own
-  //     mobile-breakpoint override, deleted at 1676-1679)
-  // HEL-442 — re-pinned: this ticket added a 4-line comment before the
-  // `.pipeline-detail-page__drop-indicator` border-radius (old line 559)
-  // and a 3-line comment before `.pipeline-detail-page__compute-fields-hint-item`
-  // border-radius (old line 905). Every entry <559 is unshifted; every entry
-  // in [559, 905) shifts by +4; every entry >=905 shifts by +7. Verified via a
-  // fresh regex scan of the post-change file (42 hits, same count as before —
-  // no entries added or removed, only shifted).
+  { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 333 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 27 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 218 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 233 },
@@ -220,54 +158,51 @@ const SPACING_BASELINE: BaselineEntry[] = [
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 706 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 721 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 757 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 782 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 799 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 818 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 825 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 840 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 865 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 872 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 892 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 901 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 908 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 967 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 968 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1092 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1105 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1211 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1236 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1243 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1290 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1299 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1319 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1328 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1343 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1351 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1364 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1390 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1427 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1454 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1461 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1476 },
-  // HEL-1022: renumbered from 85/86 -- the CSS added a longer explanatory
-  // comment block above this rule (documenting the "Updated" column's join).
-  { file: "features/pipelines/ui/PipelinesPage.css", line: 89 },
-  { file: "features/pipelines/ui/PipelinesPage.css", line: 90 },
-  { file: "features/pipelines/ui/RunHistoryModal.css", line: 132 },
-  { file: "features/pipelines/ui/RunHistoryModal.css", line: 31 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 777 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 794 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 813 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 820 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 835 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 860 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 867 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 887 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 896 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 903 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 962 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 963 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1087 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1100 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1206 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1231 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1238 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1285 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1294 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1314 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1323 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1338 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1346 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1359 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1385 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1422 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1449 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1456 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1471 },
+  { file: "features/pipelines/ui/PipelinesPage.css", line: 84 },
+  { file: "features/pipelines/ui/PipelinesPage.css", line: 85 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 6 },
+  { file: "features/pipelines/ui/RunHistoryModal.css", line: 31 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 90 },
-  // HEL-893: line numbers shifted +6 by the new `.add-source-modal__hint` rule this change adds.
+  { file: "features/pipelines/ui/RunHistoryModal.css", line: 132 },
+  { file: "features/sources/ui/AddSourceModal.css", line: 6 },
+  { file: "features/sources/ui/AddSourceModal.css", line: 46 },
+  { file: "features/sources/ui/AddSourceModal.css", line: 53 },
   { file: "features/sources/ui/AddSourceModal.css", line: 131 },
   { file: "features/sources/ui/AddSourceModal.css", line: 149 },
   { file: "features/sources/ui/AddSourceModal.css", line: 240 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 46 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 53 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 6 },
-  { file: "features/sources/ui/SourceDetailPanel.css", line: 104 },
-  { file: "features/sources/ui/SourceDetailPanel.css", line: 187 },
-  { file: "features/sources/ui/SourceDetailPanel.css", line: 192 },
   { file: "features/sources/ui/SourceDetailPanel.css", line: 20 },
+  { file: "features/sources/ui/SourceDetailPanel.css", line: 104 },
+  { file: "features/sources/ui/SourceDetailPanel.css", line: 182 },
+  { file: "features/sources/ui/SourceDetailPanel.css", line: 187 },
 ];
 
 const COLOR_PATTERN = /#[0-9a-fA-F]{3,8}\b|rgba?\(/;

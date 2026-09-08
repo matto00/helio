@@ -53,11 +53,11 @@ function locationFor(source: DataSource): string | null {
 type SortKey = "name" | "kind" | "location" | "usedBy" | "updatedAt";
 
 const HEADER_COLUMNS: readonly SortableTableColumn<SortKey>[] = [
-  { key: "name", header: "Name" },
-  { key: "kind", header: "Kind" },
-  { key: "location", header: "Location" },
-  { key: "usedBy", header: "Used by" },
-  { key: "updatedAt", header: "Updated" },
+  { key: "name", header: "Name", className: "eyebrow" },
+  { key: "kind", header: "Kind", className: "eyebrow" },
+  { key: "location", header: "Location", className: "eyebrow" },
+  { key: "usedBy", header: "Used by", className: "eyebrow" },
+  { key: "updatedAt", header: "Updated", className: "eyebrow" },
 ];
 
 export function SourceListTable({ sources, pipelineNamesBySourceId }: Props) {

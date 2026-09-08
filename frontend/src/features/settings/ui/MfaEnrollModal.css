@@ -86,12 +86,7 @@
 }
 
 .mfa-enroll-modal__field label {
-  font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  font-weight: var(--weight-medium);
   color: var(--app-text-muted);
-  letter-spacing: var(--eyebrow-tracking);
-  text-transform: uppercase;
 }
 
 .mfa-enroll-modal__confirm-btn {

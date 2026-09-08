@@ -99,7 +99,9 @@ export function ConnectorCompletionPage() {
             </p>
             <form onSubmit={(e) => void handleSubmit(e)} noValidate>
               <div className="auth-field">
-                <label htmlFor="completion-credential">{credentialLabel}</label>
+                <label className="eyebrow" htmlFor="completion-credential">
+                  {credentialLabel}
+                </label>
                 <TextField
                   id="completion-credential"
                   type="password"

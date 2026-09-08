@@ -133,10 +133,10 @@ export function ApiTokensSection({ tokens }: ApiTokensSectionProps) {
         <table className="api-tokens-list-table">
           <thead>
             <tr>
-              <th className="api-tokens-list-table__th">Name</th>
-              <th className="api-tokens-list-table__th">Created</th>
-              <th className="api-tokens-list-table__th">Last used</th>
-              <th className="api-tokens-list-table__th api-tokens-list-table__th--actions">
+              <th className="eyebrow api-tokens-list-table__th">Name</th>
+              <th className="eyebrow api-tokens-list-table__th">Created</th>
+              <th className="eyebrow api-tokens-list-table__th">Last used</th>
+              <th className="eyebrow api-tokens-list-table__th api-tokens-list-table__th--actions">
                 <span className="sr-only">Actions</span>
               </th>
             </tr>

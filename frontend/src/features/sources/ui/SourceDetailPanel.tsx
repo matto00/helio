@@ -266,7 +266,7 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
       )}
 
       <section className="source-detail-panel__preview" aria-label="Preview">
-        <h4 className="source-detail-panel__section-title">Preview</h4>
+        <h4 className="eyebrow source-detail-panel__section-title">Preview</h4>
         {/* D5a — mutually exclusive (both clear together in handlePreview):
             previewUnsupported is a deterministic capability limitation and
             never gets a Retry action; previewError is a real, retryable

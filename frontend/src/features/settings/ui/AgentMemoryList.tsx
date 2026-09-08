@@ -91,10 +91,10 @@ export function AgentMemoryList({ entries }: AgentMemoryListProps) {
       <table className="agent-memory-list-table">
         <thead>
           <tr>
-            <th className="agent-memory-list-table__th">Kind</th>
-            <th className="agent-memory-list-table__th">Content</th>
-            <th className="agent-memory-list-table__th">Last used</th>
-            <th className="agent-memory-list-table__th agent-memory-list-table__th--actions">
+            <th className="eyebrow agent-memory-list-table__th">Kind</th>
+            <th className="eyebrow agent-memory-list-table__th">Content</th>
+            <th className="eyebrow agent-memory-list-table__th">Last used</th>
+            <th className="eyebrow agent-memory-list-table__th agent-memory-list-table__th--actions">
               <span className="sr-only">Actions</span>
             </th>
           </tr>

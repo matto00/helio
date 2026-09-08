@@ -63,7 +63,7 @@ export function MfaVerifyPage() {
 
         <form onSubmit={(e) => void handleSubmit(e)} noValidate>
           <div className="auth-field">
-            <label htmlFor="mfa-code">
+            <label className="eyebrow" htmlFor="mfa-code">
               {useBackupCode ? "Backup code" : "Authentication code"}
             </label>
             <TextField

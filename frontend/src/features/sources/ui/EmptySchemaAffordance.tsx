@@ -61,7 +61,7 @@ export function EmptySchemaAffordance({ source }: EmptySchemaAffordanceProps) {
 
   return (
     <section className="source-detail-panel__empty-schema" aria-label="Schema not available">
-      <h4 className="source-detail-panel__section-title">Schema not available</h4>
+      <h4 className="eyebrow source-detail-panel__section-title">Schema not available</h4>
       <p className="source-detail-panel__empty-schema-text">
         The inferred schema for this source is missing. Refresh the source to re-infer it.
       </p>

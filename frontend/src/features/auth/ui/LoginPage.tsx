@@ -80,7 +80,9 @@ export function LoginPage() {
 
         <form onSubmit={(e) => void handleSubmit(e)} noValidate>
           <div className="auth-field">
-            <label htmlFor="email">Email</label>
+            <label className="eyebrow" htmlFor="email">
+              Email
+            </label>
             <TextField
               id="email"
               type="email"
@@ -92,7 +94,9 @@ export function LoginPage() {
           </div>
 
           <div className="auth-field">
-            <label htmlFor="password">Password</label>
+            <label className="eyebrow" htmlFor="password">
+              Password
+            </label>
             <TextField
               id="password"
               type="password"
