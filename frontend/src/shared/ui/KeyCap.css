@@ -1,0 +1,22 @@
+/* HEL-510 design.md Decision 5 — draws padding from the same spacing tokens `StatusChip.css`
+   uses for its pill surfaces, rather than hand-copying a literal (the HEL-680 pile this change
+   deliberately avoids adding a sixth entry to). */
+.ui-keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5em;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+}
+
+.ui-keycap + .ui-keycap {
+  margin-inline-start: var(--space-1);
+}
