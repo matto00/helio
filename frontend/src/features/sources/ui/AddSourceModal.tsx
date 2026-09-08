@@ -41,6 +41,13 @@ import { useRestSourceForm } from "../hooks/useRestSourceForm";
 type SourceType = "rest_api" | "csv" | "static" | "sql" | "text" | "pdf" | "image";
 type Step = "configure" | "preview";
 
+/** HEL-516 evaluation-1.md CR2 — the modal's accessible name, exported so any collision guard
+ *  that needs to detect "is an `AddSourceModal` already open" (currently only
+ *  `CreateCommandActions.tsx`'s nested-instance check, design.md Decision 7) reads it from here
+ *  rather than re-typing the literal — rewording this label can't silently turn that guard into
+ *  a no-op. */
+export const ADD_SOURCE_MODAL_ARIA_LABEL = "Add data source";
+
 interface AddSourceModalProps {
   onClose: () => void;
   /** HEL-908 task 7.1 — invoked with the newly-created source's id right
@@ -365,7 +372,7 @@ export function AddSourceModal({ onClose, onCreated }: AddSourceModalProps) {
       open
       title={title}
       size="md"
-      ariaLabel="Add data source"
+      ariaLabel={ADD_SOURCE_MODAL_ARIA_LABEL}
       onClose={onClose}
       footer={footer}
     >

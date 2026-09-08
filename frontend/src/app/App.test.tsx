@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
 import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
+import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
 import {
   getConversation as getConversationRequest,
   listConversations as listConversationsRequest,
@@ -108,13 +109,57 @@ const defaultPanelAppearance = {
   transparency: 0,
 };
 
-function renderApp(options: { initialPath?: string; authenticated?: boolean } = {}) {
+interface RenderAppOptions {
+  initialPath?: string;
+  authenticated?: boolean;
+  /** HEL-516 — lets a test preload `sources.addModalOpen`, `panels.panelCreationModalOpen` /
+   *  `panels.items`, and `dashboards.selectedDashboardId` / `dashboards.items` to exercise the
+   *  new shell mounts without threading every field through every existing caller. */
+  sources?: Partial<ReturnType<typeof sourcesReducer>>;
+  panels?: Partial<ReturnType<typeof panelsReducer>>;
+  dashboards?: Partial<ReturnType<typeof dashboardsReducer>>;
+}
+
+function renderApp(options: RenderAppOptions = {}) {
   const { initialPath = "/", authenticated = true } = options;
+
+  const preloadedState = {
+    auth: authenticated
+      ? {
+          currentUser: {
+            id: "test-user",
+            email: "test@example.com",
+            displayName: null,
+            avatarUrl: null,
+            createdAt: "2026-01-01T00:00:00Z",
+            tier: "owner" as const,
+          },
+          status: "authenticated" as const,
+          submitStatus: "idle" as const,
+          mfaChallenge: null,
+        }
+      : {
+          currentUser: null,
+          status: "unauthenticated" as const,
+          submitStatus: "idle" as const,
+          mfaChallenge: null,
+        },
+    // Always fully materialized (default slice state merged with the caller's overrides) rather
+    // than conditionally spread: a conditional spread's inferred type includes the "key absent"
+    // branch, which `configureStore`'s `preloadedState` can't reconcile against a reducer whose
+    // own return type is never `undefined` (evaluation-1.md CR4 — this used to be papered over
+    // with an unjustified `as never`). Providing the reducer's own default state when the caller
+    // passed no override is behaviorally identical to omitting the key entirely.
+    sources: { ...sourcesReducer(undefined, { type: "@@init" }), ...options.sources },
+    panels: { ...panelsReducer(undefined, { type: "@@init" }), ...options.panels },
+    dashboards: { ...dashboardsReducer(undefined, { type: "@@init" }), ...options.dashboards },
+  };
 
   const store = configureStore({
     reducer: {
       assistantConversations: assistantConversationsReducer,
       auth: authReducer,
+      connectors: connectorsReducer,
       dashboards: dashboardsReducer,
       layoutHistory: layoutHistoryReducer,
       onboarding: onboardingReducer,
@@ -123,28 +168,7 @@ function renderApp(options: { initialPath?: string; authenticated?: boolean } = 
       pipelines: pipelinesReducer,
       toasts: toastsReducer,
     },
-    preloadedState: {
-      auth: authenticated
-        ? {
-            currentUser: {
-              id: "test-user",
-              email: "test@example.com",
-              displayName: null,
-              avatarUrl: null,
-              createdAt: "2026-01-01T00:00:00Z",
-              tier: "owner" as const,
-            },
-            status: "authenticated" as const,
-            submitStatus: "idle" as const,
-            mfaChallenge: null,
-          }
-        : {
-            currentUser: null,
-            status: "unauthenticated" as const,
-            submitStatus: "idle" as const,
-            mfaChallenge: null,
-          },
-    },
+    preloadedState,
   });
 
   return {
@@ -1054,6 +1078,228 @@ describe("App", () => {
       fireEvent.click(await screen.findByRole("button", { name: "Open assistant" }));
 
       await waitFor(() => expect(screen.getByText("Hello there")).toBeInTheDocument());
+    });
+  });
+
+  // HEL-516 design.md D1/D3 — the reach requirement itself. jsdom is legitimate here for DOM
+  // PRESENCE (does exactly one dialog exist), never for focus/visibility/computed style
+  // (evidence rule 3) — the real-browser reach proof lives in the committed Playwright spec
+  // (tasks.md 5.1).
+  describe("HEL-516 shell-mounted create surfaces", () => {
+    it("mounts AddSourceModal from a non-/sources route when addModalOpen is set", async () => {
+      fetchDashboardsMock.mockResolvedValue([]);
+      fetchPanelsMock.mockResolvedValue([]);
+
+      renderApp({ initialPath: "/pipelines", sources: { addModalOpen: true } });
+
+      expect(
+        await screen.findByRole("dialog", { name: "Add data source", hidden: true }),
+      ).toBeInTheDocument();
+    });
+
+    it("does NOT double-mount AddSourceModal on /sources itself (the owning route mounts its own)", async () => {
+      fetchDashboardsMock.mockResolvedValue([]);
+      fetchPanelsMock.mockResolvedValue([]);
+      fetchSourcesMock.mockResolvedValue([]);
+
+      renderApp({ initialPath: "/sources", sources: { addModalOpen: true } });
+
+      await waitFor(() =>
+        expect(
+          screen.getAllByRole("dialog", { name: "Add data source", hidden: true }),
+        ).toHaveLength(1),
+      );
+    });
+
+    it("mounts OutputPicker from a non-/ route when the store's panels already belong to the selected dashboard", async () => {
+      // HEL-516: `fetchDashboards` resolving with `[]` would clear the preloaded
+      // `selectedDashboardId` (dashboardsSlice's own `fetchDashboards.fulfilled` reducer) — resolve
+      // with the SAME dashboard the preloaded state already selects, so the mount effect's refetch
+      // doesn't fight the fixture.
+      fetchDashboardsMock.mockResolvedValue([
+        {
+          id: "dash-1",
+          name: "Dash",
+          meta: {
+            createdBy: "system",
+            createdAt: "2026-03-14T00:00:00Z",
+            lastUpdated: "2026-03-14T00:00:00Z",
+          },
+          appearance: defaultDashboardAppearance,
+          layout: defaultDashboardLayout,
+        },
+      ]);
+      fetchPanelsMock.mockResolvedValue([
+        makeOutputPanel({ id: "panel-1", dashboardId: "dash-1", title: "Existing" }),
+      ]);
+
+      renderApp({
+        initialPath: "/pipelines",
+        dashboards: {
+          items: [
+            {
+              id: "dash-1",
+              name: "Dash",
+              meta: {
+                createdBy: "system",
+                createdAt: "2026-03-14T00:00:00Z",
+                lastUpdated: "2026-03-14T00:00:00Z",
+              },
+              appearance: defaultDashboardAppearance,
+              layout: defaultDashboardLayout,
+            },
+          ],
+          selectedDashboardId: "dash-1",
+        },
+        panels: {
+          panelCreationModalOpen: true,
+          items: [makeOutputPanel({ id: "panel-1", dashboardId: "dash-1", title: "Existing" })],
+        },
+      });
+
+      expect(
+        await screen.findByRole("dialog", { name: "Add panel", hidden: true }),
+      ).toBeInTheDocument();
+    });
+
+    it("withholds OutputPicker off-route when the store's panels belong to a DIFFERENT dashboard (design.md D3b — never pass stale/wrong panels)", async () => {
+      fetchDashboardsMock.mockResolvedValue([]);
+      fetchPanelsMock.mockResolvedValue([]);
+
+      renderApp({
+        initialPath: "/pipelines",
+        dashboards: { selectedDashboardId: "dash-2" },
+        panels: {
+          panelCreationModalOpen: true,
+          items: [makeOutputPanel({ id: "panel-1", dashboardId: "dash-OTHER", title: "Stale" })],
+        },
+      });
+
+      // Withheld immediately: the mismatch is visible on the very first render, before any
+      // fetch could plausibly resolve.
+      expect(
+        screen.queryByRole("dialog", { name: "Add panel", hidden: true }),
+      ).not.toBeInTheDocument();
+      // And it re-dispatches the fetch for the CORRECT dashboard rather than rendering the
+      // picker over the mismatched items.
+      await waitFor(() => expect(fetchPanelsMock).toHaveBeenCalledWith("dash-2"));
+    });
+
+    // evaluation-1.md CR3 — the `items.length === 0 && loadedDashboardId === selectedDashboardId
+    // && status === "succeeded"` fallback arm in `currentDashboardPanelsReady`, added because
+    // `panelsMatchDashboard` alone can never call a GENUINELY empty dashboard "ready" (it
+    // requires reading `items[0].dashboardId`, which doesn't exist when `items` is `[]`).
+    // WHAT THIS PROVES: the shell mount renders `OutputPicker` off-route for a dashboard with
+    // zero panels, once its fetch has resolved — not merely "doesn't crash", but that the
+    // fallback arm is REACHED and evaluates true. WHAT THIS CANNOT PROVE: anything about the
+    // picker's own rendered content (the "already on this board" marking) for that dashboard —
+    // that parity claim is the separate, real-browser assertion task 1.2a asked for
+    // (`e2e/hel516-palette-quick-create.spec.ts`). FAILABLE BY MUTATION: deleting this fallback
+    // arm (leaving only `panelsMatchDashboard`) turns this red — verified during development by
+    // removing it and observing the picker fail to open.
+    it("mounts OutputPicker off-route for a dashboard with GENUINELY zero panels, once its fetch has resolved", async () => {
+      fetchDashboardsMock.mockResolvedValue([
+        {
+          id: "dash-empty",
+          name: "Empty",
+          meta: {
+            createdBy: "system",
+            createdAt: "2026-03-14T00:00:00Z",
+            lastUpdated: "2026-03-14T00:00:00Z",
+          },
+          appearance: defaultDashboardAppearance,
+          layout: defaultDashboardLayout,
+        },
+      ]);
+      // The dashboard genuinely has zero panels: the fetch resolves with `[]`, exactly like a
+      // real "just created, nothing placed yet" dashboard.
+      fetchPanelsMock.mockResolvedValue([]);
+
+      renderApp({
+        initialPath: "/pipelines",
+        dashboards: {
+          items: [
+            {
+              id: "dash-empty",
+              name: "Empty",
+              meta: {
+                createdBy: "system",
+                createdAt: "2026-03-14T00:00:00Z",
+                lastUpdated: "2026-03-14T00:00:00Z",
+              },
+              appearance: defaultDashboardAppearance,
+              layout: defaultDashboardLayout,
+            },
+          ],
+          selectedDashboardId: "dash-empty",
+        },
+        panels: { panelCreationModalOpen: true, items: [] },
+      });
+
+      // The mount effect's own re-fetch dispatch resolves `fetchPanelsMock` (mocked above) with
+      // `[]`, which is what flips `status` to "succeeded" and `loadedDashboardId` to
+      // "dash-empty" — the fallback arm's precondition.
+      expect(
+        await screen.findByRole("dialog", { name: "Add panel", hidden: true }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  // HEL-516 design.md Decision 3a / tasks.md 1.3a — the StrictMode/production-only defect this
+  // ticket's shell-mount closes. `render()` here (unlike a real app boot) never wraps in
+  // `React.StrictMode`, matching this file's/`SourcesPage.test.tsx`'s existing infra — so nothing
+  // clears `addModalOpen` at mount the way dev StrictMode does, and the assertions below exercise
+  // the PRODUCTION behavior directly.
+  //
+  // WHAT THIS PROVES: DOM presence only — that the modal opens in place on `/sources/:id` (where
+  // `SidebarBody.tsx:87` sets `addModalOpen` with nothing else mounted to read it), and that
+  // dismissing it via `onClose` (the real production path that clears the flag — nothing on
+  // `/sources/:id` itself does) leaves no unrequested dialog behind on a later visit to
+  // `/sources`. WHAT IT CANNOT PROVE: anything about focus or visual appearance (jsdom is
+  // legitimate for DOM presence only — evidence rule 3 is not engaged here). It IS failable by
+  // mutation: deleting the shell mount in `App.tsx` turns step 1 below red (verified by actually
+  // running that mutation during development, not merely asserted).
+  describe("HEL-516 design.md D3a — StrictMode-masked production defect, closed by the shell mount", () => {
+    it("opens the shell-mounted AddSourceModal in place on /sources/:id, and dismissing it via onClose leaves no dialog on a later /sources visit", async () => {
+      fetchDashboardsMock.mockResolvedValue([]);
+      fetchPanelsMock.mockResolvedValue([]);
+      fetchSourcesMock.mockResolvedValue([]);
+
+      const { rerender, store } = renderApp({
+        initialPath: "/sources/source-1",
+        sources: { addModalOpen: true },
+      });
+
+      // Step 1/2: the fix working — the modal opens IN PLACE on /sources/:id, a route
+      // SourcesPage's own cleanup can never reach (it isn't mounted there).
+      expect(
+        await screen.findByRole("dialog", { name: "Add data source", hidden: true }),
+      ).toHaveAttribute("open");
+
+      // Step 3: dismiss via onClose — the REAL production path that clears the flag. Without
+      // this step the flag is still true and SourcesPage.tsx:154 would render the modal
+      // correctly on arrival at /sources, making the guard red even post-fix (round-3 CR1).
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(store.getState().sources.addModalOpen).toBe(false));
+
+      // Step 4: navigate to /sources via a re-render at a new initialPath (the simplest
+      // mechanism with this file's existing infra) and assert NO dialog is present.
+      rerender(
+        <MemoryRouter initialEntries={["/sources"]}>
+          <ThemeProvider>
+            <Provider store={store}>
+              <OverlayProvider>
+                <App />
+              </OverlayProvider>
+            </Provider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => expect(document.querySelector(".sources-page")).toBeInTheDocument());
+      expect(
+        screen.queryByRole("dialog", { name: "Add data source", hidden: true }),
+      ).not.toBeInTheDocument();
     });
   });
 });

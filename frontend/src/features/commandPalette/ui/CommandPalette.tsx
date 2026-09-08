@@ -5,8 +5,11 @@ import "./CommandPalette.css";
 import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { KeyCap } from "../../../shared/ui/KeyCap";
 import { useOverlay } from "../../../shared/chrome/OverlayProvider";
+import { formatCombo, isMacPlatform } from "../../../shared/chrome/shortcuts";
 import { useCommandPalette, useCommandRegistryActions, useSetCommandQuery } from "../hooks";
+import { SECTION_DISPLAY_ORDER } from "../model/builtInActions";
 import { rankActions } from "../model/ranking";
 import type { CommandAction } from "../model/types";
 
@@ -18,8 +21,16 @@ interface ResultGroup {
 }
 
 /** Groups an already-ranked, already-flattened action list by section, preserving relative
- * order within and across groups — `command-palette-filtering` spec. Actions without a
- * `section` are grouped together under `UNSECTIONED` rather than dropped. */
+ * order WITHIN each group — `command-palette-filtering` spec. Actions without a `section` are
+ * grouped together under `UNSECTIONED` rather than dropped.
+ *
+ * skeptic-final-1.md CR1 — the top-level GROUP order is no longer "whichever section was first
+ * encountered while walking `actions`" (which silently tracked registration/mount order, and
+ * therefore any registrant's own render-churn — see `HelpOverlay.tsx`'s fixed context-value
+ * bug). Groups are sorted by `SECTION_DISPLAY_ORDER`'s declared position; a section not listed
+ * there (including `UNSECTIONED`) sorts after every listed one, in its own first-encountered
+ * order — so a future section needs no code change here, only an entry in that array to get a
+ * deliberate position. */
 function groupBySection(actions: CommandAction[]): ResultGroup[] {
   const order: string[] = [];
   const bySection = new Map<string, CommandAction[]>();
@@ -31,7 +42,15 @@ function groupBySection(actions: CommandAction[]): ResultGroup[] {
     }
     bySection.get(section)!.push(action);
   }
-  return order.map((section) => ({ section, actions: bySection.get(section)! }));
+  const sortedOrder = [...order].sort((a, b) => {
+    const aIndex = SECTION_DISPLAY_ORDER.indexOf(a);
+    const bIndex = SECTION_DISPLAY_ORDER.indexOf(b);
+    if (aIndex === -1 && bIndex === -1) return order.indexOf(a) - order.indexOf(b);
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+    return aIndex - bIndex;
+  });
+  return sortedOrder.map((section) => ({ section, actions: bySection.get(section)! }));
 }
 
 /**
@@ -128,6 +147,7 @@ export function CommandPalette() {
   // always names the right element (`command-palette-shell` spec).
   let flatIndex = 0;
   const activeActionId = results[activeIndex]?.id;
+  const mac = isMacPlatform();
 
   return (
     <Modal
@@ -194,7 +214,27 @@ export function CommandPalette() {
                           <span className="command-palette__item-icon">{action.icon}</span>
                         )}
                         <span className="command-palette__item-text">
-                          <span className="command-palette__item-title">{action.title}</span>
+                          <span className="command-palette__item-title">
+                            {action.title}
+                            {/* HEL-516 design.md Decision 5 — INLINE after the title, never
+                              right-aligned: the palette has no right-hand column and only one
+                              action carries a cap today, so a right-aligned cap would strand in
+                              dead space. Same `KeyCap` atom/typography/border/radius the help
+                              overlay uses, just a different coordinate.
+                              skeptic-final-1.md CR2 — the extra title-to-combo gap belongs on
+                              this wrapping span, not on every individual `.ui-keycap`: applying
+                              it per-cap also widened the gap BETWEEN caps within the same combo
+                              (doubling the help overlay's 4px intra-combo spacing, which lives
+                              solely in `KeyCap.css`'s `.ui-keycap + .ui-keycap` rule and is left
+                              untouched here). */}
+                            {action.shortcut && (
+                              <span className="command-palette__item-combo">
+                                {formatCombo(action.shortcut, { mac }).map((token, tokenIndex) => (
+                                  <KeyCap key={tokenIndex}>{token}</KeyCap>
+                                ))}
+                              </span>
+                            )}
+                          </span>
                           {action.subtitle && (
                             <span className="command-palette__item-subtitle">
                               {action.subtitle}

@@ -166,4 +166,54 @@ describe("CommandPalette", () => {
     expect(getDialog()).toHaveAttribute("open");
     expect(input).toHaveValue("Alpha");
   });
+
+  // HEL-516 tasks.md 4.2/4.4 — an action with a `shortcut` shows caps; one without shows none,
+  // and rendering nothing reserves no space (asserted structurally here via absence; the visual
+  // "no misalignment" claim itself is verified in a real browser per evidence rule 3, not here).
+  it("renders a KeyCap per token for an action with a shortcut, and none for an action without", async () => {
+    renderPalette([
+      { id: "with-combo", title: "With combo", shortcut: { key: "j", mod: true }, run: jest.fn() },
+      makeAction("without-combo", "Without combo"),
+    ]);
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    await screen.findByLabelText("Search commands");
+
+    const withComboItem = screen.getByText("With combo").closest("button")!;
+    const withoutComboItem = screen.getByText("Without combo").closest("button")!;
+
+    expect(withComboItem.querySelectorAll(".ui-keycap")).toHaveLength(2);
+    expect(withoutComboItem.querySelectorAll(".ui-keycap")).toHaveLength(0);
+  });
+
+  // skeptic-final-1.md CR1 — the top-level section order is DECLARED data
+  // (`SECTION_DISPLAY_ORDER`), not an emergent property of registration/encounter order.
+  //
+  // WHAT THIS PROVES: even when the underlying (already-ranked) action list encounters sections
+  // in the WRONG order first (`Create` before `Navigation`/`General` here — the exact shape a
+  // future render-churn bug like the fixed `HelpOverlay` one would reproduce), the rendered
+  // group order still matches the declared `SECTION_DISPLAY_ORDER`. WHAT THIS CANNOT PROVE:
+  // that every REAL registrant in the live app registers in a stable, non-churning way — that is
+  // `CreateCommandActions.test.tsx`'s and `HelpOverlay`'s own concern; this test is about the
+  // DISPLAY layer's independence from whatever order it's handed.
+  //
+  // FAILABLE BY MUTATION: reordering `SECTION_DISPLAY_ORDER`'s declaration (e.g. putting
+  // `Create` first) turns this red — verified by making that exact edit during development,
+  // observing the failure, and reverting it.
+  it("renders sections in the DECLARED order, even when the action list encounters them out of order", async () => {
+    renderPalette([
+      { id: "create.dashboard", title: "New dashboard", section: "Create", run: jest.fn() },
+      { id: "nav.dashboards", title: "Go to Dashboards", section: "Navigation", run: jest.fn() },
+      { id: "general.theme", title: "Switch theme", section: "General", run: jest.fn() },
+    ]);
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    await screen.findByLabelText("Search commands");
+
+    const labels = Array.from(document.querySelectorAll(".command-palette__group-label")).map(
+      (el) => el.textContent,
+    );
+
+    expect(labels).toEqual(["Navigation", "General", "Create"]);
+  });
 });
