@@ -169,11 +169,20 @@ describe("ConnectorsPage", () => {
     });
   });
 
+  // HEL-1022: Edit/Delete moved from standalone buttons into a single
+  // `ActionsMenu` popover -- open it (via its trigger's accessible name,
+  // "<connector> actions") before reaching the `menuitem`.
+  function openActionsMenu(connectorName: string) {
+    fireEvent.click(screen.getByRole("button", { name: `${connectorName} actions` }));
+  }
+
   it("deletes a connector with no dependents after confirm", async () => {
     deleteConnectorMock.mockResolvedValue(undefined);
     renderPage([savedConnector]);
+    await screen.findByText("Stripe");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Delete Stripe" }));
+    openActionsMenu("Stripe");
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm delete Stripe" }));
 
     await waitFor(() => {
@@ -190,15 +199,13 @@ describe("ConnectorsPage", () => {
   // false affordance. Delete is disabled up front instead.
   it("disables Delete (no confirm offered) for a connector with dependents", async () => {
     renderPage([implicitConnector]);
+    await screen.findByText("Legacy source host");
 
-    const deleteBtn = await screen.findByRole("button", { name: "Delete Legacy source host" });
-    expect(deleteBtn).toBeDisabled();
-    expect(deleteBtn).toHaveAttribute(
-      "title",
-      "Remove or repoint the dependent source(s) before deleting this connector.",
-    );
+    openActionsMenu("Legacy source host");
+    const deleteItem = await screen.findByRole("menuitem", { name: "Delete" });
+    expect(deleteItem).toBeDisabled();
 
-    fireEvent.click(deleteBtn);
+    fireEvent.click(deleteItem);
     expect(
       screen.queryByRole("button", { name: "Confirm delete Legacy source host" }),
     ).not.toBeInTheDocument();
@@ -218,8 +225,10 @@ describe("ConnectorsPage", () => {
     };
     deleteConnectorMock.mockRejectedValue(axiosLikeError);
     renderPage([savedConnector]);
+    await screen.findByText("Stripe");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Delete Stripe" }));
+    openActionsMenu("Stripe");
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm delete Stripe" }));
 
     expect(
@@ -229,5 +238,54 @@ describe("ConnectorsPage", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/ConnectorHasDependents/)).not.toBeInTheDocument();
     expect(screen.getByText("Stripe")).toBeInTheDocument();
+  });
+
+  it("HEL-1022: Edit opens the edit modal via the Actions popover", async () => {
+    renderPage([savedConnector]);
+    await screen.findByText("Stripe");
+
+    openActionsMenu("Stripe");
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit" }));
+
+    expect(await screen.findByRole("dialog", { name: "Edit Stripe" })).toBeInTheDocument();
+  });
+
+  it("HEL-1022: defaults to most-recently-updated first", async () => {
+    const older = { ...savedConnector, name: "Older Conn", updatedAt: "2026-01-01T00:00:00Z" };
+    const newer = { ...implicitConnector, name: "Newer Conn", updatedAt: "2026-08-01T00:00:00Z" };
+    renderPage([older, newer]);
+
+    await screen.findByText("Newer Conn");
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows[0]).toHaveTextContent("Newer Conn");
+  });
+
+  it("HEL-1022: clicking the Name header sorts ascending, toggling to descending on a second click", async () => {
+    const alpha = { ...savedConnector, id: "conn-a", name: "Alpha" };
+    const bravo = { ...implicitConnector, id: "conn-b", name: "Bravo" };
+    renderPage([bravo, alpha]);
+    await screen.findByText("Bravo");
+
+    fireEvent.click(screen.getByRole("button", { name: /Name/ }));
+    expect(screen.getAllByRole("row").slice(1)[0]).toHaveTextContent("Alpha");
+
+    fireEvent.click(screen.getByRole("button", { name: /Name/ }));
+    expect(screen.getAllByRole("row").slice(1)[0]).toHaveTextContent("Bravo");
+  });
+
+  it("HEL-1022 follow-up: renders a visible Updated column carrying the default descending indicator on first paint", async () => {
+    renderPage([savedConnector, implicitConnector]);
+    await screen.findByText("Stripe");
+
+    expect(screen.getByRole("columnheader", { name: /Updated/ })).toHaveAttribute(
+      "aria-sort",
+      "descending",
+    );
+    for (const name of ["Name", "Kind", "Base URL", "Credential", "Dependents"]) {
+      expect(screen.getByRole("columnheader", { name: new RegExp(name) })).toHaveAttribute(
+        "aria-sort",
+        "none",
+      );
+    }
   });
 });

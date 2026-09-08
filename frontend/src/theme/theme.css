@@ -280,9 +280,22 @@ a {
 }
 
 /* Standard focus ring — 2px accent, 2px offset. Use `outline-offset: -2px`
-   only where the ring would otherwise be clipped (flush list items). */
+   only where the ring would otherwise be clipped (flush list items).
+   HEL-1022: `--app-focus-ring` centralizes the outline VALUE (color + width
+   + style) so every per-component override below references one definition
+   instead of hand-copying the literal `2px solid var(--app-accent)` --
+   `outline-offset` still varies legitimately per component (2px default,
+   -2px for flush items, -3px for BottomNav's documented carve-out) and is
+   NOT part of this token. Never used for `:focus` (bare) -- see DESIGN.md
+   §8's focus-visible contract: a ring painted on PROGRAMMATIC focus (an
+   auto-focused dialog's first field opened by mouse) is exactly the wrong
+   behavior `:focus-visible` exists to prevent. */
+:root {
+  --app-focus-ring: 2px solid var(--app-accent);
+}
+
 :focus-visible {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: 2px;
 }
 

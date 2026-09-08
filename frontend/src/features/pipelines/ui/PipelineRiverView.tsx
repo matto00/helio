@@ -22,7 +22,6 @@ import { ShapePickerModal } from "./shapes/ShapePickerModal";
 import { StepCard } from "./StepCard";
 import { LaneColumn } from "./LaneColumn";
 import { RootColumn } from "./RootColumn";
-import { AddRootModal } from "./AddRootModal";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import type { OpType, Step } from "../types/step";
 import type { PipelineRoot, PipelineStepConfig, SchemaField } from "../types/pipelineStep";
@@ -53,9 +52,6 @@ interface PipelineRiverViewProps {
    *  rather than as a sibling `RootColumn`. Roots[1..] render via
    *  `RootColumn`, side by side with root 0's river. */
   roots: PipelineRoot[];
-  /** HEL-968 task 8 — "+ root": either an existing source's id or a source
-   *  just created via the nested `AddSourceModal` composition. */
-  onAddRoot: (sourceId: string) => void;
   /** HEL-968 task 9 — root removal (R7); the confirmation + refusal
    *  rendering live in the caller (`usePipelineDetailPage.handleRemoveRoot`). */
   onRemoveRoot: (rootId: string) => void;
@@ -114,7 +110,6 @@ export function PipelineRiverView({
   steps,
   laneGraph,
   roots,
-  onAddRoot,
   onRemoveRoot,
   pipelineId,
   dropdownOpen,
@@ -143,8 +138,6 @@ export function PipelineRiverView({
   // single ref anchors the portalled OpDropdown to whichever button is showing.
   const addStepButtonRef = useRef<HTMLButtonElement>(null);
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
-  // HEL-968 task 8 — "+ root" modal open state.
-  const [addRootOpen, setAddRootOpen] = useState(false);
   // HEL-908 task 6.1 — "Add Outputs from a shape" targets a chosen anchor
   // node: `undefined` for the empty-state trigger (seeds a new primary
   // lane), the last primary-lane step's id for the bottom-of-list trigger
@@ -323,11 +316,34 @@ export function PipelineRiverView({
   // styled/labelled as primary (R3/task 6.3) -- root 0 is simply the one
   // this component happens to render inline rather than via `RootColumn`.
   const extraRoots = roots.slice(1);
+  const firstRoot = roots[0];
 
   return (
     <div className="pipeline-detail-page__river">
       <div className="pipeline-detail-page__root-columns">
         <div className="pipeline-detail-page__river-inner">
+          {/* HEL-1022 — with a single root, root 0's river renders exactly
+           * as it always has (no column header, no visual change). Once a
+           * second root exists, `RootColumn` gives roots[1..] a titled
+           * header + remove affordance and root 0 had none, so the columns
+           * read as inconsistent peers. This gives root 0 the SAME header
+           * treatment once there is something for it to be a peer of --
+           * still not styled or labelled as primary (R3/task 6.3 above). */}
+          {roots.length > 1 && firstRoot && (
+            <div className="pipeline-detail-page__root-column-header">
+              <span className="pipeline-detail-page__root-column-title">
+                {firstRoot.dataSourceName}
+              </span>
+              <button
+                type="button"
+                className="pipeline-detail-page__root-column-remove-btn"
+                aria-label={`Remove source ${firstRoot.dataSourceName}`}
+                onClick={() => onRemoveRoot(firstRoot.id)}
+              >
+                Remove
+              </button>
+            </div>
+          )}
           {steps.length === 0 ? (
             <div className="pipeline-detail-page__empty-state">
               <EmptyState
@@ -540,18 +556,6 @@ export function PipelineRiverView({
             />
           );
         })}
-
-        {/* HEL-968 task 8 — "+ root" (D4): always offered, mirroring
-         * `CreatePipelineModal`'s inline-source composition. */}
-        <div className="pipeline-detail-page__root-column pipeline-detail-page__root-column--add">
-          <button
-            type="button"
-            className="pipeline-detail-page__add-root-btn"
-            onClick={() => setAddRootOpen(true)}
-          >
-            + Add root
-          </button>
-        </div>
       </div>
 
       {shapePickerOpen && (
@@ -559,16 +563,6 @@ export function PipelineRiverView({
           anchorStepId={shapePickerAnchorStepId}
           onClose={() => setShapePickerOpen(false)}
           onSeedSteps={onInstantiateShape}
-        />
-      )}
-
-      {addRootOpen && (
-        <AddRootModal
-          onClose={() => setAddRootOpen(false)}
-          onAdd={(sourceId) => {
-            onAddRoot(sourceId);
-            setAddRootOpen(false);
-          }}
         />
       )}
     </div>

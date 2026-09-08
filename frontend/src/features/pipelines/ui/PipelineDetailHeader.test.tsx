@@ -1,12 +1,17 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { PipelineDetailHeader } from "./PipelineDetailHeader";
 import type { DataSource } from "../../sources/types/dataSource";
+import type { PipelineRoot } from "../types/pipelineStep";
 import type { PipelineSchedule } from "../types/pipelineSchedule";
 
 // Ports every scenario from the retired BoundSourceBar.test.tsx,
 // BoundTypeBar.test.tsx, and PipelineScheduleBar.test.tsx (HEL-719 design.md
 // Risks: "port every existing scenario ... before deleting the old
 // .test.tsx files") against the new consolidated header component.
+
+const oneRoot: PipelineRoot[] = [
+  { id: "root-1", dataSourceId: "src-1", dataSourceName: "Test Source" },
+];
 
 const sqlSource: DataSource = {
   id: "src-1",
@@ -40,10 +45,15 @@ const enabledSchedule: PipelineSchedule = {
 };
 
 interface OverrideProps {
-  sourceName?: string;
-  source?: DataSource | undefined;
-  canEditSource?: boolean;
-  onEditSource?: () => void;
+  roots?: PipelineRoot[];
+  /** Keyed by ROOT id, mirroring the real `sourceByRootId` shape — per-root,
+   *  never a single global boolean. Omit an entry (or the whole prop) for
+   *  "source doesn't resolve"; the harness's default resolves `oneRoot`'s
+   *  single root to `sqlSource` so most tests read as before. */
+  sourceByRootId?: Record<string, DataSource | undefined>;
+  onEditSource?: (sourceId: string) => void;
+  onAddRoot?: (sourceId: string) => void;
+  onRemoveRoot?: (rootId: string) => void;
   outputsCount?: number;
   lastRunStatus?: "succeeded" | "failed" | null;
   schedule?: PipelineSchedule | null;
@@ -57,10 +67,11 @@ interface OverrideProps {
 function renderHeader(overrides: OverrideProps = {}) {
   return render(
     <PipelineDetailHeader
-      sourceName={overrides.sourceName ?? "Test Source"}
-      source={overrides.source}
-      canEditSource={overrides.canEditSource ?? false}
+      roots={overrides.roots ?? oneRoot}
+      sourceByRootId={overrides.sourceByRootId ?? { "root-1": sqlSource }}
       onEditSource={overrides.onEditSource ?? jest.fn()}
+      onAddRoot={overrides.onAddRoot ?? jest.fn()}
+      onRemoveRoot={overrides.onRemoveRoot ?? jest.fn()}
       outputsCount={overrides.outputsCount ?? 0}
       lastRunStatus={overrides.lastRunStatus ?? null}
       schedule={overrides.schedule ?? null}
@@ -81,29 +92,168 @@ function openActionsMenu() {
 }
 
 describe("PipelineDetailHeader — bound source (ported from BoundSourceBar)", () => {
-  it("renders the Edit source menu item when canEditSource is true", () => {
-    renderHeader({ source: sqlSource, canEditSource: true });
+  it("renders the Edit source menu item when the single root's source resolves", () => {
+    renderHeader();
     openActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Edit source" })).toBeInTheDocument();
   });
 
-  it("calls onEditSource when the Edit source menu item is activated", () => {
+  it("calls onEditSource with that source's id when the Edit source menu item is activated", () => {
     const onEditSource = jest.fn();
-    renderHeader({ source: sqlSource, canEditSource: true, onEditSource });
+    renderHeader({ onEditSource });
     openActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit source" }));
-    expect(onEditSource).toHaveBeenCalledTimes(1);
+    expect(onEditSource).toHaveBeenCalledWith("src-1");
   });
 
-  it("does not render the Edit source menu item when canEditSource is false", () => {
-    renderHeader({ source: undefined, canEditSource: false });
+  it("does not render the Edit source menu item when the single root's source doesn't resolve", () => {
+    renderHeader({ sourceByRootId: { "root-1": undefined } });
     openActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
   });
+});
 
-  it("shows the source's kind badge when a matching DataSource is resolved", () => {
-    renderHeader({ source: sqlSource });
+// HEL-1022: the header used to read only `roots[0]`, silently discarding
+// every other root. Now one chip per root, labelled "Source" at one and
+// "Sources (N)" at 2+ (so a single-source pipeline reads exactly as calm
+// as it always has), plus a working add/remove path per chip.
+describe("PipelineDetailHeader — multi-source chips (HEL-1022)", () => {
+  const twoRoots: PipelineRoot[] = [
+    { id: "root-1", dataSourceId: "src-1", dataSourceName: "CR11 Eval Src" },
+    { id: "root-2", dataSourceId: "src-2", dataSourceName: "Orders CSV" },
+  ];
+
+  it("labels the group 'Source' (singular) with exactly one root", () => {
+    renderHeader({ roots: oneRoot });
+    expect(screen.getByText("Source")).toBeInTheDocument();
+    expect(screen.getByText("Test Source")).toBeInTheDocument();
+  });
+
+  it("labels the group 'Sources (N)' with 2+ roots and renders a chip per root", () => {
+    renderHeader({ roots: twoRoots });
+    expect(screen.getByText("Sources (2)")).toBeInTheDocument();
+    expect(screen.getByText("CR11 Eval Src")).toBeInTheDocument();
+    expect(screen.getByText("Orders CSV")).toBeInTheDocument();
+  });
+
+  it("disables a chip's remove control when it is the only remaining source", () => {
+    renderHeader({ roots: oneRoot });
+    expect(screen.getByRole("button", { name: "Remove source Test Source" })).toBeDisabled();
+  });
+
+  it("calls onRemoveRoot with that chip's root id when 2+ sources exist", () => {
+    const onRemoveRoot = jest.fn();
+    renderHeader({ roots: twoRoots, onRemoveRoot });
+    fireEvent.click(screen.getByRole("button", { name: "Remove source Orders CSV" }));
+    expect(onRemoveRoot).toHaveBeenCalledWith("root-2");
+  });
+
+  it("collapses chips past the visible limit into a '+N more' affordance", () => {
+    const sixRoots: PipelineRoot[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `root-${i}`,
+      dataSourceId: `src-${i}`,
+      dataSourceName: `Source ${i}`,
+    }));
+    renderHeader({ roots: sixRoots });
+    expect(screen.getByText("Source 0")).toBeInTheDocument();
+    expect(screen.getByText("Source 1")).toBeInTheDocument();
+    expect(screen.getByText("Source 2")).toBeInTheDocument();
+    expect(screen.queryByText("Source 3")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+3 more" })).toBeInTheDocument();
+  });
+
+  // Cold-review defect: the overflow popover previously had no dismissal
+  // path at all (bare `useState`, nothing ever closed it) and used an
+  // invalid `role="menu"` around non-`menuitem` children. Both fixed by
+  // reusing `usePortalPopover` (the same primitive `ActionsMenu` already
+  // uses) instead of hand-rolling either.
+  describe("overflow popover dismissal + ARIA", () => {
+    const sixRoots: PipelineRoot[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `root-${i}`,
+      dataSourceId: `src-${i}`,
+      dataSourceName: `Source ${i}`,
+    }));
+
+    function openOverflow() {
+      fireEvent.click(screen.getByRole("button", { name: "+3 more" }));
+    }
+
+    it("the trigger advertises a popup and its open state", () => {
+      renderHeader({ roots: sixRoots });
+      const trigger = screen.getByRole("button", { name: "+3 more" });
+      expect(trigger).toHaveAttribute("aria-haspopup");
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+      openOverflow();
+      expect(trigger).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("does not render an invalid menu/menuitem ARIA structure", () => {
+      renderHeader({ roots: sixRoots });
+      openOverflow();
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
+      // A valid, non-menu container role is used instead.
+      expect(screen.getByText("Source 3").closest('[role="group"]')).not.toBeNull();
+    });
+
+    it("Escape closes the popover and returns focus to the trigger", () => {
+      renderHeader({ roots: sixRoots });
+      const trigger = screen.getByRole("button", { name: "+3 more" });
+      openOverflow();
+      expect(screen.getByText("Source 3")).toBeInTheDocument();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(screen.queryByText("Source 3")).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
+
+    it("an outside click (the scrim) closes the popover", () => {
+      renderHeader({ roots: sixRoots });
+      openOverflow();
+      expect(screen.getByText("Source 3")).toBeInTheDocument();
+      const scrim = document.querySelector(".popover__scrim");
+      expect(scrim).not.toBeNull();
+      fireEvent.click(scrim as Element);
+      expect(screen.queryByText("Source 3")).not.toBeInTheDocument();
+    });
+  });
+
+  // Follow-up fix: `canEditSource` is per-root now, so a chip's editability
+  // (and the navigation target) must be decided PER CHIP, not once globally.
+  it("renders a chip's name as a clickable edit affordance when that root's source resolves", () => {
+    const onEditSource = jest.fn();
+    renderHeader({
+      roots: twoRoots,
+      sourceByRootId: { "root-1": sqlSource, "root-2": undefined },
+      onEditSource,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Edit source CR11 Eval Src" }));
+    expect(onEditSource).toHaveBeenCalledWith("src-1");
+  });
+
+  it("renders a chip's name as plain non-interactive text when that root's source doesn't resolve", () => {
+    renderHeader({
+      roots: twoRoots,
+      sourceByRootId: { "root-1": sqlSource, "root-2": undefined },
+    });
+    expect(screen.getByText("Orders CSV")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Edit source Orders CSV/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  // Follow-up fix: chips lost the kind badge entirely in the first pass —
+  // restore it, but only when there is exactly one source (2+ stays lighter).
+  it("shows the kind badge on the single chip at exactly one source", () => {
+    renderHeader({ roots: oneRoot, sourceByRootId: { "root-1": sqlSource } });
     expect(screen.getByText("SQL")).toBeInTheDocument();
+  });
+
+  it("shows no kind badge on any chip once there are 2+ sources", () => {
+    renderHeader({
+      roots: twoRoots,
+      sourceByRootId: { "root-1": sqlSource, "root-2": sqlSource },
+    });
+    expect(screen.queryByText("SQL")).not.toBeInTheDocument();
   });
 });
 
@@ -223,8 +373,7 @@ describe("PipelineDetailHeader — schedule (ported from PipelineScheduleBar)", 
 describe("PipelineDetailHeader — actions menu", () => {
   it("one trigger exposes every available action", () => {
     renderHeader({
-      source: sqlSource,
-      canEditSource: true,
+      roots: oneRoot,
       schedule: null,
       isOwner: true,
     });
@@ -238,8 +387,8 @@ describe("PipelineDetailHeader — actions menu", () => {
 
   it("the menu narrows to only the actions the user has", () => {
     renderHeader({
-      source: undefined,
-      canEditSource: false,
+      roots: oneRoot,
+      sourceByRootId: { "root-1": undefined },
       schedule: enabledSchedule,
       isOwner: false,
     });
@@ -253,15 +402,32 @@ describe("PipelineDetailHeader — actions menu", () => {
   });
 
   it("the view actions are always present, regardless of edit permissions", () => {
-    renderHeader({ canEditSource: false, schedule: null, isOwner: false });
+    renderHeader({ sourceByRootId: { "root-1": undefined }, schedule: null, isOwner: false });
     openActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Run history" })).toBeInTheDocument();
+  });
+
+  // HEL-1022 — the singular "Edit source" item is ambiguous once 2+ chips
+  // exist (it used to silently pick `roots[0]`, which is the exact defect
+  // this follow-up fixes); it must drop out of the menu entirely there, in
+  // favor of clicking the specific chip.
+  it("drops 'Edit source' from the menu entirely once there are 2+ roots", () => {
+    const twoRoots: PipelineRoot[] = [
+      { id: "root-1", dataSourceId: "src-1", dataSourceName: "Orders" },
+      { id: "root-2", dataSourceId: "src-2", dataSourceName: "Shipments" },
+    ];
+    renderHeader({
+      roots: twoRoots,
+      sourceByRootId: { "root-1": sqlSource, "root-2": sqlSource },
+    });
+    openActionsMenu();
+    expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
   });
 });
 
 describe("PipelineDetailHeader — single-container structure (HEL-719)", () => {
   it("renders exactly one bordered/backed header container for source + type + schedule", () => {
-    const { container } = renderHeader({ source: sqlSource, canEditSource: true });
+    const { container } = renderHeader();
     expect(container.querySelectorAll(".pipeline-detail-header")).toHaveLength(1);
   });
 });

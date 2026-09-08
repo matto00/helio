@@ -354,7 +354,7 @@ export function OutputEditorSheet({
   }
 
   const stepOptions: SelectOption[] = [
-    { value: "", label: "Pipeline root" },
+    { value: "", label: "Pipeline source" },
     ...steps.map((s) => ({ value: s.id, label: s.label })),
   ];
 

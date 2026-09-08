@@ -60,7 +60,7 @@ describe("OutputsGalleryTab", () => {
     expect(screen.getByText("Revenue")).toBeInTheDocument();
     expect(screen.getByText("Trend")).toBeInTheDocument();
     expect(screen.getByText("off Filter")).toBeInTheDocument();
-    expect(screen.getByText("off the pipeline root")).toBeInTheDocument();
+    expect(screen.getByText("off the pipeline's source")).toBeInTheDocument();
     await waitFor(() => expect(mockListOutputPanels).toHaveBeenCalledTimes(2));
   });
 

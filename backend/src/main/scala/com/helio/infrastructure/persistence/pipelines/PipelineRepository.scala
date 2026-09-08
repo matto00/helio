@@ -247,7 +247,9 @@ class PipelineRepository(
       lastRunRowCount      = p.lastRunRowCount,
       lastRunTruncated     = lastRunTruncated,
       ownerId              = p.ownerId.toString,
-      tag                  = p.tag
+      tag                  = p.tag,
+      createdAt            = p.createdAt.toString,
+      updatedAt            = p.updatedAt.toString
     )
 
   /** Sharing-aware joined summary. Returns Some for owner or grantee callers. */
@@ -361,7 +363,9 @@ class PipelineRepository(
             lastRunRowCount      = None,
             lastRunTruncated     = None,
             ownerId              = user.id.value,
-            tag                  = tag
+            tag                  = tag,
+            createdAt            = now.toString,
+            updatedAt            = now.toString
           ))
         }
     }
@@ -420,7 +424,9 @@ class PipelineRepository(
         lastRunRowCount      = None,
         lastRunTruncated     = None,
         ownerId              = user.id.value,
-        tag                  = tag
+        tag                  = tag,
+        createdAt            = now.toString,
+        updatedAt            = now.toString
       )
       (summary, rootRows.map(r => PipelineRootId(r.id)))
     }
@@ -561,7 +567,15 @@ class PipelineRepository(
       for {
         rows  <- query.result
         roots <- rootsByPipelineId(rows.map(_._1.id).toSet)
-      } yield rows.map { case (p, srcId, srcName, truncated) => rowToSummary(p, srcId, srcName, roots.getOrElse(p.id, Vector.empty), truncated) }.toVector
+      } yield rows
+        // HEL-1022: most-recently-edited first, matching DashboardRepository/AuditEventRepository's
+        // existing default-ordering convention. Sorted on the `Instant` (not the `String` rendering
+        // `rowToSummary` produces below) -- `Instant.toString` drops trailing zero fractional
+        // digits, which breaks lexical ordering between e.g. a whole-second and a sub-second
+        // timestamp.
+        .sortBy { case (p, _, _, _) => p.updatedAt }(Ordering[Instant].reverse)
+        .map { case (p, srcId, srcName, truncated) => rowToSummary(p, srcId, srcName, roots.getOrElse(p.id, Vector.empty), truncated) }
+        .toVector
     }
   }
 }
@@ -603,7 +617,13 @@ object PipelineRepository {
       // .last_run_truncated`'s own doc on `PipelineTable` below.
       lastRunTruncated: Option[Boolean] = None,
       ownerId: String = "",
-      tag: Option[String] = None
+      tag: Option[String] = None,
+      // HEL-1022: the list-summaries default sort is "most recently edited first" -- `lastRunAt`
+      // means "last run", not "last edited", and is `None` for a never-run pipeline. `createdAt`/
+      // `updatedAt` were already columns on `pipelines`/`PipelineRow`; this projects them onto
+      // the DTO for the first time so the UI can sort/default on the field it actually means.
+      createdAt: String = "",
+      updatedAt: String = ""
   )
 
   case class PipelineRow(

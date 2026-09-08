@@ -136,8 +136,15 @@ const spacingIsDisallowed = (line: string): boolean => !line.includes("var(--spa
 const SPACING_BASELINE: BaselineEntry[] = [
   { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 85 },
   { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 91 },
-  { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 182 },
-  { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 99 },
+  // HEL-1022 — re-pinned: the multi-source chip CSS this ticket inserted
+  // above both of these pushed them down by +7 (`.source-kind`'s own
+  // `padding: 2px 6px`, 99 -> 106) and +161 (`.schedule-disabled-badge`'s
+  // `padding: 2px 6px`, 182 -> 343, since the chip block landed above the
+  // schedule section). Verified via `git diff` against the pre-change file:
+  // same two declarations, same values, only shifted — no entries added or
+  // removed.
+  { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 333 },
+  { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 106 },
   // HEL-908 task 3.4 — this file's baseline is line-number-pinned (see the
   // file doc comment); shifted by +59 for every pre-existing hit at or after
   // original line 335 (e.g. 394 -> 453, 1018 -> 1077 below), matching the
@@ -177,50 +184,68 @@ const SPACING_BASELINE: BaselineEntry[] = [
   // rule inside the existing phone-breakpoint block). Every entry <455 is
   // unshifted; every entry in [455, 1554] shifts by +12; every entry >1554
   // shifts by +16 (12+4). No entries added or removed, only shifted.
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1247 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1254 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1301 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1310 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1330 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1339 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1362 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1375 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1354 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1401 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1438 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1472 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1465 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1487 },
+  // HEL-1022 — re-pinned: this ticket's edits to PipelineDetailPage.css net
+  // out to -22 lines overall, but NOT as one uniform shift — two separate
+  // insert/delete hunks land at different points, so the offset is
+  // piecewise. Verified via `git diff` against the pre-change file (no
+  // entries added or removed, only shifted — every remapped line's content
+  // was byte-for-byte diffed against its old position to confirm it's the
+  // SAME declaration, not a coincidental match):
+  //   - lines <=364: unshifted (0)
+  //   - lines 365-545: +9 then -9 nets to 0 (a 9-line comment inserted after
+  //     364, a 9-line dead rule -- the retired "Branch" hint -- deleted at
+  //     398-406)
+  //   - lines 546-1675: -18 (the retired `.root-column--add`/`.add-root-btn`
+  //     rules, 18 lines, deleted at 546-563 -- canvas's own "+ Add root" box
+  //     moved into the header per this ticket)
+  //   - lines >=1676: -22 (-18 above, plus a further -4 for that rule's own
+  //     mobile-breakpoint override, deleted at 1676-1679)
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1229 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1236 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1283 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1292 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1312 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1321 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1344 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1357 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1336 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1383 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1420 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1454 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1447 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1469 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 218 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 233 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 27 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 285 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 605 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 617 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 623 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 635 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 641 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 676 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 690 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 706 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 720 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 735 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 771 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 796 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 813 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 832 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 839 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 854 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 879 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 886 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 906 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 915 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 922 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 978 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 979 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1103 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1116 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1222 },
-  { file: "features/pipelines/ui/PipelinesPage.css", line: 85 },
-  { file: "features/pipelines/ui/PipelinesPage.css", line: 86 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 658 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 672 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 688 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 702 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 717 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 753 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 778 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 795 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 814 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 821 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 836 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 861 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 868 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 888 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 897 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 904 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 960 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 961 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1085 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1098 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1204 },
+  // HEL-1022: renumbered from 85/86 -- the CSS added a longer explanatory
+  // comment block above this rule (documenting the "Updated" column's join).
+  { file: "features/pipelines/ui/PipelinesPage.css", line: 89 },
+  { file: "features/pipelines/ui/PipelinesPage.css", line: 90 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 132 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 31 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 6 },

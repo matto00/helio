@@ -4,14 +4,40 @@
 TBD - created by archiving change add-data-pipelines-list-view. Update Purpose after archive.
 ## Requirements
 ### Requirement: PipelinesPage fetches and displays pipeline list
-`PipelinesPage` SHALL dispatch `fetchPipelines` on mount. When pipelines are loaded, a table or
-list SHALL render one row per pipeline showing: name, source data source name, output DataType name,
-last-run status, last-run timestamp (relative format, e.g. "2 hours ago"), and last-run row count.
+`PipelinesPage` SHALL dispatch `fetchPipelines` on mount. When pipelines are loaded,
+`PipelineListTable` SHALL render one row per pipeline showing: name, a "Sources" cell naming every
+one of that pipeline's `roots` (not just the first), a "Status" (last-run status), a "Last run at"
+timestamp (relative format, e.g. "2 hours ago"), a "Rows written" count, and an "Updated" column
+(`updatedAt`, relative format). There is no per-pipeline output DataType (retired by HEL-903/904);
+Outputs are a pipeline's many, not a singular bound type.
+
+The table defaults to `updatedAt` descending (most-recently-edited first) on first paint, and
+every column is independently sortable (`useSortedRows`/`SortableTh`, HEL-1022) — clicking a
+header toggles `asc`/`desc` on that column.
+
+The "Sources" cell renders every root's data source name, truncated to the first two names with a
+"+N" suffix past that (the full list is available via the cell's tooltip); a pipeline with no
+roots renders an em-dash.
 
 #### Scenario: Pipeline list renders with data
 - **WHEN** `GET /api/pipelines` returns one or more pipelines
-- **THEN** each pipeline is rendered with its name, source data source name, output DataType name,
-  last-run status, last-run timestamp, and last-run row count visible
+- **THEN** each pipeline is rendered with its name, every root's source name in the Sources cell,
+  last-run status, last-run timestamp, last-run row count, and an "Updated" relative timestamp
+  visible
+
+#### Scenario: List defaults to most-recently-updated first
+- **WHEN** `GET /api/pipelines` returns pipelines with different `updatedAt` values
+- **THEN** on first render the rows are ordered by `updatedAt` descending
+
+#### Scenario: Sources cell shows every root, truncated past two
+- **WHEN** a pipeline has three roots
+- **THEN** the Sources cell shows the first two root names followed by "+1", and the cell's
+  tooltip lists all three names
+
+#### Scenario: Clicking a column header sorts by that column
+- **WHEN** the user clicks the "Name" column header
+- **THEN** the rows re-order by pipeline name ascending, and clicking it again reverses to
+  descending
 
 #### Scenario: Last-run status shows "succeeded"
 - **WHEN** a pipeline has `lastRunStatus: "succeeded"`
@@ -69,7 +95,7 @@ When pipelines exist, a "Create pipeline" button SHALL be displayed in a toolbar
 - **THEN** the `CreatePipelineModal` opens
 
 ### Requirement: PipelineListTable renders a Rows Written column
-`PipelineListTable` SHALL include a "Rows Written" column after "Last Run At". When
+`PipelineListTable` SHALL include a "Rows written" column after "Last run at". When
 `lastRunRowCount` is non-null the cell SHALL display the count formatted with locale separators
 followed by " rows". When `lastRunRowCount` is null the cell SHALL render an em-dash.
 

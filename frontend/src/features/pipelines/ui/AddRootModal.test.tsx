@@ -49,9 +49,9 @@ describe("AddRootModal", () => {
     });
   });
 
-  it("disables 'Add root' while no source is selected", () => {
+  it("disables 'Add source' while no source is selected", () => {
     renderModal();
-    expect(screen.getByRole("button", { name: "Add root" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add source" })).toBeDisabled();
   });
 
   // HEL-620 regression guard — assert on the SERVICE SPY (`onAdd`), not the
@@ -59,7 +59,7 @@ describe("AddRootModal", () => {
   // the invariant.
   it("never calls onAdd while no source is selected, even if the disabled control is clicked", () => {
     const { onAdd } = renderModal();
-    fireEvent.click(screen.getByRole("button", { name: "Add root" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add source" }));
     expect(onAdd).not.toHaveBeenCalled();
   });
 
@@ -67,7 +67,7 @@ describe("AddRootModal", () => {
     const { onAdd } = renderModal();
     fireEvent.click(screen.getByRole("combobox", { name: "Data source" }));
     fireEvent.click(screen.getByRole("option", { name: /^Orders/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Add root" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add source" }));
     expect(onAdd).toHaveBeenCalledWith("src-1");
   });
 });

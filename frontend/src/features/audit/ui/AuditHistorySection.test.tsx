@@ -78,7 +78,7 @@ describe("AuditHistorySection", () => {
     expect(await screen.findByText("Showing latest 1 of 5 events.")).toBeInTheDocument();
   });
 
-  it("renders no mutation controls (buttons/links) in the table", async () => {
+  it("renders no mutation controls (links, or buttons other than column sort headers) in the table", async () => {
     fetchAuditEventsMock.mockResolvedValueOnce({
       items: [testEvent],
       total: 1,
@@ -88,7 +88,14 @@ describe("AuditHistorySection", () => {
     renderWithStore(<AuditHistorySection />);
 
     await waitFor(() => expect(screen.getByText("Created dashboard")).toBeInTheDocument());
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    // HEL-1022: column-header sort buttons are the one legitimate button in
+    // this presentational table -- they reorder the client-side view, never
+    // the underlying audit data, so they don't violate the "no mutation
+    // affordance" spec requirement. Every button present must be one of the
+    // five sortable column headers.
+    const buttons = screen.queryAllByRole("button");
+    const labels = buttons.map((b) => b.querySelector("span")?.textContent);
+    expect(labels).toEqual(["Action", "Resource", "Actor", "Source", "When"]);
     expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 });

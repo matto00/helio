@@ -391,8 +391,12 @@ describe("PipelineDetailPage", () => {
   // covered by App.test.tsx.
 
   // Task 2.3 — the mock multi-source chip bar was replaced with a read-only
-  // display of the pipeline's single bound source (name + kind).
-  it("bound source bar shows the pipeline's source name and kind", () => {
+  // display of the pipeline's bound source(s) as chips (HEL-1022: one chip
+  // per `PipelineRoot`, not just `roots[0]`). The chip's display text comes
+  // straight from `PipelineRoot.dataSourceName` — it never depends on
+  // resolving a matching `sources.items` entry (that lookup only gates the
+  // "Edit source" action), so no kind badge is asserted here.
+  it("source chip shows the pipeline's bound source name", () => {
     const store = makeStore([
       {
         id: "src-1",
@@ -422,45 +426,13 @@ describe("PipelineDetailPage", () => {
       },
     ]);
     renderDetailPage("pipe-1", store);
-    // defaultPipeline.roots[0].dataSourceId === "src-1" — only that source's
-    // name + kind are shown; the unrelated "CSV Upload" source is not.
+    // defaultPipeline.roots[0].dataSourceName === "Test Source" — the
+    // unrelated "CSV Upload" source is not a root and is not shown.
     expect(screen.getByText("Test Source")).toBeInTheDocument();
-    expect(screen.getByText("SQL")).toBeInTheDocument();
     expect(screen.queryByText("CSV Upload")).not.toBeInTheDocument();
   });
 
-  it("bound source bar resolves the source by id, not by name", () => {
-    // Source's `name` deliberately does not match defaultPipeline's
-    // `roots[0].dataSourceName` ("Test Source") — only the id ("src-1") does.
-    // The kind badge must still resolve, proving matching is id-based.
-    const store = makeStore([
-      {
-        id: "src-1",
-        name: "Renamed Source",
-        type: "sql",
-        createdAt: "",
-        updatedAt: "",
-        inferredSchema: [],
-        config: {
-          dialect: "postgresql",
-          host: "h",
-          port: 5432,
-          database: "d",
-          user: "u",
-          password: "p",
-          query: "SELECT 1",
-        },
-      },
-    ]);
-    renderDetailPage("pipe-1", store);
-    // The bar's display text still comes from `roots[0].dataSourceName`...
-    expect(screen.getByText("Test Source")).toBeInTheDocument();
-    // ...but the kind badge is resolved from the id-matched source.
-    expect(screen.getByText("SQL")).toBeInTheDocument();
-    expect(screen.queryByText("Renamed Source")).not.toBeInTheDocument();
-  });
-
-  it("bound source bar shows the source name without a kind badge when no matching source is found", () => {
+  it("source chip renders the root's own dataSourceName even when no matching source is found", () => {
     const store = makeStore([]);
     renderDetailPage("pipe-1", store);
     expect(screen.getByText("Test Source")).toBeInTheDocument();
@@ -3596,16 +3568,24 @@ describe("PipelineDetailPage — root removal (HEL-968)", () => {
     const store = makeStore();
     renderDetailPage("pipe-1", store);
 
-    await screen.findByText("Shipments");
+    await screen.findAllByText("Shipments");
+    // Two "Remove source Shipments" controls now exist post-HEL-1022 (the
+    // header chip AND the canvas RootColumn) -- both call the identical
+    // handler with the identical root id, so either serves this assertion;
+    // scope to the canvas control specifically for a deterministic query.
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Remove root Shipments/i }));
+      const canvasRemoveBtn = screen
+        .getAllByRole("button", { name: /Remove source Shipments/i })
+        .find((btn) => btn.closest(".pipeline-detail-page__root-column") !== null);
+      if (!canvasRemoveBtn) throw new Error("canvas Remove source button not found");
+      fireEvent.click(canvasRemoveBtn);
     });
 
     expect(removePipelineRootMock).toHaveBeenCalledWith("pipe-1", "root-2");
     await waitFor(() => {
       const toasts = store.getState().toasts.items;
       expect(toasts).toHaveLength(1);
-      expect(toasts[0].message).toBe("Root removed: 2 steps, 3 Outputs removed.");
+      expect(toasts[0].message).toBe("Source removed: 2 steps, 3 Outputs removed.");
     });
   });
 
@@ -3617,16 +3597,20 @@ describe("PipelineDetailPage — root removal (HEL-968)", () => {
     const store = makeStore();
     renderDetailPage("pipe-1", store);
 
-    await screen.findByText("Shipments");
+    await screen.findAllByText("Shipments");
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Remove root Shipments/i }));
+      const canvasRemoveBtn = screen
+        .getAllByRole("button", { name: /Remove source Shipments/i })
+        .find((btn) => btn.closest(".pipeline-detail-page__root-column") !== null);
+      if (!canvasRemoveBtn) throw new Error("canvas Remove source button not found");
+      fireEvent.click(canvasRemoveBtn);
     });
 
     await waitFor(() => {
       const toasts = store.getState().toasts.items;
       expect(toasts).toHaveLength(1);
       expect(toasts[0].message).toBe(
-        "Failed to remove root: Cannot remove the last root of a pipeline.",
+        "Failed to remove source: Cannot remove the last root of a pipeline.",
       );
     });
   });

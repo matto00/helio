@@ -139,12 +139,12 @@
 }
 
 .pipeline-detail-page__add-step-btn {
-  padding: var(--space-2) 18px;
+  padding: var(--space-1) var(--space-4);
   border: 1px solid var(--app-accent-mid);
   border-radius: var(--app-radius-md);
   background: var(--app-accent-surface);
   color: var(--app-accent);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   cursor: pointer;
 }
@@ -158,12 +158,12 @@
  * accent "+ Add step" / "+ Add transformation step" controls in both the
  * empty-state and the add-step row. ── */
 .pipeline-detail-page__shape-picker-btn {
-  padding: var(--space-2) 18px;
+  padding: var(--space-1) var(--space-4);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-md);
   background: transparent;
   color: var(--app-text-muted);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   cursor: pointer;
   transition:
@@ -193,12 +193,12 @@
 }
 
 .pipeline-detail-page__add-step-dashed-btn {
-  padding: var(--space-2) var(--space-5);
+  padding: var(--space-1) var(--space-4);
   border: 1px dashed var(--app-accent-mid);
   border-radius: var(--app-radius-md);
   background: transparent;
   color: var(--app-accent);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   cursor: pointer;
 }
 
@@ -362,24 +362,33 @@
  * weight. `position: relative` is required by `.tap-expand-44` (see
  * `OutputsRail.css`'s identical note) — its invisible 44px hit-expander
  * resolves against the nearest positioned ancestor. ── */
+/* HEL-1022 follow-up: was `margin-left: var(--space-6)` (24px), read as
+ * indented "under" the card it belongs to — but `BranchAffordance` renders
+ * as a SIBLING of `StepCard` in `.pipeline-detail-page__step-section`, not
+ * nested inside the card, so that indent just left it ~24px right of
+ * `OutputsRail`'s left edge (rendered INSIDE the card) despite the two
+ * stacking directly under the same step. `14px` matches the card's own
+ * left inset (`.pipeline-detail-page__step-card-header`/`-body`, and
+ * `OutputsRail.css`'s matching `padding: 0 14px`) so both affordances share
+ * one left edge. */
 .pipeline-detail-page__add-tail-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: var(--space-2) 0 0 var(--space-6);
+  margin: var(--space-2) 0 0 14px;
 }
 
 .pipeline-detail-page__add-tail-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
   border: 1px dashed var(--app-accent-mid);
   border-radius: var(--app-radius-md);
   background: var(--app-accent-surface);
   color: var(--app-accent);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   cursor: pointer;
   transition:
@@ -393,15 +402,6 @@
   background: var(--app-accent-dim);
   border-color: var(--app-accent);
   border-style: solid;
-}
-
-/* HEL-943 — always-visible, non-hover explanation of what "Branch" does.
- * A `title` tooltip alone is invisible to touch users (no hover state), and
- * the acceptance bar here is "a user who hasn't read the spec can tell what
- * this does BEFORE clicking it" on every input device, not just a mouse. */
-.pipeline-detail-page__add-tail-hint {
-  font-size: var(--text-micro);
-  color: var(--app-text-muted);
 }
 
 /* ── Tail chain (HEL-908 task 3.4) — indented, dashed-connector sub-list
@@ -541,24 +541,6 @@
   padding: var(--space-3);
   border: 1px dashed var(--app-border-subtle);
   border-radius: var(--radius-sm);
-}
-
-.pipeline-detail-page__root-column--add {
-  border-left: none;
-  padding-left: 0;
-  justify-content: flex-start;
-  min-width: 140px;
-}
-
-.pipeline-detail-page__add-root-btn {
-  min-height: 44px;
-  padding: var(--space-2) var(--space-4);
-  border: 1px dashed var(--app-border-strong);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--app-accent);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
 }
 
 /* HEL-412 — a disabled step's toggle button stays legible (not muted by the
@@ -1673,10 +1655,6 @@
     padding-top: var(--space-2);
     min-width: 0;
     width: 100%;
-  }
-
-  .pipeline-detail-page__root-column--add {
-    border-top: none;
   }
 }
 

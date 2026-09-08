@@ -1,0 +1,117 @@
+/* HEL-1022: DESIGN.md tokens throughout, no literal px / ad-hoc colors. */
+
+.schema-field-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.schema-field-viewer__header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.schema-field-viewer__title {
+  font-family: var(--font-mono);
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.schema-field-viewer__count {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.schema-field-viewer__filter {
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: var(--text-sm);
+}
+
+.schema-field-viewer__filter:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+.schema-field-viewer__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.schema-field-viewer__group-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-1);
+  border: none;
+  background: none;
+  color: var(--app-text);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+}
+
+.schema-field-viewer__group-toggle:hover {
+  color: var(--app-accent);
+}
+
+.schema-field-viewer__group-toggle:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+.schema-field-viewer__group-chevron {
+  color: var(--app-text-muted);
+  width: 1em;
+}
+
+.schema-field-viewer__group-name {
+  flex: 1;
+}
+
+.schema-field-viewer__group-count {
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+}
+
+.schema-field-viewer__group-body {
+  padding-left: var(--space-5);
+}
+
+.schema-field-viewer__show-all {
+  margin-top: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--app-accent);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.schema-field-viewer__show-all:hover {
+  text-decoration: underline;
+}
+
+.schema-field-viewer__show-all:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+.schema-field-viewer__empty {
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+}

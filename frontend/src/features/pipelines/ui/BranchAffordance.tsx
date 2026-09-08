@@ -39,9 +39,6 @@ export function BranchAffordance({
       >
         <FontAwesomeIcon icon={faCodeBranch} aria-hidden="true" /> Branch
       </button>
-      <span className="pipeline-detail-page__add-tail-hint" aria-hidden="true">
-        for a new lane
-      </span>
       {isOpen && (
         <OpDropdown anchorRef={{ current: anchorEl }} onSelect={onSelect} onClose={onClose} />
       )}

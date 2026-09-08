@@ -422,7 +422,7 @@ export function MobileNavSheet({
                     {secondary !== null && (
                       <button
                         type="button"
-                        className="mobile-nav-sheet__item-secondary"
+                        className="mobile-nav-sheet__item-secondary tap-expand-44"
                         aria-label={`${secondary.label} ${item.name}`}
                         onClick={secondary.onClick}
                       >

@@ -75,13 +75,16 @@ export function RootColumn({
   const hasSteps = (lane?.steps.length ?? 0) > 0;
 
   return (
-    <div className="pipeline-detail-page__root-column" aria-label={`Root: ${root.dataSourceName}`}>
+    <div
+      className="pipeline-detail-page__root-column"
+      aria-label={`Source: ${root.dataSourceName}`}
+    >
       <div className="pipeline-detail-page__root-column-header">
         <span className="pipeline-detail-page__root-column-title">{root.dataSourceName}</span>
         <button
           type="button"
           className="pipeline-detail-page__root-column-remove-btn"
-          aria-label={`Remove root ${root.dataSourceName}`}
+          aria-label={`Remove source ${root.dataSourceName}`}
           disabled={!canRemove}
           onClick={() => onRemoveRoot(root.id)}
         >

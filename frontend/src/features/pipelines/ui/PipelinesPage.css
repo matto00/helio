@@ -32,17 +32,21 @@
   color: var(--app-text);
 }
 
-/* F-134: without this, "Last Run Status"/"Last Run At"/"Rows Written" wrap
+/* F-134: without this, "Status"/"Last Run At"/"Rows Written"/"Updated" wrap
  * mid-word ("24 / days / ago") once the table has to share width with the
  * other columns at <=768px — the table already has its own horizontal
  * scroll container (`.pipeline-list-table__scroll` in PipelineListTable.css)
  * so forcing these short, high-signal columns to a single line just makes
  * that container's existing scroll-shadow affordance kick in instead of
- * silently garbling the text. 4th/5th/6th columns = Last Run Status / Last
- * Run At / Rows Written. */
+ * silently garbling the text. HEL-1022 renumbered these after "Updated" (a
+ * new trailing column) joined the table and "Last Run Status" shortened to
+ * "Status": 3rd/4th/5th/6th columns = Status / Last Run At / Rows Written /
+ * Updated. */
+.pipeline-list-table__th:nth-child(3),
 .pipeline-list-table__th:nth-child(4),
 .pipeline-list-table__th:nth-child(5),
 .pipeline-list-table__th:nth-child(6),
+.pipeline-list-table__td:nth-child(3),
 .pipeline-list-table__td:nth-child(4),
 .pipeline-list-table__td:nth-child(5),
 .pipeline-list-table__td:nth-child(6) {
@@ -101,7 +105,7 @@
 }
 
 .pipelines-page__create-btn:focus-visible {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: 2px;
 }
 

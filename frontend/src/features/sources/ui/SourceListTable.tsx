@@ -1,9 +1,11 @@
 import type { MouseEvent } from "react";
+import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
-import { useScrollEdges } from "../../../shared/ui/useScrollEdges";
 import { StatusChip } from "../../../shared/ui/StatusChip";
+import { useSortedRows, type SortColumn } from "../../../shared/ui/useSortedRows";
+import { SortableTable, type SortableTableColumn } from "../../../shared/ui/SortableTable";
 import { labelForKind } from "../utils/labelForKind";
 import type { DataSource } from "../types/dataSource";
 import "./SourceListTable.css";
@@ -48,9 +50,48 @@ function locationFor(source: DataSource): string | null {
   }
 }
 
+type SortKey = "name" | "kind" | "location" | "usedBy" | "updatedAt";
+
+const HEADER_COLUMNS: readonly SortableTableColumn<SortKey>[] = [
+  { key: "name", header: "Name" },
+  { key: "kind", header: "Kind" },
+  { key: "location", header: "Location" },
+  { key: "usedBy", header: "Used by" },
+  { key: "updatedAt", header: "Updated" },
+];
+
 export function SourceListTable({ sources, pipelineNamesBySourceId }: Props) {
   const navigate = useNavigate();
-  const { ref: scrollRef, edges: scrollEdges } = useScrollEdges<HTMLDivElement>();
+
+  // Columns depend on `pipelineNamesBySourceId` (a prop, not a static
+  // module-level constant like the other three tables) -- the "Used by"
+  // column sorts on pipeline count, so it can't be hoisted like theirs.
+  // Memoized (HEL-1022 adversarial review finding 4): `useSortedRows`
+  // depends on this array's IDENTITY (`useMemo([rows, columns, sortState])`
+  // internally) -- an inline array literal here got a fresh identity every
+  // render, defeating that memo and re-sorting on every re-render, not just
+  // on an actual data/sort-state change.
+  const columns: readonly SortColumn<DataSource, SortKey>[] = useMemo(
+    () => [
+      { key: "name", getValue: (s) => s.name },
+      { key: "kind", getValue: (s) => labelForKind(s.type) },
+      { key: "location", getValue: (s) => locationFor(s) },
+      { key: "usedBy", getValue: (s) => (pipelineNamesBySourceId.get(s.id) ?? []).length },
+      { key: "updatedAt", getValue: (s) => s.updatedAt },
+    ],
+    [pipelineNamesBySourceId],
+  );
+
+  // HEL-1022: defaults to most-recently-updated first, matching the
+  // "Updated" column and the backend's own default ordering for first paint.
+  const {
+    sortedRows: sortedSources,
+    sortState,
+    toggleSort,
+  } = useSortedRows(sources, columns, {
+    key: "updatedAt",
+    direction: "desc",
+  });
 
   // Whole-row click to match the row hover affordance, skipping clicks that
   // originated on an interactive descendant so the row never double-navigates
@@ -62,71 +103,62 @@ export function SourceListTable({ sources, pipelineNamesBySourceId }: Props) {
     };
   }
 
-  const scrollClasses = [
-    "source-list-table__scroll",
-    scrollEdges.left ? "source-list-table__scroll--left" : null,
-    scrollEdges.right ? "source-list-table__scroll--right" : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
   return (
-    <div className={scrollClasses} ref={scrollRef}>
-      <table className="source-list-table">
-        <thead>
-          <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Kind</th>
-            <th scope="col">Location</th>
-            <th scope="col">Used by</th>
-            <th scope="col">Updated</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sources.map((source) => {
-            const location = locationFor(source);
-            const usedBy = pipelineNamesBySourceId.get(source.id) ?? [];
-            return (
-              <tr
-                key={source.id}
-                className="source-list-table__row"
-                onClick={handleRowClick(source.id)}
-              >
-                <td>
-                  <Link className="source-list-table__name" to={`/sources/${source.id}`}>
-                    {source.name}
-                  </Link>
-                </td>
-                <td>
-                  <StatusChip intent="neutral">{labelForKind(source.type)}</StatusChip>
-                </td>
-                <td>
-                  {location === null ? (
-                    <span className="source-list-table__muted">—</span>
-                  ) : (
-                    /* `title` carries the untruncated value: a REST URL or a
+    <SortableTable
+      tableClassName="source-list-table"
+      columns={HEADER_COLUMNS}
+      sortState={sortState}
+      onSort={toggleSort}
+      scrollClassNames={{
+        container: "source-list-table__scroll",
+        left: "source-list-table__scroll--left",
+        right: "source-list-table__scroll--right",
+      }}
+    >
+      <tbody>
+        {sortedSources.map((source) => {
+          const location = locationFor(source);
+          const usedBy = pipelineNamesBySourceId.get(source.id) ?? [];
+          return (
+            <tr
+              key={source.id}
+              className="source-list-table__row"
+              onClick={handleRowClick(source.id)}
+            >
+              <td>
+                <Link className="source-list-table__name" to={`/sources/${source.id}`}>
+                  {source.name}
+                </Link>
+              </td>
+              <td>
+                <StatusChip intent="neutral">{labelForKind(source.type)}</StatusChip>
+              </td>
+              <td>
+                {location === null ? (
+                  <span className="source-list-table__muted">—</span>
+                ) : (
+                  /* `title` carries the untruncated value: a REST URL or a
                        SQL host/database routinely exceeds the column, and the
                        cell clips rather than wrapping the row to two lines. */
-                    <span className="source-list-table__location" title={location}>
-                      {location}
-                    </span>
-                  )}
-                </td>
-                <td>
-                  {usedBy.length === 0 ? (
-                    <span className="source-list-table__muted">Unused</span>
-                  ) : (
-                    <span title={usedBy.join(", ")}>
-                      {usedBy.length} pipeline{usedBy.length === 1 ? "" : "s"}
-                    </span>
-                  )}
-                </td>
-                <td className="source-list-table__muted">{formatRelativeTime(source.updatedAt)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                  <span className="source-list-table__location" title={location}>
+                    {location}
+                  </span>
+                )}
+              </td>
+              <td>
+                {usedBy.length === 0 ? (
+                  <span className="source-list-table__muted">Unused</span>
+                ) : (
+                  <span title={usedBy.join(", ")}>
+                    {usedBy.length} pipeline{usedBy.length === 1 ? "" : "s"}
+                  </span>
+                )}
+              </td>
+              <td className="source-list-table__muted">{formatRelativeTime(source.updatedAt)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </SortableTable>
   );
 }

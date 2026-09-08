@@ -35,47 +35,75 @@ The pipeline detail page SHALL provide a back navigation affordance that links t
 - **THEN** a link element pointing to `/pipelines` is visible on the page
 
 ### Requirement: Source selector bar loads from API
-The page header SHALL display the pipeline's bound data source, read-only, in a compact
-single-line field group: the source name (`currentPipeline.roots[0].dataSourceName`) and, when a
-matching `DataSource` is resolvable by id (`currentPipeline.roots[0].dataSourceId`) from the
-already-fetched `state.sources.items` (loaded via the `fetchSources` thunk), its kind (CSV /
-REST API / SQL / Static). The removed scalars `sourceDataSourceName`/`sourceDataSourceId` SHALL
-NOT be read; the source is resolved from the first element of the pipeline's `roots` array, which
-states the single-root assumption explicitly rather than hiding it in a field name.
+The page header SHALL display the pipeline's bound data source(s), read-only, as one chip per
+entry in `currentPipeline.roots` (in `position` order), inside a compact field group. Past
+`MAX_VISIBLE_SOURCE_CHIPS` (3) chips, the remaining roots collapse into a "+N more" overflow
+popover rendering the same chips. Each chip's name is a link (when its source resolves — see
+below) that navigates to that specific root's source; a chip is not merely a label naming
+`roots[0]`. The removed scalars `sourceDataSourceName`/`sourceDataSourceId` SHALL NOT be read.
 
-When `roots` is empty or absent, the header SHALL render no source name and no kind badge, and
+When `roots` is empty or absent, the header SHALL render no source chips and no kind badge, and
 SHALL NOT throw.
 
-The header SHALL NOT offer per-source toggling, a preview affordance, a "Connect source" action,
-or any affordance for adding, removing, or switching roots. When the matching `DataSource` is
-resolvable (i.e. the current user owns it), an "Edit source" action SHALL be available in the
-header's single actions menu (see "Header actions consolidate into one menu" below) that, when
-activated, sets `sources.selectedSourceId` to that source's id and navigates to `/sources`. When
-no matching `DataSource` is resolvable, the "Edit source" action SHALL NOT appear in the menu.
+Each chip carries its own remove ("×") control, disabled when the pipeline has exactly one root
+(the server refuses removing the last root). A kind badge (CSV / REST API / SQL / Static) renders
+on a chip ONLY when the pipeline has exactly one root — at 2+ roots no chip shows a kind badge, to
+keep the row from growing heavier exactly when space is tightest.
+
+The header SHALL NOT offer per-source toggling or a preview affordance. When a root's matching
+`DataSource` is resolvable (i.e. the current user owns it) AND the pipeline has exactly one root,
+an "Edit source" action SHALL additionally be available in the header's single actions menu (see
+"Header actions consolidate into one menu" below), gated identically to the chip; at 2+ roots this
+singular menu item is omitted (which root it would mean is ambiguous) and each chip's own name is
+the per-root way to reach that source. When a root's source isn't resolvable, its chip renders as
+plain non-interactive text (never a dead link) and never contributes a kind badge.
+
+The user-facing label for a root is "source" everywhere in this header (aria-labels, menu items,
+toast copy) — "root"/"PipelineRoot" remain the internal names only (HEL-1022).
 
 #### Scenario: Bound source name and kind are rendered
-- **WHEN** `state.sources.items` contains a DataSource whose id matches `currentPipeline.roots[0].dataSourceId`
-- **THEN** the page header shows that source's name and its kind label
+- **WHEN** the pipeline has exactly one root and `state.sources.items` contains a DataSource whose
+  id matches that root's `dataSourceId`
+- **THEN** the page header shows a chip with that source's name and its kind label
+
+#### Scenario: Multiple roots render as multiple chips
+- **WHEN** the pipeline has three roots
+- **THEN** the page header shows three source chips, each naming its own root's data source, and
+  none of them shows a kind badge
+
+#### Scenario: Chips past the visible limit collapse into overflow
+- **WHEN** the pipeline has more than three roots
+- **THEN** the header shows the first three as chips and a "+N more" control exposing the rest
 
 #### Scenario: Bound source name renders without a kind badge when unresolved
-- **WHEN** no DataSource in `state.sources.items` matches `currentPipeline.roots[0].dataSourceId`
-- **THEN** the page header shows the source name with no kind badge
+- **WHEN** the pipeline has exactly one root and no DataSource in `state.sources.items` matches
+  its `dataSourceId`
+- **THEN** the page header shows that chip's source name with no kind badge
 
 #### Scenario: Header renders safely when the pipeline has no roots
 - **WHEN** `currentPipeline.roots` is empty or absent
-- **THEN** the header renders without a source name or kind badge and no error is thrown
+- **THEN** the header renders without a source chip or kind badge and no error is thrown
 
-#### Scenario: Edit source action shown when the current user owns the source
-- **WHEN** `state.sources.items` contains a DataSource whose id matches `currentPipeline.roots[0].dataSourceId`, and the user opens the header's actions menu
+#### Scenario: Edit source action shown when the current user owns the sole source
+- **WHEN** the pipeline has exactly one root, `state.sources.items` contains a DataSource whose id
+  matches that root's `dataSourceId`, and the user opens the header's actions menu
 - **THEN** an "Edit source" menu item is visible
 
 #### Scenario: Edit source action hidden when the current user does not own the source
-- **WHEN** no DataSource in `state.sources.items` matches `currentPipeline.roots[0].dataSourceId` (e.g. the pipeline was shared with the current user by a pipeline-sharing grant, but the underlying source belongs to someone else), and the user opens the header's actions menu
+- **WHEN** the pipeline has exactly one root and no DataSource in `state.sources.items` matches
+  its `dataSourceId` (e.g. the pipeline was shared with the current user by a pipeline-sharing
+  grant, but the underlying source belongs to someone else), and the user opens the header's
+  actions menu
 - **THEN** no "Edit source" menu item is rendered
 
+#### Scenario: Edit source menu item is omitted with multiple roots
+- **WHEN** the pipeline has two or more roots and the user opens the header's actions menu
+- **THEN** no singular "Edit source" menu item is rendered, regardless of ownership
+
 #### Scenario: Activating Edit source navigates to the source detail page
-- **WHEN** the user opens the header's actions menu and activates "Edit source"
-- **THEN** `sources.selectedSourceId` is set to the bound source's id and the app navigates to `/sources`
+- **WHEN** the user opens the header's actions menu and activates "Edit source" (single-root case),
+  or clicks a chip's linked name
+- **THEN** `sources.selectedSourceId` is set to that source's id and the app navigates to `/sources`
 
 ### Requirement: River view empty state
 When no transformation steps have been added, the river view SHALL display an empty state message containing "Add your first transformation step".

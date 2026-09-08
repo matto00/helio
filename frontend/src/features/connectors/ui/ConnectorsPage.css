@@ -4,24 +4,16 @@
    `.add-source-modal__btn` shape (kept as a local copy per skeptic
    design-round-2 non-blocking note 5, rather than importing that class). */
 
-/* Geometry matches the other section overviews (PipelinesPage / MetricsPage /
-   SourcesPage / TypeRegistryPage) exactly: `--space-5 --space-6` padding and a
-   `--space-7` gap. It used to run `--space-6` padding with a `--space-5` gap,
-   which put the title 4px lower and the table 12px tighter than every sibling
-   page — small individually, obvious when switching between sections. */
-.connectors-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-7);
-  padding: var(--space-5) var(--space-6);
-  min-height: 100%;
-}
-
-/* Shared shape across every section overview's header. */
-.connectors-page__header {
-  display: flex;
-  align-items: flex-start;
-}
+/* HEL-1022: page shell/header geometry now comes from the shared
+   `PageShell`/`PageHeader` primitives (`--space-5 --space-6` padding,
+   `--space-7` gap, `.page-header`/`.page-title`) -- this page previously
+   hand-rolled both to match PipelinesPage/SourcesPage/MetricsPage by eye,
+   which is exactly the drift `PageShell`/`PageHeader` exist to close. Fixes
+   a real bug as a side effect: this page had no loading branch at all, so
+   the initial fetch rendered a headers-only table instead of the same
+   skeleton every other section shows. `.connectors-page` (passed to
+   `PageShell` as `className`) now carries no rules of its own -- kept as a
+   selector root for the CSS below, not a style declaration. */
 
 /* The create button moved out of the header and below the table: as a
    header-height block it pushed the list — the reason the page exists — down
@@ -33,10 +25,68 @@
   margin-top: var(--space-1);
 }
 
+/* HEL-1022: one markup, one layout, every width -- the stacked-card `@media
+   (max-width: 1100px)` mode this table used to switch to is deleted (see the
+   removed block's former home below the button styles). Below 1100px the
+   table instead scrolls horizontally inside `.connectors-page__scroll`
+   (`SortableTable`'s `scrollClassNames`), the same pattern
+   `PipelineListTable`/`SourceListTable` already use. `min-width` keeps
+   every column readable while scrolling -- without it `width: 100%` would
+   let the browser crush Name/Base URL down to near-nothing at narrow
+   widths instead of triggering the scrollbar. */
 .connectors-page__table {
   width: 100%;
+  min-width: 880px;
   border-collapse: collapse;
   font-size: var(--text-sm);
+}
+
+.connectors-page__th:first-child,
+.connectors-page__td:first-child {
+  min-width: 160px;
+}
+
+/* Scroll container + scroll-shadow affordance -- mirrors
+   `.pipeline-list-table__scroll` / `.source-list-table__scroll`'s identical
+   inset-box-shadow technique exactly (composites over whatever the real
+   background is instead of having to match it).
+   HEL-1022 (adversarial review finding 1): `overflow-x: auto` alone does
+   NOT stop this table's intrinsic content width (`auto` table layout +
+   several nowrap cells, e.g. the 3-button Actions cell) from leaking into
+   `main.app-content`'s OWN horizontal scroll -- measured live at 430px:
+   `main.app-content.scrollWidth` was 1141 against a 430 viewport (711px of
+   page-body drag) even though THIS element's own `clientWidth` correctly
+   read 382. A `position: static` box with non-`visible` overflow can still
+   contribute its descendants' full preferred (max-content) width to an
+   ancestor's shrink-to-fit/intrinsic-size calculation in some engines --
+   `table` elements are exactly the case that triggers it, since a
+   `table-layout: auto` table's own intrinsic width is computed from its
+   columns' content regardless of an ancestor's `overflow`. `position:
+   relative` gives this element its own containing block / independent
+   formatting context, which stops that leak -- confirmed live
+   (`main.app-content.scrollWidth` 1141 -> 430 with this rule, 430 -> 1141
+   with it removed; `PipelineListTable` has the same latent gap, tracked
+   separately, not fixed here to keep this change scoped to Connectors).
+   The page body itself never scrolls horizontally: this container is the
+   only element with `overflow-x: auto`. */
+.connectors-page__scroll {
+  position: relative;
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.connectors-page__scroll--left {
+  box-shadow: inset 12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}
+
+.connectors-page__scroll--right {
+  box-shadow: inset -12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}
+
+.connectors-page__scroll--left.connectors-page__scroll--right {
+  box-shadow:
+    inset 12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent),
+    inset -12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
 }
 
 .connectors-page__th {
@@ -67,11 +117,82 @@
   font-size: var(--text-xs);
 }
 
+/* HEL-1022 (CI finding, PR #592): `bisectHitExtent` (the HEL-813 mobile
+   touch-target e2e guard) measures REAL hit-testable geometry via
+   `document.elementFromPoint()` with no scroll-into-view step -- a control
+   sitting in the horizontally-scrolled-away Actions column (632px off-screen
+   at 430px before this fix) can never satisfy that check and the guard
+   correctly times out. This is the exact failure mode HEL-824's original
+   stacked-card layout existed to prevent, now re-manifesting because the
+   table scrolls instead of stacking (`SortableTable`). `position: sticky;
+   right: 0` pins the Actions column to the visible right edge of
+   `.connectors-page__scroll` regardless of how far the row has scrolled, so
+   Test-connection/the Actions-menu trigger are ALWAYS on-screen and
+   hit-testable without requiring a sideways drag first -- the single-table-
+   at-every-width decision stays, but the actions are never unreachable.
+   `z-index: 1` keeps it painted OVER cells scrolling underneath.
+
+   Sticky column is the ONE divergence from `PipelineListTable`/
+   `SourceListTable`'s otherwise-identical scroll pattern (documented in
+   DESIGN.md's `SortableTable` section) -- those two tables have no fixed,
+   always-reachable action column of their own (Pipelines: whole-row
+   navigation + an optional single Share button; Sources: no Actions column
+   at all), so neither one has this specific reachability problem to solve.
+   Connectors' 409-guarded Delete + inline confirm is the shape that needed
+   it.
+
+   `position: sticky` with nothing to stick to (a non-overflowing container)
+   is inert by itself, but `background`/`box-shadow` are NOT applied
+   unconditionally below -- painting them at every width, including 1440px
+   where the container doesn't overflow at all, made this column look like a
+   permanently-welded, mismatched-tone panel for no reason (adversarial
+   review finding 1). Both are scoped to `.connectors-page__scroll--left`/
+   `--right` (the same overflow-state classes `SortableTable`'s
+   `scrollClassNames` already toggles via `useScrollEdges`'s `overflowing`
+   flag) -- i.e. exactly while the container is actually scrollable, in
+   EITHER direction. A non-overflowing table renders this column exactly as
+   it did before any of this. */
 .connectors-page__th--actions,
 .connectors-page__td--actions {
+  position: sticky;
+  right: 0;
+  z-index: 1;
   width: 1%;
   white-space: nowrap;
   text-align: right;
+}
+
+/* Opaque fill, ONLY while overflowing (see the comment above) -- `--app-bg`
+   (adversarial review finding 1), not `--app-surface`: the table and every
+   ancestor up to `<body>` are transparent, so the real backdrop a sticky
+   cell must match is the page background, not the (lighter, both themes)
+   surface-panel token. Measured live: `--app-surface` painted
+   rgb(253,252,250) against the real rgb(244,242,237) backdrop -- a visibly
+   detached band. */
+.connectors-page__scroll--left .connectors-page__td--actions,
+.connectors-page__scroll--right .connectors-page__td--actions,
+.connectors-page__scroll--left .connectors-page__th--actions,
+.connectors-page__scroll--right .connectors-page__th--actions {
+  background: var(--app-bg);
+}
+
+.connectors-page__scroll--left .connectors-page__row:hover .connectors-page__td--actions,
+.connectors-page__scroll--right .connectors-page__row:hover .connectors-page__td--actions {
+  background: var(--app-surface-raised);
+}
+
+/* HEL-1022 (adversarial review finding 2): the CONTAINER's own `--right`
+   inset shadow paints at the container's inner right edge, which is now
+   physically UNDER this opaque sticky column (an inset shadow paints below
+   descendants) -- completely invisible, silently deleting the one
+   affordance that told a user there was more table to the right. Moved onto
+   the sticky column's OWN left edge instead: painted on the sticky layer
+   itself, so it can never be occluded by its own background, and gated on
+   the SAME `--right` state (there's more to scroll toward), so it appears
+   and disappears exactly when the container's own cue would have. */
+.connectors-page__scroll--right .connectors-page__td--actions,
+.connectors-page__scroll--right .connectors-page__th--actions {
+  box-shadow: inset 8px 0 8px -8px color-mix(in srgb, var(--app-text) 35%, transparent);
 }
 
 /* HEL-824 skeptic-final-1.md change request 2: the blocked-delete error
@@ -165,95 +286,18 @@
   color: var(--app-text-muted);
 }
 
-.connectors-page__btn--danger:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
-  background: var(--app-error-surface);
-  color: var(--app-error);
-}
+/* HEL-1022: `--danger` (Delete's old standalone button) is dead now that
+   Delete lives inside `ActionsMenu` (`.actions-menu__item--danger` carries
+   its own danger styling) -- removed rather than left as an unused rule. */
 
-/* Tablet and below — stacked-card layout (HEL-824 skeptic-final-1.md change
-   request 1 + 5). Widened from 768px to 1100px, a DESIGN.md §4 canonical
-   breakpoint: the plain 6-column table overflows 198px at 1100px with no
-   dedicated treatment, and the ordinary Delete action sits off-screen with
-   no horizontal-scroll affordance. Mirrors `PipelineDetailHeader.css`'s own
-   "widened to 1100px to close the 769-1100 gap" precedent.
-
-   Fixed specificity bug (change request 1): the previous rule
-   `.connectors-page__table tr { display: block }` (0,1,1 specificity, one
-   class + one element) beat `.connectors-page__row { display: flex }`
-   (0,1,0), so the flex/column stacking rule never actually applied and the
-   six `<td>`s laid out side-by-side in an anonymous block row — 397px
-   overflow at 430px. Every selector below is scoped through
-   `.connectors-page__table tbody` (a class, never a bare element) so
-   nothing outranks `.connectors-page__row`/`.connectors-page__td`
-   specificity by an element-selector tiebreak again. Also adds the
-   previously-missing `.connectors-page__td { display: block }` — without
-   it the cells stayed inline/table-cell even once the row itself stacked. */
-@media (max-width: 1100px) {
-  .connectors-page {
-    padding: var(--space-4);
-  }
-
-  /* Scoped to this page's EmptyState instance only (not a blanket override
-     of the shared `ui-empty-state__cta` class, which would leak to every
-     other EmptyState on the page once this stylesheet is loaded). */
-  .connectors-page__empty .ui-empty-state__cta {
-    min-height: 44px;
-  }
-
-  .connectors-page__table {
-    display: block;
-    width: 100%;
-  }
-
-  .connectors-page__table thead {
-    display: none;
-  }
-
-  .connectors-page__table tbody {
-    display: block;
-    width: 100%;
-  }
-
-  .connectors-page__table tbody tr.connectors-page__row {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    width: 100%;
-    padding: var(--space-3) 0;
-    border-bottom: 1px solid var(--app-border-subtle);
-  }
-
-  .connectors-page__table tbody tr.connectors-page__row .connectors-page__td {
-    display: block;
-    width: 100%;
-    border-bottom: none;
-    padding: 0 var(--space-3);
-  }
-
-  .connectors-page__table tbody tr.connectors-page__conflict-row {
-    display: block;
-    width: 100%;
-  }
-
-  .connectors-page__table tbody tr.connectors-page__conflict-row .connectors-page__td--conflict {
-    display: block;
-    width: 100%;
-    padding: 0 var(--space-3) var(--space-3);
-  }
-
-  .connectors-page__row-actions {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
-}
-
-/* Tap targets, split out of the 1100px table-collapse block above so they can
-   carry the touch gate rather than a width gate — see `shared/ui/tapTarget
-   .css`. Without this an iPad Pro in landscape (1366px) got no floor at all.
-   `white-space: nowrap` because the header CTA shares a row with a
-   `--text-2xl` title, so it is width-constrained enough to wrap "Add
-   connector" onto two lines once it is free to shrink again. */
+/* Tap targets, gated on the touch capability rather than viewport width —
+   see `shared/ui/tapTarget.css`. Without this an iPad Pro in landscape
+   (1366px) got no floor at all. `white-space: nowrap` because the header CTA
+   shares a row with a `--text-2xl` title, so it is width-constrained enough
+   to wrap "Add connector" onto two lines once it is free to shrink again.
+   HEL-1022: independent of (and outlives) the now-deleted 1100px
+   stacked-card `@media` block this comment used to sit below — the table
+   itself now scrolls at every width instead of switching layouts. */
 @media (max-width: 1100px), (pointer: coarse) {
   .connectors-page__btn {
     position: relative;
