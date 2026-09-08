@@ -1,5 +1,15 @@
 import type { ResourceKind } from "../../../shared/chrome/resourceNavigation";
 
+/**
+ * HEL-503 design.md D1/D2, task 1.0 — recents support three kinds, not four: outputs were never
+ * recorded (HEL-519 shipped before Output existed as a resource kind), and `ResourceRef`'s
+ * `"output"` arm requires a `pipelineId` a bare `{kind, id}` recent entry cannot carry. Retyping
+ * this store (rather than leaving `RecentEntry["kind"]` as the now-widened `ResourceKind`) is
+ * what keeps `useRecentPaletteActions.ts:65`'s `{ kind: entry.kind, id: entry.id }` assignable
+ * to `ResourceRef` and `:12`'s `Record<RecentEntry["kind"], LucideIcon>` exhaustive.
+ */
+export type RecentKind = Exclude<ResourceKind, "output">;
+
 /** One recorded arrival at a resource. Most-recent-first, de-duplicated by `kind`+`id` (a
  * re-visit MOVES an entry, never duplicates it — task 2.1).
  *
@@ -13,7 +23,7 @@ import type { ResourceKind } from "../../../shared/chrome/resourceNavigation";
  * existed (or one somehow missing it) degrades to the pre-existing resolve-from-slice path
  * (`useRecentPaletteActions.ts`) rather than being dropped or invalidating the whole blob. */
 export interface RecentEntry {
-  kind: ResourceKind;
+  kind: RecentKind;
   id: string;
   visitedAt: number;
   title?: string;
@@ -24,7 +34,17 @@ export const RECENT_HISTORY_STORAGE_KEY = "helio.recentVisits";
 /** Fixed cap — the least-recently-visited entry is discarded once exceeded (task 2.1). */
 export const RECENT_HISTORY_MAX_ENTRIES = 10;
 
-const VALID_KINDS: readonly ResourceKind[] = ["dashboard", "source", "pipeline"];
+/**
+ * HEL-503 design.md D1, task 1.0 (round-2 CR1) — a `Record<RecentKind, true>`, NOT an array
+ * annotation. `const VALID_KINDS: readonly RecentKind[]` CANNOT fail the build when a kind is
+ * added to `RecentKind` — an array annotation does not require the array literal to be
+ * exhaustive over the type's members. A `Record` keyed by `RecentKind` IS checked for missing
+ * keys, so adding a kind here breaks the build until this map is updated, which is the
+ * exhaustiveness property the plan actually needs. `VALID_KINDS` is derived from this map's keys
+ * rather than re-listed, so there is exactly one place the set of valid kinds is written down.
+ */
+const RECENT_KINDS: Record<RecentKind, true> = { dashboard: true, source: true, pipeline: true };
+const VALID_KINDS: readonly RecentKind[] = Object.keys(RECENT_KINDS) as readonly RecentKind[];
 
 function isRecentEntry(value: unknown): value is RecentEntry {
   if (typeof value !== "object" || value === null) return false;
@@ -97,11 +117,11 @@ export interface RecentHistoryStore {
    * Callers WITHOUT a resolvable title yet (none observed today; every recording site — the
    * dashboards listener, the sources/pipelines route effect — has the title in hand at record
    * time) may omit it; the palette then falls back to resolving from the live Redux slice. */
-  recordVisit(kind: ResourceKind, id: string, title?: string): void;
+  recordVisit(kind: RecentKind, id: string, title?: string): void;
   /** Drops every entry of `kind` whose `id` is not in `existingIds` (task 4.2). Callers must only
    * call this once that kind's collection has genuinely resolved (design.md D4) — this function
    * itself does not know or check that; see `recentVisitsListeners.ts`. */
-  pruneMissing(kind: ResourceKind, existingIds: ReadonlySet<string>): void;
+  pruneMissing(kind: RecentKind, existingIds: ReadonlySet<string>): void;
 }
 
 /** Framework-free observable store, deliberately not React state — mirrors `commandRegistry.ts`'s

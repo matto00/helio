@@ -16,6 +16,10 @@ const CREATE_SECTION = "Create";
 // `useRecentPaletteActions.ts` (kept HERE, alongside the array it's an entry of, rather than
 // re-declared as a literal in the recents module where it could drift from this array).
 export const RECENT_SECTION = "Recent";
+// HEL-503 design.md D5, task 3.3 — the resource-search results section's own display-order
+// string, imported by `useResourceSearchActions.ts` for the same reason `RECENT_SECTION` is
+// declared here rather than there: kept alongside the array it's an entry of so it can't drift.
+export const SEARCH_SECTION = "Search results";
 
 /** skeptic-final-1.md CR1 — the palette's top-level section order is DATA, declared once here,
  * rather than an emergent property of whichever registrant's mount effect happened to commit
@@ -30,6 +34,10 @@ export const SECTION_DISPLAY_ORDER: readonly string[] = [
   // `groupBySection` (it sorts after every listed one), so omitting this entry would still
   // "work" while placing recents last — the opposite of intent.
   RECENT_SECTION,
+  // HEL-503 design.md D5, task 3.3 — search results answer what was just typed, so they sort
+  // directly under Recent (which never shows for a non-empty query anyway) and ahead of the
+  // seeded Navigation/General/Create actions that happen to also match.
+  SEARCH_SECTION,
   NAVIGATION_SECTION,
   GENERAL_SECTION,
   CREATE_SECTION,

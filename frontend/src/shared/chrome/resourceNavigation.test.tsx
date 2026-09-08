@@ -66,6 +66,14 @@ describe("hrefFor — task 1.2", () => {
   it("returns the pipeline detail route", () => {
     expect(hrefFor({ kind: "pipeline", id: "p1" })).toBe("/pipelines/p1");
   });
+
+  // HEL-503 design.md D1 — the widened kind, using HEL-909's EXISTING `?outputId=` convention
+  // rather than a new one.
+  it("returns the pipeline route with ?outputId= for an output", () => {
+    expect(hrefFor({ kind: "output", id: "o1", pipelineId: "p1" })).toBe(
+      "/pipelines/p1?outputId=o1",
+    );
+  });
 });
 
 describe("useResourceNavigator — task 1.1", () => {
@@ -78,6 +86,15 @@ describe("useResourceNavigator — task 1.1", () => {
   it("routes a pipeline ref to /pipelines/:id", () => {
     const { navigate, getPathname } = renderNavigator("/");
     act(() => navigate({ kind: "pipeline", id: "p1" }));
+    expect(getPathname()).toBe("/pipelines/p1");
+  });
+
+  // HEL-503 task 1.3 — the newly-widened kind actually navigates, not just typechecks. This is
+  // the real-browser-adjacent proof that the `never`-exhaustiveness guard corresponds to a
+  // WORKING branch, not merely a compiling one.
+  it("routes an output ref to /pipelines/:pipelineId?outputId=:id", () => {
+    const { navigate, getPathname } = renderNavigator("/");
+    act(() => navigate({ kind: "output", id: "o1", pipelineId: "p1" }));
     expect(getPathname()).toBe("/pipelines/p1");
   });
 

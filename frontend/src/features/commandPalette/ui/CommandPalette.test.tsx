@@ -20,6 +20,7 @@ import { GlobalCommandShortcuts } from "../GlobalCommandShortcuts";
 import { useCommandActions } from "../hooks";
 import { OverlayProvider } from "../../../shared/chrome/OverlayProvider";
 import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
+import { outputsReducer } from "../../pipelines/state/outputsSlice";
 import { pipelinesReducer } from "../../pipelines/state/pipelinesSlice";
 import { sourcesReducer } from "../../sources/state/sourcesSlice";
 import { recentHistoryStore } from "../model/recentHistoryStore";
@@ -42,6 +43,7 @@ function renderPalette(actions: CommandAction[] = [], initialPath = "/") {
       dashboards: dashboardsReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
+      outputs: outputsReducer,
     },
   });
   render(
@@ -259,6 +261,7 @@ describe("CommandPalette — Recent section (HEL-519)", () => {
         dashboards: dashboardsReducer,
         sources: sourcesReducer,
         pipelines: pipelinesReducer,
+        outputs: outputsReducer,
       },
       preloadedState: {
         sources: {
@@ -338,6 +341,7 @@ describe("CommandPalette — Recent section (HEL-519)", () => {
         dashboards: dashboardsReducer,
         sources: sourcesReducer,
         pipelines: pipelinesReducer,
+        outputs: outputsReducer,
       },
       preloadedState: {
         sources: {
@@ -437,5 +441,114 @@ describe("CommandPalette — Recent section (HEL-519)", () => {
     expect(screen.getByRole("option", { name: "My Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "My Source" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "My Pipeline" })).toBeInTheDocument();
+  });
+});
+
+// Skeptic-final-1 CR2 (final gate, round 1) — the overflow-count row ("+N more … refine your
+// search") must never be a selectable option: the skeptic clicked it live and found it closed
+// the palette, cleared the query, and navigated nowhere — "appears to work and goes nowhere",
+// the exact pattern this ticket's own premise corrections cite as the reason `connector` was
+// excluded from scope (ticket.md).
+describe("CommandPalette — search-result overflow row is non-interactive (skeptic-final-1.md CR2)", () => {
+  function manySourcesStore() {
+    return configureStore({
+      reducer: {
+        dashboards: dashboardsReducer,
+        sources: sourcesReducer,
+        pipelines: pipelinesReducer,
+        outputs: outputsReducer,
+      },
+      preloadedState: {
+        sources: {
+          // 7 matches for "alpha" — one more than `SEARCH_RESULTS_PER_KIND_CAP` (5), so exactly
+          // one overflow notice ("+2 more …") is produced.
+          items: Array.from({ length: 7 }, (_, i) => ({
+            id: `s${i}`,
+            name: `Alpha Source ${i}`,
+          })) as never,
+          status: "succeeded" as const,
+          error: null,
+          errorKind: null,
+          selectedSourceId: null,
+          addModalOpen: false,
+        },
+      },
+    });
+  }
+
+  function renderWithManySources() {
+    const store = manySourcesStore();
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={["/"]}>
+          <OverlayProvider>
+            <CommandPaletteProvider>
+              <GlobalCommandShortcuts onOpenQuickLauncher={() => {}} />
+              <Registrant actions={[]} />
+              <CommandPalette />
+            </CommandPaletteProvider>
+          </OverlayProvider>
+        </MemoryRouter>
+      </Provider>,
+    );
+  }
+
+  // WHAT THIS PROVES: with 7 sources matching "alpha" and a cap of 5, the palette renders
+  // exactly 5 selectable options (never 6 or 7 — the overflow count is never itself an option)
+  // AND the "+2 more …" text is visible somewhere on screen. WHAT IT CANNOT PROVE: a REAL
+  // browser's keyboard-focus/click behavior — that's the skeptic's live-click finding plus a
+  // real-browser check in the e2e spec.
+  //
+  // FAILABLE BY MUTATION, RUN AND CONFIRMED (see files-modified.md): restoring the overflow
+  // notice as a `CommandAction` with a no-op `run` (its pre-fix shape) turns `getAllByRole
+  // ("option")` back up to 6 and the "+2 more" text is found INSIDE an element with
+  // `role="option"` — this test's assertions both fail; the current shape (a plain, roleless
+  // `<div>`) turns them green.
+  it("the overflow notice is on screen but is NOT among the palette's options", async () => {
+    renderWithManySources();
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const input = await screen.findByLabelText("Search commands");
+    fireEvent.change(input, { target: { value: "alpha" } });
+
+    // The search-result match is DEBOUNCED (design.md D6) -- wait for it to settle rather than
+    // asserting immediately after the synchronous `fireEvent.change`.
+    const options = await waitFor(() => {
+      const found = screen.getAllByRole("option");
+      expect(found).toHaveLength(5);
+      return found;
+    });
+    expect(options.every((el) => !/more.*match/i.test(el.textContent ?? ""))).toBe(true);
+
+    const notice = await screen.findByText(/\+2 more sources match/i);
+    expect(notice).toBeInTheDocument();
+    expect(notice.closest('[role="option"]')).toBeNull();
+    expect(notice.closest("button")).toBeNull();
+  });
+
+  // WHAT THIS PROVES: ArrowDown cycling through every option (starting from index 0) never
+  // lands on the overflow notice — `activeIndex` only ever indexes `results`, which never
+  // contains it. WHAT IT CANNOT PROVE: real keyboard focus ordering in a browser (jsdom has no
+  // native tab/arrow focus traversal) — covered by the e2e spec instead.
+  it("arrowing through every option never reaches the overflow notice", async () => {
+    renderWithManySources();
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const input = await screen.findByLabelText("Search commands");
+    fireEvent.change(input, { target: { value: "alpha" } });
+
+    const options = await waitFor(() => {
+      const found = screen.getAllByRole("option");
+      expect(found).toHaveLength(5);
+      return found;
+    });
+    // Cycle one full loop plus one extra step — if the overflow notice were reachable as an
+    // option, `results.length` (and therefore the modulo wrap in `handleKeyDown`) would be 6,
+    // and this loop would land on a 6th `aria-selected="true"` element that does not exist here.
+    for (let i = 0; i < 6; i++) {
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+    }
+    const selected = options.filter((el) => el.getAttribute("aria-selected") === "true");
+    expect(selected).toHaveLength(1);
   });
 });

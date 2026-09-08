@@ -2,16 +2,19 @@ import { configureStore } from "@reduxjs/toolkit";
 
 import { httpClient } from "../../../services/httpClient";
 import {
+  fetchAllOutputs,
   fetchOutputs,
   outputsReducer,
   previewOutput,
   resetRunScopedState,
+  selectAllOutputs,
+  selectAllOutputsStatus,
   selectOutputPreview,
   selectOutputsByStepId,
   selectOutputsForPipeline,
   selectOutputsForStep,
 } from "./outputsSlice";
-import type { RunResult } from "../types/output";
+import type { Output, RunResult } from "../types/output";
 
 jest.mock("../../../services/httpClient", () => ({
   httpClient: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
@@ -133,5 +136,60 @@ describe("outputsSlice", () => {
     expect(state.previewByKey).toEqual({});
     expect(state.previewStatus).toEqual({});
     expect(state.previewRequestToken).toEqual({});
+  });
+
+  // HEL-503 evaluator CR1 (cycle 2) — task 2.1's own prescribed guard: "a test that a >1-page
+  // response is fully indexed (mock `total` greater than one page and assert every item is
+  // present)". WHAT THIS PROVES: `fetchAllOutputs` (via `listAllOutputs()`) loops until every
+  // page is read, not just the first. WHAT IT CANNOT PROVE: the real backend's actual pagination
+  // semantics (`Page.Default.limit`/`Page.MaxLimit`) — this mocks `httpClient.get` directly, so
+  // it exercises the CLIENT's looping logic against an arbitrary two-page shape, not the real
+  // endpoint's page-size contract.
+  //
+  // FAILABLE BY MUTATION, RUN AND CONFIRMED: temporarily hardcoding `listAllOutputs()`
+  // (`outputService.ts`) to `return response.data.items` after the FIRST request (never looping)
+  // turned this RED — `allItems` had only the first page's 200 items, not the full 250; restoring
+  // the loop turned it back green. Both runs observed directly.
+  it("fetchAllOutputs indexes every item across a >1-page response, not just the first page", async () => {
+    function fakeOutput(id: string): Output {
+      return {
+        id,
+        pipelineId: "p-1",
+        ownerId: "u-1",
+        name: `Output ${id}`,
+        kind: "metric",
+        config: {},
+        schema: [],
+        createdAt: "2026-08-01T00:00:00Z",
+        updatedAt: "2026-08-01T00:00:00Z",
+      };
+    }
+    const firstPage = Array.from({ length: 200 }, (_, i) => fakeOutput(`o${i}`));
+    const secondPage = Array.from({ length: 50 }, (_, i) => fakeOutput(`o${200 + i}`));
+
+    mockedHttpClient.get
+      .mockResolvedValueOnce({ data: { items: firstPage, total: 250, offset: 0, limit: 200 } })
+      .mockResolvedValueOnce({
+        data: { items: secondPage, total: 250, offset: 200, limit: 200 },
+      });
+
+    const store = buildStore();
+    await store.dispatch(fetchAllOutputs());
+
+    // @ts-expect-error -- test store only wires the outputs slice
+    const allItems = selectAllOutputs(store.getState());
+    expect(allItems).toHaveLength(250);
+    expect(allItems.map((o) => o.id)).toContain("o249");
+    expect(mockedHttpClient.get).toHaveBeenCalledTimes(2);
+    // @ts-expect-error -- test store only wires the outputs slice
+    expect(selectAllOutputsStatus(store.getState())).toBe("succeeded");
+  });
+
+  it("fetchAllOutputs on a rejected request sets allStatus to failed", async () => {
+    mockedHttpClient.get.mockRejectedValueOnce(new Error("network error"));
+    const store = buildStore();
+    await store.dispatch(fetchAllOutputs());
+    // @ts-expect-error -- test store only wires the outputs slice
+    expect(selectAllOutputsStatus(store.getState())).toBe("failed");
   });
 });

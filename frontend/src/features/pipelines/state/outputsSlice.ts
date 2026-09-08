@@ -11,6 +11,7 @@ import {
   createOutput as createOutputRequest,
   deleteOutput as deleteOutputRequest,
   getNodeCapabilities,
+  listAllOutputs,
   listOutputs,
   previewOutputs as previewOutputsRequest,
   previewStep as previewStepRequest,
@@ -40,7 +41,7 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-type AsyncStatus = "idle" | "loading" | "succeeded" | "failed";
+export type AsyncStatus = "idle" | "loading" | "succeeded" | "failed";
 
 /** Capabilities cache is keyed by `${pipelineId}:${stepId ?? "root"}` — one
  *  entry per node, shared by every Output sheet/rail chip open against that
@@ -73,6 +74,14 @@ interface OutputsState {
 
   saveStatus: AsyncStatus;
   saveError: string | null;
+
+  /** HEL-503 design.md D3 — every Output the caller owns, ACROSS all pipelines, populated via
+   *  the existing paginating client `listAllOutputs()`. `byPipeline` is per-pipeline and is NOT
+   *  sufficient for a global index: reading it would mean issuing one fetch per pipeline (or
+   *  silently searching only whichever pipelines happen to already be loaded). */
+  allItems: Output[];
+  allStatus: AsyncStatus;
+  allError: string | null;
 }
 
 const initialState: OutputsState = {
@@ -87,6 +96,9 @@ const initialState: OutputsState = {
   previewRequestToken: {},
   saveStatus: "idle",
   saveError: null,
+  allItems: [],
+  allStatus: "idle",
+  allError: null,
 };
 
 export const fetchOutputs = createAsyncThunk<
@@ -101,6 +113,25 @@ export const fetchOutputs = createAsyncThunk<
     return rejectWithValue(extractErrorMessage(err, "Failed to load outputs."));
   }
 });
+
+/** HEL-503 design.md D3, task 2.1 — REUSES `listAllOutputs()`
+ *  (`outputService.ts`), which already loops until `total` is exhausted. Do NOT replace this
+ *  with a single-page `httpClient.get("/api/outputs")` call: the endpoint is paginated
+ *  (`Page.Default.limit = 200`, `Page.MaxLimit = 500`), and a single-page read would silently
+ *  truncate the index — the same defect class as never indexing outputs at all. No `condition`
+ *  guard here (design.md D2/task 2.2): the palette-open effect reads `allStatus` itself before
+ *  dispatching, rather than relying on this thunk to dedupe, so the dedupe mechanism is the same
+ *  one for every kind regardless of whether its thunk happens to have a `condition` option. */
+export const fetchAllOutputs = createAsyncThunk<Output[], void, { rejectValue: string }>(
+  "outputs/fetchAllOutputs",
+  async (_, { rejectWithValue }) => {
+    try {
+      return await listAllOutputs();
+    } catch (err) {
+      return rejectWithValue(extractErrorMessage(err, "Failed to load outputs."));
+    }
+  },
+);
 
 export const createOutput = createAsyncThunk<
   Output,
@@ -241,6 +272,18 @@ const outputsSlice = createSlice({
       .addCase(fetchOutputs.rejected, (state, action) => {
         state.listStatus[action.meta.arg.pipelineId] = "failed";
         state.listError[action.meta.arg.pipelineId] = action.payload ?? "Failed to load outputs.";
+      })
+      .addCase(fetchAllOutputs.pending, (state) => {
+        state.allStatus = "loading";
+        state.allError = null;
+      })
+      .addCase(fetchAllOutputs.fulfilled, (state, action) => {
+        state.allItems = action.payload;
+        state.allStatus = "succeeded";
+      })
+      .addCase(fetchAllOutputs.rejected, (state, action) => {
+        state.allStatus = "failed";
+        state.allError = action.payload ?? "Failed to load outputs.";
       })
       .addCase(createOutput.pending, (state) => {
         state.saveStatus = "loading";
@@ -391,3 +434,8 @@ export const selectPreviewRowCountByOutputId = createSelector(
     return byOutputId;
   },
 );
+
+/** HEL-503 — the global (across-all-pipelines) output index, and its own load status,
+ *  consumed by the palette's search-indexing effect and search selector. */
+export const selectAllOutputs = (state: RootState): Output[] => state.outputs.allItems;
+export const selectAllOutputsStatus = (state: RootState): AsyncStatus => state.outputs.allStatus;
