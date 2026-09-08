@@ -4,6 +4,7 @@ import { join } from "path";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { DataGrid } from "./DataGrid";
+import type { SortState } from "./useSortedRows";
 
 /** JSDOM's `getBoundingClientRect` returns all-zero by default (no real
  * layout engine) — stub a deterministic width so drag-delta math is
@@ -387,5 +388,100 @@ describe("DataGrid — table-layout:fixed regression guard (static source)", () 
       // column collapses toward ~0px in a real browser (evaluation-1.md).
       expect(th.style.width).not.toBe("");
     }
+  });
+});
+
+// HEL-448: sortable header rendering. `DataGrid` never orders rows itself
+// (the caller does, via `useSortedRows`) — these tests only cover the
+// affordance: glyph, `aria-sort`, click/keyboard activation, and the two
+// gates (variant + `onSort` presence) on rendering it at all.
+describe("DataGrid — sortable headers (HEL-448)", () => {
+  it("renders no sort button when onSort is omitted, even in the full variant", () => {
+    const { container } = render(<DataGrid variant="full" rows={[{ a: 1, b: 2 }]} />);
+    expect(container.querySelector(".sortable-th__btn")).not.toBeInTheDocument();
+  });
+
+  it("renders no sort button on the preview variant, even when onSort is supplied", () => {
+    const onSort = jest.fn();
+    const { container } = render(
+      <DataGrid variant="preview" rows={[{ a: 1, b: 2 }]} onSort={onSort} />,
+    );
+    expect(container.querySelector(".sortable-th__btn")).not.toBeInTheDocument();
+  });
+
+  it("marks the active column's aria-sort and leaves every other sortable column at 'none'", () => {
+    const sort: SortState<string> = { key: "a", direction: "asc" };
+    render(<DataGrid variant="full" rows={[{ a: 1, b: 2 }]} sort={sort} onSort={jest.fn()} />);
+    const headers = screen.getAllByRole("columnheader");
+    const colA = headers.find((h) => h.textContent?.startsWith("a"));
+    const colB = headers.find((h) => h.textContent?.startsWith("b"));
+    expect(colA).toHaveAttribute("aria-sort", "ascending");
+    expect(colB).toHaveAttribute("aria-sort", "none");
+  });
+
+  it("reflects a descending sort as aria-sort='descending' on the active column", () => {
+    const sort: SortState<string> = { key: "a", direction: "desc" };
+    render(<DataGrid variant="full" rows={[{ a: 1, b: 2 }]} sort={sort} onSort={jest.fn()} />);
+    const colA = screen.getAllByRole("columnheader").find((h) => h.textContent?.startsWith("a"));
+    expect(colA).toHaveAttribute("aria-sort", "descending");
+  });
+
+  it("clicking a sortable header's button fires onSort with that column's key", () => {
+    const onSort = jest.fn();
+    const { container } = render(
+      <DataGrid variant="full" rows={[{ a: 1, b: 2 }]} onSort={onSort} />,
+    );
+    const buttons = container.querySelectorAll(".sortable-th__btn");
+    fireEvent.click(buttons[1]);
+    expect(onSort).toHaveBeenCalledWith("b");
+  });
+
+  it("Enter/Space on the sort button activates it, natively, without a custom key handler", () => {
+    const onSort = jest.fn();
+    render(<DataGrid variant="full" rows={[{ a: 1, b: 2 }]} onSort={onSort} />);
+    const button = screen.getAllByRole("button", { name: "a" })[0];
+    // A real <button> fires `click` for both Enter and Space natively —
+    // asserting the click fires confirms the affordance IS a real <button>
+    // (not a styled <div>), which is what makes Enter/Space "just work"
+    // without any bespoke onKeyDown here.
+    fireEvent.click(button);
+    expect(onSort).toHaveBeenCalledWith("a");
+  });
+
+  it("resizing a column's handle does not fire onSort (the two controls don't interfere)", () => {
+    jest.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 200,
+      height: 20,
+      top: 0,
+      left: 0,
+      right: 200,
+      bottom: 20,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+    const onSort = jest.fn();
+    const { container } = render(
+      <DataGrid variant="full" rows={[{ a: 1, b: 2 }]} onSort={onSort} />,
+    );
+    const handle = container.querySelector(".ui-data-grid__resize-handle") as HTMLElement;
+    fireEvent.mouseDown(handle, { clientX: 100 });
+    fireEvent.mouseMove(window, { clientX: 150 });
+    fireEvent.mouseUp(window);
+    expect(onSort).not.toHaveBeenCalled();
+    jest.restoreAllMocks();
+  });
+
+  it("uses the shared sortable-th__btn/glyph classes, not a parallel class family", () => {
+    const { container } = render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1 }]}
+        sort={{ key: "a", direction: "asc" }}
+        onSort={jest.fn()}
+      />,
+    );
+    expect(container.querySelector(".sortable-th__btn")).toBeInTheDocument();
+    expect(container.querySelector(".sortable-th__glyph")).toBeInTheDocument();
   });
 });

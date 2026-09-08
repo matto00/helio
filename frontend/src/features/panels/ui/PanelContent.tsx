@@ -131,7 +131,8 @@ function OutputPanelContent({
     const cfg = readTableConfig(output.config);
     return (
       <TableRenderer
-        panelId={outputId}
+        outputId={outputId}
+        ownerId={output.ownerId}
         rawRows={rawRows}
         headers={headers}
         paginationRows={paginationRows}
@@ -139,6 +140,7 @@ function OutputPanelContent({
         paginationIsLoadingMore={paginationIsLoadingMore}
         onLoadMore={onLoadMore}
         columnOrder={cfg.columnOrder}
+        columnSort={cfg.columnSort}
       />
     );
   }

@@ -17,6 +17,7 @@ import type {
 import type { ChartType } from "../../../../utils/chartAppearance";
 import type { CapabilityColumn, NodeCapabilities } from "../../types/output";
 import type { SelectOption } from "../../../../shared/ui/index";
+import type { SortState } from "../../../../shared/ui/useSortedRows";
 
 export interface ChartOutputConfig {
   chartType: ChartType;
@@ -29,6 +30,17 @@ export interface ChartOutputConfig {
 export interface TableOutputConfig {
   fieldMapping: Record<string, string>;
   columnOrder?: string[];
+  /** HEL-448 — persisted `{ key, direction }`, same vocabulary as
+   *  `useSortedRows`/`SortableTh` at runtime, no translation layer. Named
+   *  `columnSort`, not `sort` — `TimelineOutputConfig.sort` below is a
+   *  different type in this same file. This is a FLAT sibling of
+   *  `columnOrder`, not a nested container, because `OutputService
+   *  .mergeConfig` only deep-merges four hardcoded chart keys — any nested
+   *  container here would be replaced wholesale on every unrelated patch.
+   *  HEL-451 (columnFilters), HEL-465 (pinnedColumns) and HEL-469
+   *  (columnFormats) should each land as their OWN flat sibling here too,
+   *  never nested inside this field or a shared container. */
+  columnSort?: SortState<string> | null;
 }
 
 /** Numeric display style for `metric`/`collection baseType: metric` renderers
@@ -110,10 +122,24 @@ export function readChartConfig(config: Record<string, unknown>): ChartOutputCon
   };
 }
 
+/** Tolerant read for `columnSort` (HEL-448 design D5): an object with a
+ *  string `key` and a `direction` of EXACTLY `"asc"`/`"desc"`, else
+ *  `undefined` — a key naming a column absent from the data needs no
+ *  special handling here, `useSortedRows` already renders source order for
+ *  it (design D2). */
+function readColumnSort(value: unknown): SortState<string> | undefined {
+  if (value === null || typeof value !== "object") return undefined;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.key !== "string") return undefined;
+  if (candidate.direction !== "asc" && candidate.direction !== "desc") return undefined;
+  return { key: candidate.key, direction: candidate.direction };
+}
+
 export function readTableConfig(config: Record<string, unknown>): TableOutputConfig {
   return {
     fieldMapping: safeRecord(config.fieldMapping),
     columnOrder: Array.isArray(config.columnOrder) ? (config.columnOrder as string[]) : undefined,
+    columnSort: readColumnSort(config.columnSort),
   };
 }
 
