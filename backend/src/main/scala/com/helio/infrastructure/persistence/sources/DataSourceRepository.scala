@@ -112,7 +112,9 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case None    => table.filter(_.ownerId === ownerUuid)
     }
     val countAction = baseQuery.length.result
-    val sliceAction = baseQuery.sortBy(_.createdAt.desc).drop(page.offset).take(page.limit).result
+    // HEL-1022: the UI column is labeled "Updated", not "Created" -- sort on the field the
+    // header actually names so an edited (not just newly-created) source sorts to the top.
+    val sliceAction = baseQuery.sortBy(_.updatedAt.desc).drop(page.offset).take(page.limit).result
     ctx.withUserContext(ownerId.value)(
       for {
         total <- countAction

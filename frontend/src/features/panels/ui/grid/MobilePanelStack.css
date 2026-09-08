@@ -51,6 +51,26 @@
   flex-shrink: 0;
 }
 
+/* HEL-1022 — `--metric`/`--chart`/`--table`/`--collection`/`--timeline`
+ * above are PRE-HEL-909 kind names: `panel.type` (`PanelKind`) has only
+ * been `output | text | markdown | image | divider` since the
+ * pipelines-and-outputs remodel, so none of those five selectors have
+ * matched a real class here in a long time — this rule's own class list
+ * was never updated alongside that rename. `output` is the one kind this
+ * gap actually bites: it's the ONLY placement kind whose rendered content
+ * is decided at render time by the bound Output (table/chart/metric, or —
+ * for a panel that has never run — the "Not run yet" empty state), so it
+ * fell straight through to `.panel-grid-card`'s `height: 100%` against
+ * this auto-height flex parent and collapsed to ~0 content height exactly
+ * as described above. That collapse is what let a freshly-created panel's
+ * own empty-state copy visibly collide with its title bar — the card had
+ * almost no height to give it. */
+.mobile-panel-stack__item.mobile-panel-stack__item--output {
+  container-type: inline-size;
+  height: auto;
+  flex-shrink: 0;
+}
+
 /* Table: capped at min(60dvh, intrinsic) and the only stack kind with a
    nested scroll container (W4.3/W5). Horizontal scroll is delegated
    entirely to DataGrid's own `.ui-data-grid { overflow: auto }` — hiding
@@ -60,6 +80,19 @@
   max-height: 60dvh;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* HEL-1022 — Output: `mobilePanelHeights.ts`'s `computeMobilePanelHeight`
+ * already documents this kind as getting "the same capped,
+ * internally-scrolling treatment table had", but no selector here ever
+ * implemented that for `output` specifically (see the collapse fix above).
+ * Generic `.panel-content` — not a bound-content-kind subclass like
+ * `.panel-content--table` — because the actual rendered kind isn't visible
+ * at this level (same doc comment); this is the outer cap regardless of
+ * what the Output turns out to render as, including the empty state. */
+.mobile-panel-stack__item--output .panel-content {
+  max-height: 60dvh;
+  overflow-y: auto;
 }
 
 /* Markdown / text: fully intrinsic — no fixed height, no cap, no internal

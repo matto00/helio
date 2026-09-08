@@ -329,6 +329,15 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
           main.locator(".connectors-page__name-cell", { hasText: "HEL-813 Connector" }),
         ).toBeVisible();
 
+        // HEL-1022: the row's own actions were condensed into an `ActionsMenu`,
+        // and below 1100px "Test connection" folds into that menu too — so at
+        // BOTH widths this suite runs (430/768) a row contains no
+        // `.connectors-page__btn` at all. Probing only that class still passes,
+        // but it resolves to the toolbar's "Add connector" button and silently
+        // stops covering the row-level control this surface exists to guard
+        // (verified: 0 matches under `tbody` at 430px). Probe the row trigger
+        // explicitly, and keep the toolbar assertion as its own check.
+        await assertExpanderFloor(page, main.locator("tbody .actions-menu__trigger").first());
         await assertExpanderFloor(page, main.locator(".connectors-page__btn"));
       });
     });

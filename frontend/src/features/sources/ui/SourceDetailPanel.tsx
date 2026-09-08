@@ -12,6 +12,7 @@ import {
   type RequestErrorKind,
 } from "../../../services/classifyRequestError";
 import { DataGrid, TextField } from "../../../shared/ui/index";
+import { SchemaFieldViewer } from "../../../shared/ui/SchemaFieldViewer";
 import { EmptySchemaAffordance } from "./EmptySchemaAffordance";
 import { SourcePreviewSkeleton } from "./SourcePreviewSkeleton";
 
@@ -221,27 +222,44 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
 
       {source.inferredSchema.length > 0 ? (
         <section className="source-detail-panel__schema" aria-label="Inferred schema">
-          <h4 className="source-detail-panel__section-title">Schema</h4>
-          <div className="source-detail-panel__schema-table-wrapper">
-            <table className="source-detail-panel__schema-table">
-              <thead>
-                <tr>
-                  <th>Field</th>
-                  <th>Type</th>
-                  <th>Nullable</th>
-                </tr>
-              </thead>
-              <tbody>
-                {source.inferredSchema.map((field) => (
-                  <tr key={field.name}>
-                    <td className="source-detail-panel__schema-field-name">{field.name}</td>
-                    <td>{field.dataType}</td>
-                    <td>{field.nullable ? "yes" : "no"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* HEL-1022: a REST source's schema can carry ~200 dotted-path
+              fields (e.g. `player.metadata.injury_override_regular_2024_10`
+              repeated ~140 times with only the trailing segment varying) --
+              `SchemaFieldViewer` groups by namespace, caps each group with a
+              "Show all N", and adds a filter box, all skipped entirely for a
+              small schema (see its own small-threshold doc). It renders its
+              own "Schema  N fields" header when not small, replacing the
+              static `<h4>` this section used to always show; a small
+              source's table still carries the `aria-label="Inferred
+              schema"` on this `<section>`, so the accessible name survives
+              either way -- only the always-visible small-count label goes
+              away, which is not itself grouping/search chrome. */}
+          <SchemaFieldViewer
+            title="Schema"
+            fields={source.inferredSchema}
+            getName={(field) => field.name}
+            renderField={(field) => (
+              <tr key={field.name}>
+                <td className="source-detail-panel__schema-field-name">{field.name}</td>
+                <td>{field.dataType}</td>
+                <td>{field.nullable ? "yes" : "no"}</td>
+              </tr>
+            )}
+            fieldsContainer={(children) => (
+              <div className="source-detail-panel__schema-table-wrapper">
+                <table className="source-detail-panel__schema-table">
+                  <thead>
+                    <tr>
+                      <th>Field</th>
+                      <th>Type</th>
+                      <th>Nullable</th>
+                    </tr>
+                  </thead>
+                  <tbody>{children}</tbody>
+                </table>
+              </div>
+            )}
+          />
         </section>
       ) : (
         <EmptySchemaAffordance source={source} />

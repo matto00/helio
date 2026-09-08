@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { fetchSources } from "../../sources/state/sourcesSlice";
+import type { DataSource } from "../../sources/types/dataSource";
 import {
   analyzePipeline,
   clearRunState,
@@ -522,11 +523,19 @@ export function usePipelineDetailPage() {
   }, [isDirty]);
 
   const pipelineName = currentPipeline?.name ?? id ?? "Pipeline";
-  // HEL-969: "which source is this pipeline bound to for display" names the
-  // first root (D2 — display sites take roots[0]; only the dependency
-  // counters in SidebarBody/EmptySchemaAffordance need roots.some(...)).
-  const boundSource = sources.find((s) => s.id === currentPipeline?.roots[0]?.dataSourceId);
-  const canEditSource = boundSource !== undefined;
+  // HEL-1022 — "which source(s) is this pipeline bound to" used to name only
+  // `roots[0]` (D2's old display convention); the header now shows one chip
+  // per root, so "is this source editable by the current user" is a PER-ROOT
+  // question, not a single global boolean. Keyed by root id (not source id)
+  // since two roots can't share a `dataSourceId` but the lookup site always
+  // has the root, not the source, at hand.
+  const sourceByRootId = useMemo(() => {
+    const map: Record<string, DataSource | undefined> = {};
+    for (const root of roots) {
+      map[root.id] = sources.find((s) => s.id === root.dataSourceId);
+    }
+    return map;
+  }, [roots, sources]);
   const isOwner =
     currentPipeline?.ownerId != null &&
     currentUser?.id != null &&
@@ -584,13 +593,18 @@ export function usePipelineDetailPage() {
     );
   }, [searchParams, allOutputs, setSearchParams]);
 
-  const handleEditSource = useCallback(() => {
-    if (!boundSource) return;
-    // Deep-links straight to the source now that `/sources/:id` exists; this
-    // previously set a Redux selection and landed on `/sources`, relying on
-    // that page to resolve it.
-    void navigate(`/sources/${boundSource.id}`);
-  }, [boundSource, navigate]);
+  // HEL-1022 — takes the target source's id explicitly rather than closing
+  // over a single "the bound source" (there can be several now); the caller
+  // (`PipelineDetailHeader`) resolves which root's source this is per chip.
+  const handleEditSource = useCallback(
+    (sourceId: string) => {
+      // Deep-links straight to the source now that `/sources/:id` exists; this
+      // previously set a Redux selection and landed on `/sources`, relying on
+      // that page to resolve it.
+      void navigate(`/sources/${sourceId}`);
+    },
+    [navigate],
+  );
 
   // Toggles `enabled` from the bar without opening the dialog — persists the
   // same kind/expression/timezone (spec: "Disabling from the bar").
@@ -1082,7 +1096,7 @@ export function usePipelineDetailPage() {
         void dispatch(fetchPipelineById(id));
       } catch (err: unknown) {
         const message = extractErrorMessage(err, "the request could not be completed.");
-        pushToast({ variant: "error", message: `Failed to add root: ${message}` });
+        pushToast({ variant: "error", message: `Failed to add source: ${message}` });
       }
     },
     [id, dispatch, pushToast],
@@ -1104,7 +1118,7 @@ export function usePipelineDetailPage() {
         await Promise.all([dispatch(fetchPipelineById(id)), syncStepsFromServer()]);
         pushToast({
           variant: "success",
-          message: `Root removed: ${result.removedStepCount} step${
+          message: `Source removed: ${result.removedStepCount} step${
             result.removedStepCount === 1 ? "" : "s"
           }, ${result.removedOutputCount} Output${
             result.removedOutputCount === 1 ? "" : "s"
@@ -1114,9 +1128,12 @@ export function usePipelineDetailPage() {
         // R7 phase 1's two named refusals ("last root" / "surviving lane
         // referencing a deleted node") arrive as the server's own message
         // via `extractErrorMessage` -- rendered as-is, not remapped to a
-        // second, drifting client-side copy.
+        // second, drifting client-side copy. Only the CLIENT'S OWN "Failed
+        // to remove source:" prefix is copy (HEL-1022: a root is a "source"
+        // in user-facing text) -- the server's message after the colon is
+        // never touched.
         const message = extractErrorMessage(err, "the request could not be completed.");
-        pushToast({ variant: "error", message: `Failed to remove root: ${message}` });
+        pushToast({ variant: "error", message: `Failed to remove source: ${message}` });
       }
     },
     [id, dispatch, pushToast, syncStepsFromServer],
@@ -1283,8 +1300,7 @@ export function usePipelineDetailPage() {
     runs,
     isDirty,
     pipelineName,
-    boundSource,
-    canEditSource,
+    sourceByRootId,
     isOwner,
     getAnalyzeColumns,
     getAnalyzeSchema,

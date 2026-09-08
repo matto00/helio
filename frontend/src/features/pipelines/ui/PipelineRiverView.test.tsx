@@ -10,17 +10,10 @@ import type { ComponentProps } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import { PipelineRiverView } from "./PipelineRiverView";
-import { renderWithStore } from "../../../test/renderWithStore";
 import { OP_TYPES } from "../state/stepNarrowing";
 import { buildLaneGraph } from "../state/stepTree";
 import type { PipelineRoot } from "../types/pipelineStep";
 import type { Step } from "../types/step";
-
-// AddRootModal (mounted lazily by "+ Add root") fetches sources on open --
-// mocked so it never hits a real (jsdom-network-error) request.
-jest.mock("../../sources/services/dataSourceService", () => ({
-  fetchSources: jest.fn().mockResolvedValue([]),
-}));
 
 /** HEL-912 — this file's fixtures historically had no `parentStepId` at
  *  all, relying on the OLD `buildStepTree`'s "append any parentless step
@@ -90,7 +83,6 @@ function baseProps(overrides: Partial<ComponentProps<typeof PipelineRiverView>> 
     steps: resolvedSteps,
     laneGraph: buildLaneGraph(resolvedSteps, ONE_ROOT),
     roots: ONE_ROOT,
-    onAddRoot: jest.fn(),
     onRemoveRoot: jest.fn(),
     pipelineId: "pipe-1",
     dropdownOpen: false,
@@ -458,6 +450,28 @@ describe("PipelineRiverView — multi-root (HEL-968)", () => {
     expect(screen.queryByText(/primary/i)).not.toBeInTheDocument();
   });
 
+  // HEL-1022 — root 0 gets the SAME column-header treatment as every other
+  // root once there are 2+ (previously it had none, so the columns read as
+  // inconsistent peers).
+  it("gives root 0 a column header once a second root exists", () => {
+    const steps = linkChain([stepA]);
+    render(
+      <PipelineRiverView
+        {...baseProps({ steps, laneGraph: buildLaneGraph(steps, TWO_ROOTS), roots: TWO_ROOTS })}
+      />,
+    );
+    expect(screen.getByText("Orders")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove source Orders" })).toBeInTheDocument();
+  });
+
+  // HEL-1022 — a single-root pipeline must look exactly as it did before:
+  // no column header on root 0.
+  it("renders no column header for root 0 with a single root", () => {
+    const steps = linkChain([stepA]);
+    render(<PipelineRiverView {...baseProps({ steps, roots: ONE_ROOT })} />);
+    expect(screen.queryByRole("button", { name: /^Remove source/i })).not.toBeInTheDocument();
+  });
+
   // task 6.2 — an empty root renders an affordance rather than vanishing.
   it("an empty root's column renders an empty-lane affordance instead of disappearing", () => {
     const steps = linkChain([stepA]);
@@ -484,27 +498,8 @@ describe("PipelineRiverView — multi-root (HEL-968)", () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /Remove root Shipments/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Remove source Shipments/i }));
     expect(onRemoveRoot).toHaveBeenCalledWith("root-2");
-  });
-
-  it("'+ Add root' opens the add-root modal", () => {
-    // jsdom does not implement showModal/close natively; stub to set the
-    // open attribute (matching CreatePipelineModal.test.tsx's precedent).
-    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
-      this.setAttribute("open", "");
-    });
-    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
-      this.removeAttribute("open");
-    });
-    // AddRootModal reads/dispatches Redux (`useAppSelector`/`fetchSources`),
-    // unlike the rest of this component -- needs a real store, unlike every
-    // other test in this file.
-    renderWithStore(<PipelineRiverView {...baseProps({ roots: ONE_ROOT })} />, {
-      sources: { items: [], status: "succeeded" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "+ Add root" }));
-    expect(screen.getByRole("heading", { name: "Add a root" })).toBeInTheDocument();
   });
 });
 
@@ -587,7 +582,6 @@ describe("nodePath wiring (HEL-985)", () => {
       steps: WIRING_STEPS,
       laneGraph: buildLaneGraph(WIRING_STEPS, WIRING_ROOTS),
       roots: WIRING_ROOTS,
-      onAddRoot: jest.fn(),
       onRemoveRoot: jest.fn(),
       pipelineId: "pipe-wiring",
       dropdownOpen: false,
@@ -650,7 +644,7 @@ describe("nodePath wiring (HEL-985)", () => {
 
     // task 1.2 — do NOT count root columns (root 1 never renders as one, and
     // the "+ root" pseudo-column shares its class). Probe by label instead.
-    expect(screen.getByLabelText("Root: Root Two Source")).toBeInTheDocument();
+    expect(screen.getByLabelText("Source: Root Two Source")).toBeInTheDocument();
     // Root 1's trunk steps render outside any RootColumn.
     expect(screen.getByText("Trunk one")).toBeInTheDocument();
     expect(screen.getByText("Trunk three")).toBeInTheDocument();

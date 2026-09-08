@@ -127,7 +127,7 @@
 }
 
 .bottom-nav__tab:focus-visible {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   /* -3px, not the app-wide flush-list-item -2px (DESIGN.md §8): documented
      exception in DESIGN.md's HEL-774 carve-out ("Surfaces & the opacity
      invariant" § "Focus-ring exception"). Two distinct measured effects,

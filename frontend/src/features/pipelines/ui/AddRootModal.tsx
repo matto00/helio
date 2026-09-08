@@ -3,6 +3,9 @@
 // `Select` plus a nested `AddSourceModal` "Create a new source" path) --
 // paste-table/static, CSV upload or URL, REST connector, or text/markdown
 // upload or URL are all reachable without leaving this flow.
+//
+// HEL-1022: user-facing copy calls a root a "source" (internal naming --
+// `root`/`PipelineRoot` -- is unchanged, this is copy only).
 
 import { useEffect, useState } from "react";
 
@@ -66,7 +69,7 @@ export function AddRootModal({ onClose, onAdd }: AddRootModalProps) {
         disabled={!selectedSourceId}
         onClick={handleSubmit}
       >
-        Add root
+        Add source
       </button>
     </>
   );
@@ -75,9 +78,9 @@ export function AddRootModal({ onClose, onAdd }: AddRootModalProps) {
     <>
       <Modal
         open
-        title="Add a root"
+        title="Add a source"
         size="sm"
-        ariaLabel="Add a root"
+        ariaLabel="Add a source"
         onClose={onClose}
         footer={footer}
       >

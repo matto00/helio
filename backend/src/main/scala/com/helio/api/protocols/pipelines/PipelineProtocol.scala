@@ -115,7 +115,11 @@ final case class PipelineSummaryResponse(
     // semantics -- never rendered as "not truncated".
     lastRunTruncated: Option[Boolean] = None,
     ownerId: Option[String] = None,
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    // HEL-1022: "last edited", distinct from `lastRunAt` ("last run", `None` for a never-run
+    // pipeline) -- the field the list view's default recency sort actually needs.
+    createdAt: String = "",
+    updatedAt: String = ""
 )
 
 
@@ -330,7 +334,7 @@ trait PipelineProtocol
     jsonFormat3(PipelineRootSummaryResponse.apply)
   implicit val removePipelineRootResponseFormat: RootJsonFormat[RemovePipelineRootResponse] =
     jsonFormat2(RemovePipelineRootResponse.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat9(PipelineSummaryResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat11(PipelineSummaryResponse.apply)
 
   implicit val assertionFailureDetailFormat: RootJsonFormat[AssertionFailureDetail] =
     jsonFormat4(AssertionFailureDetail.apply)

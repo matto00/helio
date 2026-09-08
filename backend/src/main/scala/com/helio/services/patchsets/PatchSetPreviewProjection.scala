@@ -295,6 +295,15 @@ private[services] object PatchSetPreviewProjection {
       loop(request.roots.toList, Vector.empty).map {
         case Left(err) => Left(err)
         case Right(sources) =>
+          // HEL-1022 (adversarial review finding 3): `createdAt`/`updatedAt` must not silently
+          // default to `""` -- nothing is persisted yet (this is a preview), so "now" is the
+          // honest value for what applying this create edit would produce this instant, exactly
+          // like `PipelineRepository.create`/`createAction`'s own `now.toString` for a real
+          // create. An empty string reached `PipelineListTable`'s `formatRelativeTime("")` as
+          // "NaN years ago" -- latent (this construction site's caller is a preview projection,
+          // not the list endpoint itself), but this response shape is otherwise contractually
+          // "always non-empty" (`pipeline-list-api` spec), so this site must honor that too.
+          val now = Instant.now().toString
           Right(Some(pipelineSummaryResponseFormat.write(PipelineSummaryResponse(
             id                   = PendingId,
             name                 = request.name.trim,
@@ -303,7 +312,9 @@ private[services] object PatchSetPreviewProjection {
             lastRunAt            = None,
             lastRunRowCount      = None,
             ownerId              = Some(user.id.value),
-            tag                  = request.tag
+            tag                  = request.tag,
+            createdAt            = now,
+            updatedAt            = now
           ))))
       }
   }
@@ -320,7 +331,9 @@ private[services] object PatchSetPreviewProjection {
       lastRunAt            = s.lastRunAt,
       lastRunRowCount      = s.lastRunRowCount,
       ownerId              = if (s.ownerId.nonEmpty) Some(s.ownerId) else None,
-      tag                  = s.tag
+      tag                  = s.tag,
+      createdAt            = s.createdAt,
+      updatedAt            = s.updatedAt
     )
 
 

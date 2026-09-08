@@ -8,6 +8,19 @@
    * silently steal its taps. 8px (`--space-2`) was under that floor. */
   gap: var(--space-4);
   margin-top: var(--space-2);
+  /* HEL-1022 follow-up: this rail had NO horizontal padding, so its chips
+   * sat flush against the card's inner border while the header/body above
+   * and below it both use `14px` (`.pipeline-detail-page__step-card-header`,
+   * `.pipeline-detail-page__step-card-body`) — matched here so every row in
+   * the card shares one left inset, which is also what lets `BranchAffordance`
+   * (`.pipeline-detail-page__add-tail-row`, PipelineDetailPage.css) share
+   * this exact left edge instead of guessing at an indent. */
+  padding: 0 14px;
+  /* HEL-1022 follow-up: the rail is the card's last child and the card has no
+   * padding of its own, so without this the chips' bottom edge landed 1px off
+   * the card's border (measured) while their top gap was 53px — visibly
+   * bottom-cramped. Mirrors `margin-top` so the rail sits evenly in the card. */
+  padding-bottom: var(--space-2);
 }
 
 .outputs-rail__chip {
@@ -57,20 +70,21 @@
   color: var(--app-text-muted);
 }
 
-/* HEL-943 — Outputs are the only way a pipeline step reaches a dashboard, so
- * this trailing "+ Output" chip is a primary action, not a peer of the read-
- * only Output chips it sits beside. It previously inherited `.outputs-rail__
- * chip`'s fixed 28px height with 0 vertical padding (`padding: 0 var(--space-
- * 3)`) — technically on-scale, but a flat, thin dashed pill that read as
- * recessed rather than as the row's one actionable control. Switched to an
- * auto height with real two-axis padding (mirrors `.pipeline-detail-page__
- * add-step-dashed-btn` and `.pipeline-detail-page__add-tail-btn`'s recipe,
- * so every "+ add a thing" affordance on this page now shares one visual
- * language) and a filled accent-surface background so it reads as the row's
- * CTA at a glance instead of blending into the Output chips beside it. */
+/* HEL-943/HEL-1022 — Outputs are the only way a pipeline step reaches a
+ * dashboard, so this trailing "+ Output" chip is a primary action, not a
+ * peer of the read-only Output chips it sits beside — a dashed, filled
+ * accent-surface background sets it apart. HEL-1022: an earlier revision
+ * gave it its own `height: auto` + two-axis padding, which grew it taller
+ * than, and misaligned it against, the `--control-sm` chips it sits beside
+ * in the same row. Kept on the shared `--control-sm` height/padding here so
+ * every chip in the rail sits on one baseline. */
 .outputs-rail__add {
-  height: auto;
-  padding: var(--space-2) var(--space-4);
+  /* HEL-1022 follow-up: stated explicitly (not just inherited from
+   * `.outputs-rail__chip`'s `padding: 0 var(--space-3)`) so this chip's
+   * horizontal padding is never silently dropped by a future edit to the
+   * shared rule above — the "+" glyph must never sit flush against the
+   * pill's border, on the rendered box, not just in the declaration. */
+  padding: 0 var(--space-3);
   border-style: dashed;
   background: var(--app-accent-surface);
   color: var(--app-accent);

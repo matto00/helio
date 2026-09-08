@@ -7,11 +7,14 @@ TBD - created by archiving change add-data-pipelines-list-view. Update Purpose a
 
 ### Requirement: Backend pipelines table exists
 The backend SHALL maintain a `pipelines` table with columns: `id` (UUID PK), `name` (text),
-`source_data_source_id` (UUID FK to data_sources), `last_run_status` (nullable text, values:
-`"succeeded"` or `"failed"`), `last_run_at` (nullable timestamptz), `created_at` (timestamptz),
-`updated_at` (timestamptz). This table SHALL be created via a Flyway migration. The table SHALL
-NOT reference `data_types` (dropped by HEL-904) — a pipeline's outputs are read via the `outputs`
-table's `pipeline_id` FK, not a single `output_data_type_id` column.
+`last_run_status` (nullable text, values: `"succeeded"` or `"failed"`), `last_run_at` (nullable
+timestamptz), `created_at` (timestamptz), `updated_at` (timestamptz). This table SHALL be created
+via a Flyway migration. The table SHALL NOT reference `data_types` (dropped by HEL-904) — a
+pipeline's outputs are read via the `outputs` table's `pipeline_id` FK, not a single
+`output_data_type_id` column. A pipeline's source(s) are NOT a column on this table — `pipelines`
+no longer has a `source_data_source_id` column (dropped by HEL-913); each source is a row in the
+separate `pipeline_roots` table (one-to-many, ordered by `position`), read via that table's
+`pipeline_id` FK.
 
 `last_run_status` and `last_run_at` SHALL be written by the pipeline execution engine on every
 non-dry run attempt: set to `"succeeded"` and the completion timestamp on success, or `"failed"`
@@ -44,13 +47,25 @@ execution itself completed without exception — no third `last_run_status` valu
 
 ### Requirement: GET /api/pipelines returns pipeline summaries
 The backend SHALL expose `GET /api/pipelines` that returns a JSON array of pipeline summary
-objects. Each object SHALL include: `id`, `name`, `sourceDataSourceName`. `lastRunStatus`,
+objects. Each object SHALL include: `id`, `name`, `roots` (an array of `{id, dataSourceId,
+dataSourceName}`, one entry per source feeding the pipeline — there is no singular
+`sourceDataSourceName`/`sourceDataSourceId` field). `lastRunStatus`,
 `lastRunAt`, and `lastRunRowCount` SHALL be present with their real values once a pipeline has run,
 and SHALL be ABSENT from the response entirely (not present as `null`) for a pipeline that has
-never run — `PipelineSummaryResponse`'s fields are `Option[...]` serialized via `jsonFormat9` with
+never run — `PipelineSummaryResponse`'s fields are `Option[...]` serialized via `jsonFormat11` with
 no `NullOptions` mixed in, so spray-json omits a `None` field rather than writing `null`.
 the retired `outputDataTypeName`/`output_data_type_id` fields are no longer included — a pipeline's Outputs are fetched
 via `GET /api/pipelines/:id/outputs`.
+
+`createdAt` and `updatedAt` (HEL-1022) SHALL always be present, ISO-8601 timestamp strings
+projected from the `pipelines` table row — `updatedAt` is "last edited", distinct from
+`lastRunAt`'s "last run" (which is absent for a never-run pipeline). The frontend list view's
+default sort is `updatedAt` descending.
+
+#### Scenario: createdAt/updatedAt are always present
+- **WHEN** `GET /api/pipelines` is called for any pipeline, run or never-run
+- **THEN** the response item includes non-empty `createdAt` and `updatedAt` ISO-8601 timestamp
+  strings
 
 #### Scenario: Returns empty array when no pipelines exist
 - **WHEN** `GET /api/pipelines` is called and no pipelines exist
@@ -58,8 +73,9 @@ via `GET /api/pipelines/:id/outputs`.
 
 #### Scenario: Returns pipeline summaries with joined names
 - **WHEN** one or more pipelines exist and `GET /api/pipelines` is called
-- **THEN** the response is `200 OK` with an array where each item includes `sourceDataSourceName`
-  from the joined data source and none of the retired `outputDataTypeName`/`output_data_type_id` fields
+- **THEN** the response is `200 OK` with an array where each item includes a `roots` array whose
+  entries carry `dataSourceName` from the joined data source, and none of the retired
+  `sourceDataSourceName`/`outputDataTypeName`/`output_data_type_id` fields
 
 #### Scenario: Absent last-run fields for pipelines that have never run
 - **WHEN** a pipeline has never been run

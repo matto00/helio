@@ -247,6 +247,27 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
       summariesOwner.exists(_.id == pid.value) shouldBe true
     }
 
+    "listSummaries returns non-empty createdAt/updatedAt for every pipeline" in {
+      val pid = seedPipeline()
+      val summary = await(pipelineRepo.listSummaries(systemUser)).find(_.id == pid.value).get
+      summary.createdAt should not be empty
+      summary.updatedAt should not be empty
+    }
+
+    // HEL-1022: most-recently-EDITED first, not creation order -- a pipeline whose name is
+    // updated (bumping `updated_at` via `updateName`) after an initially-newer pipeline was
+    // created must resurface above it.
+    "listSummaries orders by updatedAt descending, not createdAt" in {
+      val older = seedPipeline()
+      val newer = seedPipeline()
+      // Touch the OLDER pipeline's updated_at so it becomes the most-recently-edited.
+      await(pipelineRepo.updateName(older, "renamed", systemUser))
+
+      val summaries = await(pipelineRepo.listSummaries(systemUser))
+      val orderedIds = summaries.map(_.id).filter(id => id == older.value || id == newer.value)
+      orderedIds shouldBe Seq(older.value, newer.value)
+    }
+
     "updateName returns None and does not mutate for a non-owner" in {
       val pid    = seedPipeline()
       val before = await(pipelineRepo.findById(pid, systemUser)).get.name

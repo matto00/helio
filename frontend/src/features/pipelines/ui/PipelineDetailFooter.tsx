@@ -24,7 +24,9 @@ import type { RunStatusEventData } from "../hooks/usePipelineRunEvents";
 import type { SchemaField } from "../types/pipelineStep";
 import { StatusChip } from "../../../shared/ui/StatusChip";
 import { TextField } from "../../../shared/ui/TextField";
+import { SCHEMA_FIELD_VIEWER_SMALL_THRESHOLD } from "../../../shared/ui/useSchemaFieldSearch";
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
+import { OutputSchemaDisclosure } from "./OutputSchemaDisclosure";
 import { TruncatedRowCountBadge } from "./TruncatedRowCountBadge";
 
 interface SseLike {
@@ -155,17 +157,29 @@ export function PipelineDetailFooter({
             </button>
           )}
           <span className="pipeline-detail-page__footer-output-label">OUTPUT</span>
-          <span className="pipeline-detail-page__footer-schema">
-            {outputSchema.length > 0 ? (
-              outputSchema.map((field) => (
+          {/* HEL-1022 — rendering every field as an inline chip here (no cap)
+           *  is what let a ~200-field REST source's schema balloon this
+           *  footer to ~15 wrapped rows, eating the canvas and shoving the
+           *  step-count/Dry-run/Run-pipeline cluster around. Below the
+           *  threshold, a schema stays exactly the plain inline chip row it
+           *  always was -- a 4-field schema must never look more
+           *  complicated than it is. Above it, `OutputSchemaDisclosure`
+           *  replaces the chip flood with a bounded, on-demand popover. */}
+          {outputSchema.length === 0 ? (
+            <span className="pipeline-detail-page__footer-schema">
+              <em className="pipeline-detail-page__footer-inferred">no output yet</em>
+            </span>
+          ) : outputSchema.length <= SCHEMA_FIELD_VIEWER_SMALL_THRESHOLD ? (
+            <span className="pipeline-detail-page__footer-schema">
+              {outputSchema.map((field) => (
                 <span key={field.name} className="pipeline-detail-page__footer-schema-chip">
                   {field.name}
                 </span>
-              ))
-            ) : (
-              <em className="pipeline-detail-page__footer-inferred">no output yet</em>
-            )}
-          </span>
+              ))}
+            </span>
+          ) : (
+            <OutputSchemaDisclosure fields={outputSchema} />
+          )}
         </div>
         <div className="pipeline-detail-page__footer-right">
           <span className="pipeline-detail-page__footer-stats">

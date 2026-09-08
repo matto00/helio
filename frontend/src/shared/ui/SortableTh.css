@@ -1,0 +1,42 @@
+/* HEL-1022: shared column-header sort affordance. Kept deliberately minimal
+   — the button fills the <th> so the whole header is clickable, not just
+   the label text, mirroring the tables' existing whole-row-click affordance. */
+.sortable-th__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sortable-th__btn:hover {
+  color: var(--app-accent);
+}
+
+.sortable-th__btn:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+/* HEL-1022 follow-up: this was `font-size: 0.7em` against a 10px header,
+   computing to a 7px glyph in a 6.3x9px box — measurably illegible. Sized
+   from a token instead of relatively, so it can never be shrunk again by the
+   header's own type scale. The neutral (unsorted) state is dimmed rather than
+   smaller, so every column's affordance stays the same size. */
+.sortable-th__glyph {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.sortable-th__glyph--neutral {
+  opacity: 0.45;
+}
+
+.sortable-th__btn:hover .sortable-th__glyph {
+  color: var(--app-accent);
+}

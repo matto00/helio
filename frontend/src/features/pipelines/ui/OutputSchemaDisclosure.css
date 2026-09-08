@@ -1,0 +1,49 @@
+/* HEL-1022 — the footer's "N fields" disclosure trigger, replacing the
+ * unbounded chip row once a schema clears the small-schema threshold. Sized
+ * and styled to read as a peer of `.pipeline-detail-page__footer-output-name`
+ * (the adjacent pipeline-name edit trigger) — a plain dashed-underline text
+ * button, not a boxed control, so it doesn't outweigh the footer's other
+ * inline affordances. */
+.output-schema-disclosure__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--app-border-strong);
+  color: var(--app-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  cursor: pointer;
+  padding: 1px 4px;
+}
+
+.output-schema-disclosure__trigger:hover,
+.output-schema-disclosure__trigger[aria-expanded="true"] {
+  border-bottom-color: var(--app-accent);
+  color: var(--app-text);
+}
+
+.output-schema-disclosure__chevron {
+  font-size: var(--text-micro);
+}
+
+/* HEL-1022 — this is the actual fix's load-bearing rule: unlike the footer
+ * row it replaces, this panel is BOUNDED. A 200+-field schema scrolls
+ * inside the popover instead of growing the page — verified against a
+ * ~200-field REST source (`proj-2026-flat`), where the footer's own height
+ * no longer changes at all between a 0-field and a 200-field output. */
+.output-schema-disclosure__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(28rem, calc(100vw - 40px));
+  max-height: min(24rem, calc(100vh - 80px));
+  overflow-y: auto;
+}
+
+.output-schema-disclosure__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}

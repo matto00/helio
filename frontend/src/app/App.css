@@ -330,7 +330,7 @@
 }
 
 .app-sidebar__nav-link:focus-visible {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: -2px;
 }
 
@@ -409,7 +409,7 @@
  * (DESIGN.md §8's documented `-2px` exception, since this control sits at
  * the nav rail's trailing edge) and the <=768px hide rule below. */
 .app-sidebar-toggle:focus-visible {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: -2px;
 }
 
@@ -487,7 +487,7 @@
 }
 
 .app-command-bar__mobile-title:focus-visible {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: 2px;
   border-radius: var(--app-radius-sm);
 }

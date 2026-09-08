@@ -68,7 +68,7 @@
 }
 
 .ui-toggle__input:focus-visible + .ui-toggle__track {
-  outline: 2px solid var(--app-accent);
+  outline: var(--app-focus-ring);
   outline-offset: 2px;
 }
 

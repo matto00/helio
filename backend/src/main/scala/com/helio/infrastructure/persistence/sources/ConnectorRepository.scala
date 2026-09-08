@@ -194,10 +194,13 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
     ctx.withSystemContext(table.filter(_.id === UUID.fromString(id.value)).result.headOption)
       .map(_.map(rowToDomain))
 
+  // HEL-1022: most-recently-updated first, matching the page's default sort and the
+  // "Updated" convention `PipelineRepository.listSummaries`/`DataSourceRepository.findAll`
+  // now share -- a rename or config edit should resurface a connector without a run/create.
   def findAll(user: AuthenticatedUser): Future[Vector[Connector]] = {
     val ownerUuid = UUID.fromString(user.id.value)
     ctx.withUserContext(user.id.value)(
-      table.filter(_.ownerId === ownerUuid).sortBy(_.createdAt.desc).result
+      table.filter(_.ownerId === ownerUuid).sortBy(_.updatedAt.desc).result
     ).map(_.map(rowToDomain).toVector)
   }
 

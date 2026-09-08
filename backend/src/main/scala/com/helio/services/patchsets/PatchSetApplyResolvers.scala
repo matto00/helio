@@ -144,7 +144,9 @@ private[services] object PatchSetApplyResolvers {
       lastRunAt            = s.lastRunAt,
       lastRunRowCount      = s.lastRunRowCount,
       ownerId              = if (s.ownerId.nonEmpty) Some(s.ownerId) else None,
-      tag                  = s.tag
+      tag                  = s.tag,
+      createdAt            = s.createdAt,
+      updatedAt            = s.updatedAt
     )
 
 

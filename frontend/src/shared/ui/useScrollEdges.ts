@@ -7,9 +7,16 @@ export interface ScrollEdgeState {
   /** True while the container hasn't reached its right edge yet — there is
    *  more content to scroll to on the right. */
   right: boolean;
+  /** True whenever the container's content is wider than the container
+   *  itself, regardless of current scroll position — unlike `left`/`right`
+   *  (which are both `false` at the exact right edge), this stays `true`
+   *  the whole time scrolling is possible. Lets a caller gate a
+   *  scroll-only affordance (e.g. a keyboard tab stop) on "can this
+   *  actually scroll" rather than "is it scrolled right now". */
+  overflowing: boolean;
 }
 
-const NO_EDGES: ScrollEdgeState = { left: false, right: false };
+const NO_EDGES: ScrollEdgeState = { left: false, right: false, overflowing: false };
 
 /**
  * Tracks whether a horizontally-scrollable container has more content
@@ -43,6 +50,7 @@ export function useScrollEdges<T extends HTMLElement>(): {
     setEdges({
       left: el.scrollLeft > 1,
       right: maxScrollLeft - el.scrollLeft > 1,
+      overflowing: maxScrollLeft > 1,
     });
   }, []);
 

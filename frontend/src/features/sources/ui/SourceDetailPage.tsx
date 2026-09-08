@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { SourceDetailPanel } from "./SourceDetailPanel";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { PageContentSkeleton } from "../../../shared/ui/PageContentSkeleton";
+import { PageShell } from "../../../shared/ui/PageShell";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 
 /**
@@ -43,7 +44,7 @@ export function SourceDetailPage() {
 
   if (sourcesStatus === "failed" && sourcesError) {
     return (
-      <div className="sources-page">
+      <PageShell className="sources-page">
         <EmptyState
           intent="error"
           icon={<ErrorIcon />}
@@ -65,7 +66,7 @@ export function SourceDetailPage() {
                 }
           }
         />
-      </div>
+      </PageShell>
     );
   }
 
@@ -74,26 +75,26 @@ export function SourceDetailPage() {
   if (source === null) {
     if (sourcesStatus === "idle" || sourcesStatus === "loading") {
       return (
-        <div className="sources-page">
+        <PageShell className="sources-page">
           <PageContentSkeleton />
-        </div>
+        </PageShell>
       );
     }
     return (
-      <div className="sources-page">
+      <PageShell className="sources-page">
         <EmptyState
           intent="error"
           icon={<ERROR_KIND_ICON.error />}
           title="Source not found"
           description="This source may have been deleted, or you may not have access to it."
         />
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="sources-page">
+    <PageShell className="sources-page">
       <SourceDetailPanel source={source} />
-    </div>
+    </PageShell>
   );
 }

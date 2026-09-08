@@ -2234,7 +2234,9 @@ final class PipelineService(
       lastRunRowCount      = s.lastRunRowCount,
       lastRunTruncated     = s.lastRunTruncated,
       ownerId              = if (s.ownerId.nonEmpty) Some(s.ownerId) else None,
-      tag                  = s.tag
+      tag                  = s.tag,
+      createdAt            = s.createdAt,
+      updatedAt            = s.updatedAt
     )
 
   private def toFieldResponse(sf: SchemaField): SchemaFieldResponse =

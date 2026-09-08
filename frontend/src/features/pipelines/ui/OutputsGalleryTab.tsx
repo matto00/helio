@@ -89,7 +89,7 @@ export function OutputsGalleryTab({
                 stepLabel={
                   output.nodeStepId !== undefined
                     ? laneOutputSubtitle(effectiveLaneGraph, stepLabelById, output.nodeStepId)
-                    : "the pipeline root"
+                    : "the pipeline's source"
                 }
                 rowCount={previewRowCountByOutputId[output.id]}
                 onOpen={onOpenOutput}

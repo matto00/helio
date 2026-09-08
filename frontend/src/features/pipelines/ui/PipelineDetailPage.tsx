@@ -60,8 +60,7 @@ export function PipelineDetailPage() {
     runs,
     isDirty,
     pipelineName,
-    boundSource,
-    canEditSource,
+    sourceByRootId,
     isOwner,
     getAnalyzeColumns,
     getAnalyzeSchema,
@@ -149,12 +148,13 @@ export function PipelineDetailPage() {
 
   return (
     <div className="pipeline-detail-page">
-      {/* ── Header: bound source + bound type + schedule ── */}
+      {/* ── Header: bound source(s) + bound type + schedule ── */}
       <PipelineDetailHeader
-        sourceName={currentPipeline.roots[0]?.dataSourceName ?? ""}
-        source={boundSource}
-        canEditSource={canEditSource}
+        roots={roots}
+        sourceByRootId={sourceByRootId}
         onEditSource={handleEditSource}
+        onAddRoot={(sourceId) => void handleAddRoot(sourceId)}
+        onRemoveRoot={(rootId) => void handleRemoveRoot(rootId)}
         outputsCount={allOutputs.length}
         lastRunStatus={currentPipeline.lastRunStatus}
         schedule={pipelineSchedule}
@@ -255,7 +255,6 @@ export function PipelineDetailPage() {
             steps={steps}
             laneGraph={laneGraph}
             roots={roots}
-            onAddRoot={(sourceId) => void handleAddRoot(sourceId)}
             onRemoveRoot={(rootId) => void handleRemoveRoot(rootId)}
             pipelineId={id ?? ""}
             dropdownOpen={dropdownOpenAt === "bottom"}

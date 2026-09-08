@@ -535,6 +535,13 @@ export interface PipelineSummary {
   // `RunTruncationRecord`'s own doc.
   lastRunTruncated?: boolean | null;
   ownerId?: string | null;
+  // HEL-1022: "last edited", distinct from `lastRunAt` ("last run", `null` for a never-run
+  // pipeline) -- the field the pipelines list's default recency sort actually needs. The wire
+  // response always includes these (backend default `""` only for a not-yet-persisted preview
+  // DTO); optional here so existing fixtures/mocks built before this field existed don't all
+  // need updating just to satisfy the type.
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type RunStatus = "queued" | "running" | "succeeded" | "failed";

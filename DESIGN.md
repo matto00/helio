@@ -438,6 +438,110 @@ still resolves selection from Redux with an `items[0]` fallback — a new
 conversation has no id until its first message persists, so "the route is the
 selection" needs an answer for that state first; HEL-855).
 
+### List/overview default ordering and column sorting (HEL-1022)
+
+Every `/<section>` overview defaults to **most-recent-first**, keyed on the
+field the page's own recency actually means — not whichever timestamp
+happened to be easiest to project. Pipelines/Sources/Connectors default to
+`updatedAt desc` ("last edited"); Dashboards (gallery) and Audit default to
+their own existing `lastUpdated`/`createdAt desc`. `lastRunAt` is "last run",
+not "last edited", and is absent for a never-run pipeline — never use it as a
+recency default. The backend repository is the source of truth for this
+default (`.sortBy(...desc)`, or an in-Scala sort on the raw `Instant` when the
+query already collapses to one row per resource) so the **first paint** is
+correct before any client-side sort has run.
+
+Every list **table** (not the Dashboards gallery, which has no columns) adds
+clickable per-column sorting on top of that default, built from three shared
+primitives in `shared/ui/`:
+
+- **`useSortedRows(rows, columns, defaultSort)`** — a client-side sort over
+  the already-fetched array. `columns` is a small typed table of
+  `{ key, getValue }`; `defaultSort` seeds the initial `{ key, direction }`
+  and should match the page's backend-driven default order. Sorting itself
+  never re-fetches or adds a query param — it re-orders what's already on
+  screen. `columns` (and `defaultSort`) should be a stable reference (a
+  module-level `const`, or `useMemo` when it depends on props) — the hook
+  memoizes on `[rows, columns, sortState]` by identity, and an inline array
+  literal re-sorts on every render for nothing.
+- **`<SortableTh direction={...} onSort={...}>`** — a `<th>` whose entire
+  contents are a button (the whole header is clickable, not just the label),
+  carrying `aria-sort` (`"ascending"` / `"descending"` / `"none"`, per the
+  WAI-ARIA sortable-table pattern) and a direction glyph (▲/▼/⇅) so the state
+  is never color-only.
+- **`<SortableTable tableClassName columns sortState onSort>`** — the shared
+  shell all four tables actually render through: the scroll-shadow wrapper
+  (`useScrollEdges`), the `<table>`, and the `<thead>` built from `columns`
+  (each driving a `SortableTh`). Deliberately thin — it owns the shell ONLY;
+  row rendering, click-to-navigate behavior, Actions columns, empty states,
+  and one-off extra rows (Connectors' conflict row) stay with the caller,
+  passed as `children` (the `<tbody>`). `scrollClassNames` (a caller's own
+  `{container, left, right}` class names — this component never invents or
+  renames a class) opts a table INTO the scroll wrapper; omit it for a table
+  that never overflows (`AuditEventTable`) so no wrapper `<div>` is rendered
+  at all. `scrollAriaLabel`, when given, makes the wrapper a keyboard-
+  focusable `role="region"` — but only while the table is actually
+  overflowing (`useScrollEdges`' `overflowing`), never as an unconditional
+  tab stop on a box with nothing to scroll to.
+
+**A sticky Actions column is the one sanctioned divergence between the four
+tables**, used ONLY by Connectors. Pipelines (whole-row navigation + an
+optional single Share button) and Sources (no Actions column at all) have no
+fixed, always-reachable-regardless-of-scroll-position column to guarantee —
+Connectors' 409-guarded Delete (with its own confirm step) is the shape that
+actually needs one, since a control the mobile touch-target e2e guard (or a
+real user) can never scroll far enough right to reach is a genuine
+reachability defect, not a cosmetic one. The recipe, should another table
+ever need it:
+
+- `position: sticky; right: 0` on both the `<th>`/`<td>` in that column,
+  `z-index: 1` so it paints over cells scrolling underneath.
+- Background and edge-shadow are gated on the SAME overflow-state classes
+  `scrollClassNames` already toggles (`--left`/`--right`) — a non-overflowing
+  container (the column has nothing to stick past) must render the column
+  exactly as if it weren't sticky at all. Use `--app-bg`, not `--app-surface`
+  — a table's real backdrop is the page background (everything from the
+  `<table>` up to `<body>` is transparent), and painting the lighter surface
+  token here reads as a detached, mismatched-tone panel.
+  `--app-surface-raised` still matches the row's own hover treatment.
+- The scrollable container's own edge shadow (the `--right` inset shadow
+  signaling "more content this way") paints at the CONTAINER's physical
+  edge, which sticky content now visually occupies — an inset shadow paints
+  below descendants, so it renders completely hidden under the sticky
+  column's opaque fill. Move that cue onto the sticky column's OWN edge
+  instead (its left edge, toward the scrollable content), gated on the same
+  `--right` class — painted on the sticky layer itself, it can never be
+  occluded by its own background.
+- If the sticky content is itself too wide relative to the container at
+  small viewports (a visible button plus a menu trigger can eat the
+  majority of a 382px-wide container), collapse it to just the essential
+  trigger below a real breakpoint (`useIsNarrowerThan`, genuinely reactive —
+  not a CSS-hidden duplicate reachable twice by different input methods) —
+  see Connectors folding "Test connection" into its `ActionsMenu` below
+  1100px as the worked example.
+
+**Nulls sort last, in both directions.** A missing value (a never-run
+pipeline's `lastRunAt`, an unused source's dependent count) must never look
+like the most-recent or the smallest — `useSortedRows` special-cases `null`/
+`undefined` OUTSIDE the ascending/descending sign flip, so it lands last
+regardless of which direction is active.
+
+**Date-typed columns compare as dates, not as strings.** Every date on the
+wire is `java.time.Instant.toString()`, which emits 0/3/6/9 fractional
+digits depending on the value (trailing zero groups drop) — a plain string
+or numeric-digit-run compare gets these backwards (`"...900Z"` sorts before
+`"...123456Z"` under `localeCompare(..., {numeric:true})`, even though 900ms
+is later). `useSortedRows` detects the exact `Instant.toString()` shape and
+compares as epoch milliseconds instead; a `getValue` that returns some OTHER
+date string shape should parse it the same way rather than falling through
+to string comparison.
+
+Clicking a column's header toggles `asc` → `desc` → `asc`; clicking a
+DIFFERENT column resets to `asc` on that column. Retrofit an existing table
+onto this pattern rather than writing a bespoke comparator — four
+independent hand-rolled sorts is exactly the drift this trio exists to
+prevent.
+
 ### DataGrid cell density
 
 `DataGrid` (`frontend/src/shared/ui/DataGrid.tsx`) exposes a `density` prop —
@@ -455,6 +559,70 @@ Density defaults from the grid's `variant` when omitted: `preview` →
 than pass an explicit `density`, unless the surface has a documented reason to
 diverge. **[mechanical]**
 
+### Long lists: grouping, capping, and search (HEL-1022)
+
+A flat list can genuinely be large — a REST source's inferred schema can
+carry ~200 dotted-path fields (`player.metadata.injury_override_regular_
+2024_10`, repeated ~140 times with only the trailing segment varying).
+Rendering all of it unbounded is the failure mode this pattern exists to
+close. Built once, in `shared/ui/`, as three layers so a table-shaped
+consumer and a chip-shaped consumer can both use the same logic without
+either being forced into the other's markup:
+
+- **`groupFieldsByNamespace(fields, getName)`** (pure function) — groups by
+  the FULL dotted-path prefix (everything before the field's last dot), one
+  level deep, not a recursive tree. `player.metadata.foo` and
+  `player.metadata.bar` collapse into one `player.metadata` group; a
+  dotless field lands in the `"(root)"` sentinel group. One level is
+  deliberate: the real motivating data is two-or-three-segments deep with
+  many fields sharing an identical prefix, so full-prefix grouping already
+  collapses ~140 fields into one row — a general nested tree would add
+  disclosure-within-disclosure UI for a shape this data doesn't need.
+- **`useSchemaFieldSearch(fields, getName, options?)`** (hook) — the actual
+  state: search query, which namespace groups are expanded, which groups
+  (or the flat list) are showing all vs. capped. Renders nothing; returns
+  data + callbacks only, so it can back a table row list or a chip row
+  equally.
+- **`<SchemaFieldViewer title fields getName renderField fieldsContainer>`**
+  (component) — the default chrome built on the hook: a "Title N fields"
+  header, a filter input, collapsible namespace disclosures with per-group
+  counts, and a "Show all N" affordance per group (and for the flat/
+  filtered case). `renderField(field)` renders ONE field's presentation
+  unit (a `<tr>`, a chip `<span>`); `fieldsContainer(children)` wraps one
+  visible list's worth of them into the caller's real structural container
+  (a `<table>…<tbody>{children}</tbody></table>` — the caller supplies its
+  own `<thead>` — or a flex-wrap chip row). This is what keeps the
+  component presentation-agnostic without a `variant` prop enumerating
+  every future caller's shape.
+
+**Small counts get NO chrome at all.** At or below
+`SCHEMA_FIELD_VIEWER_SMALL_THRESHOLD` (12) fields, `SchemaFieldViewer`
+skips the header, the filter box, and grouping entirely — it renders
+exactly what `fieldsContainer`/`renderField` would produce with no
+`SchemaFieldViewer` in the picture at all. Most sources have a handful of
+fields; a fix for the 200-field case must not tax the common case. This is
+the same instinct as `SortableTh`'s glyph and `PageStatus`'s skeleton
+gate — the affordance only appears once there's actually enough content to
+need it.
+
+**The cap is per-group, not global.** `SCHEMA_FIELD_VIEWER_GROUP_CAP` (20)
+limits how many fields render inside ONE expanded group (or the flat/
+filtered list) before "Show all N" appears — expanding a 134-field
+`player.metadata` group must not just relocate the flood from the page to
+the group body.
+
+**Filtering flattens across every namespace.** While the filter box has a
+query, matches are shown as one flat capped list spanning every group, not
+still boxed per-namespace — a user searching is looking for a NAME, not
+browsing a structure, and re-imposing group headers on a search-result set
+would just be more chrome between them and the answer.
+
+**Grouping only renders when it would actually help.** Zero or one real
+namespace (every field shares one prefix, or none has a dot at all) skips
+the collapsible-groups UI and falls back to the same flat capped list
+filtering uses — a single group with a disclosure triangle around it is
+chrome with no payoff.
+
 ## 7. UI state patterns (loading / empty / error)
 
 Every data-backed view handles all three, **consistently**:
@@ -470,10 +638,35 @@ Every data-backed view handles all three, **consistently**:
 ## 8. Accessibility baseline
 
 - Interactive elements have accessible names (ARIA/text). **[mechanical]**
-- Focus: the global rule is `outline: 2px solid var(--app-accent)` at
-  `outline-offset: 2px`; use `-2px` inset only where the ring would clip
-  (flush list items). Inputs replace the ring with an accent border +
-  `--app-accent-dim` halo. **[mechanical]**
+- **Focus ring: always `:focus-visible`, never bare `:focus`, for a ring.**
+  (HEL-1022.) `:focus-visible` is what gives a keyboard user a ring while
+  NOT painting one for a mouse-triggered programmatic `.focus()` — e.g. a
+  dialog auto-focusing its first field the instant it opens, which is
+  correct a11y behavior (overlays MUST auto-focus on open) but must not
+  flash an orange ring at someone who opened it by mouse. `--app-focus-ring`
+  (`theme.css`) centralizes the outline VALUE — `2px solid
+var(--app-accent)` — so every component references one token instead of
+  hand-copying the literal; the global rule is `outline:
+var(--app-focus-ring); outline-offset: 2px`. `outline-offset` still varies
+  legitimately per component and is NOT part of the token — use `-2px` only
+  where the ring would clip (flush list items); see §3's `-3px` carve-out
+  for `BottomNav`. **[mechanical]**
+  - **The one legitimate exception is a persistent, modality-independent
+    indicator** — an element that should look "active" regardless of HOW it
+    got focus, because the state itself (not the input device) is what's
+    being communicated: a text input showing it's the one accepting
+    keystrokes (`.auth-field input:focus`, `.add-source-modal__cell-
+input:focus` — an accent border, not an outline ring), or a selected
+    item in a listbox. These legitimately keep bare `:focus`. The test: if
+    the visual state is announcing "this is the thing you're typing
+    into/have selected" rather than "a keyboard just moved here," bare
+    `:focus` is correct; if it's announcing keyboard navigation, it must be
+    `:focus-visible`.
+  - Never remove focus indication entirely to chase this — a keyboard user
+    must always be able to see where focus is. If a component can't make
+    the mouse/keyboard distinction without losing keyboard visibility,
+    leave it on bare `:focus` (visible for everyone) rather than drop the
+    ring.
 - `--app-accent-ink` is contrast-computed per accent; never place raw white
   text on the accent. Color is never the sole carrier of meaning.
 - Keyboard operable; dialogs handle Enter/Escape.
