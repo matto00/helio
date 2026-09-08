@@ -11,9 +11,25 @@
 
 .panel-content__load-more {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
   padding: var(--space-2) 0 0;
   flex-shrink: 0;
+}
+
+/* HEL-448 design D9a — disclosure that sort ranks only the loaded rows,
+   shown only while `paginationHasMore` is true. Deliberately reuses the
+   load-more button's own type scale/token rather than introducing a new
+   treatment; kept trivially removable (delete this rule + the <p> in
+   TableRenderer.tsx). Kept short specifically so it never wraps to a
+   second line at the default dashboard-grid panel width (design D9a's
+   objective escalation trigger). */
+.panel-content__truncation-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  white-space: nowrap;
 }
 
 .panel-content__load-more-btn {

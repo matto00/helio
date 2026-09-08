@@ -9,9 +9,19 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faSort, faSortDown, faSortUp } from "@fortawesome/free-solid-svg-icons";
 
 import "./DataGrid.css";
+// HEL-448 design D4: `SortableTh` cannot be rendered directly here (it puts
+// the resize `<span>` inside an invalid nested-interactive `<button>`, and
+// exposes no `style` prop for the column-width mechanism below), but its
+// classes ARE reused verbatim so the panel table and the list tables cannot
+// drift apart visually — importing its CSS here keeps that true regardless
+// of whether a `SortableTh` happens to be mounted elsewhere on the page.
+import "./SortableTh.css";
 import { useScrollEdges } from "./useScrollEdges";
+import type { SortDirection, SortState } from "./useSortedRows";
 
 export interface ColumnDef {
   key: string;
@@ -75,6 +85,16 @@ interface DataGridProps {
    * itself does not persist anything; the caller owns storage. See HEL-253.
    */
   onColumnResize?: (key: string, width: number) => void;
+  /**
+   * Current sort state, or `null`/omitted for no active sort. Only rendered
+   * in the `"full"` variant, and only when `onSort` is also supplied — see
+   * HEL-448 design D4/D1. `DataGrid` never orders rows itself; the caller
+   * (`TableRenderer`, via `useSortedRows`) owns ordering, exactly like
+   * `columnWidths`/`onColumnResize` above.
+   */
+  sort?: SortState<string> | null;
+  /** Fired when a sortable header is activated (click or Enter/Space). */
+  onSort?: (key: string) => void;
   /** Empty-state message shown instead of a table when `rows` is empty. */
   emptyText?: string;
   className?: string;
@@ -105,7 +125,7 @@ function deriveColumns(rows: Record<string, unknown>[]): ColumnDef[] {
     .map((key) => ({ key }));
 }
 
-function formatCell(value: unknown): string {
+export function formatCell(value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
@@ -121,12 +141,15 @@ export function DataGrid({
   density,
   columnWidths,
   onColumnResize,
+  sort,
+  onSort,
   emptyText = "No data to preview.",
   className,
 }: DataGridProps) {
   const resolvedColumns = useMemo(() => columns ?? deriveColumns(rows), [rows, columns]);
   const resolvedDensity = density ?? DEFAULT_DENSITY[variant];
   const resizable = variant === "full";
+  const sortable = variant === "full" && onSort != null;
 
   // Scroll-shadow affordance (HEL a11y/ux sweep F-164) — a wide table gives a
   // phone user zero indication that more columns exist off-screen otherwise.
@@ -231,13 +254,50 @@ export function DataGrid({
                   col.width ??
                   DEFAULT_COLUMN_WIDTH)
                 : col.width;
+              // HEL-448 design D4: this direction lookup, the `aria-sort`
+              // vocabulary, and the glyph choice below mirror `SortableTh`
+              // exactly — reused as an inline `<button>` rather than the
+              // component itself, because `SortableTh` renders `children`
+              // INSIDE that `<button>` (the resize `<span>` below cannot
+              // nest there) and exposes no `style` prop for `appliedWidth`.
+              const direction: SortDirection | null =
+                sortable && sort?.key === col.key ? sort.direction : null;
+              const ariaSort = !sortable
+                ? undefined
+                : direction === "asc"
+                  ? "ascending"
+                  : direction === "desc"
+                    ? "descending"
+                    : "none";
               return (
                 <th
                   key={col.key}
                   title={col.header ?? col.key}
                   style={appliedWidth !== undefined ? { width: appliedWidth } : undefined}
+                  aria-sort={ariaSort}
                 >
-                  {col.header ?? col.key}
+                  {sortable ? (
+                    <button
+                      type="button"
+                      className="sortable-th__btn"
+                      onClick={() => onSort?.(col.key)}
+                    >
+                      <span>{col.header ?? col.key}</span>
+                      <FontAwesomeIcon
+                        className={`sortable-th__glyph${direction === null ? " sortable-th__glyph--neutral" : ""}`}
+                        icon={
+                          direction === "asc"
+                            ? faSortUp
+                            : direction === "desc"
+                              ? faSortDown
+                              : faSort
+                        }
+                        aria-hidden="true"
+                      />
+                    </button>
+                  ) : (
+                    (col.header ?? col.key)
+                  )}
                   {resizable && (
                     <span
                       className="ui-data-grid__resize-handle"
