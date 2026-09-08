@@ -284,14 +284,25 @@ expanders without the spacing they were measured against.
   (overlays/hover-lift). Borders do the separating; shadows stay soft.
 - Motion: `--app-transition` (0.16s, hover/color), `--transition-slow`
   (0.28s, entrances), `--app-skeleton-shimmer` (1.6s, the `Skeleton`
-  primitive's shimmer loop). The first two are transition _shorthands_ tuned
-  for a single hover or one-shot entrance; a continuous loop needs its own
-  duration token rather than reusing either (0.28s repeated indefinitely
-  strobes). Modals/popovers/auth card animate in once (fade + 4–10px rise).
-  `prefers-reduced-motion` is respected globally — but see `Skeleton`'s own
-  explicit override below; the global rule alone does not fully disable a
-  looping animation. **[judgment]** No scattered micro-animations; one
-  entrance per surface.
+  primitive's shimmer loop), `--app-spin-duration` (0.7s, the loop role
+  shared by the `Spinner` primitive and any local copy of it — HEL-441).
+  The first two are transition _shorthands_ tuned for a single hover or
+  one-shot entrance; a continuous loop needs its own duration token rather
+  than reusing either (0.28s repeated indefinitely strobes). **[judgment]
+  governing rule (HEL-441 D1):** a single-use loop may keep its own literal
+  duration; a loop role used by two or more surfaces needs a token —
+  do not build a full duration scale ahead of that need. Modals/popovers/
+  auth card animate in once (fade + 4–10px rise); a backdrop fade paired
+  with its panel's rise (`MobileNavSheet`, `RefinementChatDrawer`) counts
+  as ONE entrance expressed in two elements, not two entrances — do not
+  "fix" that by removing the backdrop fade **[judgment, HEL-441 D7]**.
+  Exit motion is deliberately component-scoped rather than tokenized:
+  `--toast-exit-duration` lives in `toast.css`, paired with `Toast.tsx`'s
+  `TOAST_EXIT_MS`, because it has exactly one consumer — do not promote it
+  to a theme token **[judgment, HEL-441 D1]**. `prefers-reduced-motion` is
+  respected globally — but see `Skeleton`'s own explicit override below;
+  the global rule alone does not fully disable a looping animation.
+  **[judgment]** No scattered micro-animations; one entrance per surface.
 
 ## 4. Breakpoints
 

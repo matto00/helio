@@ -993,7 +993,7 @@
   border: 2px solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;
-  animation: pipeline-run-spin 0.8s linear infinite;
+  animation: pipeline-run-spin var(--app-spin-duration) linear infinite; /* HEL-441 D2: unified onto Spinner's token (last unconverted copy, F-190) */
   flex-shrink: 0;
 }
 

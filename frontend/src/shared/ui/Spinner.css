@@ -8,7 +8,7 @@
   border: 2px solid var(--app-border-subtle);
   border-top-color: var(--app-accent);
   border-radius: 50%;
-  animation: ui-spinner-spin 0.7s linear infinite;
+  animation: ui-spinner-spin var(--app-spin-duration) linear infinite;
 }
 
 @keyframes ui-spinner-spin {
