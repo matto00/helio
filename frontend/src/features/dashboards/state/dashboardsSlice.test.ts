@@ -10,6 +10,15 @@ import {
   updateDashboardAppearance,
   updateDashboardLayout,
 } from "./dashboardsSlice";
+import { fetchDashboards as fetchDashboardsRequest } from "../services/dashboardService";
+import type { RootState } from "../../../store/store";
+
+jest.mock("../services/dashboardService", () => ({
+  ...jest.requireActual("../services/dashboardService"),
+  fetchDashboards: jest.fn(),
+}));
+
+const fetchDashboardsRequestMock = jest.mocked(fetchDashboardsRequest);
 
 const defaultMeta = {
   createdBy: "system",
@@ -632,5 +641,74 @@ describe("dashboardsSlice", () => {
       expect(nextState.items.map((d) => d.id)).toEqual(["dashboard-1"]);
       expect(nextState.selectedDashboardId).toBe("dashboard-1");
     });
+  });
+});
+
+// HEL-503 evaluator S2' (cycle 3) — pins `fetchDashboards`'s `condition` intent LOCALLY, next to
+// the slice it belongs to, rather than only from a distant command-palette test
+// (`useResourceIndexing.test.tsx`). That distant test is what actually found this behavior was
+// wrong (it only ever allowed a dispatch from `"idle"`, never retried a `"failed"` fetch) — this
+// suite is what should have caught it, and now does. Mirrors `pipelinesSlice.test.ts`'s own
+// `fetchPipelines` condition tests (same invoke-the-thunk-directly-with-a-fake-dispatch/getState
+// pattern).
+describe("fetchDashboards condition (HEL-503)", () => {
+  beforeEach(() => {
+    fetchDashboardsRequestMock.mockReset();
+  });
+
+  function stateWithStatus(status: "idle" | "loading" | "succeeded" | "failed"): RootState {
+    return { dashboards: { status } } as unknown as RootState;
+  }
+
+  // WHAT THIS PROVES: `fetchDashboards` dispatches (calls the service) when the slice's last
+  // known status is `"failed"` — the fix for the defect found in cycle 3 (the condition used to
+  // read `status === "idle"` only, which silently blocked every retry after one failure).
+  // WHAT IT CANNOT PROVE: that anything downstream (a component effect) ever actually dispatches
+  // this thunk on a real retry — that's `useResourceIndexing.test.tsx`'s job.
+  it("dispatches when the previous fetch failed", async () => {
+    fetchDashboardsRequestMock.mockResolvedValueOnce([]);
+    const dispatch = jest.fn();
+    const getState = jest.fn(() => stateWithStatus("failed"));
+    const thunk = fetchDashboards();
+
+    await thunk(dispatch, getState, undefined);
+
+    expect(fetchDashboardsRequestMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("dispatches when idle (the original, still-supported case)", async () => {
+    fetchDashboardsRequestMock.mockResolvedValueOnce([]);
+    const dispatch = jest.fn();
+    const getState = jest.fn(() => stateWithStatus("idle"));
+    const thunk = fetchDashboards();
+
+    await thunk(dispatch, getState, undefined);
+
+    expect(fetchDashboardsRequestMock).toHaveBeenCalledTimes(1);
+  });
+
+  // WHAT THIS PROVES: the condition still blocks a redundant dispatch while a fetch is already
+  // in flight — the widening for `"failed"` did not accidentally drop this pre-existing guard.
+  it("is blocked while a fetch is already in flight", async () => {
+    const dispatch = jest.fn();
+    const getState = jest.fn(() => stateWithStatus("loading"));
+    const thunk = fetchDashboards();
+
+    await thunk(dispatch, getState, undefined);
+
+    expect(fetchDashboardsRequestMock).not.toHaveBeenCalled();
+  });
+
+  // WHAT THIS PROVES: the condition still blocks a redundant dispatch once the list has already
+  // loaded successfully — this is the specific case the palette-open dedupe (task 2.2a) relies
+  // on: re-opening the palette with everything `succeeded` must dispatch nothing.
+  it("is blocked once the fetch has already succeeded", async () => {
+    const dispatch = jest.fn();
+    const getState = jest.fn(() => stateWithStatus("succeeded"));
+    const thunk = fetchDashboards();
+
+    await thunk(dispatch, getState, undefined);
+
+    expect(fetchDashboardsRequestMock).not.toHaveBeenCalled();
   });
 });

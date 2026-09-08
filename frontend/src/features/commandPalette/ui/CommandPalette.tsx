@@ -9,10 +9,12 @@ import { KeyCap } from "../../../shared/ui/KeyCap";
 import { useOverlay } from "../../../shared/chrome/OverlayProvider";
 import { formatCombo, isMacPlatform } from "../../../shared/chrome/shortcuts";
 import { useCommandPalette, useCommandRegistryActions, useSetCommandQuery } from "../hooks";
-import { SECTION_DISPLAY_ORDER } from "../model/builtInActions";
+import { SEARCH_SECTION, SECTION_DISPLAY_ORDER } from "../model/builtInActions";
 import { rankActions } from "../model/ranking";
 import type { CommandAction } from "../model/types";
 import { useRecentPaletteActions } from "../useRecentPaletteActions";
+import { useResourceIndexing } from "../useResourceIndexing";
+import { useResourceSearchActions } from "../useResourceSearchActions";
 
 const UNSECTIONED = "";
 
@@ -107,14 +109,34 @@ export function CommandPalette() {
   // already includes Navigation/General/Create) — never a replacement of it. On any non-empty
   // query, or an empty history, `results` is exactly what `rankActions` returned, unchanged.
   const recentActions = useRecentPaletteActions();
+
+  // HEL-503 design.md D2 — indexes all four resource kinds explicitly on palette open, so search
+  // works on `/` with no prior navigation (the ticket's primary acceptance criterion).
+  useResourceIndexing();
+  const {
+    actions: searchActions,
+    coverageMessage,
+    isIndexing,
+    overflowNotices,
+  } = useResourceSearchActions();
+
   const results = useMemo(() => {
-    const ranked = rankActions(registeredActions, query);
+    // design.md D5 — search results are merged into the SAME array `rankActions` scores, so
+    // their `matchesQuery: true` opt-out (kept unscored, in registrant order) is honored by the
+    // existing sort rather than a second, parallel merge step. `searchActions` is itself always
+    // `[]` for an empty query (`useResourceSearchActions`/`searchResourceItems`), so this can
+    // never leak resource rows into the always-shown empty-query default list.
+    const ranked = rankActions([...registeredActions, ...searchActions], query);
     if (query.trim() === "" && recentActions.length > 0) {
       return [...recentActions, ...ranked];
     }
     return ranked;
-  }, [registeredActions, query, recentActions]);
+  }, [registeredActions, searchActions, query, recentActions]);
   const groups = useMemo(() => groupBySection(results), [results]);
+  // design.md D4/task 4.4 — a query that currently matches nothing only because indexing
+  // hasn't finished must not read as "no results" (a permanent, wrong answer) — it reads as
+  // still in progress instead.
+  const showIndexingInProgress = results.length === 0 && query.trim() !== "" && isIndexing;
 
   useEffect(() => {
     setActiveIndex(0);
@@ -192,12 +214,28 @@ export function CommandPalette() {
         />
       </div>
 
+      {/* HEL-503 design.md D4 — coverage caveat, derived from live per-kind status; absent
+        entirely once every kind has `succeeded` (task 4.3), never a hardcoded string. */}
+      {coverageMessage && (
+        <div className="command-palette__coverage" role="status">
+          {coverageMessage}
+        </div>
+      )}
+
       {results.length === 0 ? (
-        <EmptyState
-          icon={<SearchX />}
-          title="No matching commands"
-          description="Try a different search term."
-        />
+        showIndexingInProgress ? (
+          <EmptyState
+            icon={<Search />}
+            title="Still searching…"
+            description="Results will appear as indexing finishes."
+          />
+        ) : (
+          <EmptyState
+            icon={<SearchX />}
+            title="No matching commands"
+            description="Try a different search term."
+          />
+        )
       ) : (
         <div className="command-palette__results" id="command-palette-results" ref={listRef}>
           {groups.map((group) => (
@@ -260,6 +298,25 @@ export function CommandPalette() {
                   );
                 })}
               </ul>
+              {/* Skeptic-final-1 CR2 (final gate, round 1) — deliberately OUTSIDE the
+                `role="listbox"` `<ul>` above and NOT a `<button>`/`role="option"`: an
+                informational count of how many more matches exist is not a selectable action.
+                It must never enter keyboard `ArrowDown`/`ArrowUp` traversal (which only walks
+                `group.actions`, never this array), never be clickable, and never be assignable
+                `data-active`/`aria-selected`. CR1 (same round) — `.command-palette__notice-icon`
+                is an EMPTY spacer sized to match `.command-palette__item-icon`'s width
+                (`var(--text-lg)`), so this is the only iconless row that still lines its text up
+                with every other row's text column instead of hanging into the icon gutter. */}
+              {group.section === SEARCH_SECTION && overflowNotices.length > 0 && (
+                <div className="command-palette__notices">
+                  {overflowNotices.map((notice) => (
+                    <div className="command-palette__notice" key={notice}>
+                      <span className="command-palette__notice-icon" aria-hidden="true" />
+                      <span className="command-palette__item-subtitle">{notice}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

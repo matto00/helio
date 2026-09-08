@@ -30,6 +30,20 @@ function titleTier(title: string, query: string): Tier {
   return Tier.NoMatch;
 }
 
+/**
+ * HEL-503 design.md D5/D7 — a numeric (lower-is-better) title-match rank exposed for a
+ * contributor that pre-scores its own actions (resource search), so it can order matches by the
+ * SAME title-prefix > title-substring > title-subsequence tiering `rankActions` uses internally,
+ * without duplicating `titleTier`'s logic or exposing the `const enum` it's built on (a `const
+ * enum` doesn't survive isolated-module compilation across files). `undefined` means no match at
+ * all. `query` is assumed already lowercased/trimmed by the caller, matching `rankActions`'s own
+ * contract.
+ */
+export function titleMatchRank(title: string, query: string): number | undefined {
+  const tier = titleTier(title.toLowerCase(), query);
+  return tier === Tier.NoMatch ? undefined : tier;
+}
+
 function keywordsMatch(keywords: string[] | undefined, query: string): boolean {
   if (!keywords) return false;
   return keywords.some((keyword) => isSubstring(keyword.toLowerCase(), query));

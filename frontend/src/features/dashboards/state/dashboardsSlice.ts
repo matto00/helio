@@ -60,7 +60,17 @@ export const fetchDashboards = createAsyncThunk<
     }
   },
   {
-    condition: (_, { getState }) => getState().dashboards.status === "idle",
+    // HEL-503 — widened from a bare `status === "idle"` check (which permanently blocked retry
+    // after one failure) to mirror `pipelinesSlice.ts`'s `fetchPipelines` guard: skip only while
+    // a fetch is already in flight or has already succeeded, so a caller retrying from `failed`
+    // (e.g. `useResourceIndexing.ts`'s palette-open retry, design.md D2) is not silently no-op'd
+    // by THIS thunk's own condition after its own status-based guard already decided to retry.
+    // Found via `useResourceIndexing.test.tsx`'s dispatch-count assertion going one call short
+    // on a real re-open after a real rejected dashboards fetch — not merely a hypothetical.
+    condition: (_, { getState }) => {
+      const { status } = getState().dashboards;
+      return status !== "loading" && status !== "succeeded";
+    },
   },
 );
 

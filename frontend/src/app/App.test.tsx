@@ -15,6 +15,7 @@ import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice"
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
+import { outputsReducer } from "../features/pipelines/state/outputsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { getPipelines as getPipelinesRequest } from "../features/pipelines/services/pipelineService";
 import { fetchSources as fetchSourcesRequest } from "../features/sources/services/dataSourceService";
@@ -166,6 +167,7 @@ function renderApp(options: RenderAppOptions = {}) {
       panels: panelsReducer,
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
+      outputs: outputsReducer,
       toasts: toastsReducer,
     },
     preloadedState,

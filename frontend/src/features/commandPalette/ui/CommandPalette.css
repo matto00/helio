@@ -29,6 +29,14 @@
   padding-left: calc(var(--space-3) * 2 + var(--text-base));
 }
 
+/* HEL-503 design.md D4 — the coverage caveat, tokens only. */
+.command-palette__coverage {
+  flex-shrink: 0;
+  padding: 0 var(--space-2);
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+}
+
 .command-palette__results {
   overflow-y: auto;
   max-height: 60vh;
@@ -114,6 +122,33 @@
 .command-palette__item-title .command-palette__item-combo {
   display: inline-flex;
   margin-inline-start: var(--space-2);
+}
+
+/* Skeptic-final-1 CR1/CR2 (final gate, round 1) — the overflow-count row, deliberately NOT
+   `.command-palette__item` (that class carries `cursor: pointer`/hover/focus-visible styling
+   meant for a real, selectable option; this is neither). `.command-palette__notice-icon` is an
+   empty spacer, not a real icon, sized to `.command-palette__item-icon`'s own width
+   (`var(--text-lg)`) so this row's text starts at the SAME x-position every iconed row's text
+   does, rather than hanging into the icon gutter (the only iconless row before this fix). */
+.command-palette__notices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.command-palette__notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.command-palette__notice-icon {
+  display: inline-flex;
+  width: var(--text-lg);
+  height: var(--text-lg);
+  flex-shrink: 0;
 }
 
 .command-palette__item-subtitle {
