@@ -203,13 +203,13 @@ const BOX_SHADOW_EXCEPTIONS: Pin[] = [
 // globally worse"). Each is pinned individually so a future literal radius
 // added anywhere else still fails the guard.
 //
-// Also pinned here: PipelineDetailPage.css's two `var(--radius-sm)`
-// declarations. That is NOT this ticket's `--app-radius-sm` token — it is a
-// different, undefined custom property (falls back to CSS's initial value,
-// effectively 0) — one of HEL-1037's own defects in this exact file. This
-// guard's job is to hold the elevation/radius token system, not to silently
-// fix HEL-1037's typo; excepting it here (rather than treating it as a
-// mechanical pass) keeps the hole visible and attributed.
+// HEL-1037 INTERACTION, resolved: this list originally also pinned
+// PipelineDetailPage.css's two `border-radius: var(--radius-sm)` declarations
+// — an undefined custom property (HEL-1037's defect in that file), excepted
+// rather than silently fixed here. HEL-1037 merged (#601) and removed them, so
+// the pin matched nothing and this guard's staleness check went RED on rebase
+// exactly as designed. The pin is deleted rather than loosened: an exception
+// that cannot expire is a permanent hole, and this one expired on schedule.
 const BORDER_RADIUS_EXCEPTIONS: Pin[] = [
   {
     file: "features/panels/ui/DividerPanel.css",
@@ -240,12 +240,6 @@ const BORDER_RADIUS_EXCEPTIONS: Pin[] = [
     declaration: "border-radius: 4px;",
     count: 1,
     note: "sub-scale — D2 default LEAVE",
-  },
-  {
-    file: "features/pipelines/ui/PipelineDetailPage.css",
-    declaration: "border-radius: var(--radius-sm);",
-    count: 2,
-    note: "wrong/undefined custom property, HEL-1037's defect in this file — not fixed here",
   },
 ];
 
