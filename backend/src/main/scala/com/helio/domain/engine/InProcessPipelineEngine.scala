@@ -8,6 +8,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.services.sources.{ContentSourceSupport, ImageSourceSupport, PdfTextSupport}
 import PipelineRowJson.{Row, parseStaticRows}
+import spray.json.JsObject
 
 import java.net.InetAddress
 import java.nio.charset.StandardCharsets
@@ -643,17 +644,22 @@ class InProcessPipelineEngine(
         connector.fetch(r.config, maxRunRows, ConnectorResolveContext.Internal).flatMap {
           case Left(err)      => Future.failed(new IllegalArgumentException(err))
           case Right(outcome) =>
-            Future.successful(
-              (outcome.rows.map(PipelineRowJson.jsRowToRow), SourceReadStats(outcome.truncated, outcome.availableRowCount))
-            )
+            Future.successful {
+              // HEL-1015 design D1/D6: classify over the FULL `outcome.rows` batch once, then
+              // pass that same set to every row -- classifying over a subset would let this
+              // consumer disagree with `SchemaInferenceEngine`, which infers over the same batch.
+              val mapPaths = JsonFlattener.detectMapPaths(outcome.rows.collect { case o: JsObject => o })
+              (outcome.rows.map(PipelineRowJson.jsRowToRow(_, mapPaths)), SourceReadStats(outcome.truncated, outcome.availableRowCount))
+            }
         }
     case s: SqlSource =>
       SqlConnectorDriver.fetch(s.config, maxRunRows, ConnectorResolveContext.Internal, sqlResolveHost, sqlIsBlocked).flatMap {
         case Left(err)      => Future.failed(new IllegalArgumentException(err))
         case Right(outcome) =>
-          Future.successful(
-            (outcome.rows.map(PipelineRowJson.jsRowToRow), SourceReadStats(outcome.truncated, outcome.availableRowCount))
-          )
+          Future.successful {
+            val mapPaths = JsonFlattener.detectMapPaths(outcome.rows.collect { case o: JsObject => o })
+            (outcome.rows.map(PipelineRowJson.jsRowToRow(_, mapPaths)), SourceReadStats(outcome.truncated, outcome.availableRowCount))
+          }
       }
     case other =>
       Future.failed(

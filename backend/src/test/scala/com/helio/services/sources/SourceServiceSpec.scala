@@ -554,5 +554,45 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
       result.isLeft shouldBe true
       result.left.getOrElse(fail("expected Left")) shouldBe a[ServiceError.BadGateway]
     }
+
+    // HEL-1015 design.md D6 ("preview is the trap"): previewRest MUST classify map-vs-struct
+    // over the FULL fetched batch, then take(10) for display -- never the reverse. This fixture
+    // is deliberately SYNTHETIC (not one of the committed real Sleeper payloads): it needs the
+    // first 10 rows to classify DIFFERENTLY from the full batch, a shape none of the real staged
+    // fixtures happen to contain, and hand-crafting it is the only way to pin the exact seam D6
+    // warns about. Rows 0-9 all carry "m": {"shared": i} -- one key, always the same name, so
+    // over JUST those 10 rows: union={shared}, coverage=1.0, intersection={shared} -> STRUCT.
+    // Rows 10-14 each carry "m": {"other<i>": i} -- a distinct, never-repeated key. Over the
+    // FULL 15 rows: union={shared,other10..other14} (6 keys), coverage=mean(1/6)=0.167<0.25,
+    // intersection=empty (no key survives past row 9) -> MAP. A previewRest that classified over
+    // jsRows.take(10) would (wrongly) flatten "m" as a struct (emitting "m.shared"); classifying
+    // over the full batch first (correct, D6) flattens "m" as one bounded leaf, agreeing with
+    // the schema SchemaInferenceEngine infers over the same full batch.
+    "classifies over the FULL fetched batch, not the displayed take(10) (D6 ordering, real seam)" in {
+      cleanDb()
+      val rows: Vector[JsValue] =
+        (0 until 10).map(i => JsObject("m" -> JsObject("shared" -> JsNumber(i)))).toVector ++
+          (10 until 15).map(i => JsObject("m" -> JsObject(s"other$i" -> JsNumber(i)))).toVector
+      val json: JsValue = JsArray(rows)
+      val svc     = service(restConnector(Right(json)))
+      val created = await(svc.createRest(CreateSourceRequest("PreviewD6Ordering", DataSourceKind.RestApi, restConfigPayload, None), user)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"createRest failed: $e")
+      }
+      val schemaFieldNames = created.inferredSchema.getOrElse(fail("expected an inferred schema")).fields.map(_.name).toSet
+      // The schema, inferred over the full 15-row batch, must classify "m" as MAP -- exactly one
+      // bounded "m" column, never "m.shared".
+      schemaFieldNames shouldBe Set("m")
+
+      val previewed = await(svc.preview(DataSourceId(created.source.id), user)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"preview failed: $e")
+      }
+      val previewKeySets = previewed.rows.map(_.asInstanceOf[JsObject].fields.keySet).toSet
+      // Every displayed (first-10) preview row must agree with the schema's classification --
+      // "m" only, never "m.shared" -- which is only true if preview classified over the FULL
+      // batch before slicing to the first 10 for display.
+      previewKeySets shouldBe Set(Set("m"))
+    }
   }
 }

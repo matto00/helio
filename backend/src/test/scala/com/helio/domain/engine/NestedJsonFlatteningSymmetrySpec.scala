@@ -42,7 +42,7 @@ class NestedJsonFlatteningSymmetrySpec extends AnyWordSpec with Matchers {
     SchemaInferenceEngine.fromJson(rowObj).fields.map(_.name).toSet
 
   private def materialisedColumnKeys(rowObj: JsObject): Set[String] =
-    PipelineRowJson.jsRowToRow(rowObj).keySet
+    PipelineRowJson.jsRowToRow(rowObj, Set.empty).keySet
 
   "schema/row symmetry over a genuinely nested Sleeper row" should {
     "produce the identical field-name set as the materialised column-key set, for every captured row" in {
@@ -64,7 +64,7 @@ class NestedJsonFlatteningSymmetrySpec extends AnyWordSpec with Matchers {
   "negative control" should {
     "leaves no column whose value is JSON object text (the pre-fix shape)" in {
       rows.foreach { rowObj =>
-        val materialised = PipelineRowJson.jsRowToRow(rowObj)
+        val materialised = PipelineRowJson.jsRowToRow(rowObj, Set.empty)
         materialised.values.foreach {
           case s: String => s.trim.startsWith("{") shouldBe false
           case _          => // fine
@@ -74,7 +74,7 @@ class NestedJsonFlatteningSymmetrySpec extends AnyWordSpec with Matchers {
 
     "does not carry a top-level 'stats' or 'player' column alongside its dotted children" in {
       rows.foreach { rowObj =>
-        val keys = PipelineRowJson.jsRowToRow(rowObj).keySet
+        val keys = PipelineRowJson.jsRowToRow(rowObj, Set.empty).keySet
         keys should not contain "stats"
         keys should not contain "player"
         keys.exists(_.startsWith("stats.")) shouldBe true
@@ -90,13 +90,13 @@ class NestedJsonFlatteningSymmetrySpec extends AnyWordSpec with Matchers {
       val field   = schema.fields.find(_.name == "stats.pts_ppr").getOrElse(fail("stats.pts_ppr missing from inferred schema"))
       field.dataType should (be(DataFieldType.FloatType) or be(DataFieldType.IntegerType))
 
-      val row = PipelineRowJson.jsRowToRow(rowObj)
+      val row = PipelineRowJson.jsRowToRow(rowObj, Set.empty)
       row("stats.pts_ppr") shouldBe a[java.lang.Double]
     }
 
     "materialises player.first_name as a string, not as flattened JSON text" in {
       val rowObj = rows.head
-      val row    = PipelineRowJson.jsRowToRow(rowObj)
+      val row    = PipelineRowJson.jsRowToRow(rowObj, Set.empty)
       row("player.first_name") shouldBe a[String]
       row("player.first_name").asInstanceOf[String] should not startWith "{"
     }

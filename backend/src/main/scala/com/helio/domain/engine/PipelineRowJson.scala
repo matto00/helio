@@ -95,9 +95,16 @@ object PipelineRowJson {
    *  fall into `jsValueToAny`'s `other => other.compactPrint` catch-all and land as a raw JSON
    *  *string* under the top-level key, even though `SchemaInferenceEngine` already advertised
    *  the nested field as a dotted, typed column. Deriving both from the same `leaves` call is
-   *  what keeps them from disagreeing again. */
-  def jsRowToRow(v: JsValue): Row = v match {
-    case obj: JsObject => JsonFlattener.leaves(obj).map { case (k, fv) => k -> jsValueToAny(fv) }.toMap
+   *  what keeps them from disagreeing again.
+   *
+   *  HEL-1015 design D1/tasks 3.2: `mapPaths` is a REQUIRED parameter, computed ONCE by the
+   *  caller over the full batch it holds (`InProcessPipelineEngine`'s `outcome.rows`) and passed
+   *  through unchanged to every row -- this method must NOT compute classification itself.
+   *  Per-row classification is impossible in principle (a map is a cross-row property, HEL-1015
+   *  Context 1) and would make a row disagree with the schema `SchemaInferenceEngine` inferred
+   *  over the same batch, row by row. */
+  def jsRowToRow(v: JsValue, mapPaths: Set[String]): Row = v match {
+    case obj: JsObject => JsonFlattener.leaves(obj, mapPaths).map { case (k, fv) => k -> jsValueToAny(fv) }.toMap
     case other          => Map("value" -> jsValueToAny(other))
   }
 

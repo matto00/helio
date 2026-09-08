@@ -65,8 +65,8 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
     // this pathological edge case (the ticket's core guarantee).
     "agrees with PipelineRowJson.jsRowToRow on which value wins a dotted-key collision" in {
       val json = """{"a.b": 1, "a": {"b": 2}}""".parseJson.asInstanceOf[JsObject]
-      val schemaValue = JsonFlattener.leaves(json).toMap.apply("a.b")
-      val rowValue     = PipelineRowJson.jsRowToRow(json)("a.b")
+      val schemaValue = JsonFlattener.leavesUnclassified(json).toMap.apply("a.b")
+      val rowValue     = PipelineRowJson.jsRowToRow(json, Set.empty)("a.b")
       PipelineRowJson.jsValueToAny(schemaValue) shouldBe rowValue
     }
 
@@ -279,10 +279,16 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
     }
 
     // Design D6's three-sided agreement property, asserted directly on the un-folded `Seq`.
+    //
+    // evaluation-1.md non-blocking suggestion: the row side must classify over the SAME
+    // `mapPaths` the schema side (`fromJson`) computed over this exact batch -- `Set.empty`
+    // here would quietly stop this helper from ever detecting a schema/row divergence on a
+    // map-shaped input, even though its own name claims to test that invariant.
     def assertAgreement(rows: Seq[JsObject]): Unit = {
+      val mapPaths = JsonFlattener.detectMapPaths(rows.toVector)
       val schema = fromJson(JsArray(rows.toVector))
       val schemaNames = schema.fields.map(_.name)
-      val rowKeySets  = rows.map(PipelineRowJson.jsRowToRow(_).keySet)
+      val rowKeySets  = rows.map(PipelineRowJson.jsRowToRow(_, mapPaths).keySet)
 
       // (1) every row's key set is a subset of the schema's field-name set
       rowKeySets.foreach { keys =>

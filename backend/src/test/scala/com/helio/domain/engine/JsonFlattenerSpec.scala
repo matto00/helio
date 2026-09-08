@@ -16,7 +16,7 @@ class JsonFlattenerSpec extends AnyWordSpec with Matchers {
         "player_id" -> JsString("8800"),
         "stats"     -> JsObject("pts_ppr" -> JsNumber(33.7), "rec" -> JsNumber(6))
       )
-      val result = JsonFlattener.leaves(obj).toMap
+      val result = JsonFlattener.leavesUnclassified(obj).toMap
 
       result.keySet shouldBe Set("player_id", "stats.pts_ppr", "stats.rec")
       result should not contain key("stats")
@@ -28,14 +28,14 @@ class JsonFlattenerSpec extends AnyWordSpec with Matchers {
           "metadata" -> JsObject("team" -> JsString("DAL"), "active" -> JsBoolean(true))
         )
       )
-      val result = JsonFlattener.leaves(obj).toMap
+      val result = JsonFlattener.leavesUnclassified(obj).toMap
       result.keySet shouldBe Set("player.metadata.team", "player.metadata.active")
       result("player.metadata.team") shouldBe JsString("DAL")
     }
 
     "leave top-level scalars unchanged" in {
       val obj = JsObject("a" -> JsNumber(1), "b" -> JsString("x"), "c" -> JsBoolean(false))
-      JsonFlattener.leaves(obj).toMap shouldBe Map(
+      JsonFlattener.leavesUnclassified(obj).toMap shouldBe Map(
         "a" -> JsNumber(1),
         "b" -> JsString("x"),
         "c" -> JsBoolean(false)
@@ -44,12 +44,12 @@ class JsonFlattenerSpec extends AnyWordSpec with Matchers {
 
     "contribute nothing for an empty nested object" in {
       val obj = JsObject("a" -> JsNumber(1), "empty" -> JsObject.empty)
-      JsonFlattener.leaves(obj).toMap shouldBe Map("a" -> JsNumber(1))
+      JsonFlattener.leavesUnclassified(obj).toMap shouldBe Map("a" -> JsNumber(1))
     }
 
     "treat an array of scalars as a single leaf, no index paths" in {
       val obj = JsObject("tags" -> JsArray(JsString("x"), JsString("y")))
-      val result = JsonFlattener.leaves(obj)
+      val result = JsonFlattener.leavesUnclassified(obj)
       result should have size 1
       result.head._1 shouldBe "tags"
       result.head._2 shouldBe a[JsArray]
@@ -59,7 +59,7 @@ class JsonFlattenerSpec extends AnyWordSpec with Matchers {
       val obj = JsObject(
         "games" -> JsArray(JsObject("pts" -> JsNumber(1)), JsObject("pts" -> JsNumber(2)))
       )
-      val result = JsonFlattener.leaves(obj)
+      val result = JsonFlattener.leavesUnclassified(obj)
       result should have size 1
       result.head._1 shouldBe "games"
       result.head._2 shouldBe a[JsArray]
@@ -67,7 +67,7 @@ class JsonFlattenerSpec extends AnyWordSpec with Matchers {
 
     "treat an array nested inside an object as a leaf at its own dotted path" in {
       val obj = JsObject("stats" -> JsObject("history" -> JsArray(JsNumber(1), JsNumber(2))))
-      val result = JsonFlattener.leaves(obj).toMap
+      val result = JsonFlattener.leavesUnclassified(obj).toMap
       result.keySet shouldBe Set("stats.history")
     }
 
@@ -80,7 +80,7 @@ class JsonFlattenerSpec extends AnyWordSpec with Matchers {
         else JsObject("n" -> nest(depth - 1))
 
       val obj = nest(JsonFlattener.MaxDepth)
-      val result = JsonFlattener.leaves(obj)
+      val result = JsonFlattener.leavesUnclassified(obj)
 
       // Final-gate skeptic round 1: the prior version of this test only asserted non-emptiness
       // and a path prefix, which would pass unchanged for ANY MaxDepth (including one that
@@ -94,7 +94,7 @@ class JsonFlattenerSpec extends AnyWordSpec with Matchers {
       leafValue shouldBe JsObject("leafField" -> JsNumber(1)) // the untouched subtree AT the bound
 
       // Row materialisation: the leaf's compact JSON text, not a further-flattened dotted column.
-      val rowValue = PipelineRowJson.jsRowToRow(obj)
+      val rowValue = PipelineRowJson.jsRowToRow(obj, Set.empty)
       rowValue.keySet shouldBe Set(path)
       rowValue(path) shouldBe a[String]
       rowValue(path).asInstanceOf[String] should include(""""leafField":1""")
@@ -110,7 +110,7 @@ class JsonFlattenerSpec extends AnyWordSpec with Matchers {
         if (depth == 0) JsObject("x" -> JsNumber(1)) else JsObject("n" -> nest(depth - 1))
 
       val obj = JsObject("a" -> JsNumber(1), "deep" -> nest(50))
-      val result = JsonFlattener.leaves(obj).toMap
+      val result = JsonFlattener.leavesUnclassified(obj).toMap
       result should contain key "a"
       result.keySet.exists(_.startsWith("deep")) shouldBe true
     }
@@ -129,7 +129,7 @@ class JsonFlattenerSpec extends AnyWordSpec with Matchers {
       // from `leaves`, never folding it into a `Map`) shipped that duplicate straight into the
       // inferred schema. So this test now asserts directly on the raw `Seq` `leaves` returns.
       val obj = JsObject("a.b" -> JsNumber(1), "a" -> JsObject("b" -> JsNumber(2)))
-      val results = (1 to 20).map(_ => JsonFlattener.leaves(obj))
+      val results = (1 to 20).map(_ => JsonFlattener.leavesUnclassified(obj))
       results.foreach { leaves =>
         leaves should have size 1 // exactly one "a.b" pair in the raw Seq itself, not just after a Map fold
         leaves.head._1 shouldBe "a.b"
@@ -141,7 +141,7 @@ class JsonFlattenerSpec extends AnyWordSpec with Matchers {
   "JsonFlattener.flattenJsObject" should {
     "reassemble leaves into a flat JsObject" in {
       val obj = JsObject("stats" -> JsObject("pts_ppr" -> JsNumber(33.7)))
-      JsonFlattener.flattenJsObject(obj) shouldBe JsObject("stats.pts_ppr" -> JsNumber(33.7))
+      JsonFlattener.flattenJsObjectUnclassified(obj) shouldBe JsObject("stats.pts_ppr" -> JsNumber(33.7))
     }
   }
 }
