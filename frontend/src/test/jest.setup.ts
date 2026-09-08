@@ -75,3 +75,58 @@ if (typeof Element !== "undefined" && typeof Element.prototype.setPointerCapture
   Element.prototype.setPointerCapture = function setPointerCapture() {};
   Element.prototype.releasePointerCapture = function releasePointerCapture() {};
 }
+
+// react-grid-layout 2.2.4 replaced `useContainerWidth`'s `node.offsetWidth`
+// read (stubbed above) with `getContentWidth(node)`, which prefers
+// `Number.parseFloat(getComputedStyle(node).width)` and only falls back to
+// `clientWidth` when that parse is non-finite (see HEL-1014's
+// files-modified.md for the full probe transcript). This is a real, load
+// -bearing behavior difference between jsdom and a real browser, NOT a bug
+// in the library: a real browser's `getComputedStyle().width` reports the
+// USED value in px (e.g. "1152px") after layout, whereas jsdom performs no
+// layout and returns the SPECIFIED value verbatim. The product renders
+// `.panel-list__zoom-container` with an inline percentage width
+// (`PanelList.tsx`: `width: ${100 / zoomLevel}%`), so jsdom's
+// `getComputedStyle` reports the literal string "100%" for it —
+// `Number.parseFloat("100%")` is a FINITE 100, so `getContentWidth` returns
+// 100 immediately and the `clientWidth` fallback (which the old, now-
+// insufficient, stub targeted) is never reached. A measured width of 100 is
+// below `panelGridConfig.breakpoints.sm` (768), so `PanelGrid` silently
+// flips to the phone-only `MobilePanelStack`, which by design (HEL-301) has
+// no panel-actions trigger — that's the accessible-name regression this
+// stub repairs.
+//
+// The fix must depend on the OUTCOME (a desktop-representative width
+// measurement), not on which primitive react-grid-layout happens to read
+// this version — a future library bump could switch primitives again. So
+// this shims `getComputedStyle` itself, narrowly: any element whose style
+// already carries a resolved `px` width (i.e. a test that set one
+// explicitly, or a real used-value) passes through untouched, and only an
+// unresolved value (anything not ending in "px" — percentages, "auto", "")
+// is reported as a desktop-width `"1280px"`, matching the existing
+// `offsetWidth` stub above.
+if (typeof globalThis.getComputedStyle === "function") {
+  const nativeGetComputedStyle = globalThis.getComputedStyle.bind(globalThis);
+  globalThis.getComputedStyle = function shimmedGetComputedStyle(
+    ...args: Parameters<typeof nativeGetComputedStyle>
+  ): CSSStyleDeclaration {
+    const style = nativeGetComputedStyle(...args);
+    if (typeof style.width === "string" && style.width.endsWith("px")) {
+      return style;
+    }
+    return new Proxy(style, {
+      get(target, prop, receiver) {
+        if (prop === "width") {
+          return "1280px";
+        }
+        if (prop === "getPropertyValue") {
+          return (property: string) =>
+            property === "width"
+              ? "1280px"
+              : Reflect.get(target, prop, receiver).call(target, property);
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+  } as typeof globalThis.getComputedStyle;
+}
