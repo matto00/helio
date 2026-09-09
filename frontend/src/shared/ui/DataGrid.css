@@ -338,7 +338,7 @@
 }
 
 .ui-data-grid__filter-toggle-btn:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   border-color: var(--app-border-strong);
   color: var(--app-text);
 }

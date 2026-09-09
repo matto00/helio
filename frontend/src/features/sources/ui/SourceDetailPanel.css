@@ -89,7 +89,7 @@
 }
 
 .source-detail-panel__preview-btn:hover:not(:disabled) {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   border-color: var(--app-border-strong);
 }
 

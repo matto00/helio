@@ -97,7 +97,7 @@
 }
 
 .connectors-page__row:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .connectors-page__td {
@@ -173,7 +173,7 @@
 
 .connectors-page__scroll--left .connectors-page__row:hover .connectors-page__td--actions,
 .connectors-page__scroll--right .connectors-page__row:hover .connectors-page__td--actions {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 /* HEL-1022 (adversarial review finding 2): the CONTAINER's own `--right`
@@ -258,7 +258,7 @@
 
 .connectors-page__btn:hover:not(:disabled) {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .connectors-page__btn:disabled {

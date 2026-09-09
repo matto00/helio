@@ -193,7 +193,7 @@
 }
 
 .pipeline-detail-header__source-chip-remove:hover:not(:disabled) {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
@@ -359,6 +359,18 @@
    width — the same reasoning holds at every viewport. */
 .pipeline-detail-header__actions .actions-menu__trigger {
   border-color: transparent;
+}
+
+/* HEL-866 cycle 4 (skeptic-final-1.md CR3-population fallout) — this
+   header's OWN background is `--app-surface-soft` (not `--app-surface`),
+   so the shared `IconButton`/`ActionsMenu` trigger's `--app-surface-soft`
+   hover (`IconButton.css`, higher specificity than `Popover.css`'s own
+   `.popover__trigger:hover`) collided exactly with it — measured live,
+   the header's own soft colour on itself, ratio 1.000, the ticket's own
+   defect. `--app-surface-raised` clears 1.10 against THIS backdrop in
+   both themes (1.179 light / 1.122 dark), no theme split needed. */
+.pipeline-detail-header__actions .actions-menu__trigger:hover:not(:disabled) {
+  background: var(--app-surface-raised);
 }
 
 /* ── Tablet and below — stack the three field groups instead of crowding

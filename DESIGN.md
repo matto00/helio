@@ -92,14 +92,24 @@ hardcode a value a token exists for.** **[mechanical]**
 
 ### Color (themed; tokens are `--app-*`)
 
-| Purpose           | Tokens                                                                                                                                                                                 |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Text              | `--app-text`, `--app-text-muted`                                                                                                                                                       |
-| Canvas / surfaces | `--app-bg` (canvas) → `--app-surface-soft` (recessed wells/inputs) → `--app-surface` (cards/chrome) → `--app-surface-raised` (hover) → `--app-surface-strong` (modals/popovers/toasts) |
-| Accent (user-set) | `--app-accent`, `--app-accent-ink`, `--app-accent-strong` (hover), `--app-accent-surface` / `--app-accent-dim` (selection washes), `--app-accent-mid` (selection borders)              |
-| Border            | `--app-border-subtle` (default hairline), `--app-border-strong` (hover/emphasis) — **neutral, never accent-tinted**                                                                    |
-| Intent            | `--app-success`, `--app-warning`, `--app-error` (+ `--app-*-surface` washes), `--app-info` (→ accent). `--app-danger` aliases error.                                                   |
-| Overlay / texture | `--app-overlay` (modal backdrop), `--canvas-dot` (neutral dot field)                                                                                                                   |
+| Purpose           | Tokens                                                                                                                                                                                                                                                         |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Text              | `--app-text`, `--app-text-muted`                                                                                                                                                                                                                               |
+| Canvas / surfaces | `--app-bg` (canvas) → `--app-surface-soft` (recessed wells/inputs; **also the default interactive-state background — see the HEL-866 note below**) → `--app-surface` (cards/chrome) → `--app-surface-raised` → `--app-surface-strong` (modals/popovers/toasts) |
+| Accent (user-set) | `--app-accent`, `--app-accent-ink`, `--app-accent-strong` (hover), `--app-accent-surface` / `--app-accent-dim` (selection washes), `--app-accent-mid` (selection borders)                                                                                      |
+| Border            | `--app-border-subtle` (default hairline), `--app-border-strong` (hover/emphasis) — **neutral, never accent-tinted**                                                                                                                                            |
+| Intent            | `--app-success`, `--app-warning`, `--app-error` (+ `--app-*-surface` washes), `--app-info` (→ accent). `--app-danger` aliases error.                                                                                                                           |
+| Overlay / texture | `--app-overlay` (modal backdrop), `--canvas-dot` (neutral dot field)                                                                                                                                                                                           |
+
+**HEL-866 — which rung is correct depends on the REAL BACKDROP a state composites against, and that backdrop varies by layer, not just by theme.** `--app-surface-raised` and `--app-surface-strong` are byte-identical in light theme (`#ffffff` = `#ffffff`), so a state layered directly on a Modal/popover/menu's own background (`--app-surface-strong`) rendered with **zero** visible feedback there; dark theme is not safe either (`#232019` on `#262320` measures ~1.04:1, non-identical but not _measurably_ different). But the fix is NOT "always use `--app-surface-soft`" — that was tried first (cycle 1), shipped as a blanket sweep, and **measurably regressed a whole family of call sites it never verified** (evaluation-2.md CR6): table/list rows and page-level buttons mostly composite against `--app-bg` (the outermost canvas), not `--app-surface-strong`, and on `--app-bg` it is `--app-surface-raised` that clears the threshold in both themes (1.161 dark / 1.119 light) — `--app-surface-soft` measures _worse_ there (1.034 dark / 1.054 light). A rendered, CI-gated contrast guard (`e2e/state-surface-contrast-guard.spec.ts`) — the arbiter for every remediation decision here, not inspection or a general rule — found three distinct backdrop families, each needing a different fix:
+
+| real backdrop                                                                         | correct fix                                                                                                  | measured (dark / light) |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| `--app-surface-strong` (modal/popover/menu interiors)                                 | `--app-surface-soft` alone, no theme split                                                                   | 1.167 / 1.179           |
+| `--app-surface` (an intermediate layer — command bar, a step card, a settings button) | `--app-surface-strong` in dark, `--app-surface-soft` in light (a `:root[data-theme="dark"]`-scoped override) | 1.133 / 1.150           |
+| `--app-bg` (the outermost page canvas — most table/list rows)                         | `--app-surface-raised`, unchanged, no fix needed                                                             | 1.161 / 1.119           |
+
+See `openspec/changes/state-surface-contrast-guard/design.md` D1/D3 for the full derivation. **This three-way split is itself strong evidence for a dedicated `--app-state-hover` / `--app-state-selected` token pair** — no single existing rung serves all three backdrops in both themes, so every future call site has to re-derive which of three fixes it needs (as this ticket's own remediation got wrong on its first pass) rather than reaching for one name that is correct by construction. **Still recommended, still not adopted this run**: adding a token to `theme.css` is a visual-identity decision requiring owner sign-off (escalated during HEL-866, no dashboard attached; the conservative per-backdrop-measured-fix path was taken instead of blocking on it).
 
 **`--app-accent-mid` on a border is CORRECT, not drift** (HEL-442 audit correction): the "never accent-tinted" rule
 above governs the DEFAULT hairline (`--app-border-subtle`/`--app-border-strong`), not every border in the app.
@@ -368,8 +378,10 @@ recipes (match metrics exactly; see `Modal.css` / `App.css` for reference):
 - **Primary** — solid `--app-accent`, text `--app-accent-ink`, hover
   `--app-accent-strong`, no border. One primary per view/section.
 - **Secondary** — transparent bg, `--app-border-subtle` hairline, muted text;
-  hover: `--app-border-strong` + `--app-surface-raised` + full text.
-- **Ghost** — borderless, muted text; hover `--app-surface-raised`.
+  hover: `--app-border-strong` + `--app-surface-soft` + full text (HEL-866 —
+  see §3's ramp note; `--app-surface-raised` collides with modal/top-surface
+  backgrounds).
+- **Ghost** — borderless, muted text; hover `--app-surface-soft` (HEL-866).
 - **Danger** — hairline `color-mix(error 60%)`, error text; hover
   `--app-error-surface`. Solid error only for final confirm actions.
 
@@ -552,7 +564,11 @@ ever need it:
   — a table's real backdrop is the page background (everything from the
   `<table>` up to `<body>` is transparent), and painting the lighter surface
   token here reads as a detached, mismatched-tone panel.
-  `--app-surface-raised` still matches the row's own hover treatment.
+  `--app-surface-raised` still matches the row's own hover treatment — a
+  table row's real backdrop is `--app-bg` (family 3, §3's HEL-866 note),
+  where `--app-surface-raised` clears 1.10 in both themes and `--app-
+surface-soft` measurably does not; this corrects a stale cycle-2
+  "always soft" claim this line previously repeated.
 - The scrollable container's own edge shadow (the `--right` inset shadow
   signaling "more content this way") paints at the CONTAINER's physical
   edge, which sticky content now visually occupies — an inset shadow paints

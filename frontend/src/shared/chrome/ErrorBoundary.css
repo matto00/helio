@@ -83,7 +83,7 @@
 
 .error-boundary__button:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .error-boundary__button--primary {

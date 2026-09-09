@@ -19,7 +19,7 @@
 
 .mfa-enroll-modal__retry-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .mfa-enroll-modal__scan {
@@ -67,7 +67,7 @@
 
 .mfa-enroll-modal__copy-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 

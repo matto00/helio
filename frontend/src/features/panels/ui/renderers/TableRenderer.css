@@ -62,7 +62,7 @@
 }
 
 .panel-content__load-more-btn:hover:not(:disabled) {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   border-color: var(--app-border-strong);
   color: var(--app-text);
 }
@@ -111,7 +111,7 @@
 }
 
 .panel-content__clear-filters-btn:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   border-color: var(--app-border-strong);
   color: var(--app-text);
 }

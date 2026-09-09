@@ -53,6 +53,10 @@
 
 .settings-page__theme-toggle:hover {
   border-color: var(--app-border-strong);
+  /* HEL-866 evaluation-2.md cycle 3 (CR6) — real backdrop is `--app-bg`
+     (the settings page canvas), where `--app-surface-raised` clears 1.10
+     in both themes (1.161 dark / 1.119 light). Reverted from `--app-
+     surface-soft` (1.034 dark / 1.054 light on this backdrop). */
   background: var(--app-surface-raised);
   color: var(--app-text);
 }

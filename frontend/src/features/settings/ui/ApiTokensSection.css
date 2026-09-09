@@ -65,7 +65,7 @@
 
 .api-tokens-section__copy-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
@@ -136,7 +136,7 @@
 }
 
 .api-tokens-list-table__row:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .api-tokens-list-table__td {

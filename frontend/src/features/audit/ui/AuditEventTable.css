@@ -31,6 +31,15 @@
 }
 
 .audit-event-table__row:hover {
+  /* HEL-866 evaluation-2.md cycle 3 (CR6) — this row's real backdrop is
+     `--app-bg` (the page canvas), NOT `--app-surface`: on `--app-bg`,
+     `--app-surface-raised` measures 1.161 dark / 1.119 light, CLEARING
+     1.10 in both themes (unlike its 1.089/1.025 failure on-`--app-
+     surface`). The blanket cycle-1 sweep moved this to `--app-surface-
+     soft`, which measures only 1.034 dark / 1.054 light on THIS backdrop —
+     a real regression (this exact family is evaluation-2.md CR6's own
+     example). Reverted to `--app-surface-raised`, which was never actually
+     broken here. */
   background: var(--app-surface-raised);
 }
 

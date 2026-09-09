@@ -142,7 +142,7 @@
 
 .ui-select__option:hover,
 .ui-select__option--focused {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .ui-select__option--selected {

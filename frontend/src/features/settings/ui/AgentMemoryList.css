@@ -58,7 +58,7 @@
 }
 
 .agent-memory-list-table__row:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .agent-memory-list-table__td {

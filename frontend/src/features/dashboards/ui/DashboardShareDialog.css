@@ -64,7 +64,7 @@
 
 .dashboard-share-dialog__copy-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 

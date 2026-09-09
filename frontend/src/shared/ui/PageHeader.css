@@ -24,7 +24,7 @@
 }
 
 .page-header__back:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 

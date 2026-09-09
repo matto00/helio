@@ -49,7 +49,7 @@
 
 .status-message__retry:hover:not(:disabled) {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .status-message__retry:disabled {

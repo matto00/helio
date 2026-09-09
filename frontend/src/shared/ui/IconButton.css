@@ -60,7 +60,7 @@
 }
 
 .ui-icon-btn--ghost:hover:not(:disabled) {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
@@ -72,7 +72,7 @@
 
 .ui-icon-btn--secondary:hover:not(:disabled) {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 

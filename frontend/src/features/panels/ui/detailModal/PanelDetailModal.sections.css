@@ -25,7 +25,7 @@
 
 .panel-detail-modal__segmented-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
@@ -115,7 +115,7 @@
 
 .panel-detail-modal__column-move-btn:hover:not(:disabled) {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
@@ -147,7 +147,7 @@
 
 .panel-detail-modal__reset-widths-btn:hover:not(:disabled) {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
