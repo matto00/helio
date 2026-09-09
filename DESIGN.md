@@ -949,3 +949,149 @@ black|white)`) is not a conforming focus colour** — Yellow measures
     **HEL-1057**, not this token and not HEL-1051 (which is focus
     indicators at 3:1, a different obligation on the same component).
 - Keyboard operable; dialogs handle Enter/Escape.
+
+## Light/dark token-parity rule (HEL-444)
+
+Every `--app-*` custom property declared inside `:root[data-theme="dark"]` in
+`frontend/src/theme/theme.css` must also be declared inside
+`:root[data-theme="light"]`, and vice versa. A token present in only one theme
+block resolves to the empty string wherever the _other_ theme is active — the
+two selectors are siblings, neither inherits from the other, so there is no
+fallback chain that would otherwise mask the gap. Measured on `f20ea8f6`: each
+block declares 29 `--app-*` tokens (30 custom properties total per block,
+counting the deliberately theme-invariant `--canvas-dot`), symmetric in both
+directions, zero live violations. Guarded by
+`frontend/src/theme/themeParityGuard.css.test.ts` — a Jest guard beside its
+seven `theme.css`-parsing siblings, not a `scripts/*.mjs` (Jest already runs
+in pre-commit and CI, so no new wiring or gate-chain surface is needed).
+Runtime-set tokens written inline by `applyAccentTokens`
+(`--app-focus-ring-color`, `--app-accent-text`, `--app-selection-bg`) are
+declared in _neither_ theme block by design — their static fallback lives
+once in the theme-invariant `:root` block and is pinned separately by
+`accentTextSourceSyncGuard.css.test.ts`/`focusRingTokenGuard.css.test.ts` —
+and the parity guard treats "declared in neither" as a non-violation without
+that leniency swallowing "declared in exactly one."
+
+## HEL-444 re-test: the site-wide focus ring and the accent-text link are FIXED
+
+An earlier (parked, pre-`f20ea8f6`) walk of this ticket found the keyboard
+focus ring at 2.38-2.80 against light-theme surfaces (below the 3:1 non-text
+floor, site-wide via the single `--app-focus-ring` token) and the Dashboards
+empty-state CTA rendering `color: var(--app-accent)` as normal-size text
+(2.38-2.80, below 4.5:1). Both findings were **HEL-1046's and HEL-1048's own
+subjects** and shipped fixed before this re-test (`736a8cbb`, `153f6714`,
+`35d8e5e9`). Re-measured live on `f20ea8f6` rather than carried forward:
+
+- **Focus ring**: `--app-focus-ring-color` is derived by
+  `deriveFocusRingColor` (`theme/appearance.ts`) to clear 3:1 against every
+  theme surface in `FOCUS_RING_SURFACES`, by construction (a search-until-
+  clears loop with a safe black-fallback terminal case — it cannot return a
+  sub-3:1 value). Verified live: a fresh page load with no stored accent, in
+  light theme, produces a focused element whose computed `outlineColor` is
+  `rgb(234, 88, 12)` (`#ea580c`, the light default, which already clears 3:1
+  without darkening); a fresh dark load produces `rgb(219, 101, 19)`
+  (`#db6513`). Confirmed for all 8 `ACCENT_PRESETS` × both themes
+  analytically (16 computations, all ≥ 3:1; thinnest is Cyan/light at 3.01)
+  and spot-checked live for the Cyan preset (worst analytic margin), which
+  renders exactly the analytically-derived `#0595ae` in both themes.
+- **Accent-as-text**: the empty-state CTA (`EmptyState.tsx`/`.css`) now sets
+  `color: var(--app-accent-text)`, derived by `deriveAccentTextColor`
+  (theme-aware, same search-until-clears construction, 4.5:1 floor) — not
+  the raw `--app-accent`. A computed-style sweep of every visible,
+  non-zero-area element on Dashboards, Sources, Pipelines, and Connectors in
+  both themes found **zero** elements rendering raw `--app-accent` as
+  `color`, `border-*-color`, or `outline-color`. Confirmed for all 8 presets
+  × both themes analytically (16 computations, all ≥ 4.5:1; thinnest is
+  Yellow/light at 5.10).
+- **One remaining raw-`--app-accent` render was found and reviewed, not
+  fixed**: `OrbitMark.tsx`, the Helio logo mark (`aria-hidden="true"`,
+  `stroke="var(--app-accent)"`). It renders primarily as the **persistent
+  app-chrome logo** — `CommandBar`'s `.app-command-bar__logo`
+  (`aria-label="Helio home"`), present in the header on **every
+  authenticated page**, not just the surfaces below — plus on the
+  unauthenticated **auth pages**
+  (`LoginPage`/`RegisterPage`/`MfaVerifyPage`/`OAuthCallbackPage`) and
+  `ConnectorCompletionPage`. Corrected here on two counts: an earlier
+  measurement wrongly located it in Settings/Chat chrome, and a later
+  correction over-indexed on the auth pages alone, which could read as
+  auth-only when `CommandBar`'s always-visible instance is actually where it
+  is most exposed. Measured live on `/login`: at the **shipped per-theme
+  default** it is 3.47:1 in light (`#ea580c` on `#fdfcfa`) and 6.32:1 in dark
+  (`#f97316` on `#1a1816`) — both clear 3:1. At the **Yellow preset**
+  (`#eab308`, this session's adversarially-chosen worst accent-on-surface
+  case, also re-measured on `/login` rather than Settings/Chat) it is
+  1.87:1 in light — below 3:1. This is **not treated as a defect** for any
+  preset: WCAG 1.4.11 Non-text Contrast explicitly excepts logotypes, and
+  this is exactly that case — a decorative brand mark, `aria-hidden="true"`,
+  sitting immediately beside the `Helio` wordmark
+  (`.app-command-bar__wordmark`, plain `--app-text` on the page background,
+  measured elsewhere in this document at 14.96-16.74:1 across every surface
+  in both themes) which is what actually carries the label and the click
+  affordance (`aria-label="Helio home"` is on the parent link, not the SVG).
+  The mark supplies decoration next to a fully-legible textual identity, not
+  the identity itself. **This exception is scoped to `OrbitMark` alone and
+  must not be read as a general licence for raw `--app-accent` on light
+  surfaces** — every other consumer measured in this document (the focus
+  ring, accent-as-text) has its own derived, contrast-guaranteed token
+  precisely because it is NOT exempt the way a logotype is. Recorded here so
+  a future reader does not re-flag `OrbitMark` without the exception in
+  view, and does not misread the exception as covering anything else.
+
+**Conclusion, scoped to the surfaces actually walked (both themes, fresh
+default accent per D9.6b, plus the Yellow/Cyan adversarial presets spot-
+checked): AC2 is SATISFIED on Dashboards+PanelGrid (including the
+always-present `Add dashboard` button, whose `aria-label="Add dashboard"`
+control at `DashboardList.tsx:210` opens an INLINE create form — not a
+modal — regardless of list population; the _hero_ empty-state CTA at
+`DashboardList.tsx:321` is a separate, narrower affordance only visible when
+the list is empty), Sources, Pipelines, Settings, Connectors (both the
+wide-viewport standalone `Test connection` button, whose own inline
+pending/success/error UI renders in the table row, and the
+narrow-viewport/`ActionsMenu` `Test connection` path, which instead surfaces
+its result via a real toast — both variants clicked and screenshotted,
+success and error, both themes), auth `LoginPage`/`RegisterPage`, the
+mobile shell (390×844), the `Customize dashboard appearance` popover on
+Dashboards, `MfaEnrollModal` (opened via Settings → "Enable two-factor
+authentication", closed with Escape without confirming), the
+`connectors add-connector` modal, and a live toast (`ApiTokensSection`'s
+PAT-creation "Copy" button, `role="status"`/`aria-live="polite"`, text
+"Token copied to clipboard.")** — this supersedes the parked lane's
+"REPORTED-NOT-SATISFIED against HEL-1046" for those surfaces specifically:
+HEL-1046 has since shipped and its subject (the site-wide ring) plus
+HEL-1048's subject (accent-as-text) are both confirmed fixed there by live
+re-measurement, not by re-reading the ticket status. The raw `--app-accent`
+× surface matrix (4 presets fail 3:1 in light, 4 fail 4.5:1 in dark) remains
+true as a property of the _undifferentiated_ accent token, but nothing on
+the confirmed surfaces still renders that raw token where a threshold
+applies except the WCAG-exempt `OrbitMark` logo above.
+
+**Three required surfaces were reached but could not be exercised in a
+populated state, and are reported rather than silently omitted:**
+`MfaVerifyPage` and `OAuthCallbackPage` both redirect to `/login` without a
+real in-flight MFA challenge / OAuth provider round-trip to drive them (this
+dev environment has neither); `/proposals/review` renders but with no
+active proposal in Redux state to review, so only its own empty/redirect
+state was seen. None of the three is claimed confirmed or folded into the
+SATISFIED verdict above.
+
+The `MfaVerifyPage`/`OAuthCallbackPage` pair is further **self-evidenced**
+by its screenshots, not merely asserted: both routes, within the same
+theme, redirect to the identical `/login` page with no distinguishing query
+param or state to render differently, so their captured screenshots are
+genuinely byte-identical — that identity is itself the evidence that
+neither route received the real state it needs (an in-flight MFA challenge,
+a live OAuth provider round-trip) to render anything else, rather than a
+screenshot-capture defect (contrast the cycle-2 md5 failure, where two
+DIFFERENT, populated surfaces were wrongly captured as identical by a stale
+script run — this is the opposite case: two DIFFERENT routes correctly
+captured as identical because they fell back to the SAME unpopulated one).
+
+See `.concertino/runs/HEL-444/evidence/walk-2026-09-09-cycle2/` (the
+required-surface walk: Dashboards+PanelGrid, Sources, Pipelines, Settings,
+auth pages, mobile shell, and the two genuinely-unreachable auth routes) and
+`.concertino/runs/HEL-444/evidence/walk-2026-09-09-cycle3/` (Connectors,
+the appearance popover, `MfaEnrollModal`, the add-connector modal, and the
+PAT-copy toast, plus both Connectors `Test connection` code paths) for
+screenshots, each directory's own `md5sums.txt`, and `walk-transcript.txt`.
+Cycle 3's 20 screenshots are 20/20 `md5sum`-distinct. `derived-token-matrix.txt`
+carries the 16-computation transcript.
