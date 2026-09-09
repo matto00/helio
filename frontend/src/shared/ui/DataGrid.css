@@ -1,3 +1,43 @@
+/* HEL-451 design D10-2/D10-3: the outer flex frame — static, naturally
+   viewport-width — that stacks the filter chrome (toolbar, quick-filter
+   row, filtered-empty message) ABOVE `.ui-data-grid`, the scroll container.
+   Named `__frame`, deliberately NOT `__wrap`: `.ui-data-grid__empty-wrap`
+   (below) already exists and is a confusable neighbour. Unconditional
+   (every "full" grid renders it) except the un-filtered empty early-return
+   in `DataGrid.tsx`, which gets no frame at all — that path is untouched
+   pre-HEL-451 markup. Takes no variant/density modifiers of its own beyond
+   mirroring `--condensed`/`--normal`/`--spacious` (D10-4) since it is now a
+   SIBLING of `.ui-data-grid`, not its ancestor, and can no longer reach the
+   chrome by descendant selector. */
+.ui-data-grid__frame {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* HEL-451 design D10-3a — evaluator-1 finding: this rule was MISSING
+   entirely from the first D10 pass. `.ui-data-grid--full` (below) resolves
+   `flex: 1; min-height: 0` against whichever element carries it, and after
+   the reframe that element is a CHILD of `.ui-data-grid__frame`, not the
+   frame itself — so the frame needs its OWN definite-height rule, or it
+   stays content-sized inside `.panel-content--table`'s
+   `justify-content: flex-start` column flex, `.ui-data-grid` never gets a
+   vertical cap, it stops scrolling vertically, and `position: sticky` on
+   the header/filter rows silently stops engaging (D10-7's whole argument
+   depends on this). This is the highest-risk failure mode D10-3a named:
+   it renders fine, nothing goes red, only the sticky behavior is inert.
+   `flex: 1; min-height: 0`, NOT `height: 100%` — the frame is a flex
+   sibling of `.panel-content__disclosure`, which is `flex-shrink: 0`, so
+   `height: 100%` would only survive on the frame's own default
+   (non-zero) shrink factor and is fragile under that non-shrinking
+   sibling. Scoped to `--full` only; `--preview` gets no frame-level flex
+   rule and stays layout-neutral, per D10-3a. */
+.ui-data-grid__frame--full {
+  flex: 1;
+  min-height: 0;
+}
+
 .ui-data-grid {
   border-radius: var(--app-radius-sm);
   overflow: auto;
@@ -28,7 +68,9 @@
 }
 
 /* "preview" variant: a bounded, bordered card — used for read-only inline
-   previews (type/source/pipeline preview, step preview, schema preview). */
+   previews (type/source/pipeline preview, step preview, schema preview).
+   `max-height` stays on THIS scroll container, not the frame (D10-3a) — it
+   caps the scrollable area, not the chrome. */
 .ui-data-grid--preview {
   margin-top: var(--space-3);
   border: 1px solid var(--app-border-subtle);
@@ -36,10 +78,43 @@
   max-height: 320px;
 }
 
-/* "full" variant: fills its container (the table-panel body owns sizing). */
+/* "full" variant: fills its container. HEL-451 design D10-3a — changed
+   from `height: 100%` to `flex: 1; min-height: 0`: after the reframe this
+   element is a flex CHILD of `.ui-data-grid__frame` (a column flex
+   container) sharing that frame with the toolbar/quick-filter/filtered-
+   empty chrome above it, so `height: 100%` would resolve against the
+   frame's full height and overflow it once chrome takes its own share.
+   `flex: 1; min-height: 0` instead lets this container take exactly the
+   REMAINING space after chrome, and shrink safely. `width: 100%` is
+   unnecessary here (withdrawn, D10-3a): the frame is `align-items: stretch`
+   by default, which already gives every child full cross-axis width.
+
+   HEL-451 design D10-12 — SECOND, independent remedy alongside the raised
+   collapse threshold (`FRAME_FILTER_COLLAPSE_THRESHOLD_PX`, DataGrid.tsx):
+   `min-height: 79.5px` is the floor that keeps one header row plus one
+   per-column filter input usable EVEN when a USER manually expands
+   filters in a panel shorter than the threshold — a path D10-11
+   explicitly sanctions ("collapse is a default, not a lock"). CORRECTED
+   (skeptic-evaluator cycle 5): this was `69px` (34.5px header + 34.5px
+   assumed for the per-column row, reusing the header's own height) —
+   wrong. The per-column filter row carries `<input>` elements and
+   measures **45px live** (evaluation-4.md), not 34.5px; 34.5 + 45 =
+   79.5px. This was the THIRD threshold term in this ticket derived by
+   assumption rather than measurement (after D10-3a's withdrawn
+   arithmetic and cycle-3's 143px) — corrected rather than left stating a
+   figure known to be false. The threshold alone only stops the APP from
+   choosing the crushed state; it does nothing once a user overrides the
+   default with one click. This floor and the threshold are DELIBERATELY
+   not merged into one number — they protect two different actors (the
+   app's automatic choice vs. the user's explicit override) and a later
+   reader who "simplifies" them into one loses the actor distinction the
+   whole design rests on. When this floor pushes chrome past the frame's
+   available height, `.panel-content--table` scrolls — accepted ONLY on
+   the user-override path (D10-11); see `GRID_MIN_USABLE_HEIGHT_PX` in
+   DataGrid.tsx, kept in sync with this literal. */
 .ui-data-grid--full {
-  width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 79.5px;
 }
 
 .ui-data-grid__table {
@@ -150,8 +225,268 @@
   font-size: var(--text-base);
 }
 
+/* HEL-451 skeptic-evaluator CR2 — the frame-level chrome (toolbar,
+   quick-filter row, filtered-empty message) is now a SIBLING of
+   `.ui-data-grid`, not its descendant, so the three rules above (which
+   only reach `.ui-data-grid__table th`/`td`) never applied to it — the
+   `resolvedDensity` class was mirrored onto the frame (DataGrid.tsx) but
+   nothing selected it there, an inert mirror with no matching CSS. Making
+   the selector real, rather than dropping the mirror and stating chrome
+   doesn't respond to density: `TableRenderer` never sets `density` today
+   (so there's no live path exercising this), but the frame ALREADY
+   carries the modifier class for exactly this purpose, and the cost of a
+   real rule is three cheap declarations versus a future reader having to
+   rediscover why an existing, seemingly-load-bearing modifier class does
+   nothing. */
+.ui-data-grid--condensed .ui-data-grid__filter-toolbar,
+.ui-data-grid--condensed .ui-data-grid__quick-filter-row {
+  padding: var(--space-1) var(--space-2);
+}
+
+.ui-data-grid--spacious .ui-data-grid__filter-toolbar,
+.ui-data-grid--spacious .ui-data-grid__quick-filter-row {
+  padding: var(--space-3) var(--space-4);
+}
+
 .ui-data-grid__empty {
   margin: var(--space-3) 0 0;
   color: var(--app-text-muted);
   font-size: var(--text-sm);
+}
+
+/* HEL-451: the message + action beneath it when `emptyAction` is supplied
+   on the un-filtered empty path (task 3.3). */
+.ui-data-grid__empty-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.ui-data-grid__empty-wrap .ui-data-grid__empty {
+  margin-top: 0;
+}
+
+/* HEL-451 design D10-4: re-homed presentational CSS for the chrome that
+   used to live as `<th>`/`<td>` cells inside the table and now lives as
+   ordinary `<div>`s in `.ui-data-grid__frame` (D10-2). Same surface,
+   border and padding recipe as before (`--app-surface-soft`,
+   `--app-border-subtle`, `--space-*`), carried forward rather than
+   re-derived, so the visual result is unchanged even though none of it is
+   a table cell anymore. `flex-shrink: 0` (skeptic-design-9 non-blocking
+   note 1): the frame is a column flex container and `.ui-data-grid--full`
+   below is `flex: 1` — without an explicit shrink-safety on the chrome,
+   it is the only thing that CAN shrink under negative free space, and the
+   failure mode would be squashed/overlapping controls. No defect is
+   constructible at an achievable panel size, but this is one declaration
+   that removes the question. */
+.ui-data-grid__filter-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--app-surface-soft);
+  border-bottom: 1px solid var(--app-border-subtle);
+  padding: var(--space-1) var(--space-2);
+  flex-shrink: 0;
+}
+
+.ui-data-grid__quick-filter-row {
+  background: var(--app-surface-soft);
+  border-bottom: 1px solid var(--app-border-subtle);
+  padding: var(--space-1) var(--space-2);
+  flex-shrink: 0;
+}
+
+/* HEL-451 design D10-2: `.ui-data-grid__filter-row--columns` STAYS inside
+   the table (its inputs align to individual columns) — this rule now
+   reaches only that one row, not the toggle/quick-filter rows, which moved
+   out. `top` is deliberately absent here — it is an INLINE style computed
+   in `DataGrid.tsx` from the measured column-header row height (design
+   D4e/D10-7), not a guessed constant; this rule intentionally carries none
+   so it does not misdescribe the scheme to the next reader. */
+.ui-data-grid__filter-row th {
+  position: sticky;
+  background: var(--app-surface-soft);
+  border-bottom: 1px solid var(--app-border-subtle);
+  padding: var(--space-1) var(--space-2);
+}
+
+.ui-data-grid__filter-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  /* HEL-451 skeptic final-2 non-blocking note, fixed alongside CR1 (same
+     surface, low-risk, cohesion-only) — its sibling
+     `.panel-content__clear-filters-btn`/`.panel-content__load-more-btn`
+     both transition on hover/active-state changes; this control (and
+     `.ui-data-grid__filter-clear-all-btn` below) previously snapped
+     instantly. Uses the motion token per HEL-441's guard against ad-hoc
+     durations. */
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.ui-data-grid__filter-toggle-btn:hover {
+  background: var(--app-surface-raised);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+/* HEL-451 design D4d task 3c.2: "visually distinct from the inactive state,
+   not merely a changed tooltip" — an active filter (any term non-empty)
+   gets the accent treatment even while the rows themselves are collapsed,
+   so the fact that a filter is applied is never invisible. */
+.ui-data-grid__filter-toggle-btn--active {
+  border-color: var(--app-accent);
+  color: var(--app-accent);
+}
+
+.ui-data-grid__filter-clear-all-btn {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color var(--app-transition);
+}
+
+.ui-data-grid__filter-clear-all-btn:hover {
+  color: var(--app-text);
+}
+
+.ui-data-grid__filter-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: var(--control-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  /* HEL-451 skeptic CR3: `--weight-normal` does not exist (theme.css defines
+     `--weight-regular`) — the undefined reference failed open, so this
+     rendered at the inherited `--weight-semibold` (600) from `thead th`
+     instead of the intended 400. */
+  font-weight: var(--weight-regular);
+}
+
+.ui-data-grid__filter-input:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 1px;
+}
+
+.ui-data-grid__filter-input--quick {
+  font-weight: var(--weight-medium);
+}
+
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css` and
+   `TableRenderer.css`'s `.panel-content__load-more-btn`/
+   `.panel-content__clear-filters-btn`, which this mirrors (skeptic
+   non-blocking suggestion). */
+@media (max-width: 430px), (pointer: coarse) {
+  .ui-data-grid__filter-input,
+  .ui-data-grid__filter-toggle-btn,
+  .ui-data-grid__filter-clear-all-btn {
+    min-height: 44px;
+  }
+}
+
+/* HEL-451 design D10-2/D10-6: the filtered-empty message, now frame chrome
+   ABOVE the scroll container instead of a `<td colSpan>` row inside the
+   table (superseded design D5). Same recipe as
+   `.ui-data-grid__empty-row` carried it before (padding, left-aligned),
+   re-homed rather than re-derived. As ordinary block-level chrome it is
+   naturally viewport-width, wraps normally, and needs no sticky
+   positioning or viewport-width bounding to stay legible — the whole
+   class of geometric coupling (`table-layout: fixed` column width, the
+   `tbody td` truncation group, a sticky containing-block confounded by
+   ancestor `overflow: hidden`) that produced three consecutive final-gate
+   findings on the previous `colSpan` shape does not apply to it. */
+.ui-data-grid__filtered-empty {
+  padding: var(--space-4) var(--space-3);
+  text-align: left;
+  flex-shrink: 0;
+  /* Defense-in-depth carried forward from the deleted `.ui-data-grid
+     __sticky-cell` — a single unbroken long token (no spaces) that
+     ordinary wrapping cannot break on its own. No real single-token
+     content exists in the app's fixed disclosure strings today, so this
+     is untested-but-harmless coverage, not verified behavior. */
+  overflow-wrap: anywhere;
+}
+
+.ui-data-grid__filtered-empty .ui-data-grid__empty {
+  margin-top: 0;
+}
+
+/* HEL-451 design D10-11, CORRECTED (skeptic-evaluator cycle 3 CR1) — the
+   COMPACT presentation rendered while the filter chrome is collapsed. The
+   message is UNCONDITIONAL (renders in both expansion states, see
+   DataGrid.tsx); only its PRESENTATION changes here, so the collapsed
+   default never suppresses the "why is this empty" explanation the way
+   an earlier revision's `filterExpanded` gate did. Tight, toolbar-sized
+   padding plus a one-line `line-clamp` on the text bounds this variant's
+   height regardless of `emptyText`'s actual length — that bound is what
+   the collapse threshold's own arithmetic (`FRAME_FILTER_COLLAPSE
+   _THRESHOLD_PX`'s doc comment) is derived against. The full un-clamped
+   text stays available via the `title` attribute (DataGrid.tsx) for a
+   hover tooltip, matching the `<th>` column-header pattern above. */
+.ui-data-grid__filtered-empty--compact {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+}
+
+.ui-data-grid__filtered-empty--compact .ui-data-grid__empty {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+}
+
+/* The action row (Clear filters / Load more, `emptyAction` — owned by the
+   caller, e.g. `TableRenderer`'s `.panel-content__filter-empty-actions`)
+   sits inline beside the clamped text rather than stacked beneath it.
+   `DataGrid` does not reference that class by name here (it stays
+   presentational, per the file's own doc comment) — `flex-shrink: 0` on
+   the generic child position keeps the buttons from being squeezed by
+   the text without knowing what the text's sibling actually is. */
+.ui-data-grid__filtered-empty--compact > :last-child {
+  flex-shrink: 0;
+}
+
+/* HEL-451 design D10-6: a filtered-empty result renders NO `<tr>` inside
+   `<tbody>` (the message is frame chrome above) — a state that has never
+   existed here before. `display: block` on the empty body escapes
+   `table-layout: fixed` row geometry (nothing there needs column
+   alignment; it is empty) and gives it a floor height so it cannot
+   collapse to a 0px sliver under the header's `border-bottom`. */
+.ui-data-grid__table tbody:empty {
+  display: block;
+  min-height: var(--space-8);
 }

@@ -20,6 +20,7 @@ jest.mock("../hooks/usePanelData", () => ({
     noData: true,
     neverMaterialized: false,
     chartAggregate: null,
+    rowsTruncated: false,
     refresh: jest.fn(),
   })),
 }));
@@ -229,6 +230,7 @@ describe("PanelCard — error state retry (HEL-539)", () => {
       noData: false,
       neverMaterialized: false,
       chartAggregate: null,
+      rowsTruncated: false,
       refresh,
     });
 
@@ -252,6 +254,7 @@ describe("PanelCard — error state retry (HEL-539)", () => {
       noData: false,
       neverMaterialized: false,
       chartAggregate: null,
+      rowsTruncated: false,
       refresh: jest.fn(),
     });
 

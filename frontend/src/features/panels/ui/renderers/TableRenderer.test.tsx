@@ -26,7 +26,7 @@ describe("TableRenderer — load-more keeps the accent spinner, not a skeleton (
       <TableRenderer
         outputId="panel-1"
         paginationRows={[{ a: "1", b: "2" }]}
-        paginationHasMore
+        rowsTruncated
         paginationIsLoadingMore
         onLoadMore={jest.fn()}
       />,
@@ -42,7 +42,7 @@ describe("TableRenderer — load-more keeps the accent spinner, not a skeleton (
       <TableRenderer
         outputId="panel-1"
         paginationRows={[{ a: "1", b: "2" }]}
-        paginationHasMore
+        rowsTruncated
         paginationIsLoadingMore={false}
         onLoadMore={jest.fn()}
       />,
@@ -56,8 +56,15 @@ describe("TableRenderer — load-more keeps the accent spinner, not a skeleton (
 describe("TableRenderer — columnOrder (HEL-255)", () => {
   afterEach(() => jest.restoreAllMocks());
 
+  // HEL-451 added a filter-row `<th>` per column (plus a colSpan'd quick-
+  // filter `<th>`) to `<thead>` unconditionally — both also carry
+  // `role="columnheader"`, so this excludes any `<th>` inside a
+  // `ui-data-grid__filter-row` to isolate the real sort header row.
   function headerKeys(): string[] {
-    return screen.getAllByRole("columnheader").map((h) => h.textContent?.trim() ?? "");
+    return screen
+      .getAllByRole("columnheader")
+      .filter((h) => !h.closest(".ui-data-grid__filter-row, .ui-data-grid__filter-toggle-row"))
+      .map((h) => h.textContent?.trim() ?? "");
   }
 
   it("renders all columns in natural order when columnOrder is absent", () => {
@@ -115,14 +122,19 @@ describe("TableRenderer — sort (HEL-448)", () => {
 
   afterEach(() => jest.useRealTimers());
 
+  // Same filter-row exclusion as `headerKeys` above.
   function headerButtons(): HTMLElement[] {
     return screen
       .getAllByRole("columnheader")
+      .filter((th) => !th.closest(".ui-data-grid__filter-row, .ui-data-grid__filter-toggle-row"))
       .map((th) => th.querySelector("button") as HTMLElement);
   }
 
   function cellTextByColumn(columnIndex: number): string[] {
-    const rows = screen.getAllByRole("row").slice(1); // skip header row
+    // Scoped to `tbody tr` (not `getAllByRole("row").slice(1)`) — HEL-451
+    // added the filter-row `<tr>`s to `<thead>` unconditionally, which also
+    // carry `role="row"` and would otherwise be miscounted as data rows.
+    const rows = screen.getAllByRole("row").filter((row) => row.closest("tbody") != null);
     return rows.map((row) => {
       const cells = row.querySelectorAll("td");
       return cells[columnIndex]?.textContent ?? "";
@@ -293,29 +305,453 @@ describe("TableRenderer — sort (HEL-448)", () => {
   });
 });
 
-// ── HEL-448 3b: truncation qualifier ─────────────────────────────────────
-describe("TableRenderer — truncation qualifier (HEL-448 D9a)", () => {
-  it("is absent when the loaded set is not truncated", () => {
+// ── HEL-448 3b / HEL-451 task 4.0-4.0g: truncation qualifier, re-gated on
+// the branch-independent `rowsTruncated` prop ──────────────────────────────
+describe("TableRenderer — truncation qualifier (HEL-448 D9a, re-gated per HEL-451 design D4)", () => {
+  it("is absent when rowsTruncated is false (design D4: rowsTruncated is the sole source of truth; `paginationHasMore` no longer even exists as a prop -- HEL-451 skeptic CR6)", () => {
     renderWithStore(
-      <TableRenderer outputId="p" paginationRows={[{ a: "1" }]} paginationHasMore={false} />,
+      <TableRenderer outputId="p" paginationRows={[{ a: "1" }]} rowsTruncated={false} />,
     );
     expect(screen.queryByText(/loaded rows/)).not.toBeInTheDocument();
   });
 
-  it("is present when the loaded set is truncated (paginationHasMore)", () => {
+  it("is present when rowsTruncated is true, on the pagination branch", () => {
     renderWithStore(
       <TableRenderer
         outputId="p"
         paginationRows={[{ a: "1" }]}
-        paginationHasMore
+        rowsTruncated
         onLoadMore={jest.fn()}
       />,
     );
     expect(screen.getByText(/loaded rows/)).toBeInTheDocument();
   });
 
-  it("is absent entirely on the rawRows branch (no pagination there)", () => {
+  // Task 4.0d: this is the HEL-448 regression being fixed — a sorted
+  // 200-row sample presenting as complete in the panel detail modal, which
+  // renders `rawRows` only. Requires a DIRECT test, not inherited coverage.
+  it(
+    "4.0d PROOF: the re-gated sort qualifier RENDERS on the rawRows branch when rowsTruncated is " +
+      "true (this never rendered before HEL-451 — the modal has no pagination props at all)",
+    () => {
+      renderWithStore(
+        <TableRenderer outputId="p" rawRows={[["1", "2"]]} headers={["a", "b"]} rowsTruncated />,
+      );
+      expect(screen.getByText(/loaded rows/)).toBeInTheDocument();
+    },
+  );
+
+  it("is absent on the rawRows branch when rowsTruncated is false (default)", () => {
     renderWithStore(<TableRenderer outputId="p" rawRows={[["1", "2"]]} headers={["a", "b"]} />);
     expect(screen.queryByText(/loaded rows/)).not.toBeInTheDocument();
+  });
+
+  // Task 4.0e REGRESSION GUARD (mutation-failable): on the `rawRows` branch
+  // with `rowsTruncated` true and no `onLoadMore`, the note renders and NO
+  // Load-more button renders — re-gating both on one shared conditional
+  // (reverting the note/button split) turns this red.
+  it(
+    "4.0e REGRESSION GUARD: rawRows branch, rowsTruncated=true, no onLoadMore -- note renders, " +
+      "NO Load-more button renders",
+    () => {
+      renderWithStore(
+        <TableRenderer outputId="p" rawRows={[["1", "2"]]} headers={["a", "b"]} rowsTruncated />,
+      );
+      expect(screen.getByText(/loaded rows/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
+    },
+  );
+
+  it("renders the Load-more button when rowsTruncated is true AND onLoadMore is supplied", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ a: "1" }]}
+        rowsTruncated
+        onLoadMore={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /load more/i })).toBeInTheDocument();
+  });
+
+  // Task 4.5a REGRESSION GUARD (mutation-failable): reverting `truncated` to
+  // the old `usingPagination && paginationHasMore` predicate would render an
+  // unqualified count / the non-truncated empty state on this branch, even
+  // though `rowsTruncated` says the set IS truncated.
+  it(
+    "4.5a REGRESSION GUARD: rawRows branch, rowsTruncated=true -- the loaded-scope note is present " +
+      "(never the bare no-truncation silence the old usingPagination-based predicate would produce)",
+    () => {
+      renderWithStore(
+        <TableRenderer outputId="p" rawRows={[["1", "2"]]} headers={["a", "b"]} rowsTruncated />,
+      );
+      expect(screen.getByText("Sort covers only the loaded rows.")).toBeInTheDocument();
+    },
+  );
+});
+
+// ── HEL-451 task 1/2/4: in-panel column filtering ───────────────────────
+describe("TableRenderer — column filtering (HEL-451)", () => {
+  // HEL-451 design D4d: both filter rows sit behind ONE toggle, collapsed
+  // by default when no filter is already active. Expands it on first
+  // access so every test below can keep addressing the inputs directly,
+  // exactly as it did before the toggle existed.
+  function expandFiltersIfCollapsed(): void {
+    const toggle = screen.queryByRole("button", { name: /^Filters/ });
+    if (toggle && toggle.getAttribute("aria-expanded") === "false") {
+      fireEvent.click(toggle);
+    }
+  }
+
+  function quickFilterInput(): HTMLElement {
+    expandFiltersIfCollapsed();
+    return screen.getByRole("textbox", { name: "Quick filter across all columns" });
+  }
+
+  function columnFilterInput(column: string): HTMLElement {
+    expandFiltersIfCollapsed();
+    return screen.getByRole("textbox", { name: `Filter column ${column}` });
+  }
+
+  it("typing in the quick filter narrows rows across all columns live", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[
+          { a: "alice", b: "1" },
+          { a: "bob", b: "2" },
+        ]}
+      />,
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "alice" } });
+    expect(screen.getByText("alice")).toBeInTheDocument();
+    expect(screen.queryByText("bob")).not.toBeInTheDocument();
+  });
+
+  it("clearing the quick filter restores all rows", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[
+          { a: "alice", b: "1" },
+          { a: "bob", b: "2" },
+        ]}
+      />,
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "alice" } });
+    fireEvent.change(quickFilterInput(), { target: { value: "" } });
+    expect(screen.getByText("alice")).toBeInTheDocument();
+    expect(screen.getByText("bob")).toBeInTheDocument();
+  });
+
+  it("a per-column filter narrows on that column only", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[
+          { a: "alice", b: "1" },
+          { a: "bob", b: "1" },
+        ]}
+      />,
+    );
+    fireEvent.change(columnFilterInput("a"), { target: { value: "alice" } });
+    expect(screen.getByText("alice")).toBeInTheDocument();
+    expect(screen.queryByText("bob")).not.toBeInTheDocument();
+  });
+
+  it("multiple column filters AND together", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[
+          { a: "alice", b: "1" },
+          { a: "alice", b: "2" },
+        ]}
+      />,
+    );
+    fireEvent.change(columnFilterInput("a"), { target: { value: "alice" } });
+    fireEvent.change(columnFilterInput("b"), { target: { value: "1" } });
+    // Only one row satisfies BOTH terms.
+    expect(screen.getAllByRole("row").filter((r) => r.closest("tbody"))).toHaveLength(1);
+  });
+
+  it("filtering composes with sort without either regressing", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ n: "3" }, { n: "1" }, { n: "20" }]}
+        columnSort={{ key: "n", direction: "asc" }}
+      />,
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "" } });
+    const rows = screen.getAllByRole("row").filter((r) => r.closest("tbody"));
+    expect(rows.map((r) => r.textContent)).toEqual(["1", "3", "20"]);
+
+    fireEvent.change(columnFilterInput("n"), { target: { value: "2" } });
+    const filteredRows = screen.getAllByRole("row").filter((r) => r.closest("tbody"));
+    expect(filteredRows.map((r) => r.textContent)).toEqual(["20"]);
+  });
+
+  it("filtered empty state shows the shared empty pattern with a Clear-filters action", () => {
+    renderWithStore(<TableRenderer outputId="p" paginationRows={[{ a: "alice" }]} />);
+    fireEvent.change(quickFilterInput(), { target: { value: "nobody" } });
+    expect(screen.getByText("No rows match your filter.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
+  });
+
+  it("Clear filters restores all rows", () => {
+    renderWithStore(<TableRenderer outputId="p" paginationRows={[{ a: "alice" }]} />);
+    fireEvent.change(quickFilterInput(), { target: { value: "nobody" } });
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getByText("alice")).toBeInTheDocument();
+  });
+
+  // Task 4.0a: the detail modal has no `onLoadMore` at all -- the sharpest
+  // (truncated-empty) state renders the disclosure TEXT WITHOUT the
+  // Load-more action, offering Clear filters alone. This state exists on
+  // exactly ONE surface, which makes it the state nobody exercises by
+  // accident -- REQUIRED direct test.
+  it(
+    "4.0a: truncated + filtered + empty with NO onLoadMore (the modal shape) offers Clear filters " +
+      "alone, never an undefined-prop Load-more button",
+    () => {
+      renderWithStore(
+        <TableRenderer outputId="p" paginationRows={[{ a: "alice" }]} rowsTruncated />,
+      );
+      fireEvent.change(quickFilterInput(), { target: { value: "nobody" } });
+      expect(
+        screen.getByText(/No rows match your filter in the 1 rows loaded so far/),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
+    },
+  );
+
+  it("truncated + filtered + empty WITH onLoadMore offers BOTH Clear filters AND Load more", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ a: "alice" }]}
+        rowsTruncated
+        onLoadMore={jest.fn()}
+      />,
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "nobody" } });
+    expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /load more/i })).toBeInTheDocument();
+  });
+
+  // Task 4.2/4.1: a count is NEVER rendered bare when truncated.
+  it("a truncated result count is always paired with its denominator (never a bare number)", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ a: "alice" }, { a: "bob" }]}
+        rowsTruncated
+        onLoadMore={jest.fn()}
+      />,
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "alice" } });
+    expect(screen.getByText("1 of 2 loaded rows match.")).toBeInTheDocument();
+  });
+
+  it("a non-truncated result count is unqualified -- a complete answer, no denominator", () => {
+    renderWithStore(<TableRenderer outputId="p" paginationRows={[{ a: "alice" }, { a: "bob" }]} />);
+    fireEvent.change(quickFilterInput(), { target: { value: "alice" } });
+    expect(screen.getByText("1 result.")).toBeInTheDocument();
+  });
+
+  // Task 4.0f SUPERSESSION: with a filter active AND the set truncated,
+  // exactly ONE loaded-scope message renders (the filter-scoped one, never
+  // stacked with the plain sort note).
+  it("4.0f SUPERSESSION: filtering + truncated renders exactly ONE loaded-scope message", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ a: "alice" }, { a: "bob" }]}
+        rowsTruncated
+        onLoadMore={jest.fn()}
+      />,
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "alice" } });
+    expect(screen.getByText("1 of 2 loaded rows match.")).toBeInTheDocument();
+    expect(screen.queryByText("Sort covers only the loaded rows.")).not.toBeInTheDocument();
+  });
+
+  it("4.3: the disclosure disappears entirely when the set is not truncated and no filter is active", () => {
+    renderWithStore(<TableRenderer outputId="p" paginationRows={[{ a: "alice" }]} />);
+    expect(screen.queryByText(/loaded rows/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/rows? match/)).not.toBeInTheDocument();
+  });
+
+  // ── HEL-451 evaluation-1.md CR4 / task 2.3 — REOPENED: this exact
+  // describe block previously had ZERO `rawRows` renders, even though 2.3
+  // explicitly names the `rawRows` branch as where "BOTH of HEL-448's
+  // ordering defects actually lived." Every assertion below renders
+  // `rawRows`/`headers`, not `paginationRows`. ─────────────────────────────
+  it("2.3 PROOF: on the rawRows branch, a filtered table stays sorted, and re-sorting does not restore filtered-out rows", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        rawRows={[["3"], ["1"], ["20"]]}
+        headers={["n"]}
+        columnSort={{ key: "n", direction: "asc" }}
+      />,
+    );
+    const rows = () => screen.getAllByRole("row").filter((r) => r.closest("tbody"));
+    expect(rows().map((r) => r.textContent)).toEqual(["1", "3", "20"]);
+
+    fireEvent.change(columnFilterInput("n"), { target: { value: "2" } });
+    expect(rows().map((r) => r.textContent)).toEqual(["20"]);
+
+    // Re-sort (toggle to descending) -- the filtered-out rows ("1", "3")
+    // must NOT come back.
+    const headerButton = screen
+      .getAllByRole("columnheader")
+      .filter((th) => !th.closest(".ui-data-grid__filter-row, .ui-data-grid__filter-toggle-row"))
+      .map((th) => th.querySelector("button") as HTMLElement)[0];
+    fireEvent.click(headerButton);
+    expect(rows().map((r) => r.textContent)).toEqual(["20"]);
+  });
+
+  // ── HEL-451 evaluation-1.md CR4 / task 4.5 — REOPENED alongside 2.3: the
+  // five-state disclosure matrix, on the `rawRows` branch. ─────────────────
+  it("4.5 rawRows: not filtering + truncated -> the sort qualifier only", () => {
+    renderWithStore(
+      <TableRenderer outputId="p" rawRows={[["1"], ["2"]]} headers={["n"]} rowsTruncated />,
+    );
+    expect(screen.getByText("Sort covers only the loaded rows.")).toBeInTheDocument();
+  });
+
+  it("4.5 rawRows: filtering + not truncated + results -> an unqualified count", () => {
+    renderWithStore(<TableRenderer outputId="p" rawRows={[["1"], ["2"]]} headers={["n"]} />);
+    fireEvent.change(columnFilterInput("n"), { target: { value: "1" } });
+    expect(screen.getByText("1 result.")).toBeInTheDocument();
+  });
+
+  it("4.5 rawRows: filtering + not truncated + empty -> the filtered-empty message + Clear filters", () => {
+    renderWithStore(<TableRenderer outputId="p" rawRows={[["1"], ["2"]]} headers={["n"]} />);
+    fireEvent.change(columnFilterInput("n"), { target: { value: "nope" } });
+    expect(screen.getByText("No rows match your filter.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
+  });
+
+  it("4.5 rawRows: filtering + truncated + results -> a SCOPED count, never bare", () => {
+    renderWithStore(
+      <TableRenderer outputId="p" rawRows={[["1"], ["2"]]} headers={["n"]} rowsTruncated />,
+    );
+    fireEvent.change(columnFilterInput("n"), { target: { value: "1" } });
+    expect(screen.getByText("1 of 2 loaded rows match.")).toBeInTheDocument();
+  });
+
+  it("4.5 rawRows: filtering + truncated + empty -> loaded-scope text + Clear filters (no onLoadMore on this branch -- see 4.0a)", () => {
+    renderWithStore(
+      <TableRenderer outputId="p" rawRows={[["1"], ["2"]]} headers={["n"]} rowsTruncated />,
+    );
+    fireEvent.change(columnFilterInput("n"), { target: { value: "nope" } });
+    expect(
+      screen.getByText(/No rows match your filter in the 2 rows loaded so far/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
+  });
+});
+
+// ── HEL-451 task 5: filter persistence (mirrors HEL-448's columnSort path) ─
+describe("TableRenderer — filter persistence (HEL-451 design D6)", () => {
+  const outputServiceModule = jest.requireMock<{
+    updateOutput: jest.Mock;
+  }>("../../../pipelines/services/outputService");
+
+  beforeEach(() => {
+    outputServiceModule.updateOutput.mockReset().mockResolvedValue(undefined);
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  // Same collapsed-by-default expansion as the filtering describe block
+  // above (HEL-451 design D4d).
+  function quickFilterInput(): HTMLElement {
+    const toggle = screen.queryByRole("button", { name: /^Filters/ });
+    if (toggle && toggle.getAttribute("aria-expanded") === "false") {
+      fireEvent.click(toggle);
+    }
+    return screen.getByRole("textbox", { name: "Quick filter across all columns" });
+  }
+
+  it("3.4-equivalent REGRESSION GUARD: the PATCH body carries only columnFilters (no config spread)", () => {
+    jest.useFakeTimers();
+    renderWithStore(
+      <TableRenderer outputId="out-1" ownerId="me" paginationRows={[{ a: "alice" }]} />,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "alice" } });
+    jest.advanceTimersByTime(500);
+    expect(outputServiceModule.updateOutput).toHaveBeenCalledWith("out-1", {
+      config: { columnFilters: { quick: "alice" } },
+    });
+  });
+
+  it("REGRESSION GUARD: merely rendering never attempts a filter write, ever", () => {
+    jest.useFakeTimers();
+    renderWithStore(
+      <TableRenderer outputId="out-1" ownerId="me" paginationRows={[{ a: "alice" }]} />,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    jest.advanceTimersByTime(5000);
+    expect(outputServiceModule.updateOutput).not.toHaveBeenCalled();
+  });
+
+  it("no write is attempted when the caller cannot write the Output (!canWrite)", () => {
+    jest.useFakeTimers();
+    renderWithStore(
+      <TableRenderer outputId="out-1" ownerId="owner-x" paginationRows={[{ a: "alice" }]} />,
+      { auth: { currentUser: { id: "someone-else" } as never } },
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "alice" } });
+    jest.advanceTimersByTime(5000);
+    expect(outputServiceModule.updateOutput).not.toHaveBeenCalled();
+    // The on-screen filter still applies, session-locally.
+    expect(screen.getByText("alice")).toBeInTheDocument();
+  });
+
+  it("a filter changed then unmounted inside the debounce window still flushes the write", () => {
+    jest.useFakeTimers();
+    const { unmount } = renderWithStore(
+      <TableRenderer outputId="out-1" ownerId="me" paginationRows={[{ a: "alice" }]} />,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "alice" } });
+    unmount();
+    expect(outputServiceModule.updateOutput).toHaveBeenCalledWith("out-1", {
+      config: { columnFilters: { quick: "alice" } },
+    });
+  });
+
+  it("a cleared filter persists as columnFilters: null, never as an empty-string term", () => {
+    jest.useFakeTimers();
+    renderWithStore(
+      <TableRenderer outputId="out-1" ownerId="me" paginationRows={[{ a: "alice" }]} />,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "alice" } });
+    jest.advanceTimersByTime(500);
+    fireEvent.change(quickFilterInput(), { target: { value: "" } });
+    jest.advanceTimersByTime(500);
+    expect(outputServiceModule.updateOutput).toHaveBeenLastCalledWith("out-1", {
+      config: { columnFilters: null },
+    });
+  });
+
+  it("a columnFilters value accepted by readTableConfig seeds the initial filter (persistence-adjacent seeding)", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ a: "alice" }, { a: "bob" }]}
+        columnFilters={{ quick: "alice" }}
+      />,
+    );
+    expect(screen.getByText("alice")).toBeInTheDocument();
+    expect(screen.queryByText("bob")).not.toBeInTheDocument();
   });
 });

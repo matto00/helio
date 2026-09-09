@@ -73,6 +73,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
     noData,
     neverMaterialized,
     chartAggregate,
+    rowsTruncated,
     refresh,
   } = usePanelData(panel);
   usePanelPolling(refresh, panel.refreshInterval ?? null, getOutputId(panel));
@@ -110,9 +111,14 @@ export const PanelCardBody = React.memo(function PanelCardBody({
       noData={noData}
       neverMaterialized={neverMaterialized}
       paginationRows={paginationEntry?.rows ?? null}
-      paginationHasMore={paginationEntry?.hasMore ?? false}
       paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
       onLoadMore={handleLoadMore}
+      // HEL-451 design D4/task 4.0: `rowsTruncated` (from `usePanelData`) is
+      // the branch-independent truncation signal — must be wired at BOTH
+      // `PanelContent` call sites (this one AND `PanelDetailModal.tsx:400`),
+      // or the inversion this task fixes just relocates to the surface
+      // whichever call site is missed.
+      rowsTruncated={rowsTruncated}
       chartAggregate={chartAggregate}
       compact={compact}
     />

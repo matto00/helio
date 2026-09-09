@@ -148,6 +148,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     noData,
     neverMaterialized,
     chartAggregate,
+    rowsTruncated,
     refresh,
   } = usePanelData(panel);
   // HEL-946 Bug C(2) — the never-materialized empty state's "Run pipeline"
@@ -413,6 +414,12 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
                 viewOutput ? () => navigate(`/pipelines/${viewOutput.pipelineId}`) : undefined
               }
               chartAggregate={chartAggregate}
+              // HEL-451 design D4/task 4.0: the detail modal has NO
+              // pagination props (`rawRows`/`headers` only), so this is the
+              // surface where `usingPagination && paginationHasMore` was
+              // always false regardless of real truncation — see
+              // `usePanelData`'s `rowsTruncated` doc comment.
+              rowsTruncated={rowsTruncated}
             />
           </div>
         ) : (

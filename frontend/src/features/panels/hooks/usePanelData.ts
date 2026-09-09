@@ -20,6 +20,14 @@ export interface PanelDataResult {
    *  opposed to a node that ran and legitimately returned zero rows.
    *  Always `false` while `noData` is `false`. */
   neverMaterialized: boolean;
+  /** HEL-451 design D4: whether MORE rows exist upstream than are currently
+   *  loaded (`paginationEntry?.hasMore`) — branch-independent, unlike
+   *  `usingPagination && paginationHasMore` (HEL-448's original predicate),
+   *  which is derived from props a `rawRows`-only caller never receives.
+   *  Both `rawRows` and any pagination props below are derived from this
+   *  SAME `paginationEntry`, so this is true on either branch. See
+   *  `PanelDetailModal.tsx`/`PanelCard.tsx`'s `rowsTruncated` wiring. */
+  rowsTruncated: boolean;
   /** Retained for renderer-compatibility during the HEL-909 migration; the
    *  Output itself now owns any groupBy aggregation, so this is always
    *  `null`. */
@@ -105,6 +113,7 @@ export function usePanelData(panel: Panel): PanelDataResult {
       noData: false,
       neverMaterialized: false,
       chartAggregate: null,
+      rowsTruncated: false,
       refresh,
     };
   }
@@ -131,6 +140,7 @@ export function usePanelData(panel: Panel): PanelDataResult {
     noData,
     neverMaterialized,
     chartAggregate: null,
+    rowsTruncated: paginationEntry?.hasMore ?? false,
     refresh,
   };
 }
