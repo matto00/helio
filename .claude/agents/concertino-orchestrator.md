@@ -506,6 +506,7 @@ Execute directly (no subagent).
    disagrees with a command documented here, trust `--help`, do not guess, and
    file a follow-up ticket rather than improvising a flag.
 
+   <!-- documented-as-broken:start -->
    One trap this has already produced: on 1.10.0 `openspec validate --change
    "<NAME>"` fails with `unknown option '--change' (Did you mean --changes?)`.
    **Do not accept that suggestion.** `--changes` is a real flag with different
@@ -514,6 +515,7 @@ Execute directly (no subagent).
    is `openspec validate "<NAME>" --type change`. Note the consuming repo may
    override this via `specPlanning.validateCmd` in its own config, so a wrong
    command can originate there rather than here.
+   <!-- documented-as-broken:end -->
    - Get the build order: `openspec status --change "<CHANGE_NAME>" --json | jq 'del(.context)'` — parse `applyRequires` and the `artifacts` list.
    - For each artifact with status `ready`: `openspec instructions <artifact-id> --change "<CHANGE_NAME>" --json | jq 'del(.context)'`. Use the returned `rules`, `template`, `instruction`, `outputPath`, `dependencies` — read the dependency files, then write the artifact to `outputPath` following `template`.
    - Re-run `openspec status` after each; stop when every `applyRequires` id has `status: "done"`.
