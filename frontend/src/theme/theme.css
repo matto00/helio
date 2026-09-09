@@ -153,7 +153,17 @@
   --app-surface-strong: #262320;
 
   --app-text: #f2efe9;
-  --app-text-muted: #9b948a;
+  /* HEL-533 — lightened from #9b948a (~15% toward white). The intent
+     tokens' own -surface tints (14% color-mix) are also backdrops for this
+     token, not only the five neutral surfaces: --app-text-muted on
+     --app-warning-surface over --app-surface-strong measured 3.82:1
+     (below AA) at the old value — worse than light theme's equivalent,
+     despite the dark theme otherwise measuring clean. #aaa49c clears
+     >=4.64:1 against every neutral surface AND every intent-tint composite
+     in this theme (worst: warning-tint over --app-surface-strong at
+     4.64), while staying 2.15:1 from --app-text so the "muted" step reads
+     distinctly. See docs/contrast-audit.md and design.md D8. */
+  --app-text-muted: #aaa49c;
 
   --app-border-subtle: rgba(242, 239, 233, 0.09);
   --app-border-strong: rgba(242, 239, 233, 0.18);
@@ -186,7 +196,22 @@
 
   --app-success: #4cc38a;
   --app-warning: #f5b944;
-  --app-error: #f07561;
+  /* HEL-533 — lightened toward white by ~4% from #f07561. design.md's
+     Non-Goals stated the dark intent tokens "measure comfortably above AA
+     on every in-scope backdrop" and held them fixed; re-measuring against
+     this change's own new tint-composite backdrop (D9) found that premise
+     false for exactly this token: --app-error on --app-error-surface over
+     --app-surface-strong measured 4.46:1, below the 4.5 floor, confirmed
+     rendering as normal-size text (`.auth-error`, 14px — the same site
+     that confirms the light-theme finding; see docs/contrast-audit.md).
+     #f17b67 clears >=4.63:1 against every neutral surface and against its
+     OWN intent-tint composite (--app-error-surface) over every neutral
+     parent. It does NOT clear every cross-intent composite — e.g. it
+     measures 4.24 on --app-warning-surface over --app-surface-strong —
+     but no rendered instance pairs --app-error with a different intent's
+     tint (see docs/contrast-audit.md §4), so those cells are documented
+     exceptions, not an obligation this token must also clear. */
+  --app-error: #f17b67;
   --app-info: var(--app-accent);
   --app-success-surface: color-mix(in srgb, var(--app-success) 14%, transparent);
   --app-warning-surface: color-mix(in srgb, var(--app-warning) 14%, transparent);
@@ -212,11 +237,17 @@
   --app-surface-strong: #ffffff;
 
   --app-text: #211d19;
-  /* Darkened from #726b62 (F-049): the original measured 4.45:1 against
-     --app-surface-soft — a hair under WCAG AA's 4.5:1 for text. #6c655c
-     clears it with headroom (~4.9:1) against every surface token while
-     staying visually a "muted" step down from --app-text. */
-  --app-text-muted: #6c655c;
+  /* HEL-533 — darkened again from #6c655c (~5% toward black). F-049 tuned
+     #6c655c against the five neutral surfaces only (4.87:1 worst case);
+     it was never re-checked against the intent tokens' -surface tints
+     (11%/11%/10% color-mix), which are also backdrops for this token. Measured
+     as low as 4.25:1 there (success/error tints over --app-surface-soft) —
+     sub-AA, and confirmed to render as normal-size text (see
+     docs/contrast-audit.md). #645e56 clears >=4.67:1 against every neutral
+     surface AND every intent-tint composite, while staying 2.61:1 from
+     --app-text so the "muted" step still reads distinctly. This reopens
+     F-049's decision deliberately — see design.md D8. */
+  --app-text-muted: #645e56;
 
   --app-border-subtle: rgba(33, 29, 25, 0.11);
   --app-border-strong: rgba(33, 29, 25, 0.2);
@@ -237,9 +268,20 @@
   --app-bg-accent: color-mix(in srgb, var(--app-accent) 5%, transparent);
   --app-bg-secondary: color-mix(in srgb, var(--app-accent) 3%, transparent);
 
-  --app-success: #1a7f4e;
-  --app-warning: #99621e;
-  --app-error: #c73a2a;
+  /* HEL-533 — darkened toward black (lightness only; hue/chroma held).
+     Each intent token is also rendered as text on its OWN -surface tint
+     (color-mix composite over a neutral parent — see StatusMessage.css and
+     ~10 further sites), which measures materially worse than the neutral
+     surfaces alone: --app-error on --app-error-surface over
+     --app-surface-soft was 3.81:1 before this change, confirmed rendering
+     as normal-size text (14px, `.auth-error`; see docs/contrast-audit.md).
+     Sizing the correction against the neutral surfaces alone (4.25-4.48)
+     would have been insufficient — the target is the tint composite. Each
+     value below clears >=4.6:1 against every neutral surface AND every
+     intent-tint composite in this theme. */
+  --app-success: #166d43;
+  --app-warning: #85551a;
+  --app-error: #af3325;
   --app-info: var(--app-accent);
   --app-success-surface: color-mix(in srgb, var(--app-success) 11%, transparent);
   --app-warning-surface: color-mix(in srgb, var(--app-warning) 11%, transparent);

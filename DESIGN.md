@@ -101,6 +101,20 @@ hardcode a value a token exists for.** **[mechanical]**
 | Intent            | `--app-success`, `--app-warning`, `--app-error` (+ `--app-*-surface` washes), `--app-info` (→ accent). `--app-danger` aliases error.                                                                                                                           |
 | Overlay / texture | `--app-overlay` (modal backdrop), `--canvas-dot` (neutral dot field)                                                                                                                                                                                           |
 
+**Contrast audit (HEL-533).** Every text-capable foreground token's measured
+WCAG ratio against every neutral surface and intent-tint composite it renders
+on, in both themes, plus the `--app-accent-ink` floor and the accent-on-surface
+shortfall, is a committed artifact: `docs/contrast-audit.md`. Correction
+(skeptic final-gate cycle 3): that table is **hand-transcribed**, reproduced
+from the same computation `frontend/src/theme/tokenContrastGuard.css.test.ts`
+uses (see that file's helpers and `docs/contrast-audit.md`'s own
+regeneration recipe) — it is NOT auto-generated, and it can go stale if a
+future token edit isn't accompanied by re-transcribing it. It is the
+**guard**, not this table, that fails CI on a regression. Read the table for
+context before changing any `--app-text*`/`--app-success`/`--app-warning`/
+`--app-error` value, but rely on the guard, not the table, to catch a
+regression.
+
 **HEL-866 — which rung is correct depends on the REAL BACKDROP a state composites against, and that backdrop varies by layer, not just by theme.** `--app-surface-raised` and `--app-surface-strong` are byte-identical in light theme (`#ffffff` = `#ffffff`), so a state layered directly on a Modal/popover/menu's own background (`--app-surface-strong`) rendered with **zero** visible feedback there; dark theme is not safe either (`#232019` on `#262320` measures ~1.04:1, non-identical but not _measurably_ different). But the fix is NOT "always use `--app-surface-soft`" — that was tried first (cycle 1), shipped as a blanket sweep, and **measurably regressed a whole family of call sites it never verified** (evaluation-2.md CR6): table/list rows and page-level buttons mostly composite against `--app-bg` (the outermost canvas), not `--app-surface-strong`, and on `--app-bg` it is `--app-surface-raised` that clears the threshold in both themes (1.161 dark / 1.119 light) — `--app-surface-soft` measures _worse_ there (1.034 dark / 1.054 light). A rendered, CI-gated contrast guard (`e2e/state-surface-contrast-guard.spec.ts`) — the arbiter for every remediation decision here, not inspection or a general rule — found three distinct backdrop families, each needing a different fix:
 
 | real backdrop                                                                         | correct fix                                                                                                  | measured (dark / light) |
@@ -180,7 +194,8 @@ blur(1–2px)` to separate the modal from the page behind it — this blurs
     light theme moves by at most 0.18 and remains within a pre-existing
     1.78–3.71:1 shortfall for several presets that this change neither
     introduces nor materially worsens (a separate, pre-existing app-wide
-    accent-on-surface gap, tracked as a spinoff). The lozenge boundary, not
+    accent-on-surface gap, tracked as HEL-1061 — see `docs/contrast-audit.md`
+    §7). The lozenge boundary, not
     the accent icon, is what this carve-out's contrast guarantee rests on.
 
   - **Focus-ring exception: `outline-offset: -3px`.** §8's default focus rule
