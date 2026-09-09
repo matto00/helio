@@ -779,18 +779,85 @@ var(--app-focus-ring); outline-offset: 2px`. `outline-offset` still varies
     indicator** — an element that should look "active" regardless of HOW it
     got focus, because the state itself (not the input device) is what's
     being communicated: a text input showing it's the one accepting
-    keystrokes (`.auth-field input:focus`, `.add-source-modal__cell-
-input:focus` — an accent border, not an outline ring), or a selected
-    item in a listbox. These legitimately keep bare `:focus`. The test: if
-    the visual state is announcing "this is the thing you're typing
-    into/have selected" rather than "a keyboard just moved here," bare
-    `:focus` is correct; if it's announcing keyboard navigation, it must be
-    `:focus-visible`.
+    keystrokes (an accent border, not an outline ring), or a selected item
+    in a listbox. These legitimately keep bare `:focus`. The test: if the
+    visual state is announcing "this is the thing you're typing into/have
+    selected" rather than "a keyboard just moved here," bare `:focus` is
+    correct; if it's announcing keyboard navigation, it must be
+    `:focus-visible`. **`.add-source-modal__cell-input:focus` /
+    `.add-source-modal__cell-select:focus` remain the example of the shape**
+    (bare `:focus` on a text input, correctly), but are ORPHANED CSS with
+    zero markup references (HEL-1050 D9) — kept bare, kept unfixed for
+    contrast, and pinned in `focusRingTokenGuard.css.test.ts` pending
+    HEL-1052's resolution, rather than presented as a live instance.
+    `.auth-field input` was converted from bare `:focus` to `:focus-visible`
+    by HEL-1050 D6 — it was hand-copying the raw accent when this doc was
+    first written, so fixing its colour required deciding this question
+    too, and the `:focus-visible` reading won because nothing about a login
+    field's border needs to persist across a mouse click the way a
+    listbox's selected-row border does.
   - Never remove focus indication entirely to chase this — a keyboard user
     must always be able to see where focus is. If a component can't make
     the mouse/keyboard distinction without losing keyboard visibility,
     leave it on bare `:focus` (visible for everyone) rather than drop the
     ring.
+  - **The 3:1 obligation binds on whichever mechanism actually conveys
+    focus — `outline`, `border`/`border-*-color`, or `box-shadow` — not
+    only on `outline`** (HEL-1050). `outline: none` is not, by itself, a
+    focus-accessibility defect; it is only a defect when nothing else
+    conforming replaces it. HEL-1046's whitelist guard reasoned about
+    `outline` alone and therefore had nothing to say about **ten
+    `outline: none` declarations across nine distinct sites**
+    (`shared/ui/inputs.css`, three `DashboardList.css` inputs, its
+    permanent-border rename input, `auth.css`, `PanelGrid.css`'s title
+    input, `PipelineDetailPage.css`'s footer input — which carries TWO
+    separate `outline: none` declarations, one on its base rule and one on
+    its former bare-`:focus`/`:focus-visible` pair, the only site
+    contributing more than one — and `AccentPicker.css`'s swatch ring).
+    **Not all ten painted the raw, undarkened `--app-accent`** — most did
+    (measuring 2.38–2.80 in light, below the 3:1 floor), but `PanelGrid.css`
+    painted `--app-accent-strong` instead (disqualified separately, below,
+    for failing Yellow specifically) and `DashboardList.css`'s rename input
+    conveyed focus via its sub-threshold halo alone, with no accent
+    recolouring needed at focus at all (its permanent, always-visible
+    border was already accent-coloured, unrelated to the focus state). Each
+    site now routes through the same `--app-focus-ring-color` token
+    `outline` does, recolouring (or, for the halo-only site, adding a
+    conforming border) without changing the mechanism — a border stays a
+    border, a box-shadow ring stays a box-shadow ring — D1's ruling is
+    "recolour, do not reinstate an outline," precisely because an outline
+    can reintroduce clipping a border/shadow mechanism was chosen to avoid.
+    `focusRingTokenGuard.css.test.ts` extends the same file with a second,
+    independent guard for this: it groups declarations by selector BASE
+    (trailing pseudo-classes stripped) so a base rule's `outline: none` and
+    its sibling `:focus-visible` rule's indicator are checked together, and
+    requires (1) some `:focus-visible` rule in that group to reference
+    `var(--app-focus-ring-color)`/`var(--app-focus-ring)`, and (2) no
+    indicator declaration in a genuine focus rule to reference the bare
+    `var(--app-accent)`.
+  - **A translucent halo (`--app-accent-dim`, an 8–10% alpha tint) is
+    decoration and is never credited toward the 3:1 obligation** — it
+    measures ~1.08:1 (light) / ~1.14:1 (dark) against its own surface, so
+    even a highly visible halo contributes essentially nothing to contrast.
+    Kept for visual continuity where it already exists (the border
+    alongside it is what must conform), but a site whose ONLY focus
+    affordance is a halo (`DashboardList.css`'s always-bordered rename
+    input, where focus previously added nothing but the halo) must gain a
+    conforming border, not a thicker halo.
+  - **`--app-accent-strong` (`color-mix(in srgb, var(--app-accent) 76-78%,
+black|white)`) is not a conforming focus colour** — Yellow measures
+    2.78:1 in light, below the floor, even though seven of the eight
+    presets pass. `PanelGrid.css`'s title input (`border-bottom-color`)
+    repoints to `--app-focus-ring-color` instead. `focusRingTokenGuard.css.test.ts`
+    asserts this per-preset by parsing the mix percentage/base colour out
+    of `theme.css` itself (never a hardcoded `2.78`), so a future edit to
+    the mix ratio re-checks itself rather than going stale. **This
+    indicator's binding surface is the user-chosen panel background, not a
+    theme surface** — no single derived colour can guarantee 3:1 there; the
+    repoint is a strict improvement (fixes the Yellow failure, conforms
+    against every theme surface and preset) but is knowingly NOT a closure
+    for an arbitrary user-chosen panel background near the derived ring
+    colour. That residual is owned by HEL-1051, not silently absorbed here.
 - `--app-accent-ink` is contrast-computed per accent; never place raw white
   text on the accent. Color is never the sole carrier of meaning.
 - Keyboard operable; dialogs handle Enter/Escape.

@@ -369,6 +369,28 @@ function darkenTowardBlack(color: RgbColor, percent: number): RgbColor {
  * Returns `null` only for an unparseable hex — callers fall back to the
  * static `:root` default in that case (same contract as `buildAccentTokens`
  * returning `{}`), never to a thrown error or an unsafe value.
+ *
+ * HEL-1050 D7 — carrying the corrected derivation rationale here, not only
+ * in a run artifact that dies with the worktree: `FOCUS_RING_SURFACES` is
+ * deliberately the ten literal theme hexes CLOSEST IN LUMINANCE to a
+ * mid-luminance accent (`--app-surface-soft` #efece6 in light,
+ * `--app-surface-strong` #262320 in dark), not the palette extremes
+ * (`#ffffff`/`#121110`). For a mid-luminance colour the extremes are the
+ * EASIEST surfaces to clear, not the hardest — HEL-1046 derived against the
+ * extremes once and would have shipped a ring scoring 2.58-2.99 against the
+ * real binding surfaces, its own accessibility defect passing its own
+ * proof. Any caller of this function that substitutes a different surface
+ * set must re-derive against the actual rendering surface, not assume the
+ * extremes are conservative.
+ *
+ * The same reasoning is why a colour derived here is NOT a universal
+ * guarantee: this function's 3:1 floor holds against exactly the ten
+ * literal theme surfaces in `FOCUS_RING_SURFACES` — a border/box-shadow
+ * indicator rendered against a surface OUTSIDE that set (e.g. a
+ * user-chosen panel background, `PanelGrid.css`'s title input — HEL-1050
+ * D8, HEL-1051) is not covered, and no single derived colour can be, since
+ * the user's chosen background can be arbitrarily close to whatever colour
+ * is chosen.
  */
 export function deriveFocusRingColor(hex: string): string | null {
   const rgb = parseHexColor(hex);

@@ -32,11 +32,42 @@
    --app-surface-strong — a different color in both themes. That mismatch
    painted a visible ring-shaped halo around the swatch instead of a clean
    selection ring. Matching the popover's own surface token makes the gap
-   disappear into it as intended. */
+   disappear into it as intended.
+ *
+ * HEL-1050 D5/3.8: the ring's colour is --app-focus-ring-color (contrast-
+ * derived, 3:1 by construction), not the raw --app-accent the selected
+ * state below still uses — the raw accent measures 2.38-2.80 in light and
+ * fails the floor. This also fixes a second, independent defect: this rule
+ * and --selected below previously declared a byte-identical box-shadow, so
+ * a focused-but-not-selected swatch was visually indistinguishable from the
+ * selected one.
+ *
+ * The outer (3rd) layer is --app-border-strong, NOT --app-surface-strong —
+ * this was corrected during evaluation (cycle 2/3). **The F-169 comment
+ * above ("this picker only ever renders inside the UserMenu popover") is
+ * itself stale**: HEL-728 moved `<AccentPicker>` to `SettingsPage.tsx:62`,
+ * its ONLY current call site, whose backdrop is `--app-bg`, not the
+ * popover's `--app-surface-strong`. A `--app-surface-strong` outer layer
+ * measures only 1.119:1 against `--app-bg` in light (they are nearly the
+ * same lightness), so it was close to invisible in the actual render
+ * context, not merely "invisible in a container that happens to be
+ * surface-strong" as an earlier version of this comment claimed. Worse,
+ * for the three presets `deriveFocusRingColor` needs zero darkening for
+ * (Red, Purple, Blue — see DESIGN.md §8's "measured need per preset"),
+ * `--app-focus-ring-color` EQUALS `--app-accent`, so with that outer layer
+ * those three presets' focused and selected swatches were genuinely
+ * pixel-identical wherever this component actually renders.
+ * `--app-border-strong` is a translucent NEUTRAL token (a semi-transparent
+ * tint of the theme's own text colour) that contrasts against ANY of this
+ * app's surface tokens by construction in both themes — including
+ * `--app-bg` — so the third ring is visible regardless of accent, theme,
+ * or backdrop, and the states are now distinct even for the zero-darkening
+ * presets. */
 .accent-picker__swatch:focus-visible {
   box-shadow:
     0 0 0 2px var(--app-surface-strong),
-    0 0 0 4px var(--app-accent);
+    0 0 0 4px var(--app-focus-ring-color),
+    0 0 0 6px var(--app-border-strong);
 }
 
 .accent-picker__swatch--selected {
