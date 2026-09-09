@@ -139,6 +139,48 @@ Available commands in `.claude/commands/`:
 
 **When to use `/concertino-deliver`**: Any time the user references a Linear ticket (e.g. `HEL-5`) or asks to work on a Helio issue end-to-end. This workflow is mandatory for ticket-driven work. It spawns the `concertino-orchestrator`, which drives the `concertino-{executor,evaluator,skeptic}` agents.
 
+### Driving a batch: read the fleet-driver skill first
+
+`/concertino-deliver` delivers **one** ticket. When the ask is a _batch_ — several
+tickets, an epic end-to-end, an overnight run, "what should we pick up tonight",
+or anything with lanes running concurrently — the session itself becomes the
+**driver**, the layer above the orchestrators. That role has its own hard-won
+discipline and it lives in a skill:
+
+```
+~/Development/concertino/.claude/skills/concertino-fleet-driver/SKILL.md
+```
+
+**Read it before dispatching the first lane**, not after the first incident. It
+is not in this repo's skill path, so it will **not** be surfaced automatically —
+which means it gets skipped exactly when it is most needed. Every rule in it was
+written after a specific production incident driving this repo.
+
+Two things that document does _not_ yet cover, learned 2026-09-07/09 and binding
+here until they are upstreamed:
+
+- **Dispatch one orchestrator per ticket, never a multi-ticket queue to a single
+  orchestrator.** The role is built around single-ticket, single-worktree
+  delivery — `run.start`, `.concertino/runs/<TICKET>/`, phase assertions,
+  `squash-branch.sh`, `cleanup.sh --phase4` are all keyed to one run. Measured
+  cost on this repo: one ticket in a long-lived lane ran to 630k tokens, while a
+  fresh single-ticket orchestrator delivered a comparable ticket — including a
+  cold resume of a half-finished run — for 154k. A batch lane compacts around
+  ticket two or three and loses the accumulated constraints that make the later
+  tickets good. **The driver holds the queue and dispatches the next ticket on
+  each merge notification.**
+- **Anything the driver asserts to a lane is a claim the lane must verify.**
+  Over one batch the driver was wrong six times — a misattributed CI race, a
+  "one-line fix" that would have shipped a dead focusable button, an amplified
+  false rationale, a mutation that exercised the wrong branch, a backwards
+  citation mapping, and a premise of "plausibly one token" that was 17 sites
+  across 8 stylesheets. Every one was caught by a lane checking rather than
+  executing. Brief lanes to treat driver statements as claims, and expect to be
+  corrected.
+
+See also `MISTAKES.md` — repo-specific tripping hazards, several of which bite
+hardest during unattended batch runs.
+
 ## Canonical Standards & Iron Laws
 
 The ticket-delivery agents are **bound to read** these canonical documents at the point of use — the mechanism that keeps autonomous work diligent and self-correcting:
