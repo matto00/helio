@@ -8,7 +8,12 @@ import type { ChartTypeOptionsMap } from "../../../panels/types/panel";
 import type { BoundOrLiteralState } from "../../../panels/ui/editors/useBoundOrLiteralState";
 import type { AggregateConfig } from "../../types/pipelineStep";
 import type { NodeCapabilities, OutputKind } from "../../types/output";
-import { isAggFn, isMetricFormat, type MetricFormat } from "./outputConfigTypes";
+import {
+  isAggFn,
+  isMetricFormat,
+  type MetricFormat,
+  type TableColumnFormats,
+} from "./outputConfigTypes";
 
 export interface BuildOutputConfigParams {
   kind: OutputKind;
@@ -23,6 +28,11 @@ export interface BuildOutputConfigParams {
   // Table
   tableFieldMapping: Record<string, string>;
   tableColumnOrder: string[] | undefined;
+  // HEL-469 — persisted via the Output editor's Save path (design D1a);
+  // `TableRenderer` only READS this, never writes it. ALWAYS emitted (even
+  // `{}`) so a cleared format is a whole-key replace, not an omission
+  // (design D3b).
+  tableColumnFormats: TableColumnFormats;
   // Metric
   metricField: string;
   metricAggFn: string;
@@ -67,6 +77,7 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
       return {
         fieldMapping: params.tableFieldMapping,
         columnOrder: params.tableColumnOrder,
+        columnFormats: params.tableColumnFormats,
       };
     case "metric":
       return {

@@ -28,6 +28,7 @@ function baseParams(overrides: Partial<BuildOutputConfigParams> = {}): BuildOutp
     annotationState: boundOrLiteral(),
     tableFieldMapping: {},
     tableColumnOrder: undefined,
+    tableColumnFormats: {},
     metricField: "",
     metricAggFn: "",
     metricLabelState: boundOrLiteral(),
@@ -121,5 +122,36 @@ describe("buildOutputConfig", () => {
   it("table config carries the resolved column order", () => {
     const config = buildOutputConfig(baseParams({ kind: "table", tableColumnOrder: ["b", "a"] }));
     expect(config.columnOrder).toEqual(["b", "a"]);
+  });
+
+  // HEL-469 task 1.5 — REGRESSION GUARD, mutation-failable: the minimal-patch
+  // Save body must carry `columnFormats` alongside `fieldMapping`/
+  // `columnOrder` and NOTHING else, so a caller relying on `mergeConfig`'s
+  // shallow merge (design D1a) never accidentally wipes `columnSort`/
+  // `columnFilters` (both absent from this object entirely, on purpose —
+  // they are never rebuilt by this editor). Mutate `buildOutputConfig`'s
+  // "table" case to drop `columnFormats` from the returned object and this
+  // assertion goes red.
+  it("table config's Save body carries exactly fieldMapping/columnOrder/columnFormats", () => {
+    const config = buildOutputConfig(
+      baseParams({
+        kind: "table",
+        tableFieldMapping: { a: "a" },
+        tableColumnOrder: ["a"],
+        tableColumnFormats: { a: { type: "currency" } },
+      }),
+    );
+    expect(Object.keys(config).sort()).toEqual(["columnFormats", "columnOrder", "fieldMapping"]);
+    expect(config.columnFormats).toEqual({ a: { type: "currency" } });
+  });
+
+  // HEL-469 design D3b — clearing every column's format must still emit the
+  // key as an EMPTY object, never omit it, so a Save is a whole-key replace
+  // rather than leaving a stale entry in place under `mergeConfig`'s
+  // shallow merge.
+  it("table config emits an empty columnFormats object when no column is formatted", () => {
+    const config = buildOutputConfig(baseParams({ kind: "table", tableColumnFormats: {} }));
+    expect(config.columnFormats).toEqual({});
+    expect("columnFormats" in config).toBe(true);
   });
 });

@@ -11,12 +11,17 @@ import {
 } from "../../../../shared/ui/useSortedRows";
 import { updateOutput } from "../../../pipelines/services/outputService";
 import { useAppSelector } from "../../../../hooks/reduxHooks";
-import type { TableColumnFilters } from "../../../pipelines/ui/outputEditor/outputConfigTypes";
+import type {
+  TableColumnFilters,
+  TableColumnFormats,
+} from "../../../pipelines/ui/outputEditor/outputConfigTypes";
 import {
   isFiltering,
   normalizeColumnFiltersForWrite,
   rowMatchesFilters,
+  type ColumnFormatters,
 } from "./tableFilterPredicate";
+import { resolveColumnFormatter, type FormatIntlOptions } from "./columnFormatting";
 import { LoadedScopeDisclosure } from "./LoadedScopeDisclosure";
 
 interface TableRendererProps {
@@ -52,6 +57,20 @@ interface TableRendererProps {
   /** Persisted filter state from the Output's `TableOutputConfig
    *  .columnFilters` (HEL-451 design D1); absent/`null` → no active filter. */
   columnFilters?: TableColumnFilters | null;
+  /** Persisted per-column format specs from the Output's
+   *  `TableOutputConfig.columnFormats` (HEL-469 design D1a); absent →
+   *  every column renders unformatted, exactly as before this ticket. */
+  columnFormats?: TableColumnFormats;
+  /** TEST-ONLY (evaluation-1.md change request 1 / design D4/task 4.0): an
+   *  EXPLICIT locale/timeZone override for `resolveColumnFormatter`, never
+   *  passed by production code (see `PanelContent.tsx`, which does not set
+   *  this prop) — production keeps `Intl`'s locale-aware runtime defaults.
+   *  `TableRenderer.test.tsx` passes this explicitly for every assertion
+   *  over rendered formatted text, so those tests are pinned the same way
+   *  `columnFormatting.test.ts`'s direct formatter tests already are,
+   *  rather than inheriting the host's locale (or mutating the `Intl`
+   *  global, which design D4/task 4.0 rules out). */
+  formatIntl?: FormatIntlOptions;
 }
 
 /** Matches `DataGrid.deriveColumns`'s natural/numeric collator so a column set
@@ -124,9 +143,19 @@ function getSortValue(value: unknown): SortValue {
     if (Number.isFinite(asNumber)) return asNumber;
     return value;
   }
-  // `formatCell` (not a bare `String(v)`) so the sort key matches the
-  // rendered cell text — `String({})` collapses every object to the same
-  // "[object Object]" tie, while `formatCell` JSON-stringifies it.
+  // `formatCell` (not a bare `String(v)`), for a DIFFERENT reason than the
+  // one previously stated here (HEL-469 design D1/task 3.2b — the old
+  // rationale, "so the sort key matches the rendered cell text", became
+  // FALSE the moment a column can carry a per-column format spec: the
+  // rendered text is then `render(row, value)`, not `formatCell(value)`).
+  // The real reason: sorting must NOT depend on display formatting, so the
+  // object branch stays on a STABLE JSON sort key regardless of any format
+  // spec on the column. `String({})` collapses every object to the same
+  // "[object Object]" tie, while `formatCell` JSON-stringifies it, which is
+  // why this branch uses `formatCell` and not a bare `String(v)` — but it is
+  // NOT re-pointed at the per-column formatter, and must never be. See
+  // design D1/D1b and `TableRenderer.test.tsx`'s mutation-failable sort
+  // guard, which asserts this at the call site below, not here.
   return formatCell(value);
 }
 
@@ -171,6 +200,8 @@ export function TableRenderer({
   columnOrder,
   columnSort,
   columnFilters,
+  columnFormats,
+  formatIntl,
 }: TableRendererProps) {
   // Local-only column widths (no longer persisted — see the file's HEL-909
   // interface-parity note, now folded into the `outputId` doc comment).
@@ -206,6 +237,41 @@ export function TableRenderer({
     [naturalKeys, columnOrder],
   );
 
+  // HEL-469 design D6b — ONE resolver per column, shared verbatim by the
+  // render path (`formattedColumns` below, via `ColumnDef.render`) and the
+  // filter path (`filteredRows`'s `rowMatchesFilters` call) so the two can
+  // never silently diverge. A column with no entry in `columnFormats`
+  // resolves to `formatCell` (via `resolveColumnFormatter`'s own fallback),
+  // matching every existing (pre-HEL-469) column's behavior exactly.
+  const formatters = useMemo<ColumnFormatters>(() => {
+    const specs = columnFormats ?? {};
+    const map: ColumnFormatters = {};
+    for (const col of columns) {
+      const spec = specs[col.key];
+      if (spec) map[col.key] = resolveColumnFormatter(spec, formatIntl);
+    }
+    return map;
+  }, [columns, columnFormats, formatIntl]);
+
+  // HEL-469 design D3a (owner-ruled) — `DataGrid.tsx`'s `render` is the
+  // ONLY consumer of a per-column format spec; `align` right-aligns
+  // `number`/`currency` columns, header AND cell together. `sortColumns`
+  // below reads `columns` (this array's UNFORMATTED source), never
+  // `formattedColumns` — see D1/D1b.
+  const formattedColumns = useMemo<ColumnDef[]>(() => {
+    const specs = columnFormats ?? {};
+    return columns.map((col) => {
+      const spec = specs[col.key];
+      if (!spec) return col;
+      const formatter = formatters[col.key];
+      return {
+        ...col,
+        align: spec.type === "number" || spec.type === "currency" ? "right" : col.align,
+        render: (_row: Record<string, unknown>, value: unknown) => formatter(value),
+      };
+    });
+  }, [columns, columnFormats, formatters]);
+
   // The `rawRows` branch previously rebuilt this record array on every
   // render (inline in JSX below the early return) — memoized here too, or
   // it would defeat `useSortedRows`' `[rows, columns, sortState]` identity
@@ -235,8 +301,8 @@ export function TableRenderer({
   // `[rows, columns, sortState]` by identity, and an unstable array defeats
   // it every render.
   const filteredRows = useMemo(
-    () => normalizedRows.filter((row) => rowMatchesFilters(row, columns, filters)),
-    [normalizedRows, columns, filters],
+    () => normalizedRows.filter((row) => rowMatchesFilters(row, columns, filters, formatters)),
+    [normalizedRows, columns, filters, formatters],
   );
 
   const sortColumns = useMemo<SortColumn<Record<string, unknown>, string>[]>(
@@ -443,7 +509,7 @@ export function TableRenderer({
         <DataGrid
           variant="full"
           rows={sortedRows}
-          columns={columns}
+          columns={formattedColumns}
           columnWidths={widths}
           onColumnResize={handleColumnResize}
           sort={sortState.key === UNSORTED_SENTINEL ? null : sortState}

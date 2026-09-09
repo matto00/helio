@@ -42,6 +42,37 @@ export interface TableColumnFilters {
   columns?: Record<string, string>;
 }
 
+/** HEL-469 — a table-column-specific format vocabulary, deliberately
+ *  SEPARATE from `MetricFormat` (design D2): the domains differ (a column
+ *  can be a date; a metric can be a percent), but the two NAMES that
+ *  overlap (`number`, `currency`) are reused verbatim so the surfaces do
+ *  not drift into synonyms. Do NOT rename or re-point `MetricFormat`. */
+export type TableColumnFormatType = "number" | "currency" | "date" | "text";
+
+export function isTableColumnFormatType(value: unknown): value is TableColumnFormatType {
+  return value === "number" || value === "currency" || value === "date" || value === "text";
+}
+
+/** One column's format spec. `decimals` (number) and `currency`/`decimals`
+ *  (currency) are options only that format honours; `datePattern` only
+ *  `date` honours — an option irrelevant to the chosen `type` is simply
+ *  ignored by the formatter (design D3). */
+export interface TableColumnFormatSpec {
+  type: TableColumnFormatType;
+  /** `number`/`currency` — fixed fraction digits; absent = locale default. */
+  decimals?: number;
+  /** `currency` — an explicit ISO 4217 code (design D2 divergence #1: never
+   *  hardcoded, unlike `MetricRenderer.tsx:28`'s `"USD"`). Absent → `"USD"`. */
+  currency?: string;
+  /** `date` — one of `Intl.DateTimeFormatOptions.dateStyle`'s values.
+   *  Absent → `"medium"`. */
+  datePattern?: "short" | "medium" | "long" | "full";
+}
+
+/** Keyed by column name, one entry per formatted column. Columns with no
+ *  entry render unformatted (`formatCell`), exactly as before this ticket. */
+export type TableColumnFormats = Record<string, TableColumnFormatSpec>;
+
 export interface TableOutputConfig {
   fieldMapping: Record<string, string>;
   columnOrder?: string[];
@@ -59,6 +90,11 @@ export interface TableOutputConfig {
   /** HEL-451 — see `TableColumnFilters` doc comment above for why this is a
    *  flat sibling rather than nested inside `columnSort`. */
   columnFilters?: TableColumnFilters | null;
+  /** HEL-469 — same flat-sibling reasoning; keyed by column name, read
+   *  tolerantly (`readColumnFormats`). A clear MUST write `{}`, never omit
+   *  the key — `mergeConfig`'s shallow merge leaves an omitted key intact
+   *  (design D3b), which is exactly wrong for clearing. */
+  columnFormats?: TableColumnFormats;
 }
 
 /** Numeric display style for `metric`/`collection baseType: metric` renderers
@@ -169,12 +205,42 @@ function readColumnFilters(value: unknown): TableColumnFilters | undefined {
   return out;
 }
 
+/** Tolerant read for `columnFormats` (HEL-469 design task 1.3): a non-object
+ *  value yields `undefined`; an entry whose `type` is not a recognised
+ *  `TableColumnFormatType` is DROPPED (not the whole map); an entry naming a
+ *  column absent from the current data is left in the map here and simply
+ *  never applies at render (task 1.3 — ignored at render, not at read).
+ *  Never throws. */
+function readColumnFormats(value: unknown): TableColumnFormats | undefined {
+  if (value === null || typeof value !== "object") return undefined;
+  const out: TableColumnFormats = {};
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (!entry || typeof entry !== "object") continue;
+    const candidate = entry as Record<string, unknown>;
+    if (!isTableColumnFormatType(candidate.type)) continue;
+    const spec: TableColumnFormatSpec = { type: candidate.type };
+    if (typeof candidate.decimals === "number") spec.decimals = candidate.decimals;
+    if (typeof candidate.currency === "string") spec.currency = candidate.currency;
+    if (
+      candidate.datePattern === "short" ||
+      candidate.datePattern === "medium" ||
+      candidate.datePattern === "long" ||
+      candidate.datePattern === "full"
+    ) {
+      spec.datePattern = candidate.datePattern;
+    }
+    out[key] = spec;
+  }
+  return out;
+}
+
 export function readTableConfig(config: Record<string, unknown>): TableOutputConfig {
   return {
     fieldMapping: safeRecord(config.fieldMapping),
     columnOrder: Array.isArray(config.columnOrder) ? (config.columnOrder as string[]) : undefined,
     columnSort: readColumnSort(config.columnSort),
     columnFilters: readColumnFilters(config.columnFilters),
+    columnFormats: readColumnFormats(config.columnFormats),
   };
 }
 

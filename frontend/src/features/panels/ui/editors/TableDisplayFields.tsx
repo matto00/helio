@@ -13,6 +13,7 @@
 
 import { IconButton, Select, type SelectOption } from "../../../../shared/ui/index";
 import type { TableColumnRow } from "../../../pipelines/ui/outputEditor/useOutputTableColumns";
+import type { ColumnFormatSelection } from "../../../pipelines/ui/outputEditor/useOutputColumnFormats";
 import "./TableDisplayFields.css";
 
 export type TableDensity = "condensed" | "normal" | "spacious";
@@ -22,6 +23,26 @@ const DENSITY_OPTIONS: SelectOption[] = [
   { value: "normal", label: "Normal" },
   { value: "spacious", label: "Spacious" },
 ];
+
+/** HEL-469 — column display-format options. `"none"` is the UI's own
+ *  sentinel (never persisted, see `useOutputColumnFormats`). */
+const COLUMN_FORMAT_OPTIONS: SelectOption[] = [
+  { value: "none", label: "None" },
+  { value: "number", label: "Number" },
+  { value: "currency", label: "Currency ($)" },
+  { value: "date", label: "Date" },
+  { value: "text", label: "Text" },
+];
+
+function isColumnFormatSelection(value: string): value is ColumnFormatSelection {
+  return (
+    value === "none" ||
+    value === "number" ||
+    value === "currency" ||
+    value === "date" ||
+    value === "text"
+  );
+}
 
 interface TableDisplayFieldsProps {
   density: TableDensity;
@@ -35,6 +56,11 @@ interface TableDisplayFieldsProps {
   hasStoredWidths: boolean;
   resetWidthsPending: boolean;
   onResetWidths: () => void;
+  /** HEL-469 — per-column format selection, keyed by column name; a column
+   *  with no entry renders as "none" (DESIGN.md §8: keyboard operable, with
+   *  an accessible name identifying its column). */
+  columnFormats: Record<string, ColumnFormatSelection>;
+  onFormatChange: (key: string, type: ColumnFormatSelection) => void;
 }
 
 function isTableDensity(value: string): value is TableDensity {
@@ -53,6 +79,8 @@ export function TableDisplayFields({
   hasStoredWidths,
   resetWidthsPending,
   onResetWidths,
+  columnFormats,
+  onFormatChange,
 }: TableDisplayFieldsProps) {
   // F-126 — single-step ↑/↓ alone takes many clicks to reach either end of a
   // wide data type's column list; only add the coarser jump-to-top/bottom
@@ -91,6 +119,16 @@ export function TableDisplayFields({
                     />
                     <span className="table-display-fields__column-key">{column.key}</span>
                   </label>
+                  <div className="table-display-fields__column-format">
+                    <Select
+                      ariaLabel={`Format ${column.key}`}
+                      value={columnFormats[column.key] ?? "none"}
+                      onChange={(value) => {
+                        if (isColumnFormatSelection(value)) onFormatChange(column.key, value);
+                      }}
+                      options={COLUMN_FORMAT_OPTIONS}
+                    />
+                  </div>
                   <div className="table-display-fields__column-move">
                     {showJumpControls && (
                       <IconButton

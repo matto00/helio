@@ -75,6 +75,20 @@
   font-size: var(--text-sm);
 }
 
+/* HEL-469 — the format `Select` shares this row with the visibility
+   `<label>` (`flex: 1; min-width: 0`, above). `.ui-select` is `width:
+   100%` (`inputs.css`), which — unbounded in a `display: flex` row with a
+   flex-basis-0 sibling — becomes the item's own `flex-basis` and wins the
+   space fight outright: the sibling `flex: 1` label was measured shrinking
+   to a literal 0px, clipping every column name and checkbox to nothing
+   (evaluation-1.md change request 2). A bounded, non-shrinking wrapper here keeps
+   the format control a fixed share of the row so the name/checkbox keep
+   theirs. */
+.table-display-fields__column-format {
+  width: 140px;
+  flex-shrink: 0;
+}
+
 .table-display-fields__reset-widths-btn {
   justify-self: start;
   height: var(--control-md);

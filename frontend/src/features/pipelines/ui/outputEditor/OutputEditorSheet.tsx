@@ -70,6 +70,7 @@ import {
   TableKindFields,
 } from "./OutputKindFields";
 import { useOutputTableColumns } from "./useOutputTableColumns";
+import { useOutputColumnFormats } from "./useOutputColumnFormats";
 import { OutputPreviewPane } from "./OutputPreviewPane";
 import "./OutputEditorSheet.css";
 
@@ -226,6 +227,7 @@ export function OutputEditorSheet({
     capabilities ? capabilities.columns.map((c) => c.name) : [],
     tableConfig.columnOrder,
   );
+  const tableFormats = useOutputColumnFormats(tableConfig.columnFormats);
 
   // Metric
   const [metricField, setMetricField] = useState(metricConfig.fieldMapping.value ?? "");
@@ -291,6 +293,7 @@ export function OutputEditorSheet({
       annotationState,
       tableFieldMapping,
       tableColumnOrder: tableCols.columnOrder,
+      tableColumnFormats: tableFormats.columnFormats,
       metricField,
       metricAggFn,
       metricLabelState,
@@ -533,6 +536,8 @@ export function OutputEditorSheet({
             onMoveDown={tableCols.moveDown}
             onMoveToTop={tableCols.moveToTop}
             onMoveToBottom={tableCols.moveToBottom}
+            columnFormats={tableFormats.selections}
+            onFormatChange={tableFormats.setFormat}
           />
         )}
         {kind === "metric" && (

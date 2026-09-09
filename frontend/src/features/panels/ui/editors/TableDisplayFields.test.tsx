@@ -23,6 +23,8 @@ function renderFields(overrides: Partial<ComponentProps<typeof TableDisplayField
       hasStoredWidths={false}
       resetWidthsPending={false}
       onResetWidths={jest.fn()}
+      columnFormats={{}}
+      onFormatChange={jest.fn()}
       {...overrides}
     />,
   );

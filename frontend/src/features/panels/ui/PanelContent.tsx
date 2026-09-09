@@ -146,6 +146,7 @@ function OutputPanelContent({
         columnOrder={cfg.columnOrder}
         columnSort={cfg.columnSort}
         columnFilters={cfg.columnFilters}
+        columnFormats={cfg.columnFormats}
       />
     );
   }
