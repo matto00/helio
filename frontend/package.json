@@ -39,10 +39,10 @@
     "follow-redirects": ">=1.16.0",
     "@babel/core": "^7.29.6",
     "@istanbuljs/load-nyc-config": {
-      "js-yaml": "^3.15.1"
+      "js-yaml": "^3.15.2"
     },
     "@vite-pwa/assets-generator": {
-      "sharp": "^0.35.0"
+      "sharp": "^0.35.4"
     }
   },
   "devDependencies": {
