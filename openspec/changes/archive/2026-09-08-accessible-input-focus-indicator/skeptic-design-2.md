@@ -1,0 +1,38 @@
+## Skeptic Report — design gate (round 2, skeptic-design-2.md)
+
+### What I verified (with evidence)
+
+Cold spawn; every claim below derived from the tree at `a2be5c5f`, not from round 1's report or the design doc.
+
+- **Site inventory.** `git grep -n "outline:\s*none" -- 'src/**/*.css'` in `frontend/` returns exactly the 11 sites design.md tables. Reproduced.
+- **Site 9 orphan claim (D9).** `grep -rn "cell-input\|cell-select\|cellInput\|cellSelect" src/` excluding `AddSourceModal.css` returns **zero** hits (exit 1). D9's premise holds; excluding it is defensible.
+- **D5 walked against the real stylesheets.** Read every one of the ten live rule groups (`auth.css:99-116`, `DashboardList.css:73-78/143-148/354-359/686-690`, `PanelGrid.css:222-248`, `PipelineDetailPage.css:788-808`, `AccentPicker.css:12-45`, `inputs.css:36-42`, `AddSourceModal.css:145-163`). **Two groups break the guard as specified** — see CR-1 and CR-2.
+- **D5a parse target.** `theme.css` declares `--app-accent-strong` **twice**: line 171 `color-mix(in srgb, var(--app-accent) 78%, white)` (dark block) and line 222 `… 76%, black` (light block). D5a and task 4.3 speak of "the declaration", singular, and quote only the light one. See CR-4.
+- **Existing guard read in full** (`focusRingTokenGuard.css.test.ts`) — D5a's "follows HEL-1046's own precedent of re-parsing `theme.css`" is accurate; `readAllSurfaces`/`extractThemeBlock` already parse per-theme-block, which is the machinery CR-4 asks D5a to reuse correctly.
+- **HEL-1051 (Linear, real, Backlog, Medium).** Read in full. Genuinely scoped: names the mechanism, three candidate approaches, adversarial-background AC, and explicitly records why HEL-1050's 8×2 sweep is silent on it. It is a real deferral target, not a parking space. It cites HEL-1048 only as a structural analogy ("relocated from two themes to any colour the user picks") and imports none of its 4.5:1 accent-as-text scope. **D8's ruling — fix what a colour can fix, name the residual — is sound and I do not contest it.**
+- **HEL-1049 (Linear, real, Backlog, Low).** Read in full. **It does not cover what D9 defers to it** — see CR-3.
+- Arithmetic not re-derived (verified twice already, per instruction); nothing I read contradicts it.
+
+### Verdict: REFUTE
+
+Four blocking items and one contradiction to resolve. **None is a repeat of a round-1 change request I found unfixed** — all six round-1 CRs are addressed as described. CR-1 and CR-3 are *new defects introduced by the round-1 fixes themselves* (the newly-specified guard, and the newly-made deferral), which is exactly what a second round is for.
+
+### Change Requests
+
+1. **D5's part (2) is evaluated over the whole selector-base group, and therefore goes red on site 7 after task 3.5 correctly fixes it.** `PanelGrid.css:239-242` is
+   `.ui-input.panel-grid-card__title-input:hover:not(:disabled):not(:focus) { border-color: transparent; border-bottom-color: var(--app-accent); }`.
+   Stripping trailing pseudo-classes (including `:not(…)`, as D5 instructs) collapses this into the *same base group* as the `:focus-visible` rule. `border-bottom-color` is in D5's enumerated indicator-property set — deliberately, per D5 — and it references bare `var(--app-accent)`. Part (2) ("**no** indicator declaration references bare `var(--app-accent)`") is therefore violated by a **hover** declaration that this ticket does not touch and has no reason to touch. The guard rejects its own remedy for the second time, on a different property than round 1's. Revise D5 (and task 4.1a) to scope part (2) to declarations **in rules whose selector carries `:focus`/`:focus-visible`**, while keeping part (1)'s "some `:focus-visible` rule in the group" quantifier as-is. State the asymmetry explicitly so an implementer does not "simplify" it back.
+
+2. **D5 goes red on site 9, which D9 forbids editing, and no pin is specified for it.** `.add-source-modal__cell-input, .add-source-modal__cell-select` declares `outline: none` on the **base** rule (`AddSourceModal.css:156`) and its only sibling focus rule is bare `:focus` (`:160`) — no `:focus-visible` anywhere in the group. Under D5 that base group has an unrestored outline suppression and fails. Task 4.1 mentions pins only in the abstract ("where genuinely needed"). Enumerate this pin concretely — file, exact normalised selector text, count, and reason (orphaned, owned by the ticket resolved in CR-3) — and say in D5 that the pin is expected to be **deleted** when that ticket removes the CSS, so it is not a permanent hole.
+
+3. **The site-9 deferral is not real: HEL-1049 does not own `AddSourceModal.css`.** I read HEL-1049. Its title, context, scope bullets and ACs are entirely about `PanelDetailModal.binding.css` and HEL-909's page retirement; its widening bullet is *"check `PanelDetailModal.binding.css` for other rules orphaned by the same retirement"* — file-scoped, and a different origin story (AddSourceModal was never part of the HEL-909 retirement). D9, task 3.7 and task 8.5 all defer to a ticket whose text does not cover the deferral. Either (a) update HEL-1049 to name `add-source-modal__cell-input`/`cell-select` explicitly — including their bare-`:focus` selectors and the guard pin from CR-2 — or (b) file a separate orphan ticket and repoint D9/3.7/8.5 at it. HEL-1051 was actually filed; this one was assumed. Do not leave AC-4 resting on an assumption.
+
+4. **D5a's parse is not well-defined against the actual declaration text.** There are two `--app-accent-strong` declarations, with different percentages *and* different mix partners (78%/white in the dark block, 76%/black in the light block). A parse of "the declaration" that takes the first match gets the **dark** one and then scores it against the wrong surface set — a silently wrong green, the exact failure mode D5a exists to prevent. Respecify D5a and task 4.3 to: parse **per theme block** (reuse `extractThemeBlock`, which already exists in the guard), evaluate each theme's mix against **that theme's** re-derived surfaces, and state that the Yellow-fails assertion is a **light-theme** claim about the 76%/black mix. Keep the "at least one preset fails" non-vacuity check, but bind it to the light block.
+
+5. **Task 5.3a and task 5.4 contradict each other, and 5.3a as written can license a real failure.** 5.4 says "Assert every measured ratio ≥ 3.0. Any value below is a failure of AC-1"; 5.3a says "a sub-3:1 result here is expected and documented, not a new failure". As drafted an implementer can either block on the expected number or wave through an unrelated one. Make 5.4 carry an explicit, narrow carve-out: the *only* measurement exempt is site 7 (`PanelGrid.css` title input) on a **non-default panel appearance**, it must still be recorded as a number in the evidence dir with the HEL-1051 reference, and site 7 on **default** appearance is not exempt and must clear 3.0. Anything else below 3.0 fails AC-1.
+
+### Non-blocking notes
+
+- D5 says "normalises each selector"; make explicit that comma-separated selector lists are **split before** normalisation and each declaration attributed to every resulting base — `inputs.css:36-38` is a three-selector list and is the shape most likely to be mishandled.
+- D5's `:not(…)` stripping is what causes CR-1's collision. If CR-1 is fixed by scoping part (2), the collision becomes harmless; if instead someone tries to fix it by not stripping `:not(…)`, site 7's hover rule becomes its own base and CR-1 disappears for the wrong reason while D4's base-rule check weakens. Prefer the CR-1 remedy.
+- `PanelDetailModal.binding.css` has no `outline: none` (confirmed by the 11-site grep), so it needs no guard pin — only site 9 does.

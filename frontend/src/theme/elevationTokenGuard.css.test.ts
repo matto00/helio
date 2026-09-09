@@ -98,8 +98,15 @@ const BOX_SHADOW_EXCEPTIONS: Pin[] = [
   {
     file: "shared/chrome/AccentPicker.css",
     declaration: "box-shadow: 0 0 0 2px var(--app-surface-strong), 0 0 0 4px var(--app-accent);",
-    count: 2,
-    note: "double-ring zero-blur selection indicator (D0) — HEL-1022",
+    count: 1,
+    note: "double-ring zero-blur selection indicator (D0) — HEL-1022. Was count 2 (shared with :focus-visible) until HEL-1050 D5/3.8 gave :focus-visible its own conforming ring colour (--app-focus-ring-color) instead of the raw accent, and a third shadow layer so the focused-but-not-selected state is visually distinct from --selected (design.md D5/3.8 — the two states previously declared a byte-identical box-shadow).",
+  },
+  {
+    file: "shared/chrome/AccentPicker.css",
+    declaration:
+      "box-shadow: 0 0 0 2px var(--app-surface-strong), 0 0 0 4px var(--app-focus-ring-color), 0 0 0 6px var(--app-border-strong);",
+    count: 1,
+    note: "triple-ring zero-blur focus indicator (D0), HEL-1050 D5/3.8 — recolours the ring to the contrast-derived focus-ring token and adds a third, neutral-and-therefore-backdrop-independent layer so :focus-visible stays visually distinct from --selected above even for the zero-darkening accent presets (evaluator cycle-2 correction: a --app-surface-strong 3rd layer is invisible in this picker's one real render context and, for those presets, left the two states pixel-identical).",
   },
   // D0 / task 2.1b — the 13 scroll-fade insets, in FOUR distinct values
   // (not byte-identical). Reported as a spinoff candidate for the scroll-

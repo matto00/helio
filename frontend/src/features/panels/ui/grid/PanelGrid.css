@@ -240,10 +240,19 @@
   border-bottom-color: var(--app-accent);
 }
 
+/* HEL-1050 D8: repointed from --app-accent-strong (Yellow measured 2.78:1,
+ * failing the 3:1 floor) to --app-focus-ring-color. This is a strict
+ * improvement — it conforms against every theme surface and all 8 accent
+ * presets — but NOT a closure: this indicator renders against the panel
+ * card's background, which is a user-chosen colour/transparency
+ * (buildPanelSurface), not one of the ten literal surfaces
+ * deriveFocusRingColor is derived against. A user-chosen panel background
+ * near the derived ring colour can still fall below 3:1. That residual is
+ * a known, named non-conformance owned by HEL-1051. */
 .ui-input.panel-grid-card__title-input:focus-visible {
   outline: none;
   box-shadow: none;
-  border-bottom-color: var(--app-accent-strong);
+  border-bottom-color: var(--app-focus-ring-color);
 }
 
 @media (max-width: 768px) {

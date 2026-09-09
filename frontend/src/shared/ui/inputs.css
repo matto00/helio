@@ -37,7 +37,7 @@
 .ui-select__trigger:focus-visible,
 .ui-textarea:focus-visible {
   outline: none;
-  border-color: var(--app-accent);
+  border-color: var(--app-focus-ring-color);
   box-shadow: 0 0 0 3px var(--app-accent-dim);
 }
 

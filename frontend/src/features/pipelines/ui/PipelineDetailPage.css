@@ -800,11 +800,10 @@
   border-color: var(--app-accent-mid);
 }
 
-.ui-input.pipeline-detail-page__footer-output-input:focus,
 .ui-input.pipeline-detail-page__footer-output-input:focus-visible {
   outline: none;
   box-shadow: none;
-  border-color: var(--app-accent);
+  border-color: var(--app-focus-ring-color);
 }
 
 .pipeline-detail-page__footer-schema {

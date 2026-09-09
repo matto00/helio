@@ -110,8 +110,8 @@
     box-shadow var(--app-transition);
 }
 
-.auth-field input:focus {
-  border-color: var(--app-accent);
+.auth-field input:focus-visible {
+  border-color: var(--app-focus-ring-color);
   box-shadow: 0 0 0 3px var(--app-accent-dim);
 }
 
