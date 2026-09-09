@@ -103,7 +103,7 @@
 
 .output-picker__card-badge {
   font-size: var(--text-xs);
-  color: var(--app-accent);
+  color: var(--app-accent-text);
   font-weight: var(--weight-medium);
 }
 

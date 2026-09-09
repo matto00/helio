@@ -59,7 +59,7 @@
 }
 
 .source-list-table__name:hover {
-  color: var(--app-accent);
+  color: var(--app-accent-text);
   text-decoration: underline;
 }
 

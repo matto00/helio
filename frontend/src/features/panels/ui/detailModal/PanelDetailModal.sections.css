@@ -32,7 +32,7 @@
 .panel-detail-modal__segmented-btn--active {
   border-color: var(--app-accent);
   background: var(--app-accent-surface);
-  color: var(--app-accent-strong);
+  color: var(--app-accent-text);
 }
 
 .panel-detail-modal__segmented-btn:focus-visible {

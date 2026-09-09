@@ -416,7 +416,163 @@ export function deriveFocusRingColor(hex: string): string | null {
   return "#000000";
 }
 
-export function buildAccentTokens(hex: string): Record<string, string> {
+// HEL-1048 — the accent-as-TEXT derivation. Unlike `deriveFocusRingColor`
+// above, this is theme-AWARE by necessity: design.md's Context section shows
+// the light/dark 4.5:1 luminance windows for text are disjoint (light needs
+// L <= 0.1479, dark needs L >= 0.2523, gap 0.1044), so no single colour can
+// clear both — the empty window `deriveFocusRingColor` sidesteps by using a
+// single theme-independent 3:1 target does not exist at the stricter 4.5:1
+// text floor. `--app-focus-ring-color` stays theme-independent (AC-3); this
+// token cannot be.
+//
+// The scored background set is design.md D2 — its single complete
+// statement, not restated here: the five neutral surface tokens per theme,
+// `--app-accent-surface`/`--app-accent-dim` composited over each (the
+// theme's own tint strengths, read from theme.css), and the two hand-rolled
+// inline tints heavier than those two tokens (design.md D6 — BottomNav's 22%
+// and AddSourceModal's 20%; the third inline tint, 10%, is bounded by
+// `--app-accent-surface`/`--app-accent-dim` and adds nothing per D6).
+// `::selection` and user-chosen panel surfaces are deliberately NOT in this
+// set — see design.md D7 (checked as a fixed pair instead) and HEL-1057
+// (out of scope entirely).
+
+// Neutral surfaces, per theme (same five tokens `FOCUS_RING_SURFACES` draws
+// from, kept separate here because the accent-text search is per-theme
+// rather than over both at once). LITERAL, not parsed — this is browser
+// runtime code and cannot read `theme.css` at runtime — so these are a
+// value that CAN silently drift from theme.css if theme.css changes and
+// this file doesn't. That drift is not undetected: exported so
+// `accentTextSourceSyncGuard.css.test.ts` can re-parse theme.css directly
+// and assert equality at test time (tasks.md 2.2/5.1's "do not hardcode
+// copies of either" is satisfied by that guard, not by this file reading
+// CSS at runtime, which isn't possible here).
+export const ACCENT_TEXT_NEUTRAL_SURFACES: Record<Theme, readonly string[]> = {
+  dark: ["#121110", "#1a1816", "#161514", "#232019", "#262320"],
+  light: ["#f4f2ed", "#fdfcfa", "#efece6", "#ffffff", "#ffffff"],
+};
+
+// `--app-accent-surface` / `--app-accent-dim` tint strengths, per theme
+// (design.md D2 item 2). Same drift-detection contract as
+// ACCENT_TEXT_NEUTRAL_SURFACES above — see `accentTextSourceSyncGuard.css.test.ts`.
+export const ACCENT_TEXT_TOKEN_TINT_STRENGTHS: Record<Theme, readonly number[]> = {
+  dark: [0.15, 0.1],
+  light: [0.11, 0.08],
+};
+
+// Hand-rolled inline tints heavier than the token tints above (design.md
+// D6): `BottomNav.css`'s 22% lozenge and `AddSourceModal.css`'s 20% panel
+// tint. Same strength in both themes at these two sites. Same drift-
+// detection contract — see `accentTextSourceSyncGuard.css.test.ts`, which
+// parses these two values out of `BottomNav.css`/`AddSourceModal.css`
+// themselves (they are not in `theme.css`).
+export const ACCENT_TEXT_INLINE_TINT_STRENGTHS: readonly number[] = [0.22, 0.2];
+
+const ACCENT_TEXT_CONTRAST_TARGET = 4.5;
+
+function accentTextBackgrounds(theme: Theme, accent: RgbColor): RgbColor[] {
+  const backgrounds: RgbColor[] = [];
+  for (const hex of ACCENT_TEXT_NEUTRAL_SURFACES[theme]) {
+    const base = parseHexColor(hex);
+    if (base === null) {
+      continue;
+    }
+    backgrounds.push(base);
+    for (const strength of ACCENT_TEXT_TOKEN_TINT_STRENGTHS[theme]) {
+      backgrounds.push(blendColors(base, accent, strength));
+    }
+    for (const strength of ACCENT_TEXT_INLINE_TINT_STRENGTHS) {
+      backgrounds.push(blendColors(base, accent, strength));
+    }
+  }
+  return backgrounds;
+}
+
+function minContrastAgainstAccentTextBackgrounds(
+  theme: Theme,
+  color: RgbColor,
+  accent: RgbColor,
+): number {
+  let min = Number.POSITIVE_INFINITY;
+  for (const bg of accentTextBackgrounds(theme, accent)) {
+    const ratio = getContrastRatio(color, bg);
+    if (ratio < min) {
+      min = ratio;
+    }
+  }
+  return min;
+}
+
+function lightenTowardWhite(color: RgbColor, percent: number): RgbColor {
+  const factor = percent / 100;
+  return {
+    r: Math.round(color.r + (255 - color.r) * factor),
+    g: Math.round(color.g + (255 - color.g) * factor),
+    b: Math.round(color.b + (255 - color.b) * factor),
+  };
+}
+
+/**
+ * Derives the MINIMUM adjustment of `hex` (darken toward black in light
+ * theme, lighten toward white in dark theme — design.md D3) that clears
+ * `ACCENT_TEXT_CONTRAST_TARGET` (4.5:1) against every background in D2's
+ * scored set for `theme`. Searches integer percents only, so any returned
+ * value is producible by this exact derivation (design.md D5) — there is no
+ * separate "assert producibility" pass because the search never considers
+ * a value it cannot emit.
+ *
+ * Returns `null` only for an unparseable hex (same contract as
+ * `deriveFocusRingColor`); callers fall back to the static `:root` default.
+ */
+export function deriveAccentTextColor(hex: string, theme: Theme): string | null {
+  const rgb = parseHexColor(hex);
+  if (rgb === null) {
+    return null;
+  }
+
+  if (minContrastAgainstAccentTextBackgrounds(theme, rgb, rgb) >= ACCENT_TEXT_CONTRAST_TARGET) {
+    return hex.toLowerCase();
+  }
+
+  const adjust = theme === "light" ? darkenTowardBlack : lightenTowardWhite;
+  for (let percent = 1; percent <= 100; percent++) {
+    const adjusted = adjust(rgb, percent);
+    // Backgrounds are composited from the ORIGINAL accent (`--app-accent` is
+    // untouched per the owner's `text-only-token` ruling — design.md
+    // Owner rulings #1); only the candidate TEXT colour is adjusted.
+    if (
+      minContrastAgainstAccentTextBackgrounds(theme, adjusted, rgb) >= ACCENT_TEXT_CONTRAST_TARGET
+    ) {
+      return toHexColor(adjusted);
+    }
+  }
+
+  // Unreachable in practice (black/white trivially clear 4.5:1 against any
+  // background short of pure black/white itself), kept as a safe last
+  // resort so the derivation stays total, mirroring `deriveFocusRingColor`.
+  return theme === "light" ? "#000000" : "#ffffff";
+}
+
+// HEL-1048 D7 — the opaque `::selection` background. Blended in TypeScript
+// (not CSS `color-mix`, so the result is a flat, opaque 8-bit hex rather
+// than a translucent composite) from the accent at 26% (light) / 30% (dark)
+// over that theme's `--app-bg` mix base. Deliberately NOT part of D2's
+// scored background set (`::selection` sets `color` too, so accent text
+// never actually renders on top of it — see design.md D7).
+export const SELECTION_TINT_STRENGTH: Record<Theme, number> = { light: 0.26, dark: 0.3 };
+export const SELECTION_BASE_HEX: Record<Theme, string> = {
+  light: "#f4f2ed",
+  dark: "#121110",
+};
+
+function buildSelectionBackground(accent: RgbColor, theme: Theme): string {
+  const base = parseHexColor(SELECTION_BASE_HEX[theme]);
+  if (base === null) {
+    return toHexColor(accent);
+  }
+  return toHexColor(blendColors(base, accent, SELECTION_TINT_STRENGTH[theme]));
+}
+
+export function buildAccentTokens(hex: string, theme: Theme): Record<string, string> {
   const rgb = parseHexColor(hex);
   if (rgb === null) {
     return {};
@@ -437,11 +593,13 @@ export function buildAccentTokens(hex: string): Record<string, string> {
     "--app-accent": hex,
     "--app-accent-ink": ink,
     "--app-focus-ring-color": deriveFocusRingColor(hex) ?? hex,
+    "--app-accent-text": deriveAccentTextColor(hex, theme) ?? hex,
+    "--app-selection-bg": buildSelectionBackground(rgb, theme),
   };
 }
 
-export function applyAccentTokens(hex: string): void {
-  const tokens = buildAccentTokens(hex);
+export function applyAccentTokens(hex: string, theme: Theme): void {
+  const tokens = buildAccentTokens(hex, theme);
   for (const [key, value] of Object.entries(tokens)) {
     document.documentElement.style.setProperty(key, value);
   }

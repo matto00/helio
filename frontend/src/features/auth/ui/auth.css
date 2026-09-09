@@ -204,7 +204,7 @@
 }
 
 .auth-footer a {
-  color: var(--app-accent);
+  color: var(--app-accent-text);
   text-decoration: none;
   font-weight: var(--weight-semibold);
 }
@@ -231,7 +231,7 @@
 }
 
 .auth-link-btn:hover {
-  color: var(--app-accent);
+  color: var(--app-accent-text);
 }
 
 .auth-loading {

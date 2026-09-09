@@ -10,7 +10,7 @@
 
 .proposal-handoff__icon {
   flex-shrink: 0;
-  color: var(--app-accent);
+  color: var(--app-accent-text);
   font-size: var(--text-base);
 }
 

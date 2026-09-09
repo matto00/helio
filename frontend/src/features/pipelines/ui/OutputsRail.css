@@ -87,7 +87,7 @@
   padding: 0 var(--space-3);
   border-style: dashed;
   background: var(--app-accent-surface);
-  color: var(--app-accent);
+  color: var(--app-accent-text);
   font-weight: var(--weight-medium);
 }
 

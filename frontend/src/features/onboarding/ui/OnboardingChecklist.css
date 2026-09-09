@@ -82,7 +82,7 @@
 }
 
 .onboarding-checklist__step[aria-current="step"] .onboarding-checklist__step-indicator {
-  color: var(--app-accent);
+  color: var(--app-accent-text);
 }
 
 .onboarding-checklist__step-indicator svg {

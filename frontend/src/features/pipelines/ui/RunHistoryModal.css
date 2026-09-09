@@ -62,7 +62,7 @@
 }
 
 .run-history-modal__trigger--scheduled {
-  color: var(--app-accent);
+  color: var(--app-accent-text);
   border-color: color-mix(in srgb, var(--app-accent) 40%, transparent);
   background: var(--app-accent-surface);
 }

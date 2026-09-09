@@ -69,7 +69,13 @@
 }
 
 .toast--info {
-  --toast-intent-color: var(--app-info);
+  /* HEL-1048 D9 — two-hop alias chain: `--toast-intent-color` used to reach
+     `--app-info` -> `--app-accent`, both text-only failing floors (Yellow
+     1.918 light). Repointed at the source so `.toast__icon`/`.toast__title`
+     (lines 90/112, both `color: var(--toast-intent-color)`) inherit the
+     fix without themselves knowing about accent at all — the other three
+     intents (success/warning/error) are untouched. */
+  --toast-intent-color: var(--app-accent-text);
 }
 
 .toast--success {

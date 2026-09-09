@@ -73,11 +73,17 @@ deliberate voice of color, serif brand moments, mono annotations.
 - Tokens are CSS custom properties in `src/theme/theme.css`, split into
   `:root[data-theme="dark"]` and `:root[data-theme="light"]` blocks.
 - **Accent is user-customizable** (8 presets in `src/theme/theme.ts`). At
-  runtime `applyAccentTokens()` writes exactly **two** properties:
-  `--app-accent` and `--app-accent-ink` (readable text on solid accent).
-  Every other accent token is **derived in CSS** with `color-mix`.
+  runtime `applyAccentTokens()` writes `--app-accent`/`--app-accent-ink`
+  (readable text on solid accent), plus three DERIVED, non-brand
+  obligation tokens that exist because `color-mix` alone cannot guarantee
+  a WCAG floor: `--app-focus-ring-color` (HEL-1046, 3:1 non-text, theme-
+  independent), `--app-accent-text` (HEL-1048, 4.5:1 text, theme-AWARE —
+  see §8), and `--app-selection-bg` (HEL-1048 D7, `::selection`'s opaque
+  background). Every OTHER accent token (`-strong`, `-surface`, `-dim`,
+  `-mid`, …) is still **derived in CSS** with `color-mix`.
   **[mechanical]** Never hardcode the accent; never write additional accent
-  tokens from JS; never derive borders/backgrounds from the accent.
+  tokens from JS without a stated WCAG obligation backing them; never
+  derive borders/backgrounds from the accent.
 
 ## 3. Tokens are the source of truth
 
@@ -860,4 +866,70 @@ black|white)`) is not a conforming focus colour** — Yellow measures
     colour. That residual is owned by HEL-1051, not silently absorbed here.
 - `--app-accent-ink` is contrast-computed per accent; never place raw white
   text on the accent. Color is never the sole carrier of meaning.
+- **`--app-accent-text` — accent used as readable TEXT is a separate,
+  THEME-AWARE derived token, unlike the ring token above** (HEL-1048).
+  `--app-accent` (fills, borders, decoration) is never rewritten — the
+  owner's ruling was `text-only-token`, mirroring HEL-1046's shape of
+  giving the obligation its own token rather than bending the shared one.
+  - **Why theme-aware, when `--app-focus-ring-color` is deliberately not:**
+    a single colour clearing WCAG's 4.5:1 text floor against BOTH the
+    binding light surface (`--app-surface-soft`) and the binding dark
+    surface (`--app-surface-strong`) needs disjoint luminance ranges — the
+    light-side ceiling is _below_ the dark-side floor, an empty window.
+    This is a property of the stricter 4.5:1 text floor, not of the 3:1
+    non-text floor `--app-focus-ring-color` clears with one theme-
+    independent value; the two tokens deliberately diverge on this axis and
+    the code says why (`appearance.ts`'s `deriveAccentTextColor` doc
+    comment) so a future reader doesn't try to unify them.
+  - Derived by `deriveAccentTextColor(hex, theme)`: minimum darken-toward-
+    black (light) / lighten-toward-white (dark) that clears 4.5:1 against
+    the COMPLETE scored background set for that theme — the five neutral
+    surface tokens, `--app-accent-surface`/`--app-accent-dim` composited
+    over each, and the two hand-rolled inline tints heavier than those two
+    (`BottomNav.css`'s 22% active-tab lozenge, `AddSourceModal.css`'s 20%
+    selected-type-pill fill) that no scan over token names can see, since
+    what varies there is the background, not the declaration. Scoring only
+    the five neutral surfaces would ship a colour that still fails against
+    the app's own accent-tinted surfaces — an omitted background class, not
+    a moving target, since `--app-accent` itself never changes under
+    `text-only-token`.
+  - **Producibility, not just the ratio:** the derivation searches integer
+    percents only and returns the first that clears the floor, so every
+    value it can return is inherently one that same search can re-emit —
+    there is no separate "does this ratio-passing colour actually come out
+    of the darken/lighten formula" check needed, because the search never
+    considers a value outside what it can produce.
+  - Re-applies on **theme** change as well as accent change
+    (`ThemeProvider.tsx`'s effect is keyed on `[accentColor, theme]`) — the
+    one place this ticket had to touch `ThemeProvider` where HEL-1046
+    avoided it, because the token itself is theme-aware.
+  - A static `:root` fallback (same first-paint-race reason as
+    `--app-focus-ring-color`'s) ships as a single value for the default
+    dark/Orange combination, immediately superseded once the effect runs.
+  - **Accepted, visible consequence:** `text-only-token` + the owner's
+    `accept-hue-shift` ruling (full conformance on all 8 presets, not a
+    partial palette) means a preset's TEXT can render visibly darker/
+    lighter than its own FILL on the same surface — sharpest for Yellow in
+    light theme, where the login card's "Sign in" button (bright) sits next
+    to the "Create one" link (dark olive). This was rendered and reviewed
+    (`.concertino/runs/HEL-1048/evidence/`) rather than shipped unseen; it
+    reads as a coherent same-hue two-tone use, not as broken.
+  - **`::selection`** sets BOTH `background` (an opaque per-theme hex,
+    resolved in TypeScript — not a translucent CSS `color-mix` — from the
+    accent blended over `--app-bg`) and `color` (`--app-text`, deliberately
+    _not_ the accent-text token: selection is not accent-COLOURED text).
+    Setting only one property was tried twice and was defective both times:
+    colour alone left selected text on the old translucent tint (broke the
+    accent-ink pairing); the page's own background/text pair is what `body`
+    already declares, so selected text would render pixel-identical to
+    unselected. Because `color` is always set here, accent text never
+    actually paints on the selection background, so that hex is
+    deliberately NOT scored in the set above — it is checked as a fixed
+    `--app-text`-vs-selection-background pair instead.
+  - **Explicit scope boundary:** a panel with a user-chosen background
+    (`--panel-surface-override`) cannot be guaranteed by any derived colour
+    — same structural impossibility as the two-theme case, relocated to
+    "any colour the user picks," at the stricter text floor. Owned by
+    **HEL-1057**, not this token and not HEL-1051 (which is focus
+    indicators at 3:1, a different obligation on the same component).
 - Keyboard operable; dialogs handle Enter/Escape.

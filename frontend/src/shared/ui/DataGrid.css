@@ -349,7 +349,7 @@
    so the fact that a filter is applied is never invisible. */
 .ui-data-grid__filter-toggle-btn--active {
   border-color: var(--app-accent);
-  color: var(--app-accent);
+  color: var(--app-accent-text);
 }
 
 .ui-data-grid__filter-clear-all-btn {

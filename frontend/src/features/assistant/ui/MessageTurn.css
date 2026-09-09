@@ -63,5 +63,5 @@
 }
 
 .message-turn--searched-no-results .message-turn__outcome-note {
-  color: var(--app-accent);
+  color: var(--app-accent-text);
 }

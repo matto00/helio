@@ -171,7 +171,7 @@
 
 .pipeline-detail-header__source-chip-name--link:hover,
 .pipeline-detail-header__source-chip-name--link:focus-visible {
-  color: var(--app-accent);
+  color: var(--app-accent-text);
   text-decoration: underline;
 }
 
@@ -252,7 +252,7 @@
 
 .pipeline-detail-header__add-source-btn:hover {
   border-color: var(--app-accent-mid);
-  color: var(--app-accent);
+  color: var(--app-accent-text);
 }
 
 .pipeline-detail-header__schedule-empty {

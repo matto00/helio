@@ -29,7 +29,7 @@
 
 .ui-empty-state--main .ui-empty-state__icon {
   font-size: var(--text-2xl);
-  color: var(--app-accent);
+  color: var(--app-accent-text);
 }
 
 .ui-empty-state--main .ui-empty-state__title {
@@ -70,7 +70,7 @@
 
 .ui-empty-state--sidebar .ui-empty-state__icon {
   font-size: var(--text-sm);
-  color: var(--app-accent);
+  color: var(--app-accent-text);
 }
 
 .ui-empty-state--sidebar .ui-empty-state__title {

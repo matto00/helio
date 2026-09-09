@@ -86,10 +86,14 @@ export function ThemeProvider({
   // change (server sync included), so only the network write-back moves —
   // to the explicit `setAccentColor` below, the one call site an actual
   // user-driven pick goes through (`AccentPicker`).
+  // HEL-1048 D10 — also re-applies on THEME change, not just accent change:
+  // `--app-accent-text` is theme-aware (design.md D1 — the empty luminance
+  // window makes a single theme-independent value impossible, unlike
+  // `--app-focus-ring-color`), so switching theme alone must recompute it.
   useEffect(() => {
-    applyAccentTokens(accentColor);
+    applyAccentTokens(accentColor, theme);
     window.localStorage.setItem(AccentStorageKey, accentColor);
-  }, [accentColor]);
+  }, [accentColor, theme]);
 
   const setAccentColor: Dispatch<SetStateAction<string>> = (next) => {
     setAccentColorState((prev) => {

@@ -73,16 +73,25 @@
   color: var(--app-text);
 }
 
-/* F-170: fixed (theme-independent) mix percentages rather than the
-   `--app-accent-surface`/`--app-accent-strong` tokens, whose light-theme
-   values (11% fill, 76%-toward-black text) read noticeably fainter than
-   dark's (15% fill, 78%-toward-white text) for this specific selected-pill
-   use. Deriving straight from the live `--app-accent` still respects the
-   user's chosen accent color and each theme's own hue in both modes; it just
-   stops inheriting the token's per-theme opacity gap. */
+/* F-170: fixed (theme-independent) mix percentage for the background
+   rather than `--app-accent-surface`, whose light-theme value (11%) reads
+   noticeably fainter than dark's (15%) for this specific selected-pill
+   use. Deriving the fill straight from the live `--app-accent` still
+   respects the user's chosen accent color and each theme's own hue in
+   both modes; it just stops inheriting the token's per-theme opacity gap.
+   HEL-1048 (skeptic-final-1.md): TEXT color here is `--app-accent-text`,
+   not `--app-accent-strong` — this 20% tint is scored as a BACKGROUND in
+   D2's set (design.md D6), so `--app-accent-text` is exactly the token
+   derived to clear 4.5:1 against it. `--app-accent-strong` carried no
+   such guarantee and measured 2.876:1 for light Yellow here, an AC-1
+   violation that included Orange (the shipped default) at 3.28:1 — an
+   earlier version of this file treated the tint's presence in D2's set as
+   if it also covered this declaration, which it never did (the tint is a
+   background fact; this is a foreground/text declaration, D2 says nothing
+   about `--app-accent-strong` at all). */
 .add-source-modal__type-btn--active {
   background: color-mix(in srgb, var(--app-accent) 20%, transparent);
-  color: var(--app-accent-strong);
+  color: var(--app-accent-text);
   border-color: color-mix(in srgb, var(--app-accent) 55%, transparent);
 }
 
@@ -92,7 +101,7 @@
    decides — this rule comes later, so it wins. */
 .add-source-modal__type-btn--active:hover {
   background: color-mix(in srgb, var(--app-accent) 20%, transparent);
-  color: var(--app-accent-strong);
+  color: var(--app-accent-text);
 }
 
 .add-source-modal__preview-hint {
