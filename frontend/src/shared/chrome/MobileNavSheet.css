@@ -157,7 +157,7 @@
 
 .mobile-nav-sheet__create-action:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
@@ -234,7 +234,7 @@
 
 .mobile-nav-sheet__item-secondary:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .mobile-nav-sheet__item {
@@ -259,7 +259,7 @@
 
 .mobile-nav-sheet__item:hover,
 .mobile-nav-sheet__item:focus-visible {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .mobile-nav-sheet__item--active {

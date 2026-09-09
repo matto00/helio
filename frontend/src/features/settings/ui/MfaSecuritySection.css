@@ -84,7 +84,7 @@
 
 .mfa-security-section__action-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .mfa-security-section__action-btn--danger {
@@ -171,7 +171,7 @@
 
 .mfa-security-section__cancel-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .mfa-security-section__done-btn {

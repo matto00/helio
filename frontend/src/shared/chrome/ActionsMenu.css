@@ -60,7 +60,7 @@
 }
 
 .actions-menu__item:hover:not(:disabled) {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .actions-menu__item:focus-visible {

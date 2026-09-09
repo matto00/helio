@@ -100,9 +100,21 @@
     color var(--app-transition);
 }
 
+/* HEL-866 skeptic-final-1B.md CR1 — `DashboardList` renders inside
+   `.app-sidebar` (the sidebar content rail, `--app-surface` backdrop —
+   family 2, not the family-1 assumption `files-modified.md` originally
+   recorded) as well as inside `MobileNavSheet` (`--app-surface-strong`,
+   family 1, where `--app-surface-soft` alone is already correct). Scoped
+   to `.app-sidebar` specifically, matching the `App.css` chrome pattern,
+   so the `MobileNavSheet` host is unaffected. Measured live: soft-on-
+   `.app-sidebar` (`rgb(26,24,22)`) is 1.030 in dark, below threshold. */
 .dashboard-list__filter-clear:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
+}
+
+:root[data-theme="dark"] .app-sidebar .dashboard-list__filter-clear:hover {
+  background: var(--app-surface-strong);
 }
 
 /* HEL-548 D8/7.1 — this button's icon moved from FontAwesome (which
@@ -279,7 +291,7 @@
 }
 
 .dashboard-list__item-row .actions-menu__trigger:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
@@ -316,9 +328,15 @@
     color var(--app-transition);
 }
 
+/* HEL-866 skeptic-final-1B.md CR1 — same `.app-sidebar` scoping as
+   `.dashboard-list__filter-clear` above. */
 .dashboard-list__row-action-btn:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
+}
+
+:root[data-theme="dark"] .app-sidebar .dashboard-list__row-action-btn:hover {
+  background: var(--app-surface-strong);
 }
 
 .dashboard-list__row-action-btn:focus-visible {
@@ -473,10 +491,19 @@
     color var(--app-transition);
 }
 
+/* HEL-866 skeptic-final-1B.md CR1 — the regression this change request
+   named directly: measured live, `rgb(22,21,20)` on the sidebar's real
+   `rgb(26,24,22)` backdrop is 1.030 dark (fails); the hovered row shows no
+   perceptible background band at all. Same `.app-sidebar` scoping as the
+   siblings above. */
 .dashboard-list__button:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
   text-decoration: none;
+}
+
+:root[data-theme="dark"] .app-sidebar .dashboard-list__button:hover {
+  background: var(--app-surface-strong);
 }
 
 .dashboard-list__button:focus-visible {
@@ -488,6 +515,15 @@
 .dashboard-list__button--active {
   background: var(--app-accent-dim);
   color: var(--app-text);
+}
+
+/* HEL-866 cycle 4 (population expansion) — equal-specificity, later
+   declaration than `:hover` above, so `[aria-pressed="true"]`'s resting
+   background silently won on hover for the CURRENTLY-selected dashboard —
+   the same `.active:hover` shape already fixed for the sidebar nav link.
+   `--app-accent-mid` supplies a real, measurable step up. */
+.dashboard-list__button[aria-pressed="true"]:hover {
+  background: var(--app-accent-mid);
 }
 
 .dashboard-list__status {
@@ -716,10 +752,16 @@
     color var(--app-transition);
 }
 
+/* HEL-866 skeptic-final-1B.md CR1 — same `.app-sidebar` scoping as the
+   siblings above. */
 .dashboard-list__import-label:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
+}
+
+:root[data-theme="dark"] .app-sidebar .dashboard-list__import-label:hover {
+  background: var(--app-surface-strong);
 }
 
 .dashboard-list__import-input:focus-visible + .dashboard-list__import-label {

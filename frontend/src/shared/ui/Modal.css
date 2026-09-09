@@ -195,7 +195,7 @@
 }
 
 .ui-modal-btn--secondary:hover:not(:disabled) {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   border-color: var(--app-border-strong);
   color: var(--app-text);
 }

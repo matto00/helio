@@ -65,3 +65,26 @@
   color: var(--app-accent-text);
   text-decoration-thickness: 2px;
 }
+
+/* HEL-866 (found by CI, not any local run — see e2e/state-surface-
+   contrast-guard.spec.ts's account-state comment for why) — this link's
+   ONLY hover channel was `text-decoration-thickness`, which the state-
+   surface contrast guard's D4a classifier does not track (background/
+   border/outline/box-shadow only), so it reads as "nothing changed" — a
+   real absence for a sighted user relying on background contrast, not
+   merely a guard limitation this time. Adds a real background step,
+   family 2 (this link's real backdrop is `.app-sidebar`'s own `--app-
+   surface`, matching `DashboardList.css`'s sidebar-rail rows measured
+   the same way — soft clears 1.10 in light, 1.150; strong clears it in
+   dark, 1.133; soft alone measures only 1.030 in dark). Does NOT reopen
+   HEL-1048 (skeptic-final-1.md): that finding was about `--app-accent-
+   strong` as TEXT colour failing WCAG legibility, a different contrast
+   question from this background/surface state — `color` here is
+   unchanged. */
+.sidebar-body__locked-notice-link:hover {
+  background: var(--app-surface-soft);
+}
+
+:root[data-theme="dark"] .sidebar-body__locked-notice-link:hover {
+  background: var(--app-surface-strong);
+}

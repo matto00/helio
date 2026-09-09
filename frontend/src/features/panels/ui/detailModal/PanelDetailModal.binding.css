@@ -108,7 +108,7 @@
 
 .panel-detail-modal__swap-output-btn:hover:not(:disabled) {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
@@ -300,7 +300,7 @@
 
 .panel-detail-modal__mode-toggle-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 

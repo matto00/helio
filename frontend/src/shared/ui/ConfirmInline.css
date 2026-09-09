@@ -46,5 +46,5 @@
 
 .ui-confirm-inline__cancel-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }

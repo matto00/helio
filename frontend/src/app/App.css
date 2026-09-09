@@ -96,8 +96,31 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
+  border-radius: var(--app-radius-sm);
   text-decoration: none;
   color: var(--app-text);
+  transition: background-color var(--app-transition);
+}
+
+/* HEL-866 — the wordmark is a real link home ("the wordmark is a real link
+   home, not inert chrome" per CommandBar.tsx), but had NO hover/focus
+   feedback at all: no background, border, outline, or shadow change on
+   `:hover`/`:focus-visible` — the D4a "nothing changed at all" absence
+   shape, caught by the rendered guard (state-surface-contrast-guard.spec.ts)
+   directly, not by any grep (there was no `--app-surface-raised` reference
+   here to find). Same on-surface backdrop as `.cmd-btn`/`.app-sidebar__nav-
+   link` above — soft in light, strong in dark (see `.cmd-btn:hover`'s
+   comment for the measured derivation). */
+.app-command-bar__logo:hover,
+.app-command-bar__logo:focus-visible {
+  background: var(--app-surface-soft);
+}
+
+:root[data-theme="dark"] .app-command-bar__logo:hover,
+:root[data-theme="dark"] .app-command-bar__logo:focus-visible {
+  background: var(--app-surface-strong);
 }
 
 .app-command-bar__wordmark {
@@ -211,8 +234,23 @@
 
 .cmd-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
+}
+
+/* HEL-866 — the command bar's own resting background is `--app-surface`
+   (the app chrome layer), NOT `--app-surface-strong` (the modal
+   background). Measured (state-surface-contrast-guard, D3's threshold):
+   soft-on-surface is 1.150 in light but only 1.030 in dark; raised/strong-
+   on-surface is 1.133 in dark but only 1.025 in light. Neither single
+   token clears the 1.10 threshold in BOTH themes for THIS backdrop — the
+   same "ramp saturates in one direction" shape design.md D1 names for
+   raised-on-strong, but for a different pair the design's own derivation
+   didn't examine. `--app-surface-strong` is reused here (not a new token,
+   theme.css unchanged) only for dark, where it is the one existing value
+   that measurably clears the command bar's real backdrop. */
+:root[data-theme="dark"] .cmd-btn:hover {
+  background: var(--app-surface-strong);
 }
 
 .cmd-btn:disabled {
@@ -303,8 +341,28 @@
 }
 
 .app-sidebar__nav-link:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
+}
+
+/* HEL-866 — same on-surface backdrop shape as `.cmd-btn:hover` above; see
+   that rule's comment for the measured derivation. */
+:root[data-theme="dark"] .app-sidebar__nav-link:hover {
+  background: var(--app-surface-strong);
+}
+
+/* HEL-866 — `.active`'s own background (below) has EQUAL CSS specificity
+   to `.app-sidebar__nav-link:hover` (two classes vs. one class + one
+   pseudo-class) and is declared later in this file, so it silently won
+   every hover on the CURRENTLY-active nav link, before this rule existed:
+   hovering the link for the page you're already on produced NO visible
+   change at all — the guard's D4a "nothing changed" absence, caught on the
+   real running app, not by any grep. `--app-accent-mid` (a stronger mix of
+   the same accent already defined in theme.css, used nowhere else in this
+   selector's family) supplies a real, measurable, still-on-brand hover
+   step up from `--app-accent-dim`. */
+.app-sidebar__nav-link.active:hover {
+  background: var(--app-accent-mid);
 }
 
 .app-sidebar__nav-link.active {
@@ -649,4 +707,37 @@
   .app-command-bar__right {
     gap: var(--space-4);
   }
+}
+
+/* HEL-866 — the command bar's shared IconButton (`variant="secondary"`)
+   and UserMenu trigger controls are used here too, and both are, like
+   `.cmd-btn`/`.app-sidebar__nav-link` above, hosted on the `--app-surface`
+   chrome backdrop rather than `--app-surface-strong`. Their base component
+   CSS (IconButton.css, UserMenu.css) was remediated to `--app-surface-soft`
+   app-wide, which is correct/sufficient for their other hosts (e.g. modal
+   footers, where the backdrop IS `--app-surface-strong` and soft-on-strong
+   clears 1.10 in both themes) but not here, for the same measured reason as
+   `.cmd-btn:hover` above (soft-on-surface is only 1.030 in dark). Scoped to
+   `.app-command-bar` specifically so the other hosts are unaffected. */
+:root[data-theme="dark"] .app-command-bar .ui-icon-btn--secondary:hover:not(:disabled),
+:root[data-theme="dark"] .app-command-bar .ui-icon-btn--ghost:hover:not(:disabled),
+:root[data-theme="dark"] .app-command-bar .user-menu__trigger:hover,
+:root[data-theme="dark"] .app-command-bar .actions-menu__trigger:hover:not(:disabled),
+:root[data-theme="dark"] .app-sidebar .ui-icon-btn--secondary:hover:not(:disabled),
+:root[data-theme="dark"] .app-sidebar .ui-icon-btn--ghost:hover:not(:disabled),
+:root[data-theme="dark"] .app-sidebar .actions-menu__trigger:hover:not(:disabled) {
+  background: var(--app-surface-strong);
+}
+
+/* HEL-866 evaluation-2.md cycle 3 — closes the LIGHT-theme half of the same
+   gap: the ActionsMenu trigger composes Popover's `.popover__trigger`
+   class, whose own `:hover` background (`Popover.css`) is `--app-surface-
+   raised` — identical to `--app-surface-strong` in light theme (the
+   ticket's own defect shape), which is exactly what the command bar's
+   "Dashboard actions" trigger renders on. Measured live: 1.025 light,
+   below threshold; dark already passes via the block above (higher
+   specificity wins there). Scoped to `.app-command-bar`, matching every
+   other chrome override in this file. */
+:root[data-theme="light"] .app-command-bar .popover__trigger:hover {
+  background: var(--app-surface-soft);
 }

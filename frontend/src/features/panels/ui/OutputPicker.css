@@ -67,7 +67,7 @@
 .output-picker__card:hover,
 .output-picker__card--hovered {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .output-picker__card--focused {

@@ -6,6 +6,17 @@ import { defineConfig } from "@playwright/test";
 // are already running — see scripts/concertino/start-servers.sh, which uses
 // these same DEV_PORT / BACKEND_PORT env vars.
 const DEV_PORT = process.env.DEV_PORT ?? "5173";
+// HEL-866 skeptic-final-2/2B non-blocking note — a bare run in a linked
+// worktree (CON-165) silently falls back to 5173, so it can measure a
+// DIFFERENT worktree's dev server and fail obscurely deep inside a spec
+// (e.g. `registerAndLogin` timing out) rather than at the actual cause.
+// One line, no config restructuring: name the fallback loudly so that
+// failure mode is diagnosable from the run's own output.
+if (!process.env.DEV_PORT) {
+  console.warn(
+    `[playwright.config] DEV_PORT is unset — defaulting to ${DEV_PORT}. In a linked worktree this may measure the WRONG server; pass DEV_PORT explicitly (see scripts/concertino/start-servers.sh, CON-165).`,
+  );
+}
 
 export default defineConfig({
   testDir: "./e2e",

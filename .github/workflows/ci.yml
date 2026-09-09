@@ -58,6 +58,16 @@ jobs:
       # skips with `git commit -n`.
       - run: npm run check:tokens
       - run: npm run check:tokens:selftest
+      # HEL-866 evaluation-1.md CR2: `check:state-contrast:selftest` existed as a runnable
+      # npm script but was wired into nothing mandatory -- neither `.husky/pre-commit` nor
+      # this workflow -- the exact HEL-913/HEL-846/HEL-1037/HEL-996 failure mode this file's
+      # own comments already name four times. It proves the rendered guard's measurement
+      # core (`e2e/support/stateContrast.mjs`) is failable (the dark-defect/alpha-
+      # compositing/absence cases); an ungated proof is not a proof. The rendered guard
+      # itself (`e2e/state-surface-contrast-guard.spec.ts`) is separately gated by the `e2e`
+      # job's `npx playwright test` glob below -- this line gates the FAST, browser-free
+      # self-test alongside `check:tokens:selftest`, not a duplicate of the `e2e` job.
+      - run: npm run check:state-contrast:selftest
       # HEL-996: check:openspec[:selftest] existed as runnable npm scripts, wired only into
       # .husky/pre-commit -- but unlike HEL-913/HEL-846 above, that was not an oversight: `openspec`
       # is a globally-installed CLI (~/.local/bin/openspec on a dev machine), not a repo

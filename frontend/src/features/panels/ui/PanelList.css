@@ -68,9 +68,16 @@
   padding: 0;
 }
 
+/* HEL-866 — `.panel-list__zoom-widget` (the containing pill) declares its
+   OWN background as `--app-surface-strong` (a floating widget, not page
+   content), so these buttons sit on `--app-surface-strong`, not `--app-bg`.
+   `--app-surface-soft` clears 1.10 against `--app-surface-strong` in both
+   themes (1.179 light / 1.167 dark) with no further override needed —
+   `--app-surface-raised` here would recreate the ticket's own defect
+   (raised == strong in light, ~1.04 in dark). */
 .panel-list__zoom-button:hover:not(:disabled),
 .panel-list__zoom-reset:hover:not(:disabled) {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 

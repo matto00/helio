@@ -149,8 +149,15 @@
   cursor: pointer;
 }
 
+/* HEL-866 cycle 4 (population expansion) — `--app-accent-dim` (8% light /
+   10% dark) is a LOWER alpha than the resting `--app-accent-surface` (11%
+   light / 15% dark), so hovering this button made it measurably LESS
+   distinct from its `--app-bg` backdrop, not more — measured live, light
+   1.077, below threshold. `--app-accent-mid` (30% light / 26% dark, the
+   token this file's selection-border recipe already uses for emphasis) is
+   used here instead — a real increase in distinction, not a decrease. */
 .pipeline-detail-page__add-step-btn:hover {
-  background: var(--app-accent-dim);
+  background: var(--app-accent-mid);
   border-color: var(--app-accent);
 }
 
@@ -172,6 +179,10 @@
     color var(--app-transition);
 }
 
+/* HEL-866 skeptic-final-1.md CR3-population fallout (cycle 4) — real
+   backdrop is `--app-bg` (family 3), measured 1.034 dark / 1.054 light on
+   `--app-surface-soft`, both below threshold. `--app-surface-raised`
+   clears both (1.161 dark / 1.119 light). */
 .pipeline-detail-page__shape-picker-btn:hover {
   background: var(--app-surface-raised);
   border-color: var(--app-border-strong);
@@ -252,9 +263,61 @@
   overflow: hidden;
 }
 
+/* HEL-866 skeptic-final-1.md CR2 — corrected in place. This comment
+   previously cited "1.025 → 1.150" for light, derived against
+   `--app-surface`; the card's REAL rendered backdrop (measured live,
+   ancestor-walked) is `--app-bg`, not `--app-surface` — the surrounding
+   page canvas, not an intermediate card layer. Against `--app-bg`:
+   `--app-surface-raised` = 1.119 light / 1.089 dark (light passes, dark
+   fails — evaluation-1.md CR4's original finding, still correct for the
+   DARK number); `--app-surface-soft` = 1.054 light / 1.034 dark (both
+   fail — what this rule previously shipped, a real regression from
+   `main`'s 1.119 light). `--app-surface-strong` measures 1.207 dark
+   against `--app-bg` (used for dark); LIGHT keeps `--app-surface-raised`
+   (1.119, already passing, never broken — the CR4 "hurt dark" framing was
+   right about dark, wrong about needing to touch light at all).
+
+   `--step-card-hover-bg` exists because this card's OWN background — not
+   just its ancestor `--app-bg` — is what the drag/move/toggle/duplicate
+   buttons inside it composite against, and that background differs
+   between collapsed (`--app-surface`) and expanded (below). A single
+   hover token cannot serve both states in both themes (see the buttons'
+   own comment further down); this local, component-scoped custom
+   property (not a new `theme.css` token) lets one rule set drive both,
+   conditioned on `--expanded`. Order matters: the collapsed (base)
+   assignment MUST come first in the cascade so the expanded modifier's
+   equal-specificity, later declaration wins on an expanded card. */
+.pipeline-detail-page__step-card {
+  --step-card-hover-bg: var(--app-surface-soft);
+}
+
+:root[data-theme="dark"] .pipeline-detail-page__step-card {
+  --step-card-hover-bg: var(--app-surface-strong);
+}
+
+/* skeptic-final-2.md / skeptic-final-2B.md (cycle 5) — the LIGHT value here
+   was `--app-surface-strong`, unscoped, which resolves to pure white in
+   light theme — BYTE-IDENTICAL to this card's own expanded background
+   (`--app-surface-raised`, also pure white in light). The fix cycle 4
+   wrote to close the light collision on the ORIGINAL card background
+   re-created the exact same collision one level down, on these buttons,
+   in the same theme — measured live and hovered: the button's painted
+   colour matched the card's painted colour exactly, ratio 1.000,
+   identical, on both `-duplicate-btn` and `-drag-handle`. `--app-surface-
+   soft` on this expanded-card light background measures **1.179** (clears
+   1.10); dark keeps the already-correct **1.167** via the override below
+   (unchanged). Collapsed-card values re-measured after this split and
+   still hold: 1.150 light / 1.030-needs-dark-override → 1.133 dark, both
+   already covered by the base `.step-card` rule above. */
 .pipeline-detail-page__step-card--expanded {
   border-color: var(--app-border-strong);
   background: var(--app-surface-raised);
+  --step-card-hover-bg: var(--app-surface-soft);
+}
+
+:root[data-theme="dark"] .pipeline-detail-page__step-card--expanded {
+  background: var(--app-surface-strong);
+  --step-card-hover-bg: var(--app-surface-soft);
 }
 
 /* HEL-409 (design.md Decision 1) — error accent on the card itself, visible
@@ -299,6 +362,16 @@
   color: var(--app-text);
 }
 
+/* HEL-866 cycle 5 (skeptic-final-2/2B CR2's population-gap fix surfaced
+   this) — this header/toggle button had NO hover feedback at all (D4a
+   "nothing changed"), measured live on a real step card. Reuses the same
+   `--step-card-hover-bg` custom property as the sibling action buttons
+   above — already correct in both themes and both expanded/collapsed
+   states, since it is defined on the same ancestor card. */
+.pipeline-detail-page__step-card-toggle:hover {
+  background: var(--step-card-hover-bg);
+}
+
 /* ── Reorder controls (HEL-407) — drag handle + Move up/down, sibling
  * actions cluster per the `SidebarItemList.renderRowAction` precedent. ──
  * 24px matches DESIGN.md's "inline mini icon-buttons inside dense rows". */
@@ -335,11 +408,22 @@
   cursor: grabbing;
 }
 
+/* HEL-866 skeptic-final-1.md CR1 — the ticket's own defect, shipped:
+   these buttons sit ON THE STEP CARD, whose own background flips between
+   `--app-surface` (collapsed) and (light) `--app-surface-raised` / (dark)
+   `--app-surface-strong` (expanded, see the card's own rule above). A flat
+   `--app-surface-soft` hover collided EXACTLY with the expanded card's
+   light background (the expanded card's own soft colour on itself, ratio 1.000, measured hovered
+   in the running app) — the drag handle, move, toggle, and duplicate
+   buttons all rendered zero hover feedback while a step was expanded.
+   `--step-card-hover-bg` resolves to the correct rung for whichever state
+   the ancestor card is actually in, in both themes; see the card's own
+   rule for the measured ratios. */
 .pipeline-detail-page__step-card-drag-handle:hover,
 .pipeline-detail-page__step-card-move-btn:hover:not(:disabled),
 .pipeline-detail-page__step-card-toggle-enabled-btn:hover,
 .pipeline-detail-page__step-card-duplicate-btn:hover {
-  background: var(--app-surface-raised);
+  background: var(--step-card-hover-bg);
   color: var(--app-text);
 }
 
@@ -397,9 +481,14 @@
     color var(--app-transition);
 }
 
+/* HEL-866 cycle 5 (population-gap fix surfaced this) — same shape already
+   found and fixed on `.add-step-btn`: `--app-accent-dim` (8%/10% alpha) is
+   a LOWER alpha than this button's own resting `--app-accent-surface`
+   (11%/15%), so hover measurably reduced distinction rather than
+   increasing it. `--app-accent-mid` (30%/26%) is used instead. */
 .pipeline-detail-page__add-tail-btn:hover,
 .pipeline-detail-page__add-tail-btn:focus-visible {
-  background: var(--app-accent-dim);
+  background: var(--app-accent-mid);
   border-color: var(--app-accent);
   border-style: solid;
 }
@@ -1051,7 +1140,7 @@
 }
 
 .pipeline-detail-page__cancel-btn:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
@@ -1150,9 +1239,20 @@
   transition: background var(--app-transition);
 }
 
+/* HEL-866 cycle 4 (population expansion) — corrected in place: initially
+   assumed family 3 (`--app-bg`) like `.shape-picker-btn`, but measured live
+   (ancestor walk) this button's real backdrop is `.pipeline-detail-page__
+   footer-region`'s own `--app-surface` — family 2. `--app-surface-raised`
+   alone measured 1.089 dark / 1.025 light, both still failing; the
+   family-2 dark-scoped-override pair (soft light / strong dark) is used
+   here instead, matching every other on-`--app-surface` fix in this file. */
 .pipeline-detail-page__dry-run-btn:hover {
   background: var(--app-surface-soft);
   color: var(--app-text);
+}
+
+:root[data-theme="dark"] .pipeline-detail-page__dry-run-btn:hover {
+  background: var(--app-surface-strong);
 }
 
 .pipeline-detail-page__dry-run-btn:disabled {
@@ -1373,7 +1473,7 @@
 
 .pipeline-detail-page__sort-config-direction-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 /* F-208: the remove-button recipe formerly here now lives on the shared

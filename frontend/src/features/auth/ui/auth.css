@@ -183,7 +183,7 @@
  * point — this button was never actually wired to a disabled state. */
 .auth-google-btn:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .auth-error {

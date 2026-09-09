@@ -17,7 +17,7 @@
 
 .user-menu__trigger:hover {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .user-menu__avatar {
@@ -104,7 +104,7 @@
 }
 
 .user-menu__item:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .user-menu__item:focus-visible {

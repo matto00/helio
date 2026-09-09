@@ -122,7 +122,7 @@
 /* F-099: was undiscoverable beyond the `:active` cursor swap below — no
    feedback at all before the drag actually starts. */
 .panel-grid-card__handle:hover {
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 

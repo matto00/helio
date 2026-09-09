@@ -65,7 +65,7 @@
 
 .beta-access-section__redeem-btn:hover:not(:disabled) {
   border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
   color: var(--app-text);
 }
 

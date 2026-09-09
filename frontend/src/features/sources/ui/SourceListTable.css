@@ -49,6 +49,11 @@
 }
 
 .source-list-table__row:hover {
+  /* HEL-866 evaluation-2.md cycle 3 (CR6) — the exact regression this
+     change request measured live: this row's real backdrop is `--app-bg`,
+     where `--app-surface-raised` clears 1.10 in both themes (1.161 dark /
+     1.119 light) and was never broken. Reverted from `--app-surface-soft`
+     (1.034 dark / 1.054 light on this backdrop — a real regression). */
   background: var(--app-surface-raised);
 }
 

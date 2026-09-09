@@ -76,7 +76,7 @@
 .pipeline-schedule-dialog__preset-btn:hover {
   border-color: var(--app-border-strong);
   color: var(--app-text);
-  background: var(--app-surface-raised);
+  background: var(--app-surface-soft);
 }
 
 .pipeline-schedule-dialog__next-run-preview {

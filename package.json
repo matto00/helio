@@ -28,6 +28,8 @@
     "check:tokens": "node scripts/check-tokens.mjs",
     "check:tokens:selftest": "node scripts/check-tokens.selftest.mjs",
     "check:e2e-types": "tsc --noEmit -p e2e/tsconfig.json",
+    "check:state-contrast:selftest": "node e2e/support/stateContrast.selftest.mjs",
+    "e2e:state-contrast-guard": "playwright test e2e/state-surface-contrast-guard.spec.ts",
     "check:helio-mcp-types": "npm --prefix helio-mcp run typecheck",
     "selftest:concertino-git-env": "bash scripts/concertino/lib/git-child-env.selftest.sh",
     "test": "jest && npm --prefix frontend test",
