@@ -28,6 +28,16 @@ looks like a row you mis-clicked.
   that turns it red, and the recorded proof must be the mutation that actually
   exercises _that_ guard — a plausible-looking mutation frequently exercises a
   different branch.
+- **An assertion whose precondition guarantees it is not an assertion.** Distinct
+  from a guard that cannot fail: here the guard _can_ fail, but the fixture makes
+  it impossible on this input. Three instances surfaced in a single run, each
+  through a different gate, each surviving a green suite — a discarded return
+  value that let "branch restored" print while the branch was stranded; a sentinel
+  embedded as a shell comment (`sleep 20 # sentinel:...`) so it was consumed by
+  the shell and could never match; and a fixture where `merge-base == HEAD` made
+  "HEAD unchanged" a tautology, which was the _sole_ enforcement of a design
+  ruling that claimed to be test-enforced. Check what the fixture makes
+  impossible, not only what the assertion says.
 - **A guard is only as good as the invariant someone named.** A guard asserting
   "an explanation is always present" passed while the table shell rendered at 7px,
   because nobody had named "the table shell survives". When commissioning a guard,
