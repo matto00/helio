@@ -151,3 +151,73 @@ describe("readTableConfig — columnFilters (HEL-451 design D1)", () => {
     },
   );
 });
+
+// HEL-469 task 1.5 — tolerant `columnFormats` parse, mirroring the
+// `columnSort`/`columnFilters` coverage above (task 1.3).
+describe("readTableConfig — columnFormats (HEL-469 design task 1.3)", () => {
+  it("round-trips a well-formed columnFormats with multiple columns", () => {
+    const cfg = readTableConfig({
+      columnFormats: {
+        amount: { type: "currency", currency: "EUR" },
+        seen_at: { type: "date", datePattern: "long" },
+      },
+    });
+    expect(cfg.columnFormats).toEqual({
+      amount: { type: "currency", currency: "EUR" },
+      seen_at: { type: "date", datePattern: "long" },
+    });
+  });
+
+  it("is undefined when columnFormats is absent entirely", () => {
+    expect(readTableConfig({}).columnFormats).toBeUndefined();
+  });
+
+  it("falls back to undefined when columnFormats is not an object (a bare string)", () => {
+    expect(readTableConfig({ columnFormats: "amount:currency" }).columnFormats).toBeUndefined();
+  });
+
+  it("falls back to undefined when columnFormats is explicitly null", () => {
+    expect(readTableConfig({ columnFormats: null }).columnFormats).toBeUndefined();
+  });
+
+  it("drops only the entry whose format type is unrecognised, keeping the rest", () => {
+    const cfg = readTableConfig({
+      columnFormats: {
+        amount: { type: "currency" },
+        weird: { type: "not_a_real_type" },
+      },
+    });
+    expect(cfg.columnFormats).toEqual({ amount: { type: "currency" } });
+  });
+
+  it("keeps an entry naming a column absent from the current data -- ignored at render, not at read (task 1.3)", () => {
+    const cfg = readTableConfig({ columnFormats: { no_such_column: { type: "number" } } });
+    expect(cfg.columnFormats).toEqual({ no_such_column: { type: "number" } });
+  });
+
+  it("never throws on a malformed columnFormats -- degrades to an empty object", () => {
+    expect(() => readTableConfig({ columnFormats: { a: null, b: "nope" } })).not.toThrow();
+    expect(readTableConfig({ columnFormats: { a: null, b: "nope" } }).columnFormats).toEqual({});
+  });
+
+  it("round-trips an empty columnFormats object (design D3b's clear-by-whole-key-replace)", () => {
+    expect(readTableConfig({ columnFormats: {} }).columnFormats).toEqual({});
+  });
+
+  it(
+    "columnFormats parsing is independent of columnSort/columnFilters/columnOrder -- all four " +
+      "read correctly alongside each other",
+    () => {
+      const cfg = readTableConfig({
+        columnOrder: ["amount", "id"],
+        columnSort: { key: "amount", direction: "desc" },
+        columnFilters: { quick: "emea" },
+        columnFormats: { amount: { type: "currency" } },
+      });
+      expect(cfg.columnOrder).toEqual(["amount", "id"]);
+      expect(cfg.columnSort).toEqual({ key: "amount", direction: "desc" });
+      expect(cfg.columnFilters).toEqual({ quick: "emea" });
+      expect(cfg.columnFormats).toEqual({ amount: { type: "currency" } });
+    },
+  );
+});

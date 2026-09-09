@@ -755,3 +755,228 @@ describe("TableRenderer — filter persistence (HEL-451 design D6)", () => {
     expect(screen.queryByText("bob")).not.toBeInTheDocument();
   });
 });
+
+// ── HEL-469: per-column cell formatting ──────────────────────────────────
+describe("TableRenderer — column formatting renders + sort/filter guards (HEL-469)", () => {
+  // Design D4/task 4.1a — every assertion below over a formatted column's
+  // RENDERED TEXT pins locale AND timezone explicitly (evaluation-1.md
+  // change request 1). `TableRenderer`'s `formatIntl` prop is TEST-ONLY (see its
+  // doc comment) — production (`PanelContent.tsx`) never sets it, so
+  // production keeps `Intl`'s locale-aware runtime defaults; passing it
+  // here anchors these assertions instead of letting them inherit the
+  // host's locale, matching `columnFormatting.test.ts`'s own pin.
+  const PINNED_INTL = { locale: "en-US", timeZone: "America/New_York" };
+
+  function headerButtons(): HTMLElement[] {
+    return screen
+      .getAllByRole("columnheader")
+      .filter((th) => !th.closest(".ui-data-grid__filter-row, .ui-data-grid__filter-toggle-row"))
+      .map((th) => th.querySelector("button") as HTMLElement);
+  }
+
+  function cellTextByColumn(columnIndex: number): string[] {
+    const rows = screen.getAllByRole("row").filter((row) => row.closest("tbody") != null);
+    return rows.map((row) => {
+      const cells = row.querySelectorAll("td");
+      return cells[columnIndex]?.textContent ?? "";
+    });
+  }
+
+  function expandFiltersIfCollapsed(): void {
+    const toggle = screen.queryByRole("button", { name: /^Filters/ });
+    if (toggle && toggle.getAttribute("aria-expanded") === "false") {
+      fireEvent.click(toggle);
+    }
+  }
+
+  function columnFilterInput(column: string): HTMLElement {
+    expandFiltersIfCollapsed();
+    return screen.getByRole("textbox", { name: `Filter column ${column}` });
+  }
+
+  it("task 2 AC: a column set to currency renders $1,234.56-style values", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ n: 1234.56 }]}
+        columnFormats={{ n: { type: "currency", currency: "USD" } }}
+        formatIntl={PINNED_INTL}
+      />,
+    );
+    expect(screen.getByText("$1,234.56")).toBeInTheDocument();
+  });
+
+  it("an unformatted column renders exactly as before (no columnFormats entry)", () => {
+    renderWithStore(<TableRenderer outputId="p" paginationRows={[{ n: 1234.56 }]} />);
+    expect(cellTextByColumn(0)).toEqual(["1234.56"]);
+  });
+
+  // Task 3.2 — THE CENTRAL AC. A currency column whose formatted text sorts
+  // LEXICALLY differently from its raw numeric order ("$1,234.56" < "$9.99"
+  // lexically) must still order NUMERICALLY when sorted.
+  //
+  // MUTATION-FAILABLE at the CALL SITE (design D1b), verified by hand: with
+  // `TableRenderer.tsx:243`'s `getValue: (row) => getSortValue(row[col.key])`
+  // temporarily re-pointed at `formatColumnValue(columnFormats[col.key],
+  // row[col.key])`, this assertion goes RED — the currency column's numbers
+  // become the strings "$9.99"/"$1,234.56" and sort lexically, putting
+  // "$1,234.56" ahead of "$9.99" (reported in files-modified.md). Restored
+  // before commit; the call site under test remains untouched by this
+  // ticket (task 3.1).
+  it("3.2 PROOF/GUARD: a currency column sorts numerically (raw), not by its formatted text", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ n: 1234.56 }, { n: 9.99 }]}
+        columnFormats={{ n: { type: "currency", currency: "USD" } }}
+        formatIntl={PINNED_INTL}
+      />,
+    );
+    fireEvent.click(headerButtons()[0]); // ascending
+    expect(cellTextByColumn(0)).toEqual(["$9.99", "$1,234.56"]);
+  });
+
+  it("formatting a column does not change the row order of an already-sorted column", () => {
+    const { rerender } = renderWithStore(
+      <TableRenderer outputId="p" paginationRows={[{ n: 1234.56 }, { n: 9.99 }]} />,
+    );
+    fireEvent.click(headerButtons()[0]);
+    expect(cellTextByColumn(0)).toEqual(["9.99", "1234.56"]);
+    rerender(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ n: 1234.56 }, { n: 9.99 }]}
+        columnFormats={{ n: { type: "currency", currency: "USD" } }}
+        formatIntl={PINNED_INTL}
+      />,
+    );
+    expect(cellTextByColumn(0)).toEqual(["$9.99", "$1,234.56"]);
+  });
+
+  // Task 3.2a — the object-branch contract, EXPLICITLY NOT independently
+  // mutation-failable (design D1b's "honest limit"): D3's formatter
+  // fallback for a value that fails the column's declared type IS
+  // `formatCell`, so an object cell's sort key coincides with the
+  // formatter's output regardless of the call-site mutation above. This
+  // documents the intended contract (a stable JSON sort key) rather than
+  // claiming it as protection the currency guard above does not already
+  // provide.
+  it(
+    "3.2a CONTRACT (not independently mutation-failable): an object cell's sort key is " +
+      "formatCell's JSON string, matching its rendered fallback text",
+    () => {
+      renderWithStore(
+        <TableRenderer
+          outputId="p"
+          paginationRows={[{ n: { z: 1 } }, { n: { a: 1 } }]}
+          columnFormats={{ n: { type: "number" } }}
+        />,
+      );
+      fireEvent.click(headerButtons()[0]); // ascending
+      // Neither object is numeric, so both fall back to formatCell's
+      // JSON.stringify sort key -- the row set and rendered text are
+      // unchanged from before formatting, whatever tie-break order the
+      // comparator settles on for equal-ish keys.
+      expect(cellTextByColumn(0).sort()).toEqual(
+        [JSON.stringify({ z: 1 }), JSON.stringify({ a: 1 })].sort(),
+      );
+    },
+  );
+
+  // Task 3.5/3.5a (design D6a) — filtering resolves the SAME per-column
+  // formatter the cell renders, so a match is always visible in the cell
+  // that matched and no cell matches text that appears nowhere on screen.
+  //
+  // MUTATION-FAILABLE against the PRE-FIX predicate: with
+  // `tableFilterPredicate.ts`'s `cellMatches` reverted to bare
+  // `formatCell(value)` (ignoring the `format` parameter), the "1,234"
+  // assertion below goes RED (a raw number `1234.56` -> `formatCell` ->
+  // `"1234.56"`, which does not contain "1,234" the grouped way), and the
+  // "1234.56" assertion goes GREEN when it should be red (the raw value
+  // DOES contain "1234.56", which is invisible in the rendered "$1,234.56"
+  // cell). Verified by hand; reported in files-modified.md.
+  it("3.5 PROOF/GUARD: a currency-formatted column's filter matches the FORMATTED text, not the raw value", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ n: 1234.56 }]}
+        columnFormats={{ n: { type: "currency", currency: "USD" } }}
+        formatIntl={PINNED_INTL}
+      />,
+    );
+    fireEvent.change(columnFilterInput("n"), { target: { value: "1,234" } });
+    expect(screen.getByText("$1,234.56")).toBeInTheDocument();
+  });
+
+  it("3.5 PROOF/GUARD: the same column does NOT match a term visible only in its raw (unformatted) value", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ n: 1234.56 }]}
+        columnFormats={{ n: { type: "currency", currency: "USD" } }}
+        formatIntl={PINNED_INTL}
+      />,
+    );
+    fireEvent.change(columnFilterInput("n"), { target: { value: "1234.56" } });
+    expect(screen.queryByText("$1,234.56")).not.toBeInTheDocument();
+  });
+
+  it("an unformatted column's filtering is unchanged -- matches its bare formatCell text", () => {
+    renderWithStore(<TableRenderer outputId="p" paginationRows={[{ n: 1234.56 }]} />);
+    fireEvent.change(columnFilterInput("n"), { target: { value: "1234.56" } });
+    expect(screen.getByText("1234.56")).toBeInTheDocument();
+  });
+
+  // Task 3.3 (design D3a, owner-ruled) — header AND cell align together.
+  it("3.3: a currency-formatted column right-aligns BOTH its header and its cells", () => {
+    const { container } = renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ n: 1234.56 }]}
+        columnFormats={{ n: { type: "currency", currency: "USD" } }}
+        formatIntl={PINNED_INTL}
+      />,
+    );
+    const th = container.querySelector("thead tr.ui-data-grid__header-row th") as HTMLElement;
+    const td = container.querySelector("tbody td") as HTMLElement;
+    expect(th.style.textAlign).toBe("right");
+    expect(td.style.textAlign).toBe("right");
+  });
+
+  it("a text-formatted column does NOT right-align", () => {
+    const { container } = renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ n: "hello" }]}
+        columnFormats={{ n: { type: "text" } }}
+      />,
+    );
+    const td = container.querySelector("tbody td") as HTMLElement;
+    expect(td.style.textAlign).not.toBe("right");
+  });
+
+  // Task 3 AC — never throws, falls back to the raw string.
+  it("a number-formatted column with an unparseable value renders its raw text without error", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ n: "n/a" }]}
+        columnFormats={{ n: { type: "number" } }}
+      />,
+    );
+    expect(screen.getByText("n/a")).toBeInTheDocument();
+  });
+
+  it("a malformed/unrecognised columnFormats entry is ignored, rendering that column unformatted", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ n: 1234.56 }]}
+        columnFormats={{ n: { type: "currency", currency: "USD" }, missing: { type: "number" } }}
+        formatIntl={PINNED_INTL}
+      />,
+    );
+    // `missing` names no real column and is simply never applied.
+    expect(screen.getByText("$1,234.56")).toBeInTheDocument();
+  });
+});

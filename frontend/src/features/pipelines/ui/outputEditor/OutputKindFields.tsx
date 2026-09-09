@@ -24,6 +24,7 @@ import type {
   ScatterChartOptions,
 } from "../../../panels/types/panel";
 import type { TableColumnRow } from "./useOutputTableColumns";
+import type { ColumnFormatSelection } from "./useOutputColumnFormats";
 
 const CHART_TYPE_OPTIONS: SelectOption[] = [
   { value: "line", label: "Line" },
@@ -129,6 +130,10 @@ interface TableKindFieldsProps {
   onMoveDown: (index: number) => void;
   onMoveToTop: (index: number) => void;
   onMoveToBottom: (index: number) => void;
+  /** HEL-469 — per-column format selection ("none" | format type), keyed by
+   *  column name; a column with no entry is treated as "none". */
+  columnFormats: Record<string, ColumnFormatSelection>;
+  onFormatChange: (key: string, type: ColumnFormatSelection) => void;
 }
 
 export function TableKindFields({
@@ -138,6 +143,8 @@ export function TableKindFields({
   onMoveDown,
   onMoveToTop,
   onMoveToBottom,
+  columnFormats,
+  onFormatChange,
 }: TableKindFieldsProps) {
   return (
     <TableDisplayFields
@@ -155,6 +162,8 @@ export function TableKindFields({
       hasStoredWidths={false}
       resetWidthsPending={false}
       onResetWidths={() => {}}
+      columnFormats={columnFormats}
+      onFormatChange={onFormatChange}
     />
   );
 }

@@ -31,6 +31,10 @@ export interface ColumnDef {
   /** Overrides the default cell formatter for this column. */
   render?: (row: Record<string, unknown>, value: unknown) => ReactNode;
   width?: string | number;
+  /** HEL-469 design D3a — header+cell text alignment, applied to the `th`
+   *  AND `td` TOGETHER (owner-ruled; never one without the other). Absent
+   *  keeps today's behavior (`th` left-aligned by CSS, `td` inherits). */
+  align?: "left" | "right";
 }
 
 type DataGridVariant = "full" | "preview";
@@ -721,7 +725,10 @@ export function DataGrid({
                   <th
                     key={col.key}
                     title={col.header ?? col.key}
-                    style={appliedWidth !== undefined ? { width: appliedWidth } : undefined}
+                    style={{
+                      ...(appliedWidth !== undefined ? { width: appliedWidth } : undefined),
+                      ...(col.align ? { textAlign: col.align } : undefined),
+                    }}
                     aria-sort={ariaSort}
                   >
                     {sortable ? (
@@ -800,7 +807,9 @@ export function DataGrid({
                 {resolvedColumns.map((col) => {
                   const value = row[col.key];
                   return (
-                    <td key={col.key}>{col.render ? col.render(row, value) : formatCell(value)}</td>
+                    <td key={col.key} style={col.align ? { textAlign: col.align } : undefined}>
+                      {col.render ? col.render(row, value) : formatCell(value)}
+                    </td>
                   );
                 })}
               </tr>

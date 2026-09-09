@@ -2,15 +2,21 @@ import { formatCell } from "../../../../shared/ui/index";
 import type { ColumnDef } from "../../../../shared/ui/index";
 import type { TableColumnFilters } from "../../../pipelines/ui/outputEditor/outputConfigTypes";
 
-/** HEL-451 design D2 — the match source IS the rendered text (`formatCell`),
- *  reused rather than reimplemented, so a match is always visible in the
- *  cell that matched (including a map-classified column serialized to
- *  JSON). Case-insensitive contains, term trimmed; an empty/whitespace-only
- *  term matches everything (task 1.2). */
-function cellMatches(value: unknown, term: string): boolean {
+/** HEL-451 design D2, REWRITTEN under HEL-469 design D6a — the match source
+ *  is the column's PER-COLUMN RENDERED TEXT: the same per-column formatter
+ *  the cell displays (`resolveColumnFormatter`), falling back to
+ *  `formatCell` for a column with no format spec, so a match is always
+ *  visible in the cell that matched (including a map-classified column
+ *  serialized to JSON, or a currency-formatted column matched on its
+ *  grouped, symbol-prefixed text). Before HEL-469, `formatCell` WAS the
+ *  rendered text for every column, so this is a strict generalization, not
+ *  a behavior change for an unformatted column. Case-insensitive contains,
+ *  term trimmed; an empty/whitespace-only term matches everything
+ *  (task 1.2). */
+function cellMatches(value: unknown, term: string, format: (value: unknown) => string): boolean {
   const trimmed = term.trim();
   if (trimmed === "") return true;
-  return formatCell(value).toLowerCase().includes(trimmed.toLowerCase());
+  return format(value).toLowerCase().includes(trimmed.toLowerCase());
 }
 
 /** Whether ANY filter term is currently active — drives the disclosure state
@@ -22,6 +28,12 @@ export function isFiltering(filters: TableColumnFilters | undefined): boolean {
   return Object.values(filters.columns ?? {}).some((t) => t.trim() !== "");
 }
 
+/** Per-column formatter map (HEL-469 design D6a/D6b) — same shape produced
+ *  by `resolveColumnFormatter`, keyed by column name. A column with no
+ *  entry matches on bare `formatCell`, exactly as every column did before
+ *  this ticket, so an unformatted column's filtering is unchanged. */
+export type ColumnFormatters = Record<string, (value: unknown) => string>;
+
 /** Task 1.2: quick term matches when ANY visible column matches; per-column
  *  terms match only their own column and AND together; the quick term ANDs
  *  with them. An empty/whitespace-only term (quick or per-column) filters
@@ -30,16 +42,21 @@ export function rowMatchesFilters(
   row: Record<string, unknown>,
   columns: ColumnDef[],
   filters: TableColumnFilters | undefined,
+  formatters?: ColumnFormatters,
 ): boolean {
   if (!filters) return true;
+  const formatFor = (key: string) => formatters?.[key] ?? formatCell;
   const quick = filters.quick ?? "";
-  if (quick.trim() !== "" && !columns.some((col) => cellMatches(row[col.key], quick))) {
+  if (
+    quick.trim() !== "" &&
+    !columns.some((col) => cellMatches(row[col.key], quick, formatFor(col.key)))
+  ) {
     return false;
   }
   const columnTerms = filters.columns ?? {};
   for (const col of columns) {
     const term = columnTerms[col.key];
-    if (term && term.trim() !== "" && !cellMatches(row[col.key], term)) {
+    if (term && term.trim() !== "" && !cellMatches(row[col.key], term, formatFor(col.key))) {
       return false;
     }
   }
