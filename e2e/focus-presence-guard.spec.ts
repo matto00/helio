@@ -188,12 +188,45 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
     let totalMeasured = 0;
     const runStart = Date.now();
 
+    // Cycle 8 (production CI, run 34416621152) — a flat `waitForTimeout(200)`
+    // after `page.goto(route)` is NOT sufficient to guarantee the seeded
+    // content above has actually rendered before the sweep stamps/measures
+    // the document. It happened to be enough against a shared local dev
+    // database already warmed up by other worktrees' traffic (rendering
+    // was effectively instant because other data made the page non-empty
+    // regardless), which is exactly how this went undetected locally and
+    // shipped a spec whose real, reproducible coverage depended on ambient
+    // database state rather than this test's own seed (MISTAKES.md: "the
+    // shared dev DB is mostly test residue"). On a clean CI database,
+    // `/sources` rendered its loading/empty frame at the 200ms mark and
+    // the sweep measured zero — caught, correctly, by CR-B's non-emptiness
+    // floor rather than silently passing. Each route below now waits for
+    // a route-specific marker proving ITS OWN seeded content rendered,
+    // not an arbitrary settle delay.
+    const ROUTE_READY_MARKERS: Record<string, (p: Page) => Promise<unknown>> = {
+      // `.first()` on each: the seeded name legitimately appears more than
+      // once per route (breadcrumb, command palette, list row, etc.) —
+      // this marker only needs to prove at least one rendering of the
+      // seeded content is visible, not disambiguate a single element.
+      "/": (p) =>
+        expect(p.getByText("HEL-520 Guard Dashboard", { exact: true }).first()).toBeVisible(),
+      "/sources": (p) =>
+        expect(p.getByText("HEL-520 Guard Source", { exact: true }).first()).toBeVisible(),
+      [`/pipelines/${pipeline.id}`]: (p) =>
+        expect(p.getByText("HEL-520 Guard Pipeline", { exact: true }).first()).toBeVisible(),
+      // "Appearance" is SettingsPage.tsx's first static `<h2>` section
+      // heading — always present regardless of account data, so it proves
+      // the route rendered without depending on any seeded/ambient state.
+      "/settings": (p) => expect(p.getByRole("heading", { name: "Appearance" })).toBeVisible(),
+    };
+
     for (const theme of ["dark", "light"] as const) {
       await setTheme(page, theme);
 
       for (const route of routes) {
         await page.goto(route);
-        await page.waitForTimeout(200);
+        await ROUTE_READY_MARKERS[route](page);
+        await page.waitForTimeout(200); // settle any post-render CSS transition, not a substitute for the wait above
         const viewName = `${route}(${theme})`;
         viewList.push(viewName);
 
