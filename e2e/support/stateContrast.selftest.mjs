@@ -330,6 +330,78 @@ record(
   );
 }
 
+// --- HEL-520 D1c: focus-channel adjudication closes the "advisory"
+// deferral. Same shape as 3.6's shadow-only case, but with stateKind:
+// "focus" -- this case would have scored "advisory" before this change and
+// must now score a definite pass/fail. ---
+{
+  const backdrop = parseColor("rgb(38, 35, 32)"); // dark --app-surface-strong
+
+  // A conforming ring colour that clears the floor against this backdrop.
+  const conformingRing = parseColor("rgb(249, 168, 74)"); // bright, high-contrast accent
+  const passResult = classifyState({
+    backgroundChanged: false,
+    otherChannelChanged: true,
+    backdrop,
+    stateColor: conformingRing,
+    stateKind: "focus",
+  });
+  record(
+    "HEL-520 focus-only outline change is NOT advisory (was advisory pre-change)",
+    passResult.verdict !== "advisory",
+    `got ${passResult.verdict}`,
+  );
+  record(
+    "HEL-520 conforming focus ring classifies PASS",
+    passResult.verdict === "pass",
+    `got ${passResult.verdict}, ratio ${passResult.ratio}`,
+  );
+
+  // A non-conforming ring colour (near-identical to the backdrop) fails.
+  const nonConformingRing = parseColor("rgb(40, 37, 34)");
+  const failResult = classifyState({
+    backgroundChanged: false,
+    otherChannelChanged: true,
+    backdrop,
+    stateColor: nonConformingRing,
+    stateKind: "focus",
+  });
+  record(
+    "HEL-520 non-conforming focus ring classifies FAIL, not advisory",
+    failResult.verdict === "fail",
+    `got ${failResult.verdict}, ratio ${failResult.ratio}`,
+  );
+
+  // The hover path is UNCHANGED by this addition: the same shadow-only
+  // input, without stateKind: "focus" (i.e. the default "hover"), still
+  // scores advisory exactly as HEL-866 originally specified.
+  const hoverResult = classifyState({
+    backgroundChanged: false,
+    otherChannelChanged: true,
+    backdrop,
+    stateColor: conformingRing,
+  });
+  record(
+    "HEL-520 default (hover) stateKind is unchanged: still advisory",
+    hoverResult.verdict === "advisory",
+    `got ${hoverResult.verdict}`,
+  );
+
+  // Nothing-changed still fails regardless of stateKind.
+  const nothingFocus = classifyState({
+    backgroundChanged: false,
+    otherChannelChanged: false,
+    backdrop,
+    stateColor: backdrop,
+    stateKind: "focus",
+  });
+  record(
+    "HEL-520 nothing-changed focus probe still classifies FAIL",
+    nothingFocus.verdict === "fail",
+    `got ${nothingFocus.verdict}`,
+  );
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) {
   process.exit(1);

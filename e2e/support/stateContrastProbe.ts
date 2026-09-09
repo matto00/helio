@@ -30,3 +30,22 @@
 // noise this guard's own population enumeration should not introduce.
 export const INTERACTIVE_SELECTOR =
   "a, button, tbody tr, [role=option], [role=menuitem], [role=row], [tabindex]:not([tabindex='-1'])";
+
+// HEL-520 design.md D1d: a SEPARATE, deliberately different population from
+// `INTERACTIVE_SELECTOR` above. That constant was scoped to elements
+// conveying a hover/focus SURFACE state (HEL-866) and contains no `input`,
+// `textarea`, or `select` -- but 9 of the 11 `outline: none` suppression
+// sites this ticket measures ARE inputs, so "reuse INTERACTIVE_SELECTOR"
+// and "measure every focusable element" are mutually unsatisfiable as
+// originally scoped. `FOCUSABLE_SELECTOR` answers a different question --
+// "what can actually receive keyboard focus" -- and is used only by the
+// focus-presence measurement (AC2), never by the HEL-866 hover/focus-
+// surface guard. Widening `INTERACTIVE_SELECTOR` in place is forbidden: it
+// would change that guard's population and could turn it red on surfaces
+// this ticket never examined.
+//
+// `[type=hidden]` is excluded from the `input` clause because a hidden
+// input is never focusable and would inflate the coverage count with
+// elements that can never fail the measurement.
+export const FOCUSABLE_SELECTOR =
+  "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), textarea:not([disabled]), select:not([disabled]), [contenteditable], [tabindex]:not([tabindex='-1'])";

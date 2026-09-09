@@ -144,7 +144,12 @@ const SPACING_BASELINE: BaselineEntry[] = [
   { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 80 },
   { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 86 },
   { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 106 },
-  { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 333 },
+  // HEL-520: line shifted 333 -> 350 (unchanged content, `padding: 2px
+  // 6px;` on `.pipeline-detail-header__schedule-disabled-badge`) — a new
+  // `:focus-visible { outline-offset: -2px; }` rule + its explanatory
+  // comment were inserted earlier in the file (the flush-fitting-child
+  // clip fix for `.pipeline-detail-header__add-source-btn`).
+  { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 350 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 27 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 229 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 244 },

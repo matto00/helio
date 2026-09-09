@@ -15,6 +15,7 @@ import {
   type StateVerdict,
 } from "./support/stateContrast.mjs";
 import { INTERACTIVE_SELECTOR } from "./support/stateContrastProbe";
+import { forceFocusVisible } from "./support/forceFocusVisible";
 
 // HEL-866 — the mechanical, RENDERED state-surface contrast guard (AC5,
 // design.md D4). Walks the RUNNING app (not a static parse of theme.css or
@@ -191,46 +192,12 @@ function describeElement(el: {
   return `${el.tag}${el.role ? `[role=${el.role}]` : ""} "${el.text}"${ariaSuffix} [${identity}] (#${el.index})`;
 }
 
-/**
- * Forces `:focus-visible` (and `:focus`) on `locator`'s element via the
- * Chrome DevTools Protocol's `CSS.forcePseudoState`, rather than
- * `locator.focus()`. Playwright/Chromium's `.focus()` performs a real
- * programmatic focus, but Chromium's own focus-visible heuristic does NOT
- * treat a programmatic focus as keyboard-originated, so it never matches
- * `:focus-visible` — confirmed the hard way: every `:focus-visible`-based
- * rule in this app (the dominant focus-state pattern here, e.g.
- * `.command-palette__item:focus-visible`) read as "nothing changed" under
- * plain `.focus()`, which would have been 100% FALSE FAILURES across the
- * whole focus-state population, not real absences. `CSS.forcePseudoState`
- * is the same mechanism DevTools' own "Force state" panel uses and is the
- * only reliable way to render the TRUE `:focus-visible` styling without a
- * real keyboard Tab sequence per element (which the runtime budget, task
- * 2.9, does not allow).
- */
-async function forceFocusVisible(
-  client: CDPSession,
-  locator: Locator,
-): Promise<() => Promise<void>> {
-  const marker = "data-hel866-force-focus";
-  await locator.evaluate((el, m) => el.setAttribute(m, "1"), marker);
-  const { root } = await client.send("DOM.getDocument");
-  const { nodeId } = await client.send("DOM.querySelector", {
-    nodeId: root.nodeId,
-    selector: `[${marker}]`,
-  });
-  await client.send("CSS.forcePseudoState", {
-    nodeId,
-    forcedPseudoClasses: ["focus", "focus-visible"],
-  });
-  return async () => {
-    try {
-      await client.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: [] });
-    } catch {
-      // element may have detached (overlay closed) — nothing to clear.
-    }
-    await locator.evaluate((el, m) => el.removeAttribute(m), marker).catch(() => {});
-  };
-}
+// HEL-520 task 2.6a-i: `forceFocusVisible` moved to
+// `e2e/support/forceFocusVisible.ts` (was module-local here and unexported,
+// so the new AC2 focus-presence sweep couldn't reuse it without a copy).
+// This file now imports it; behaviour is unchanged (see the extracted
+// module's own doc comment for the CDP mechanism and rationale). Re-run of
+// this CI-gated spec after the extraction is recorded in files-modified.md.
 
 interface ElementResult {
   view: string;

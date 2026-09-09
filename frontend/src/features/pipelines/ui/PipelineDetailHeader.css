@@ -250,6 +250,23 @@
   flex-shrink: 0;
 }
 
+/* HEL-520: this 20x20 button sits inside `.pipeline-detail-header__group-
+ * value`, a 25px-tall `overflow: hidden` text-ellipsis wrapper (its own
+ * clip box is exactly [top,bottom] = the schedule/source-name label's
+ * line box). The GLOBAL focus ring (`outline: var(--app-focus-ring);
+ * outline-offset: 2px`, theme.css) extends 4px beyond the button's own
+ * box on every side — 28px tall against a 25px-tall clipping ancestor —
+ * so the top and bottom of the ring were clipped away, measured live by
+ * the AC2 focus-presence guard (e2e/focus-presence-guard.spec.ts).
+ * `outline-offset: -2px` is DESIGN.md §8's own documented carve-out for
+ * exactly this shape ("use -2px only where the ring would clip (flush
+ * list items)") — pulling the ring fully inside the button's own border
+ * box makes its total footprint match the unforced button (20x20),
+ * clearing the ancestor's clip box with room to spare. */
+.pipeline-detail-header__add-source-btn:focus-visible {
+  outline-offset: -2px;
+}
+
 .pipeline-detail-header__add-source-btn:hover {
   border-color: var(--app-accent-mid);
   color: var(--app-accent-text);
