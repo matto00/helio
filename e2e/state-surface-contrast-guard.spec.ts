@@ -870,9 +870,20 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       );
     }
     if (failures.length > 0) {
-      const lines = failures.map(
-        (f) => `  [${f.theme}] ${f.view} :: ${f.desc} (${f.forced}) — ratio=${f.ratio ?? "n/a"}`,
-      );
+      // A CI-caught real regression (a `ratio=n/a` failure that reached
+      // this line unactionably) is what prompted naming the two cases
+      // "n/a" actually means, right in the failure line: `classifyState`
+      // only ever returns a null ratio via its `!backgroundChanged`
+      // branch, so "n/a" ALWAYS means "nothing this guard tracks changed
+      // at all" (D4a) — never an unmeasurable-but-real backdrop. A reader
+      // should not have to re-derive that from the source.
+      const lines = failures.map((f) => {
+        const ratioText =
+          f.ratio === null
+            ? "ratio=n/a (no background/border/outline/box-shadow change detected at all — D4a absence, not an unmeasurable backdrop)"
+            : `ratio=${f.ratio}`;
+        return `  [${f.theme}] ${f.view} :: ${f.desc} (${f.forced}) — ${ratioText}`;
+      });
       throw new Error(
         `HEL-866 guard: ${failures.length} state(s) failed the ${CONTRAST_THRESHOLD} contrast threshold:\n${lines.join("\n")}`,
       );
