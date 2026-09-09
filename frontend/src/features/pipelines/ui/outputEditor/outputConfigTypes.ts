@@ -27,6 +27,21 @@ export interface ChartOutputConfig {
   annotation?: string | null;
 }
 
+/** HEL-451 design D1 — `columnFilters` is itself a small object (`quick` +
+ *  `columns`), but it is stored as ONE flat sibling key on `TableOutputConfig`
+ *  (never nested inside `columnSort` or a shared container), matching the
+ *  ruling `columnSort` already established: it is replaced wholesale on every
+ *  write, which is exactly the semantics wanted here — clearing a column's
+ *  filter must not leave a stale key behind. */
+export interface TableColumnFilters {
+  /** Case-insensitive contains, matched across every visible column's
+   *  rendered (`formatCell`) text. */
+  quick?: string;
+  /** Per-column case-insensitive contains, matched against that column's
+   *  rendered text only. Multiple entries AND together. */
+  columns?: Record<string, string>;
+}
+
 export interface TableOutputConfig {
   fieldMapping: Record<string, string>;
   columnOrder?: string[];
@@ -41,6 +56,9 @@ export interface TableOutputConfig {
    *  (columnFormats) should each land as their OWN flat sibling here too,
    *  never nested inside this field or a shared container. */
   columnSort?: SortState<string> | null;
+  /** HEL-451 — see `TableColumnFilters` doc comment above for why this is a
+   *  flat sibling rather than nested inside `columnSort`. */
+  columnFilters?: TableColumnFilters | null;
 }
 
 /** Numeric display style for `metric`/`collection baseType: metric` renderers
@@ -135,11 +153,28 @@ function readColumnSort(value: unknown): SortState<string> | undefined {
   return { key: candidate.key, direction: candidate.direction };
 }
 
+/** Tolerant read for `columnFilters` (HEL-451 design D1): a non-object value
+ *  yields `undefined`; a non-string `quick` is dropped; `columns` keeps only
+ *  string-valued string keys, dropping anything else silently — mirrors
+ *  `readColumnSort`'s tolerance for a config value that predates this field
+ *  or was written by a future, looser version of it. */
+function readColumnFilters(value: unknown): TableColumnFilters | undefined {
+  if (value === null || typeof value !== "object") return undefined;
+  const candidate = value as Record<string, unknown>;
+  const out: TableColumnFilters = {};
+  if (typeof candidate.quick === "string") out.quick = candidate.quick;
+  if (candidate.columns && typeof candidate.columns === "object") {
+    out.columns = safeRecord(candidate.columns);
+  }
+  return out;
+}
+
 export function readTableConfig(config: Record<string, unknown>): TableOutputConfig {
   return {
     fieldMapping: safeRecord(config.fieldMapping),
     columnOrder: Array.isArray(config.columnOrder) ? (config.columnOrder as string[]) : undefined,
     columnSort: readColumnSort(config.columnSort),
+    columnFilters: readColumnFilters(config.columnFilters),
   };
 }
 

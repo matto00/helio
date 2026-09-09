@@ -11,6 +11,13 @@ import {
 } from "../../../../shared/ui/useSortedRows";
 import { updateOutput } from "../../../pipelines/services/outputService";
 import { useAppSelector } from "../../../../hooks/reduxHooks";
+import type { TableColumnFilters } from "../../../pipelines/ui/outputEditor/outputConfigTypes";
+import {
+  isFiltering,
+  normalizeColumnFiltersForWrite,
+  rowMatchesFilters,
+} from "./tableFilterPredicate";
+import { LoadedScopeDisclosure } from "./LoadedScopeDisclosure";
 
 interface TableRendererProps {
   /** Bound Output id — renamed from the pre-HEL-909 `panelId` (this always
@@ -25,9 +32,16 @@ interface TableRendererProps {
   headers?: string[] | null;
   /** Rows from the paginated execute endpoint (keyed by column name). */
   paginationRows?: Record<string, unknown>[] | null;
-  paginationHasMore?: boolean;
   paginationIsLoadingMore?: boolean;
   onLoadMore?: () => void;
+  /** HEL-451 design D4: branch-independent truncation signal from
+   *  `usePanelData` (`paginationEntry.hasMore`) — the ONLY correct source
+   *  for "is the loaded set truncated", on EITHER branch. Must NOT be
+   *  re-derived locally as `usingPagination && paginationHasMore`; that was
+   *  HEL-448's original (wrong) predicate, false in the panel detail modal
+   *  regardless of real truncation. Defaults to `false` only when genuinely
+   *  unknown (e.g. in tests that don't pass it). */
+  rowsTruncated?: boolean;
   /** Visible-column order from the Output's `TableOutputConfig.columnOrder`;
    *  absent or empty → all columns in natural order. */
   columnOrder?: string[];
@@ -35,6 +49,9 @@ interface TableRendererProps {
    *  absent/`null` → renders the pipeline's own row order (see
    *  `UNSORTED_SENTINEL` below). */
   columnSort?: SortState<string> | null;
+  /** Persisted filter state from the Output's `TableOutputConfig
+   *  .columnFilters` (HEL-451 design D1); absent/`null` → no active filter. */
+  columnFilters?: TableColumnFilters | null;
 }
 
 /** Matches `DataGrid.deriveColumns`'s natural/numeric collator so a column set
@@ -132,17 +149,28 @@ function persistColumnSort(outputId: string, sort: SortState<string>): void {
   });
 }
 
+/** HEL-451 design D6 — same minimal-patch, deliberate-swallow shape as
+ *  `persistColumnSort` above (design D6 reuses D6/D7's persistence path
+ *  exactly); `filters` is already normalized (empty terms stripped, or the
+ *  whole value collapsed to `null`) by the caller before this is invoked. */
+function persistColumnFilters(outputId: string, filters: TableColumnFilters | null): void {
+  void updateOutput(outputId, { config: { columnFilters: filters } }).catch(() => {
+    // Intentionally silent -- see persistColumnSort's doc comment above.
+  });
+}
+
 export function TableRenderer({
   outputId,
   ownerId,
   rawRows,
   headers,
   paginationRows,
-  paginationHasMore,
   paginationIsLoadingMore,
   onLoadMore,
+  rowsTruncated = false,
   columnOrder,
   columnSort,
+  columnFilters,
 }: TableRendererProps) {
   // Local-only column widths (no longer persisted — see the file's HEL-909
   // interface-parity note, now folded into the `outputId` doc comment).
@@ -193,6 +221,24 @@ export function TableRenderer({
     return [];
   }, [usingPagination, usingRaw, paginationRows, rawRows, naturalKeys]);
 
+  // HEL-451 design D1/D6a "Seeding note" (same rationale as `defaultSort`
+  // below): seeded once from the persisted value, never re-derived when
+  // `columnFilters` changes — correct only because `PanelContent` withholds
+  // this component behind a skeleton until `useOutputMeta` resolves.
+  const [filters, setFilters] = useState<TableColumnFilters>(() => columnFilters ?? {});
+  const filtering = isFiltering(filters);
+
+  // HEL-451 design D3: filter BEFORE the existing `useSortedRows` call, in
+  // the SAME single pipeline HEL-448 established — no second normalization,
+  // no second hook call. `useMemo`-stable for the same reason
+  // `normalizedRows` is: `useSortedRows` memoizes on
+  // `[rows, columns, sortState]` by identity, and an unstable array defeats
+  // it every render.
+  const filteredRows = useMemo(
+    () => normalizedRows.filter((row) => rowMatchesFilters(row, columns, filters)),
+    [normalizedRows, columns, filters],
+  );
+
   const sortColumns = useMemo<SortColumn<Record<string, unknown>, string>[]>(
     () => columns.map((col) => ({ key: col.key, getValue: (row) => getSortValue(row[col.key]) })),
     [columns],
@@ -213,7 +259,7 @@ export function TableRenderer({
   );
 
   const { sortedRows, sortState, toggleSort } = useSortedRows(
-    normalizedRows,
+    filteredRows,
     sortColumns,
     defaultSort,
   );
@@ -227,6 +273,15 @@ export function TableRenderer({
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSortRef = useRef<SortState<string> | null>(null);
 
+  // HEL-451 design D6: same flush-not-cancel contract as the sort timer
+  // above, kept as an INDEPENDENT timer/ref pair — a filter edit and a sort
+  // click can each be mid-debounce at the same time, and each must flush
+  // its own pending write on unmount regardless of the other's state.
+  // `undefined` means "no pending filter write"; `null` is a real pending
+  // write that CLEARS the persisted filter (design D1's normalize-to-null).
+  const filterPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingFiltersRef = useRef<TableColumnFilters | null | undefined>(undefined);
+
   // Flush uses refs, not state, so it always sees the latest pending write
   // regardless of this effect's own dependency array.
   useEffect(() => {
@@ -235,6 +290,12 @@ export function TableRenderer({
         clearTimeout(persistTimerRef.current);
         if (pendingSortRef.current) {
           persistColumnSort(outputId, pendingSortRef.current);
+        }
+      }
+      if (filterPersistTimerRef.current) {
+        clearTimeout(filterPersistTimerRef.current);
+        if (pendingFiltersRef.current !== undefined) {
+          persistColumnFilters(outputId, pendingFiltersRef.current);
         }
       }
     };
@@ -267,6 +328,115 @@ export function TableRenderer({
     }, PERSIST_DEBOUNCE_MS);
   }
 
+  // HEL-451 design D6/task 5: rows filter IMMEDIATELY from local state
+  // (`filters`, above) — only the PATCH is debounced, so persistence
+  // latency never makes typing feel laggy (design D6, task 5.4). Real user
+  // edit only — never fired from an effect on mount, for the same reason
+  // `handleSort`'s persist fires from a handler rather than an effect.
+  function handleFilterChange(next: TableColumnFilters) {
+    setFilters(next);
+    if (!canWrite) return;
+    const normalized = normalizeColumnFiltersForWrite(next);
+    pendingFiltersRef.current = normalized;
+    if (filterPersistTimerRef.current) clearTimeout(filterPersistTimerRef.current);
+    filterPersistTimerRef.current = setTimeout(() => {
+      filterPersistTimerRef.current = null;
+      // Minimal patch — NEVER spread `output.config` (design D6, same
+      // rationale as `handleSort`'s PATCH above).
+      persistColumnFilters(outputId, normalized);
+    }, PERSIST_DEBOUNCE_MS);
+  }
+
+  function handleClearFilters() {
+    handleFilterChange({});
+  }
+
+  // HEL-451 design D4/4.1 — the five-state disclosure matrix, computed from
+  // `rowsTruncated` (task 4.0's branch-independent signal) and `filtering`.
+  // The two EMPTY states are handled entirely by `DataGrid`'s D5 empty-state
+  // slot below (`emptyText`/`emptyAction`, passed once here); `LoadedScope
+  // Disclosure` covers the three non-empty states. This division is a
+  // CONTRACT `TableRenderer` relies on: `DataGrid` renders the zero-match
+  // explanation UNCONDITIONALLY whenever `isEmpty` is true, regardless of
+  // its OWN internal filter-chrome expand/collapse state (D10-11) — that
+  // internal detail changes ONLY the explanation's presentation (full text
+  // vs. a line-clamped compact form), never whether it renders at all. An
+  // earlier revision broke this by also gating the message on `DataGrid`'s
+  // collapse state, silently reintroducing "a filter matching nothing
+  // renders as a confident wrong answer" exactly when a short panel
+  // auto-collapsed. If `DataGrid` ever needs `TableRenderer` to branch on
+  // its expand state for this, that is a contract change to state HERE,
+  // not a silent assumption to lose track of again.
+  const isEmpty = sortedRows.length === 0;
+
+  // HEL-451 skeptic CR5 — 4.0g NAMED BOOLEANS, corrected. Task 4.0g's
+  // original formula (`showSortNote = rowsTruncated && !filtering`) predates
+  // this ticket's OWN filter-scoped message and is WRONG once it exists:
+  // design D4b's filter-disclosure table requires the scoped "N of M loaded
+  // rows match." note to render whenever `filtering && rowsTruncated`, WITH
+  // OR WITHOUT `onLoadMore` (the panel detail modal never has one) — the
+  // literal old formula would silently drop that note in the modal, which
+  // is the exact confidently-wrong-answer state this design exists to
+  // prevent. `showLoadedScopeNote` generalizes "show a note" to every
+  // `rowsTruncated` state (`LoadedScopeDisclosure` picks the WORDING from
+  // `filtering` internally, per the 4.0f supersession) rather than only the
+  // un-filtered one. Amended in design.md D4b/tasks.md 4.0g in the same
+  // commit as this fix.
+  // `|| filtering`: the THIRD message state this note covers is
+  // `filtering && !rowsTruncated` (an unqualified, complete-answer match
+  // count) — task 4.3 requires the disclosure to disappear ENTIRELY only
+  // when neither is true (nothing loaded-scope-relevant to say).
+  const showLoadedScopeNote = rowsTruncated || filtering;
+  const showLoadMoreBtn = rowsTruncated && onLoadMore != null;
+  // The wrapper is STILL derived from its children, per 4.0g's own
+  // discipline — not simplified to `rowsTruncated` alone, even though that
+  // is what it evaluates to today, because `showLoadedScopeNote` and
+  // `showLoadMoreBtn` are independently the two things that can make this
+  // wrapper non-empty and a future third child should extend this OR, not
+  // replace it.
+  const showTruncationWrapper = !isEmpty && (showLoadedScopeNote || showLoadMoreBtn);
+
+  const emptyText = !filtering
+    ? undefined
+    : rowsTruncated
+      ? showLoadMoreBtn
+        ? `No rows match your filter in the ${normalizedRows.length} rows loaded so far. More rows may match — load more to widen the search.`
+        : `No rows match your filter in the ${normalizedRows.length} rows loaded so far. More rows may match.`
+      : "No rows match your filter.";
+
+  const emptyAction = !filtering ? undefined : (
+    <div className="panel-content__filter-empty-actions">
+      <button
+        type="button"
+        className="panel-content__clear-filters-btn"
+        onClick={handleClearFilters}
+      >
+        Clear filters
+      </button>
+      {/* HEL-451 design D4: the detail modal has no `onLoadMore` at all, so
+          the sharpest (truncated-empty) state cannot offer this action
+          there — text-without-action, never an undefined-prop button
+          (task 4.0a). */}
+      {showLoadMoreBtn && (
+        <button
+          className="panel-content__load-more-btn"
+          onClick={onLoadMore}
+          disabled={paginationIsLoadingMore}
+          aria-busy={paginationIsLoadingMore}
+        >
+          {paginationIsLoadingMore ? (
+            <>
+              <Spinner size="sm" />
+              Loading...
+            </>
+          ) : (
+            "Load more"
+          )}
+        </button>
+      )}
+    </div>
+  );
+
   if (usingPagination || usingRaw) {
     return (
       <div className="panel-content panel-content--table">
@@ -278,29 +448,53 @@ export function TableRenderer({
           onColumnResize={handleColumnResize}
           sort={sortState.key === UNSORTED_SENTINEL ? null : sortState}
           onSort={handleSort}
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          emptyText={emptyText}
+          emptyAction={emptyAction}
         />
-        {usingPagination && paginationHasMore && (
-          <div className="panel-content__load-more">
-            {/* HEL-448 design D9a — NOT part of the owner's sort-mechanism
-                ruling; a delivery-coordinator addition pending owner
-                confirmation, deliberately trivially removable. Never
-                describe this as owner-approved. */}
-            <p className="panel-content__truncation-note">Sort covers only the loaded rows.</p>
-            <button
-              className="panel-content__load-more-btn"
-              onClick={onLoadMore}
-              disabled={paginationIsLoadingMore}
-              aria-busy={paginationIsLoadingMore}
-            >
-              {paginationIsLoadingMore ? (
-                <>
-                  <Spinner size="sm" />
-                  Loading...
-                </>
-              ) : (
-                "Load more"
-              )}
-            </button>
+        {/* HEL-451 skeptic CR7 — ONE render site for every non-empty
+            disclosure state (previously split: the unqualified-count case
+            rendered ABOVE the grid, the truncated cases BELOW it, so the
+            same message jumped position depending on `rowsTruncated`). */}
+        {showTruncationWrapper && (
+          <div className="panel-content__disclosure">
+            {/* HEL-448 design D9a / HEL-451 design D4b, D4c, D10a — see
+                LoadedScopeDisclosure.tsx's file-level comment: CONFIRMED by
+                the owner, kept behind one removal seam as good structure,
+                not as a placeholder pending approval. */}
+            <LoadedScopeDisclosure
+              rowsTruncated={rowsTruncated}
+              filtering={filtering}
+              matchCount={sortedRows.length}
+              loadedCount={normalizedRows.length}
+            />
+            {/* `rowsTruncated &&` is kept even though the dashboard grid
+                cannot currently reach the `rawRows` branch (design D4b: both
+                `rawRows`/`paginationRows` derive from one `paginationEntry
+                .rows`, so one being non-empty implies the other is too) —
+                this gate stays CORRECT if that derivation is ever decoupled,
+                and `PanelCard.tsx` passes `onLoadMore` UNCONDITIONALLY, so
+                `onLoadMore != null` alone would render a live button on
+                every FULLY-LOADED dashboard panel. Do not "simplify" this
+                away. */}
+            {showLoadMoreBtn && (
+              <button
+                className="panel-content__load-more-btn"
+                onClick={onLoadMore}
+                disabled={paginationIsLoadingMore}
+                aria-busy={paginationIsLoadingMore}
+              >
+                {paginationIsLoadingMore ? (
+                  <>
+                    <Spinner size="sm" />
+                    Loading...
+                  </>
+                ) : (
+                  "Load more"
+                )}
+              </button>
+            )}
           </div>
         )}
       </div>

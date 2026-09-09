@@ -89,3 +89,65 @@ describe("readTableConfig — columnSort (HEL-448 design D5, task 3.6)", () => {
     },
   );
 });
+
+// HEL-451 design D1/task 5.6 — tolerant `columnFilters` parse, mirroring the
+// `columnSort` coverage above.
+describe("readTableConfig — columnFilters (HEL-451 design D1)", () => {
+  it("round-trips a well-formed columnFilters with both quick and columns", () => {
+    const cfg = readTableConfig({
+      columnFilters: { quick: "emea", columns: { region: "west" } },
+    });
+    expect(cfg.columnFilters).toEqual({ quick: "emea", columns: { region: "west" } });
+  });
+
+  it("is undefined when columnFilters is absent entirely", () => {
+    expect(readTableConfig({}).columnFilters).toBeUndefined();
+  });
+
+  it("falls back to undefined when columnFilters is explicitly null", () => {
+    expect(readTableConfig({ columnFilters: null }).columnFilters).toBeUndefined();
+  });
+
+  it("falls back to undefined when columnFilters is not an object (a bare string)", () => {
+    expect(readTableConfig({ columnFilters: "emea" }).columnFilters).toBeUndefined();
+  });
+
+  it("drops a non-string quick value, keeping columns", () => {
+    const cfg = readTableConfig({ columnFilters: { quick: 42, columns: { region: "west" } } });
+    expect(cfg.columnFilters).toEqual({ columns: { region: "west" } });
+  });
+
+  it("keeps only string-valued string keys in columns, dropping the rest", () => {
+    const cfg = readTableConfig({
+      columnFilters: { columns: { region: "west", amount: 5, flagged: true } },
+    });
+    expect(cfg.columnFilters).toEqual({ columns: { region: "west" } });
+  });
+
+  it("tolerates a non-object columns value by dropping it entirely", () => {
+    const cfg = readTableConfig({ columnFilters: { quick: "emea", columns: "region" } });
+    expect(cfg.columnFilters).toEqual({ quick: "emea" });
+  });
+
+  it("never throws on a malformed columnFilters -- degrades to an empty object", () => {
+    expect(() => readTableConfig({ columnFilters: { quick: {}, columns: "nope" } })).not.toThrow();
+    expect(
+      readTableConfig({ columnFilters: { quick: {}, columns: "nope" } }).columnFilters,
+    ).toEqual({});
+  });
+
+  it(
+    "columnFilters parsing is independent of columnSort/columnOrder -- all three read " +
+      "correctly alongside each other",
+    () => {
+      const cfg = readTableConfig({
+        columnOrder: ["amount", "id"],
+        columnSort: { key: "amount", direction: "desc" },
+        columnFilters: { quick: "emea" },
+      });
+      expect(cfg.columnOrder).toEqual(["amount", "id"]);
+      expect(cfg.columnSort).toEqual({ key: "amount", direction: "desc" });
+      expect(cfg.columnFilters).toEqual({ quick: "emea" });
+    },
+  );
+});

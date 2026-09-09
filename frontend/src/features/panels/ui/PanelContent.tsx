@@ -62,9 +62,13 @@ export interface PanelContentProps {
   appearance?: PanelAppearance;
   /** Rows from the paginated execute endpoint for table panels. */
   paginationRows?: Record<string, unknown>[] | null;
-  paginationHasMore?: boolean;
   paginationIsLoadingMore?: boolean;
   onLoadMore?: () => void;
+  /** HEL-451 design D4: branch-independent truncation signal from
+   *  `usePanelData` — table panels only (`TableRenderer`'s disclosure).
+   *  Passed through unconditionally from BOTH call sites (`PanelCard`,
+   *  `PanelDetailModal`); defaults to `false` only when genuinely unknown. */
+  rowsTruncated?: boolean;
   /** HEL-292: precomputed chart groupBy aggregate, chart panels only. */
   chartAggregate?: GroupedAggregate | null;
   /** HEL-301: forwarded to `ChartRenderer` only — see `ChartPanel`'s
@@ -81,9 +85,9 @@ function OutputPanelContent({
   headers,
   appearance,
   paginationRows,
-  paginationHasMore,
   paginationIsLoadingMore,
   onLoadMore,
+  rowsTruncated,
   chartAggregate,
   compact,
   outputId,
@@ -92,9 +96,9 @@ function OutputPanelContent({
   headers?: string[] | null;
   appearance: PanelAppearance;
   paginationRows?: Record<string, unknown>[] | null;
-  paginationHasMore?: boolean;
   paginationIsLoadingMore?: boolean;
   onLoadMore?: () => void;
+  rowsTruncated?: boolean;
   chartAggregate?: GroupedAggregate | null;
   compact?: boolean;
   outputId: string;
@@ -136,11 +140,12 @@ function OutputPanelContent({
         rawRows={rawRows}
         headers={headers}
         paginationRows={paginationRows}
-        paginationHasMore={paginationHasMore}
         paginationIsLoadingMore={paginationIsLoadingMore}
         onLoadMore={onLoadMore}
+        rowsTruncated={rowsTruncated ?? false}
         columnOrder={cfg.columnOrder}
         columnSort={cfg.columnSort}
+        columnFilters={cfg.columnFilters}
       />
     );
   }
@@ -219,9 +224,9 @@ export function PanelContent({
   onGoToPipeline,
   appearance,
   paginationRows,
-  paginationHasMore,
   paginationIsLoadingMore,
   onLoadMore,
+  rowsTruncated,
   chartAggregate,
   compact,
 }: PanelContentProps) {
@@ -294,9 +299,9 @@ export function PanelContent({
         headers={headers}
         appearance={appearance ?? panel.appearance}
         paginationRows={paginationRows}
-        paginationHasMore={paginationHasMore}
         paginationIsLoadingMore={paginationIsLoadingMore}
         onLoadMore={onLoadMore}
+        rowsTruncated={rowsTruncated}
         chartAggregate={chartAggregate}
         compact={compact}
         outputId={panel.config.outputId}
