@@ -1,7 +1,7 @@
 # state-surface-contrast-guard Specification
 
 ## Purpose
-Defines the mechanical guarantee that an interactive state's background differs measurably from the surface it renders on, in every theme — the contrast rule and its threshold, the requirement that the checked population be derived from the tree rather than hand-listed, and the guard's own continuously-demonstrated failability.
+Defines the mechanical guarantee that an interactive state's background differs measurably from the surface it renders on, in every theme — the contrast rule and its threshold, the requirement that the checked population be derived from the rendered application rather than hand-listed, and the guard's own continuously-demonstrated failability.
 
 ## Requirements
 
