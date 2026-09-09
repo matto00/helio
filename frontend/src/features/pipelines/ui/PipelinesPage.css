@@ -59,7 +59,7 @@
 }
 
 .pipeline-list-table__link:hover {
-  color: var(--app-accent);
+  color: var(--app-accent-text);
   text-decoration: underline;
 }
 

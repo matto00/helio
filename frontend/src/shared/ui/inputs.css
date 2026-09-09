@@ -146,7 +146,7 @@
 }
 
 .ui-select__option--selected {
-  color: var(--app-accent);
+  color: var(--app-accent-text);
   background: var(--app-accent-dim);
 }
 

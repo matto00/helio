@@ -43,7 +43,7 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--app-accent);
+  color: var(--app-accent-text);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   cursor: pointer;
@@ -51,6 +51,17 @@
   text-underline-offset: 2px;
 }
 
+/* HEL-1048 (skeptic-final-1.md): `--app-accent-strong` on this hover was
+   NOT a covered exception — design.md D8 published its own measured
+   figures for `--app-accent-strong` as text (Orange 3.93, Cyan 3.45,
+   Green 3.24, Yellow 2.78 in light, all below 4.5:1), and this hover
+   painted exactly that failing color. Moved to `--app-accent-text`
+   (matching the base link), so the hover state now relies solely on the
+   `text-decoration-thickness` change below for its distinct signal — the
+   underline was always the non-color carrier D8 was protecting; it does
+   not need a color delta as well, and a color delta here would need its
+   OWN 4.5:1 guarantee, which `--app-accent-strong` never had. */
 .sidebar-body__locked-notice-link:hover {
-  color: var(--app-accent-strong);
+  color: var(--app-accent-text);
+  text-decoration-thickness: 2px;
 }

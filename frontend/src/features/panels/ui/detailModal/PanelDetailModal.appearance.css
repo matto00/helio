@@ -99,7 +99,7 @@
 .panel-detail-modal__chart-type-option--active {
   border-color: var(--app-accent);
   background: var(--app-accent-surface);
-  color: var(--app-accent-strong);
+  color: var(--app-accent-text);
 }
 
 .panel-detail-modal__chart-type-icon {

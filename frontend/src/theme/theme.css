@@ -159,13 +159,22 @@
   --app-border-strong: rgba(242, 239, 233, 0.18);
 
   /* Runtime-set: --app-accent, --app-accent-ink, --app-focus-ring-color
-     (appearance.ts's `applyAccentTokens`, keyed on the user's chosen accent).
-     `applyAccentTokens` writes them as INLINE style on `<html>`, which
-     outranks this whole `:root[data-theme=...]` block — so the values below
-     NEVER render once the effect has run at least once. They exist only as
-     the pre-hydration static fallback (HEL-1046 D6/D5); they are not a
-     per-theme tuning and must not be edited to "look right" here, only kept
-     parseable. See also the light block's copy below. */
+     (appearance.ts's `applyAccentTokens`, keyed on the user's chosen
+     accent). `applyAccentTokens` writes them as INLINE style on `<html>`,
+     which outranks this whole `:root[data-theme=...]` block — so the
+     values below NEVER render once the effect has run at least once. They
+     exist only as the pre-hydration static fallback (HEL-1046 D6/D5); they
+     are not a per-theme tuning and must not be edited to "look right"
+     here, only kept parseable. See also the light block's copy below.
+     HEL-1048 D14 (cycle 3): --app-accent-text/--app-selection-bg are
+     deliberately NOT declared here or in the light block below — they are
+     ALSO theme-aware AND already outranked by inline style the same way,
+     so a per-theme "dead default" pair here would never render either, and
+     a wrong value in it is invisible everywhere (this is exactly how a
+     wrong-accent-derived light value shipped undetected in cycle 2). Their
+     only static fallback is the single, theme-independent `:root` value
+     below, which DOES paint (briefly, pre-effect) and IS pinned against
+     `theme.css` by `accentTextSourceSyncGuard.css.test.ts`. */
   --app-accent: #f97316;
   --app-accent-ink: #16130f;
   --app-accent-strong: color-mix(in srgb, var(--app-accent) 78%, white);
@@ -216,7 +225,9 @@
      `applyAccentTokens` writes `--app-accent`/`--app-accent-ink`/
      `--app-focus-ring-color` inline on `<html>`, which outranks this block.
      Never renders once the effect has run; kept parseable as the
-     pre-hydration static fallback only (HEL-1046 D6/D5). */
+     pre-hydration static fallback only (HEL-1046 D6/D5). HEL-1048 D14
+     (cycle 3): no `--app-accent-text`/`--app-selection-bg` pair here,
+     same reasoning as the dark block above — see that comment. */
   --app-accent: #ea580c;
   --app-accent-ink: #ffffff;
   --app-accent-strong: color-mix(in srgb, var(--app-accent) 76%, black);
@@ -292,8 +303,23 @@ a {
   color: inherit;
 }
 
+/* HEL-1048 D7 — BOTH properties set deliberately. Background is
+   `--app-selection-bg`, an OPAQUE per-theme hex resolved in TypeScript
+   (`appearance.ts`'s `buildAccentTokens`) by blending the accent at 26%
+   (light) / 30% (dark) over the theme's `--app-bg` mix base, not a
+   translucent `color-mix` composited here in CSS. Colour is `--app-text`
+   (deliberately NOT the new accent-text token — selection is not
+   accent-coloured text). Two prior versions were defective: colour-only
+   left selected accent text painting on the old translucent
+   `--app-accent-mid` tint (broke the accent-ink pairings, Yellow measured
+   1.67 dark); the page background/text pair is what `body` already
+   declares, so selected text would have rendered pixel-identical to
+   unselected (contrast 1.000). This hex is NOT in D2's scored set — see
+   design.md D7 — because `color` is set here too, so accent text never
+   actually paints on this background. */
 ::selection {
-  background: var(--app-accent-mid);
+  background: var(--app-selection-bg);
+  color: var(--app-text);
 }
 
 /* Standard focus ring — 2px, 2px offset. Use `outline-offset: -2px`
@@ -342,6 +368,40 @@ a {
 :root {
   --app-focus-ring-color: #db6513;
   --app-focus-ring: 2px solid var(--app-focus-ring-color);
+
+  /* HEL-1048 D14 — static pre-hydration fallback for --app-accent-text,
+     same lifecycle as --app-focus-ring-color above: `applyAccentTokens`
+     writes the derived value from an effect that runs AFTER first paint, so
+     without a static value here the first painted frame has no text token
+     at all. Unlike the ring token this one IS theme-aware (D1 — the empty
+     luminance window rules out a single value that serves both themes), so
+     this single line is only a FIRST-PAINT default, not a per-theme value:
+     it is `deriveAccentTextColor(DefaultAccentColorByTheme.dark, "dark")`
+     (`#f97316` -> `#fa8737`, dark's 14% lightening), chosen because
+     `getInitialTheme` defaults to `"dark"`. It is superseded by the real
+     per-theme value the moment the effect runs.
+     Cycle 3 (evaluation-2.md CR-3): this is now the ONLY static
+     `--app-accent-text` literal in this file — the two per-theme
+     `:root[data-theme=...]` copies were removed (D12/D14 interaction,
+     see the dark block's comment above) because a value that never
+     renders is a drift surface only a test can catch, which is exactly how
+     a wrong-accent value survived cycle 2 undetected. This single literal
+     IS pinned against a live parse of THIS file:
+     `accentTextSourceSyncGuard.css.test.ts`'s "D14 static fallback
+     anti-drift pins" describe block re-reads this `:root` block's own
+     `--app-accent-text`/`--app-selection-bg` values with `fs.readFileSync`
+     (not a value copied into the test) and asserts each equals the live
+     derivation — so editing this line without updating the derivation (or
+     vice versa) goes red. */
+  --app-accent-text: #fa8737;
+
+  /* HEL-1048 D7/D14 — same pre-hydration-fallback lifecycle and same
+     cycle-3 single-literal-pinned-by-parsing-this-file treatment as
+     --app-accent-text above, for the opaque `::selection` background:
+     `deriveAccentTextColor`'s sibling computation, the accent blended 30%
+     (dark's D7 strength) over dark's `--app-bg` (`#121110`), for the same
+     `getInitialTheme` default. */
+  --app-selection-bg: #572e12;
 }
 
 :focus-visible {

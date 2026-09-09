@@ -109,7 +109,7 @@
 }
 
 .markdown-panel a {
-  color: var(--app-accent);
+  color: var(--app-accent-text);
 }
 
 .markdown-panel .contains-task-list {

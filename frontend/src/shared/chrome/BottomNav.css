@@ -113,7 +113,7 @@
  * nowhere else in the bar. The lozenge's tinted fill carries the selection
  * affordance; the accent icon colour is a secondary cue, never the sole one. */
 .bottom-nav__tab--active {
-  color: var(--app-accent);
+  color: var(--app-accent-text);
 }
 
 .bottom-nav__tab--active .bottom-nav__lozenge {

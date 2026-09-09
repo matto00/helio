@@ -3,7 +3,7 @@
   margin-top: var(--space-4);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
-  color: var(--app-accent);
+  color: var(--app-accent-text);
   text-decoration: none;
 }
 

@@ -31,7 +31,7 @@
 
 .ui-status-chip--accent {
   background: var(--app-accent-surface);
-  color: var(--app-accent);
+  color: var(--app-accent-text);
 }
 
 .ui-status-chip--neutral {
