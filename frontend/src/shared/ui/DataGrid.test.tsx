@@ -1220,6 +1220,34 @@ describe("DataGrid — no measured viewport width anywhere in DataGrid (HEL-451 
     const frame = container.querySelector(".ui-data-grid__frame") as HTMLElement;
     expect(frame).not.toHaveClass("ui-data-grid__frame--full");
   });
+
+  // HEL-1056 REGRESSION GUARD (mutation-failable) — live-measured against
+  // `a6bde0d3^`: `.ui-data-grid--preview`'s `margin-top` living on the flex
+  // CHILD (inside `.ui-data-grid__frame`) never collapses with the
+  // preceding consumer element's margin-bottom (flex formatting contexts
+  // don't collapse child margins with anything), which silently added the
+  // preceding element's own margin-bottom on top of the grid's margin-top
+  // instead of collapsing to their max — measured +6px at SourceDetailPanel
+  // and +8px at StepCard. The fix moves the margin onto
+  // `.ui-data-grid__frame--preview` (an ordinary block box, sibling of the
+  // preceding element) so the pre-reframe adjacent-sibling collapse is
+  // restored. jsdom can't compute resolved layout/collapsed margins, so
+  // this is a static-source assertion on which selector carries the
+  // declaration — shown mutation-failable: moving the rule back onto
+  // `.ui-data-grid--preview`, or dropping it from `.ui-data-grid__frame--preview`,
+  // must turn this red.
+  it("HEL-1056 REGRESSION GUARD (mutation-failable): the preview frame (not the scroll container) carries the collapsible margin-top", () => {
+    const { container } = render(<DataGrid variant="preview" rows={[{ a: 1 }]} />);
+    const frame = container.querySelector(".ui-data-grid__frame") as HTMLElement;
+    expect(frame).toHaveClass("ui-data-grid__frame--preview");
+
+    const frameRule = css.match(/\.ui-data-grid__frame--preview\s*{[^}]*}/)?.[0] ?? "";
+    expect(frameRule).toMatch(/margin-top:\s*var\(--space-3\)/);
+    expect(frameRule).not.toBe("");
+
+    const scrollContainerRule = css.match(/\.ui-data-grid--preview\s*{[^}]*}/)?.[0] ?? "";
+    expect(scrollContainerRule).not.toMatch(/margin-top/);
+  });
 });
 
 describe("DataGrid — computePinnedOffsets (HEL-465 design.md Decision 4, AC6)", () => {

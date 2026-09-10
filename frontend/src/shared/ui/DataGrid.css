@@ -38,6 +38,28 @@
   min-height: 0;
 }
 
+/* HEL-1056 — the reframe (HEL-451 D10) made `.ui-data-grid--preview`'s own
+   `margin-top` (below) a FLEX CHILD margin of `.ui-data-grid__frame`, and
+   flex formatting contexts never collapse a child's margin with anything
+   (not with siblings, not with the flex container itself). Before the
+   reframe, `.ui-data-grid` sat directly among the consumer's own block
+   children, so its `margin-top` adjacent-sibling-collapsed with whatever
+   margin-bottom the preceding element carried (the ordinary CSS rule: two
+   adjoining margins collapse to their MAX, not their sum). Moving the
+   margin here — onto the frame itself, which is an ordinary block box and
+   a real sibling of that preceding element — restores exactly that
+   collapse and makes the reframe layout-neutral for `preview` again,
+   measured live and confirmed against `a6bde0d3^`: SourceDetailPanel's
+   preview gained +6px (was context — 12px, collapsed under its heading's
+   6px margin-bottom; became +18px, the two margins summing instead) and
+   StepCard's gained +8px (12px vs 20px, against its schema-chips block's
+   8px margin-bottom) before this fix — SqlTab's own preview-hint carries
+   no margin-bottom, so it was unaffected either way. See the change's
+   evaluation report for the full measurement trail. */
+.ui-data-grid__frame--preview {
+  margin-top: var(--space-3);
+}
+
 .ui-data-grid {
   border-radius: var(--app-radius-sm);
   overflow: auto;
@@ -70,9 +92,11 @@
 /* "preview" variant: a bounded, bordered card — used for read-only inline
    previews (type/source/pipeline preview, step preview, schema preview).
    `max-height` stays on THIS scroll container, not the frame (D10-3a) — it
-   caps the scrollable area, not the chrome. */
+   caps the scrollable area, not the chrome. HEL-1056 — `margin-top` moved
+   to `.ui-data-grid__frame--preview` above: kept here it's a flex-child
+   margin that never collapses with the preceding element's margin-bottom
+   (see that rule's comment); this element has no margin of its own. */
 .ui-data-grid--preview {
-  margin-top: var(--space-3);
   border: 1px solid var(--app-border-subtle);
   background: var(--app-surface);
   max-height: 320px;
