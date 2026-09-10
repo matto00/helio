@@ -5,10 +5,12 @@ import type { ReactElement } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import {
+  computePinnedOffsets,
   DataGrid,
   FRAME_FILTER_COLLAPSE_THRESHOLD_PX,
   GRID_MIN_USABLE_HEIGHT_PX,
 } from "./DataGrid";
+import type { ColumnDef } from "./DataGrid";
 import type { SortState } from "./useSortedRows";
 
 /** JSDOM's `getBoundingClientRect` returns all-zero by default (no real
@@ -1216,5 +1218,320 @@ describe("DataGrid — no measured viewport width anywhere in DataGrid (HEL-451 
     const { container } = render(<DataGrid variant="preview" rows={[{ a: 1 }]} />);
     const frame = container.querySelector(".ui-data-grid__frame") as HTMLElement;
     expect(frame).not.toHaveClass("ui-data-grid__frame--full");
+  });
+});
+
+describe("DataGrid — computePinnedOffsets (HEL-465 design.md Decision 4, AC6)", () => {
+  const columns: ColumnDef[] = [{ key: "a" }, { key: "b" }, { key: "c" }];
+
+  it("a single pinned column offsets at 0", () => {
+    const offsets = computePinnedOffsets(columns, 1, {}, undefined);
+    expect(offsets).toEqual({ a: 0 });
+  });
+
+  it("multiple pinned columns stack with cumulative offsets from columnWidths", () => {
+    const offsets = computePinnedOffsets(columns, 3, {}, { a: 100, b: 150, c: 200 });
+    expect(offsets).toEqual({ a: 0, b: 100, c: 250 });
+  });
+
+  it("liveWidths (an in-progress resize drag) takes precedence over columnWidths, matching appliedWidth's own fallback chain", () => {
+    const offsets = computePinnedOffsets(columns, 2, { a: 300 }, { a: 100, b: 150 });
+    expect(offsets).toEqual({ a: 0, b: 300 });
+  });
+
+  it("falls back to DEFAULT_COLUMN_WIDTH (160) for a column with no width anywhere in the fallback chain", () => {
+    const offsets = computePinnedOffsets(columns, 2, {}, undefined);
+    expect(offsets).toEqual({ a: 0, b: 160 });
+  });
+
+  it("a zero pinned count returns no offsets at all", () => {
+    expect(computePinnedOffsets(columns, 0, {}, { a: 100 })).toEqual({});
+  });
+});
+
+describe("DataGrid — pinned column rendering (HEL-465 AC1/AC2/AC4)", () => {
+  const css = readFileSync(join(__dirname, "DataGrid.css"), "utf8");
+
+  it("full variant renders a sticky-left header/body cell for a pinned column, offset 0 as the sole pinned column", () => {
+    render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1, b: 2 }]}
+        columns={[{ key: "a" }, { key: "b" }]}
+        pinnedColumns={["a"]}
+      />,
+    );
+    const headerCells = screen.getAllByRole("columnheader");
+    // `position: sticky` comes from `.ui-data-grid__pinned-cell` in
+    // DataGrid.css (asserted by class presence, not `toHaveStyle` — jsdom
+    // never loads stylesheets, so a class-supplied property is invisible to
+    // it); `left` is the one property DataGrid.tsx sets INLINE (it differs
+    // per column), which `toHaveStyle` can see.
+    expect(headerCells[0]).toHaveClass("ui-data-grid__pinned-cell");
+    expect(headerCells[0]).toHaveStyle({ left: "0px" });
+    expect(headerCells[1]).not.toHaveClass("ui-data-grid__pinned-cell");
+  });
+
+  it("multiple pinned columns stack with cumulative left offsets, respecting columnWidths", () => {
+    render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1, b: 2, c: 3 }]}
+        columns={[{ key: "a" }, { key: "b" }, { key: "c" }]}
+        columnWidths={{ a: 100, b: 150 }}
+        pinnedColumns={["a", "b"]}
+      />,
+    );
+    const headerCells = screen.getAllByRole("columnheader");
+    expect(headerCells[0]).toHaveStyle({ left: "0px" });
+    expect(headerCells[1]).toHaveStyle({ left: "100px" });
+    expect(headerCells[2]).not.toHaveClass("ui-data-grid__pinned-cell");
+  });
+
+  it("the last pinned column gets the separator class; earlier pinned columns do not", () => {
+    render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1, b: 2, c: 3 }]}
+        columns={[{ key: "a" }, { key: "b" }, { key: "c" }]}
+        pinnedColumns={["a", "b"]}
+      />,
+    );
+    const headerCells = screen.getAllByRole("columnheader");
+    expect(headerCells[0]).not.toHaveClass("ui-data-grid__pinned-cell--last");
+    expect(headerCells[1]).toHaveClass("ui-data-grid__pinned-cell--last");
+  });
+
+  // HEL-465 skeptic-final-2 CR1 (BLOCKING, last round) — STATIC SOURCE: a
+  // `border-right` (round 2's fix) painted correctly ONLY at rest and
+  // vanished once the table scrolled — a collapsed table's cell borders
+  // paint at the cell's STATIC layout position, not its sticky on-screen
+  // position, so this is real behavior jsdom cannot itself observe (no
+  // scroll/paint engine). What THIS test CAN and DOES assert, per the
+  // skeptic's own framing, is the STATIC SOURCE shape of the fix — that
+  // the separator is a `::after` pseudo-element (which paints inside the
+  // cell's own content box, immune to the collapsed-border static-position
+  // defect) rather than a `border-right`/`box-shadow` on the cell itself
+  // (both of which have now independently failed this exact way). This is
+  // NOT proof the separator paints correctly under scroll — only the
+  // skeptic's live pixel-sampling at a real `scrollLeft` is that; see
+  // design.md Decision 8's own doc comment for the full statement of this
+  // limitation.
+  it("STATIC SOURCE: the pinned/scrolling separator is a ::after pseudo-element, not a border/box-shadow on the cell itself (skeptic-final-2 CR1)", () => {
+    const afterRule = css.match(/\.ui-data-grid__pinned-cell--last::after\s*{[^}]*}/)?.[0] ?? "";
+    expect(afterRule).not.toBe("");
+    expect(afterRule).toMatch(/position:\s*absolute/);
+    expect(afterRule).toMatch(/right:\s*0/);
+    expect(afterRule).toMatch(
+      /background:\s*color-mix\(in srgb, var\(--app-text\) 35%, transparent\)/,
+    );
+
+    const cellRule = css.match(/\.ui-data-grid__pinned-cell--last\s*{[^}]*}/)?.[0] ?? "";
+    expect(cellRule).not.toMatch(/border-right/);
+    expect(cellRule).not.toMatch(/box-shadow/);
+  });
+
+  it("preview variant never renders sticky-left columns, even with a non-empty pinnedColumns prop", () => {
+    render(
+      <DataGrid
+        variant="preview"
+        rows={[{ a: 1, b: 2 }]}
+        columns={[{ key: "a" }, { key: "b" }]}
+        pinnedColumns={["a"]}
+      />,
+    );
+    expect(document.querySelector(".ui-data-grid__pinned-cell")).not.toBeInTheDocument();
+  });
+
+  it("pinnedColumns entries not forming a leading, contiguous run of the given columns degrade to however much of the front matches (DataGrid never renders a gap)", () => {
+    // "b" alone, with "a" unpinned ahead of it, is not a valid leading run —
+    // DataGrid stops counting at the first non-matching leading column ("a"),
+    // so nothing pins here. This is a defensive property of `DataGrid` itself
+    // (design.md Decision 1's ownership split: keeping the pinned set a
+    // valid leading run is `TableRenderer`'s job, not `DataGrid`'s), not a
+    // scenario production code is expected to construct.
+    render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1, b: 2 }]}
+        columns={[{ key: "a" }, { key: "b" }]}
+        pinnedColumns={["b"]}
+      />,
+    );
+    expect(document.querySelector(".ui-data-grid__pinned-cell")).not.toBeInTheDocument();
+  });
+});
+
+describe("DataGrid — pin toggle affordance (HEL-465 design.md Decision 3, DESIGN.md §8)", () => {
+  it("renders a keyboard-operable pin button per column, only when onPinToggle is supplied", () => {
+    render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1 }]}
+        columns={[{ key: "a" }]}
+        onPinToggle={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Pin column a" })).toBeInTheDocument();
+  });
+
+  it("omits the pin button entirely when onPinToggle is not supplied", () => {
+    render(<DataGrid variant="full" rows={[{ a: 1 }]} columns={[{ key: "a" }]} />);
+    expect(screen.queryByRole("button", { name: /pin/i })).not.toBeInTheDocument();
+  });
+
+  it("preview variant never renders a pin button, even with onPinToggle supplied", () => {
+    render(
+      <DataGrid
+        variant="preview"
+        rows={[{ a: 1 }]}
+        columns={[{ key: "a" }]}
+        onPinToggle={jest.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /pin/i })).not.toBeInTheDocument();
+  });
+
+  it("reports aria-pressed=false and 'Pin column' for an unpinned column, aria-pressed=true and 'Unpin column' once pinned", () => {
+    render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1 }]}
+        columns={[{ key: "a" }]}
+        pinnedColumns={["a"]}
+        onPinToggle={jest.fn()}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: "Unpin column a" });
+    expect(btn).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("names a non-leading column's pin control 'Pin through' once activating it would newly pin more than one column (design.md Decision 1 consequence)", () => {
+    render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1, b: 2, c: 3 }]}
+        columns={[{ key: "a" }, { key: "b" }, { key: "c" }]}
+        onPinToggle={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Pin column a" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pin through column c" })).toBeInTheDocument();
+  });
+
+  it("activating the pin control (click or keyboard) fires onPinToggle with the column's key", () => {
+    const onPinToggle = jest.fn();
+    render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1 }]}
+        columns={[{ key: "a" }]}
+        onPinToggle={onPinToggle}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pin column a" }));
+    expect(onPinToggle).toHaveBeenCalledWith("a");
+  });
+
+  // HEL-465 skeptic-final-3 (BLOCKING, last round) — STATIC SOURCE: the
+  // control used to be plain inline flow content in the header `<th>`,
+  // which `white-space: nowrap; overflow: hidden; text-overflow: ellipsis`
+  // (required for `table-layout: fixed`) laid out PAST the cell's own right
+  // edge and clipped away entirely on any column whose header text actually
+  // truncates — reproduced live on a real 82-column table (23/61 header
+  // cells, 38%, had the button's box outside the cell; `elementFromPoint`
+  // at its center hit a NEIGHBORING cell). Fixed by reusing
+  // `.ui-data-grid__resize-handle`'s own `position: absolute` escape from
+  // inline flow (HEL-253, same file) rather than inventing a new approach.
+  // This test can ONLY assert the CSS declaration's SHAPE (jsdom has no
+  // real text-metrics/ellipsis engine and no functioning
+  // `elementFromPoint`, so it cannot reproduce "does this column's header
+  // actually truncate" or "is the button's box inside the cell" at all) —
+  // it is NOT proof the control stays clickable/focusable on a real
+  // truncating column; the skeptic's own live `elementFromPoint`
+  // reproduction against the running app, on a column that genuinely
+  // truncates, is the only real evidence for that (see skeptic-final-3.md
+  // and design.md Decision 3's own doc comment for the full statement of
+  // this limitation, matching how the separator fix's own static-source
+  // guard is scoped above).
+  it("STATIC SOURCE: the pin toggle escapes inline flow via position: absolute (skeptic-final-3, not inline content that a truncating header could push out of the cell)", () => {
+    const css = readFileSync(join(__dirname, "DataGrid.css"), "utf8");
+    const pinToggleRule =
+      css.match(/\.ui-data-grid__table thead th \.ui-data-grid__pin-toggle-btn\s*{[^}]*}/)?.[0] ??
+      "";
+    expect(pinToggleRule).not.toBe("");
+    expect(pinToggleRule).toMatch(/position:\s*absolute/);
+    // A non-zero `right` offset, like the resize handle's own `right: 0`,
+    // is what makes the position independent of the header label's actual
+    // (possibly truncated) rendered width — this is the property that
+    // fails if the rule regresses back to inline flow (no `position`/
+    // `right` at all).
+    expect(pinToggleRule).toMatch(/right:\s*var\(--space-6\)/);
+  });
+
+  // HEL-465 skeptic-final-4 CR1 (BLOCKING, last round) — STATIC SOURCE:
+  // absolute positioning alone (the round-4 fix above) reserves no SPACE
+  // for the pin toggle, so a truncating column's header label kept
+  // rendering full-width and painting UNDERNEATH the icon (measured live:
+  // 28/75 header cells once several columns are pinned — the feature's own
+  // normal state, not a corner case). This test can only assert the
+  // `<th>`'s reserved `padding-right` EXISTS and is applied to the correct
+  // element — it is NOT proof the label actually ellipsizes/clips before
+  // the icon on a real truncating column in the running app; jsdom has no
+  // text-metrics engine to compute that. The skeptic's own live pixel
+  // measurement (8/73 bare, 28/75 pinned, both themes) is the only real
+  // evidence for that, matching the limitation already stated on the
+  // sibling tests above.
+  it("STATIC SOURCE: the header <th> reserves padding-right for the pin toggle, applied only when the toggle actually renders (skeptic-final-4 CR1)", () => {
+    const css = readFileSync(join(__dirname, "DataGrid.css"), "utf8");
+    const reserveRule =
+      css.match(
+        /\.ui-data-grid--normal \.ui-data-grid__table thead th\.ui-data-grid__th--pin-reserve\s*{[^}]*}/,
+      )?.[0] ?? "";
+    expect(reserveRule).not.toBe("");
+    expect(reserveRule).toMatch(/padding-right:\s*calc\(var\(--space-3\) \+ var\(--space-9\)\)/);
+
+    render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1 }]}
+        columns={[{ key: "a" }]}
+        onPinToggle={jest.fn()}
+      />,
+    );
+    const headerCell = screen.getByRole("columnheader");
+    expect(headerCell).toHaveClass("ui-data-grid__th--pin-reserve");
+  });
+
+  it("STATIC SOURCE: a DataGrid with no onPinToggle never reserves header padding it doesn't need (skeptic-final-4 CR1 scoping)", () => {
+    render(<DataGrid variant="full" rows={[{ a: 1 }]} columns={[{ key: "a" }]} />);
+    const headerCell = screen.getByRole("columnheader");
+    expect(headerCell).not.toHaveClass("ui-data-grid__th--pin-reserve");
+  });
+
+  // HEL-465 skeptic-final-4 CR2 (BLOCKING, last round) — STATIC SOURCE: on
+  // a ≤430px/coarse-pointer surface, the pre-existing 44px touch-target
+  // floor on the pin toggle collides with `position: absolute` inside a
+  // ~35px-tall, `overflow: hidden` header row, clipping the (widened)
+  // control 5-9px top/bottom and splitting its focus ring into two
+  // disconnected bars (skeptic-final-4, probe-confirmed: reverting to
+  // `position: static` grows the row to 61px in-browser and the clipping
+  // disappears). This test can only assert the header row's own
+  // `min-height` floor exists in the SAME media query as the 44px control
+  // floor — it is NOT proof the control renders unclipped at a real
+  // ≤430px/coarse-pointer viewport; jsdom has no viewport/pointer-media
+  // emulation or real layout engine. The skeptic's own live measurement at
+  // that specific surface is the only real evidence for that.
+  it("STATIC SOURCE: the coarse-pointer/≤430px media query grows the header row to fit its own 44px control floor (skeptic-final-4 CR2)", () => {
+    const css = readFileSync(join(__dirname, "DataGrid.css"), "utf8");
+    const coarsePointerBlock =
+      css.match(/@media \(max-width: 430px\), \(pointer: coarse\) {[\s\S]*?\n}/)?.[0] ?? "";
+    expect(coarsePointerBlock).not.toBe("");
+    // Both the control's own 44px floor AND the header row's min-height
+    // floor must live in the SAME media query — a row-height fix gated on
+    // a different breakpoint than the control it's sized for would be
+    // exactly the kind of drift this guard exists to catch.
+    expect(coarsePointerBlock).toMatch(/\.ui-data-grid__pin-toggle-btn\s*{\s*min-height:\s*44px/);
+    expect(coarsePointerBlock).toMatch(/\.ui-data-grid__table thead th\s*{\s*min-height:\s*48px/);
   });
 });

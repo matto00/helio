@@ -33,6 +33,13 @@ interface IconButtonProps {
    *  not needed for a plain action button. */
   "aria-expanded"?: boolean;
   "aria-haspopup"?: AriaAttributes["aria-haspopup"];
+  /** Passthrough for an icon-only TOGGLE button (HEL-465 — the DataGrid
+   *  column-pin control) — not needed for a plain, non-toggling action
+   *  button. Reflects pressed/unpressed state to assistive tech; `IconButton`
+   *  itself takes no opinion on how a caller styles the pressed state
+   *  (e.g. an accent color, which the ghost/secondary/danger variants don't
+   *  cover — pass a `className` to add one). */
+  "aria-pressed"?: boolean;
 }
 
 /**
@@ -64,6 +71,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
     type = "button",
     "aria-expanded": ariaExpanded,
     "aria-haspopup": ariaHaspopup,
+    "aria-pressed": ariaPressed,
   },
   ref,
 ) {
@@ -86,6 +94,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={ariaLabel}
       aria-expanded={ariaExpanded}
       aria-haspopup={ariaHaspopup}
+      aria-pressed={ariaPressed}
       title={title ?? ariaLabel}
     >
       <span aria-hidden="true" className="ui-icon-btn__icon">

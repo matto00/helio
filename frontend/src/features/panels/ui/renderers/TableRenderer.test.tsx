@@ -1,3 +1,5 @@
+import { StrictMode } from "react";
+
 import { fireEvent, screen } from "@testing-library/react";
 
 import { TableRenderer } from "./TableRenderer";
@@ -978,5 +980,222 @@ describe("TableRenderer — column formatting renders + sort/filter guards (HEL-
     );
     // `missing` names no real column and is simply never applied.
     expect(screen.getByText("$1,234.56")).toBeInTheDocument();
+  });
+});
+
+// ── HEL-465 task 5.2: pinnedColumns persistence (mirrors HEL-451's filter
+// persistence path) ──
+describe("TableRenderer — pinnedColumns persistence (HEL-465 design.md Decision 1/6)", () => {
+  const outputServiceModule = jest.requireMock<{
+    updateOutput: jest.Mock;
+  }>("../../../pipelines/services/outputService");
+
+  beforeEach(() => {
+    outputServiceModule.updateOutput.mockReset().mockResolvedValue(undefined);
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  it("pinning the leading column persists pinnedColumns: [key] after the debounce", () => {
+    jest.useFakeTimers();
+    renderWithStore(
+      <TableRenderer outputId="out-1" ownerId="me" paginationRows={[{ a: "1", b: "2" }]} />,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pin column a" }));
+    jest.advanceTimersByTime(500);
+    expect(outputServiceModule.updateOutput).toHaveBeenCalledWith("out-1", {
+      config: { pinnedColumns: ["a"] },
+    });
+  });
+
+  it("pinning a non-leading column pins every leading sibling too (design.md Decision 1)", () => {
+    jest.useFakeTimers();
+    renderWithStore(
+      <TableRenderer outputId="out-1" ownerId="me" paginationRows={[{ a: "1", b: "2", c: "3" }]} />,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pin through column c" }));
+    jest.advanceTimersByTime(500);
+    expect(outputServiceModule.updateOutput).toHaveBeenCalledWith("out-1", {
+      config: { pinnedColumns: ["a", "b", "c"] },
+    });
+  });
+
+  it("unpinning the first pinned column empties the whole set, persisted as an explicit [] (design.md Decision 6)", () => {
+    jest.useFakeTimers();
+    renderWithStore(
+      <TableRenderer
+        outputId="out-1"
+        ownerId="me"
+        paginationRows={[{ a: "1", b: "2", c: "3" }]}
+        pinnedColumns={["a", "b", "c"]}
+      />,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Unpin column a" }));
+    jest.advanceTimersByTime(500);
+    expect(outputServiceModule.updateOutput).toHaveBeenLastCalledWith("out-1", {
+      config: { pinnedColumns: [] },
+    });
+  });
+
+  it("restores the persisted pinnedColumns as the initial pin state", () => {
+    renderWithStore(
+      <TableRenderer outputId="p" paginationRows={[{ a: "1", b: "2" }]} pinnedColumns={["a"]} />,
+    );
+    expect(screen.getByRole("button", { name: "Unpin column a" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pin column b" })).toBeInTheDocument();
+  });
+
+  it("no write is attempted when the caller cannot write the Output (!canWrite)", () => {
+    jest.useFakeTimers();
+    renderWithStore(
+      <TableRenderer outputId="out-1" ownerId="owner-x" paginationRows={[{ a: "1", b: "2" }]} />,
+      { auth: { currentUser: { id: "someone-else" } as never } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pin column a" }));
+    jest.advanceTimersByTime(5000);
+    expect(outputServiceModule.updateOutput).not.toHaveBeenCalled();
+    // The on-screen pin still applies, session-locally.
+    expect(screen.getByRole("button", { name: "Unpin column a" })).toBeInTheDocument();
+  });
+
+  it("a pin toggled then unmounted inside the debounce window still flushes the write", () => {
+    jest.useFakeTimers();
+    const { unmount } = renderWithStore(
+      <TableRenderer outputId="out-1" ownerId="me" paginationRows={[{ a: "1", b: "2" }]} />,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pin column a" }));
+    unmount();
+    expect(outputServiceModule.updateOutput).toHaveBeenCalledWith("out-1", {
+      config: { pinnedColumns: ["a"] },
+    });
+  });
+
+  it("reordering columns re-derives and re-persists the pinned KEY LIST immediately, preserving pin state by position not identity (design.md Risk / tasks.md 1.3)", () => {
+    jest.useFakeTimers();
+    const { rerender } = renderWithStore(
+      <TableRenderer
+        outputId="out-1"
+        ownerId="me"
+        paginationRows={[{ a: "1", b: "2", c: "3" }]}
+        columnOrder={["a", "b", "c"]}
+        pinnedColumns={["a"]}
+      />,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    // The pinned COUNT (1) is unchanged, but "c" now occupies the leading
+    // position "a" used to — the persisted VALUE must follow the position,
+    // not the identity, so it re-writes as ["c"], not ["a"].
+    rerender(
+      <TableRenderer
+        outputId="out-1"
+        ownerId="me"
+        paginationRows={[{ a: "1", b: "2", c: "3" }]}
+        columnOrder={["c", "b", "a"]}
+        pinnedColumns={["a"]}
+      />,
+    );
+    expect(outputServiceModule.updateOutput).toHaveBeenCalledWith("out-1", {
+      config: { pinnedColumns: ["c"] },
+    });
+  });
+
+  // HEL-465 evaluation-1.md CR2 — documents the fix's intent (a reorder
+  // issues exactly one PATCH) under `React.StrictMode`, matching production
+  // (`main.tsx`). CORRECTED here (not left as an unverified claim): a probe
+  // test confirmed `React.StrictMode` DOES double-invoke a `setState`
+  // updater function in this exact Jest/RTL/React-19 harness in general —
+  // but reverting this fix back to the pre-CR2 `setPinnedCount((prevCount)
+  // => { ...persist...; return clamped })` shape and re-running this test
+  // did NOT reproduce a doubled call here (both versions pass this specific
+  // assertion in this harness — verified directly, not assumed). This test
+  // is therefore kept as a plain correctness assertion (`toHaveLength(1)` is
+  // strictly more informative than `toHaveBeenCalledWith`, which passes at
+  // any call count), not a proven-red regression guard for the reorder-
+  // specific double-PATCH shape — CR2's `pinnedCountRef` fix is what
+  // structurally rules that shape out (`persistPinnedColumns` is never
+  // called from inside a `setState` UPDATER argument).
+  //
+  // CORRECTED (skeptic-final-1 CR2): a DIFFERENT double-invoke path was
+  // still live after CR2 — StrictMode's MOUNT effect double-invoke (setup →
+  // cleanup → setup), which the `pinMountedRef` boolean guard did not
+  // survive (see the next test below, which IS proven red against that
+  // specific defect).
+  it("a reorder issues exactly ONE pinnedColumns PATCH (React.StrictMode)", () => {
+    jest.useFakeTimers();
+    const { rerender } = renderWithStore(
+      <StrictMode>
+        <TableRenderer
+          outputId="out-1"
+          ownerId="me"
+          paginationRows={[{ a: "1", b: "2", c: "3" }]}
+          columnOrder={["a", "b", "c"]}
+          pinnedColumns={["a"]}
+        />
+      </StrictMode>,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    outputServiceModule.updateOutput.mockClear();
+    rerender(
+      <StrictMode>
+        <TableRenderer
+          outputId="out-1"
+          ownerId="me"
+          paginationRows={[{ a: "1", b: "2", c: "3" }]}
+          columnOrder={["c", "b", "a"]}
+          pinnedColumns={["a"]}
+        />
+      </StrictMode>,
+    );
+    const pinnedColumnsCalls = outputServiceModule.updateOutput.mock.calls.filter(
+      ([, body]: [string, { config: Record<string, unknown> }]) => "pinnedColumns" in body.config,
+    );
+    expect(pinnedColumnsCalls).toHaveLength(1);
+    expect(pinnedColumnsCalls[0]).toEqual(["out-1", { config: { pinnedColumns: ["c"] } }]);
+  });
+
+  // HEL-465 skeptic-final-1 CR2 — the cycle-2 fix's boolean `pinMountedRef`
+  // flipped true on the FIRST of `React.StrictMode`'s two mount-effect
+  // invocations, so the SECOND sailed past the "skip on mount" guard and
+  // called the un-debounced `persistPinnedColumns` with zero user
+  // interaction — confirmed live via network interceptor (skeptic-final-1:
+  // a cold page load AND a navigate-away-and-back both fired an unsolicited
+  // PATCH). CORRECTED (not left as an unverified claim, matching the
+  // "reorder issues exactly ONE PATCH" test above): reverting this fix back
+  // to the boolean `pinMountedRef` shape and re-running this exact test did
+  // NOT reproduce the defect in this Jest/RTL/React-19 harness — verified
+  // directly, not assumed. `React.StrictMode`'s MOUNT-effect double-invoke
+  // (setup → cleanup → setup) is a concurrent-root behavior that this
+  // harness's `render()` does not appear to exercise, even though a
+  // separate probe confirmed it DOES double-invoke `setState` updater
+  // functions here (see the "reorder" test's own comment above). This test
+  // is kept as a correctness assertion (no PATCH belongs on a mere mount,
+  // full stop), not a proven-red regression guard for the specific mount-
+  // double-invoke failure mode — skeptic-final-1's live network interceptor
+  // against the running app is the only evidence that actually caught this,
+  // and is the standard any future claim about this failure mode should be
+  // held to.
+  it("mounting a table panel with a persisted pin fires NO pinnedColumns PATCH (React.StrictMode)", () => {
+    jest.useFakeTimers();
+    renderWithStore(
+      <StrictMode>
+        <TableRenderer
+          outputId="out-1"
+          ownerId="me"
+          paginationRows={[{ a: "1", b: "2", c: "3" }]}
+          columnOrder={["a", "b", "c"]}
+          pinnedColumns={["a"]}
+        />
+      </StrictMode>,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    jest.advanceTimersByTime(5000);
+    const pinnedColumnsCalls = outputServiceModule.updateOutput.mock.calls.filter(
+      ([, body]: [string, { config: Record<string, unknown> }]) => "pinnedColumns" in body.config,
+    );
+    expect(pinnedColumnsCalls).toEqual([]);
   });
 });

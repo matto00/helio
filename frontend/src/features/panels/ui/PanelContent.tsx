@@ -147,6 +147,7 @@ function OutputPanelContent({
         columnSort={cfg.columnSort}
         columnFilters={cfg.columnFilters}
         columnFormats={cfg.columnFormats}
+        pinnedColumns={cfg.pinnedColumns}
       />
     );
   }
