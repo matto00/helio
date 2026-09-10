@@ -22,7 +22,7 @@ npm run format:check # Check formatting without modifying
 Run a single test file:
 
 ```bash
-npm test -- --testPathPattern=dashboardsSlice
+npm test -- --testPathPatterns=dashboardsSlice
 ```
 
 ### Backend (run from `backend/`)
