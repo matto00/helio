@@ -32,7 +32,7 @@ export function SortableTh({
   return (
     <th scope={scope} className={className} aria-sort={ariaSort}>
       <button type="button" className="sortable-th__btn" onClick={onSort}>
-        <span>{children}</span>
+        <span className="sortable-th__label">{children}</span>
         <FontAwesomeIcon
           className={`sortable-th__glyph${direction === null ? " sortable-th__glyph--neutral" : ""}`}
           icon={direction === "asc" ? faSortUp : direction === "desc" ? faSortDown : faSort}

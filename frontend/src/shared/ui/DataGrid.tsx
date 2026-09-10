@@ -942,7 +942,7 @@ export function DataGrid({
                         className="sortable-th__btn"
                         onClick={() => onSort?.(col.key)}
                       >
-                        <span>{col.header ?? col.key}</span>
+                        <span className="sortable-th__label">{col.header ?? col.key}</span>
                         <FontAwesomeIcon
                           className={`sortable-th__glyph${direction === null ? " sortable-th__glyph--neutral" : ""}`}
                           icon={
