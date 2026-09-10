@@ -77,13 +77,15 @@
 .dashboard-appearance-editor__presets {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense preset-chip cluster reads loose at 8px */
+  gap: var(--space-1);
 }
 
 .appearance-preset {
   display: flex;
   align-items: center;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense preset-chip cluster reads loose at 8px */
+  gap: var(--space-1);
   padding: 4px var(--space-2) 4px 4px;
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-md);

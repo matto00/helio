@@ -200,7 +200,8 @@
  * keeps its own chip container (border/padding/pill) rather than inheriting
  * the plain-text treatment. */
 .panel-grid-card__type-badge--invalid {
-  padding: 2px 7px;
+  /* HEL-830: 7px -> 8px, matches sibling chip/badge recipe */
+  padding: 2px var(--space-2);
   border: 1px solid color-mix(in srgb, var(--app-error) 40%, transparent);
   border-radius: var(--app-radius-pill);
   background: var(--app-error-surface);

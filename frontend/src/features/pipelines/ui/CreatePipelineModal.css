@@ -3,7 +3,8 @@
 .create-pipeline-modal__form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  /* HEL-830: 14px -> 16px, form-level field stack reads as card-level breathing room, not a dense-control gap */
+  gap: var(--space-4);
 }
 
 .create-pipeline-modal__field {

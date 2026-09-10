@@ -25,7 +25,8 @@
 }
 
 .source-list-table td {
-  padding: var(--space-2) 10px;
+  /* HEL-830: 10px -> 8px, dense table-row cell padding, matches PipelinesPage.css sibling recipe */
+  padding: var(--space-2);
   border-bottom: 1px solid var(--app-border-subtle);
   color: var(--app-text);
 }

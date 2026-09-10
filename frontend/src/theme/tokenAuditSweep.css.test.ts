@@ -134,80 +134,33 @@ const spacingIsDisallowed = (line: string): boolean => !line.includes("var(--spa
 // (design.md's widened grep, comment-stripped) — see `enumeration.md` in
 // this change dir for the full repo-wide table.
 const SPACING_BASELINE: BaselineEntry[] = [
-  // Re-derived by a fresh regex scan of the post-merge tree (frontend/src/theme's own
-  // SPACING_PATTERN/spacingIsDisallowed against SWEPT_FILES) rather than composed from
-  // prior line-shift arithmetic — two tickets (HEL-442 and HEL-732) independently re-pinned
-  // PipelineDetailPage.css against diverging bases, so no single prior offset is valid
-  // against the merged tree. 62 entries total (42 in PipelineDetailPage.css alone, matching
-  // HEL-442's own reported count for that file), same multiset as both pre-merge sides —
-  // nothing added or removed, only re-derived from scratch.
-  { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 80 },
-  { file: "features/dashboards/ui/DashboardAppearanceEditor.css", line: 86 },
-  { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 106 },
-  // HEL-520: line shifted 333 -> 350 (unchanged content, `padding: 2px
-  // 6px;` on `.pipeline-detail-header__schedule-disabled-badge`) — a new
-  // `:focus-visible { outline-offset: -2px; }` rule + its explanatory
-  // comment were inserted earlier in the file (the flush-fitting-child
-  // clip fix for `.pipeline-detail-header__add-source-btn`).
-  { file: "features/pipelines/ui/PipelineDetailHeader.css", line: 350 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 27 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 229 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 244 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 348 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 698 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 710 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 716 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 751 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 765 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 781 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 795 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 810 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 846 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 866 },
+  // Regenerated from scratch (HEL-830) by running this file's own
+  // SPACING_PATTERN/spacingIsDisallowed against SWEPT_FILES on the
+  // post-snap tree, per design.md's "no line-shift arithmetic" procedure —
+  // HEL-830 snapped all 102 off-scale (>4px) literals this baseline
+  // previously pinned to --space-* tokens. The 10 remaining entries are
+  // all within the <=4px optical-tweak allowance (untouched by HEL-830,
+  // which only targets values > 4px) and were not independently re-traced
+  // line-by-line against the prior 62-entry baseline; this list is the
+  // fresh, reviewable regeneration, diffed against the prior baseline as
+  // this change's artifact rather than hand-adjusted from it.
+  //
+  // Re-regenerated (same script, same procedure) after the evaluator's
+  // cycle-2 CR1 fix to the OutputsRail/PipelineDetailPage 14px->16px
+  // cluster comment inserted 2 extra comment lines above `.pipeline-
+  // detail-page__add-tail-row`, shifting every PipelineDetailPage.css
+  // entry below line ~453 down by one — confirmed identical to a
+  // from-scratch re-run, not a manual +1 offset.
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 28 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 231 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 883 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 901 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 908 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 923 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 948 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 955 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 975 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 984 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 991 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1050 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1051 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1175 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1188 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1305 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1330 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1337 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1384 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1393 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1413 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1422 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1437 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1445 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1458 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1484 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1521 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1548 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1555 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1570 },
-  { file: "features/pipelines/ui/PipelinesPage.css", line: 88 },
-  { file: "features/pipelines/ui/PipelinesPage.css", line: 89 },
-  { file: "features/pipelines/ui/RunHistoryModal.css", line: 6 },
-  { file: "features/pipelines/ui/RunHistoryModal.css", line: 31 },
-  { file: "features/pipelines/ui/RunHistoryModal.css", line: 90 },
-  { file: "features/pipelines/ui/RunHistoryModal.css", line: 132 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 6 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 46 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 53 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 140 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 158 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 249 },
-  { file: "features/sources/ui/SourceDetailPanel.css", line: 20 },
-  { file: "features/sources/ui/SourceDetailPanel.css", line: 104 },
-  { file: "features/sources/ui/SourceDetailPanel.css", line: 182 },
-  { file: "features/sources/ui/SourceDetailPanel.css", line: 187 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 977 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1007 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1216 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1447 },
+  { file: "features/pipelines/ui/RunHistoryModal.css", line: 136 },
+  { file: "features/sources/ui/AddSourceModal.css", line: 144 },
+  { file: "features/sources/ui/AddSourceModal.css", line: 254 },
 ];
 
 const COLOR_PATTERN = /#[0-9a-fA-F]{3,8}\b|rgba?\(/;

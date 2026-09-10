@@ -26,7 +26,8 @@
 }
 
 .pipeline-list-table__td {
-  padding: var(--space-2) 10px;
+  /* HEL-830: 10px -> 8px, dense table-row cell padding */
+  padding: var(--space-2);
   border-bottom: 1px solid var(--app-border-subtle);
   color: var(--app-text);
 }
@@ -85,8 +86,10 @@
 .pipelines-page__create-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
+  /* HEL-830: 5px -> 4px, dense inline control cluster */
+  gap: var(--space-1);
+  /* HEL-830: 4px 10px -> 4px 8px, matches compact button padding idiom */
+  padding: var(--space-1) var(--space-2);
   height: var(--control-sm);
   border: 1px solid transparent;
   border-radius: var(--app-radius-sm);

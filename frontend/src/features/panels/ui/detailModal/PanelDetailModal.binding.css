@@ -3,7 +3,8 @@
   overflow-y: auto;
   padding: var(--space-5);
   display: grid;
-  gap: 14px;
+  /* HEL-830: 14px -> 16px, matches this container's card-level --space-5 padding scale rather than a dense-control gap */
+  gap: var(--space-4);
   align-content: start;
 }
 
@@ -125,7 +126,8 @@
 
 .panel-detail-modal__type-search {
   width: 100%;
-  padding: 7px 10px;
+  /* HEL-830: 7px 10px -> 8px 12px, matches the repo-wide var(--space-2) var(--space-3) input padding idiom */
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
@@ -171,7 +173,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 7px 10px;
+  /* HEL-830: 7px 10px -> 8px 12px, matches the repo-wide var(--space-2) var(--space-3) input padding idiom */
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--app-accent);
   border-radius: var(--app-radius-sm);
   background: var(--app-accent-surface);
@@ -189,7 +192,8 @@
 
 .panel-detail-modal__type-badge {
   font-size: var(--text-xs);
-  padding: 2px 6px;
+  /* HEL-830: 6px -> 8px, chip/badge padding reads compressed at 4px */
+  padding: 2px var(--space-2);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   border: 1px solid var(--app-border-subtle);
@@ -262,7 +266,8 @@
 
 .panel-detail-modal__mapping-select {
   width: 100%;
-  padding: 6px var(--space-2);
+  /* HEL-830: 6px -> 4px vertical, keeps this recipe balanced against its own 8px horizontal value rather than inflating both axes */
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
@@ -354,7 +359,8 @@
 .panel-detail-modal__metric-deprecated {
   display: inline-block;
   margin-left: var(--space-2);
-  padding: 2px 7px;
+  /* HEL-830: 7px -> 8px, matches sibling chip/badge recipe */
+  padding: 2px var(--space-2);
   border-radius: var(--app-radius-pill);
   background: var(--app-warning-surface);
   color: var(--app-warning);

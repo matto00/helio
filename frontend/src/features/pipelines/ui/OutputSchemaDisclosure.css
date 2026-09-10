@@ -45,5 +45,6 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
+  /* HEL-830: 5px -> 4px, nearest step */
+  gap: var(--space-1);
 }
