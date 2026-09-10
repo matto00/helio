@@ -27,7 +27,14 @@ const PREVIEW_SKELETON_COLS = 4;
 export function SourcePreviewSkeleton() {
   return (
     <div
-      className="ui-data-grid ui-data-grid--preview ui-data-grid--condensed"
+      // HEL-1056 — `.ui-data-grid__frame--preview` now owns the collapsible
+      // `margin-top` that used to live on `.ui-data-grid--preview` itself
+      // (see DataGrid.css). This skeleton renders no frame (D3 — it has none
+      // of the toolbar/quick-filter chrome the frame exists to host), so it
+      // must carry that class directly on its own root or it silently loses
+      // its top margin and regresses 6px short of both the resolved state
+      // and the pre-reframe baseline. Evaluator-1 caught this live.
+      className="ui-data-grid__frame--preview ui-data-grid ui-data-grid--preview ui-data-grid--condensed"
       aria-label="Loading preview"
     >
       <table className="ui-data-grid__table">
