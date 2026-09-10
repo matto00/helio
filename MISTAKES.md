@@ -75,6 +75,46 @@ positive creates a blind spot that is invisible because the narrowing was
 justified** — anchoring a search to `var(--app-accent)` to stop it matching
 `border-color` is exactly what hid 8 failing `--app-accent-strong` sites.
 
+### A local gate that fails where CI passes is a claim about your machine
+
+`node_modules` does not update itself. A worktree can sit many minor versions
+behind the lockfile indefinitely, and nothing announces it — `npm run typecheck`
+just starts failing on code that is fine.
+
+This shipped a false diagnosis into a squash commit message on HEL-830. Local
+typecheck reported `'lucide-react' has no exported member 'RotateCcwClock'` in two
+files. The lane concluded `main` was broken and "fixed" it by importing
+`RotateCcwIcon` instead. Every part of that was wrong:
+
+- `package-lock.json` pinned `lucide-react@1.40.0`; the installed tree was
+  **`1.14.0`**. CI installs from the lockfile, so CI was green and correct.
+- PR #623 had passed **every** check — `frontend`, `e2e`, `ci-complete`. A green
+  CI run against a red local run is not a conflict to be split; CI is the one
+  measuring the declared dependency set.
+- `RotateCcwClock` is lucide's **canonical name for `History`** (a clock with a
+  rotate arrow). `RotateCcwIcon` is a plain undo arrow. The two call sites were
+  the audit-history and run-history empty states, so the "import fix" would have
+  silently degraded the icon on exactly the surfaces where history is the
+  subject — with the suite green either way.
+
+**The rule.** When a local gate fails and CI passes, suspect the environment
+before the code, and settle it with a measurement rather than a judgement:
+
+```bash
+node -p "require('<pkg>/package.json').version"   # what is actually installed
+grep -A2 '"node_modules/<pkg>"' package-lock.json  # what is supposed to be
+npm ci                                             # make them agree, then re-run
+```
+
+If the export's existence is the question, read the published artifact rather
+than the local one: `npm pack <pkg>@<version>`, untar, grep the shipped `.d.ts`.
+
+**The wider trap:** a fix justified by a false premise still has to pass review,
+and it passes easily, because reviewers check whether the change is correct
+_given the stated problem_ and rarely re-check the problem. Every gate on that
+ticket had also run against the stale tree, so no local evidence on the run was
+measuring what CI measures. (HEL-830, HEL-443.)
+
 ---
 
 ## Data and persistence
