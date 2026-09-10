@@ -141,6 +141,14 @@
 .ui-data-grid__table thead th {
   position: sticky;
   top: 0;
+  /* HEL-465 design.md Decision 5 — z-index scale, new work (this file had
+     none before this ticket). Tier 2: singly-sticky-on-the-top-axis cells
+     (this rule reaches both the header row and, via
+     `.ui-data-grid__filter-row th` below, the per-column filter row — the
+     two never spatially overlap, so both share this tier). A pinned column
+     overrides this to tier 3 via an inline `z-index` (DataGrid.tsx), which
+     wins over this rule regardless of selector specificity. */
+  z-index: 2;
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
   font-weight: var(--weight-semibold);
@@ -154,6 +162,134 @@
      hover tooltip of the full column name. */
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ── Column pinning (full variant only, HEL-465) ──
+   `left`/`z-index` are computed per-cell (DataGrid.tsx `pinnedOffsets`) and
+   applied inline — position/left/z-index cannot come from a shared class
+   since the offset differs per pinned column. This rule only supplies
+   `position: sticky` (a `<td>` has none by default, unlike `<th>` above,
+   which already gets it from the rule above) and the panel-surface-matched
+   background (design.md Decision 6, skeptic CR4 + round-2 CR1): the
+   established in-repo idiom for "this panel's actual surface, falling back
+   to the app default" — already used at 5 sites (PanelGrid.css,
+   PanelContent.css, MarkdownPanel.css, CollectionRenderer.css) — so a
+   customized/translucent panel background is respected rather than
+   overridden, and scrolling content never bleeds through beneath a pinned
+   column any more than it would through any other panel chrome. Pinned
+   `<th>` cells keep the existing `--app-surface-soft` header background
+   from the rule above (already opaque, unrelated to panel appearance) —
+   this rule only needs `position: sticky` for them too, harmlessly
+   redundant with the `<th>` rule's own `position: sticky`. */
+.ui-data-grid__pinned-cell {
+  position: sticky;
+}
+
+.ui-data-grid__table tbody td.ui-data-grid__pinned-cell {
+  background: var(--panel-surface-override, var(--app-surface));
+  /* Tier 1 (design.md Decision 5) — singly-sticky-on-the-left-axis body
+     cells; a body cell can never spatially overlap the header/filter-row
+     corner cells (tier 3) or the non-pinned sticky header/filter cells
+     (tier 2), but it CAN overlap a scrolling body cell, which needs this
+     to render above it. Also set inline (DataGrid.tsx) for consistency
+     with the pinned header/filter cells, which must set it inline since
+     their tier (3) differs from this rule's own default (2, from the
+     `thead th` rule) — kept here too as the CSS-level source of truth. */
+  z-index: 1;
+}
+
+/* HEL-465 design.md Decision 8, CORRECTED A THIRD TIME (skeptic-final-2
+   CR1, BLOCKING — last round in budget): rounds 1 and 2 both painted
+   nothing, or painted only at rest, because of two SEPARATE `border-
+   collapse: collapse` interactions, not one:
+   - Round 1's non-inset `box-shadow` painted ZERO pixels, ever — Chrome
+     does not paint `box-shadow` on table cells under `collapse` at all
+     (skeptic-final-1, probe-confirmed).
+   - Round 2's `border-right` (this comment's own prior text, now corrected)
+     painted at `scrollLeft: 0` but VANISHED once the table scrolled — a
+     collapsed table's cell borders are painted at the cell's STATIC
+     (unscrolled) layout position, not the sticky cell's current on-screen
+     position, so as the pinned cell's box moves under scroll the border
+     stays behind at its original spot (skeptic-final-2, probe-confirmed
+     live at `scrollLeft: 600`). This was NOT re-verified with real
+     scrolled-state pixel sampling before being called done in round 2 —
+     only at-rest sampling, which the collapsed-border mechanism happens to
+     satisfy trivially. Do not repeat that precondition-guaranteed-pass
+     shape again.
+
+   The fix is a `::after` pseudo-element, not a border: it paints INSIDE
+   the pinned cell's own box (at `right: 0`, so the cell's `overflow:
+   hidden` never clips it), and the pinned cell is already `position:
+   sticky` (see the rule above), which is itself a valid containing block
+   for an absolutely-positioned child — no extra `position: relative` is
+   needed. Because it is drawn as part of the cell's own content rather
+   than a collapsed-table border, it moves WITH the sticky cell under
+   scroll instead of staying pinned to a static layout position. Verified
+   live by the skeptic at a non-zero `scrollLeft` (600px) in both themes,
+   spanning header, filter row, and body rows — this file's own Jest
+   coverage can only assert the CSS declaration exists (jsdom has no real
+   scroll/paint engine), not that it renders correctly under scroll; that
+   is why this is a skeptic-verified item, not a Jest-provable one. */
+.ui-data-grid__pinned-cell--last::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--app-text) 35%, transparent);
+  pointer-events: none;
+}
+
+/* ── Column pin toggle (full variant only, HEL-465, design.md Decision 3) ──
+   CORRECTED (evaluation-1.md CR1): routed through the shared `IconButton`
+   primitive (DESIGN.md §5) rather than a hand-rolled `<button>`.
+   CORRECTED AGAIN (skeptic-final-3, BLOCKING, last round): this control used
+   to be plain INLINE flow content after the header label, which is exactly
+   the shape `.ui-data-grid__table thead th`'s `white-space: nowrap;
+   overflow: hidden; text-overflow: ellipsis` (required for `table-layout:
+   fixed`, HEL-253) actively works against — on any column whose header
+   text is long enough to ellipsize, inline layout pushed this control past
+   the cell's own right edge, where it was silently clipped away: reproduced
+   live on a real 82-column table, 23/61 header cells (38%) had the button's
+   box entirely outside the cell, unclickable (`elementFromPoint` at its
+   center resolved to a NEIGHBORING cell), and still keyboard-focusable with
+   an invisible ring since the whole control was clipped.
+
+   `.ui-data-grid__resize-handle` (HEL-253, below) already solves exactly
+   this problem for a different trailing-edge control in the same `<th>` —
+   `position: absolute` escapes the inline flow (and its interaction with
+   `overflow: hidden`/`text-overflow: ellipsis`) entirely, so its position
+   is independent of how much of the header text got truncated. This
+   control reuses that same approach rather than inventing a new one:
+   `position: absolute`, vertically centered (`top: 50%; transform:
+   translateY(-50%)`, not `top: 0; bottom: 0` — this control has a FIXED
+   24px height from `.ui-icon-btn--xs`, which `top`/`bottom` both set to 0
+   would either stretch or over-constrain depending on the box model rather
+   than reliably center it), offset far enough from the `<th>`'s own right
+   edge (`right: var(--space-6)`, 24px) to clear the resize handle's own
+   4px-beyond-the-edge hit area with room to spare — the two controls'
+   click targets never overlap. `.ui-data-grid__table thead th` is already
+   `position: sticky` (a valid containing block for an absolutely
+   positioned descendant, exactly like `.ui-data-grid__resize-handle`
+   already relies on), so no extra `position: relative` is needed here
+   either. The selector is scoped to `.ui-data-grid__table thead th` (not
+   just the bare class) for specificity robustness against `IconButton.css`
+   — both stylesheets set `.ui-icon-btn--xs`-level properties and this rule
+   must win regardless of either file's import order. */
+.ui-data-grid__table thead th .ui-data-grid__pin-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: var(--space-6);
+  transform: translateY(-50%);
+}
+
+/* `--app-accent-text` (HEL-1048), not `--app-accent` — the accent-as-TEXT
+   colour needs the 4.5:1 text-contrast-obligated derived token, not the raw
+   accent (accentTextClosureGuard.css.test.ts). Matches
+   `.ui-data-grid__filter-toggle-btn--active` above, same reasoning. */
+.ui-data-grid__pin-toggle-btn[aria-pressed="true"] {
+  color: var(--app-accent-text);
 }
 
 /* ── Column resize handle (full variant only, HEL-253) ── */
@@ -223,6 +359,50 @@
 .ui-data-grid--spacious .ui-data-grid__table td {
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-base);
+}
+
+/* HEL-465 skeptic-final-4 CR1 (BLOCKING, last round) — the missing half of
+   the round-3/round-4 pin-toggle fix: round 4 gave the toggle `position:
+   absolute` so a truncating header no longer pushes it out of the cell
+   (design.md Decision 3), but never reserved the SPACE it now occupies,
+   so the header LABEL's own text (inside `.sortable-th__btn`, which the
+   `<th>`'s `text-overflow: ellipsis` never reaches — only the `<th>`'s
+   OWN direct text content would be) kept rendering full-width and painting
+   underneath the icon on any column whose label is long enough — measured
+   live: 8/73 header cells bare, 28/75 once several columns are pinned (the
+   feature's own normal, not-a-corner-case state). `padding-right` shrinks
+   the `<th>`'s available content width so the header content's own clip
+   boundary (`.ui-data-grid__table thead th`'s `overflow: hidden`) sits
+   BEFORE the icon's position, not underneath/past it — `.sortable-th__btn`
+   (`SortableTh.css`) has no ellipsis affordance of its own today (the
+   `<th>`'s `text-overflow: ellipsis` only reaches a DIRECT text child,
+   which a sortable column's wrapping `<button>` is not; that pre-existing
+   gap is unrelated to this ticket and not fixed here), so the label still
+   hard-clips rather than ellipsizing — this fix only relocates WHERE the
+   clip happens, from "under the icon" (wrong: icon reads as floating over
+   live text) to "before the icon" (correct: the icon never overlaps
+   visible content). Sized to clear exactly what the toggle now occupies:
+   its
+   `right: var(--space-6)` offset (DataGrid.css, below) plus its own 24px
+   width (`IconButton` `size="xs"`) = `var(--space-9)` (48px) — ADDED on
+   top of each density's own existing right padding (not replacing it), so
+   the reservation is additive across every density tier rather than
+   hardcoding one density's base value. Scoped to
+   `.ui-data-grid__th--pin-reserve` (DataGrid.tsx: applied whenever the pin
+   toggle actually renders in this `<th>` — `pinnable && onPinToggle`, the
+   exact same condition gating the toggle itself) so a `DataGrid` consumer
+   that never wires up `onPinToggle` never loses header width to a control
+   that isn't there. */
+.ui-data-grid--condensed .ui-data-grid__table thead th.ui-data-grid__th--pin-reserve {
+  padding-right: calc(var(--space-2) + var(--space-9));
+}
+
+.ui-data-grid--normal .ui-data-grid__table thead th.ui-data-grid__th--pin-reserve {
+  padding-right: calc(var(--space-3) + var(--space-9));
+}
+
+.ui-data-grid--spacious .ui-data-grid__table thead th.ui-data-grid__th--pin-reserve {
+  padding-right: calc(var(--space-4) + var(--space-9));
 }
 
 /* HEL-451 skeptic-evaluator CR2 — the frame-level chrome (toolbar,
@@ -407,8 +587,34 @@
 @media (max-width: 430px), (pointer: coarse) {
   .ui-data-grid__filter-input,
   .ui-data-grid__filter-toggle-btn,
-  .ui-data-grid__filter-clear-all-btn {
+  .ui-data-grid__filter-clear-all-btn,
+  /* HEL-465 evaluation-1.md CR1 — the pin toggle's `IconButton` renders at
+     its `xs` (24px) size in the dense header row; widened to the same 44px
+     floor as its filter-row siblings above on a coarse pointer. */
+  .ui-data-grid__pin-toggle-btn {
     min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* HEL-465 skeptic-final-4 CR2 (BLOCKING, last round) — the 44px floor
+     above collides with `position: absolute` (design.md Decision 3) inside
+     a ~35px-tall header row (this file's own density padding + font size)
+     that is itself `overflow: hidden`: the widened, vertically-centered
+     control simply gets clipped 5-9px top/bottom, splitting its
+     `:focus-visible` ring into two disconnected bars — probe-confirmed
+     live (skeptic-final-4): reverting the toggle to `position: static`
+     in-browser grows the row to 61px on its own and the clipping
+     disappears, i.e. the ROW's own height, not the control, is what must
+     change on this surface. `min-height: 48px` (44px control + a small
+     buffer for its `outline-offset: 2px` ring) on the header `<th>` gives
+     the absolutely positioned, vertically-centered 44px control room to
+     sit fully inside the row's own clip box, matching the 44px floor
+     everywhere else in this file — NOT shrinking the control to fit,
+     which the touch-target floor forbids. Scoped to the header row only
+     (`thead th`); body/filter-row cells carry no absolutely positioned
+     control and don't need this. */
+  .ui-data-grid__table thead th {
+    min-height: 48px;
   }
 }
 

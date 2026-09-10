@@ -11,7 +11,13 @@ import {
   type ReactNode,
 } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSort, faSortDown, faSortUp } from "@fortawesome/free-solid-svg-icons";
+import {
+  faSort,
+  faSortDown,
+  faSortUp,
+  faThumbtack,
+  faThumbtackSlash,
+} from "@fortawesome/free-solid-svg-icons";
 
 import "./DataGrid.css";
 // HEL-448 design D4: `SortableTh` cannot be rendered directly here (it puts
@@ -21,6 +27,7 @@ import "./DataGrid.css";
 // drift apart visually — importing its CSS here keeps that true regardless
 // of whether a `SortableTh` happens to be mounted elsewhere on the page.
 import "./SortableTh.css";
+import { IconButton } from "./IconButton";
 import { useScrollEdges } from "./useScrollEdges";
 import type { SortDirection, SortState } from "./useSortedRows";
 
@@ -240,7 +247,75 @@ interface DataGridProps {
   /** Fired when the quick-filter or a per-column filter input changes,
    *  reporting the FULL next `filters` value (not a diff). */
   onFilterChange?: (next: { quick?: string; columns?: Record<string, string> }) => void;
+  /**
+   * HEL-465 — a leading prefix of the `columns` array `DataGrid` was given
+   * (design.md Decision 1 ownership split: `DataGrid` has no `columnOrder`
+   * prop, so it never derives this itself — the caller, `TableRenderer`,
+   * owns re-deriving it on reorder). Only rendered in the `"full"` variant;
+   * ignored on `"preview"`. Pinned entries not found as a leading, contiguous
+   * run of `columns` (by key) are treated as unpinned — `DataGrid` never
+   * renders a gap.
+   */
+  pinnedColumns?: string[];
+  /**
+   * Fired when a column header's pin/unpin control is activated (click or
+   * keyboard). `DataGrid` reports only the target column's key; computing
+   * the next leading-run pinned set (design.md Decision 1) is the caller's
+   * responsibility (`TableRenderer`, task 3.3) — mirrors `onColumnResize`/
+   * `onSort` in leaving all persistence/derivation to the caller. Only wired
+   * up in the `"full"` variant.
+   */
+  onPinToggle?: (key: string) => void;
   className?: string;
+}
+
+/**
+ * HEL-465 design.md Decision 1/4 — number of leading `columns` entries that
+ * are pinned. `pinnedColumns` is a set of keys, but pin state is only ever a
+ * CONTIGUOUS leading run (Decision 1); this walks `columns` from the front
+ * and stops at the first key not present in `pinnedColumns`, so a caller
+ * that (incorrectly) passes a non-contiguous or non-leading set never
+ * produces a visual gap — it degrades to "however much of the front matches".
+ */
+function pinnedCount(columns: ColumnDef[], pinnedColumns: string[] | undefined): number {
+  if (!pinnedColumns || pinnedColumns.length === 0) return 0;
+  const pinnedSet = new Set(pinnedColumns);
+  let count = 0;
+  for (const col of columns) {
+    if (!pinnedSet.has(col.key)) break;
+    count += 1;
+  }
+  return count;
+}
+
+/**
+ * HEL-465 design.md Decision 4 — sticky-left offset for each pinned column,
+ * reusing the EXACT fallback chain `appliedWidth` (below) already uses for
+ * rendering width (`liveWidths ?? columnWidths ?? col.width ??
+ * DEFAULT_COLUMN_WIDTH`), so a pinned column's offset never drifts from what
+ * it is actually rendered at. Density-agnostic by construction (design.md
+ * Decision 7) — it only sums widths, never padding. Pure and exported for
+ * Jest coverage (task 5.1); not a React hook, so it takes no dependency
+ * array of its own — callers recompute it inline on every render, which is
+ * cheap at panel column counts.
+ */
+export function computePinnedOffsets(
+  columns: ColumnDef[],
+  count: number,
+  liveWidths: Record<string, number>,
+  columnWidths: Record<string, number> | undefined,
+): Record<string, number> {
+  const offsets: Record<string, number> = {};
+  let running = 0;
+  for (let i = 0; i < count; i++) {
+    const col = columns[i];
+    offsets[col.key] = running;
+    const width =
+      liveWidths[col.key] ?? columnWidths?.[col.key] ?? col.width ?? DEFAULT_COLUMN_WIDTH;
+    const numericWidth = typeof width === "number" ? width : Number(width);
+    running += Number.isFinite(numericWidth) ? numericWidth : DEFAULT_COLUMN_WIDTH;
+  }
+  return offsets;
 }
 
 const DEFAULT_DENSITY: Record<DataGridVariant, DataGridDensity> = {
@@ -290,6 +365,8 @@ export function DataGrid({
   emptyAction,
   filters,
   onFilterChange,
+  pinnedColumns,
+  onPinToggle,
   className,
 }: DataGridProps) {
   const resolvedColumns = useMemo(() => columns ?? deriveColumns(rows), [rows, columns]);
@@ -297,6 +374,9 @@ export function DataGrid({
   const resizable = variant === "full";
   const sortable = variant === "full" && onSort != null;
   const filterable = variant === "full" && onFilterChange != null;
+  // HEL-465: `preview` never renders sticky-left columns (ticket Out of
+  // Scope), regardless of what `pinnedColumns` is passed.
+  const pinnable = variant === "full";
   // HEL-451 design D5: whether ANY filter term is active — drives both the
   // filtered-empty markup shape and (via `emptyAction`, supplied by the
   // caller) whether the empty state offers a way out.
@@ -461,6 +541,17 @@ export function DataGrid({
   useEffect(() => {
     onColumnResizeRef.current = onColumnResize;
   }, [onColumnResize]);
+
+  // HEL-465: recomputed on every render (cheap at panel column counts, see
+  // `computePinnedOffsets`'s own doc comment) — always in sync with resize
+  // (`liveWidths`/`columnWidths`), pin-set (`pinnedColumns`), or reorder
+  // (`resolvedColumns`) changes without needing its own dependency array.
+  const numPinned = pinnable ? pinnedCount(resolvedColumns, pinnedColumns) : 0;
+  const pinnedOffsets = useMemo(
+    () => computePinnedOffsets(resolvedColumns, numPinned, liveWidths, columnWidths),
+    [resolvedColumns, numPinned, liveWidths, columnWidths],
+  );
+  const lastPinnedKey = numPinned > 0 ? resolvedColumns[numPinned - 1]?.key : undefined;
 
   // Drag gesture: mousedown on the handle starts tracking, mousemove reports
   // the live width, mouseup tears the listeners back down. `onMove`/`onEnd`
@@ -699,7 +790,7 @@ export function DataGrid({
         <table className="ui-data-grid__table">
           <thead>
             <tr ref={headerRowRef} className="ui-data-grid__header-row">
-              {resolvedColumns.map((col) => {
+              {resolvedColumns.map((col, index) => {
                 const appliedWidth = resizable
                   ? (liveWidths[col.key] ??
                     columnWidths?.[col.key] ??
@@ -721,13 +812,41 @@ export function DataGrid({
                     : direction === "desc"
                       ? "descending"
                       : "none";
+                // HEL-465 design.md Decision 1/3/5: pinned header cells are
+                // doubly-sticky (top from the pre-existing header-row
+                // behavior, left from this ticket) — z-index 3, the highest
+                // tier. Non-pinned header cells stay at z-index 2 (singly
+                // top-sticky), unaffected by this ticket other than the
+                // tier number now being explicit.
+                const isPinned = index < numPinned;
+                const isLastPinned = col.key === lastPinnedKey;
+                // HEL-465 skeptic-final-4 CR1 (BLOCKING, last round) — the
+                // header label needs its own right padding reserved
+                // whenever the pin toggle renders in this `<th>` (exactly
+                // `pinnable && onPinToggle`, the same condition gating the
+                // toggle itself below), or the label's `text-overflow:
+                // ellipsis` never engages before the icon and the label
+                // paints UNDERNEATH it on a truncating column instead —
+                // measured live at 8/73 bare, 28/75 once several columns
+                // are pinned (the feature's own normal state). See
+                // `.ui-data-grid__th--pin-reserve` (DataGrid.css) for the
+                // reserved width's derivation.
+                const headerClasses = [
+                  isPinned ? "ui-data-grid__pinned-cell" : null,
+                  isPinned && isLastPinned ? "ui-data-grid__pinned-cell--last" : null,
+                  pinnable && onPinToggle ? "ui-data-grid__th--pin-reserve" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ");
                 return (
                   <th
                     key={col.key}
                     title={col.header ?? col.key}
+                    className={headerClasses || undefined}
                     style={{
                       ...(appliedWidth !== undefined ? { width: appliedWidth } : undefined),
                       ...(col.align ? { textAlign: col.align } : undefined),
+                      ...(isPinned ? { left: pinnedOffsets[col.key], zIndex: 3 } : undefined),
                     }}
                     aria-sort={ariaSort}
                   >
@@ -752,6 +871,40 @@ export function DataGrid({
                       </button>
                     ) : (
                       (col.header ?? col.key)
+                    )}
+                    {pinnable && onPinToggle && (
+                      // HEL-465 design.md Decision 1 consequence/3, CORRECTED
+                      // (evaluation-1.md CR1): routed through the shared
+                      // `IconButton` primitive (DESIGN.md §5) rather than a
+                      // hand-rolled `<button>` — a third, independently-
+                      // focusable control (mirrors the resize handle's own
+                      // tab stop), not a dropdown menu. `aria-label` states
+                      // "pin through" whenever activating it would newly pin
+                      // more than one column (every unpinned column ahead of
+                      // this one, per Decision 1's leading-run constraint) —
+                      // computed here from `numPinned`/`index` since both are
+                      // already known to `DataGrid` without needing
+                      // `columnOrder` itself. `title` is deliberately SHORTER
+                      // and distinct from `aria-label` — without it, the
+                      // enclosing `<th title={col.header}>`'s tooltip would
+                      // show through, naming the COLUMN rather than the
+                      // ACTION (evaluation-1.md CR1).
+                      <IconButton
+                        icon={<FontAwesomeIcon icon={isPinned ? faThumbtackSlash : faThumbtack} />}
+                        variant="ghost"
+                        size="xs"
+                        className="ui-data-grid__pin-toggle-btn"
+                        aria-pressed={isPinned}
+                        aria-label={
+                          isPinned
+                            ? `Unpin column ${col.header ?? col.key}`
+                            : index - numPinned > 0
+                              ? `Pin through column ${col.header ?? col.key}`
+                              : `Pin column ${col.header ?? col.key}`
+                        }
+                        title={isPinned ? "Unpin" : "Pin"}
+                        onClick={() => onPinToggle(col.key)}
+                      />
                     )}
                     {resizable && (
                       <span
@@ -778,18 +931,37 @@ export function DataGrid({
                 toggle row and quick-filter row moved to frame chrome. */}
             {filterable && filterExpanded && (
               <tr className="ui-data-grid__filter-row ui-data-grid__filter-row--columns">
-                {resolvedColumns.map((col) => (
-                  <th key={col.key} style={{ top: columnsRowTop }}>
-                    <input
-                      type="text"
-                      className="ui-data-grid__filter-input"
-                      aria-label={`Filter column ${col.header ?? col.key}`}
-                      placeholder="Filter…"
-                      value={columnTerms[col.key] ?? ""}
-                      onChange={handleColumnFilterChange(col.key)}
-                    />
-                  </th>
-                ))}
+                {resolvedColumns.map((col, index) => {
+                  // HEL-465 design.md Decision 5/6: the filter-row corner
+                  // cell (a pinned column's filter-input `<th>`, when the
+                  // filter row is expanded) is doubly-sticky exactly like
+                  // the header corner cell above — same z-index 3 tier.
+                  const isPinned = index < numPinned;
+                  const isLastPinned = col.key === lastPinnedKey;
+                  return (
+                    <th
+                      key={col.key}
+                      className={
+                        isPinned
+                          ? `ui-data-grid__pinned-cell${isLastPinned ? " ui-data-grid__pinned-cell--last" : ""}`
+                          : undefined
+                      }
+                      style={{
+                        top: columnsRowTop,
+                        ...(isPinned ? { left: pinnedOffsets[col.key], zIndex: 3 } : undefined),
+                      }}
+                    >
+                      <input
+                        type="text"
+                        className="ui-data-grid__filter-input"
+                        aria-label={`Filter column ${col.header ?? col.key}`}
+                        placeholder="Filter…"
+                        value={columnTerms[col.key] ?? ""}
+                        onChange={handleColumnFilterChange(col.key)}
+                      />
+                    </th>
+                  );
+                })}
               </tr>
             )}
           </thead>
@@ -804,10 +976,27 @@ export function DataGrid({
                 state a floor height so it cannot collapse to a 0px sliver. */}
             {rows.map((row, i) => (
               <tr key={i}>
-                {resolvedColumns.map((col) => {
+                {resolvedColumns.map((col, index) => {
                   const value = row[col.key];
+                  // HEL-465 design.md Decision 4/5/6: pinned body cells are
+                  // singly-sticky (left only, z-index 1) — below both sticky
+                  // tiers used by the header/filter-row corner cells above,
+                  // since a body cell can never spatially overlap them.
+                  const isPinned = index < numPinned;
+                  const isLastPinned = col.key === lastPinnedKey;
                   return (
-                    <td key={col.key} style={col.align ? { textAlign: col.align } : undefined}>
+                    <td
+                      key={col.key}
+                      className={
+                        isPinned
+                          ? `ui-data-grid__pinned-cell${isLastPinned ? " ui-data-grid__pinned-cell--last" : ""}`
+                          : undefined
+                      }
+                      style={{
+                        ...(col.align ? { textAlign: col.align } : undefined),
+                        ...(isPinned ? { left: pinnedOffsets[col.key], zIndex: 1 } : undefined),
+                      }}
+                    >
                       {col.render ? col.render(row, value) : formatCell(value)}
                     </td>
                   );

@@ -221,3 +221,47 @@ describe("readTableConfig — columnFormats (HEL-469 design task 1.3)", () => {
     },
   );
 });
+
+// HEL-465 design.md Decision 1/6 — tolerant `pinnedColumns` parse, mirroring
+// `columnOrder`'s own array read above.
+describe("readTableConfig — pinnedColumns (HEL-465)", () => {
+  it("round-trips a well-formed pinnedColumns array", () => {
+    const cfg = readTableConfig({ pinnedColumns: ["a", "b"] });
+    expect(cfg.pinnedColumns).toEqual(["a", "b"]);
+  });
+
+  it("round-trips an explicit empty array (the clear-to-empty write, design.md Decision 6)", () => {
+    const cfg = readTableConfig({ pinnedColumns: [] });
+    expect(cfg.pinnedColumns).toEqual([]);
+  });
+
+  it("is undefined when pinnedColumns is absent entirely", () => {
+    expect(readTableConfig({}).pinnedColumns).toBeUndefined();
+  });
+
+  it("falls back to undefined when pinnedColumns is not an array (a bare string)", () => {
+    expect(readTableConfig({ pinnedColumns: "a" }).pinnedColumns).toBeUndefined();
+  });
+
+  it("drops non-string entries, keeping the rest", () => {
+    const cfg = readTableConfig({ pinnedColumns: ["a", 42, "b", null] });
+    expect(cfg.pinnedColumns).toEqual(["a", "b"]);
+  });
+
+  it("never throws on a malformed pinnedColumns value", () => {
+    expect(() => readTableConfig({ pinnedColumns: { a: 1 } })).not.toThrow();
+    expect(readTableConfig({ pinnedColumns: { a: 1 } }).pinnedColumns).toBeUndefined();
+  });
+
+  it("pinnedColumns parsing is independent of columnOrder/columnSort/columnFilters/columnFormats", () => {
+    const cfg = readTableConfig({
+      columnOrder: ["amount", "id"],
+      columnSort: { key: "amount", direction: "desc" },
+      columnFilters: { quick: "emea" },
+      columnFormats: { amount: { type: "currency" } },
+      pinnedColumns: ["amount"],
+    });
+    expect(cfg.pinnedColumns).toEqual(["amount"]);
+    expect(cfg.columnOrder).toEqual(["amount", "id"]);
+  });
+});

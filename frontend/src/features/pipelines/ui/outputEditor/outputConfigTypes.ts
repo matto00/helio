@@ -95,6 +95,11 @@ export interface TableOutputConfig {
    *  the key — `mergeConfig`'s shallow merge leaves an omitted key intact
    *  (design D3b), which is exactly wrong for clearing. */
   columnFormats?: TableColumnFormats;
+  /** HEL-465 — a leading, contiguous run of `columnOrder`'s keys (design.md
+   *  Decision 1); flat sibling for the same shallow-merge reason as every
+   *  other field here. Clearing MUST write `[]`, never omit the key
+   *  (design.md Decision 6). */
+  pinnedColumns?: string[];
 }
 
 /** Numeric display style for `metric`/`collection baseType: metric` renderers
@@ -234,6 +239,14 @@ function readColumnFormats(value: unknown): TableColumnFormats | undefined {
   return out;
 }
 
+/** Tolerant read for `pinnedColumns` (HEL-465): a non-array value yields
+ *  `undefined`; non-string entries are dropped, mirroring `columnOrder`'s own
+ *  read above. */
+function readPinnedColumns(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((v): v is string => typeof v === "string");
+}
+
 export function readTableConfig(config: Record<string, unknown>): TableOutputConfig {
   return {
     fieldMapping: safeRecord(config.fieldMapping),
@@ -241,6 +254,7 @@ export function readTableConfig(config: Record<string, unknown>): TableOutputCon
     columnSort: readColumnSort(config.columnSort),
     columnFilters: readColumnFilters(config.columnFilters),
     columnFormats: readColumnFormats(config.columnFormats),
+    pinnedColumns: readPinnedColumns(config.pinnedColumns),
   };
 }
 
