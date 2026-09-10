@@ -17,7 +17,8 @@
 .source-detail-panel__title-row {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  /* HEL-830: 10px -> 8px, dense inline title-row cluster */
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -101,7 +102,8 @@
 .source-detail-panel__header-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense inline action cluster */
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
@@ -109,7 +111,8 @@
 .source-detail-panel__delete-confirm-btn,
 .source-detail-panel__delete-cancel-btn {
   height: var(--control-sm);
-  padding: 0 10px;
+  /* HEL-830: 10px -> 8px, matches this control's compact sizing */
+  padding: 0 var(--space-2);
   border-radius: var(--app-radius-sm);
   font-size: var(--text-xs);
   cursor: pointer;
@@ -152,7 +155,8 @@
 }
 
 .source-detail-panel__section-title {
-  margin: 0 0 6px;
+  /* HEL-830: 6px -> 4px, nearest step */
+  margin: 0 0 var(--space-1);
   color: var(--app-text-muted);
 }
 
@@ -179,12 +183,14 @@
   color: var(--app-text-muted);
   font-weight: var(--weight-semibold);
   text-align: left;
-  padding: 6px 10px;
+  /* HEL-830: 6px 10px -> 8px 12px, matches the repo-wide var(--space-2) var(--space-3) input/cell padding idiom */
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--app-border-subtle);
 }
 
 .source-detail-panel__schema-table tbody td {
-  padding: 5px 10px;
+  /* HEL-830: 5px 10px -> 4px 12px, matches this table's th row (8px 12px snapped to keep the vertical rhythm denser for data rows) */
+  padding: var(--space-1) var(--space-3);
   border-bottom: 1px solid var(--app-border-subtle);
   color: var(--app-text);
 }
@@ -200,7 +206,8 @@
 
 .source-detail-panel__empty-schema {
   margin-top: var(--space-3);
-  padding: 10px var(--space-3);
+  /* HEL-830: 10px -> 12px, matches this container's own --space-3 horizontal padding */
+  padding: var(--space-3);
   border: 1px dashed var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);

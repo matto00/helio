@@ -11,13 +11,15 @@
 
 .panel-detail-modal__chart-subsection {
   display: grid;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense subsection stack reads loose at 8px */
+  gap: var(--space-1);
 }
 
 .panel-detail-modal__chart-label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, icon+label inline cluster */
+  gap: var(--space-1);
   font-size: var(--text-sm);
   color: var(--app-text-muted);
 }
@@ -32,7 +34,8 @@
 
 .panel-detail-modal__color-swatches {
   display: flex;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense swatch cluster */
+  gap: var(--space-1);
   flex-wrap: wrap;
 }
 
@@ -50,7 +53,8 @@
   display: grid;
   gap: var(--space-2);
   border-top: 1px solid var(--app-border-subtle);
-  padding-top: 14px;
+  /* HEL-830: 14px -> 16px, matches the section-divider padding-top recipe in PanelDetailModal.css */
+  padding-top: var(--space-4);
   margin-top: 2px;
 }
 
@@ -63,7 +67,8 @@
 .panel-detail-modal__chart-type-selector {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense grid of type-selector tiles */
+  gap: var(--space-1);
 }
 
 .panel-detail-modal__chart-type-radio {

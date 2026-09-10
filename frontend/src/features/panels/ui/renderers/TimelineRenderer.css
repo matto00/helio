@@ -37,7 +37,8 @@
   position: relative;
   width: 8px;
   height: 8px;
-  margin-top: 5px;
+  /* HEL-830: 5px -> 4px, nearest step */
+  margin-top: var(--space-1);
   border-radius: var(--app-radius-pill);
   background: var(--app-accent);
   flex-shrink: 0;

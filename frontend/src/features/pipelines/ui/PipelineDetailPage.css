@@ -16,7 +16,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: 6px var(--space-5) 0;
+  /* HEL-830: 6px -> 4px, dense top meta-bar */
+  padding: var(--space-1) var(--space-5) 0;
   font-size: var(--text-xs);
   color: var(--app-text-muted);
 }
@@ -127,7 +128,8 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  padding: 60px var(--space-5);
+  /* HEL-830: 60px -> 64px, nearest step */
+  padding: var(--space-10) var(--space-5);
   text-align: center;
   position: relative;
 }
@@ -241,7 +243,8 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  padding: 7px 10px;
+  /* HEL-830: 7px 10px -> 8px 12px, matches the repo-wide var(--space-2) var(--space-3) input padding idiom */
+  padding: var(--space-2) var(--space-3);
   background: transparent;
   border: none;
   border-radius: var(--app-radius-sm);
@@ -345,7 +348,8 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  padding: 10px 14px;
+  /* HEL-830: 10px -> 8px vertical (dense header row), 14px -> 16px (coupled shared-left-edge cluster with OutputsRail.css and the step-card body) */
+  padding: var(--space-2) var(--space-4);
 }
 
 .pipeline-detail-page__step-card-toggle {
@@ -451,15 +455,17 @@
  * as a SIBLING of `StepCard` in `.pipeline-detail-page__step-section`, not
  * nested inside the card, so that indent just left it ~24px right of
  * `OutputsRail`'s left edge (rendered INSIDE the card) despite the two
- * stacking directly under the same step. `14px` matches the card's own
+ * stacking directly under the same step. `16px` matches the card's own
  * left inset (`.pipeline-detail-page__step-card-header`/`-body`, and
- * `OutputsRail.css`'s matching `padding: 0 14px`) so both affordances share
- * one left edge. */
+ * `OutputsRail.css`'s matching `padding: 0 16px`) so both affordances share
+ * one left edge. HEL-830: snapped from 14px to 16px (var(--space-4)) as
+ * part of the coupled shared-left-edge cluster. */
 .pipeline-detail-page__add-tail-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: var(--space-2) 0 0 14px;
+  /* HEL-830: 14px -> 16px, coupled shared-left-edge cluster with OutputsRail.css and the step-card header/body */
+  margin: var(--space-2) 0 0 var(--space-4);
 }
 
 .pipeline-detail-page__add-tail-btn {
@@ -691,11 +697,13 @@
 }
 
 .pipeline-detail-page__step-card-body {
-  padding: var(--space-3) 14px;
+  /* HEL-830: 14px -> 16px, coupled shared-left-edge cluster with OutputsRail.css and the step-card header */
+  padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--app-border-subtle);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  /* HEL-830: 10px -> 8px, dense body-content stack */
+  gap: var(--space-2);
 }
 
 .pipeline-detail-page__step-card-desc {
@@ -707,13 +715,15 @@
 .pipeline-detail-page__step-card-diff {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense diff-chip cluster */
+  gap: var(--space-1);
 }
 
 .pipeline-detail-page__step-card-diff-chip {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  padding: 2px 7px;
+  /* HEL-830: 7px -> 8px, matches sibling chip/badge recipe */
+  padding: 2px var(--space-2);
   border-radius: var(--app-radius-sm);
 }
 
@@ -748,7 +758,8 @@
 }
 
 .pipeline-detail-page__step-card-preview-btn {
-  padding: 4px 10px;
+  /* HEL-830: 4px 10px -> 4px 8px, matches compact button padding idiom */
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--app-accent-mid);
   border-radius: var(--app-radius-sm);
   background: transparent;
@@ -762,7 +773,8 @@
 }
 
 .pipeline-detail-page__step-card-remove-btn {
-  padding: 4px 10px;
+  /* HEL-830: 4px 10px -> 4px 8px, matches compact button padding idiom */
+  padding: var(--space-1) var(--space-2);
   border: 1px solid color-mix(in srgb, var(--app-error) 35%, transparent);
   border-radius: var(--app-radius-sm);
   background: transparent;
@@ -778,7 +790,8 @@
 .pipeline-detail-page__step-preview {
   margin-top: var(--space-3);
   border-top: 1px solid var(--app-border-subtle);
-  padding-top: 10px;
+  /* HEL-830: 10px -> 12px, matches this divider's own --space-3 margin-top */
+  padding-top: var(--space-3);
 }
 
 /* HEL-404 — output schema chip strip, rendered above the preview rows grid. */
@@ -792,7 +805,8 @@
 .pipeline-detail-page__step-preview-schema-chip {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  padding: 2px 7px;
+  /* HEL-830: 7px -> 8px, matches sibling chip/badge recipe */
+  padding: 2px var(--space-2);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   border: 1px solid var(--app-border-subtle);
@@ -807,7 +821,8 @@
 .pipeline-detail-page__step-preview-error {
   font-size: var(--text-xs);
   color: var(--app-text-muted);
-  padding: 10px 0;
+  /* HEL-830: 10px -> 8px, dense centered feedback text */
+  padding: var(--space-2) 0;
   text-align: center;
 }
 
@@ -837,13 +852,15 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: 10px var(--space-5);
+  /* HEL-830: 10px -> 12px, standalone footer container carries more visual weight than a dense row */
+  padding: var(--space-3) var(--space-5);
 }
 
 .pipeline-detail-page__footer-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* HEL-830: 10px -> 8px, dense inline cluster */
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -880,7 +897,8 @@
   border-radius: var(--app-radius-sm);
   color: var(--app-text);
   font-size: var(--text-sm);
-  padding: 2px 6px;
+  /* HEL-830: 6px -> 8px, chip/badge padding reads compressed at 4px */
+  padding: 2px var(--space-2);
   line-height: inherit;
   outline: none;
 }
@@ -898,14 +916,16 @@
 .pipeline-detail-page__footer-schema {
   display: flex;
   align-items: center;
-  gap: 5px;
+  /* HEL-830: 5px -> 4px, dense inline chip cluster */
+  gap: var(--space-1);
   flex-wrap: wrap;
 }
 
 .pipeline-detail-page__footer-schema-chip {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
-  padding: 1px 6px;
+  /* HEL-830: 6px -> 8px, chip/badge padding reads compressed at 4px */
+  padding: 1px var(--space-2);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
@@ -920,7 +940,8 @@
 .pipeline-detail-page__footer-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* HEL-830: 10px -> 8px, dense inline cluster */
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
@@ -945,7 +966,8 @@
 .pipeline-detail-page__splittext-config {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  /* HEL-830: 10px -> 8px, dense field-stack gap */
+  gap: var(--space-2);
 }
 
 .pipeline-detail-page__compute-field,
@@ -972,7 +994,8 @@
 .pipeline-detail-page__compute-fields-hint {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense hint-chip cluster */
+  gap: var(--space-1);
   align-items: center;
   font-size: var(--text-xs);
   color: var(--app-text-muted);
@@ -988,7 +1011,8 @@
 }
 
 .pipeline-detail-page__compute-fields-hint-item {
-  padding: 1px 6px;
+  /* HEL-830: 6px -> 8px, chip/badge padding reads compressed at 4px */
+  padding: 1px var(--space-2);
   /* HEL-442 D2: sub-scale, below the 6px floor — a deliberate LEAVE. This is
    * a micro-badge with 1px vertical padding; --app-radius-sm (6px) would be
    * a visibly rounder pill shape than the compact chip this is meant to be. */
@@ -1047,8 +1071,10 @@
 .pipeline-detail-page__run-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  /* HEL-830: 6px -> 4px, dense inline control cluster */
+  gap: var(--space-1);
+  /* HEL-830: 4px 10px -> 4px 8px, matches compact button padding idiom */
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--app-radius-md);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
@@ -1111,7 +1137,8 @@
   align-items: center;
   justify-content: center;
   height: var(--control-md);
-  padding: 0 14px;
+  /* HEL-830: 14px -> 16px, matches sibling control's --space-4 button padding */
+  padding: 0 var(--space-4);
   border-radius: var(--app-radius-sm);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
@@ -1172,7 +1199,8 @@
   right: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense inline control cluster */
+  gap: var(--space-1);
   white-space: nowrap;
   z-index: 2;
   padding: var(--space-2) var(--space-3);
@@ -1228,7 +1256,8 @@
   align-items: center;
   justify-content: center;
   height: var(--control-md);
-  padding: 0 14px;
+  /* HEL-830: 14px -> 16px, matches sibling control's --space-4 button padding */
+  padding: 0 var(--space-4);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: transparent;
@@ -1302,7 +1331,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 4px 6px;
+  /* HEL-830: 4px 6px -> 4px, dense checkbox-label control */
+  padding: var(--space-1);
   border-radius: var(--app-radius-sm);
   cursor: pointer;
   font-size: var(--text-xs);
@@ -1327,14 +1357,16 @@
 .pipeline-detail-page__filter-config {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  /* HEL-830: 10px -> 8px, dense field-stack gap */
+  gap: var(--space-2);
 }
 
 .pipeline-detail-page__filter-combinator {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense inline control cluster */
+  gap: var(--space-1);
   font-size: var(--text-xs);
   color: var(--app-text-muted);
 }
@@ -1381,7 +1413,8 @@
 .pipeline-detail-page__filter-condition-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr) minmax(0, 1.2fr) auto;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense grid-row gap */
+  gap: var(--space-1);
   align-items: center;
 }
 
@@ -1390,7 +1423,8 @@
  * was the last of two call sites still duplicating it under its own name. */
 .pipeline-detail-page__filter-add-btn {
   align-self: flex-start;
-  padding: 5px 10px;
+  /* HEL-830: 5px 10px -> 4px 8px, matches compact button padding idiom */
+  padding: var(--space-1) var(--space-2);
   border: 1px dashed color-mix(in srgb, var(--app-accent) 35%, transparent);
   border-radius: var(--app-radius-sm);
   background: transparent;
@@ -1419,7 +1453,8 @@
 .pipeline-detail-page__sort-config {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  /* HEL-830: 10px -> 8px, dense field-stack gap */
+  gap: var(--space-2);
 }
 
 .pipeline-detail-page__sort-config-empty {
@@ -1434,7 +1469,8 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense list-stack gap */
+  gap: var(--space-1);
   counter-reset: sort-key;
 }
 
@@ -1442,7 +1478,8 @@
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense grid-row gap */
+  gap: var(--space-1);
 }
 
 .pipeline-detail-page__sort-config-index {
@@ -1455,9 +1492,11 @@
 .pipeline-detail-page__sort-config-direction-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense icon+label control */
+  gap: var(--space-1);
   height: var(--control-sm);
-  padding: 0 10px;
+  /* HEL-830: 10px -> 8px, matches this control's compact sizing */
+  padding: 0 var(--space-2);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: transparent;
@@ -1481,7 +1520,8 @@
  * was the last of two call sites still duplicating it under its own name. */
 .pipeline-detail-page__sort-config-add-btn {
   align-self: flex-start;
-  padding: 5px 10px;
+  /* HEL-830: 5px 10px -> 4px 8px, matches compact button padding idiom */
+  padding: var(--space-1) var(--space-2);
   border: 1px dashed color-mix(in srgb, var(--app-accent) 35%, transparent);
   border-radius: var(--app-radius-sm);
   background: transparent;
@@ -1518,7 +1558,8 @@
 .pipeline-detail-page__aggregate-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense field-stack gap */
+  gap: var(--space-1);
 }
 
 .pipeline-detail-page__aggregate-section-label {
@@ -1545,14 +1586,16 @@
 .pipeline-detail-page__aggregate-groupby-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense inline control cluster */
+  gap: var(--space-1);
 }
 
 .pipeline-detail-page__aggregate-agg-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  /* HEL-830: 6px -> 4px, dense inline control cluster */
+  gap: var(--space-1);
 }
 
 .pipeline-detail-page__aggregate-fn-hint {
@@ -1567,7 +1610,8 @@
 .pipeline-detail-page__union-config {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  /* HEL-830: 10px -> 8px, dense field-stack gap */
+  gap: var(--space-2);
 }
 
 /* Add/remove-row buttons reuse the filter recipe's dashed-pill add button
@@ -1616,7 +1660,8 @@
 
 .pipeline-detail-page__cast-th,
 .pipeline-detail-page__rename-th {
-  padding: 6px var(--space-2);
+  /* HEL-830: 6px -> 4px vertical, keeps this recipe balanced against its own 8px horizontal value rather than inflating both axes */
+  padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--app-border-subtle);
   color: var(--app-text-muted);
   font-size: var(--text-xs);
@@ -1643,7 +1688,8 @@
 
 .pipeline-detail-page__cast-source,
 .pipeline-detail-page__rename-source {
-  padding: 6px var(--space-2);
+  /* HEL-830: 6px -> 4px vertical, keeps this recipe balanced against its own 8px horizontal value rather than inflating both axes */
+  padding: var(--space-1) var(--space-2);
   color: var(--app-text);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -1651,7 +1697,8 @@
 
 .pipeline-detail-page__cast-target,
 .pipeline-detail-page__rename-target {
-  padding: 6px var(--space-2);
+  /* HEL-830: 6px -> 4px vertical, keeps this recipe balanced against its own 8px horizontal value rather than inflating both axes */
+  padding: var(--space-1) var(--space-2);
 }
 
 /* ── Phone breakpoint (DESIGN.md §4, 430px) ──────────────────────────────────

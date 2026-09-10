@@ -3,11 +3,13 @@
 .run-history-modal__list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  /* HEL-830: 6px -> 8px, list-row stack reads compressed at 4px */
+  gap: var(--space-2);
 }
 
 .run-history-modal__row {
-  padding: 10px var(--space-3);
+  /* HEL-830: 10px -> 12px, matches this row's own --space-3 horizontal padding */
+  padding: var(--space-3);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);
@@ -28,7 +30,8 @@
 @media (max-width: 768px) {
   .run-history-modal__row-summary {
     flex-wrap: wrap;
-    row-gap: 6px;
+    /* HEL-830: 6px -> 4px, dense wrapped-item row-gap */
+    row-gap: var(--space-1);
   }
 }
 
@@ -87,7 +90,8 @@
 
 .run-history-modal__row-error {
   margin: var(--space-2) 0 0;
-  padding: 10px;
+  /* HEL-830: 10px -> 12px, standalone error banner carries more visual weight than a dense row */
+  padding: var(--space-3);
   border-radius: var(--app-radius-sm);
   background: var(--app-error-surface);
   color: var(--app-error);

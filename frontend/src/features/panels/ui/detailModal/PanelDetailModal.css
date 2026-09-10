@@ -86,7 +86,8 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: 10px var(--space-5);
+  /* HEL-830: 10px -> 12px, standalone banner container carries more visual weight than a dense row */
+  padding: var(--space-3) var(--space-5);
   background: var(--app-accent-surface);
   border-top: 1px solid var(--app-border-subtle);
   font-size: var(--text-sm);
@@ -101,7 +102,8 @@
 
 .panel-detail-modal__discard-confirm,
 .panel-detail-modal__discard-cancel {
-  padding: 5px var(--space-3);
+  /* HEL-830: 5px -> 4px, nearest step */
+  padding: var(--space-1) var(--space-3);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-sm);
   background: var(--app-surface-soft);

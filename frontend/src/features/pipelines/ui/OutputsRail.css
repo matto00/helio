@@ -10,12 +10,14 @@
   margin-top: var(--space-2);
   /* HEL-1022 follow-up: this rail had NO horizontal padding, so its chips
    * sat flush against the card's inner border while the header/body above
-   * and below it both use `14px` (`.pipeline-detail-page__step-card-header`,
+   * and below it both use `16px` (`.pipeline-detail-page__step-card-header`,
    * `.pipeline-detail-page__step-card-body`) — matched here so every row in
    * the card shares one left inset, which is also what lets `BranchAffordance`
    * (`.pipeline-detail-page__add-tail-row`, PipelineDetailPage.css) share
-   * this exact left edge instead of guessing at an indent. */
-  padding: 0 14px;
+   * this exact left edge instead of guessing at an indent.
+   * HEL-830: snapped from 14px to 16px (var(--space-4)) as part of the coupled
+   * shared-left-edge cluster with PipelineDetailPage.css's step-card header/body. */
+  padding: 0 var(--space-4);
   /* HEL-1022 follow-up: the rail is the card's last child and the card has no
    * padding of its own, so without this the chips' bottom edge landed 1px off
    * the card's border (measured) while their top gap was 53px — visibly

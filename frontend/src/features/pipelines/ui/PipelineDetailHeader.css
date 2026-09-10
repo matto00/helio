@@ -22,7 +22,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) 14px;
+  /* HEL-830: 14px -> 16px, header-group row padding reads as card-level inset */
+  padding: var(--space-2) var(--space-4);
   flex: 1;
   min-width: 0;
 }
@@ -103,7 +104,8 @@
   color: var(--app-text-muted);
   background: var(--app-surface);
   border: 1px solid var(--app-border-subtle);
-  padding: 2px 6px;
+  /* HEL-830: 6px -> 8px, chip/badge padding reads compressed at 4px */
+  padding: 2px var(--space-2);
   border-radius: var(--app-radius-sm);
   white-space: nowrap;
   flex-shrink: 0;
@@ -347,7 +349,8 @@
   color: var(--app-text-muted);
   background: var(--app-surface);
   border: 1px solid var(--app-border-subtle);
-  padding: 2px 6px;
+  /* HEL-830: 6px -> 8px, chip/badge padding reads compressed at 4px */
+  padding: 2px var(--space-2);
   border-radius: var(--app-radius-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -366,7 +369,8 @@
 .pipeline-detail-header__actions {
   display: flex;
   align-items: center;
-  padding: 0 14px;
+  /* HEL-830: 14px -> 16px, matches header-group row padding recipe */
+  padding: 0 var(--space-4);
   flex-shrink: 0;
 }
 
