@@ -172,9 +172,11 @@
  * prop (HEL-539). `display: block` drops the <svg> out of inline
  * formatting (skeptic-final-1.md CR1) — an inline replaced element reserves
  * descender space in its line box, which optically pushed the glyph ~3px
- * above the wrapping span's true center. Scoped to the ReactNode path only
- * (a descendant selector, not `.ui-empty-state__cta-icon` itself) — the
- * FontAwesome path has no nested <svg> under this class and is untouched. */
+ * above the wrapping span's true center. A descendant selector, not
+ * `.ui-empty-state__cta-icon` itself, so the base rule above still sets the
+ * `font-size` this rule's own `1em` `width`/`height` resolve against — the
+ * two rules cooperate (base sets the em, this one consumes it), they don't
+ * replace one another. */
 .ui-empty-state__cta-icon svg {
   display: block;
   width: 1em;
@@ -195,16 +197,16 @@
 }
 
 /* ReactNode (lucide) hero icons, sized via CSS rather than a literal `size`
- * prop (HEL-539) — the FontAwesome path is unaffected (already font-size
- * driven). `display: block` (skeptic-final-1.md CR1) fixes a ~3px optical
- * vertical offset: the wrapping `<span class="ui-empty-state__icon">` is a
- * block flex item (child of `.ui-empty-state__icon-wrap`'s centered flex
- * row) whose own inline formatting context reserved descender space below
- * the inline `<svg>`, pushing it above true center relative to the
- * FontAwesome path (which renders the icon directly, with no such wrapper).
- * A descendant selector, not `.ui-empty-state__icon` itself, so the
- * FontAwesome case — where this class is applied directly to its own
- * `<svg>`, with no nested one — is untouched. */
+ * prop (HEL-539). `display: block` (skeptic-final-1.md CR1) fixes a ~3px
+ * optical vertical offset: the wrapping `<span class="ui-empty-state__icon">`
+ * is a block flex item (child of `.ui-empty-state__icon-wrap`'s centered
+ * flex row) whose own inline formatting context reserves descender space
+ * below the inline `<svg>`, pushing it above true center. A descendant
+ * selector, not `.ui-empty-state__icon` itself, so the base rule above
+ * still sets the `font-size` this rule's own `1em` `width`/`height`
+ * resolve against (HEL-443: `icon` is ReactNode-only now, so this is the
+ * only rendering path — no separate case to distinguish this scoping
+ * from). */
 .ui-empty-state__icon svg {
   display: block;
   width: 1em;

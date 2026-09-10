@@ -2,10 +2,9 @@
 // Renders one row per sort key with a field selector and asc/desc toggle.
 // Calls onChange with '{"sortBy":[...]}' on every structural change.
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowDownLong, faArrowUpLong, faXmark } from "@fortawesome/free-solid-svg-icons";
-
 import { Select } from "../../../../shared/ui/index";
+import { ArrowDown, ArrowUp, X } from "lucide-react";
+import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 
 export interface SortKey {
   field: string;
@@ -81,7 +80,11 @@ export function SortConfig({ sortBy, columns, onChange }: SortConfigProps) {
                 aria-label={`Sort key ${index + 1} direction: ${key.direction}`}
                 onClick={() => handleDirectionToggle(index)}
               >
-                <FontAwesomeIcon icon={key.direction === "asc" ? faArrowUpLong : faArrowDownLong} />{" "}
+                {key.direction === "asc" ? (
+                  <ArrowUp size={ICON_SIZE.sm} />
+                ) : (
+                  <ArrowDown size={ICON_SIZE.sm} />
+                )}{" "}
                 {key.direction}
               </button>
               <button
@@ -90,7 +93,7 @@ export function SortConfig({ sortBy, columns, onChange }: SortConfigProps) {
                 aria-label={`Remove sort key ${index + 1}`}
                 onClick={() => handleRemoveKey(index)}
               >
-                <FontAwesomeIcon icon={faXmark} />
+                <X size={ICON_SIZE.sm} />
               </button>
             </li>
           ))}

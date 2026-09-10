@@ -36,12 +36,6 @@ updates:
       # Co-versioned families: each shares a compile-time or runtime contract,
       # so a member raised alone is typechecked against its siblings' old
       # versions — the HEL-898 failure (`IconDefinition` vs `IconProp`).
-      fortawesome:
-        patterns:
-          - "@fortawesome/fontawesome-svg-core"
-          - "@fortawesome/free-brands-svg-icons"
-          - "@fortawesome/free-solid-svg-icons"
-          - "@fortawesome/react-fontawesome"
       echarts:
         patterns:
           - "echarts"

@@ -1,6 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { faComments } from "@fortawesome/free-solid-svg-icons";
 
 import "./ActiveConversationPanel.css";
 import { selectConversation, TierRequestAccessCopy } from "../state/assistantConversationsSlice";
@@ -13,6 +12,7 @@ import { MessageTurn } from "./MessageTurn";
 import { ProposalHandoff } from "./ProposalHandoff";
 import { ToolCallIndicator } from "./ToolCallIndicator";
 import type { ClaudeToolMessageDto, ClaudeToolResultBlockDto } from "../types";
+import { MessagesSquare } from "lucide-react";
 
 /** Every `tool_result` block across the whole transcript, keyed by `toolUseId` — a `tool_use`
  *  block's paired result can land in a LATER turn (the backend's tool loop appends a separate
@@ -104,7 +104,7 @@ export function ActiveConversationPanel() {
       <div className="active-conversation-panel active-conversation-panel--empty">
         <EmptyState
           variant="main"
-          icon={faComments}
+          icon={<MessagesSquare />}
           title={TierRequestAccessCopy.title}
           description={TierRequestAccessCopy.description}
           cta={{ label: "Request access in Settings", onClick: () => navigate("/settings") }}
@@ -139,7 +139,7 @@ export function ActiveConversationPanel() {
     panelContent = (
       <EmptyState
         variant="main"
-        icon={faComments}
+        icon={<MessagesSquare />}
         title={items.length > 0 ? "New conversation" : "No conversations yet"}
         description="Start a conversation to see it here."
       />

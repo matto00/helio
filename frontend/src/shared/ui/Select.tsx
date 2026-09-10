@@ -1,10 +1,10 @@
 import { useEffect, useId, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 
 import { usePortalPopover } from "../../hooks/usePortalPopover";
 import "./inputs.css";
+import { ChevronDown } from "lucide-react";
+import { ICON_SIZE } from "./iconSize";
 
 export interface SelectOption {
   value: string;
@@ -143,7 +143,7 @@ export function Select({
         >
           {selected?.label ?? placeholder}
         </span>
-        <FontAwesomeIcon icon={faChevronDown} className="ui-select__chevron" aria-hidden="true" />
+        <ChevronDown className="ui-select__chevron" aria-hidden="true" size={ICON_SIZE.sm} />
       </button>
 
       {isOpen &&

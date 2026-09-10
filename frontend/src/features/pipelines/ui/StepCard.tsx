@@ -4,15 +4,6 @@
 // (`useStepCardPreview.ts`, HEL-682 split, task 3.2) to their own modules.
 
 import React, { useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faChevronDown,
-  faChevronUp,
-  faCopy,
-  faGripVertical,
-  faPowerOff,
-  faTriangleExclamation,
-} from "@fortawesome/free-solid-svg-icons";
 
 import { useStepCardState } from "../hooks/useStepCardState";
 import { useStepCardPreview } from "../hooks/useStepCardPreview";
@@ -25,6 +16,8 @@ import { StepOpEditor } from "./StepOpEditor";
 import { StepSchemaDiffChips } from "./StepSchemaDiffChips";
 import { OutputsRail } from "./OutputsRail";
 import type { Output } from "../types/output";
+import { TriangleAlert, ChevronDown, ChevronUp, Copy, GripVertical, Power } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface StepCardProps {
   step: Step;
@@ -203,7 +196,7 @@ export const StepCard = React.memo(function StepCard({
           aria-expanded={expanded}
         >
           <span className="pipeline-detail-page__step-card-icon" aria-hidden="true">
-            <FontAwesomeIcon icon={step.opType.icon} />
+            <step.opType.icon size={ICON_SIZE.md} />
           </span>
           <span className="pipeline-detail-page__step-card-label">{step.label}</span>
           {/* Non-interactive chip, like the count chip below (design.md Decision 2). */}
@@ -213,7 +206,7 @@ export const StepCard = React.memo(function StepCard({
               role="img"
               aria-label="Step has a validation error"
             >
-              <FontAwesomeIcon icon={faTriangleExclamation} aria-hidden="true" />
+              <TriangleAlert aria-hidden="true" size={ICON_SIZE.sm} />
             </span>
           )}
           {rowCount !== null && (
@@ -248,7 +241,7 @@ export const StepCard = React.memo(function StepCard({
                 onDragStart={() => onStepDragStart(stepIndex)}
                 onDragEnd={onStepDragEnd}
               >
-                <FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />
+                <GripVertical aria-hidden="true" size={ICON_SIZE.sm} />
               </span>
               <button
                 type="button"
@@ -258,7 +251,7 @@ export const StepCard = React.memo(function StepCard({
                 disabled={onMoveUp === undefined}
                 onClick={() => onMoveUp?.(step.id)}
               >
-                <FontAwesomeIcon icon={faChevronUp} aria-hidden="true" />
+                <ChevronUp aria-hidden="true" size={ICON_SIZE.sm} />
               </button>
               <button
                 type="button"
@@ -268,7 +261,7 @@ export const StepCard = React.memo(function StepCard({
                 disabled={onMoveDown === undefined}
                 onClick={() => onMoveDown?.(step.id)}
               >
-                <FontAwesomeIcon icon={faChevronDown} aria-hidden="true" />
+                <ChevronDown aria-hidden="true" size={ICON_SIZE.sm} />
               </button>
             </>
           )}
@@ -284,7 +277,7 @@ export const StepCard = React.memo(function StepCard({
             aria-pressed={!step.enabled}
             onClick={() => onToggleEnabled(step.id, !step.enabled)}
           >
-            <FontAwesomeIcon icon={faPowerOff} aria-hidden="true" />
+            <Power aria-hidden="true" size={ICON_SIZE.sm} />
           </button>
           <button
             type="button"
@@ -293,7 +286,7 @@ export const StepCard = React.memo(function StepCard({
             title="Duplicate step"
             onClick={() => onDuplicate(step.id)}
           >
-            <FontAwesomeIcon icon={faCopy} aria-hidden="true" />
+            <Copy aria-hidden="true" size={ICON_SIZE.sm} />
           </button>
         </div>
       </div>

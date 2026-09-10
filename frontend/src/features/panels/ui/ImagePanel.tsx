@@ -1,8 +1,8 @@
 import { useState, type CSSProperties } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faImage } from "@fortawesome/free-solid-svg-icons";
 
 import "./ImagePanel.css";
+import { Image } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface ImagePanelProps {
   imageUrl: string | null;
@@ -74,7 +74,7 @@ export function ImagePanel({ imageUrl, imageFit, caption }: ImagePanelProps) {
     ) : (
       <div className="image-panel image-panel--empty">
         <span className="image-panel__placeholder-icon" aria-hidden="true">
-          <FontAwesomeIcon icon={faImage} />
+          <Image size={ICON_SIZE.lg} />
         </span>
         <span className="image-panel__placeholder-text">
           {safeUrl

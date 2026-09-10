@@ -5,13 +5,12 @@
 // (that collapse is deferred, filed separately); a duplicate key is flagged
 // here, non-blocking, instead.
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
-
 import { TextField } from "../../../../shared/ui/TextField";
 import { IconButton } from "../../../../shared/ui/IconButton";
 import type { KeyValueEntry } from "../../hooks/useRestSourceForm";
 import "./KeyValueListField.css";
+import { Plus, Trash2 } from "lucide-react";
+import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 
 interface KeyValueListFieldProps {
   label: string;
@@ -71,7 +70,7 @@ export function KeyValueListField({
               aria-label={`${label} value`}
             />
             <IconButton
-              icon={<FontAwesomeIcon icon={faTrash} />}
+              icon={<Trash2 size={ICON_SIZE.md} />}
               aria-label={`Remove ${label.toLowerCase()} row`}
               onClick={() => removeEntry(index)}
               variant="ghost"
@@ -91,7 +90,7 @@ export function KeyValueListField({
         onClick={addEntry}
         aria-label={addLabel}
       >
-        <FontAwesomeIcon icon={faPlus} aria-hidden="true" /> {addLabel}
+        <Plus aria-hidden="true" size={ICON_SIZE.sm} /> {addLabel}
       </button>
     </div>
   );

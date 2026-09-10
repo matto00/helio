@@ -14,12 +14,12 @@
 // establishes the real Output->renderer-props shape.
 
 import { useEffect, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChartLine, faTable } from "@fortawesome/free-solid-svg-icons";
 
 import type { Output } from "../types/output";
 import { listOutputPanels } from "../services/outputService";
 import "./OutputGalleryCard.css";
+import { ChartLine, Table } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 function thumbnailText(output: Output, rowCount: number | undefined): string {
   if (rowCount === undefined) return "—";
@@ -67,10 +67,11 @@ export function OutputGalleryCard({ output, stepLabel, rowCount, onOpen }: Outpu
     >
       <div className="output-gallery-card__thumbnail">
         <span className="output-gallery-card__kind">{kindLabel(output.kind)}</span>
-        <FontAwesomeIcon
-          className="output-gallery-card__thumbnail-icon"
-          icon={output.kind === "chart" ? faChartLine : faTable}
-        />
+        {output.kind === "chart" ? (
+          <ChartLine className="output-gallery-card__thumbnail-icon" size={ICON_SIZE.lg} />
+        ) : (
+          <Table className="output-gallery-card__thumbnail-icon" size={ICON_SIZE.lg} />
+        )}
         <span className="output-gallery-card__thumbnail-value">
           {thumbnailText(output, rowCount)}
         </span>

@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 
 import "./BottomNav.css";
 import { navDestinations } from "./navDestinations";
+import { ICON_SIZE } from "../ui/iconSize";
 
 /**
  * Bottom tab bar for section navigation. Breakpoint-gated entirely in
@@ -35,7 +36,7 @@ export function BottomNav() {
                 inward from that 22px, clamping the icon's content box to 0px
                 if the lozenge styling lands on the <svg> itself. */}
             <span className="bottom-nav__lozenge">
-              <Icon className="bottom-nav__icon" size={22} aria-hidden="true" />
+              <Icon className="bottom-nav__icon" size={ICON_SIZE.lg} aria-hidden="true" />
             </span>
           </NavLink>
         );

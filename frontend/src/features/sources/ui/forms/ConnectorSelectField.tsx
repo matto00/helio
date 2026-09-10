@@ -6,7 +6,6 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { faPlug } from "@fortawesome/free-solid-svg-icons";
 
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { Select } from "../../../../shared/ui/Select";
@@ -15,6 +14,7 @@ import { fetchConnectors } from "../../../connectors/state/connectorsSlice";
 import { CreateConnectorModal } from "../../../connectors/ui/CreateConnectorModal";
 import type { Connector } from "../../../connectors/types/connector";
 import "./ConnectorSelectField.css";
+import { Plug } from "lucide-react";
 
 const CREATE_NEW_VALUE = "__create_new__";
 
@@ -69,7 +69,7 @@ export function ConnectorSelectField({ connector, onChange }: ConnectorSelectFie
       {showEmptyState ? (
         <EmptyState
           variant="sidebar"
-          icon={faPlug}
+          icon={<Plug />}
           title="No REST Connector yet"
           description="No REST Connector exists yet. Create one to authenticate this source's requests."
           cta={{ label: "+ Create new Connector", onClick: () => setCreateOpen(true) }}

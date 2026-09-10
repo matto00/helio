@@ -11,6 +11,7 @@ import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { createPanel, swapPanelOutput } from "../state/panelThunks";
 import { useOutputPickerData, type OutputPickerEntry } from "../hooks/useOutputPickerData";
 import type { Panel, PanelKind } from "../types/panel";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 /** Stable id prefix for the flattened options — used both as the DOM `id`
  *  each `role="option"` card carries and as the `aria-activedescendant`
@@ -19,10 +20,10 @@ import type { Panel, PanelKind } from "../types/panel";
 const OPTION_ID_PREFIX = "output-picker-option-";
 
 const CONTENT_PANEL_KINDS: { kind: PanelKind; label: string; icon: ReactElement }[] = [
-  { kind: "text", label: "Text", icon: <FileText size={18} /> },
-  { kind: "markdown", label: "Markdown", icon: <AlignLeft size={18} /> },
-  { kind: "image", label: "Image", icon: <ImageIcon size={18} /> },
-  { kind: "divider", label: "Divider", icon: <Minus size={18} /> },
+  { kind: "text", label: "Text", icon: <FileText size={ICON_SIZE.md} /> },
+  { kind: "markdown", label: "Markdown", icon: <AlignLeft size={ICON_SIZE.md} /> },
+  { kind: "image", label: "Image", icon: <ImageIcon size={ICON_SIZE.md} /> },
+  { kind: "divider", label: "Divider", icon: <Minus size={ICON_SIZE.md} /> },
 ];
 
 // Flattened, keyboard-navigable item — either an Output entry or one of the
@@ -250,7 +251,7 @@ export function OutputPicker({
           <p className="output-picker__status output-picker__status--error">{error}</p>
         ) : filteredGroups.length === 0 ? (
           <EmptyState
-            icon={<Search size={28} />}
+            icon={<Search size={ICON_SIZE.lg} />}
             title="No output fits?"
             description="Shape more data into an Output, or ask the assistant to help."
             cta={{ label: "New pipeline", onClick: () => navigate("/pipelines") }}

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { PageShell } from "../../../shared/ui/PageShell";
@@ -18,6 +17,7 @@ import {
 } from "../../../services/classifyRequestError";
 import { ProposalReview, type ReviewOutput } from "./ProposalReview";
 import type { DashboardProposal } from "../types/proposal";
+import { Columns3 } from "lucide-react";
 
 /** Route container for the Proposal Review UI (HEL-224).
  *
@@ -160,7 +160,7 @@ export function ProposalReviewPage() {
     return (
       <PageShell>
         <EmptyState
-          icon={faTableColumns}
+          icon={<Columns3 />}
           title="Nothing to review"
           description="This page reviews a dashboard proposal handed off from another flow. Start from the dashboards list instead."
           cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
@@ -208,7 +208,7 @@ export function ProposalReviewPage() {
     return (
       <PageShell>
         <EmptyState
-          icon={faTableColumns}
+          icon={<Columns3 />}
           title={EMPTY_WORKSPACE_COPY.title}
           description={EMPTY_WORKSPACE_COPY.description}
           cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}

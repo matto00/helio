@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { faDatabase, faPlus } from "@fortawesome/free-solid-svg-icons";
-import { TriangleAlert } from "lucide-react";
+import { Database, Plus, TriangleAlert } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
 
@@ -8,7 +7,7 @@ describe("EmptyState", () => {
   it("renders title and description", () => {
     render(
       <EmptyState
-        icon={faDatabase}
+        icon={<Database />}
         title="Connect a data source"
         description="Pull in data from PostgreSQL, MySQL, CSV, or static input."
       />,
@@ -24,7 +23,7 @@ describe("EmptyState", () => {
     const handleClick = jest.fn();
     render(
       <EmptyState
-        icon={faDatabase}
+        icon={<Database />}
         title="Connect a data source"
         description="Pull in data from PostgreSQL, MySQL, CSV, or static input."
         cta={{ label: "Add source", onClick: handleClick }}
@@ -40,7 +39,7 @@ describe("EmptyState", () => {
   it("does not render a CTA button when no cta prop is provided", () => {
     render(
       <EmptyState
-        icon={faDatabase}
+        icon={<Database />}
         title="No types defined"
         description="Types are auto-generated from pipelines."
       />,
@@ -53,7 +52,7 @@ describe("EmptyState", () => {
     const { container } = render(
       <EmptyState
         variant="sidebar"
-        icon={faDatabase}
+        icon={<Database />}
         title="No sources"
         description="Add one to get started."
       />,
@@ -64,7 +63,7 @@ describe("EmptyState", () => {
 
   it("applies the main variant class by default", () => {
     const { container } = render(
-      <EmptyState icon={faDatabase} title="No sources" description="Add one to get started." />,
+      <EmptyState icon={<Database />} title="No sources" description="Add one to get started." />,
     );
 
     expect(container.firstChild).toHaveClass("ui-empty-state--main");
@@ -88,33 +87,27 @@ describe("EmptyState", () => {
 
     it('defaults to intent="neutral" — no alert role, aria-label carries the title', () => {
       render(
-        <EmptyState icon={faDatabase} title="No sources" description="Add one to get started." />,
+        <EmptyState icon={<Database />} title="No sources" description="Add one to get started." />,
       );
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       expect(screen.getByLabelText("No sources")).toBeInTheDocument();
     });
   });
 
-  // HEL-539 — icon prop widened to accept a ReactNode alongside IconDefinition
-  describe("icon prop — IconDefinition vs ReactNode", () => {
-    it("renders a FontAwesome IconDefinition via FontAwesomeIcon", () => {
-      const { container } = render(
-        <EmptyState icon={faDatabase} title="No sources" description="Add one to get started." />,
-      );
-      expect(container.querySelector("svg[data-icon='database']")).toBeInTheDocument();
-    });
-
-    it("renders a ReactNode icon directly, not wrapped in FontAwesomeIcon", () => {
-      const { container } = render(
-        <EmptyState
-          icon={<TriangleAlert data-testid="lucide-icon" />}
-          title="Couldn't load"
-          description="Something went wrong."
-        />,
-      );
-      expect(screen.getByTestId("lucide-icon")).toBeInTheDocument();
-      expect(container.querySelector("svg[data-icon]")).not.toBeInTheDocument();
-    });
+  // HEL-443 — icon prop narrowed to ReactNode-only once every producer moved
+  // to lucide (the FontAwesome IconDefinition arm and its isValidElement
+  // dispatch no longer exist, so this now just confirms a plain ReactNode
+  // icon renders directly).
+  it("renders a ReactNode icon directly", () => {
+    const { container } = render(
+      <EmptyState
+        icon={<TriangleAlert data-testid="lucide-icon" />}
+        title="Couldn't load"
+        description="Something went wrong."
+      />,
+    );
+    expect(screen.getByTestId("lucide-icon")).toBeInTheDocument();
+    expect(container.querySelector("svg[data-icon]")).not.toBeInTheDocument();
   });
 
   it("renders cta and secondaryCta together, using the Primary/Secondary recipes respectively", () => {
@@ -156,13 +149,13 @@ describe("EmptyState", () => {
     expect(button).toBeDisabled();
   });
 
-  it("cta.icon accepts a ReactNode alongside the existing FontAwesome IconDefinition", () => {
+  it("cta.icon accepts a ReactNode", () => {
     const { container } = render(
       <EmptyState
-        icon={faDatabase}
+        icon={<Database />}
         title="No sources"
         description="Add one to get started."
-        cta={{ label: "Add source", icon: faPlus, onClick: jest.fn() }}
+        cta={{ label: "Add source", icon: <Plus />, onClick: jest.fn() }}
       />,
     );
     expect(container.querySelector(".ui-empty-state__cta-icon")).toBeInTheDocument();

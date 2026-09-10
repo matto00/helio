@@ -15,6 +15,7 @@ import { DataGrid, TextField } from "../../../shared/ui/index";
 import { SchemaFieldViewer } from "../../../shared/ui/SchemaFieldViewer";
 import { EmptySchemaAffordance } from "./EmptySchemaAffordance";
 import { SourcePreviewSkeleton } from "./SourcePreviewSkeleton";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface SourceDetailPanelProps {
   source: DataSource;
@@ -201,7 +202,7 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
                 aria-label={`Rename ${source.name}`}
                 onClick={startRename}
               >
-                <Pencil size={13} aria-hidden="true" />
+                <Pencil size={ICON_SIZE.sm} aria-hidden="true" />
               </button>
             </>
           )}

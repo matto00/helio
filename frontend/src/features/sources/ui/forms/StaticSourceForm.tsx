@@ -1,11 +1,10 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
-
 import { type FormEvent, useState } from "react";
 
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { StaticColumn, StaticColumnType } from "../../types/dataSource";
 import { Select, TextField } from "../../../../shared/ui/index";
+import { X } from "lucide-react";
+import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 
 const COLUMN_TYPES: StaticColumnType[] = ["string", "integer", "float", "boolean"];
 
@@ -152,7 +151,7 @@ export function StaticSourceForm({
                     onClick={() => removeColumn(index)}
                     disabled={columns.length <= 1}
                   >
-                    <FontAwesomeIcon icon={faXmark} />
+                    <X size={ICON_SIZE.sm} />
                   </button>
                 </td>
               </tr>
@@ -235,7 +234,7 @@ export function StaticSourceForm({
                     aria-label={`Remove row ${ri + 1}`}
                     onClick={() => removeRow(ri)}
                   >
-                    <FontAwesomeIcon icon={faXmark} />
+                    <X size={ICON_SIZE.sm} />
                   </button>
                 </td>
               </tr>

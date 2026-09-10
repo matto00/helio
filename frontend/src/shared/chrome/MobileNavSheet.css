@@ -169,13 +169,14 @@
  * `.ui-empty-state__cta-icon svg` rule verbatim. The three HEL-548 hooks
  * pass a lucide `ReactNode` (`<Plus />`) carrying literal `width="24"
  * height="24"` attributes; without this, the SVG keeps that intrinsic
- * 24px regardless of the wrapper's `font-size` above, which can only ever
- * affect the FontAwesome branch — a path no hook actually exercises, so it
- * silently computed to nothing for every real consumer. `display: block`
- * also drops the <svg> out of inline formatting (the same descender-space
- * centering fix `EmptyState.css` already documents). Scoped to the
- * ReactNode path only, not the wrapper class itself, so the FontAwesome
- * branch (no nested <svg>) is untouched. */
+ * 24px regardless of the wrapper's `font-size` above — the wrapper's
+ * `font-size` alone was never enough to size a nested lucide SVG, since
+ * lucide doesn't derive its size from an ancestor's `font-size` the way
+ * FontAwesome's SVG did (HEL-443 removed the FontAwesome path this class
+ * originally also had to account for; `renderCreateActionIcon` now always
+ * renders a lucide element, so this is the only path left). `display:
+ * block` also drops the <svg> out of inline formatting (the same
+ * descender-space centering fix `EmptyState.css` already documents). */
 .mobile-nav-sheet__create-action-icon svg {
   display: block;
   width: 1em;

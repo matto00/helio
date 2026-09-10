@@ -5,7 +5,6 @@
 // `window.confirm` (design.md Decision 5).
 
 import { useState } from "react";
-import { faBrain } from "@fortawesome/free-solid-svg-icons";
 
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { EmptyState } from "../../../shared/ui/index";
@@ -14,6 +13,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { clearAgentMemoryThunk, deleteAgentMemoryEntryThunk } from "../state/settingsSlice";
 import type { AgentMemoryEntry } from "../types/agentMemory";
 import "./AgentMemoryList.css";
+import { Brain } from "lucide-react";
 
 function formatLastUsed(lastUsedAt: string | null): string {
   return lastUsedAt === null ? "Never used" : new Date(lastUsedAt).toLocaleString();
@@ -59,7 +59,7 @@ export function AgentMemoryList({ entries }: AgentMemoryListProps) {
       <div className="agent-memory-list">
         <EmptyState
           variant="main"
-          icon={faBrain}
+          icon={<Brain />}
           title="No memory stored yet"
           description="The agent hasn't stored any facts, goals, or preference notes about you yet."
         />

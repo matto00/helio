@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { PageShell } from "../../../shared/ui/PageShell";
@@ -15,6 +14,7 @@ import {
 } from "../utils/unresolvedConnectorRefs";
 import { CombinedProposalReview } from "./CombinedProposalReview";
 import type { CombinedProposal } from "../types/combinedProposal";
+import { Columns3 } from "lucide-react";
 
 /** Route container for the Combined Proposal Review UI (HEL-739), mirroring
  *  `ProposalReviewPage.tsx`/`PatchSetReviewPage.tsx`/`PipelineProposalReviewPage.tsx`'s
@@ -100,7 +100,7 @@ export function CombinedProposalReviewPage() {
     return (
       <PageShell>
         <EmptyState
-          icon={faTableColumns}
+          icon={<Columns3 />}
           title="Nothing to review"
           description="This page reviews a combined proposal handed off from another flow. Start from the dashboards list instead."
           cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}

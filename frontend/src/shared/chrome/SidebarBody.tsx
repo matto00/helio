@@ -1,9 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Database, GitBranch, Pencil, Pin, PinOff } from "lucide-react";
-
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faComments, faLock } from "@fortawesome/free-solid-svg-icons";
+import { Database, GitBranch, Lock, MessagesSquare, Pencil, Pin, PinOff } from "lucide-react";
 
 import {
   fetchConversations,
@@ -28,6 +25,7 @@ import { DashboardList } from "../../features/dashboards/ui/DashboardList";
 import "./SidebarBody.css";
 import { pickerIdForPathname } from "./sections";
 import { SidebarItemList, type SidebarItem } from "./SidebarItemList";
+import { ICON_SIZE } from "../ui/iconSize";
 
 /** Picks the section-appropriate list based on the current route. The dashboards
  * section keeps DashboardList (full CRUD); other sections use the lighter
@@ -161,7 +159,7 @@ export function SidebarBody() {
     return (
       <section className="sidebar-body__locked-notice" aria-label="assistant">
         <p className="sidebar-body__locked-notice-heading">
-          <FontAwesomeIcon icon={faLock} aria-hidden className="sidebar-body__locked-notice-icon" />
+          <Lock aria-hidden className="sidebar-body__locked-notice-icon" size={ICON_SIZE.sm} />
           {TierRequestAccessCopy.title}
         </p>
         <p className="sidebar-body__locked-notice-description">
@@ -207,7 +205,7 @@ export function SidebarBody() {
         onSelect={(item) => dispatch(setSelectedConversationId(item.id))}
         activeId={effectiveConversationId}
         emptyText="No conversations yet"
-        emptyIcon={faComments}
+        emptyIcon={<MessagesSquare />}
         emptyDescription="Start a conversation to see it here."
         onAdd={() => dispatch(startNewConversation())}
         addLabel="New chat"
@@ -216,7 +214,7 @@ export function SidebarBody() {
           pinnedIds.has(item.id) ? (
             <Pin
               className="dashboard-list__pin-badge"
-              size={12}
+              size={ICON_SIZE.sm}
               aria-label="Pinned"
               data-testid="pin-badge"
             />
@@ -233,7 +231,7 @@ export function SidebarBody() {
                 title={`Rename ${item.name}`}
                 onClick={helpers.startRename}
               >
-                <Pencil size={14} aria-hidden="true" />
+                <Pencil size={ICON_SIZE.sm} aria-hidden="true" />
               </button>
               <button
                 type="button"
@@ -243,9 +241,9 @@ export function SidebarBody() {
                 onClick={() => dispatch(togglePinned({ id: item.id, pinned: !pinned }))}
               >
                 {pinned ? (
-                  <PinOff size={14} aria-hidden="true" />
+                  <PinOff size={ICON_SIZE.sm} aria-hidden="true" />
                 ) : (
-                  <Pin size={14} aria-hidden="true" />
+                  <Pin size={ICON_SIZE.sm} aria-hidden="true" />
                 )}
               </button>
             </>

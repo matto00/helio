@@ -1,7 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSliders } from "@fortawesome/free-solid-svg-icons";
 
 import { updateDashboardAppearance } from "../state/dashboardsSlice";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
@@ -22,6 +20,8 @@ import "../../../shared/chrome/Popover.css";
 import "./DashboardAppearanceEditor.css";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { IconButton } from "../../../shared/ui/IconButton";
+import { SlidersHorizontal } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface DashboardAppearanceEditorProps {
   dashboard: Dashboard | null;
@@ -275,7 +275,7 @@ export function DashboardAppearanceEditor({
     <div className="popover dashboard-appearance-editor">
       <IconButton
         ref={triggerRef}
-        icon={<FontAwesomeIcon icon={faSliders} />}
+        icon={<SlidersHorizontal size={ICON_SIZE.md} />}
         variant="secondary"
         size="sm"
         onClick={handleToggle}

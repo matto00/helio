@@ -7,11 +7,11 @@
 // parent (StepCard) owns state and calls onChange with the typed config.
 
 import type { ChangeEvent } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import type { SchemaField } from "../../types/pipelineStep";
 import { Select, TextField } from "../../../../shared/ui/index";
+import { X } from "lucide-react";
+import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 
 export interface UnpivotConfigValue {
   idVars: string[];
@@ -97,7 +97,7 @@ export function UnpivotConfig({ config, analyzeSchema, onChange }: UnpivotConfig
                 aria-label={`Remove id field ${rowIndex + 1}`}
                 onClick={() => handleRemoveIdVarRow(rowIndex)}
               >
-                <FontAwesomeIcon icon={faXmark} />
+                <X size={ICON_SIZE.sm} />
               </button>
             </div>
           ))}
@@ -136,7 +136,7 @@ export function UnpivotConfig({ config, analyzeSchema, onChange }: UnpivotConfig
                 aria-label={`Remove value field ${rowIndex + 1}`}
                 onClick={() => handleRemoveValueVarRow(rowIndex)}
               >
-                <FontAwesomeIcon icon={faXmark} />
+                <X size={ICON_SIZE.sm} />
               </button>
             </div>
           ))}

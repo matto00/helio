@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { TriangleAlert } from "lucide-react";
-import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 import { EmptyState, type EmptyStateCta } from "./EmptyState";
 import { Spinner } from "./Spinner";
@@ -37,7 +36,7 @@ interface PageStatusProps {
   /** `status="failed"` only, `size="page"` only: overrides the default error
    *  icon — an already-rendered element (e.g. `<SourcesErrorIcon />` from
    *  `ERROR_KIND_ICON`), matching `EmptyState`'s own `icon` prop shape. */
-  icon?: IconDefinition | ReactNode;
+  icon?: ReactNode;
   /** `status="failed"` only: when given, renders a `"Retry"` cta that calls
    *  it. Omitted entirely when not given. */
   onRetry?: () => void;

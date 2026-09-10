@@ -8,8 +8,6 @@
 // page, including sections with no dependency on it at all.
 
 import { useEffect } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSun, faMoon } from "@fortawesome/free-solid-svg-icons";
 
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { AccentPicker } from "../../../shared/chrome/AccentPicker";
@@ -25,6 +23,8 @@ import { PageHeader } from "../../../shared/ui/PageHeader";
 import { PageShell } from "../../../shared/ui/PageShell";
 import { PageStatus } from "../../../shared/ui/PageStatus";
 import "./SettingsPage.css";
+import { Moon, Sun } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 export function SettingsPage() {
   const dispatch = useAppDispatch();
@@ -67,7 +67,7 @@ export function SettingsPage() {
             aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
             title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
           >
-            <FontAwesomeIcon icon={theme === "dark" ? faSun : faMoon} />
+            {theme === "dark" ? <Sun size={ICON_SIZE.sm} /> : <Moon size={ICON_SIZE.sm} />}
             {theme === "dark" ? "Light mode" : "Dark mode"}
           </button>
         </section>

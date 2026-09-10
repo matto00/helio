@@ -1,6 +1,4 @@
-import { isValidElement, type ReactNode } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import type { ReactNode } from "react";
 
 import "./EmptyState.css";
 
@@ -11,9 +9,10 @@ import "./EmptyState.css";
 export interface EmptyStateCta {
   label: string;
   onClick: () => void;
-  /** FontAwesome icon (existing behavior) or a `ReactNode` (e.g. a
-   *  `lucide-react` icon) — selected by `React.isValidElement` (HEL-539). */
-  icon?: IconDefinition | ReactNode;
+  /** A rendered icon element (e.g. a `lucide-react` icon) — HEL-443 narrowed
+   *  this from the legacy `IconDefinition | ReactNode` union to `ReactNode`
+   *  only once every producer moved to lucide. */
+  icon?: ReactNode;
   /** Disables the action. The in-flight label text (e.g. "Retrying…") is
    *  supplied by the caller via `label` — `EmptyState` never generates or
    *  alters it itself, since `cta`/`secondaryCta` remain a generic
@@ -22,9 +21,8 @@ export interface EmptyStateCta {
 }
 
 interface EmptyStateProps {
-  /** FontAwesome icon definition, or a `ReactNode` (e.g. a `lucide-react`
-   *  icon) — selected by `React.isValidElement` (HEL-539). */
-  icon: IconDefinition | ReactNode;
+  /** A rendered icon element (e.g. a `lucide-react` icon). */
+  icon: ReactNode;
   title: string;
   description: string;
   /** Optional call-to-action button, rendered with the Primary recipe. */
@@ -45,23 +43,17 @@ interface EmptyStateProps {
   intent?: "neutral" | "error";
 }
 
-function renderIcon(icon: IconDefinition | ReactNode, className: string) {
-  if (isValidElement(icon)) {
-    return <span className={className}>{icon}</span>;
-  }
-  return <FontAwesomeIcon icon={icon as IconDefinition} className={className} />;
+function renderIcon(icon: ReactNode, className: string) {
+  return <span className={className}>{icon}</span>;
 }
 
-function renderCtaIcon(icon: IconDefinition | ReactNode, className: string) {
+function renderCtaIcon(icon: ReactNode, className: string) {
   if (icon === undefined) return null;
-  if (isValidElement(icon)) {
-    return (
-      <span className={className} aria-hidden="true">
-        {icon}
-      </span>
-    );
-  }
-  return <FontAwesomeIcon icon={icon as IconDefinition} className={className} aria-hidden />;
+  return (
+    <span className={className} aria-hidden="true">
+      {icon}
+    </span>
+  );
 }
 
 /** Reusable empty-state slot used across sidebar lists and main content areas.

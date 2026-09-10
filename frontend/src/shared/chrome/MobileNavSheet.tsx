@@ -1,5 +1,4 @@
 import {
-  isValidElement,
   useEffect,
   useRef,
   useState,
@@ -9,8 +8,6 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { TriangleAlert } from "lucide-react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 import "./MobileNavSheet.css";
 import type { CreateActionResult } from "../../features/dashboards/hooks/useCreateDashboardAction";
@@ -62,33 +59,23 @@ const DRAG_DISMISS_THRESHOLD_PX = 80;
 const FOCUSABLE_SELECTORS =
   'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** Renders either a FontAwesome `IconDefinition` or a `ReactNode` (e.g. a
- *  `lucide-react` icon) — mirrors `EmptyState.tsx`'s private `renderCtaIcon`
- *  (not exported, so duplicated here rather than imported), markup AND
- *  sizing: the paired CSS (`.mobile-nav-sheet__create-action-icon` /
- *  `-icon svg`) mirrors `.ui-empty-state__cta-icon` / `-icon svg` verbatim
- *  (skeptic-final-1.md CR1 — without that pairing, a lucide `ReactNode`'s
- *  literal `width="24" height="24"` renders 2x the app's shipped CTA-icon
- *  size, since only the CSS half actually neutralises it). Used for the
- *  header create action, which is NOT an `EmptyState` CTA (design.md
- *  task 3.4: rendered as its own DESIGN.md §5 Secondary-recipe button, not
- *  an `li` of the item list) — hence the separate function and classes,
- *  not a shared import. */
-function renderCreateActionIcon(icon: IconDefinition | ReactNode | undefined) {
+/** Renders a rendered icon element (e.g. a `lucide-react` icon) — mirrors
+ *  `EmptyState.tsx`'s private `renderCtaIcon` (not exported, so duplicated
+ *  here rather than imported), markup AND sizing: the paired CSS
+ *  (`.mobile-nav-sheet__create-action-icon` / `-icon svg`) mirrors
+ *  `.ui-empty-state__cta-icon` / `-icon svg` verbatim (skeptic-final-1.md
+ *  CR1 — without that pairing, a lucide element's literal `width="24"
+ *  height="24"` renders 2x the app's shipped CTA-icon size, since only the
+ *  CSS half actually neutralises it). Used for the header create action,
+ *  which is NOT an `EmptyState` CTA (design.md task 3.4: rendered as its own
+ *  DESIGN.md §5 Secondary-recipe button, not an `li` of the item list) —
+ *  hence the separate function and classes, not a shared import. */
+function renderCreateActionIcon(icon: ReactNode | undefined) {
   if (icon === undefined) return null;
-  if (isValidElement(icon)) {
-    return (
-      <span className="mobile-nav-sheet__create-action-icon" aria-hidden="true">
-        {icon}
-      </span>
-    );
-  }
   return (
-    <FontAwesomeIcon
-      icon={icon as IconDefinition}
-      className="mobile-nav-sheet__create-action-icon"
-      aria-hidden
-    />
+    <span className="mobile-nav-sheet__create-action-icon" aria-hidden="true">
+      {icon}
+    </span>
   );
 }
 

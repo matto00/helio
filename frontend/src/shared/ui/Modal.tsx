@@ -1,10 +1,9 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
-
 import { type MouseEvent, type ReactNode, useEffect, useRef } from "react";
 
 import { IconButton } from "./IconButton";
 import "./Modal.css";
+import { X } from "lucide-react";
+import { ICON_SIZE } from "./iconSize";
 
 type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
 
@@ -195,7 +194,7 @@ export function Modal({
           </div>
           {headerActions}
           <IconButton
-            icon={<FontAwesomeIcon icon={faXmark} />}
+            icon={<X size={ICON_SIZE.md} />}
             variant="ghost"
             size="sm"
             aria-label="Close"

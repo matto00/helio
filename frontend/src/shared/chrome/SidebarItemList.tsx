@@ -1,5 +1,4 @@
 import { Plus, SearchX, X } from "lucide-react";
-import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 import type { KeyboardEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -37,12 +36,9 @@ interface SidebarItemListProps {
   activeId?: string | null;
   /** Optional placeholder when the list is empty and not loading. */
   emptyText?: string;
-  /** Icon to show in the sidebar empty-state hero — a FontAwesome
-   *  `IconDefinition` or a `ReactNode` (e.g. a `lucide-react` icon),
-   *  selected by `EmptyState.renderIcon`'s `isValidElement` dispatch
-   *  (HEL-548 task 7.2 — widened from `IconDefinition`-only so the four
-   *  in-scope sections' lucide icons type-check here too). */
-  emptyIcon?: IconDefinition | ReactNode;
+  /** Icon to show in the sidebar empty-state hero — a rendered icon element
+   *  (e.g. a `lucide-react` icon). */
+  emptyIcon?: ReactNode;
   /** Secondary description shown below the title in the sidebar empty-state. */
   emptyDescription?: string;
   /** If provided, renders a "+" button in the header that triggers onAdd. */

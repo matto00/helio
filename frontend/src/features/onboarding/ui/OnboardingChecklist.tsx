@@ -21,6 +21,7 @@ import {
   firstIncompleteStep,
   type OnboardingStepStatuses,
 } from "../state/onboardingSteps";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 // D8 — each step's glyph comes from the shared section registry (closes
 // HEL-794), never a separate hardcoded icon, so the lesson binds concept to
@@ -121,7 +122,7 @@ export function OnboardingChecklist({
           </p>
         </div>
         <IconButton
-          icon={<X />}
+          icon={<X size={ICON_SIZE.md} />}
           variant="ghost"
           aria-label="Dismiss getting-started checklist"
           onClick={() => dispatch(dismissOnboarding())}

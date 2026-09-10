@@ -14,8 +14,6 @@
 // Decision 2 -- the round-1/round-2 skeptic finding this guards against).
 
 import { type FormEvent, useState } from "react";
-import { faPlus, faXmark } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { IconButton, TextField } from "../../../shared/ui/index";
@@ -24,6 +22,8 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { savePreferences } from "../state/settingsSlice";
 import type { AgentPreferences, PutAgentPreferencesRequest } from "../types/preferences";
 import "./PreferencesEditor.css";
+import { Plus, X } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 const DEFAULT_BACKGROUND = "#1c1c1c";
 const DEFAULT_TEXT_COLOR = "#ffffff";
@@ -213,7 +213,7 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
                 aria-label={`Series color ${index + 1} hex value`}
               />
               <IconButton
-                icon={<FontAwesomeIcon icon={faXmark} />}
+                icon={<X size={ICON_SIZE.lg} />}
                 variant="danger"
                 size="md"
                 aria-label={`Remove series color ${index + 1}`}
@@ -223,7 +223,7 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
           ))}
         </ul>
         <button type="button" className="preferences-editor__add-btn" onClick={addSeriesColor}>
-          <FontAwesomeIcon icon={faPlus} aria-hidden="true" />
+          <Plus aria-hidden="true" size={ICON_SIZE.sm} />
           Add color
         </button>
       </section>
@@ -296,7 +296,7 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
                   aria-label="Naming convention value"
                 />
                 <IconButton
-                  icon={<FontAwesomeIcon icon={faXmark} />}
+                  icon={<X size={ICON_SIZE.lg} />}
                   variant="danger"
                   size="md"
                   aria-label={`Remove naming convention ${row.key || "row"}`}
@@ -320,7 +320,7 @@ export function PreferencesEditor({ preferences }: PreferencesEditorProps) {
           </p>
         )}
         <button type="button" className="preferences-editor__add-btn" onClick={addNamingRow}>
-          <FontAwesomeIcon icon={faPlus} aria-hidden="true" />
+          <Plus aria-hidden="true" size={ICON_SIZE.sm} />
           Add naming convention
         </button>
       </section>

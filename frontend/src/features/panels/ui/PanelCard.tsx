@@ -1,6 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGripVertical } from "@fortawesome/free-solid-svg-icons";
 
 import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
 import { getOutputId } from "../state/panelNarrowing";
@@ -15,6 +13,8 @@ import { PanelContent } from "./PanelContent";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import type { Panel } from "../types/panel";
+import { GripVertical } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 // Exported for reuse by `MobilePanelStack` (HEL-301), which builds its own
 // read-only card markup rather than reusing this file's drag/edit-oriented
@@ -325,7 +325,7 @@ export const PanelCard = React.memo(function PanelCard({
                     from the adjacent ActionsMenu trigger's horizontal 3-dot
                     ellipsis, instead of the old 2-dot mark that only differed
                     from it by dot count. */}
-                <FontAwesomeIcon icon={faGripVertical} aria-hidden="true" />
+                <GripVertical aria-hidden="true" size={ICON_SIZE.sm} />
               </button>
             </>
           )}

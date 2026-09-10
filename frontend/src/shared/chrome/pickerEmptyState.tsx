@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
-import { Database, GitBranch, LayoutDashboard } from "lucide-react";
-import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import { faComments } from "@fortawesome/free-solid-svg-icons";
+import { Database, GitBranch, LayoutDashboard, MessagesSquare } from "lucide-react";
 
 import type { PickerId } from "./sections";
 
 export interface PickerEmptyStateCopy {
-  icon: IconDefinition | ReactNode;
+  icon: ReactNode;
   title: string;
   description: string;
 }
@@ -44,7 +42,7 @@ export const PICKER_EMPTY_STATE: Record<PickerId, PickerEmptyStateCopy> = {
     description: "Pipelines transform raw source data into typed rows you can chart.",
   },
   chat: {
-    icon: faComments,
+    icon: <MessagesSquare />,
     title: "No conversations yet",
     description: "Start a conversation to see it here.",
   },

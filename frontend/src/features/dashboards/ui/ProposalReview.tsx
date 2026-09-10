@@ -6,6 +6,7 @@ import { TextField } from "../../../shared/ui/TextField";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import type { DashboardProposal, ProposalPanel } from "../types/proposal";
 import "./ProposalReview.css";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 /** Minimal Output info the review needs to name a binding (HEL-907 task 4.1
  *  -- retargeted off the retired DataType model; an Output has no
@@ -139,7 +140,7 @@ export function ProposalReview({
                         onClick={() => removePanel(index)}
                         aria-label={`Remove panel ${panel.title}`}
                       >
-                        <Trash2 size={15} aria-hidden />
+                        <Trash2 size={ICON_SIZE.sm} aria-hidden />
                       </button>
                     </div>
                     <dl className="proposal-review__meta">

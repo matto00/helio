@@ -1,12 +1,5 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, MessagesSquare, Plus, RotateCcw, RotateCw } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faArrowRotateLeft,
-  faArrowRotateRight,
-  faComments,
-  faPlus,
-} from "@fortawesome/free-solid-svg-icons";
 
 import { UserMenu } from "../features/auth/ui/UserMenu";
 import { logout } from "../features/auth/state/authSlice";
@@ -33,6 +26,7 @@ import { usePickerSelection } from "../shared/chrome/usePickerSelection";
 import { ActionsMenu, type ActionsMenuItem } from "../shared/chrome/ActionsMenu";
 import { IconButton } from "../shared/ui/IconButton";
 import { useSaveState } from "../context/SaveStateContext";
+import { ICON_SIZE } from "../shared/ui/iconSize";
 
 interface CommandBarProps {
   isMobileNavSheetOpen: boolean;
@@ -206,7 +200,7 @@ export function CommandBar({
               {mobileTitleDisplayName}
             </span>
             <ChevronDown
-              size={16}
+              size={ICON_SIZE.md}
               aria-hidden="true"
               className={
                 isMobileNavSheetOpen
@@ -229,7 +223,7 @@ export function CommandBar({
               switcher it's a sibling of. */}
           {pickerId === "chat" && (
             <IconButton
-              icon={<FontAwesomeIcon icon={faPlus} />}
+              icon={<Plus size={ICON_SIZE.sm} />}
               variant="secondary"
               size="xs"
               className="app-command-bar__mobile-new-chat"
@@ -257,7 +251,7 @@ export function CommandBar({
               aria-label="Undo layout change"
               title="Undo (Ctrl+Z)"
             >
-              <FontAwesomeIcon icon={faArrowRotateLeft} /> Undo
+              <RotateCcw size={ICON_SIZE.sm} /> Undo
             </button>
             <button
               type="button"
@@ -267,7 +261,7 @@ export function CommandBar({
               aria-label="Redo layout change"
               title="Redo (Ctrl+Shift+Z)"
             >
-              Redo <FontAwesomeIcon icon={faArrowRotateRight} />
+              Redo <RotateCw size={ICON_SIZE.sm} />
             </button>
           </>
         )}
@@ -284,7 +278,7 @@ export function CommandBar({
             to render alongside this button now lives in Settings' Appearance section. */}
         {!location.pathname.startsWith("/chat") && (
           <IconButton
-            icon={<FontAwesomeIcon icon={faComments} />}
+            icon={<MessagesSquare size={ICON_SIZE.md} />}
             variant="secondary"
             size="sm"
             onClick={onOpenQuickLauncher}

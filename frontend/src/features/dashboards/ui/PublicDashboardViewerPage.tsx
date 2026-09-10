@@ -14,7 +14,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { faLink } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { PageSuspenseFallback } from "../../../shared/ui/SuspenseFallback";
@@ -22,6 +21,7 @@ import { fetchPublicDashboardPanels } from "../services/publicDashboardService";
 import type { Panel } from "../../panels/types/panel";
 
 import "./PublicDashboardViewerPage.css";
+import { Link2 } from "lucide-react";
 
 type ViewState = "loading" | "denied" | { panels: Panel[] };
 
@@ -62,7 +62,7 @@ export function PublicDashboardViewerPage() {
     return (
       <div className="public-dashboard-viewer public-dashboard-viewer--denied">
         <EmptyState
-          icon={faLink}
+          icon={<Link2 />}
           title="This link isn't available"
           description="It may have been revoked, expired, or never existed. Ask the person who shared it for a new link."
         />
@@ -74,7 +74,7 @@ export function PublicDashboardViewerPage() {
     <div className="public-dashboard-viewer">
       {state.panels.length === 0 ? (
         <EmptyState
-          icon={faLink}
+          icon={<Link2 />}
           title="Nothing to show yet"
           description="This dashboard doesn't have any panels."
         />
