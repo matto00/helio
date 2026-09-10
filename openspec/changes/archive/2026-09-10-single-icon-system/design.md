@@ -412,3 +412,43 @@ check:dependabot`, what `.husky/pre-commit` runs) running and passing is the evi
 (with the interim `DECLARED_INDEPENDENT` entry included) and Task 10 (with it removed again) — record
 that it ran and passed on each commit. If it still fails after applying this fix, that is a *new*
 finding, not grounds to iterate silently — stop and escalate.
+
+## Gate-Chain Implications Checklist
+
+This change modifies `scripts/check-dependabot-groups.mjs`, a script `.husky/pre-commit` invokes
+(CON-132's gate-chain classifier). Added after Delivery's mechanical check flagged it — D7 already
+documents the substance of this change (removing/re-adding the `fortawesome` family and its interim
+`DECLARED_INDEPENDENT` bridge); this section restates it in the checklist's required shape.
+
+**What does it execute?** A pure Node.js script (no external dependencies — the file's own header
+comment states this is deliberate, "so it runs as a `.husky/pre-commit` gate in linked worktrees where
+the root `node_modules` may be absent entirely"). It parses `.github/dependabot.yml` with a
+purpose-built subset YAML parser, cross-references every declared family/independent entry against
+each ecosystem directory's manifest (`package.json`), and exits non-zero if any of three invariants
+break (a family split across groups, a stale family/independent declaration naming an absent package,
+or an unaccounted manifest dependency).
+
+**What environment does it inherit, and from where?** Whatever environment `.husky/pre-commit` itself
+runs under — the committer's shell, `node` on `PATH`, and the repo's own filesystem (it reads
+`.github/dependabot.yml` and every `package.json` under the declared directories via `readFileSync`
+relative to the script's own resolved location). No environment variables, no network access, no
+credentials of any kind.
+
+**Does it write anything outside its own sandbox?** No. The script is read-only — it never writes to
+disk, never mutates `.github/dependabot.yml` or any `package.json`; its only output is `stdout`/`stderr`
+diagnostics and its process exit code.
+
+**Does it behave differently from a linked worktree than from a main checkout?** No — this is the
+exact property the file's own header comment calls out as the reason it has zero dependencies: it must
+run identically whether `node_modules` exists at the repo root (main checkout) or not (a linked
+worktree, where `node_modules` may not be installed/symlinked). Nothing in this change altered that
+property; the diff only edits `DECLARED_FAMILIES`/`DECLARED_INDEPENDENT` data and
+`.github/dependabot.yml`'s own group declarations, not the script's execution model.
+
+**What happens on its first run?** Nothing different from every other run — the script is idempotent
+and stateless (no cache, no first-run initialization branch). The first invocation after this change
+lands is the same `node scripts/check-dependabot-groups.mjs` the pre-commit hook always runs; it either
+passes (every family/independent declaration is consistent with the manifest at that commit) or fails
+with a specific, named reason. This change's own Task 0/Task 10 commit sequence (D7) was specifically
+designed around this fact — the interim `DECLARED_INDEPENDENT` bridge exists because the invariant is
+checked at every commit, not just once.
