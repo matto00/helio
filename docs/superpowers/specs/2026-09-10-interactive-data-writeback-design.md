@@ -17,13 +17,23 @@ Output shows without editing the pipeline. Both are instances of HEL-643's
 
 ## Motivation / evidence
 
+> **Correction (2026-09-10, after HEL-1075).** An earlier revision of this spec
+> stated that `StaticSource` rows live in "the DataType/snapshot row", with the
+> `config` blob as a legacy second path. That was wrong in both halves: the
+> DataType/snapshot concept was retired by the HEL-904/909 remodel, and
+> `data_sources.config` is the only path, not the legacy one. The claim came from
+> a stale scaladoc on `StaticSource` itself (tracked as HEL-1118). The sentences
+> have been corrected in place rather than annotated, and the storage question
+> they made look open is now answered below.
+
 - **Zero-to-value is blocked on having data.** `StaticSource` is the only path to
   entering data by hand, and it has no first-class editing surface — it is
   created through the source wizard and thereafter effectively immutable.
 - **`static` is already a misnomer.** `StaticSource` (`DataSource.scala:145`)
-  carries no config; its rows live in the DataType/snapshot row and are
-  "materialize[d] on demand". It is the only _mutable-shaped_ source kind, and
-  its name asserts the opposite.
+  stores its rows as a single `{columns, rows}` JSONB blob in
+  `data_sources.config`, read back through
+  `DataSourceRepository.readRawConfig`/`parseStaticPayload`. It is the only
+  _mutable-shaped_ source kind, and its name asserts the opposite.
 - **The plumbing already exists.** `HookTriggerService` runs a pipeline from an
   external trigger and owns no tables. `usePipelineRunEvents` streams run status
   over SSE. `usePanelPolling` refreshes panels on an interval. Per-pipeline
@@ -103,12 +113,24 @@ Two migrations, both at the next free `V` numbers at implementation time
   `data_sources` kind CHECK constraint with `dataset` in place of `static`.
 - New `dataset_schema jsonb` on `data_sources` (nullable; backfilled for migrated
   `static` rows from their existing inferred schema, which becomes the declaration).
-- New table `dataset_rows` — or reuse of the existing snapshot store, decided in
-  the first leaf ticket after measuring how `StaticSource` rows are read today.
-  The decision is deliberately deferred to implementation because
-  `DataSource.scala:140-144` describes two different current read paths (the
-  DataType row, and the legacy config blob read directly by the in-process and
-  Spark engines) and both must be handled.
+- New table `dataset_rows`, **decided by HEL-1075** against reusing
+  `data_sources.config`. Shape:
+  `dataset_rows(id, data_source_id, seq, data jsonb, created_at, updated_at)`,
+  with a forced RLS policy scoped through `data_source_id` to
+  `data_sources.owner_id`, mirroring the existing `data_sources_owner` policy.
+  Backfill from each source's current `config` blob, then stop writing `config`
+  for `dataset`-kind sources.
+
+  Three reasons, in order of weight: row-level addressing is a hard requirement
+  HEL-1078 cannot get from a blob (`updateStaticPayload` replaces the whole
+  array and there is no row identity, so there is nothing for a `WHERE id = ? AND
+updated_at = ?` precondition to bind to); `append` is a first-class write mode,
+  and a blob forces a read-modify-write of the entire payload per append, which
+  races under concurrent writers such as two counter clicks; and the migration
+  cost is smaller than this spec originally assumed — only three call sites read
+  the blob, all through one repository method
+  (`InProcessPipelineEngine:509`, `SparkJobSubmitter:169`,
+  `DataSourceService.previewStatic:930`).
 
 **Migration B — pipeline ops.** One drop/re-add of `pipeline_steps_op_check`
 adding all four of `upsertsource`, `convertformat`, `analyzewithai`, `generatetext`,
@@ -239,8 +261,6 @@ migrations. Batch the constraint change into one migration owned by one lane.
 
 ## Open questions for implementation
 
-- Whether `dataset_rows` is a new table or the existing snapshot store — decided
-  in Epic 1's first leaf after measuring both current `StaticSource` read paths.
 - The concrete thresholds in the cheapness verdict. Start conservative (deny more
   than allowed) and loosen on evidence; the estimator is reusable later for
   scheduling and for showing users what a run costs.
