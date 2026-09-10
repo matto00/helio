@@ -2,13 +2,14 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import type { ReactElement } from "react";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import {
   computePinnedOffsets,
   DataGrid,
   FRAME_FILTER_COLLAPSE_THRESHOLD_PX,
   GRID_MIN_USABLE_HEIGHT_PX,
+  VIRTUALIZATION_ROW_THRESHOLD,
 } from "./DataGrid";
 import type { ColumnDef } from "./DataGrid";
 import type { SortState } from "./useSortedRows";
@@ -1533,5 +1534,294 @@ describe("DataGrid — pin toggle affordance (HEL-465 design.md Decision 3, DESI
     // exactly the kind of drift this guard exists to catch.
     expect(coarsePointerBlock).toMatch(/\.ui-data-grid__pin-toggle-btn\s*{\s*min-height:\s*44px/);
     expect(coarsePointerBlock).toMatch(/\.ui-data-grid__table thead th\s*{\s*min-height:\s*48px/);
+  });
+});
+
+// HEL-458 design D1-D6 — row virtualization. Every fixture below uses a row
+// count comfortably above `VIRTUALIZATION_ROW_THRESHOLD` (several thousand,
+// per the driver brief), so an assertion here cannot be satisfied by a
+// small table's precondition-guaranteed "every row is mounted" shape
+// (HEL-1060) the way a table sized at/near the threshold could.
+describe("DataGrid — row virtualization (HEL-458)", () => {
+  const ROW_HEIGHT = 30;
+  const VIEWPORT_HEIGHT = 300;
+  const ROW_COUNT = 5000;
+
+  function makeRows(n: number): Record<string, unknown>[] {
+    return Array.from({ length: n }, (_, i) => ({ id: i, value: `row-${i}` }));
+  }
+
+  /** Stubs every mounted `<tr>` (other than the header row) to report
+   *  `ROW_HEIGHT`, mirroring this file's existing `stubHeaderRowHeight`
+   *  pattern — the pre-measurement render's estimate is corrected to this
+   *  value by DataGrid's own `useLayoutEffect` (design D3). */
+  function stubRowHeight(height: number) {
+    jest.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const isHeaderRow = (this.className || "").includes("ui-data-grid__header-row");
+      const resolvedHeight = isHeaderRow ? 34 : height;
+      return {
+        height: resolvedHeight,
+        width: 100,
+        top: 0,
+        left: 0,
+        right: 100,
+        bottom: resolvedHeight,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+  }
+
+  /** Stubs the scroll container's (`.ui-data-grid`) `clientHeight` and
+   *  `scrollTop` — jsdom never lays out real geometry, so both are 0 unless
+   *  a test stubs them (mirrors this file's existing `stubFrameHeight`
+   *  pattern for `.ui-data-grid__frame`). */
+  function stubScrollContainer(root: HTMLElement, clientHeight: number, scrollTop: number) {
+    Object.defineProperty(root, "clientHeight", { configurable: true, value: clientHeight });
+    Object.defineProperty(root, "scrollTop", { configurable: true, value: scrollTop });
+  }
+
+  afterEach(() => jest.restoreAllMocks());
+
+  function renderAt(density: "condensed" | "normal" | "spacious", scrollTop: number) {
+    stubRowHeight(ROW_HEIGHT);
+    const rows = makeRows(ROW_COUNT);
+    const { container } = render(
+      <DataGrid
+        variant="full"
+        rows={rows}
+        columns={[{ key: "id" }, { key: "value" }]}
+        density={density}
+      />,
+    );
+    const scroller = container.querySelector(".ui-data-grid") as HTMLElement;
+    stubScrollContainer(scroller, VIEWPORT_HEIGHT, scrollTop);
+    fireEvent.scroll(scroller);
+    return { container, scroller };
+  }
+
+  it.each(["condensed", "normal", "spacious"] as const)(
+    "mounts a bounded slice of %s-density rows out of several thousand, not the whole row set",
+    (density) => {
+      const { container } = renderAt(density, 0);
+      const mountedDataRows = container.querySelectorAll("tbody tr:not([aria-hidden])");
+      expect(mountedDataRows.length).toBeGreaterThan(0);
+      // The failable form of AC1's "stable, bounded DOM node count" — well
+      // below the 5,000-row total, at any density.
+      expect(mountedDataRows.length).toBeLessThan(200);
+    },
+  );
+
+  it("REGRESSION GUARD (mutation-failable): scrolling deep into a several-thousand-row table still mounts a bounded slice, not the top of the list", () => {
+    const { container } = renderAt("normal", ROW_HEIGHT * 2500);
+    const mountedDataRows = container.querySelectorAll("tbody tr:not([aria-hidden])");
+    expect(mountedDataRows.length).toBeGreaterThan(0);
+    expect(mountedDataRows.length).toBeLessThan(200);
+    // The scrolled-to rows must be from the middle of the set, not row 0 —
+    // guards against a windowing bug that always renders the same slice
+    // regardless of scroll position.
+    const firstVisibleCell = mountedDataRows[0].querySelector("td");
+    expect(firstVisibleCell?.textContent).not.toBe("row-0");
+  });
+
+  it("renders a top spacer row sized to the skipped rows' total height, hidden from the accessibility tree", () => {
+    const { container } = renderAt("normal", ROW_HEIGHT * 2500);
+    const topSpacer = container.querySelector('tbody tr[aria-hidden="true"]') as HTMLElement;
+    expect(topSpacer).toBeTruthy();
+    const spacerCell = topSpacer.querySelector("td") as HTMLElement;
+    expect(spacerCell).toHaveClass("ui-data-grid__row-spacer-cell");
+    // The spacer's height must be a positive multiple of the row height —
+    // the failable form of "scrollHeight matches rowCount * rowHeight".
+    const spacerHeightPx = parseFloat(spacerCell.style.height);
+    expect(spacerHeightPx).toBeGreaterThan(0);
+    expect(spacerHeightPx % ROW_HEIGHT).toBe(0);
+  });
+
+  it("exposes aria-rowcount (header-inclusive) and true, window-independent aria-rowindex per mounted row", () => {
+    const { container } = renderAt("normal", ROW_HEIGHT * 2500);
+    const table = container.querySelector("table") as HTMLElement;
+    expect(table).toHaveAttribute("aria-rowcount", String(ROW_COUNT + 1));
+
+    const mountedDataRows = Array.from(
+      container.querySelectorAll("tbody tr:not([aria-hidden])"),
+    ) as HTMLElement[];
+    const firstRowIndex = Number(mountedDataRows[0].getAttribute("aria-rowindex"));
+    // Window-independent: scrolled deep into the list, the first MOUNTED
+    // row's true position is nowhere near 2 (the un-scrolled first data
+    // row's aria-rowindex) — the bug this guards against is reporting
+    // position WITHIN the mounted window instead of true position.
+    expect(firstRowIndex).toBeGreaterThan(100);
+    // Every mounted row's index increases by exactly 1 from the previous.
+    for (let i = 1; i < mountedDataRows.length; i++) {
+      const prev = Number(mountedDataRows[i - 1].getAttribute("aria-rowindex"));
+      const curr = Number(mountedDataRows[i].getAttribute("aria-rowindex"));
+      expect(curr).toBe(prev + 1);
+    }
+  });
+
+  it("REGRESSION GUARD (mutation-failable): spacer rows are excluded from the accessibility tree", () => {
+    const { container } = renderAt("normal", ROW_HEIGHT * 2500);
+    const spacers = container.querySelectorAll('tbody tr[aria-hidden="true"]');
+    expect(spacers.length).toBeGreaterThan(0);
+    for (const spacer of Array.from(spacers)) {
+      expect(spacer).not.toHaveAttribute("aria-rowindex");
+    }
+  });
+
+  it("the true last data row loses its border only when a nonzero trailing spacer displaces it from :last-child", () => {
+    // Scrolled to the very bottom of the list -> no trailing spacer (D6).
+    const { container: atBottom } = renderAt("normal", ROW_HEIGHT * (ROW_COUNT - 5));
+    expect(atBottom.querySelector(".ui-data-grid__row--no-border")).toBeNull();
+
+    // Scrolled to the middle -> a nonzero trailing spacer is present, so the
+    // true last MOUNTED row must carry the explicit no-border class.
+    const { container: inMiddle } = renderAt("normal", ROW_HEIGHT * 2500);
+    const spacers = inMiddle.querySelectorAll('tbody tr[aria-hidden="true"]');
+    expect(spacers.length).toBe(2); // top AND bottom spacer both present
+    expect(inMiddle.querySelector(".ui-data-grid__row--no-border")).not.toBeNull();
+  });
+
+  // HEL-458 evaluation-1.md Change Request #1 (BLOCKING) — probe-confirmed
+  // live repro: growing a panel's height via its resize handle WITHOUT an
+  // intervening scroll left the mounted window sized for the old, smaller
+  // viewport (a visible blank strip below the last mounted row). Mirrors
+  // `ChartPanel.test.tsx`'s `FakeResizeObserver` pattern — jsdom has no
+  // real `ResizeObserver`, so the container's resize path can only be
+  // exercised by installing a fake one and firing its callback manually.
+  describe("re-measures on container resize, not only mount and scroll (evaluation-1.md CR1)", () => {
+    type ObserverCallback = () => void;
+    let observerCallback: ObserverCallback | null = null;
+    const originalResizeObserver = (global as { ResizeObserver?: unknown }).ResizeObserver;
+
+    beforeEach(() => {
+      observerCallback = null;
+      class FakeResizeObserver {
+        constructor(cb: ObserverCallback) {
+          observerCallback = cb;
+        }
+        observe() {
+          /* no-op: the test triggers `observerCallback` manually */
+        }
+        disconnect() {}
+      }
+      (global as { ResizeObserver?: unknown }).ResizeObserver = FakeResizeObserver;
+    });
+
+    afterEach(() => {
+      (global as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+    });
+
+    it("REGRESSION GUARD (mutation-failable): mounted row count grows to cover a container that grew without a scroll event", () => {
+      stubRowHeight(ROW_HEIGHT);
+      const rows = makeRows(ROW_COUNT);
+      const { container } = render(
+        <DataGrid variant="full" rows={rows} columns={[{ key: "id" }, { key: "value" }]} />,
+      );
+      const scroller = container.querySelector(".ui-data-grid") as HTMLElement;
+
+      // Small viewport at mount, no scroll — matches the live repro's
+      // starting `clientHeight` (~121px).
+      stubScrollContainer(scroller, 120, 0);
+      const mountedBefore = container.querySelectorAll("tbody tr:not([aria-hidden])").length;
+
+      // The container grows substantially (the live repro's ~1451px) with
+      // NO scroll event in between — only the ResizeObserver fires, exactly
+      // like a dashboard panel resize handle.
+      stubScrollContainer(scroller, 1450, 0);
+      act(() => {
+        observerCallback?.();
+      });
+
+      const mountedAfter = container.querySelectorAll("tbody tr:not([aria-hidden])").length;
+      expect(mountedAfter).toBeGreaterThan(mountedBefore);
+      // The failable form of "no blank strip": enough rows are mounted to
+      // cover the new viewport height, not just marginally more than before.
+      expect(mountedAfter).toBeGreaterThanOrEqual(Math.ceil(1450 / ROW_HEIGHT));
+    });
+  });
+
+  // HEL-458 evaluation-1.md Change Request #2 — AC2's sharpest interaction
+  // (verified correct live by the evaluator, but previously unguarded):
+  // every pre-existing pinning test used a small, bypassed table, and every
+  // windowing test above used unpinned columns, so nothing would catch a
+  // regression dropping `ui-data-grid__pinned-cell`/its `left` offset on a
+  // WINDOWED (not just any) mounted row.
+  it("REGRESSION GUARD (mutation-failable): pinned leading columns keep their sticky offsets on mounted rows at a deep scroll position", () => {
+    stubRowHeight(ROW_HEIGHT);
+    const rows = makeRows(ROW_COUNT).map((r) => ({ ...r, extra: "x" }));
+    const columns: ColumnDef[] = [{ key: "id" }, { key: "value" }, { key: "extra" }];
+    const { container } = render(
+      <DataGrid variant="full" rows={rows} columns={columns} pinnedColumns={["id", "value"]} />,
+    );
+    const scroller = container.querySelector(".ui-data-grid") as HTMLElement;
+    stubScrollContainer(scroller, VIEWPORT_HEIGHT, ROW_HEIGHT * 2500);
+    fireEvent.scroll(scroller);
+
+    const headerCells = Array.from(
+      container.querySelectorAll("thead tr.ui-data-grid__header-row th"),
+    );
+    const headerOffsets = headerCells
+      .filter((th) => th.classList.contains("ui-data-grid__pinned-cell"))
+      .map((th) => (th as HTMLElement).style.left);
+    expect(headerOffsets).toEqual(["0px", "160px"]);
+
+    const mountedDataRows = Array.from(
+      container.querySelectorAll("tbody tr:not([aria-hidden])"),
+    ) as HTMLElement[];
+    expect(mountedDataRows.length).toBeGreaterThan(0);
+    for (const row of mountedDataRows) {
+      const cells = Array.from(row.querySelectorAll("td"));
+      const pinnedCells = cells.filter((td) => td.classList.contains("ui-data-grid__pinned-cell"));
+      expect(pinnedCells).toHaveLength(2);
+      expect(pinnedCells.map((td) => td.style.left)).toEqual(headerOffsets);
+    }
+  });
+});
+
+describe("DataGrid — small-table virtualization bypass (HEL-458 AC3)", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it("renders every row with no windowing state engaged at the threshold row count", () => {
+    const rows = Array.from({ length: VIRTUALIZATION_ROW_THRESHOLD }, (_, i) => ({ id: i }));
+    const { container } = render(<DataGrid variant="full" rows={rows} columns={[{ key: "id" }]} />);
+    const mountedDataRows = container.querySelectorAll("tbody tr:not([aria-hidden])");
+    expect(mountedDataRows.length).toBe(VIRTUALIZATION_ROW_THRESHOLD);
+    expect(container.querySelector('tbody tr[aria-hidden="true"]')).toBeNull();
+  });
+
+  it("still exposes the header-inclusive aria-rowcount below the virtualization threshold, with no spacers to hide", () => {
+    const rows = Array.from({ length: 3 }, (_, i) => ({ id: i }));
+    const { container } = render(<DataGrid variant="full" rows={rows} columns={[{ key: "id" }]} />);
+    const table = container.querySelector("table") as HTMLElement;
+    expect(table).toHaveAttribute("aria-rowcount", "4");
+    const dataRows = Array.from(container.querySelectorAll("tbody tr")) as HTMLElement[];
+    expect(dataRows.map((r) => r.getAttribute("aria-rowindex"))).toEqual(["2", "3", "4"]);
+  });
+
+  it("REGRESSION GUARD (mutation-failable): one row above the threshold DOES engage windowing (the exact boundary)", () => {
+    const rows = Array.from({ length: VIRTUALIZATION_ROW_THRESHOLD + 1 }, (_, i) => ({ id: i }));
+    jest.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const isHeaderRow = (this.className || "").includes("ui-data-grid__header-row");
+      const height = isHeaderRow ? 34 : 30;
+      return {
+        height,
+        width: 100,
+        top: 0,
+        left: 0,
+        right: 100,
+        bottom: height,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+    const { container } = render(<DataGrid variant="full" rows={rows} columns={[{ key: "id" }]} />);
+    const mountedDataRows = container.querySelectorAll("tbody tr:not([aria-hidden])");
+    expect(mountedDataRows.length).toBeLessThan(rows.length);
   });
 });

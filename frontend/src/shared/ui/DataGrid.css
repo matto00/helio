@@ -343,6 +343,24 @@
   border-bottom: none;
 }
 
+/* HEL-458 design D6 — applied to the true last DATA row instead of relying
+   on `:last-child` whenever a nonzero trailing spacer `<tr>` is present (the
+   spacer becomes `:last-child` in that case), so windowed and unwindowed
+   renderings stay equivalent. */
+.ui-data-grid__table tbody tr.ui-data-grid__row--no-border td {
+  border-bottom: none;
+}
+
+/* HEL-458 design D6 — a spacer `<td>` must render at EXACTLY the requested
+   height. `tbody td`'s own padding/border/max-width (above) would otherwise
+   add to it, so `scrollHeight` would disagree with `rowCount * rowHeight`
+   and the scrollbar would drift as the mounted window slides. */
+.ui-data-grid__row-spacer-cell {
+  padding: 0;
+  border: none;
+  max-width: none;
+}
+
 .ui-data-grid--condensed .ui-data-grid__table th,
 .ui-data-grid--condensed .ui-data-grid__table td {
   padding: var(--space-1) var(--space-2);
