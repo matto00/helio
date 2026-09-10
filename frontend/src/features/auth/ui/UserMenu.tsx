@@ -1,13 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faUser,
-  faGear,
-  faArrowRightFromBracket,
-  faCircleQuestion,
-} from "@fortawesome/free-solid-svg-icons";
 
 import { usePortalPopover } from "../../../hooks/usePortalPopover";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
@@ -15,6 +8,8 @@ import { reopenOnboarding } from "../../onboarding/state/onboardingSlice";
 import type { User } from "../types/user";
 import "../../../shared/chrome/Popover.css";
 import "./UserMenu.css";
+import { CircleQuestionMark, LogOut, Settings, User as UserIcon } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 /** Render the user's avatar image, falling back to their initial and then to a
  * person icon when the URL fails to load (broken/missing). The previous
@@ -49,7 +44,7 @@ function AvatarOrFallback({ avatarUrl, initial }: { avatarUrl: string | null; in
   }
   return (
     <span className="user-menu__initials" aria-hidden="true">
-      <FontAwesomeIcon icon={faUser} />
+      <UserIcon size={ICON_SIZE.sm} />
     </span>
   );
 }
@@ -198,7 +193,7 @@ export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMe
                 }}
                 aria-label="Settings"
               >
-                <FontAwesomeIcon icon={faGear} />
+                <Settings size={ICON_SIZE.sm} />
                 Settings
               </button>
               {/* HEL-554 D9 — the re-open affordance every onboarding scenario
@@ -215,7 +210,7 @@ export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMe
                 onClick={handleGettingStarted}
                 aria-label="Getting started"
               >
-                <FontAwesomeIcon icon={faCircleQuestion} />
+                <CircleQuestionMark size={ICON_SIZE.sm} />
                 Getting started
               </button>
               <div className="user-menu__divider" />
@@ -226,7 +221,7 @@ export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMe
                 onClick={onLogout}
                 aria-label="Sign out"
               >
-                <FontAwesomeIcon icon={faArrowRightFromBracket} />
+                <LogOut size={ICON_SIZE.sm} />
                 Sign out
               </button>
             </div>

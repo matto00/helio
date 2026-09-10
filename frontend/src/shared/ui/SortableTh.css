@@ -27,9 +27,13 @@
    computing to a 7px glyph in a 6.3x9px box — measurably illegible. Sized
    from a token instead of relatively, so it can never be shrunk again by the
    header's own type scale. The neutral (unsorted) state is dimmed rather than
-   smaller, so every column's affordance stays the same size. */
+   smaller, so every column's affordance stays the same size.
+   HEL-443: the glyph is now a lucide icon sized via an explicit `size` prop
+   (`ICON_SIZE.sm`), which lucide does not derive from `font-size` the way
+   FontAwesome's SVG did — this rule no longer sizes the glyph, only its
+   color, and is deliberately NOT deleted since the color rules below still
+   apply. */
 .sortable-th__glyph {
-  font-size: var(--text-xs);
   color: var(--app-text-muted);
 }
 

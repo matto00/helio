@@ -1,19 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faCheckCircle,
-  faCircleXmark,
-  faExclamationTriangle,
-  faInfoCircle,
-  faXmark,
-} from "@fortawesome/free-solid-svg-icons";
 
 import { dismissToast } from "../../features/toasts/state/toastsSlice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import "./toast.css";
 
 import type { Toast as ToastData } from "../../features/toasts/state/toastsSlice";
+import { CircleCheck, CircleX, Info, TriangleAlert, X } from "lucide-react";
+import { ICON_SIZE } from "./iconSize";
 
 // HEL-535 D4 — the JS-side counterpart of toast.css's `--toast-exit-duration`
 // (200ms): the delay between playing the exit animation and actually
@@ -32,10 +26,10 @@ function prefersReducedMotion(): boolean {
 }
 
 const variantIcon = {
-  info: faInfoCircle,
-  success: faCheckCircle,
-  warning: faExclamationTriangle,
-  error: faCircleXmark,
+  info: Info,
+  success: CircleCheck,
+  warning: TriangleAlert,
+  error: CircleX,
 };
 
 interface ToastItemProps {
@@ -81,7 +75,10 @@ function ToastItem({ toast }: ToastItemProps) {
     // always-mounted live regions below, so nothing is announced twice.
     <div className={classes}>
       <span className="toast__icon" aria-hidden="true">
-        <FontAwesomeIcon icon={variantIcon[toast.variant]} />
+        {(() => {
+          const VariantIcon = variantIcon[toast.variant];
+          return <VariantIcon size={ICON_SIZE.md} />;
+        })()}
       </span>
 
       <div className="toast__body">
@@ -113,7 +110,7 @@ function ToastItem({ toast }: ToastItemProps) {
         title="Dismiss notification"
         onClick={dismiss}
       >
-        <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
+        <X aria-hidden="true" size={ICON_SIZE.sm} />
       </button>
     </div>
   );

@@ -7,11 +7,10 @@
 // `PipelineRiverView` also closes the gap/bottom-add pickers), this
 // component only renders the button/hint/menu for ONE step.
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCodeBranch } from "@fortawesome/free-solid-svg-icons";
-
 import { OpDropdown } from "./OpDropdown";
 import type { OpType } from "../types/step";
+import { GitBranch } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface BranchAffordanceProps {
   isOpen: boolean;
@@ -37,7 +36,7 @@ export function BranchAffordance({
         title="Branch this step into a new lane, without changing the rest of the pipeline"
         onClick={(e) => onOpen(e.currentTarget)}
       >
-        <FontAwesomeIcon icon={faCodeBranch} aria-hidden="true" /> Branch
+        <GitBranch aria-hidden="true" size={ICON_SIZE.sm} /> Branch
       </button>
       {isOpen && (
         <OpDropdown anchorRef={{ current: anchorEl }} onSelect={onSelect} onClose={onClose} />

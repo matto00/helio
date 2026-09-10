@@ -8,12 +8,12 @@
 // and `offset` entirely.
 
 import type { ChangeEvent } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import type { SchemaField } from "../../types/pipelineStep";
 import { Select, TextField } from "../../../../shared/ui/index";
 import { SortConfig, type SortKey } from "./SortConfig";
+import { X } from "lucide-react";
+import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 
 export const WINDOW_FUNCTIONS = [
   "row_number",
@@ -128,7 +128,7 @@ export function WindowConfig({
                 aria-label={`Remove partition field ${rowIndex + 1}`}
                 onClick={() => handleRemovePartitionRow(rowIndex)}
               >
-                <FontAwesomeIcon icon={faXmark} />
+                <X size={ICON_SIZE.sm} />
               </button>
             </div>
           ))}

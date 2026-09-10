@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import { Textarea } from "../../../shared/ui/Textarea";
 import { Spinner } from "../../../shared/ui/Spinner";
@@ -16,6 +14,8 @@ import { summarizeRefinementPatchSet } from "../utils/refinementSummary";
 import type { AuthoringDisplayTurn, AuthoringErrorKind } from "../types/authoring";
 import type { PatchSet } from "../../patchSets/types/patchSet";
 import "./RefinementChatDrawer.css";
+import { X } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface RefinementChatDrawerProps {
   open: boolean;
@@ -234,7 +234,7 @@ export function RefinementChatDrawer({ open, onClose, dashboardId }: RefinementC
         <header className="refinement-drawer__header">
           <h2 className="refinement-drawer__title">Refine with AI</h2>
           <IconButton
-            icon={<FontAwesomeIcon icon={faXmark} />}
+            icon={<X size={ICON_SIZE.md} />}
             variant="ghost"
             size="sm"
             aria-label="Close"

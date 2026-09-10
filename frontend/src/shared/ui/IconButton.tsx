@@ -6,8 +6,9 @@ type IconButtonVariant = "ghost" | "secondary" | "danger";
 type IconButtonSize = "xs" | "sm" | "md";
 
 interface IconButtonProps {
-  /** The icon glyph (e.g. a `FontAwesomeIcon`). Rendered `aria-hidden` —
-   *  `aria-label` below is the button's only accessible name. */
+  /** The icon glyph (e.g. a lucide icon component like `<Trash2 />`).
+   *  Rendered `aria-hidden` — `aria-label` below is the button's only
+   *  accessible name. */
   icon: ReactNode;
   /**
    * Required, non-optional accessible name (HEL-718) — omitting it is a

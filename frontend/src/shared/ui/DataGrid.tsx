@@ -10,14 +10,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faSort,
-  faSortDown,
-  faSortUp,
-  faThumbtack,
-  faThumbtackSlash,
-} from "@fortawesome/free-solid-svg-icons";
 
 import "./DataGrid.css";
 // HEL-448 design D4: `SortableTh` cannot be rendered directly here (it puts
@@ -31,6 +23,8 @@ import { IconButton } from "./IconButton";
 import { useScrollEdges } from "./useScrollEdges";
 import { useVirtualRows } from "./useVirtualRows";
 import type { SortDirection, SortState } from "./useSortedRows";
+import { ArrowUpDown, ChevronDown, ChevronUp, Pin, PinOff } from "lucide-react";
+import { ICON_SIZE } from "./iconSize";
 
 export interface ColumnDef {
   key: string;
@@ -943,17 +937,25 @@ export function DataGrid({
                         onClick={() => onSort?.(col.key)}
                       >
                         <span className="sortable-th__label">{col.header ?? col.key}</span>
-                        <FontAwesomeIcon
-                          className={`sortable-th__glyph${direction === null ? " sortable-th__glyph--neutral" : ""}`}
-                          icon={
-                            direction === "asc"
-                              ? faSortUp
-                              : direction === "desc"
-                                ? faSortDown
-                                : faSort
-                          }
-                          aria-hidden="true"
-                        />
+                        {direction === "asc" ? (
+                          <ChevronUp
+                            className="sortable-th__glyph"
+                            aria-hidden="true"
+                            size={ICON_SIZE.sm}
+                          />
+                        ) : direction === "desc" ? (
+                          <ChevronDown
+                            className="sortable-th__glyph"
+                            aria-hidden="true"
+                            size={ICON_SIZE.sm}
+                          />
+                        ) : (
+                          <ArrowUpDown
+                            className="sortable-th__glyph sortable-th__glyph--neutral"
+                            aria-hidden="true"
+                            size={ICON_SIZE.sm}
+                          />
+                        )}
                       </button>
                     ) : (
                       (col.header ?? col.key)
@@ -976,7 +978,9 @@ export function DataGrid({
                       // show through, naming the COLUMN rather than the
                       // ACTION (evaluation-1.md CR1).
                       <IconButton
-                        icon={<FontAwesomeIcon icon={isPinned ? faThumbtackSlash : faThumbtack} />}
+                        icon={
+                          isPinned ? <PinOff size={ICON_SIZE.sm} /> : <Pin size={ICON_SIZE.sm} />
+                        }
                         variant="ghost"
                         size="xs"
                         className="ui-data-grid__pin-toggle-btn"

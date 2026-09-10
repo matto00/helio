@@ -5,31 +5,6 @@
 // Behavior-preserving: every helper here is a verbatim move from the
 // original file; consumers import them by name.
 
-import {
-  faAlignLeft,
-  faArrowsUpDown,
-  faArrowUp,
-  faCalculator,
-  faCalendarWeek,
-  faChartColumn,
-  faClipboardCheck,
-  faClone,
-  faFilter,
-  faFillDrip,
-  faFont,
-  faHeading,
-  faLayerGroup,
-  faLink,
-  faObjectGroup,
-  faPencil,
-  faRankingStar,
-  faRightLeft,
-  faSquareCheck,
-  faTableCells,
-  faTableList,
-  faTags,
-} from "@fortawesome/free-solid-svg-icons";
-
 import type {
   AggregateConfig as AggregateConfigType,
   AssertConfig as AssertConfigType,
@@ -80,6 +55,30 @@ import {
 import type { UnionConfigValue } from "../ui/stepConfigs/UnionConfig";
 import type { UnpivotConfigValue } from "../ui/stepConfigs/UnpivotConfig";
 import { WINDOW_FUNCTIONS, type WindowConfigValue } from "../ui/stepConfigs/WindowConfig";
+import {
+  TextAlignStart,
+  ArrowLeftRight,
+  ArrowUp,
+  ArrowUpDown,
+  Award,
+  ChartColumn,
+  Calculator,
+  CalendarDays,
+  SquareCheckBig,
+  ClipboardCheck,
+  Files,
+  Funnel,
+  Group,
+  Heading,
+  Layers,
+  Link2,
+  List,
+  PaintBucket,
+  Pencil,
+  Table2,
+  Tags,
+  Type,
+} from "lucide-react";
 
 // OP_TYPES drives the picker dropdown — join is intentionally excluded: no
 // `JoinConfig.tsx` editor exists (HEL-264's original rationale — showing an
@@ -96,33 +95,33 @@ import { WINDOW_FUNCTIONS, type WindowConfigValue } from "../ui/stepConfigs/Wind
 // no ACL pre-flight) — a pass-through step like `filter`/`limit`/`sort`, so
 // it ships a full editor (AssertConfig.tsx) with no ACL-check counterpart.
 export const OP_TYPES: OpType[] = [
-  { id: "select", label: "Select fields", icon: faSquareCheck },
-  { id: "rename", label: "Rename column", icon: faPencil },
-  { id: "filter", label: "Filter rows", icon: faFilter },
-  { id: "compute", label: "Compute column", icon: faCalculator },
-  { id: "aggregate", label: "Group & aggregate", icon: faChartColumn },
-  { id: "cast", label: "Cast type", icon: faRightLeft },
-  { id: "limit", label: "Limit rows", icon: faArrowUp },
-  { id: "sort", label: "Sort rows", icon: faArrowsUpDown },
-  { id: "splittext", label: "Split text", icon: faAlignLeft },
-  { id: "extractheadings", label: "Extract headings", icon: faHeading },
-  { id: "chunkbytokencount", label: "Chunk by token count", icon: faLayerGroup },
-  { id: "datebucket", label: "Date bucket", icon: faCalendarWeek },
-  { id: "pivot", label: "Pivot (long → wide)", icon: faTableCells },
-  { id: "window", label: "Window (rank / running total)", icon: faRankingStar },
-  { id: "unpivot", label: "Unpivot (wide → long)", icon: faTableList },
-  { id: "dedupe", label: "Dedupe rows", icon: faClone },
-  { id: "fillnull", label: "Fill null / impute", icon: faFillDrip },
-  { id: "stringops", label: "String operation", icon: faFont },
-  { id: "union", label: "Union / append rows", icon: faObjectGroup },
-  { id: "lookup", label: "Lookup / enrich", icon: faTags },
-  { id: "assert", label: "Assert / validate", icon: faClipboardCheck },
+  { id: "select", label: "Select fields", icon: SquareCheckBig },
+  { id: "rename", label: "Rename column", icon: Pencil },
+  { id: "filter", label: "Filter rows", icon: Funnel },
+  { id: "compute", label: "Compute column", icon: Calculator },
+  { id: "aggregate", label: "Group & aggregate", icon: ChartColumn },
+  { id: "cast", label: "Cast type", icon: ArrowLeftRight },
+  { id: "limit", label: "Limit rows", icon: ArrowUp },
+  { id: "sort", label: "Sort rows", icon: ArrowUpDown },
+  { id: "splittext", label: "Split text", icon: TextAlignStart },
+  { id: "extractheadings", label: "Extract headings", icon: Heading },
+  { id: "chunkbytokencount", label: "Chunk by token count", icon: Layers },
+  { id: "datebucket", label: "Date bucket", icon: CalendarDays },
+  { id: "pivot", label: "Pivot (long → wide)", icon: Table2 },
+  { id: "window", label: "Window (rank / running total)", icon: Award },
+  { id: "unpivot", label: "Unpivot (wide → long)", icon: List },
+  { id: "dedupe", label: "Dedupe rows", icon: Files },
+  { id: "fillnull", label: "Fill null / impute", icon: PaintBucket },
+  { id: "stringops", label: "String operation", icon: Type },
+  { id: "union", label: "Union / append rows", icon: Group },
+  { id: "lookup", label: "Lookup / enrich", icon: Tags },
+  { id: "assert", label: "Assert / validate", icon: ClipboardCheck },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
 // so pipelineStepToStep can resolve existing backend-loaded join steps without
 // falling back to the wrong op type.
-const JOIN_OP_TYPE: OpType = { id: "join", label: "Join tables", icon: faLink };
+const JOIN_OP_TYPE: OpType = { id: "join", label: "Join tables", icon: Link2 };
 
 /** Empty / default config per kind. Matches the seed shapes used in the
  *  `handleAddStep` flow — kept as a single source of truth so seeding new

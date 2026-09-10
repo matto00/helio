@@ -2,7 +2,9 @@
 
 ## Purpose
 Canonical error/retry/permission-denied UI pattern (EmptyState intent="error", InlineError banner, StatusMessage retry) applied consistently across data-backed views, so a fetch failure always renders a visible, accessible, retryable state and a 403/404 renders a distinct, non-retryable one.
+
 ## Requirements
+
 ### Requirement: EmptyState renders an intent-error variant with an alert role
 The `EmptyState` component SHALL accept an `intent` prop (`"neutral" | "error"`, default `"neutral"`).
 When `intent="error"`, on both the `main` and `sidebar` variants: the icon-wrap SHALL use a solid
@@ -22,19 +24,6 @@ rendered in the Fraunces display font exactly as the `neutral` intent does.
 - **WHEN** `EmptyState` is rendered with no `intent` prop
 - **THEN** it renders identically to its pre-existing (accent-tinted, role-less, `aria-label`-carrying)
   behavior
-
-### Requirement: EmptyState icon and cta icons accept a ReactNode
-The `EmptyState` component's `icon` prop, and its `cta.icon`/`secondaryCta.icon` props, SHALL each accept
-either a FontAwesome `IconDefinition` (existing behavior, rendered via `FontAwesomeIcon`) or a `ReactNode`
-(rendered directly), selected by `React.isValidElement`.
-
-#### Scenario: A FontAwesome IconDefinition still renders via FontAwesomeIcon
-- **WHEN** `EmptyState` is rendered with `icon={faTableColumns}`
-- **THEN** the icon renders identically to its pre-existing behavior
-
-#### Scenario: A ReactNode icon renders directly
-- **WHEN** `EmptyState` is rendered with `icon={<AlertTriangle />}`
-- **THEN** the provided element is rendered directly, not wrapped in `FontAwesomeIcon`
 
 ### Requirement: EmptyState supports a secondary action alongside a primary cta
 The `EmptyState` component SHALL accept an optional `secondaryCta` prop, of the same shape as `cta`,
@@ -172,3 +161,10 @@ success. No listed view SHALL silently render nothing on a fetch failure.
 - **WHEN** any of the named views' data fetch fails
 - **THEN** the view never renders as if nothing happened (no blank/unchanged view)
 
+### Requirement: EmptyState icon and cta icons accept a ReactNode only
+The `EmptyState` component's `icon` prop, and its `cta.icon`/`secondaryCta.icon` props, SHALL each
+accept a `ReactNode`, rendered directly.
+
+#### Scenario: A ReactNode icon renders directly
+- **WHEN** `EmptyState` is rendered with `icon={<AlertTriangle />}`
+- **THEN** the provided element is rendered directly

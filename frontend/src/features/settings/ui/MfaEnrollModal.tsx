@@ -7,8 +7,6 @@
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { faCopy } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { Modal, TextField } from "../../../shared/ui/index";
@@ -17,6 +15,8 @@ import { pushToast } from "../../toasts/state/toastsSlice";
 import { confirmMfaEnrollment, startMfaEnrollment } from "../state/settingsSlice";
 import { MfaBackupCodesList } from "./MfaBackupCodesList";
 import "./MfaEnrollModal.css";
+import { Copy } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface MfaEnrollModalProps {
   open: boolean;
@@ -122,7 +122,7 @@ export function MfaEnrollModal({ open, onClose }: MfaEnrollModalProps) {
               aria-label="Copy manual entry key"
               onClick={() => void handleCopy(enrollment.secret, "Key")}
             >
-              <FontAwesomeIcon icon={faCopy} aria-hidden="true" />
+              <Copy aria-hidden="true" size={ICON_SIZE.sm} />
             </button>
           </div>
 

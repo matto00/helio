@@ -40,17 +40,6 @@ import { fileURLToPath } from "node:url";
 
 export const DECLARED_FAMILIES = [
   {
-    name: "fortawesome",
-    ecosystem: "npm",
-    directory: "/frontend",
-    members: [
-      "@fortawesome/fontawesome-svg-core",
-      "@fortawesome/free-brands-svg-icons",
-      "@fortawesome/free-solid-svg-icons",
-      "@fortawesome/react-fontawesome",
-    ],
-  },
-  {
     name: "echarts",
     ecosystem: "npm",
     directory: "/frontend",

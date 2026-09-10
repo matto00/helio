@@ -3,13 +3,13 @@
 // per-section-gate pattern, mirrors `MfaSecuritySection`), fetched on mount.
 
 import { useEffect } from "react";
-import { faClockRotateLeft } from "@fortawesome/free-solid-svg-icons";
 
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { EmptyState } from "../../../shared/ui/index";
 import { fetchAuditEvents } from "../state/auditEventsSlice";
 import { AuditEventTable } from "./AuditEventTable";
 import "./AuditHistorySection.css";
+import { RotateCcwClock } from "lucide-react";
 
 export function AuditHistorySection() {
   const dispatch = useAppDispatch();
@@ -41,7 +41,7 @@ export function AuditHistorySection() {
     return (
       <EmptyState
         variant="main"
-        icon={faClockRotateLeft}
+        icon={<RotateCcwClock />}
         title="No audit events yet"
         description="Actions you and your tokens take will show up here."
       />

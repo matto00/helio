@@ -4,18 +4,18 @@
 // These are deliberately distinct from the persisted-wire `PipelineStep`
 // discriminated union in `./pipelineStep.ts`: the wire type encodes
 // `{ type, config }` only, while the UI needs a richer object that bundles
-// each op-type with its display label and FontAwesome icon. Conversion
+// each op-type with its display label and lucide icon component. Conversion
 // between the two happens via the helpers in `../state/stepNarrowing.ts`
 // (`pipelineStepToStep`, `defaultConfigFor`, `makeStep`).
 
-import type { IconDefinition } from "@fortawesome/free-solid-svg-icons";
+import type { LucideIcon } from "lucide-react";
 
 import type { PipelineStepConfig } from "./pipelineStep";
 
 export interface OpType {
   id: string;
   label: string;
-  icon: IconDefinition;
+  icon: LucideIcon;
 }
 
 export interface Step {

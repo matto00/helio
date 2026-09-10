@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { faClockRotateLeft } from "@fortawesome/free-solid-svg-icons";
 
 import "./RunHistoryModal.css";
 import type { AssertionSummary, PipelineRunRecord } from "../types/pipelineStep";
@@ -7,6 +6,7 @@ import { Modal } from "../../../shared/ui/Modal";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { StatusChip } from "../../../shared/ui/StatusChip";
 import { TruncatedRowCountBadge } from "./TruncatedRowCountBadge";
+import { RotateCcwClock } from "lucide-react";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
   if (!completedAt) return "—";
@@ -175,7 +175,7 @@ export function RunHistoryModal({ runs, onClose }: RunHistoryModalProps) {
         {runs.length === 0 ? (
           <EmptyState
             variant="sidebar"
-            icon={faClockRotateLeft}
+            icon={<RotateCcwClock />}
             title="No runs recorded yet"
             description="Run or dry-run this pipeline to see its history here."
           />

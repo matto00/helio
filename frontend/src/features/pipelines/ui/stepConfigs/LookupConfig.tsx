@@ -9,13 +9,13 @@
 // shape, with TextField rows instead of Select rows.
 
 import type { ChangeEvent } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import { Select, TextField } from "../../../../shared/ui/index";
 import type { SchemaField, SecondaryInput } from "../../types/pipelineStep";
 import type { Step } from "../../types/step";
 import { SecondaryInputPicker } from "./SecondaryInputPicker";
+import { X } from "lucide-react";
+import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 
 export interface LookupConfigValue {
   secondary: SecondaryInput;
@@ -125,7 +125,7 @@ export function LookupConfig({
                 aria-label={`Remove column ${rowIndex + 1}`}
                 onClick={() => handleRemoveColumnRow(rowIndex)}
               >
-                <FontAwesomeIcon icon={faXmark} />
+                <X size={ICON_SIZE.sm} />
               </button>
             </div>
           ))}

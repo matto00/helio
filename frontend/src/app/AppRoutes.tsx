@@ -1,6 +1,5 @@
 import { lazy, Suspense } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
-import { faCompass } from "@fortawesome/free-solid-svg-icons";
 
 import { ChatPage } from "../features/assistant/ui/ChatPage";
 import { ProtectedRoute } from "../features/auth/ui/ProtectedRoute";
@@ -22,6 +21,7 @@ import { PanelList } from "../features/panels/ui/PanelList";
 import { EmptyState } from "../shared/ui/EmptyState";
 import { PageSuspenseFallback } from "../shared/ui/SuspenseFallback";
 import { AppShell } from "./App";
+import { Compass } from "lucide-react";
 
 // HEL-512 — reached only from NL-authoring's "review proposal" hand-off, not on the critical
 // path of any other route; loaded via a dynamic `import()` so its module graph doesn't ship on
@@ -57,7 +57,7 @@ function NotFoundPage() {
   return (
     <div className="app-not-found">
       <EmptyState
-        icon={faCompass}
+        icon={<Compass />}
         title="Page not found"
         description="That page doesn't exist or may have moved."
         cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}

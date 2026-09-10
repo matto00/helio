@@ -9,11 +9,10 @@
 // dataset-level and never show the field picker). This is the identity
 // pass-through step's editor — no evaluation/results UI (419-B).
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
-
 import { Select, TextField } from "../../../../shared/ui/index";
 import type { SchemaField } from "../../types/pipelineStep";
+import { X } from "lucide-react";
+import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 
 export const ASSERT_RULE_KINDS = [
   "notNull",
@@ -212,7 +211,7 @@ export function AssertConfig({ config, analyzeSchema, onChange }: AssertConfigPr
                   aria-label={`Remove rule ${index + 1}`}
                   onClick={() => handleRemoveRule(index)}
                 >
-                  <FontAwesomeIcon icon={faXmark} />
+                  <X size={ICON_SIZE.sm} />
                 </button>
               </div>
             );

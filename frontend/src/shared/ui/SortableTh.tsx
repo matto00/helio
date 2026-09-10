@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSort, faSortDown, faSortUp } from "@fortawesome/free-solid-svg-icons";
 
 import type { SortDirection } from "./useSortedRows";
 import "./SortableTh.css";
+import { ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react";
+import { ICON_SIZE } from "./iconSize";
 
 interface SortableThProps {
   /** Rendered header label. */
@@ -33,11 +33,17 @@ export function SortableTh({
     <th scope={scope} className={className} aria-sort={ariaSort}>
       <button type="button" className="sortable-th__btn" onClick={onSort}>
         <span className="sortable-th__label">{children}</span>
-        <FontAwesomeIcon
-          className={`sortable-th__glyph${direction === null ? " sortable-th__glyph--neutral" : ""}`}
-          icon={direction === "asc" ? faSortUp : direction === "desc" ? faSortDown : faSort}
-          aria-hidden="true"
-        />
+        {direction === "asc" ? (
+          <ChevronUp className={`sortable-th__glyph`} aria-hidden="true" size={ICON_SIZE.sm} />
+        ) : direction === "desc" ? (
+          <ChevronDown className={`sortable-th__glyph`} aria-hidden="true" size={ICON_SIZE.sm} />
+        ) : (
+          <ArrowUpDown
+            className="sortable-th__glyph sortable-th__glyph--neutral"
+            aria-hidden="true"
+            size={ICON_SIZE.sm}
+          />
+        )}
       </button>
     </th>
   );

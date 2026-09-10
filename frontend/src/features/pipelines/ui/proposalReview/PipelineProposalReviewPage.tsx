@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { faCodeBranch } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../../shared/ui/EmptyState";
 import { PageShell } from "../../../../shared/ui/PageShell";
@@ -15,6 +14,7 @@ import {
 } from "../../../proposals/utils/unresolvedConnectorRefs";
 import { PipelineProposalReview } from "./PipelineProposalReview";
 import type { PipelineProposal } from "../../types/pipelineProposal";
+import { GitBranch } from "lucide-react";
 
 /** Route container for the Pipeline Proposal Review UI (HEL-739), mirroring
  *  `ProposalReviewPage.tsx`/`PatchSetReviewPage.tsx`'s structure exactly.
@@ -100,7 +100,7 @@ export function PipelineProposalReviewPage() {
     return (
       <PageShell>
         <EmptyState
-          icon={faCodeBranch}
+          icon={<GitBranch />}
           title="Nothing to review"
           description="This page reviews a pipeline proposal handed off from another flow. Start from the dashboards list instead."
           cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}

@@ -1,6 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import "./ProposalHandoff.css";
 import type { AssistantProposalExtraction } from "../proposalExtraction";
@@ -8,6 +6,8 @@ import type { DashboardProposal } from "../../dashboards/types/proposal";
 import type { PatchSet } from "../../patchSets/types/patchSet";
 import type { PipelineProposal } from "../../pipelines/types/pipelineProposal";
 import type { CombinedProposal } from "../../proposals/types/combinedProposal";
+import { Columns3 } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface ProposalHandoffProps {
   extraction: AssistantProposalExtraction;
@@ -25,11 +25,7 @@ export function ProposalHandoff({ extraction }: ProposalHandoffProps) {
     const proposal = extraction.input as DashboardProposal;
     return (
       <div className="proposal-handoff">
-        <FontAwesomeIcon
-          icon={faTableColumns}
-          className="proposal-handoff__icon"
-          aria-hidden="true"
-        />
+        <Columns3 className="proposal-handoff__icon" aria-hidden="true" size={ICON_SIZE.md} />
         <div className="proposal-handoff__body">
           <p className="proposal-handoff__title">Proposal ready</p>
           <p className="proposal-handoff__description">
@@ -52,11 +48,7 @@ export function ProposalHandoff({ extraction }: ProposalHandoffProps) {
     const patchSet = extraction.input as PatchSet;
     return (
       <div className="proposal-handoff">
-        <FontAwesomeIcon
-          icon={faTableColumns}
-          className="proposal-handoff__icon"
-          aria-hidden="true"
-        />
+        <Columns3 className="proposal-handoff__icon" aria-hidden="true" size={ICON_SIZE.md} />
         <div className="proposal-handoff__body">
           <p className="proposal-handoff__title">Proposal ready</p>
           <p className="proposal-handoff__description">
@@ -78,11 +70,7 @@ export function ProposalHandoff({ extraction }: ProposalHandoffProps) {
     const proposal = extraction.input as PipelineProposal;
     return (
       <div className="proposal-handoff">
-        <FontAwesomeIcon
-          icon={faTableColumns}
-          className="proposal-handoff__icon"
-          aria-hidden="true"
-        />
+        <Columns3 className="proposal-handoff__icon" aria-hidden="true" size={ICON_SIZE.md} />
         <div className="proposal-handoff__body">
           <p className="proposal-handoff__title">Proposal ready</p>
           <p className="proposal-handoff__description">
@@ -105,11 +93,7 @@ export function ProposalHandoff({ extraction }: ProposalHandoffProps) {
   const proposal = extraction.input as CombinedProposal;
   return (
     <div className="proposal-handoff">
-      <FontAwesomeIcon
-        icon={faTableColumns}
-        className="proposal-handoff__icon"
-        aria-hidden="true"
-      />
+      <Columns3 className="proposal-handoff__icon" aria-hidden="true" size={ICON_SIZE.md} />
       <div className="proposal-handoff__body">
         <p className="proposal-handoff__title">Proposal ready</p>
         <p className="proposal-handoff__description">

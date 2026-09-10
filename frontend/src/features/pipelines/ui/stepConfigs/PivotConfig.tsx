@@ -7,11 +7,10 @@
 // Follows the same props-driven pattern as AggregateConfig / DateBucketConfig:
 // the parent (StepCard) owns state and calls onChange with the typed config.
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
-
 import type { SchemaField } from "../../types/pipelineStep";
 import { Select } from "../../../../shared/ui/index";
+import { X } from "lucide-react";
+import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 
 export interface PivotConfigValue {
   index: string[];
@@ -78,7 +77,7 @@ export function PivotConfig({ config, analyzeSchema, analyzeColumns, onChange }:
                 aria-label={`Remove index field ${rowIndex + 1}`}
                 onClick={() => handleRemoveIndexRow(rowIndex)}
               >
-                <FontAwesomeIcon icon={faXmark} />
+                <X size={ICON_SIZE.sm} />
               </button>
             </div>
           ))}

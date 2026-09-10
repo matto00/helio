@@ -4,9 +4,6 @@
 // `usePipelineDetailPage` (Outputs are already loaded for the rail, task
 // 3.3); this tab reuses that same cache rather than re-fetching.
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChartLine, faPlus } from "@fortawesome/free-solid-svg-icons";
-
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { laneOutputSubtitle } from "../state/laneLayout";
 import { buildLaneGraph } from "../state/stepTree";
@@ -15,6 +12,8 @@ import type { Output } from "../types/output";
 import type { Step } from "../types/step";
 import { OutputGalleryCard } from "./OutputGalleryCard";
 import "./OutputsGalleryTab.css";
+import { ChartLine, Plus } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface OutputsGalleryTabProps {
   outputs: Output[];
@@ -56,7 +55,7 @@ export function OutputsGalleryTab({
         // empty state this ticket built (PipelineRiverView's "No steps yet").
         <EmptyState
           variant="sidebar"
-          icon={faChartLine}
+          icon={<ChartLine />}
           title="No Outputs yet"
           description="Add one from any step in the Steps tab, or start here."
           cta={{ label: "+ New output", onClick: onAddOutput }}
@@ -77,7 +76,7 @@ export function OutputsGalleryTab({
               className="outputs-gallery-tab__add tap-expand-44"
               onClick={onAddOutput}
             >
-              <FontAwesomeIcon icon={faPlus} />
+              <Plus size={ICON_SIZE.sm} />
               <span>New output</span>
             </button>
           </div>

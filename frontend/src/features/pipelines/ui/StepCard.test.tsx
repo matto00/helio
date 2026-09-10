@@ -10,13 +10,13 @@
 
 import type { ComponentProps } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { faLink } from "@fortawesome/free-solid-svg-icons";
 
 import { StepCard } from "./StepCard";
 import { OP_TYPES } from "../state/stepNarrowing";
 import { fetchStepPreview, updatePipelineStep } from "../services/pipelineService";
 import type { OpType, Step } from "../types/step";
 import type { SchemaField } from "../types/pipelineStep";
+import { Link2 } from "lucide-react";
 
 jest.mock("../services/pipelineService", () => ({
   fetchStepPreview: jest.fn(),
@@ -31,7 +31,7 @@ const SELECT_OP_TYPE = OP_TYPES.find((op) => op.id === "select")!;
 const RENAME_OP_TYPE = OP_TYPES.find((op) => op.id === "rename")!;
 // Mirrors stepNarrowing.ts's internal (unexported) JOIN_OP_TYPE — join has no
 // dedicated editor, so it exercises StepCard's no-editor fallback branch.
-const JOIN_OP_TYPE: OpType = { id: "join", label: "Join tables", icon: faLink };
+const JOIN_OP_TYPE: OpType = { id: "join", label: "Join tables", icon: Link2 };
 
 function makeStep(overrides: Partial<Step> = {}): Step {
   return {

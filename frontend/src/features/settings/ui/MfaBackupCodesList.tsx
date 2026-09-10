@@ -2,10 +2,9 @@
 // `MfaEnrollModal`'s final step and `MfaSecuritySection`'s regenerate flow,
 // since both reveal a fresh code set exactly once and never again.
 
-import { faCopy } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-
 import "./MfaBackupCodesList.css";
+import { Copy } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface MfaBackupCodesListProps {
   codes: string[];
@@ -26,7 +25,7 @@ export function MfaBackupCodesList({ codes, onCopyAll }: MfaBackupCodesListProps
         ))}
       </ul>
       <button type="button" className="mfa-backup-codes__copy-btn" onClick={onCopyAll}>
-        <FontAwesomeIcon icon={faCopy} aria-hidden="true" />
+        <Copy aria-hidden="true" size={ICON_SIZE.sm} />
         Copy all
       </button>
     </div>

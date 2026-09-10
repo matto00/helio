@@ -8,11 +8,10 @@
 // presentational only — it never fetches, so it renders correctly whether
 // or not a preview has been requested yet.
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChartLine, faPlus, faTable } from "@fortawesome/free-solid-svg-icons";
-
 import type { Output } from "../types/output";
 import "./OutputsRail.css";
+import { ChartLine, Plus, Table } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 function kindLabel(kind: string): string {
   return kind.toUpperCase();
@@ -53,7 +52,11 @@ export function OutputsRail({
           onClick={() => onOpenOutput(output)}
           aria-label={`Open ${output.name} output`}
         >
-          <FontAwesomeIcon icon={output.kind === "chart" ? faChartLine : faTable} />
+          {output.kind === "chart" ? (
+            <ChartLine size={ICON_SIZE.sm} />
+          ) : (
+            <Table size={ICON_SIZE.sm} />
+          )}
           <span className="outputs-rail__kind">{kindLabel(output.kind)}</span>
           <span className="outputs-rail__name">{output.name}</span>
           <span className="outputs-rail__thumbnail">
@@ -67,7 +70,7 @@ export function OutputsRail({
         onClick={onAddOutput}
         aria-label="Add output"
       >
-        <FontAwesomeIcon icon={faPlus} />
+        <Plus size={ICON_SIZE.sm} />
         <span>Output</span>
       </button>
     </div>

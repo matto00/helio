@@ -6,12 +6,12 @@
 // the parent (StepCard) owns state and calls onChange with serialized config JSON.
 
 import { useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTriangleExclamation, faXmark } from "@fortawesome/free-solid-svg-icons";
 
 import type { SchemaField } from "../../types/pipelineStep";
 import { Select, TextField } from "../../../../shared/ui/index";
 import { InlineError } from "../../../../shared/chrome/InlineError";
+import { TriangleAlert, X } from "lucide-react";
+import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 
 export interface AggregateGroupByField {
   name: string;
@@ -150,7 +150,7 @@ export function AggregateConfig({
                 aria-label={`Remove group-by field ${index + 1}`}
                 onClick={() => handleRemoveGroupByRow(index)}
               >
-                <FontAwesomeIcon icon={faXmark} />
+                <X size={ICON_SIZE.sm} />
               </button>
             </div>
           ))}
@@ -215,7 +215,7 @@ export function AggregateConfig({
                   aria-label={`Remove aggregation ${index + 1}`}
                   onClick={() => handleRemoveAggregation(index)}
                 >
-                  <FontAwesomeIcon icon={faXmark} />
+                  <X size={ICON_SIZE.sm} />
                 </button>
 
                 {/* Inline warning: field not found in inputSchema */}
@@ -225,8 +225,8 @@ export function AggregateConfig({
                     role="alert"
                     aria-label={`Warning: field "${agg.field}" not in schema`}
                   >
-                    <FontAwesomeIcon icon={faTriangleExclamation} /> Field &quot;{agg.field}&quot;
-                    not found in input schema
+                    <TriangleAlert size={ICON_SIZE.sm} /> Field &quot;{agg.field}&quot; not found in
+                    input schema
                   </span>
                 )}
               </div>

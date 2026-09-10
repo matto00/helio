@@ -12,8 +12,6 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCodeBranch, faPlus } from "@fortawesome/free-solid-svg-icons";
 
 import { BranchAffordance } from "./BranchAffordance";
 import { OpDropdown } from "./OpDropdown";
@@ -30,6 +28,8 @@ import type { Output } from "../types/output";
 import type { LaneGraph } from "../state/stepTree";
 import { childLanesOf, reorderLane } from "../state/stepTree";
 import { nodePath } from "../state/nodePath";
+import { GitBranch, Plus } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 // task 3.3 — mirrors `EMPTY_ANALYZE_COLUMNS` in `usePipelineDetailPage.ts`: a
 // step with zero Outputs gets the same stable `[]` reference on every
@@ -298,7 +298,7 @@ export function PipelineRiverView({
           aria-label="Insert step here"
           onClick={(e) => openGapDropdown(index, e.currentTarget)}
         >
-          <FontAwesomeIcon icon={faPlus} aria-hidden="true" />
+          <Plus aria-hidden="true" size={ICON_SIZE.sm} />
         </button>
         {insertDropdownAt === index && (
           <OpDropdown
@@ -348,7 +348,7 @@ export function PipelineRiverView({
             <div className="pipeline-detail-page__empty-state">
               <EmptyState
                 variant="sidebar"
-                icon={faCodeBranch}
+                icon={<GitBranch />}
                 title="No steps yet"
                 description="Add your first transformation step to start shaping this pipeline's output."
               />

@@ -8,8 +8,6 @@
 // only the create/revoke/reveal interaction state.
 
 import { type FormEvent, useState } from "react";
-import { faCopy, faKey } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { ConfirmInline, EmptyState, FormField, TextField } from "../../../shared/ui/index";
@@ -22,6 +20,8 @@ import {
 } from "../state/settingsSlice";
 import type { ApiTokenResponse } from "../types/apiToken";
 import "./ApiTokensSection.css";
+import { Copy, Key } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 function formatLastUsed(lastUsedAt: string | null): string {
   return lastUsedAt === null ? "Never used" : new Date(lastUsedAt).toLocaleString();
@@ -82,7 +82,7 @@ export function ApiTokensSection({ tokens }: ApiTokensSectionProps) {
               className="api-tokens-section__copy-btn"
               onClick={() => void handleCopyToken(createdToken.token)}
             >
-              <FontAwesomeIcon icon={faCopy} aria-hidden="true" />
+              <Copy aria-hidden="true" size={ICON_SIZE.sm} />
               Copy
             </button>
           </div>
@@ -125,7 +125,7 @@ export function ApiTokensSection({ tokens }: ApiTokensSectionProps) {
       {tokens.length === 0 ? (
         <EmptyState
           variant="main"
-          icon={faKey}
+          icon={<Key />}
           title="No personal access tokens yet"
           description="Create a token to let an agent (like helio-mcp) authenticate as you."
         />

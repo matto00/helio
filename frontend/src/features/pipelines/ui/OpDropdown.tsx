@@ -15,7 +15,7 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 import "../../../shared/chrome/Popover.css";
 import { OP_TYPES } from "../state/stepNarrowing";
@@ -101,21 +101,24 @@ export function OpDropdown({ anchorRef, onSelect, onClose }: OpDropdownProps) {
           transform: "translateX(-50%)",
         }}
       >
-        {OP_TYPES.map((op) => (
-          <li key={op.id} role="none">
-            <button
-              type="button"
-              role="menuitem"
-              className="pipeline-detail-page__op-dropdown-item"
-              onClick={() => {
-                onSelect(op);
-                onClose();
-              }}
-            >
-              <FontAwesomeIcon icon={op.icon} aria-hidden="true" /> {op.label}
-            </button>
-          </li>
-        ))}
+        {OP_TYPES.map((op) => {
+          const Icon = op.icon;
+          return (
+            <li key={op.id} role="none">
+              <button
+                type="button"
+                role="menuitem"
+                className="pipeline-detail-page__op-dropdown-item"
+                onClick={() => {
+                  onSelect(op);
+                  onClose();
+                }}
+              >
+                <Icon aria-hidden="true" size={ICON_SIZE.md} /> {op.label}
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </>,
     document.body,

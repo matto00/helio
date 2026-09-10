@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { faTableColumns } from "@fortawesome/free-solid-svg-icons";
 
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { PageShell } from "../../../shared/ui/PageShell";
@@ -14,6 +13,7 @@ import { useToast } from "../../toasts/hooks/useToast";
 import { applyPatchSet, previewPatchSet, undoPatchSet } from "../state/patchSetsSlice";
 import { PatchSetReview } from "./PatchSetReview";
 import type { PatchSet, PatchSetPreviewResponse } from "../types/patchSet";
+import { Columns3 } from "lucide-react";
 
 /** Route container for the Patch Set Review UI (HEL-408), mirroring
  *  `ProposalReviewPage.tsx`'s ACTUAL structure (verified against its own git
@@ -139,7 +139,7 @@ export function PatchSetReviewPage() {
     return (
       <PageShell>
         <EmptyState
-          icon={faTableColumns}
+          icon={<Columns3 />}
           title="Nothing to review"
           description="This page reviews a patch set handed off from another flow. Start from the dashboards list instead."
           cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
@@ -186,7 +186,7 @@ export function PatchSetReviewPage() {
     return (
       <PageShell>
         <EmptyState
-          icon={faTableColumns}
+          icon={<Columns3 />}
           title="No patch set to review"
           description="Create a dashboard with at least one panel so a patch set can be built over it, then try again."
           cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}

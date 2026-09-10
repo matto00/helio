@@ -5,8 +5,6 @@
 // (design.md D8).
 
 import { type FormEvent, useEffect, useState } from "react";
-import { faCopy, faLink } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";
@@ -26,6 +24,8 @@ import {
 import type { ShareTokenResponse } from "../types/shareToken";
 
 import "./DashboardShareDialog.css";
+import { Copy, Link2 } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface Props {
   dashboardId: string;
@@ -122,7 +122,7 @@ export function DashboardShareDialog({ dashboardId, dashboardName, open, onClose
                 className="dashboard-share-dialog__copy-btn"
                 onClick={() => void handleCopy(buildShareUrl(dashboardId, createdToken.token))}
               >
-                <FontAwesomeIcon icon={faCopy} aria-hidden="true" />
+                <Copy aria-hidden="true" size={ICON_SIZE.sm} />
                 Copy
               </button>
             </div>
@@ -157,7 +157,7 @@ export function DashboardShareDialog({ dashboardId, dashboardName, open, onClose
               className="ui-modal-btn ui-modal-btn--primary dashboard-share-dialog__create-btn"
               disabled={createStatus === "loading"}
             >
-              <FontAwesomeIcon icon={faLink} aria-hidden="true" />
+              <Link2 aria-hidden="true" size={ICON_SIZE.sm} />
               {createStatus === "loading" ? "Creating…" : "Create link"}
             </button>
           </div>
@@ -174,7 +174,7 @@ export function DashboardShareDialog({ dashboardId, dashboardName, open, onClose
         {status === "succeeded" && items.length === 0 && (
           <EmptyState
             variant="main"
-            icon={faLink}
+            icon={<Link2 />}
             title="No share links yet"
             description="Create a link to let anyone view this dashboard without signing in."
           />

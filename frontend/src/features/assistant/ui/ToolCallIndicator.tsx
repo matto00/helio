@@ -1,14 +1,9 @@
 import { useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faChevronDown,
-  faChevronRight,
-  faCircleExclamation,
-  faWrench,
-} from "@fortawesome/free-solid-svg-icons";
 
 import "./ToolCallIndicator.css";
 import type { ClaudeToolResultBlockDto, ClaudeToolUseBlockDto } from "../types";
+import { CircleAlert, ChevronDown, ChevronRight, Wrench } from "lucide-react";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface ToolCallIndicatorProps {
   toolUse: ClaudeToolUseBlockDto;
@@ -76,14 +71,13 @@ export function ToolCallIndicator({ toolUse, result }: ToolCallIndicatorProps) {
       ? " tool-call-indicator--cut-short"
       : "";
 
+  const RowIcon = isError || isCutShort ? CircleAlert : Wrench;
+  const ToggleIcon = expanded ? ChevronDown : ChevronRight;
+
   return (
     <div className={`tool-call-indicator${modifierClass}`}>
       <div className="tool-call-indicator__row">
-        <FontAwesomeIcon
-          icon={isError || isCutShort ? faCircleExclamation : faWrench}
-          className="tool-call-indicator__icon"
-          aria-hidden="true"
-        />
+        <RowIcon className="tool-call-indicator__icon" aria-hidden="true" size={ICON_SIZE.sm} />
         <span className="tool-call-indicator__label">
           {verbFor(toolUse.name)}: {toolUse.name}({compactInput(toolUse.input)})
         </span>
@@ -100,7 +94,7 @@ export function ToolCallIndicator({ toolUse, result }: ToolCallIndicatorProps) {
           onClick={() => setExpanded((current) => !current)}
           aria-expanded={expanded}
         >
-          <FontAwesomeIcon icon={expanded ? faChevronDown : faChevronRight} aria-hidden="true" />
+          <ToggleIcon aria-hidden="true" size={ICON_SIZE.sm} />
           {summarizeResult(result)}
         </button>
       )}
