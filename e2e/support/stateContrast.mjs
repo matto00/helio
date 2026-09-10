@@ -161,10 +161,23 @@ export function contrastRatio(a, b) {
 
 /**
  * Classifies a single element's before/during measurement per design.md
- * D4a. `backdrop` and `stateColor` must already be alpha-composited to
- * opaque colours (a === 1) by the caller -- this function only computes
- * the ratio and applies the three-way + advisory split, it does not
+ * D4a / D1c (HEL-520). `backdrop` and `stateColor` must already be
+ * alpha-composited to opaque colours (a === 1) by the caller -- this
+ * function only computes the ratio and applies the split, it does not
  * composite.
+ *
+ * `stateKind` distinguishes WHICH state is being probed (design.md D1b):
+ * for `"hover"` (the default, HEL-866's original behaviour, preserved
+ * unchanged), an outline/border/box-shadow-only change is still deferred
+ * as `"advisory"` -- adjudicating a shadow-only/border-only hover design is
+ * HEL-1044's call, not this guard's. For `"focus"` (HEL-520), that
+ * deferral is closed: a focus state conveyed only via outline/border/
+ * box-shadow is RATIO-ENFORCING, not advisory (accessible-focus-indicator
+ * spec, "A focus state conveyed only by outline, border, or shadow is
+ * adjudicated rather than deferred"). In that branch, `stateColor` is the
+ * indicator's own (already-composited) colour -- the ring/border/shadow
+ * colour, not the element's background -- measured against the same
+ * composited `backdrop` used elsewhere in this function.
  *
  * @param {{
  *   backgroundChanged: boolean,
@@ -172,6 +185,7 @@ export function contrastRatio(a, b) {
  *   backdrop: RGBA,
  *   stateColor: RGBA,
  *   threshold?: number,
+ *   stateKind?: "hover" | "focus",
  * }} params
  * @returns {{ verdict: StateVerdict, ratio: number | null }}
  */
@@ -181,12 +195,26 @@ export function classifyState({
   backdrop,
   stateColor,
   threshold = CONTRAST_THRESHOLD,
+  stateKind = "hover",
 }) {
   if (!backgroundChanged) {
+    if (stateKind === "focus" && otherChannelChanged) {
+      // D1c: close the deferral for focus specifically. `stateColor` here
+      // is the outline/border/box-shadow indicator's own composited
+      // colour, supplied by the caller -- the presence-then-ratio floor
+      // is applied to it exactly as it would be to a background change.
+      if (backdrop.a !== 1 || stateColor.a !== 1) {
+        throw new Error(
+          "stateContrast.classifyState: backdrop/stateColor must be alpha-composited to opaque before classification",
+        );
+      }
+      const ratio = contrastRatio(backdrop, stateColor);
+      return { verdict: ratio >= threshold ? "pass" : "fail", ratio };
+    }
     // D4a: nothing changed at all -> fail (no feedback whatsoever).
-    // border/outline/box-shadow changed -> advisory (HEL-1044's call, not
-    // ours -- adjudicating a shadow-only/border-only design is out of
-    // scope here).
+    // border/outline/box-shadow changed on a HOVER probe -> advisory
+    // (HEL-1044's call, not ours -- adjudicating a shadow-only/border-only
+    // design is out of scope here).
     return { verdict: otherChannelChanged ? "advisory" : "fail", ratio: null };
   }
   if (backdrop.a !== 1 || stateColor.a !== 1) {

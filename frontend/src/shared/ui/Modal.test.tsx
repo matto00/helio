@@ -2,10 +2,29 @@ import { fireEvent, render, screen } from "@testing-library/react";
 
 import { Modal } from "./Modal";
 
+// HEL-520 skeptic-final-1.md CR1 — the stub previously only set the `open`
+// attribute and never moved focus, which is NOT what a real `showModal()`
+// does (it moves focus into the dialog, per the HTML spec — the first
+// autofocus-eligible element, or otherwise the dialog itself). That gap
+// made every restore-on-close assertion true by precondition: with focus
+// never leaving the trigger while "open", `expect(document.activeElement)
+// .toBe(trigger)` after close passed whether or not Modal's own restore
+// effect ran at all — proven by mutation (deleting Modal.tsx's
+// `previouslyFocusedRef.current?.focus()` left all tests green). The stub
+// now moves focus to the dialog's first focusable descendant, mirroring
+// real `showModal()` behaviour closely enough for this file's purposes —
+// the existing Tab/Shift+Tab trap cases below already assumed focus starts
+// inside the dialog, so this makes the file's own fixture consistent with
+// itself, not just with reality.
+const DIALOG_FOCUSABLE_SELECTOR =
+  'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 beforeEach(() => {
   // jsdom does not implement showModal/close natively; stub them.
   HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
     this.setAttribute("open", "");
+    const first = this.querySelector<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR);
+    first?.focus();
   });
   HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
     this.removeAttribute("open");
@@ -259,6 +278,94 @@ describe("Modal", () => {
       // (non-boundary) focus target is simply left where it was, confirming
       // the trap didn't fire `preventDefault` + force a jump here.
       expect(document.activeElement).toBe(middleButton);
+    });
+  });
+
+  // HEL-520 AC4: restore-on-close was implemented (HEL-590) but never had a
+  // unit assertion in this file — the trap above is covered in three cases,
+  // restore had zero. Covers Modal's own restore heuristic: capture
+  // `document.activeElement` at open, refocus it at close.
+  describe("focus restore on close", () => {
+    it("restores focus to the element that was focused before the modal opened", () => {
+      render(
+        <div>
+          <button>Trigger</button>
+        </div>,
+      );
+      const trigger = screen.getByRole("button", { name: "Trigger" });
+      trigger.focus();
+      expect(document.activeElement).toBe(trigger);
+
+      const onClose = jest.fn();
+      const { rerender } = render(
+        <Modal open title="T" onClose={onClose}>
+          <button>Inner</button>
+        </Modal>,
+      );
+
+      // skeptic-final-1.md CR1 — this assertion is what makes the closing
+      // assertion below meaningful: focus must actually have LEFT the
+      // trigger while the modal is open (the stubbed `showModal()` now
+      // moves it to the dialog's first focusable descendant, matching real
+      // `<dialog>` behaviour). Without this, "focus is back on the trigger
+      // after close" is true whether or not Modal's restore effect ran —
+      // proven by mutation: deleting `previouslyFocusedRef.current?.
+      // focus()` in Modal.tsx left every test in this file green before
+      // this fix (see files-modified.md for the red/green transcript).
+      expect(document.activeElement).not.toBe(trigger);
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
+
+      rerender(
+        <Modal open={false} title="T" onClose={onClose}>
+          <button>Inner</button>
+        </Modal>,
+      );
+
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("leaves focus exactly where it was, without throwing, when the previously-focused element has been removed from the document", () => {
+      render(
+        <div>
+          <button>Ephemeral trigger</button>
+        </div>,
+      );
+      const trigger = screen.getByRole("button", { name: "Ephemeral trigger" });
+      trigger.focus();
+      trigger.remove();
+
+      const onClose = jest.fn();
+      const { rerender } = render(
+        <Modal open title="T" onClose={onClose}>
+          <button>Inner</button>
+        </Modal>,
+      );
+      const closeButton = screen.getByRole("button", { name: "Close" });
+      expect(document.activeElement).toBe(closeButton);
+
+      expect(() => {
+        rerender(
+          <Modal open={false} title="T" onClose={onClose}>
+            <button>Inner</button>
+          </Modal>,
+        );
+      }).not.toThrow();
+
+      // skeptic-final-1.md CR1 — `?.focus()` on a captured-but-now-
+      // detached element can never throw (optional chaining alone made
+      // the old `.not.toThrow()`-only assertion vacuous: it could not
+      // fail regardless of what Modal.tsx does here, so it wasn't real
+      // coverage). Calling `.focus()` on a disconnected element is a
+      // documented no-op in both real browsers and jsdom — it does NOT
+      // move focus anywhere, including to `<body>` — so the actually
+      // testable, meaningful behaviour is that focus is left completely
+      // undisturbed: still on the same element it was on right before
+      // `previouslyFocusedRef.current?.focus()` ran. This DOES have a
+      // real failure mode: it catches a regression where restore-on-close
+      // was changed to unconditionally move focus (e.g. a `?? document.
+      // body.focus()` fallback), which would move focus even when the
+      // captured element can no longer receive it.
+      expect(document.activeElement).toBe(closeButton);
     });
   });
 });
