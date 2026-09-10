@@ -29,6 +29,7 @@ import "./DataGrid.css";
 import "./SortableTh.css";
 import { IconButton } from "./IconButton";
 import { useScrollEdges } from "./useScrollEdges";
+import { useVirtualRows } from "./useVirtualRows";
 import type { SortDirection, SortState } from "./useSortedRows";
 
 export interface ColumnDef {
@@ -187,6 +188,39 @@ export const FRAME_FILTER_COLLAPSE_THRESHOLD_PX = 247.5;
  * ticket's own `files-modified.md` made once before being corrected.
  */
 export const GRID_MIN_USABLE_HEIGHT_PX = 79.5;
+
+/**
+ * HEL-458 design D4 — number of rows at or below which the `full` variant
+ * renders every row normally with zero windowing engaged. Same order of
+ * magnitude as `deriveColumns`'s "first 50 rows" column-sampling heuristic
+ * but independently tunable (a different concern: sampling cost vs.
+ * rendering cost). Exported so a live-measured revision has one place to
+ * change, and so `DataGrid.test.tsx` can size fixtures unambiguously above
+ * or below the boundary — a test whose row count sits below the threshold
+ * would pass regardless of whether windowing works at all (HEL-1060).
+ */
+export const VIRTUALIZATION_ROW_THRESHOLD = 150;
+
+/**
+ * HEL-458 design D3 — provisional per-density row-height ESTIMATE used only
+ * for the pre-measurement render's bounded initial window (never the value
+ * windowing math runs on once a real row has been measured). Seeded from
+ * each density's own padding/font-size tokens (DataGrid.css): vertical
+ * padding (top+bottom) + an approximate line-height for that density's
+ * font-size + the 1px `border-bottom` every body cell carries.
+ * - `condensed`: 2×`--space-1` (8px) + ~18px line-height (`--text-xs`) + 1px
+ * - `normal`: 2×`--space-2` (16px) + ~21px line-height (`--text-sm`) + 1px
+ * - `spacious`: 2×`--space-3` (24px) + ~24px line-height (`--text-base`) + 1px
+ * The `useLayoutEffect` below corrects this to the real measured value from
+ * the first mounted body row before paint (mirrors the existing
+ * `headerRowRef` measurement pattern) — this estimate only governs how many
+ * rows the very first render mounts.
+ */
+const ROW_HEIGHT_ESTIMATE_PX: Record<DataGridDensity, number> = {
+  condensed: 27,
+  normal: 38,
+  spacious: 49,
+};
 
 interface DataGridProps {
   rows: Record<string, unknown>[];
@@ -479,9 +513,17 @@ export function DataGrid({
     // which is the only thing that knows the header row's real rendered
     // height (density/column-count/content changes are read as
     // dependencies below, not computed here) — the exact "subscribe for
-    // updates from some external system" case the lint rule allows for, not
-    // internal derived state that could be computed during render instead.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // updates from some external system" case `react-hooks/set-state-in-effect`
+    // exists to allow, not internal derived state that could be computed
+    // during render instead. HEL-458 evaluation-1.md non-blocking #2: this
+    // site (and the one below) previously carried an explicit
+    // `eslint-disable-next-line react-hooks/set-state-in-effect` — removed
+    // once HEL-458 added a THIRD `useState` set from a `useLayoutEffect`
+    // elsewhere in this component (`measuredRowHeight`), which is when the
+    // rule stopped reporting these two pre-existing sites at all (probed:
+    // re-adding either directive now fails lint as "unused"). The
+    // reasoning above still holds; only the rule's own detection of it
+    // changed. Do not re-add the directive.
     setColumnsRowTop(headerHeight);
     // `resolvedColumns.length`/`resolvedDensity` change row heights (more
     // columns can wrap a header, density changes padding/font-size) without
@@ -513,8 +555,10 @@ export function DataGrid({
     // Same "subscribe for updates from an external system" case as the
     // sticky-offset effect above: this synchronizes React state with the
     // browser's own layout engine (the frame's rendered height), not with
-    // internal derived state.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // internal derived state. See that effect's comment for why no
+    // `eslint-disable-next-line react-hooks/set-state-in-effect` sits here
+    // even though this pattern would normally want one (HEL-458
+    // evaluation-1.md non-blocking #2).
     applyHeightBasedDefault();
   }, [filterable, applyHeightBasedDefault]);
 
@@ -552,6 +596,48 @@ export function DataGrid({
     [resolvedColumns, numPinned, liveWidths, columnWidths],
   );
   const lastPinnedKey = numPinned > 0 ? resolvedColumns[numPinned - 1]?.key : undefined;
+
+  // HEL-458 design D1-D4: windowing only engages for the `full` variant
+  // above the threshold — `preview` (never grows beyond a handful of rows,
+  // design.md Non-Goals) and small `full` tables render every row with zero
+  // windowing code path engaged (AC3).
+  const virtualized = variant === "full" && rows.length > VIRTUALIZATION_ROW_THRESHOLD;
+  const [measuredRowHeight, setMeasuredRowHeight] = useState<number | null>(null);
+  const firstBodyRowRef = useRef<HTMLTableRowElement>(null);
+  const rowHeight = measuredRowHeight ?? ROW_HEIGHT_ESTIMATE_PX[resolvedDensity];
+
+  useLayoutEffect(() => {
+    if (!virtualized) return;
+    const measured = firstBodyRowRef.current?.getBoundingClientRect().height;
+    if (measured && measured > 0 && measured !== measuredRowHeight) {
+      // Same "subscribe for updates from an external system" case as the
+      // sticky-offset/filter-height effects above — the browser's own
+      // layout engine is the only thing that knows the real rendered row
+      // height for the active density.
+      setMeasuredRowHeight(measured);
+    }
+    // `resolvedDensity` invalidates a stale measurement from a prior
+    // density (row height is uniform within a density, design.md D1, but
+    // not across densities).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [virtualized, resolvedDensity, rows.length]);
+
+  const { startIndex, endIndex, topSpacerPx, bottomSpacerPx } = useVirtualRows({
+    scrollRef,
+    rowCount: rows.length,
+    rowHeight,
+    enabled: virtualized,
+  });
+  const visibleRows = virtualized ? rows.slice(startIndex, endIndex) : rows;
+  const showTopSpacer = virtualized && topSpacerPx > 0;
+  // HEL-458 design D6: omit the trailing spacer entirely at height 0 (the
+  // common case at the bottom of the scroll range) — a zero-height spacer
+  // `<tr>` would still retarget `tbody tr:last-child`'s border-suppression
+  // rule away from the true last data row.
+  const showBottomSpacer = virtualized && bottomSpacerPx > 0;
+  // HEL-458 design D5: `aria-rowcount` is header-inclusive and applies
+  // identically below the threshold (no spacers, same formula).
+  const ariaRowCount = rows.length + 1;
 
   // Drag gesture: mousedown on the handle starts tracking, mousemove reports
   // the live width, mouseup tears the listeners back down. `onMove`/`onEnd`
@@ -787,9 +873,9 @@ export function DataGrid({
         </div>
       )}
       <div className={rootClasses} role="region" aria-label="Data grid" ref={scrollRef}>
-        <table className="ui-data-grid__table">
+        <table className="ui-data-grid__table" aria-rowcount={ariaRowCount}>
           <thead>
-            <tr ref={headerRowRef} className="ui-data-grid__header-row">
+            <tr ref={headerRowRef} className="ui-data-grid__header-row" aria-rowindex={1}>
               {resolvedColumns.map((col, index) => {
                 const appliedWidth = resizable
                   ? (liveWidths[col.key] ??
@@ -974,35 +1060,75 @@ export function DataGrid({
                 filtered empty case never reaches here (early return above).
                 `.ui-data-grid__table tbody:empty` (DataGrid.css) gives this
                 state a floor height so it cannot collapse to a 0px sliver. */}
-            {rows.map((row, i) => (
-              <tr key={i}>
-                {resolvedColumns.map((col, index) => {
-                  const value = row[col.key];
-                  // HEL-465 design.md Decision 4/5/6: pinned body cells are
-                  // singly-sticky (left only, z-index 1) — below both sticky
-                  // tiers used by the header/filter-row corner cells above,
-                  // since a body cell can never spatially overlap them.
-                  const isPinned = index < numPinned;
-                  const isLastPinned = col.key === lastPinnedKey;
-                  return (
-                    <td
-                      key={col.key}
-                      className={
-                        isPinned
-                          ? `ui-data-grid__pinned-cell${isLastPinned ? " ui-data-grid__pinned-cell--last" : ""}`
-                          : undefined
-                      }
-                      style={{
-                        ...(col.align ? { textAlign: col.align } : undefined),
-                        ...(isPinned ? { left: pinnedOffsets[col.key], zIndex: 1 } : undefined),
-                      }}
-                    >
-                      {col.render ? col.render(row, value) : formatCell(value)}
-                    </td>
-                  );
-                })}
+            {showTopSpacer && (
+              // HEL-458 design D2/D6: an ordinary flow-layout `<tr>` (not
+              // `position: absolute`), so `table-layout: fixed` and HEL-465
+              // sticky pinned-column offsets need no special-casing. Hidden
+              // from the accessibility tree (D5) — it carries no data.
+              <tr aria-hidden="true">
+                <td
+                  className="ui-data-grid__row-spacer-cell"
+                  colSpan={resolvedColumns.length}
+                  style={{ height: topSpacerPx }}
+                />
               </tr>
-            ))}
+            )}
+            {visibleRows.map((row, visibleIndex) => {
+              const i = startIndex + visibleIndex;
+              // HEL-458 design D6: the last mounted data row loses its
+              // `:last-child` border-suppression once a nonzero trailing
+              // spacer is present (the spacer becomes `:last-child`
+              // instead) — apply the suppression explicitly here so
+              // windowed and unwindowed renderings stay equivalent.
+              const isLastMountedRow = i === endIndex - 1;
+              return (
+                <tr
+                  key={i}
+                  ref={visibleIndex === 0 ? firstBodyRowRef : undefined}
+                  aria-rowindex={i + 2}
+                  className={
+                    showBottomSpacer && isLastMountedRow
+                      ? "ui-data-grid__row--no-border"
+                      : undefined
+                  }
+                >
+                  {resolvedColumns.map((col, index) => {
+                    const value = row[col.key];
+                    // HEL-465 design.md Decision 4/5/6: pinned body cells are
+                    // singly-sticky (left only, z-index 1) — below both sticky
+                    // tiers used by the header/filter-row corner cells above,
+                    // since a body cell can never spatially overlap them.
+                    const isPinned = index < numPinned;
+                    const isLastPinned = col.key === lastPinnedKey;
+                    return (
+                      <td
+                        key={col.key}
+                        className={
+                          isPinned
+                            ? `ui-data-grid__pinned-cell${isLastPinned ? " ui-data-grid__pinned-cell--last" : ""}`
+                            : undefined
+                        }
+                        style={{
+                          ...(col.align ? { textAlign: col.align } : undefined),
+                          ...(isPinned ? { left: pinnedOffsets[col.key], zIndex: 1 } : undefined),
+                        }}
+                      >
+                        {col.render ? col.render(row, value) : formatCell(value)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+            {showBottomSpacer && (
+              <tr aria-hidden="true">
+                <td
+                  className="ui-data-grid__row-spacer-cell"
+                  colSpan={resolvedColumns.length}
+                  style={{ height: bottomSpacerPx }}
+                />
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
