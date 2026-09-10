@@ -1533,7 +1533,16 @@ describe("DataGrid — pin toggle affordance (HEL-465 design.md Decision 3, DESI
     // a different breakpoint than the control it's sized for would be
     // exactly the kind of drift this guard exists to catch.
     expect(coarsePointerBlock).toMatch(/\.ui-data-grid__pin-toggle-btn\s*{\s*min-height:\s*44px/);
-    expect(coarsePointerBlock).toMatch(/\.ui-data-grid__table thead th\s*{\s*min-height:\s*48px/);
+    // HEL-1065 (design.md D4): `min-height: 48px` was a no-op on
+    // `display: table-cell` and never actually grew the row — changed to
+    // `height`. Value corrected 48px -> 54px post-escalation (design.md
+    // D3 correction): 48px left the focus ring clipped by ~2.25px per
+    // edge, and even 52px (the naive 44 + 2*(outline-width+outline-offset)
+    // arithmetic) left a ~0.25px top-edge overflow, live-measured. This
+    // regex only guards the value/co-location; see
+    // e2e/hel1065-pin-toggle-css-fixes.spec.ts for the rendered-effect
+    // (unclipped control + focus ring) assertion this test cannot make.
+    expect(coarsePointerBlock).toMatch(/\.ui-data-grid__table thead th\s*{\s*height:\s*54px/);
   });
 });
 

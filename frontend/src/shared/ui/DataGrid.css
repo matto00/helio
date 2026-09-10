@@ -423,6 +423,49 @@
   padding-right: calc(var(--space-4) + var(--space-9));
 }
 
+/* HEL-1065 (design.md D1/D2/D7) — the `padding-right` reservation above
+   only shrinks the `<th>`'s available content width; it creates no clip
+   boundary of its own, so a truncating header label (rendered inside
+   `.sortable-th__btn`, an `inline-flex` that does not fill the cell) kept
+   painting full-width underneath the pin-toggle icon. `text-overflow:
+   ellipsis` has to sit on the element whose own inline text overflows —
+   the label `<span class="sortable-th__label">`, not the flex container
+   around it — and relies entirely on the `<th>`'s existing padding-right
+   reservation above for the icon's own space (deliberately no
+   `calc(100% - var(--space-9))` here, which would double-reserve that
+   48px). `min-width: 0` on both the button and the label is required so
+   their shrink-to-fit/inline sizing can actually shrink below their
+   content's natural width against the `<th>`'s constrained space; without
+   it neither `max-width: 100%` nor `text-overflow: ellipsis` has any
+   effect. Scoped identically to the padding-right rules above (only a
+   `DataGrid` header that actually renders the pin toggle in this `<th>`),
+   so `SortableTable.tsx`'s own `SortableTh` usage — which never carries
+   `.ui-data-grid__th--pin-reserve` — is unaffected. */
+.ui-data-grid__table thead th.ui-data-grid__th--pin-reserve .sortable-th__btn {
+  /* Probe-confirmed correction to design.md D1: `min-width: 0` alone left
+     the button's own shrink-to-fit `inline-flex` sizing unconstrained — a
+     shrink-to-fit box's width is computed from its content's own
+     min-content size when nothing bounds it, and the label's
+     `white-space: nowrap` makes its min-content equal to its full
+     (unclamped) text width, so the button (and therefore the label inside
+     it) never actually shrank; rendered geometry measured the label's box
+     at its full, un-truncated width regardless of `overflow`/`text-
+     overflow`. `width: 100%` gives the button a DEFINITE width (its
+     containing block, the `<th>`, already has one via `table-layout:
+     fixed`), which is what lets its flex child below actually flex-shrink
+     to fit. */
+  width: 100%;
+  min-width: 0;
+}
+
+.ui-data-grid__table thead th.ui-data-grid__th--pin-reserve .sortable-th__label {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* HEL-451 skeptic-evaluator CR2 — the frame-level chrome (toolbar,
    quick-filter row, filtered-empty message) is now a SIBLING of
    `.ui-data-grid`, not its descendant, so the three rules above (which
@@ -630,9 +673,40 @@
      everywhere else in this file — NOT shrinking the control to fit,
      which the touch-target floor forbids. Scoped to the header row only
      (`thead th`); body/filter-row cells carry no absolutely positioned
-     control and don't need this. */
+     control and don't need this.
+
+     HEL-1065 (design.md D3): `min-height` is a no-op on `display:
+     table-cell` (CSS 2.1 §17.5.3/§10.7) — the browser silently discards
+     it, so the row never actually grew and the clip remained. Changed to
+     `height`, same media query, no new breakpoint; the 44px control floor
+     above is untouched.
+
+     HEL-1065 correction (owner-ruled, post-escalation) — `48px` (D3's
+     original literal value: 44px control + a 2px buffer for the ring's
+     `outline-offset`) was itself measured live to be insufficient: the
+     app's global `:focus-visible` rule (`theme.css`) is `outline: 2px
+     solid ...; outline-offset: 2px`, so the ring's full extent past the
+     control's own box is `outline-width + outline-offset = 4px`, not the
+     2px D3 budgeted — a 44px control centered in a 48px row only had
+     ~1.75-2.25px of margin per edge (confirmed asymmetric, not exactly
+     2/2, via CDP-forced `:focus-visible` + `getBoundingClientRect`), so
+     the ring clipped by ~2.25px top and bottom even though the control
+     itself was fully unclipped. First tried `52px` (44 + 2 * (outline-width
+     + outline-offset) = 44 + 8) — still measured a hairline top-edge
+     overflow (~0.25px) at that value: the control's vertical centering
+     inside the row is itself slightly asymmetric (~3.75px top / ~4.25px
+     bottom margin at 52px, not an even 4/4 split), so the naive arithmetic
+     doesn't land exactly on the true value in this browser's rendering.
+     Raised to `54px`, adding real margin rather than landing exactly on
+     the theoretical minimum, and re-measured clean on both edges with
+     margin to spare, both themes — see
+     e2e/hel1065-pin-toggle-css-fixes.spec.ts. This is the same
+     `overflow: hidden` clipping mechanism as the two original HEL-465
+     defects, just smaller; tolerating it in the new e2e assertion would
+     have reproduced exactly how those two fixes shipped inert through five
+     gate rounds. */
   .ui-data-grid__table thead th {
-    min-height: 48px;
+    height: 54px;
   }
 }
 
