@@ -1,7 +1,0 @@
-- `openspec/changes/decide-dataset-row-storage/ticket.md` — ticket definition (created by planning, pre-existing in this worktree).
-- `openspec/changes/decide-dataset-row-storage/proposal.md` — proposal (created by planning, pre-existing in this worktree).
-- `openspec/changes/decide-dataset-row-storage/design.md` — decision doc: measurement (2124 `static` rows, residue-vs-real breakdown) and the `dataset_rows`-new-table decision, legacy-blob-path disposition, row-level-addressing answer, RLS requirement for the leaf ticket (created by planning, pre-existing in this worktree).
-- `openspec/changes/decide-dataset-row-storage/tasks.md` — this cycle: marked tasks 1.1, 1.2, 2.1, 3.1 `[x]` with inline verification notes; left 2.2 (Linear comment) unchecked with a note that it happens at Delivery, not by the executor.
-- `openspec/changes/decide-dataset-row-storage/files-modified.md` — this handoff file.
-
-No `backend/src`, `frontend/src`, or migration files were touched — this ticket is decision-only per its own AC ("no implementation lands before this ticket closes"). Task 1.1's grep found stale `DataType` doc-comment references in `backend/src/main/scala/com/helio/domain/model/DataSource.scala` (lines 11, 34, 133, 142); correcting them was deliberately deferred to the leaf ticket that touches that file, since doing so here would be a production-code edit this ticket's own scope prohibits (see tasks.md 1.1 note).
