@@ -22,7 +22,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
-import spray.json.{JsNumber, JsString, JsValue}
+import spray.json.{JsArray, JsNull, JsNumber, JsString, JsValue}
 
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
@@ -347,6 +347,124 @@ class DataSourceServiceSpec
       // Nothing persisted -- confirms the validation genuinely runs BEFORE any write.
       await(dataSourceRepo.findAll(owner, Page(0, 100))).items.map(_.name) should not contain "Bad Types"
     }
+
+    // HEL-1076 design.md Decision 3/7 + tasks.md 3.2/3.5: DatasetRowValidator gates acceptance --
+    // a wrong-typed value is rejected, not coerced, and NOTHING is persisted for that write.
+    "reject a write with a wrong-typed value via DatasetRowValidator, persisting no source" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name    = "Wrong Type",
+        `type`  = "static",
+        columns = Vector(StaticColumnPayload("age", "integer")),
+        rows    = Vector(Vector(JsString("12")))
+      )
+      val result = await(service.createStatic(createReq, user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) =>
+          msg shouldBe "row 0: field 'age' — expected integer, got string"
+        case other => fail(s"Expected BadRequest, got: $other")
+      }
+      await(dataSourceRepo.findAll(owner, Page(0, 100))).items.map(_.name) should not contain "Wrong Type"
+    }
+
+    "reject a write missing a required field with no default" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name    = "Missing Required",
+        `type`  = "static",
+        columns = Vector(StaticColumnPayload("age", "integer", required = Some(true))),
+        rows    = Vector(Vector(JsNull))
+      )
+      val result = await(service.createStatic(createReq, user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) => msg shouldBe "row 0: field 'age' is required"
+        case other => fail(s"Expected BadRequest, got: $other")
+      }
+      await(dataSourceRepo.findAll(owner, Page(0, 100))).items.map(_.name) should not contain "Missing Required"
+    }
+
+    // skeptic-final-1.md CR3: the original version of this test only asserted `result.isRight` —
+    // mutating both write paths to persist the RAW (un-filled) rows instead of the validator's
+    // `validatedRows` left the whole suite green. Read back the actual persisted row so a
+    // regression that drops the default-fill before persistence goes red here.
+    "fill a missing required field from its declared default rather than reject, and persist the filled value" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name    = "Default Filled",
+        `type`  = "static",
+        columns = Vector(StaticColumnPayload("age", "integer", required = Some(true), default = Some(JsNumber(0)))),
+        rows    = Vector(Vector(JsNull))
+      )
+      val src = await(service.createStatic(createReq, user)) match {
+        case Right(s) => s
+        case Left(e)  => fail(s"createStatic failed: $e")
+      }
+      val readBack = await(dataSourceRepo.readDatasetRows(src.id)).get
+      readBack.fields("rows") shouldBe JsArray(JsArray(Vector(JsNumber(0))))
+    }
+
+    // skeptic-final-1.md CR3 (refresh side): same default-fill persistence guard, on the
+    // applyStaticRefresh path.
+    "fill a missing required field from its declared default on refresh, and persist the filled value" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name    = "Default Filled Refresh",
+        `type`  = "static",
+        columns = Vector(StaticColumnPayload("age", "integer")),
+        rows    = Vector(Vector(JsNumber(30)))
+      )
+      val src = await(service.createStatic(createReq, user)) match {
+        case Right(s) => s
+        case Left(e)  => fail(s"createStatic failed: $e")
+      }
+      val refreshPayload = StaticDataPayload(
+        columns = Vector(StaticColumnPayload("age", "integer", required = Some(true), default = Some(JsNumber(0)))),
+        rows    = Vector(Vector[JsValue](JsNull))
+      )
+      val result = await(service.refresh(src.id, Some(refreshPayload), user))
+      result.isRight shouldBe true
+      val readBack = await(dataSourceRepo.readDatasetRows(src.id)).get
+      readBack.fields("rows") shouldBe JsArray(JsArray(Vector(JsNumber(0))))
+    }
+
+    "reject a schema declaration whose default doesn't itself satisfy its declared type" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name    = "Bad Default",
+        `type`  = "static",
+        columns = Vector(StaticColumnPayload("age", "integer", default = Some(JsString("not-a-number")))),
+        rows    = Vector.empty
+      )
+      val result = await(service.createStatic(createReq, user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) =>
+          msg shouldBe "field 'age' — default expected integer, got string"
+        case other => fail(s"Expected BadRequest, got: $other")
+      }
+    }
+
+    // skeptic-final-1.md CR5: the codec-level test named for this ("canonicalize a non-canonical
+    // 'double' type to 'float' on write") never actually passed the string `"double"` through
+    // anywhere -- it constructed `DataFieldType.FloatType` directly. Exercise the real spec.md
+    // scenario end-to-end: declare a field with the WIRE string `"double"` and assert the
+    // PERSISTED declaration (`dataset_schema`, not `inferredSchema`) stores canonical `"float"`.
+    "persists a caller-declared 'double' field's declaration as canonical 'float'" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name    = "Double Declared",
+        `type`  = "static",
+        columns = Vector(StaticColumnPayload("amount", "double")),
+        rows    = Vector(Vector(JsNumber(1.5)))
+      )
+      val src = await(service.createStatic(createReq, user)) match {
+        case Right(s) => s
+        case Left(e)  => fail(s"createStatic failed: $e")
+      }
+      val readBack = await(dataSourceRepo.readDatasetRows(src.id)).get
+      val columns  = readBack.fields("columns").asInstanceOf[JsArray].elements
+      val amountType = columns.map(_.asJsObject).find(_.fields("name") == JsString("amount")).get.fields("type")
+      amountType shouldBe JsString("float")
+    }
   }
 
   "DataSourceService.refresh (Static)" should {
@@ -424,6 +542,32 @@ class DataSourceServiceSpec
       // The pre-refresh schema is untouched.
       val schema = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema
       schema.map(_.name) shouldBe Vector("id")
+    }
+
+    // HEL-1076 tasks.md 3.3/3.5: applyStaticRefresh routes through the same DatasetRowValidator --
+    // a rejected refresh writes nothing (old rows/schema survive untouched).
+    "reject a refresh with a wrong-typed value, leaving the old rows/schema untouched" in {
+      cleanDb()
+      val createReq = StaticDataSourceRequest(
+        name = "RefreshWrongType", `type` = "static",
+        columns = Vector(StaticColumnPayload("age", "integer")),
+        rows = Vector(Vector(JsNumber(30)))
+      )
+      val src = await(service.createStatic(createReq, user)) match {
+        case Right(s) => s
+        case Left(e)  => fail(s"createStatic failed: $e")
+      }
+      val refreshPayload = StaticDataPayload(
+        columns = Vector(StaticColumnPayload("age", "integer")),
+        rows    = Vector(Vector[JsValue](JsString("12")))
+      )
+      val result = await(service.refresh(src.id, Some(refreshPayload), user))
+      result match {
+        case Left(ServiceError.BadRequest(msg)) => msg shouldBe "row 0: field 'age' — expected integer, got string"
+        case other => fail(s"Expected BadRequest, got: $other")
+      }
+      val readBack = await(dataSourceRepo.readDatasetRows(src.id)).get
+      readBack.fields("rows") shouldBe JsArray(JsArray(Vector(JsNumber(30))))
     }
   }
 

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/sources/static-column-payload.schema.json",
   "title": "StaticColumnPayload",
-  "description": "One column declaration in POST /api/data-sources/static's `columns[]` (HEL-906 cycle 5, AC-3: `type` must be a canonical DataFieldType wire value -- validated server-side via DataFieldType.validateAndCanonicalize, 400 on failure -- and this enum makes that contract explicit at the schema level too).",
+  "description": "One column declaration in POST /api/data-sources/static's `columns[]` (HEL-906 cycle 5, AC-3: `type` must be a canonical DataFieldType wire value -- validated server-side via DataFieldType.validateAndCanonicalize, 400 on failure -- and this enum makes that contract explicit at the schema level too). `required`/`default` (HEL-1076 design.md Decision 6) are optional; an absent `required` defaults to `false` and an absent `default` defaults to unset. `default`'s JSON shape, if present, must itself satisfy `type`'s validation rules -- enforced server-side at declaration time, not by this schema.",
   "type": "object",
   "required": ["name", "type"],
   "properties": {
@@ -10,7 +10,9 @@
     "type": {
       "type": "string",
       "enum": ["string", "integer", "float", "boolean", "timestamp", "string-body", "binary-ref"]
-    }
+    },
+    "required": { "type": "boolean" },
+    "default": {}
   },
   "additionalProperties": false
 }

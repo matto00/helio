@@ -235,7 +235,16 @@ final case class SqlInferRequest(`type`: String, config: SqlSourceConfigPayload)
 final case class TestConnectionResponse(ok: Boolean, error: Option[String])
 
 
-final case class StaticColumnPayload(name: String, `type`: String)
+/** `required`/`default` (HEL-1076 design.md Decision 6): absent on the wire defaults to
+ *  `false`/`None` — spray-json's `jsonFormat4` reads a missing `Option`-typed key as `None`
+ *  natively, matching the same absent-vs-null normalization pattern used elsewhere for
+ *  `Option`-typed wire fields. */
+final case class StaticColumnPayload(
+    name:     String,
+    `type`:   String,
+    required: Option[Boolean] = None,
+    default:  Option[JsValue] = None
+)
 final case class StaticDataPayload(columns: Vector[StaticColumnPayload], rows: Vector[Vector[JsValue]])
 final case class StaticDataSourceRequest(
     name: String,
@@ -520,7 +529,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val createSourceRequestFormat: RootJsonFormat[CreateSourceRequest]   = jsonFormat4(CreateSourceRequest.apply)
   implicit val createSourceResponseFormat: RootJsonFormat[CreateSourceResponse] = jsonFormat4(CreateSourceResponse.apply)
 
-  implicit val staticColumnPayloadFormat: RootJsonFormat[StaticColumnPayload]         = jsonFormat2(StaticColumnPayload.apply)
+  implicit val staticColumnPayloadFormat: RootJsonFormat[StaticColumnPayload]         = jsonFormat4(StaticColumnPayload.apply)
   implicit val staticDataPayloadFormat: RootJsonFormat[StaticDataPayload]             = jsonFormat2(StaticDataPayload.apply)
   implicit val staticDataSourceRequestFormat: RootJsonFormat[StaticDataSourceRequest] = jsonFormat5(StaticDataSourceRequest.apply)
 }

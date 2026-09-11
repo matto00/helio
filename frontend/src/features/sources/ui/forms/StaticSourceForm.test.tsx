@@ -82,4 +82,40 @@ describe("StaticSourceForm — column definition step", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
     expect(screen.getByRole("table", { name: "Data rows" })).toBeInTheDocument();
   });
+
+  // skeptic-final-1.md CR4: `handleSubmit`'s NaN-fallback (HEL-1076 tasks.md 3.1) sends the raw
+  // string instead of `null` for an unparseable numeric cell, so the backend's DatasetRowValidator
+  // rejects the actual bad value rather than it silently vanishing as a missing field. Reverting
+  // that fix must turn this test red — assert on the actual `onSubmit` payload, not just that
+  // submission occurred.
+  it("submits the raw string (not null/NaN) for an unparseable value in an integer column", () => {
+    const onSubmit = jest.fn();
+    render(
+      <StaticSourceForm
+        name="Test"
+        onSubmit={onSubmit}
+        isLoading={false}
+        error={null}
+        onCancel={noop}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Column 1 name"), {
+      target: { value: "age" },
+    });
+    fireEvent.click(screen.getByRole("combobox", { name: "Column 1 type" }));
+    fireEvent.click(screen.getByRole("option", { name: "integer" }));
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: /add row/i }));
+    fireEvent.change(screen.getByLabelText("Row 1 age"), {
+      target: { value: "not-a-number" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create source/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const [columns, rows] = onSubmit.mock.calls[0] as [unknown, unknown[][]];
+    expect(columns).toEqual([{ name: "age", type: "integer" }]);
+    expect(rows).toEqual([["not-a-number"]]);
+  });
 });

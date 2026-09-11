@@ -3,10 +3,6 @@ package com.helio.domain.engine
 import com.helio.domain.model.{DataFieldType, InferredField, InferredSchema}
 import spray.json._
 
-import java.time.format.DateTimeFormatter
-import java.time.{LocalDate, LocalDateTime, ZonedDateTime}
-import scala.util.Try
-
 object SchemaInferenceEngine {
 
   // Public API
@@ -211,11 +207,9 @@ object SchemaInferenceEngine {
     case _             => (DataFieldType.StringType, false) // arrays, objects at leaf
   }
 
-  private def isTimestamp(s: String): Boolean =
-    Try(ZonedDateTime.parse(s, DateTimeFormatter.ISO_DATE_TIME)).isSuccess ||
-    Try(LocalDateTime.parse(s, DateTimeFormatter.ISO_LOCAL_DATE_TIME)).isSuccess ||
-    Try(LocalDate.parse(s, DateTimeFormatter.ISO_LOCAL_DATE)).isSuccess ||
-    Try(LocalDate.parse(s, DateTimeFormatter.ofPattern("MM/dd/yyyy"))).isSuccess
+  // HEL-1076 tasks.md 2.1: delegates to the shared TimestampParsing helper (behavior-preserving
+  // extraction) so DatasetRowValidator shares this exact definition.
+  private def isTimestamp(s: String): Boolean = TimestampParsing.looksLikeTimestamp(s)
 
   // CSV helpers
 

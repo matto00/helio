@@ -328,7 +328,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  (positional, not object-keyed -- Decision 3): each row is JSON-encoded as-is. */
   def insertDatasetSource(
       source:         DatasetSource,
-      declaredColumns: Vector[SchemaField],
+      declaredColumns: Vector[DatasetFieldDeclaration],
       rows:           Vector[Vector[JsValue]],
       inferredSchema: Vector[SchemaField],
       user:           AuthenticatedUser
@@ -358,7 +358,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  the one caller (`applyStaticRefresh`) that has both values available at the same call site. */
   def replaceDatasetRows(
       id:              DataSourceId,
-      declaredColumns: Vector[SchemaField],
+      declaredColumns: Vector[DatasetFieldDeclaration],
       rows:            Vector[Vector[JsValue]],
       inferredSchema:  Vector[SchemaField],
       updatedAt:       Instant,

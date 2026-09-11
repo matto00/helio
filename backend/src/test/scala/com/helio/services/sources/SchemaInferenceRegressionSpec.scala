@@ -16,7 +16,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
-import spray.json.{JsNumber, JsString, JsValue}
+import spray.json.{JsBoolean, JsNumber, JsString, JsValue}
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -162,6 +162,17 @@ class SchemaInferenceRegressionSpec
     // materialized (`parseStaticRows` never consulted the declared type; both cells here are
     // JsString, which materializes as a Scala `String`). The registered schema now reflects the
     // materialized value's kind, not the caller's declared type.
+    //
+    // HEL-1076 design.md Decision 7's test-inventory: the original fixture declared `"flag":
+    // "boolean"` backed by a `JsString("true")` cell -- that write is now genuinely REJECTED by
+    // `DatasetRowValidator` (a boolean field requires an actual `JsBoolean`, no coercion), so a
+    // string-backed "boolean" column can no longer be constructed through `createStatic` at all.
+    // Corrected to a valid write: `flag` is now declared `boolean` with an actual `JsBoolean`
+    // cell (which DOES materialize as `"boolean"`, matching its declared type -- there is no
+    // longer any divergent case for `boolean` specifically, since a valid boolean cell always
+    // materializes as boolean). The `ts` column keeps demonstrating the divergence this test
+    // exists for: `timestamp` is declared, but a valid timestamp-shaped `JsString` cell still
+    // materializes as `"string"` (declared type is never consulted for materialization).
     "derive the registered type from the stored cells' JSON kind, not the declared type" in {
       cleanDb()
       val req = StaticDataSourceRequest(
@@ -172,7 +183,7 @@ class SchemaInferenceRegressionSpec
           StaticColumnPayload("ts", "timestamp")
         ),
         rows = Vector(
-          Vector[JsValue](JsString("true"), JsString("2024-01-01"))
+          Vector[JsValue](JsBoolean(true), JsString("2024-01-01"))
         )
       )
 
@@ -182,7 +193,7 @@ class SchemaInferenceRegressionSpec
       }
 
       val byName = await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema.map(f => f.name -> f.`type`).toMap
-      byName("flag") shouldBe "string"
+      byName("flag") shouldBe "boolean"
       byName("ts")   shouldBe "string"
     }
   }
