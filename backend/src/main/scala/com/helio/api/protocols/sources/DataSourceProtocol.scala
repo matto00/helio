@@ -4,7 +4,7 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import com.helio.domain.engine.SchemaField
 import com.helio.services.auth.{HasSecrets, SecretField, SecretRedaction}
-import com.helio.services.sources.RowWriteResult
+import com.helio.services.sources.{RowMutationResult, RowWriteResult}
 import spray.json._
 
 //
@@ -266,6 +266,26 @@ object RowWriteResponse {
     RowWriteResponse(
       rows      = result.rows.map(r => RowWriteRowResponse(r.id, r.seq, r.updatedAt.toString)),
       updatedAt = result.source.updatedAt.toString
+    )
+}
+
+/** HEL-1078 design.md D2: request body for `PATCH /api/data-sources/:id/rows/:rowId` -- `data` is
+ *  the row's complete new value (positional, same length/order as the declared schema), never a
+ *  partial/sparse update. */
+final case class RowPatchRequest(updatedAt: String, data: Vector[JsValue])
+
+/** HEL-1078 design.md D8: the single edited row (INCLUDING its full post-write `data`, unlike
+ *  `RowWriteRowResponse` which deliberately omits it per HEL-1077 D6) plus the source-level
+ *  `updatedAt` -- a new type, not a reuse of `RowWriteResponse`, since that type wraps a `rows`
+ *  array and was never meant to carry per-row `data`. */
+final case class RowResponse(row: RowResponseRow, sourceUpdatedAt: String)
+final case class RowResponseRow(id: String, seq: Long, updatedAt: String, data: Vector[JsValue])
+
+object RowResponse {
+  def fromDomain(result: RowMutationResult): RowResponse =
+    RowResponse(
+      row             = RowResponseRow(result.rowId, result.seq, result.rowUpdatedAt.toString, result.data),
+      sourceUpdatedAt = result.source.updatedAt.toString
     )
 }
 final case class StaticDataSourceRequest(
@@ -558,4 +578,8 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val rowWriteRequestFormat: RootJsonFormat[RowWriteRequest]         = jsonFormat1(RowWriteRequest.apply)
   implicit val rowWriteRowResponseFormat: RootJsonFormat[RowWriteRowResponse] = jsonFormat3(RowWriteRowResponse.apply)
   implicit val rowWriteResponseFormat: RootJsonFormat[RowWriteResponse]       = jsonFormat2(RowWriteResponse.apply)
+
+  implicit val rowPatchRequestFormat: RootJsonFormat[RowPatchRequest]     = jsonFormat2(RowPatchRequest.apply)
+  implicit val rowResponseRowFormat: RootJsonFormat[RowResponseRow]       = jsonFormat4(RowResponseRow.apply)
+  implicit val rowResponseFormat: RootJsonFormat[RowResponse]             = jsonFormat2(RowResponse.apply)
 }

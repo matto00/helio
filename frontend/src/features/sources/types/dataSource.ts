@@ -198,3 +198,20 @@ export interface RowWriteResponse {
   rows: RowWriteRow[];
   updatedAt: string;
 }
+
+/** HEL-1078: the single row a successful PATCH .../rows/:rowId edited -- unlike `RowWriteRow`,
+ *  this DOES carry the row's full post-write `data`, since the caller submitted the full row and
+ *  the response confirms exactly what was persisted. */
+export interface RowResponseRow {
+  id: string;
+  seq: number;
+  updatedAt: string;
+  data: unknown[];
+}
+
+/** Response body for `PATCH /api/data-sources/:id/rows/:rowId` -- the edited row plus the
+ *  source-level `updatedAt`. `DELETE .../rows/:rowId` returns `204` with no body. */
+export interface RowResponse {
+  row: RowResponseRow;
+  sourceUpdatedAt: string;
+}

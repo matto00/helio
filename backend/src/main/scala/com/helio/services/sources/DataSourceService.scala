@@ -9,7 +9,7 @@ import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.sources.{CsvPreviewResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.sources.DataSourceRepository.{BlockingPipeline, DatasetRowRow}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository.{BlockingPipeline, DatasetRowRow, RowMutationFailure}
 import com.helio.infrastructure.storage.FileSystem
 import SourceConfigParsing._
 import spray.json._
@@ -802,6 +802,63 @@ final class DataSourceService(
       case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
     }
 
+  /** HEL-1078 design.md D6: precedence order, fully applied here -- (1) malformed/missing
+   *  `updatedAt` is checked FIRST, before any DB call; (2)/(3) the ACL-scoped source lookup and
+   *  kind check reuse `findByIdOwned` exactly like `appendRows`/`replaceRows` (404 before 400,
+   *  same order those methods already use); (4)-(6) are the repository's own outcome ordering
+   *  (`patchRow`), mapped here to the matching `ServiceError`. */
+  def patchRow(id: DataSourceId, rowId: String, updatedAtRaw: String, data: Vector[JsValue], user: AuthenticatedUser): Future[Either[ServiceError, RowMutationResult]] =
+    parseInstant(updatedAtRaw) match {
+      case None => Future.successful(Left(ServiceError.BadRequest(s"updatedAt is missing or not a valid ISO-8601 instant: '$updatedAtRaw'")))
+      case Some(expectedUpdatedAt) =>
+        dataSourceRepo.findByIdOwned(id, user).flatMap {
+          case None                   => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+          case Some(_: DatasetSource) =>
+            val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
+            dataSourceRepo.patchRow(id, rowId, data, expectedUpdatedAt, now, user).map {
+              case Left(RowMutationFailure.SourceNotFound)          => Left(ServiceError.NotFound("Data source not found"))
+              case Left(RowMutationFailure.RowNotFound)             => Left(ServiceError.NotFound("Row not found"))
+              case Left(RowMutationFailure.ValidationFailed(msg))   => Left(ServiceError.BadRequest(msg))
+              case Left(RowMutationFailure.StalePrecondition(cur))  =>
+                Left(ServiceError.Conflict(s"row $rowId was modified concurrently: expected updatedAt '$expectedUpdatedAt', current is '$cur'"))
+              case Right((ds, row)) =>
+                audit("data_source.rows.patch", Some(ds.id.value), user)
+                Right(RowMutationResult.fromRepositoryRow(ds, row))
+            }
+          case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
+        }
+    }
+
+  /** HEL-1078 design.md D6: same precedence order as `patchRow`, minus the validation step (there
+   *  is no submitted row to validate on DELETE). */
+  def deleteRow(id: DataSourceId, rowId: String, updatedAtRaw: String, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    parseInstant(updatedAtRaw) match {
+      case None => Future.successful(Left(ServiceError.BadRequest(s"updatedAt is missing or not a valid ISO-8601 instant: '$updatedAtRaw'")))
+      case Some(expectedUpdatedAt) =>
+        dataSourceRepo.findByIdOwned(id, user).flatMap {
+          case None                   => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+          case Some(_: DatasetSource) =>
+            val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
+            dataSourceRepo.deleteRow(id, rowId, expectedUpdatedAt, now, user).map {
+              case Left(RowMutationFailure.SourceNotFound)          => Left(ServiceError.NotFound("Data source not found"))
+              case Left(RowMutationFailure.RowNotFound)             => Left(ServiceError.NotFound("Row not found"))
+              case Left(RowMutationFailure.ValidationFailed(msg))   => Left(ServiceError.BadRequest(msg))
+              case Left(RowMutationFailure.StalePrecondition(cur))  =>
+                Left(ServiceError.Conflict(s"row $rowId was modified concurrently: expected updatedAt '$expectedUpdatedAt', current is '$cur'"))
+              case Right(ds) =>
+                audit("data_source.rows.delete", Some(ds.id.value), user)
+                Right(())
+            }
+          case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
+        }
+    }
+
+  /** Parses a request-supplied `updatedAt` value with the same `Instant.parse` convention every
+   *  row-write response's `updatedAt` field round-trips through (design.md D4) -- `None` on any
+   *  parse failure, mapped by callers to `400` before any DB call (D6 step 1). */
+  private def parseInstant(raw: String): Option[Instant] =
+    Try(Instant.parse(raw)).toOption
+
   /** Refresh a CSV source (HEL-862): re-read the stored file when it was
    *  upload/inline-created (`sourceUrl` is `None`, byte-for-byte the
    *  pre-existing behaviour including the `NoSuchFileException` message), or
@@ -1075,4 +1132,15 @@ final case class RowWriteResult(source: DataSource, rows: Vector[RowWriteRow])
 object RowWriteResult {
   def fromRepositoryRows(source: DataSource, rows: Vector[DatasetRowRow]): RowWriteResult =
     RowWriteResult(source, rows.map(r => RowWriteRow(r.id, r.seq, r.updatedAt)))
+}
+
+/** HEL-1078 design.md D8: result of a successful `patchRow` -- the edited row's `id`/`seq`/
+ *  `updatedAt`/full `data` (unlike `RowWriteRow`, PATCH's response DOES echo `data` back, since
+ *  the caller submitted the full row and the response confirms exactly what was persisted --
+ *  design.md D8) plus the source, so the route can build `RowResponse`'s `sourceUpdatedAt`. */
+final case class RowMutationResult(source: DataSource, rowId: String, seq: Long, rowUpdatedAt: Instant, data: Vector[JsValue])
+
+object RowMutationResult {
+  def fromRepositoryRow(source: DataSource, row: DatasetRowRow): RowMutationResult =
+    RowMutationResult(source, row.id, row.seq, row.updatedAt, row.data.parseJson.asInstanceOf[JsArray].elements)
 }

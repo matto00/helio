@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/row-response-row.schema.json",
+  "title": "RowResponseRow",
+  "description": "The single row a successful PATCH /api/data-sources/:id/rows/:rowId edited (HEL-1078 design.md D8) -- unlike RowWriteRowResponse, this DOES include the row's full post-write `data`, since the caller submitted the full row and the response confirms exactly what was persisted.",
+  "type": "object",
+  "required": ["id", "seq", "updatedAt", "data"],
+  "properties": {
+    "id": { "type": "string" },
+    "seq": { "type": "integer" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "data": {
+      "type": "array",
+      "items": {}
+    }
+  },
+  "additionalProperties": false
+}

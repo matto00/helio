@@ -15,7 +15,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.persistence.{Database, DbContext}
-import com.helio.api.protocols.sources.RowWriteResponse
+import com.helio.api.protocols.sources.{RowResponse, RowWriteResponse}
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -36,9 +36,11 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.net.InetAddress
 import java.nio.file.Files
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import javax.imageio.ImageIO
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration.DurationInt
 
 class DataSourceRoutesSpec
@@ -1611,6 +1613,420 @@ class DataSourceRoutesSpec
       Put(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [["x"]]}""")) ~> routes() ~> check {
         status shouldBe StatusCodes.NotFound
       }
+    }
+  }
+
+  /** Appends one row to `sourceId` via the real POST route and returns its `(id, updatedAt)`,
+   *  so patch/delete tests always start from an `updatedAt` the row-write API actually issued
+   *  (design.md D4 -- a precondition value comes from a prior write response). */
+  private def appendOneRow(sourceId: String, dataJson: String): (String, String) = {
+    var rowId = ""
+    var updatedAt = ""
+    Post(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, s"""{"rows": [$dataJson]}""")) ~> routes() ~> check {
+      status shouldBe StatusCodes.OK
+      val resp = responseAs[RowWriteResponse]
+      rowId = resp.rows.head.id
+      updatedAt = resp.rows.head.updatedAt
+    }
+    (rowId, updatedAt)
+  }
+
+  "PATCH /api/data-sources/:id/rows/:rowId" should {
+
+    "accept a precondition-matching edit and return the updated row plus recomputed inferred_schema" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Patch Base", """[{"name": "n", "type": "integer"}]""", """[[1]]""")
+      val existingRowId = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceId AND seq = 0".as[String].head
+      }))
+      val existingUpdatedAt = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $existingRowId".as[java.sql.Timestamp].head
+      })).toInstant.toString
+
+      Patch(
+        s"/api/data-sources/$sourceId/rows/$existingRowId",
+        HttpEntity(ContentTypes.`application/json`, s"""{"updatedAt": "$existingUpdatedAt", "data": [42]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RowResponse]
+        resp.row.id shouldBe existingRowId
+        resp.row.data shouldBe Vector(JsNumber(42))
+        resp.row.updatedAt should not be existingUpdatedAt
+        resp.sourceUpdatedAt shouldBe resp.row.updatedAt
+      }
+
+      // PipelineRowJson.staticColumnRuntimeType maps EVERY JsNumber cell (integral or not) to
+      // the runtime kind "float" -- there is no distinct runtime "integer" kind, matching the
+      // identical assertion in the sibling append test above ("recompute inferred_schema after
+      // an append that changes a column's observed runtime type").
+      val after = await(dataSourceRepo.findByIdOwned(DataSourceId(sourceId), testUser)).get
+      after.inferredSchema.find(_.name == "n").map(_.`type`) shouldBe Some("float")
+    }
+
+    "reject a stale precondition with 409, row unchanged" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Patch Stale", """[{"name": "a", "type": "string"}]""", """[["orig"]]""")
+      val rowId = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceId".as[String].head
+      }))
+
+      Patch(
+        s"/api/data-sources/$sourceId/rows/$rowId",
+        HttpEntity(ContentTypes.`application/json`, """{"updatedAt": "2020-01-01T00:00:00Z", "data": ["changed"]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Conflict
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        responseAs[CsvPreviewResponse].rows shouldBe Vector(Vector("orig"))
+      }
+    }
+
+    "reject an edit that fails schema validation before checking the precondition" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Patch Invalid", """[{"name": "age", "type": "integer"}]""", """[[1]]""")
+      val rowId = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceId".as[String].head
+      }))
+
+      Patch(
+        s"/api/data-sources/$sourceId/rows/$rowId",
+        HttpEntity(ContentTypes.`application/json`, """{"updatedAt": "2020-01-01T00:00:00Z", "data": ["not-an-integer"]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("expected integer, got string")
+      }
+    }
+
+    // tasks.md 5.11: a schema-invalid PATCH against a row that IS ALSO stale must be 400, not
+    // 409 -- design.md D6 checks validation (step 5) before the precondition (step 6), so a
+    // stale precondition is never disclosed for an invalid payload.
+    "reject a schema-invalid edit with 400 even when the precondition is also stale" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Patch Invalid Stale", """[{"name": "age", "type": "integer"}]""", """[[1]]""")
+      val rowId = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceId".as[String].head
+      }))
+      // Bump the row's updated_at directly, simulating a concurrent writer -- the client's
+      // captured updatedAt (an obviously stale sentinel) is now ALSO wrong.
+      await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sqlu"UPDATE dataset_rows SET updated_at = now() WHERE id = $rowId"
+      }))
+
+      Patch(
+        s"/api/data-sources/$sourceId/rows/$rowId",
+        HttpEntity(ContentTypes.`application/json`, """{"updatedAt": "2020-01-01T00:00:00Z", "data": ["not-an-integer"]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "clear an optional column with no default to null" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Patch Clear Null", """[{"name": "note", "type": "string", "required": false}]""", """[["hello"]]""")
+      val rowId = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceId".as[String].head
+      }))
+      val updatedAt = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head
+      })).toInstant.toString
+
+      Patch(
+        s"/api/data-sources/$sourceId/rows/$rowId",
+        HttpEntity(ContentTypes.`application/json`, s"""{"updatedAt": "$updatedAt", "data": [null]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[RowResponse].row.data shouldBe Vector(JsNull)
+      }
+    }
+
+    "storing null for an optional column with a declared default stores the default, not null" in {
+      cleanDb()
+      val sourceId = createDatasetSource(
+        "Patch Default Fill",
+        """[{"name": "note", "type": "string", "required": false, "default": "fallback"}]""",
+        """[["hello"]]"""
+      )
+      val rowId = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceId".as[String].head
+      }))
+      val updatedAt = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head
+      })).toInstant.toString
+
+      Patch(
+        s"/api/data-sources/$sourceId/rows/$rowId",
+        HttpEntity(ContentTypes.`application/json`, s"""{"updatedAt": "$updatedAt", "data": [null]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[RowResponse].row.data shouldBe Vector(JsString("fallback"))
+      }
+    }
+
+    "reject a null for a required column with no default with 400" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Patch Required Null", """[{"name": "n", "type": "integer", "required": true}]""", """[[1]]""")
+      val rowId = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceId".as[String].head
+      }))
+      val updatedAt = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head
+      })).toInstant.toString
+
+      Patch(
+        s"/api/data-sources/$sourceId/rows/$rowId",
+        HttpEntity(ContentTypes.`application/json`, s"""{"updatedAt": "$updatedAt", "data": [null]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("required")
+      }
+    }
+
+    "return 404 for a nonexistent rowId" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Patch Missing Row", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+
+      Patch(
+        s"/api/data-sources/$sourceId/rows/does-not-exist",
+        HttpEntity(ContentTypes.`application/json`, """{"updatedAt": "2020-01-01T00:00:00Z", "data": ["x"]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // tasks.md 5.6: a rowId belonging to a DIFFERENT source than `:id` (design.md D1's
+    // cross-source-write regression) -- 404, and the other source's row is unaffected.
+    "return 404 for a rowId belonging to a different source, leaving that source's row unchanged" in {
+      cleanDb()
+      val sourceA = createDatasetSource("Patch Cross Source A", """[{"name": "a", "type": "string"}]""", """[["a-value"]]""")
+      val sourceB = createDatasetSource("Patch Cross Source B", """[{"name": "a", "type": "string"}]""", """[["b-value"]]""")
+      val rowBId = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceB".as[String].head
+      }))
+      val rowBUpdatedAt = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowBId".as[java.sql.Timestamp].head
+      })).toInstant.toString
+
+      // Attempt to patch source B's row through source A's URL.
+      Patch(
+        s"/api/data-sources/$sourceA/rows/$rowBId",
+        HttpEntity(ContentTypes.`application/json`, s"""{"updatedAt": "$rowBUpdatedAt", "data": ["hijacked"]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+
+      Get(s"/api/data-sources/$sourceB/preview") ~> routes() ~> check {
+        responseAs[CsvPreviewResponse].rows shouldBe Vector(Vector("b-value"))
+      }
+    }
+
+    "reject a non-dataset (csv) source with a 4xx client error" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Csv For Patch Reject", validCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Patch(
+        s"/api/data-sources/$sourceId/rows/does-not-exist",
+        HttpEntity(ContentTypes.`application/json`, """{"updatedAt": "2020-01-01T00:00:00Z", "data": ["x"]}""")
+      ) ~> routes() ~> check {
+        status.intValue should (be >= 400 and be < 500)
+      }
+    }
+
+    "return 404 for a row owned by another user" in {
+      cleanDb()
+      val sourceId = seedOtherOwnerDatasetSource()
+      Patch(
+        s"/api/data-sources/$sourceId/rows/does-not-exist",
+        HttpEntity(ContentTypes.`application/json`, """{"updatedAt": "2020-01-01T00:00:00Z", "data": ["x"]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // tasks.md 5.9: a real round-trip precondition test across TWO real writes -- proving the
+    // MICROS-truncation convention (design.md D4) round-trips correctly beyond just one write.
+    "round-trips the updatedAt precondition across two successive real writes" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Patch Round Trip", """[{"name": "a", "type": "string"}]""", """[]""")
+      val (rowId, firstUpdatedAt) = appendOneRow(sourceId, """["v1"]""")
+
+      var secondUpdatedAt = ""
+      Patch(
+        s"/api/data-sources/$sourceId/rows/$rowId",
+        HttpEntity(ContentTypes.`application/json`, s"""{"updatedAt": "$firstUpdatedAt", "data": ["v2"]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        secondUpdatedAt = responseAs[RowResponse].row.updatedAt
+      }
+      secondUpdatedAt should not be firstUpdatedAt
+
+      Patch(
+        s"/api/data-sources/$sourceId/rows/$rowId",
+        HttpEntity(ContentTypes.`application/json`, s"""{"updatedAt": "$secondUpdatedAt", "data": ["v3"]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[RowResponse].row.data shouldBe Vector(JsString("v3"))
+      }
+
+      Delete(s"/api/data-sources/$sourceId/rows/$rowId?updatedAt=$secondUpdatedAt") ~> routes() ~> check {
+        // stale by now (superseded by the second patch above) -- proves the SAME round-tripped
+        // value from the FIRST patch response cannot be reused a third time.
+        status shouldBe StatusCodes.Conflict
+      }
+    }
+  }
+
+  "DELETE /api/data-sources/:id/rows/:rowId" should {
+
+    "accept a precondition-matching delete and recompute inferred_schema" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Delete Base", """[{"name": "a", "type": "string"}]""", """[["keep"], ["remove"]]""")
+      val rowToRemove = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceId AND seq = 1".as[String].head
+      }))
+      val updatedAt = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowToRemove".as[java.sql.Timestamp].head
+      })).toInstant.toString
+
+      Delete(s"/api/data-sources/$sourceId/rows/$rowToRemove?updatedAt=$updatedAt") ~> routes() ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        responseAs[CsvPreviewResponse].rows shouldBe Vector(Vector("keep"))
+      }
+    }
+
+    "reject a stale precondition with 409, row still exists" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Delete Stale", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+      val rowId = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceId".as[String].head
+      }))
+
+      Delete(s"/api/data-sources/$sourceId/rows/$rowId?updatedAt=2020-01-01T00:00:00Z") ~> routes() ~> check {
+        status shouldBe StatusCodes.Conflict
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        responseAs[CsvPreviewResponse].rows shouldBe Vector(Vector("x"))
+      }
+    }
+
+    "reject a missing updatedAt query parameter with 400 before any row lookup" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Delete Missing Param", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+      val rowId = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceId".as[String].head
+      }))
+
+      Delete(s"/api/data-sources/$sourceId/rows/$rowId") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        responseAs[CsvPreviewResponse].rows shouldBe Vector(Vector("x"))
+      }
+    }
+
+    "return 404 for a nonexistent rowId" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Delete Missing Row", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+
+      Delete(s"/api/data-sources/$sourceId/rows/does-not-exist?updatedAt=2020-01-01T00:00:00Z") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "return 404 for a rowId belonging to a different source, leaving that source's row unchanged" in {
+      cleanDb()
+      val sourceA = createDatasetSource("Delete Cross Source A", """[{"name": "a", "type": "string"}]""", """[["a-value"]]""")
+      val sourceB = createDatasetSource("Delete Cross Source B", """[{"name": "a", "type": "string"}]""", """[["b-value"]]""")
+      val rowBId = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT id FROM dataset_rows WHERE data_source_id = $sourceB".as[String].head
+      }))
+      val rowBUpdatedAt = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowBId".as[java.sql.Timestamp].head
+      })).toInstant.toString
+
+      Delete(s"/api/data-sources/$sourceA/rows/$rowBId?updatedAt=$rowBUpdatedAt") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+
+      Get(s"/api/data-sources/$sourceB/preview") ~> routes() ~> check {
+        responseAs[CsvPreviewResponse].rows shouldBe Vector(Vector("b-value"))
+      }
+    }
+
+    "reject a non-dataset (csv) source with a 4xx client error" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Csv For Delete Reject", validCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Delete(s"/api/data-sources/$sourceId/rows/does-not-exist?updatedAt=2020-01-01T00:00:00Z") ~> routes() ~> check {
+        status.intValue should (be >= 400 and be < 500)
+      }
+    }
+
+    "return 404 for a row owned by another user" in {
+      cleanDb()
+      val sourceId = seedOtherOwnerDatasetSource()
+      Delete(s"/api/data-sources/$sourceId/rows/does-not-exist?updatedAt=2020-01-01T00:00:00Z") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
+  // tasks.md 5.10: a REAL concurrent test (Future.sequence over two independent requests against
+  // the real embedded-Postgres DB, not sequential HTTP calls) confirming HEL-1077's existing
+  // "two concurrent appends both land with distinct seq" guarantee is unaffected by this change's
+  // additions to the SAME repository file (`DataSourceRepository`'s `lockSource`/dataset_rows
+  // machinery is shared by appendRows and this ticket's patchRow/deleteRow).
+  "concurrent appends (HEL-1077 regression, exercised after HEL-1078's repository additions)" should {
+
+    "both land with distinct, increasing seq when issued truly concurrently" in {
+      cleanDb()
+      implicit val ec: ExecutionContext = typedSystem.executionContext
+      val sourceId = createDatasetSource("Concurrent Append", """[{"name": "a", "type": "string"}]""", """[]""")
+
+      val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
+      val f1 = dataSourceRepo.appendRows(DataSourceId(sourceId), Vector(Vector(JsString("one"))), 500, now, testUser)
+      val f2 = dataSourceRepo.appendRows(DataSourceId(sourceId), Vector(Vector(JsString("two"))), 500, now, testUser)
+
+      val Vector(r1, r2) = await(Future.sequence(Vector(f1, f2)))
+      val seqs = Vector(r1, r2).flatMap {
+        case Some(Right((_, rows))) => rows.map(_.seq)
+        case other                  => fail(s"expected a successful append, got $other")
+      }
+      seqs.toSet.size shouldBe 2
+      seqs.sorted shouldBe Vector(0L, 1L)
     }
   }
 }

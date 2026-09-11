@@ -2,6 +2,7 @@ import type {
   DataSource,
   DataSourceKind,
   InferredField,
+  RowResponse,
   RowWriteResponse,
   SqlSourceConfig,
   StaticColumn,
@@ -315,4 +316,36 @@ export async function replaceSourceRows(
     rows,
   });
   return response.data;
+}
+
+// HEL-1078: per-row edit/delete, guarded by an `updatedAt` precondition (design.md D2/D3). No
+// UI consumer yet -- for HEL-1080's grid to consume once it also gets a row-read path (see
+// proposal.md's Non-goals).
+
+/** Replaces one row's full data, rejecting with a `409`-shaped `AxiosError` if `updatedAt` does
+ *  not match the row's current stored value (design.md D2: `data` is the row's complete new
+ *  value, not a partial/sparse update). */
+export async function patchSourceRow(
+  sourceId: string,
+  rowId: string,
+  updatedAt: string,
+  data: unknown[],
+): Promise<RowResponse> {
+  const response = await httpClient.patch<RowResponse>(
+    `/api/data-sources/${sourceId}/rows/${rowId}`,
+    { updatedAt, data },
+  );
+  return response.data;
+}
+
+/** Deletes one row, rejecting with a `409`-shaped `AxiosError` if `updatedAt` does not match the
+ *  row's current stored value. The precondition is a query parameter, not a body (design.md D3). */
+export async function deleteSourceRow(
+  sourceId: string,
+  rowId: string,
+  updatedAt: string,
+): Promise<void> {
+  await httpClient.delete(`/api/data-sources/${sourceId}/rows/${rowId}`, {
+    params: { updatedAt },
+  });
 }

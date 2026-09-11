@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/row-response.schema.json",
+  "title": "RowResponse",
+  "description": "Response body (200) for a successful PATCH /api/data-sources/:id/rows/:rowId (HEL-1078 design.md D8) -- the edited row plus the source-level `updatedAt`. DELETE returns 204 with no body and has no corresponding schema.",
+  "type": "object",
+  "required": ["row", "sourceUpdatedAt"],
+  "properties": {
+    "row": { "$ref": "./row-response-row.schema.json" },
+    "sourceUpdatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
