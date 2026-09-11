@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/row-patch-request.schema.json",
+  "title": "RowPatchRequest",
+  "description": "Request body for PATCH /api/data-sources/:id/rows/:rowId (HEL-1078). `data` is the row's complete new value -- a positional array the same length/order as the source's declared schema, not a partial/sparse update (design.md D2). `updatedAt` is the row's last-read `updated_at`; the write is rejected with 409 if it does not exactly match the row's current stored value.",
+  "type": "object",
+  "required": ["updatedAt", "data"],
+  "properties": {
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "data": {
+      "type": "array",
+      "items": {}
+    }
+  },
+  "additionalProperties": false
+}

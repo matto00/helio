@@ -5,6 +5,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.services.ServiceError
 import com.helio.services.sources.DataSourceService
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -509,6 +510,103 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
           sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
         ))
         rowsStillOwnerA shouldBe Vector("[\"replaced\"]")
+      } finally {
+        typedSystem.terminate()
+      }
+    }
+
+    // HEL-1078 tasks.md 5.8: a genuine non-superuser exercise of `patchRow`/`deleteRow` --
+    // `DataSourceService.patchRow`/`deleteRow`'s ACL-scoped `findByIdOwned` check runs on the
+    // SAME app-role `ctx` as `appendRows`/`replaceRows` above, so a cross-owner attempt returns
+    // `404` (via `findByIdOwned`'s existing not-found semantics), never `403`, and never touches
+    // the other owner's row.
+    "DataSourceService.patchRow runs as the app role; a cross-owner attempt is 404, never 403, and leaves the row unaffected" in {
+      cleanDb()
+      val (repo, service, typedSystem) = newDatasetService()
+      try {
+        val createReq = StaticDataSourceRequest(
+          name    = "RLS Patch Base",
+          `type`  = "static",
+          columns = Vector(StaticColumnPayload("a", "string")),
+          rows    = Vector(Vector(JsString("orig")))
+        )
+        val src = Await.result(service.createStatic(createReq, AuthenticatedUser(ownerA)), 5.seconds) match {
+          case Right(s) => s
+          case Left(e)  => fail(s"createStatic failed: $e")
+        }
+        val rowId = await(ctx.withSystemContext(
+          sql"SELECT id FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String].head
+        ))
+        val rowUpdatedAt = await(ctx.withSystemContext(
+          sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head
+        )).toInstant.toString
+
+        // Owner B cannot see or patch owner A's source at all -- 404, not 403.
+        val crossOwnerAttempt = Await.result(
+          service.patchRow(src.id, rowId, rowUpdatedAt, Vector(JsString("hijack")), AuthenticatedUser(ownerB)),
+          5.seconds
+        )
+        crossOwnerAttempt match {
+          case Left(_: ServiceError.NotFound) => succeed
+          case other                          => fail(s"expected ServiceError.NotFound, got $other")
+        }
+
+        val rowsStillOwnerA = await(ctx.withUserContext(ownerA.value)(
+          sql"SELECT data FROM dataset_rows WHERE id = $rowId".as[String]
+        ))
+        rowsStillOwnerA shouldBe Vector("[\"orig\"]")
+
+        // The legitimate owner's own patch still succeeds through the same app-role ctx.
+        val ownedPatch = Await.result(
+          service.patchRow(src.id, rowId, rowUpdatedAt, Vector(JsString("edited")), AuthenticatedUser(ownerA)),
+          5.seconds
+        )
+        ownedPatch.isRight shouldBe true
+      } finally {
+        typedSystem.terminate()
+      }
+    }
+
+    "DataSourceService.deleteRow runs as the app role; a cross-owner attempt is 404, never 403, and leaves the row unaffected" in {
+      cleanDb()
+      val (repo, service, typedSystem) = newDatasetService()
+      try {
+        val createReq = StaticDataSourceRequest(
+          name    = "RLS Delete Base",
+          `type`  = "static",
+          columns = Vector(StaticColumnPayload("a", "string")),
+          rows    = Vector(Vector(JsString("orig")))
+        )
+        val src = Await.result(service.createStatic(createReq, AuthenticatedUser(ownerA)), 5.seconds) match {
+          case Right(s) => s
+          case Left(e)  => fail(s"createStatic failed: $e")
+        }
+        val rowId = await(ctx.withSystemContext(
+          sql"SELECT id FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String].head
+        ))
+        val rowUpdatedAt = await(ctx.withSystemContext(
+          sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head
+        )).toInstant.toString
+
+        val crossOwnerAttempt = Await.result(
+          service.deleteRow(src.id, rowId, rowUpdatedAt, AuthenticatedUser(ownerB)),
+          5.seconds
+        )
+        crossOwnerAttempt match {
+          case Left(_: ServiceError.NotFound) => succeed
+          case other                          => fail(s"expected ServiceError.NotFound, got $other")
+        }
+
+        val rowStillExists = await(ctx.withUserContext(ownerA.value)(
+          sql"SELECT data FROM dataset_rows WHERE id = $rowId".as[String]
+        ))
+        rowStillExists shouldBe Vector("[\"orig\"]")
+
+        val ownedDelete = Await.result(
+          service.deleteRow(src.id, rowId, rowUpdatedAt, AuthenticatedUser(ownerA)),
+          5.seconds
+        )
+        ownedDelete.isRight shouldBe true
       } finally {
         typedSystem.terminate()
       }

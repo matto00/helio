@@ -9,7 +9,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
-import com.helio.api.protocols.sources.{RowWriteRequest, RowWriteResponse}
+import com.helio.api.protocols.sources.{RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse}
 import com.helio.domain.model._
 import com.helio.services.sources.{CsvUrlFetch, DataSourceDeleteError, DataSourceService}
 import spray.json._
@@ -123,6 +123,31 @@ final class DataSourceRoutes(
             put {
               entity(as[RowWriteRequest]) { req =>
                 ServiceResponse.run(dataSourceService.replaceRows(sourceId, req.rows, user))(RowWriteResponse.fromDomain)
+              }
+            }
+          )
+        },
+        // HEL-1078: per-row edit/delete, guarded by an `updatedAt` precondition (design.md D3:
+        // DELETE's precondition is a query parameter, not a body). Same rate-limit/auth
+        // composition as the sibling `rows` path above -- no new wiring needed.
+        path(DataSourceIdSegment / "rows" / Segment) { (sourceId, rowId) =>
+          concat(
+            patch {
+              entity(as[RowPatchRequest]) { req =>
+                ServiceResponse.run(dataSourceService.patchRow(sourceId, rowId, req.updatedAt, req.data, user))(RowResponse.fromDomain)
+              }
+            },
+            delete {
+              // HEL-1078 design.md D3: a missing `updatedAt` query parameter is a `400`, never
+              // Pekko's own default `MissingQueryParamRejection` handling -- which (surprisingly)
+              // completes with `404 Not Found`, not `400` (verified live against this exact
+              // route). `.optional` sidesteps that default entirely: `None` completes `400`
+              // directly, matching every other malformed-input case on this route family.
+              parameter("updatedAt".optional) {
+                case None =>
+                  complete(StatusCodes.BadRequest, ErrorResponse("updatedAt query parameter is required"))
+                case Some(updatedAt) =>
+                  ServiceResponse.runNoContent(dataSourceService.deleteRow(sourceId, rowId, updatedAt, user))
               }
             }
           )

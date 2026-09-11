@@ -463,6 +463,123 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(action)
   }
 
+  /** HEL-1078 design.md D1/D5: patch a single row's full data, guarded by an `updatedAt`
+   *  precondition. Runs under the same `lockSource` `FOR UPDATE` as `appendRows`/`replaceRows` --
+   *  the lock is what actually serializes concurrent writers to this source; the `updated_at`
+   *  predicate on the conditional `UPDATE` is the stale-client check on top of it. The mutation
+   *  statement's `WHERE` clause ALWAYS includes `data_source_id` alongside `id`/`updated_at`, so a
+   *  `rowId` belonging to a different source than `id` can never match (design.md D1 round-2
+   *  correction). Outcome order, matching design.md D5/D6 exactly: source missing -> `SourceNotFound`;
+   *  row missing under this source -> `RowNotFound`; submitted row fails `DatasetRowValidator` ->
+   *  `ValidationFailed` (checked BEFORE the conditional update runs, so a stale precondition is
+   *  never disclosed for an invalid payload); conditional update affects 0 rows -> `StalePrecondition`
+   *  carrying the row's actual current `updated_at` (read in step 2, safe under the same lock);
+   *  otherwise `Right` with the updated source and the persisted row. */
+  def patchRow(
+      sourceId:          DataSourceId,
+      rowId:             String,
+      data:              Vector[JsValue],
+      expectedUpdatedAt: Instant,
+      newUpdatedAt:      Instant,
+      user:              AuthenticatedUser
+  ): Future[Either[RowMutationFailure, (DataSource, DatasetRowRow)]] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    val action = for {
+      _            <- lockSource(sourceId)
+      schemaColOpt <- table.filter(_.id === sourceId.value).map(_.datasetSchema).result.headOption
+      result <- schemaColOpt match {
+        case None => DBIO.successful(Left(RowMutationFailure.SourceNotFound))
+        case Some(schemaCol) =>
+          val declaration = schemaCol
+            .map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]])
+            .getOrElse(Vector.empty)
+          rowsTable.filter(r => r.id === rowId && r.dataSourceId === sourceId.value).result.headOption.flatMap {
+            case None => DBIO.successful(Left(RowMutationFailure.RowNotFound))
+            case Some(currentRow) =>
+              DatasetRowValidator.validate(declaration, Vector(data)) match {
+                case Left(errors) => DBIO.successful(Left(RowMutationFailure.ValidationFailed(errors.mkString("; "))))
+                case Right(validatedRows) =>
+                  val validated   = validatedRows.head
+                  val newDataJson = JsArray(validated).compactPrint
+                  for {
+                    affected <- rowsTable
+                      .filter(r => r.id === rowId && r.dataSourceId === sourceId.value && r.updatedAt === expectedUpdatedAt)
+                      .map(r => (r.data, r.updatedAt))
+                      .update((newDataJson, newUpdatedAt))
+                    result <-
+                      if (affected == 0) DBIO.successful(Left(RowMutationFailure.StalePrecondition(currentRow.updatedAt)))
+                      else recomputeAfterMutation(sourceId, declaration, newUpdatedAt).map { ds =>
+                        Right((ds, currentRow.copy(data = newDataJson, updatedAt = newUpdatedAt)))
+                      }
+                  } yield result
+              }
+          }
+      }
+    } yield result
+    ctx.withUserContext(user.id.value)(action)
+  }
+
+  /** HEL-1078 design.md D1/D5: delete a single row, guarded by an `updatedAt` precondition --
+   *  same lock/scoping/outcome-ordering discipline as `patchRow`, minus the validation step. A
+   *  conditional `DELETE` affecting 0 rows cannot by itself distinguish "never existed" from
+   *  "existed but was stale" (design.md D5), which is why step 2's existence read happens first,
+   *  under the same lock, before the conditional delete runs. */
+  def deleteRow(
+      sourceId:          DataSourceId,
+      rowId:             String,
+      expectedUpdatedAt: Instant,
+      newUpdatedAt:      Instant,
+      user:              AuthenticatedUser
+  ): Future[Either[RowMutationFailure, DataSource]] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    val action = for {
+      _            <- lockSource(sourceId)
+      schemaColOpt <- table.filter(_.id === sourceId.value).map(_.datasetSchema).result.headOption
+      result <- schemaColOpt match {
+        case None => DBIO.successful(Left(RowMutationFailure.SourceNotFound))
+        case Some(schemaCol) =>
+          val declaration = schemaCol
+            .map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]])
+            .getOrElse(Vector.empty)
+          rowsTable.filter(r => r.id === rowId && r.dataSourceId === sourceId.value).result.headOption.flatMap {
+            case None => DBIO.successful(Left(RowMutationFailure.RowNotFound))
+            case Some(currentRow) =>
+              for {
+                affected <- rowsTable
+                  .filter(r => r.id === rowId && r.dataSourceId === sourceId.value && r.updatedAt === expectedUpdatedAt)
+                  .delete
+                result <-
+                  if (affected == 0) DBIO.successful(Left(RowMutationFailure.StalePrecondition(currentRow.updatedAt)))
+                  else recomputeAfterMutation(sourceId, declaration, newUpdatedAt).map(ds => Right(ds))
+              } yield result
+          }
+      }
+    } yield result
+    ctx.withUserContext(user.id.value)(action)
+  }
+
+  /** Shared post-mutation step for `patchRow`/`deleteRow` (design.md D7): re-read the full,
+   *  post-write `dataset_rows` set for `sourceId` inside the same transaction, recompute
+   *  `inferred_schema` with the exact same column-wise computation `appendRows`/`replaceRows`
+   *  already inline, and persist it alongside the source's `updated_at` bump. */
+  private def recomputeAfterMutation(
+      sourceId:     DataSourceId,
+      declaration:  Vector[DatasetFieldDeclaration],
+      newUpdatedAt: Instant
+  ): DBIO[DataSource] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    for {
+      remainingRows <- rowsTable.filter(_.dataSourceId === sourceId.value).result
+      allCells       = remainingRows.map(r => r.data.parseJson.asInstanceOf[JsArray].elements)
+      inferredSchema = declaration.zipWithIndex.map { case (field, i) =>
+        val cells = allCells.map(_.lift(i).getOrElse(JsNull))
+        SchemaField(field.name, PipelineRowJson.staticColumnRuntimeType(DataFieldType.asString(field.fieldType), cells))
+      }
+      _     <- table.filter(_.id === sourceId.value).map(r => (r.inferredSchema, r.updatedAt)).update((inferredSchema, newUpdatedAt))
+      dsOpt <- table.filter(_.id === sourceId.value).result.headOption
+    } yield dsOpt.map(rowToDomain).get
+  }
+
   /** HEL-1074 design.md Decision 9: read a "dataset"-kind source's `{columns, rows}` payload --
    *  the same shape `DataSourceRepository.parseStaticPayload` already produces from the legacy
    *  `config` blob -- from `dataset_schema` + `dataset_rows`, ordered by `seq`. Reads both in a
@@ -492,6 +609,19 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 }
 
 object DataSourceRepository {
+
+  /** HEL-1078 design.md D5/D6: the four (PATCH: five, including `ValidationFailed`) distinguishable
+   *  outcomes of `patchRow`/`deleteRow` other than success -- a sealed trait rather than a nested
+   *  `Either`/`Option` so the service layer's `match` can never accidentally conflate two of them
+   *  (task 1.3). `DELETE` never produces `ValidationFailed`; sharing one trait rather than two
+   *  near-identical ones keeps the repository's mutation methods symmetric. */
+  sealed trait RowMutationFailure
+  object RowMutationFailure {
+    case object SourceNotFound extends RowMutationFailure
+    case object RowNotFound extends RowMutationFailure
+    final case class ValidationFailed(message: String) extends RowMutationFailure
+    final case class StalePrecondition(currentUpdatedAt: Instant) extends RowMutationFailure
+  }
 
   /** HEL-987: one pipeline `soleRootDependentPipelines` found blocking a delete -- named fields
    *  instead of a positional `(String, String)` tuple so `id`/`name` can't be swapped by
