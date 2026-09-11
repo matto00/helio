@@ -158,9 +158,14 @@ export interface InferredField {
 
 export type StaticColumnType = "string" | "integer" | "float" | "boolean";
 
+// HEL-1076 design.md Decision 6: `required`/`default` are wire fields the backend now validates
+// (`DatasetFieldDeclaration`) -- optional here since `StaticSourceForm` doesn't populate them yet
+// (that's form-panel UX, epic 2); a caller that sets them (MCP, a future UI) is honored.
 export interface StaticColumn {
   name: string;
   type: StaticColumnType;
+  required?: boolean;
+  default?: unknown;
 }
 
 export interface StaticSourcePayload {

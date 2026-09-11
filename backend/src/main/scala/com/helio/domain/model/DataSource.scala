@@ -2,6 +2,9 @@ package com.helio.domain.model
 
 import com.helio.domain.connectors.ConnectorRegistry
 import com.helio.domain.engine.SchemaField
+import org.slf4j.LoggerFactory
+import spray.json._
+import spray.json.DefaultJsonProtocol._
 import java.time.Instant
 
 /** DataSource ADT.
@@ -153,6 +156,61 @@ final case class PdfSource(
  *  materializes the `{columns, rows}` blob on demand from `dataset_schema` +
  *  `dataset_rows` for the legacy in-process / Spark engines and the preview
  *  endpoint, all of which consume that same shape directly. */
+/** HEL-1076 design.md Decision 1: `dataset_schema`'s Scala-side declared-field shape, replacing
+ *  `Vector[SchemaField]` for `dataset`-kind sources. Distinct from `SchemaField` (shared by
+ *  `inferred_schema`/`outputs.schema`/pipeline analysis, none of which have a required/default
+ *  concept) rather than overloading it. `default`'s JSON shape, when present, must itself satisfy
+ *  `fieldType`'s validation rules (design.md Decision 6) — enforced at declaration time by
+ *  `DatasetRowValidator.validateDefault`, not by this case class's constructor. */
+final case class DatasetFieldDeclaration(
+    name:      String,
+    fieldType: DataFieldType,
+    required:  Boolean          = false,
+    default:   Option[JsValue] = None
+)
+
+object DatasetFieldDeclaration {
+
+  private val log = LoggerFactory.getLogger(getClass)
+
+  /** HEL-1076 design.md Decision 2: hand-rolled (not `jsonFormat4`) so `read` can normalize
+   *  spray-json's absent-`Option`-key omission (`required` absent -> `false`, `default` absent ->
+   *  `None`) and route `fieldType` through `DataFieldType.validateAndCanonicalize` on write /
+   *  `asString` on read, falling back to `StringType` with a logged warning if a stored `type`
+   *  string somehow fails `fromString` on read (should be unreachable once write-time validation
+   *  is in place; guards a hand-edited/pre-existing-bad row rather than crashing the read path). */
+  implicit val datasetFieldDeclarationFormat: RootJsonFormat[DatasetFieldDeclaration] =
+    new RootJsonFormat[DatasetFieldDeclaration] {
+      override def write(f: DatasetFieldDeclaration): JsValue = {
+        val canonicalType = DataFieldType.validateAndCanonicalize(DataFieldType.asString(f.fieldType))
+          .getOrElse(DataFieldType.asString(f.fieldType))
+        JsObject(
+          Vector(
+            "name"     -> JsString(f.name),
+            "type"     -> JsString(canonicalType),
+            "required" -> JsBoolean(f.required)
+          ) ++ f.default.map("default" -> _).toVector: _*
+        )
+      }
+
+      override def read(json: JsValue): DatasetFieldDeclaration = {
+        val obj      = json.asJsObject
+        val name     = obj.fields("name").convertTo[String]
+        val rawType  = obj.fields("type").convertTo[String]
+        val fieldType = DataFieldType.validateAndCanonicalize(rawType) match {
+          case Right(canonical) => DataFieldType.fromString(canonical).getOrElse(DataFieldType.StringType)
+          case Left(_) =>
+            log.warn(s"DatasetFieldDeclaration: stored type '$rawType' for field '$name' is not a " +
+              s"canonical DataFieldType; falling back to StringType")
+            DataFieldType.StringType
+        }
+        val required = obj.fields.get("required").exists(_.convertTo[Boolean])
+        val default  = obj.fields.get("default").filterNot(_ == JsNull)
+        DatasetFieldDeclaration(name, fieldType, required, default)
+      }
+    }
+}
+
 final case class DatasetSource(
     id: DataSourceId,
     name: String,

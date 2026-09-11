@@ -1,10 +1,16 @@
 package com.helio.infrastructure.persistence
 
+import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
-import com.helio.infrastructure.persistence.sources.ImageUploadRepository
+import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
+import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.services.sources.DataSourceService
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -13,6 +19,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
+import java.nio.file.Files
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -291,6 +298,140 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
         Await.result(future, 5.seconds)
       }
       thrown should not be null
+    }
+
+    // HEL-1076 tasks.md 4.2 / skeptic-final-1.md CR2: exercise create/refresh + the validation
+    // reject path under the non-superuser `helio` role (RLS), not just local/CI superuser.
+    // `DataSourceRepository`'s `insertDatasetSource`/`replaceDatasetRows` call
+    // `ctx.withUserContext(user.id.value)`, and this spec's `ctx` wires `withUserContext` to
+    // `appDb` (the non-superuser `helio_app_test` role) -- so a `DataSourceService` built on
+    // `new DataSourceRepository(ctx)` genuinely runs its writes as that role, not as the
+    // `postgres` superuser. `typedSystem`/`fileSystem` are shared by every test in this
+    // describe-block via `beforeEach`-style local construction per test (kept local, not a
+    // suite-wide fixture, so each test's temp dir/actor system is independent).
+    def newDatasetService(): (DataSourceRepository, DataSourceService, ActorSystem[Nothing]) = {
+      val repo = new DataSourceRepository(ctx)
+      val typedSystem: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "hel1076-rls-spec")
+      implicit val sys: ActorSystem[Nothing] = typedSystem
+      implicit val mat: Materializer = SystemMaterializer(typedSystem).materializer
+      val fileSystem = new LocalFileSystem(Files.createTempDirectory("hel1076-rls"))
+      (repo, new DataSourceService(repo, fileSystem), typedSystem)
+    }
+
+    // skeptic-final-1.md CR2 probe (c): with `new DataSourceService(null, fileSystem)` this test
+    // still passed, because the reject path returns `Future.successful(Left(...))` BEFORE any
+    // repository call -- no SQL runs as any role at all. This test therefore guards "validation
+    // precedes the repository call", not RLS; the three tests below are the real RLS exercise.
+    "a rejected DatasetRowValidator write leaves no dataset_rows row (guards: validation precedes the repository call, not RLS)" in {
+      cleanDb()
+      val (_, service, typedSystem) = newDatasetService()
+      try {
+        val req = StaticDataSourceRequest(
+          name    = "RLS Reject",
+          `type`  = "static",
+          columns = Vector(StaticColumnPayload("age", "integer")),
+          rows    = Vector(Vector(JsString("not-an-integer")))
+        )
+        val result = Await.result(service.createStatic(req, AuthenticatedUser(ownerA)), 5.seconds)
+        result.isLeft shouldBe true
+
+        val rowCount = await(ctx.withSystemContext(sql"SELECT count(*) FROM dataset_rows".as[Long].head))
+        rowCount shouldBe 0L
+        val sourceCount = await(ctx.withSystemContext(sql"SELECT count(*) FROM data_sources WHERE name = 'RLS Reject'".as[Long].head))
+        sourceCount shouldBe 0L
+      } finally {
+        typedSystem.terminate()
+      }
+    }
+
+    // skeptic-final-1.md CR2: a genuine non-superuser exercise -- create runs as ownerA's app-role
+    // context, the default-fill actually persists, and RLS confines the resulting rows to ownerA.
+    "an accepted createStatic with a default-fill runs as the app role and is RLS-scoped to its owner" in {
+      cleanDb()
+      val (repo, service, typedSystem) = newDatasetService()
+      try {
+        val req = StaticDataSourceRequest(
+          name    = "RLS Accepted Create",
+          `type`  = "static",
+          columns = Vector(StaticColumnPayload("age", "integer", required = Some(true), default = Some(JsNumber(0)))),
+          rows    = Vector(Vector(JsNull))
+        )
+        val src = Await.result(service.createStatic(req, AuthenticatedUser(ownerA)), 5.seconds) match {
+          case Right(s) => s
+          case Left(e)  => fail(s"createStatic failed: $e")
+        }
+
+        // The persisted declaration carries required/default (not just name/type).
+        val declJson = await(ctx.withSystemContext(
+          sql"SELECT dataset_schema FROM data_sources WHERE id = ${src.id.value}".as[String].head
+        )).parseJson.asInstanceOf[JsArray].elements.head.asJsObject
+        declJson.fields("required") shouldBe JsBoolean(true)
+        declJson.fields("default")  shouldBe JsNumber(0)
+
+        // ownerA (the app role, via withUserContext) sees the row; ownerB does not.
+        val rowsAsOwner = await(ctx.withUserContext(ownerA.value)(
+          sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        rowsAsOwner shouldBe Vector("[0]")
+        val rowsAsOther = await(ctx.withUserContext(ownerB.value)(
+          sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        rowsAsOther shouldBe empty
+      } finally {
+        typedSystem.terminate()
+      }
+    }
+
+    // skeptic-final-1.md CR2: an accepted refresh, and a subsequent REJECTED refresh, both
+    // exercised through the app-role `ctx` -- the rejected refresh must leave the prior accepted
+    // rows untouched and still owner-scoped.
+    "an accepted refresh runs as the app role and a subsequent rejected refresh leaves its rows intact, still RLS-scoped" in {
+      cleanDb()
+      val (repo, service, typedSystem) = newDatasetService()
+      try {
+        val createReq = StaticDataSourceRequest(
+          name    = "RLS Accepted Refresh",
+          `type`  = "static",
+          columns = Vector(StaticColumnPayload("age", "integer")),
+          rows    = Vector(Vector(JsNumber(1)))
+        )
+        val src = Await.result(service.createStatic(createReq, AuthenticatedUser(ownerA)), 5.seconds) match {
+          case Right(s) => s
+          case Left(e)  => fail(s"createStatic failed: $e")
+        }
+
+        // Accepted refresh: a required field backed by a default-fill.
+        val acceptedRefresh = StaticDataPayload(
+          columns = Vector(StaticColumnPayload("age", "integer", required = Some(true), default = Some(JsNumber(7)))),
+          rows    = Vector(Vector[JsValue](JsNull))
+        )
+        val refreshResult = Await.result(service.refresh(src.id, Some(acceptedRefresh), AuthenticatedUser(ownerA)), 5.seconds)
+        refreshResult.isRight shouldBe true
+
+        val rowsAfterAccepted = await(ctx.withUserContext(ownerA.value)(
+          sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        rowsAfterAccepted shouldBe Vector("[7]")
+        val rowsAsOtherAfterAccepted = await(ctx.withUserContext(ownerB.value)(
+          sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        rowsAsOtherAfterAccepted shouldBe empty
+
+        // Rejected refresh: must leave the just-accepted rows (age=7) untouched.
+        val rejectedRefresh = StaticDataPayload(
+          columns = Vector(StaticColumnPayload("age", "integer")),
+          rows    = Vector(Vector[JsValue](JsString("not-an-integer")))
+        )
+        val rejectResult = Await.result(service.refresh(src.id, Some(rejectedRefresh), AuthenticatedUser(ownerA)), 5.seconds)
+        rejectResult.isLeft shouldBe true
+
+        val rowsAfterReject = await(ctx.withUserContext(ownerA.value)(
+          sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        rowsAfterReject shouldBe Vector("[7]")
+      } finally {
+        typedSystem.terminate()
+      }
     }
   }
 

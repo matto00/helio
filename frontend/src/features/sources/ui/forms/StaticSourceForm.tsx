@@ -99,8 +99,21 @@ export function StaticSourceForm({
     const typedRows = rows.map((row) =>
       row.map((cell, ci) => {
         const colType = columns[ci]?.type ?? "string";
-        if (colType === "integer") return cell === "" ? null : parseInt(cell, 10);
-        if (colType === "float") return cell === "" ? null : parseFloat(cell);
+        // HEL-1076 tasks.md 3.1: `parseInt`/`parseFloat` return `NaN` for an unparseable cell
+        // (e.g. stray text in a numeric column) -- `JSON.stringify(NaN)` silently serializes to
+        // `null`, which the backend's DatasetRowValidator would then treat as "missing" rather
+        // than reject as a type mismatch. Fall back to the raw string on a failed parse so the
+        // validator sees (and rejects) the actual bad value instead of it vanishing as null.
+        if (colType === "integer") {
+          if (cell === "") return null;
+          const n = parseInt(cell, 10);
+          return Number.isNaN(n) ? cell : n;
+        }
+        if (colType === "float") {
+          if (cell === "") return null;
+          const n = parseFloat(cell);
+          return Number.isNaN(n) ? cell : n;
+        }
         if (colType === "boolean") return cell === "true";
         return cell;
       }),

@@ -2,7 +2,7 @@ package com.helio.services.sources
 
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
-import com.helio.domain.engine.{PipelineRowJson, SchemaField, SchemaInferenceEngine}
+import com.helio.domain.engine.{DatasetRowValidator, PipelineRowJson, SchemaField, SchemaInferenceEngine}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.Materializer
 import com.helio.api.http.RequestValidation
@@ -119,6 +119,25 @@ final class DataSourceService(
           s"Invalid column type(s): $detail. Valid types: ${DataFieldType.CanonicalWireValues.mkString(", ")}"
         )))
       } else {
+      // HEL-1076 design.md Decision 1/6: build the richer declaration (name/type/required/
+      // default) from the wire payload -- `col.\`type\`` is validated above (a legacy synonym
+      // like "double" is ACCEPTED, not rejected) but not yet canonicalized, so canonicalize here.
+      val declaredColumns = req.columns.map { c =>
+        val fieldType = DataFieldType.fromString(
+          DataFieldType.validateAndCanonicalize(c.`type`).getOrElse(c.`type`)
+        ).getOrElse(DataFieldType.StringType)
+        DatasetFieldDeclaration(c.name, fieldType, c.required.getOrElse(false), c.default)
+      }.toVector
+      // design.md Decision 6: a field's default must itself satisfy its declared type, checked
+      // at declaration time, before any row is validated or persisted.
+      val defaultErrors = declaredColumns.flatMap(f => DatasetRowValidator.validateDefault(f).left.toOption)
+      if (defaultErrors.nonEmpty) {
+        Future.successful(Left(ServiceError.BadRequest(defaultErrors.map(DatasetRowValidator.renderDefaultError).mkString("; "))))
+      } else {
+      DatasetRowValidator.validate(declaredColumns, req.rows) match {
+        case Left(errors) =>
+          Future.successful(Left(ServiceError.BadRequest(errors.mkString("; "))))
+        case Right(validatedRows) =>
       val now      = Instant.now()
       val sourceId = DataSourceId(UUID.randomUUID().toString)
       val source   = DatasetSource(
@@ -132,22 +151,19 @@ final class DataSourceService(
       // HEL-1074: the {columns, rows} payload is written into `dataset_rows` +
       // `dataset_schema` (declared columns), atomically alongside the `data_sources` insert
       // (design.md Decision 7) -- `config` is no longer used for `dataset`-kind sources.
-      // `col.\`type\`` is validated above (a legacy synonym like "double" is ACCEPTED, not
-      // rejected) but not yet canonicalized -- `SchemaField`'s constructor requires a canonical
-      // wire value, so this must run the same canonicalization every other schema-writing path
-      // already applies, not the raw caller string.
-      val declaredColumns = req.columns.map(c => SchemaField(c.name, DataFieldType.validateAndCanonicalize(c.`type`).getOrElse(c.`type`))).toVector
       // HEL-893 design D2: the registered schema reports the type the stored rows actually
       // materialize (via `PipelineRowJson.staticColumnRuntimeType`, the same conversion
       // `parseStaticRows` applies), not the caller-declared `columns[].type` -- that declared
       // type was never consulted when materializing rows and could disagree with every cell.
       val fields  = req.columns.zipWithIndex.map { case (col, i) =>
-        val cells = req.rows.map(_.lift(i).getOrElse(JsNull))
+        val cells = validatedRows.map(_.lift(i).getOrElse(JsNull))
         SchemaField(col.name, PipelineRowJson.staticColumnRuntimeType(col.`type`, cells))
       }.toVector
-      dataSourceRepo.insertDatasetSource(source, declaredColumns, req.rows, fields, user).map { ds =>
+      dataSourceRepo.insertDatasetSource(source, declaredColumns, validatedRows, fields, user).map { ds =>
         audit("data_source.create", Some(ds.id.value), user)
         Right(ds)
+      }
+        }
       }
       }
     }
@@ -707,16 +723,29 @@ final class DataSourceService(
         s"Invalid column type(s): $detail. Valid types: ${DataFieldType.CanonicalWireValues.mkString(", ")}"
       )))
     } else {
+      // HEL-1076 design.md Decision 8: an incoming refresh's rows are validated against the NEW
+      // declaration being written, not the old one -- there is no "editing declaration with
+      // existing rows" window on this path (the whole declaration+rows are replaced together).
+      val declaredColumns = payload.columns.map { c =>
+        val fieldType = DataFieldType.fromString(
+          DataFieldType.validateAndCanonicalize(c.`type`).getOrElse(c.`type`)
+        ).getOrElse(DataFieldType.StringType)
+        DatasetFieldDeclaration(c.name, fieldType, c.required.getOrElse(false), c.default)
+      }.toVector
+      val defaultErrors = declaredColumns.flatMap(f => DatasetRowValidator.validateDefault(f).left.toOption)
+      if (defaultErrors.nonEmpty) {
+        Future.successful(Left(ServiceError.BadRequest(defaultErrors.map(DatasetRowValidator.renderDefaultError).mkString("; "))))
+      } else {
+      DatasetRowValidator.validate(declaredColumns, payload.rows) match {
+        case Left(errors) =>
+          Future.successful(Left(ServiceError.BadRequest(errors.mkString("; "))))
+        case Right(validatedRows) =>
       val now     = Instant.now()
-      // HEL-1074 design.md Decision 7: refresh replaces `dataset_rows` wholesale and updates
-      // `dataset_schema` to the new declared columns, atomically -- `config` is no longer used
-      // for `dataset`-kind sources.
-      val declaredColumns = payload.columns.map(c => SchemaField(c.name, DataFieldType.validateAndCanonicalize(c.`type`).getOrElse(c.`type`))).toVector
       // HEL-893 design D4/tasks.md 2.3: refresh must correct the schema exactly like create --
       // without this, a static source's declared-vs-runtime disagreement survives every refresh,
       // making D4's "corrected on next refresh" promise false for static sources.
       val fields = payload.columns.zipWithIndex.map { case (col, i) =>
-        val cells = payload.rows.map(_.lift(i).getOrElse(JsNull))
+        val cells = validatedRows.map(_.lift(i).getOrElse(JsNull))
         val runtimeType = PipelineRowJson.staticColumnRuntimeType(col.`type`, cells)
         DataField(col.name, col.name, runtimeType, nullable = true)
       }
@@ -724,9 +753,11 @@ final class DataSourceService(
       // the SAME `replaceDatasetRows` transaction (not a separate `upsertSourceDataType` call
       // afterward) so rows/dataset_schema/inferred_schema all commit or fail together.
       val inferredSchema = fields.map(f => SchemaField(f.name, f.dataType)).toVector
-      dataSourceRepo.replaceDatasetRows(source.id, declaredColumns, payload.rows, inferredSchema, now, user).map {
+      dataSourceRepo.replaceDatasetRows(source.id, declaredColumns, validatedRows, inferredSchema, now, user).map {
         case None     => Left(ServiceError.NotFound("Data source not found"))
         case Some(ds) => Right(ds)
+      }
+        }
       }
     }
   }

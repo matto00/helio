@@ -232,14 +232,18 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       import spray.json._
       val now     = Instant.now()
       val source  = DatasetSource(DataSourceId(UUID.randomUUID().toString), "ds-1", owner1, now, now)
-      val columns = Vector(SchemaField("a", "string"), SchemaField("b", "integer"))
+      val inferredSchema = Vector(SchemaField("a", "string"), SchemaField("b", "integer"))
+      val declared = Vector(
+        DatasetFieldDeclaration("a", DataFieldType.StringType),
+        DatasetFieldDeclaration("b", DataFieldType.IntegerType)
+      )
       val rows    = Vector(Vector(JsString("x"), JsNumber(1)), Vector(JsString("y"), JsNumber(2)))
 
-      await(repo.insertDatasetSource(source, columns, rows, columns, user1))
+      await(repo.insertDatasetSource(source, declared, rows, inferredSchema, user1))
 
       val readBack = await(repo.readDatasetRows(source.id))
       readBack shouldBe defined
-      readBack.get.fields("columns") shouldBe columns.toJson
+      readBack.get.fields("columns") shouldBe declared.toJson
       readBack.get.fields("rows")    shouldBe JsArray(rows.map(JsArray(_)))
     }
 
@@ -248,17 +252,19 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       import spray.json._
       val now      = Instant.now()
       val source   = DatasetSource(DataSourceId(UUID.randomUUID().toString), "ds-2", owner1, now, now)
-      val columns1 = Vector(SchemaField("a", "string"))
+      val schema1  = Vector(SchemaField("a", "string"))
+      val declared1 = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
       val rows1    = Vector(Vector(JsString("old")))
-      await(repo.insertDatasetSource(source, columns1, rows1, columns1, user1))
+      await(repo.insertDatasetSource(source, declared1, rows1, schema1, user1))
 
-      val columns2 = Vector(SchemaField("a", "string"), SchemaField("b", "boolean"))
+      val schema2  = Vector(SchemaField("a", "string"), SchemaField("b", "boolean"))
+      val declared2 = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType), DatasetFieldDeclaration("b", DataFieldType.BooleanType))
       val rows2    = Vector(Vector(JsString("new"), JsBoolean(true)))
-      val updated  = await(repo.replaceDatasetRows(source.id, columns2, rows2, columns2, Instant.now(), user1))
+      val updated  = await(repo.replaceDatasetRows(source.id, declared2, rows2, schema2, Instant.now(), user1))
       updated shouldBe defined
 
       val readBack = await(repo.readDatasetRows(source.id))
-      readBack.get.fields("columns") shouldBe columns2.toJson
+      readBack.get.fields("columns") shouldBe declared2.toJson
       readBack.get.fields("rows")    shouldBe JsArray(rows2.map(JsArray(_)))
     }
 
@@ -267,8 +273,9 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     // that same "not found" signal now that it also returns Option[DataSource].
     "replaceDatasetRows returns None for a nonexistent data source id" in {
       cleanDb()
-      val columns = Vector(SchemaField("a", "string"))
-      val result  = await(repo.replaceDatasetRows(DataSourceId(UUID.randomUUID().toString), columns, Vector.empty, columns, Instant.now(), user1))
+      val schema   = Vector(SchemaField("a", "string"))
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val result  = await(repo.replaceDatasetRows(DataSourceId(UUID.randomUUID().toString), declared, Vector.empty, schema, Instant.now(), user1))
       result shouldBe None
     }
 
@@ -277,12 +284,13 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       import spray.json._
       val now    = Instant.now()
       val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), "ds-empty", owner1, now, now)
-      val columns = Vector(SchemaField("a", "string"))
-      await(repo.insertDatasetSource(source, columns, Vector.empty, columns, user1))
+      val schema = Vector(SchemaField("a", "string"))
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      await(repo.insertDatasetSource(source, declared, Vector.empty, schema, user1))
 
       val readBack = await(repo.readDatasetRows(source.id))
       readBack shouldBe defined
-      readBack.get.fields("columns") shouldBe columns.toJson
+      readBack.get.fields("columns") shouldBe declared.toJson
       readBack.get.fields("rows")    shouldBe JsArray.empty
     }
 
