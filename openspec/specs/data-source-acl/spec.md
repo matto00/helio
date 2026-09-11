@@ -2,7 +2,9 @@
 
 ## Purpose
 Enforces per-user ownership on all DataSource endpoints: list returns only the caller's sources, and per-id routes (GET/DELETE/preview/refresh) reject non-owners with 403 or 404.
+
 ## Requirements
+
 ### Requirement: GET /api/data-sources returns only the authenticated user's sources
 The system SHALL filter `GET /api/data-sources` results to only include data sources owned by the
 authenticated user. Data sources owned by other users SHALL NOT appear in the response.
@@ -30,7 +32,10 @@ by a different user than the requester.
 ### Requirement: DELETE /api/data-sources/:id enforces ownership
 `DELETE /api/data-sources/:id` SHALL return `404 Not Found` when the source does not exist or belongs
 to a different user (existence-not-leaked semantics: a cross-user caller cannot distinguish "does not
-exist" from "exists but you cannot access it").
+exist" from "exists but you cannot access it"). `POST /api/data-sources/:id/rows` and
+`PUT /api/data-sources/:id/rows` SHALL enforce the same ownership rule: a non-owner (or a caller
+targeting a nonexistent source) receives `404 Not Found`, identical in shape to the response for any
+other nonexistent or non-owned source, never revealing whether the source exists.
 
 #### Scenario: Owner can delete their source
 - **WHEN** the owner calls `DELETE /api/data-sources/:id`
@@ -39,6 +44,14 @@ exist" from "exists but you cannot access it").
 #### Scenario: Non-owner receives 404 for another user's source
 - **WHEN** a non-owner calls `DELETE /api/data-sources/:id` for a source owned by another user
 - **THEN** the response is `404 Not Found`
+
+#### Scenario: Non-owner receives 404 on row append
+- **WHEN** a user calls `POST /api/data-sources/:id/rows` for a source owned by another user
+- **THEN** the response is `404 Not Found`, identical in shape to the response for a nonexistent id
+
+#### Scenario: Non-owner receives 404 on row replace
+- **WHEN** a user calls `PUT /api/data-sources/:id/rows` for a source owned by another user
+- **THEN** the response is `404 Not Found`, identical in shape to the response for a nonexistent id
 
 ### Requirement: POST /api/data-sources sets owner_id from the authenticated user
 When a data source is created via `POST /api/data-sources`, the `owner_id` SHALL be set to the
@@ -62,4 +75,3 @@ another user.
 #### Scenario: Non-owner receives 404 for another user's source preview
 - **WHEN** a non-owner calls `GET /api/data-sources/:id/preview`
 - **THEN** the response is `404 Not Found`
-
