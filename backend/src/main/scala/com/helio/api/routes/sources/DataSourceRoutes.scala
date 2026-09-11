@@ -9,7 +9,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
-import com.helio.api.protocols.sources.{RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse}
+import com.helio.api.protocols.sources.{DatasetSchemaResponse, RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse}
 import com.helio.domain.model._
 import com.helio.services.sources.{CsvUrlFetch, DataSourceDeleteError, DataSourceService}
 import spray.json._
@@ -109,6 +109,13 @@ final class DataSourceRoutes(
               completeDelete(dataSourceService.delete(sourceId, user))
             }
           )
+        },
+        // HEL-1122 design.md Decision 1: additive, read-only declared-schema route -- same
+        // rate-limit/auth composition as every other route in this pathPrefix, no new wiring.
+        path(DataSourceIdSegment / "schema") { sourceId =>
+          get {
+            ServiceResponse.run(dataSourceService.getDatasetSchema(sourceId, user))(identity)
+          }
         },
         // HEL-1077: append/replace routes for a `dataset`-kind source's rows. Rate-limit + auth
         // are inherited from `ApiRoutes`'s composition of `DataSourceRoutes.routes` (design.md

@@ -307,6 +307,19 @@ object RowListResponse {
     )
 }
 
+/** HEL-1122 design.md Decision 1: `GET /api/data-sources/:id/schema`'s response shape -- mirrors
+ *  `DatasetFieldDeclaration` field-for-field. `default` is `Option[JsValue]`, hand-written (not
+ *  `jsonFormat4`) so a `None` default is genuinely ABSENT from the wire object rather than a JSON
+ *  `null` (the same absent-vs-null discipline `DatasetFieldDeclaration`'s own format already
+ *  uses); `required` is always written, even when `false` -- never behind an `Option`. */
+final case class DatasetFieldResponse(name: String, `type`: String, required: Boolean, default: Option[JsValue])
+final case class DatasetSchemaResponse(fields: Vector[DatasetFieldResponse])
+
+object DatasetFieldResponse {
+  def fromDomain(f: DatasetFieldDeclaration): DatasetFieldResponse =
+    DatasetFieldResponse(f.name, DataFieldType.asString(f.fieldType), f.required, f.default)
+}
+
 final case class StaticDataSourceRequest(
     name: String,
     `type`: String,
@@ -602,4 +615,33 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val rowResponseRowFormat: RootJsonFormat[RowResponseRow]       = jsonFormat4(RowResponseRow.apply)
   implicit val rowResponseFormat: RootJsonFormat[RowResponse]             = jsonFormat2(RowResponse.apply)
   implicit val rowListResponseFormat: RootJsonFormat[RowListResponse]     = jsonFormat3(RowListResponse.apply)
+
+  /** HEL-1122 design.md Decision 1: hand-rolled (not `jsonFormat4`) so `write` omits the
+   *  `default` key entirely when `None`, rather than emitting `"default": null` -- spray-json's
+   *  generated `Option` formats already do this for `read` (missing key -> `None`), but the
+   *  `write` side needs the same explicit `.map(...).toVector` construction `DatasetFieldDeclaration`'s
+   *  own format uses, since a raw `jsonFormat4` would still serialize `None` as `JsNull` on write
+   *  for a plain-`Option` field (spray-json only special-cases the READ direction natively). */
+  implicit val datasetFieldResponseFormat: RootJsonFormat[DatasetFieldResponse] =
+    new RootJsonFormat[DatasetFieldResponse] {
+      override def write(f: DatasetFieldResponse): JsValue =
+        JsObject(
+          Vector(
+            "name"     -> JsString(f.name),
+            "type"     -> JsString(f.`type`),
+            "required" -> JsBoolean(f.required)
+          ) ++ f.default.map("default" -> _).toVector: _*
+        )
+
+      override def read(json: JsValue): DatasetFieldResponse = {
+        val obj = json.asJsObject
+        DatasetFieldResponse(
+          name     = obj.fields("name").convertTo[String],
+          `type`   = obj.fields("type").convertTo[String],
+          required = obj.fields.get("required").exists(_.convertTo[Boolean]),
+          default  = obj.fields.get("default").filterNot(_ == JsNull)
+        )
+      }
+    }
+  implicit val datasetSchemaResponseFormat: RootJsonFormat[DatasetSchemaResponse] = jsonFormat1(DatasetSchemaResponse.apply)
 }

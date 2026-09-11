@@ -15,6 +15,7 @@ import { combinedProposalsReducer } from "../features/proposals/state/combinedPr
 import { settingsReducer } from "../features/settings/state/settingsSlice";
 import { shareTokensReducer } from "../features/dashboards/state/shareTokensSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
+import { datasetRowsReducer } from "../features/sources/state/datasetRowsSlice";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { listenerMiddleware, startAppListening } from "./listenerMiddleware";
 import { addToastListeners } from "../features/toasts/state/toastListeners";
@@ -43,6 +44,7 @@ export const store = configureStore({
     settings: settingsReducer,
     shareTokens: shareTokensReducer,
     sources: sourcesReducer,
+    datasetRows: datasetRowsReducer,
     toasts: toastsReducer,
   },
   middleware: (getDefaultMiddleware) =>

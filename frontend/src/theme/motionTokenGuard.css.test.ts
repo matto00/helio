@@ -160,8 +160,8 @@ function findHits(absPath: string, relPath: string, rawText: string): Hit[] {
 describe("motion token guard (HEL-441)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 110)", () => {
-    expect(files.length).toBe(110);
+  it("walks every CSS file in frontend/src (currently 111)", () => {
+    expect(files.length).toBe(111);
   });
 
   it("has zero declarations in a file with no motion declarations at all", () => {

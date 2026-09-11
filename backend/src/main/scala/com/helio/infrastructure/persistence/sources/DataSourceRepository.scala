@@ -646,6 +646,20 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       }
     }
   }
+
+  /** HEL-1122 design.md Decision 1: read a `dataset`-kind source's declared column list
+   *  (`dataset_schema`) under the caller's own RLS context -- same ACL story as every other row
+   *  route (the service layer's `findByIdOwned` establishes ownership before this is ever
+   *  called; this method itself just needs `withUserContext` so RLS still applies as a
+   *  regression check, per `project_rls_testing_parity_gap`). Returns `None` only when no
+   *  `data_sources` row with this id is visible under RLS for this user -- a `dataset`-kind
+   *  source with an empty declaration still returns `Some(Vector.empty)`. */
+  def getDeclaredSchema(id: DataSourceId, user: AuthenticatedUser): Future[Option[Vector[DatasetFieldDeclaration]]] = {
+    val query = table.filter(_.id === id.value).map(_.datasetSchema).result.headOption
+    ctx.withUserContext(user.id.value)(query).map { schemaColOpt =>
+      schemaColOpt.map(_.map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]]).getOrElse(Vector.empty))
+    }
+  }
 }
 
 object DataSourceRepository {

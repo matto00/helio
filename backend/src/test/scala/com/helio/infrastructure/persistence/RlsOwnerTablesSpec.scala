@@ -678,6 +678,40 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
         typedSystem.terminate()
       }
     }
+
+    // HEL-1122 tasks.md 1.6: the new declared-schema read reuses the SAME `findByIdOwned`/
+    // `getDeclaredSchema` pattern every other row route already exercises under this non-
+    // superuser role -- this is a regression check, not new RLS policy work (design.md D2).
+    "DataSourceService.getDatasetSchema runs as the app role; a cross-owner attempt is 404, never 403" in {
+      cleanDb()
+      val (repo, service, typedSystem) = newDatasetService()
+      try {
+        val createReq = StaticDataSourceRequest(
+          name    = "RLS Schema Base",
+          `type`  = "static",
+          columns = Vector(StaticColumnPayload("a", "string", required = Some(true))),
+          rows    = Vector(Vector(JsString("orig")))
+        )
+        val src = Await.result(service.createStatic(createReq, AuthenticatedUser(ownerA)), 5.seconds) match {
+          case Right(s) => s
+          case Left(e)  => fail(s"createStatic failed: $e")
+        }
+
+        val crossOwnerAttempt = Await.result(service.getDatasetSchema(src.id, AuthenticatedUser(ownerB)), 5.seconds)
+        crossOwnerAttempt match {
+          case Left(_: ServiceError.NotFound) => succeed
+          case other                          => fail(s"expected ServiceError.NotFound, got $other")
+        }
+
+        val ownedRead = Await.result(service.getDatasetSchema(src.id, AuthenticatedUser(ownerA)), 5.seconds)
+        ownedRead match {
+          case Right(schema) => schema.fields.map(_.name) shouldBe Vector("a")
+          case Left(e)        => fail(s"expected Right, got $e")
+        }
+      } finally {
+        typedSystem.terminate()
+      }
+    }
   }
 
   // HEL-904 task 2.10: the "RLS on data_types" describe-block is deleted

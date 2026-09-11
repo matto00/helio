@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/dataset-schema-response.schema.json",
+  "title": "DatasetSchemaResponse",
+  "description": "Response body for GET /api/data-sources/:id/schema (HEL-1122 design.md Decision 1) -- the declared field list for a dataset-kind source, additive on the source rather than repeated on every row-listing page.",
+  "type": "object",
+  "required": ["fields"],
+  "properties": {
+    "fields": {
+      "type": "array",
+      "items": { "$ref": "./dataset-field-response.schema.json" }
+    }
+  },
+  "additionalProperties": false
+}

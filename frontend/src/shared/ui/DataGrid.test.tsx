@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
-import type { ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
@@ -1860,5 +1860,151 @@ describe("DataGrid — small-table virtualization bypass (HEL-458 AC3)", () => {
     const { container } = render(<DataGrid variant="full" rows={rows} columns={[{ key: "id" }]} />);
     const mountedDataRows = container.querySelectorAll("tbody tr:not([aria-hidden])");
     expect(mountedDataRows.length).toBeLessThan(rows.length);
+  });
+});
+
+// HEL-1080 tasks.md 2.1/2.2 (design.md Decision 0) — default-off gridMode.
+describe("DataGrid gridMode (HEL-1080)", () => {
+  const columns: ColumnDef[] = [{ key: "a" }, { key: "b" }];
+  const rows = [
+    { a: "r0a", b: "r0b" },
+    { a: "r1a", b: "r1b" },
+    { a: "r2a", b: "r2b" },
+  ];
+
+  it("renders role=grid/row/gridcell and roving tabindex when gridMode is true", () => {
+    const { container } = render(
+      <DataGrid
+        variant="preview"
+        rows={rows}
+        columns={columns}
+        gridMode
+        rowId={(row) => row.a as string}
+        activeCell={{ rowId: "r1a", columnKey: "b" }}
+        onActiveCellChange={() => {}}
+      />,
+    );
+    const table = container.querySelector("table");
+    expect(table).toHaveAttribute("role", "grid");
+    expect(container.querySelectorAll('tbody tr[role="row"]')).toHaveLength(3);
+    const cells = container.querySelectorAll('td[role="gridcell"]');
+    expect(cells).toHaveLength(6);
+    const zeroTabIndexCells = Array.from(cells).filter((c) => c.getAttribute("tabindex") === "0");
+    expect(zeroTabIndexCells).toHaveLength(1);
+    Array.from(cells)
+      .filter((c) => c !== zeroTabIndexCells[0])
+      .forEach((c) => expect(c).toHaveAttribute("tabindex", "-1"));
+  });
+
+  it("ArrowDown/ArrowUp/ArrowLeft/ArrowRight report the next cell, clamped at boundaries (no wrap)", () => {
+    const onActiveCellChange = jest.fn();
+    const { container, rerender } = render(
+      <DataGrid
+        variant="preview"
+        rows={rows}
+        columns={columns}
+        gridMode
+        rowId={(row) => row.a as string}
+        activeCell={{ rowId: "r0a", columnKey: "a" }}
+        onActiveCellChange={onActiveCellChange}
+      />,
+    );
+    const table = container.querySelector("table") as HTMLTableElement;
+
+    fireEvent.keyDown(table, { key: "ArrowDown" });
+    expect(onActiveCellChange).toHaveBeenLastCalledWith({ rowId: "r1a", columnKey: "a" });
+
+    fireEvent.keyDown(table, { key: "ArrowRight" });
+    expect(onActiveCellChange).toHaveBeenLastCalledWith({ rowId: "r0a", columnKey: "b" });
+
+    // Boundary: ArrowUp on the first row holds in place (no wrap).
+    fireEvent.keyDown(table, { key: "ArrowUp" });
+    expect(onActiveCellChange).toHaveBeenLastCalledWith({ rowId: "r0a", columnKey: "a" });
+
+    // Boundary: ArrowDown on the last row holds in place (no wrap).
+    rerender(
+      <DataGrid
+        variant="preview"
+        rows={rows}
+        columns={columns}
+        gridMode
+        rowId={(row) => row.a as string}
+        activeCell={{ rowId: "r2a", columnKey: "a" }}
+        onActiveCellChange={onActiveCellChange}
+      />,
+    );
+    fireEvent.keyDown(table, { key: "ArrowDown" });
+    expect(onActiveCellChange).toHaveBeenLastCalledWith({ rowId: "r2a", columnKey: "a" });
+  });
+
+  // HEL-1080 skeptic-final-1.md CR2: a controlled wrapper (mirrors how every real gridMode
+  // consumer actually owns `activeCell` state) — the bare, uncontrolled `DataGrid` calls in the
+  // tests above only prove `onActiveCellChange` is CALLED with the right next cell, never that
+  // real DOM focus follows the roving tabindex. This test drives the full controlled loop.
+  function ControlledGrid() {
+    const [activeCell, setActiveCell] = useState<{ rowId: string; columnKey: string } | null>({
+      rowId: "r0a",
+      columnKey: "a",
+    });
+    return (
+      <DataGrid
+        variant="preview"
+        rows={rows}
+        columns={columns}
+        gridMode
+        rowId={(row) => row.a as string}
+        activeCell={activeCell}
+        onActiveCellChange={setActiveCell}
+      />
+    );
+  }
+
+  it("real DOM focus follows the roving tabindex on arrow-key navigation (not just component state)", () => {
+    const { container } = render(<ControlledGrid />);
+    const firstCell = container.querySelector('td[data-grid-row-id="r0a"]') as HTMLElement;
+    firstCell.focus();
+    expect(document.activeElement).toBe(firstCell);
+
+    fireEvent.keyDown(container.querySelector("table")!, { key: "ArrowDown" });
+
+    const secondCell = container.querySelector('td[data-grid-row-id="r1a"]') as HTMLElement;
+    expect(document.activeElement).toBe(secondCell);
+    expect(document.activeElement).not.toBe(firstCell);
+  });
+
+  it("does NOT steal page focus when activeCell changes while focus is outside the grid (initial default)", () => {
+    const { container, rerender } = render(
+      <DataGrid
+        variant="preview"
+        rows={rows}
+        columns={columns}
+        gridMode
+        rowId={(row) => row.a as string}
+        activeCell={null}
+        onActiveCellChange={() => {}}
+      />,
+    );
+    // Focus is elsewhere on the page (nothing inside the grid) when `activeCell` is first set —
+    // mirrors a caller defaulting `activeCell` to the first cell once rows load.
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+    expect(document.activeElement).toBe(outside);
+
+    rerender(
+      <DataGrid
+        variant="preview"
+        rows={rows}
+        columns={columns}
+        gridMode
+        rowId={(row) => row.a as string}
+        activeCell={{ rowId: "r0a", columnKey: "a" }}
+        onActiveCellChange={() => {}}
+      />,
+    );
+
+    expect(document.activeElement).toBe(outside);
+    expect(container.contains(document.activeElement)).toBe(false);
+    outside.remove();
   });
 });

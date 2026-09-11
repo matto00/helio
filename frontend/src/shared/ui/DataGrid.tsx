@@ -295,6 +295,26 @@ interface DataGridProps {
    */
   onPinToggle?: (key: string) => void;
   className?: string;
+  /**
+   * HEL-1080 design.md Decision 0 (owner ruling, standing constraint C1) — default-off grid/a11y
+   * mode. Absent/`false` renders today's plain `<table>` exactly as before; every existing
+   * consumer omits this prop group and is unaffected. When `true`: `role="grid"` on the
+   * `<table>`, `role="row"` on each body `<tr>`, `role="gridcell"` on each body `<td>`, and
+   * roving `tabindex` management (`0` on the cell matching `activeCell`, `-1` elsewhere) — this
+   * MUST live inside `DataGrid` since it alone renders those elements. `DataGrid` does not itself
+   * implement edit-mode, add/delete, or the editor UI; the caller (`DatasetRowGrid`) owns all of
+   * that via its own `render` hook.
+   */
+  gridMode?: boolean;
+  /** Which `(rowId, columnKey)` cell currently holds the roving tabindex / visual focus.
+   *  Only consulted when `gridMode` is true. */
+  activeCell?: { rowId: string; columnKey: string } | null;
+  /** Fired on arrow-key navigation while `gridMode` is true; `DataGrid` computes the next cell
+   *  (clamped, no wrap — arrow keys never cross page boundaries), the caller owns the state. */
+  onActiveCellChange?: (next: { rowId: string; columnKey: string } | null) => void;
+  /** Row id accessor — required when `gridMode` is true (`DataGrid` has no built-in row-id
+   *  concept otherwise; falls back to the row's array index when omitted). */
+  rowId?: (row: Record<string, unknown>) => string;
 }
 
 /**
@@ -396,6 +416,10 @@ export function DataGrid({
   pinnedColumns,
   onPinToggle,
   className,
+  gridMode = false,
+  activeCell = null,
+  onActiveCellChange,
+  rowId,
 }: DataGridProps) {
   const resolvedColumns = useMemo(() => columns ?? deriveColumns(rows), [rows, columns]);
   const resolvedDensity = density ?? DEFAULT_DENSITY[variant];
@@ -623,6 +647,78 @@ export function DataGrid({
     enabled: virtualized,
   });
   const visibleRows = virtualized ? rows.slice(startIndex, endIndex) : rows;
+
+  // HEL-1080 design.md Decision 0: row-id resolution for `gridMode` — falls back to the row's
+  // array index (stringified) so an omitted `rowId` prop degrades gracefully rather than crashing,
+  // even though every real `gridMode` consumer is expected to supply one.
+  const resolveRowId = useCallback(
+    (row: Record<string, unknown>, index: number) => rowId?.(row) ?? String(index),
+    [rowId],
+  );
+
+  // HEL-1080 design.md Decision 0: arrow-key `keydown` handling, active only when `gridMode` is
+  // set — computes the next `{rowId, columnKey}` and reports it via `onActiveCellChange`.
+  // `DataGrid` decides only WHICH cell is next; entering/exiting edit mode, Enter/F2/Escape, and
+  // Delete/Backspace-triggered row delete all stay in the caller (`DatasetRowGrid`) per Decision 0.
+  const handleGridKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLTableElement>) => {
+      if (!gridMode || !activeCell) return;
+      const isArrow =
+        e.key === "ArrowUp" ||
+        e.key === "ArrowDown" ||
+        e.key === "ArrowLeft" ||
+        e.key === "ArrowRight";
+      if (!isArrow) return;
+      const rowIds = visibleRows.map((row, index) => resolveRowId(row, index));
+      const rowIndex = rowIds.indexOf(activeCell.rowId);
+      const colIndex = resolvedColumns.findIndex((c) => c.key === activeCell.columnKey);
+      if (rowIndex === -1 || colIndex === -1) return;
+      e.preventDefault();
+      let nextRowIndex = rowIndex;
+      let nextColIndex = colIndex;
+      if (e.key === "ArrowUp") nextRowIndex = Math.max(0, rowIndex - 1);
+      else if (e.key === "ArrowDown") nextRowIndex = Math.min(rowIds.length - 1, rowIndex + 1);
+      else if (e.key === "ArrowLeft") nextColIndex = Math.max(0, colIndex - 1);
+      else if (e.key === "ArrowRight")
+        nextColIndex = Math.min(resolvedColumns.length - 1, colIndex + 1);
+      onActiveCellChange?.({
+        rowId: rowIds[nextRowIndex],
+        columnKey: resolvedColumns[nextColIndex].key,
+      });
+    },
+    [gridMode, activeCell, visibleRows, resolvedColumns, resolveRowId, onActiveCellChange],
+  );
+
+  // HEL-1080 skeptic-final-1.md CR2: the roving `tabindex` swap above changes WHICH cell is a
+  // tab stop, but real DOM focus never followed it -- the visible focus ring and the screen-
+  // reader's position stayed on the stale cell after every arrow-key press. This effect is what
+  // actually moves focus: whenever `activeCell` changes AND focus is currently somewhere INSIDE
+  // this table (the containment check), move it to the `<td>` now matching `activeCell`.
+  //
+  // The containment check is deliberate, not incidental: it is what keeps this effect from
+  // stealing page focus the first time a caller (`DatasetRowGrid`) defaults `activeCell` to the
+  // grid's first cell on initial load -- at that moment focus is NOT yet inside the table (it's
+  // on `<body>` or whatever the page last focused), so this effect correctly does nothing and the
+  // cell is merely made TAB-REACHABLE (`tabIndex=0`), never auto-focused. Once the user has
+  // actually tabbed or clicked into the grid (real DOM focus now inside the table) and then
+  // presses an arrow key, this same check passes and focus follows the roving tabindex exactly
+  // as the WAI-ARIA grid pattern requires.
+  const tableRef = useRef<HTMLTableElement>(null);
+  useEffect(() => {
+    if (!gridMode || !activeCell) return;
+    const table = tableRef.current;
+    if (!table || !table.contains(document.activeElement)) return;
+    const cells = table.querySelectorAll<HTMLElement>('td[role="gridcell"]');
+    for (const cell of Array.from(cells)) {
+      if (
+        cell.dataset.gridRowId === activeCell.rowId &&
+        cell.dataset.gridColKey === activeCell.columnKey
+      ) {
+        if (cell !== document.activeElement) cell.focus();
+        break;
+      }
+    }
+  }, [gridMode, activeCell]);
   const showTopSpacer = virtualized && topSpacerPx > 0;
   // HEL-458 design D6: omit the trailing spacer entirely at height 0 (the
   // common case at the bottom of the scroll range) — a zero-height spacer
@@ -867,7 +963,13 @@ export function DataGrid({
         </div>
       )}
       <div className={rootClasses} role="region" aria-label="Data grid" ref={scrollRef}>
-        <table className="ui-data-grid__table" aria-rowcount={ariaRowCount}>
+        <table
+          ref={tableRef}
+          className="ui-data-grid__table"
+          aria-rowcount={ariaRowCount}
+          role={gridMode ? "grid" : undefined}
+          onKeyDown={gridMode ? handleGridKeyDown : undefined}
+        >
           <thead>
             <tr ref={headerRowRef} className="ui-data-grid__header-row" aria-rowindex={1}>
               {resolvedColumns.map((col, index) => {
@@ -1085,11 +1187,13 @@ export function DataGrid({
               // instead) — apply the suppression explicitly here so
               // windowed and unwindowed renderings stay equivalent.
               const isLastMountedRow = i === endIndex - 1;
+              const thisRowId = gridMode ? resolveRowId(row, i) : undefined;
               return (
                 <tr
                   key={i}
                   ref={visibleIndex === 0 ? firstBodyRowRef : undefined}
                   aria-rowindex={i + 2}
+                  role={gridMode ? "row" : undefined}
                   className={
                     showBottomSpacer && isLastMountedRow
                       ? "ui-data-grid__row--no-border"
@@ -1104,6 +1208,13 @@ export function DataGrid({
                     // since a body cell can never spatially overlap them.
                     const isPinned = index < numPinned;
                     const isLastPinned = col.key === lastPinnedKey;
+                    // HEL-1080 design.md Decision 0: roving tabindex — exactly one cell (the one
+                    // matching `activeCell`) is `0`; every other cell is `-1`, so Tab/Shift+Tab
+                    // enters/exits the grid at a single stop rather than tabbing through every cell.
+                    const isActiveCell =
+                      gridMode &&
+                      activeCell?.rowId === thisRowId &&
+                      activeCell?.columnKey === col.key;
                     return (
                       <td
                         key={col.key}
@@ -1116,6 +1227,10 @@ export function DataGrid({
                           ...(col.align ? { textAlign: col.align } : undefined),
                           ...(isPinned ? { left: pinnedOffsets[col.key], zIndex: 1 } : undefined),
                         }}
+                        role={gridMode ? "gridcell" : undefined}
+                        tabIndex={gridMode ? (isActiveCell ? 0 : -1) : undefined}
+                        data-grid-row-id={gridMode ? thisRowId : undefined}
+                        data-grid-col-key={gridMode ? col.key : undefined}
                       >
                         {col.render ? col.render(row, value) : formatCell(value)}
                       </td>
