@@ -87,6 +87,56 @@ escalate. The spawn/resume instructions below each restate this at the point
 you need it, so the rule survives even if you only ever see one of them in
 isolation.
 
+**Never poll with an open-ended, self-written backgrounded loop (CON-178).**
+An ad-hoc `until [ -f "$SENTINEL" ]; do sleep N; done` shell, launched in the
+background because a single tool call's own timeout is shorter than the
+wait could take, keeps sleeping forever once its result arrives through the
+call-return path above instead — which is the ordinary case, not the
+exception. One real run leaked 18 such idle shells this way (HEL-533,
+2026-09-10), and every one of them pollutes the next `ps`/`pgrep` a driver
+session runs to answer "is anything still running?" — the single most
+common question when a lane looks stalled. If you must poll via a
+backgrounded shell rather than a foreground blocking call, use
+`scripts/concertino/await-sentinel.sh <SENTINEL_PATH> <TIMEOUT_SEC>` (never
+a bespoke loop): it is itself bounded and self-terminating, so it never
+outlives its own timeout regardless of what else happens. And if you obtain
+the sub-agent's result through the ordinary call-return path *first*, while
+a background poll for the same event is still outstanding, kill that
+poll's PID yourself before ending the turn — do not just let it run out its
+timeout unattended. Never wait by matching a process pattern (`pgrep -f
+"<pattern>"` or similar) instead of a sentinel file or a recorded PID: a
+pattern-matching waiter can match its own command line and deadlock
+waiting on itself — two such shells were found deadlocked at ~21h in the
+wild.
+
+Concrete invocation, bounded to this repo's own Execution-cycle budget
+rather than an arbitrarily large number:
+
+```
+scripts/concertino/await-sentinel.sh /tmp/exec-cycle-2.sentinel 900
+```
+
+`await-sentinel.sh` itself hard-caps `TIMEOUT_SEC` at 1800s (30 minutes,
+`AWAIT_SENTINEL_MAX_TIMEOUT_SEC` overrides it) — pick a bound well under
+that for the phase you're actually waiting on, not the ceiling itself.
+
+**What this mechanically guarantees, versus what it relies on you to do:**
+`await-sentinel.sh`'s own bounded, self-terminating loop is a MECHANICAL
+guarantee — the process backing that one call cannot outlive
+`min(TIMEOUT_SEC, 1800s)` no matter what else happens, proven by a
+mutation test (`test/scripts/await-sentinel.test.sh`) that reintroduces an
+unbounded variant of the real script and confirms it fails to
+self-terminate. What is NOT mechanically enforced is *that you use this
+script instead of a bespoke loop* — no core script can stop you from
+writing `until [ -f ... ]; do sleep; done` directly, and no lint or gate
+in this repo scans your Bash tool calls for that shape. That half is
+INSTRUCTION ONLY: this paragraph, followed at the point you decide how to
+poll. Characterize it this way in any report of this fix — "zero
+stranded pollers, mechanically guaranteed" overclaims a guarantee this
+change does not provide; "a bounded helper script exists and orchestrator
+guidance tells you to use it, with the script's own timeout mechanically
+enforced once you do" is the accurate claim.
+
 **The only legitimate reasons to end your turn** are: (1) the run is
 genuinely finished, per Phase 4's "genuinely complete" definition; (2) a
 decision is needed from the coordinator/human, raised as an explicit
@@ -143,7 +193,7 @@ spawned executor, evaluator, skeptic, or auditor — remains exactly as
 forbidden as before. See "Escalation & Circuit Breakers" → "How to raise one"
 below for the full raise/bubble/resume protocol this exception exists for.
 
-You spawn sub-agents with the `Agent` tool and resume the executor + evaluator **warm** via `SendMessage` across cycles. The skeptic and auditor are **always a fresh `Agent` spawn** (cold). `SendMessage` here is primarily a call **you** make **to** an already-spawned sub-agent to resume it. As of CON-127, executor/evaluator/skeptic/auditor also hold their own `SendMessage` tool, which they use only to self-notify you of an `ESCALATION`/`ESCALATION-RAISE` raise as the last thing they do before their turn ends (a durable, fire-and-forget record — see each role's raise procedure) — this still cannot be *observed* by you before your blocking `Agent()`/`SendMessage` call to them returns, so nothing they send can ever arrive as a message you read mid-call. Every `Agent` spawn and every `SendMessage` resume remains a single blocking call: it does not return until the sub-agent has finished, and its return value **is** the sub-agent's authoritative result — including any `ESCALATION`/`ESCALATION-RAISE` verdict, which travels inside that return value exactly like every other verdict, not via the self-notify. There is no further report to wait for after that. If `SendMessage` is unavailable, fall back to a fresh spawn whose prompt begins `RESUME — do not start over`, pointing the agent at `workflow-state.md` to recover — it resumes, never restarts.
+You spawn sub-agents with the `Agent` tool and resume the executor + evaluator **warm** via `SendMessage` across cycles. The skeptic and auditor are **always a fresh `Agent` spawn** (cold). `SendMessage` here is primarily a call **you** make **to** an already-spawned sub-agent to resume it. As of CON-127, executor/evaluator/skeptic/auditor also hold their own `SendMessage` tool, which they use only to self-notify you of an `ESCALATION`/`ESCALATION-RAISE` raise as the last thing they do before their turn ends (a durable, fire-and-forget record — see each role's raise procedure) — this still cannot be *observed* by you before your blocking `Agent()`/`SendMessage` call to them returns, so nothing they send can ever arrive as a message you read mid-call. Every `Agent` spawn and every `SendMessage` resume remains a single blocking call: it does not return until the sub-agent has finished, and its return value **is** the sub-agent's authoritative result — including any `ESCALATION`/`ESCALATION-RAISE` verdict, which travels inside that return value exactly like every other verdict, not via the self-notify. There is no further report to wait for after that. If `SendMessage` is unavailable, fall back to a fresh spawn whose prompt begins `RESUME — do not start over`, pointing the agent at `workflow-state.md` to recover — it resumes, never restarts. **This fallback spawn is cold and inherits nothing from the original spawn's structured inputs** — explicitly pass `WORKTREE_PATH`, `CHANGE_NAME`, `TICKET_ID`, and `BRANCH` (CON-174: the resumed role's mandated cwd-guard first action invokes `assert-cwd.sh` with `$BRANCH`, which must be bound) alongside the `RESUME` prompt, the same way a warm `SendMessage` resume carries them forward implicitly as already-bound shell variables in that session.
 
 Every `Agent(...)` spawn of executor/evaluator/skeptic/auditor also passes a new `ORCHESTRATOR_AGENT_REF` input — your own agent name/ref — so the raising sub-agent has a concrete self-notify target for the above. On receiving a raised `ESCALATION`/`ESCALATION-RAISE`, resume the raiser: executor/evaluator **warm** via `SendMessage` with the human's answer as new input (the same warm-resume mechanism already used after a `FAIL`); skeptic/auditor via a **fresh cold spawn** carrying the resolved answer forward as an explicit additional input alongside their usual inputs.
 
@@ -164,7 +214,8 @@ Every `Agent(...)` spawn of executor/evaluator/skeptic/auditor also passes a new
 | REFUTE       | Skeptic           | Read report; revise artifacts (design gate) or resume executor with change requests (final gate) |
 | MERGE        | Auditor           | PR already merged — proceed directly to Phase 4 (agent-merge runs only)                          |
 | ESCALATE     | Auditor           | Read report, surface the specific reason, fall back to wait-for-"merged" (agent-merge runs only) |
-| `ESCALATION-RAISE` | Auditor     | Same as sub-agent `ESCALATION` above, but raised *before* the auditor has reached `MERGE`/`ESCALATE`/`BLOCKER` — distinct from `ESCALATE` (a post-hoc finding); relay to human, do not decide it yourself |
+| `STALE`      | Auditor           | (CON-166) Reviewed source moved since the named role's verdict — **not** an escalation and **not** a permanent block: re-run the named gate(s) (evaluator and/or skeptic) against the CURRENT head, then re-invoke the auditor. Does not consume the auditor's one-attempt circuit-breaker entry — that entry governs `ESCALATE`/`BLOCKER` reached after a completed pass, not a mechanically resumable "do work, then retry" outcome (agent-merge runs only) |
+| `ESCALATION-RAISE` | Auditor     | Same as sub-agent `ESCALATION` above, but raised *before* the auditor has reached `MERGE`/`ESCALATE`/`BLOCKER`/`STALE` — distinct from `ESCALATE` (a post-hoc finding); relay to human, do not decide it yourself |
 
 ---
 
@@ -361,11 +412,72 @@ Never let telemetry block delivery: if a call fails, continue.
    human rather than guessing a resolution.
 5. **Gate before advancing:** `scripts/concertino/assert-phase.sh setup "$WORKTREE_PATH" "$TICKET_ID"`.
    If it prints `FAIL`, do not proceed — re-run setup or escalate.
+5a. **Resolve the review base's remote/branch coordinates once, for the
+   whole run (CON-152).** A bare `git diff main...HEAD` (or any other
+   hand-computed base) is wrong in a long-lived worktree: a local
+   base-branch ref is created once at branch time and never moves, while
+   the remote base branch keeps advancing as sibling tickets merge mid-run
+   — so a diff computed against a stale ref silently grows to include
+   unrelated work. **Recording a resolved SHA once has the identical
+   failure mode one layer later** (a first cut of this fix tried exactly
+   that, and cycle-2 review caught it): the moment ANY reconciliation
+   happens mid-run — this run's own step 7a `check-pr-mergeable.sh` BEHIND
+   auto-reconcile, `check-merge-readiness.sh`'s condition 0, or a human
+   manually merging the base in — a cached SHA is now stale in the other
+   direction (it under-counts commits the branch has since absorbed), and a
+   diff against it re-flags already-merged-in base commits as though they
+   were still under review. So only the REMOTE and BRANCH NAME are resolved
+   and cached here — those genuinely don't change mid-run — never the SHA
+   itself:
+
+   ```bash
+   REVIEW_BASE_BRANCH="${CONCERTINO_BASE_BRANCH:-main}"
+   REVIEW_BASE_REMOTE="${CONCERTINO_BASE_REMOTE:-origin}"
+   ```
+
+   Record `REVIEW_BASE_BRANCH`/`REVIEW_BASE_REMOTE` in `workflow-state.md`
+   (step 7 below). **Every review-bearing role (executor's gate-selection
+   diff, evaluator, skeptic, auditor) computes its own diff base LIVE,
+   immediately before it diffs**, by calling the canonical script (never
+   hand-rolled, and never by reading a cached SHA):
+
+   ```bash
+   BASE_SHA="$(scripts/concertino/resolve-review-base.sh "$WORKTREE_PATH" "$REVIEW_BASE_BRANCH" "$REVIEW_BASE_REMOTE")" \
+     || { echo "BLOCKER: could not resolve the review diff base — see resolve-review-base.sh's stderr above"; exit 1; }
+   ```
+
+   which fetches `$REVIEW_BASE_REMOTE/$REVIEW_BASE_BRANCH` fresh and prints
+   EXACTLY the resolved SHA on stdout (nothing else — no prefix, no other
+   output) — the true merge-base AT THE MOMENT OF THE CALL. This is what
+   actually closes CON-152: every role sees a base that reflects whatever
+   has really landed on the remote base branch and whatever this branch has
+   really absorbed, right up to the instant it reviews, instead of a value
+   that was only ever correct at Setup. **Check the exit status, always**
+   (CON-152 cycle 3, finding 2): on failure the script prints one "FAIL
+   ..." line to stderr and NOTHING to stdout, and exits non-zero — a caller
+   that piped its output through `sed`/`awk` to extract a value, or that
+   ignored the exit code, would see an empty `BASE_SHA` and turn a
+   subsequent `git diff "$BASE_SHA"...HEAD` into a silent empty diff
+   (`HEAD...HEAD`) instead of a loud failure. The `|| { ...; exit 1; }`
+   above is load-bearing, not decorative — treat it as a `BLOCKER` for
+   whichever role hit it, surfaced rather than silently reviewing nothing.
+   **Fallback for a resumed/older run with no `REVIEW_BASE_BRANCH`/
+   `REVIEW_BASE_REMOTE` in `workflow-state.md`:** `resolve-review-base.sh`
+   itself sources the SAME co-located `.concertino.env` `setup-worktree.sh`
+   sources (CON-152 cycle 3, finding 3 — a project whose base branch isn't
+   `main` must not silently fall back to a hardcoded, wrong `main`/`origin`
+   default) before falling back further to a literal `main`/`origin` only
+   when even that file doesn't define `CONCERTINO_BASE_BRANCH`/
+   `CONCERTINO_BASE_REMOTE` — this degrades to the same config resolution
+   `setup-worktree.sh` itself uses, never to an unresolved `main` a role
+   has to improvise.
 6. **Resolve `AGENT_MERGE` once, for the whole run.** `AGENT_MERGE_OVERRIDE`
    takes precedence when it is `true` or `false`; otherwise fall back to the
    config default `false`. This resolution happens
    exactly once, here — never recomputed later in the run.
-7. Write initial `workflow-state.md` (PHASE: Planning, AGENT_MERGE: `<resolved
+7. Write initial `workflow-state.md` (PHASE: Planning, `REVIEW_BASE_BRANCH:
+   <resolved value>` and `REVIEW_BASE_REMOTE: <resolved value>` (from step
+   5a — coordinates only, never a cached SHA), AGENT_MERGE: `<resolved
    value>`, `TICKET_TYPE: <resolved value>` (from the design-ticket-type
    check above), `DESIGN_QUESTIONS: null`, plus every field parsed in step 4:
    `SPEED`, `EXECUTION_CYCLES`, `SKEPTIC_DESIGN_ROUNDS`, `SKEPTIC_FINAL_ROUNDS`,
@@ -528,6 +640,15 @@ Execute directly (no subagent).
 4. **Escalate if needed:** stop and present an `ESCALATION` block for new external
    dependencies, major architectural changes, breaking API changes, or scope
    significantly beyond the ticket. Self-approve everything else.
+   - **Methodology-carryover (CON-161):** when the human's answer to a
+     Planning `ESCALATION` itself settles a standing methodology constraint
+     (no skeptic verdict involved), append a
+     `{"gate":"planning","round":1,"verdict":"n/a","promoted":[...]}`
+     `CONSTRAINT_REVIEWS` entry to `workflow-state.md`, plus the matching
+     `CONSTRAINTS` entry (`"agreed_at":"planning"`) and `tasks.md`
+     `## Standing Constraints` bullet — immediately upon resolution, before
+     continuing Planning. This entry does **not** increment or count against
+     `SKEPTIC_VERDICTS_TOTAL`.
 4a. **Gate-chain advisory (CON-132; non-blocking, complementary to the
    mechanical Delivery-time check).** If the ticket text or an early
    file-touch plan suggests `.husky/**` or a script `.husky/pre-commit`
@@ -541,7 +662,7 @@ Execute directly (no subagent).
    gate (Phase 3) checks for mechanically. This is advisory only (the real
    diff doesn't exist until Execution) — the hard block is at Delivery.
 5. **Design-soundness gate (Skeptic).** Spawn the skeptic **fresh** (cold — never
-   resumed) with `GATE=design`, `WORKTREE_PATH`, `CHANGE_NAME`, `TICKET_ID`. On
+   resumed) with `GATE=design`, `WORKTREE_PATH`, `CHANGE_NAME`, `TICKET_ID`, `BRANCH`. On
    Claude Code, pass the skeptic's resolved model (`workflow-state.md`'s
    `MODELS.skeptic`) as this `Agent` call's own `model` parameter — see
    "Per-spawn model overrides" below for the full contract this relies on; on
@@ -563,6 +684,19 @@ Execute directly (no subagent).
      believed you fixed, do not burn further rounds** — present that item to
      the human as an `ESCALATION` immediately. If still REFUTE at the last
      round, escalate.
+   - **Methodology-carryover (CON-161): record this verdict immediately, before
+     re-running the gate or resuming the executor — never defer.** Increment
+     `workflow-state.md`'s `SKEPTIC_VERDICTS_TOTAL` and append one
+     `CONSTRAINT_REVIEWS` entry —
+     `{"verdict_seq":<n>,"gate":"design","round":<n>,"verdict":"CONFIRM|REFUTE","promoted":[...]}`
+     — for CONFIRM and REFUTE alike, every round. When this verdict settles a
+     methodology-shaped constraint (a how-to-verify or how-to-implement rule
+     meant to bind for the rest of the run, not a one-off already-applied
+     fix), also append the `CONSTRAINTS` entry (`{"id":"C<n>","text":"...",
+     "agreed_at":"design-gate","retired":false}`) and the matching
+     `tasks.md` `## Standing Constraints` bullet (`- [C<n>] <text>`), and
+     record that id in this review's `promoted`; otherwise `promoted` is
+     `[]`.
 6. **Persist evidence for the planning artifacts.** For each artifact just
    written (`ticket.md`, `proposal.md`, `design.md`, `tasks.md`, and any spec
    delta files under `specs/`):
@@ -692,10 +826,10 @@ result, poll for the executor's commit or the evaluator's report path
 instead of returning control, or escalate — never end the turn believing
 one is still on its way.
 
-1. Spawn the **executor**: `CHANGE_NAME`, `WORKTREE_PATH`, `TICKET_ID`. First run —
+1. Spawn the **executor**: `CHANGE_NAME`, `WORKTREE_PATH`, `TICKET_ID`, `BRANCH`. First run —
    implement the change.
 2. After it returns, spawn the **evaluator**: `WORKTREE_PATH`, `CHANGE_NAME`,
-   `TICKET_ID`, `CYCLE=1`, `DEV_PORT`, `BACKEND_PORT`. If `EVALUATOR_CLEAN_WORKTREE`
+   `TICKET_ID`, `BRANCH`, `CYCLE=1`, `DEV_PORT`, `BACKEND_PORT`. If `EVALUATOR_CLEAN_WORKTREE`
    (from `workflow-state.md`) is `true` — `slow` speed only — also pass
    `CLEAN_WORKTREE=true`; see "`slow`-only: evaluator clean-worktree" below for
    what the evaluator does with it.
@@ -709,7 +843,11 @@ Record agent IDs in `workflow-state.md` for resume.
 
 ### Cycles 2+ — resume (do NOT spawn fresh)
 
-Re-use the same ports. **The same rule applies to a resume as to a fresh
+Re-use the same ports. A warm `SendMessage` resume carries `WORKTREE_PATH`/`BRANCH`/
+`CHANGE_NAME`/`TICKET_ID` forward implicitly (already-bound in the resumed agent's
+own session) — no need to re-pass them. If `SendMessage` is unavailable, see
+"Harness resume model" above: the cold fallback spawn does **not** inherit them and
+must be given `WORKTREE_PATH`, `CHANGE_NAME`, `TICKET_ID`, and `BRANCH` explicitly. **The same rule applies to a resume as to a fresh
 spawn: the call you use to resume a sub-agent is a blocking call whose
 return value *is* the sub-agent's result** — issue it within this turn and
 consume what it returns; there is no notification to wait for afterward on
@@ -747,7 +885,7 @@ this gate.
 
 On evaluator **PASS**, spawn the skeptic **fresh** (cold — never resumed; a cold
 reviewer can't inherit the loop's blind spots): `GATE=final`, `WORKTREE_PATH`,
-`CHANGE_NAME`, `TICKET_ID`, `DEV_PORT`, `BACKEND_PORT`, `N=<skeptic_cycle>`. On
+`CHANGE_NAME`, `TICKET_ID`, `BRANCH`, `DEV_PORT`, `BACKEND_PORT`, `N=<skeptic_cycle>`. On
 Claude Code, pass the skeptic's resolved model (`workflow-state.md`'s
 `MODELS.skeptic`) as this `Agent` call's own `model` parameter — see
 "Per-spawn model overrides" below. **The spawn call blocks and its return
@@ -790,6 +928,16 @@ path there is no other way the verdict reaches you.
   skeptic re-spawn, poll for the executor's new commit / the skeptic's report
   file instead of returning control, or escalate.
 - **BLOCKER** → environmental; surface to human, wait for direction.
+- **Methodology-carryover (CON-161): record every CONFIRM/REFUTE verdict
+  immediately, before resuming the executor or re-running the gate — never
+  defer.** Increment `workflow-state.md`'s `SKEPTIC_VERDICTS_TOTAL` and
+  append one `CONSTRAINT_REVIEWS` entry —
+  `{"verdict_seq":<n>,"gate":"final","round":<n>,"verdict":"CONFIRM|REFUTE","promoted":[...]}`
+  — for every round of every verdict, including the second final-gate
+  skeptic below. When a verdict settles a methodology-shaped constraint,
+  also append the `CONSTRAINTS` entry (`"agreed_at":"final-gate"`) and the
+  matching `tasks.md` `## Standing Constraints` bullet, recording its id in
+  this review's `promoted`; otherwise `promoted` is `[]`.
 
 #### `slow`-only: second final-gate skeptic
 
@@ -1018,6 +1166,24 @@ repeating its steps.
 
 Run directly (no subagent).
 
+0. **Methodology-carryover divergence check (CON-161).** Run, before design.md's
+   re-persist and before the squash/archive — the change dir still lives at
+   its pre-archive path at this point, and this run's own constraint record
+   is already final (the final gate's last `CONFIRM` was recorded per its own
+   `CONSTRAINT_REVIEWS`/`SKEPTIC_VERDICTS_TOTAL` step above, before Phase 3
+   was ever entered):
+
+   ```bash
+   scripts/concertino/check-constraints-carryover.sh "$WORKTREE_PATH" "$CHANGE_NAME"
+   ```
+
+   Exit `0` (`OK`/`OK (none)`) → proceed to step 1. Any non-zero exit
+   (`DIVERGED`/`MISSING`) → treat as a Phase-3 environmental `BLOCKER`:
+   surface to the human, do **not** squash or archive until resolved. This is
+   a direct script call — never wired into `assert-phase.sh`'s `delivery`
+   phase, which fires only after step 3 below has already archived the
+   change dir (see design.md Decision 2a).
+
 1. **Re-persist `design.md` once more, unconditionally, before the squash**
    (CON-132 — cheap and idempotent, mirrors Phase 1 step 6's persist call):
 
@@ -1090,10 +1256,60 @@ Run directly (no subagent).
    local-file `ref`, and there is no corresponding `persist-evidence.sh` call
    (the URL itself is the durable reference; there is no local file to
    persist).
-7. **Post the PR link back to the ticket.**
+7. **Verify live mergeable state before presenting the PR as ready
+   (CON-122).** Run this BEFORE posting the PR link back to the ticket
+   (step 7a below) — a failed gate here must never let a ready-looking link
+   reach the ticket first. Twice, driving concurrent runs, an orchestrator
+   asserted a PR was "clean"/"no overlap conflicts expected" from shallow
+   signals (commit-list file names, a belief a sibling ticket didn't touch
+   the same files) instead of actually querying GitHub — and both times the
+   PR was really `CONFLICTING`/`DIRTY` (HEL-412, HEL-703), which is worse
+   than an ordinary conflict: GitHub never materializes a merge ref, so the
+   real `pull_request`-triggered CI jobs never even queue, and only checks
+   that don't need one (e.g. CodeQL) go green — a driver skimming `gh pr
+   checks` sees a mostly-green PR and can merge it believing gates passed
+   that never ran. Run, for every run regardless of `AGENT_MERGE` (the
+   agent-merge path also gets this from `check-merge-readiness.sh`'s own
+   conditions 1-2, but this call is unconditional here so the human-merge
+   path is never the one without it):
+
+   ```bash
+   scripts/concertino/check-pr-mergeable.sh "$WORKTREE_PATH" "<branch>"
+   ```
+
+   - **`PASS`** (exit 0) → proceed to step 7a.
+   - **`PENDING <names> ...`** (exit 3) → this run's own CI simply hasn't
+     finished yet, immediately after `gh pr create` — NOT a failure. Wait a
+     short bounded interval and re-invoke the same call; do not escalate or
+     present the PR while this keeps returning PENDING, and do not treat
+     repeated PENDING as a BLOCKER by itself (only a real `FAIL` is).
+   - **`FAIL <reason>`** (exit 1) → the PR is NOT ready. Never present it to
+     the human (or spawn the auditor) as clean. Treat it exactly like the
+     existing escalation table's `BLOCKER` case: surface the specific
+     reason (never a re-derived guess like "expected clean") to the human,
+     and do not proceed to step 7a until it resolves — a `BEHIND` reason
+     already attempted its own one-shot reconcile inside the script itself,
+     so a `FAIL` here means that either didn't apply or didn't succeed and
+     needs a human.
+
+   **Note on the BEHIND auto-reconcile and squashing:** this script's own
+   condition-0 reconcile (and `check-merge-readiness.sh`'s identical one)
+   merges the base into the branch with an ordinary `git merge`, adding a
+   merge commit — it never rebases or re-squashes. Phase 3 step 2 above
+   already squashed this branch's own commits before the PR was created, so
+   a reconcile that fires AFTER that point leaves the branch as one squashed
+   ticket commit plus one merge commit, not a single flat commit. The human
+   (or `gh pr merge`) should still use a **squash merge** when actually
+   merging the PR — squashing at merge time collapses both into the one
+   commit landing on the base branch, so this is cosmetic to the branch's
+   own history, never a reason to re-run `squash-branch.sh`.
+7a. **Post the PR link back to the ticket** (only after step 7 above returns
+   `PASS`).
 8. **Branch on `AGENT_MERGE`** (resolved once at Setup — see above):
 
-   - **`AGENT_MERGE = false`** (today's behavior, unchanged): read the final
+   - **`AGENT_MERGE = false`** (today's behavior, unchanged other than the
+     mergeable check in step 7 above, which now runs
+     unconditionally before this branch): read the final
      evaluation report now (the only time a PASS report is read). For each
      non-blocking evaluator/skeptic suggestion that names discrete additional
      work (not a one-line style nit), run the **"Triaging a suggested
@@ -1120,8 +1336,16 @@ Run directly (no subagent).
      instead of returning control, or escalate.
      - **`MERGE`** → the PR is already merged. Present the (now-merged) PR +
        summary to the human as before, but proceed **directly into Phase 4**
-       — the auditor's `MERGE` verdict *is* the confirmation that used to
-       require a human reply.
+       — the auditor's `MERGE` verdict, **consumed as this spawn call's own
+       return value**, *is* the confirmation that used to require a human
+       reply. That is the ONLY thing that satisfies this condition. Observing
+       the merge by any OTHER means — polling `gh pr view`, a GitHub
+       notification, a `merged` timestamp — is **not** a `MERGE` verdict and
+       does **not** license entering Phase 4 (CON-171): the merge becomes
+       observable strictly before the auditor has finished writing and
+       persisting its report, so acting on an out-of-band observation risks
+       tearing down the worktree while the auditor is still writing into it.
+       Wait for the spawn call to actually return.
      - **`ESCALATE` / `BLOCKER`** → read the auditor's report, surface the
        specific reason to the human, and **fall back to the existing
        wait-for-"merged" flow** exactly as the `AGENT_MERGE = false` path
@@ -1146,6 +1370,17 @@ for this ticket. A `design` ticket with at least one `fold-in` scope instead
 requires the ordinary merged-PR confirmation, unchanged, since real code
 exists for that scope. **This substitutes only the entry condition above —
 Phase 4's own internal step order below is unchanged either way:**
+
+**CON-171: `cleanup.sh --phase4` now refuses to remove the worktree while the
+auditor's script-owned lease is held, or while a live process holds the
+worktree as its working directory** — see step 1's exit-code handling below.
+That refusal is a `BLOCKER` under the existing non-zero-exit handling, exactly
+like any other Phase-4 failure — it is **not** a condition to clear
+unilaterally with `--force-teardown`. If the refusal is a few seconds of
+overlap with an auditor that has since finished and released, a **plain
+re-run of `cleanup.sh --phase4` with no flag** succeeds — try that first,
+before escalating to a human. `--force-teardown` is for a confirmed-stuck
+holder only.
 
 1. Stop servers and remove the worktree via the canonical script (reads
    ports/path from `workflow-state.md` if not in memory). `cleanup.sh` is a
@@ -1402,7 +1637,9 @@ itself, or a non-root run silently loses its only path to the human (CON-76).
 
     ```bash
     concertino answer $TICKET_ID "<their decision>"
-    # or, for one step of a multi-part escalation:
+    # or, for one step of a multi-part escalation (--sub is 1-based: the
+    # first sub-question is --sub 1, matching the dashboard wizard's own
+    # "sub-question N of total" display and this command's confirmation):
     concertino answer $TICKET_ID "<their decision>" --sub <index> --total <n>
     ```
 
@@ -1603,12 +1840,23 @@ child):
    keep waiting there for the human's reply and record it per step 3 below —
    nothing stops a late dashboard answer from still landing and winning the
    race the normal way.
+
+   **If this call's stderr contains the word `malformed`** (CON-156): the
+   dashboard's own answer.json write for this escalation is shaped wrong —
+   e.g. a two-part escalation answered with the single-question `{answer,
+   complete}` shape — and `--wait-only` deliberately did NOT resolve on it
+   (a malformed file is never treated as an answer). Relay that stderr line
+   to the human **verbatim** in your own chat transcript before your next
+   `--wait-only` call, so they see the same diagnostic a dashboard viewer
+   would see on the escalation screen, then keep polling exactly as if this
+   call had returned exit 2 — this is not a new terminal outcome, only an
+   added notice on top of "still open."
 3. The moment the human replies directly in chat, write their answer through
    `concertino answer` rather than acting on it directly:
 
    ```bash
    concertino answer $TICKET_ID "<their decision>"
-   # or, for one step of a multi-part escalation:
+   # or, for one step of a multi-part escalation (--sub is 1-based, see above):
    concertino answer $TICKET_ID "<their decision>" --sub <index> --total <n>
    ```
 
@@ -1714,6 +1962,15 @@ Every bound named below is `workflow-state.md`'s resolved value for this run
   retry — fall back to the wait-for-"merged" flow (see Non-Goals of the
   agent-merge design: an `ESCALATE` reflects a merge-time fact the executor
   cannot "fix" by writing code).
+- **Auditor `STALE`** (CON-166, agent-merge runs only): NOT a circuit-breaker
+  entry — this is a mechanically resumable "do work, then retry", not a
+  post-hoc finding. Re-run the named role's gate (evaluator and/or skeptic,
+  per the `STALE <role> ...` line(s)) against the CURRENT head, then
+  re-invoke the auditor. Re-invoking after a genuine re-review is expected
+  to clear it; if it does not (the re-review's own fresh `head_sha` is
+  itself immediately stale again), that is an anomaly worth surfacing to a
+  human rather than looping indefinitely — use judgment, the same way a
+  repeatedly-`PENDING` CI check eventually becomes a human question.
 - **`material-drift` (CON-136):** Setup step 2's premise-validation check
   finds a refuted root cause, scope already fully implemented, or a sibling
   collision that invalidates the ticket's enumeration — raised as a
@@ -1767,6 +2024,16 @@ model a role runs on move.
   value or `speeds` config field skips, weakens, or replaces it with a
   non-cold spawn. `slow`'s `secondFinalGateSkeptic` may only *add* a second
   independent cold skeptic on top of it, never substitute for it.
+- **Methodology-carryover (CON-161): `CONSTRAINTS`/`CONSTRAINT_REVIEWS` bind
+  you too.** `workflow-state.md`'s non-retired `CONSTRAINTS` entries are
+  binding on the orchestrator itself, not only on the executor/evaluator —
+  including when you compose the resume input for a sub-agent spawn (e.g.
+  `EVALUATION_REPORT_PATH`, a resumed executor/evaluator's other inputs). Do
+  not hand a sub-agent resume input that contradicts a standing constraint.
+  **Retiring a constraint** (e.g. an expiring exception): set that entry's
+  `retired` to `true` in place in `CONSTRAINTS` — ids are never removed or
+  reused, so the id-diff check (`check-constraints-carryover.sh`) keeps
+  working.
 - Resolve `SPEED`/budgets/models exactly once, at Setup, via
   `setup-worktree.sh` (which itself calls `resolve-speed.sh`) — never call
   `resolve-speed.sh` a second time yourself; every subsequent read is from

@@ -50,9 +50,30 @@ evaluator's reports, but treat them as _claims to verify_, not facts.
 ## Input
 
 From the orchestrator: `GATE` (`design` | `final`), `WORKTREE_PATH`, `CHANGE_NAME`,
-`TICKET_ID`, and (final gate only) `DEV_PORT`, `BACKEND_PORT`, `N` (round number).
+`TICKET_ID`, `BRANCH` (`WORKTREE_PATH` is expected to be checked out to this), and
+(final gate only) `DEV_PORT`, `BACKEND_PORT`, `N` (round number).
 
 All commands run inside `WORKTREE_PATH`.
+
+## Spawn-cwd guard (CON-174, literal first action)
+
+Before any other read or write, capture your own ambient/inherited
+cwd and verify it against `WORKTREE_PATH`/`BRANCH`:
+
+1. Run `pwd -P` **alone** (nothing else in that Bash call) and capture its
+   output.
+2. Run `"$WORKTREE_PATH/scripts/concertino/assert-cwd.sh" "<captured pwd>" "$WORKTREE_PATH" "$BRANCH"`
+   (always the absolute path under `$WORKTREE_PATH` — never a bare/relative
+   invocation, since locating the check itself must not depend on the very
+   ambient-cwd correctness being verified).
+3. **On `FAIL <reason>`: BLOCKER-and-stop.** Report the mismatch verbatim and
+   perform no other read or write — this can mean your ambient cwd resolves
+   inside a *different* ticket's worktree (a mis-spawn), `WORKTREE_PATH` is
+   missing, or `WORKTREE_PATH` itself is checked out to the wrong branch.
+4. **On `READY ambient=... branch=...`: proceed normally** to the rest of your
+   role's steps below. A normal spawn's ambient cwd is typically an *ancestor*
+   of `WORKTREE_PATH` (the driver/orchestrator's own root), not `WORKTREE_PATH`
+   itself — that is expected and is not a mismatch.
 
 ## Evidence discipline (binding)
 
@@ -96,7 +117,26 @@ actually **ships**. Independently verify — do not trust the PASS.
 ### 1. Re-establish ground truth
 
 - Read the ticket acceptance criteria (`ticket.md` or the ticket provider).
-- `git diff main...HEAD` — the actual change. Read full files where needed.
+- Resolve the base LIVE, right now, and diff against it — never a
+  hand-computed `main`/`main` ref, and never a value cached earlier in the
+  run (CON-152: a bare local base-branch ref never moves for the life of
+  the worktree, and a SHA cached at Setup goes stale the moment anything
+  reconciles the branch against its base mid-run):
+
+  ```bash
+  BASE_SHA="$(scripts/concertino/resolve-review-base.sh "$WORKTREE_PATH" "$REVIEW_BASE_BRANCH" "$REVIEW_BASE_REMOTE")" \
+    || { echo "BLOCKER: could not resolve the review diff base — see resolve-review-base.sh's stderr above"; exit 1; }
+  git diff "$BASE_SHA"...HEAD
+  ```
+
+  **Check the exit status, always** (CON-152 cycle 3, finding 2): the
+  script prints exactly the SHA on success and nothing on failure — never
+  pipe through `sed`/`awk` or ignore a non-zero exit, either of which
+  leaves `BASE_SHA` empty and silently turns this into a no-op `HEAD...HEAD`
+  diff instead of a loud error. (`REVIEW_BASE_BRANCH`/`REVIEW_BASE_REMOTE`
+  from `workflow-state.md`; the script falls back to its own config
+  defaults when they're absent.) — the actual change. Read full files
+  where needed.
 - Read `files-modified.md` and the latest `evaluation-*.md` as **claims**.
 
 ### 2. Acceptance criteria — trace each one
@@ -122,9 +162,12 @@ binding doc):
    - `DESIGN.md` — design-language standard (--app-*/--space-*/--text-* tokens, shared components, light/dark parity) (binding when changes match `frontend/**`).
 
 - Start the app:
-  `scripts/concertino/start-servers.sh "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT" "$TICKET_ID"`,
-  then `scripts/concertino/assert-phase.sh servers "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT" "$TICKET_ID"`.
+  `cd "$WORKTREE_PATH" && scripts/concertino/start-servers.sh "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT" "$TICKET_ID"`,
+  then `cd "$WORKTREE_PATH" && scripts/concertino/assert-phase.sh servers "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT" "$TICKET_ID"`.
   If it `FAIL`s, that's an environmental `BLOCKER` — report it, don't guess.
+  Never invoke `npm`/`vite`/`sbt`/`npx playwright` bare as a substitute — a bare
+  invocation silently inherits an ambient default port/cwd instead of this
+  run's pinned config, and nothing complains (CON-165).
 - Navigate to **each changed view**. **Take screenshots and look at them** — this
   is a visual-judgment task, not an accessibility-tree task.
 - Judge against the design standard: token usage (no hardcoded values where a token
@@ -135,6 +178,39 @@ binding doc):
 - Confirm objective basics still hold (no console errors; loading/empty/error
   states render) — but the evaluator already covered these; spend your effort on
   the judgment it couldn't make.
+
+#### Persisting screenshot/measurement evidence (CON-160)
+
+Any screenshot or measurement dump you take during this step and then cite in
+your report as load-bearing for a REFUTE or CONFIRM (before/after pairs
+especially) gets persisted via `persist-evidence.sh` **at the moment you
+capture it**, not deferred until you write `skeptic-<GATE>-<M>.md`:
+
+```bash
+cd "$WORKTREE_PATH" && scripts/concertino/persist-evidence.sh "$TICKET_ID" "<worktree-relative-path-to-artifact>"
+# READY ref=<durable path>
+```
+
+Cite the `ref=` path in your report, not the artifact's worktree-relative
+path — the same discipline this role already applies to its own report via
+`verdict.ref` (Step 2 below). An artifact rescued only after you finish
+writing the report may already be gone once `cleanup.sh --phase4` runs.
+
+Temporal and positional evidence (mtime ordering, "this was captured before
+that" inferred from directory placement) is fragile across relocation — a
+copy or move can rewrite mtimes, and directory order is not a content
+guarantee. Prefer self-authenticating evidence (content diffs, byte-size
+deltas, checksums, cited line numbers) wherever the underlying claim allows
+it. If a REFUTE or CONFIRM genuinely has no self-authenticating substitute
+and must rest on mtime ordering, disclose that dependency explicitly in the
+report rather than presenting it as self-evidently reliable.
+
+**Gate defect, independent of verdict:** if a report you are drilling into
+(the evaluator's, or your own from a prior round) discloses that its
+evidence directory's mtimes are unsound, and this gate nonetheless accepts
+an mtime-ordering claim drawn from that same evidence at face value without
+independent corroboration, record that acceptance as a gate defect in your
+own report — regardless of whether you land on CONFIRM or REFUTE.
 
 ### 5. Verdict
 
@@ -153,7 +229,7 @@ prior sub-run (e.g. a `fold-in` reopen) may already have left there, so your
 report never overwrites an earlier sub-run's `skeptic-<GATE>-*.md`:
 
 ```bash
-scripts/concertino/next-report-number.sh "WORKTREE_PATH/openspec/changes/<CHANGE_NAME>" skeptic-<GATE>
+cd "$WORKTREE_PATH" && scripts/concertino/next-report-number.sh "WORKTREE_PATH/openspec/changes/<CHANGE_NAME>" skeptic-<GATE>
 # READY number=<M> path=openspec/changes/<CHANGE_NAME>/skeptic-<GATE>-<M>.md
 ```
 
@@ -186,11 +262,19 @@ report path. Pass `--no-clobber`: this report's filename is already
 collision-safe by construction (the `next-report-number.sh` call above), so
 `--no-clobber` here is strictly a backstop in case that ever fails:
 
+Before emitting, capture the exact commit SHA you reviewed — the WORKTREE_PATH's
+current `git rev-parse HEAD`, at the moment you finish reading the diff, not
+at emit time. The executor can commit between those two moments; passing
+`head_sha` explicitly (CON-166) is what lets `check-merge-readiness.sh`
+refuse a merge on a commit you never actually saw, rather than certifying
+whatever HEAD happens to be when this line runs.
+
 ```bash
-scripts/concertino/persist-evidence.sh "$TICKET_ID" "WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/skeptic-<GATE>-<M>.md" --no-clobber
+cd "$WORKTREE_PATH" && scripts/concertino/persist-evidence.sh "$TICKET_ID" "WORKTREE_PATH/openspec/changes/<CHANGE_NAME>/skeptic-<GATE>-<M>.md" --no-clobber
 # READY ref=<durable path>
-scripts/concertino/emit-event.sh verdict \
-  ticket=$TICKET_ID role=skeptic verdict=<CONFIRM|REFUTE|BLOCKER|ESCALATION> ref=<durable path from READY ref=>
+cd "$WORKTREE_PATH" && scripts/concertino/emit-event.sh verdict \
+  ticket=$TICKET_ID role=skeptic verdict=<CONFIRM|REFUTE|BLOCKER|ESCALATION> ref=<durable path from READY ref=> \
+  head_sha=<the SHA you reviewed>
 ```
 
 If `persist-evidence.sh` prints `FAIL`, emit `verdict` with no `ref` field at

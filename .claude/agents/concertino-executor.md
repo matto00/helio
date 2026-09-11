@@ -29,11 +29,34 @@ From the orchestrator:
 - `CHANGE_NAME`: the planned change identifier
 - `WORKTREE_PATH`: absolute path to the git worktree
 - `TICKET_ID`: the ticket identifier
+- `BRANCH`: the run's branch — `WORKTREE_PATH` is expected to be checked out to this
 - `EVALUATION_REPORT_PATH`: (optional) path to a reviewer's report — the
   evaluator's, or the **skeptic's** (final-gate change requests). Present on
   re-runs, omit on first run. Address its change requests the same way either way.
 
 All file edits, commands, and commits happen inside `WORKTREE_PATH`.
+
+---
+
+## Spawn-cwd guard (CON-174, literal first action)
+
+Before any other read or write, capture your own ambient/inherited
+cwd and verify it against `WORKTREE_PATH`/`BRANCH`:
+
+1. Run `pwd -P` **alone** (nothing else in that Bash call) and capture its
+   output.
+2. Run `"$WORKTREE_PATH/scripts/concertino/assert-cwd.sh" "<captured pwd>" "$WORKTREE_PATH" "$BRANCH"`
+   (always the absolute path under `$WORKTREE_PATH` — never a bare/relative
+   invocation, since locating the check itself must not depend on the very
+   ambient-cwd correctness being verified).
+3. **On `FAIL <reason>`: BLOCKER-and-stop.** Report the mismatch verbatim and
+   perform no other read or write — this can mean your ambient cwd resolves
+   inside a *different* ticket's worktree (a mis-spawn), `WORKTREE_PATH` is
+   missing, or `WORKTREE_PATH` itself is checked out to the wrong branch.
+4. **On `READY ambient=... branch=...`: proceed normally** to the rest of your
+   role's steps below. A normal spawn's ambient cwd is typically an *ancestor*
+   of `WORKTREE_PATH` (the driver/orchestrator's own root), not `WORKTREE_PATH`
+   itself — that is expected and is not a mismatch.
 
 ---
 
@@ -43,6 +66,10 @@ You may be resumed across cycles (warm SendMessage on Claude Code; a
 `RESUME — do not start over` re-spawn elsewhere). **When resumed, DO NOT re-read
 context you already have** — skip step 1 and jump to step 2 with the new
 `EVALUATION_REPORT_PATH`. Cycle-2+ work is additive on your warm state.
+
+`workflow-state.md`'s non-retired `CONSTRAINTS` entries are binding for the
+remainder of the run, same standing as the Iron Laws — no separate re-read
+needed, since `workflow-state.md` is already read every cycle (CON-161).
 
 ---
 
@@ -102,8 +129,23 @@ source file:
 - `path/to/file.ext` — brief rationale
 ```
 
-Use `git diff --name-only main...HEAD` to enumerate. This gives the evaluator a
-compact map to orient review. Overwrite on re-runs to reflect the current state.
+Resolve the base LIVE and enumerate against it — never a hand-typed
+`main`/`main` ref or a value cached earlier in the run (CON-152):
+
+```bash
+BASE_SHA="$(scripts/concertino/resolve-review-base.sh "$WORKTREE_PATH" "$REVIEW_BASE_BRANCH" "$REVIEW_BASE_REMOTE")" \
+  || { echo "BLOCKER: could not resolve the review diff base — see resolve-review-base.sh's stderr above"; exit 1; }
+git diff --name-only "$BASE_SHA"...HEAD
+```
+
+**Check the exit status, always** (CON-152 cycle 3, finding 2): the script
+prints exactly the SHA on success and nothing on failure — never pipe its
+output through `sed`/`awk` or ignore a non-zero exit, either of which
+leaves `BASE_SHA` empty and turns `...HEAD` into a silent no-op diff
+instead of a loud error. (`REVIEW_BASE_BRANCH`/`REVIEW_BASE_REMOTE` from
+`workflow-state.md`; the script falls back to its own config defaults when
+they're absent.) This gives the evaluator a compact map to orient review.
+Overwrite on re-runs to reflect the current state.
 
 ### 5. Pre-commit self-check
 
@@ -112,7 +154,8 @@ compact map to orient review. Overwrite on re-runs to reflect the current state.
 
 ### 6. Run verification gates
 
-Determine which areas changed (`git diff --name-only main...HEAD`) and run the
+Determine which areas changed (`git diff --name-only "$BASE_SHA"...HEAD`,
+re-resolved live via the same call as above) and run the
 gates whose `when` matches:
 
 When changed files match `frontend/**`:
@@ -123,6 +166,12 @@ When changed files match `frontend/**`:
 
 When changed files match `backend/**`:
   - `cd backend && sbt test`
+
+If a gate failure tempts starting a dev/backend server ad hoc to debug it, use
+the canonical `scripts/concertino/start-servers.sh` — never invoke
+`npm`/`vite`/`sbt`/`npx playwright` bare (e.g. `npm run dev`). A bare
+invocation silently inherits an ambient default port/cwd instead of this
+run's pinned config, and nothing complains (CON-165).
 
 Fix any failure before proceeding. Never skip a failing gate. When a gate fails or
 you hit a bug, follow `systematic-debugging.md`: **no fix without a probe-confirmed
@@ -160,7 +209,7 @@ every worktree, for every contributor.
 - **Isolation-test the gate before the commit that wires it in.** Run:
 
   ```bash
-  scripts/concertino/test-gate-in-isolation.sh "$TICKET_ID" "<path-to-gate-script>"
+  cd "$WORKTREE_PATH" && scripts/concertino/test-gate-in-isolation.sh "$TICKET_ID" "<path-to-gate-script>"
   ```
 
   This exercises the actual target script once against a disposable fixture

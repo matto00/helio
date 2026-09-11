@@ -51,6 +51,18 @@ set -uo pipefail
 #
 # ALWAYS exits 0 in normal mode, including on internal error. Telemetry must
 # never fail a delivery run. (--await is the one exception; see below.)
+#
+# CON-171: NOT purely side-effect-free telemetry. A `verdict` invocation with
+# `role=auditor` also RELEASES the auditor's script-owned Phase-4 teardown
+# lease (see core/scripts/lib/auditor-lease.sh, taken by
+# check-merge-readiness.sh) — this is the auditor's one terminal action, and
+# every completing verdict path (MERGE, ESCALATE, BLOCKER, ESCALATION-RAISE)
+# goes through this call, so every completing path releases. The release
+# happens on RECOGNITION of the call shape, regardless of whether the event
+# write itself succeeds, is truncated, or is skipped by an early-exit /
+# validation path below — a silently-dropped telemetry line must never
+# strand a run behind a lease clearable only by `cleanup.sh --force-teardown`
+# (design.md Decision 4a). The release can never abort or fail this call.
 # ===========================================================================
 
 MAX_LINE=4000
@@ -59,6 +71,8 @@ MAX_LINE=4000
 # start-servers.sh already uses to invoke emit-event.sh) when an oversized
 # `context=` field on an escalation has to be persisted rather than inlined.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/auditor-lease.sh"
 
 # Millisecond epoch. GNU date supports %3N; BSD/macOS date does not, so fall
 # back to node (already a hard requirement for Concertino).
@@ -223,6 +237,12 @@ SUB_QUESTIONS=""
 # per-call poll budget, distinct from the escalation's real deadline. Never
 # folded into FIELDS/OTHER_FIELDS: it is a --wait-only invocation parameter,
 # not part of any event payload.
+# CON-166: captured separately (like CONTEXT/SUB_QUESTIONS above) so the
+# post-loop verdict-SHA logic below can tell "the caller stated a head_sha"
+# apart from "the generic k=v passthrough already wrote one" — the generic
+# `*)` case still folds head_sha into FIELDS/OTHER_FIELDS unchanged for every
+# other event kind; this var only drives the head_sha_source decision.
+HEAD_SHA=""
 MAX_WAIT_SEC=""
 
 for kv in ${ARGS+"${ARGS[@]}"}; do
@@ -234,6 +254,14 @@ for kv in ${ARGS+"${ARGS[@]}"}; do
     role)         ROLE="$val" ;;
     project)      PROJECT="$val" ;;
     max_wait_sec) MAX_WAIT_SEC="$val" ;;
+    head_sha)
+      # Falls through to FIELDS exactly like the generic `*)` case (that half
+      # is precondition-guaranteed by today's script and is not new
+      # behaviour — design.md Decision 2) — HEAD_SHA is the extra copy the
+      # post-loop head_sha_source logic below needs.
+      HEAD_SHA="$val"
+      FIELDS="${FIELDS},\"head_sha\":$(json_value "$val")"
+      ;;
     # `t` and `kind` are written by build_line and are structural, not payload.
     # Letting a caller pass them through emits the key twice; JSON.parse keeps
     # the LAST, so a stray `t=` silently reorders the whole log (the reducer
@@ -269,6 +297,27 @@ for kv in ${ARGS+"${ARGS[@]}"}; do
   esac
 done
 
+# CON-166 (design.md Decision 2): bind a verdict to the SHA the role actually
+# reviewed. If the caller stated one explicitly, record it as `stated` — this
+# is the guarantee the whole check depends on, because the executor can
+# commit between the moment the role finished reading the diff and the
+# moment it emits, and an emit-time `rev-parse` would certify a commit the
+# role never saw. Only when no `head_sha` argument was given do we fall back
+# to inferring the current git HEAD, labelled `inferred` — a strictly weaker
+# guarantee, made visible rather than silently presented as equivalent. When
+# neither resolves, the event is written with no SHA at all; the emission
+# itself must never fail (same contract as every other telemetry write here).
+if [ "$KIND" = "verdict" ]; then
+  if [ -n "$HEAD_SHA" ]; then
+    FIELDS="${FIELDS},\"head_sha_source\":\"stated\""
+  else
+    INFERRED_SHA="$(git rev-parse HEAD 2>/dev/null)" || INFERRED_SHA=""
+    if [ -n "$INFERRED_SHA" ]; then
+      FIELDS="${FIELDS},\"head_sha\":$(json_value "$INFERRED_SHA"),\"head_sha_source\":\"inferred\""
+    fi
+  fi
+fi
+
 # A terminal event that cannot be ticket-tagged is the one telemetry loss the
 # dashboard can never recover from: "terminal" is defined as "has emitted
 # run.end" (lib/ui/retention.js), so silently dropping this write leaves the
@@ -294,6 +343,21 @@ fi
 # was told the ticket id explicitly — a second, independent line of defense
 # under the explicit-argument fix in assert-phase.sh/start-servers.sh.
 TICKET="$(printf '%s' "$TICKET" | tr '[:lower:]' '[:upper:]')"
+
+# --- CON-171: release the auditor lease (Signal A) --------------------------
+# Placed here deliberately, not "upstream of :178's `ROOT=... || exit 0`" as
+# an earlier draft of design.md Decision 4a stated — TICKET and ROLE are only
+# known once the k=v argument loop above has run, and TICKET is only
+# validated/canonicalised by the block immediately above this one, both of
+# which are structurally below :178. This is the earliest point downstream of
+# :178 where both are settled (design-gate round 4 non-blocking note 1).
+# Reuses the already-resolved $ROOT from :178 rather than re-resolving it.
+# Every completing auditor verdict (MERGE/ESCALATE/BLOCKER/
+# ESCALATION-RAISE) reaches this line before any early-exit below, since none
+# of KIND/ROLE/TICKET-shape is auditor-verdict-specific past this point.
+if [ "$KIND" = "verdict" ] && [ "$ROLE" = "auditor" ]; then
+  lease_release "$ROOT" "$TICKET" || true
+fi
 
 RUN_DIR="${ROOT}/.concertino/runs/${TICKET}"
 mkdir -p "$RUN_DIR" 2>/dev/null || exit 0
@@ -488,6 +552,14 @@ discard_stale_answer() {
     write_line escalation.answer_discarded || true
   fi
   rm -f "$ANSWER_FILE" 2>/dev/null || true
+  # CON-156 (cycle 2, finding 4): the malformed-content dedupe marker
+  # (try_resolve's MALFORMED case, below) is scoped to this run directory's
+  # answer.json, not to a single escalation's lifetime — without clearing it
+  # here, a byte-identical malformed file raised again in a LATER escalation
+  # on the same ticket would silently warn zero times (the marker would still
+  # match), exactly the "operator gets no diagnostic" failure mode this whole
+  # fix exists to close.
+  rm -f "$ANSWER_FILE.malformed-warned" 2>/dev/null || true
 }
 
 # Shared by --await's and --wait-only's poll loops (CON-76): checks
@@ -505,16 +577,91 @@ try_resolve() {
     # parseable file with `complete: false` (or missing/malformed) is treated
     # identically to the file not existing yet: keep polling.
     [ -f "$ANSWER_FILE" ] || return 1
-    local sub_answers_json
-    sub_answers_json="$(node -e '
+    # CON-156: `complete === true` is necessary but not sufficient — it must
+    # ALSO carry a `subAnswers` array whose length matches this escalation's
+    # own `$TOTAL` (learned from the escalation.raised event, never from the
+    # answer file itself). A `complete: true` file that fails this shape
+    # check is malformed, not resolved — e.g. the single-question `{answer,
+    # complete}` shape mistakenly used to answer a multi-part escalation.
+    # `node` reports which of the three outcomes it found via a one-word
+    # prefix on stdout (nothing at all still means "not resolved yet", the
+    # pre-existing signal every other path here relies on):
+    #   "OK:<json array>"     — well-formed, resolved
+    #   "MALFORMED:<message>" — complete:true but the shape is wrong
+    local result reason sub_answers_json
+    result="$(node -e '
       try {
         const a = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+        const total = Number(process.argv[2]);
         if (a && a.complete === true) {
-          process.stdout.write(JSON.stringify(Array.isArray(a.subAnswers) ? a.subAnswers : []));
+          const arr = a.subAnswers;
+          if (!Array.isArray(arr)) {
+            process.stdout.write("MALFORMED:subAnswers is missing or not an array (expected an array of "
+              + total + " answers, one per sub-question)");
+          } else if (arr.length !== total) {
+            process.stdout.write("MALFORMED:subAnswers has " + arr.length + " entries, expected " + total
+              + " (one per sub-question) — arity mismatch");
+          } else if (arr.some((x) => x == null || x === "")) {
+            // CON-156 (cycle 3, finding 2): `complete: true` asserts every
+            // sub-question was answered — a null/empty slot inside an
+            // otherwise-right-length array is the same class of lie as a
+            // wrong-length array (a hand-edited or partially-clobbered
+            // answer.json), and must be rejected the same way, not silently
+            // resolved with an empty answer for that sub-question.
+            const emptyAt = arr.map((x, i) => (x == null || x === "" ? i : -1)).filter((i) => i !== -1);
+            process.stdout.write("MALFORMED:subAnswers has a null/empty entry at index "
+              + emptyAt.join(",") + " while complete=true (every slot must be filled)");
+          } else {
+            process.stdout.write("OK:" + JSON.stringify(arr));
+          }
         }
       } catch { /* not resolved yet — keep polling */ }
-    ' "$ANSWER_FILE" 2>/dev/null)"
-    [ -n "$sub_answers_json" ] || return 1
+    ' "$ANSWER_FILE" "$TOTAL" 2>/dev/null)"
+    case "$result" in
+      OK:*)
+        sub_answers_json="${result#OK:}"
+        ;;
+      MALFORMED:*)
+        reason="${result#MALFORMED:}"
+        # Non-destructive and self-correcting (preferred option in the
+        # ticket): keep polling exactly as if nothing had been written yet —
+        # never write escalation.answered for a malformed file. Guarded so a
+        # human/agent sees this once per distinct malformed CONTENT, not once
+        # per second of the poll loop, but re-warns if the file changes again
+        # (e.g. a second, differently-wrong attempt).
+        #
+        # CON-156 (cycle 2, finding 2): the stderr line alone is not enough —
+        # under --await, stderr is buffered inside the agent's own blocked
+        # Bash call and never reaches anyone until that call returns (by
+        # which point the escalation may already be long past due); under
+        # --wait-only the marker file below means only the FIRST of many
+        # short-lived polling processes ever prints it, so a human/dashboard
+        # attached only after that first poll sees nothing. Recording a
+        # dedicated, NON-TERMINAL `escalation.malformed` event fixes both: the
+        # event log — and therefore the dashboard, which is always watching it
+        # — carries the diagnostic regardless of which process happened to be
+        # polling when the bad file landed. "Non-terminal" here means exactly
+        # what it means for `escalation.answer_discarded` elsewhere in this
+        # script: reducer.js must NOT treat it as clearing `run.escalation`
+        # the way `escalation.answered`/`escalation.timeout` do (see
+        # lib/ui/reducer.js's `escalation.malformed` case) — the escalation
+        # stays open and NEEDS YOU, exactly as it should while its own
+        # answer.json remains malformed.
+        local warn_marker="$ANSWER_FILE.malformed-warned"
+        local content_hash
+        content_hash="$(cksum "$ANSWER_FILE" 2>/dev/null)"
+        if [ ! -f "$warn_marker" ] || [ "$(cat "$warn_marker" 2>/dev/null)" != "$content_hash" ]; then
+          echo "concertino: $ANSWER_FILE is malformed and was NOT recorded as an answer — $reason" >&2
+          FIELDS=",\"reason\":$(json_value "$reason")"
+          write_line escalation.malformed || true
+          printf '%s' "$content_hash" > "$warn_marker" 2>/dev/null || true
+        fi
+        return 1
+        ;;
+      *)
+        return 1
+        ;;
+    esac
     # Disarm before the final write — same reasoning as the single-question
     # path just below.
     trap - TERM INT
