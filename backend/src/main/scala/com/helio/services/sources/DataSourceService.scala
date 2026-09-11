@@ -6,7 +6,7 @@ import com.helio.domain.engine.{DatasetRowValidator, PipelineRowJson, SchemaFiel
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.Materializer
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.sources.{CsvPreviewResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
+import com.helio.api.protocols.sources.{CsvPreviewResponse, DatasetFieldResponse, DatasetSchemaResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository.{BlockingPipeline, DatasetRowRow, RowListPage, RowMutationFailure}
@@ -883,6 +883,20 @@ final class DataSourceService(
               case Some(_) => Future.successful(Left(ServiceError.BadRequest("row listing is only supported for dataset sources")))
             }
         }
+    }
+
+  /** HEL-1122 design.md Decision 1: 404 via `findByIdOwned` (not found/not owned, same ACL
+   *  convention as every other row route), 400 naming the actual kind for a non-`dataset`-kind
+   *  source, 200 with the declared field list otherwise. */
+  def getDatasetSchema(id: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, DatasetSchemaResponse]] =
+    dataSourceRepo.findByIdOwned(id, user).flatMap {
+      case None                   => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+      case Some(_: DatasetSource) =>
+        dataSourceRepo.getDeclaredSchema(id, user).map {
+          case None             => Left(ServiceError.NotFound("Data source not found"))
+          case Some(declaration) => Right(DatasetSchemaResponse(declaration.map(DatasetFieldResponse.fromDomain)))
+        }
+      case Some(ds) => Future.successful(Left(ServiceError.BadRequest(s"declared schema is only available for dataset sources (this source is '${ds.kind}')")))
     }
 
   private def parseCursor(raw: Option[String]): Either[String, Option[Long]] = raw match {

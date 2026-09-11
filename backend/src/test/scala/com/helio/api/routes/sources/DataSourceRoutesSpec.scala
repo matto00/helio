@@ -15,7 +15,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.persistence.{Database, DbContext}
-import com.helio.api.protocols.sources.{RowListResponse, RowResponse, RowWriteResponse}
+import com.helio.api.protocols.sources.{DatasetSchemaResponse, RowListResponse, RowResponse, RowWriteResponse}
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -1661,6 +1661,105 @@ class DataSourceRoutesSpec
         HttpEntity(ContentTypes.`application/json`, s"""{"updatedAt": "$updatedAtFromGet", "data": [2]}""")
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
+      }
+    }
+  }
+
+  // HEL-1122: additive declared-schema route (design.md Decision 1).
+  "GET /api/data-sources/:id/schema" should {
+
+    "return the declared field list for a dataset-kind source" in {
+      cleanDb()
+      val sourceId = createDatasetSource(
+        "Schema Base",
+        """[{"name": "a", "type": "string", "required": true}, {"name": "b", "type": "integer"}]""",
+        """[["x", 1]]"""
+      )
+
+      Get(s"/api/data-sources/$sourceId/schema") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[DatasetSchemaResponse]
+        resp.fields.map(_.name) shouldBe Vector("a", "b")
+        resp.fields.map(_.`type`) shouldBe Vector("string", "integer")
+        resp.fields.map(_.required) shouldBe Vector(true, false)
+      }
+    }
+
+    "always writes `required` even when false (never omitted behind an Option)" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Schema Required False", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+
+      Get(s"/api/data-sources/$sourceId/schema") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val raw = responseAs[JsValue].asJsObject.fields("fields").asInstanceOf[JsArray].elements.head.asJsObject
+        raw.fields.keySet should contain("required")
+        raw.fields("required") shouldBe JsBoolean(false)
+      }
+    }
+
+    "omits `default` entirely from the wire body when the field has no declared default (never emits null)" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Schema No Default", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+
+      Get(s"/api/data-sources/$sourceId/schema") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val raw = responseAs[JsValue].asJsObject.fields("fields").asInstanceOf[JsArray].elements.head.asJsObject
+        raw.fields.keySet should not contain "default"
+      }
+    }
+
+    "round-trips a declared default value" in {
+      cleanDb()
+      val sourceId = createDatasetSource(
+        "Schema Default",
+        """[{"name": "a", "type": "string", "default": "fallback"}]""",
+        """[["x"]]"""
+      )
+
+      Get(s"/api/data-sources/$sourceId/schema") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[DatasetSchemaResponse].fields.head.default shouldBe Some(JsString("fallback"))
+      }
+    }
+
+    "reject a non-dataset (csv) source with 400, not 500" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Csv For Schema Reject", validCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Get(s"/api/data-sources/$sourceId/schema") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("csv")
+      }
+    }
+
+    "return 404 for a source owned by another user" in {
+      cleanDb()
+      val sourceId = seedOtherOwnerDatasetSource()
+
+      Get(s"/api/data-sources/$sourceId/schema") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "return 404 for a nonexistent source id" in {
+      Get("/api/data-sources/does-not-exist/schema") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "does not add a new field to the existing StaticSourceResponse shape on GET /api/data-sources (regression)" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Schema Regression Base", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+
+      Get("/api/data-sources") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsValue].asJsObject.fields("items").asInstanceOf[JsArray].elements
+        val raw = items.map(_.asJsObject).find(_.fields("id") == JsString(sourceId)).getOrElse(fail("source not found in list"))
+        raw.fields.keySet shouldBe Set("id", "name", "createdAt", "updatedAt", "inferredSchema", "type")
       }
     }
   }

@@ -16,6 +16,7 @@ import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { settingsReducer } from "../features/settings/state/settingsSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
+import { datasetRowsReducer } from "../features/sources/state/datasetRowsSlice";
 import { addToastListeners } from "../features/toasts/state/toastListeners";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { listenerMiddleware, startAppListening } from "../store/listenerMiddleware";
@@ -163,6 +164,7 @@ export function renderWithStore(
     pipelines: pipelinesReducer,
     settings: settingsReducer,
     sources: sourcesReducer,
+    datasetRows: datasetRowsReducer,
     toasts: toastsReducer,
   };
 

@@ -20,14 +20,20 @@ module.exports = [
       // committer's own diff, which invites a `-n` bypass. Gitignored, but
       // ESLint's flat config does not consult .gitignore.
       ".claude/worktrees/**",
-      // Same reasoning one directory over: `.concertino/runs/**` holds a run's
+      // Same reasoning one directory over: `.concertino/**` holds a run's
       // EVIDENCE — probe scripts, derivation snippets, screenshots — not source.
       // CON-160 pushes agents to rescue those artifacts into the main checkout,
       // because anything left worktree-local is destroyed by `cleanup.sh
       // --phase4`. Doing the right thing there therefore dropped throwaway `.js`
       // probes into the lint path, and they blocked an unrelated commit in the
       // main checkout. Evidence is never shipped and must never gate a commit.
-      ".concertino/runs/**",
+      // Widened from `.concertino/runs/**` to `.concertino/**`: evidence has
+      // also landed at sibling paths like `.concertino/skeptic-f4/**`, outside
+      // `runs/`, and hit the exact same failure mode. Nothing lintable is
+      // tracked outside `.concertino/laws/**`/`.concertino/workflow-state.
+      // template.md` (both markdown, untouched by ESLint's `files` globs), so
+      // this is safe.
+      ".concertino/**",
     ],
   },
   js.configs.recommended,

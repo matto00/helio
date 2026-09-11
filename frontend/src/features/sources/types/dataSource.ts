@@ -227,3 +227,32 @@ export interface RowListResponse {
   nextCursor?: number;
   total: number;
 }
+
+// HEL-1122: GET /api/data-sources/:id/schema -- the declared field list a dataset source's row
+// grid (HEL-1080) needs to render typed columns/editors, rather than inferring shape from row 0.
+
+/** The full declared field-type set (design.md Decision 6) -- distinct from `StaticColumnType`
+ *  above, which predates `StringBodyType`/`BinaryRefType` and is scoped to the create-source
+ *  form's own (narrower) supported set. */
+export type DatasetFieldType =
+  | "string"
+  | "integer"
+  | "float"
+  | "boolean"
+  | "timestamp"
+  | "string-body"
+  | "binary-ref";
+
+/** One declared field, mirroring the backend's `DatasetFieldResponse` field-for-field.
+ *  `required` is always present (never omitted, even when `false`); `default` is genuinely
+ *  absent (not `null`) when the field has no declared default. */
+export interface DatasetFieldResponse {
+  name: string;
+  type: DatasetFieldType;
+  required: boolean;
+  default?: unknown;
+}
+
+export interface DatasetSchemaResponse {
+  fields: DatasetFieldResponse[];
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/dataset-field-response.schema.json",
+  "title": "DatasetFieldResponse",
+  "description": "One declared field in GET /api/data-sources/:id/schema's response (HEL-1122 design.md Decision 1). Mirrors DatasetFieldDeclaration field-for-field. `required` is always written, even when `false` -- never omitted. `default` is genuinely absent from the wire body (never a JSON `null`) when the field has no declared default.",
+  "type": "object",
+  "required": ["name", "type", "required"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "type": {
+      "type": "string",
+      "enum": ["string", "integer", "float", "boolean", "timestamp", "string-body", "binary-ref"]
+    },
+    "required": { "type": "boolean" },
+    "default": {}
+  },
+  "additionalProperties": false
+}

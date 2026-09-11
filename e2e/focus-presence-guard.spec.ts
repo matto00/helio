@@ -182,7 +182,16 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
     expect(pipelineRes.status()).toBe(201);
     const pipeline = await pipelineRes.json();
 
-    const routes = ["/", "/sources", `/pipelines/${pipeline.id}`, "/settings"];
+    // HEL-1080 tasks.md 5.3 (design.md Decision 9): `/sources/:id` for the seeded dataset
+    // ("static"-kind) source above, so this guard actually covers `DatasetRowGrid`'s gridMode
+    // focus/tabindex markup — it did not visit this route before this change.
+    const routes = [
+      "/",
+      "/sources",
+      `/sources/${source.id}`,
+      `/pipelines/${pipeline.id}`,
+      "/settings",
+    ];
     const viewList: string[] = [];
     const findings: Finding[] = [];
     let totalMeasured = 0;
@@ -212,6 +221,10 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
         expect(p.getByText("HEL-520 Guard Dashboard", { exact: true }).first()).toBeVisible(),
       "/sources": (p) =>
         expect(p.getByText("HEL-520 Guard Source", { exact: true }).first()).toBeVisible(),
+      // The dataset row grid's "Add row" button is always present once `DatasetRowGrid` has
+      // resolved the seeded source's declared schema + rows (HEL-1080).
+      [`/sources/${source.id}`]: (p) =>
+        expect(p.getByRole("button", { name: "Add row" })).toBeVisible(),
       [`/pipelines/${pipeline.id}`]: (p) =>
         expect(p.getByText("HEL-520 Guard Pipeline", { exact: true }).first()).toBeVisible(),
       // "Appearance" is SettingsPage.tsx's first static `<h2>` section

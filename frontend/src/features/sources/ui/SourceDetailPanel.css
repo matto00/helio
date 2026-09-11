@@ -149,7 +149,8 @@
   margin-top: var(--space-3);
 }
 
-.source-detail-panel__preview {
+.source-detail-panel__preview,
+.source-detail-panel__rows {
   padding-top: var(--space-4);
   border-top: 1px solid var(--app-border-subtle);
 }

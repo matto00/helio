@@ -15,6 +15,7 @@ import { DataGrid, TextField } from "../../../shared/ui/index";
 import { SchemaFieldViewer } from "../../../shared/ui/SchemaFieldViewer";
 import { EmptySchemaAffordance } from "./EmptySchemaAffordance";
 import { SourcePreviewSkeleton } from "./SourcePreviewSkeleton";
+import { DatasetRowGrid } from "./DatasetRowGrid";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface SourceDetailPanelProps {
@@ -208,16 +209,21 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
           )}
           <span className="source-detail-panel__type">{labelForKind(source.type)}</span>
         </div>
-        <div className="source-detail-panel__header-actions">
-          <button
-            type="button"
-            className="source-detail-panel__preview-btn"
-            onClick={() => void handlePreview()}
-            disabled={isLoading}
-          >
-            {isLoading ? "Loading…" : previewRows !== null ? "Reload" : "Preview"}
-          </button>
-        </div>
+        {/* HEL-1080 design.md Decision 7: a dataset-kind source's rows ARE its data —
+            `DatasetRowGrid` below replaces the read-only Preview entirely for this kind, so the
+            Preview button (which would only duplicate/shadow the editable grid) is hidden here. */}
+        {source.type !== "dataset" && (
+          <div className="source-detail-panel__header-actions">
+            <button
+              type="button"
+              className="source-detail-panel__preview-btn"
+              onClick={() => void handlePreview()}
+              disabled={isLoading}
+            >
+              {isLoading ? "Loading…" : previewRows !== null ? "Reload" : "Preview"}
+            </button>
+          </div>
+        )}
       </div>
       {isRenaming ? <InlineError error={renameError} variant="banner" /> : null}
 
@@ -266,42 +272,51 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
         <EmptySchemaAffordance source={source} />
       )}
 
-      <section className="source-detail-panel__preview" aria-label="Preview">
-        <h4 className="eyebrow source-detail-panel__section-title">Preview</h4>
-        {/* D5a — mutually exclusive (both clear together in handlePreview):
-            previewUnsupported is a deterministic capability limitation and
-            never gets a Retry action; previewError is a real, retryable
-            fetch failure. */}
-        <InlineError error={previewUnsupported} variant="banner" kind="error" />
-        <InlineError
-          error={previewError}
-          variant="banner"
-          kind={previewErrorKind ?? "error"}
-          onRetry={() => void handlePreview()}
-        />
-        {isLoading && previewRows === null && previewUnsupported === null ? (
-          // HEL-528 design.md D3/D7 — ONLY the true initial load: `isLoading`
-          // is also true on a Reload with rows already populated, and this
-          // must not replace an already-resolved `DataGrid` (that's D7's
-          // button-label spinner's job, left untouched below).
-          <SourcePreviewSkeleton />
-        ) : previewRows !== null ? (
-          <DataGrid
-            variant="preview"
-            rows={previewRows}
-            columns={previewHeaders?.map((h) => ({ key: h }))}
-            emptyText="Source returned no rows."
+      {source.type === "dataset" ? (
+        // HEL-1080 design.md Decision 7: a dataset source's rows ARE its data — the editable
+        // grid REPLACES the read-only Preview section entirely for this kind.
+        <section className="source-detail-panel__rows" aria-label="Rows">
+          <h4 className="eyebrow source-detail-panel__section-title">Rows</h4>
+          <DatasetRowGrid sourceId={source.id} />
+        </section>
+      ) : (
+        <section className="source-detail-panel__preview" aria-label="Preview">
+          <h4 className="eyebrow source-detail-panel__section-title">Preview</h4>
+          {/* D5a — mutually exclusive (both clear together in handlePreview):
+              previewUnsupported is a deterministic capability limitation and
+              never gets a Retry action; previewError is a real, retryable
+              fetch failure. */}
+          <InlineError error={previewUnsupported} variant="banner" kind="error" />
+          <InlineError
+            error={previewError}
+            variant="banner"
+            kind={previewErrorKind ?? "error"}
+            onRetry={() => void handlePreview()}
           />
-        ) : previewUnsupported === null ? (
-          // Suppressed when previewUnsupported is set (skeptic-final-1.md
-          // non-blocking note) — "Click Preview to load a sample" reads as
-          // contradictory advice directly beneath a message that already
-          // says preview isn't available for this source kind at all.
-          <p className="source-detail-panel__preview-empty">
-            Click <strong>Preview</strong> to load a sample of this source.
-          </p>
-        ) : null}
-      </section>
+          {isLoading && previewRows === null && previewUnsupported === null ? (
+            // HEL-528 design.md D3/D7 — ONLY the true initial load: `isLoading`
+            // is also true on a Reload with rows already populated, and this
+            // must not replace an already-resolved `DataGrid` (that's D7's
+            // button-label spinner's job, left untouched below).
+            <SourcePreviewSkeleton />
+          ) : previewRows !== null ? (
+            <DataGrid
+              variant="preview"
+              rows={previewRows}
+              columns={previewHeaders?.map((h) => ({ key: h }))}
+              emptyText="Source returned no rows."
+            />
+          ) : previewUnsupported === null ? (
+            // Suppressed when previewUnsupported is set (skeptic-final-1.md
+            // non-blocking note) — "Click Preview to load a sample" reads as
+            // contradictory advice directly beneath a message that already
+            // says preview isn't available for this source kind at all.
+            <p className="source-detail-panel__preview-empty">
+              Click <strong>Preview</strong> to load a sample of this source.
+            </p>
+          ) : null}
+        </section>
+      )}
     </div>
   );
 }

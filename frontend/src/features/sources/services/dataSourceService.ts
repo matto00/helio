@@ -1,6 +1,7 @@
 import type {
   DataSource,
   DataSourceKind,
+  DatasetSchemaResponse,
   InferredField,
   RowListResponse,
   RowResponse,
@@ -368,4 +369,16 @@ export async function deleteSourceRow(
   await httpClient.delete(`/api/data-sources/${sourceId}/rows/${rowId}`, {
     params: { updatedAt },
   });
+}
+
+// HEL-1122: GET /api/data-sources/:id/schema -- the declared field list HEL-1080's grid uses to
+// render typed columns/editors.
+
+/** Fetches a dataset source's declared field schema (name/type/required/default). Rejects with a
+ *  `400`-shaped `AxiosError` naming the actual kind if the source is not `dataset`-kind. */
+export async function fetchDatasetSchema(sourceId: string): Promise<DatasetSchemaResponse> {
+  const response = await httpClient.get<DatasetSchemaResponse>(
+    `/api/data-sources/${sourceId}/schema`,
+  );
+  return response.data;
 }
