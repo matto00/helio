@@ -58,7 +58,7 @@ class V99PreventZeroRootPipelinesMigrationSpec extends AnyWordSpec with Matchers
     val rootInserts = dsIds.zipWithIndex.map { case (dsId, idx) =>
       DBIO.seq(
         sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-               VALUES ($dsId, ${"ds-" + idx}, 'static', $cfg, $ownerId::uuid, now(), now())""",
+               VALUES ($dsId, ${"ds-" + idx}, 'dataset', $cfg, $ownerId::uuid, now(), now())""",
         sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position)
                VALUES (${UUID.randomUUID().toString}, $pid, $dsId, $idx)"""
       )

@@ -55,7 +55,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
              ON CONFLICT DO NOTHING""",
       sqlu"""INSERT INTO data_sources
                (id, name, source_type, config, owner_id, created_at, updated_at)
-               VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
+               VALUES ($dsId, 'ds', 'dataset', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
       
       sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'pipe', now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
@@ -627,7 +627,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
     val dsId     = UUID.randomUUID().toString
     await(db.run(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($dsId, 'ds2', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())"""
+             VALUES ($dsId, 'ds2', 'dataset', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())"""
     ))
     await(rootRepo.add(pid, DataSourceId(dsId), AuthenticatedUser(UserId(ownerId)))).id
   }

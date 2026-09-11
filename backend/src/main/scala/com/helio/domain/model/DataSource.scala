@@ -6,18 +6,27 @@ import java.time.Instant
 
 /** DataSource ADT.
  *
- *  Sealed-trait dispatch over the 5 source kinds. Each subtype carries its own
- *  typed config (or no config, for [[StaticSource]] — its column/row payload
- *  lives in [[CsvSourceConfig]] and the linked `DataType` row). The `kind`
- *  string is the persistence + wire discriminator (`"csv" | "rest_api" | "sql"
- *  | "static" | "text"`); see [[DataSourceKind]] for parse / unparse at the
- *  DB-row boundary.
+ *  Sealed-trait dispatch over the 7 source kinds. Each subtype carries its own
+ *  typed config, except [[StaticSource]] — HEL-1074 moved its column/row
+ *  payload off `data_sources.config` into the dedicated `dataset_rows` table
+ *  (one JSONB array value per row, positionally aligned to the source's
+ *  `dataset_schema` column) rather than a linked `DataType` row (the
+ *  pre-HEL-904 shape); see [[StaticSource]]'s own scaladoc for the full
+ *  post-migration storage story. The `kind` string is the wire discriminator
+ *  (`"csv" | "rest_api" | "sql" | "static" | "text" | "pdf" | "image"`); see
+ *  [[DataSourceKind]] for parse / unparse. The value STORED in
+ *  `data_sources.source_type` for a [[StaticSource]] row is `"dataset"`, not
+ *  `"static"` — `"static"` survives only as the wire-level `type` value until
+ *  HEL-1073's alias/rename work lands; see [[DataSourceRepository]]'s
+ *  `rowToDomain`/`domainToRow` for that mapping.
  *
  *  Wire shape (after CS2c-2) is a discriminated union on `type`:
  *  {{{ { "type": "csv", "id": "...", "name": "...", "config": { ... }, ... } }}}
- *  The DB table shape is unchanged — `data_sources.source_type` continues to
- *  hold the kind string, `data_sources.config` continues to hold the typed
- *  config as JSON. */
+ *  The DB table shape is otherwise unchanged for every kind but `static`/
+ *  `dataset` — `data_sources.source_type` continues to hold the kind string
+ *  and `data_sources.config` continues to hold the typed config as JSON for
+ *  every kind except `dataset`, whose `config` is unused (cleared to `{}`
+ *  by the migration and never written again). */
 sealed trait DataSource {
   def id: DataSourceId
   def name: String
@@ -129,19 +138,24 @@ final case class PdfSource(
   override val kind: String = "pdf"
 }
 
-/** Manually-entered static data. Columns + rows are stored in the linked
- *  `DataType` row's schema and replicated on every preview/refresh; the
- *  payload itself lives in the row's JSON column rather than on the source.
- *  CS2c-2 keeps the JSON-payload-on-`config` shape (`{columns, rows}`) for the
- *  StaticSource case via [[StaticSourcePayload]] — see services / preview
- *  paths.
+/** Manually-entered static data (HEL-1074: post-migration, stored as a
+ *  "dataset"-kind source). Row data lives in the dedicated `dataset_rows`
+ *  table (one JSONB array value per row, positionally aligned to the
+ *  source's `data_sources.dataset_schema` column, which holds the
+ *  caller-declared `[{name, type}, ...]` column list) — NOT in
+ *  `data_sources.config`, which is unused/cleared to `{}` for every
+ *  `dataset`-kind row. `source_type = 'dataset'` is the value actually
+ *  stored in the DB (`'static'` is still accepted as a wire alias for
+ *  request/response `type` fields until HEL-1073's alias ships); the Scala
+ *  ADT member here stays named `StaticSource` — renaming it is HEL-1073's
+ *  scope, not this one's.
  *
  *  We deliberately keep StaticSource flat (no `config` field): its payload is
  *  large and write-once-per-refresh, and the typed ADT shouldn't pretend it
- *  belongs to the source identity. The protocol layer materializes the
- *  `{columns, rows}` blob on demand from the DataType row (or the stored
- *  config blob for the legacy in-process / Spark engines that read it
- *  directly). */
+ *  belongs to the source identity. `DataSourceRepository.readDatasetRows`
+ *  materializes the `{columns, rows}` blob on demand from `dataset_schema` +
+ *  `dataset_rows` for the legacy in-process / Spark engines and the preview
+ *  endpoint, all of which consume that same shape directly. */
 final case class StaticSource(
     id: DataSourceId,
     name: String,

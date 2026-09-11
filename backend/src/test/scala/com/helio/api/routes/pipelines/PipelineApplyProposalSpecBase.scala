@@ -200,10 +200,10 @@ abstract class PipelineApplyProposalSpecBase
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, 'c1@helio.test', now())""",
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherId::uuid, 'c2@helio.test', now())""",
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($srcId::uuid, 'existing-static', 'static', $staticPayload::jsonb, $userId::uuid, now(), now())""",
+             VALUES ($srcId::uuid, 'existing-static', 'dataset', $staticPayload::jsonb, $userId::uuid, now(), now())""",
       
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($otherSrcId::uuid, 'other-static', 'static', $staticPayload::jsonb, $otherId::uuid, now(), now())"""
+             VALUES ($otherSrcId::uuid, 'other-static', 'dataset', $staticPayload::jsonb, $otherId::uuid, now(), now())"""
     )))
   }
 

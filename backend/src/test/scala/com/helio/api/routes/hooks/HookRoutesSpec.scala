@@ -6,6 +6,7 @@ import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCod
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.api.http.{AuthDirectives, SessionCookies}
 import com.helio.api.{ApiRoutes, JsonProtocols, PipelineRunRecord}
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, PipelineRunId, UserId}
@@ -154,7 +155,7 @@ class HookRoutesSpec
     val pid  = UUID.randomUUID().toString
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerUserId::uuid, now(), now())""",
+             VALUES ($dsId, 'ds', 'dataset', '{"columns":[],"rows":[]}', $ownerUserId::uuid, now(), now())""",
       
       sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', $ownerUserId::uuid, now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
@@ -173,12 +174,15 @@ class HookRoutesSpec
     val dtId     = UUID.randomUUID().toString
     val pid      = UUID.randomUUID().toString
     val stepId   = UUID.randomUUID().toString
-    val dsConfig = """{"columns":[{"name":"name","type":"string"}],"rows":[["a"],["b"]]}"""
+    // HEL-1074: row content lives in `dataset_rows`/`dataset_schema`, not `config` (unused/
+    // cleared for "dataset"-kind sources post-migration) -- seeded via the shared helper so the
+    // real pipeline run this test exercises actually reads 2 rows.
+    val dsPayload  = JsObject("columns" -> JsArray(JsObject("name" -> JsString("name"), "type" -> JsString("string"))), "rows" -> JsArray(JsArray(JsString("a")), JsArray(JsString("b"))))
     val stepConfig = """{"rules":[{"kind":"rowCountMax","severity":"error","params":{"count":1}}]}"""
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($dsId, 'ds', 'static', $dsConfig, $ownerUserId::uuid, now(), now())""",
-      
+             VALUES ($dsId, 'ds', 'dataset', '{}', $ownerUserId::uuid, now(), now())""",
+      DatasetRowsTestSupport.seedActions(dsId, dsPayload),
       sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', $ownerUserId::uuid, now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)""",
       sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, created_at, updated_at, root_id)

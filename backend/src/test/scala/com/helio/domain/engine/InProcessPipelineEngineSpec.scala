@@ -898,11 +898,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val rightConfigJson = rightConfig.compactPrint
+      val rightConfigJson = rightConfig
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-right") Some(rightDs) else None)
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(if (dsId.value == "ds-right") Some(rightConfigJson) else None)
       }
       val step = makeStep("join",
@@ -930,11 +930,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val rightConfigJson = rightConfig.compactPrint
+      val rightConfigJson = rightConfig
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-right-left") Some(rightDs) else None)
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(if (dsId.value == "ds-right-left") Some(rightConfigJson) else None)
       }
       val step = makeStep("join",
@@ -960,11 +960,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val otherConfigJson = otherConfig.compactPrint
+      val otherConfigJson = otherConfig
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-union-position") Some(otherDs) else None)
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(if (dsId.value == "ds-union-position") Some(otherConfigJson) else None)
       }
       val step = makeStep("union",
@@ -990,11 +990,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val otherConfigJson = otherConfig.compactPrint
+      val otherConfigJson = otherConfig
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-union-name") Some(otherDs) else None)
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(if (dsId.value == "ds-union-name") Some(otherConfigJson) else None)
       }
       val step = makeStep("union",
@@ -1020,11 +1020,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val otherConfigJson = otherConfig.compactPrint
+      val otherConfigJson = otherConfig
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-union-name-same") Some(otherDs) else None)
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(if (dsId.value == "ds-union-name-same") Some(otherConfigJson) else None)
       }
       val step = makeStep("union",
@@ -1070,11 +1070,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val otherConfigJson = buildStaticConfig(Seq("a"), Seq(Map[String, Any]("a" -> 1))).compactPrint
+      val otherConfigJson = buildStaticConfig(Seq("a"), Seq(Map[String, Any]("a" -> 1)))
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-union-badmode") Some(otherDs) else None)
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(if (dsId.value == "ds-union-badmode") Some(otherConfigJson) else None)
       }
       val step = makeStep("union",
@@ -1103,11 +1103,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val refConfigJson = refConfig.compactPrint
+      val refConfigJson = refConfig
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-lookup-match") Some(refDs) else None)
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(if (dsId.value == "ds-lookup-match") Some(refConfigJson) else None)
       }
       val step = makeStep("lookup",
@@ -1130,11 +1130,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val refConfigJson = refConfig.compactPrint
+      val refConfigJson = refConfig
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-lookup-nomatch") Some(refDs) else None)
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(if (dsId.value == "ds-lookup-nomatch") Some(refConfigJson) else None)
       }
       val step = makeStep("lookup",
@@ -1160,11 +1160,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val refConfigJson = refConfig.compactPrint
+      val refConfigJson = refConfig
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-lookup-multi") Some(refDs) else None)
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(if (dsId.value == "ds-lookup-multi") Some(refConfigJson) else None)
       }
       val step = makeStep("lookup",
@@ -1188,11 +1188,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val refConfigJson = refConfig.compactPrint
+      val refConfigJson = refConfig
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-lookup-collision") Some(refDs) else None)
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(if (dsId.value == "ds-lookup-collision") Some(refConfigJson) else None)
       }
       val step = makeStep("lookup",
@@ -1215,11 +1215,11 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val refConfigJson = refConfig.compactPrint
+      val refConfigJson = refConfig
       val mockRepo = new DataSourceRepository(null)(ec) {
         override def findByIdInternal(dsId: DataSourceId): Future[Option[DataSource]] =
           Future.successful(if (dsId.value == "ds-lookup-onlynamed") Some(refDs) else None)
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(if (dsId.value == "ds-lookup-onlynamed") Some(refConfigJson) else None)
       }
       val step = makeStep("lookup",
@@ -2697,9 +2697,9 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         createdAt = Instant.now(),
         updatedAt = Instant.now()
       )
-      val staticConfigJson = buildStaticConfig(Seq("a"), Seq(Map[String, Any]("a" -> 1))).compactPrint
+      val staticConfigJson = buildStaticConfig(Seq("a"), Seq(Map[String, Any]("a" -> 1)))
       val mockRepo = new DataSourceRepository(null)(ec) {
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(Some(staticConfigJson))
       }
       val (_, stats) = Await.result(engine.loadRowsWithStats(ds, mockRepo), 5.seconds)
@@ -2753,9 +2753,9 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         updatedAt = Instant.now()
       )
       val staticConfigJson =
-        buildStaticConfig(Seq("name"), Seq(Map[String, Any]("name" -> "alice"), Map[String, Any]("name" -> "bob"))).compactPrint
+        buildStaticConfig(Seq("name"), Seq(Map[String, Any]("name" -> "alice"), Map[String, Any]("name" -> "bob")))
       val mockRepo = new DataSourceRepository(null)(ec) {
-        override def readRawConfig(dsId: DataSourceId): Future[Option[String]] =
+        override def readDatasetRows(dsId: DataSourceId): Future[Option[JsObject]] =
           Future.successful(Some(staticConfigJson))
       }
       val step = makeStep("rename", """{ "renames": { "name": "renamed" } }""")
@@ -2794,7 +2794,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
   }
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
-  private def buildStaticConfig(colNames: Seq[String], rows: Seq[Map[String, Any]]): JsValue = {
+  private def buildStaticConfig(colNames: Seq[String], rows: Seq[Map[String, Any]]): JsObject = {
     val columns = colNames.map(n => JsObject("name" -> JsString(n), "type" -> JsString("string")))
     val jsRows  = rows.map { row =>
       JsArray(colNames.map(c => row.get(c).map(v => anyToJs(v)).getOrElse(JsNull)).toVector)

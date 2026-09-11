@@ -199,7 +199,7 @@ class DataSourceRoutesSpec
     val cfg = """{"columns":[],"rows":[]}"""
     await(db.run(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($id, 'extra-root', 'static', $cfg, $testUserId::uuid, now(), now())"""
+             VALUES ($id, 'extra-root', 'dataset', $cfg, $testUserId::uuid, now(), now())"""
     ))
     id
   }

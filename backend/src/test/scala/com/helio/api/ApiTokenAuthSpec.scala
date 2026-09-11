@@ -194,7 +194,7 @@ class ApiTokenAuthSpec
     val pid  = UUID.randomUUID().toString
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerUserId::uuid, now(), now())""",
+             VALUES ($dsId, 'ds', 'dataset', '{"columns":[],"rows":[]}', $ownerUserId::uuid, now(), now())""",
       
       sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', $ownerUserId::uuid, now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""

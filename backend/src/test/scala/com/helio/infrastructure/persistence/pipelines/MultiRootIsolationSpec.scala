@@ -67,9 +67,9 @@ class MultiRootIsolationSpec extends AnyWordSpec with Matchers with BeforeAndAft
     val src1Id = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, created_at, updated_at, owner_id)
-             VALUES ($src0Id, 'src0', 'static', '{}', now(), now(), ${ownerId.value}::uuid)""",
+             VALUES ($src0Id, 'src0', 'dataset', '{}', now(), now(), ${ownerId.value}::uuid)""",
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, created_at, updated_at, owner_id)
-             VALUES ($src1Id, 'src1', 'static', '{}', now(), now(), ${ownerId.value}::uuid)"""
+             VALUES ($src1Id, 'src1', 'dataset', '{}', now(), now(), ${ownerId.value}::uuid)"""
     )))
     val summary = await(pipelineRepo.create("multi-root-isolation-pipe", Vector(DataSourceId(src0Id)), owner))
       .getOrElse(fail("expected Right from pipelineRepo.create"))

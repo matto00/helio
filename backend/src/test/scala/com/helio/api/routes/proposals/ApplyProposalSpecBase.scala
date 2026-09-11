@@ -160,7 +160,7 @@ abstract class ApplyProposalSpecBase
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, 'a1@helio.test', now())""",
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherId::uuid, 'a2@helio.test', now())""",
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($srcId::uuid, 'src', 'static', '{}'::jsonb, $userId::uuid, now(), now())""",
+             VALUES ($srcId::uuid, 'src', 'dataset', '{}'::jsonb, $userId::uuid, now(), now())""",
       // Pipeline-output type: source_id NULL, owned by userId → bindable.
       
       // Companion type: source_id set → NOT bindable.

@@ -88,7 +88,7 @@ class AlertRuleRoutesSpec
     val outId = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($dsId, 'src', 'static', '{}', $ownerId::uuid, now(), now())""",
+             VALUES ($dsId, 'src', 'dataset', '{}', $ownerId::uuid, now(), now())""",
       
       sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pId, 'pipe', $ownerId::uuid, now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pId, $pId, $dsId, 0)""",

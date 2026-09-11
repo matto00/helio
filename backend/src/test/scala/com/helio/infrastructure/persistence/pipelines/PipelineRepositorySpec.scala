@@ -56,7 +56,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources
                (id, name, source_type, config, owner_id, created_at, updated_at)
-               VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
+               VALUES ($dsId, 'ds', 'dataset', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
       
       sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'pipe', now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
@@ -158,7 +158,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
                  VALUES ($customOwner::uuid, ${s"user-$customOwner@helio.test"}, now())""",
         sqlu"""INSERT INTO data_sources
                  (id, name, source_type, config, owner_id, created_at, updated_at)
-                 VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}', $customOwner::uuid, now(), now())"""
+                 VALUES ($dsId, 'ds', 'dataset', '{"columns":[],"rows":[]}', $customOwner::uuid, now(), now())"""
       )))
 
       val result = await(pipelineRepo.create(
@@ -321,7 +321,7 @@ class PipelineRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAft
                  VALUES ($ownerB::uuid, ${s"b-$ownerB@helio.test"}, now())""",
         sqlu"""INSERT INTO data_sources
                  (id, name, source_type, config, owner_id, created_at, updated_at)
-                 VALUES ($dsId, 'ds-owned-by-a', 'static',
+                 VALUES ($dsId, 'ds-owned-by-a', 'dataset',
                          '{"columns":[],"rows":[]}', $ownerA::uuid, now(), now())"""
       )))
       val result = await(pipelineRepo.create(

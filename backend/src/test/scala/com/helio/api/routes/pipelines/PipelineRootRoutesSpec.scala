@@ -94,7 +94,7 @@ class PipelineRootRoutesSpec
     val cfg  = """{"columns":[],"rows":[]}"""
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-               VALUES ($dsId, 'ds', 'static', $cfg, $ownerId::uuid, now(), now())""",
+               VALUES ($dsId, 'ds', 'dataset', $cfg, $ownerId::uuid, now(), now())""",
       sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'p', $ownerId::uuid, now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($rid, $pid, $dsId, 0)"""
     )))
@@ -109,7 +109,7 @@ class PipelineRootRoutesSpec
     val cfg  = """{"columns":[],"rows":[]}"""
     await(db.run(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-               VALUES ($dsId, 'ds2', 'static', $cfg, $ownerId::uuid, now(), now())"""
+               VALUES ($dsId, 'ds2', 'dataset', $cfg, $ownerId::uuid, now(), now())"""
     ))
     dsId
   }
@@ -247,7 +247,7 @@ class PipelineRootRoutesSpec
       val cfg  = """{"columns":[],"rows":[]}"""
       await(db.run(DBIO.seq(
         sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-                 VALUES ($dsId, 'ds', 'static', $cfg, $otherOwner::uuid, now(), now())""",
+                 VALUES ($dsId, 'ds', 'dataset', $cfg, $otherOwner::uuid, now(), now())""",
         sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'p', $otherOwner::uuid, now(), now())""",
         sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
       )))

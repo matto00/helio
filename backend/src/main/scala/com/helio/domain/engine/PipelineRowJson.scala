@@ -136,8 +136,13 @@ object PipelineRowJson {
   /** Parse a static-source `config` blob (the `{columns, rows}` shape stored
    *  on `data_sources.config`) into engine rows. Lives here because both the
    *  in-process engine's `loadRows` and the join helper consume it. */
-  def parseStaticRows(raw: String): Seq[Row] = {
-    val obj      = parseStaticPayload(raw)
+  def parseStaticRows(raw: String): Seq[Row] = parseStaticRows(parseStaticPayload(raw))
+
+  /** HEL-1074: same shape as the `raw: String`-taking overload above, but consuming an
+   *  already-parsed `{columns, rows}` object directly -- `readDatasetRows` (post-migration)
+   *  hands back a `JsObject` it built from `dataset_schema` + `dataset_rows`, not a raw config
+   *  string, so there is no longer a JSON string to re-parse at this call site. */
+  def parseStaticRows(obj: JsObject): Seq[Row] = {
     val columns  = obj.fields.getOrElse("columns", JsArray.empty).convertTo[Vector[JsObject]]
     val rows     = obj.fields.getOrElse("rows", JsArray.empty).convertTo[Vector[Vector[JsValue]]]
     val colNames = columns.map(_.fields("name").convertTo[String])
