@@ -23,7 +23,7 @@
 - **WHEN** no columns have been defined
 - **THEN** the "Next" button is disabled
 
-### Requirement: DataSourceList shows a Static badge for dataset sources
+### Requirement: DataSourceList shows a Static badge for static sources
 `DataSourceList` SHALL render a "Static" badge for sources whose discriminator `type` is `"dataset"`
 (the canonical value the API now returns for this connector kind — HEL-1073; the badge's copy is
 unchanged, no product-facing rename). No source is ever returned by the API with `type: "static"` —

@@ -52,12 +52,13 @@ rejection, not a default.
 ### Requirement: Structural pre-validation creates nothing on a bad proposal
 Before any resource is created, the service SHALL validate **every element of `roots`
 independently**, rejecting: a root that sets both `sourceId` and an inline `type`; a root that sets
-neither; an inline `type` outside `csv`/`rest_api`/`sql`/`static`; an inline root whose `name` is
-absent or blank; an inline root whose type-matched `config` field is absent; an inline `sql` root
-whose query is not read-only; an empty `roots` array; and any step whose `type` is not a recognized
-pipeline step kind or whose `config` does not decode for that kind. A rejection SHALL name the
-offending root by its request position, so a fault in the second root is not reported against the
-first. Every rejection SHALL create no source, pipeline, root, step, or Output row.
+neither; an inline `type` outside `csv`/`rest_api`/`sql`/`static`/`dataset` (`static` and `dataset`
+are accepted as equivalent — HEL-1073's write-side alias); an inline root whose `name` is absent or
+blank; an inline root whose type-matched `config` field is absent; an inline `sql` root whose query
+is not read-only; an empty `roots` array; and any step whose `type` is not a recognized pipeline step
+kind or whose `config` does not decode for that kind. A rejection SHALL name the offending root by
+its request position, so a fault in the second root is not reported against the first. Every
+rejection SHALL create no source, pipeline, root, step, or Output row.
 
 #### Scenario: Non-SELECT SQL is rejected creating nothing
 - **WHEN** a caller POSTs a proposal with an inline `sql` root whose query contains a DDL/DML keyword
@@ -93,6 +94,11 @@ first. Every rejection SHALL create no source, pipeline, root, step, or Output r
   `sourceId` nor `type`
 - **THEN** the response is a `400 Bad Request` naming the second root's request position, and nothing
   is created
+
+#### Scenario: Inline dataset root is accepted via either discriminator
+- **WHEN** a caller POSTs a proposal with an inline root whose `type` is `"static"`, and separately
+  one whose `type` is `"dataset"`, both with a valid `name` and `config`
+- **THEN** both are accepted identically and neither is rejected as an unrecognized inline `type`
 
 ### Requirement: Source-fetch failure is a structured, rolled-back error
 The service SHALL NOT delete a just-created source when **a root's** inline `rest_api` or `sql`

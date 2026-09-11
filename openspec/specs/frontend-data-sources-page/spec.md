@@ -1,6 +1,8 @@
 ## Purpose
 Frontend spec for the Sources page: data source listing, type registry browser, and associated UX patterns.
+
 ## Requirements
+
 ### Requirement: /sources route renders SourcesPage
 The frontend SHALL register a `/sources` route via React Router that renders `SourcesPage`. The existing `/` route continues to render the dashboard panel view. Navigation between routes is provided by `NavLink` components in the app sidebar with `aria-label="Main navigation"`. The sidebar SHALL include nav links for Dashboards (`/`), Data Sources (`/sources`), and Data Pipelines (`/pipelines`).
 
@@ -87,7 +89,7 @@ The frontend `DataType` interface SHALL NOT include a source-kind discriminator 
 - **THEN** the type badge is displayed to indicate the type is source-backed
 
 ### Requirement: AddSourceModal has a Manual/Static tab
-`AddSourceModal` SHALL include a third tab labelled "Manual" alongside the existing "REST API" and "CSV" tabs. Selecting this tab SHALL show a two-step flow: Step 1 — define columns (name and type selector: string/integer/float/boolean); Step 2 — enter row values inline using inputs matched to each column's declared type. Clicking "Create source" in Step 2 SHALL POST to `/api/data-sources` with `Content-Type: application/json` and discriminator `type: "static"`.
+`AddSourceModal` SHALL include a third tab labelled "Manual" alongside the existing "REST API" and "CSV" tabs. Selecting this tab SHALL show a two-step flow: Step 1 — define columns (name and type selector: string/integer/float/boolean); Step 2 — enter row values inline using inputs matched to each column's declared type. Clicking "Create source" in Step 2 SHALL POST to `/api/data-sources` with `Content-Type: application/json` and discriminator `type: "dataset"`.
 
 #### Scenario: Manual tab is accessible
 - **WHEN** the user opens `AddSourceModal`
@@ -103,16 +105,18 @@ The frontend `DataType` interface SHALL NOT include a source-kind discriminator 
 
 #### Scenario: Save posts static payload
 - **WHEN** the user has defined columns and rows and clicks "Create source"
-- **THEN** `POST /api/data-sources` is called with `Content-Type: application/json`, discriminator `type: "static"`, `columns`, and `rows`
+- **THEN** `POST /api/data-sources` is called with `Content-Type: application/json`, discriminator `type: "dataset"`, `columns`, and `rows`
 
 #### Scenario: Empty column list prevents progression
 - **WHEN** no columns have been defined
 - **THEN** the "Next" button is disabled
 
 ### Requirement: DataSourceList shows a Static badge for static sources
-`DataSourceList` SHALL render a "Static" badge for sources whose discriminator `type` is `"static"`, consistent with the existing badge rendering for other source types.
+`DataSourceList` SHALL render a "Static" badge for sources whose discriminator `type` is `"dataset"`
+(the canonical value the API now returns for this connector kind — HEL-1073; the badge's copy is
+unchanged, no product-facing rename). No source is ever returned by the API with `type: "static"` —
+that value is accepted on write only.
 
 #### Scenario: Static badge is visible
-- **WHEN** a data source with `type: "static"` appears in `DataSourceList`
+- **WHEN** a data source with `type: "dataset"` appears in `DataSourceList`
 - **THEN** a badge with the text "Static" is rendered next to the source name
-

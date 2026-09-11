@@ -53,7 +53,7 @@ reflect the new columns.
   JSON body format
 - **THEN** the response is 400 indicating the source is not a dataset source
 
-### Requirement: GET /api/data-sources/:id/preview returns stored rows for dataset sources
+### Requirement: GET /api/data-sources/:id/preview returns stored rows for static sources
 `GET /api/data-sources/:id/preview` SHALL return stored rows from `dataset_rows` for a `dataset`-kind
 source. The response format SHALL match the existing `CsvPreviewResponse`: `{ headers: string[], rows: string[][] }`.
 
