@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/row-write-response.schema.json",
+  "title": "RowWriteResponse",
+  "description": "Response body for both POST (append) and PUT (replace) /api/data-sources/:id/rows (HEL-1077). `rows` carries only the newly appended rows on POST, or the full new set on PUT. Row `data` is deliberately omitted -- readers fetch rows through the existing preview/read path.",
+  "type": "object",
+  "required": ["rows", "updatedAt"],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": { "$ref": "./row-write-row-response.schema.json" }
+    },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

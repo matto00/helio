@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/row-write-request.schema.json",
+  "title": "RowWriteRequest",
+  "description": "Request body for both POST (append) and PUT (replace) /api/data-sources/:id/rows (HEL-1077). `rows` is a positional row array -- each row itself an array of cell values positionally aligned to the source's declared column order, matching the shape `DatasetRowValidator`/`dataset_rows.data` already use (never object-keyed). An empty array is rejected with 400 on POST but is a valid 'clear all rows' request on PUT -- that distinction is enforced server-side, not by this schema.",
+  "type": "object",
+  "required": ["rows"],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {}
+      }
+    }
+  },
+  "additionalProperties": false
+}

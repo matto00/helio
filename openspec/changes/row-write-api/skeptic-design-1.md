@@ -1,0 +1,36 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+### What I verified (with evidence)
+- Read ticket.md, proposal.md, design.md, tasks.md, specs/dataset-row-write-api/spec.md, specs/data-source-acl/spec.md.
+- V106 (`backend/src/main/resources/db/migration/V106*`): `dataset_rows(id TEXT, data_source_id, seq BIGINT, data JSONB, created_at, updated_at, UNIQUE(data_source_id, seq))`, forced RLS through `data_sources.owner_id`. Backfill assigns **0-based** seq (`elem.ord - 1`, with a comment saying 0-based "lines up with the 0-based row/column indexing every reader already uses"). No migration is needed for the unique constraint. Confirmed.
+- `DatasetRowValidator.validate(declaration, rows: Vector[Vector[JsValue]])` exists, is pure, and takes **positional** rows. `createStatic`/`applyStaticRefresh` both call it. The design does reuse it. Confirmed.
+- `DataSourceRepository.insertDatasetSource` (L329) and `replaceDatasetRows` (L359) both assign `seq = idx` (0-based). `replaceDatasetRows` already does delete-then-insert and also rewrites `dataset_schema`, `inferred_schema` and `updated_at` in the same transaction. It takes **no** `FOR UPDATE` lock.
+- `DataSourceService.staticMaxRows = 500` (L63, private) is used by createStatic and refresh. Confirmed.
+- `inferred_schema` is derived from the stored cells (`PipelineRowJson.staticColumnRuntimeType`, L120: the measured JSON kind of the column's cells, or the declared type when there are no cells). It is kept in sync on create (service L154-162) and on refresh (`replaceDatasetRows`).
+- `DbContext.withUserContext` wraps the action in `.transactionally` on the RLS-enforcing pool. `readDatasetRows` (the only existing reader of `dataset_schema`) runs on the privileged pool (`withSystemContext`).
+- `ApiRoutes.scala:~792` mounts `DataSourceRoutes` inside the authenticated, rate-limited block. Confirmed. The refresh route is `DataSourcePreviewRoutes.scala:34`.
+- `data_sources_owner` policy (V35:43) is `USING` only, applies to all commands, so an owner-scoped `SELECT ... FOR UPDATE` resolves under the app role.
+- v0.8 spec L124-127 and L155: HEL-1078's precondition is `WHERE id = ? AND updated_at = ?` on the **row**.
+- Auto-run is excluded explicitly (design Non-Goals, proposal Non-goals). Nothing in the plan assumes it.
+- data-source-acl MODIFIED delta: the existing DELETE requirement text and its scenarios are carried over verbatim and extended. That is valid.
+
+### Verdict: REFUTE
+
+The overall structure is right: it reuses the validator, uses a per-source lock with the unique constraint as a backstop, and treats replace as a single transaction. Four issues are real correctness gaps against ground truth. One more is an implementation-blocking ambiguity.
+
+### Change Requests
+1. **The lock does not serialize every writer to `dataset_rows`, and validation happens outside it (design D1/D2, tasks 1.1/2.1).** `POST /api/data-sources/:id/refresh` goes through `replaceDatasetRows` (DataSourceRepository.scala:359). That path does delete-then-insert with seq `0..N-1` and changes `dataset_schema`, all without the `FOR UPDATE` lock. Two failure modes follow:
+   - (a) A refresh racing an append can collide on `UNIQUE(data_source_id, seq)` and surface as a 500.
+   - (b) tasks.md 2.1 validates against the declared schema in the service, before the repository transaction. A concurrent refresh can change `dataset_schema` between validation and insert, which persists rows that violate the current declaration.
+   - The same pre-transaction placement makes D4's append check ("existing + new <= 500") a check-then-act: two concurrent appends can both pass it and exceed 500.
+   - Required: (i) take the same `data_sources ... FOR UPDATE` lock in `replaceDatasetRows` (or route refresh through the new locked path); (ii) read the declared schema, run the append count check, and run validation inside the locked transaction, or re-read the schema under the lock and reject on mismatch; (iii) add a test for refresh racing an append.
+2. **`inferred_schema` is ignored.** Append and replace change the stored cells. `inferred_schema` is a function of those cells (`staticColumnRuntimeType`), and create and refresh both keep it in sync. Example: appending the first rows to an empty source, or appending a string into a column whose cells were all numbers, changes the runtime type. The plan never recomputes it, so pipelines and analysis would read a stale schema. Required: recompute `inferred_schema` over the full post-write row set inside the same transaction, matching `replaceDatasetRows`. Alternatively, state and justify why it is safe not to. Add a test in either case.
+3. **The seq convention contradicts ground truth.** D2 assigns `1..N` on replace, and D1 uses `COALESCE(MAX(seq), 0) + 1`, so the first append to an empty source gets seq 1. Every existing writer (V106 backfill, `insertDatasetSource`, `replaceDatasetRows`) uses 0-based seq, and V106 documents 0-based as the reader convention. After a PUT and a refresh, the same source would carry two conventions. Required: use 0-based seq (`COALESCE(MAX(seq) + 1, 0)`; replace uses `0..N-1`). Better still, have PUT reuse or extend `replaceDatasetRows` rather than adding a second parallel replace method. The design should say which.
+4. **The response shape misses HEL-1078's precondition key (D5, spec "Row-write responses...").** The ticket and the v0.8 spec (L126-127) bind HEL-1078's precondition to the **row's** `updated_at` (`WHERE id = ? AND updated_at = ?`). D5 returns only `{id, seq}` per row, plus the source's `updatedAt`. Required: include per-row `updatedAt` (and arguably `data`, so HEL-1080's grid can render without a refetch) in the response DTO, the JSON schema, and the spec scenario.
+5. **The request body shape is unspecified.** No artifact defines the POST/PUT body. It could be `{"rows": [[...]]}` (positional, matching the validator and storage) or object-keyed rows. It could also be an empty array, which neither artifact addresses: is PUT `[]` a legitimate "clear all", and is POST `[]` a 400 or a no-op? Two competent implementers would build different contracts. Required: pin the request shape (positional `Vector[Vector[JsValue]]` under a named key), the empty-array semantics for each verb, and that validator error row indices are relative to the request body. Add these to design D5 and the spec.
+6. **The byte-size limit is not addressed.** The ticket context asks to find and reuse the existing body-size/input-budget config. The design covers only the row count. Required: state which request-entity byte limit applies to these routes (the existing Pekko server `max-content-length`, or the `ContentSourceSupport` limits) and whether it is sufficient for 500 rows. If no limit applies, add one.
+
+### Non-blocking notes
+- The D1 precedent `PanelMutationRepository.scala:59` is a `withSystemContext` (privileged) action. `withUserContext` is already `.transactionally`, so extra wrapping is redundant. Cite the user-context pattern instead.
+- tasks 5.7: MISTAKES.md / the RLS parity memory note that dev and CI connect as a superuser. Make sure the test actually connects as a non-BYPASSRLS role. Otherwise it proves nothing.
+- `staticMaxRows` is `private`. Consider renaming it to something like `datasetMaxRows` while touching it. Optional.

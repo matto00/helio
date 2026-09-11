@@ -433,6 +433,86 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
         typedSystem.terminate()
       }
     }
+
+    // HEL-1077 tasks.md 5.9: exercise BOTH row-write routes' persistence under the app's actual
+    // non-superuser role (`helio_app_test`, via this spec's `ctx`) -- `DataSourceRepository
+    // .appendRows`/`replaceRows` call `ctx.withUserContext`, wired to `appDb` here exactly like
+    // `newDatasetService` above, so this is a genuine non-superuser exercise, not merely a policy
+    // existence check.
+    "DataSourceService.appendRows runs as the app role and is RLS-scoped to its owner" in {
+      cleanDb()
+      val (repo, service, typedSystem) = newDatasetService()
+      try {
+        val createReq = StaticDataSourceRequest(
+          name    = "RLS Append Base",
+          `type`  = "static",
+          columns = Vector(StaticColumnPayload("a", "string")),
+          rows    = Vector(Vector(JsString("orig")))
+        )
+        val src = Await.result(service.createStatic(createReq, AuthenticatedUser(ownerA)), 5.seconds) match {
+          case Right(s) => s
+          case Left(e)  => fail(s"createStatic failed: $e")
+        }
+
+        val appended = Await.result(service.appendRows(src.id, Vector(Vector(JsString("new"))), AuthenticatedUser(ownerA)), 5.seconds)
+        appended.isRight shouldBe true
+
+        // ownerA (the app role) sees both rows; ownerB (also the app role, different identity)
+        // sees none -- proving the write actually ran RLS-scoped, not on a bypassing pool.
+        val rowsAsOwner = await(ctx.withUserContext(ownerA.value)(
+          sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value} ORDER BY seq".as[String]
+        ))
+        rowsAsOwner shouldBe Vector("[\"orig\"]", "[\"new\"]")
+        val rowsAsOther = await(ctx.withUserContext(ownerB.value)(
+          sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        rowsAsOther shouldBe empty
+
+        // Confirm ownerB's own session context, run through the SAME service instance and
+        // therefore the SAME non-superuser connection pool, cannot write into ownerA's rows at
+        // all -- `findByIdOwned` (also RLS-scoped) returns None for ownerB, giving a 404-shaped
+        // NotFound rather than a cross-tenant write succeeding.
+        val crossOwnerAttempt = Await.result(service.appendRows(src.id, Vector(Vector(JsString("hijack"))), AuthenticatedUser(ownerB)), 5.seconds)
+        crossOwnerAttempt.isLeft shouldBe true
+      } finally {
+        typedSystem.terminate()
+      }
+    }
+
+    "DataSourceService.replaceRows runs as the app role and is RLS-scoped to its owner" in {
+      cleanDb()
+      val (repo, service, typedSystem) = newDatasetService()
+      try {
+        val createReq = StaticDataSourceRequest(
+          name    = "RLS Replace Base",
+          `type`  = "static",
+          columns = Vector(StaticColumnPayload("a", "string")),
+          rows    = Vector(Vector(JsString("orig")))
+        )
+        val src = Await.result(service.createStatic(createReq, AuthenticatedUser(ownerA)), 5.seconds) match {
+          case Right(s) => s
+          case Left(e)  => fail(s"createStatic failed: $e")
+        }
+
+        val replaced = Await.result(service.replaceRows(src.id, Vector(Vector(JsString("replaced"))), AuthenticatedUser(ownerA)), 5.seconds)
+        replaced.isRight shouldBe true
+
+        val rowsAsOwner = await(ctx.withUserContext(ownerA.value)(
+          sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        rowsAsOwner shouldBe Vector("[\"replaced\"]")
+
+        // ownerB cannot replace ownerA's rows -- RLS-scoped ACL check, not a bypassing pool.
+        val crossOwnerAttempt = Await.result(service.replaceRows(src.id, Vector(Vector(JsString("hijack"))), AuthenticatedUser(ownerB)), 5.seconds)
+        crossOwnerAttempt.isLeft shouldBe true
+        val rowsStillOwnerA = await(ctx.withUserContext(ownerA.value)(
+          sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        rowsStillOwnerA shouldBe Vector("[\"replaced\"]")
+      } finally {
+        typedSystem.terminate()
+      }
+    }
   }
 
   // HEL-904 task 2.10: the "RLS on data_types" describe-block is deleted

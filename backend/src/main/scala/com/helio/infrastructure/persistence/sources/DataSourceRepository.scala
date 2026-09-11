@@ -2,7 +2,7 @@ package com.helio.infrastructure.persistence.sources
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.api.protocols.sources.DataSourceConfigCodec
-import com.helio.domain.engine.SchemaField
+import com.helio.domain.engine.{DatasetRowValidator, PipelineRowJson, SchemaField}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
 import org.slf4j.LoggerFactory
@@ -345,37 +345,121 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(action).map(_ => source.copy(inferredSchema = inferredSchema))
   }
 
-  /** HEL-1074 design.md Decision 7: refresh replaces `dataset_rows` wholesale (delete-then-
-   *  reinsert, matching the existing whole-payload-replace contract) and updates `dataset_schema`
-   *  to the newly-declared columns, in the SAME transaction -- round-1's tasks.md draft omitted
-   *  the `dataset_schema` update on refresh; the design's spec delta requires it.
-   *
-   *  Also updates `inferred_schema` in this SAME transaction (skeptic-final-1.md non-blocking
-   *  note): `applyStaticRefresh` previously called this method and then `upsertSourceDataType`
-   *  as two separate transactions, so a mid-way failure could leave `dataset_rows`/`dataset_schema`
-   *  updated but `inferred_schema` stale -- a real, if narrow, atomicity gap against Decision 7's
-   *  stated "runs as a single DB transaction" contract. Folding it in here closes that gap for
-   *  the one caller (`applyStaticRefresh`) that has both values available at the same call site. */
-  def replaceDatasetRows(
-      id:              DataSourceId,
-      declaredColumns: Vector[DatasetFieldDeclaration],
-      rows:            Vector[Vector[JsValue]],
-      inferredSchema:  Vector[SchemaField],
-      updatedAt:       Instant,
-      user:            AuthenticatedUser
-  ): Future[Option[DataSource]] = {
+  /** HEL-1077 design.md D1: `SELECT id FROM data_sources WHERE id = ? FOR UPDATE`, RLS-scoped
+   *  under the caller's user context. Serializes every write to a given source (append, PUT
+   *  replace, and refresh's replace) against every other concurrent write to the SAME source --
+   *  the single shared choke point that closes the refresh-races-append and
+   *  concurrent-appends-jointly-exceed-the-limit races (design.md Risks). Returns `DBIO[Unit]`
+   *  (not the row) -- every caller re-reads whatever columns it actually needs immediately after,
+   *  inside the same transaction, so the lock and the read are never accidentally decoupled. */
+  private def lockSource(id: DataSourceId): DBIO[Unit] =
+    sql"SELECT id FROM data_sources WHERE id = ${id.value} FOR UPDATE".as[String].map(_ => ())
+
+  /** HEL-1077 design.md D2/D3/D5, tasks.md 1.2: append `newRows` to a `dataset`-kind source's
+   *  existing `dataset_rows`, inside one locked transaction. `newRows` are UNVALIDATED on entry --
+   *  validated here (not by the caller) against the schema read fresh under the lock, so a
+   *  concurrent schema-changing refresh can never be raced. Returns `None` when `id` does not
+   *  exist (mirrors `replaceRows`'s existing not-found contract); `Left(msg)` for a validation or
+   *  row-count failure (rolls back, no partial insert); `Right(...)` with the full persisted
+   *  `DatasetRowRow`s for the NEWLY APPENDED rows only (not the pre-existing ones) plus the
+   *  updated source, so the service can build the response DTO without a second read. */
+  def appendRows(
+      id:        DataSourceId,
+      newRows:   Vector[Vector[JsValue]],
+      maxRows:   Int,
+      updatedAt: Instant,
+      user:      AuthenticatedUser
+  ): Future[Option[Either[String, (DataSource, Vector[DatasetRowRow])]]] = {
     val rowsTable = TableQuery[DatasetRowTable]
-    val newRows = rows.zipWithIndex.map { case (row, idx) =>
-      DatasetRowRow(UUID.randomUUID().toString, id.value, idx.toLong, JsArray(row).compactPrint, updatedAt, updatedAt)
-    }
     val action = for {
-      _    <- rowsTable.filter(_.dataSourceId === id.value).delete
-      _    <- rowsTable ++= newRows
-      _    <- table.filter(_.id === id.value)
-                .map(r => (r.datasetSchema, r.inferredSchema, r.updatedAt))
-                .update((Some(declaredColumns.toJson.compactPrint), inferredSchema, updatedAt))
-      rowOpt <- table.filter(_.id === id.value).result.headOption
-    } yield rowOpt.map(rowToDomain)
+      _              <- lockSource(id)
+      schemaColOpt   <- table.filter(_.id === id.value).map(_.datasetSchema).result.headOption
+      result <- schemaColOpt match {
+        case None => DBIO.successful(None)
+        case Some(schemaCol) =>
+          val declaration = schemaCol
+            .map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]])
+            .getOrElse(Vector.empty)
+          for {
+            existingRows  <- rowsTable.filter(_.dataSourceId === id.value).sortBy(_.seq).result
+            existingCount  = existingRows.size
+            result <-
+              if (existingCount + newRows.size > maxRows)
+                DBIO.successful(Some(Left(s"Payload exceeds the maximum of $maxRows rows")))
+              else DatasetRowValidator.validate(declaration, newRows) match {
+                case Left(errors) => DBIO.successful(Some(Left(errors.mkString("; "))))
+                case Right(validatedRows) =>
+                  val maxExistingSeq = existingRows.map(_.seq).maxOption.getOrElse(-1L)
+                  val inserted = validatedRows.zipWithIndex.map { case (row, idx) =>
+                    DatasetRowRow(UUID.randomUUID().toString, id.value, maxExistingSeq + 1 + idx, JsArray(row).compactPrint, updatedAt, updatedAt)
+                  }
+                  val allCells = existingRows.map(r => r.data.parseJson.asInstanceOf[JsArray].elements) ++ inserted.map(r => r.data.parseJson.asInstanceOf[JsArray].elements)
+                  val inferredSchema = declaration.zipWithIndex.map { case (field, i) =>
+                    val cells = allCells.map(_.lift(i).getOrElse(JsNull))
+                    SchemaField(field.name, PipelineRowJson.staticColumnRuntimeType(DataFieldType.asString(field.fieldType), cells))
+                  }
+                  for {
+                    _      <- rowsTable ++= inserted
+                    _      <- table.filter(_.id === id.value).map(r => (r.inferredSchema, r.updatedAt)).update((inferredSchema, updatedAt))
+                    dsOpt  <- table.filter(_.id === id.value).result.headOption
+                  } yield Some(Right((dsOpt.map(rowToDomain).get, inserted)))
+              }
+          } yield result
+      }
+    } yield result
+    ctx.withUserContext(user.id.value)(action)
+  }
+
+  /** HEL-1077 design.md D1 (round-2 correction, skeptic-design-2.md): replaces `replaceDatasetRows`
+   *  -- `declaration = Some(...)` for refresh (write this NEW schema, validate against it),
+   *  `declaration = None` for `PUT .../rows` (read+keep the CURRENT schema, resolved fresh under
+   *  the lock, never a pre-lock copy). `rows` are UNVALIDATED on entry -- `DatasetRowValidator
+   *  .validate` runs inside this method's own transaction, against whichever declaration applies,
+   *  so a validation failure rolls back the whole write (no partial persistence) regardless of
+   *  which caller triggered it. Returns `None` for a nonexistent source id; `Left(msg)` for a
+   *  validation/row-count failure; `Right` with the persisted `DatasetRowRow`s (not discarded, per
+   *  design.md D1) and the updated source. */
+  def replaceRows(
+      id:          DataSourceId,
+      declaration: Option[Vector[DatasetFieldDeclaration]],
+      rows:        Vector[Vector[JsValue]],
+      maxRows:     Int,
+      updatedAt:   Instant,
+      user:        AuthenticatedUser
+  ): Future[Option[Either[String, (DataSource, Vector[DatasetRowRow])]]] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    val action = for {
+      _              <- lockSource(id)
+      schemaColOpt   <- table.filter(_.id === id.value).map(_.datasetSchema).result.headOption
+      result <- schemaColOpt match {
+        case None => DBIO.successful(None)
+        case Some(schemaCol) =>
+          val effectiveDeclaration = declaration.getOrElse(
+            schemaCol.map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]]).getOrElse(Vector.empty)
+          )
+          if (rows.size > maxRows)
+            DBIO.successful(Some(Left(s"Payload exceeds the maximum of $maxRows rows")))
+          else DatasetRowValidator.validate(effectiveDeclaration, rows) match {
+            case Left(errors) => DBIO.successful(Some(Left(errors.mkString("; "))))
+            case Right(validatedRows) =>
+              val newRows = validatedRows.zipWithIndex.map { case (row, idx) =>
+                DatasetRowRow(UUID.randomUUID().toString, id.value, idx.toLong, JsArray(row).compactPrint, updatedAt, updatedAt)
+              }
+              val inferredSchema = effectiveDeclaration.zipWithIndex.map { case (field, i) =>
+                val cells = validatedRows.map(_.lift(i).getOrElse(JsNull))
+                SchemaField(field.name, PipelineRowJson.staticColumnRuntimeType(DataFieldType.asString(field.fieldType), cells))
+              }
+              for {
+                _     <- rowsTable.filter(_.dataSourceId === id.value).delete
+                _     <- rowsTable ++= newRows
+                _     <- table.filter(_.id === id.value)
+                           .map(r => (r.datasetSchema, r.inferredSchema, r.updatedAt))
+                           .update((Some(effectiveDeclaration.toJson.compactPrint), inferredSchema, updatedAt))
+                dsOpt <- table.filter(_.id === id.value).result.headOption
+              } yield Some(Right((dsOpt.map(rowToDomain).get, newRows)))
+          }
+      }
+    } yield result
     ctx.withUserContext(user.id.value)(action)
   }
 

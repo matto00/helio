@@ -15,6 +15,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.persistence.{Database, DbContext}
+import com.helio.api.protocols.sources.RowWriteResponse
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -1332,6 +1333,283 @@ class DataSourceRoutesSpec
       ) ~> routesWith(successConnector(sampleJson)) ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[ErrorResponse].message should include("connectorId")
+      }
+    }
+  }
+
+  // ── HEL-1077: POST/PUT /api/data-sources/:id/rows ──────────────────────────
+
+  private def createDatasetSource(name: String, columns: String, rows: String): String = {
+    val body =
+      s"""{
+         |  "name": "$name",
+         |  "type": "static",
+         |  "columns": $columns,
+         |  "rows": $rows
+         |}""".stripMargin
+    var sourceId = ""
+    Post("/api/data-sources", HttpEntity(ContentTypes.`application/json`, body)) ~> routes() ~> check {
+      status shouldBe StatusCodes.Created
+      sourceId = responseAs[DataSourceResponse].id
+    }
+    sourceId
+  }
+
+  /** A `dataset`-kind source owned by a DIFFERENT user, seeded directly (mirrors
+   *  `seedExtraRootDataSource`'s raw-insert pattern) -- proves the row-write routes enforce
+   *  ownership via `findByIdOwned`, not merely "some session is authenticated". */
+  private def seedOtherOwnerDatasetSource(): String = {
+    import slick.jdbc.PostgresProfile.api._
+    val id = UUID.randomUUID().toString
+    val otherOwnerId = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherOwnerId::uuid, ${s"$otherOwnerId@test.local"}, now())
+             ON CONFLICT DO NOTHING"""
+    ))
+    await(db.run(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, dataset_schema, owner_id, created_at, updated_at)
+             VALUES ($id, 'other-owner-dataset', 'dataset', '{}'::jsonb, '[{"name":"a","type":"string"}]'::jsonb,
+                     $otherOwnerId::uuid, now(), now())"""
+    ))
+    id
+  }
+
+  "POST /api/data-sources/:id/rows" should {
+
+    "append rows, preserving existing rows, with 0-based increasing seq" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Append Base", """[{"name": "a", "type": "string"}]""", """[["x"], ["y"], ["z"]]""")
+
+      Post(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [["w"], ["v"]]}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RowWriteResponse]
+        resp.rows.map(_.seq) shouldBe Vector(3L, 4L)
+        resp.rows.foreach(r => r.id should not be empty)
+        resp.updatedAt should not be empty
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[CsvPreviewResponse].rows should have length 5
+      }
+    }
+
+    "reject an empty rows array with 400 and no mutation" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Append Empty Reject", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+
+      Post(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": []}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("at least one row is required")
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        responseAs[CsvPreviewResponse].rows should have length 1
+      }
+    }
+
+    "reject a wrong-typed value via the shared DatasetRowValidator, with no partial insert" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Append Invalid", """[{"name": "age", "type": "integer"}]""", """[]""")
+
+      Post(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [["not-an-integer"]]}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("expected integer, got string")
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        responseAs[CsvPreviewResponse].rows shouldBe empty
+      }
+    }
+
+    "reject a request exceeding the row-count limit with 400" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Append Limit", """[{"name": "a", "type": "string"}]""", """[["existing"]]""")
+      val newRows  = (1 to 500).map(i => s"""["v$i"]""").mkString("[", ",", "]")
+
+      Post(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, s"""{"rows": $newRows}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("500 rows")
+      }
+    }
+
+    "reject a non-dataset (csv) source with a 4xx client error, unchanged source" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Csv For Rows Reject", validCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Post(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [["x"]]}""")) ~> routes() ~> check {
+        status.intValue should (be >= 400 and be < 500)
+      }
+    }
+
+    "return 404 for a source owned by another user, identical in shape to the DELETE 404" in {
+      cleanDb()
+      val sourceId = seedOtherOwnerDatasetSource()
+
+      Post(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [["x"]]}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "return 404 for a nonexistent source id" in {
+      Post("/api/data-sources/does-not-exist/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [["x"]]}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "recompute inferred_schema after an append that changes a column's observed runtime type" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Append Inferred", """[{"name": "n", "type": "integer"}]""", """[[null]]""")
+      val before = await(dataSourceRepo.findByIdOwned(DataSourceId(sourceId), testUser)).get
+      before.inferredSchema.find(_.name == "n").map(_.`type`) shouldBe Some("integer")
+
+      Post(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [[42]]}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      val after = await(dataSourceRepo.findByIdOwned(DataSourceId(sourceId), testUser)).get
+      after.inferredSchema.find(_.name == "n").map(_.`type`) shouldBe Some("float")
+    }
+
+    // skeptic-final-1.md CR1: the service used to hand `Instant.now()` (JDK 21 nanosecond
+    // precision) straight into the response while ALSO passing that exact value to Postgres for
+    // storage (microsecond precision) -- the two values only coincidentally agreed when the
+    // random nanosecond remainder happened to already be a multiple of 1000. This test fails
+    // against the pre-fix code (probe-confirmed: reverting the `truncatedTo(ChronoUnit.MICROS)`
+    // calls in `DataSourceService.appendRows` reproduces the mismatch) and passes once the
+    // in-memory timestamp is truncated to the precision Postgres actually stores.
+    "the response row's updatedAt matches the value actually stored in dataset_rows, and the source-level updatedAt" in {
+      import slick.jdbc.PostgresProfile.api._
+      cleanDb()
+      val sourceId = createDatasetSource("Append Timestamp Precision", """[{"name": "a", "type": "string"}]""", """[]""")
+
+      var rowId = ""
+      var responseRowUpdatedAt = ""
+      var responseSourceUpdatedAt = ""
+      Post(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [["x"]]}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RowWriteResponse]
+        rowId = resp.rows.head.id
+        responseRowUpdatedAt = resp.rows.head.updatedAt
+        responseSourceUpdatedAt = resp.updatedAt
+      }
+
+      val storedUpdatedAt = await(db.run(sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head))
+      responseRowUpdatedAt shouldBe storedUpdatedAt.toInstant.toString
+      responseRowUpdatedAt shouldBe responseSourceUpdatedAt
+    }
+  }
+
+  "PUT /api/data-sources/:id/rows" should {
+
+    "swap the full row set atomically" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Replace Base", """[{"name": "a", "type": "string"}]""", """[["1"], ["2"], ["3"], ["4"], ["5"]]""")
+
+      Put(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [["new1"], ["new2"]]}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RowWriteResponse]
+        resp.rows.map(_.seq) shouldBe Vector(0L, 1L)
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        val preview = responseAs[CsvPreviewResponse]
+        preview.rows should have length 2
+        preview.rows shouldBe Vector(Vector("new1"), Vector("new2"))
+      }
+    }
+
+    // skeptic-final-1.md CR1: same precision fix, PUT side -- see the identical POST test above.
+    "the response row's updatedAt matches the value actually stored in dataset_rows, and the source-level updatedAt" in {
+      import slick.jdbc.PostgresProfile.api._
+      cleanDb()
+      val sourceId = createDatasetSource("Replace Timestamp Precision", """[{"name": "a", "type": "string"}]""", """[["old"]]""")
+
+      var rowId = ""
+      var responseRowUpdatedAt = ""
+      var responseSourceUpdatedAt = ""
+      Put(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [["new"]]}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RowWriteResponse]
+        rowId = resp.rows.head.id
+        responseRowUpdatedAt = resp.rows.head.updatedAt
+        responseSourceUpdatedAt = resp.updatedAt
+      }
+
+      val storedUpdatedAt = await(db.run(sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head))
+      responseRowUpdatedAt shouldBe storedUpdatedAt.toInstant.toString
+      responseRowUpdatedAt shouldBe responseSourceUpdatedAt
+    }
+
+    "accept an empty rows array and clear the source" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Replace Empty", """[{"name": "a", "type": "string"}]""", """[["x"], ["y"]]""")
+
+      Put(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": []}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[RowWriteResponse].rows shouldBe empty
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        responseAs[CsvPreviewResponse].rows shouldBe empty
+      }
+    }
+
+    "reject a mid-batch invalid row, leaving the prior set byte-for-byte intact" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Replace Invalid", """[{"name": "age", "type": "integer"}]""", """[[1], [2], [3], [4], [5]]""")
+
+      Put(
+        s"/api/data-sources/$sourceId/rows",
+        HttpEntity(ContentTypes.`application/json`, """{"rows": [[10], [20], ["not-an-integer"]]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        val preview = responseAs[CsvPreviewResponse]
+        preview.rows.map(_.head) shouldBe Vector("1", "2", "3", "4", "5")
+      }
+    }
+
+    "reject a replacement exceeding the row-count limit, leaving the source unchanged" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Replace Limit", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+      val tooMany  = (1 to 501).map(i => s"""["v$i"]""").mkString("[", ",", "]")
+
+      Put(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, s"""{"rows": $tooMany}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("500 rows")
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        responseAs[CsvPreviewResponse].rows should have length 1
+      }
+    }
+
+    "reject a non-dataset (csv) source with a 4xx client error" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Csv For Put Reject", validCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Put(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [["x"]]}""")) ~> routes() ~> check {
+        status.intValue should (be >= 400 and be < 500)
+      }
+    }
+
+    "return 404 for a source owned by another user, identical in shape to the DELETE 404" in {
+      cleanDb()
+      val sourceId = seedOtherOwnerDatasetSource()
+
+      Put(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [["x"]]}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
       }
     }
   }

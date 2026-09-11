@@ -4,6 +4,7 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import com.helio.domain.engine.SchemaField
 import com.helio.services.auth.{HasSecrets, SecretField, SecretRedaction}
+import com.helio.services.sources.RowWriteResult
 import spray.json._
 
 //
@@ -246,6 +247,27 @@ final case class StaticColumnPayload(
     default:  Option[JsValue] = None
 )
 final case class StaticDataPayload(columns: Vector[StaticColumnPayload], rows: Vector[Vector[JsValue]])
+
+/** HEL-1077 design.md D6: request body for both `POST` (append) and `PUT` (replace)
+ *  `/api/data-sources/:id/rows` -- positional row arrays, never object-keyed, exactly the shape
+ *  `DatasetRowValidator`/`dataset_rows.data` already use. */
+final case class RowWriteRequest(rows: Vector[Vector[JsValue]])
+
+/** One affected row's `id`/`seq`/`updatedAt` -- `updatedAt` is per-ROW (not just the source's),
+ *  since HEL-1078's precondition binds to the ROW's `updated_at` (design.md D6). */
+final case class RowWriteRowResponse(id: String, seq: Long, updatedAt: String)
+
+/** Response body for both row-write routes: the affected rows (append: newly appended only;
+ *  replace: the full new set) plus the source's resulting `updatedAt`. */
+final case class RowWriteResponse(rows: Vector[RowWriteRowResponse], updatedAt: String)
+
+object RowWriteResponse {
+  def fromDomain(result: RowWriteResult): RowWriteResponse =
+    RowWriteResponse(
+      rows      = result.rows.map(r => RowWriteRowResponse(r.id, r.seq, r.updatedAt.toString)),
+      updatedAt = result.source.updatedAt.toString
+    )
+}
 final case class StaticDataSourceRequest(
     name: String,
     `type`: String,
@@ -532,4 +554,8 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val staticColumnPayloadFormat: RootJsonFormat[StaticColumnPayload]         = jsonFormat4(StaticColumnPayload.apply)
   implicit val staticDataPayloadFormat: RootJsonFormat[StaticDataPayload]             = jsonFormat2(StaticDataPayload.apply)
   implicit val staticDataSourceRequestFormat: RootJsonFormat[StaticDataSourceRequest] = jsonFormat5(StaticDataSourceRequest.apply)
+
+  implicit val rowWriteRequestFormat: RootJsonFormat[RowWriteRequest]         = jsonFormat1(RowWriteRequest.apply)
+  implicit val rowWriteRowResponseFormat: RootJsonFormat[RowWriteRowResponse] = jsonFormat3(RowWriteRowResponse.apply)
+  implicit val rowWriteResponseFormat: RootJsonFormat[RowWriteResponse]       = jsonFormat2(RowWriteResponse.apply)
 }

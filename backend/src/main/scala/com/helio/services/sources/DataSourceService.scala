@@ -9,7 +9,7 @@ import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.sources.{CsvPreviewResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.sources.DataSourceRepository.BlockingPipeline
+import com.helio.infrastructure.persistence.sources.DataSourceRepository.{BlockingPipeline, DatasetRowRow}
 import com.helio.infrastructure.storage.FileSystem
 import SourceConfigParsing._
 import spray.json._
@@ -21,6 +21,7 @@ import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -736,31 +737,70 @@ final class DataSourceService(
       if (defaultErrors.nonEmpty) {
         Future.successful(Left(ServiceError.BadRequest(defaultErrors.map(DatasetRowValidator.renderDefaultError).mkString("; "))))
       } else {
-      DatasetRowValidator.validate(declaredColumns, payload.rows) match {
-        case Left(errors) =>
-          Future.successful(Left(ServiceError.BadRequest(errors.mkString("; "))))
-        case Right(validatedRows) =>
-      val now     = Instant.now()
-      // HEL-893 design D4/tasks.md 2.3: refresh must correct the schema exactly like create --
-      // without this, a static source's declared-vs-runtime disagreement survives every refresh,
-      // making D4's "corrected on next refresh" promise false for static sources.
-      val fields = payload.columns.zipWithIndex.map { case (col, i) =>
-        val cells = validatedRows.map(_.lift(i).getOrElse(JsNull))
-        val runtimeType = PipelineRowJson.staticColumnRuntimeType(col.`type`, cells)
-        DataField(col.name, col.name, runtimeType, nullable = true)
+      // skeptic-final-1.md CR1: truncated to microseconds -- Postgres' `timestamp` column stores
+      // microsecond precision, but JDK 21's `Instant.now()` carries nanosecond precision; without
+      // truncating, the in-memory value handed to `RowWriteResponse.fromDomain` disagrees with
+      // what a subsequent read of the same row actually returns.
+      val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
+      // HEL-1077 design.md D1 (round-2 correction): validation, the delete-then-insert, and the
+      // `inferred_schema` recompute all now happen INSIDE `replaceRows`'s own locked transaction
+      // (`declaration = Some(...)` -- write this new schema) -- the pre-call `DatasetRowValidator
+      // .validate` this method used to run here is removed to avoid validating twice against two
+      // possibly-inconsistent reads (tasks.md 1.4).
+      dataSourceRepo.replaceRows(source.id, Some(declaredColumns), payload.rows, staticMaxRows, now, user).map {
+        case None                => Left(ServiceError.NotFound("Data source not found"))
+        case Some(Left(errMsg))  => Left(ServiceError.BadRequest(errMsg))
+        case Some(Right((ds, _))) => Right(ds)
       }
-      // HEL-1074 (skeptic-final-1.md non-blocking note): inferredSchema is passed straight into
-      // the SAME `replaceDatasetRows` transaction (not a separate `upsertSourceDataType` call
-      // afterward) so rows/dataset_schema/inferred_schema all commit or fail together.
-      val inferredSchema = fields.map(f => SchemaField(f.name, f.dataType)).toVector
-      dataSourceRepo.replaceDatasetRows(source.id, declaredColumns, validatedRows, inferredSchema, now, user).map {
-        case None     => Left(ServiceError.NotFound("Data source not found"))
-        case Some(ds) => Right(ds)
-      }
-        }
       }
     }
   }
+
+  /** HEL-1077 design.md D4: `dataset` kind check first (no lock/write for the wrong kind).
+   *  Empty-array semantics (D6): `POST` rejects `rows: []` as a 400 before any repository call;
+   *  `PUT` accepts it (a valid "clear all rows" request), so this guard is append-only. Schema
+   *  validation and the row-count limit (D5) run INSIDE `DataSourceRepository.appendRows`'s locked
+   *  transaction, not here -- a concurrent schema/row-count change can't race a pre-lock check. */
+  def appendRows(id: DataSourceId, rows: Vector[Vector[JsValue]], user: AuthenticatedUser): Future[Either[ServiceError, RowWriteResult]] =
+    if (rows.isEmpty)
+      Future.successful(Left(ServiceError.BadRequest("at least one row is required")))
+    else
+      dataSourceRepo.findByIdOwned(id, user).flatMap {
+        case None                    => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+        case Some(_: DatasetSource)  =>
+          // skeptic-final-1.md CR1: truncated to microseconds -- see `applyStaticRefresh`'s
+          // identical comment; without this, the per-row `updatedAt` this method hands back to
+          // `RowWriteResponse.fromDomain` disagrees with what's actually stored in Postgres.
+          val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
+          dataSourceRepo.appendRows(id, rows, staticMaxRows, now, user).map {
+            case None                     => Left(ServiceError.NotFound("Data source not found"))
+            case Some(Left(errMsg))       => Left(ServiceError.BadRequest(errMsg))
+            case Some(Right((ds, added))) =>
+              audit("data_source.rows.append", Some(ds.id.value), user)
+              Right(RowWriteResult.fromRepositoryRows(ds, added))
+          }
+        case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
+      }
+
+  /** HEL-1077 design.md D1/D6: PUT is a full-set atomic replace that never touches the declared
+   *  schema (`declaration = None` -- `replaceRows` reads+keeps whatever schema is current AT LOCK
+   *  TIME, never a pre-lock copy). `rows: []` is valid here (clears the source), unlike append. */
+  def replaceRows(id: DataSourceId, rows: Vector[Vector[JsValue]], user: AuthenticatedUser): Future[Either[ServiceError, RowWriteResult]] =
+    dataSourceRepo.findByIdOwned(id, user).flatMap {
+      case None                   => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+      case Some(_: DatasetSource) =>
+        // skeptic-final-1.md CR1: truncated to microseconds -- see `applyStaticRefresh`'s
+        // identical comment.
+        val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
+        dataSourceRepo.replaceRows(id, None, rows, staticMaxRows, now, user).map {
+          case None                     => Left(ServiceError.NotFound("Data source not found"))
+          case Some(Left(errMsg))       => Left(ServiceError.BadRequest(errMsg))
+          case Some(Right((ds, all)))   =>
+            audit("data_source.rows.replace", Some(ds.id.value), user)
+            Right(RowWriteResult.fromRepositoryRows(ds, all))
+        }
+      case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
+    }
 
   /** Refresh a CSV source (HEL-862): re-read the stored file when it was
    *  upload/inline-created (`sourceUrl` is `None`, byte-for-byte the
@@ -1019,4 +1059,20 @@ object DataSourceService {
    *  match the pre-CS2b behaviour. */
   def parseFieldOverrides(jsonBytes: String): Vector[FieldOverridePayload] =
     Try(jsonBytes.parseJson.convertTo[Vector[FieldOverridePayload]]).toOption.getOrElse(Vector.empty)
+}
+
+/** HEL-1077 design.md D6: one persisted row's `id`/`seq`/`updatedAt` -- deliberately NOT the raw
+ *  `DatasetRowRow` (never leaks the infra row's `data`/`dataSourceId` fields to the route layer)
+ *  and never includes row `data` itself (design.md D6: HEL-1080's grid reads rows through the
+ *  existing read path; echoing the request back adds nothing this ticket's consumers need). */
+final case class RowWriteRow(id: String, seq: Long, updatedAt: Instant)
+
+/** Result of `DataSourceService.appendRows`/`replaceRows`: the affected rows (append: only the
+ *  newly appended ones; replace: the full new set) plus the source, so the route can read both
+ *  the per-row and the source-level `updatedAt` (design.md D6). */
+final case class RowWriteResult(source: DataSource, rows: Vector[RowWriteRow])
+
+object RowWriteResult {
+  def fromRepositoryRows(source: DataSource, rows: Vector[DatasetRowRow]): RowWriteResult =
+    RowWriteResult(source, rows.map(r => RowWriteRow(r.id, r.seq, r.updatedAt)))
 }

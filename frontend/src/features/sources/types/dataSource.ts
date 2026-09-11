@@ -174,3 +174,27 @@ export interface StaticSourcePayload {
   columns: StaticColumn[];
   rows: unknown[][];
 }
+
+// HEL-1077: POST (append) / PUT (replace) /api/data-sources/:id/rows.
+
+/** Request body for both row-write routes -- positional row arrays, one array per row, cell
+ *  order matching the source's declared column order (never object-keyed). */
+export interface RowWriteRequest {
+  rows: unknown[][];
+}
+
+/** One affected row's identity/version. `updatedAt` is per-ROW (not just the source's) -- a
+ *  future per-row edit/delete precondition binds to the row's own `updatedAt`. */
+export interface RowWriteRow {
+  id: string;
+  seq: number;
+  updatedAt: string;
+}
+
+/** Response body for both row-write routes. `rows` carries only the newly appended rows on
+ *  POST, or the full new set on PUT. Row `data` is deliberately omitted -- fetch rows through
+ *  the existing preview/read path. */
+export interface RowWriteResponse {
+  rows: RowWriteRow[];
+  updatedAt: string;
+}
