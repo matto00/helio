@@ -9,7 +9,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
-import com.helio.api.protocols.sources.{RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse}
+import com.helio.api.protocols.sources.{RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse}
 import com.helio.domain.model._
 import com.helio.services.sources.{CsvUrlFetch, DataSourceDeleteError, DataSourceService}
 import spray.json._
@@ -115,6 +115,16 @@ final class DataSourceRoutes(
         // Context, verified at `ApiRoutes.scala:792`) -- no new wiring needed here.
         path(DataSourceIdSegment / "rows") { sourceId =>
           concat(
+            // HEL-1121: paged row listing, RLS-scoped (design.md D1/D6) -- `cursor`/`limit` are
+            // parsed as raw strings here (not `.as[Long]`/`.as[Int]`) so a malformed value is
+            // routed through `DataSourceService.listRows`'s own 400 handling (D6 step 1) rather
+            // than Pekko's default query-param-unmarshal rejection, matching this route family's
+            // existing convention (see the sibling DELETE route's `updatedAt` comment below).
+            get {
+              parameters("cursor".optional, "limit".optional) { (cursor, limit) =>
+                ServiceResponse.run(dataSourceService.listRows(sourceId, cursor, limit, user))(RowListResponse.fromDomain)
+              }
+            },
             post {
               entity(as[RowWriteRequest]) { req =>
                 ServiceResponse.run(dataSourceService.appendRows(sourceId, req.rows, user))(RowWriteResponse.fromDomain)

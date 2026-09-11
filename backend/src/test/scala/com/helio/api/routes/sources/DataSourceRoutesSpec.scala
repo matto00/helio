@@ -15,7 +15,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.persistence.{Database, DbContext}
-import com.helio.api.protocols.sources.{RowResponse, RowWriteResponse}
+import com.helio.api.protocols.sources.{RowListResponse, RowResponse, RowWriteResponse}
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -1503,6 +1503,165 @@ class DataSourceRoutesSpec
       val storedUpdatedAt = await(db.run(sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head))
       responseRowUpdatedAt shouldBe storedUpdatedAt.toInstant.toString
       responseRowUpdatedAt shouldBe responseSourceUpdatedAt
+    }
+  }
+
+  // HEL-1121: paged row listing, RLS-scoped (design.md D1/D2/D6).
+  "GET /api/data-sources/:id/rows" should {
+
+    "return a page of rows ordered by seq, with id/seq/data/updatedAt and the total count" in {
+      cleanDb()
+      val sourceId = createDatasetSource("List Base", """[{"name": "a", "type": "string"}]""", """[["x"], ["y"], ["z"]]""")
+
+      Get(s"/api/data-sources/$sourceId/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RowListResponse]
+        resp.rows.map(_.seq) shouldBe Vector(0L, 1L, 2L)
+        resp.rows.map(_.data) shouldBe Vector(Vector(JsString("x")), Vector(JsString("y")), Vector(JsString("z")))
+        resp.total shouldBe 3
+        resp.nextCursor shouldBe None
+      }
+    }
+
+    // design.md D2/D3: a page never exceeds the (clamped) limit, and a `total` above one page's
+    // size still returns a usable `nextCursor`.
+    "never returns more than the page-size cap, regardless of dataset size or requested limit" in {
+      cleanDb()
+      val rows = (1 to 10).map(i => s"""["v$i"]""").mkString("[", ",", "]")
+      val sourceId = createDatasetSource("List Cap", """[{"name": "a", "type": "string"}]""", rows)
+
+      Get(s"/api/data-sources/$sourceId/rows?limit=3") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RowListResponse]
+        resp.rows should have size 3
+        resp.total shouldBe 10
+        resp.nextCursor shouldBe Some(2L)
+      }
+
+      // An above-ceiling limit is clamped, never rejected (design.md D3) -- still bounded to
+      // Page.MaxLimit (500), well above this 10-row dataset's total, so the whole set comes back
+      // in one page with no nextCursor.
+      Get(s"/api/data-sources/$sourceId/rows?limit=99999") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RowListResponse]
+        resp.rows should have size 10
+        resp.nextCursor shouldBe None
+      }
+    }
+
+    // design.md D2 cursor-boundary + CR1 (cursor=0 valid).
+    "paging via nextCursor retrieves the remainder, and a page ending exactly at the cap with no further rows omits nextCursor" in {
+      cleanDb()
+      val sourceId = createDatasetSource("List Cursor Boundary", """[{"name": "a", "type": "string"}]""", """[["a"], ["b"], ["c"]]""")
+
+      var firstCursor: Option[Long] = None
+      Get(s"/api/data-sources/$sourceId/rows?limit=1") ~> routes() ~> check {
+        val resp = responseAs[RowListResponse]
+        resp.rows.map(_.seq) shouldBe Vector(0L)
+        resp.nextCursor shouldBe Some(0L)
+        firstCursor = resp.nextCursor
+      }
+
+      // cursor=0 is a valid cursor value (design.md D2 CR1), never a 400.
+      Get(s"/api/data-sources/$sourceId/rows?cursor=${firstCursor.get}&limit=1") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[RowListResponse]
+        resp.rows.map(_.seq) shouldBe Vector(1L)
+        resp.nextCursor shouldBe Some(1L)
+      }
+
+      // Last page: exactly `limit` rows returned, no further rows exist -- nextCursor absent.
+      Get(s"/api/data-sources/$sourceId/rows?cursor=1&limit=1") ~> routes() ~> check {
+        val resp = responseAs[RowListResponse]
+        resp.rows.map(_.seq) shouldBe Vector(2L)
+        resp.nextCursor shouldBe None
+      }
+    }
+
+    // AC #5 / task 4.8: assert via raw JSON parsing that `nextCursor` is genuinely ABSENT (key
+    // not present), not present with a `null` value -- deserializing to a case class would mask
+    // a `null`-emission bug, since both `null` and absent parse back to `None`.
+    "omits the nextCursor key entirely from the raw JSON body at the end of the row set (never emits null)" in {
+      cleanDb()
+      val sourceId = createDatasetSource("List Absent Cursor", """[{"name": "a", "type": "string"}]""", """[["only"]]""")
+
+      Get(s"/api/data-sources/$sourceId/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val json = responseAs[JsValue].asJsObject
+        json.fields.contains("nextCursor") shouldBe false
+      }
+    }
+
+    "malformed cursor or limit is rejected with 400 before any DB call" in {
+      cleanDb()
+      val sourceId = createDatasetSource("List Malformed", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+
+      Get(s"/api/data-sources/$sourceId/rows?cursor=not-a-number") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+      Get(s"/api/data-sources/$sourceId/rows?cursor=-1") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+      Get(s"/api/data-sources/$sourceId/rows?limit=0") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+      Get(s"/api/data-sources/$sourceId/rows?limit=-5") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+      Get(s"/api/data-sources/$sourceId/rows?limit=not-a-number") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "reject a non-dataset (csv) source with 400, not 500" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Csv For List Reject", validCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Get(s"/api/data-sources/$sourceId/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "return 404 for a source owned by another user, identical in shape to the sibling row routes' 404" in {
+      cleanDb()
+      val sourceId = seedOtherOwnerDatasetSource()
+
+      Get(s"/api/data-sources/$sourceId/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "return 404 for a nonexistent source id" in {
+      Get("/api/data-sources/does-not-exist/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // AC #3 / task 4.5 (MUST): GET a row, take its `updatedAt` EXACTLY as returned in the JSON
+    // response body, then PATCH using that exact string value -- must succeed, not 409.
+    "a row's updatedAt as returned by this endpoint round-trips into a successful PATCH precondition" in {
+      cleanDb()
+      val sourceId = createDatasetSource("List Round Trip", """[{"name": "n", "type": "integer"}]""", """[[1]]""")
+
+      var rowId = ""
+      var updatedAtFromGet = ""
+      Get(s"/api/data-sources/$sourceId/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val row = responseAs[RowListResponse].rows.head
+        rowId = row.id
+        updatedAtFromGet = row.updatedAt
+      }
+
+      Patch(
+        s"/api/data-sources/$sourceId/rows/$rowId",
+        HttpEntity(ContentTypes.`application/json`, s"""{"updatedAt": "$updatedAtFromGet", "data": [2]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
     }
   }
 

@@ -215,3 +215,15 @@ export interface RowResponse {
   row: RowResponseRow;
   sourceUpdatedAt: string;
 }
+
+// HEL-1121: GET /api/data-sources/:id/rows -- paged row listing with identity, for HEL-1080's
+// grid to drive HEL-1078's PATCH/DELETE precondition header.
+
+/** Response body for `GET /api/data-sources/:id/rows`. `rows` reuses `RowResponseRow` verbatim,
+ *  ordered by ascending `seq`. `nextCursor` is genuinely ABSENT (not `undefined`-but-present, not
+ *  `null`) when no further rows remain -- the backend omits the key entirely on the wire. */
+export interface RowListResponse {
+  rows: RowResponseRow[];
+  nextCursor?: number;
+  total: number;
+}

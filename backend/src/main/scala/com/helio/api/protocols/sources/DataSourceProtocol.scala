@@ -4,7 +4,7 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import com.helio.domain.engine.SchemaField
 import com.helio.services.auth.{HasSecrets, SecretField, SecretRedaction}
-import com.helio.services.sources.{RowMutationResult, RowWriteResult}
+import com.helio.services.sources.{RowListResult, RowMutationResult, RowWriteResult}
 import spray.json._
 
 //
@@ -288,6 +288,25 @@ object RowResponse {
       sourceUpdatedAt = result.source.updatedAt.toString
     )
 }
+/** HEL-1121 design.md D4/D2: response body for `GET /api/data-sources/:id/rows` -- each row
+ *  reuses the EXISTING `RowResponseRow` type verbatim (D4, never a new per-row type), ordered by
+ *  ascending `seq`. `nextCursor` is genuinely ABSENT (never a JSON `null`) at the end of the row
+ *  set -- spray-json's default `Option` handling for `jsonFormat3` already omits a `None` field
+ *  from the serialized object entirely (D2, AC #5). `total` is the source's full row count as of
+ *  this request (D7). */
+final case class RowListResponse(rows: Vector[RowResponseRow], nextCursor: Option[Long], total: Int)
+
+object RowListResponse {
+  def fromDomain(result: RowListResult): RowListResponse =
+    RowListResponse(
+      rows = result.rows.map(r =>
+        RowResponseRow(r.id, r.seq, r.updatedAt.toString, r.data.parseJson.asInstanceOf[JsArray].elements)
+      ),
+      nextCursor = result.nextCursor,
+      total      = result.total
+    )
+}
+
 final case class StaticDataSourceRequest(
     name: String,
     `type`: String,
@@ -582,4 +601,5 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val rowPatchRequestFormat: RootJsonFormat[RowPatchRequest]     = jsonFormat2(RowPatchRequest.apply)
   implicit val rowResponseRowFormat: RootJsonFormat[RowResponseRow]       = jsonFormat4(RowResponseRow.apply)
   implicit val rowResponseFormat: RootJsonFormat[RowResponse]             = jsonFormat2(RowResponse.apply)
+  implicit val rowListResponseFormat: RootJsonFormat[RowListResponse]     = jsonFormat3(RowListResponse.apply)
 }

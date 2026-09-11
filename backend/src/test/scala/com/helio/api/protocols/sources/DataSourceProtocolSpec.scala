@@ -1,7 +1,7 @@
 package com.helio.api.protocols.sources
 
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, CsvSourceUrlRequest, RestApiConfigPayload, SqlSourceConfigPayload, TextSourceConfigPayload}
-import com.helio.api.protocols.sources.{CsvSourceResponse, DataSourceConfigCodec, DataSourceResponse, RestSourceResponse, SqlSourceResponse, StaticSourceResponse, TextSourceResponse}
+import com.helio.api.protocols.sources.{CsvSourceResponse, DataSourceConfigCodec, DataSourceResponse, RestSourceResponse, RowListResponse, RowResponseRow, SqlSourceResponse, StaticSourceResponse, TextSourceResponse}
 import com.helio.api.JsonProtocols
 import com.helio.domain.model.{CsvSourceConfig, QueryParams, RestApiConfig, SqlSourceConfig, TextSourceConfig}
 import org.scalatest.matchers.should.Matchers
@@ -328,6 +328,24 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
       val text = DataSourceResponse.fromDomain(src).toJson.compactPrint
       text should not include rawPassword
       text should include(""""password":"***"""")
+    }
+  }
+
+  // HEL-1121 tasks.md 4.8 (AC #5, MUST): `nextCursor: Option[Long]` must genuinely be absent from
+  // the serialized JSON when `None` -- never emitted as a `null` value. Checked via a raw
+  // `JsObject.fields.contains` probe, not a round-trip back to a case class (both `null` and
+  // absent would parse back to `None`, masking a `null`-emission bug).
+  "RowListResponse.nextCursor serialization" should {
+    val row = RowResponseRow(id = "row-1", seq = 0L, updatedAt = "2026-05-14T00:00:00Z", data = Vector(JsString("x")))
+
+    "omits the nextCursor key entirely when None" in {
+      val json = RowListResponse(rows = Vector(row), nextCursor = None, total = 1).toJson.asJsObject
+      json.fields.contains("nextCursor") shouldBe false
+    }
+
+    "includes nextCursor as a JSON number when Some" in {
+      val json = RowListResponse(rows = Vector(row), nextCursor = Some(5L), total = 6).toJson.asJsObject
+      json.fields.get("nextCursor") shouldBe Some(JsNumber(5))
     }
   }
 }

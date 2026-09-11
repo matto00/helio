@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/row-list-response.schema.json",
+  "title": "RowListResponse",
+  "description": "Response body for GET /api/data-sources/:id/rows (HEL-1121 design.md D2/D4). `rows` reuses the EXISTING RowResponseRow shape verbatim, ordered by ascending `seq`. `nextCursor` is genuinely absent from the wire body -- never a JSON `null` -- when no further rows remain (spray-json omits `Option = None` fields).",
+  "type": "object",
+  "required": ["rows", "total"],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": { "$ref": "./row-response-row.schema.json" }
+    },
+    "nextCursor": { "type": "integer", "minimum": 0 },
+    "total": { "type": "integer" }
+  },
+  "additionalProperties": false
+}

@@ -567,6 +567,73 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       }
     }
 
+    // HEL-1121 tasks.md 4.4 (MUST, PINNED outcomes a-d, design.md D7): listRows's genuine
+    // non-superuser RLS exercise -- see design.md's task 4.4 for why each of (a)-(d) is a
+    // DIFFERENT layer, and why (c) specifically is the one that proves `dataset_rows_owner`
+    // itself (not merely an application-level `owner_id` filter) is doing the denying.
+    "DataSourceRepository.listRows RLS boundary (task 4.4, pinned outcomes a-d)" in {
+      cleanDb()
+      val (repo, service, typedSystem) = newDatasetService()
+      try {
+        val createReq = StaticDataSourceRequest(
+          name    = "RLS List Base",
+          `type`  = "static",
+          columns = Vector(StaticColumnPayload("a", "string")),
+          rows    = Vector(Vector(JsString("orig")))
+        )
+        val src = Await.result(service.createStatic(createReq, AuthenticatedUser(ownerA)), 5.seconds) match {
+          case Right(s) => s
+          case Left(e)  => fail(s"createStatic failed: $e")
+        }
+
+        // (a) Calling listRows DIRECTLY (bypassing the service's findByIdOwned application-level
+        // filter) as a NON-OWNER, under the non-BYPASSRLS test role: data_sources' own FORCE RLS
+        // already denies the repository's datasetSchema existence read -- pinned SourceNotFound
+        // (i.e. None), exactly like patchRow/deleteRow as a non-owner. This does NOT by itself
+        // exercise dataset_rows's own RLS policy -- the query never reaches dataset_rows here.
+        val nonOwnerDirect = Await.result(repo.listRows(src.id, None, 200, AuthenticatedUser(ownerB)), 5.seconds)
+        nonOwnerDirect shouldBe None
+
+        // (b) Positive control: the OWNER, under the SAME non-BYPASSRLS role, successfully lists.
+        val ownerDirect = Await.result(repo.listRows(src.id, None, 200, AuthenticatedUser(ownerA)), 5.seconds)
+        ownerDirect shouldBe defined
+        ownerDirect.get.rows.map(_.data) shouldBe Vector("[\"orig\"]")
+
+        // (c) The test that actually exercises dataset_rows's own RLS policy: a RAW SELECT
+        // directly against dataset_rows (not via listRows) as the non-owner, under the
+        // non-BYPASSRLS role -- pinned to return ZERO rows -- contrasted with the SAME raw query
+        // on the privileged pool, pinned to return the actual row. This is what proves the
+        // dataset_rows_owner policy (V106), not just an application-level owner_id filter, is
+        // doing the denying.
+        val rawAsNonOwner = await(ctx.withUserContext(ownerB.value)(
+          sql"SELECT id FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        rawAsNonOwner shouldBe empty
+        val rawPrivileged = await(ctx.withSystemContext(
+          sql"SELECT id FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        rawPrivileged should have size 1
+
+        // (d) listRows's own SQL has no additional owner_id/ACL predicate of its own beyond
+        // data_source_id = ? -- RLS, not application code, enforces the boundary at this layer.
+        // The real assertion for this property is NOT here: this spec's `ctx` is two-role
+        // (`helio_app_test`, non-superuser/non-BYPASSRLS, for `withUserContext`; `helio_privileged`,
+        // BYPASSRLS, for `withSystemContext`), but BOTH roles see every row through their own RLS
+        // posture -- neither can by itself distinguish "listRows has no app-level predicate" from
+        // "predicate that happens to match", since RLS alone already explains what (a)/(c) observe.
+        // `DataSourceRepositorySpec`'s "listRows returns the source's rows regardless of which
+        // AuthenticatedUser drives the DBIO context" test (DataSourceRepositorySpec.scala:682)
+        // is the one that actually pins this: it calls `listRows` with TWO different
+        // `AuthenticatedUser`s under a `ctx` that has no RLS at all, and asserts both return the
+        // identical row set -- which is only possible if `listRows`'s query has no owner-scoped
+        // predicate of its own (an owner-scoped predicate would have filtered `owner2`'s call to
+        // empty). See that test for the property; (a)/(c) above are what pin the RLS-does-the-
+        // denying half of D7 under a genuine non-BYPASSRLS role.
+      } finally {
+        typedSystem.terminate()
+      }
+    }
+
     "DataSourceService.deleteRow runs as the app role; a cross-owner attempt is 404, never 403, and leaves the row unaffected" in {
       cleanDb()
       val (repo, service, typedSystem) = newDatasetService()
