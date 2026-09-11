@@ -9,9 +9,9 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
-import com.helio.api.protocols.sources.{DatasetSchemaResponse, RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse}
+import com.helio.api.protocols.sources.{DatasetSchemaResponse, DatasetSchemaUpdateResponse, RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse, SchemaUpdateConflictResponse, UpdateDatasetSchemaRequest}
 import com.helio.domain.model._
-import com.helio.services.sources.{CsvUrlFetch, DataSourceDeleteError, DataSourceService}
+import com.helio.services.sources.{CsvUrlFetch, DataSourceDeleteError, DataSourceSchemaUpdateError, DataSourceService}
 import spray.json._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -72,6 +72,19 @@ final class DataSourceRoutes(
         complete(ServiceResponse.statusCodeFor(err), ErrorResponse(err.message))
     }
 
+  /** HEL-1124 design.md Decision 6: same bespoke-completion shape as `completeDelete` above --
+   *  `conflict = Some(c)` renders the structured `409` body, `conflict = None` renders the
+   *  pre-existing bare `ErrorResponse(err.message)` (so `404`/`400` on this route keep the
+   *  standard shape). */
+  private def completeSchemaUpdate(result: Future[Either[DataSourceSchemaUpdateError, DatasetSchemaUpdateResponse]]): Route =
+    onSuccess(result) {
+      case Right(resp) => complete(resp)
+      case Left(DataSourceSchemaUpdateError(Some(c), err)) =>
+        complete(ServiceResponse.statusCodeFor(err), c)
+      case Left(DataSourceSchemaUpdateError(None, err)) =>
+        complete(ServiceResponse.statusCodeFor(err), ErrorResponse(err.message))
+    }
+
   val routes: Route =
     pathPrefix("data-sources") {
       concat(
@@ -113,9 +126,18 @@ final class DataSourceRoutes(
         // HEL-1122 design.md Decision 1: additive, read-only declared-schema route -- same
         // rate-limit/auth composition as every other route in this pathPrefix, no new wiring.
         path(DataSourceIdSegment / "schema") { sourceId =>
-          get {
-            ServiceResponse.run(dataSourceService.getDatasetSchema(sourceId, user))(identity)
-          }
+          concat(
+            get {
+              ServiceResponse.run(dataSourceService.getDatasetSchema(sourceId, user))(identity)
+            },
+            // HEL-1124 design.md Decision 1/6: full-replacement declared-schema write, alongside
+            // HEL-1122's read-only `GET` above -- same ACL/rate-limit composition, no new wiring.
+            patch {
+              entity(as[UpdateDatasetSchemaRequest]) { req =>
+                completeSchemaUpdate(dataSourceService.updateDatasetSchema(sourceId, req, user))
+              }
+            }
+          )
         },
         // HEL-1077: append/replace routes for a `dataset`-kind source's rows. Rate-limit + auth
         // are inherited from `ApiRoutes`'s composition of `DataSourceRoutes.routes` (design.md

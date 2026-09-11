@@ -2,11 +2,11 @@ package com.helio.services.sources
 
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
-import com.helio.domain.engine.{DatasetRowValidator, PipelineRowJson, SchemaField, SchemaInferenceEngine}
+import com.helio.domain.engine.{DatasetRowValidator, DatasetSchemaMigration, PipelineRowJson, SchemaField, SchemaInferenceEngine}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.Materializer
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.sources.{CsvPreviewResponse, DatasetFieldResponse, DatasetSchemaResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
+import com.helio.api.protocols.sources.{CsvPreviewResponse, DatasetFieldResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, SchemaFieldRejection, SchemaUpdateConflictResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest, UpdateDatasetSchemaRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository.{BlockingPipeline, DatasetRowRow, RowListPage, RowMutationFailure}
@@ -897,6 +897,37 @@ final class DataSourceService(
           case Some(declaration) => Right(DatasetSchemaResponse(declaration.map(DatasetFieldResponse.fromDomain)))
         }
       case Some(ds) => Future.successful(Left(ServiceError.BadRequest(s"declared schema is only available for dataset sources (this source is '${ds.kind}')")))
+    }
+
+  /** HEL-1124 design.md Decision 1/6: ACL via `findByIdOwned` (HEL-1002 404 shape, same as every
+   *  sibling route), `400` for a non-`dataset`-kind source, delegates the actual
+   *  migration/classification to `DataSourceRepository.updateDatasetSchema`, and maps its result
+   *  to `200`/`400`(structural)/`409`(data-integrity). */
+  def updateDatasetSchema(
+      id:   DataSourceId,
+      req:  UpdateDatasetSchemaRequest,
+      user: AuthenticatedUser
+  ): Future[Either[DataSourceSchemaUpdateError, DatasetSchemaUpdateResponse]] =
+    dataSourceRepo.findByIdOwned(id, user).flatMap {
+      case None => Future.successful(Left(DataSourceSchemaUpdateError.plain(ServiceError.NotFound("Data source not found"))))
+      case Some(_: DatasetSource) =>
+        val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
+        dataSourceRepo.updateDatasetSchema(id, req.fields, req.confirmDrop, now, user).map {
+          case None => Left(DataSourceSchemaUpdateError.plain(ServiceError.NotFound("Data source not found")))
+          case Some(Left(DatasetSchemaMigration.SchemaUpdateRejection.Structural(messages))) =>
+            Left(DataSourceSchemaUpdateError.plain(ServiceError.BadRequest(messages.mkString("; "))))
+          case Some(Left(DatasetSchemaMigration.SchemaUpdateRejection.DataIntegrity(rejectedFields))) =>
+            val body = SchemaUpdateConflictResponse(
+              rejectedFields = rejectedFields.map(r => SchemaFieldRejection(r.name, r.reason)),
+              message        = rejectedFields.map(r => s"${r.name}: ${r.reason}").mkString("; ")
+            )
+            Left(DataSourceSchemaUpdateError.conflict(body))
+          case Some(Right(migration)) =>
+            audit("data_source.schema.update", Some(id.value), user)
+            Right(DatasetSchemaUpdateResponse(migration.newDeclaration.map(DatasetFieldResponse.fromDomain), migration.rowsMigrated))
+        }
+      case Some(_) =>
+        Future.successful(Left(DataSourceSchemaUpdateError.plain(ServiceError.BadRequest("declared schema updates are only supported for dataset sources"))))
     }
 
   private def parseCursor(raw: Option[String]): Either[String, Option[Long]] = raw match {

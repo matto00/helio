@@ -320,6 +320,35 @@ object DatasetFieldResponse {
     DatasetFieldResponse(f.name, DataFieldType.asString(f.fieldType), f.required, f.default)
 }
 
+/** HEL-1124 design.md Decision 3: wire shape for one field edit in `PATCH
+ *  /api/data-sources/:id/schema`'s request. `previousName` identifies a rename (`None` for an
+ *  added field or an unrenamed kept field); `default` uses the `Option[Option[JsValue]]` idiom
+ *  (HEL-1076 design.md Decision 2) -- outer `None` = "no default supplied in this request",
+ *  `Some(None)` = an explicit JSON `null` default, `Some(Some(v))` = a default value `v`. */
+final case class DatasetFieldDeclarationPayload(
+    name:         String,
+    previousName: Option[String] = None,
+    `type`:       String,
+    required:     Option[Boolean] = None,
+    default:      Option[Option[JsValue]] = None
+)
+
+/** HEL-1124 design.md Decision 1: full-replacement request body. `confirmDrop` is the explicit,
+ *  request-level opt-in required to drop a field with existing data (design.md Decision 2). */
+final case class UpdateDatasetSchemaRequest(fields: Vector[DatasetFieldDeclarationPayload], confirmDrop: Boolean = false)
+
+/** One rejected field's name and human-readable reason -- design.md Decision 6, mirroring
+ *  `DataSourceDeleteConflict`'s precedent of a structured, named 409 body. */
+final case class SchemaFieldRejection(name: String, reason: String)
+
+/** `409` body for `PATCH /api/data-sources/:id/schema` -- design.md Decision 6. */
+final case class SchemaUpdateConflictResponse(rejectedFields: Vector[SchemaFieldRejection], message: String)
+
+/** `200` body for `PATCH /api/data-sources/:id/schema` -- design.md Decision 6: a NEW, DISTINCT
+ *  type from the shipped `DatasetSchemaResponse` (GET's response, left untouched by this
+ *  ticket). `rowsMigrated` is defined operationally -- see design.md Decision 6. */
+final case class DatasetSchemaUpdateResponse(fields: Vector[DatasetFieldResponse], rowsMigrated: Int)
+
 final case class StaticDataSourceRequest(
     name: String,
     `type`: String,
@@ -644,4 +673,57 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       }
     }
   implicit val datasetSchemaResponseFormat: RootJsonFormat[DatasetSchemaResponse] = jsonFormat1(DatasetSchemaResponse.apply)
+
+  /** HEL-1124 design.md Decision 3: hand-rolled (not `jsonFormat5`) so `default`'s
+   *  `Option[Option[JsValue]]` idiom round-trips correctly -- a raw `jsonFormat5` would read a
+   *  present `"default": null` the same as an absent key (both `None`), losing the
+   *  no-default-supplied vs. explicit-null distinction the wire idiom exists to carry. `write`
+   *  mirrors `datasetFieldResponseFormat`: `default` is omitted entirely when not supplied,
+   *  written as `null` when explicitly supplied-null, and as the value otherwise. */
+  implicit val datasetFieldDeclarationPayloadFormat: RootJsonFormat[DatasetFieldDeclarationPayload] =
+    new RootJsonFormat[DatasetFieldDeclarationPayload] {
+      override def write(f: DatasetFieldDeclarationPayload): JsValue =
+        JsObject(
+          Vector(
+            "name" -> JsString(f.name),
+            "type" -> JsString(f.`type`)
+          )
+            ++ f.previousName.map("previousName" -> JsString(_)).toVector
+            ++ f.required.map("required" -> JsBoolean(_)).toVector
+            ++ f.default.map(d => "default" -> d.getOrElse(JsNull)).toVector: _*
+        )
+
+      override def read(json: JsValue): DatasetFieldDeclarationPayload = {
+        val obj = json.asJsObject
+        DatasetFieldDeclarationPayload(
+          name         = obj.fields("name").convertTo[String],
+          previousName = obj.fields.get("previousName").map(_.convertTo[String]),
+          `type`       = obj.fields("type").convertTo[String],
+          required     = obj.fields.get("required").map(_.convertTo[Boolean]),
+          default      = obj.fields.get("default").map(v => if (v == JsNull) None else Some(v))
+        )
+      }
+    }
+  /** Hand-rolled (not `jsonFormat2`) -- `confirmDrop`'s `= false` case-class default is NOT
+   *  honored by spray-json's generated formats for a non-`Option` field (only `Option` fields
+   *  read a missing key as `None`); an omitted `confirmDrop` must default to `false`, not fail
+   *  deserialization. */
+  implicit val updateDatasetSchemaRequestFormat: RootJsonFormat[UpdateDatasetSchemaRequest] =
+    new RootJsonFormat[UpdateDatasetSchemaRequest] {
+      override def write(r: UpdateDatasetSchemaRequest): JsValue =
+        JsObject("fields" -> r.fields.toJson, "confirmDrop" -> JsBoolean(r.confirmDrop))
+
+      override def read(json: JsValue): UpdateDatasetSchemaRequest = {
+        val obj = json.asJsObject
+        UpdateDatasetSchemaRequest(
+          fields      = obj.fields("fields").convertTo[Vector[DatasetFieldDeclarationPayload]],
+          confirmDrop = obj.fields.get("confirmDrop").exists(_.convertTo[Boolean])
+        )
+      }
+    }
+  implicit val schemaFieldRejectionFormat: RootJsonFormat[SchemaFieldRejection] = jsonFormat2(SchemaFieldRejection.apply)
+  implicit val schemaUpdateConflictResponseFormat: RootJsonFormat[SchemaUpdateConflictResponse] =
+    jsonFormat2(SchemaUpdateConflictResponse.apply)
+  implicit val datasetSchemaUpdateResponseFormat: RootJsonFormat[DatasetSchemaUpdateResponse] =
+    jsonFormat2(DatasetSchemaUpdateResponse.apply)
 }

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/dataset-schema-update-response.schema.json",
+  "title": "DatasetSchemaUpdateResponse",
+  "description": "200 response body for PATCH /api/data-sources/:id/schema (HEL-1124 design.md Decision 6) -- a NEW, DISTINCT type from the shipped DatasetSchemaResponse (GET's response, left untouched by this ticket). `rowsMigrated` is defined operationally: 0 iff the only change from the prior declaration is field name/previousName bookkeeping (a pure rename); the full existing row count otherwise.",
+  "type": "object",
+  "required": ["fields", "rowsMigrated"],
+  "properties": {
+    "fields": {
+      "type": "array",
+      "items": { "$ref": "./dataset-field-response.schema.json" }
+    },
+    "rowsMigrated": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}

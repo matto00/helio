@@ -2,12 +2,14 @@ import type {
   DataSource,
   DataSourceKind,
   DatasetSchemaResponse,
+  DatasetSchemaUpdateResponse,
   InferredField,
   RowListResponse,
   RowResponse,
   RowWriteResponse,
   SqlSourceConfig,
   StaticColumn,
+  UpdateDatasetSchemaRequest,
 } from "../types/dataSource";
 import type { PagedResult } from "../../../types/models";
 import { httpClient } from "../../../services/httpClient";
@@ -379,6 +381,21 @@ export async function deleteSourceRow(
 export async function fetchDatasetSchema(sourceId: string): Promise<DatasetSchemaResponse> {
   const response = await httpClient.get<DatasetSchemaResponse>(
     `/api/data-sources/${sourceId}/schema`,
+  );
+  return response.data;
+}
+
+// HEL-1124: PATCH /api/data-sources/:id/schema -- full-replacement declared-schema write.
+// Resolves with the new declaration + rowsMigrated on success; rejects with an `AxiosError`
+// carrying a `400` (structural) or `409` (`SchemaUpdateConflictResponse`) body on failure --
+// callers inspect `error.response.data` to render HEL-1079's block/warn/migrate UI.
+export async function updateDatasetSchema(
+  sourceId: string,
+  request: UpdateDatasetSchemaRequest,
+): Promise<DatasetSchemaUpdateResponse> {
+  const response = await httpClient.patch<DatasetSchemaUpdateResponse>(
+    `/api/data-sources/${sourceId}/schema`,
+    request,
   );
   return response.data;
 }

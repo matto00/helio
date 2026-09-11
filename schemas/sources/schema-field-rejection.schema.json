@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/schema-field-rejection.schema.json",
+  "title": "SchemaFieldRejection",
+  "description": "One rejected field's name and human-readable reason, inside a SchemaUpdateConflictResponse (HEL-1124 design.md Decision 6).",
+  "type": "object",
+  "required": ["name", "reason"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "reason": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

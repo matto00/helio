@@ -1,6 +1,6 @@
 package com.helio.infrastructure.persistence
 
-import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest}
+import com.helio.api.protocols.sources.{DatasetFieldDeclarationPayload, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
@@ -629,6 +629,77 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
         // predicate of its own (an owner-scoped predicate would have filtered `owner2`'s call to
         // empty). See that test for the property; (a)/(c) above are what pin the RLS-does-the-
         // denying half of D7 under a genuine non-BYPASSRLS role.
+      } finally {
+        typedSystem.terminate()
+      }
+    }
+
+    // HEL-1124 tasks.md 6.1 / design.md Decision 7: the same (a)/(b)/(c) structure as
+    // `listRows` above, extended to `updateDatasetSchema` -- (a) a non-owner repository call is
+    // denied/no-effect, (b) the owner's own call succeeds (positive control), (c) a RAW
+    // non-owner SELECT/UPDATE directly against `dataset_rows` (bypassing the service/repository
+    // entirely) is denied by `dataset_rows`' OWN RLS policy, contrasted against the same query on
+    // the privileged pool -- proving it isn't merely `data_sources`' existence-check policy doing
+    // the denying. Plus: a cross-owner write attempt leaves the true owner's rows byte-identical.
+    "DataSourceRepository.updateDatasetSchema RLS boundary (task 6.1, pinned outcomes a-c)" in {
+      cleanDb()
+      val (repo, service, typedSystem) = newDatasetService()
+      try {
+        val createReq = StaticDataSourceRequest(
+          name    = "RLS Schema Update Base",
+          `type`  = "static",
+          columns = Vector(StaticColumnPayload("a", "string")),
+          rows    = Vector(Vector(JsString("orig")))
+        )
+        val src = Await.result(service.createStatic(createReq, AuthenticatedUser(ownerA)), 5.seconds) match {
+          case Right(s) => s
+          case Left(e)  => fail(s"createStatic failed: $e")
+        }
+        val payload = Vector(DatasetFieldDeclarationPayload(name = "renamed", previousName = Some("a"), `type` = "string"))
+
+        // (a) Calling updateDatasetSchema DIRECTLY (bypassing the service's findByIdOwned
+        // application-level filter) as a NON-OWNER, under the non-BYPASSRLS test role:
+        // data_sources' own FORCE RLS denies the repository's existence read -- pinned to `None`,
+        // exactly like every other row-mutating method as a non-owner.
+        val nonOwnerDirect = Await.result(
+          repo.updateDatasetSchema(src.id, payload, confirmDrop = false, Instant.now(), AuthenticatedUser(ownerB)),
+          5.seconds
+        )
+        nonOwnerDirect shouldBe None
+
+        // (b) Positive control: the OWNER, under the SAME non-BYPASSRLS role, successfully edits.
+        val ownerDirect = Await.result(
+          repo.updateDatasetSchema(src.id, payload, confirmDrop = false, Instant.now(), AuthenticatedUser(ownerA)),
+          5.seconds
+        )
+        ownerDirect shouldBe defined
+        ownerDirect.get shouldBe a[Right[_, _]]
+
+        // (c) The test that actually exercises dataset_rows' own RLS policy: a RAW UPDATE
+        // directly against dataset_rows (not via the repository) as the non-owner, under the
+        // non-BYPASSRLS role -- pinned to affect ZERO rows -- contrasted with the SAME raw
+        // UPDATE on the privileged pool, pinned to affect the actual row.
+        val tamperedJson = """["tampered"]"""
+        val rawUpdateAsNonOwner = await(ctx.withUserContext(ownerB.value)(
+          sqlu"UPDATE dataset_rows SET data = ${tamperedJson}::jsonb WHERE data_source_id = ${src.id.value}"
+        ))
+        rawUpdateAsNonOwner shouldBe 0
+
+        val currentData = await(ctx.withSystemContext(
+          sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        currentData should not contain tamperedJson
+
+        val rawUpdateAsOwnerViaPrivileged = await(ctx.withSystemContext(
+          sqlu"UPDATE dataset_rows SET data = data WHERE data_source_id = ${src.id.value}"
+        ))
+        rawUpdateAsOwnerViaPrivileged shouldBe 1
+
+        // The true owner's rows are byte-identical to what (b) actually wrote.
+        val ownerRows = await(ctx.withUserContext(ownerA.value)(
+          sql"SELECT data FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String]
+        ))
+        ownerRows shouldBe Vector("[\"orig\"]")
       } finally {
         typedSystem.terminate()
       }
