@@ -1,8 +1,9 @@
 package com.helio.infrastructure.persistence.sources
 
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.api.protocols.sources.DataSourceConfigCodec
-import com.helio.domain.engine.{DatasetRowValidator, PipelineRowJson, SchemaField}
+import com.helio.api.protocols.sources.{DataSourceConfigCodec, DatasetFieldDeclarationPayload}
+import com.helio.domain.engine.{DatasetRowValidator, DatasetSchemaMigration, PipelineRowJson, SchemaField}
+import com.helio.domain.engine.DatasetSchemaMigration.{FieldEditSpec, MigrationResult, SchemaUpdateRejection}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
 import org.slf4j.LoggerFactory
@@ -13,6 +14,7 @@ import spray.json.DefaultJsonProtocol._
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
 class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
@@ -660,6 +662,127 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       schemaColOpt.map(_.map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]]).getOrElse(Vector.empty))
     }
   }
+
+  /** HEL-1124 design.md Decision 1/2/4: `PATCH /api/data-sources/:id/schema`'s write path.
+   *  Reuses `lockSource` exactly like `appendRows`/`replaceRows` -- everything from the
+   *  re-read of the CURRENT declaration/rows through the final write happens inside one locked
+   *  transaction, closing the check-then-act race Decision 5 relies on. Returns `None` for a
+   *  nonexistent source id (mirrors every other row-mutating method's not-found contract);
+   *  `Left` for either a structural (`400`) or data-integrity (`409`) rejection; `Right` with
+   *  the persisted declaration and `rowsMigrated` count. */
+  def updateDatasetSchema(
+      id:          DataSourceId,
+      newFields:   Vector[DatasetFieldDeclarationPayload],
+      confirmDrop: Boolean,
+      updatedAt:   Instant,
+      user:        AuthenticatedUser
+  ): Future[Option[Either[SchemaUpdateRejection, MigrationResult]]] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    val action = for {
+      _            <- lockSource(id)
+      schemaColOpt <- table.filter(_.id === id.value).map(_.datasetSchema).result.headOption
+      result <- schemaColOpt match {
+        case None => DBIO.successful(None)
+        case Some(schemaCol) =>
+          val oldDeclaration = schemaCol
+            .map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]])
+            .getOrElse(Vector.empty)
+          resolveEditSpecs(newFields) match {
+            case Left(structuralErrors) =>
+              DBIO.successful(Some(Left(SchemaUpdateRejection.Structural(structuralErrors))))
+            case Right(edits) =>
+              rowsTable.filter(_.dataSourceId === id.value).sortBy(_.seq).result.flatMap { existingRowRows =>
+                val existingRows = existingRowRows.map(r => r.data.parseJson.asInstanceOf[JsArray].elements).toVector
+                DatasetSchemaMigration.plan(oldDeclaration, existingRows, edits, confirmDrop) match {
+                  case Left(rejection) => DBIO.successful(Some(Left(rejection)))
+                  case Right(migration) =>
+                    persistMigrationAction(id, migration, updatedAt).map(r => Some(Right(r)))
+                }
+              }
+          }
+      }
+    } yield result
+    ctx.withUserContext(user.id.value)(action)
+  }
+
+  /** Converts the wire payload to `DatasetSchemaMigration.FieldEditSpec`, rejecting (structurally,
+   *  `400`) an unparseable `type` string or a `default` that doesn't satisfy its own declared
+   *  type (design.md Decision 3: checked regardless of row count). Collects every error rather
+   *  than stopping at the first, matching Step A's own "collect all" discipline. */
+  private def resolveEditSpecs(newFields: Vector[DatasetFieldDeclarationPayload]): Either[Vector[String], Vector[FieldEditSpec]] = {
+    val errors = ArrayBuffer.empty[String]
+    val specs = newFields.map { f =>
+      val fieldType = DataFieldType.validateAndCanonicalize(f.`type`) match {
+        case Right(canonical) => DataFieldType.fromString(canonical)
+        case Left(err) =>
+          errors += s"field '${f.name}': $err"
+          None
+      }
+      val required = f.required.getOrElse(false)
+      val default  = f.default.map(_.getOrElse(JsNull))
+      fieldType.map { t =>
+        val spec = FieldEditSpec(f.name, f.previousName, t, required, default)
+        DatasetRowValidator.validateDefault(DatasetFieldDeclaration(spec.name, spec.fieldType, spec.required, spec.default)) match {
+          case Left(e)  => errors += DatasetRowValidator.renderDefaultError(e)
+          case Right(()) => ()
+        }
+        spec
+      }
+    }
+    if (errors.nonEmpty) Left(errors.toVector) else Right(specs.flatten)
+  }
+
+  /** Decision 8: re-validates `migration.migratedRows` against `migration.newDeclaration`,
+   *  PASS/FAIL ONLY -- `DatasetRowValidator.validate`'s own `Right` payload is discarded, never
+   *  persisted (round-2 CR4: its default-backfilling behavior is correct for create-time
+   *  validation but would silently backfill a cell Step D deliberately left untouched, e.g. a
+   *  pure rename/retype). `Left` means Steps A-D produced an internally-inconsistent migration --
+   *  an implementation bug, not a caller-facing rejection (those are already handled by
+   *  `DatasetSchemaMigration.plan`'s own `Left`) -- so this rolls back the whole transaction via
+   *  a thrown exception rather than returning a value, matching Slick's standard
+   *  transaction-abort-on-exception behavior. `private[sources]` (not `private`) so
+   *  `DataSourceRepositorySpec` can exercise this safety net directly with a deliberately
+   *  inconsistent `MigrationResult`, bypassing `plan` entirely (design.md Decision 8's test (a)). */
+  private[sources] def persistMigrationAction(
+      id:        DataSourceId,
+      migration: MigrationResult,
+      updatedAt: Instant
+  ): DBIO[MigrationResult] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    DatasetRowValidator.validate(migration.newDeclaration, migration.migratedRows) match {
+      case Left(errs) =>
+        DBIO.failed(new IllegalStateException(
+          s"HEL-1124 Decision 8 safety net: migrated rows violate the new declaration -- ${errs.mkString("; ")}"
+        ))
+      case Right(_) =>
+        val newRows = migration.migratedRows.zipWithIndex.map { case (row, idx) =>
+          DatasetRowRow(UUID.randomUUID().toString, id.value, idx.toLong, JsArray(row).compactPrint, updatedAt, updatedAt)
+        }
+        val inferredSchema = migration.newDeclaration.zipWithIndex.map { case (field, i) =>
+          val cells = migration.migratedRows.map(_.lift(i).getOrElse(JsNull))
+          SchemaField(field.name, PipelineRowJson.staticColumnRuntimeType(DataFieldType.asString(field.fieldType), cells))
+        }
+        for {
+          _ <- rowsTable.filter(_.dataSourceId === id.value).delete
+          _ <- rowsTable ++= newRows
+          _ <- table.filter(_.id === id.value)
+                 .map(r => (r.datasetSchema, r.inferredSchema, r.updatedAt))
+                 .update((Some(migration.newDeclaration.toJson.compactPrint), inferredSchema, updatedAt))
+        } yield migration
+    }
+  }
+
+  /** Test-only entry point (`private[sources]`) for Decision 8's safety-net test: runs
+   *  `persistMigrationAction` for a deliberately-constructed `MigrationResult` inside its own
+   *  locked transaction, bypassing `DatasetSchemaMigration.plan` entirely -- proves the
+   *  transaction actually rolls back rather than committing a violating row. */
+  private[sources] def applyMigrationForTest(
+      id:        DataSourceId,
+      migration: MigrationResult,
+      updatedAt: Instant,
+      user:      AuthenticatedUser
+  ): Future[MigrationResult] =
+    ctx.withUserContext(user.id.value)(lockSource(id).andThen(persistMigrationAction(id, migration, updatedAt)))
 }
 
 object DataSourceRepository {

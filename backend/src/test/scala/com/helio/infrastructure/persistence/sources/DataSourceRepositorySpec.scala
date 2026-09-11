@@ -2,7 +2,9 @@ package com.helio.infrastructure.persistence.sources
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.domain.engine.SchemaField
+import com.helio.api.protocols.sources.DatasetFieldDeclarationPayload
+import com.helio.domain.engine.{DatasetSchemaMigration, SchemaField}
+import com.helio.domain.engine.DatasetSchemaMigration.MigrationResult
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
 import spray.json.DefaultJsonProtocol._
@@ -16,6 +18,7 @@ import slick.jdbc.JdbcBackend
 
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -703,6 +706,166 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       readBack.fields.keySet shouldBe Set("columns", "rows")
       readBack.fields("columns") shouldBe declared.toJson
       readBack.fields("rows") shouldBe JsArray(Vector(JsArray(Vector(JsString("x"))), JsArray(Vector(JsString("y")))))
+    }
+  }
+
+  // ── HEL-1124: updateDatasetSchema -- persistence-level coverage (algorithm cases are exhaustively
+  //    covered, DB-free, in DatasetSchemaMigrationSpec; these tests prove the DB write actually
+  //    happens the way the plan says it should, plus the Decision 8 safety net and concurrency). ──
+  "DataSourceRepository.updateDatasetSchema" should {
+
+    "persist a rename, leaving dataset_rows unchanged (task 4.3)" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-schema-rename", declared, Vector(Vector(JsString("x"))))
+
+      val payload = Vector(DatasetFieldDeclarationPayload(name = "renamed", previousName = Some("a"), `type` = "string"))
+      val result = await(repo.updateDatasetSchema(id, payload, confirmDrop = false, Instant.now(), user1))
+      result shouldBe defined
+      val migration = result.get.toOption.get
+      migration.rowsMigrated shouldBe 0
+      migration.newDeclaration.map(_.name) shouldBe Vector("renamed")
+
+      val readBack = await(repo.getDeclaredSchema(id, user1)).get
+      readBack.map(_.name) shouldBe Vector("renamed")
+      val rows = await(repo.readDatasetRows(id)).get
+      rows.fields("rows") shouldBe JsArray(Vector(JsArray(Vector(JsString("x")))))
+    }
+
+    "persist a confirmed drop, removing the column from every row (task 4.5)" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType), DatasetFieldDeclaration("b", DataFieldType.StringType))
+      val id = newDatasetSource("ds-schema-drop", declared, Vector(Vector(JsString("x"), JsString("y"))))
+
+      val payload = Vector(DatasetFieldDeclarationPayload(name = "a", `type` = "string"))
+      val noConfirm = await(repo.updateDatasetSchema(id, payload, confirmDrop = false, Instant.now(), user1)).get
+      noConfirm shouldBe a[Left[_, _]]
+
+      val confirmed = await(repo.updateDatasetSchema(id, payload, confirmDrop = true, Instant.now(), user1)).get
+      confirmed shouldBe a[Right[_, _]]
+      val rows = await(repo.readDatasetRows(id)).get
+      rows.fields("rows") shouldBe JsArray(Vector(JsArray(Vector(JsString("x")))))
+    }
+
+    "reject a caller-supplied type string that fails DataFieldType validation, structurally (400-shaped)" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-schema-bad-type", declared, Vector.empty)
+
+      val payload = Vector(DatasetFieldDeclarationPayload(name = "a", `type` = "not-a-real-type"))
+      val result = await(repo.updateDatasetSchema(id, payload, confirmDrop = false, Instant.now(), user1)).get
+      result.left.toOption.get shouldBe a[DatasetSchemaMigration.SchemaUpdateRejection.Structural]
+    }
+
+    // task 4.11: an invalid default is rejected even on an EMPTY dataset -- this is checked before
+    // Step A/B/C ever run, in `resolveEditSpecs`, so it must reject regardless of row count.
+    "reject a default that doesn't satisfy its own declared type, even on an empty dataset (task 4.11)" in {
+      cleanDb()
+      val id = newDatasetSource("ds-schema-bad-default", Vector.empty, Vector.empty)
+
+      val payload = Vector(DatasetFieldDeclarationPayload(name = "a", `type` = "integer", default = Some(Some(JsString("not-an-int")))))
+      val result = await(repo.updateDatasetSchema(id, payload, confirmDrop = false, Instant.now(), user1)).get
+      result.left.toOption.get shouldBe a[DatasetSchemaMigration.SchemaUpdateRejection.Structural]
+    }
+
+    "returns None for a nonexistent source id" in {
+      cleanDb()
+      val result = await(repo.updateDatasetSchema(
+        DataSourceId(UUID.randomUUID().toString), Vector.empty, confirmDrop = false, Instant.now(), user1
+      ))
+      result shouldBe None
+    }
+
+    // design.md Decision 8 / task 4.12(a): a targeted unit test that bypasses `plan` entirely and
+    // hands the repository a DELIBERATELY internally-inconsistent migration -- a row that does NOT
+    // satisfy the declaration it's paired with -- and asserts the transaction rolls back rather
+    // than committing the violating row.
+    "Decision 8 safety net: rolls back rather than committing a row that violates the new declaration" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-schema-safety-net", declared, Vector(Vector(JsString("x"))))
+
+      // A required integer field with a migrated row carrying JsNull -- internally inconsistent:
+      // no real call through `plan` could ever produce this (it would have been rejected 409).
+      val badDeclaration = Vector(DatasetFieldDeclaration("n", DataFieldType.IntegerType, required = true, default = None))
+      val badMigration = MigrationResult(badDeclaration, Vector(Vector(JsNull)), rowsMigrated = 1)
+
+      val thrown = intercept[Exception] {
+        await(repo.applyMigrationForTest(id, badMigration, Instant.now(), user1))
+      }
+      thrown.getMessage should include("Decision 8")
+
+      // The rollback must be COMPLETE: neither dataset_schema nor dataset_rows reflect the bad write.
+      val schemaAfter = await(repo.getDeclaredSchema(id, user1)).get
+      schemaAfter shouldBe declared
+      val rowsAfter = await(repo.readDatasetRows(id)).get
+      rowsAfter.fields("rows") shouldBe JsArray(Vector(JsArray(Vector(JsString("x")))))
+    }
+
+    // design.md Decision 8 / task 4.12(b): a successful rename/retype-only edit must NOT backfill
+    // a default into a pre-existing null the migration itself left untouched -- proven here against
+    // the REAL PERSISTED rows (the pure-algorithm version of this property is in
+    // DatasetSchemaMigrationSpec; this is the same property, checked past the actual DB write).
+    "a successful rename-only edit never backfills an untouched null cell (task 4.12b, persisted)" in {
+      cleanDb()
+      val declared = Vector(
+        DatasetFieldDeclaration("a", DataFieldType.StringType),
+        DatasetFieldDeclaration("untouched", DataFieldType.StringType, required = false, default = Some(JsString("d")))
+      )
+      val id = newDatasetSource("ds-schema-no-backfill", declared, Vector(Vector(JsString("x"), JsNull)))
+
+      val payload = Vector(
+        DatasetFieldDeclarationPayload(name = "renamed", previousName = Some("a"), `type` = "string"),
+        DatasetFieldDeclarationPayload(name = "untouched", `type` = "string", default = Some(Some(JsString("d"))))
+      )
+      await(repo.updateDatasetSchema(id, payload, confirmDrop = false, Instant.now(), user1)).get shouldBe a[Right[_, _]]
+
+      val rows = await(repo.readDatasetRows(id)).get
+      rows.fields("rows") shouldBe JsArray(Vector(JsArray(Vector(JsString("x"), JsNull))))
+    }
+
+    // design.md Decision 5 / task 5.1: a REAL concurrency test -- two actually-overlapping
+    // executions racing against real DB connections, synchronized with a barrier so neither can
+    // complete before both have started -- not two sequential calls dressed up as a race.
+    "a schema edit racing a concurrent row append serializes via lockSource, leaving no row that violates either declaration (task 5.1)" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-schema-concurrency", declared, Vector(Vector(JsString("orig"))))
+
+      val startLatch = new CountDownLatch(2)
+      def barrier(): Unit = { startLatch.countDown(); startLatch.await(5, TimeUnit.SECONDS); () }
+
+      val schemaFuture = Future {
+        barrier()
+        val payload = Vector(DatasetFieldDeclarationPayload(name = "a", `type` = "string"))
+        Await.result(
+          repo.updateDatasetSchema(id, payload, confirmDrop = false, Instant.now(), user1),
+          5.seconds
+        )
+      }
+      val appendFuture = Future {
+        barrier()
+        Await.result(
+          repo.appendRows(id, Vector(Vector(JsString("concurrent"))), 500, Instant.now(), user1),
+          5.seconds
+        )
+      }
+
+      val schemaResult = await(schemaFuture)
+      val appendResult = await(appendFuture)
+
+      schemaResult shouldBe defined
+      appendResult shouldBe defined
+      schemaResult.get shouldBe a[Right[_, _]]
+      appendResult.get shouldBe a[Right[_, _]]
+
+      // Whichever order the lock actually serialized these in, the final row count must be
+      // consistent (2 rows: the original + the appended one) and every row must satisfy the
+      // schema currently on file -- no row left half-migrated or missed by the append.
+      val finalSchema = await(repo.getDeclaredSchema(id, user1)).get
+      val finalRows   = await(repo.readDatasetRows(id)).get.fields("rows").asInstanceOf[JsArray].elements
+      finalRows should have size 2
+      finalSchema.map(_.name) shouldBe Vector("a")
     }
   }
 }

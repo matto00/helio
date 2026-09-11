@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/update-dataset-schema-request.schema.json",
+  "title": "UpdateDatasetSchemaRequest",
+  "description": "Request body for PATCH /api/data-sources/:id/schema (HEL-1124 design.md Decision 1) -- a full-replacement declared field list. `confirmDrop` is the explicit, request-level opt-in required to drop a field with existing data; it defaults to `false` when omitted.",
+  "type": "object",
+  "required": ["fields"],
+  "properties": {
+    "fields": {
+      "type": "array",
+      "items": { "$ref": "./dataset-field-declaration-payload.schema.json" }
+    },
+    "confirmDrop": { "type": "boolean", "default": false }
+  },
+  "additionalProperties": false
+}

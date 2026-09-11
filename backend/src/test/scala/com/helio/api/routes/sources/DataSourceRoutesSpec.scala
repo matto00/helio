@@ -15,7 +15,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.persistence.{Database, DbContext}
-import com.helio.api.protocols.sources.{DatasetSchemaResponse, RowListResponse, RowResponse, RowWriteResponse}
+import com.helio.api.protocols.sources.{DatasetSchemaResponse, DatasetSchemaUpdateResponse, RowListResponse, RowResponse, RowWriteResponse, SchemaUpdateConflictResponse}
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -1760,6 +1760,120 @@ class DataSourceRoutesSpec
         val items = responseAs[JsValue].asJsObject.fields("items").asInstanceOf[JsArray].elements
         val raw = items.map(_.asJsObject).find(_.fields("id") == JsString(sourceId)).getOrElse(fail("source not found in list"))
         raw.fields.keySet shouldBe Set("id", "name", "createdAt", "updatedAt", "inferredSchema", "type")
+      }
+    }
+  }
+
+  // HEL-1124: full-replacement declared-schema write route (design.md Decision 1/6). The
+  // exhaustive per-edit-kind algorithm coverage lives in `DatasetSchemaMigrationSpec`
+  // (DB-free) and `DataSourceRepositorySpec` (persisted); these tests are the HTTP-wiring
+  // smoke tests -- status codes, response shapes, and the ACL/kind checks this route composes.
+  "PATCH /api/data-sources/:id/schema" should {
+
+    "rename a field on a non-empty dataset, returning 200 with rowsMigrated: 0" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Schema Update Rename", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+
+      Patch(
+        s"/api/data-sources/$sourceId/schema",
+        HttpEntity(ContentTypes.`application/json`, """{"fields": [{"name": "renamed", "previousName": "a", "type": "string"}]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[DatasetSchemaUpdateResponse]
+        resp.fields.map(_.name) shouldBe Vector("renamed")
+        resp.rowsMigrated shouldBe 0
+      }
+
+      Get(s"/api/data-sources/$sourceId/schema") ~> routes() ~> check {
+        responseAs[DatasetSchemaResponse].fields.map(_.name) shouldBe Vector("renamed")
+      }
+    }
+
+    "reject dropping a field with data, without confirmDrop, as a structured 409" in {
+      cleanDb()
+      val sourceId = createDatasetSource(
+        "Schema Update Drop Reject",
+        """[{"name": "a", "type": "string"}, {"name": "b", "type": "string"}]""",
+        """[["x", "y"]]"""
+      )
+
+      Patch(
+        s"/api/data-sources/$sourceId/schema",
+        HttpEntity(ContentTypes.`application/json`, """{"fields": [{"name": "a", "type": "string"}]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.Conflict
+        val resp = responseAs[SchemaUpdateConflictResponse]
+        resp.rejectedFields.map(_.name) should contain("b")
+      }
+    }
+
+    "succeed dropping a field with data when confirmDrop: true is set" in {
+      cleanDb()
+      val sourceId = createDatasetSource(
+        "Schema Update Drop Confirmed",
+        """[{"name": "a", "type": "string"}, {"name": "b", "type": "string"}]""",
+        """[["x", "y"]]"""
+      )
+
+      Patch(
+        s"/api/data-sources/$sourceId/schema",
+        HttpEntity(ContentTypes.`application/json`, """{"fields": [{"name": "a", "type": "string"}], "confirmDrop": true}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/data-sources/$sourceId/preview") ~> routes() ~> check {
+        responseAs[CsvPreviewResponse].rows shouldBe Vector(Vector("x"))
+      }
+    }
+
+    "reject a malformed previousName with 400" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Schema Update Bad Rename", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+
+      Patch(
+        s"/api/data-sources/$sourceId/schema",
+        HttpEntity(ContentTypes.`application/json`, """{"fields": [{"name": "b", "previousName": "does-not-exist", "type": "string"}]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "reject a non-dataset (csv) source with 400, not 500" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Csv For Schema Update Reject", validCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Patch(
+        s"/api/data-sources/$sourceId/schema",
+        HttpEntity(ContentTypes.`application/json`, """{"fields": [{"name": "a", "type": "string"}]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "return 404 for a source owned by another user" in {
+      cleanDb()
+      val sourceId = seedOtherOwnerDatasetSource()
+
+      Patch(
+        s"/api/data-sources/$sourceId/schema",
+        HttpEntity(ContentTypes.`application/json`, """{"fields": [{"name": "a", "type": "string"}]}""")
+      ) ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "does not modify the shipped GET response shape (regression)" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Schema Update No GET Regression", """[{"name": "a", "type": "string"}]""", """[["x"]]""")
+
+      Get(s"/api/data-sources/$sourceId/schema") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsValue].asJsObject.fields.keySet shouldBe Set("fields")
       }
     }
   }

@@ -348,4 +348,63 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
       json.fields.get("nextCursor") shouldBe Some(JsNumber(5))
     }
   }
+
+  // HEL-1124 design.md Decision 3: `DatasetFieldDeclarationPayload.default`'s
+  // `Option[Option[JsValue]]` idiom must distinguish "no default supplied" (absent key) from
+  // "an explicit null default" (present key, JSON null) -- both round-trip to different Scala
+  // values, unlike a raw `jsonFormat5` which would collapse both to `None`.
+  "DatasetFieldDeclarationPayload.default wire idiom" should {
+    "reads an absent default key as outer None" in {
+      val json = """{"name": "a", "type": "string"}""".parseJson
+      json.convertTo[DatasetFieldDeclarationPayload].default shouldBe None
+    }
+
+    "reads an explicit JSON null default as Some(None)" in {
+      val json = """{"name": "a", "type": "string", "default": null}""".parseJson
+      json.convertTo[DatasetFieldDeclarationPayload].default shouldBe Some(None)
+    }
+
+    "reads a present default value as Some(Some(value))" in {
+      val json = """{"name": "a", "type": "string", "default": "fallback"}""".parseJson
+      json.convertTo[DatasetFieldDeclarationPayload].default shouldBe Some(Some(JsString("fallback")))
+    }
+
+    "reads an absent required key as None (service defaults it to false)" in {
+      val json = """{"name": "a", "type": "string"}""".parseJson
+      json.convertTo[DatasetFieldDeclarationPayload].required shouldBe None
+    }
+
+    "reads an absent previousName as None" in {
+      val json = """{"name": "a", "type": "string"}""".parseJson
+      json.convertTo[DatasetFieldDeclarationPayload].previousName shouldBe None
+    }
+  }
+
+  "UpdateDatasetSchemaRequest.confirmDrop wire default" should {
+    "defaults to false when the key is entirely absent" in {
+      val json = """{"fields": [{"name": "a", "type": "string"}]}""".parseJson
+      json.convertTo[UpdateDatasetSchemaRequest].confirmDrop shouldBe false
+    }
+
+    "reads an explicit true" in {
+      val json = """{"fields": [{"name": "a", "type": "string"}], "confirmDrop": true}""".parseJson
+      json.convertTo[UpdateDatasetSchemaRequest].confirmDrop shouldBe true
+    }
+  }
+
+  "SchemaUpdateConflictResponse" should {
+    "round-trips rejectedFields and message" in {
+      val r = SchemaUpdateConflictResponse(Vector(SchemaFieldRejection("a", "reason")), "message")
+      r.toJson.convertTo[SchemaUpdateConflictResponse] shouldBe r
+    }
+  }
+
+  "DatasetSchemaUpdateResponse" should {
+    "is a distinct type from the shipped DatasetSchemaResponse -- carries rowsMigrated, unlike GET's response" in {
+      val r = DatasetSchemaUpdateResponse(Vector(DatasetFieldResponse("a", "string", required = false, default = None)), rowsMigrated = 3)
+      val json = r.toJson.asJsObject
+      json.fields.keySet shouldBe Set("fields", "rowsMigrated")
+      r.toJson.convertTo[DatasetSchemaUpdateResponse] shouldBe r
+    }
+  }
 }

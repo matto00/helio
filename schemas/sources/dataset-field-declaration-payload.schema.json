@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/dataset-field-declaration-payload.schema.json",
+  "title": "DatasetFieldDeclarationPayload",
+  "description": "One field edit in PATCH /api/data-sources/:id/schema's request body (HEL-1124 design.md Decision 3). `previousName` identifies a rename (absent for an added field or an unrenamed kept field). `default` uses the Option[Option[JsValue]] idiom: an absent `default` key means 'no default supplied in this request'; a present key (including JSON `null`) means a default WAS supplied.",
+  "type": "object",
+  "required": ["name", "type"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "previousName": { "type": "string", "minLength": 1 },
+    "type": {
+      "type": "string",
+      "enum": ["string", "integer", "float", "boolean", "timestamp", "string-body", "binary-ref"]
+    },
+    "required": { "type": "boolean" },
+    "default": {}
+  },
+  "additionalProperties": false
+}

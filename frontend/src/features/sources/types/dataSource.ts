@@ -256,3 +256,45 @@ export interface DatasetFieldResponse {
 export interface DatasetSchemaResponse {
   fields: DatasetFieldResponse[];
 }
+
+// HEL-1124: PATCH /api/data-sources/:id/schema -- full-replacement declared-schema write.
+// `DatasetSchemaResponse` above (GET's shipped shape) is left completely untouched; these are
+// new, distinct types (design.md Decision 6).
+
+/** One field edit in the PATCH request body. `previousName` identifies a rename (omit for an
+ *  added field or an unrenamed kept field). `default` is `null` for an explicit null default,
+ *  a value for a supplied default, or the key omitted entirely for "no default supplied in
+ *  this request" -- mirroring the backend's `Option[Option[JsValue]]` wire idiom. */
+export interface DatasetFieldDeclarationPayload {
+  name: string;
+  previousName?: string;
+  type: DatasetFieldType;
+  required?: boolean;
+  default?: unknown;
+}
+
+export interface UpdateDatasetSchemaRequest {
+  fields: DatasetFieldDeclarationPayload[];
+  /** Explicit, request-level opt-in required to drop a field with existing data. Defaults to
+   *  `false` when omitted. */
+  confirmDrop?: boolean;
+}
+
+/** 200 response -- a NEW, DISTINCT type from `DatasetSchemaResponse` (never touched by this
+ *  ticket). `rowsMigrated` is `0` for a pure rename, else the full existing row count. */
+export interface DatasetSchemaUpdateResponse {
+  fields: DatasetFieldResponse[];
+  rowsMigrated: number;
+}
+
+/** One rejected field's name and human-readable reason, inside a 409 `SchemaUpdateConflictResponse`. */
+export interface SchemaFieldRejection {
+  name: string;
+  reason: string;
+}
+
+/** 409 response body when the edit is incompatible with the dataset's existing rows. */
+export interface SchemaUpdateConflictResponse {
+  rejectedFields: SchemaFieldRejection[];
+  message: string;
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/schema-update-conflict-response.schema.json",
+  "title": "SchemaUpdateConflictResponse",
+  "description": "409 response body for PATCH /api/data-sources/:id/schema when the edit is incompatible with the dataset's existing rows (HEL-1124 design.md Decision 6). Lists every rejected field, not just the first.",
+  "type": "object",
+  "required": ["rejectedFields", "message"],
+  "properties": {
+    "rejectedFields": {
+      "type": "array",
+      "items": { "$ref": "./schema-field-rejection.schema.json" }
+    },
+    "message": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}
