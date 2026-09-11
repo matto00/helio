@@ -2615,7 +2615,7 @@ class ApiRoutesSpec
       // Insert a source owned by another user directly
       val otherId = UUID.randomUUID().toString
       val now = Instant.now()
-      await(dataSourceRepo.insert(StaticSource(
+      await(dataSourceRepo.insert(DatasetSource(
         id        = DataSourceId(otherId),
         name      = "Other Source",
         ownerId   = UserId(otherUserId),

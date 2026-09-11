@@ -111,7 +111,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
    *  Output chain a rule's `targetOutputId` FK requires. */
   private def newOutput(ownerId: UserId, user: AuthenticatedUser): OutputId = {
     val now    = Instant.now()
-    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", ownerId, now, now)
+    val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), "src", ownerId, now, now)
     val createdSource = await(dsRepo.insert(source, user))
     val pipeline = await(pipeRepo.create("pipe", Vector(createdSource.id), user)).getOrElse(
       throw new IllegalStateException("newOutput fixture: pipeline create failed")

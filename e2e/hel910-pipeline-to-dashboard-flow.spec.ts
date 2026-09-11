@@ -105,10 +105,11 @@ test.describe("HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof
     expect(dashRes.status()).toBe(201);
 
     // ── "New pipeline" with a manually-entered table (the shipped
-    // "paste-a-table" source kind is the Manual/static connector -- see
-    // SourceTypeToggle.tsx's `displayName: "Manual"` for `kind: "static"`,
-    // and hel908-full-flow.spec.ts's own precedent for calling this the
-    // "paste-table" shape) ──
+    // "paste-a-table" source kind is the Manual/dataset connector -- see
+    // SourceTypeToggle.tsx's `displayName: "Manual"` for `kind: "dataset"`
+    // (HEL-1073: renamed from "static", still accepted as a write-side
+    // alias), and hel908-full-flow.spec.ts's own precedent for calling this
+    // the "paste-table" shape) ──
     await page.goto("/pipelines");
     // Scoped to the main content region -- the sidebar's own "+" control
     // (SidebarBody.tsx's `addLabel="New pipeline"`) shares the same

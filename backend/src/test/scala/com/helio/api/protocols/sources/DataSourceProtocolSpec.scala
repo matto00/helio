@@ -83,7 +83,7 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
       roundTrip(r) shouldBe r
     }
 
-    "emit `type: static` (no config) and round-trip a StaticSourceResponse" in {
+    "emit `type: dataset` (no config) and round-trip a StaticSourceResponse" in {
       val r: DataSourceResponse = StaticSourceResponse(
         id        = "ds-static",
         name      = "static-src",
@@ -91,9 +91,26 @@ class DataSourceProtocolSpec extends AnyWordSpec with Matchers with JsonProtocol
         updatedAt = "2026-01-02T00:00:00Z"
       )
       val json = r.toJson.asJsObject
-      json.fields("type")           shouldBe JsString("static")
+      json.fields("type")           shouldBe JsString("dataset")
       json.fields.contains("config") shouldBe false
       roundTrip(r) shouldBe r
+    }
+
+    "still parses an incoming `type: static` payload as a StaticSourceResponse (HEL-1073 write-side alias)" in {
+      val json = JsObject(
+        "type"           -> JsString("static"),
+        "id"             -> JsString("ds-static-legacy"),
+        "name"           -> JsString("static-src-legacy"),
+        "createdAt"      -> JsString("2026-01-01T00:00:00Z"),
+        "updatedAt"      -> JsString("2026-01-02T00:00:00Z"),
+        "inferredSchema" -> JsArray()
+      )
+      json.convertTo[DataSourceResponse] shouldBe StaticSourceResponse(
+        id        = "ds-static-legacy",
+        name      = "static-src-legacy",
+        createdAt = "2026-01-01T00:00:00Z",
+        updatedAt = "2026-01-02T00:00:00Z"
+      )
     }
 
     "emit `type: text` and round-trip a TextSourceResponse (HEL-215)" in {

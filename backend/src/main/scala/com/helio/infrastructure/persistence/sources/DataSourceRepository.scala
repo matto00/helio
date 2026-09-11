@@ -34,7 +34,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   /** Project a DB row into the typed ADT. Dispatch happens on the
    *  `source_type` column. Unknown kinds raise a loud
    *  `IllegalStateException` so a corrupt row doesn't silently fall through to
-   *  `StaticSource` (the previous behaviour). Legacy CSV configs that used
+   *  `DatasetSource`. Legacy CSV configs that used
    *  `filePath` are mapped to the new `path` field at read time, preserving
    *  HEL-237's regression fix. */
   private def rowToDomain(row: DataSourceRow): DataSource = {
@@ -61,13 +61,11 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case DataSourceKind.Sql =>
         val cfg = DataSourceConfigCodec.decodeSql(row.config)
         SqlSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag, row.inferredSchema)
-      case DataSourceKind.Static | "dataset" =>
-        // HEL-1074 design.md Decision 6: the migration rewrites the STORED `source_type` value
-        // from "static" to "dataset" (rows moved off `config` into `dataset_rows`), but the
-        // Scala ADT member itself does not change -- `StaticSource` stays the wire/domain type
-        // for both a legacy-shaped and a migrated row. Renaming the ADT member, if it ever
-        // happens, is HEL-1073's scope, not this one's.
-        StaticSource(id, row.name, ownerId, row.createdAt, row.updatedAt, row.tag, row.inferredSchema)
+      case DataSourceKind.Static | DataSourceKind.Dataset =>
+        // HEL-1074 migrated every stored `source_type` value from "static" to "dataset"; the
+        // `DataSourceKind.Static` arm here is defensive only (no row is ever stored as "static"
+        // post-migration/HEL-1073's rename) and is retained until that literal is fully retired.
+        DatasetSource(id, row.name, ownerId, row.createdAt, row.updatedAt, row.tag, row.inferredSchema)
       case DataSourceKind.Text =>
         val cfg = DataSourceConfigCodec.decodeText(row.config)
         TextSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag, row.inferredSchema)
@@ -83,17 +81,17 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   }
 
   /** Flatten a typed ADT into a DB row. Each subtype emits its kind string and
-   *  serialized config payload. StaticSource stores `{}` to satisfy the
+   *  serialized config payload. DatasetSource stores `{}` to satisfy the
    *  `config` column NOT NULL constraint. */
   private def domainToRow(ds: DataSource): DataSourceRow = {
     val (kind, configJson) = ds match {
       case c: CsvSource    => (DataSourceKind.Csv,     DataSourceConfigCodec.encodeCsv(c.config))
       case r: RestSource   => (DataSourceKind.RestApi, DataSourceConfigCodec.encodeRest(r.config))
       case s: SqlSource    => (DataSourceKind.Sql,     DataSourceConfigCodec.encodeSql(s.config))
-      // HEL-1074 design.md Decision 6: writes the migrated stored value "dataset" (not
-      // "static") -- a new StaticSource row would otherwise be rejected by the post-migration
+      // HEL-1074 design.md Decision 6: writes the canonical stored value "dataset" (not
+      // "static") -- a new DatasetSource row would otherwise be rejected by the post-migration
       // `data_sources_source_type_check` constraint, which no longer accepts "static".
-      case _: StaticSource => ("dataset",  "{}")
+      case _: DatasetSource => (DataSourceKind.Dataset,  "{}")
       case t: TextSource   => (DataSourceKind.Text,    DataSourceConfigCodec.encodeText(t.config))
       case p: PdfSource    => (DataSourceKind.Pdf,     DataSourceConfigCodec.encodePdf(p.config))
       case i: ImageSource  => (DataSourceKind.Image,   DataSourceConfigCodec.encodeImage(i.config))
@@ -179,7 +177,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case c: CsvSource    => DataSourceConfigCodec.encodeCsv(c.config)
       case r: RestSource   => DataSourceConfigCodec.encodeRest(r.config)
       case s: SqlSource    => DataSourceConfigCodec.encodeSql(s.config)
-      case _: StaticSource => "{}"
+      case _: DatasetSource => "{}"
       case t: TextSource   => DataSourceConfigCodec.encodeText(t.config)
       case p: PdfSource    => DataSourceConfigCodec.encodePdf(p.config)
       case i: ImageSource  => DataSourceConfigCodec.encodeImage(i.config)
@@ -193,7 +191,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(action)
   }
 
-  /** Read the raw stored `config` JSON for a StaticSource (or any source).
+  /** Read the raw stored `config` JSON for a DatasetSource (or any source).
    *
    *  Privileged: callers are background engine paths (pipeline ACL is the gate
    *  at submission) or system paths without a user context. Bypasses RLS via
@@ -322,14 +320,14 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(action)
   }
 
-  /** HEL-1074 design.md Decision 7: insert a new `StaticSource` ("dataset"-kind) row, its
+  /** HEL-1074 design.md Decision 7: insert a new `DatasetSource` ("dataset"-kind) row, its
    *  `dataset_rows`, and both schema columns (`dataset_schema` = the caller-declared columns;
    *  `inferred_schema` = the runtime-derived types, unchanged from today) in ONE transaction --
    *  replaces the old `insert` + `updateStaticPayload` two-step, which left a window where the
    *  source row existed with no row payload at all. `columns`/`rows` are stored verbatim
    *  (positional, not object-keyed -- Decision 3): each row is JSON-encoded as-is. */
   def insertDatasetSource(
-      source:         StaticSource,
+      source:         DatasetSource,
       declaredColumns: Vector[SchemaField],
       rows:           Vector[Vector[JsValue]],
       inferredSchema: Vector[SchemaField],

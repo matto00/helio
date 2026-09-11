@@ -41,7 +41,7 @@
         },
         "type": {
           "type": "string",
-          "enum": ["csv", "rest_api", "sql", "static"],
+          "enum": ["csv", "rest_api", "sql", "static", "dataset"],
           "description": "Inline-source branch — the new source's kind. Selects which shape `config` must conform to. A deliberate narrowing of the full connector registry (text/pdf/image excluded) per this ticket's scope."
         },
         "name": {

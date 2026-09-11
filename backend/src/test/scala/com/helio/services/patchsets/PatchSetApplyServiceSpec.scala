@@ -158,13 +158,13 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
 
   // HEL-904: no companion DataType to look up anymore — returns just the DataSourceId
   // (every call site already discarded the old tuple's second element).
-  private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): DataSourceId = {
+  private def seedDatasetSource(owner: AuthenticatedUser, name: String = "Source"): DataSourceId = {
     val ds = await(dataSourceService.createStatic(
       StaticDataSourceRequest(name, "static", Vector(StaticColumnPayload("value", "integer")), Vector(Vector(JsNumber(1)))),
       owner
     )) match {
       case Right(d) => d
-      case Left(e)  => fail(s"seedStaticSource failed: $e")
+      case Left(e)  => fail(s"seedDatasetSource failed: $e")
     }
     ds.id
   }
@@ -291,7 +291,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       // -- it is mutation-failable (verified: forcing parentStepId = None here fails this test),
       // which is the right bar for a guard, but it was never red for a real defect.
       val dashboard = seedDashboard(userA, "Rollback-pipelineStep dashboard")
-      val sourceId  = seedStaticSource(userA, "Rollback-pipelineStep source")
+      val sourceId  = seedDatasetSource(userA, "Rollback-pipelineStep source")
       val pipeline  = seedPipeline(userA, sourceId, "Rollback-pipelineStep pipeline")
       val rootStep  = seedPipelineStep(PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("a" -> JsString("b"))))
       // A second trunk step, so rootStep is NOT the trunk-last step -- the load-bearing part of
@@ -427,6 +427,51 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       }
     }
 
+    // HEL-1073 design.md Decision 5: a dataSource create edit must accept BOTH the canonical
+    // "dataset" type and the legacy "static" wire alias -- the latter matters because a patch-set
+    // proposed/stored before this ticket shipped may still carry "static" when it is applied.
+    def dataSourceCreatePatch(name: String, kindLiteral: String): JsObject = JsObject(
+      "name"    -> JsString(name),
+      "type"    -> JsString(kindLiteral),
+      "columns" -> JsArray(JsObject("name" -> JsString("value"), "type" -> JsString("integer"))),
+      "rows"    -> JsArray(JsArray(JsNumber(1)))
+    )
+
+    "applies a dataSource create edit whose patch carries the canonical type 'dataset'" in {
+      val edit = Edit(EditTarget("dataSource", None), "create", None, None, None, None, None,
+        Some(dataSourceCreatePatch("Dataset-typed Create", "dataset")))
+      val response = await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"expected success, got $e")
+      }
+      response.edits.head.status shouldBe "applied"
+      val newId = response.edits.head.newId.getOrElse(fail("expected a newId"))
+      await(dataSourceRepo.findByIdOwned(DataSourceId(newId), userA)).map(_.kind) shouldBe Some("dataset")
+    }
+
+    "applies a dataSource create edit whose patch still carries the legacy 'static' type (HEL-1073 alias backward-compat)" in {
+      val edit = Edit(EditTarget("dataSource", None), "create", None, None, None, None, None,
+        Some(dataSourceCreatePatch("Static-typed Create", "static")))
+      val response = await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
+        case Right(r) => r
+        case Left(e)  => fail(s"expected success (the 'static' literal must still be accepted), got $e")
+      }
+      response.edits.head.status shouldBe "applied"
+      val newId = response.edits.head.newId.getOrElse(fail("expected a newId"))
+      // The row is stored as "dataset" regardless of which wire literal the request carried --
+      // `domainToRow` always writes the canonical value (HEL-1074 Decision 6).
+      await(dataSourceRepo.findByIdOwned(DataSourceId(newId), userA)).map(_.kind) shouldBe Some("dataset")
+    }
+
+    "rejects a dataSource create edit whose patch carries a type unrelated to dataset/static" in {
+      val edit = Edit(EditTarget("dataSource", None), "create", None, None, None, None, None,
+        Some(dataSourceCreatePatch("Bad Type Create", "csv")))
+      await(service.apply(PatchSet(None, Vector(edit)), userA)) match {
+        case Left(ServiceError.BadRequest(msg)) => msg should include("dataset")
+        case other                                => fail(s"expected BadRequest, got $other")
+      }
+    }
+
     // HEL-914 task 5.1/D3: `output` still has no create op -- the parent-id gap this change
     // closes for `pipelineStep` is not exercised for `output` (patch-set-apply spec, "A create
     // edit targeting output is rejected").
@@ -465,7 +510,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
 
     // patch-set-contract spec, "A create edit naming a pipeline the caller cannot write is refused".
     "reject a pipelineStep create naming a pipeline owned by another user, creating nothing" in {
-      val sourceId = seedStaticSource(userA)
+      val sourceId = seedDatasetSource(userA)
       val pipeline = seedPipeline(userA, sourceId)
       val createPatch = JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1)))
       val stepCreate = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
@@ -478,7 +523,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     }
 
     "accept a pipelineStep create naming an existing, writable parent pipeline, and create the step" in {
-      val sourceId = seedStaticSource(userA)
+      val sourceId = seedDatasetSource(userA)
       val pipeline = seedPipeline(userA, sourceId)
       val createPatch = JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1)))
       val stepCreate = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
@@ -502,7 +547,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // (HEL-911/912) -- this test proves the patch-set wiring delegates to it unmodified, rather
     // than re-deriving lane placement itself.
     "accept a pipelineStep create naming an existing step with a child, producing a sibling (not a reparent)" in {
-      val sourceId = seedStaticSource(userA)
+      val sourceId = seedDatasetSource(userA)
       val pipeline = seedPipeline(userA, sourceId)
       val parent = seedPipelineStep(PipelineId(pipeline.id), userA, "limit", JsObject("count" -> JsNumber(10)))
       val existingChild = seedPipelineStep(PipelineId(pipeline.id), userA, "limit", JsObject("count" -> JsNumber(5)), parentStepId = Some(parent.id))
@@ -544,7 +589,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // splice/reparent outcome, not merely that the call succeeded -- a 200 alone would prove
     // nothing, since both the sibling and splice paths return 200.
     "accept a pipelineStep create naming an existing step with a child, WITHOUT attachAsTail, splicing and reparenting the existing child" in {
-      val sourceId = seedStaticSource(userA)
+      val sourceId = seedDatasetSource(userA)
       val pipeline = seedPipeline(userA, sourceId)
       val parent = seedPipelineStep(PipelineId(pipeline.id), userA, "limit", JsObject("count" -> JsNumber(10)))
       val existingChild = seedPipelineStep(PipelineId(pipeline.id), userA, "limit", JsObject("count" -> JsNumber(5)), parentStepId = Some(parent.id))
@@ -580,8 +625,8 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // PRE-VALIDATION time (same as pipelineStep update, above), creating nothing -- not merely
     // caught later by forward-apply's own atomic rollback.
     "reject a pipelineStep create referencing a foreign-owned JoinConfig secondaryInput dataSourceId, creating nothing" in {
-      val sourceId = seedStaticSource(userA, "Pipeline source")
-      val foreignSourceId = seedStaticSource(userB, "Foreign source")
+      val sourceId = seedDatasetSource(userA, "Pipeline source")
+      val foreignSourceId = seedDatasetSource(userB, "Foreign source")
       val pipeline = seedPipeline(userA, sourceId, "Join pipeline")
       val joinConfig = JsObject(
         "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(foreignSourceId.value)),
@@ -601,7 +646,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // Peer-requested confirmation (patch-set-apply spec's create-side scenarios): an empty
     // dataSourceId is an incomplete draft, not a reference -- no lookup, no 404, on create either.
     "accept a pipelineStep create whose JoinConfig.secondaryInput dataSourceId is empty (an incomplete draft, not a reference)" in {
-      val sourceId = seedStaticSource(userA, "Pipeline source")
+      val sourceId = seedDatasetSource(userA, "Pipeline source")
       val pipeline = seedPipeline(userA, sourceId, "Join pipeline")
       val joinConfig = JsObject(
         "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString("")),
@@ -632,7 +677,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // D1: cascades to pipelines) -- `dataType` is no longer a valid
     // target.kind at all, so it can no longer stand in for this scenario.
     "report an unrecoverable delete rollback honestly, not silently hidden (7.7)" in {
-      val standaloneSourceId = seedStaticSource(userA, "Standalone")
+      val standaloneSourceId = seedDatasetSource(userA, "Standalone")
       val dashboard               = seedDashboard(userA)
 
       val edits = Vector(
@@ -680,9 +725,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // removed).
 
     "reject a pipelineStep-update edit referencing a foreign-owned JoinConfig secondaryInput dataSourceId (7.9d)" in {
-      val sourceId = seedStaticSource(userA, "Pipeline source")
-      val rightSourceId = seedStaticSource(userA, "Right source")
-      val foreignSourceId = seedStaticSource(userB, "Foreign source")
+      val sourceId = seedDatasetSource(userA, "Pipeline source")
+      val rightSourceId = seedDatasetSource(userA, "Right source")
+      val foreignSourceId = seedDatasetSource(userB, "Foreign source")
       val pipeline              = seedPipeline(userA, sourceId, "Join pipeline")
       val joinConfig = JsObject(
         "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(rightSourceId.value)),
@@ -711,8 +756,8 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // (this file had NO existing test asserting an empty second-source id per the design
     // gate's grep, so this is new coverage, not a modified assertion).
     "accept a pipelineStep-update edit clearing JoinConfig.secondaryInput dataSourceId to empty (HEL-950)" in {
-      val sourceId = seedStaticSource(userA, "Pipeline source")
-      val rightSourceId = seedStaticSource(userA, "Right source")
+      val sourceId = seedDatasetSource(userA, "Pipeline source")
+      val rightSourceId = seedDatasetSource(userA, "Right source")
       val pipeline = seedPipeline(userA, sourceId, "Join pipeline")
       val joinConfig = JsObject(
         "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(rightSourceId.value)),
@@ -735,9 +780,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     }
 
     "reject a pipelineStep-update edit referencing a foreign-owned UnionConfig.secondaryInput dataSourceId (HEL-950, the cell HEL-620 missed)" in {
-      val sourceId = seedStaticSource(userA, "Pipeline source")
-      val otherSourceId = seedStaticSource(userA, "Other source")
-      val foreignSourceId = seedStaticSource(userB, "Foreign source")
+      val sourceId = seedDatasetSource(userA, "Pipeline source")
+      val otherSourceId = seedDatasetSource(userA, "Other source")
+      val foreignSourceId = seedDatasetSource(userB, "Foreign source")
       val pipeline = seedPipeline(userA, sourceId, "Union pipeline")
       val unionConfig = JsObject(
         "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(otherSourceId.value)),
@@ -758,8 +803,8 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     }
 
     "accept a pipelineStep-update edit clearing UnionConfig.secondaryInput dataSourceId to empty (HEL-950, the cell HEL-620 missed)" in {
-      val sourceId = seedStaticSource(userA, "Pipeline source")
-      val otherSourceId = seedStaticSource(userA, "Other source")
+      val sourceId = seedDatasetSource(userA, "Pipeline source")
+      val otherSourceId = seedDatasetSource(userA, "Other source")
       val pipeline = seedPipeline(userA, sourceId, "Union pipeline")
       val unionConfig = JsObject(
         "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(otherSourceId.value)),
@@ -810,7 +855,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // HEL-904 task 3.3: rewritten onto a `dataSource` delete -- see 7.7's
     // identical note; `dataType` is no longer a valid target.kind.
     "still populate priorState for an unrecoverable dataSource-delete edit (7.10c)" in {
-      val standaloneSourceId = seedStaticSource(userA, "StandaloneForPriorState")
+      val standaloneSourceId = seedDatasetSource(userA, "StandaloneForPriorState")
       val standaloneSource        = await(dataSourceRepo.findByIdInternal(standaloneSourceId)).getOrElse(fail("source missing"))
       val dashboard               = seedDashboard(userA)
       val edits = Vector(
@@ -829,7 +874,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     }
 
     "populate a pipeline-update edit's priorState with the joined PipelineSummaryResponse shape (7.10d)" in {
-      val sourceId = seedStaticSource(userA, "PipelineSrcForPriorState")
+      val sourceId = seedDatasetSource(userA, "PipelineSrcForPriorState")
       val pipeline        = seedPipeline(userA, sourceId, "MyPipeline")
       val edit = Edit(EditTarget("pipeline", Some(pipeline.id)), "update",
         None, None, None, Some(UpdatePipelineRequest(name = "Renamed pipeline")), None, None)
@@ -966,7 +1011,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     // ── output (HEL-907 task 1.2) ─────────────────────────────────────────
 
     "apply an output update edit, renaming it (task 1.2)" in {
-      val sourceId = seedStaticSource(userA, "Output-update source")
+      val sourceId = seedDatasetSource(userA, "Output-update source")
       val pipeline = seedPipeline(userA, sourceId, "Output-update pipeline")
       val output   = seedOutput(PipelineId(pipeline.id), userA, "Original name")
 
@@ -983,7 +1028,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     }
 
     "reject an output update edit from a non-owner (viewer grantee), leaving it unchanged (task 1.2)" in {
-      val sourceId = seedStaticSource(userA, "Output-acl source")
+      val sourceId = seedDatasetSource(userA, "Output-acl source")
       val pipeline = seedPipeline(userA, sourceId, "Output-acl pipeline")
       val output   = seedOutput(PipelineId(pipeline.id), userA, "Owner's output")
       grantRole("pipeline", pipeline.id, userBId, "viewer")
@@ -997,7 +1042,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     }
 
     "roll back an output update edit when a later edit in the same patch set fails, restoring its original name (task 1.2)" in {
-      val sourceId  = seedStaticSource(userA, "Output-rollback source")
+      val sourceId  = seedDatasetSource(userA, "Output-rollback source")
       val pipeline  = seedPipeline(userA, sourceId, "Output-rollback pipeline")
       val output    = seedOutput(PipelineId(pipeline.id), userA, "Original name")
       val dashboard = seedDashboard(userA, "Output-rollback dashboard")
@@ -1023,7 +1068,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
     }
 
     "mark an output delete edit unrecoverable on rollback, matching the dashboard/dataSource/pipeline delete precedent (task 1.2)" in {
-      val sourceId  = seedStaticSource(userA, "Output-delete-rollback source")
+      val sourceId  = seedDatasetSource(userA, "Output-delete-rollback source")
       val pipeline  = seedPipeline(userA, sourceId, "Output-delete-rollback pipeline")
       val output    = seedOutput(PipelineId(pipeline.id), userA, "To delete")
       val dashboard = seedDashboard(userA, "Output-delete-rollback dashboard")

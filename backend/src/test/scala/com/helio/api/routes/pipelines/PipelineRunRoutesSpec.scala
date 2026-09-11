@@ -964,7 +964,7 @@ class PipelineRunRoutesSpec
       await(binaryRefRepo.findByNode(pid.value, None, explicitRootId = None)) should have size 1
     }
 
-    "POST /pipelines/:id/run over a StaticSource (no binary-ref fields) writes no binary_refs rows" in {
+    "POST /pipelines/:id/run over a DatasetSource (no binary-ref fields) writes no binary_refs rows" in {
       val cache       = new PipelineRunCache()
       val dsId        = seedDsWithData()
       val pid         = seedPipeline(dsId)

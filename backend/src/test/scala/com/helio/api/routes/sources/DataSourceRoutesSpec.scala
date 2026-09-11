@@ -1144,7 +1144,7 @@ class DataSourceRoutesSpec
         status shouldBe StatusCodes.Created
         val ds = responseAs[DataSourceResponse]
         ds.name       shouldBe "Lookup Table"
-        ds.`type` shouldBe "static"
+        ds.`type` shouldBe "dataset"
         ds.id         should not be empty
       }
       val stored = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head

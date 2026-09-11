@@ -8,7 +8,7 @@ import spray.json._
 
 //
 // CS2c-2 evolves the wire shape to a discriminated union over `type`. Each
-// subtype emits its own typed `config` payload (StaticSource has no `config`
+// subtype emits its own typed `config` payload (DatasetSource has no `config`
 // field). The `DataSourceResponse` ADT mirrors the domain ADT; conversion is
 // 1:1 with no `convertTo[X]` at consumer sites.
 
@@ -86,7 +86,7 @@ final case class StaticSourceResponse(
     tag: Option[String] = None,
     inferredSchema: Vector[InferredFieldResponse] = Vector.empty
 ) extends DataSourceResponse {
-  def `type`: String = DataSourceKind.Static
+  def `type`: String = DataSourceKind.Dataset
 }
 
 final case class TextSourceResponse(
@@ -286,7 +286,7 @@ object DataSourceResponse {
         tag       = s.tag,
         inferredSchema = InferredFieldResponse.fromDomain(s.inferredSchema)
       )
-    case s: StaticSource =>
+    case s: DatasetSource =>
       StaticSourceResponse(
         id        = s.id.value,
         name      = s.name,
@@ -479,7 +479,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
    *
    *  Each subtype's serialized form starts with `"type": "<kind>"` plus the
    *  common identity / timestamp fields, followed by the typed `config`
-   *  payload (omitted for `static`). Inbound deserialization is the inverse
+   *  payload (omitted for `dataset`). Inbound deserialization is the inverse
    *  of the write side and dispatches on the `type` field. */
   implicit object dataSourceResponseFormat extends RootJsonFormat[DataSourceResponse] {
     override def write(d: DataSourceResponse): JsValue = {
@@ -499,7 +499,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       case Some(JsString(DataSourceKind.Csv))     => csvSourceResponseFormat.read(json)
       case Some(JsString(DataSourceKind.RestApi)) => restSourceResponseFormat.read(json)
       case Some(JsString(DataSourceKind.Sql))     => sqlSourceResponseFormat.read(json)
-      case Some(JsString(DataSourceKind.Static))  => staticSourceResponseFormat.read(json)
+      case Some(JsString(DataSourceKind.Static | DataSourceKind.Dataset)) => staticSourceResponseFormat.read(json)
       case Some(JsString(DataSourceKind.Text))    => textSourceResponseFormat.read(json)
       case Some(JsString(DataSourceKind.Pdf))     => pdfSourceResponseFormat.read(json)
       case Some(JsString(DataSourceKind.Image))   => imageSourceResponseFormat.read(json)

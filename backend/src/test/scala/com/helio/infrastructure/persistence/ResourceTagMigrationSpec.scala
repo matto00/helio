@@ -170,8 +170,8 @@ class ResourceTagMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
     "update a pre-existing row through the repository layer" in {
       val source  = await(dataSourceRepo.findByIdOwned(DataSourceId(srcId), owner)).get
       val renamed = source match {
-        case s: StaticSource => s.copy(name = "renamed after migration")
-        case other            => fail(s"expected StaticSource, got $other")
+        case s: DatasetSource => s.copy(name = "renamed after migration")
+        case other            => fail(s"expected DatasetSource, got $other")
       }
       val updated = await(dataSourceRepo.update(renamed, owner))
       updated shouldBe defined

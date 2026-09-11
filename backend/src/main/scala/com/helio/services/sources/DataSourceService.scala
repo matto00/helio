@@ -121,7 +121,7 @@ final class DataSourceService(
       } else {
       val now      = Instant.now()
       val sourceId = DataSourceId(UUID.randomUUID().toString)
-      val source   = StaticSource(
+      val source   = DatasetSource(
         id        = sourceId,
         name      = req.name.trim,
         ownerId   = user.id,
@@ -547,7 +547,7 @@ final class DataSourceService(
               case c: CsvSource    => c.copy(name = newName, updatedAt = now)
               case r: RestSource   => r.copy(name = newName, updatedAt = now)
               case s: SqlSource    => s.copy(name = newName, updatedAt = now)
-              case s: StaticSource => s.copy(name = newName, updatedAt = now)
+              case s: DatasetSource => s.copy(name = newName, updatedAt = now)
               case t: TextSource   => t.copy(name = newName, updatedAt = now)
               case p: PdfSource    => p.copy(name = newName, updatedAt = now)
               case i: ImageSource  => i.copy(name = newName, updatedAt = now)
@@ -666,7 +666,7 @@ final class DataSourceService(
     dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Data source not found")))
-      case Some(s: StaticSource) =>
+      case Some(s: DatasetSource) =>
         staticPayload match {
           case Some(payload) if payload.rows.size > staticMaxRows =>
             Future.successful(Left(ServiceError.BadRequest(s"Payload exceeds the maximum of $staticMaxRows rows")))
@@ -690,7 +690,7 @@ final class DataSourceService(
       case l => l
     }
 
-  private def applyStaticRefresh(source: StaticSource, payload: StaticDataPayload, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
+  private def applyStaticRefresh(source: DatasetSource, payload: StaticDataPayload, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
     // HEL-906 cycle 5 (coordinator ruling, AC-3 "boundary validation"): a static refresh
     // accepts the SAME caller-supplied column-`type` shape `createStatic` does -- found live
     // (via a 500, not silently) while running this cycle's full test suite after adding
@@ -921,7 +921,7 @@ final class DataSourceService(
     dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Data source not found")))
-      case Some(s: StaticSource) =>
+      case Some(s: DatasetSource) =>
         previewStatic(s).map(Right(_))
       case Some(c: CsvSource) =>
         previewCsv(c, clampedLimit)
@@ -932,7 +932,7 @@ final class DataSourceService(
 
   // HEL-1074: swapped off `readRawConfig`/`config` onto `dataset_rows` (Decision 9) -- `config`
   // is cleared to `{}` for every migrated `dataset`-kind source.
-  private def previewStatic(source: StaticSource): Future[CsvPreviewResponse] =
+  private def previewStatic(source: DatasetSource): Future[CsvPreviewResponse] =
     dataSourceRepo.readDatasetRows(source.id).map {
       case None => CsvPreviewResponse(Vector.empty, Vector.empty)
       case Some(obj) =>

@@ -178,7 +178,7 @@ class OutputRoutesSpec
    *  sharing rule this whole test class exercises). */
   private def newSharedPipeline(): PipelineId = {
     val now    = Instant.now()
-    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now)
+    val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now)
     val createdSource = await(dataSourceRepo.insert(source, owner))
     val pipeline = await(pipelineRepo.create("pipe", Vector(createdSource.id), owner)).getOrElse(
       throw new IllegalStateException("newSharedPipeline fixture: pipeline create failed")
@@ -258,7 +258,7 @@ class OutputRoutesSpec
     "creates a root-bound Output on a caller-named SECOND root, not silently on the first (task 5.8a)" in {
       val pipelineId = newSharedPipeline()
       val secondSrc = await(dataSourceRepo.insert(
-        StaticSource(DataSourceId(UUID.randomUUID().toString), "src2", owner.id, Instant.now(), Instant.now()), owner
+        DatasetSource(DataSourceId(UUID.randomUUID().toString), "src2", owner.id, Instant.now(), Instant.now()), owner
       ))
       val secondRoot = await(pipelineRootRepo.add(pipelineId, secondSrc.id, owner))
       Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "table", "Second Root Output", None, rootId = Some(secondRoot.id.value))) ~> routesFor(owner) ~> check {
@@ -597,7 +597,7 @@ class OutputRoutesSpec
     "returns ONLY the Output's own root's rows, not another root's mixed in (task 5.8b-iv-a)" in {
       val pipelineId = newSharedPipeline()
       val secondSrc = await(dataSourceRepo.insert(
-        StaticSource(DataSourceId(UUID.randomUUID().toString), "src2", owner.id, Instant.now(), Instant.now()), owner
+        DatasetSource(DataSourceId(UUID.randomUUID().toString), "src2", owner.id, Instant.now(), Instant.now()), owner
       ))
       val secondRoot = await(pipelineRootRepo.add(pipelineId, secondSrc.id, owner))
       val firstRoot  = await(pipelineRootRepo.list(pipelineId, owner)).minBy(_.position)
@@ -910,7 +910,7 @@ class OutputRoutesSpec
 
   /** Raw INSERT into `data_sources` with an actual queryable `static` config -- mirrors
    *  `PipelineRunServiceSpec.seedDsWithData`'s pattern. Needed because `newSharedPipeline`'s
-   *  fixture `StaticSource`s carry no rows at all (fine for the status-code/shape-only preview
+   *  fixture `DatasetSource`s carry no rows at all (fine for the status-code/shape-only preview
    *  tests above, useless for asserting WHICH root's rows a preview actually returns). */
   private def seedStaticSourceWithRows(name: String, value: String): DataSourceId = {
     import PostgresProfile.api._

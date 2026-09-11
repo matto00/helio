@@ -1,7 +1,7 @@
 package com.helio.domain.engine
 
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
-import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineRootId, PipelineStep, PipelineStepId, RestSource, SqlSource, StaticSource, TextSource, TruncatedRead, TruncationSink}
+import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DatasetSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineRootId, PipelineStep, PipelineStepId, RestSource, SqlSource, TextSource, TruncatedRead, TruncationSink}
 import com.helio.domain.steps.{JoinStep, LookupStep, SecondaryInput, UnionStep}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -505,7 +505,7 @@ class InProcessPipelineEngine(
    *  truncated by `maxRunRows` and the true total when known (HEL-861, design D5). Static /
    *  CSV / text / PDF / image are uncapped and always report `SourceReadStats(false, None)`. */
   def loadRowsWithStats(ds: DataSource, dataSourceRepo: DataSourceRepository): Future[(Seq[Row], SourceReadStats)] = ds match {
-    case s: StaticSource =>
+    case s: DatasetSource =>
       // HEL-1074: swapped off `readRawConfig`/`config` onto `dataset_rows` (Decision 9) --
       // `config` is cleared to `{}` for every migrated `dataset`-kind source.
       dataSourceRepo.readDatasetRows(s.id).map {

@@ -71,7 +71,7 @@ describe("sourcesSlice", () => {
     const staticSource: DataSource = {
       id: "s-2",
       name: "Lookup",
-      type: "static",
+      type: "dataset",
       createdAt: "2026-04-18T00:00:00Z",
       updatedAt: "2026-04-18T00:00:00Z",
       inferredSchema: [],
@@ -85,7 +85,7 @@ describe("sourcesSlice", () => {
       }),
     );
     expect(nextState.items).toHaveLength(1);
-    expect(nextState.items[0].type).toBe("static");
+    expect(nextState.items[0].type).toBe("dataset");
   });
 });
 
@@ -98,7 +98,7 @@ describe("createStaticSource thunk", () => {
     const staticSource: DataSource = {
       id: "s-3",
       name: "My Table",
-      type: "static",
+      type: "dataset",
       createdAt: "2026-04-18T00:00:00Z",
       updatedAt: "2026-04-18T00:00:00Z",
       inferredSchema: [],

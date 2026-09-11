@@ -27,7 +27,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
   // In-memory mock DataSourceRepository — serves the static-payload JSON the
   // `staticDs` helper stashes for each test. The Spark submitter reads the
   // payload via `readDatasetRows` (rather than off the ADT itself, which is
-  // identity-only for StaticSource).
+  // identity-only for DatasetSource).
   private val staticPayloads = scala.collection.mutable.Map.empty[String, JsObject]
   private val mockDsRepo = new DataSourceRepository(null) {
     override def readDatasetRows(id: DataSourceId): Future[Option[JsObject]] =
@@ -38,7 +38,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
   // pipelineRepo is null here — these tests exercise DataFrame ops only, not DB persistence.
   private val submitter = new SparkJobSubmitter("local[*]", mockDsRepo, null)
 
-  /** Build a `StaticSource` with the given columns and rows. The `{columns,
+  /** Build a `DatasetSource` with the given columns and rows. The `{columns,
    *  rows}` JSON payload is stashed in `staticPayloads` keyed by id so the
    *  mock repo's `readDatasetRows` can serve it back. */
   private def staticDs(
@@ -53,7 +53,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
     val rowJson = JsArray(rows.map(r => JsArray(r.toVector)).toVector)
     val payload = JsObject("columns" -> colJson, "rows" -> rowJson)
     staticPayloads(id.value) = payload
-    StaticSource(
+    DatasetSource(
       id        = id,
       name      = "test-source",
       ownerId   = UserId("user-1"),

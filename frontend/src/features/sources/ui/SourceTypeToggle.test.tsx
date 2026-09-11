@@ -27,7 +27,7 @@ const REGISTRY_ENTRIES = [
     requiredFields: [],
   },
   {
-    kind: "static",
+    kind: "dataset",
     displayName: "Manual",
     supportsIncremental: false,
     authKind: "none",

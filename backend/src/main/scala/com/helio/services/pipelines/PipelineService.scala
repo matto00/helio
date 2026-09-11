@@ -733,7 +733,9 @@ final class PipelineService(
       req.name.map(_.trim).filter(_.nonEmpty) match {
         case None => Future.successful(Left(ServiceError.BadRequest("roots: name is required for an inline source")))
         case Some(name) =>
-          kind match {
+          // HEL-1073 design.md Decision 2: canonicalize before matching so a "static" inline
+          // type (legacy caller) resolves the same branch as "dataset".
+          DataSourceKind.canonicalize(kind) match {
             case DataSourceKind.Csv =>
               Future.successful(Left(ServiceError.UnprocessableEntity(
                 "inline csv sources are not supported for pipeline roots; create the CSV source separately and reference it via sourceId"
@@ -756,11 +758,11 @@ final class PipelineService(
                     case Right(csr) => Right(DataSourceId(csr.source.id))
                   }
               }
-            case DataSourceKind.Static =>
+            case DataSourceKind.Dataset =>
               req.staticConfig match {
                 case None      => Future.successful(Left(ServiceError.BadRequest("roots: config is required for an inline source")))
                 case Some(cfg) =>
-                  dataSourceService.createStatic(StaticDataSourceRequest(name, DataSourceKind.Static, cfg.columns, cfg.rows), user).map {
+                  dataSourceService.createStatic(StaticDataSourceRequest(name, DataSourceKind.Dataset, cfg.columns, cfg.rows), user).map {
                     case Left(err) => Left(err)
                     case Right(ds) => Right(ds.id)
                   }
@@ -1512,7 +1514,9 @@ final class PipelineService(
       user:         AuthenticatedUser
   ): Future[Either[ServiceError, (String, Vector[SchemaField])]] = {
     val name = source.name.getOrElse(fallbackName)
-    source.`type` match {
+    // HEL-1073 design.md Decision 2: canonicalize before matching so a "static" inline
+    // type resolves the same branch as "dataset".
+    source.`type`.map(DataSourceKind.canonicalize) match {
       case Some(DataSourceKind.Sql) =>
         source.sqlConfig match {
           case None =>
@@ -1585,7 +1589,7 @@ final class PipelineService(
                 }
             }
         }
-      case Some(DataSourceKind.Static) =>
+      case Some(DataSourceKind.Dataset) =>
         source.staticConfig match {
           case None =>
             Future.successful(Left(ServiceError.BadRequest("inline 'static' source requires a 'config' object")))

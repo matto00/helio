@@ -138,7 +138,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
   private def sourceIdSource(id: String = "src_existing"): PipelineProposalSource =
     PipelineProposalSource(sourceId = Some(id), `type` = None, name = None, csvConfig = None, restConfig = None, sqlConfig = None, staticConfig = None)
 
-  private def inlineStaticSource(): PipelineProposalSource =
+  private def inlineDatasetSource(): PipelineProposalSource =
     PipelineProposalSource(
       sourceId = None, `type` = Some(DataSourceKind.Static), name = Some("Inline Static"), csvConfig = None, restConfig = None, sqlConfig = None,
       staticConfig = Some(StaticDataPayload(Vector(StaticColumnPayload("value", "string")), Vector(Vector(JsString("x")))))
@@ -509,7 +509,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
 
     "let propose_pipeline proceed to validate for an inline static source with no test_connection call" in {
       val executor = newExecutor()
-      val proposal  = pipelineProposalWith(inlineStaticSource())
+      val proposal  = pipelineProposalWith(inlineDatasetSource())
 
       val result = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
 

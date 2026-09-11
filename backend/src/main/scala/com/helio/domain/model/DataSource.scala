@@ -7,24 +7,22 @@ import java.time.Instant
 /** DataSource ADT.
  *
  *  Sealed-trait dispatch over the 7 source kinds. Each subtype carries its own
- *  typed config, except [[StaticSource]] — HEL-1074 moved its column/row
+ *  typed config, except [[DatasetSource]] — HEL-1074 moved its column/row
  *  payload off `data_sources.config` into the dedicated `dataset_rows` table
  *  (one JSONB array value per row, positionally aligned to the source's
  *  `dataset_schema` column) rather than a linked `DataType` row (the
- *  pre-HEL-904 shape); see [[StaticSource]]'s own scaladoc for the full
+ *  pre-HEL-904 shape); see [[DatasetSource]]'s own scaladoc for the full
  *  post-migration storage story. The `kind` string is the wire discriminator
- *  (`"csv" | "rest_api" | "sql" | "static" | "text" | "pdf" | "image"`); see
- *  [[DataSourceKind]] for parse / unparse. The value STORED in
- *  `data_sources.source_type` for a [[StaticSource]] row is `"dataset"`, not
- *  `"static"` — `"static"` survives only as the wire-level `type` value until
- *  HEL-1073's alias/rename work lands; see [[DataSourceRepository]]'s
- *  `rowToDomain`/`domainToRow` for that mapping.
+ *  (`"csv" | "rest_api" | "sql" | "dataset" | "text" | "pdf" | "image"`); see
+ *  [[DataSourceKind]] for parse / unparse. `"static"` is accepted on the wire
+ *  as a write-side alias for `"dataset"` for one minor release (HEL-1073) —
+ *  see [[DataSourceKind.canonicalize]].
  *
  *  Wire shape (after CS2c-2) is a discriminated union on `type`:
  *  {{{ { "type": "csv", "id": "...", "name": "...", "config": { ... }, ... } }}}
- *  The DB table shape is otherwise unchanged for every kind but `static`/
- *  `dataset` — `data_sources.source_type` continues to hold the kind string
- *  and `data_sources.config` continues to hold the typed config as JSON for
+ *  The DB table shape is otherwise unchanged for every kind but `dataset` —
+ *  `data_sources.source_type` continues to hold the kind string and
+ *  `data_sources.config` continues to hold the typed config as JSON for
  *  every kind except `dataset`, whose `config` is unused (cleared to `{}`
  *  by the migration and never written again). */
 sealed trait DataSource {
@@ -144,19 +142,18 @@ final case class PdfSource(
  *  source's `data_sources.dataset_schema` column, which holds the
  *  caller-declared `[{name, type}, ...]` column list) — NOT in
  *  `data_sources.config`, which is unused/cleared to `{}` for every
- *  `dataset`-kind row. `source_type = 'dataset'` is the value actually
- *  stored in the DB (`'static'` is still accepted as a wire alias for
- *  request/response `type` fields until HEL-1073's alias ships); the Scala
- *  ADT member here stays named `StaticSource` — renaming it is HEL-1073's
- *  scope, not this one's.
+ *  `dataset`-kind row. `source_type = 'dataset'` is the value stored in the
+ *  DB; `"static"` is still accepted as a wire-only alias for request `type`
+ *  fields for one minor release (HEL-1073), resolved by
+ *  [[DataSourceKind.canonicalize]] before it reaches the domain layer.
  *
- *  We deliberately keep StaticSource flat (no `config` field): its payload is
- *  large and write-once-per-refresh, and the typed ADT shouldn't pretend it
- *  belongs to the source identity. `DataSourceRepository.readDatasetRows`
+ *  We deliberately keep DatasetSource flat (no `config` field): its payload
+ *  is large and write-once-per-refresh, and the typed ADT shouldn't pretend
+ *  it belongs to the source identity. `DataSourceRepository.readDatasetRows`
  *  materializes the `{columns, rows}` blob on demand from `dataset_schema` +
  *  `dataset_rows` for the legacy in-process / Spark engines and the preview
  *  endpoint, all of which consume that same shape directly. */
-final case class StaticSource(
+final case class DatasetSource(
     id: DataSourceId,
     name: String,
     ownerId: UserId,
@@ -165,7 +162,7 @@ final case class StaticSource(
     tag: Option[String] = None,
     inferredSchema: Vector[SchemaField] = Vector.empty
 ) extends DataSource {
-  override val kind: String = "static"
+  override val kind: String = "dataset"
 }
 
 /** Image-backed source (HEL-216, second content connector of the v1.4
@@ -200,10 +197,18 @@ object DataSourceKind {
   val Csv: String     = "csv"
   val RestApi: String = "rest_api"
   val Sql: String     = "sql"
-  val Static: String  = "static"
+  val Dataset: String = "dataset"
   val Text: String    = "text"
   val Pdf: String     = "pdf"
   val Image: String   = "image"
+
+  /** HEL-1073: the retired `"static"` wire literal. Kept as a named public
+   *  constant solely for [[canonicalize]] and the `DataSourceProtocol.scala`
+   *  JSON-discriminator match arm that must still recognize an incoming
+   *  `"static"` payload — no other code path may compare `kind ==
+   *  DataSourceKind.Static` after this change; use `canonicalize(kind) ==
+   *  DataSourceKind.Dataset` instead. */
+  val Static: String = "static"
 
   // HEL-484: derived from the connector registry rather than a literal Set —
   // adding a connector kind requires only a ConnectorRegistry registration.
@@ -211,7 +216,16 @@ object DataSourceKind {
   // set and the registry's kinds ever diverge.
   val All: Set[String] = ConnectorRegistry.all.map(_.kind).toSet
 
-  def parseKind(s: String): Either[String, String] =
-    if (All.contains(s)) Right(s)
+  /** HEL-1073: normalizes the retired `"static"` wire alias to `"dataset"`;
+   *  identity for every other value. Called at every entry point that
+   *  branches on the source-kind string, not just [[parseKind]] — see
+   *  design.md Decision 2 for the full call-site inventory. */
+  def canonicalize(s: String): String =
+    if (s == Static) Dataset else s
+
+  def parseKind(s: String): Either[String, String] = {
+    val canonical = canonicalize(s)
+    if (All.contains(canonical)) Right(canonical)
     else Left(s"Unknown source type: '$s'. Valid values: ${All.toSeq.sorted.mkString(", ")}")
+  }
 }

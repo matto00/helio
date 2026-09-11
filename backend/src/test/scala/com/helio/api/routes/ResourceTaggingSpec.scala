@@ -171,7 +171,7 @@ class ResourceTaggingSpec
     "round-trip through a tagged pipeline create + list" in {
       val tag = freshTag()
       val src = await(dataSourceRepo.insert(
-        StaticSource(DataSourceId(UUID.randomUUID().toString), s"src-${UUID.randomUUID()}", userA.id,
+        DatasetSource(DataSourceId(UUID.randomUUID().toString), s"src-${UUID.randomUUID()}", userA.id,
           Instant.now(), Instant.now()),
         userA
       ))
@@ -210,7 +210,7 @@ class ResourceTaggingSpec
     "GET /pipelines?tag= returns exactly the tagged set" in {
       val tag = freshTag()
       val src = await(dataSourceRepo.insert(
-        StaticSource(DataSourceId(UUID.randomUUID().toString), s"src-${UUID.randomUUID()}", userA.id,
+        DatasetSource(DataSourceId(UUID.randomUUID().toString), s"src-${UUID.randomUUID()}", userA.id,
           Instant.now(), Instant.now()),
         userA
       ))

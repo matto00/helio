@@ -134,7 +134,7 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, ${s"a-$ownerId@helio.test"}, now())"""))
   }
 
-  /** Fully-runnable pipeline over a `StaticSource` with no rows — succeeds
+  /** Fully-runnable pipeline over a `DatasetSource` with no rows — succeeds
    *  with zero rows, no steps. */
   private def seedStaticPipeline(): PipelineId = {
     import PostgresProfile.api._

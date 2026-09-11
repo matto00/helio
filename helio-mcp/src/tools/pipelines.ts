@@ -45,7 +45,7 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
 // pipelinesHandlers.ts's own docstring for the exact rationale, identical to the proposal flow's).
 const createPipelineSourceSchema = z.object({
   sourceId: z.string().min(1).optional(),
-  type: z.enum(["rest_api", "sql", "static"]).optional(),
+  type: z.enum(["rest_api", "sql", "static", "dataset"]).optional(),
   name: z.string().min(1).optional(),
   config: z.record(z.string(), z.unknown()).optional(),
 });

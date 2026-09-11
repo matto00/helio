@@ -98,7 +98,7 @@ class PipelineRepositoryRunTransactionallyRlsSpec extends AnyWordSpec with Match
 
   "PipelineRepository.runTransactionally(userId)" should {
     "persist a pipeline row + a step (insertInternalAction) + an Output (insertInternalAction) in ONE composed DBIO chain under withUserContext, with RLS actually enforced (non-superuser app pool)" in {
-      val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, Instant.now(), Instant.now())
+      val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, Instant.now(), Instant.now())
       val createdSource = await(dataSourceRepo.insert(source, owner))
 
       val action = for {

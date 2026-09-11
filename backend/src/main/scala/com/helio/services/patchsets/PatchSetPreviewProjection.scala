@@ -225,7 +225,7 @@ private[services] object PatchSetPreviewProjection {
       case c: CsvSource    => c.copy(name = newName)
       case r: RestSource   => r.copy(name = newName)
       case s: SqlSource    => s.copy(name = newName)
-      case s: StaticSource => s.copy(name = newName)
+      case s: DatasetSource => s.copy(name = newName)
       case t: TextSource   => t.copy(name = newName)
       case p: PdfSource    => p.copy(name = newName)
       case i: ImageSource  => i.copy(name = newName)
@@ -235,7 +235,7 @@ private[services] object PatchSetPreviewProjection {
 
   private def dataSourceCreateAfter(request: StaticDataSourceRequest, user: AuthenticatedUser): JsValue = {
     val now = Instant.now()
-    val source = StaticSource(
+    val source = DatasetSource(
       id        = DataSourceId(PendingId),
       name      = request.name.trim,
       ownerId   = user.id,

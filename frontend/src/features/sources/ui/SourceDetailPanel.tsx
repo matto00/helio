@@ -27,7 +27,7 @@ function labelForKind(kind: DataSourceKind): string {
       return "REST API";
     case "csv":
       return "CSV";
-    case "static":
+    case "dataset":
       return "Static";
     case "sql":
       return "SQL";
@@ -135,7 +135,7 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
     setPreviewErrorKind(null);
     setPreviewUnsupported(null);
     try {
-      if (source.type === "csv" || source.type === "static") {
+      if (source.type === "csv" || source.type === "dataset") {
         const result = await fetchCsvPreview(source.id, 25);
         setPreviewHeaders(result.headers);
         setPreviewRows(

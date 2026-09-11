@@ -1,7 +1,7 @@
 package com.helio.api.protocols.pipelines
 
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, DataSourceProtocol, DataSourceResponse, RestApiConfigPayload, SqlSourceConfigPayload, StaticDataPayload}
-import com.helio.domain.model.QueryParams
+import com.helio.domain.model.{DataSourceKind, QueryParams}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
@@ -191,11 +191,13 @@ trait PipelineProposalProtocol
         val kind   = obj.fields.get("type").map(_.convertTo[String])
         val config = obj.fields.get("config")
 
-        val (csvConfig, restConfig, sqlConfig, staticConfig) = kind match {
+        // HEL-1073 design.md Decision 2: canonicalize before matching so a "static" inline
+        // type resolves the same config branch as "dataset".
+        val (csvConfig, restConfig, sqlConfig, staticConfig) = kind.map(DataSourceKind.canonicalize) match {
           case Some("csv")      => (config.map(_.convertTo[CsvSourceConfigPayload]), None, None, None)
           case Some("rest_api") => (None, config.map(_.convertTo[ProposalRestApiConfig]), None, None)
           case Some("sql")      => (None, None, config.map(_.convertTo[SqlSourceConfigPayload]), None)
-          case Some("static")   => (None, None, None, config.map(_.convertTo[StaticDataPayload]))
+          case Some("dataset")  => (None, None, None, config.map(_.convertTo[StaticDataPayload]))
           case _                => (None, None, None, None)
         }
 

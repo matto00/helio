@@ -115,7 +115,7 @@ class PublicDashboardRoutesSpec
    *  without needing to run the whole engine for this route-level test). */
   private def newPipelineWithLastRunAt(lastRunAt: Instant): PipelineId = {
     val now    = Instant.now()
-    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now)
+    val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now)
     val createdSource = await(dataSourceRepo.insert(source, owner))
     val pipeline = await(pipelineRepo.create("pipe", Vector(createdSource.id), owner)).getOrElse(
       throw new IllegalStateException("newPipelineWithLastRunAt fixture: pipeline create failed")
@@ -177,7 +177,7 @@ class PublicDashboardRoutesSpec
     "return dataAsOf = None for an Output-backed placement whose pipeline has not run yet" in {
       val dashId     = seedDashboardWithPublicGrant()
       val now        = Instant.now()
-      val source     = StaticSource(DataSourceId(UUID.randomUUID().toString), "src2", owner.id, now, now)
+      val source     = DatasetSource(DataSourceId(UUID.randomUUID().toString), "src2", owner.id, now, now)
       val createdSrc = await(dataSourceRepo.insert(source, owner))
       val pipeline   = await(pipelineRepo.create("pipe-no-run", Vector(createdSrc.id), owner)).getOrElse(
         throw new IllegalStateException("fixture: pipeline create failed")

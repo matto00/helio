@@ -2,12 +2,14 @@
 //
 // The backend exposes 4 source kinds, each with its own typed config; the
 // wire shape carries a `type` discriminator and a per-subtype `config`
-// payload (StaticSource has no config field).
+// payload (DatasetSource has no config field).
 //
 // Extracted from `./models.ts` so the panel + data-source + pipeline-step
 // ADTs each live in their own file.
 
-export type DataSourceKind = "csv" | "rest_api" | "sql" | "static" | "text" | "pdf" | "image";
+// HEL-1073: the API returns "dataset" on read; "static" is still accepted on
+// write for one minor release as a legacy alias (backend `DataSourceKind.canonicalize`).
+export type DataSourceKind = "csv" | "rest_api" | "sql" | "dataset" | "text" | "pdf" | "image";
 
 export interface CsvSourceConfig {
   path: string;
@@ -82,8 +84,8 @@ export interface SqlSource extends DataSourceBase {
   config: SqlSourceConfig;
 }
 
-export interface StaticSource extends DataSourceBase {
-  type: "static";
+export interface DatasetSource extends DataSourceBase {
+  type: "dataset";
 }
 
 // HEL-215: plain text / Markdown connector. `sourceUrl` is present only for
@@ -129,7 +131,7 @@ export type DataSource =
   | CsvSource
   | RestSource
   | SqlSource
-  | StaticSource
+  | DatasetSource
   | TextSource
   | PdfSource
   | ImageSource;
@@ -140,7 +142,7 @@ export type DataSource =
 export const isCsvSource = (s: DataSource): s is CsvSource => s.type === "csv";
 export const isRestSource = (s: DataSource): s is RestSource => s.type === "rest_api";
 export const isSqlSource = (s: DataSource): s is SqlSource => s.type === "sql";
-export const isStaticSource = (s: DataSource): s is StaticSource => s.type === "static";
+export const isStaticSource = (s: DataSource): s is DatasetSource => s.type === "dataset";
 export const isTextSource = (s: DataSource): s is TextSource => s.type === "text";
 export const isPdfSource = (s: DataSource): s is PdfSource => s.type === "pdf";
 export const isImageSource = (s: DataSource): s is ImageSource => s.type === "image";
@@ -163,7 +165,7 @@ export interface StaticColumn {
 
 export interface StaticSourcePayload {
   name: string;
-  type: "static";
+  type: "dataset";
   columns: StaticColumn[];
   rows: unknown[][];
 }

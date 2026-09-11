@@ -46,8 +46,9 @@ export interface CreatePipelineSourceInput {
   /** Existing-source branch -- id of a caller-owned DataSource to reuse as-is. */
   sourceId?: string;
   /** Inline-source branch -- the new source's kind. `csv` is deliberately NOT accepted here (see
-   *  this module's own docstring). */
-  type?: "rest_api" | "sql" | "static";
+   *  this module's own docstring). HEL-1073: `"static"` remains accepted as a write-side alias
+   *  for `"dataset"` for one minor release. */
+  type?: "rest_api" | "sql" | "static" | "dataset";
   /** Inline-source branch -- the new source's display name; falls back to the pipeline's own
    *  `name` when omitted. */
   name?: string;
@@ -72,7 +73,8 @@ async function resolveSource(
   const config = source.config ?? {};
 
   switch (source.type) {
-    case "static": {
+    case "static":
+    case "dataset": {
       const ds = await api.createDataSource({
         name,
         columns: (config.columns as StaticColumn[] | undefined) ?? [],
@@ -110,7 +112,7 @@ async function resolveSource(
     default:
       throw new Error(
         "create_pipeline: source must set either sourceId (an existing DataSource) or an inline " +
-          "type of rest_api|sql|static (csv is not supported inline -- call create_csv_data_source " +
+          "type of rest_api|sql|dataset (csv is not supported inline -- call create_csv_data_source " +
           `first and pass its id via source.sourceId); got type='${String(source.type)}'`,
       );
   }

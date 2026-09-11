@@ -83,7 +83,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
 
   private def newSource(): DataSourceId = {
     val now = Instant.now()
-    val source = StaticSource(
+    val source = DatasetSource(
       DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now,
       inferredSchema = Vector(SchemaField("amount", "float"), SchemaField("label", "string"))
     )
@@ -103,7 +103,7 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
     import PostgresProfile.api._
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherOwnerId::uuid, ${s"other-$otherOwnerId@helio.test"}, now())"""))
     val now = Instant.now()
-    val source = StaticSource(
+    val source = DatasetSource(
       DataSourceId(UUID.randomUUID().toString), "foreign-src", otherOwner.id, now, now,
       inferredSchema = Vector(SchemaField("amount", "float"))
     )

@@ -422,10 +422,10 @@ private[services] object PatchSetApplyResolvers {
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
     decodeCreatePatch[StaticDataSourceRequest](edit, index) match {
       case Left(err) => Future.successful(Left(err))
-      case Right(request) if request.`type` != DataSourceKind.Static =>
-        // design.md D1: only `static` is supported (pure JSON, no I/O) — the
-        // other nine create variants need file bytes or live I/O.
-        Future.successful(Left(ServiceError.BadRequest(s"edit $index: dataSource create only supports type '${DataSourceKind.Static}'")))
+      case Right(request) if DataSourceKind.canonicalize(request.`type`) != DataSourceKind.Dataset =>
+        // design.md D1: only `dataset` (alias `static`) is supported (pure JSON, no I/O) —
+        // the other nine create variants need file bytes or live I/O.
+        Future.successful(Left(ServiceError.BadRequest(s"edit $index: dataSource create only supports type '${DataSourceKind.Dataset}'")))
       case Right(request) =>
         Future.successful(Right(ResolvedEdit(index, "dataSource", "create", None, ResolvedAction.DataSourceCreate(request))))
     }
