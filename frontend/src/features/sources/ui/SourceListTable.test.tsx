@@ -11,7 +11,7 @@ function staticSource(overrides: Partial<DataSource>): DataSource {
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
     inferredSchema: [],
-    type: "static",
+    type: "dataset",
     config: { rows: [] },
     ...overrides,
   } as DataSource;

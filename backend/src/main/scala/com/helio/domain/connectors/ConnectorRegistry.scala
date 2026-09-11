@@ -6,11 +6,11 @@ package com.helio.domain.connectors
  *  Every entry is a dependency-free static `ConnectorMetadata` value (design.md Decision 1):
  *  `sql`/`rest_api` are sourced from their `ConnectorDriver[Config]` implementation's companion-object
  *  `metadata` `val` (never a live instance, since `RestApiConnectorDriver` requires an `ActorSystem` to
- *  construct); the five content/upload kinds (`csv`/`static`/`text`/`pdf`/`image`), which have no
+ *  construct); the five content/upload kinds (`csv`/`dataset`/`text`/`pdf`/`image`), which have no
  *  `ConnectorDriver[Config]` implementation, get static `ConnectorMetadata` values registered directly
  *  below. `DataSourceKind.All` derives its accepted-kind set from `all` (`DataSource.scala`).
  *
- *  Entry order matches `SourceTypeToggle.tsx`'s pre-registry button order (REST API, CSV, Static,
+ *  Entry order matches `SourceTypeToggle.tsx`'s pre-registry button order (REST API, CSV, Manual/Dataset,
  *  SQL, Text, PDF, Image) so the frontend renders byte-for-byte the same toggle it did before this
  *  ticket (design.md Decision 6).
  *
@@ -37,12 +37,12 @@ object ConnectorRegistry {
     requiredFields = Vector(ConnectorFieldDescriptor(name = "path", label = "Path", secret = false))
   )
 
-  private val staticMetadata: ConnectorMetadata = ConnectorMetadata(
-    kind = "static",
+  private val datasetMetadata: ConnectorMetadata = ConnectorMetadata(
+    kind = "dataset",
     displayName = "Manual",
     supportsIncremental = false,
     authKind = "none",
-    // No config payload exists for StaticSource (StaticSourceResponse carries
+    // No config payload exists for DatasetSource (DatasetSourceResponse carries
     // no `config` field) — drawn instead from StaticDataPayload, the closest
     // analog ("Static connector API types" section of DataSourceProtocol.scala).
     requiredFields = Vector(
@@ -82,7 +82,7 @@ object ConnectorRegistry {
   val all: Vector[ConnectorMetadata] = Vector(
     RestApiConnectorDriver.metadata,
     csvMetadata,
-    staticMetadata,
+    datasetMetadata,
     SqlConnectorDriver.metadata,
     textMetadata,
     pdfMetadata,

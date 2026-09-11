@@ -91,7 +91,7 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
    *  minimal real source -> pipeline -> Output chain its FK requires. */
   private def seedOutput(): OutputId = {
     val now    = Instant.now()
-    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", owner, now, now)
+    val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), "src", owner, now, now)
     val createdSource = await(dsRepo.insert(source, user))
     val pipeline = await(pipeRepo.create("pipe", Vector(createdSource.id), user)).getOrElse(
       throw new IllegalStateException("seedOutput fixture: pipeline create failed")

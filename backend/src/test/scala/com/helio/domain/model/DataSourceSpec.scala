@@ -1,6 +1,6 @@
 package com.helio.domain.model
 
-import com.helio.domain.model.{DataSourceKind, ImageSource, ImageSourceConfig, PdfSource, PdfSourceConfig, SqlSourceConfig, StaticSource, TextSource, TextSourceConfig}
+import com.helio.domain.model.{DataSourceKind, ImageSource, ImageSourceConfig, PdfSource, PdfSourceConfig, SqlSourceConfig, DatasetSource, TextSource, TextSourceConfig}
 import com.helio.domain.model.{CsvSource, CsvSourceConfig, DataSource, DataSourceId, RestApiConfig, RestSource, SqlSource, UserId}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -39,9 +39,9 @@ class DataSourceSpec extends AnyWordSpec with Matchers {
       ds.kind shouldBe "sql"
     }
 
-    "StaticSource carries kind 'static'" in {
-      val ds: DataSource = StaticSource(id, "static-src", owner, now, now)
-      ds.kind shouldBe "static"
+    "DatasetSource carries kind 'dataset'" in {
+      val ds: DataSource = DatasetSource(id, "static-src", owner, now, now)
+      ds.kind shouldBe "dataset"
     }
 
     "TextSource carries kind 'text'" in {
@@ -64,7 +64,7 @@ class DataSourceSpec extends AnyWordSpec with Matchers {
         case c: CsvSource    => s"csv:${c.config.path}"
         case r: RestSource   => s"rest:${r.config.connectorId}"
         case s: SqlSource    => s"sql:${s.config.query}"
-        case _: StaticSource => "static"
+        case _: DatasetSource => "dataset"
         case t: TextSource   => s"text:${t.config.path}"
         case p: PdfSource    => s"pdf:${p.config.path}"
         case i: ImageSource  => s"image:${i.config.path}"
@@ -72,7 +72,7 @@ class DataSourceSpec extends AnyWordSpec with Matchers {
       describe(CsvSource(id, "n", owner, now, now, CsvSourceConfig("p")))                                              shouldBe "csv:p"
       describe(RestSource(id, "n", owner, now, now, RestApiConfig(connectorId = "u")))                                          shouldBe "rest:u"
       describe(SqlSource(id, "n", owner, now, now, SqlSourceConfig("pg", "h", 1, "d", "u", "pw", "Q")))                  shouldBe "sql:Q"
-      describe(StaticSource(id, "n", owner, now, now))                                                                  shouldBe "static"
+      describe(DatasetSource(id, "n", owner, now, now))                                                                  shouldBe "dataset"
       describe(TextSource(id, "n", owner, now, now, TextSourceConfig("text/p.txt", Some("https://example.com/p.txt")))) shouldBe "text:text/p.txt"
       describe(PdfSource(id, "n", owner, now, now, PdfSourceConfig("pdf/p.pdf", Some("https://example.com/p.pdf"))))    shouldBe "pdf:pdf/p.pdf"
       describe(ImageSource(id, "n", owner, now, now, ImageSourceConfig("image/p.png", Some("https://example.com/p.png")))) shouldBe "image:image/p.png"
@@ -85,7 +85,7 @@ class DataSourceSpec extends AnyWordSpec with Matchers {
       DataSourceKind.parseKind("csv")      shouldBe Right("csv")
       DataSourceKind.parseKind("rest_api") shouldBe Right("rest_api")
       DataSourceKind.parseKind("sql")      shouldBe Right("sql")
-      DataSourceKind.parseKind("static")   shouldBe Right("static")
+      DataSourceKind.parseKind("dataset")   shouldBe Right("dataset")
       DataSourceKind.parseKind("text")     shouldBe Right("text")
       DataSourceKind.parseKind("pdf")      shouldBe Right("pdf")
       DataSourceKind.parseKind("image")    shouldBe Right("image")

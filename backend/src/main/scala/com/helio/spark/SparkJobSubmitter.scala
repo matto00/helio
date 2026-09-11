@@ -3,7 +3,7 @@ package com.helio.spark
 import com.helio.domain.{AggregateStep, CastStep, ComputeStep, FilterStep, GroupByStep, JoinStep, LimitStep, RenameStep, SelectStep, SortStep}
 import com.helio.domain.steps.SecondaryInput
 import com.helio.domain.engine.{NodeKey, PipelineExecutionBackend, PipelineExecutionOutcome, SourceReadStats}
-import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DataSourceId, Pipeline, PipelineRunId, PipelineStep, StaticSource, TruncationSink}
+import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DataSourceId, DatasetSource, Pipeline, PipelineRunId, PipelineStep, TruncationSink}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
 import com.helio.services.pipelines.{PipelineRunService, TriggerSource}
@@ -162,7 +162,7 @@ class SparkJobSubmitter(
     }(sparkEc)
 
   private[spark] def loadDataFrame(ds: DataSource): DataFrame = ds match {
-    case s: StaticSource =>
+    case s: DatasetSource =>
       // HEL-1074: swapped off `readRawConfig`/`config` onto `dataset_rows` (Decision 9) --
       // `dataset_schema` still carries the DECLARED column types this StructType is built from
       // (not `inferred_schema`'s runtime-derived ones), matching the pre-migration behavior
@@ -203,7 +203,7 @@ class SparkJobSubmitter(
     case other =>
       throw new IllegalArgumentException(
         s"Unsupported source type for Spark job submission: ${other.kind}. " +
-          "Only 'static' and 'csv' are currently supported."
+          "Only 'dataset' and 'csv' are currently supported."
       )
   }
 

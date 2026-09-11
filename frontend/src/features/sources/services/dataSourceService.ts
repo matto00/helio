@@ -110,7 +110,7 @@ export async function createStaticSource(
 ): Promise<DataSource> {
   const response = await httpClient.post<DataSource>("/api/data-sources", {
     name,
-    type: "static",
+    type: "dataset",
     columns,
     rows,
   });

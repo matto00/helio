@@ -92,7 +92,7 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
   private def insertDataType(ownerId: UserId): Output = {
     val now    = Instant.now()
     val user   = AuthenticatedUser(ownerId)
-    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", ownerId, now, now)
+    val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), "src", ownerId, now, now)
     val createdSource = await(dataSourceRepo.insert(source, user))
     val pipeline = await(pipelineRepo.create("pipe", Vector(createdSource.id), user)).getOrElse(
       throw new IllegalStateException("insertDataType fixture: pipeline create failed")

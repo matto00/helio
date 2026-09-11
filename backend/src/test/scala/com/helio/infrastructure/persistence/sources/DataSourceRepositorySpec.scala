@@ -184,7 +184,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
                                  RestApiConfig(connectorId = "conn-2", endpoint = "https://api.example/test", method = "POST"))
       val sql      = SqlSource(DataSourceId(UUID.randomUUID().toString), "sql-src", owner1, now, now,
                                 SqlSourceConfig("postgresql", "host", 5432, "db", "u", "p", "SELECT 1"))
-      val static   = StaticSource(DataSourceId(UUID.randomUUID().toString), "static-src", owner1, now, now)
+      val static   = DatasetSource(DataSourceId(UUID.randomUUID().toString), "static-src", owner1, now, now)
 
       await(repo.insert(csv, user1))
       await(repo.insert(rest, user1))
@@ -194,7 +194,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       await(repo.findByIdInternal(csv.id)).get    shouldBe a [CsvSource]
       await(repo.findByIdInternal(rest.id)).get   shouldBe a [RestSource]
       await(repo.findByIdInternal(sql.id)).get    shouldBe a [SqlSource]
-      await(repo.findByIdInternal(static.id)).get shouldBe a [StaticSource]
+      await(repo.findByIdInternal(static.id)).get shouldBe a [DatasetSource]
 
       val csvRound = await(repo.findByIdInternal(csv.id)).get.asInstanceOf[CsvSource]
       csvRound.config.path shouldBe "uploads/test.csv"
@@ -207,21 +207,21 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       restRound.config.method      shouldBe "POST"
     }
 
-    // HEL-1074 tasks.md 2.3: round-trip a StaticSource through insert/read with the new stored
+    // HEL-1074 tasks.md 2.3: round-trip a DatasetSource through insert/read with the new stored
     // value -- `domainToRow` writes "dataset" (design.md Decision 6), `rowToDomain` maps it back
-    // to `StaticSource`, and the raw `source_type` column really is "dataset", not "static".
-    "insert writes 'dataset' as the stored source_type for a StaticSource, and rowToDomain maps it back" in {
+    // to `DatasetSource`, and the raw `source_type` column really is "dataset", not "static".
+    "insert writes 'dataset' as the stored source_type for a DatasetSource, and rowToDomain maps it back" in {
       cleanDb()
       import slick.jdbc.PostgresProfile.api._
       val now    = Instant.now()
-      val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "dataset-src", owner1, now, now)
+      val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), "dataset-src", owner1, now, now)
       await(repo.insert(source, user1))
 
       val storedType = await(db.run(sql"SELECT source_type FROM data_sources WHERE id = ${source.id.value}".as[String].head))
       storedType shouldBe "dataset"
 
       val found = await(repo.findByIdInternal(source.id))
-      found.get shouldBe a [StaticSource]
+      found.get shouldBe a [DatasetSource]
     }
 
     // HEL-1074 design.md Decision 7 / tasks.md 3.5-3.6: `insertDatasetSource` / `replaceDatasetRows`
@@ -231,7 +231,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       cleanDb()
       import spray.json._
       val now     = Instant.now()
-      val source  = StaticSource(DataSourceId(UUID.randomUUID().toString), "ds-1", owner1, now, now)
+      val source  = DatasetSource(DataSourceId(UUID.randomUUID().toString), "ds-1", owner1, now, now)
       val columns = Vector(SchemaField("a", "string"), SchemaField("b", "integer"))
       val rows    = Vector(Vector(JsString("x"), JsNumber(1)), Vector(JsString("y"), JsNumber(2)))
 
@@ -247,7 +247,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       cleanDb()
       import spray.json._
       val now      = Instant.now()
-      val source   = StaticSource(DataSourceId(UUID.randomUUID().toString), "ds-2", owner1, now, now)
+      val source   = DatasetSource(DataSourceId(UUID.randomUUID().toString), "ds-2", owner1, now, now)
       val columns1 = Vector(SchemaField("a", "string"))
       val rows1    = Vector(Vector(JsString("old")))
       await(repo.insertDatasetSource(source, columns1, rows1, columns1, user1))
@@ -276,7 +276,7 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       cleanDb()
       import spray.json._
       val now    = Instant.now()
-      val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "ds-empty", owner1, now, now)
+      val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), "ds-empty", owner1, now, now)
       val columns = Vector(SchemaField("a", "string"))
       await(repo.insertDatasetSource(source, columns, Vector.empty, columns, user1))
 

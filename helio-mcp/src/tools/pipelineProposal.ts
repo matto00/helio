@@ -57,7 +57,7 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
 // document the apply-time rejection explicitly instead.
 const pipelineProposalSourceSchema = z.object({
   sourceId: z.string().min(1).optional(),
-  type: z.enum(["csv", "rest_api", "sql", "static"]).optional(),
+  type: z.enum(["csv", "rest_api", "sql", "static", "dataset"]).optional(),
   name: z.string().min(1).optional(),
   config: z.record(z.string(), z.unknown()).optional(),
   // HEL-914: request-scoped id a parentless step's rootClientId binds to when roots has

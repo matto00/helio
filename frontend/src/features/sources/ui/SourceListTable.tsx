@@ -25,9 +25,9 @@ interface Props {
  *
  * `Location` is derived per source kind rather than stored: the config shapes
  * keep their locator under different keys (`config.path` for file-backed
- * kinds, `url`-or-`endpoint` for REST, host/database for SQL) and `static` has
- * no config at all. Returning `null` for `static` is meaningful, not a gap — a
- * static source genuinely has no external location.
+ * kinds, `url`-or-`endpoint` for REST, host/database for SQL) and `dataset` has
+ * no config at all. Returning `null` for `dataset` is meaningful, not a gap — a
+ * dataset source genuinely has no external location.
  */
 function locationFor(source: DataSource): string | null {
   switch (source.type) {
@@ -45,7 +45,7 @@ function locationFor(source: DataSource): string | null {
     case "pdf":
     case "image":
       return source.config.path;
-    case "static":
+    case "dataset":
       return null;
   }
 }

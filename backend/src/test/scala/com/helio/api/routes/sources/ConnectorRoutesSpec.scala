@@ -26,7 +26,7 @@ class ConnectorRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteT
       Get("/connector-types") ~> routes ~> check {
         status shouldBe StatusCodes.OK
         val entries = responseAs[Vector[ConnectorMetadataResponse]]
-        entries.map(_.kind).toSet shouldBe Set("csv", "rest_api", "sql", "static", "text", "pdf", "image")
+        entries.map(_.kind).toSet shouldBe Set("csv", "rest_api", "sql", "dataset", "text", "pdf", "image")
         entries should have size 7
       }
     }

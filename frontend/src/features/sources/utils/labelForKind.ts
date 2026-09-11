@@ -13,7 +13,7 @@ export function labelForKind(kind: DataSourceKind): string {
       return "REST API";
     case "csv":
       return "CSV";
-    case "static":
+    case "dataset":
       return "Static";
     case "sql":
       return "SQL";

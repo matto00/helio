@@ -19,7 +19,7 @@ class ConnectorRegistrySpec extends AnyWordSpec with Matchers {
   // DataSourceKind.All. If either production value drifts from this set
   // (a kind added/removed on one side only), one of the assertions below fails.
   private val expectedKinds: Set[String] =
-    Set("csv", "rest_api", "sql", "static", "text", "pdf", "image")
+    Set("csv", "rest_api", "sql", "dataset", "text", "pdf", "image")
 
   "ConnectorRegistry.all" should {
 
@@ -77,6 +77,29 @@ class ConnectorRegistrySpec extends AnyWordSpec with Matchers {
     "still reject an unknown kind with the same error message shape" in {
       DataSourceKind.parseKind("unknown") shouldBe
         Left(s"Unknown source type: 'unknown'. Valid values: ${expectedKinds.toSeq.sorted.mkString(", ")}")
+    }
+
+    "accept the retired 'static' literal as an alias resolving to 'dataset' (HEL-1073)" in {
+      DataSourceKind.parseKind("static") shouldBe Right("dataset")
+    }
+  }
+
+  "DataSourceKind.canonicalize" should {
+
+    "map the retired 'static' literal to 'dataset'" in {
+      DataSourceKind.canonicalize("static") shouldBe "dataset"
+    }
+
+    "leave every other kind string unchanged" in {
+      expectedKinds.foreach { kind =>
+        DataSourceKind.canonicalize(kind) shouldBe kind
+      }
+    }
+  }
+
+  "ConnectorRegistry.all" should {
+    "no longer register 'static' as a kind (HEL-1073: renamed to 'dataset')" in {
+      ConnectorRegistry.all.map(_.kind) should not contain "static"
     }
   }
 }

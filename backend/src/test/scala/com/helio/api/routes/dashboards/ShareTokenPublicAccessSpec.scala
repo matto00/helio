@@ -136,7 +136,7 @@ class ShareTokenPublicAccessSpec
    *  non-zero evidence is genuine data flowing through the real read path, not a status code. */
   private def seedOutputPanelWithRows(dashId: String): String = {
     val now    = Instant.now()
-    val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now)
+    val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now)
     val createdSource = await(dataSourceRepo.insert(source, owner))
     val pipeline = await(pipelineRepo.create("pipe", Vector(createdSource.id), owner)).getOrElse(
       throw new IllegalStateException("seedOutputPanelWithRows fixture: pipeline create failed")

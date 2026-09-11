@@ -53,7 +53,7 @@ function buildSource(overrides: Partial<DataSource>): DataSource {
   return {
     id: "src-1",
     name: "Profit",
-    type: "static",
+    type: "dataset",
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
     inferredSchema: [],

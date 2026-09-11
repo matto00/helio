@@ -136,19 +136,19 @@ class Hel914Ac1EndToEndSpec extends AnyWordSpec with Matchers with ScalatestRout
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, ${s"u-$userId@helio.test"}, now())"""))
   }
 
-  private def seedStaticSource(name: String, columns: Vector[StaticColumnPayload]): DataSourceId =
+  private def seedDatasetSource(name: String, columns: Vector[StaticColumnPayload]): DataSourceId =
     await(dataSourceService.createStatic(
       StaticDataSourceRequest(name, "static", columns, Vector.empty), user
     )) match {
       case Right(d) => d.id
-      case Left(e)  => fail(s"seedStaticSource($name) failed: $e")
+      case Left(e)  => fail(s"seedDatasetSource($name) failed: $e")
     }
 
   "AC1: create_pipeline -> place_outputs -> get_workspace_context" should {
     "produce a two-root, two-lane, rejoin graph that reads back correctly at every layer" in {
       // ── Arrange: two roots, each with a distinct schema ──
-      val root1Id = seedStaticSource("Orders", Vector(StaticColumnPayload("order_id", "string"), StaticColumnPayload("amount", "string")))
-      val root2Id = seedStaticSource("Regions", Vector(StaticColumnPayload("order_id", "string"), StaticColumnPayload("region", "string")))
+      val root1Id = seedDatasetSource("Orders", Vector(StaticColumnPayload("order_id", "string"), StaticColumnPayload("amount", "string")))
+      val root2Id = seedDatasetSource("Regions", Vector(StaticColumnPayload("order_id", "string"), StaticColumnPayload("region", "string")))
 
       val createRequest = CreatePipelineRequest(
         name  = "AC1 pipeline",

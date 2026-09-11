@@ -43,7 +43,7 @@ class CombinedProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   }
 
   private def existingSource(source: DataSourceId): DataSource =
-    StaticSource(source, "Existing", ownerId, now, now)
+    DatasetSource(source, "Existing", ownerId, now, now)
 
   private def validPipeline(sourceId: DataSourceId): PipelineProposal =
     PipelineProposal(

@@ -214,6 +214,31 @@ class PipelineRootRoutesSpec
       }
     }
 
+    // HEL-1073 design.md Decision 5: the SAME inline-source branch must accept the canonical
+    // "dataset" type too, not just the legacy "static" alias exercised above.
+    "append an inline dataset-source root using the canonical type literal" in {
+      val (pid, _) = seedPipelineWithOneRoot()
+      val req = CreatePipelineRootRequest(
+        `type`       = Some("dataset"),
+        name         = Some("Inline dataset root"),
+        staticConfig = Some(StaticDataPayload(
+          columns = Vector(StaticColumnPayload("n", "number")),
+          rows    = Vector(Vector(JsNumber(1)))
+        ))
+      )
+      Post(s"/pipelines/$pid/roots", req) ~> routes ~> check {
+        status shouldEqual StatusCodes.Created
+        val body = responseAs[PipelineRootSummaryResponse]
+        body.dataSourceName shouldEqual "Inline dataset root"
+
+        val roots = await(rootRepo.listInternal(PipelineId(pid)))
+        roots.size shouldEqual 2
+        val newDs = await(dataSourceRepo.findByIdOwned(DataSourceId(body.dataSourceId), owner))
+        newDs.map(_.name) shouldEqual Some("Inline dataset root")
+        newDs.map(_.kind) shouldEqual Some("dataset")
+      }
+    }
+
     "reject an inline root with BOTH sourceId and type (R6/D1 mutual exclusivity)" in {
       val (pid, _) = seedPipelineWithOneRoot()
       val newDsId  = seedOwnedDataSource()

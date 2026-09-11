@@ -318,8 +318,9 @@ export type QueryParamsInput = QueryParamPair[] | Record<string, string>;
 export interface CreatePipelineRootRequest {
   /** Existing-source branch -- id of a caller-owned DataSource to reuse as-is. */
   sourceId?: string;
-  /** Inline-source branch -- the new source's kind. */
-  type?: "rest_api" | "sql" | "static";
+  /** Inline-source branch -- the new source's kind. HEL-1073: `"static"` remains accepted as a
+   *  write-side alias for `"dataset"` for one minor release. */
+  type?: "rest_api" | "sql" | "static" | "dataset";
   /** Inline-source branch -- the new source's display name. */
   name?: string;
   sqlConfig?: {
@@ -871,7 +872,8 @@ export interface ExpandPipelineShapeResponse {
  *  neither-set client-side before an apply-time 400. */
 export interface PipelineProposalSource {
   sourceId?: string;
-  type?: "csv" | "rest_api" | "sql" | "static";
+  // HEL-1073: "static" remains accepted as a write-side alias for "dataset" for one minor release.
+  type?: "csv" | "rest_api" | "sql" | "static" | "dataset";
   name?: string;
   config?: Record<string, unknown>;
   /** HEL-914: request-scoped id a parentless step's `rootClientId` binds to

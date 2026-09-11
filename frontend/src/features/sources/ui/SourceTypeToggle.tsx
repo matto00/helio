@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 
 import { listConnectors, type ConnectorMetadata } from "../services/connectorService";
 
-type SourceType = "rest_api" | "csv" | "static" | "sql" | "text" | "pdf" | "image";
+type SourceType = "rest_api" | "csv" | "dataset" | "sql" | "text" | "pdf" | "image";
 
 interface SourceTypeToggleProps {
   active: SourceType;
@@ -40,7 +40,7 @@ const FALLBACK_CONNECTORS: ConnectorMetadata[] = [
     requiredFields: [],
   },
   {
-    kind: "static",
+    kind: "dataset",
     displayName: "Manual",
     supportsIncremental: false,
     authKind: "none",

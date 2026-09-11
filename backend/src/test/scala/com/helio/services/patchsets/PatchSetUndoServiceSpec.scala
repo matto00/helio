@@ -155,13 +155,13 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
 
   // HEL-904: no companion DataType to look up anymore — returns just the DataSourceId
   // (every call site already discarded the old tuple's second element).
-  private def seedStaticSource(owner: AuthenticatedUser, name: String = "Source"): DataSourceId = {
+  private def seedDatasetSource(owner: AuthenticatedUser, name: String = "Source"): DataSourceId = {
     val ds = await(dataSourceService.createStatic(
       StaticDataSourceRequest(name, "static", Vector(StaticColumnPayload("value", "integer")), Vector(Vector(JsNumber(1)))),
       owner
     )) match {
       case Right(d) => d
-      case Left(e)  => fail(s"seedStaticSource failed: $e")
+      case Left(e)  => fail(s"seedDatasetSource failed: $e")
     }
     ds.id
   }
@@ -205,8 +205,8 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     "restore panel/dashboard/dataSource/pipeline/pipelineStep update edits to their pre-apply state (5.3a)" in {
       val dashboard          = seedDashboard(userA, "Dashboard v1")
       val panel               = seedPanel(dashboard.id, userA, "Panel v1")
-      val dataSourceId = seedStaticSource(userA, "Source v1")
-      val pipelineSrcId = seedStaticSource(userA, "Pipeline source v1")
+      val dataSourceId = seedDatasetSource(userA, "Source v1")
+      val pipelineSrcId = seedDatasetSource(userA, "Pipeline source v1")
       val pipeline             = seedPipeline(userA, pipelineSrcId, "Pipeline v1")
       // HEL-705 (2.6): seeded DISABLED so the full-revert undo path is asserted to preserve the
       // captured `enabled` state, mirroring 5.3c's delete-and-recreate coverage below.
@@ -298,7 +298,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     // Output existence validation (that is a separate, already-covered concern elsewhere).
     "restore an output-kind placement panel's create/delete-undo, preserving config.outputId (5.5)" in {
       val dashboard    = seedDashboard(userA)
-      val sourceId      = seedStaticSource(userA, "Placement-preservation source")
+      val sourceId      = seedDatasetSource(userA, "Placement-preservation source")
       val pipeline      = seedPipeline(userA, sourceId, "Placement-preservation pipeline")
       val outputToDelete = seedOutput(pipeline, userA, "Output to delete's panel")
       val outputToCreate = seedOutput(pipeline, userA, "Output the new panel binds to")
@@ -372,7 +372,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     }
 
     "restore a pipelineStep delete edit by recreating it with its content restored (5.3c)" in {
-      val sourceId = seedStaticSource(userA, "Step-delete pipeline source")
+      val sourceId = seedDatasetSource(userA, "Step-delete pipeline source")
       val pipeline        = seedPipeline(userA, sourceId, "Step-delete pipeline")
       // HEL-705: seeded DISABLED so the delete-and-recreate undo path is asserted to preserve
       // (not silently drop) the captured `enabled` state.
@@ -400,7 +400,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     // HEL-914 task 5.8 (patch-set-lane-edits spec): "Removing a lane by patch set and undoing
     // it restores its Outputs and placements".
     "restore a pipelineStep delete edit's bound Output AND that Output's placement (5.8)" in {
-      val sourceId = seedStaticSource(userA, "Step-delete-with-output pipeline source")
+      val sourceId = seedDatasetSource(userA, "Step-delete-with-output pipeline source")
       val pipeline = seedPipeline(userA, sourceId, "Step-delete-with-output pipeline")
       val step = seedPipelineStep(PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("old" -> JsString("new"))))
       val output = await(outputRepo.insertInternal(
@@ -442,7 +442,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     // bound Output, AND that Output's placement (panel) atomically via the same cascade a real
     // delete already relies on -- and reports the placement count.
     "restore a pipelineStep create edit ('add lane') by removing the step AND cascading its Output/placement, reporting the placement count" in {
-      val sourceId = seedStaticSource(userA, "Lane-create pipeline source")
+      val sourceId = seedDatasetSource(userA, "Lane-create pipeline source")
       val pipeline = seedPipeline(userA, sourceId, "Lane-create pipeline")
       val createPatch = JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1)))
       val edit = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
@@ -480,7 +480,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     // HEL-914 task 5.7: refuses the undo (rather than deleting a node still relied on) when a
     // step added LATER carries a lane-kind secondaryInput referencing the node being undone.
     "refuse to undo a pipelineStep create when a later step's lane secondaryInput references it" in {
-      val sourceId = seedStaticSource(userA, "Lane-conflict pipeline source")
+      val sourceId = seedDatasetSource(userA, "Lane-conflict pipeline source")
       val pipeline = seedPipeline(userA, sourceId, "Lane-conflict pipeline")
       // A trunk anchor BOTH the lane (created by the patch-set edit) and the later referencing
       // step branch off of, as SIBLINGS -- neither an ancestor of the other, so the lane
@@ -510,7 +510,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     }
 
     "restore a pipelineStep delete edit by recreating it under its original parentStepId, not silently re-parenting it to the trunk (HEL-766)" in {
-      val sourceId = seedStaticSource(userA, "Step-delete branch pipeline source")
+      val sourceId = seedDatasetSource(userA, "Step-delete branch pipeline source")
       val pipeline = seedPipeline(userA, sourceId, "Step-delete branch pipeline")
       val rootStep = seedPipelineStep(
         PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("a" -> JsString("b")))
@@ -558,7 +558,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
     "refuse the whole undo when the application contains a structurally-unrecoverable delete edit, restoring nothing else in that application (5.3d)" in {
       val dashboard      = seedDashboard(userA)
       val panel            = seedPanel(dashboard.id, userA, "Before")
-      val sourceId = seedStaticSource(userA, "Unrecoverable pipeline source")
+      val sourceId = seedDatasetSource(userA, "Unrecoverable pipeline source")
       val pipeline          = seedPipeline(userA, sourceId, "To delete")
 
       val edits = Vector(

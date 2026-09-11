@@ -38,7 +38,7 @@ import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";
 import { useRestSourceForm } from "../hooks/useRestSourceForm";
 
-type SourceType = "rest_api" | "csv" | "static" | "sql" | "text" | "pdf" | "image";
+type SourceType = "rest_api" | "csv" | "dataset" | "sql" | "text" | "pdf" | "image";
 type Step = "configure" | "preview";
 
 /** HEL-516 evaluation-1.md CR2 — the modal's accessible name, exported so any collision guard
@@ -316,12 +316,12 @@ export function AddSourceModal({ onClose, onCreated }: AddSourceModalProps) {
 
   const title = step === "configure" ? "Add data source" : "Preview schema";
 
-  // Footer for the configure step (non-static, non-SQL, non-text, non-pdf,
+  // Footer for the configure step (non-dataset, non-SQL, non-text, non-pdf,
   // non-image — those render their own self-contained form + footer since
   // they skip the configure -> preview schema-inference step).
   const configureFooter =
     step === "configure" &&
-    sourceType !== "static" &&
+    sourceType !== "dataset" &&
     sourceType !== "sql" &&
     sourceType !== "text" &&
     sourceType !== "pdf" &&
@@ -376,7 +376,7 @@ export function AddSourceModal({ onClose, onCreated }: AddSourceModalProps) {
       onClose={onClose}
       footer={footer}
     >
-      {step === "configure" && sourceType === "static" ? (
+      {step === "configure" && sourceType === "dataset" ? (
         <>
           <div className="add-source-modal__field">
             <label className="add-source-modal__label" htmlFor="source-name-static">

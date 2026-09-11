@@ -6,7 +6,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.services.sources.ContentSourceSupport
 import com.helio.domain.steps._
-import com.helio.domain.model.{DataFieldType, DataSource, DataSourceId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, StaticSource}
+import com.helio.domain.model.{DataFieldType, DataSource, DataSourceId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, DatasetSource}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
@@ -891,7 +891,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Map[String, Any]("id" -> "2", "dept" -> "mkt")
         )
       )
-      val rightDs = StaticSource(
+      val rightDs = DatasetSource(
         id        = DataSourceId("ds-right"),
         name      = "right",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -923,7 +923,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         Seq("id", "dept"),
         Seq(Map[String, Any]("id" -> "1", "dept" -> "eng"))
       )
-      val rightDs = StaticSource(
+      val rightDs = DatasetSource(
         id        = DataSourceId("ds-right-left"),
         name      = "right",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -953,7 +953,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         Seq("a", "b"),
         Seq(Map[String, Any]("a" -> 3, "b" -> 4))
       )
-      val otherDs = StaticSource(
+      val otherDs = DatasetSource(
         id        = DataSourceId("ds-union-position"),
         name      = "other",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -983,7 +983,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         Seq("a", "c"),
         Seq(Map[String, Any]("a" -> 3, "c" -> 5))
       )
-      val otherDs = StaticSource(
+      val otherDs = DatasetSource(
         id        = DataSourceId("ds-union-name"),
         name      = "other",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -1013,7 +1013,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         Seq("a", "b"),
         Seq(Map[String, Any]("a" -> 3, "b" -> 4))
       )
-      val otherDs = StaticSource(
+      val otherDs = DatasetSource(
         id        = DataSourceId("ds-union-name-same"),
         name      = "other",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -1063,7 +1063,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     }
 
     "union op: unsupported mode fails at execute time, naming the value and supported modes" in {
-      val otherDs = StaticSource(
+      val otherDs = DatasetSource(
         id        = DataSourceId("ds-union-badmode"),
         name      = "other",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -1096,7 +1096,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         Seq("code", "label", "price"),
         Seq(Map[String, Any]("code" -> "A", "label" -> "Apple", "price" -> 1.5))
       )
-      val refDs = StaticSource(
+      val refDs = DatasetSource(
         id        = DataSourceId("ds-lookup-match"),
         name      = "reference",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -1123,7 +1123,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         Seq("code", "label"),
         Seq(Map[String, Any]("code" -> "A", "label" -> "Apple"))
       )
-      val refDs = StaticSource(
+      val refDs = DatasetSource(
         id        = DataSourceId("ds-lookup-nomatch"),
         name      = "reference",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -1153,7 +1153,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
           Map[String, Any]("code" -> "A", "label" -> "Second")
         )
       )
-      val refDs = StaticSource(
+      val refDs = DatasetSource(
         id        = DataSourceId("ds-lookup-multi"),
         name      = "reference",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -1181,7 +1181,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         Seq("code", "qty"),
         Seq(Map[String, Any]("code" -> "A", "qty" -> 99))
       )
-      val refDs = StaticSource(
+      val refDs = DatasetSource(
         id        = DataSourceId("ds-lookup-collision"),
         name      = "reference",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -1208,7 +1208,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         Seq("code", "label", "price"),
         Seq(Map[String, Any]("code" -> "A", "label" -> "Apple", "price" -> 1.5))
       )
-      val refDs = StaticSource(
+      val refDs = DatasetSource(
         id        = DataSourceId("ds-lookup-onlynamed"),
         name      = "reference",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -2690,7 +2690,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     }
 
     "loadRowsWithStats: an uncapped source kind (static) always reports not truncated (task 7.4)" in {
-      val ds = StaticSource(
+      val ds = DatasetSource(
         id        = DataSourceId("ds-static-uncapped"),
         name      = "static-src",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
@@ -2745,7 +2745,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
   // directly on the same inputs, since it's a verbatim wrapper (no logic change).
   "InProcessExecutionBackend" should {
     "produce the same rows/stepCounts/sourceRowCount/primaryStats as the direct engine calls (task 4.3)" in {
-      val ds = StaticSource(
+      val ds = DatasetSource(
         id        = DataSourceId("ds-backend-parity"),
         name      = "static-src",
         ownerId   = UserId("00000000-0000-0000-0000-000000000001"),

@@ -40,12 +40,12 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
     new PipelineProposalService(null, null, null, null, dataSourceRepo, null)
 
   private def existingSource(source: DataSourceId): DataSource =
-    StaticSource(source, "Existing", ownerId, now, now)
+    DatasetSource(source, "Existing", ownerId, now, now)
 
   private def existingSourceRef(sourceId: String): PipelineProposalSource =
     PipelineProposalSource(Some(sourceId), None, None, None, None, None, None)
 
-  private def inlineStaticSource(name: String = "Inline"): PipelineProposalSource =
+  private def inlineDatasetSource(name: String = "Inline"): PipelineProposalSource =
     PipelineProposalSource(
       sourceId     = None,
       `type`       = Some(DataSourceKind.Static),
@@ -127,7 +127,7 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
     "reject a blank pipelineName before any repository lookup" in {
       val dsRepo = mock(classOf[DataSourceRepository])
 
-      val result = await(newService(dsRepo).validate(proposal(inlineStaticSource(), pipelineName = "   "), user))
+      val result = await(newService(dsRepo).validate(proposal(inlineDatasetSource(), pipelineName = "   "), user))
 
       result shouldBe a[Left[_, _]]
       result.swap.toOption.get shouldBe a[ServiceError.BadRequest]
@@ -152,7 +152,7 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
     "accept a structurally valid inline source without touching the data source repository" in {
       val dsRepo = mock(classOf[DataSourceRepository])
 
-      val result = await(newService(dsRepo).validate(proposal(inlineStaticSource()), user))
+      val result = await(newService(dsRepo).validate(proposal(inlineDatasetSource()), user))
 
       result shouldBe Right(())
       verifyNoInteractions(dsRepo)

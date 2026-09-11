@@ -115,7 +115,7 @@ private[protocols] trait AssistantProposalToolSchemas {
       ),
       "type" -> JsObject(
         "type" -> JsString("string"),
-        "enum" -> JsArray(Vector("csv", "rest_api", "sql", "static").map(JsString(_))),
+        "enum" -> JsArray(Vector("csv", "rest_api", "sql", "static", "dataset").map(JsString(_))),
         "description" -> JsString(
           "Inline-source branch — mutually exclusive with sourceId. csv is not supported by " +
             "propose_pipeline/validate: it requires an uploaded file byte stream this tool has no channel for."

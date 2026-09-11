@@ -136,7 +136,7 @@ export function CombinedProposalReviewPage() {
 }
 
 /** Build a small, genuinely-applyable demo combined proposal: the same
- *  self-contained demo pipeline proposal (inline `static` source, no
+ *  self-contained demo pipeline proposal (inline `dataset` source, no
  *  workspace dependency) plus a one-panel dashboard proposal bound to that
  *  pipeline's own not-yet-created output via the `"$pipelineOutput"`
  *  sentinel — exercises the exact binding this page's dashboard-half
@@ -147,7 +147,7 @@ function demoCombinedProposal(): CombinedProposal {
       pipelineName: "Demo proposed pipeline",
       roots: [
         {
-          type: "static",
+          type: "dataset",
           name: "Demo source",
           config: {
             columns: [

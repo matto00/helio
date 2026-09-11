@@ -31,7 +31,7 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
         val obj = responseAs[String].parseJson.asJsObject
-        obj.fields("sources").convertTo[Vector[JsValue]].head.asJsObject.fields("type").convertTo[String] shouldBe "static"
+        obj.fields("sources").convertTo[Vector[JsValue]].head.asJsObject.fields("type").convertTo[String] shouldBe "dataset"
         obj.fields("pipeline").asJsObject.fields("name").convertTo[String] shouldBe "Static Pipeline"
         val outputs = obj.fields("outputs").convertTo[Vector[JsValue]]
         outputs should have size 1
@@ -48,6 +48,30 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       // check sourceId is absent" verification has no Output-shaped
       // equivalent here; the non-empty id assertion above already covers
       // the meaningful assertion (a real id was minted).
+    }
+
+    // HEL-1073 design.md Decision 5: the SAME inline-source apply path must accept the canonical
+    // "dataset" type too, not just the legacy "static" alias exercised above -- and a proposal
+    // stored (e.g. in a saved draft) before this ticket shipped, still carrying "static", must
+    // continue to apply correctly (the prior test already IS that case; this one pins the new
+    // canonical literal working identically).
+    "atomically create source+pipeline+steps for an inline proposal using the canonical 'dataset' type" in {
+      val beforeSources = dataSourceCount()
+      val body =
+        """{
+          |  "pipelineName": "Dataset Pipeline",
+          |  "roots":[{"type":"dataset","name":"Inline Dataset",
+          |    "config":{"columns":[{"name":"name","type":"string"}],"rows":[["x"],["y"]]}}],
+          |  "steps": [],
+          |  "outputs": []
+          |}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val obj = responseAs[String].parseJson.asJsObject
+        obj.fields("sources").convertTo[Vector[JsValue]].head.asJsObject.fields("type").convertTo[String] shouldBe "dataset"
+        obj.fields("pipeline").asJsObject.fields("name").convertTo[String] shouldBe "Dataset Pipeline"
+      }
+      dataSourceCount() shouldBe (beforeSources + 1)
     }
 
     "create nothing new for the source when the proposal references an existing sourceId" in {

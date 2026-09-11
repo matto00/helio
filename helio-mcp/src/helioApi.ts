@@ -88,7 +88,9 @@ interface RawCreateSourceResponse {
   rowCapNotice?: string;
 }
 
-const CSV_LIKE_TYPES = new Set(["csv", "static"]);
+// HEL-1073: the API now returns "dataset" (renamed from "static"); "static" is kept here too
+// since a not-yet-refreshed client or stored proposal may still carry it.
+const CSV_LIKE_TYPES = new Set(["csv", "static", "dataset"]);
 
 /** Inline column spec for a static data source. */
 export interface StaticColumn {

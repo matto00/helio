@@ -74,7 +74,7 @@ jest.mock("../services/connectorService", () => ({
       requiredFields: [{ name: "path", label: "Path", secret: false }],
     },
     {
-      kind: "static",
+      kind: "dataset",
       displayName: "Manual",
       supportsIncremental: false,
       authKind: "none",
@@ -735,7 +735,7 @@ describe("AddSourceModal — static source (thunk-dispatched create path, F-008)
     createStaticSourceMock.mockResolvedValue({
       id: "ds-static-1",
       name: "Ref table",
-      type: "static",
+      type: "dataset",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
       inferredSchema: [],

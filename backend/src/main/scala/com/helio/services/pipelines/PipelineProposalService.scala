@@ -171,7 +171,9 @@ final class PipelineProposalService(
       case (Some(_), None) =>
         Right(())
       case (None, Some(kind)) =>
-        validateInlineSource(kind, source, idx)
+        // HEL-1073 design.md Decision 2: canonicalize before validating so a "static"
+        // inline type is recognized/validated the same as "dataset".
+        validateInlineSource(DataSourceKind.canonicalize(kind), source, idx)
     }
 
   /** D2: inline `type` must be a recognized kind; `name` and the type-matched
@@ -192,7 +194,7 @@ final class PipelineProposalService(
             case None      => Left(ServiceError.BadRequest(s"$address.config is required for an inline source"))
             case Some(cfg) => validateRestConfig(cfg, address)
           }
-        case DataSourceKind.Static  => requireConfig(source.staticConfig, address)
+        case DataSourceKind.Dataset => requireConfig(source.staticConfig, address)
         case DataSourceKind.Sql =>
           source.sqlConfig match {
             case None      => Left(ServiceError.BadRequest(s"$address.config is required for an inline source"))
@@ -316,7 +318,9 @@ final class PipelineProposalService(
       user: AuthenticatedUser
   ): Future[Either[ServiceError, ResolvedSource]] = {
     val address = PipelineService.rootAddress(idx)
-    (source.sourceId, source.`type`) match {
+    // HEL-1073 design.md Decision 2: canonicalize before matching so a "static" inline
+    // type resolves the same branch as "dataset".
+    (source.sourceId, source.`type`.map(DataSourceKind.canonicalize)) match {
       case (Some(sourceId), _) =>
         resolveExistingSource(sourceId, source.clientId, address, user)
       case (None, Some(DataSourceKind.Csv)) =>
@@ -327,7 +331,7 @@ final class PipelineProposalService(
         )))
       case (None, Some(DataSourceKind.Sql))      => resolveSqlSource(source, address, user)
       case (None, Some(DataSourceKind.RestApi))  => resolveRestSource(source, address, user)
-      case (None, Some(DataSourceKind.Static))   => resolveStaticSource(source, address, user)
+      case (None, Some(DataSourceKind.Dataset))  => resolveStaticSource(source, address, user)
       case _ =>
         // Unreachable: validateStructure already rejected every other shape.
         Future.successful(Left(ServiceError.BadRequest(s"$address: sourceId or inline type is required")))
@@ -371,7 +375,7 @@ final class PipelineProposalService(
       case None => Future.successful(Left(ServiceError.BadRequest(s"$address.config is required for an inline source")))
       case Some(cfg) =>
         dataSourceService
-          .createStatic(StaticDataSourceRequest(inlineName(source), DataSourceKind.Static, cfg.columns, cfg.rows), user)
+          .createStatic(StaticDataSourceRequest(inlineName(source), DataSourceKind.Dataset, cfg.columns, cfg.rows), user)
           .flatMap {
             case Left(err) => Future.successful(Left(err))
             case Right(ds) =>
@@ -381,7 +385,7 @@ final class PipelineProposalService(
                 ds.id,
                 responseForClient = Some(DataSourceResponse.fromDomain(ds)),
                 createdByThisCall = true,
-                kind              = DataSourceKind.Static,
+                kind              = DataSourceKind.Dataset,
                 clientId          = source.clientId
               )))
           }
@@ -554,7 +558,7 @@ final class PipelineProposalService(
 object PipelineProposalService {
 
   private val InlineSourceKinds: Set[String] =
-    Set(DataSourceKind.Csv, DataSourceKind.RestApi, DataSourceKind.Sql, DataSourceKind.Static)
+    Set(DataSourceKind.Csv, DataSourceKind.RestApi, DataSourceKind.Sql, DataSourceKind.Dataset)
 
   /** The resolved (existing or just-created) source, plus everything a later
    *  rollback needs so it never has to re-derive state that a prior delete

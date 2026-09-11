@@ -112,7 +112,7 @@ class PipelineCapabilitiesRoutesSpec
    *  column, with an editor grant on the pipeline for `grantee`. */
   private def newSharedPipeline(): PipelineId = {
     val now = Instant.now()
-    val source = StaticSource(
+    val source = DatasetSource(
       DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now,
       inferredSchema = Vector(SchemaField("amount", "float"), SchemaField("label", "string"))
     )
