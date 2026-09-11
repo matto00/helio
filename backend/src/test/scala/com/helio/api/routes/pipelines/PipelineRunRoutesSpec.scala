@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.api.routes.pipelines.{PipelineRunHistoryRoutes, PipelineRunRegistry, PipelineRunStatusRoutes, PipelineRunStreamRoutes, PipelineRunSubmitRoutes}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import org.apache.pekko.actor.typed.ActorSystem
@@ -95,15 +96,18 @@ class PipelineRunRoutesSpec
     import PostgresProfile.api._
     val dsId = UUID.randomUUID().toString
     val dsConfig = """{"columns":[{"name":"name","type":"string"},{"name":"score","type":"double"}],"rows":[["alice",42.0],["bob",37.0]]}"""
-    await(db.run(sqlu"""INSERT INTO data_sources
-      (id, name, source_type, config, owner_id, created_at, updated_at)
-      VALUES ($dsId, 'ds-with-data', 'static', $dsConfig,
-        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources
+        (id, name, source_type, config, owner_id, created_at, updated_at)
+        VALUES ($dsId, 'ds-with-data', 'dataset', '{}',
+          '00000000-0000-0000-0000-000000000001', now(), now())""",
+      DatasetRowsTestSupport.seedActionsFromRaw(dsId, dsConfig)
+    )))
     dsId
   }
 
   private def seedDs(sourceType: String): String = {
-    val dsConfig = if (sourceType == "static") """{"columns":[],"rows":[]}"""
+    val dsConfig = if (sourceType == "dataset") """{"columns":[],"rows":[]}"""
                    else if (sourceType == "csv") """{"filePath":"/tmp/test.csv"}"""
                    else "{}"
     seedDsWithConfig(sourceType, dsConfig)
@@ -247,7 +251,7 @@ class PipelineRunRoutesSpec
 
     "POST /pipelines/:id/run returns 200 with inline rows for a static pipeline" in {
       val cache = new PipelineRunCache()
-      val dsId  = seedDs("static")
+      val dsId  = seedDs("dataset")
       val pid   = seedPipeline(dsId)
       Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
@@ -351,7 +355,7 @@ class PipelineRunRoutesSpec
 
     "GET /pipelines/:id/run-history returns 200 with empty list when no runs" in {
       val cache = new PipelineRunCache()
-      val dsId  = seedDs("static")
+      val dsId  = seedDs("dataset")
       val pid   = seedPipeline(dsId)
       Get(s"/pipelines/${pid.value}/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.OK
@@ -362,7 +366,7 @@ class PipelineRunRoutesSpec
 
     "GET /pipelines/:id/run-history returns 200 with run records" in {
       val cache = new PipelineRunCache()
-      val dsId  = seedDs("static")
+      val dsId  = seedDs("dataset")
       val pid   = seedPipeline(dsId)
       val runId = PipelineRunId(UUID.randomUUID().toString)
       await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), dummyUser))
@@ -444,7 +448,7 @@ class PipelineRunRoutesSpec
 
     "GET /pipelines/:id/steps/:stepId/preview returns 404 for unknown step" in {
       val cache = new PipelineRunCache()
-      val dsId  = seedDs("static")
+      val dsId  = seedDs("dataset")
       val pid   = seedPipeline(dsId)
       Get(s"/pipelines/${pid.value}/steps/nonexistent-step-id/preview") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.NotFound
@@ -746,7 +750,7 @@ class PipelineRunRoutesSpec
 
     "GET /pipelines/:id/run-events returns text/event-stream for existing pipeline" in {
       val cache = new PipelineRunCache()
-      val dsId  = seedDs("static")
+      val dsId  = seedDs("dataset")
       val pid   = seedPipeline(dsId)
       val reg   = new PipelineRunRegistry()(typedSystem)
       Get(s"/pipelines/${pid.value}/run-events") ~> makeRoutes(cache, registry = reg) ~> check {
@@ -772,7 +776,7 @@ class PipelineRunRoutesSpec
     "GET /pipelines/:id/run-events returns text/event-stream for a viewer grantee (non-owner)" in {
       import PostgresProfile.api._
       val cache   = new PipelineRunCache()
-      val dsId    = seedDs("static")
+      val dsId    = seedDs("dataset")
       val pid     = seedPipeline(dsId)
       val granteeId = UUID.randomUUID().toString
       await(db.run(DBIO.seq(

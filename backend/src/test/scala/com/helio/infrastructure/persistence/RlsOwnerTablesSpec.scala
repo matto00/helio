@@ -199,6 +199,100 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     }
   }
 
+  // HEL-1074 tasks.md 4.2: `dataset_rows` has no `owner_id` of its own -- its policy
+  // (`dataset_rows_owner`) joins through the owning `data_sources.owner_id`, so these tests
+  // seed a "dataset"-kind `data_sources` row plus its `dataset_rows` via the privileged pool,
+  // exactly like `seedSource` above.
+
+  /** Seed a "dataset"-kind `data_sources` row (owned by `ownerId`, or ownerless when `None` --
+   *  design.md Decision 8) plus one `dataset_rows` row, via the privileged pool. Returns
+   *  `(dataSourceId, datasetRowId)`. */
+  private def seedDatasetSource(ownerId: Option[UserId]): (String, String) = {
+    val dsId  = UUID.randomUUID().toString
+    val rowId = UUID.randomUUID().toString
+    await(ctx.withSystemContext(DBIO.seq(
+      ownerId match {
+        case Some(o) =>
+          sqlu"""INSERT INTO data_sources (id, name, source_type, config, dataset_schema, owner_id, created_at, updated_at)
+                 VALUES ($dsId, 'dataset-src', 'dataset', '{}'::jsonb, '[{"name":"a","type":"string"}]'::jsonb,
+                         ${o.value}::uuid, now(), now())"""
+        case None =>
+          sqlu"""INSERT INTO data_sources (id, name, source_type, config, dataset_schema, owner_id, created_at, updated_at)
+                 VALUES ($dsId, 'dataset-src-ownerless', 'dataset', '{}'::jsonb, '[{"name":"a","type":"string"}]'::jsonb,
+                         NULL, now(), now())"""
+      },
+      sqlu"""INSERT INTO dataset_rows (id, data_source_id, seq, data, created_at, updated_at)
+             VALUES ($rowId, $dsId, 0, '["x"]'::jsonb, now(), now())"""
+    )))
+    (dsId, rowId)
+  }
+
+  "RLS on dataset_rows" should {
+
+    "withUserContext(ownerA) returns only ownerA's dataset_rows" in {
+      cleanDb()
+      val (_, rowA) = seedDatasetSource(Some(ownerA))
+      val (_, rowB) = seedDatasetSource(Some(ownerB))
+
+      val rows = await(ctx.withUserContext(ownerA.value)(
+        sql"SELECT id FROM dataset_rows".as[String]
+      ))
+
+      rows.toSet shouldBe Set(rowA)
+      rows should not contain rowB
+    }
+
+    "withUserContext(ownerB) cannot see ownerA's dataset_rows" in {
+      cleanDb()
+      val (_, rowA) = seedDatasetSource(Some(ownerA))
+      seedDatasetSource(Some(ownerB))
+
+      val rows = await(ctx.withUserContext(ownerB.value)(
+        sql"SELECT id FROM dataset_rows".as[String]
+      ))
+
+      rows should not contain rowA
+    }
+
+    "withSystemContext sees all dataset_rows (BYPASSRLS)" in {
+      cleanDb()
+      val (_, rowA) = seedDatasetSource(Some(ownerA))
+      val (_, rowB) = seedDatasetSource(Some(ownerB))
+
+      val rows = await(ctx.withSystemContext(
+        sql"SELECT id FROM dataset_rows".as[String]
+      ))
+
+      rows.toSet should contain allOf (rowA, rowB)
+    }
+
+    // design.md Decision 8: a `data_sources` row with `owner_id IS NULL` is the existing,
+    // already-documented posture for every owner-scoped table (V35's own header) -- its
+    // dataset_rows must be invisible to EVERY non-privileged user context, not just superuser.
+    "an owner_id IS NULL source's dataset_rows are invisible to any non-privileged user context" in {
+      cleanDb()
+      val (_, ownerlessRow) = seedDatasetSource(None)
+
+      val rowsAsA = await(ctx.withUserContext(ownerA.value)(sql"SELECT id FROM dataset_rows".as[String]))
+      val rowsAsB = await(ctx.withUserContext(ownerB.value)(sql"SELECT id FROM dataset_rows".as[String]))
+      rowsAsA should not contain ownerlessRow
+      rowsAsB should not contain ownerlessRow
+
+      val rowsPrivileged = await(ctx.withSystemContext(sql"SELECT id FROM dataset_rows".as[String]))
+      rowsPrivileged should contain(ownerlessRow)
+    }
+
+    "SELECT on dataset_rows without app.current_user_id set raises an error (fail-closed, not missing_ok)" in {
+      cleanDb()
+      seedDatasetSource(Some(ownerA))
+
+      val future = appDb.run(sql"SELECT id FROM dataset_rows".as[String])
+      val thrown = intercept[Exception] {
+        Await.result(future, 5.seconds)
+      }
+      thrown should not be null
+    }
+  }
 
   // HEL-904 task 2.10: the "RLS on data_types" describe-block is deleted
   // outright, not adapted -- `data_types` is dropped; `outputs`

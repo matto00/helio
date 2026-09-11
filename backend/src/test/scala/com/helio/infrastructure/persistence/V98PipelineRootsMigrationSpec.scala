@@ -341,7 +341,7 @@ class V98PipelineRootsMigrationSpec extends AnyWordSpec with Matchers with Befor
           await(localDb.run(DBIO.seq(
             sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, 'o@test.local', now())""",
             sqlu"""INSERT INTO data_sources (id, name, source_type, config, created_at, updated_at, owner_id)
-                   VALUES ('ds-y', 'ds-y', 'static', '{}', now(), now(), $ownerId::uuid)""",
+                   VALUES ('ds-y', 'ds-y', 'dataset', '{}', now(), now(), $ownerId::uuid)""",
             sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at, owner_id)
                    VALUES ('pipe-y', 'pipe-y', now(), now(), $ownerId::uuid)"""
           )))
@@ -380,7 +380,7 @@ class V98PipelineRootsMigrationSpec extends AnyWordSpec with Matchers with Befor
             await(localDb.run(DBIO.seq(
               sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, 'o@test.local', now())""",
               sqlu"""INSERT INTO data_sources (id, name, source_type, config, created_at, updated_at, owner_id)
-                     VALUES ('ds-z', 'ds-z', 'static', '{}', now(), now(), $ownerId::uuid)""",
+                     VALUES ('ds-z', 'ds-z', 'dataset', '{}', now(), now(), $ownerId::uuid)""",
               sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at, owner_id)
                      VALUES ('pipe-z', 'pipe-z', now(), now(), $ownerId::uuid)"""
             )))

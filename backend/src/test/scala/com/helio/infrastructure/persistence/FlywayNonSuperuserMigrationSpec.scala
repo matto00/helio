@@ -335,7 +335,10 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
             // outputs/node_snapshots treatment above -- FORCE is applied for the first time in
             // V98's own final section, after its backfill has already run as this same
             // non-superuser role.
-            "pipeline_roots"
+            "pipeline_roots",
+            // HEL-1074: dataset_rows is created (not pre-existing) by V106, same "created and
+            // FORCEd by this same migration" shape as outputs/node_snapshots/pipeline_roots above.
+            "dataset_rows"
           )
           for (tableName <- forceRlsTables) {
             val forced = await(
@@ -408,6 +411,44 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
           withClue("A config V97 never touches must be byte-identical before/after: ") {
             untouchedConfigAfter shouldBe untouchedConfigBefore
           }
+
+          // HEL-1074 task 4.1: V106's `dataset_rows` backfill actually ran, under this same
+          // non-superuser/non-BYPASSRLS `helio_migration_test` role, against the fixture's real
+          // `static` sources (`MyManualSource`, `acl-smoke-static`) -- not a silent zero-row
+          // success. `source_type` is rewritten `static` -> `dataset`, `config` is cleared, and
+          // `dataset_schema` is backfilled from the DECLARED columns (not `inferred_schema`).
+          val migratedSourceCount = await(migratedDb.run(sql"SELECT count(*) FROM data_sources WHERE source_type = 'dataset'".as[Int].head))
+          val staleStaticCount    = await(migratedDb.run(sql"SELECT count(*) FROM data_sources WHERE source_type = 'static'".as[Int].head))
+          val datasetRowCount     = await(migratedDb.run(sql"SELECT count(*) FROM dataset_rows".as[Int].head))
+          withClue("data_sources should have rows migrated to 'dataset' after V106: ") { migratedSourceCount should be > 0 }
+          withClue("no data_sources row should still carry the legacy 'static' value after V106: ") { staleStaticCount shouldBe 0 }
+          withClue("dataset_rows should be non-empty after V106's backfill actually ran: ") { datasetRowCount should be > 0 }
+
+          val myManualSchema = await(
+            migratedDb.run(sql"SELECT dataset_schema::text FROM data_sources WHERE id = '18dc0d3b-ad44-48cd-bc1d-f066726fc0f1'".as[String].head)
+          )
+          withClue("dataset_schema should carry MyManualSource's DECLARED types (test3: float), not inferred_schema's runtime-derived ones: ") {
+            myManualSchema.parseJson shouldBe
+              """[{"name":"test1","type":"string"},{"name":"test2","type":"integer"},{"name":"test3","type":"float"},{"name":"test4","type":"boolean"}]""".parseJson
+          }
+
+          val myManualRows = await(
+            migratedDb.run(
+              sql"SELECT data::text FROM dataset_rows WHERE data_source_id = '18dc0d3b-ad44-48cd-bc1d-f066726fc0f1' ORDER BY seq".as[String]
+            )
+          )
+          withClue("dataset_rows should carry MyManualSource's rows verbatim, positionally, in original order: ") {
+            myManualRows.map(_.parseJson) shouldBe Vector(
+              """["a", 1, 1.2, true]""".parseJson,
+              """["b", 2, 2.3, false]""".parseJson,
+              """["c", 3, 3, true]""".parseJson
+            )
+          }
+
+          val myManualConfig = await(
+            migratedDb.run(sql"SELECT config::text FROM data_sources WHERE id = '18dc0d3b-ad44-48cd-bc1d-f066726fc0f1'".as[String].head)
+          )
+          withClue("config should be cleared for a migrated dataset-kind source: ") { myManualConfig.parseJson shouldBe JsObject.empty }
         } finally migratedDb.close()
       } finally embeddedPostgres.close()
     }

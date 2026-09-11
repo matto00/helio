@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.services.sources.ContentSourceSupport
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.PipelineRunService
@@ -205,10 +206,16 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     import PostgresProfile.api._
     val dsId = UUID.randomUUID().toString
     val dsConfig = """{"columns":[{"name":"name","type":"string"},{"name":"score","type":"double"}],"rows":[["alice",42.0],["bob",37.0]]}"""
-    await(db.run(sqlu"""INSERT INTO data_sources
-      (id, name, source_type, config, owner_id, created_at, updated_at)
-      VALUES ($dsId, 'ds-with-data', 'static', $dsConfig,
-        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    // HEL-1074: row content lives in `dataset_rows`/`dataset_schema`, not `config` (unused/
+    // cleared post-migration) -- seeded via the shared helper so every one of the "dozens of
+    // tests" (see comment below) that read this source's 2 rows via a real pipeline run see them.
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources
+        (id, name, source_type, config, owner_id, created_at, updated_at)
+        VALUES ($dsId, 'ds-with-data', 'dataset', '{}',
+          '00000000-0000-0000-0000-000000000001', now(), now())""",
+      DatasetRowsTestSupport.seedActionsFromRaw(dsId, dsConfig)
+    )))
     dsId
   }
 
@@ -220,10 +227,13 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     import PostgresProfile.api._
     val dsId = UUID.randomUUID().toString
     val dsConfig = """{"columns":[{"name":"name","type":"string"},{"name":"score","type":"double"}],"rows":[["alice",42.0],["bob",37.0],["carol",null]]}"""
-    await(db.run(sqlu"""INSERT INTO data_sources
-      (id, name, source_type, config, owner_id, created_at, updated_at)
-      VALUES ($dsId, 'ds-with-null-score', 'static', $dsConfig,
-        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources
+        (id, name, source_type, config, owner_id, created_at, updated_at)
+        VALUES ($dsId, 'ds-with-null-score', 'dataset', '{}',
+          '00000000-0000-0000-0000-000000000001', now(), now())""",
+      DatasetRowsTestSupport.seedActionsFromRaw(dsId, dsConfig)
+    )))
     dsId
   }
 
@@ -297,10 +307,13 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     import PostgresProfile.api._
     val dsId = UUID.randomUUID().toString
     val dsConfig = """{"columns":[{"name":"city","type":"string"}],"rows":[["berlin"],["madrid"],["oslo"]]}"""
-    await(db.run(sqlu"""INSERT INTO data_sources
-      (id, name, source_type, config, owner_id, created_at, updated_at)
-      VALUES ($dsId, 'ds-other-data', 'static', $dsConfig,
-        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources
+        (id, name, source_type, config, owner_id, created_at, updated_at)
+        VALUES ($dsId, 'ds-other-data', 'dataset', '{}',
+          '00000000-0000-0000-0000-000000000001', now(), now())""",
+      DatasetRowsTestSupport.seedActionsFromRaw(dsId, dsConfig)
+    )))
     dsId
   }
 
@@ -327,10 +340,13 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     val columnsJson = columns.map { case (name, typ) => s"""{"name":"$name","type":"$typ"}""" }.mkString("[", ",", "]")
     val rowsJson    = rows.map(_.map(v => "\"" + v + "\"").mkString("[", ",", "]")).mkString("[", ",", "]")
     val dsConfig    = s"""{"columns":$columnsJson,"rows":$rowsJson}"""
-    await(db.run(sqlu"""INSERT INTO data_sources
-      (id, name, source_type, config, owner_id, created_at, updated_at)
-      VALUES ($dsId, 'ds-static', 'static', $dsConfig,
-        '00000000-0000-0000-0000-000000000001', now(), now())"""))
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources
+        (id, name, source_type, config, owner_id, created_at, updated_at)
+        VALUES ($dsId, 'ds-static', 'dataset', '{}',
+          '00000000-0000-0000-0000-000000000001', now(), now())""",
+      DatasetRowsTestSupport.seedActionsFromRaw(dsId, dsConfig)
+    )))
     dsId
   }
 

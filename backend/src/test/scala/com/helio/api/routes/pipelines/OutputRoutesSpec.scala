@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.api.JsonProtocols
 import com.helio.api.ErrorResponse
 import com.helio.api.http.{AccessCheckerImpl, ResourceType => AclResourceType, ResourceTypeRegistry}
@@ -690,9 +691,12 @@ class OutputRoutesSpec
       import PostgresProfile.api._
       val dsId = UUID.randomUUID().toString
       val dsConfig = """{"columns":[{"name":"name","type":"string"}],"rows":[["alice"],["bob"]]}"""
-      await(db.run(sqlu"""INSERT INTO data_sources
-        (id, name, source_type, config, owner_id, created_at, updated_at)
-        VALUES ($dsId, 'ds-backfill', 'static', $dsConfig, $ownerId::uuid, now(), now())"""))
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO data_sources
+          (id, name, source_type, config, owner_id, created_at, updated_at)
+          VALUES ($dsId, 'ds-backfill', 'dataset', '{}', $ownerId::uuid, now(), now())""",
+        DatasetRowsTestSupport.seedActionsFromRaw(dsId, dsConfig)
+      )))
       val pipeline = await(pipelineRepo.create("backfill-pipe", Vector(DataSourceId(dsId)), owner)).getOrElse(
         throw new IllegalStateException("backfill fixture: pipeline create failed")
       )
@@ -912,8 +916,11 @@ class OutputRoutesSpec
     import PostgresProfile.api._
     val dsId = UUID.randomUUID().toString
     val config = s"""{"columns":[{"name":"v","type":"string"}],"rows":[["$value"]]}"""
-    await(db.run(sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-      VALUES ($dsId, $name, 'static', $config, ${owner.id.value}::uuid, now(), now())"""))
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+        VALUES ($dsId, $name, 'dataset', '{}', ${owner.id.value}::uuid, now(), now())""",
+      DatasetRowsTestSupport.seedActionsFromRaw(dsId, config)
+    )))
     DataSourceId(dsId)
   }
 

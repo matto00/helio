@@ -144,7 +144,7 @@ class PipelineSharingAclSpec extends AnyWordSpec with Matchers with BeforeAndAft
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO data_sources
                (id, name, source_type, config, owner_id, created_at, updated_at)
-               VALUES ($dsId, 'ds', 'static', '{"columns":[],"rows":[]}',
+               VALUES ($dsId, 'ds', 'dataset', '{"columns":[],"rows":[]}',
                       ${ownerId.value}::uuid, now(), now())""",
       
       sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($id, 'pipeline', ${ownerId.value}::uuid, now(), now())""",

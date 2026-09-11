@@ -2,7 +2,10 @@ package com.helio.infrastructure.persistence.sources
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.domain.engine.SchemaField
+import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
+import spray.json.DefaultJsonProtocol._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -202,6 +205,91 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       restRound.config.connectorId shouldBe "conn-2"
       restRound.config.endpoint    shouldBe "https://api.example/test"
       restRound.config.method      shouldBe "POST"
+    }
+
+    // HEL-1074 tasks.md 2.3: round-trip a StaticSource through insert/read with the new stored
+    // value -- `domainToRow` writes "dataset" (design.md Decision 6), `rowToDomain` maps it back
+    // to `StaticSource`, and the raw `source_type` column really is "dataset", not "static".
+    "insert writes 'dataset' as the stored source_type for a StaticSource, and rowToDomain maps it back" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+      val now    = Instant.now()
+      val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "dataset-src", owner1, now, now)
+      await(repo.insert(source, user1))
+
+      val storedType = await(db.run(sql"SELECT source_type FROM data_sources WHERE id = ${source.id.value}".as[String].head))
+      storedType shouldBe "dataset"
+
+      val found = await(repo.findByIdInternal(source.id))
+      found.get shouldBe a [StaticSource]
+    }
+
+    // HEL-1074 design.md Decision 7 / tasks.md 3.5-3.6: `insertDatasetSource` / `replaceDatasetRows`
+    // / `readDatasetRows` round-trip the `{columns, rows}` shape through `dataset_schema` +
+    // `dataset_rows`, positionally (not object-keyed).
+    "insertDatasetSource + readDatasetRows round-trips columns and rows positionally" in {
+      cleanDb()
+      import spray.json._
+      val now     = Instant.now()
+      val source  = StaticSource(DataSourceId(UUID.randomUUID().toString), "ds-1", owner1, now, now)
+      val columns = Vector(SchemaField("a", "string"), SchemaField("b", "integer"))
+      val rows    = Vector(Vector(JsString("x"), JsNumber(1)), Vector(JsString("y"), JsNumber(2)))
+
+      await(repo.insertDatasetSource(source, columns, rows, columns, user1))
+
+      val readBack = await(repo.readDatasetRows(source.id))
+      readBack shouldBe defined
+      readBack.get.fields("columns") shouldBe columns.toJson
+      readBack.get.fields("rows")    shouldBe JsArray(rows.map(JsArray(_)))
+    }
+
+    "replaceDatasetRows deletes the old rows and inserts the new ones, updating dataset_schema too" in {
+      cleanDb()
+      import spray.json._
+      val now      = Instant.now()
+      val source   = StaticSource(DataSourceId(UUID.randomUUID().toString), "ds-2", owner1, now, now)
+      val columns1 = Vector(SchemaField("a", "string"))
+      val rows1    = Vector(Vector(JsString("old")))
+      await(repo.insertDatasetSource(source, columns1, rows1, columns1, user1))
+
+      val columns2 = Vector(SchemaField("a", "string"), SchemaField("b", "boolean"))
+      val rows2    = Vector(Vector(JsString("new"), JsBoolean(true)))
+      val updated  = await(repo.replaceDatasetRows(source.id, columns2, rows2, columns2, Instant.now(), user1))
+      updated shouldBe defined
+
+      val readBack = await(repo.readDatasetRows(source.id))
+      readBack.get.fields("columns") shouldBe columns2.toJson
+      readBack.get.fields("rows")    shouldBe JsArray(rows2.map(JsArray(_)))
+    }
+
+    // HEL-1074 (skeptic-final-1.md non-blocking note): the old `updateStaticPayload` returned
+    // `None` for a source deleted mid-refresh, failing loudly; `replaceDatasetRows` must preserve
+    // that same "not found" signal now that it also returns Option[DataSource].
+    "replaceDatasetRows returns None for a nonexistent data source id" in {
+      cleanDb()
+      val columns = Vector(SchemaField("a", "string"))
+      val result  = await(repo.replaceDatasetRows(DataSourceId(UUID.randomUUID().toString), columns, Vector.empty, columns, Instant.now(), user1))
+      result shouldBe None
+    }
+
+    "readDatasetRows returns Some with an empty rows array for a dataset source with zero rows" in {
+      cleanDb()
+      import spray.json._
+      val now    = Instant.now()
+      val source = StaticSource(DataSourceId(UUID.randomUUID().toString), "ds-empty", owner1, now, now)
+      val columns = Vector(SchemaField("a", "string"))
+      await(repo.insertDatasetSource(source, columns, Vector.empty, columns, user1))
+
+      val readBack = await(repo.readDatasetRows(source.id))
+      readBack shouldBe defined
+      readBack.get.fields("columns") shouldBe columns.toJson
+      readBack.get.fields("rows")    shouldBe JsArray.empty
+    }
+
+    "readDatasetRows returns None for a nonexistent data source id" in {
+      cleanDb()
+      val readBack = await(repo.readDatasetRows(DataSourceId(UUID.randomUUID().toString)))
+      readBack shouldBe None
     }
   }
 }

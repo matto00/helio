@@ -506,9 +506,11 @@ class InProcessPipelineEngine(
    *  CSV / text / PDF / image are uncapped and always report `SourceReadStats(false, None)`. */
   def loadRowsWithStats(ds: DataSource, dataSourceRepo: DataSourceRepository): Future[(Seq[Row], SourceReadStats)] = ds match {
     case s: StaticSource =>
-      dataSourceRepo.readRawConfig(s.id).map {
+      // HEL-1074: swapped off `readRawConfig`/`config` onto `dataset_rows` (Decision 9) --
+      // `config` is cleared to `{}` for every migrated `dataset`-kind source.
+      dataSourceRepo.readDatasetRows(s.id).map {
         case None      => (Seq.empty, SourceReadStats(truncated = false, availableRowCount = None))
-        case Some(raw) => (parseStaticRows(raw), SourceReadStats(truncated = false, availableRowCount = None))
+        case Some(obj) => (parseStaticRows(obj), SourceReadStats(truncated = false, availableRowCount = None))
       }
     case c: CsvSource =>
       c.config.sourceUrl match {

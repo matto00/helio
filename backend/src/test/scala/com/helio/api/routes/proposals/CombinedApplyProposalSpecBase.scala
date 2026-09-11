@@ -159,7 +159,7 @@ abstract class CombinedApplyProposalSpecBase
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, 'd1@helio.test', now())""",
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherId::uuid, 'd2@helio.test', now())""",
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($otherSrcId::uuid, 'other-static', 'static', $staticPayload::jsonb, $otherId::uuid, now(), now())""",
+             VALUES ($otherSrcId::uuid, 'other-static', 'dataset', $staticPayload::jsonb, $otherId::uuid, now(), now())""",
       
       // Pre-existing pipeline-output type (source_id NULL), owned by userId —
       // bindable, for the mixed-binding scenario (task 7.3).

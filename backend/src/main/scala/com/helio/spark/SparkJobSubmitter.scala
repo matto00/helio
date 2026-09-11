@@ -6,7 +6,6 @@ import com.helio.domain.engine.{NodeKey, PipelineExecutionBackend, PipelineExecu
 import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DataSourceId, Pipeline, PipelineRunId, PipelineStep, StaticSource, TruncationSink}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
-import com.helio.infrastructure.persistence.sources.DataSourceRepository.parseStaticPayload
 import com.helio.services.pipelines.{PipelineRunService, TriggerSource}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types._
@@ -164,11 +163,14 @@ class SparkJobSubmitter(
 
   private[spark] def loadDataFrame(ds: DataSource): DataFrame = ds match {
     case s: StaticSource =>
-      val raw =
+      // HEL-1074: swapped off `readRawConfig`/`config` onto `dataset_rows` (Decision 9) --
+      // `dataset_schema` still carries the DECLARED column types this StructType is built from
+      // (not `inferred_schema`'s runtime-derived ones), matching the pre-migration behavior
+      // exactly. `config` is cleared to `{}` for every migrated `dataset`-kind source.
+      val obj =
         if (dataSourceRepo != null)
-          Await.result(dataSourceRepo.readRawConfig(s.id), 30.seconds).getOrElse("{}")
-        else "{}"
-      val obj     = parseStaticPayload(raw)
+          Await.result(dataSourceRepo.readDatasetRows(s.id), 30.seconds).getOrElse(JsObject("columns" -> JsArray.empty, "rows" -> JsArray.empty))
+        else JsObject("columns" -> JsArray.empty, "rows" -> JsArray.empty)
       val columns = obj.fields.getOrElse("columns", JsArray.empty).convertTo[Vector[JsObject]]
       val rows    = obj.fields.getOrElse("rows", JsArray.empty).convertTo[Vector[Vector[JsValue]]]
 

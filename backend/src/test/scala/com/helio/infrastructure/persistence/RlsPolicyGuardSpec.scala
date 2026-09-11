@@ -139,7 +139,9 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V103 — connector_completion_tokens, direct owner (HEL-955), mirrors share_tokens_owner.
     "connector_completion_tokens" -> None,
     // V105 — oauth_states, deny-all (no owner column; unauthenticated writer) (HEL-1019)
-    "oauth_states" -> Some(Set("oauth_states_deny_all"))
+    "oauth_states" -> Some(Set("oauth_states_deny_all")),
+    // V106 — dataset_rows, indirect owner via data_source_id -> data_sources.owner_id (HEL-1074)
+    "dataset_rows" -> None
   )
 
   override def beforeAll(): Unit = {

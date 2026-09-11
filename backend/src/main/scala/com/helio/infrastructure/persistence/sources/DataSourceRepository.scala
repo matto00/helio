@@ -61,7 +61,12 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case DataSourceKind.Sql =>
         val cfg = DataSourceConfigCodec.decodeSql(row.config)
         SqlSource(id, row.name, ownerId, row.createdAt, row.updatedAt, cfg, row.tag, row.inferredSchema)
-      case DataSourceKind.Static =>
+      case DataSourceKind.Static | "dataset" =>
+        // HEL-1074 design.md Decision 6: the migration rewrites the STORED `source_type` value
+        // from "static" to "dataset" (rows moved off `config` into `dataset_rows`), but the
+        // Scala ADT member itself does not change -- `StaticSource` stays the wire/domain type
+        // for both a legacy-shaped and a migrated row. Renaming the ADT member, if it ever
+        // happens, is HEL-1073's scope, not this one's.
         StaticSource(id, row.name, ownerId, row.createdAt, row.updatedAt, row.tag, row.inferredSchema)
       case DataSourceKind.Text =>
         val cfg = DataSourceConfigCodec.decodeText(row.config)
@@ -85,7 +90,10 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case c: CsvSource    => (DataSourceKind.Csv,     DataSourceConfigCodec.encodeCsv(c.config))
       case r: RestSource   => (DataSourceKind.RestApi, DataSourceConfigCodec.encodeRest(r.config))
       case s: SqlSource    => (DataSourceKind.Sql,     DataSourceConfigCodec.encodeSql(s.config))
-      case _: StaticSource => (DataSourceKind.Static,  "{}")
+      // HEL-1074 design.md Decision 6: writes the migrated stored value "dataset" (not
+      // "static") -- a new StaticSource row would otherwise be rejected by the post-migration
+      // `data_sources_source_type_check` constraint, which no longer accepts "static".
+      case _: StaticSource => ("dataset",  "{}")
       case t: TextSource   => (DataSourceKind.Text,    DataSourceConfigCodec.encodeText(t.config))
       case p: PdfSource    => (DataSourceKind.Pdf,     DataSourceConfigCodec.encodePdf(p.config))
       case i: ImageSource  => (DataSourceKind.Image,   DataSourceConfigCodec.encodeImage(i.config))
@@ -181,22 +189,6 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       .map(r => (r.name, r.config, r.updatedAt))
       .update((source.name, configJson, source.updatedAt))
       .andThen(table.filter(_.id === source.id.value).result.headOption)
-      .map(_.map(rowToDomain))
-    ctx.withUserContext(user.id.value)(action)
-  }
-
-  /** Update only the static-source config payload + updatedAt in user context.
-   *
-   *  The payload is a raw `{columns, rows}` `JsObject` so the StaticSource ADT
-   *  stays flat. The V35 RLS policy restricts this write to rows owned by the
-   *  caller — the ownership check happens at the DB layer as well as in the
-   *  service layer before this call. */
-  def updateStaticPayload(id: DataSourceId, name: String, payload: JsObject, updatedAt: Instant, user: AuthenticatedUser): Future[Option[DataSource]] = {
-    val action = table
-      .filter(_.id === id.value)
-      .map(r => (r.name, r.config, r.updatedAt))
-      .update((name, payload.compactPrint, updatedAt))
-      .andThen(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
     ctx.withUserContext(user.id.value)(action)
   }
@@ -329,6 +321,92 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       .map(_.map(rowToDomain))
     ctx.withUserContext(user.id.value)(action)
   }
+
+  /** HEL-1074 design.md Decision 7: insert a new `StaticSource` ("dataset"-kind) row, its
+   *  `dataset_rows`, and both schema columns (`dataset_schema` = the caller-declared columns;
+   *  `inferred_schema` = the runtime-derived types, unchanged from today) in ONE transaction --
+   *  replaces the old `insert` + `updateStaticPayload` two-step, which left a window where the
+   *  source row existed with no row payload at all. `columns`/`rows` are stored verbatim
+   *  (positional, not object-keyed -- Decision 3): each row is JSON-encoded as-is. */
+  def insertDatasetSource(
+      source:         StaticSource,
+      declaredColumns: Vector[SchemaField],
+      rows:           Vector[Vector[JsValue]],
+      inferredSchema: Vector[SchemaField],
+      user:           AuthenticatedUser
+  ): Future[DataSource] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    val rowInserts = rows.zipWithIndex.map { case (row, idx) =>
+      DatasetRowRow(UUID.randomUUID().toString, source.id.value, idx.toLong, JsArray(row).compactPrint, source.createdAt, source.createdAt)
+    }
+    val action = for {
+      _ <- table += domainToRow(source).copy(inferredSchema = inferredSchema)
+      _ <- rowsTable ++= rowInserts
+      _ <- table.filter(_.id === source.id.value).map(_.datasetSchema).update(Some(declaredColumns.toJson.compactPrint))
+    } yield ()
+    ctx.withUserContext(user.id.value)(action).map(_ => source.copy(inferredSchema = inferredSchema))
+  }
+
+  /** HEL-1074 design.md Decision 7: refresh replaces `dataset_rows` wholesale (delete-then-
+   *  reinsert, matching the existing whole-payload-replace contract) and updates `dataset_schema`
+   *  to the newly-declared columns, in the SAME transaction -- round-1's tasks.md draft omitted
+   *  the `dataset_schema` update on refresh; the design's spec delta requires it.
+   *
+   *  Also updates `inferred_schema` in this SAME transaction (skeptic-final-1.md non-blocking
+   *  note): `applyStaticRefresh` previously called this method and then `upsertSourceDataType`
+   *  as two separate transactions, so a mid-way failure could leave `dataset_rows`/`dataset_schema`
+   *  updated but `inferred_schema` stale -- a real, if narrow, atomicity gap against Decision 7's
+   *  stated "runs as a single DB transaction" contract. Folding it in here closes that gap for
+   *  the one caller (`applyStaticRefresh`) that has both values available at the same call site. */
+  def replaceDatasetRows(
+      id:              DataSourceId,
+      declaredColumns: Vector[SchemaField],
+      rows:            Vector[Vector[JsValue]],
+      inferredSchema:  Vector[SchemaField],
+      updatedAt:       Instant,
+      user:            AuthenticatedUser
+  ): Future[Option[DataSource]] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    val newRows = rows.zipWithIndex.map { case (row, idx) =>
+      DatasetRowRow(UUID.randomUUID().toString, id.value, idx.toLong, JsArray(row).compactPrint, updatedAt, updatedAt)
+    }
+    val action = for {
+      _    <- rowsTable.filter(_.dataSourceId === id.value).delete
+      _    <- rowsTable ++= newRows
+      _    <- table.filter(_.id === id.value)
+                .map(r => (r.datasetSchema, r.inferredSchema, r.updatedAt))
+                .update((Some(declaredColumns.toJson.compactPrint), inferredSchema, updatedAt))
+      rowOpt <- table.filter(_.id === id.value).result.headOption
+    } yield rowOpt.map(rowToDomain)
+    ctx.withUserContext(user.id.value)(action)
+  }
+
+  /** HEL-1074 design.md Decision 9: read a "dataset"-kind source's `{columns, rows}` payload --
+   *  the same shape `DataSourceRepository.parseStaticPayload` already produces from the legacy
+   *  `config` blob -- from `dataset_schema` + `dataset_rows`, ordered by `seq`. Reads both in a
+   *  SINGLE statement (a LEFT JOIN, not two sequential queries) so a concurrent `refreshStatic`
+   *  (delete-then-reinsert) can never hand back a schema/rows pair straddling two different
+   *  points in time. Privileged (system context): matches `readRawConfig`'s existing pool choice
+   *  for all three call sites (engine, Spark, preview) -- ACL is enforced earlier, by
+   *  `findByIdOwned`'s ownership check or the pipeline ACL at submission, not by this read.
+   *  Returns `None` only when no `data_sources` row with this id exists at all -- a source with
+   *  zero rows still returns `Some` with an empty `rows` array. */
+  def readDatasetRows(id: DataSourceId): Future[Option[JsObject]] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    val query = table
+      .filter(_.id === id.value)
+      .joinLeft(rowsTable)
+      .on((ds, dr) => ds.id === dr.dataSourceId)
+      .sortBy { case (_, drOpt) => drOpt.map(_.seq) }
+      .map { case (ds, drOpt) => (ds.datasetSchema, drOpt.map(_.data)) }
+    ctx.withSystemContext(query.result).map { rows =>
+      rows.headOption.map { case (schemaJsonOpt, _) =>
+        val columns  = schemaJsonOpt.map(_.parseJson).getOrElse(JsArray.empty)
+        val dataRows = rows.flatMap(_._2).map(_.parseJson)
+        JsObject("columns" -> columns, "rows" -> JsArray(dataRows.toVector))
+      }
+    }
+  }
 }
 
 object DataSourceRepository {
@@ -384,13 +462,46 @@ object DataSourceRepository {
     def ownerId    = column[Option[UUID]]("owner_id")
     def tag        = column[Option[String]]("tag")
     def inferredSchema = column[Vector[SchemaField]]("inferred_schema")
+    // HEL-1074 design.md Decision 9: deliberately NOT part of `DataSourceRow`/the `*` projection
+    // (and so not exposed through `rowToDomain`/the `DataSource` ADT) -- `readDatasetRows` reads
+    // this raw column directly, exactly like `readRawConfig` does for `config`. Nullable: NULL
+    // for every non-`dataset` source kind.
+    def datasetSchema = column[Option[String]]("dataset_schema")
 
     def * = (id, name, sourceType, config, createdAt, updatedAt, ownerId, tag, inferredSchema).mapTo[DataSourceRow]
   }
 
-  /** Read the static-source `{columns, rows}` payload. Used by the in-process
-   *  engine + Spark submitter (which consume the raw blob directly) and by the
-   *  protocol layer's StaticSource response materialization. */
+  /** HEL-1074: a single row of `dataset_rows` (a "dataset"-kind source's row payload, one JSONB
+   *  array value per row, positionally aligned to the owning source's `dataset_schema` --
+   *  design.md Decision 3). Deliberately its own table/row type, not folded into `DataSourceRow`
+   *  -- a dataset source can have zero-to-many rows, unlike every other 1:1 source column. */
+  case class DatasetRowRow(
+      id:           String,
+      dataSourceId: String,
+      seq:          Long,
+      data:         String,
+      createdAt:    Instant,
+      updatedAt:    Instant
+  )
+
+  class DatasetRowTable(slickTag: Tag) extends Table[DatasetRowRow](slickTag, "dataset_rows") {
+    def id           = column[String]("id", O.PrimaryKey)
+    def dataSourceId = column[String]("data_source_id")
+    def seq          = column[Long]("seq")
+    def data         = column[String]("data")(jsonbStringType)
+    def createdAt    = column[Instant]("created_at")
+    def updatedAt    = column[Instant]("updated_at")
+
+    def * = (id, dataSourceId, seq, data, createdAt, updatedAt).mapTo[DatasetRowRow]
+  }
+
+  /** Parse a raw `{columns, rows}` JSON string into a `JsObject`, defaulting to empty on any
+   *  non-object shape. HEL-1074: no `main` caller reads this off `data_sources.config` anymore
+   *  (that store is retired for `dataset`-kind sources) -- the in-process engine, Spark
+   *  submitter, and `previewStatic` all read `dataset_rows`/`dataset_schema` via
+   *  `readDatasetRows` instead, which already returns a `JsObject` of this exact shape. Kept
+   *  as a small parsing helper for tests (and for `PipelineRowJson.parseStaticRows`'s
+   *  `raw: String`-taking overload, which pre-migration test fixtures still exercise). */
   def parseStaticPayload(raw: String): JsObject =
     JsonParser(raw) match {
       case obj: JsObject => obj

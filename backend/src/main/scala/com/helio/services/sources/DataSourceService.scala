@@ -129,11 +129,14 @@ final class DataSourceService(
         updatedAt = now,
         tag       = tag
       )
-      // StaticSource is identity-only in the ADT; the {columns, rows} payload
-      // is written to the `config` column directly via a static-payload-aware
-      // update so the engine + Spark submitter (which consume the raw blob)
-      // continue to work without further changes.
-      val payload = JsObject("columns" -> req.columns.toJson, "rows" -> req.rows.toJson)
+      // HEL-1074: the {columns, rows} payload is written into `dataset_rows` +
+      // `dataset_schema` (declared columns), atomically alongside the `data_sources` insert
+      // (design.md Decision 7) -- `config` is no longer used for `dataset`-kind sources.
+      // `col.\`type\`` is validated above (a legacy synonym like "double" is ACCEPTED, not
+      // rejected) but not yet canonicalized -- `SchemaField`'s constructor requires a canonical
+      // wire value, so this must run the same canonicalization every other schema-writing path
+      // already applies, not the raw caller string.
+      val declaredColumns = req.columns.map(c => SchemaField(c.name, DataFieldType.validateAndCanonicalize(c.`type`).getOrElse(c.`type`))).toVector
       // HEL-893 design D2: the registered schema reports the type the stored rows actually
       // materialize (via `PipelineRowJson.staticColumnRuntimeType`, the same conversion
       // `parseStaticRows` applies), not the caller-declared `columns[].type` -- that declared
@@ -142,15 +145,9 @@ final class DataSourceService(
         val cells = req.rows.map(_.lift(i).getOrElse(JsNull))
         SchemaField(col.name, PipelineRowJson.staticColumnRuntimeType(col.`type`, cells))
       }.toVector
-      dataSourceRepo.insert(source, user).flatMap { _ =>
-        dataSourceRepo.updateStaticPayload(sourceId, source.name, payload, now, user).flatMap {
-          case None => Future.failed(new RuntimeException("Static source disappeared between insert and update"))
-          case Some(ds) =>
-            dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
-              audit("data_source.create", Some(ds.id.value), user)
-              Right(updated.getOrElse(ds))
-            }
-        }
+      dataSourceRepo.insertDatasetSource(source, declaredColumns, req.rows, fields, user).map { ds =>
+        audit("data_source.create", Some(ds.id.value), user)
+        Right(ds)
       }
       }
     }
@@ -711,7 +708,10 @@ final class DataSourceService(
       )))
     } else {
       val now     = Instant.now()
-      val payloadJson = JsObject("columns" -> payload.columns.toJson, "rows" -> payload.rows.toJson)
+      // HEL-1074 design.md Decision 7: refresh replaces `dataset_rows` wholesale and updates
+      // `dataset_schema` to the new declared columns, atomically -- `config` is no longer used
+      // for `dataset`-kind sources.
+      val declaredColumns = payload.columns.map(c => SchemaField(c.name, DataFieldType.validateAndCanonicalize(c.`type`).getOrElse(c.`type`))).toVector
       // HEL-893 design D4/tasks.md 2.3: refresh must correct the schema exactly like create --
       // without this, a static source's declared-vs-runtime disagreement survives every refresh,
       // making D4's "corrected on next refresh" promise false for static sources.
@@ -720,9 +720,13 @@ final class DataSourceService(
         val runtimeType = PipelineRowJson.staticColumnRuntimeType(col.`type`, cells)
         DataField(col.name, col.name, runtimeType, nullable = true)
       }
-      dataSourceRepo.updateStaticPayload(source.id, source.name, payloadJson, now, user).flatMap {
-        case None     => Future.failed(new RuntimeException("Source disappeared during update"))
-        case Some(ds) => upsertSourceDataType(ds, fields, user, now).map(_ => Right(ds))
+      // HEL-1074 (skeptic-final-1.md non-blocking note): inferredSchema is passed straight into
+      // the SAME `replaceDatasetRows` transaction (not a separate `upsertSourceDataType` call
+      // afterward) so rows/dataset_schema/inferred_schema all commit or fail together.
+      val inferredSchema = fields.map(f => SchemaField(f.name, f.dataType)).toVector
+      dataSourceRepo.replaceDatasetRows(source.id, declaredColumns, payload.rows, inferredSchema, now, user).map {
+        case None     => Left(ServiceError.NotFound("Data source not found"))
+        case Some(ds) => Right(ds)
       }
     }
   }
@@ -926,11 +930,12 @@ final class DataSourceService(
     }
   }
 
+  // HEL-1074: swapped off `readRawConfig`/`config` onto `dataset_rows` (Decision 9) -- `config`
+  // is cleared to `{}` for every migrated `dataset`-kind source.
   private def previewStatic(source: StaticSource): Future[CsvPreviewResponse] =
-    dataSourceRepo.readRawConfig(source.id).map {
+    dataSourceRepo.readDatasetRows(source.id).map {
       case None => CsvPreviewResponse(Vector.empty, Vector.empty)
-      case Some(raw) =>
-        val obj     = DataSourceRepository.parseStaticPayload(raw)
+      case Some(obj) =>
         val headers = obj.fields.get("columns")
           .map(_.convertTo[Vector[StaticColumnPayload]].map(_.name))
           .getOrElse(Vector.empty)

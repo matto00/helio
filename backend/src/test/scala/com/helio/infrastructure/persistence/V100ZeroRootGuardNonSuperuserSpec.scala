@@ -170,7 +170,7 @@ class V100ZeroRootGuardNonSuperuserSpec
       exec(
         conn,
         s"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-           |VALUES ('$dsId', 'v100-ds', 'static', '{"columns":[],"rows":[]}', '$ownerId'::uuid, now(), now())""".stripMargin
+           |VALUES ('$dsId', 'v100-ds', 'dataset', '{"columns":[],"rows":[]}', '$ownerId'::uuid, now(), now())""".stripMargin
       )
       exec(conn, s"INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ('$pid', 'v100-pipeline', '$ownerId'::uuid, now(), now())")
       exec(conn, s"INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ('${UUID.randomUUID()}', '$pid', '$dsId', 0)")
@@ -310,7 +310,7 @@ class V100ZeroRootGuardNonSuperuserSpec
           exec(
             conn,
             s"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-               |VALUES ('$ds', 'v100-ds-$idx', 'static', '{"columns":[],"rows":[]}', '$owner'::uuid, now(), now())""".stripMargin
+               |VALUES ('$ds', 'v100-ds-$idx', 'dataset', '{"columns":[],"rows":[]}', '$owner'::uuid, now(), now())""".stripMargin
           )
         exec(conn, s"INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ('$pid', 'v100-pipeline', '$owner'::uuid, now(), now())")
         exec(conn, s"INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ('${UUID.randomUUID()}', '$pid', '$ds1', 0)")

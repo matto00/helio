@@ -108,7 +108,7 @@ class PipelineAclSpec
     val cfg   = """{"columns":[],"rows":[]}"""
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-               VALUES ($dsId, 'ds', 'static', $cfg, $ownerId::uuid, now(), now())""",
+               VALUES ($dsId, 'ds', 'dataset', $cfg, $ownerId::uuid, now(), now())""",
       
       sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', $ownerId::uuid, now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
@@ -124,7 +124,7 @@ class PipelineAclSpec
     val cfg  = """{"columns":[],"rows":[]}"""
     await(db.run(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-               VALUES ($dsId, 'ds', 'static', $cfg, $ownerId::uuid, now(), now())"""
+               VALUES ($dsId, 'ds', 'dataset', $cfg, $ownerId::uuid, now(), now())"""
     ))
     dsId
   }

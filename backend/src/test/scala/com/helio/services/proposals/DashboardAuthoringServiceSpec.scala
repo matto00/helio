@@ -156,7 +156,7 @@ class DashboardAuthoringServiceSpec
     val pipelineId  = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($srcId::uuid, 'authoring-spec-src', 'static', '{}'::jsonb, ${owner.id.value}::uuid, now(), now())""",
+             VALUES ($srcId::uuid, 'authoring-spec-src', 'dataset', '{}'::jsonb, ${owner.id.value}::uuid, now(), now())""",
       sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pipelineId, $name, ${owner.id.value}::uuid, now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pipelineId, $pipelineId, $srcId::uuid, 0)""",
       sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, schema, position, created_at, updated_at, root_id)

@@ -1,5 +1,6 @@
 package com.helio.spark
 
+import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.domain._
 import com.helio.domain.engine.{SchemaInferenceEngine, SourceReadStats}
 import com.helio.domain.model._
@@ -25,11 +26,11 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
 
   // In-memory mock DataSourceRepository — serves the static-payload JSON the
   // `staticDs` helper stashes for each test. The Spark submitter reads the
-  // payload via `readRawConfig` (rather than off the ADT itself, which is
+  // payload via `readDatasetRows` (rather than off the ADT itself, which is
   // identity-only for StaticSource).
-  private val staticPayloads = scala.collection.mutable.Map.empty[String, String]
+  private val staticPayloads = scala.collection.mutable.Map.empty[String, JsObject]
   private val mockDsRepo = new DataSourceRepository(null) {
-    override def readRawConfig(id: DataSourceId): Future[Option[String]] =
+    override def readDatasetRows(id: DataSourceId): Future[Option[JsObject]] =
       Future.successful(staticPayloads.get(id.value))
   }
 
@@ -39,7 +40,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
 
   /** Build a `StaticSource` with the given columns and rows. The `{columns,
    *  rows}` JSON payload is stashed in `staticPayloads` keyed by id so the
-   *  mock repo's `readRawConfig` can serve it back. */
+   *  mock repo's `readDatasetRows` can serve it back. */
   private def staticDs(
       cols: Seq[(String, String)],
       rows: Seq[Seq[JsValue]],
@@ -50,7 +51,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       JsObject("name" -> JsString(n), "type" -> JsString(t))
     }.toVector)
     val rowJson = JsArray(rows.map(r => JsArray(r.toVector)).toVector)
-    val payload = JsObject("columns" -> colJson, "rows" -> rowJson).compactPrint
+    val payload = JsObject("columns" -> colJson, "rows" -> rowJson)
     staticPayloads(id.value) = payload
     StaticSource(
       id        = id,
@@ -308,11 +309,16 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       val ownerId = "00000000-0000-0000-0000-000000000001"
       val dtId    = UUID.randomUUID().toString
       val pid     = UUID.randomUUID().toString
+      // HEL-1074: row content lives in `dataset_rows`/`dataset_schema`, not `config`
+      // (unused/cleared for "dataset"-kind sources post-migration) -- seeded via the shared
+      // helper so `SparkJobSubmitter.loadDataFrame`'s `readDatasetRows` call has real data to
+      // read for the `submit` (real-DB, not mock-repo) tests below.
+      val payload = JsObject("columns" -> JsArray(JsObject("name" -> JsString("x"), "type" -> JsString("string"))), "rows" -> JsArray(JsArray(JsString("a"))))
       await(db.run(DBIO.seq(
         sqlu"""INSERT INTO data_sources
                  (id, name, source_type, config, owner_id, created_at, updated_at)
-                 VALUES ($dsId, 'ds', 'static', '{"columns":[{"name":"x","type":"string"}],"rows":[["a"]]}', $ownerId::uuid, now(), now())""",
-        
+                 VALUES ($dsId, 'ds', 'dataset', '{}', $ownerId::uuid, now(), now())""",
+        DatasetRowsTestSupport.seedActions(dsId, payload),
         sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'pipe', now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
       )))
