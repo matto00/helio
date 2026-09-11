@@ -1,12 +1,30 @@
 # Workflow State — <TICKET_ID>
 
 # Written by the orchestrator on every phase transition so a compacted or resumed
-# session can recover. Holds ONLY ids/paths/counters — never prose procedure.
+# session can recover. Holds ONLY ids/paths/counters — never prose procedure,
+# except CONSTRAINTS, a bounded exception carrying short standing-constraint
+# text (see the methodology-carryover spec) — every other field keeps the
+# original invariant.
 
 TICKET_ID: <id>
 CHANGE_NAME: <name>
 WORKTREE_PATH: <abs path>
 BRANCH: <branch>
+# CON-152: the review diff base's REMOTE/BRANCH coordinates, resolved once
+# at Setup (defaulting to CONCERTINO_BASE_REMOTE/CONCERTINO_BASE_BRANCH,
+# same as setup-worktree.sh) and safe to cache — unlike a SHA, a remote name
+# and branch name don't go stale mid-run. The ACTUAL merge-base SHA is never
+# cached here: every review-bearing role (executor's gate-selection diff,
+# evaluator, skeptic, auditor) calls `resolve-review-base.sh "$WORKTREE_PATH"
+# "$REVIEW_BASE_BRANCH" "$REVIEW_BASE_REMOTE"` LIVE, immediately before its
+# own diff, and uses the SHA it prints right then. A cycle-1 design that
+# cached the resolved SHA here reviewed a diff that silently grew (or, after
+# a BEHIND auto-reconcile mid-run, silently SHRANK to hide the reconciled
+# commits) every time the remote base branch moved after the cache was
+# written — recomputing live is what actually closes CON-152, not caching
+# harder. See resolve-review-base.sh's header for the incident.
+REVIEW_BASE_BRANCH: <branch>
+REVIEW_BASE_REMOTE: <remote>
 PHASE: Setup | Planning | Execution | Evaluation | Delivery | Cleanup
 # Enforced by PHASE_ORDER in lib/ui/reducer.js — keep both lists in sync.
 CYCLE: <n>
@@ -56,3 +74,24 @@ EVALUATOR_CLEAN_WORKTREE: true | false
 # outstanding and this orchestrator has returned control to its parent,
 # waiting to be SendMessage-resumed with the resolution. null otherwise.
 PENDING_ESCALATION: {"question":"...","options":"...","context_ref":"...","raised_at":<ms>,"kind":"planning|blocker|budget|followup|final-gate"} | null
+# --- methodology-carryover (CON-161). CONSTRAINTS: standing methodology
+# constraints agreed at Planning or a design-gate/final-gate skeptic verdict,
+# binding for the rest of the run, mirrored as `- [C<n>] <text>` bullets under
+# tasks.md's `## Standing Constraints` section. Never deleted — a superseded
+# or expired constraint is marked retired: true instead, and resuming roles
+# skip retired entries. Absent from an existing file reads as [] (never a
+# parse failure).
+CONSTRAINTS: [{"id":"C<n>","text":"...","agreed_at":"planning|design-gate|final-gate","retired":false}] | []
+# CONSTRAINT_REVIEWS: one entry per skeptic verdict at the design/final gate
+# (every round, CONFIRM and REFUTE alike) plus one entry per Planning
+# ESCALATION resolution that promotes a constraint (gate: "planning",
+# verdict: "n/a", excluded from SKEPTIC_VERDICTS_TOTAL). `promoted` lists any
+# CONSTRAINTS ids newly written as a result of that verdict/resolution
+# (empty if none). Absent from an existing file reads as [] (never a parse
+# failure).
+CONSTRAINT_REVIEWS: [{"verdict_seq":<n>,"gate":"design|final|planning","round":<n>,"verdict":"CONFIRM|REFUTE|n/a","promoted":["C<n>",...]}] | []
+# SKEPTIC_VERDICTS_TOTAL: incremented immediately after every skeptic spawn
+# returns (design gate or final gate), independent of promotion — a count of
+# skeptic spawns only, never incremented for a planning-gate review entry.
+# Absent from an existing file reads as 0 (never a parse failure).
+SKEPTIC_VERDICTS_TOTAL: <n> | 0

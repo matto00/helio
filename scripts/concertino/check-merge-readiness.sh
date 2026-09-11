@@ -6,7 +6,14 @@ set -uo pipefail
 # (agent-merge).
 #
 # Usage:
-#   check-merge-readiness.sh <WORKTREE_PATH> <BRANCH> <TICKET_ID>
+#   check-merge-readiness.sh <WORKTREE_PATH> <BRANCH> <TICKET_ID> <ARCHIVE_PREFIX>
+#
+# <ARCHIVE_PREFIX> (CON-166, design.md Decision 1a) is the repo-root-relative
+# path (e.g. `openspec`, or `spec` for a `kind: none` spec provider) whose
+# planning-artifact tree condition 3's SHA-drift check ignores. Never
+# hardcoded — it is supplied by the caller (the auditor role, from its
+# resolved change-dir root) so a project archiving under a different prefix
+# is not refused on every delivery.
 #
 # Checks, in one invocation, the three MACHINE-VERIFIABLE conditions a safe
 # merge requires. The fourth condition a merge requires — the diff actually
@@ -58,6 +65,20 @@ set -uo pipefail
 #      no agent can forge it; an orchestrator-written verdict never clears
 #      this gate.
 #
+#      CON-166: condition 3 ALSO refuses when reviewed source content has
+#      moved. Verdicts now carry the SHA the role actually reviewed
+#      (`head_sha`, see emit-event.sh). The head actually being merged is
+#      GitHub's `headRefOid` (Decision 5), not local HEAD — the two are
+#      asserted equal (one re-query on a transient mismatch) before any
+#      comparison runs; a surviving mismatch is EXIT 1, not a stale outcome,
+#      since no amount of re-review fixes a diverged push. For each of the
+#      evaluator's latest PASS and the skeptic's latest CONFIRM, the check
+#      unions the paths the branch touched (relative to a freshly-fetched
+#      base ref) at review time and now, and refuses if that reviewed-vs-head
+#      diff — excluding only <ARCHIVE_PREFIX> — is non-empty (design.md
+#      Decision 1). A CON-152 owner override waives the skeptic leg only
+#      (Decision 6); the evaluator leg is never waived. See "STALE" below.
+#
 # Prints "PASS" and exits 0 only when conditions 1-3 hold. Otherwise prints
 # one "FAIL <reason>" line per failed condition to stderr and exits
 # non-zero — the same stdout/stderr contract assert-phase.sh already uses.
@@ -81,6 +102,20 @@ set -uo pipefail
 # auditor treats that shape of failure as BLOCKER, and every other failure
 # as a named ESCALATE reason.
 #
+# CON-166: a stale reviewed SHA is reported as one "STALE <reason>" line
+# per stale role, exit code 4 — distinct from exit 1 ("failed", nothing
+# short of a fix clears it), CON-159's exit 3 ("wait, re-invoke unchanged"),
+# and a real "FAIL". Exit 4 means "do work (re-run that gate on the current
+# head), then re-invoke this script" — a script cannot spawn the agent that
+# does that work itself (design.md Decision 4), so remediation is a prompt
+# obligation on the orchestrator, triggered by this exit code. The auditor's
+# own script-owned lease is NOT released on exit 4 (design.md Decision 4a) —
+# unchanged from every other outcome: only the auditor's own verdict emission
+# releases it (see emit-event.sh). If a hard FAIL and a stale verdict are
+# both present, exit 1 dominates (design.md Decision 6a) — a "do work and
+# re-invoke" signal must never mask a failure no amount of re-review clears.
+#
+
 # This invocation can block for a while (bounded by the two timeouts below,
 # worst case a few minutes) — a caller invoking this via a tool with its own
 # default timeout (e.g. a 2-minute default Bash-tool timeout) must raise it
@@ -96,9 +131,20 @@ set -uo pipefail
 #   CONCERTINO_MERGE_RECHECK_INTERVAL_SEC (default 10)
 # ===========================================================================
 
-WORKTREE_PATH="${1:?usage: check-merge-readiness.sh <WORKTREE_PATH> <BRANCH> <TICKET_ID>}"
-BRANCH="${2:?usage: check-merge-readiness.sh <WORKTREE_PATH> <BRANCH> <TICKET_ID>}"
-TICKET_ID="${3:?usage: check-merge-readiness.sh <WORKTREE_PATH> <BRANCH> <TICKET_ID>}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/auditor-lease.sh"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/pr-reconcile.sh"
+
+USAGE="usage: check-merge-readiness.sh <WORKTREE_PATH> <BRANCH> <TICKET_ID> <ARCHIVE_PREFIX>"
+WORKTREE_PATH="${1:?$USAGE}"
+BRANCH="${2:?$USAGE}"
+TICKET_ID="${3:?$USAGE}"
+# CON-166 (design.md Decision 1a): the planning-artifact prefix condition 3's
+# SHA-drift check excludes, supplied by the caller — never hardcoded, so a
+# project archiving outside `openspec/` is not refused on every delivery.
+ARCHIVE_PREFIX="${4:?$USAGE}"
 
 CI_WAIT_TIMEOUT="${CONCERTINO_CI_WAIT_TIMEOUT_SEC:-540}"
 CI_POLL_INTERVAL="${CONCERTINO_CI_POLL_INTERVAL_SEC:-20}"
@@ -108,6 +154,11 @@ MERGE_RECHECK_INTERVAL="${CONCERTINO_MERGE_RECHECK_INTERVAL_SEC:-10}"
 FAILED=0
 CI_PENDING=0
 CI_PENDING_NAMES=""
+# CON-166: set unconditionally here (not only inside the block that computes
+# it) — the script runs under `set -u`, and the exit-code decision at the
+# bottom references this even on paths (ROOT unresolvable, no event log)
+# that never reach the block below.
+STALE=0
 fail() {
   echo "FAIL $*" >&2
   FAILED=1
@@ -127,6 +178,31 @@ fi
 if [ ! -d "$WORKTREE_PATH" ]; then
   echo "FAIL worktree dir missing: ${WORKTREE_PATH}" >&2
   exit 1
+fi
+
+# --- CON-171: acquire the auditor lease (Signal A) --------------------------
+# This is the auditor's first action and a hard precondition of merging, so
+# taking the lease here brackets the auditor's entire remaining lifetime.
+# Placed strictly after BOTH validations above (ticket-shape, worktree-dir)
+# so a lease is never created under a key emit-event.sh's release path could
+# not address, or for a worktree that was never confirmed to exist
+# (design.md Decision 2, "Acquisition happens after ticket-shape validation,
+# not before it" — corrected at design-gate round 4 non-blocking note 3 to
+# also sit after the worktree-dir-missing check). Acquisition is idempotent
+# by requirement, not merely defensively: this script re-runs up to three
+# times on a PENDING (exit 3) re-invoke (see header, CON-159), so a healthy
+# PR with slow CI re-acquires the same lease one to three times.
+#
+# Best-effort: an unresolvable root here does not fail this script's own
+# readiness checks (that would change unrelated behaviour this ticket does
+# not own) — it is cleanup.sh's query, not this acquire, that must fail
+# closed on an unresolvable root (design.md Decision 2).
+LEASE_ROOT="$(lease_resolve_root "$WORKTREE_PATH")" || LEASE_ROOT=""
+if [ -n "$LEASE_ROOT" ]; then
+  lease_acquire "$LEASE_ROOT" "$TICKET_ID" "$WORKTREE_PATH" "check-merge-readiness.sh" \
+    || echo "note: could not record auditor lease (non-fatal)" >&2
+else
+  echo "note: could not resolve run root — auditor lease not recorded (non-fatal)" >&2
 fi
 
 # Resolve the main checkout FROM WORKTREE_PATH. Duplicated from
@@ -149,31 +225,12 @@ main_checkout() {
 # lost — it only ever gains the base's new commits on top. Run before
 # conditions 1-2 so that, on success, both re-derive fresh state against the
 # new HEAD (CI restarts on a new commit; mergeability recomputes) rather
-# than judging a HEAD this script just moved past.
-PRE_RAW="$(cd "$WORKTREE_PATH" && gh pr view "$BRANCH" --json mergeStateStatus,baseRefName 2>&1)"
-if [ $? -eq 0 ]; then
-  PRE_STATUS="$(printf '%s' "$PRE_RAW" | jq -r '.mergeStateStatus // ""' 2>/dev/null)"
-  BASE_REF="$(printf '%s' "$PRE_RAW" | jq -r '.baseRefName // ""' 2>/dev/null)"
-  [ -z "$BASE_REF" ] && BASE_REF="${CONCERTINO_BASE_BRANCH:-main}"
-  if [ "$PRE_STATUS" = "BEHIND" ]; then
-    FETCH_OUT="$(cd "$WORKTREE_PATH" && git fetch origin "$BASE_REF" 2>&1)"
-    if [ $? -ne 0 ]; then
-      fail "not mergeable: BEHIND (auto-reconcile: could not fetch origin/${BASE_REF}: $(printf '%s' "$FETCH_OUT" | tr '\n' ' ' | cut -c1-200))"
-    else
-      MERGE_OUT="$(cd "$WORKTREE_PATH" && git merge --no-edit "origin/${BASE_REF}" 2>&1)"
-      if [ $? -ne 0 ]; then
-        (cd "$WORKTREE_PATH" && git merge --abort) >/dev/null 2>&1 || true
-        fail "not mergeable: BEHIND (auto-reconcile with origin/${BASE_REF} hit conflicts — needs human resolution; current work left untouched)"
-      else
-        PUSH_OUT="$(cd "$WORKTREE_PATH" && git push origin "HEAD:${BRANCH}" 2>&1)"
-        if [ $? -ne 0 ]; then
-          fail "not mergeable: BEHIND (auto-reconcile merged origin/${BASE_REF} locally but push to origin/${BRANCH} failed: $(printf '%s' "$PUSH_OUT" | tr '\n' ' ' | cut -c1-200))"
-        fi
-        # else: reconciled and pushed cleanly — fall through to 1/2 below,
-        # which re-query on the new HEAD.
-      fi
-    fi
-  fi
+# than judging a HEAD this script just moved past. Shared with
+# check-pr-mergeable.sh via lib/pr-reconcile.sh (CON-122 cycle 2) — one
+# implementation, not two independently-maintained copies.
+RECONCILE_MSG="$(pr_reconcile_behind_once "$WORKTREE_PATH" "$BRANCH")"
+if [ $? -ne 0 ]; then
+  fail "$RECONCILE_MSG"
 fi
 
 # --- 1: CI green, polled ----------------------------------------------------
@@ -228,7 +285,11 @@ fi
 if [ "$FAILED" -eq 0 ] && [ "$CI_PENDING" -eq 0 ]; then
   merge_elapsed=0
   while :; do
-    MERGE_RAW="$(cd "$WORKTREE_PATH" && gh pr view "$BRANCH" --json mergeable,mergeStateStatus,reviewDecision 2>&1)"
+    # CON-166 (design.md Decision 5): `headRefOid` is added HERE, to the
+    # condition-2 query — never to condition-0's pre-reconcile query, whose
+    # value would be pre-push and mismatch local HEAD on every reconciled
+    # run (a false refusal on the healthy path).
+    MERGE_RAW="$(cd "$WORKTREE_PATH" && gh pr view "$BRANCH" --json mergeable,mergeStateStatus,reviewDecision,headRefOid 2>&1)"
     MERGE_RC=$?
     if [ $MERGE_RC -ne 0 ]; then
       fail "could not query PR mergeability via gh: $(printf '%s' "$MERGE_RAW" | tr '\n' ' ' | cut -c1-200)"
@@ -239,6 +300,7 @@ if [ "$FAILED" -eq 0 ] && [ "$CI_PENDING" -eq 0 ]; then
     [ -z "$MERGE_STATUS" ] && MERGE_STATUS="UNKNOWN"
     case "$MERGE_STATUS" in
       CLEAN)
+        HEAD_REF_OID="$(printf '%s' "$MERGE_RAW" | jq -r '.headRefOid // ""' 2>/dev/null)"
         break # passes
         ;;
       BEHIND|DIRTY|UNSTABLE)
@@ -271,6 +333,25 @@ if [ "$FAILED" -eq 0 ] && [ "$CI_PENDING" -eq 0 ]; then
   done
 fi
 
+# --- 2b: the head being checked is the head that will be merged ------------
+# (design.md Decision 5.) `gh pr merge` merges the PR's `headRefOid`, read
+# from GitHub above — not local HEAD. GitHub's read-after-push lag gets one
+# re-query before refusing. A surviving mismatch, or a failed re-query, is
+# EXIT 1 (not the exit-4 STALE outcome): it is not a stale review, and no
+# amount of re-review fixes a diverged push. Shared with
+# check-pr-mergeable.sh via lib/pr-reconcile.sh's pr_verify_head (CON-122
+# cycle 3) — one implementation, not two independently-maintained copies.
+VERIFIED_HEAD=""
+if [ "$FAILED" -eq 0 ] && [ "$CI_PENDING" -eq 0 ]; then
+  LOCAL_HEAD="$(cd "$WORKTREE_PATH" && git rev-parse HEAD 2>/dev/null)"
+  if VERIFIED_HEAD="$(pr_verify_head "$WORKTREE_PATH" "$BRANCH" "$HEAD_REF_OID")"; then
+    :
+  else
+    RECHECK_HEAD_REF_OID="$(cd "$WORKTREE_PATH" && gh pr view "$BRANCH" --json headRefOid 2>/dev/null | jq -r '.headRefOid // ""' 2>/dev/null)"
+    fail "local HEAD (${LOCAL_HEAD:-unknown}) does not match the pull request's head (${RECHECK_HEAD_REF_OID:-unresolvable}) — refusing to verify a state that is not the one being merged"
+  fi
+fi
+
 # --- 3: this run's own gates passed -----------------------------------------
 if [ "$CI_PENDING" -ne 0 ]; then
   echo "PENDING ${CI_PENDING_NAMES} (still running after ${CI_WAIT_TIMEOUT}s — not a failure; re-invoke)" >&2
@@ -293,14 +374,20 @@ else
     # sufficient without a design/final `gate` field.
     GATE_INFO="$(jq -R -r -s '
       (split("\n") | map(select(length > 0)) | map(try fromjson catch empty)) as $evs
-      | ($evs | map(select(.kind == "verdict" and .role == "evaluator")) | last | (.verdict // "MISSING")) as $ev
-      | ($evs | map(select(.kind == "verdict" and .role == "skeptic")) | last | (.verdict // "MISSING")) as $sk
+      | ($evs | map(select(.kind == "verdict" and .role == "evaluator")) | last) as $eve
+      | ($evs | map(select(.kind == "verdict" and .role == "skeptic")) | last) as $ske
+      | (($eve.verdict) // "MISSING") as $ev
+      | (($ske.verdict) // "MISSING") as $sk
+      | (($eve.head_sha) // "") as $evsha
+      | (($ske.head_sha) // "") as $sksha
       | ([$evs | to_entries[] | select(.value.kind == "verdict" and .value.role == "skeptic")] | last | (.key // -1)) as $ski
       | ([$evs | to_entries[] | select(.value.kind == "escalation.answered" and (.value.answer == "proceed-to-delivery"))] | last | (.key // -1)) as $ovi
-      | "EVAL=\($ev)\nSKEPTIC=\($sk)\nOVERRIDE=\(if $ovi > $ski then "yes" else "no" end)"
+      | "EVAL=\($ev)\nSKEPTIC=\($sk)\nEVALSHA=\($evsha)\nSKEPTICSHA=\($sksha)\nOVERRIDE=\(if $ovi > $ski then "yes" else "no" end)"
     ' "$LOG" 2>/dev/null)"
     EVAL_VERDICT="$(printf '%s\n' "$GATE_INFO" | sed -n 's/^EVAL=//p')"
     SKEPTIC_VERDICT="$(printf '%s\n' "$GATE_INFO" | sed -n 's/^SKEPTIC=//p')"
+    EVAL_SHA="$(printf '%s\n' "$GATE_INFO" | sed -n 's/^EVALSHA=//p')"
+    SKEPTIC_SHA="$(printf '%s\n' "$GATE_INFO" | sed -n 's/^SKEPTICSHA=//p')"
     SKEPTIC_OVERRIDE="$(printf '%s\n' "$GATE_INFO" | sed -n 's/^OVERRIDE=//p')"
     [ -z "$EVAL_VERDICT" ] && EVAL_VERDICT="MISSING"
     [ -z "$SKEPTIC_VERDICT" ] && SKEPTIC_VERDICT="MISSING"
@@ -329,10 +416,128 @@ else
     else
       fail "skeptic gate not confirmed (latest role=skeptic verdict: ${SKEPTIC_VERDICT})"
     fi
+
+    # --- 3b: reviewed source has not moved (CON-166, design.md Decision 1) --
+    # Only meaningful once the gate VALUES above are known good — a role
+    # whose latest verdict isn't PASS/CONFIRM already fails above, and exit 1
+    # dominates exit 4 regardless (Decision 6a), so this is skipped whenever
+    # $FAILED is already set.
+    if [ "$FAILED" -eq 0 ] && [ -n "$VERIFIED_HEAD" ]; then
+      # Decision 1b: resolve BASE_REF at a scope this condition can see (the
+      # script runs under `set -u`, and condition 0's own BASE_REF is set
+      # only inside its own success branch), then fetch unconditionally
+      # before any merge-base is computed — this is IN ADDITION to
+      # condition 0's own BEHIND-path fetch, not a replacement for it. A
+      # stale (behind) local origin/<base> is the failure direction that
+      # bites: it would re-admit paths the branch already merged in as
+      # though they were still under review.
+      C3_BASE_REF=""
+      C3_BASE_RAW="$(cd "$WORKTREE_PATH" && gh pr view "$BRANCH" --json baseRefName 2>&1)"
+      if [ $? -eq 0 ]; then
+        C3_BASE_REF="$(printf '%s' "$C3_BASE_RAW" | jq -r '.baseRefName // ""' 2>/dev/null)"
+      fi
+      [ -z "$C3_BASE_REF" ] && C3_BASE_REF="${CONCERTINO_BASE_BRANCH:-main}"
+      C3_FETCH_OUT="$(cd "$WORKTREE_PATH" && git fetch origin "$C3_BASE_REF" 2>&1)"
+      C3_FETCH_RC=$?
+      C3_BASE_REMOTE="origin/${C3_BASE_REF}"
+
+      # stale_check <role> <reviewed_sha>
+      #
+      # Sets STALE=1 and prints one "STALE ..." line to stderr on any
+      # uncertainty or detected drift (design.md Decision 3: every
+      # uncertainty refuses, fail-closed). Prints nothing and leaves STALE
+      # untouched when the leg passes.
+      stale_check() {
+        local role="$1" reviewed="$2"
+        if [ -z "$reviewed" ]; then
+          STALE=1
+          echo "STALE ${role} verdict has no recorded head_sha — cannot verify reviewed source" >&2
+          return
+        fi
+        if ! git -C "$WORKTREE_PATH" cat-file -e "${reviewed}^{commit}" 2>/dev/null; then
+          STALE=1
+          echo "STALE ${role} reviewed SHA is unresolvable: ${reviewed}" >&2
+          return
+        fi
+        if [ $C3_FETCH_RC -ne 0 ]; then
+          STALE=1
+          echo "STALE ${role} could not fetch ${C3_BASE_REMOTE} to scope the comparison" >&2
+          return
+        fi
+        local mb_r mb_h
+        mb_r="$(git -C "$WORKTREE_PATH" merge-base "$C3_BASE_REMOTE" "$reviewed" 2>/dev/null)"
+        mb_h="$(git -C "$WORKTREE_PATH" merge-base "$C3_BASE_REMOTE" "$VERIFIED_HEAD" 2>/dev/null)"
+        if [ -z "$mb_r" ] || [ -z "$mb_h" ]; then
+          STALE=1
+          echo "STALE ${role} could not resolve a common ancestor with ${C3_BASE_REMOTE} for reviewed=${reviewed} head=${VERIFIED_HEAD}" >&2
+          return
+        fi
+        local paths_r paths_h rc
+        paths_r="$(git -C "$WORKTREE_PATH" diff --name-only "$mb_r" "$reviewed" 2>&1)"; rc=$?
+        if [ $rc -ne 0 ]; then
+          STALE=1
+          echo "STALE ${role} could not diff reviewed source (git error)" >&2
+          return
+        fi
+        paths_h="$(git -C "$WORKTREE_PATH" diff --name-only "$mb_h" "$VERIFIED_HEAD" 2>&1)"; rc=$?
+        if [ $rc -ne 0 ]; then
+          STALE=1
+          echo "STALE ${role} could not diff head source (git error)" >&2
+          return
+        fi
+        # Union of branch-touched paths at review time and now — NO exclusion
+        # applied here (design.md Decision 1, step 2).
+        local paths
+        paths="$(printf '%s\n%s\n' "$paths_r" "$paths_h" | sed '/^$/d' | sort -u)"
+        if [ -z "$paths" ]; then
+          # Decision 1c: empty PATHS passes explicitly. A pathspec list
+          # reduced to only the exclusion term means "everything except the
+          # prefix" to git, not "nothing" — invoking the diff below with an
+          # empty $paths would silently become the whole-commit comparison
+          # this check exists to reject.
+          return
+        fi
+        local -a patharr=()
+        while IFS= read -r p; do
+          [ -n "$p" ] && patharr+=("$p")
+        done <<< "$paths"
+        local diff_out
+        diff_out="$(git -C "$WORKTREE_PATH" diff --name-only "$reviewed" "$VERIFIED_HEAD" -- "${patharr[@]}" ":(exclude)${ARCHIVE_PREFIX}/*" 2>&1)"; rc=$?
+        if [ $rc -ne 0 ]; then
+          STALE=1
+          echo "STALE ${role} could not diff reviewed against head over the branch's own paths (git error)" >&2
+          return
+        fi
+        if [ -n "$diff_out" ]; then
+          STALE=1
+          local changed
+          changed="$(printf '%s' "$diff_out" | tr '\n' ',' | sed 's/,$//')"
+          echo "STALE ${role} reviewed=${reviewed} head=${VERIFIED_HEAD} changed=${changed}" >&2
+        fi
+      }
+
+      # The evaluator leg applies unconditionally, including on a CON-152
+      # override run (design.md Decision 6) — the override is the owner's
+      # judgment about the SKEPTIC's outstanding objections, never a
+      # statement that some later evaluator-reviewed commit was seen.
+      stale_check evaluator "$EVAL_SHA"
+      if [ "$SKEPTIC_OVERRIDE" = "yes" ]; then
+        echo "NOTE skeptic content check not performed — skeptic gate cleared by owner override (Decision 6)" >&2
+      else
+        stale_check skeptic "$SKEPTIC_SHA"
+      fi
+    fi
   fi
 fi
 
 if [ "$FAILED" -ne 0 ]; then
   exit 1
+fi
+# CON-166 (design.md Decision 6a): exit 1 dominates exit 4 — a hard failure
+# above already returned. A stale reviewed SHA, with no hard failure, is
+# distinct from both exit 1 and CON-159's exit 3: it means "do work (re-run
+# the stale gate on the current head), then re-invoke" (design.md Decision 4).
+if [ "$STALE" -ne 0 ]; then
+  exit 4
 fi
 echo "PASS"
