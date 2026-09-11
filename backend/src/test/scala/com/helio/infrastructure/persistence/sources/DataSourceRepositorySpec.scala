@@ -6,6 +6,7 @@ import com.helio.domain.engine.SchemaField
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
 import spray.json.DefaultJsonProtocol._
+import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -67,6 +68,14 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       updatedAt = now,
       config    = RestApiConfig(connectorId = "conn-1", endpoint = "https://example.test", method = "GET")
     )
+  }
+
+  private def newDatasetSource(name: String, declared: Vector[DatasetFieldDeclaration], rows: Vector[Vector[JsValue]]): DataSourceId = {
+    val now    = Instant.now()
+    val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), name, owner1, now, now)
+    val schema = declared.map(f => SchemaField(f.name, DataFieldType.asString(f.fieldType)))
+    await(repo.insertDatasetSource(source, declared, rows, schema, user1))
+    source.id
   }
 
   "DataSourceRepository" should {
@@ -247,7 +256,11 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       readBack.get.fields("rows")    shouldBe JsArray(rows.map(JsArray(_)))
     }
 
-    "replaceDatasetRows deletes the old rows and inserts the new ones, updating dataset_schema too" in {
+    // HEL-1077 design.md D1 (round-2): `replaceDatasetRows` was restructured into `replaceRows`,
+    // taking `declaration: Option[...]` (`Some` = refresh's write-this-schema semantics) and
+    // returning `Future[Option[Either[String, (DataSource, Vector[DatasetRowRow])]]]` -- these
+    // callers are updated for the rename/signature, not just renamed in place.
+    "replaceRows(declaration = Some(...)) deletes the old rows and inserts the new ones, updating dataset_schema too" in {
       cleanDb()
       import spray.json._
       val now      = Instant.now()
@@ -257,11 +270,11 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       val rows1    = Vector(Vector(JsString("old")))
       await(repo.insertDatasetSource(source, declared1, rows1, schema1, user1))
 
-      val schema2  = Vector(SchemaField("a", "string"), SchemaField("b", "boolean"))
       val declared2 = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType), DatasetFieldDeclaration("b", DataFieldType.BooleanType))
       val rows2    = Vector(Vector(JsString("new"), JsBoolean(true)))
-      val updated  = await(repo.replaceDatasetRows(source.id, declared2, rows2, schema2, Instant.now(), user1))
+      val updated  = await(repo.replaceRows(source.id, Some(declared2), rows2, 500, Instant.now(), user1))
       updated shouldBe defined
+      updated.get shouldBe a [Right[_, _]]
 
       val readBack = await(repo.readDatasetRows(source.id))
       readBack.get.fields("columns") shouldBe declared2.toJson
@@ -269,13 +282,12 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     }
 
     // HEL-1074 (skeptic-final-1.md non-blocking note): the old `updateStaticPayload` returned
-    // `None` for a source deleted mid-refresh, failing loudly; `replaceDatasetRows` must preserve
-    // that same "not found" signal now that it also returns Option[DataSource].
-    "replaceDatasetRows returns None for a nonexistent data source id" in {
+    // `None` for a source deleted mid-refresh, failing loudly; `replaceRows` must preserve
+    // that same "not found" signal now that it also returns Option[...].
+    "replaceRows returns None for a nonexistent data source id" in {
       cleanDb()
-      val schema   = Vector(SchemaField("a", "string"))
       val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
-      val result  = await(repo.replaceDatasetRows(DataSourceId(UUID.randomUUID().toString), declared, Vector.empty, schema, Instant.now(), user1))
+      val result  = await(repo.replaceRows(DataSourceId(UUID.randomUUID().toString), Some(declared), Vector.empty, 500, Instant.now(), user1))
       result shouldBe None
     }
 
@@ -298,6 +310,272 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       cleanDb()
       val readBack = await(repo.readDatasetRows(DataSourceId(UUID.randomUUID().toString)))
       readBack shouldBe None
+    }
+
+    // ── HEL-1077 tasks.md 5.1/5.2/5.3/5.3b/5.7/5.8: appendRows / replaceRows ──
+
+    "appendRows assigns 0-based, increasing seq continuing from the source's current MAX(seq)" in {
+      cleanDb()
+      import spray.json._
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-append", declared, Vector(Vector(JsString("x")), Vector(JsString("y")), Vector(JsString("z"))))
+
+      val result = await(repo.appendRows(id, Vector(Vector(JsString("w")), Vector(JsString("v"))), 500, Instant.now(), user1))
+      result shouldBe defined
+      val (_, added) = result.get.toOption.get
+      added.map(_.seq) shouldBe Vector(3L, 4L)
+
+      val readBack = await(repo.readDatasetRows(id))
+      readBack.get.fields("rows").asInstanceOf[JsArray].elements should have size 5
+    }
+
+    "appendRows to an empty source starts at seq 0" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-append-empty", declared, Vector.empty)
+
+      val result = await(repo.appendRows(id, Vector(Vector(JsString("first"))), 500, Instant.now(), user1))
+      val (_, added) = result.get.toOption.get
+      added.map(_.seq) shouldBe Vector(0L)
+    }
+
+    "appendRows leaves existing rows' id/seq/data unchanged" in {
+      cleanDb()
+      import spray.json._
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-append-preserve", declared, Vector(Vector(JsString("x"))))
+      val before = await(repo.readDatasetRows(id)).get.fields("rows")
+
+      await(repo.appendRows(id, Vector(Vector(JsString("y"))), 500, Instant.now(), user1))
+
+      val afterRows = await(repo.readDatasetRows(id)).get.fields("rows").asInstanceOf[JsArray].elements
+      afterRows.head shouldBe before.asInstanceOf[JsArray].elements.head
+    }
+
+    "appendRows rejects a row that fails schema validation, with no partial insert" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("age", DataFieldType.IntegerType))
+      val id = newDatasetSource("ds-append-invalid", declared, Vector.empty)
+
+      val result = await(repo.appendRows(id, Vector(Vector(JsString("not-an-integer"))), 500, Instant.now(), user1))
+      result.get.isLeft shouldBe true
+
+      val readBack = await(repo.readDatasetRows(id))
+      readBack.get.fields("rows").asInstanceOf[JsArray].elements shouldBe empty
+    }
+
+    "appendRows rejects when the resulting total would exceed maxRows" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-append-limit", declared, Vector(Vector(JsString("x"))))
+
+      val result = await(repo.appendRows(id, Vector(Vector(JsString("y")), Vector(JsString("z"))), 2, Instant.now(), user1))
+      result.get shouldBe Left("Payload exceeds the maximum of 2 rows")
+
+      val readBack = await(repo.readDatasetRows(id))
+      readBack.get.fields("rows").asInstanceOf[JsArray].elements should have size 1
+    }
+
+    "appendRows returns None for a nonexistent data source id" in {
+      cleanDb()
+      val result = await(repo.appendRows(DataSourceId(UUID.randomUUID().toString), Vector(Vector(JsString("x"))), 500, Instant.now(), user1))
+      result shouldBe None
+    }
+
+    "appendRows recomputes inferred_schema over the full post-write row set" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("n", DataFieldType.IntegerType, required = false))
+      val id = newDatasetSource("ds-append-inferred", declared, Vector(Vector(JsNull)))
+
+      // Column "n" starts all-null (infers to the declared type, "integer" -- PipelineRowJson
+      // .staticColumnRuntimeType's `Seq()` branch); appending a real numeric value flips the
+      // inferred runtime type to "float" (every `JsNumber` cell maps to "float", the same
+      // convention `createStatic`/`applyStaticRefresh` already use).
+      val beforeSchema = await(repo.findByIdInternal(id)).get.inferredSchema
+      beforeSchema.find(_.name == "n").map(_.`type`) shouldBe Some("integer")
+      await(repo.appendRows(id, Vector(Vector(JsNumber(42))), 500, Instant.now(), user1))
+      val afterSchema = await(repo.findByIdInternal(id)).get.inferredSchema
+
+      afterSchema.find(_.name == "n").map(_.`type`) should not be beforeSchema.find(_.name == "n").map(_.`type`)
+      afterSchema.find(_.name == "n").map(_.`type`) shouldBe Some("float")
+    }
+
+    "replaceRows(declaration = None) reads and keeps the current schema, unlike declaration = Some" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-put", declared, Vector(Vector(JsString("old"))))
+
+      val result = await(repo.replaceRows(id, None, Vector(Vector(JsString("new"))), 500, Instant.now(), user1))
+      result.get.isRight shouldBe true
+
+      val readBack = await(repo.readDatasetRows(id))
+      readBack.get.fields("columns") shouldBe declared.toJson
+      readBack.get.fields("rows")    shouldBe JsArray(Vector(JsArray(Vector(JsString("new")))))
+    }
+
+    "replaceRows(declaration = None) with an empty rows vector clears the source" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-put-empty", declared, Vector(Vector(JsString("x")), Vector(JsString("y"))))
+
+      val result = await(repo.replaceRows(id, None, Vector.empty, 500, Instant.now(), user1))
+      result.get.isRight shouldBe true
+
+      val readBack = await(repo.readDatasetRows(id))
+      readBack.get.fields("rows").asInstanceOf[JsArray].elements shouldBe empty
+    }
+
+    "replaceRows rejects a mid-batch invalid row, leaving the prior set byte-for-byte intact" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("age", DataFieldType.IntegerType))
+      val id = newDatasetSource("ds-put-invalid", declared, Vector(Vector(JsNumber(1)), Vector(JsNumber(2))))
+      val before = await(repo.readDatasetRows(id)).get.fields("rows")
+
+      val result = await(repo.replaceRows(
+        id, None,
+        Vector(Vector(JsNumber(3)), Vector(JsNumber(4)), Vector(JsString("not-an-integer"))),
+        500, Instant.now(), user1
+      ))
+      result.get.isLeft shouldBe true
+
+      val after = await(repo.readDatasetRows(id)).get.fields("rows")
+      after shouldBe before
+    }
+
+    "replaceRows rejects a replacement exceeding maxRows, leaving the prior set intact" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-put-limit", declared, Vector(Vector(JsString("x"))))
+
+      val result = await(repo.replaceRows(id, None, Vector(Vector(JsString("a")), Vector(JsString("b"))), 1, Instant.now(), user1))
+      result.get shouldBe Left("Payload exceeds the maximum of 1 rows")
+
+      val readBack = await(repo.readDatasetRows(id))
+      readBack.get.fields("rows").asInstanceOf[JsArray].elements should have size 1
+    }
+
+    // HEL-1077 tasks.md 5.2: a REAL concurrent test (parallel Futures, not sequential calls) --
+    // two simultaneous appends to the same source must both land, no lost row, no duplicate seq.
+    // `lockSource`'s `FOR UPDATE` inside each transaction is what serializes these two writers.
+    "two concurrent appendRows calls to the same source both land, no lost rows, no duplicate seq" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-concurrent-append", declared, Vector.empty)
+
+      val f1 = repo.appendRows(id, Vector(Vector(JsString("from-1"))), 500, Instant.now(), user1)
+      val f2 = repo.appendRows(id, Vector(Vector(JsString("from-2"))), 500, Instant.now(), user1)
+      val (r1, r2) = await(f1.zip(f2))
+      r1.get.isRight shouldBe true
+      r2.get.isRight shouldBe true
+
+      val rows = await(repo.readDatasetRows(id)).get.fields("rows").asInstanceOf[JsArray].elements
+      rows should have size 2
+      val seqs = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT seq FROM dataset_rows WHERE data_source_id = ${id.value} ORDER BY seq".as[Long]
+      }))
+      seqs.distinct should have size 2
+      seqs shouldBe Vector(0L, 1L)
+    }
+
+    // HEL-1077 tasks.md 5.7 / evaluation-1.md CR1: two concurrent appends, each individually
+    // under maxRows, whose COMBINED total exceeds it -- proves the row-count check runs INSIDE
+    // the lock (against a freshly-read count), not against a pre-lock read that both callers
+    // could pass simultaneously. 1 existing row + maxRows=2 + two single-row appends: any
+    // interleaving admits at most one of the two (1+1=2 is the max a single winner can reach;
+    // the second writer's fresh count-under-lock read is already at the limit).
+    "two concurrent appendRows calls that would jointly exceed maxRows -- at least one is rejected, final count never exceeds the limit" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-concurrent-limit", declared, Vector(Vector(JsString("existing"))))
+
+      val f1 = repo.appendRows(id, Vector(Vector(JsString("from-1"))), 2, Instant.now(), user1)
+      val f2 = repo.appendRows(id, Vector(Vector(JsString("from-2"))), 2, Instant.now(), user1)
+      val (r1, r2) = await(f1.zip(f2))
+
+      val results = Vector(r1, r2).map(_.get)
+      results.count(_.isLeft) should be >= 1
+      results.collect { case Left(msg) => msg }.foreach(_ shouldBe "Payload exceeds the maximum of 2 rows")
+
+      val finalCount = await(repo.readDatasetRows(id)).get.fields("rows").asInstanceOf[JsArray].elements.size
+      finalCount should be <= 2
+    }
+
+    // HEL-1077 tasks.md 5.3: a refresh (replaceRows(declaration = Some(...))) racing a concurrent
+    // append -- both complete without a UNIQUE(data_source_id, seq) violation, and the final row
+    // set reflects one consistent, serialized ordering (never a torn mix).
+    "a replaceRows(declaration = Some) racing a concurrent appendRows never violates UNIQUE(data_source_id, seq)" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-refresh-vs-append", declared, Vector(Vector(JsString("orig"))))
+
+      val fRefresh = repo.replaceRows(id, Some(declared), Vector(Vector(JsString("refreshed-1")), Vector(JsString("refreshed-2"))), 500, Instant.now(), user1)
+      val fAppend  = repo.appendRows(id, Vector(Vector(JsString("appended"))), 500, Instant.now(), user1)
+      val (refreshResult, appendResult) = await(fRefresh.zip(fAppend))
+
+      // Both operations complete (no exception from a unique-constraint violation) -- the
+      // serialization the lock provides is proven by the absence of a thrown PSQLException here,
+      // not by asserting a specific interleaving order (either order is a valid serialization).
+      refreshResult shouldBe defined
+      appendResult shouldBe defined
+
+      val seqs = await(db.run({
+        import slick.jdbc.PostgresProfile.api._
+        sql"SELECT seq FROM dataset_rows WHERE data_source_id = ${id.value} ORDER BY seq".as[Long]
+      }))
+      seqs.distinct.size shouldBe seqs.size // no duplicate seq under either serialization order
+    }
+
+    // HEL-1077 tasks.md 5.3b (skeptic-design-2.md required revision): a PUT racing a refresh that
+    // changes the declared schema -- the loser of the lock race must observe the winner's
+    // committed schema (never a stale pre-lock read), and neither write is silently lost/reverted.
+    // skeptic-final-1.md CR2: strengthened from the original version, whose two schemas (both
+    // single-column) let PUT's row validate identically against EITHER schema -- the test could
+    // not distinguish "refresh's new schema won" from "PUT's stale pre-lock read silently
+    // reverted it" (probe-confirmed: a scratch copy with `lockSource` removed from `replaceRows`
+    // still passed this shape 3/3 runs). Fixed by making the two schemas genuinely
+    // distinguishable: the new schema has an extra REQUIRED column the old schema lacks, and
+    // PUT's row is deliberately valid against the OLD schema but INVALID against the NEW one
+    // (missing the required "b"). This makes the final state deterministic regardless of which
+    // transaction's lock is granted first:
+    //   - refresh first, PUT second: PUT's fresh in-lock read sees the NEW schema, its row fails
+    //     validation (missing "b"), PUT is rejected cleanly, refresh's write stands.
+    //   - PUT first, refresh second: PUT succeeds under the OLD schema (fine at the time), but
+    //     refresh's later write (built to satisfy its OWN schema) unconditionally overwrites it.
+    // Either way the final stored schema/rows must equal refresh's specifically -- if
+    // `replaceRows(None)` instead used a schema snapshotted BEFORE the lock, PUT could wrongly
+    // succeed against a stale copy of the OLD schema even when it actually runs SECOND (after
+    // refresh committed), silently reverting refresh's write; this assertion catches exactly that.
+    "a replaceRows(declaration = None) racing a replaceRows(declaration = Some(...)) schema change never silently reverts refresh's committed schema" in {
+      cleanDb()
+      val oldSchema = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-put-vs-refresh-schema", oldSchema, Vector(Vector(JsString("orig"))))
+
+      val newSchema = Vector(
+        DatasetFieldDeclaration("a", DataFieldType.StringType, required = true),
+        DatasetFieldDeclaration("b", DataFieldType.StringType, required = true)
+      )
+      val refreshRows = Vector(Vector(JsString("r1"), JsString("r2")))
+      val putRows     = Vector(Vector(JsString("put-value")))
+
+      val fRefresh = repo.replaceRows(id, Some(newSchema), refreshRows, 500, Instant.now(), user1)
+      val fPut     = repo.replaceRows(id, None, putRows, 500, Instant.now(), user1)
+      val (refreshResult, putResult) = await(fRefresh.zip(fPut))
+
+      refreshResult shouldBe defined
+      refreshResult.get.isRight shouldBe true
+      putResult shouldBe defined
+      // Both outcomes below are legitimate results of a genuine race (see comment above) --
+      // what must never happen is PUT succeeding against a stale OLD-schema copy after refresh
+      // has already committed the NEW one, which the final-state assertion below rules out.
+      putResult.get match {
+        case Right(_)     => () // PUT ran first, under the old schema; refresh's later write wins
+        case Left(errMsg) => errMsg should include("'b'")
+      }
+
+      val readBack = await(repo.readDatasetRows(id)).get
+      readBack.fields("columns") shouldBe newSchema.toJson
+      readBack.fields("rows")    shouldBe JsArray(refreshRows.map(JsArray(_)))
     }
   }
 }

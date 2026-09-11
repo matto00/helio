@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/row-write-row-response.schema.json",
+  "title": "RowWriteRowResponse",
+  "description": "One affected row's identity/version, returned by both row-write routes (HEL-1077). `updatedAt` is per-ROW, not just the source's -- HEL-1078's optimistic-concurrency precondition binds to the row's own `updated_at`, not the source's.",
+  "type": "object",
+  "required": ["id", "seq", "updatedAt"],
+  "properties": {
+    "id": { "type": "string" },
+    "seq": { "type": "integer" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

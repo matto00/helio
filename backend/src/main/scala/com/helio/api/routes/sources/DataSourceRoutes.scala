@@ -9,6 +9,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
+import com.helio.api.protocols.sources.{RowWriteRequest, RowWriteResponse}
 import com.helio.domain.model._
 import com.helio.services.sources.{CsvUrlFetch, DataSourceDeleteError, DataSourceService}
 import spray.json._
@@ -106,6 +107,23 @@ final class DataSourceRoutes(
             },
             delete {
               completeDelete(dataSourceService.delete(sourceId, user))
+            }
+          )
+        },
+        // HEL-1077: append/replace routes for a `dataset`-kind source's rows. Rate-limit + auth
+        // are inherited from `ApiRoutes`'s composition of `DataSourceRoutes.routes` (design.md
+        // Context, verified at `ApiRoutes.scala:792`) -- no new wiring needed here.
+        path(DataSourceIdSegment / "rows") { sourceId =>
+          concat(
+            post {
+              entity(as[RowWriteRequest]) { req =>
+                ServiceResponse.run(dataSourceService.appendRows(sourceId, req.rows, user))(RowWriteResponse.fromDomain)
+              }
+            },
+            put {
+              entity(as[RowWriteRequest]) { req =>
+                ServiceResponse.run(dataSourceService.replaceRows(sourceId, req.rows, user))(RowWriteResponse.fromDomain)
+              }
             }
           )
         }

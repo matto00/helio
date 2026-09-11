@@ -2,6 +2,7 @@ import type {
   DataSource,
   DataSourceKind,
   InferredField,
+  RowWriteResponse,
   SqlSourceConfig,
   StaticColumn,
 } from "../types/dataSource";
@@ -286,5 +287,32 @@ export async function fetchRestPreview(sourceId: string): Promise<RestPreviewRes
 
 export async function updateSource(sourceId: string, name: string): Promise<DataSource> {
   const response = await httpClient.patch<DataSource>(`/api/data-sources/${sourceId}`, { name });
+  return response.data;
+}
+
+// HEL-1077: append/replace a `dataset`-kind source's rows. No UI consumer yet (HEL-1080 is
+// downstream) -- these exist so the wire contract is typed end-to-end in this change.
+
+/** Appends `rows` to a dataset source's existing rows. `rows` must be non-empty -- the backend
+ *  rejects an empty array with 400 (an append that appends nothing is not a meaningful request). */
+export async function appendSourceRows(
+  sourceId: string,
+  rows: unknown[][],
+): Promise<RowWriteResponse> {
+  const response = await httpClient.post<RowWriteResponse>(`/api/data-sources/${sourceId}/rows`, {
+    rows,
+  });
+  return response.data;
+}
+
+/** Atomically replaces a dataset source's full row set with `rows`. An empty array is valid and
+ *  clears the source to zero rows. */
+export async function replaceSourceRows(
+  sourceId: string,
+  rows: unknown[][],
+): Promise<RowWriteResponse> {
+  const response = await httpClient.put<RowWriteResponse>(`/api/data-sources/${sourceId}/rows`, {
+    rows,
+  });
   return response.data;
 }
