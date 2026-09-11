@@ -9,7 +9,7 @@ import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.sources.{CsvPreviewResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.sources.DataSourceRepository.{BlockingPipeline, DatasetRowRow, RowMutationFailure}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository.{BlockingPipeline, DatasetRowRow, RowListPage, RowMutationFailure}
 import com.helio.infrastructure.storage.FileSystem
 import SourceConfigParsing._
 import spray.json._
@@ -853,6 +853,56 @@ final class DataSourceService(
         }
     }
 
+  /** HEL-1121 design.md D6: precedence -- (1) a malformed `cursor`/`limit` query parameter is
+   *  `400`, before any DB call; (2) the ACL-scoped source lookup (`findByIdOwned`, same as every
+   *  other row route) is `404`; (3) the `dataset`-kind check is `400`; (4) success. `limit` is
+   *  clamped to `Page.MaxLimit` (never rejected above the ceiling) and defaults to
+   *  `Page.Default.limit` when absent (D3); a non-numeric, negative, or exactly-zero `limit` is
+   *  rejected outright (D3: a `limit` of `0` would return zero rows per page while still
+   *  reporting `nextCursor`/`total`, an infinite-loop trap). `cursor`, if present, must be a
+   *  non-negative integer -- `0` is a valid `seq` value, not a sentinel for "unset" (D2 CR1). */
+  def listRows(
+      id:        DataSourceId,
+      cursorRaw: Option[String],
+      limitRaw:  Option[String],
+      user:      AuthenticatedUser
+  ): Future[Either[ServiceError, RowListResult]] =
+    parseCursor(cursorRaw) match {
+      case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+      case Right(cursor) =>
+        parseLimit(limitRaw) match {
+          case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+          case Right(limit) =>
+            dataSourceRepo.findByIdOwned(id, user).flatMap {
+              case None                   => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+              case Some(_: DatasetSource) =>
+                dataSourceRepo.listRows(id, cursor, limit, user).map {
+                  case None       => Left(ServiceError.NotFound("Data source not found"))
+                  case Some(page) => Right(RowListResult.fromRepositoryPage(page))
+                }
+              case Some(_) => Future.successful(Left(ServiceError.BadRequest("row listing is only supported for dataset sources")))
+            }
+        }
+    }
+
+  private def parseCursor(raw: Option[String]): Either[String, Option[Long]] = raw match {
+    case None => Right(None)
+    case Some(s) =>
+      Try(s.toLong).toOption match {
+        case Some(v) if v >= 0 => Right(Some(v))
+        case _                 => Left(s"cursor must be a non-negative integer: '$s'")
+      }
+  }
+
+  private def parseLimit(raw: Option[String]): Either[String, Int] = raw match {
+    case None => Right(Page.Default.limit)
+    case Some(s) =>
+      Try(s.toInt).toOption match {
+        case Some(v) if v > 0 => Right(math.min(v, Page.MaxLimit))
+        case _                => Left(s"limit must be a positive integer: '$s'")
+      }
+  }
+
   /** Parses a request-supplied `updatedAt` value with the same `Instant.parse` convention every
    *  row-write response's `updatedAt` field round-trips through (design.md D4) -- `None` on any
    *  parse failure, mapped by callers to `400` before any DB call (D6 step 1). */
@@ -1132,6 +1182,17 @@ final case class RowWriteResult(source: DataSource, rows: Vector[RowWriteRow])
 object RowWriteResult {
   def fromRepositoryRows(source: DataSource, rows: Vector[DatasetRowRow]): RowWriteResult =
     RowWriteResult(source, rows.map(r => RowWriteRow(r.id, r.seq, r.updatedAt)))
+}
+
+/** HEL-1121 design.md D1/D4: one page of `DataSourceService.listRows` -- the trimmed, in-order
+ *  `DatasetRowRow`s (raw infra rows; the route/protocol layer projects them into `RowResponseRow`
+ *  per D4), the seq-cursor for the next request (`None` at the end of the row set, D2), and the
+ *  source's total row count (D7). */
+final case class RowListResult(rows: Vector[DatasetRowRow], nextCursor: Option[Long], total: Int)
+
+object RowListResult {
+  def fromRepositoryPage(page: RowListPage): RowListResult =
+    RowListResult(page.rows, page.nextCursor, page.total)
 }
 
 /** HEL-1078 design.md D8: result of a successful `patchRow` -- the edited row's `id`/`seq`/

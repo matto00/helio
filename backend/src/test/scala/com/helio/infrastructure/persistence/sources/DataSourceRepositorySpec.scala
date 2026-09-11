@@ -577,5 +577,132 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       readBack.fields("columns") shouldBe newSchema.toJson
       readBack.fields("rows")    shouldBe JsArray(refreshRows.map(JsArray(_)))
     }
+
+    // ── HEL-1121 tasks.md 4.1/4.9: DataSourceRepository.listRows paging ────────
+
+    "listRows returns None for a nonexistent source id" in {
+      cleanDb()
+      val result = await(repo.listRows(DataSourceId(UUID.randomUUID().toString), None, 200, user1))
+      result shouldBe None
+    }
+
+    "listRows on an empty dataset source returns zero rows, total 0, no nextCursor" in {
+      cleanDb()
+      val id = newDatasetSource("ds-list-empty", Vector(DatasetFieldDeclaration("a", DataFieldType.StringType)), Vector.empty)
+      val page = await(repo.listRows(id, None, 200, user1)).get
+      page.rows shouldBe empty
+      page.total shouldBe 0
+      page.nextCursor shouldBe None
+    }
+
+    "listRows returns a single page in ascending seq order when the whole set fits under the limit" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-list-single-page", declared, Vector(Vector(JsString("x")), Vector(JsString("y")), Vector(JsString("z"))))
+      val page = await(repo.listRows(id, None, 200, user1)).get
+      page.rows.map(_.seq) shouldBe Vector(0L, 1L, 2L)
+      page.total shouldBe 3
+      page.nextCursor shouldBe None
+    }
+
+    // design.md D2: the `limit + 1` probe -- a page ending exactly at the cap with a further row
+    // still available yields a `nextCursor`; the very next request (using it) returns the rest.
+    "listRows pages via nextCursor across multiple requests, covering every row exactly once" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val rows     = (0 until 5).map(i => Vector(JsString(s"v$i"))).toVector
+      val id       = newDatasetSource("ds-list-multi-page", declared, rows)
+
+      val page1 = await(repo.listRows(id, None, 2, user1)).get
+      page1.rows.map(_.seq) shouldBe Vector(0L, 1L)
+      page1.nextCursor shouldBe Some(1L)
+      page1.total shouldBe 5
+
+      val page2 = await(repo.listRows(id, page1.nextCursor, 2, user1)).get
+      page2.rows.map(_.seq) shouldBe Vector(2L, 3L)
+      page2.nextCursor shouldBe Some(3L)
+
+      val page3 = await(repo.listRows(id, page2.nextCursor, 2, user1)).get
+      page3.rows.map(_.seq) shouldBe Vector(4L)
+      page3.nextCursor shouldBe None
+
+      (page1.rows ++ page2.rows ++ page3.rows).map(_.seq) shouldBe Vector(0L, 1L, 2L, 3L, 4L)
+    }
+
+    // design.md D2 CR1: `cursor=0` is a valid, non-sentinel value -- a source starting at seq 0
+    // whose first page ends at seq 0 must accept `cursor=0` on the next request.
+    "listRows accepts cursor=0 and returns rows with seq > 0" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-list-cursor-zero", declared, Vector(Vector(JsString("a")), Vector(JsString("b"))))
+
+      val firstPage = await(repo.listRows(id, None, 1, user1)).get
+      firstPage.rows.map(_.seq) shouldBe Vector(0L)
+      firstPage.nextCursor shouldBe Some(0L)
+
+      val secondPage = await(repo.listRows(id, Some(0L), 1, user1)).get
+      secondPage.rows.map(_.seq) shouldBe Vector(1L)
+    }
+
+    // AC #1 / task 4.6 (MUST): a seq-ordered cursor must not skip or duplicate a row that existed
+    // at the start of paging, even when new rows are appended between page fetches (design.md D2
+    // CR2 -- every row present at the START of paging, never deleted, is returned exactly once).
+    "listRows paging is stable under concurrent appends -- every original row is returned exactly once, in order" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val originalRows = (0 until 4).map(i => Vector(JsString(s"orig-$i"))).toVector
+      val id = newDatasetSource("ds-list-concurrent-append", declared, originalRows)
+
+      val page1 = await(repo.listRows(id, None, 2, user1)).get
+      page1.rows.map(_.seq) shouldBe Vector(0L, 1L)
+
+      // Append two more rows between page fetches -- these must never displace or duplicate the
+      // original 4 rows across the pages already/still to be fetched.
+      await(repo.appendRows(id, Vector(Vector(JsString("new-1")), Vector(JsString("new-2"))), 500, Instant.now(), user1))
+
+      val page2 = await(repo.listRows(id, page1.nextCursor, 2, user1)).get
+      page2.rows.map(_.seq) shouldBe Vector(2L, 3L)
+
+      val page3 = await(repo.listRows(id, page2.nextCursor, 2, user1)).get
+      page3.rows.map(_.seq) shouldBe Vector(4L, 5L)
+
+      val originalSeqsFetched = (page1.rows ++ page2.rows).filter(_.seq < 4L).map(_.seq)
+      originalSeqsFetched shouldBe Vector(0L, 1L, 2L, 3L)
+      originalSeqsFetched.distinct.size shouldBe originalSeqsFetched.size
+    }
+
+    // design.md D7 (task 4.4d): `listRows`'s own row query filters ONLY on `data_source_id` --
+    // RLS, not an application-level owner predicate, is what enforces the tenant boundary at this
+    // layer. This repository-level test uses the single-role `ctx` wired in this spec (both pools
+    // point at the superuser), so it cannot exercise RLS itself -- that is `RlsOwnerTablesSpec`'s
+    // job (task 4.4). This test instead pins the cross-tenant behavior any single-role caller of
+    // `listRows` sees: a DIFFERENT owner's `AuthenticatedUser` still resolves the row-existence
+    // check (since this spec's ctx has no RLS to deny it), which is why the real RLS boundary must
+    // be proven separately, under a genuinely non-privileged role.
+    "listRows returns the source's rows regardless of which AuthenticatedUser drives the DBIO context (RLS, not app code, is the real boundary -- see RlsOwnerTablesSpec)" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-list-no-app-acl", declared, Vector(Vector(JsString("x"))))
+
+      val asOwner1 = await(repo.listRows(id, None, 200, user1)).get
+      val asOwner2 = await(repo.listRows(id, None, 200, user2)).get
+      asOwner1.rows.map(_.id) shouldBe asOwner2.rows.map(_.id)
+    }
+
+    // AC #4 / task 4.7 (MUST): readDatasetRows's own return shape ({columns, rows}, raw cells) is
+    // completely unaffected by listRows existing alongside it -- a new, additive read path (D1).
+    "readDatasetRows's {columns, rows} shape is unchanged by the addition of listRows" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("a", DataFieldType.StringType))
+      val id = newDatasetSource("ds-no-regression", declared, Vector(Vector(JsString("x")), Vector(JsString("y"))))
+
+      // Exercise the new read path first, to prove it has no side effect on the old one.
+      await(repo.listRows(id, None, 1, user1))
+
+      val readBack = await(repo.readDatasetRows(id)).get
+      readBack.fields.keySet shouldBe Set("columns", "rows")
+      readBack.fields("columns") shouldBe declared.toJson
+      readBack.fields("rows") shouldBe JsArray(Vector(JsArray(Vector(JsString("x"))), JsArray(Vector(JsString("y")))))
+    }
   }
 }

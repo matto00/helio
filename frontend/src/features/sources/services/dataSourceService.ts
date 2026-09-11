@@ -2,6 +2,7 @@ import type {
   DataSource,
   DataSourceKind,
   InferredField,
+  RowListResponse,
   RowResponse,
   RowWriteResponse,
   SqlSourceConfig,
@@ -314,6 +315,25 @@ export async function replaceSourceRows(
 ): Promise<RowWriteResponse> {
   const response = await httpClient.put<RowWriteResponse>(`/api/data-sources/${sourceId}/rows`, {
     rows,
+  });
+  return response.data;
+}
+
+// HEL-1121: GET /api/data-sources/:id/rows -- paged row listing with identity (id/seq/updatedAt),
+// for HEL-1080's grid to drive HEL-1078's PATCH/DELETE precondition header. No UI consumer yet.
+
+/** Fetches one page of a dataset source's rows, ordered by ascending `seq`. `cursor`/`limit` are
+ *  omitted entirely from the request when not provided -- the backend applies its own defaults
+ *  (design.md D2/D3). */
+export async function fetchSourceRows(
+  sourceId: string,
+  options?: { cursor?: number; limit?: number },
+): Promise<RowListResponse> {
+  const response = await httpClient.get<RowListResponse>(`/api/data-sources/${sourceId}/rows`, {
+    params: {
+      cursor: options?.cursor,
+      limit: options?.limit,
+    },
   });
   return response.data;
 }

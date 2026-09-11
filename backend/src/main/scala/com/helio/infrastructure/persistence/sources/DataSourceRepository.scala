@@ -580,6 +580,46 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     } yield dsOpt.map(rowToDomain).get
   }
 
+  /** HEL-1121 design.md D1/D2/D7: paged, RLS-scoped read of a dataset source's rows -- entirely
+   *  separate from `readDatasetRows` (which stays privileged/unpaged, for its three internal
+   *  callers only; D1). Fetches `limit + 1` rows in a single probe to derive `nextCursor` exactly
+   *  (D2): if more than `limit` rows come back the extra one is trimmed and `nextCursor` is the
+   *  last KEPT row's `seq`; otherwise every row is returned and `nextCursor` is `None`. The
+   *  source-existence check re-reads `datasetSchema` via the SAME pattern `patchRow`/`deleteRow`
+   *  already use -- `None` means `SourceNotFound` regardless of whether the source truly doesn't
+   *  exist or RLS is hiding another owner's source; this is intentional, existing
+   *  ambiguity-by-design (D7), not a new gap. The page query and the `total` count run in ONE
+   *  `DBIO` chain/transaction (D7) -- no `lockSource`, since a listing read is not a writer and
+   *  locking would create needless contention against concurrent mutations on the same source.
+   *  The row query filters ONLY on `data_source_id` (no additional owner/ACL predicate of its
+   *  own) -- RLS on `dataset_rows`, not application code, is what enforces the boundary at this
+   *  layer (D7, task 4.4d). */
+  def listRows(sourceId: DataSourceId, cursor: Option[Long], limit: Int, user: AuthenticatedUser): Future[Option[RowListPage]] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    val action = for {
+      schemaColOpt <- table.filter(_.id === sourceId.value).map(_.datasetSchema).result.headOption
+      result <- schemaColOpt match {
+        case None => DBIO.successful(None)
+        case Some(_) =>
+          val baseQuery = rowsTable.filter(_.dataSourceId === sourceId.value)
+          val cursoredQuery = cursor match {
+            case Some(c) => baseQuery.filter(_.seq > c)
+            case None    => baseQuery
+          }
+          for {
+            fetched <- cursoredQuery.sortBy(_.seq).take(limit + 1).result
+            total   <- baseQuery.length.result
+          } yield {
+            val hasMore    = fetched.size > limit
+            val page       = fetched.take(limit).toVector
+            val nextCursor = if (hasMore) page.lastOption.map(_.seq) else None
+            Some(RowListPage(page, nextCursor, total))
+          }
+      }
+    } yield result
+    ctx.withUserContext(user.id.value)(action)
+  }
+
   /** HEL-1074 design.md Decision 9: read a "dataset"-kind source's `{columns, rows}` payload --
    *  the same shape `DataSourceRepository.parseStaticPayload` already produces from the legacy
    *  `config` blob -- from `dataset_schema` + `dataset_rows`, ordered by `seq`. Reads both in a
@@ -622,6 +662,13 @@ object DataSourceRepository {
     final case class ValidationFailed(message: String) extends RowMutationFailure
     final case class StalePrecondition(currentUpdatedAt: Instant) extends RowMutationFailure
   }
+
+  /** HEL-1121 design.md D1/D2: one page of `listRows` -- `rows` are the trimmed, in-order
+   *  `DatasetRowRow`s (never the raw `limit + 1` probe result), `nextCursor` is `None` at the
+   *  end of the row set (never a JSON `null` -- the service/protocol layers preserve this as a
+   *  genuinely absent `Option`, D2), and `total` is the source's full row count as of this
+   *  request (D7: not pinned for a caller's whole paging session). */
+  final case class RowListPage(rows: Vector[DatasetRowRow], nextCursor: Option[Long], total: Int)
 
   /** HEL-987: one pipeline `soleRootDependentPipelines` found blocking a delete -- named fields
    *  instead of a positional `(String, String)` tuple so `id`/`name` can't be swapped by
