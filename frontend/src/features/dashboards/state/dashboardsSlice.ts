@@ -46,6 +46,24 @@ function getMostRecentDashboardId(dashboards: Dashboard[]): string | null {
   return dashboards[0]?.id ?? null;
 }
 
+// HEL-1119: push-or-replace-by-id, shared by every reducer that adds a
+// single dashboard to `items` outside of a full `fetchDashboards` replace
+// (create/duplicate/import/applyProposal, plus the `dashboardUpserted`
+// action). A bare `.push(...)` here can duplicate the entry when a
+// concurrent `fetchDashboards` refetch resolves first with a payload that
+// already contains this same dashboard (the create had already committed
+// server-side before the list fetch ran) — the refetch's wholesale replace
+// puts it in `items` once, and the create/duplicate/import thunk's own
+// `.fulfilled` then pushed it again.
+function upsertDashboardById(items: Dashboard[], dashboard: Dashboard): void {
+  const index = items.findIndex((d) => d.id === dashboard.id);
+  if (index === -1) {
+    items.push(dashboard);
+  } else {
+    items[index] = dashboard;
+  }
+}
+
 export const fetchDashboards = createAsyncThunk<
   Dashboard[],
   void,
@@ -232,13 +250,7 @@ const dashboardsSlice = createSlice({
      *  through the patch-set path, which has no dedicated thunk of its own
      *  to hang an `extraReducers` case off of. */
     dashboardUpserted(state, action: PayloadAction<Dashboard>) {
-      const dashboard = action.payload;
-      const index = state.items.findIndex((d) => d.id === dashboard.id);
-      if (index === -1) {
-        state.items.push(dashboard);
-      } else {
-        state.items[index] = dashboard;
-      }
+      upsertDashboardById(state.items, action.payload);
     },
     /** Remove a dashboard deleted through a path with no dedicated thunk of
      *  its own (HEL-408's patch-set apply) — mirrors `deleteDashboard.
@@ -289,7 +301,7 @@ const dashboardsSlice = createSlice({
         );
       })
       .addCase(createDashboard.fulfilled, (state, action) => {
-        state.items.push(action.payload);
+        upsertDashboardById(state.items, action.payload);
         state.selectedDashboardId = action.payload.id;
       })
       .addCase(renameDashboard.fulfilled, (state, action) => {
@@ -315,18 +327,18 @@ const dashboardsSlice = createSlice({
         state.error = action.payload ?? "Failed to delete dashboard.";
       })
       .addCase(duplicateDashboard.fulfilled, (state, action) => {
-        state.items.push(action.payload.dashboard);
+        upsertDashboardById(state.items, action.payload.dashboard);
         state.selectedDashboardId = action.payload.dashboard.id;
       })
       .addCase(duplicateDashboard.rejected, (state, action) => {
         state.error = action.payload ?? "Failed to duplicate dashboard.";
       })
       .addCase(importDashboard.fulfilled, (state, action) => {
-        state.items.push(action.payload.dashboard);
+        upsertDashboardById(state.items, action.payload.dashboard);
         state.selectedDashboardId = action.payload.dashboard.id;
       })
       .addCase(applyProposal.fulfilled, (state, action) => {
-        state.items.push(action.payload.dashboard);
+        upsertDashboardById(state.items, action.payload.dashboard);
         state.selectedDashboardId = action.payload.dashboard.id;
       });
   },
