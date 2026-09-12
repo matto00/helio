@@ -18,6 +18,8 @@
     "check:openspec-version": "node scripts/check-openspec-version.mjs",
     "check:openspec:selftest": "node scripts/check-openspec-hygiene.selftest.mjs",
     "check:spec-structure": "node scripts/check-spec-structure.mjs",
+    "check:precommit-ci-parity": "node scripts/check-precommit-ci-parity.mjs",
+    "check:precommit-ci-parity:selftest": "node scripts/check-precommit-ci-parity.selftest.mjs",
     "check:scala-quality": "node scripts/check-scala-quality.mjs",
     "check:node-root-encoding": "node scripts/check-node-root-encoding.mjs",
     "check:node-root-encoding:selftest": "node scripts/check-node-root-encoding.selftest.mjs",
