@@ -41,8 +41,11 @@ sealed trait DataSource {
   def tag: Option[String]
   /** HEL-904 (Outputs remodel, additive step 1.3): the source's own inferred
    *  column schema, populated by ingestion/refresh independent of any
-   *  DataType. Defaults empty so every pre-existing call site keeps
-   *  compiling until the data-migration step (tasks.md §2.9) backfills it. */
+   *  DataType. Defaults empty in the domain model for construction
+   *  convenience; V94's task 2.9(a) migration already backfilled every pre-existing row that
+   *  HAD a companion DataType (`source_id IS NOT NULL`, not a pipeline's own output type) at
+   *  deploy time, so the empty default is now reached only by a genuinely new, not-yet-inferred
+   *  source, or by a pre-existing source that never had a companion DataType to begin with. */
   def inferredSchema: Vector[SchemaField]
 }
 

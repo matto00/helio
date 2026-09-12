@@ -15,7 +15,7 @@ import com.helio.infrastructure.persistence.panels.PanelRepository
 import scala.concurrent.{ExecutionContext, Future}
 
 /** One target's grounded live state (design.md D1): the target's OWN current resources (a
- *  dashboard's panels, or a pipeline's steps) plus workspace-wide pipeline-output DataTypes + their
+ *  dashboard's panels, or a pipeline's steps) plus workspace-wide pipeline-output Outputs + their
  *  panel-capability menus (AC5) — the raw ingredients `RefinementPrompt` renders into prompt text.
  *  Exactly one of `dashboard`/`pipeline` is populated, matching the request's `target.kind`. */
 final case class RefinementGroundedContext(
@@ -33,7 +33,7 @@ final case class RefinementGroundedContext(
  *  findSummaryById` + `.listSteps` for a pipeline target — both already viewer-sufficient,
  *  sharing-aware reads) — plus the workspace-wide grounding `DashboardAuthoringService.
  *  assembleGroundedContext` already assembles (AC5), so a refinement that binds a NOT-yet-used
- *  pipeline-output DataType has something to bind to.
+ *  pipeline-output Output has something to bind to.
  *
  *  Doubles as `RefinementService`'s target-resolution + ACL check (task 2.5): a `Left` here means
  *  the target doesn't exist or isn't accessible, resolved BEFORE any Claude call. Never calls Claude;
@@ -78,10 +78,10 @@ final class RefinementGrounding(
     }
 
   /** Same shape as `DashboardAuthoringService.assembleGroundedContext`'s own workspace-context
-   *  fan-out (AC5) — pipeline-output DataTypes only, one degrade-not-fail capability fetch per type.
-   *  Unlike that method, a workspace with NO pipeline-output DataTypes is not itself a failure here
+   *  fan-out (AC5) — pipeline-output Outputs only, one degrade-not-fail capability fetch per Output.
+   *  Unlike that method, a workspace with NO pipeline-output Outputs is not itself a failure here
    *  (`EmptyWorkspace` is an authoring-only short-circuit — a refinement like "rename this dashboard"
-   *  or "delete the last panel" needs no DataType at all to succeed). */
+   *  or "delete the last panel" needs no Output at all to succeed). */
   private def withWorkspaceContext(
       user: AuthenticatedUser
   ): Future[(Vector[WorkspaceContextOutput], Map[String, PanelCapabilitiesResponse], Vector[String])] =
@@ -92,7 +92,9 @@ final class RefinementGrounding(
       }
     }
 
-  /** One per-DataType capability fetch. A failure degrades to a warning for THAT type only — mirrors
+  /** One per-Output capability fetch (over `workspace.dataTypes`, a legacy-named field of
+   *  `WorkspaceContextOutput`s post-HEL-904 — not the retired `DataType` model). A failure
+   *  degrades to a warning for THAT type only — mirrors
    *  `DashboardAuthoringService.fetchCapability`'s identical degrade-not-fail precedent; never fails
    *  the whole grounding assembly. */
   private def fetchCapability(outputId: String, user: AuthenticatedUser): Future[Either[String, (String, PanelCapabilitiesResponse)]] =

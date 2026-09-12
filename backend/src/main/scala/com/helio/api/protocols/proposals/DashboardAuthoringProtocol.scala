@@ -30,7 +30,7 @@ final case class DashboardAuthoringRequest(
 )
 
 /** `warnings` carries degrade-not-fail notices collected while assembling the grounding context
- *  (design.md D3 — e.g. a per-DataType panel-capability fetch that failed) — never a reason the
+ *  (design.md D3 — e.g. a per-Output panel-capability fetch that failed) — never a reason the
  *  call itself failed; a non-empty `warnings` still accompanies a real, validated `proposal`.
  *  `conversationId` (HEL-397) identifies the persisted conversation this turn belongs to — pass it
  *  back on the next call's `DashboardAuthoringRequest.conversationId` to continue refining the same

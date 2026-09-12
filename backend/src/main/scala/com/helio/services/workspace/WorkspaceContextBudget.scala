@@ -19,7 +19,7 @@ import spray.json._
  *  (ids, `columns[]` including `semanticRole`, `columnStats[*]`'s scalar
  *  fields, pipeline `steps[]`, dashboards) is NEVER shrunk at any budget,
  *  including `budgetBytes = 0`. Cut 1st: `sampleRows` row count (a single
- *  global cap, uniform across every DataType). Cut 2nd, only once tier 1 is
+ *  global cap, uniform across every Output). Cut 2nd, only once tier 1 is
  *  fully exhausted: `columnStats[*].exampleValues` length (a single global
  *  cap, uniform across every column). Cut 3rd/last, only once tiers 1 and 2
  *  are both fully exhausted: `joinHints` count (already sorted deterministically
@@ -33,9 +33,9 @@ import spray.json._
  *  overhead (every byte outside these three kinds of arrays) plus the sum of
  *  each individually-measured subtree's own serialized length. Every
  *  candidate-cap measurement below therefore serializes only a SMALL,
- *  DataType-count-independent structure (one DataType's own ≤5-row array, one
+ *  Output-count-independent structure (one Output's own ≤5-row array, one
  *  column's own ≤5-value array, or a short prefix of the ≤50-entry top-level
- *  `joinHints` array) — never the full multi-DataType tree — anchored to the
+ *  `joinHints` array) — never the full multi-Output tree — anchored to the
  *  real serializer for every individual measurement (never a hand-rolled
  *  JSON-length estimate, per the epic's carried finding #5).
  *

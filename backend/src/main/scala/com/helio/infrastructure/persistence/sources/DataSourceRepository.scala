@@ -137,8 +137,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  - `ResourceTypeRegistry` resolver (resolves owner FOR the ACL check)
    *  - `PipelineRunService.submit` / `previewStep` (pipeline ACL is the gate)
    *  - `SparkJobSubmitter.applyStep` (JoinStep, background privileged path)
-   *  - `InProcessPipelineEngine` step execution (ditto)
-   *  - `DataTypeService.checkSourceLink` (error-message rendering only, no data leak) */
+   *  - `InProcessPipelineEngine` step execution (ditto) */
   def findByIdInternal(id: DataSourceId): Future[Option[DataSource]] =
     ctx.withSystemContext(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))

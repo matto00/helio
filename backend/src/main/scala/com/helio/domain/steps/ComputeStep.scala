@@ -104,7 +104,7 @@ object ComputeStep {
     /** HEL-814 D3 (missing/empty) + HEL-888 design.md Decision 4 (unparseable).
      *  An empty `column` makes the shipped requirement ("SHALL append a new
      *  field named `column` to every row") write a field named `""` into the
-     *  output DataType — HEL-888's originally-reported bug. A step stored
+     *  output row schema — HEL-888's originally-reported bug. A step stored
      *  before write-path expression validation existed may also hold an
      *  expression that parses under neither grammar; running it must fail
      *  naming the reason rather than nulling the column for every row. The

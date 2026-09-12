@@ -37,9 +37,9 @@ object ContentSourceSupport {
   private val log = LoggerFactory.getLogger(getClass)
 
   /** Build the `{content, filename, sizeBytes}` `DataField` triple every
-   *  content connector's `DataType` registers. This is the single place that
+   *  content connector upserts onto its source's `inferred_schema`. This is the single place that
    *  fixes the metadata field names/types across connector kinds, so every
-   *  content connector's DataType shape is consistent.
+   *  content connector's inferred schema shape is consistent.
    *
    *  `filename`/`sizeBytes` are accepted for call-site symmetry with the
    *  ingestion path — the returned *schema* (names + types) is fixed

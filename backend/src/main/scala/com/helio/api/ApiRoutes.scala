@@ -83,7 +83,8 @@ final class ApiRoutes(
     sparkJobSubmitter: SparkJobSubmitter,
     pipelineRunRepo: PipelineRunRepository = null,
     apiTokenRepo: ApiTokenRepository = null,
-    // HEL-216: first real caller of BinaryRefRepository.overwriteForDataType
+    // HEL-216: first real caller of BinaryRefRepository.overwriteForNode (renamed from
+    // overwriteForDataType by HEL-904 task 3.4)
     // (HEL-217 shipped the class with no wired caller). Nullable default
     // mirrors pipelineRunRepo — fixtures that don't pass one
     // simply skip the binary_refs write (PipelineRunService's null-checked

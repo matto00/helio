@@ -402,7 +402,7 @@ trait WorkspaceContextComputations {
   /** One join-hint candidate: an `identifier`-role column that also has a
    *  `columnStats` entry (HEL-374 design.md D2's round-1-fix candidacy
    *  restriction — see `computeJoinHints`), paired with the owning
-   *  DataType's id and the `columnStats` needed for the confidence
+   *  Output's id and the `columnStats` needed for the confidence
    *  computation. Not part of the wire shape, purely an internal grouping
    *  helper. */
   private final case class JoinCandidate(outputId: String, column: WorkspaceContextColumn, stats: WorkspaceContextColumnStats)
@@ -459,23 +459,26 @@ trait WorkspaceContextComputations {
     roundToFourDecimals(0.5 + 0.5 * jaccard(leftValues, rightValues) * evidenceWeight)
   }
 
-  /** Bounded, precision-favoring cross-DataType joinability hints (HEL-374
-   *  design.md D2) — a pure post-processing step over `dataTypes`, the exact
+  /** Bounded, precision-favoring cross-Output joinability hints (HEL-374
+   *  design.md D2) — a pure post-processing step over `dataTypes` (a legacy-named
+   *  `Vector[WorkspaceContextOutput]`, not the retired `DataType` model), the exact
    *  structures `assemble` already built; no new DB access, no new `Future`
    *  step (wired once, after the `Future.traverse` that builds `dataTypes`
    *  completes — design.md D3).
    *
    *  **Candidate gathering (design-gate round-1 fix, the central cost-bound
    *  requirement)**: a column is a candidate iff its `semanticRole ==
-   *  "identifier"` AND its DataType's `columnStats` contains an entry for it
-   *  — NOT gathered from `columns` alone, which is built from the DataType's
+   *  "identifier"` AND its owning Output's `columnStats` contains an entry for it
+   *  — NOT gathered from `columns` alone, which is built from the Output's
    *  entire unbounded declared field list. `columnStats` is independently
    *  capped at `SampleColumnLimit` (40) by `computeColumnStats`'s own
    *  enumeration, so requiring membership in it genuinely bounds candidates
-   *  to ≤40 per DataType (verified by construction, not assumed) — and, as a
-   *  side effect, automatically excludes source-companion DataTypes (whose
-   *  `columnStats` is always empty) with no separate `pipelineOutput` filter,
-   *  and guarantees every candidate has `exampleValues` available for the
+   *  to ≤40 per Output (verified by construction, not assumed). At HEL-374's
+   *  original writing this also excluded a source-companion DataType (whose
+   *  `columnStats` was always empty) with no separate `pipelineOutput` filter;
+   *  post-HEL-904 no source-companion entry exists at all (every entry is a
+   *  pipeline Output), so that exclusion clause is now vacuous rather than load-
+   *  bearing. Guarantees every candidate has `exampleValues` available for the
    *  confidence computation.
    *
    *  **Bounding the comparison work**: candidates are grouped by normalized
@@ -483,8 +486,8 @@ trait WorkspaceContextComputations {
    *  name heuristic — one implementation, not a forked copy); each bucket is
    *  capped at `MaxColumnsPerNameBucket`, stable-sorted by `(outputId,
    *  column name)` before truncation (deterministic, not iteration-order-
-   *  dependent). Only cross-DataType, same-declared-type-bucket pairs are
-   *  compared. Worst case: `Page.Default` (200) DataTypes × `SampleColumnLimit`
+   *  dependent). Only cross-Output, same-declared-type-bucket pairs are
+   *  compared. Worst case: `Page.Default` (200) Outputs × `SampleColumnLimit`
    *  (40) candidates each = 8,000 candidate columns; each compared against at
    *  most `MaxColumnsPerNameBucket - 1` (49) same-bucket peers ⇒ ≤ 392,000
    *  pairwise comparisons, each an O(1)-ish Jaccard over ≤5-element sets — no

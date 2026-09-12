@@ -66,8 +66,9 @@ final class DashboardService(
   def findAll(user: AuthenticatedUser, page: Page): Future[PagedResult[Dashboard]] =
     dashboardRepo.findAll(user.id, page)
 
-  /** Owner-scoped single-resource read (HEL-661 design.md D3), mirroring `DataTypeService.findById`'s
-   *  exact shape over `DashboardRepository.findByIdOwned` — deliberately NOT the sharing-aware
+  /** Owner-scoped single-resource read (HEL-661 design.md D3), added in the same shape as the
+   *  (since-retired, HEL-904) `DataTypeService.findById` over `DashboardRepository.findByIdOwned`
+   *  — deliberately NOT the sharing-aware
    *  `findById(id, Some(user))` this service's own mutation paths above use; `WorkspaceSearchService.
    *  getResource` needs an owner-only lookup, matching its consistent owner-only contract across
    *  every resource type (design.md D1b). */
