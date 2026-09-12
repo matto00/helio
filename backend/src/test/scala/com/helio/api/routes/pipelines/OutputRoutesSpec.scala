@@ -1,5 +1,7 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.api.JsonProtocols
 import com.helio.api.ErrorResponse
@@ -51,7 +53,7 @@ class OutputRoutesSpec
     with ScalatestRouteTest
     with JsonProtocols
     with BeforeAndAfterAll
-    with Eventually {
+    with Eventually with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
@@ -137,7 +139,7 @@ class OutputRoutesSpec
     // how the real `ApiRoutes` wiring shares a single service instance across requests).
     sharedRunService = new PipelineRunService(
       pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
-      new PipelineRunCache(), null, new LocalFileSystem(java.nio.file.Files.createTempDirectory("output-routes-shared")),
+      new PipelineRunCache(), null, new LocalFileSystem(newTempDir("output-routes-shared")),
       outputRepo = outputRepo, nodeSnapshotRepo = nodeSnapshotRepo
     )(routeEc)
     pipelineRootRepo = new PipelineRootRepository(ctx)(routeEc)

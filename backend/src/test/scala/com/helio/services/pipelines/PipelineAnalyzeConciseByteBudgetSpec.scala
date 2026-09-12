@@ -1,5 +1,7 @@
 package com.helio.services.pipelines
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api.protocols.pipelines.{ConciseAnalyzeNode, CreatePipelineRootRequest, CreatePipelineRequest, CreatePipelineStepRequest, PipelineAnalyzeConciseResponse}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
@@ -29,7 +31,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  actually distinguishes the two modes on the SAME graph -- a 12-node, 2-root pipeline whose
  *  roots carry 40 columns combined. Both directions are required (design.md D6): a budget
  *  generous enough for both modes to pass would be decorative. */
-class PipelineAnalyzeConciseByteBudgetSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with JsonProtocols {
+class PipelineAnalyzeConciseByteBudgetSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with JsonProtocols with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 
@@ -55,7 +57,7 @@ class PipelineAnalyzeConciseByteBudgetSpec extends AnyWordSpec with Matchers wit
     dataSourceRepo    = new DataSourceRepository(ctx)
     pipelineRepo      = new PipelineRepository(ctx, dataSourceRepo)
     pipelineStepRepo  = new PipelineStepRepository(ctx)
-    val fileSystem    = new LocalFileSystem(Files.createTempDirectory("analyze-concise-budget-spec"))
+    val fileSystem    = new LocalFileSystem(newTempDir("analyze-concise-budget-spec"))
     dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
     pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 

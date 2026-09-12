@@ -1,5 +1,7 @@
 package com.helio.services.sources
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.services.sources.DataSourceService
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -35,7 +37,7 @@ class DataSourceServiceRestartPersistenceSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer
@@ -84,7 +86,7 @@ class DataSourceServiceRestartPersistenceSpec
 
     "retain the inferred DataType for a CSV source" in {
       cleanDb()
-      val uploadsDir = Files.createTempDirectory("helio-restart-csv")
+      val uploadsDir = newTempDir("helio-restart-csv")
       val (service1, _) = buildServices(uploadsDir)
       val createBytes      = "id,name\n1,Alice\n2,Bob".getBytes(StandardCharsets.UTF_8)
       val srcId = await(service1.createCsv("Restart CSV", createBytes, Vector.empty, user)) match {
@@ -101,7 +103,7 @@ class DataSourceServiceRestartPersistenceSpec
 
     "retain the inferred DataType for a Static source" in {
       cleanDb()
-      val uploadsDir       = Files.createTempDirectory("helio-restart-static")
+      val uploadsDir       = newTempDir("helio-restart-static")
       val (service1, _) = buildServices(uploadsDir)
       val req = StaticDataSourceRequest(
         name    = "Restart Static",
@@ -127,7 +129,7 @@ class DataSourceServiceRestartPersistenceSpec
       // round-trip directly through the repository, which is what
       // SourceService.createSqlSource ultimately writes (HEL-904 task 4.3:
       // `upsertInferredSchema` directly on the source, no companion DataType).
-      val (_, dataSourceRepo1) = buildServices(Files.createTempDirectory("helio-restart-sql"))
+      val (_, dataSourceRepo1) = buildServices(newTempDir("helio-restart-sql"))
       val now                     = java.time.Instant.now()
       val srcId                   = DataSourceId(UUID.randomUUID().toString)
       val sqlSource = SqlSource(

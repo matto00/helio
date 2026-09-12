@@ -1,5 +1,6 @@
 package com.helio.services.assistant
 
+import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
 import com.helio.services.assistant.AssistantConversationService
@@ -27,7 +28,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  composition of `AssistantConversationRepository` (EmbeddedPostgres) with a real `LocalFileSystem`
  *  over a `Files.createTempDirectory` temp dir (mirrors `DataSourceServiceSpec`'s existing
  *  construction pattern, per tasks.md 6.5) — zero real GCS network calls (tasks.md 6.10). */
-class AssistantConversationServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
+class AssistantConversationServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
@@ -55,7 +56,7 @@ class AssistantConversationServiceSpec extends AnyWordSpec with Matchers with Be
     val ctx = new DbContext(db, db)
     repo = new AssistantConversationRepository(ctx)
 
-    val tmpDir = Files.createTempDirectory("helio-assistant-conversation-service-spec")
+    val tmpDir = newTempDir("helio-assistant-conversation-service-spec")
     fileSystem = new LocalFileSystem(tmpDir)
 
     service = new AssistantConversationService(repo, fileSystem)

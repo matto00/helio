@@ -1,5 +1,7 @@
 package com.helio.infrastructure.persistence
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api.protocols.sources.{DatasetFieldDeclarationPayload, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, AgentPreferencesRepository}
@@ -48,7 +50,7 @@ import scala.concurrent.duration.DurationInt
  *    sees zero rows because `current_setting('app.current_user_id')::uuid`
  *    raises an error — the fail-closed property.
  */
-class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
+class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
@@ -315,7 +317,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       val typedSystem: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "hel1076-rls-spec")
       implicit val sys: ActorSystem[Nothing] = typedSystem
       implicit val mat: Materializer = SystemMaterializer(typedSystem).materializer
-      val fileSystem = new LocalFileSystem(Files.createTempDirectory("hel1076-rls"))
+      val fileSystem = new LocalFileSystem(newTempDir("hel1076-rls"))
       (repo, new DataSourceService(repo, fileSystem), typedSystem)
     }
 

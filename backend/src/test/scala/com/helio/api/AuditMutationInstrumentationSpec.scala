@@ -1,5 +1,7 @@
 package com.helio.api
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.services.sources.ContentSourceSupport
 import com.helio.api.http.{AuthDirectives, SessionCookies}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -60,7 +62,7 @@ class AuditMutationInstrumentationSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 
@@ -1050,7 +1052,7 @@ class AuditMutationInstrumentationSpec
 
     "write exactly one data_source.refresh row per successful refresh, for csv/text/pdf/image kinds" in {
       cleanDb()
-      val tmpDir       = Files.createTempDirectory("audit-mutation-instrumentation-spec")
+      val tmpDir       = newTempDir("audit-mutation-instrumentation-spec")
       val fileSystem   = new LocalFileSystem(tmpDir)
       val svc          = new DataSourceService(dataSourceRepo, fileSystem, auditService = new AuditService(auditEventRepo))
 
@@ -1078,7 +1080,7 @@ class AuditMutationInstrumentationSpec
     "write no data_source.refresh row for a failed CSV refresh (source file missing on disk; " +
       "negative-assertion barrier per design.md Test plan)" in {
       cleanDb()
-      val tmpDir     = Files.createTempDirectory("audit-mutation-instrumentation-spec-csv-fail")
+      val tmpDir     = newTempDir("audit-mutation-instrumentation-spec-csv-fail")
       val fileSystem = new LocalFileSystem(tmpDir)
       val svc        = new DataSourceService(dataSourceRepo, fileSystem, auditService = new AuditService(auditEventRepo))
 

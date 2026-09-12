@@ -1,5 +1,7 @@
 package com.helio.infrastructure.persistence
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, CsvSource, CsvSourceConfig, DataSourceId, UserId}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -50,7 +52,7 @@ class V100ZeroRootGuardNonSuperuserSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer
@@ -119,7 +121,7 @@ class V100ZeroRootGuardNonSuperuserSpec
     ctx = new DbContext(appDb, privilegedDb)(ec)
     dataSourceRepo = new DataSourceRepository(ctx)(ec)
 
-    val tmpDir = Files.createTempDirectory("hel974-v100-spec")
+    val tmpDir = newTempDir("hel974-v100-spec")
     fileSystem = new LocalFileSystem(tmpDir)(ec)
     service = new DataSourceService(dataSourceRepo, fileSystem)
   }
@@ -128,6 +130,7 @@ class V100ZeroRootGuardNonSuperuserSpec
     if (appDb != null) appDb.close()
     if (privilegedDb != null) privilegedDb.close()
     embeddedPostgres.close()
+    super.afterAll()
   }
 
   // ── Low-level SQL-side fixture helpers (tasks 3.1-3.7a) ────────────────────

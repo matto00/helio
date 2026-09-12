@@ -1,5 +1,6 @@
 package com.helio.services.patchsets
 
+import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
 import com.helio.services.auth.AccessChecker
@@ -58,7 +59,7 @@ class RefinementServiceSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContextExecutor = typedSystem.executionContext
@@ -108,7 +109,7 @@ class RefinementServiceSpec
     )
     val permissionRepo = new ResourcePermissionRepository(ctx)
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    val tmpDir = Files.createTempDirectory("helio-refinement-spec")
+    val tmpDir = newTempDir("helio-refinement-spec")
     val fs     = new LocalFileSystem(tmpDir)
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)

@@ -1,5 +1,7 @@
 package com.helio.api.routes.proposals
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api.routes.proposals.DashboardAuthoringRoutes
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
@@ -52,7 +54,7 @@ class DashboardAuthoringRoutesSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   // HEL-401 design.md D3: widened from `ExecutionContext` — `DashboardAuthoringService`/
@@ -97,7 +99,7 @@ class DashboardAuthoringRoutesSpec
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
 
-    val tmpDir = Files.createTempDirectory("helio-authoring-routes-spec")
+    val tmpDir = newTempDir("helio-authoring-routes-spec")
     val fs     = new LocalFileSystem(tmpDir)
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     // HEL-904 task 3.12/4.1: WorkspaceContextService takes OutputRepository now (dataTypeService

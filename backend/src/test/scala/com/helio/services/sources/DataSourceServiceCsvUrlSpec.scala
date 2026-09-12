@@ -1,5 +1,7 @@
 package com.helio.services.sources
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.services.ServiceError
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -38,7 +40,7 @@ import scala.util.Try
  *  rejects any non-`https` scheme before issuing a request — the plain-HTTP
  *  test server `DataSourceServiceSpec` uses for text/pdf/image cannot
  *  exercise this path at all. */
-class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
+class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer
@@ -73,10 +75,11 @@ class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with Scalate
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx        = new DbContext(db, db)
     dataSourceRepo = new DataSourceRepository(ctx)
-    val tmpDir     = Files.createTempDirectory("helio-data-source-service-csv-url-spec")
+    val tmpDir     = newTempDir("helio-data-source-service-csv-url-spec")
     fileSystem     = new LocalFileSystem(tmpDir)
     service = new DataSourceService(dataSourceRepo, fileSystem, isBlocked = admitLocalhost)
 
+    // temp-dir-hygiene: reviewed — deleted recursively in afterAll below.
     keystoreDir = Files.createTempDirectory("csv-url-service-spec")
     val keystorePath = keystoreDir.resolve("test.p12")
     val exitCode = Seq(

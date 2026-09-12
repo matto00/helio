@@ -1,5 +1,6 @@
 package com.helio.services.patchsets
 
+import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
@@ -49,7 +50,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  embedded-Postgres integration tests, mirroring `PatchSetApplyServiceSpec`'s fixture
  *  convention exactly. Route-level 404/409 status mapping lives in `PatchSetUndoRoutesSpec`
  *  (tasks.md 5.4). */
-class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with JsonProtocols {
+class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with JsonProtocols with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer
@@ -102,7 +103,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-undo-service-spec"))
+    val fileSystem = new LocalFileSystem(newTempDir("patch-set-undo-service-spec"))
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo, null, outputRepo)
@@ -125,6 +126,7 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with ScalatestRo
 
   override def afterAll(): Unit = {
     db.close(); embeddedPostgres.close()
+    super.afterAll()
   }
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)

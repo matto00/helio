@@ -1,5 +1,7 @@
 package com.helio.services.sources
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.services.sources.DataSourceService
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -35,7 +37,7 @@ class SchemaInferenceRegressionSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer
@@ -60,7 +62,7 @@ class SchemaInferenceRegressionSpec
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx        = new DbContext(db, db)
     dataSourceRepo = new DataSourceRepository(ctx)
-    val tmpDir     = Files.createTempDirectory("helio-schema-inference-regression")
+    val tmpDir     = newTempDir("helio-schema-inference-regression")
     fileSystem     = new LocalFileSystem(tmpDir)
     service        = new DataSourceService(dataSourceRepo, fileSystem)
   }

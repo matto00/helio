@@ -1,5 +1,7 @@
 package com.helio.services.pipelines
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.services.sources.ContentSourceSupport
 import com.helio.services.ServiceError
@@ -40,7 +42,7 @@ import com.helio.domain.steps.SecondaryInput
  *  wiring — real run / dry run, success / failure, owner / editor-grantee.
  *  Modelled after `PipelineRunRoutesSpec`'s real-Postgres fixture but calls
  *  `PipelineRunService.submit` directly (service-layer, not route-layer). */
-class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
+class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
@@ -155,6 +157,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
   override def afterAll(): Unit = {
     db.close(); embeddedPostgres.close(); typedSystem.terminate()
+    super.afterAll()
   }
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
@@ -403,8 +406,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
    *  it. Mirrors `PipelineRunRoutesSpec.seedDsImage`. */
   private def seedDsImage(): String = {
     import PostgresProfile.api._
-    val tmp = java.io.File.createTempFile("helio-pipeline-run-service-image-", ".png")
-    tmp.deleteOnExit()
+    val tmp = newTempFile("helio-pipeline-run-service-image-", ".png").toFile
     val image = new java.awt.image.BufferedImage(3, 2, java.awt.image.BufferedImage.TYPE_INT_RGB)
     javax.imageio.ImageIO.write(image, "png", tmp)
 

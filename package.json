@@ -21,6 +21,8 @@
     "check:precommit-ci-parity": "node scripts/check-precommit-ci-parity.mjs",
     "check:precommit-ci-parity:selftest": "node scripts/check-precommit-ci-parity.selftest.mjs",
     "check:scala-quality": "node scripts/check-scala-quality.mjs",
+    "check:test-temp-dir-hygiene": "node scripts/check-test-temp-dir-hygiene.mjs",
+    "check:test-temp-dir-hygiene:selftest": "node scripts/check-test-temp-dir-hygiene.selftest.mjs",
     "check:node-root-encoding": "node scripts/check-node-root-encoding.mjs",
     "check:node-root-encoding:selftest": "node scripts/check-node-root-encoding.selftest.mjs",
     "check:node-root-encoding:ts": "node scripts/check-node-root-encoding.ts.mjs",

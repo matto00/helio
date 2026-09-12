@@ -1,5 +1,7 @@
 package com.helio.domain.engine
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.domain.model.{AssertionSink, CsvSourceConfig, ImageSourceConfig, PdfSourceConfig, RestApiConfig, TextSourceConfig, TruncationSink}
 import com.helio.domain.model.{CsvSource, ImageSource, PdfSource, RestSource, SqlSource, TextSource, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
@@ -28,7 +30,7 @@ import java.time.Instant
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
+class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with TempDirectorySupport {
 
   // Not `implicit` (HEL-758): ScalatestRouteTest's own `RouteTest.executor`
   // implicit would otherwise collide with this one, ambiguous-implicit at
@@ -1968,8 +1970,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     // DataSourceRoutes; the engine previously read "filePath", causing every
     // CSV pipeline run to fail with `key not found: filePath` (HTTP 422).
     "loadRows: CSV source reads filePath from the canonical 'path' config key" in {
-      val tmp = java.io.File.createTempFile("helio-csv-regression-", ".csv")
-      tmp.deleteOnExit()
+      val tmp = newTempFile("helio-csv-regression-", ".csv").toFile
       val writer = new java.io.PrintWriter(tmp)
       try {
         writer.println("name,age")
@@ -2021,8 +2022,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     // used deliberately -- it's the shape that used to declare `integer` while materializing
     // `String`.
     "loadRows: a numeric-looking CSV column materializes as String, matching its declared schema (HEL-893)" in {
-      val tmp = java.io.File.createTempFile("helio-csv-runtime-type-", ".csv")
-      tmp.deleteOnExit()
+      val tmp = newTempFile("helio-csv-runtime-type-", ".csv").toFile
       val writer = new java.io.PrintWriter(tmp)
       try {
         writer.println("id,count")
@@ -2114,8 +2114,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     // asserting it: infer a schema over the SAME rows the engine would load for a downstream
     // Output, and compare it to the source-level `fromCsv` schema.
     "loadRows + downstream Output re-inference: a CSV source's Output-level schema agrees with its source-level schema after HEL-893 (was a contradiction before)" in {
-      val tmp = java.io.File.createTempFile("helio-csv-output-agreement-", ".csv")
-      tmp.deleteOnExit()
+      val tmp = newTempFile("helio-csv-output-agreement-", ".csv").toFile
       val writer = new java.io.PrintWriter(tmp)
       try {
         writer.println("id,is_epic")
@@ -2187,8 +2186,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     }
 
     "loadRows: a snapshot-backed (no sourceUrl) CSV source reads the file and never calls the seam" in {
-      val tmp = java.io.File.createTempFile("helio-csv-snapshot-", ".csv")
-      tmp.deleteOnExit()
+      val tmp = newTempFile("helio-csv-snapshot-", ".csv").toFile
       val writer = new java.io.PrintWriter(tmp)
       try { writer.println("name,age"); writer.println("carol,50") } finally writer.close()
 
@@ -2251,8 +2249,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     // HEL-215: text/Markdown connector — single-row loader.
 
     "loadRows: TextSource yields exactly one row with content/filename/sizeBytes keys" in {
-      val tmp = java.io.File.createTempFile("helio-text-regression-", ".txt")
-      tmp.deleteOnExit()
+      val tmp = newTempFile("helio-text-regression-", ".txt").toFile
       val writer = new java.io.PrintWriter(tmp)
       try writer.print("hello world") finally writer.close()
 
@@ -2293,8 +2290,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
 
     "loadRows: PdfSource yields one row per page with correct pageNumber/pageCount/content/characterCount" in {
       val bytes = PdfFixtures.multiPagePdf(Seq("Alpha content", "Beta content", "Gamma content"))
-      val tmp   = java.io.File.createTempFile("helio-pdf-regression-", ".pdf")
-      tmp.deleteOnExit()
+      val tmp   = newTempFile("helio-pdf-regression-", ".pdf").toFile
       java.nio.file.Files.write(tmp.toPath, bytes)
 
       val ds = PdfSource(
@@ -2343,8 +2339,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     // binary-ref map.
 
     "loadRows: ImageSource yields exactly one row with content/filename/sizeBytes/mimeType/width/height keys" in {
-      val tmp = java.io.File.createTempFile("helio-image-regression-", ".png")
-      tmp.deleteOnExit()
+      val tmp = newTempFile("helio-image-regression-", ".png").toFile
       val image = new java.awt.image.BufferedImage(5, 4, java.awt.image.BufferedImage.TYPE_INT_RGB)
       javax.imageio.ImageIO.write(image, "png", tmp)
       val bytes = java.nio.file.Files.readAllBytes(tmp.toPath)
@@ -2390,8 +2385,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
     }
 
     "loadRows: ImageSource with corrupt bytes raises a diagnostic error (not a raw exception)" in {
-      val tmp = java.io.File.createTempFile("helio-image-corrupt-", ".png")
-      tmp.deleteOnExit()
+      val tmp = newTempFile("helio-image-corrupt-", ".png").toFile
       val writer = new java.io.FileOutputStream(tmp)
       try writer.write(Array[Byte](0x00, 0x01, 0x02)) finally writer.close()
 

@@ -1,5 +1,7 @@
 package com.helio.services.workspace
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.WorkspaceTeardownService
 import com.helio.infrastructure.persistence.DbContext
@@ -65,7 +67,7 @@ class WorkspaceTeardownServiceSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer
@@ -140,7 +142,7 @@ class WorkspaceTeardownServiceSpec
     panelRepo      = new PanelRepository(ctx)(routeEc)
     dashboardRepo  = new DashboardRepository(ctx)(routeEc)
 
-    val tmpDir = Files.createTempDirectory("helio-teardown-spec")
+    val tmpDir = newTempDir("helio-teardown-spec")
     val fs     = new LocalFileSystem(tmpDir)
     dataSourceService = new DataSourceService(dataSourceRepo, fs)(routeEc, mat, typedSystem)
 

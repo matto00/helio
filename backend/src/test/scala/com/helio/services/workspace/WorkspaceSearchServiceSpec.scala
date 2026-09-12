@@ -1,5 +1,6 @@
 package com.helio.services.workspace
 
+import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
@@ -44,7 +45,7 @@ class WorkspaceSearchServiceSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 
@@ -88,7 +89,7 @@ class WorkspaceSearchServiceSpec
     dashboardRepo    = new DashboardRepository(ctx)
     permissionRepo   = new ResourcePermissionRepository(ctx)
 
-    val tmpDir = java.nio.file.Files.createTempDirectory("helio-workspace-search-spec")
+    val tmpDir = newTempDir("helio-workspace-search-spec")
     val fs     = new LocalFileSystem(tmpDir)
     dataSourceService = new DataSourceService(dataSourceRepo, fs)
     outputRepo        = new OutputRepository(ctx)

@@ -52,6 +52,7 @@ class CsvUrlFetchSpec extends AnyWordSpec with Matchers with ScalatestRouteTest 
   private val oversizeBody = "a,b\n" + ("1,2\n" * 20_000_000) // comfortably over any reasonable test limit
 
   override def beforeAll(): Unit = {
+    // temp-dir-hygiene: reviewed — deleted recursively in afterAll below.
     keystoreDir = Files.createTempDirectory("csv-url-fetch-spec")
     val keystorePath = keystoreDir.resolve("test.p12")
     val genCmd = Seq(

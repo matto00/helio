@@ -1,5 +1,7 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.testkit.TempDirectorySupport
+
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -39,7 +41,7 @@ class PipelineRootRoutesSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                  = typedSystem.executionContext
@@ -116,7 +118,7 @@ class PipelineRootRoutesSpec
 
   private def routes: Route = {
     implicit val ec: ExecutionContext = routeEc
-    val fs                = new LocalFileSystem(Files.createTempDirectory("pipeline-root-routes-spec"))
+    val fs                = new LocalFileSystem(newTempDir("pipeline-root-routes-spec"))
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     // Task 7.1a's inline "static" branch only ever touches `dataSourceService`; `connector` is
     // never dereferenced by that branch, so `null` is safe here (mirrors this file's other
@@ -135,7 +137,7 @@ class PipelineRootRoutesSpec
    *  regardless of whether this collaborator is wired. */
   private def routesWithoutOutputRepo: Route = {
     implicit val ec: ExecutionContext = routeEc
-    val fs                = new LocalFileSystem(Files.createTempDirectory("pipeline-root-routes-spec-no-output-repo"))
+    val fs                = new LocalFileSystem(newTempDir("pipeline-root-routes-spec-no-output-repo"))
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     val sourceService = new SourceService(dataSourceRepo, connector = null)
     val service = new PipelineService(

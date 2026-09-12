@@ -1,5 +1,7 @@
 package com.helio.services.workspace
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.pipelines.PipelineService
@@ -48,7 +50,7 @@ class WorkspaceContextServiceAgentContextSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   // DataSourceService (a WorkspaceContextService collaborator) needs an implicit Materializer +
   // typed ActorSystem in scope -- ScalatestRouteTest supplies the classic `system`/Materializer;
@@ -94,7 +96,7 @@ class WorkspaceContextServiceAgentContextSpec
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
 
-    val tmpDir = Files.createTempDirectory("helio-workspace-context-agent-spec")
+    val tmpDir = newTempDir("helio-workspace-context-agent-spec")
     val fs     = new LocalFileSystem(tmpDir)
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
@@ -126,6 +128,7 @@ class WorkspaceContextServiceAgentContextSpec
 
   override def afterAll(): Unit = {
     db.close(); embeddedPostgres.close()
+    super.afterAll()
   }
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)

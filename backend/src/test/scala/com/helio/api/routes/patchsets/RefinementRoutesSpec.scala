@@ -1,5 +1,7 @@
 package com.helio.api.routes.patchsets
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api.routes.patchsets.RefinementRoutes
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
@@ -54,7 +56,7 @@ class RefinementRoutesSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContextExecutor = typedSystem.executionContext
@@ -97,7 +99,7 @@ class RefinementRoutesSpec
     )
     val permissionRepo = new ResourcePermissionRepository(ctx)
     val accessChecker   = new AccessCheckerImpl(permissionRepo, registry)
-    val tmpDir = Files.createTempDirectory("helio-refinement-routes-spec")
+    val tmpDir = newTempDir("helio-refinement-routes-spec")
     val fs     = new LocalFileSystem(tmpDir)
 
     val dashboardService = new DashboardService(dashboardRepo, accessChecker)

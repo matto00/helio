@@ -1,6 +1,7 @@
 package com.helio.infrastructure.storage
 
 import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.testkit.TempDirectorySupport
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -12,11 +13,11 @@ import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 import scala.util.{Try, Using}
 
-class LocalFileSystemSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
+class LocalFileSystemSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll with TempDirectorySupport {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private val tempDir = Files.createTempDirectory("helio-fs-test")
+  private val tempDir = newTempDir("helio-fs-test")
   private val fs      = new LocalFileSystem(tempDir)
 
   private def await[A](f: Future[A]): A =
@@ -204,6 +205,7 @@ class LocalFileSystemSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       Files.createDirectories(precondDir)
       precondDir.toFile.setWritable(false)
       try {
+        // temp-dir-hygiene: reviewed — created inside `tempDir`, swept by TempDirectorySupport's recursive delete of `tempDir` itself.
         val precondDenied = Try(Files.createTempFile(precondDir, ".probe", ".tmp")).isFailure
         assert(
           precondDenied,
@@ -275,7 +277,7 @@ class LocalFileSystemSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
   "LocalFileSystem.fromEnv" should {
 
     "use HELIO_UPLOADS_ROOT when set to an absolute path" in {
-      val dir = Files.createTempDirectory("helio-from-env-abs")
+      val dir = newTempDir("helio-from-env-abs")
       withEnv("HELIO_UPLOADS_ROOT" -> dir.toString) {
         val result = LocalFileSystem.fromEnv()
         assert(result.baseDir == dir.toAbsolutePath.normalize())
@@ -300,7 +302,7 @@ class LocalFileSystemSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
     }
 
     "create the directory tree when the path does not yet exist" in {
-      val base   = Files.createTempDirectory("helio-from-env-create")
+      val base   = newTempDir("helio-from-env-create")
       val newDir = base.resolve("nested/subdir")
       withEnv("HELIO_UPLOADS_ROOT" -> newDir.toString) {
         val result = LocalFileSystem.fromEnv()
@@ -309,7 +311,7 @@ class LocalFileSystemSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
     }
 
     "honour the backward-compat HELIO_UPLOADS_DIR alias" in {
-      val dir = Files.createTempDirectory("helio-from-env-compat")
+      val dir = newTempDir("helio-from-env-compat")
       withoutEnv("HELIO_UPLOADS_ROOT") {
         withEnv("HELIO_UPLOADS_DIR" -> dir.toString) {
           val result = LocalFileSystem.fromEnv()
