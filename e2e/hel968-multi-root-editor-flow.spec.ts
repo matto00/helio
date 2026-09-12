@@ -56,7 +56,7 @@ test.describe("HEL-968 multi-root editor (live UI proof)", () => {
     const sourceModal = page.getByRole("dialog", { name: "Add data source" });
     await sourceModal.getByRole("button", { name: "Manual" }).click();
     await sourceModal.locator("#source-name-static").fill("HEL-968 Root One");
-    await sourceModal.getByLabel("Column 1 name").fill("label");
+    await sourceModal.getByLabel("Field 1 name").fill("label");
     await sourceModal.getByRole("button", { name: "Next: Add rows" }).click();
     await sourceModal.getByRole("button", { name: "+ Add row" }).click();
     await sourceModal.getByLabel("Row 1 label").fill("a");
@@ -81,7 +81,7 @@ test.describe("HEL-968 multi-root editor (live UI proof)", () => {
     const rootTwoSourceModal = page.getByRole("dialog", { name: "Add data source" });
     await rootTwoSourceModal.getByRole("button", { name: "Manual" }).click();
     await rootTwoSourceModal.locator("#source-name-static").fill("HEL-968 Root Two");
-    await rootTwoSourceModal.getByLabel("Column 1 name").fill("category");
+    await rootTwoSourceModal.getByLabel("Field 1 name").fill("category");
     await rootTwoSourceModal.getByRole("button", { name: "Next: Add rows" }).click();
     await rootTwoSourceModal.getByRole("button", { name: "+ Add row" }).click();
     await rootTwoSourceModal.getByLabel("Row 1 category").fill("x");

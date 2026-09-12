@@ -145,12 +145,14 @@
 }
 
 .source-detail-panel__schema,
-.source-detail-panel__preview {
+.source-detail-panel__preview,
+.source-detail-panel__schema-edit {
   margin-top: var(--space-3);
 }
 
 .source-detail-panel__preview,
-.source-detail-panel__rows {
+.source-detail-panel__rows,
+.source-detail-panel__schema-edit {
   padding-top: var(--space-4);
   border-top: 1px solid var(--app-border-subtle);
 }

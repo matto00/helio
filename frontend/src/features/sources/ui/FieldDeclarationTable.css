@@ -1,0 +1,17 @@
+/* HEL-1079 skeptic-final-1.md CR2: this component previously shipped zero CSS, relying solely on
+   borrowed `add-source-modal__*` classes for the table/buttons -- but its OWN classes
+   (`field-declaration-table`, `field-declaration-table__actions`) had no rules at all, so the
+   reorder/remove icon buttons stacked cramped with no spacing. DESIGN.md Spacing's [mechanical]
+   rule requires every margin/padding/gap to use a `--space-*` token. */
+
+.field-declaration-table {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.field-declaration-table__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}

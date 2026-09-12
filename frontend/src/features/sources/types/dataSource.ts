@@ -158,12 +158,16 @@ export interface InferredField {
 
 export type StaticColumnType = "string" | "integer" | "float" | "boolean";
 
-// HEL-1076 design.md Decision 6: `required`/`default` are wire fields the backend now validates
-// (`DatasetFieldDeclaration`) -- optional here since `StaticSourceForm` doesn't populate them yet
-// (that's form-panel UX, epic 2); a caller that sets them (MCP, a future UI) is honored.
+// HEL-1079 design.md Decision 4: `StaticColumn.type` is widened from the 4-type
+// `StaticColumnType` to the full 7-type `DatasetFieldType` -- no wire-shape change, since the
+// backend already accepts any canonical type string in this field. `StaticColumnType` itself is
+// left in place (still referenced elsewhere) but no longer used for this field.
+//
+// HEL-1076 design.md Decision 6: `required`/`default` are wire fields the backend validates
+// (`DatasetFieldDeclaration`).
 export interface StaticColumn {
   name: string;
-  type: StaticColumnType;
+  type: DatasetFieldType;
   required?: boolean;
   default?: unknown;
 }
@@ -242,6 +246,23 @@ export type DatasetFieldType =
   | "timestamp"
   | "string-body"
   | "binary-ref";
+
+/** HEL-1079 design.md Decision 4: the ONE place the field editor's type `Select` options come
+ *  from -- all 7 canonical types, in the same order as the backend's `CanonicalWireValues`
+ *  (`backend/src/main/scala/com/helio/domain/model/model.scala`). Never `"double"` -- the
+ *  backend accepts it only as a legacy synonym it silently rewrites to `"float"`
+ *  (`canonicalizeLegacy`, HEL-891); a UI mistake here would never be rejected, so
+ *  `canonicalFieldTypesDriftGuard.test.ts` cross-checks this array against the backend source
+ *  directly rather than trusting a hand-copied twin. */
+export const CANONICAL_FIELD_TYPES: DatasetFieldType[] = [
+  "string",
+  "integer",
+  "float",
+  "boolean",
+  "timestamp",
+  "string-body",
+  "binary-ref",
+];
 
 /** One declared field, mirroring the backend's `DatasetFieldResponse` field-for-field.
  *  `required` is always present (never omitted, even when `false`); `default` is genuinely

@@ -1,12 +1,16 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 
 import { InlineError } from "../../../../shared/chrome/InlineError";
-import type { StaticColumn, StaticColumnType } from "../../types/dataSource";
-import { Select, TextField } from "../../../../shared/ui/index";
+import type { StaticColumn } from "../../types/dataSource";
+import { TextField } from "../../../../shared/ui/index";
 import { X } from "lucide-react";
 import { ICON_SIZE } from "../../../../shared/ui/iconSize";
-
-const COLUMN_TYPES: StaticColumnType[] = ["string", "integer", "float", "boolean"];
+import {
+  emptyFieldDeclarationRow,
+  FieldDeclarationTable,
+  type FieldDeclarationRow,
+} from "../FieldDeclarationTable";
+import { getEditorKind } from "../../hooks/useDatasetFieldEditor";
 
 type StaticStep = "columns" | "rows";
 
@@ -18,6 +22,24 @@ export interface StaticSourceFormProps {
   onCancel: () => void;
 }
 
+/** Converts a `FieldDeclarationRow`'s raw editor `default` string into the typed value
+ *  `StaticColumn.default` should carry -- empty means "no default declared" (`undefined`, not
+ *  a literal `null`), mirroring `useDatasetFieldEditor`'s "emptied means null, blank means
+ *  absent" convention used elsewhere in this feature. */
+function parseDefault(row: FieldDeclarationRow): unknown {
+  if (row.default.trim() === "") return undefined;
+  if (row.type === "integer") {
+    const n = parseInt(row.default, 10);
+    return Number.isNaN(n) ? row.default : n;
+  }
+  if (row.type === "float") {
+    const n = parseFloat(row.default);
+    return Number.isNaN(n) ? row.default : n;
+  }
+  if (row.type === "boolean") return row.default === "true";
+  return row.default;
+}
+
 export function StaticSourceForm({
   name,
   onSubmit,
@@ -26,27 +48,34 @@ export function StaticSourceForm({
   onCancel,
 }: StaticSourceFormProps) {
   const [step, setStep] = useState<StaticStep>("columns");
-  const [columns, setColumns] = useState<StaticColumn[]>([{ name: "", type: "string" }]);
+  const [fieldRows, setFieldRows] = useState<FieldDeclarationRow[]>([emptyFieldDeclarationRow()]);
   const [rows, setRows] = useState<string[][]>([]);
   const [columnError, setColumnError] = useState<string | null>(null);
+  const addFieldButtonRef = useRef<HTMLButtonElement>(null);
 
-  function addColumn() {
-    setColumns((prev) => [...prev, { name: "", type: "string" }]);
-  }
-
-  function updateColumn(index: number, field: keyof StaticColumn, value: string) {
-    setColumns((prev) =>
-      prev.map((col, i) => (i === index ? { ...col, [field]: value as StaticColumnType } : col)),
-    );
-  }
-
-  function removeColumn(index: number) {
-    setColumns((prev) => prev.filter((_, i) => i !== index));
-    setRows((prev) => prev.map((row) => row.filter((_, i) => i !== index)));
+  function handleFieldRowsChange(next: FieldDeclarationRow[]) {
+    // tasks.md 1.5: reordering columns after rows have been entered must keep each row's cells
+    // aligned to the new column order -- mirrors `removeColumn`'s existing re-slice below.
+    if (next.length === fieldRows.length && rows.length > 0) {
+      const oldOrder = fieldRows.map((r) => r.id);
+      const newOrder = next.map((r) => r.id);
+      const isReorder = oldOrder.every((id) => newOrder.includes(id));
+      if (isReorder) {
+        const permutation = newOrder.map((id) => oldOrder.indexOf(id));
+        setRows((prev) => prev.map((row) => permutation.map((i) => row[i])));
+      }
+    } else if (next.length < fieldRows.length) {
+      // A field was removed -- re-slice each row to drop the corresponding cell.
+      const removedIndex = fieldRows.findIndex((r) => !next.some((n) => n.id === r.id));
+      if (removedIndex !== -1) {
+        setRows((prev) => prev.map((row) => row.filter((_, i) => i !== removedIndex)));
+      }
+    }
+    setFieldRows(next);
   }
 
   function addRow() {
-    setRows((prev) => [...prev, columns.map(() => "")]);
+    setRows((prev) => [...prev, fieldRows.map(() => "")]);
   }
 
   function removeRow(rowIndex: number) {
@@ -71,14 +100,14 @@ export function StaticSourceForm({
       setColumnError("Source name is required.");
       return;
     }
-    const hasEmpty = columns.some((col) => !col.name.trim());
-    if (columns.length === 0 || hasEmpty) {
-      setColumnError("All columns must have a name.");
+    const hasEmpty = fieldRows.some((r) => !r.name.trim());
+    if (fieldRows.length === 0 || hasEmpty) {
+      setColumnError("All fields must have a name.");
       return;
     }
-    const names = columns.map((c) => c.name.trim());
+    const names = fieldRows.map((r) => r.name.trim());
     if (new Set(names).size !== names.length) {
-      setColumnError("Column names must be unique.");
+      setColumnError("Field names must be unique.");
       return;
     }
     setColumnError(null);
@@ -86,8 +115,8 @@ export function StaticSourceForm({
       if (prev.length === 0) return prev;
       return prev.map((row) => {
         const padded = [...row];
-        while (padded.length < columns.length) padded.push("");
-        return padded.slice(0, columns.length);
+        while (padded.length < fieldRows.length) padded.push("");
+        return padded.slice(0, fieldRows.length);
       });
     });
     setStep("rows");
@@ -96,9 +125,18 @@ export function StaticSourceForm({
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    const columns: StaticColumn[] = fieldRows.map((r) => {
+      const parsedDefault = parseDefault(r);
+      return {
+        name: r.name.trim(),
+        type: r.type,
+        required: r.required,
+        ...(parsedDefault !== undefined ? { default: parsedDefault } : {}),
+      };
+    });
     const typedRows = rows.map((row) =>
       row.map((cell, ci) => {
-        const colType = columns[ci]?.type ?? "string";
+        const colType = fieldRows[ci]?.type ?? "string";
         // HEL-1076 tasks.md 3.1: `parseInt`/`parseFloat` return `NaN` for an unparseable cell
         // (e.g. stray text in a numeric column) -- `JSON.stringify(NaN)` silently serializes to
         // `null`, which the backend's DatasetRowValidator would then treat as "missing" rather
@@ -124,61 +162,14 @@ export function StaticSourceForm({
   if (step === "columns") {
     return (
       <form className="add-source-modal__form" onSubmit={handleNextStep}>
-        <p className="add-source-modal__preview-hint">
-          Define the columns for your static data source.
-        </p>
+        <p className="add-source-modal__preview-hint">Declare the fields for your dataset.</p>
 
-        <table className="add-source-modal__fields-table" aria-label="Column definitions">
-          <thead>
-            <tr>
-              <th>Column name</th>
-              <th>Type</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {columns.map((col, index) => (
-              <tr key={index}>
-                <td>
-                  <TextField
-                    type="text"
-                    aria-label={`Column ${index + 1} name`}
-                    value={col.name}
-                    onChange={(e) => updateColumn(index, "name", e.target.value)}
-                    placeholder="column_name"
-                  />
-                </td>
-                <td>
-                  <Select
-                    ariaLabel={`Column ${index + 1} type`}
-                    value={col.type}
-                    onChange={(v) => updateColumn(index, "type", v)}
-                    options={COLUMN_TYPES.map((t) => ({ value: t, label: t }))}
-                  />
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="add-source-modal__action-link"
-                    aria-label={`Remove column ${index + 1}`}
-                    onClick={() => removeColumn(index)}
-                    disabled={columns.length <= 1}
-                  >
-                    <X size={ICON_SIZE.sm} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <button
-          type="button"
-          className="add-source-modal__btn add-source-modal__btn--secondary add-source-modal__btn--align-start"
-          onClick={addColumn}
-        >
-          + Add column
-        </button>
+        <FieldDeclarationTable
+          rows={fieldRows}
+          onChange={handleFieldRowsChange}
+          addFieldButtonRef={addFieldButtonRef}
+          idPrefix="static-source-create"
+        />
 
         <InlineError error={columnError} />
 
@@ -208,9 +199,9 @@ export function StaticSourceForm({
         <table className="add-source-modal__fields-table" aria-label="Data rows">
           <thead>
             <tr>
-              {columns.map((col) => (
-                <th key={col.name}>
-                  {col.name} <span className="add-source-modal__optional">({col.type})</span>
+              {fieldRows.map((r) => (
+                <th key={r.id}>
+                  {r.name} <span className="add-source-modal__optional">({r.type})</span>
                 </th>
               ))}
               <th></th>
@@ -220,7 +211,7 @@ export function StaticSourceForm({
             {rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={columns.length + 1}
+                  colSpan={fieldRows.length + 1}
                   className="add-source-modal__empty add-source-modal__empty-cell"
                 >
                   No rows yet. Click &ldquo;Add row&rdquo; to start.
@@ -229,17 +220,28 @@ export function StaticSourceForm({
             )}
             {rows.map((row, ri) => (
               <tr key={ri}>
-                {row.map((cell, ci) => (
-                  <td key={ci}>
-                    <TextField
-                      type="text"
-                      aria-label={`Row ${ri + 1} ${columns[ci]?.name ?? ""}`}
-                      value={cell}
-                      onChange={(e) => updateCell(ri, ci, e.target.value)}
-                      placeholder={columns[ci]?.type === "boolean" ? "true / false" : ""}
-                    />
-                  </td>
-                ))}
+                {row.map((cell, ci) => {
+                  const field = fieldRows[ci];
+                  const isReadonly = field ? getEditorKind(field.type) === "readonly" : false;
+                  return (
+                    <td key={ci}>
+                      <TextField
+                        type="text"
+                        aria-label={`Row ${ri + 1} ${field?.name ?? ""}`}
+                        value={cell}
+                        onChange={(e) => updateCell(ri, ci, e.target.value)}
+                        placeholder={
+                          field?.type === "boolean"
+                            ? "true / false"
+                            : isReadonly
+                              ? "not applicable"
+                              : ""
+                        }
+                        disabled={isReadonly}
+                      />
+                    </td>
+                  );
+                })}
                 <td>
                   <button
                     type="button"

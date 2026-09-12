@@ -16,6 +16,7 @@ import { SchemaFieldViewer } from "../../../shared/ui/SchemaFieldViewer";
 import { EmptySchemaAffordance } from "./EmptySchemaAffordance";
 import { SourcePreviewSkeleton } from "./SourcePreviewSkeleton";
 import { DatasetRowGrid } from "./DatasetRowGrid";
+import { DatasetSchemaEditor } from "./DatasetSchemaEditor";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 interface SourceDetailPanelProps {
@@ -275,10 +276,16 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
       {source.type === "dataset" ? (
         // HEL-1080 design.md Decision 7: a dataset source's rows ARE its data — the editable
         // grid REPLACES the read-only Preview section entirely for this kind.
-        <section className="source-detail-panel__rows" aria-label="Rows">
-          <h4 className="eyebrow source-detail-panel__section-title">Rows</h4>
-          <DatasetRowGrid sourceId={source.id} />
-        </section>
+        <>
+          <section className="source-detail-panel__schema-edit" aria-label="Schema">
+            <h4 className="eyebrow source-detail-panel__section-title">Schema</h4>
+            <DatasetSchemaEditor sourceId={source.id} />
+          </section>
+          <section className="source-detail-panel__rows" aria-label="Rows">
+            <h4 className="eyebrow source-detail-panel__section-title">Rows</h4>
+            <DatasetRowGrid sourceId={source.id} />
+          </section>
+        </>
       ) : (
         <section className="source-detail-panel__preview" aria-label="Preview">
           <h4 className="eyebrow source-detail-panel__section-title">Preview</h4>
