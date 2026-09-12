@@ -126,7 +126,7 @@ test.describe("HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof
     await sourceModal.locator("#source-name-static").fill("HEL-910 Flow Source");
     // Default single column ("", type "string") is renamed via typing only
     // (not counted) -- no "+ Add column" click needed for a minimal source.
-    await sourceModal.getByLabel("Column 1 name").fill("label");
+    await sourceModal.getByLabel("Field 1 name").fill("label");
     await io.click(sourceModal.getByRole("button", { name: "Next: Add rows" }));
     await io.click(sourceModal.getByRole("button", { name: "+ Add row" }));
     await sourceModal.getByLabel("Row 1 label").fill("a");
