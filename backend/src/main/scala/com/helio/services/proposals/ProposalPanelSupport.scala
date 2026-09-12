@@ -46,7 +46,7 @@ object ProposalPanelSupport {
 
   /** Verify every panel's actual binding target — the flat `outputId` for
    *  `DataPanelKinds`, OR (HEL-316) a non-`DataPanelKinds` panel's
-   *  `config.outputId` — resolves to a pipeline-output DataType owned by
+   *  `config.outputId` — resolves to an Output owned by
    *  the caller. Runs BEFORE any write (zero DB writes here — these are
    *  reads only), so a bad binding never reaches the caller's
    *  transactional write. */

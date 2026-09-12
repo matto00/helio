@@ -15,7 +15,7 @@ import spray.json._
 /** Carries no ids: applying it (POST /api/proposals/apply) mints the
  *  pipeline's resolved source (if inline)/pipeline/steps/run AND the
  *  dashboard/panels atomically. `dashboard`'s panels may bind to `pipeline`'s
- *  not-yet-created output DataType via the reserved `"$pipelineOutput"`
+ *  not-yet-created Output via the reserved `"$pipelineOutput"`
  *  sentinel — see [[com.helio.services.CombinedProposalService]]. */
 final case class CombinedProposal(pipeline: PipelineProposal, dashboard: DashboardProposal)
 

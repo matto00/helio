@@ -249,7 +249,7 @@ class InProcessPipelineEngine(
         // (D2 deliberately accepts it — that is the editor's
         // add-then-configure flow, running in production today), but it
         // must not silently produce degraded output: a `compute` with an
-        // empty `column` writes a field named "" into the output DataType.
+        // empty `column` writes a field named "" into the output row schema.
         // The predicate is the step kind's own `requiredConfigProblems`,
         // evaluated against the RAW config text — the same method, over
         // the same representation, that the analyze surface evaluates, so

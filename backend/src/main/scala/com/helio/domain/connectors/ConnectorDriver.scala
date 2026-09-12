@@ -105,11 +105,12 @@ final case class ConnectorMetadata(
  *  '''Fetch-error envelope''' (HEL-468): any implementation gets a diagnosable create-time envelope
  *  for free via `CreateSourceEnvelope.build` — a connector never needs its own envelope-construction
  *  code. Given a `ConnectorDriver[Config]` instance and its config, the helper calls
- *  `inferSchema` and, on `Left(err)`, returns a `CreateSourceResponse` with `dataType = None` and
- *  `fetchError = Some(err)` (the caller's create request still succeeds at the HTTP level — a bad
- *  URL/credential is diagnosable and retryable rather than a hard failure); on `Right(schema)`, it
- *  projects fields via `SchemaInferenceFacade.toDataFields`, persists a new `DataType`, and returns
- *  `dataType = Some(...)` with `fetchError = None`. `err` is forwarded unmodified — the helper never
+ *  `inferSchema` and, on `Left(err)`, returns a `CreateSourceResponse` with `inferredSchema = None`
+ *  and `fetchError = Some(err)` (the caller's create request still succeeds at the HTTP level — a
+ *  bad URL/credential is diagnosable and retryable rather than a hard failure); on `Right(schema)`,
+ *  it projects fields via `SchemaInferenceFacade.toDataFields`, upserts them onto the source's own
+ *  `inferred_schema` column (HEL-904 — no companion `DataType` row anymore), and returns
+ *  `inferredSchema = Some(...)` with `fetchError = None`. `err` is forwarded unmodified — the helper never
  *  re-wraps, re-prefixes, or re-derives the HEL-311 curated category message an implementation's
  *  `inferSchema` already produced.
  *

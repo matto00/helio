@@ -78,18 +78,19 @@ final case class WorkspaceContextColumnStats(
     mean: Option[Double]
 )
 
-/** `pipelineOutput = sourceId.isEmpty` (design.md D7) — classified directly
- *  off the domain `DataType.sourceId: Option[DataSourceId]`, never through a
- *  wire round-trip (spray-json omits `None` fields, which is the exact
- *  footgun `context.ts`'s own inline comment documents for its client-side
- *  fan-out — the Scala assembler avoids it by construction).
+/** `sourceId` is a HEL-904 vestige: it always carries `None` today (`WorkspaceContextService.
+ *  toDataTypeEntry` hardcodes it) since the companion-DataType/pipeline-output split it once
+ *  classified was retired by the pipelines-and-outputs remodel — every entry is a pipeline Output,
+ *  so `pipelineOutput` is likewise always `true`. Both fields are kept on the wire (rather than
+ *  removed) so existing consumers keep compiling; spray-json omits `None` fields on the wire,
+ *  which is the exact footgun `context.ts`'s own inline comment documents for its client-side
+ *  fan-out — the Scala assembler avoids it by construction.
  *
- *  `sampleRows` (HEL-372): up to 5 rows from the DataType's latest
- *  pipeline-run snapshot, capped to the first 40 declared Structured-category
- *  columns and 200 characters per cell (`WorkspaceContextService.sanitizeSampleRows`,
- *  design.md D3). Always present (an empty `Vector`, never `Option`) — a
- *  source-companion DataType or one with no run snapshot reports `[]`, so
- *  there is no spray-json `None`-omission concern here.
+ *  `sampleRows`: up to 5 rows from the Output's latest `node_snapshots` row, capped to the first
+ *  40 declared Structured-category columns and 200 characters per cell
+ *  (`WorkspaceContextService.sanitizeSampleRows`, design.md D3). Always present (an empty
+ *  `Vector`, never `Option`) — an Output with no run snapshot reports `[]`, so there is no
+ *  spray-json `None`-omission concern here.
  *
  *  `columnStats` (HEL-373): one entry per Structured-category column (capped
  *  at 40, design.md D2), keyed by column name, computed from the same

@@ -21,7 +21,8 @@ import scala.math.BigDecimal.RoundingMode
 
 /** Server-side port of `helio-mcp/src/context.ts`'s `buildWorkspaceContext`
  *  (HEL-371). Composes the caller's EXISTING owner-scoped
- *  services — `DashboardService`, `DataSourceService`, `DataTypeService`,
+ *  services — `DashboardService`, `DataSourceService`, `OutputRepository` (via `outputRepo`,
+ *  which replaced the retired `DataTypeService` — see task 3.12's note below),
  *  `PipelineService` — and performs no direct database access of its own
  *  (design.md D1), mirroring `DashboardProposalService`'s composition
  *  discipline. Every read therefore inherits the owner-scoping already
@@ -32,12 +33,6 @@ import scala.math.BigDecimal.RoundingMode
  *  that returns a bare count without an ACL/dashboard-detail round trip, so
  *  this one read goes straight to `PanelRepository`, sharing-aware via the
  *  same `Some(user)` predicate the D1-abiding services above use internally.
- *
- *  HEL-372: takes `dataTypeService: DataTypeService` rather than a bare
- *  `DataTypeRepository` (design.md D7) — `findAll` is still exactly what
- *  `DataTypeRepository.findAll` did, but `listRows`'s owner-scoping choke
- *  point (`findByIdOwned`) only exists on the service, and sample rows need
- *  it.
  *
  *  HEL-521 (420-C) design.md Decision 2: `agentPreferencesServiceOpt`/`agentMemoryServiceOpt` are
  *  `Option`-guarded, trailing, default-`None` constructor params -- mirrors
@@ -385,23 +380,21 @@ final class WorkspaceContextService(
     WorkspaceContextDataSource(id = ds.id.value, name = ds.name, `type` = ds.kind, tag = ds.tag)
 
   /** `private[services]` (not `private`) — HEL-661 design.md D2: reused verbatim by
-   *  `WorkspaceSearchService.getResource`'s DataType dispatch, mirroring `buildPipeline`'s existing
-   *  same-package-reuse precedent. Zero behavior change.
+   *  `WorkspaceSearchService.getResource`'s dataType-resource dispatch, mirroring `buildPipeline`'s
+   *  existing same-package-reuse precedent. Zero behavior change.
    *
-   *  `pipelineOutput = dt.sourceId.isEmpty` — classified directly off the
-   *  domain field (design.md D7), never through a wire round-trip.
+   *  HEL-904 task 3.12 superseded this doc's original HEL-372-era shape: there is no longer a
+   *  companion `DataType`/`sourceId` distinction to classify off of — every entry is a pipeline
+   *  Output, always `sourceId = None`/`pipelineOutput = true` (see this method's own body below
+   *  for the current, authoritative behavior).
    *
-   *  HEL-372: fetches bounded `sampleRows` for a pipeline-output DataType
-   *  only (design.md D2 — a source-companion DataType is never written to
-   *  `data_type_rows`, so skipping the query entirely for `dt.sourceId.isDefined`
-   *  avoids a guaranteed-empty round trip). `excludeKeys` strips Content-category
-   *  (`string-body`/`binary-ref`, HEL-217) field values at the SQL tier before
-   *  they ever reach the app (design.md D1); `sanitizeSampleRows` then applies
-   *  the column/cell caps (design.md D3). A `listRows` failure (e.g. the
-   *  DataType was deleted in the race between this `findAll` snapshot and this
-   *  per-id call) degrades to `sampleRows = Vector.empty` rather than failing
-   *  the whole assembly — mirrors `buildPipeline`'s per-entry degrade
-   *  discipline (design.md D5 of the parent HEL-371 change). */
+   *  Fetches bounded `sampleRows` from the Output's latest `node_snapshots` row (design.md D2).
+   *  `excludeKeys` strips Content-category (`string-body`/`binary-ref`, HEL-217) field values at
+   *  the SQL tier before they ever reach the app (design.md D1); `sanitizeSampleRows` then applies
+   *  the column/cell caps (design.md D3). A `listRows` failure (e.g. the Output was deleted in the
+   *  race between this `findAll` snapshot and this per-id call) degrades to `sampleRows =
+   *  Vector.empty` rather than failing the whole assembly — mirrors `buildPipeline`'s per-entry
+   *  degrade discipline (design.md D5 of the parent HEL-371 change). */
   private[services] def toDataTypeEntry(output: Output, user: AuthenticatedUser): Future[WorkspaceContextOutput] = {
     // HEL-904 task 3.12: `output.schema` (`Vector[SchemaField]`, `{name, type}` only — no
     // `nullable`/`displayName`) is adapted into the existing `Vector[DataField]`-shaped

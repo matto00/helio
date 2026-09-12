@@ -1076,7 +1076,7 @@ final class PipelineRunService(
    *  placeholder), `rowCount = None` (nothing was written, mirroring the
    *  execution-failure branch's own convention), and the FULL assertion
    *  results vector persisted unconditionally (419-B's existing behavior,
-   *  unchanged). The DataType schema/row/binary-ref writes and alert
+   *  unchanged). The Output's schema/row/binary-ref writes and alert
    *  evaluation are never invoked. */
   private def onBlockedRun(
       pipelineId:       PipelineId,
@@ -1304,7 +1304,8 @@ final class PipelineRunService(
   }
 
   /** Extract every `binary-ref`-shaped field value from `rows` into
-   *  [[BinaryRef]] records for `binaryRefRepo.overwriteForDataType`
+   *  [[BinaryRef]] records for `binaryRefRepo.overwriteForNode` (renamed from
+   *  `overwriteForDataType` by HEL-904 task 3.4's re-key to `(pipelineId, nodeStepId)`)
    *  (HEL-217's intended write contract, first wired by HEL-216). Structural,
    *  not schema-driven: a value matches when it's a `Map` carrying all four
    *  required keys with the expected value types — specific enough that a

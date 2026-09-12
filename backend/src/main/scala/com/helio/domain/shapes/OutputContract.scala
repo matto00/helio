@@ -26,7 +26,7 @@ object RowCountContract {
  *  `fields: Vector[OutputFieldContract]` member was removed as YAGNI (HEL-623) — it had zero
  *  producers and zero consumers across the shipped shape epic, and structurally could never be
  *  populated correctly since `outputContract` is a static `val` with no access to `params`. Any
- *  surface needing a shape's actual output columns binds via the runtime `DataType` schema
+ *  surface needing a shape's actual output columns binds via the runtime Output schema
  *  produced after instantiate → run (HEL-399), not a static field declaration. */
 final case class OutputContract(
     rowCount: RowCountContract,

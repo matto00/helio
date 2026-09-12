@@ -7,8 +7,10 @@ package com.helio.domain.model
  *  through call sites or an `Object.toString` override.
  *
  *  Case objects are nested under this companion (`WorkspaceResourceType.DataSource`, etc.) so they
- *  never collide with the identically-named top-level domain case classes (`DataSource`, `DataType`,
- *  `Dashboard`) also in this package. */
+ *  never collide with the identically-named top-level domain case classes (`DataSource`,
+ *  `Dashboard`) also in this package — `DataType` itself was retired by HEL-904; the `dataType`
+ *  wire value here now identifies a pipeline-output resource (`WorkspaceContextOutput`), kept as
+ *  the resource kind's established name rather than renamed mid-remodel. */
 sealed trait WorkspaceResourceType
 
 object WorkspaceResourceType {

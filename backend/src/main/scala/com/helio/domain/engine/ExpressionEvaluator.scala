@@ -47,8 +47,10 @@ object EvaluationError {
  * user input, not just legacy data.
  *
  * `evaluate()` (row-execution, used by `ComputeStep.apply` and
- * `SourceService.applyComputedFields`) and `validateTolerant()` (used only by
- * `DataTypeService`, whose save path hard-blocks on validation failure) retry via a
+ * `SourceService.applyComputedFields`) and `validateTolerant()` (its sole production caller,
+ * `DataTypeService`, was retired outright by HEL-904 — no callers remain in
+ * `backend/src/main`, though `ExpressionEvaluatorSpec` still exercises it directly; kept for
+ * the strict/legacy-tolerant contract this file documents) retry via a
  * frozen, verbatim copy of the pre-existing bare-identifier parser (`parseLegacy`)
  * when strict parsing fails specifically because a column reference lacks its `$`
  * prefix. This lets already-persisted expressions keep running/saving unmodified
@@ -417,11 +419,13 @@ object ExpressionEvaluator {
   /**
    * Same as `validate`, but legacy-tolerant: if strict parsing fails specifically
    * because a column reference lacks its `$` prefix, retries via the frozen
-   * `parseLegacy` grammar. Used only by `DataTypeService` (`validateExpression`,
-   * `applyUpdate`'s `exprError` check) to preserve today's bare-identifier-accepting
-   * validation behavior for DataType computed fields — a save path that hard-blocks
-   * the whole request on validation failure, unlike the pipeline compute step
-   * (design.md Decision 4, "DataTypeService boundary").
+   * `parseLegacy` grammar. Its sole production caller, `DataTypeService` (`validateExpression`,
+   * `applyUpdate`'s `exprError` check), was retired outright by HEL-904 — no callers remain in
+   * `backend/src/main`, though `ExpressionEvaluatorSpec` still exercises this method directly.
+   * Preserved bare-identifier-accepting validation behavior
+   * for DataType computed fields, whose save path hard-blocked the whole request on
+   * validation failure, unlike the pipeline compute step (design.md Decision 4,
+   * "DataTypeService boundary").
    */
   def validateTolerant(expr: String, fieldNames: Set[String]): Either[String, Unit] =
     parse(expr) match {

@@ -232,7 +232,7 @@ final case class RunTruncationRecord(
  *  (no run is persisted for a step preview). `blocked`/`blockedReason`
  *  (HEL-570, design.md Decision 8): `blocked` is `true` when the run
  *  completed execution without exception but was withheld from writing the
- *  output DataType by the assert fail-policy (see `pipeline-assert-fail-policy`);
+ *  Output's row snapshot by the assert fail-policy (see `pipeline-assert-fail-policy`);
  *  `blockedReason` carries the same summary persisted as the run's `errorLog`.
  *  Both default-valued so no existing positional construction breaks.
  *

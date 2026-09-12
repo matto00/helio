@@ -6,8 +6,8 @@ import scala.collection.mutable
 
 /** HEL-599 design.md D1 — the single traversal both schema inference and row materialisation
  *  must derive from. Before this existed, `SchemaInferenceEngine.flattenObject` recursed into
- *  nested `JsObject`s while `PipelineRowJson.jsRowToRow` mapped only one level, so a DataType
- *  could advertise a dotted column (`stats.pts_ppr`) that the materialised row never carried.
+ *  nested `JsObject`s while `PipelineRowJson.jsRowToRow` mapped only one level, so an inferred
+ *  schema could advertise a dotted column (`stats.pts_ppr`) that the materialised row never carried.
  *  Duplicating the traversal a second time (rather than extracting it) would only restore
  *  agreement today and let it drift again tomorrow -- so both call sites project the same
  *  `leaves` enumeration through their own, unrelated value-conversion logic

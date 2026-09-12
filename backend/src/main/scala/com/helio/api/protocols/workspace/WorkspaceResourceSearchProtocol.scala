@@ -8,7 +8,8 @@ import spray.json._
 // reuse of `WorkspaceContext*` for the compact `find` summary (design.md D6):
 // those types carry per-type fields this compact contract doesn't need.
 // `getResource`'s detail wraps the existing `WorkspaceContext{DataSource,
-// DataType,Pipeline,Dashboard}` types verbatim (reused, not re-modeled).
+// Output,Pipeline,Dashboard}` types verbatim (reused, not re-modeled) -- `Output` is the
+// live type; the wire discriminator string is still `"dataType"` (see `toDataTypeSummary`).
 //
 // HEL-904 task 3.2: the Metric branch (`WorkspaceResourceMetric`/
 // `WorkspaceResourceDetail.MetricDetail`) is REMOVED outright, not retargeted
@@ -26,7 +27,7 @@ final case class WorkspaceResourceSummary(
 )
 
 /** `getResource`'s full-detail result (design.md D6) -- a closed union over the remaining resource
- *  types, wrapping the existing `WorkspaceContext{DataSource,DataType,Pipeline,Dashboard}` types
+ *  types, wrapping the existing `WorkspaceContext{DataSource,Output,Pipeline,Dashboard}` types
  *  verbatim (reused, not re-modeled). */
 sealed trait WorkspaceResourceDetail
 

@@ -44,7 +44,7 @@ import scala.util.Try
  *  either, so the SSRF guard (including the cycle-3 DNS-rebinding pin — see
  *  `ContentSourceSupport.fetchUrl`) is always strict in production. The
  *  overrides exist solely so tests can exercise this service's URL-ingestion
- *  business logic (DataType registration, refresh-and-overwrite, etc.)
+ *  business logic (`inferred_schema` upsert, refresh-and-overwrite, etc.)
  *  against a local test HTTP server without weakening the guard for any
  *  other host: `isBlocked` (keyed on hostname) is the intended seam for
  *  admitting a single known-safe test hostname, since `resolveHost` alone no
@@ -83,10 +83,10 @@ final class DataSourceService(
   def findAll(user: AuthenticatedUser, page: Page, tag: Option[String] = None): Future[PagedResult[DataSource]] =
     dataSourceRepo.findAll(user.id, page, tag)
 
-  /** Owner-scoped single-resource read (HEL-661 design.md D3), mirroring `DataTypeService.findById`'s
-   *  exact shape over `DataSourceRepository.findByIdOwned` — needed because `WorkspaceSearchService.
-   *  getResource` must fetch a single owned resource, and today only `DataTypeService`/`MetricService`/
-   *  `PipelineService` (via `findSummaryById`) expose that at the service layer. */
+  /** Owner-scoped single-resource read (HEL-661 design.md D3), added when `WorkspaceSearchService.
+   *  getResource` needed a single-owned-resource fetch over `DataSourceRepository.findByIdOwned`
+   *  and only `DataTypeService`/`MetricService` (both since retired by HEL-904) and `PipelineService`
+   *  (via `findSummaryById`) exposed that shape at the service layer. */
   def findById(id: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
     dataSourceRepo.findByIdOwned(id, user).map {
       case Some(ds) => Right(ds)
@@ -321,7 +321,7 @@ final class DataSourceService(
 
   /** Shared ingestion path for both text-source creation modes: extension
    *  validation, size enforcement, UTF-8 validation, `FileSystem` write at
-   *  `text/<sourceId>.<ext>`, and `DataType` registration via
+   *  `text/<sourceId>.<ext>`, and `inferred_schema` upsert via
    *  `ContentSourceSupport.metadataFields(StringBodyType, ...)`. */
   private def ingestText(
       name: String,
@@ -397,7 +397,7 @@ final class DataSourceService(
         ingestPdf(name, ContentSourceSupport.filenameFromUrl(url), bytes, sourceUrl = Some(url), user, tag)
     }
 
-  /** The PDF connector's `DataType` field list: the shared `{content,
+  /** The PDF connector's inferred field list: the shared `{content,
    *  filename, sizeBytes}` triple from `ContentSourceSupport.metadataFields`
    *  (untouched signature — see design.md's rebase-surface rationale) plus
    *  the PDF-specific `pageNumber`/`pageCount`/`characterCount` fields
@@ -412,7 +412,7 @@ final class DataSourceService(
   /** Shared ingestion path for both PDF-source creation modes: extension
    *  validation, size enforcement, `PdfTextSupport.validate` (rejects
    *  corrupt/encrypted PDFs at ingest without doing a full text walk),
-   *  `FileSystem` write at `pdf/<sourceId>.pdf`, and `DataType` registration
+   *  `FileSystem` write at `pdf/<sourceId>.pdf`, and `inferred_schema` upsert
    *  via [[pdfFields]]. */
   private def ingestPdf(
       name: String,
@@ -490,7 +490,7 @@ final class DataSourceService(
   /** Shared ingestion path for both image-source creation modes: extension
    *  validation, size enforcement, dimensions/MIME derivation via
    *  `ImageSourceSupport.dimensionsAndMime`, `FileSystem` write at
-   *  `image/<sourceId>.<ext>`, and `DataType` registration via
+   *  `image/<sourceId>.<ext>`, and `inferred_schema` upsert via
    *  `ContentSourceSupport.metadataFields(BinaryRefType, ...)` plus
    *  `width`/`height`/`mimeType` appended locally (image-specific, not part
    *  of the generic content contract). */
@@ -995,7 +995,7 @@ final class DataSourceService(
   /** Refresh a text source (HEL-215): re-read the stored file when it was
    *  upload-created (`sourceUrl` is `None`), or re-fetch and overwrite the
    *  stored file when it was URL-created (`sourceUrl` is `Some(url)`). Either
-   *  way, the linked DataType's fixed `{content, filename, sizeBytes}` schema
+   *  way, the source's own `inferred_schema` (fixed to `{content, filename, sizeBytes}`)
    *  is re-upserted (values only change on the next pipeline run, per the
    *  pipeline-only-bindings invariant). */
   private def refreshText(source: TextSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
@@ -1036,7 +1036,7 @@ final class DataSourceService(
    *  stored file when it was URL-created (`sourceUrl` is `Some(url)`). Either
    *  way, the refreshed bytes are re-validated via `PdfTextSupport.validate`
    *  (catches a file that's become corrupt/encrypted on disk/upstream since
-   *  ingest-time validation) before the linked DataType's fixed field schema
+   *  ingest-time validation) before the source's own fixed `inferred_schema`
    *  is re-upserted. */
   private def refreshPdf(source: PdfSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
     source.config.sourceUrl match {
@@ -1078,7 +1078,7 @@ final class DataSourceService(
   /** Refresh an image source (HEL-216): re-read the stored file when it was
    *  upload-created (`sourceUrl` is `None`), or re-fetch and overwrite the
    *  stored file when it was URL-created (`sourceUrl` is `Some(url)`). Either
-   *  way, the linked DataType's fixed schema is re-upserted and
+   *  way, the source's own fixed `inferred_schema` is re-upserted and
    *  `width`/`height`/`mimeType` are re-derived from the (re-read or
    *  re-fetched) bytes. */
   private def refreshImage(source: ImageSource, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =

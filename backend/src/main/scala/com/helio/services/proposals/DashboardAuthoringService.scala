@@ -63,7 +63,7 @@ final class DashboardAuthoringService(
       "Run a pipeline first."
 
   /** Grounding context assembled once per FIRST-turn authoring call: the workspace snapshot, a
-   *  per-DataType panel-capability menu (keyed by `outputId`, HEL-365), and any degrade-not-fail
+   *  per-Output panel-capability menu (keyed by `outputId`, HEL-365), and any degrade-not-fail
    *  warnings collected while fetching it. Never re-assembled for a continued turn (design.md D3 —
    *  turn 2+ user messages are plain follow-up text only). */
   private final case class GroundedContext(
@@ -258,7 +258,9 @@ final class DashboardAuthoringService(
   private def pipelineOutputTypes(workspace: WorkspaceContextResponse): Vector[WorkspaceContextOutput] =
     workspace.dataTypes.filter(_.pipelineOutput)
 
-  /** One per-DataType capability fetch. A failure degrades to a warning for THAT type only —
+  /** One per-Output capability fetch (over `workspace.dataTypes`, a legacy-named field of
+   *  `WorkspaceContextOutput`s post-HEL-904 — not the retired `DataType` model). A failure
+   *  degrades to a warning for THAT type only —
    *  mirrors `WorkspaceContextService.buildPipeline`'s own per-item degrade-not-fail precedent;
    *  never fails the whole grounding assembly. */
   private def fetchCapability(outputId: String, user: AuthenticatedUser): Future[Either[String, (String, PanelCapabilitiesResponse)]] =

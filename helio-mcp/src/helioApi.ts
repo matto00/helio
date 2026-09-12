@@ -441,7 +441,7 @@ export class HelioApi {
 
   // ── Write / composition (Phase 3) ────────────────────────────────────────
 
-  /** Create a `static` data source (inline columns + rows). Returns the flat
+  /** Create a `dataset` data source (inline columns + rows). Returns the flat
    *  DataSourceResponse -- creates no pipeline and no Output; a pipeline over this source
    *  (create_pipeline, with an `outputs[]` entry) produces a panel-bindable Output. `tag`
    *  (HEL-366, optional) is a free-form grouping key -- see `teardown_resources`. */
@@ -453,7 +453,7 @@ export class HelioApi {
   }): Promise<DataSourceResponse> {
     return this.http.post<DataSourceResponse>("/api/data-sources", {
       name: input.name,
-      type: "static",
+      type: "dataset",
       columns: input.columns.map((c) => ({ name: c.name, type: c.type })),
       rows: input.rows,
       tag: input.tag,

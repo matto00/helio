@@ -11,7 +11,8 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Business logic for `/api/alert-rules` (mirrors `DataTypeService`'s shape).
+/** Business logic for `/api/alert-rules` (mirrors the shape of the since-retired,
+ *  HEL-904, `DataTypeService`).
  *  Storage-only (HEL-447) — no evaluation of rules happens here (HEL-455). */
 final class AlertRuleService(
     alertRuleRepo: AlertRuleRepository,

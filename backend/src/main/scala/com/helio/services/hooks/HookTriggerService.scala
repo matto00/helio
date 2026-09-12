@@ -85,7 +85,7 @@ final class HookTriggerService(
         // result can still be blocked by the assert fail-policy (HEL-570,
         // design.md Decision 8a): `result.blocked` distinguishes that case.
         // No rollback here -- a hook-triggered run always re-runs an
-        // existing pipeline, so the prior DataType snapshot is already
+        // existing pipeline, so the prior Output snapshot is already
         // correct regardless of this run's outcome.
         val status = if (result.blocked) "failed" else "succeeded"
         HookTriggerResponse(result.runId.getOrElse(pipelineId.value), pipelineId.value, status)
