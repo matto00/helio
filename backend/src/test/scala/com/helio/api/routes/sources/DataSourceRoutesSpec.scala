@@ -1,5 +1,7 @@
 package com.helio.api.routes.sources
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api._
 import com.helio.api.http.{AuthDirectives, SessionCookies}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -48,7 +50,7 @@ class DataSourceRoutesSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 
@@ -105,7 +107,7 @@ class DataSourceRoutesSpec
     permissionRepo  = new ResourcePermissionRepository(ctx)(ec)
     connectorRepo   = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(ec))(ec)
 
-    val tmpDir = Files.createTempDirectory("helio-csv-test")
+    val tmpDir = newTempDir("helio-csv-test")
     fileSystem = new LocalFileSystem(tmpDir)(ec)
 
     // HEL-822: SourceService.createRest's bare-url dual-support path writes a real

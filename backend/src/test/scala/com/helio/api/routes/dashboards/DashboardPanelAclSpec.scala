@@ -1,5 +1,7 @@
 package com.helio.api.routes.dashboards
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.domain.connectors.RestApiConnectorDriver
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -58,7 +60,7 @@ class DashboardPanelAclSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
@@ -192,7 +194,7 @@ class DashboardPanelAclSpec
   private def mkPipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
 
   private def stubFileSystem = {
-    val tmpDir = Files.createTempDirectory("helio-acl-spec")
+    val tmpDir = newTempDir("helio-acl-spec")
     new LocalFileSystem(tmpDir)
   }
 

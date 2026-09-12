@@ -1,5 +1,7 @@
 package com.helio.domain.engine
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.domain.model.{ImageSourceConfig, PdfSourceConfig, TextSourceConfig}
 import com.helio.domain.model.{ImageSource, PdfSource, TextSource, UserId}
 import com.helio.domain.model.{DataSourceId}
@@ -43,13 +45,13 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  design.md Decision 1), NOT a conditional-request short-circuit (mechanism
  *  (b), ruled out below since no request — conditional or otherwise — was
  *  ever issued). */
-class InProcessPipelineEngineUrlRefetchSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
+class InProcessPipelineEngineUrlRefetchSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with TempDirectorySupport {
 
   private val ec: ExecutionContext                       = ExecutionContext.global
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer
 
-  private val tmpRoot   = Files.createTempDirectory("helio-url-refetch-spec")
+  private val tmpRoot   = newTempDir("helio-url-refetch-spec")
   private val fileSystem = new LocalFileSystem(tmpRoot)(ec)
 
   private var testServerBinding: Http.ServerBinding = _

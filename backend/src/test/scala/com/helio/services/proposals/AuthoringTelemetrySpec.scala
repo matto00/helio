@@ -1,5 +1,7 @@
 package com.helio.services.proposals
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api.routes.proposals.DashboardAuthoringRoutes
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
@@ -58,7 +60,7 @@ class AuthoringTelemetrySpec
     with ScalatestRouteTest
     with JsonProtocols
     with Eventually
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(2, Seconds), interval = Span(20, Millis))
 
@@ -102,7 +104,7 @@ class AuthoringTelemetrySpec
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
 
-    val tmpDir = Files.createTempDirectory("helio-authoring-telemetry-spec")
+    val tmpDir = newTempDir("helio-authoring-telemetry-spec")
     val fs     = new LocalFileSystem(tmpDir)
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     // HEL-904 task 3.12/4.1: WorkspaceContextService takes OutputRepository now (dataTypeService
@@ -152,7 +154,7 @@ class AuthoringTelemetrySpec
       rows    = Vector(Vector(JsString("x"))),
       tag     = None
     )
-    val dataSourceService = new DataSourceService(dataSourceRepo, new LocalFileSystem(Files.createTempDirectory("helio-authoring-telemetry-src")))
+    val dataSourceService = new DataSourceService(dataSourceRepo, new LocalFileSystem(newTempDir("helio-authoring-telemetry-src")))
     val source = await(dataSourceService.createStatic(req, owner)) match {
       case Right(ds) => ds
       case Left(err) => fail(s"createStatic failed: $err")

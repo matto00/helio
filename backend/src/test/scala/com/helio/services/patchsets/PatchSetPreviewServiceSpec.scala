@@ -1,5 +1,6 @@
 package com.helio.services.patchsets
 
+import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
 import com.helio.api.protocols.pipelines.UpdatePipelineStepRequest
@@ -68,7 +69,7 @@ class PatchSetPreviewServiceSpec
     with Matchers
     with ScalatestRouteTest
     with BeforeAndAfterAll
-    with JsonProtocols {
+    with JsonProtocols with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer
@@ -160,7 +161,7 @@ class PatchSetPreviewServiceSpec
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-preview-service-spec"))
+    val fileSystem = new LocalFileSystem(newTempDir("patch-set-preview-service-spec"))
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)

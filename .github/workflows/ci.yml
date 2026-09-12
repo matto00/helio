@@ -101,6 +101,8 @@ jobs:
       # the two steps directly above it.
       - run: npm run check:repo-integrity
       - run: npm run check:scala-quality
+      - run: npm run check:test-temp-dir-hygiene
+      - run: npm run check:test-temp-dir-hygiene:selftest
       - run: npm run check:schemas
       - run: npm run check:spec-structure
       # HEL-1123: drift guard closing the class of hole this whole comment thread documents --

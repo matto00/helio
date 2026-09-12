@@ -1,5 +1,7 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.api.routes.pipelines.{PipelineRunHistoryRoutes, PipelineRunRegistry, PipelineRunStatusRoutes, PipelineRunStreamRoutes, PipelineRunSubmitRoutes}
 import com.helio.domain.connectors.RestApiConnectorDriver
@@ -48,7 +50,7 @@ class PipelineRunRoutesSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
@@ -150,8 +152,7 @@ class PipelineRunRoutesSpec
    *  `ImageSource` case can actually decode it end-to-end. */
   private def seedDsImage(): String = {
     import PostgresProfile.api._
-    val tmp = java.io.File.createTempFile("helio-pipeline-image-", ".png")
-    tmp.deleteOnExit()
+    val tmp = newTempFile("helio-pipeline-image-", ".png").toFile
     val image = new java.awt.image.BufferedImage(3, 2, java.awt.image.BufferedImage.TYPE_INT_RGB)
     javax.imageio.ImageIO.write(image, "png", tmp)
 

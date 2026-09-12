@@ -1,5 +1,7 @@
 package com.helio.services.workspace
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
@@ -56,7 +58,7 @@ class WorkspaceContextServiceSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
@@ -112,7 +114,7 @@ class WorkspaceContextServiceSpec
     pipelineStepRepo = new PipelineStepRepository(ctx)
     dashboardRepo    = new DashboardRepository(ctx)
 
-    val tmpDir = Files.createTempDirectory("helio-workspace-context-spec")
+    val tmpDir = newTempDir("helio-workspace-context-spec")
     val fs     = new LocalFileSystem(tmpDir)
     dataSourceService = new DataSourceService(dataSourceRepo, fs)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService

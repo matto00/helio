@@ -1,5 +1,7 @@
 package com.helio.services.pipelines
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api.JsonProtocols
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.panels.CreatePanelRequest
@@ -60,7 +62,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  `pipelineService`/`workspaceContextService` are wired WITH a real `outputRepo` (a probe-
  *  confirmed prerequisite: `WorkspaceContextServiceSpec`/`PatchSetUndoServiceSpec` both hit a
  *  silent `laneTree: []`/`boundOutputs: []` bug from a fixture missing this exact wiring). */
-class Hel914Ac1EndToEndSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with JsonProtocols {
+class Hel914Ac1EndToEndSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with JsonProtocols with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer
@@ -108,7 +110,7 @@ class Hel914Ac1EndToEndSpec extends AnyWordSpec with Matchers with ScalatestRout
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    val fileSystem = new LocalFileSystem(Files.createTempDirectory("hel914-ac1-e2e-spec"))
+    val fileSystem = new LocalFileSystem(newTempDir("hel914-ac1-e2e-spec"))
 
     dashboardService = new DashboardService(dashboardRepo, accessChecker)
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, null, outputRepo)
@@ -127,6 +129,7 @@ class Hel914Ac1EndToEndSpec extends AnyWordSpec with Matchers with ScalatestRout
 
   override def afterAll(): Unit = {
     db.close(); embeddedPostgres.close()
+    super.afterAll()
   }
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)

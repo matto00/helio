@@ -1,5 +1,7 @@
 package com.helio.api.routes.patchsets
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api.routes.patchsets.PatchSetUndoRoutes
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet, PatchSetUndoResponse}
@@ -45,7 +47,7 @@ class PatchSetUndoRoutesSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
@@ -92,7 +94,7 @@ class PatchSetUndoRoutesSpec
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-undo-routes-spec"))
+    val fileSystem = new LocalFileSystem(newTempDir("patch-set-undo-routes-spec"))
 
     dashboardService = new DashboardService(dashboardRepo, accessChecker)
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)

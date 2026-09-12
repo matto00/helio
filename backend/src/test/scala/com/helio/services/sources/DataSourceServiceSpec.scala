@@ -1,5 +1,6 @@
 package com.helio.services.sources
 
+import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
 import com.helio.services.sources.{ContentSourceSupport, DataSourceService, PdfTextSupport}
@@ -43,7 +44,7 @@ class DataSourceServiceSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer
@@ -101,7 +102,7 @@ class DataSourceServiceSpec
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx        = new DbContext(db, db)
     dataSourceRepo = new DataSourceRepository(ctx)
-    val tmpDir     = Files.createTempDirectory("helio-data-source-service-spec")
+    val tmpDir     = newTempDir("helio-data-source-service-spec")
     fileSystem     = new LocalFileSystem(tmpDir)
     service = new DataSourceService(
       dataSourceRepo, fileSystem,

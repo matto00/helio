@@ -14,6 +14,8 @@ npm run check:openspec:selftest
 npm run check:dependabot
 npm run check:dependabot:selftest
 npm run check:scala-quality
+npm run check:test-temp-dir-hygiene
+npm run check:test-temp-dir-hygiene:selftest
 npm run check:no-credential-leak
 npm run check:no-credential-leak:selftest
 npm run check:tokens

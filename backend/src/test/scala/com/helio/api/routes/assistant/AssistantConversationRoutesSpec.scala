@@ -1,5 +1,7 @@
 package com.helio.api.routes.assistant
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api.routes.assistant.AssistantConversationRoutes
 import com.helio.ai._
 import com.helio.api.JsonProtocols
@@ -54,7 +56,7 @@ class AssistantConversationRoutesSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContextExecutor = typedSystem.executionContext
@@ -127,7 +129,7 @@ class AssistantConversationRoutesSpec
     ctx  = new DbContext(appDb, privilegedDb)
     repo = new AssistantConversationRepository(ctx)
 
-    val tmpDir     = Files.createTempDirectory("helio-assistant-conversation-routes-spec")
+    val tmpDir     = newTempDir("helio-assistant-conversation-routes-spec")
     val fileSystem = new LocalFileSystem(tmpDir)
     conversationService = new AssistantConversationService(repo, fileSystem)(routeEc)
 

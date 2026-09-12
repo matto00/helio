@@ -1,5 +1,7 @@
 package com.helio.services.assistant
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api.routes.assistant.AssistantConversationRoutes
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
@@ -52,7 +54,7 @@ class AssistantTelemetrySpec
     with ScalatestRouteTest
     with JsonProtocols
     with Eventually
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(2, Seconds), interval = Span(20, Millis))
 
@@ -86,7 +88,7 @@ class AssistantTelemetrySpec
     ctx      = new DbContext(db, db)
     val repo = new AssistantConversationRepository(ctx)
 
-    val tmpDir     = Files.createTempDirectory("helio-assistant-telemetry-spec")
+    val tmpDir     = newTempDir("helio-assistant-telemetry-spec")
     val fileSystem = new LocalFileSystem(tmpDir)
     conversationService = new AssistantConversationService(repo, fileSystem)(routeEc)
     chatAccessService = new ChatAccessService(

@@ -1,5 +1,6 @@
 package com.helio.services.patchsets
 
+import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
 import com.helio.api.protocols.pipelines.{OutputResponse, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
@@ -53,7 +54,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  implicit `ActorSystem`/`Materializer` (`DataSourceService` needs one) —
  *  mirrors `DataSourceServiceSpec`'s own identical reason, no routes are
  *  exercised here. */
-class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with JsonProtocols {
+class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with JsonProtocols with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer
@@ -106,7 +107,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-apply-service-spec"))
+    val fileSystem = new LocalFileSystem(newTempDir("patch-set-apply-service-spec"))
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
@@ -126,6 +127,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
 
   override def afterAll(): Unit = {
     db.close(); embeddedPostgres.close()
+    super.afterAll()
   }
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)

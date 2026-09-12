@@ -1,5 +1,6 @@
 package com.helio.services.proposals
 
+import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
@@ -57,7 +58,7 @@ class DashboardAuthoringServiceSpec
     extends AnyWordSpec
     with Matchers
     with ScalatestRouteTest
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   // HEL-401 design.md D3: `DashboardAuthoringService`'s own `ec` is `ExecutionContextExecutor`
@@ -103,7 +104,7 @@ class DashboardAuthoringServiceSpec
     val pipelineStepRepo = new PipelineStepRepository(ctx)
     val dashboardRepo    = new DashboardRepository(ctx)
 
-    val tmpDir = Files.createTempDirectory("helio-authoring-spec")
+    val tmpDir = newTempDir("helio-authoring-spec")
     val fs     = new LocalFileSystem(tmpDir)
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)

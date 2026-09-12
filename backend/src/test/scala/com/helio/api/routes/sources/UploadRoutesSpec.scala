@@ -1,5 +1,7 @@
 package com.helio.api.routes.sources
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api._
 import com.helio.api.http.{AuthDirectives, SessionCookies}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -38,7 +40,7 @@ class UploadRoutesSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 
@@ -67,7 +69,7 @@ class UploadRoutesSpec
     permissionRepo  = new ResourcePermissionRepository(ctx)(ec)
     imageUploadRepo = new ImageUploadRepository(ctx)(ec)
 
-    val tmpDir = Files.createTempDirectory("helio-upload-test")
+    val tmpDir = newTempDir("helio-upload-test")
     fileSystem = new LocalFileSystem(tmpDir)(ec)
   }
 

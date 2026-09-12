@@ -1,5 +1,7 @@
 package com.helio.api.routes.patchsets
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api.routes.patchsets.PatchSetRoutes
 import com.helio.api.protocols.dashboards.DashboardResponse
 import com.helio.api.protocols.panels.PanelResponse
@@ -54,7 +56,7 @@ class PatchSetPreviewRoutesSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
@@ -99,7 +101,7 @@ class PatchSetPreviewRoutesSpec
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    val fileSystem = new LocalFileSystem(Files.createTempDirectory("patch-set-preview-routes-spec"))
+    val fileSystem = new LocalFileSystem(newTempDir("patch-set-preview-routes-spec"))
 
     dashboardService = new DashboardService(dashboardRepo, accessChecker)
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)

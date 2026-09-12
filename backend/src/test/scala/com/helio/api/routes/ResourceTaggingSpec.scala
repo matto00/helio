@@ -1,5 +1,7 @@
 package com.helio.api.routes
 
+import com.helio.testkit.TempDirectorySupport
+
 import com.helio.api.routes.pipelines.PipelineRoutes
 import com.helio.api.routes.sources.DataSourceRoutes
 import com.helio.api.routes.workspace.WorkspaceRoutes
@@ -52,7 +54,7 @@ class ResourceTaggingSpec
     with Matchers
     with ScalatestRouteTest
     with JsonProtocols
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                  = typedSystem.executionContext
@@ -106,7 +108,7 @@ class ResourceTaggingSpec
 
   private def dataSourceRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
-    val tmpDir = Files.createTempDirectory("helio-tag-spec")
+    val tmpDir = newTempDir("helio-tag-spec")
     val fs     = new LocalFileSystem(tmpDir)
     val svc    = new DataSourceService(dataSourceRepo, fs)
     new DataSourceRoutes(svc, user)(typedSystem).routes
@@ -120,7 +122,7 @@ class ResourceTaggingSpec
 
   private def workspaceRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
-    val tmpDir = Files.createTempDirectory("helio-tag-spec-workspace")
+    val tmpDir = newTempDir("helio-tag-spec-workspace")
     val fs     = new LocalFileSystem(tmpDir)
     val ctx    = new DbContext(db, db)(routeEc)
     val teardownRepo = new WorkspaceTeardownRepository(ctx)(routeEc)
