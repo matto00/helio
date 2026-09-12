@@ -487,7 +487,21 @@ const pipelinesSlice = createSlice({
         // `dashboardsSlice.ts`'s `createDashboard.fulfilled` convention and
         // is strictly fewer requests than the old refetch-the-whole-list
         // approach it replaces.
-        state.items.push(action.payload);
+        // HEL-1119: push-or-replace-by-id (not a bare push) — a concurrent
+        // `fetchPipelines` refetch can resolve first with a payload that
+        // already contains this pipeline (created server-side before the
+        // list fetch ran), and `fetchPipelines.fulfilled`'s wholesale
+        // replace would then be followed by this reducer pushing the same
+        // pipeline again. Same defect and same fix shape as
+        // `dashboardsSlice.ts`'s `createDashboard.fulfilled`.
+        {
+          const index = state.items.findIndex((p) => p.id === action.payload.id);
+          if (index === -1) {
+            state.items.push(action.payload);
+          } else {
+            state.items[index] = action.payload;
+          }
+        }
       })
       .addCase(createPipeline.rejected, (state, action) => {
         state.createStatus = "failed";

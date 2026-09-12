@@ -527,6 +527,75 @@ describe("dashboardsSlice", () => {
     expect(nextState.items[0].meta.lastUpdated).toBe("2026-04-30T10:00:00Z");
   });
 
+  // ── HEL-1119: createDashboard/fetchDashboards race ──────────────────────
+  // A concurrent `fetchDashboards` list refetch can resolve to the client
+  // AFTER the create request commits server-side but BEFORE the create
+  // response itself reaches the client (e.g. the POST response is slower on
+  // the wire than a GET fired moments later). In that ordering,
+  // `fetchDashboards.fulfilled` replaces `items` with a list that ALREADY
+  // contains the new dashboard row, and the subsequent `createDashboard.
+  // fulfilled` then blindly pushes the same dashboard again.
+  describe("createDashboard / fetchDashboards race (HEL-1119)", () => {
+    const newDashboard = {
+      id: "dashboard-2",
+      name: "Executive",
+      meta: { ...defaultMeta, lastUpdated: "2026-03-14T05:00:00Z" },
+      appearance: defaultAppearance,
+      layout: defaultLayout,
+    };
+
+    it("does not duplicate the dashboard when a list refetch (already containing it) resolves before the create response", () => {
+      const initialState = dashboardsReducer(
+        undefined,
+        fetchDashboards.fulfilled(
+          [
+            {
+              id: "dashboard-1",
+              name: "Operations",
+              meta: defaultMeta,
+              appearance: defaultAppearance,
+              layout: defaultLayout,
+            },
+          ],
+          "request-id",
+          undefined,
+        ),
+      );
+
+      // The concurrent refetch resolves first; its payload already includes
+      // the new dashboard because the create had already committed
+      // server-side by the time this GET was served.
+      const afterRefetch = dashboardsReducer(
+        initialState,
+        fetchDashboards.fulfilled(
+          [
+            {
+              id: "dashboard-1",
+              name: "Operations",
+              meta: defaultMeta,
+              appearance: defaultAppearance,
+              layout: defaultLayout,
+            },
+            newDashboard,
+          ],
+          "request-id-2",
+          undefined,
+        ),
+      );
+
+      // The create thunk's own response then finally resolves for the same
+      // dashboard.
+      const afterCreate = dashboardsReducer(
+        afterRefetch,
+        createDashboard.fulfilled(newDashboard, "request-id-3", { name: "Executive" }),
+      );
+
+      const matches = afterCreate.items.filter((d) => d.id === newDashboard.id);
+      expect(matches).toHaveLength(1);
+      expect(afterCreate.items).toHaveLength(2);
+    });
+  });
+
   // ── dashboardUpserted / dashboardRemoved (HEL-408, patch-set apply's
   // post-Accept cache invalidation — no dedicated thunk of its own to hang
   // an `extraReducers` case off, unlike every other mutation above) ────────
