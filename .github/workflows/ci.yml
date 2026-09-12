@@ -93,6 +93,21 @@ jobs:
       # certify a gate, and shipping it alone would leave that gate still never running in CI.
       - run: npm run check:openspec
       - run: npm run check:openspec:selftest
+      # HEL-1123: check:repo-integrity/check:scala-quality/check:schemas/check:spec-structure
+      # existed as runnable npm scripts, wired only into .husky/pre-commit -- bypassable with
+      # `--no-verify`/`HUSKY=0`/hooks-not-firing-in-a-worktree, exactly the HEL-913/846/1037/996
+      # failure mode this file's own comments already name four times. check:spec-structure is
+      # placed here (not earlier) so it inherits the `openspec` CLI install/version-pin done by
+      # the two steps directly above it.
+      - run: npm run check:repo-integrity
+      - run: npm run check:scala-quality
+      - run: npm run check:schemas
+      - run: npm run check:spec-structure
+      # HEL-1123: drift guard closing the class of hole this whole comment thread documents --
+      # fails CI if .husky/pre-commit gains a check that no workflow job in ci-complete's `needs:`
+      # actually runs, so the hook and CI cannot silently diverge again.
+      - run: npm run check:precommit-ci-parity
+      - run: npm run check:precommit-ci-parity:selftest
       - run: npm test
 
   backend:
