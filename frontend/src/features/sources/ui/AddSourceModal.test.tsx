@@ -747,14 +747,14 @@ describe("AddSourceModal — static source (thunk-dispatched create path, F-008)
     fireEvent.click(screen.getByRole("button", { name: /manual/i }));
 
     fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Ref table" } });
-    fireEvent.change(screen.getByLabelText(/column 1 name/i), { target: { value: "id" } });
+    fireEvent.change(screen.getByLabelText(/field 1 name/i), { target: { value: "id" } });
     fireEvent.click(screen.getByRole("button", { name: /next: add rows/i }));
     fireEvent.click(screen.getByRole("button", { name: /create source/i }));
 
     await waitFor(() =>
       expect(createStaticSourceMock).toHaveBeenCalledWith(
         "Ref table",
-        [{ name: "id", type: "string" }],
+        [{ name: "id", type: "string", required: false }],
         [],
       ),
     );

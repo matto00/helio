@@ -348,8 +348,8 @@ function scanAll(files: string[]) {
 describe("elevation token guard (HEL-442)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 111)", () => {
-    expect(files.length).toBe(111);
+  it("walks every CSS file in frontend/src (currently 113)", () => {
+    expect(files.length).toBe(113);
   });
 
   it("has zero hits in a file with no box-shadow/border-radius declarations at all", () => {

@@ -1,0 +1,16 @@
+/* HEL-1079 skeptic-final-1.md CR2: this component previously shipped zero CSS -- the
+   `dataset-schema-editor` root and `__actions` footer had no rhythm of their own, and the two
+   error/blocked messages have been moved onto the shared `InlineError` primitive (already
+   imported here) instead of a hand-rolled `<p>`, so they pick up `--app-error` for free rather
+   than rendering as unstyled body text. */
+
+.dataset-schema-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.dataset-schema-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+}
