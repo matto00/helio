@@ -31,6 +31,7 @@ import {
 } from "../state/outputsSlice";
 import type { Output } from "../types/output";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import { usePipelineRunEvents } from "./usePipelineRunEvents";
 import type { RunStatusEventData } from "./usePipelineRunEvents";
 import {
@@ -1166,24 +1167,32 @@ export function usePipelineDetailPage() {
   // what renders). Non-optimistic by design (design.md Decision 7) — there's
   // no user-entered config to preserve ahead of the response, so a temp-step
   // placeholder buys nothing for a single fast POST.
+  // HEL-706 — synchronous ref-based re-entry guard (design.md Decision 1):
+  // a genuine double-click on "Duplicate step" must produce exactly one
+  // clone, not two.
+  const { guardedRun: guardedStepDuplicateRun, pendingKeys: duplicatingStepIds } =
+    useInFlightGuard<string>();
+
   const handleDuplicateStep = useCallback(
-    async (stepId: string) => {
-      try {
-        await duplicatePipelineStep(stepId);
-        // CR10 — `duplicatePipelineStep` hits the same server-side
-        // `spliceInsertAtInternal` reparenting primitive as `handleInsertStep`:
-        // splicing just the clone into local state (the old behavior) leaves
-        // every other step's `parentStepId`/`position` stale, so a tailed
-        // trunk step's clone renders as a tail branch and the real tail gets
-        // promoted to a top-level trunk card until a hard reload. Resync from
-        // the server, mirroring the other three CR9 fixes above.
-        await syncStepsFromServer();
-      } catch (err: unknown) {
-        const message = extractErrorMessage(err, "Failed to duplicate step.");
-        pushToast({ variant: "error", message: `Failed to duplicate step: ${message}` });
-      }
+    (stepId: string) => {
+      guardedStepDuplicateRun(stepId, async () => {
+        try {
+          await duplicatePipelineStep(stepId);
+          // CR10 — `duplicatePipelineStep` hits the same server-side
+          // `spliceInsertAtInternal` reparenting primitive as `handleInsertStep`:
+          // splicing just the clone into local state (the old behavior) leaves
+          // every other step's `parentStepId`/`position` stale, so a tailed
+          // trunk step's clone renders as a tail branch and the real tail gets
+          // promoted to a top-level trunk card until a hard reload. Resync from
+          // the server, mirroring the other three CR9 fixes above.
+          await syncStepsFromServer();
+        } catch (err: unknown) {
+          const message = extractErrorMessage(err, "Failed to duplicate step.");
+          pushToast({ variant: "error", message: `Failed to duplicate step: ${message}` });
+        }
+      });
     },
-    [pushToast, syncStepsFromServer],
+    [guardedStepDuplicateRun, pushToast, syncStepsFromServer],
   );
 
   // HEL-908 Cycle 13 -- `submitPipelineRun`'s own HTTP response already
@@ -1329,6 +1338,7 @@ export function usePipelineDetailPage() {
     handleReorderSteps,
     handleToggleStepEnabled,
     handleDuplicateStep,
+    duplicatingStepIds,
     handleRunPipeline,
     handleDryRun,
     handleSave,

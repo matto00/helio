@@ -73,6 +73,11 @@ interface StepCardProps {
   /** HEL-412 — invokes the duplicate endpoint; the page owns splicing the
    *  clone in after the original. */
   onDuplicate: (stepId: string) => void;
+  /** HEL-706 — true while this step's own duplicate request is in flight;
+   *  disables the "Duplicate step" button only (not the unrelated step
+   *  enable/disable toggle, which already overloads `disabled`/`enabled`
+   *  vocabulary on this card -- see the CSS `--disabled` modifier below). */
+  isDuplicating: boolean;
   /** HEL-412 — the join of every step's enabled flag (design.md Decision 8),
    *  folded into the preview fingerprint so a toggle anywhere refreshes every
    *  open preview tray, not just this card's own. */
@@ -126,6 +131,7 @@ export const StepCard = React.memo(function StepCard({
   onMoveDown,
   onToggleEnabled,
   onDuplicate,
+  isDuplicating,
   enabledBits,
   outputs,
   previewRowCountByOutputId,
@@ -284,6 +290,7 @@ export const StepCard = React.memo(function StepCard({
             className="pipeline-detail-page__step-card-duplicate-btn"
             aria-label="Duplicate step"
             title="Duplicate step"
+            disabled={isDuplicating}
             onClick={() => onDuplicate(step.id)}
           >
             <Copy aria-hidden="true" size={ICON_SIZE.sm} />

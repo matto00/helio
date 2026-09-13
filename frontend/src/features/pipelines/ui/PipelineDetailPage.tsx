@@ -89,6 +89,7 @@ export function PipelineDetailPage() {
     handleReorderSteps,
     handleToggleStepEnabled,
     handleDuplicateStep,
+    duplicatingStepIds,
     handleRunPipeline,
     handleDryRun,
     handleSave,
@@ -280,6 +281,7 @@ export function PipelineDetailPage() {
             onReorderSteps={handleReorderSteps}
             onToggleStepEnabled={handleToggleStepEnabled}
             onDuplicateStep={handleDuplicateStep}
+            duplicatingStepIds={duplicatingStepIds}
             outputsByStepId={outputsByStepId}
             previewRowCountByOutputId={previewRowCountByOutputId}
             onOpenOutput={handleOpenOutput}

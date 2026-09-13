@@ -1,8 +1,12 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { getAssertionStatus as getAssertionStatusRequest } from "../../pipelines/services/outputService";
+import {
+  duplicatePanel as duplicatePanelRequest,
+  fetchPanels as fetchPanelsRequest,
+} from "../services/panelService";
 import { usePanelData } from "../hooks/usePanelData";
 import { PanelCard } from "./PanelCard";
 
@@ -37,6 +41,17 @@ jest.mock("../../pipelines/services/outputService", () => ({
 }));
 
 const getAssertionStatusMock = jest.mocked(getAssertionStatusRequest);
+
+// HEL-706 — mocked at the service boundary (not the thunk) so
+// `duplicatePanel`'s dispatch-cycle timing (including the follow-up
+// `fetchPanels` refetch) is controlled via a single deferred promise.
+jest.mock("../services/panelService", () => ({
+  duplicatePanel: jest.fn(),
+  fetchPanels: jest.fn(),
+}));
+
+const duplicatePanelMock = jest.mocked(duplicatePanelRequest);
+const fetchPanelsMock = jest.mocked(fetchPanelsRequest);
 
 // Every callback prop is a no-op stub — this suite only exercises the
 // HEL-576 invalid-data badge / fetch-dispatch behavior, not the card's
@@ -262,5 +277,98 @@ describe("PanelCard — error state retry (HEL-539)", () => {
     renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
 
     expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+  });
+});
+
+// HEL-706 — `ActionsMenu` closes itself on any item's `onClick` before that
+// `onClick` runs, so a genuine double-activation here is "activate
+// Duplicate, reopen the menu, activate Duplicate again", not two clicks on
+// the same still-open item.
+describe("PanelCard — HEL-706 duplicate re-entry guard", () => {
+  function openMenu(title: string) {
+    fireEvent.click(screen.getByRole("button", { name: `${title} panel actions` }));
+  }
+
+  function deferredDuplicate() {
+    let resolve!: () => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<never>((res, rej) => {
+      resolve = res as unknown as () => void;
+      reject = rej;
+    });
+    duplicatePanelMock.mockReturnValueOnce(promise);
+    return { resolve, reject };
+  }
+
+  beforeEach(() => {
+    duplicatePanelMock.mockReset();
+    fetchPanelsMock.mockReset();
+    fetchPanelsMock.mockResolvedValue([]);
+    getAssertionStatusMock.mockReset();
+    getAssertionStatusMock.mockResolvedValue({
+      outputId: "output-1",
+      invalid: false,
+      failedRuleCount: 0,
+    });
+  });
+
+  it("reopening the menu and activating Duplicate again while the first request is pending dispatches only once", async () => {
+    deferredDuplicate();
+    const panel = makeOutputPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    openMenu("Revenue");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+    await waitFor(() => expect(duplicatePanelMock).toHaveBeenCalledTimes(1));
+
+    openMenu("Revenue");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+
+    expect(duplicatePanelMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-enables Duplicate after the pending request resolves, and a further click issues a new dispatch", async () => {
+    const { resolve } = deferredDuplicate();
+    const panel = makeOutputPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    openMenu("Revenue");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+    await waitFor(() => expect(duplicatePanelMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    deferredDuplicate();
+    openMenu("Revenue");
+    expect(screen.getByRole("menuitem", { name: "Duplicate" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+    expect(duplicatePanelMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-enables Duplicate after the pending request rejects, and a further click issues a new dispatch", async () => {
+    const { reject } = deferredDuplicate();
+    const panel = makeOutputPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    openMenu("Revenue");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+    await waitFor(() => expect(duplicatePanelMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      reject(new Error("network down"));
+      await Promise.resolve().catch(() => {});
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    deferredDuplicate();
+    openMenu("Revenue");
+    expect(screen.getByRole("menuitem", { name: "Duplicate" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+    expect(duplicatePanelMock).toHaveBeenCalledTimes(2);
   });
 });
