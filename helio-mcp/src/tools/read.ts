@@ -254,6 +254,44 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
   );
 
   server.registerTool(
+    "get_dataset_rows",
+    {
+      title: "Get dataset rows (paged)",
+      description:
+        "Read rows of a `dataset` source (GET /api/data-sources/:id/rows), ordered by ascending " +
+        "`seq`. Each row carries id/seq/updatedAt plus its full POSITIONAL `data` array (column " +
+        "order matches get_dataset_schema, never a keyed object). `cursor` is a NUMBER (the " +
+        "previous page's `nextCursor`, itself a row seq — not an opaque string token); omit it for " +
+        "the first page. `nextCursor` is genuinely ABSENT from the response on the last page, " +
+        "never `null` — its presence is exactly how to tell whether more pages remain. `total` is " +
+        "the source's full row count as of this request.",
+      inputSchema: {
+        dataSourceId: z.string().min(1),
+        cursor: z.number().int().nonnegative().optional(),
+        limit: z.number().int().positive().max(500).optional(),
+      },
+    },
+    ({ dataSourceId, cursor, limit }) =>
+      guarded(() => api.getDatasetRows(dataSourceId, cursor, limit)),
+  );
+
+  server.registerTool(
+    "get_dataset_schema",
+    {
+      title: "Get a dataset's declared schema",
+      description:
+        "Get a `dataset` source's declared schema (GET /api/data-sources/:id/schema): each field's " +
+        "name/type/required/default, in the exact order every row's positional data array must " +
+        "follow. `default` is OMITTED when the field has no declared default (never `null`) — an " +
+        "absent `default` and an explicit `null` default are different things. Call this before " +
+        "append_dataset_rows/replace_dataset_rows/update_dataset_row if the column order isn't " +
+        "already known.",
+      inputSchema: { dataSourceId: z.string().min(1) },
+    },
+    ({ dataSourceId }) => guarded(() => api.getDatasetSchema(dataSourceId)),
+  );
+
+  server.registerTool(
     "get_workspace_context",
     {
       title: "Get workspace context",

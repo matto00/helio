@@ -1103,3 +1103,69 @@ export interface AgentMemoryEntryResponse {
   createdAt: string;
   lastUsedAt?: string;
 }
+
+// ── Dataset rows/schema (HEL-1081) — mirrors backend's
+// `DataSourceProtocol.scala` `RowResponseRow`/`RowListResponse`/`RowWriteResponse`/
+// `RowResponse`/`DatasetFieldResponse`/`DatasetSchemaResponse`/`DatasetSchemaUpdateResponse`.
+// Rows are POSITIONAL arrays (`data: unknown[]`), never keyed objects — see design.md
+// Decision 2.
+
+/** One row's identity/version metadata plus its full positional `data`. */
+export interface RowResponseRow {
+  id: string;
+  seq: number;
+  updatedAt: string;
+  data: unknown[];
+}
+
+/** `GET /api/data-sources/:id/rows` response — `nextCursor` is a NUMBER (the
+ *  backend's cursor is a row seq, not an opaque string token) and is genuinely
+ *  ABSENT (never `null`) on the last page. */
+export interface RowListResponse {
+  rows: RowResponseRow[];
+  nextCursor?: number;
+  total: number;
+}
+
+/** One affected row from an append/replace write — deliberately omits `data`
+ *  (unlike `RowResponseRow`), matching the backend's `RowWriteRowResponse`. */
+export interface RowWriteRowResponse {
+  id: string;
+  seq: number;
+  updatedAt: string;
+}
+
+/** `POST`/`PUT /api/data-sources/:id/rows` response. */
+export interface RowWriteResponse {
+  rows: RowWriteRowResponse[];
+  updatedAt: string;
+}
+
+/** `PATCH /api/data-sources/:id/rows/:rowId` response — the edited row
+ *  (including its full post-write `data`) plus the source-level `updatedAt`. */
+export interface RowResponse {
+  row: RowResponseRow;
+  sourceUpdatedAt: string;
+}
+
+/** One declared dataset field, mirroring `DatasetFieldResponse`. `default` is
+ *  OMITTED on the wire (never `null`) when the field has no declared default —
+ *  forward it unchanged, an absent key and an explicit `null` are different. */
+export interface DatasetFieldResponse {
+  name: string;
+  type: string;
+  required: boolean;
+  default?: unknown;
+}
+
+/** `GET /api/data-sources/:id/schema` response. */
+export interface DatasetSchemaResponse {
+  fields: DatasetFieldResponse[];
+}
+
+/** `PATCH /api/data-sources/:id/schema`'s `200` response — a full-replacement
+ *  result, distinct from `DatasetSchemaResponse` (`GET`'s response). */
+export interface DatasetSchemaUpdateResponse {
+  fields: DatasetFieldResponse[];
+  rowsMigrated: number;
+}

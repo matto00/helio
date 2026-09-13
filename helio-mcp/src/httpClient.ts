@@ -120,9 +120,11 @@ export class HelioHttpClient {
 
   /** DELETE `path`. Helio's delete endpoints answer `204 No Content`, so the
    *  response body is empty — `dispatch` returns `undefined` for a 204 rather
-   *  than trying to `JSON.parse("")`. Callers default `T` to `void`. */
-  delete<T = void>(path: string): Promise<T> {
-    return this.send<T>("DELETE", path);
+   *  than trying to `JSON.parse("")`. Callers default `T` to `void`. `query`
+   *  (HEL-1081) mirrors `get`'s signature — `DELETE /api/data-sources/:id/rows/:rowId`
+   *  reads its `updatedAt` precondition from the query string, not the body. */
+  delete<T = void>(path: string, query?: Record<string, string | number | undefined>): Promise<T> {
+    return this.send<T>("DELETE", path, undefined, query);
   }
 
   /** POST a `multipart/form-data` body (e.g. CSV upload) to `path` and parse
