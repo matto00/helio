@@ -5,6 +5,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 /** HEL-1099: config model for the future `upsertsource` pipeline step (design spec
  *  `docs/superpowers/specs/2026-09-10-interactive-data-writeback-design.md`, epic HEL-1098).
@@ -60,6 +61,19 @@ import scala.concurrent.{ExecutionContext, Future}
  *  relation, not just prose here. */
 sealed trait UpsertTarget
 
+/** Shared by [[UpsertTarget]]'s codec and [[UpsertSourceConfig]]'s write-path checks — a single
+ *  definition rather than two verbatim copies. */
+private[steps] object UpsertJson {
+  def kindName(v: JsValue): String = v match {
+    case JsString(_)      => "a string"
+    case JsNumber(_)      => "a number"
+    case JsTrue | JsFalse => "a boolean"
+    case JsArray(_)       => "an array"
+    case JsNull           => "null"
+    case _: JsObject      => "an object"
+  }
+}
+
 object UpsertTarget {
 
   /** Write into a brand-new `dataset` source named `name`, created by the engine at run
@@ -109,18 +123,9 @@ object UpsertTarget {
         }
       case other =>
         throw new StepConfigTypeMismatch(
-          s"'target' must be an object, got ${jsonKindNameOf(other)}."
+          s"'target' must be an object, got ${UpsertJson.kindName(other)}."
         )
     }
-  }
-
-  private def jsonKindNameOf(v: JsValue): String = v match {
-    case JsString(_)     => "a string"
-    case JsNumber(_)     => "a number"
-    case JsTrue | JsFalse => "a boolean"
-    case JsArray(_)      => "an array"
-    case JsNull          => "null"
-    case _: JsObject     => "an object"
   }
 
   /** Tolerant read-path default for an ABSENT `target` — mirrors
@@ -181,21 +186,21 @@ object UpsertSourceConfig {
    *  this method's body. */
   def validateRawConfig(raw: String): Option[String] = {
     val shapeError: Option[String] =
-      scala.util.Try(StepCodecUtil.asObject(raw)) match {
-        case scala.util.Failure(e: StepConfigTypeMismatch) =>
+      Try(StepCodecUtil.asObject(raw)) match {
+        case Failure(e: StepConfigTypeMismatch) =>
           Some(s"Invalid 'upsertsource' config: ${e.getMessage}")
-        case scala.util.Failure(_) =>
+        case Failure(_) =>
           // Malformed JSON — the pre-existing "invalid config" category the calling
           // surface already reports from its own decode `Try`; not duplicated here.
           None
-        case scala.util.Success(obj) =>
+        case Success(obj) =>
           decodeErrorFor(obj)
       }
     shapeError.orElse(modeError(raw))
   }
 
   private def decodeErrorFor(obj: JsObject): Option[String] =
-    scala.util.Try {
+    Try {
       obj.fields.get("target") match {
         case None | Some(JsNull) => ()
         case Some(v)             => UpsertTarget.format.read(v)
@@ -204,21 +209,12 @@ object UpsertSourceConfig {
         case None | Some(JsNull)  => ()
         case Some(JsString(_))    => ()
         case Some(other) =>
-          throw new StepConfigTypeMismatch(s"'mode' must be a string, got ${jsonKindNameOf(other)}.")
+          throw new StepConfigTypeMismatch(s"'mode' must be a string, got ${UpsertJson.kindName(other)}.")
       }
     } match {
-      case scala.util.Failure(e: StepConfigTypeMismatch) => Some(s"Invalid 'upsertsource' config: ${e.getMessage}")
+      case Failure(e: StepConfigTypeMismatch) => Some(s"Invalid 'upsertsource' config: ${e.getMessage}")
       case _                                             => None
     }
-
-  private def jsonKindNameOf(v: JsValue): String = v match {
-    case JsString(_)     => "a string"
-    case JsNumber(_)     => "a number"
-    case JsTrue | JsFalse => "a boolean"
-    case JsArray(_)      => "an array"
-    case JsNull          => "null"
-    case _: JsObject     => "an object"
-  }
 
   /** A present-but-unsupported `mode` (e.g. `"upsert"`, a plausible typo for this exact
    *  step) is a named, write-time-rejected value, not a silent fallback to
@@ -226,7 +222,7 @@ object UpsertSourceConfig {
    *  absent `mode` is not an error here: that is the tolerant-default case already covered
    *  by `decode`. */
   private def modeError(raw: String): Option[String] =
-    scala.util.Try(StepCodecUtil.asObject(raw)).toOption.flatMap { obj =>
+    Try(StepCodecUtil.asObject(raw)).toOption.flatMap { obj =>
       obj.fields.get("mode") match {
         case Some(JsString(m)) if !UpsertMode.All.contains(m) =>
           Some(s"Invalid 'upsertsource' config: 'mode' must be one of ${UpsertMode.All.mkString(", ")}, got '$m'.")
