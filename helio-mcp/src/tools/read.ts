@@ -14,6 +14,7 @@ import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import { buildWorkspaceContext } from "../context.js";
 import type { ConnectorSummary } from "../types.js";
+import { CANONICAL_COLUMN_TYPES_LIST } from "./canonicalColumnTypes.js";
 
 /** Serialize any value as a single pretty-printed JSON text block. */
 function jsonResult(value: unknown): CallToolResult {
@@ -281,8 +282,9 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
       title: "Get a dataset's declared schema",
       description:
         "Get a `dataset` source's declared schema (GET /api/data-sources/:id/schema): each field's " +
-        "name/type/required/default, in the exact order every row's positional data array must " +
-        "follow. `default` is OMITTED when the field has no declared default (never `null`) — an " +
+        `name/type/required/default, in the exact order every row's positional data array must ` +
+        `follow. \`type\` is one of the ${CANONICAL_COLUMN_TYPES_LIST} canonical types. ` +
+        "`default` is OMITTED when the field has no declared default (never `null`) — an " +
         "absent `default` and an explicit `null` default are different things. Call this before " +
         "append_dataset_rows/replace_dataset_rows/update_dataset_row if the column order isn't " +
         "already known.",
