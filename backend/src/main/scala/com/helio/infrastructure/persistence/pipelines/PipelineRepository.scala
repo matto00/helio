@@ -28,6 +28,11 @@ class PipelineRepository(
   // meaningfully override by injecting its own instance here.
   private val rootRepo = new PipelineRootRepository(ctx)
 
+  // HEL-1101 task 3.1/3.2 (design.md Decision 4): needed only for its `findUpsertWriteEdges`
+  // query (`PipelineCycleGuard`'s graph read) -- same "no injected dependency needed" reasoning
+  // as `rootRepo` above, since this repo requires nothing beyond `ctx`.
+  private val stepRepoForCycleCheck = new PipelineStepRepository(ctx)
+
   /** Owner-scoped existence check. Used to gate `addStep` / `listSteps`. */
   def exists(id: PipelineId, user: AuthenticatedUser): Future[Boolean] = {
     val ownerUuid = UUID.fromString(user.id.value)
@@ -347,9 +352,18 @@ class PipelineRepository(
         val rootRows = dataSources.zipWithIndex.map { case ((dsId, _), position) =>
           PipelineRootRepository.PipelineRootRow(UUID.randomUUID().toString, pipelineId, dsId.value, position, now)
         }
-        ctx.withUserContext(user.id.value)(
-          DBIO.seq(pipelinesTable += pipelineRow, rootsTable ++= rootRows)
-        ).map { _ =>
+        // HEL-1101 task 3.1 (design.md Decision 4): the lock + graph-read + check is prepended
+        // to the SAME DBIO chain the row inserts run in, under the SAME `withUserContext` call --
+        // never a separate pre-flight `Future` ahead of this call, which would leave a window
+        // for a concurrent writer to interleave between the check and the insert. This path has
+        // no steps (`create`'s own `req.steps.isEmpty && req.outputs.isEmpty` guard routes here),
+        // so it can never itself carry a new `upsertsource` write edge -- `checkExistingGraphAction`
+        // verifies the caller's current full visible graph (Decision 2) has no cycle, a fixed
+        // two-query check independent of `sourceDataSourceIds.size` (never one query per root).
+        val guardedAction =
+          PipelineCycleGuard.checkExistingGraphAction(rootRepo, stepRepoForCycleCheck, user.id.value)
+            .andThen(DBIO.seq(pipelinesTable += pipelineRow, rootsTable ++= rootRows))
+        ctx.withUserContext(user.id.value)(guardedAction).map { _ =>
           val roots = dataSources.zip(rootRows).map { case ((dsId, ds), row) => PipelineRootSummary(row.id, dsId.value, ds.name) }
           val (primaryDsId, primaryDs) = dataSources.head
           Right(PipelineSummary(
@@ -367,6 +381,8 @@ class PipelineRepository(
             createdAt            = now.toString,
             updatedAt            = now.toString
           ))
+        }.recover {
+          case PipelineCycleGuard.PipelineCycleRejected(msg) => Left(msg)
         }
     }
   }
@@ -410,7 +426,17 @@ class PipelineRepository(
     val rootRows = dataSources.zipWithIndex.map { case ((dsId, _), position) =>
       PipelineRootRepository.PipelineRootRow(UUID.randomUUID().toString, pipelineId, dsId.value, position, now)
     }
-    DBIO.seq(pipelinesTable += pipelineRow, rootsTable ++= rootRows).map { _ =>
+    // HEL-1101 task 3.2 (design.md Decision 4): same "checkExistingGraphAction" shape as `create`
+    // above and for the same reason -- `createAction`'s own `req.steps` are inserted separately,
+    // afterward, by `buildStepsAction` (see `PipelineService.createTransactional`), and cannot
+    // carry an `upsertsource` step (unregistered, `PipelineStepKind.All` rejects it before this
+    // ever runs), so there is no same-request write edge this action itself introduces -- only
+    // the standing visible graph is checked, prepended to the SAME composed DBIO chain
+    // (`runTransactionally`) the caller already builds.
+    val guardedInsert =
+      PipelineCycleGuard.checkExistingGraphAction(rootRepo, stepRepoForCycleCheck, user.id.value)
+        .andThen(DBIO.seq(pipelinesTable += pipelineRow, rootsTable ++= rootRows))
+    guardedInsert.map { _ =>
       val roots = dataSources.zip(rootRows).map { case ((dsId, ds), row) => PipelineRootSummary(row.id, dsId.value, ds.name) }
       val (primaryDsId, primaryDs) = dataSources.head
       val summary = PipelineSummary(

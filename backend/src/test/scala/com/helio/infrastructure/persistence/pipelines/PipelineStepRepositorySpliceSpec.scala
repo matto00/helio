@@ -173,7 +173,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
              (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
              VALUES ($tailId, ${pid.value}, 1, 'select', '{"columns":[]}', true, now(), now(), ${anchor.id.value})"""))
 
-      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None))
+      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None, actingUserId = "test-user"))
       spliced.parentStepId shouldBe Some(anchor.id)
       spliced.position shouldBe 0
 
@@ -204,7 +204,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
              (id, pipeline_id, position, op, config, enabled, created_at, updated_at, parent_step_id)
              VALUES ($tailId, ${pid.value}, 1, 'select', '{"columns":[]}', true, now(), now(), ${anchor.id.value})"""))
 
-      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None))
+      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None, actingUserId = "test-user"))
 
       val all = await(stepRepo.listByPipelineInternal(pid))
       all.find(_.id == oldTrunkChild.id).get.parentStepId shouldBe Some(spliced.id)
@@ -250,7 +250,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       // Restore: delete the manually-inserted row and use the REAL (fixed)
       // method instead -- confirmed GREEN.
       await(db.run(sqlu"DELETE FROM pipeline_steps WHERE id = $newId"))
-      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None))
+      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None, actingUserId = "test-user"))
       val afterFix = await(stepRepo.listByPipelineInternal(pid))
       val orderAfterFix = stepRepo.executionOrder(afterFix)
       orderAfterFix.indexWhere(_.id == spliced.id) should be < orderAfterFix.indexWhere(_.id.value == tailId)
@@ -368,7 +368,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       // anchor's existing trunk continuation -- must NOT be reparented by the attach below.
       val existingChild = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None))
 
-      val attached = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = anchor.id))
+      val attached = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = anchor.id, actingUserId = "test-user"))
 
       // The new step is a NEW sibling of existingChild -- position >= 1, same parent.
       attached.parentStepId shouldBe Some(anchor.id)
@@ -403,7 +403,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       val anchor = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(root0.id), explicitRootId = None))
       val existingChild = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None))
 
-      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None))
+      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None, actingUserId = "test-user"))
 
       val all = await(stepRepo.listByPipelineInternal(pid))
       // Confirmed RED (for the attach-primitive's guard): under splice, existingChild's parent
@@ -419,7 +419,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       // position 0, silently splicing the new step into the trunk 100% of the time here.
       val pid      = seedPipeline()
       val root0    = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = None))
-      val attached = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = root0.id))
+      val attached = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = root0.id, actingUserId = "test-user"))
       attached.parentStepId shouldBe Some(root0.id)
       attached.position shouldBe 1
       // root0's trunk ends at root0 itself -- position 0 under it is deliberately left empty,
@@ -434,8 +434,8 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
     "attach a second tail onto an anchor that already has one tail lands at position 2, after the first" in {
       val pid    = seedPipeline()
       val root0  = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = None))
-      val first  = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = root0.id))
-      val second = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = root0.id))
+      val first  = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = root0.id, actingUserId = "test-user"))
+      val second = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = root0.id, actingUserId = "test-user"))
       first.position shouldBe 1
       second.position shouldBe 2
       stepRepo.trunkOf(await(stepRepo.listByPipelineInternal(pid))).map(_.id) shouldBe Vector(root0.id)
@@ -456,7 +456,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       val anchor = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(root0.id), explicitRootId = None))
       val existingChild = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None))
 
-      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None))
+      val spliced = await(stepRepo.spliceInsertAtInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None, actingUserId = "test-user"))
 
       val all = await(stepRepo.listByPipelineInternal(pid))
       // This is the load-bearing trunk-insert behavior: existingChild's parent MUST move to
@@ -474,7 +474,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       val anchor = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(root0.id), explicitRootId = None))
       val existingChild = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(anchor.id), explicitRootId = None))
 
-      val attached = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = anchor.id))
+      val attached = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = anchor.id, actingUserId = "test-user"))
 
       val all = await(stepRepo.listByPipelineInternal(pid))
       // Confirmed RED (for the splice-guard): under attach, existingChild's parent stayed on
@@ -519,7 +519,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id), explicitRootId = None))
       val c = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(b.id), explicitRootId = None))
       // tail_A hangs off A (a genuine branch attach, not a trunk continuation).
-      val tailA = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = a.id))
+      val tailA = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = a.id, actingUserId = "test-user"))
       tailA.position should be >= 1
 
       // Move A to sit after B: new trunk order B -> A -> C.
@@ -537,7 +537,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = None))
       val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id), explicitRootId = None))
       val c = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(b.id), explicitRootId = None))
-      val tailA = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = a.id))
+      val tailA = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = a.id, actingUserId = "test-user"))
 
       // B now occupies A's OLD slot (directly after the root).
       val Right(_) = await(stepRepo.reorderTrunkInternal(pid, Seq(b.id, a.id, c.id))): @unchecked
@@ -573,7 +573,7 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       val pid = seedPipeline()
       val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = None))
       val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id), explicitRootId = None))
-      val tailA = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = a.id))
+      val tailA = await(stepRepo.attachTailInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = a.id, actingUserId = "test-user"))
 
       val result = await(stepRepo.reorderTrunkInternal(pid, Seq(b.id, tailA.id)))
       result.isLeft shouldBe true

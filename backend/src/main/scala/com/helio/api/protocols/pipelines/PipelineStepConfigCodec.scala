@@ -1,7 +1,7 @@
 package com.helio.api.protocols.pipelines
 
 import com.helio.domain.model.{PipelineStep, PipelineStepKind}
-import com.helio.domain.steps.SecondaryInput
+import com.helio.domain.steps.{SecondaryInput, UpsertSourceConfig}
 import com.helio.domain.{AggregateConfig, AggregateStep, AssertConfig, AssertStep, CastConfig, CastStep, ChunkByTokenCountConfig, ChunkByTokenCountStep, ComputeConfig, ComputeStep, DateBucketConfig, DedupeConfig, DedupeStep, DateBucketStep, ExtractHeadingsConfig, ExtractHeadingsStep, FillNullConfig, FillNullStep, FilterConfig, FilterStep, GroupByConfig, GroupByStep, JoinConfig, JoinStep, LimitConfig, LimitStep, LookupConfig, LookupStep, PivotConfig, PivotStep, RenameConfig, RenameStep, SelectConfig, SelectStep, SortConfig, SortStep, SplitTextConfig, SplitTextStep, StringOpsConfig, StringOpsStep, UnionConfig, UnionStep, UnpivotConfig, UnpivotStep, WindowConfig, WindowStep}
 import spray.json._
 
@@ -72,6 +72,14 @@ object PipelineStepConfigCodec {
     case c: UnionConfig      => PipelineStep.Registry(PipelineStepKind.Union).encodeConfig(c)
     case c: LookupConfig     => PipelineStep.Registry(PipelineStepKind.Lookup).encodeConfig(c)
     case c: AssertConfig     => PipelineStep.Registry(PipelineStepKind.Assert).encodeConfig(c)
+    // HEL-1101 task 3.4: `upsertsource` is deliberately NOT in `PipelineStep.Registry` yet
+    // (HEL-1100's job — see `UpsertSourceConfig`'s own top-of-file scaladoc), so it has no
+    // `Companion.encodeConfig` to dispatch to above. This case does NOT register the step or
+    // change `PipelineStepKind.All` (the live HTTP allow-list `addStep`/`create` actually
+    // check) — it only lets a caller that ALREADY holds a typed `UpsertSourceConfig` (this
+    // ticket's own repository-seam tests, and HEL-1100 once it registers the kind) serialize it
+    // via this shared facade, using the type's own `format` exactly like every other config.
+    case c: UpsertSourceConfig => c.toJson.compactPrint
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"
