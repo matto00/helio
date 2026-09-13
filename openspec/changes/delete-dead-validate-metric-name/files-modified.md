@@ -1,0 +1,1 @@
+- `backend/src/main/scala/com/helio/api/http/RequestValidation.scala` — deleted the dead `validateMetricName` method (including its scaladoc); confirmed zero live callers via fresh repo-wide grep before deletion.
