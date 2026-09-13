@@ -221,3 +221,176 @@ describe("HelioApi.deletePipelineStep (HEL-934 removedTailStepCount surfaced)", 
     expect(result).toEqual({ deleted: true, id: "step-leaf", removedTailStepCount: 0 });
   });
 });
+
+/**
+ * HEL-1081 — transport dispatch for the new dataset rows/schema methods.
+ * `deleteDatasetRow`'s query-string encoding of `updatedAt` is the one
+ * genuinely new transport behavior (task 2.1); the rest assert path/method/
+ * body shape the same way the schedule/dashboard-rename tests above do.
+ */
+describe("HelioApi dataset rows/schema methods (HEL-1081)", () => {
+  it("appendDatasetRows POSTs to /rows with a {rows} body", async () => {
+    const calls: { url: string; init: HelioRequestInit }[] = [];
+    const fetchImpl = (url: string, init: HelioRequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(reply(200, { rows: [], updatedAt: "t1" }));
+    };
+    const api = new HelioApi(new HelioHttpClient(config, { fetchImpl }));
+
+    await api.appendDatasetRows("ds-1", [["a", 1]]);
+
+    expect(calls[0]?.init.method).toBe("POST");
+    expect(calls[0]?.url).toBe("https://helio.test/api/data-sources/ds-1/rows");
+    expect(JSON.parse(calls[0]?.init.body as string)).toEqual({ rows: [["a", 1]] });
+  });
+
+  it("replaceDatasetRows PUTs to /rows with a {rows} body", async () => {
+    const calls: { url: string; init: HelioRequestInit }[] = [];
+    const fetchImpl = (url: string, init: HelioRequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(reply(200, { rows: [], updatedAt: "t1" }));
+    };
+    const api = new HelioApi(new HelioHttpClient(config, { fetchImpl }));
+
+    await api.replaceDatasetRows("ds-1", []);
+
+    expect(calls[0]?.init.method).toBe("PUT");
+    expect(calls[0]?.url).toBe("https://helio.test/api/data-sources/ds-1/rows");
+    expect(JSON.parse(calls[0]?.init.body as string)).toEqual({ rows: [] });
+  });
+
+  it("getDatasetRows GETs /rows with cursor/limit query params, response parsed verbatim", async () => {
+    const calls: { url: string; init: HelioRequestInit }[] = [];
+    const fetchImpl = (url: string, init: HelioRequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(reply(200, { rows: [], nextCursor: 42, total: 100 }));
+    };
+    const api = new HelioApi(new HelioHttpClient(config, { fetchImpl }));
+
+    const result = await api.getDatasetRows("ds-1", 10, 25);
+
+    expect(calls[0]?.init.method).toBe("GET");
+    expect(calls[0]?.url).toBe("https://helio.test/api/data-sources/ds-1/rows?cursor=10&limit=25");
+    expect(result).toEqual({ rows: [], nextCursor: 42, total: 100 });
+  });
+
+  it("getDatasetSchema GETs /schema", async () => {
+    const calls: { url: string; init: HelioRequestInit }[] = [];
+    const fetchImpl = (url: string, init: HelioRequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(reply(200, { fields: [] }));
+    };
+    const api = new HelioApi(new HelioHttpClient(config, { fetchImpl }));
+
+    await api.getDatasetSchema("ds-1");
+
+    expect(calls[0]?.init.method).toBe("GET");
+    expect(calls[0]?.url).toBe("https://helio.test/api/data-sources/ds-1/schema");
+  });
+
+  it("updateDatasetSchema PATCHes /schema with {fields, confirmDrop}", async () => {
+    const calls: { url: string; init: HelioRequestInit }[] = [];
+    const fetchImpl = (url: string, init: HelioRequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(reply(200, { fields: [], rowsMigrated: 0 }));
+    };
+    const api = new HelioApi(new HelioHttpClient(config, { fetchImpl }));
+
+    await api.updateDatasetSchema("ds-1", [{ name: "a", type: "string" }], true);
+
+    expect(calls[0]?.init.method).toBe("PATCH");
+    expect(calls[0]?.url).toBe("https://helio.test/api/data-sources/ds-1/schema");
+    expect(JSON.parse(calls[0]?.init.body as string)).toEqual({
+      fields: [{ name: "a", type: "string" }],
+      confirmDrop: true,
+    });
+  });
+
+  it("updateDatasetRow PATCHes /rows/:rowId with {updatedAt, data} in the BODY", async () => {
+    const calls: { url: string; init: HelioRequestInit }[] = [];
+    const fetchImpl = (url: string, init: HelioRequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(
+        reply(200, {
+          row: { id: "r1", seq: 1, updatedAt: "t2", data: ["x"] },
+          sourceUpdatedAt: "t2",
+        }),
+      );
+    };
+    const api = new HelioApi(new HelioHttpClient(config, { fetchImpl }));
+
+    await api.updateDatasetRow("ds-1", "r1", "t1", ["x"]);
+
+    expect(calls[0]?.init.method).toBe("PATCH");
+    expect(calls[0]?.url).toBe("https://helio.test/api/data-sources/ds-1/rows/r1");
+    expect(JSON.parse(calls[0]?.init.body as string)).toEqual({ updatedAt: "t1", data: ["x"] });
+  });
+
+  it("deleteDatasetRow DELETEs /rows/:rowId with updatedAt as a QUERY parameter, not the body", async () => {
+    const calls: { url: string; init: HelioRequestInit }[] = [];
+    const fetchImpl = (url: string, init: HelioRequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(reply(204, undefined));
+    };
+    const api = new HelioApi(new HelioHttpClient(config, { fetchImpl }));
+
+    const result = await api.deleteDatasetRow("ds-1", "r1", "2026-09-12T00:00:00Z");
+
+    expect(calls[0]?.init.method).toBe("DELETE");
+    expect(calls[0]?.url).toBe(
+      "https://helio.test/api/data-sources/ds-1/rows/r1?updatedAt=2026-09-12T00%3A00%3A00Z",
+    );
+    expect(calls[0]?.init.body).toBeUndefined();
+    expect(result).toEqual({ deleted: true, id: "r1" });
+  });
+});
+
+/**
+ * HEL-1081 skeptic round-2 note 3 — `createDataSource`'s per-column
+ * `default` forwarding must distinguish "no default supplied" (key absent
+ * entirely) from "an explicit null default" (key present, value `null`) —
+ * both would collapse to the same `undefined` under a naive
+ * `c.default !== undefined` check.
+ */
+describe("HelioApi.createDataSource default forwarding (absent vs explicit null, HEL-1081)", () => {
+  it("omits the default key entirely when the column has no default", async () => {
+    const calls: { url: string; init: HelioRequestInit }[] = [];
+    const fetchImpl = (url: string, init: HelioRequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(
+        reply(201, { id: "ds-1", name: "n", type: "dataset", createdAt: "", updatedAt: "" }),
+      );
+    };
+    const api = new HelioApi(new HelioHttpClient(config, { fetchImpl }));
+
+    await api.createDataSource({
+      name: "n",
+      columns: [{ name: "a", type: "string" }],
+      rows: [],
+    });
+
+    const body = JSON.parse(calls[0]?.init.body as string);
+    expect(body.columns[0]).toEqual({ name: "a", type: "string" });
+    expect("default" in body.columns[0]).toBe(false);
+  });
+
+  it("forwards an explicit null default as a real default: null key", async () => {
+    const calls: { url: string; init: HelioRequestInit }[] = [];
+    const fetchImpl = (url: string, init: HelioRequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(
+        reply(201, { id: "ds-1", name: "n", type: "dataset", createdAt: "", updatedAt: "" }),
+      );
+    };
+    const api = new HelioApi(new HelioHttpClient(config, { fetchImpl }));
+
+    await api.createDataSource({
+      name: "n",
+      columns: [{ name: "a", type: "string", default: null, required: true }],
+      rows: [],
+    });
+
+    const body = JSON.parse(calls[0]?.init.body as string);
+    expect(body.columns[0]).toEqual({ name: "a", type: "string", required: true, default: null });
+  });
+});

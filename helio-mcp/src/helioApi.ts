@@ -74,6 +74,11 @@ import type {
   CreatePipelineRootRequest,
   PipelineRootSummaryResponse,
   RemovePipelineRootResponse,
+  RowListResponse,
+  RowWriteResponse,
+  RowResponse,
+  DatasetSchemaResponse,
+  DatasetSchemaUpdateResponse,
 } from "./types.js";
 
 /** Raw `POST /api/sources` wire shape, before the missing-Option → `null`
@@ -92,10 +97,14 @@ interface RawCreateSourceResponse {
 // since a not-yet-refreshed client or stored proposal may still carry it.
 const CSV_LIKE_TYPES = new Set(["csv", "static", "dataset"]);
 
-/** Inline column spec for a static data source. */
+/** Inline column spec for a static data source. `required`/`default` (HEL-1081/1076
+ *  design.md Decision 6) forward unchanged to the backend's `StaticColumnPayload` —
+ *  an absent `default` means "no default", not the same as an explicit `null`. */
 export interface StaticColumn {
   name: string;
   type: string;
+  required?: boolean;
+  default?: unknown;
 }
 
 /** run_pipeline outcome. The run is synchronous on `main`: a 200 already means completion and
@@ -444,7 +453,11 @@ export class HelioApi {
   /** Create a `dataset` data source (inline columns + rows). Returns the flat
    *  DataSourceResponse -- creates no pipeline and no Output; a pipeline over this source
    *  (create_pipeline, with an `outputs[]` entry) produces a panel-bindable Output. `tag`
-   *  (HEL-366, optional) is a free-form grouping key -- see `teardown_resources`. */
+   *  (HEL-366, optional) is a free-form grouping key -- see `teardown_resources`. Each
+   *  column's `required`/`default` (HEL-1081) forward unchanged, using `"default" in c`
+   *  (not `c.default !== undefined`) so an explicit `default: null` (a real declared null
+   *  default) is distinguished from an absent `default` key (no default at all) -- both
+   *  would otherwise collapse to the same `undefined` check. */
   createDataSource(input: {
     name: string;
     columns: StaticColumn[];
@@ -454,10 +467,104 @@ export class HelioApi {
     return this.http.post<DataSourceResponse>("/api/data-sources", {
       name: input.name,
       type: "dataset",
-      columns: input.columns.map((c) => ({ name: c.name, type: c.type })),
+      columns: input.columns.map((c) => ({
+        name: c.name,
+        type: c.type,
+        ...(c.required !== undefined ? { required: c.required } : {}),
+        ...("default" in c ? { default: c.default } : {}),
+      })),
       rows: input.rows,
       tag: input.tag,
     });
+  }
+
+  // ── Dataset rows/schema (HEL-1081) ──────────────────────────────────────
+  //
+  // Every method below is a thin pass-through to the already-shipped
+  // `/api/data-sources/:id/{rows,rows/:rowId,schema}` surface -- see
+  // `DataSourceRoutes.scala:89-193`. Rows are POSITIONAL arrays everywhere
+  // (design.md Decision 2) -- never a keyed-object convenience shape.
+
+  /** `POST /api/data-sources/:id/rows` -- append rows to a `dataset` source,
+   *  validated against its declared schema. Returns only the newly appended
+   *  rows (never the full set) plus the source's resulting `updatedAt`. */
+  appendDatasetRows(dataSourceId: string, rows: unknown[][]): Promise<RowWriteResponse> {
+    return this.http.post<RowWriteResponse>(`/api/data-sources/${dataSourceId}/rows`, { rows });
+  }
+
+  /** `PUT /api/data-sources/:id/rows` -- replace ALL rows in a `dataset`
+   *  source. Returns the full new row set plus the source's resulting
+   *  `updatedAt`. */
+  replaceDatasetRows(dataSourceId: string, rows: unknown[][]): Promise<RowWriteResponse> {
+    return this.http.put<RowWriteResponse>(`/api/data-sources/${dataSourceId}/rows`, { rows });
+  }
+
+  /** `GET /api/data-sources/:id/rows` -- paged row read, ordered by ascending
+   *  `seq`. `cursor` (a row seq, NOT an opaque string token) is the previous
+   *  page's `nextCursor`; omit for the first page. `nextCursor` is genuinely
+   *  ABSENT on the last page, never `null`. */
+  getDatasetRows(dataSourceId: string, cursor?: number, limit?: number): Promise<RowListResponse> {
+    return this.http.get<RowListResponse>(`/api/data-sources/${dataSourceId}/rows`, {
+      cursor,
+      limit,
+    });
+  }
+
+  /** `GET /api/data-sources/:id/schema` -- the source's declared dataset
+   *  schema (field name/type/required/default). */
+  getDatasetSchema(dataSourceId: string): Promise<DatasetSchemaResponse> {
+    return this.http.get<DatasetSchemaResponse>(`/api/data-sources/${dataSourceId}/schema`);
+  }
+
+  /** `PATCH /api/data-sources/:id/schema` -- FULL-REPLACEMENT of the declared
+   *  schema (design.md Decision applies verbatim: a field omitted from
+   *  `fields` is dropped). `previousName` on a field expresses a rename;
+   *  dropping a field that already has data requires `confirmDrop: true` or
+   *  the backend answers `409` with the rejected fields named. */
+  updateDatasetSchema(
+    dataSourceId: string,
+    fields: Array<{
+      name: string;
+      previousName?: string;
+      type: string;
+      required?: boolean;
+      default?: unknown;
+    }>,
+    confirmDrop = false,
+  ): Promise<DatasetSchemaUpdateResponse> {
+    return this.http.patch<DatasetSchemaUpdateResponse>(
+      `/api/data-sources/${dataSourceId}/schema`,
+      { fields, confirmDrop },
+    );
+  }
+
+  /** `PATCH /api/data-sources/:id/rows/:rowId` -- edit one row's full
+   *  positional `data`, guarded by the row's current `updatedAt` (obtained
+   *  from a prior read/write call, never auto-fetched). A stale `updatedAt`
+   *  is a precondition conflict the backend returns verbatim -- never retry
+   *  it silently, that would risk a lost-update bug. */
+  updateDatasetRow(
+    dataSourceId: string,
+    rowId: string,
+    updatedAt: string,
+    data: unknown[],
+  ): Promise<RowResponse> {
+    return this.http.patch<RowResponse>(`/api/data-sources/${dataSourceId}/rows/${rowId}`, {
+      updatedAt,
+      data,
+    });
+  }
+
+  /** `DELETE /api/data-sources/:id/rows/:rowId` -- the `updatedAt`
+   *  precondition is a QUERY parameter here (unlike the PATCH sibling above,
+   *  which takes it in the body), matching the backend route exactly. */
+  async deleteDatasetRow(
+    dataSourceId: string,
+    rowId: string,
+    updatedAt: string,
+  ): Promise<{ deleted: true; id: string }> {
+    await this.http.delete(`/api/data-sources/${dataSourceId}/rows/${rowId}`, { updatedAt });
+    return { deleted: true, id: rowId };
   }
 
   /** Create a `csv` data source, from EITHER inline CSV text content (no

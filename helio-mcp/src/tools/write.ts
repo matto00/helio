@@ -58,25 +58,155 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
   server.registerTool(
     "create_data_source",
     {
-      title: "Create data source (static)",
+      title: "Create data source (dataset)",
       description:
-        "Create a `static` data source from inline columns + rows — the root of the canonical path " +
-        "Source → Pipeline → Output → Dashboard. Returns the created source id ONLY -- this tool " +
-        "creates no pipeline and no Output; build a pipeline over the returned source id " +
-        "(create_pipeline) with an `outputs[]` entry if a panel-bindable projection is needed, or " +
-        "add_output onto an existing pipeline afterward. For a real integration use " +
-        "create_csv_data_source, create_rest_data_source, or create_sql_data_source instead. " +
-        "Optional `tag` (HEL-366, free-form grouping key, max 200 chars) lets a whole workflow " +
-        "run's resources be torn down together later with teardown_resources.",
+        "Create a `dataset` data source with a fully declared schema — the root of the canonical " +
+        "path Source → Pipeline → Output → Dashboard. Each column's `required`/`default` are " +
+        "forwarded to the backend unchanged and become part of the declared schema (an omitted " +
+        "`default` means no default; use `get_dataset_schema` afterward to confirm). Pass " +
+        "`rows: []` to create an EMPTY dataset with only its declared schema — populate it " +
+        "afterward with append_dataset_rows. Rows here (and everywhere on this surface) are " +
+        "POSITIONAL arrays matching the declared column order, never keyed objects. Returns the " +
+        "created source id ONLY -- this tool creates no pipeline and no Output; build a pipeline " +
+        "over the returned source id (create_pipeline) with an `outputs[]` entry if a " +
+        "panel-bindable projection is needed, or add_output onto an existing pipeline afterward. " +
+        "For a real integration use create_csv_data_source, create_rest_data_source, or " +
+        "create_sql_data_source instead. Optional `tag` (HEL-366, free-form grouping key, max 200 " +
+        "chars) lets a whole workflow run's resources be torn down together later with " +
+        "teardown_resources.",
       inputSchema: {
         name: z.string().min(1),
-        columns: z.array(z.object({ name: z.string().min(1), type: z.string().min(1) })).min(1),
+        columns: z
+          .array(
+            z.object({
+              name: z.string().min(1),
+              type: z.string().min(1),
+              required: z.boolean().optional(),
+              default: z.unknown().optional(),
+            }),
+          )
+          .min(1),
         rows: z.array(z.array(z.unknown())),
         tag: z.string().min(1).max(200).optional(),
       },
     },
     ({ name, columns, rows, tag }) =>
       guarded(() => api.createDataSource({ name, columns, rows: rows as unknown[][], tag })),
+  );
+
+  server.registerTool(
+    "append_dataset_rows",
+    {
+      title: "Append rows to a dataset",
+      description:
+        "Append rows to a `dataset` source (POST /api/data-sources/:id/rows). Each row is a " +
+        "POSITIONAL array matching the declared column order — not a keyed object; call " +
+        "get_dataset_schema first if the column order is not already known. A row violating the " +
+        "declared schema (wrong arity/type, or a missing value for a `required` field with no " +
+        "`default`) is rejected verbatim by the backend — never partially applied. Returns only " +
+        "the newly appended rows (id/seq/updatedAt, not the full set) plus the source's resulting " +
+        "`updatedAt`.",
+      inputSchema: {
+        dataSourceId: z.string().min(1),
+        rows: z.array(z.array(z.unknown())).min(1),
+      },
+    },
+    ({ dataSourceId, rows }) =>
+      guarded(() => api.appendDatasetRows(dataSourceId, rows as unknown[][])),
+  );
+
+  server.registerTool(
+    "replace_dataset_rows",
+    {
+      title: "Replace all rows in a dataset",
+      description:
+        "Replace ALL rows in a `dataset` source (PUT /api/data-sources/:id/rows) — every existing " +
+        "row is discarded and replaced by the given set. Rows are POSITIONAL arrays matching the " +
+        "declared column order, same schema validation as append_dataset_rows. Returns the full " +
+        "new row set (id/seq/updatedAt per row) plus the source's resulting `updatedAt`. Pass an " +
+        "empty array to clear the dataset entirely.",
+      inputSchema: {
+        dataSourceId: z.string().min(1),
+        rows: z.array(z.array(z.unknown())),
+      },
+    },
+    ({ dataSourceId, rows }) =>
+      guarded(() => api.replaceDatasetRows(dataSourceId, rows as unknown[][])),
+  );
+
+  server.registerTool(
+    "update_dataset_row",
+    {
+      title: "Update one dataset row",
+      description:
+        "Edit one row of a `dataset` source (PATCH /api/data-sources/:id/rows/:rowId). `data` is " +
+        "the row's COMPLETE new value — a positional array, same length/order as the declared " +
+        "schema, never a partial/sparse update. `updatedAt` MUST be the row's current value " +
+        "(from a prior get_dataset_rows/append_dataset_rows/replace_dataset_rows call) — this is " +
+        "never auto-fetched. A stale `updatedAt` is returned verbatim as a precondition conflict " +
+        "and is NEVER retried automatically — re-fetch the row's current `updatedAt` and let the " +
+        "caller decide.",
+      inputSchema: {
+        dataSourceId: z.string().min(1),
+        rowId: z.string().min(1),
+        updatedAt: z.string().min(1),
+        data: z.array(z.unknown()),
+      },
+    },
+    ({ dataSourceId, rowId, updatedAt, data }) =>
+      guarded(() => api.updateDatasetRow(dataSourceId, rowId, updatedAt, data)),
+  );
+
+  server.registerTool(
+    "delete_dataset_row",
+    {
+      title: "Delete one dataset row",
+      description:
+        "Delete one row of a `dataset` source (DELETE /api/data-sources/:id/rows/:rowId). Unlike " +
+        "update_dataset_row, `updatedAt` here is sent as a QUERY parameter, not the body — same " +
+        "backend route, different transport per HTTP semantics. `updatedAt` MUST be the row's " +
+        "current value (from a prior read/write call), never auto-fetched; a stale value is a " +
+        "precondition conflict returned verbatim, never retried.",
+      inputSchema: {
+        dataSourceId: z.string().min(1),
+        rowId: z.string().min(1),
+        updatedAt: z.string().min(1),
+      },
+    },
+    ({ dataSourceId, rowId, updatedAt }) =>
+      guarded(() => api.deleteDatasetRow(dataSourceId, rowId, updatedAt)),
+  );
+
+  server.registerTool(
+    "update_dataset_schema",
+    {
+      title: "Update a dataset's declared schema",
+      description:
+        "FULL-REPLACEMENT update of a `dataset` source's declared schema (PATCH " +
+        "/api/data-sources/:id/schema) — any field of the CURRENT schema omitted from `fields` is " +
+        "DROPPED. To rename a field, include it with its NEW `name` and set `previousName` to its " +
+        "old name; every kept-but-unrenamed field must still be listed. Dropping a field that " +
+        "already has row data requires `confirmDrop: true` — without it, the backend answers `409` " +
+        "naming the rejected fields verbatim (never silently ignored). Returns the resulting " +
+        "schema plus `rowsMigrated` (how many existing rows were reshaped to match).",
+      inputSchema: {
+        dataSourceId: z.string().min(1),
+        fields: z
+          .array(
+            z.object({
+              name: z.string().min(1),
+              previousName: z.string().min(1).optional(),
+              type: z.string().min(1),
+              required: z.boolean().optional(),
+              default: z.unknown().optional(),
+            }),
+          )
+          .min(1),
+        confirmDrop: z.boolean().optional(),
+      },
+    },
+    ({ dataSourceId, fields, confirmDrop }) =>
+      guarded(() => api.updateDatasetSchema(dataSourceId, fields, confirmDrop ?? false)),
   );
 
   server.registerTool(
