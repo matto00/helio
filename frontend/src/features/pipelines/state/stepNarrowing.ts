@@ -70,6 +70,7 @@ import {
   Funnel,
   Group,
   Heading,
+  HelpCircle,
   Layers,
   Link2,
   List,
@@ -122,6 +123,23 @@ export const OP_TYPES: OpType[] = [
 // so pipelineStepToStep can resolve existing backend-loaded join steps without
 // falling back to the wrong op type.
 const JOIN_OP_TYPE: OpType = { id: "join", label: "Join tables", icon: Link2 };
+
+// HEL-1100 (design.md Decision 9): a step kind the frontend does not (yet) recognize -- e.g. a
+// persisted `upsertsource` step before HEL-1102's real step card ships. `pipelineStepToStep`
+// falls back to this rather than `OP_TYPES[0]` ("Select fields"), which used to silently
+// mis-render an unknown op as a Select step. `id` is namespaced `unsupported:<type>` so it can
+// never collide with a real, registered `OpType.id`.
+export function unsupportedOpType(type: string): OpType {
+  return { id: `unsupported:${type}`, label: `Unsupported step (${type})`, icon: HelpCircle };
+}
+
+/** HEL-1100 (design.md Decision 9): true for an `OpType` produced by [[unsupportedOpType]] --
+ *  used by `StepOpEditor` (renders a read-only notice instead of any config editor) and
+ *  `useStepCardState.persist` (skips `updatePipelineStep` entirely for an unsupported step,
+ *  since there is no config editor that could have produced a real edit to save). */
+export function isUnsupportedOpType(opType: OpType): boolean {
+  return opType.id.startsWith("unsupported:");
+}
 
 /** Empty / default config per kind. Matches the seed shapes used in the
  *  `handleAddStep` flow — kept as a single source of truth so seeding new
@@ -248,7 +266,9 @@ export function pipelineStepToStep(ps: PipelineStep): Step {
   // Join is excluded from the picker (OP_TYPES) but must still resolve
   // correctly when a backend-loaded step has type "join".
   const opType =
-    ps.type === "join" ? JOIN_OP_TYPE : (OP_TYPES.find((op) => op.id === ps.type) ?? OP_TYPES[0]);
+    ps.type === "join"
+      ? JOIN_OP_TYPE
+      : (OP_TYPES.find((op) => op.id === ps.type) ?? unsupportedOpType(ps.type));
   return {
     id: ps.id,
     opType,

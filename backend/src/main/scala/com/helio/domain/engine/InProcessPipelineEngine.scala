@@ -1,7 +1,7 @@
 package com.helio.domain.engine
 
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
-import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DatasetSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineRootId, PipelineStep, PipelineStepId, RestSource, SqlSource, TextSource, TruncatedRead, TruncationSink}
+import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DatasetSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineRootId, PipelineStep, PipelineStepId, RestSource, SqlSource, TextSource, TruncatedRead, TruncationSink, WriteBackSink}
 import com.helio.domain.steps.{JoinStep, LookupStep, SecondaryInput, UnionStep}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -354,7 +354,8 @@ class InProcessPipelineEngine(
       dataSourceRepo: DataSourceRepository,
       assertionSink: AssertionSink = new AssertionSink,
       truncationSink: TruncationSink = new TruncationSink,
-      onNodeProgress: (NodeKey, Long) => Unit = (_, _) => ()
+      onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
+      writeBackSink: WriteBackSink = new WriteBackSink
   ): Future[TreeWalkResult] = {
     require(rootFrames.nonEmpty, "executeTree requires at least one root frame (design.md R1: every pipeline has at least one root)")
     val rootIdOfStepStr: Map[String, String] = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
@@ -409,7 +410,7 @@ class InProcessPipelineEngine(
     var evaluatedIds: Set[NodeKey] = rootIds.map(rid => RootKey(rid): NodeKey).toSet
     var counts: Map[String, Long] = Map.empty
 
-    val ctx = makeContext(dataSourceRepo, assertionSink, truncationSink, stepId => nodeOutcomes.get(StepKey(stepId)).map(_.rows))
+    val ctx = makeContext(dataSourceRepo, assertionSink, truncationSink, stepId => nodeOutcomes.get(StepKey(stepId)).map(_.rows), writeBackSink)
 
     rootFrames.foreach { case (rid, rows) => onNodeProgress(RootKey(rid), rows.size.toLong) }
 
@@ -681,7 +682,8 @@ class InProcessPipelineEngine(
       dataSourceRepo: DataSourceRepository,
       assertionSink: AssertionSink,
       truncationSink: TruncationSink,
-      resolveLane: String => Option[Seq[Row]] = (_: String) => None
+      resolveLane: String => Option[Seq[Row]] = (_: String) => None,
+      writeBackSink: WriteBackSink = new WriteBackSink
   ): PipelineExecutionContext =
     PipelineExecutionContext(
       dataSourceRepo = dataSourceRepo,
@@ -692,7 +694,8 @@ class InProcessPipelineEngine(
           rows
         },
       assertionSink = assertionSink,
-      resolveLane = resolveLane
+      resolveLane = resolveLane,
+      writeBackSink = writeBackSink
     )
 
   // ── Text loader (HEL-215): single-row loader, deliberately not shared with

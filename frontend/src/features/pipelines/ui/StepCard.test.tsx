@@ -12,7 +12,7 @@ import type { ComponentProps } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import { StepCard } from "./StepCard";
-import { OP_TYPES } from "../state/stepNarrowing";
+import { OP_TYPES, unsupportedOpType } from "../state/stepNarrowing";
 import { fetchStepPreview, updatePipelineStep } from "../services/pipelineService";
 import type { OpType, Step } from "../types/step";
 import type { SchemaField } from "../types/pipelineStep";
@@ -596,6 +596,23 @@ describe("StepCard — real schema diff chips (HEL-405)", () => {
     expect(screen.queryByText("+ col_a")).not.toBeInTheDocument();
     expect(screen.queryByText(/col_b/)).not.toBeInTheDocument();
     expect(screen.queryByText(/col_c/)).not.toBeInTheDocument();
+  });
+});
+
+// HEL-1100 (design.md Decision 9) — a persisted step whose kind this frontend build doesn't
+// recognize (e.g. `upsertsource` before HEL-1102's real step card ships) renders a read-only
+// notice, never a config editor and never a PATCH-triggering handler.
+describe("StepCard — unsupported step type (HEL-1100)", () => {
+  it("renders a read-only notice instead of any config editor", async () => {
+    const step = makeStep({
+      opType: unsupportedOpType("upsertsource"),
+      label: "Unsupported step (upsertsource)",
+    });
+
+    render(<StepCard {...baseProps({ step })} />);
+    await click("Unsupported step (upsertsource)");
+
+    expect(screen.getByText(/not yet supported/i)).toBeInTheDocument();
   });
 });
 

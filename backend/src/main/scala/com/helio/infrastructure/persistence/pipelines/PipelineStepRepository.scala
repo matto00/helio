@@ -7,6 +7,7 @@ import com.helio.domain._
 import com.helio.domain.model._
 import com.helio.domain.pipelines.PipelineCycleValidator
 import com.helio.domain.steps.{UpsertSourceConfig, UpsertTarget}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
@@ -96,6 +97,70 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           }
         case _ => DBIO.successful(())
       }
+
+  /** HEL-1100 design.md Decision 7: the new-source compare-and-set rewrite, run INSIDE
+   *  `DataSourceRepository.applyWriteBacks`'s own transaction (same connection, same open
+   *  transaction -- never a second `withUserContext` call). Locks the step row FIRST
+   *  (serializing a manual run racing a scheduled one against the SAME step), re-reads its
+   *  CURRENT persisted config, and compares it to `evaluatedConfig` (the config the engine
+   *  actually evaluated, captured into the `PendingWrite` at `evaluate` time -- may already be
+   *  STALE by the time this runs, which is exactly the race this comparison exists to detect):
+   *
+   *   - identical `NewSource(name)` persisted AND evaluated (same mode) -- infer a schema from
+   *     `rows`, create the dataset, write the rows, and rewrite the step's own config to
+   *     `ExistingSource(newId)` (same mode) -- exactly once, since the lock above serializes any
+   *     concurrent racer onto the branch below instead.
+   *   - persisted config is `ExistingSource(id)` (same mode) AND that owned dataset's current
+   *     name equals the evaluated `NewSource`'s name -- a concurrent run already rewrote it;
+   *     write to `id` instead (via `DataSourceRepository.writeExistingDatasetAction`'s own
+   *     ownership re-resolve), creating nothing (skeptic-design-2.md N1).
+   *   - anything else (the user edited the step's target mid-run) -- fails the run, nothing
+   *     committed.
+   *
+   *  `private[persistence]` (not `private`) so `DataSourceRepository.applyWriteBacks` -- a
+   *  different package under the same `infrastructure.persistence` root -- can call it. Never
+   *  called with `rows.isEmpty` (D7's zero-row no-op is the caller's job). */
+  private[persistence] def rewriteUpsertTargetAction(
+      stepId:          PipelineStepId,
+      evaluatedConfig: UpsertSourceConfig,
+      ownerId:         String,
+      dsRepo:          DataSourceRepository,
+      rows:            Seq[Map[String, Any]],
+      maxRows:         Int
+  ): DBIO[Either[String, Unit]] = evaluatedConfig.target match {
+    case UpsertTarget.NewSource(evaluatedName) if evaluatedName.trim.nonEmpty =>
+      val ownerUuid = UUID.fromString(ownerId)
+      for {
+        _          <- sql"SELECT id FROM pipeline_steps WHERE id = ${stepId.value} FOR UPDATE".as[String]
+        currentRow <- stepsTable.filter(_.id === stepId.value).result.headOption
+        result     <- currentRow match {
+          case None => DBIO.successful(Left(s"Step '${stepId.value}' no longer exists"))
+          case Some(row) =>
+            scala.util.Try(UpsertSourceConfig.decode(row.config)).toOption match {
+              case Some(UpsertSourceConfig(UpsertTarget.NewSource(persistedName), persistedMode))
+                  if persistedName == evaluatedName && persistedMode == evaluatedConfig.mode =>
+                for {
+                  newId         <- dsRepo.newDatasetSourceAction(ownerId, evaluatedName, rows)
+                  newConfigJson  = UpsertSourceConfig.format.write(UpsertSourceConfig(UpsertTarget.ExistingSource(newId.value), evaluatedConfig.mode)).compactPrint
+                  _             <- cycleCheckForUpsertAction(PipelineId(row.pipelineId), row.op, newConfigJson, ownerId, oldConfigJson = Some(row.config))
+                  _             <- stepsTable.filter(_.id === stepId.value).map(s => (s.config, s.updatedAt)).update((newConfigJson, Instant.now()))
+                } yield Right(())
+              case Some(UpsertSourceConfig(UpsertTarget.ExistingSource(existingId), persistedMode))
+                  if persistedMode == evaluatedConfig.mode && existingId.trim.nonEmpty =>
+                dsRepo.ownedDatasetNameAction(DataSourceId(existingId), ownerUuid).flatMap {
+                  case Some(currentName) if currentName == evaluatedName =>
+                    dsRepo.writeExistingDatasetAction(DataSourceId(existingId), ownerUuid, evaluatedConfig.mode, rows, maxRows)
+                  case _ =>
+                    DBIO.successful(Left(s"Step '${stepId.value}' configuration changed during the run"))
+                }
+              case _ =>
+                DBIO.successful(Left(s"Step '${stepId.value}' configuration changed during the run"))
+            }
+        }
+      } yield result
+    case _ =>
+      DBIO.successful(Left(s"Step '${stepId.value}' (upsertsource) has no configured new-source target"))
+  }
 
   /** HEL-1101 task 1.2: every WRITE edge (`pipeline writes dataSourceId` via an `upsertsource`
    *  step targeting an [[UpsertTarget.ExistingSource]]) visible to `userId` -- the write-side
@@ -1245,6 +1310,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case Success(cfg: UnionConfig) => UnionStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
       case Success(cfg: LookupConfig) => LookupStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
       case Success(cfg: AssertConfig) => AssertStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: UpsertSourceConfig) => UpsertSourceStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineStepRepository: codec returned unexpected config type ${other.getClass.getName} for op '${row.op}'"

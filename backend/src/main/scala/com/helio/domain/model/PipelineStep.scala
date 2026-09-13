@@ -116,7 +116,12 @@ final case class PipelineExecutionContext(
      *  context (tests, `previewStep` before this ticket) keeps compiling;
      *  `InProcessPipelineEngine.executeTree` supplies the real implementation,
      *  backed by the in-progress `nodeOutcomes` map. */
-    resolveLane: String => Option[Seq[Map[String, Any]]] = (_: String) => None
+    resolveLane: String => Option[Seq[Map[String, Any]]] = (_: String) => None,
+    /** HEL-1100 (design.md Decision 2): the deferred write-back output parameter an
+     *  `upsertsource` step's `evaluate` records its [[PendingWrite]] into, mirroring
+     *  `assertionSink`'s convention exactly. Defaults to a fresh, unread sink so every
+     *  existing direct construction of this context (tests, preview) keeps compiling. */
+    writeBackSink: WriteBackSink = new WriteBackSink
 )
 
 object PipelineStep {
@@ -225,7 +230,8 @@ object PipelineStep {
     StringOpsStep.Kind -> StringOpsStep.companion,
     UnionStep.Kind -> UnionStep.companion,
     LookupStep.Kind -> LookupStep.companion,
-    AssertStep.Kind -> AssertStep.companion
+    AssertStep.Kind -> AssertStep.companion,
+    UpsertSourceStep.Kind -> UpsertSourceStep.companion
   )
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
@@ -267,6 +273,7 @@ object PipelineStepKind {
   val Union: String      = UnionStep.Kind
   val Lookup: String     = LookupStep.Kind
   val Assert: String     = AssertStep.Kind
+  val UpsertSource: String = UpsertSourceStep.Kind
 
   /** Registry-derived allow-list. After cycle 3 no consumer enumerates these
    *  manually — adding a new kind only requires updating

@@ -2,10 +2,12 @@ package com.helio.infrastructure.persistence.sources
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.api.protocols.sources.{DataSourceConfigCodec, DatasetFieldDeclarationPayload}
-import com.helio.domain.engine.{DatasetRowValidator, DatasetSchemaMigration, PipelineRowJson, SchemaField}
+import com.helio.domain.engine.{DatasetRowValidator, DatasetSchemaMigration, PipelineRowJson, SchemaField, SchemaInferenceEngine}
 import com.helio.domain.engine.DatasetSchemaMigration.{FieldEditSpec, MigrationResult, SchemaUpdateRejection}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
+import com.helio.domain.steps.{UpsertMode, UpsertSourceConfig, UpsertTarget}
+import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import org.slf4j.LoggerFactory
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -333,18 +335,191 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       rows:           Vector[Vector[JsValue]],
       inferredSchema: Vector[SchemaField],
       user:           AuthenticatedUser
-  ): Future[DataSource] = {
+  ): Future[DataSource] =
+    ctx.withUserContext(user.id.value)(insertDatasetSourceAction(source, declaredColumns, rows, inferredSchema))
+      .map(_ => source.copy(inferredSchema = inferredSchema))
+
+  /** HEL-1100 task 1.3: DBIO body of [[insertDatasetSource]] above -- extracted so
+   *  `applyWriteBacks` (D7, new-source path) can compose it into the SAME transaction as the
+   *  step-row lock/rewrite, rather than opening a second transaction. `private[persistence]`
+   *  (not `private`) so `PipelineStepRepository`'s `rewriteUpsertTargetAction` -- a different
+   *  package under the same `infrastructure.persistence` root -- can reference the RETURN TYPE
+   *  of this composition without a second definition; the actual call happens from
+   *  `applyWriteBacks`, in this same class. */
+  private[persistence] def insertDatasetSourceAction(
+      source:         DatasetSource,
+      declaredColumns: Vector[DatasetFieldDeclaration],
+      rows:           Vector[Vector[JsValue]],
+      inferredSchema: Vector[SchemaField]
+  ): DBIO[Unit] = {
     val rowsTable = TableQuery[DatasetRowTable]
     val rowInserts = rows.zipWithIndex.map { case (row, idx) =>
       DatasetRowRow(UUID.randomUUID().toString, source.id.value, idx.toLong, JsArray(row).compactPrint, source.createdAt, source.createdAt)
     }
-    val action = for {
+    for {
       _ <- table += domainToRow(source).copy(inferredSchema = inferredSchema)
       _ <- rowsTable ++= rowInserts
       _ <- table.filter(_.id === source.id.value).map(_.datasetSchema).update(Some(declaredColumns.toJson.compactPrint))
     } yield ()
-    ctx.withUserContext(user.id.value)(action).map(_ => source.copy(inferredSchema = inferredSchema))
   }
+
+  /** HEL-1100 design.md Decision 6: maps an `upsertsource` step's evaluated engine rows
+   *  (`Map[String, Any]`) into the target's positional `Vector[JsValue]` row shape, in the
+   *  target's OWN declared column order. A column present in `rows` but not in `declaration` is
+   *  a named rejection (sorted, so the message is deterministic) rather than a silently-dropped
+   *  cell -- an absent DECLARED column, conversely, maps to `JsNull` (the validator applies its
+   *  own required/default handling for that). */
+  private def mapWriteBackRows(
+      declaration: Vector[DatasetFieldDeclaration],
+      rows:        Seq[Map[String, Any]]
+  ): Either[String, Vector[Vector[JsValue]]] = {
+    val declaredNames = declaration.map(_.name).toSet
+    val undeclared     = rows.flatMap(_.keySet).toSet -- declaredNames
+    if (undeclared.nonEmpty)
+      Left(s"Upstream rows include column(s) not declared on the target dataset: ${undeclared.toVector.sorted.mkString(", ")}")
+    else
+      Right(rows.map(row => declaration.map(f => PipelineRowJson.anyToJsValue(row.getOrElse(f.name, null)))).toVector)
+  }
+
+  /** HEL-1100 design.md Decision 5/6: writes `rows` to an already-existing, OWNED `dataset`-kind
+   *  source, re-resolving ownership and kind FRESH under this action's own transaction (never
+   *  trusting an earlier ACL check or a persisted config's target from before this transaction
+   *  began) -- `findByIdOwned` re-resolve, inlined as a DBIO query since `findByIdOwned` itself
+   *  is a `Future`-returning, `withUserContext`-opening method that cannot compose into this
+   *  caller's own transaction. Dispatches to [[appendRowsAction]]/[[replaceRowsAction]] exactly
+   *  like the existing row-write routes -- this is the ONLY new write-shape logic here; the
+   *  actual persistence is 100% reused. `private[persistence]` so `PipelineStepRepository`'s
+   *  `rewriteUpsertTargetAction` (D7's "persisted config already points at the right dataset"
+   *  reuse branch) can call it too, from a different package under the same root. */
+  private[persistence] def writeExistingDatasetAction(
+      id:        DataSourceId,
+      ownerUuid: UUID,
+      mode:      String,
+      rows:      Seq[Map[String, Any]],
+      maxRows:   Int
+  ): DBIO[Either[String, Unit]] =
+    table.filter(r => r.id === id.value && r.ownerId === ownerUuid).map(r => (r.sourceType, r.datasetSchema)).result.headOption.flatMap {
+      case None => DBIO.successful(Left(s"Data source not found: ${id.value}"))
+      case Some((kind, _)) if kind != DataSourceKind.Dataset && kind != DataSourceKind.Static =>
+        DBIO.successful(Left(s"Data source is not a dataset: ${id.value}"))
+      case Some((_, schemaColOpt)) =>
+        val declaration = schemaColOpt.map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]]).getOrElse(Vector.empty)
+        mapWriteBackRows(declaration, rows) match {
+          case Left(err) => DBIO.successful(Left(err))
+          case Right(mappedRows) =>
+            val now = Instant.now()
+            mode match {
+              case UpsertMode.Append =>
+                appendRowsAction(id, mappedRows, maxRows, now).map(outcome => writeOutcomeToEither(id)(outcome))
+              case UpsertMode.Replace =>
+                replaceRowsAction(id, None, mappedRows, maxRows, now).map(outcome => writeOutcomeToEither(id)(outcome))
+              case other =>
+                DBIO.successful(Left(s"Unsupported 'upsertsource' mode: $other"))
+            }
+        }
+    }
+
+  private def writeOutcomeToEither(id: DataSourceId)(
+      outcome: Option[Either[String, (DataSource, Vector[DatasetRowRow])]]
+  ): Either[String, Unit] = outcome match {
+    case None                 => Left(s"Data source not found: ${id.value}")
+    case Some(Left(err))      => Left(err)
+    case Some(Right(_))       => Right(())
+  }
+
+  /** HEL-1100 design.md Decision 7 (new-source path): infers a declaration (every field
+   *  `required = false`, no default, column order = FIRST APPEARANCE across `rows` -- never
+   *  [[SchemaInferenceEngine.inferShallowFromJsObjects]]'s own alphabetical key order, which
+   *  would silently reorder the target's columns from the order the pipeline actually produced
+   *  them in) and inserts a brand-new `DatasetSource` owned by `ownerId` via
+   *  [[insertDatasetSourceAction]]. `private[persistence]` for the same cross-package reason as
+   *  [[writeExistingDatasetAction]] -- `PipelineStepRepository.rewriteUpsertTargetAction` is the
+   *  only caller. Zero rows are handled by the caller (D7: "a new-source target with zero rows
+   *  is a no-op") -- this method is never called with an empty `rows`. */
+  private[persistence] def newDatasetSourceAction(
+      ownerId: String,
+      name:    String,
+      rows:    Seq[Map[String, Any]]
+  ): DBIO[DataSourceId] = {
+    val columnOrder: Vector[String] = {
+      val seen = scala.collection.mutable.LinkedHashSet.empty[String]
+      rows.foreach(r => r.keys.foreach(seen += _))
+      seen.toVector
+    }
+    val jsObjects       = rows.map(r => JsObject(r.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })).toVector
+    val inferredByName  = SchemaInferenceEngine.inferShallowFromJsObjects(jsObjects).map(f => f.name -> f.dataType).toMap
+    val declaredColumns = columnOrder.map(n => DatasetFieldDeclaration(n, inferredByName.getOrElse(n, DataFieldType.StringType), required = false, default = None))
+    val mappedRows      = rows.map(r => columnOrder.map(n => PipelineRowJson.anyToJsValue(r.getOrElse(n, null)))).toVector
+    val inferredSchema  = declaredColumns.zipWithIndex.map { case (field, i) =>
+      val cells = mappedRows.map(_.lift(i).getOrElse(JsNull))
+      SchemaField(field.name, PipelineRowJson.staticColumnRuntimeType(DataFieldType.asString(field.fieldType), cells))
+    }
+    val now    = Instant.now()
+    val newId  = DataSourceId(UUID.randomUUID().toString)
+    val source = DatasetSource(newId, name, UserId(ownerId), now, now, tag = None, inferredSchema = Vector.empty)
+    insertDatasetSourceAction(source, declaredColumns, mappedRows, inferredSchema).map(_ => newId)
+  }
+
+  /** HEL-1100 design.md Decisions 3/4/6/7: applies every `upsertsource` step's deferred write
+   *  from one run, IN WALK ORDER (`writes`' own order -- `PipelineRunService` never reorders
+   *  it), inside ONE transaction on the app pool under `owner`'s user context (D5: never
+   *  `withSystemContext`, so FORCEd RLS on `dataset_rows`/`data_sources`/`pipeline_steps`
+   *  applies throughout). Any single write's failure fails the WHOLE transaction -- a
+   *  `DBIO.failed` short-circuits the fold, and Slick rolls back everything, including any
+   *  earlier write in this SAME batch that already "succeeded" inside the uncommitted
+   *  transaction (task 3.4/3.5's atomicity requirement). `stepRepo` supplies
+   *  [[PipelineStepRepository.rewriteUpsertTargetAction]] for the new-source CAS path (D7) --
+   *  passed as a parameter rather than a constructor dependency to avoid a
+   *  DataSourceRepository <-> PipelineStepRepository construction cycle; `PipelineRunService`
+   *  already holds both repositories and supplies its own. */
+  def applyWriteBacks(
+      owner:    AuthenticatedUser,
+      writes:   Vector[PendingWrite],
+      stepRepo: PipelineStepRepository,
+      maxRows:  Int
+  ): Future[Either[String, Unit]] =
+    if (writes.isEmpty) Future.successful(Right(()))
+    else {
+      val ownerUuid = UUID.fromString(owner.id.value)
+      def applyOne(write: PendingWrite): DBIO[Either[String, Unit]] = write.config.target match {
+        case UpsertTarget.ExistingSource(dsId) if dsId.trim.nonEmpty =>
+          writeExistingDatasetAction(DataSourceId(dsId), ownerUuid, write.config.mode, write.rows, maxRows)
+        case UpsertTarget.NewSource(name) if name.trim.nonEmpty =>
+          // D7: a new-source target with zero rows is a no-op -- no dataset, nothing to infer a
+          // schema from, and (critically) no reason to run the CAS/rewrite at all.
+          if (write.rows.isEmpty) DBIO.successful(Right(()))
+          else stepRepo.rewriteUpsertTargetAction(PipelineStepId(write.stepId), write.config, owner.id.value, this, write.rows, maxRows)
+        case _ =>
+          DBIO.successful(Left(s"Step '${write.stepId}' (upsertsource) has no configured target"))
+      }
+      val start: DBIO[Either[String, Unit]] = DBIO.successful(Right(()))
+      val chained: DBIO[Either[String, Unit]] = writes.foldLeft(start) { (accDbio, write) =>
+        accDbio.flatMap {
+          case left @ Left(_) => DBIO.successful(left): DBIO[Either[String, Unit]]
+          case Right(())      => applyOne(write)
+        }
+      }
+      val failFast: DBIO[Unit] = chained.flatMap {
+        case Left(err) => DBIO.failed(new IllegalStateException(err))
+        case Right(()) => DBIO.successful(())
+      }
+      ctx.withUserContext(owner.id.value)(failFast.transactionally)
+        .map(_ => Right(()): Either[String, Unit])
+        .recover { case e: IllegalStateException => Left(e.getMessage) }
+    }
+
+  /** HEL-1100 design.md Decision 7 (reuse branch): the current name of an owned `dataset`-kind
+   *  source, if `id` exists, is owned by `ownerUuid`, and is a dataset -- `None` for a
+   *  nonexistent/foreign/non-dataset id, exactly like every other "existence and authorization
+   *  are indistinguishable" read in this file. `PipelineStepRepository.rewriteUpsertTargetAction`
+   *  uses this to detect "a concurrent run already rewrote this step's target" (D7's second CAS
+   *  branch) without needing this class's private `table` reference from another package. */
+  private[persistence] def ownedDatasetNameAction(id: DataSourceId, ownerUuid: UUID): DBIO[Option[String]] =
+    table
+      .filter(r => r.id === id.value && r.ownerId === ownerUuid && (r.sourceType === DataSourceKind.Dataset || r.sourceType === DataSourceKind.Static))
+      .map(_.name)
+      .result
+      .headOption
 
   /** HEL-1077 design.md D1: `SELECT id FROM data_sources WHERE id = ? FOR UPDATE`, RLS-scoped
    *  under the caller's user context. Serializes every write to a given source (append, PUT
@@ -370,9 +545,24 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       maxRows:   Int,
       updatedAt: Instant,
       user:      AuthenticatedUser
-  ): Future[Option[Either[String, (DataSource, Vector[DatasetRowRow])]]] = {
+  ): Future[Option[Either[String, (DataSource, Vector[DatasetRowRow])]]] =
+    ctx.withUserContext(user.id.value)(appendRowsAction(id, newRows, maxRows, updatedAt))
+
+  /** HEL-1100 task 1.3: DBIO body of [[appendRows]] above -- extracted so `applyWriteBacks`
+   *  (D4) can compose it into the SAME `applyWriteBacks` transaction, alongside other pending
+   *  writes, instead of each write opening its own transaction. Behavior is byte-identical to
+   *  the pre-extraction inline body -- the lock, the fresh-under-the-lock schema/row read, and
+   *  the validation all still happen exactly here, never hoisted above where the caller's
+   *  transaction actually begins. `private[persistence]` for the same cross-package reason as
+   *  [[insertDatasetSourceAction]]. */
+  private[persistence] def appendRowsAction(
+      id:        DataSourceId,
+      newRows:   Vector[Vector[JsValue]],
+      maxRows:   Int,
+      updatedAt: Instant
+  ): DBIO[Option[Either[String, (DataSource, Vector[DatasetRowRow])]]] = {
     val rowsTable = TableQuery[DatasetRowTable]
-    val action = for {
+    for {
       _              <- lockSource(id)
       schemaColOpt   <- table.filter(_.id === id.value).map(_.datasetSchema).result.headOption
       result <- schemaColOpt match {
@@ -408,7 +598,6 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           } yield result
       }
     } yield result
-    ctx.withUserContext(user.id.value)(action)
   }
 
   /** HEL-1077 design.md D1 (round-2 correction, skeptic-design-2.md): replaces `replaceDatasetRows`
@@ -427,9 +616,20 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       maxRows:     Int,
       updatedAt:   Instant,
       user:        AuthenticatedUser
-  ): Future[Option[Either[String, (DataSource, Vector[DatasetRowRow])]]] = {
+  ): Future[Option[Either[String, (DataSource, Vector[DatasetRowRow])]]] =
+    ctx.withUserContext(user.id.value)(replaceRowsAction(id, declaration, rows, maxRows, updatedAt))
+
+  /** HEL-1100 task 1.3: DBIO body of [[replaceRows]] above -- see [[appendRowsAction]]'s matching
+   *  doc for why this is extracted and why the extraction is behavior-preserving. */
+  private[persistence] def replaceRowsAction(
+      id:          DataSourceId,
+      declaration: Option[Vector[DatasetFieldDeclaration]],
+      rows:        Vector[Vector[JsValue]],
+      maxRows:     Int,
+      updatedAt:   Instant
+  ): DBIO[Option[Either[String, (DataSource, Vector[DatasetRowRow])]]] = {
     val rowsTable = TableQuery[DatasetRowTable]
-    val action = for {
+    for {
       _              <- lockSource(id)
       schemaColOpt   <- table.filter(_.id === id.value).map(_.datasetSchema).result.headOption
       result <- schemaColOpt match {
@@ -461,7 +661,6 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           }
       }
     } yield result
-    ctx.withUserContext(user.id.value)(action)
   }
 
   /** HEL-1078 design.md D1/D5: patch a single row's full data, guarded by an `updatedAt`

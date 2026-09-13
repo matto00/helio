@@ -53,6 +53,8 @@ package object domain {
   val  LookupStep     = steps.LookupStep
   type AssertStep     = steps.AssertStep
   val  AssertStep     = steps.AssertStep
+  type UpsertSourceStep = steps.UpsertSourceStep
+  val  UpsertSourceStep = steps.UpsertSourceStep
 
   type RenameConfig    = steps.RenameConfig
   val  RenameConfig    = steps.RenameConfig
@@ -114,4 +116,8 @@ package object domain {
   val  AssertRule       = steps.AssertRule
   type AssertConfig     = steps.AssertConfig
   val  AssertConfig     = steps.AssertConfig
+  type UpsertTarget     = steps.UpsertTarget
+  val  UpsertTarget     = steps.UpsertTarget
+  type UpsertSourceConfig = steps.UpsertSourceConfig
+  val  UpsertSourceConfig = steps.UpsertSourceConfig
 }

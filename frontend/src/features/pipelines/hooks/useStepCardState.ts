@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { updatePipelineStep } from "../services/pipelineService";
+import { isUnsupportedOpType } from "../state/stepNarrowing";
 import {
   aggregateConfigOf,
   assertConfigOf,
@@ -205,6 +206,11 @@ export function useStepCardState(
    *  notifies the parent. Local editor state is updated by the caller (so
    *  the UI stays responsive regardless of debounce/network latency). */
   function persist(newConfig: PipelineStepConfig): void {
+    // HEL-1100 (design.md Decision 9): an unsupported step kind has no config editor that could
+    // have produced this call in the first place, but the pending-`onChange` type shape allows
+    // it to be invoked with a stale/default value regardless -- skip the PATCH entirely rather
+    // than persisting a config no editor here actually computed.
+    if (isUnsupportedOpType(step.opType)) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;

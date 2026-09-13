@@ -5,6 +5,7 @@
 // Behavior-preserving — no branch logic changed, only relocated.
 
 import type { useStepCardState } from "../hooks/useStepCardState";
+import { isUnsupportedOpType } from "../state/stepNarrowing";
 import type { SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { AggregateConfig } from "./stepConfigs/AggregateConfig";
@@ -94,6 +95,19 @@ export function StepOpEditor({
     onLookupChange,
     onAssertChange,
   } = stepCardState;
+
+  // HEL-1100 (design.md Decision 9): a persisted step whose kind this frontend build doesn't
+  // recognize (e.g. `upsertsource` before HEL-1102's real step card ships) renders a read-only
+  // notice rather than any config editor -- there is no `*Config` component to dispatch to, and
+  // no edit this UI could produce would round-trip correctly.
+  if (isUnsupportedOpType(step.opType)) {
+    return (
+      <p className="pipeline-detail-page__step-card-desc">
+        This step type is not yet supported in this version of the pipeline editor. Its
+        configuration is preserved, but it cannot be edited here.
+      </p>
+    );
+  }
 
   if (step.opType.id === "select") {
     return (

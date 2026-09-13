@@ -1241,7 +1241,10 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       "stringops"          -> ("""{"operation":"trim","field":"order_id","outputColumn":"order_id"}""", baseSchema),
       "union"              -> ("""{"mode":"byName","secondaryInput":{"kind":"source","dataSourceId":"ds-2"}}""", baseSchema),
       "lookup"             -> ("""{"columns":[]}""", baseSchema),
-      "assert"             -> ("""{"rules":[]}""", baseSchema)
+      "assert"             -> ("""{"rules":[]}""", baseSchema),
+      // HEL-1100 (design.md D8): a terminal write step -- pass-through, exactly like
+      // filter/limit/sort/dedupe/fillnull above.
+      "upsertsource"       -> ("""{"target":{"kind":"existingSource","dataSourceId":"ds-3"},"mode":"append"}""", baseSchema)
     )
 
     /** Kinds deliberately excluded from `probesByKind`, by NAME with a stated reason -- never

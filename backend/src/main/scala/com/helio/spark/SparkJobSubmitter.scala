@@ -3,7 +3,7 @@ package com.helio.spark
 import com.helio.domain.{AggregateStep, CastStep, ComputeStep, FilterStep, GroupByStep, JoinStep, LimitStep, RenameStep, SelectStep, SortStep}
 import com.helio.domain.steps.SecondaryInput
 import com.helio.domain.engine.{NodeKey, PipelineExecutionBackend, PipelineExecutionOutcome, SourceReadStats}
-import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DataSourceId, DatasetSource, Pipeline, PipelineRunId, PipelineStep, TruncationSink}
+import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DataSourceId, DatasetSource, Pipeline, PipelineRunId, PipelineStep, TruncationSink, WriteBackSink}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
 import com.helio.services.pipelines.{PipelineRunService, TriggerSource}
@@ -146,7 +146,12 @@ class SparkJobSubmitter(
       // HEL-905 (design.md Decision 6): no per-node concept in the Spark path -- accepted per
       // the trait contract and never invoked, same "leave untouched" convention as
       // assertionSink/truncationSink above.
-      onNodeProgress: (NodeKey, Long) => Unit
+      onNodeProgress: (NodeKey, Long) => Unit,
+      // HEL-1100 (design.md D3): `supportsWriteBack` is `false` for this backend (below), so
+      // `PipelineRunService.runPipeline` rejects an `upsertsource`-containing run before this
+      // method is ever reached with a real write pending -- accepted per the trait contract and
+      // never invoked, same "leave untouched" convention as assertionSink/truncationSink above.
+      writeBackSink: WriteBackSink
   )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] =
     Future {
       val dataSource = roots.head._2

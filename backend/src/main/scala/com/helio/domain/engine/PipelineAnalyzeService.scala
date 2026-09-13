@@ -451,7 +451,10 @@ object PipelineAnalyzeService {
       secondarySchema: Option[Vector[SchemaField]] = None
   ): (Vector[SchemaField], Option[String]) =
     op match {
-      case "filter" | "limit" | "sort" | "dedupe" | "fillnull" => (inputSchema, None)
+      // HEL-1100 (design.md D8): `upsertsource` is a terminal write step that never transforms
+      // its rows -- a downstream child sees exactly its input schema unchanged, same as
+      // `assert`'s pass-through-with-side-effect shape.
+      case "filter" | "limit" | "sort" | "dedupe" | "fillnull" | "upsertsource" => (inputSchema, None)
       // HEL-911 (design.md Engine contract item 12, evaluation-1.md CR3): `union`/`join`
       // project a schema derived from BOTH inputs when the secondary input is `lane`-kind
       // and its schema was resolvable (see `analyzeNodes`/`laneDependencyOf`). For a

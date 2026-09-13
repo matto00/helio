@@ -2463,10 +2463,11 @@ object PipelineRunServiceSpec {
         dataSourceRepo: DataSourceRepository,
         assertionSink: AssertionSink,
         truncationSink: TruncationSink,
-        onNodeProgress: (NodeKey, Long) => Unit = (_, _) => ()
+        onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
+        writeBackSink: WriteBackSink = new WriteBackSink
     )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = {
       capturedSteps = Some(steps)
-      delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress)
+      delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink)
     }
   }
 }

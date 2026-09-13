@@ -1,6 +1,6 @@
 package com.helio.domain.engine
 
-import com.helio.domain.model.{AssertionSink, DataSource, Pipeline, PipelineStep, TruncationSink}
+import com.helio.domain.model.{AssertionSink, DataSource, Pipeline, PipelineStep, TruncationSink, WriteBackSink}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import PipelineRowJson.Row
 
@@ -17,6 +17,15 @@ import scala.concurrent.{ExecutionContext, Future}
  *  which supports neither `assert` steps nor truncation tracking) MUST leave them untouched --
  *  never populate or clear them -- silently ignoring both. */
 trait PipelineExecutionBackend {
+  /** HEL-1100 (design.md Decision 3): whether this backend actually applies an `upsertsource`
+   *  step's deferred write -- `false` by default so every backend with no write-back
+   *  implementation (`SparkJobSubmitter`) fails closed without needing its own override.
+   *  `PipelineRunService.runPipeline` consults this BEFORE `execute`/`executeRun`, at submit
+   *  time, rejecting a run whose enabled steps include `upsertsource` when this is `false` --
+   *  the backend is a deployment choice, not a pipeline property, so step CREATION is
+   *  unaffected either way. */
+  def supportsWriteBack: Boolean = false
+
   /** HEL-913 (design.md R4/R9): `roots` replaces the single `dataSource` argument -- one
    *  `(rootId, DataSource)` pair per pipeline root, ORDERED by `position` ascending (R3's
    *  cross-root tiebreak). R9: one run loads every root's source and refreshes every Output,
@@ -34,7 +43,14 @@ trait PipelineExecutionBackend {
       // implementation with no per-node concept, e.g. SparkJobSubmitter) keeps compiling
       // and is never required to call it. HEL-913 R15: keyed by NodeKey -- a root reports its
       // own root id, never `null`/`None` standing in for "the" root.
-      onNodeProgress: (NodeKey, Long) => Unit = (_, _) => ()
+      onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
+      // HEL-1100 (design.md Decision 2): mirrors assertionSink/truncationSink's output-parameter
+      // convention, DEFAULTED (unlike those two) because every pre-existing call site (previews,
+      // dry-run inline arms) has no reason to read it back -- only `PipelineRunService.executeRun`'s
+      // real-run path constructs one explicitly and reads `.writes` after the Future completes. An
+      // implementation with no equivalent concept (`SparkJobSubmitter`) leaves it untouched, exactly
+      // like the sinks above.
+      writeBackSink: WriteBackSink = new WriteBackSink
   )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome]
 }
 
