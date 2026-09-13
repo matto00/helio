@@ -36,10 +36,11 @@ import scala.concurrent.{ExecutionContext, Future}
  *      class): malformed shape, wrong-typed fields, an unrecognised `target.kind`, or an
  *      unrecognised `mode` are all rejected here, named and typed, never silently defaulted
  *      (HEL-871 class). Read-path decoding (`UpsertSourceConfig.decode`) stays tolerant — a
- *      legacy/malformed persisted row still reads (see
- *      `UpsertSourceConfigSpec` — this is exactly the trap this ticket's own description
- *      calls out: `PipelineStepRepository.rowToDomain` turns any decode failure into an
- *      `IllegalStateException` on every read, so strictness must live here, not there).
+ *      row with `target`/`mode` simply ABSENT still reads (see `UpsertSourceConfigSpec` — this
+ *      is exactly the trap this ticket's own description calls out:
+ *      `PipelineStepRepository.rowToDomain` turns any decode failure into an
+ *      `IllegalStateException` on every read, so strictness must live here, not there). A
+ *      PRESENT-but-wrong-typed value still fails `decode`, exactly like every other step.
  *    - [[validateTargetOwnership]] — the async ownership pre-flight an `ExistingSource`
  *      target needs before HEL-1100 can wire this into `PipelineService.addStep`'s existing
  *      `aclCheckF` (mirrors the `secondaryDataSourceId`/`findByIdOwned` pattern `join`/
