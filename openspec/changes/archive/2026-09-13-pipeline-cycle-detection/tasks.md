@@ -30,3 +30,9 @@
 
 - [x] 5.1 Confirm every scenario in `specs/pipeline-cycle-detection/spec.md` has a corresponding passing test: direct cycle, 2-pipeline transitive, 3-pipeline transitive, diamond false-positive (three-colour DFS proof), tenancy-scoped graph under RLS/non-superuser role (including the privileged-connection exclusion test from 1.2/3.4), editor-grantee write scoped to their own visible graph (3.6), every edge-adding write path (both `create` paths, `addRoot`, `addStep`/`updateStep`), and the concurrency race.
 - [x] 5.2 Run full backend suite (`sbt test`) and confirm `PipelineCreateTransactionalSpec`'s existing `upsertsource`-rejected pinned case is untouched (still rejects — this ticket does not register the step).
+
+## Standing Constraints
+
+- [C1] Models: sonnet for executor/evaluator; opus for skeptic only (per-spawn override).
+- [C2] Do not register upsertsource in PipelineStep.Registry/PipelineStepKind.All in this ticket — that is HEL-1100's job, gated on this ticket's cycle check existing.
+- [C3] Never commit with -n; never gh pr merge --auto/--admin; never force-push main or tag/release; no process kills by pattern.
