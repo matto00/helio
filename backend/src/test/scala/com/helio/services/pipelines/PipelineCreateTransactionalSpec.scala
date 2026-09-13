@@ -164,6 +164,29 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
       rawCount shouldBe 0
     }
 
+    // HEL-1104 task 2.3: V107 widens the DB's pipeline_steps_op_check to accept these four
+    // write-back op strings, but PipelineStepKind.All (the allow-list validateStepKinds/addStep
+    // actually checks, at services/pipelines/PipelineService.scala:521) has no entry for any of
+    // them yet -- each op's own ticket (HEL-1099/1105/1106/1107) adds it deliberately. This test
+    // is at the service boundary that produces the route's real 400, not PipelineAnalyzeService's
+    // "Unknown op" (which only fires inside an already-200 analyze response and would pass
+    // vacuously here even if the DB accepted the op but the API also wrongly did).
+    Seq("upsertsource", "convertformat", "analyzewithai", "generatetext").foreach { op =>
+      s"reject a '$op' step with BadRequest (constraint accepts it now; PipelineStepKind.All does not yet)" in {
+        val sourceId = newSource()
+        val req = CreatePipelineRequest(
+          name  = s"Reject $op until wired",
+          roots = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
+          steps = Vector(CreatePipelineTransactionalStepRequest("s1", op, JsObject.empty))
+        )
+
+        val result = await(service.create(req, owner))
+        result shouldBe a[Left[_, _]]
+        result.left.toOption.get shouldBe a[ServiceError.BadRequest]
+        result.left.toOption.get.asInstanceOf[ServiceError.BadRequest].message should include(s"Invalid step type '$op'")
+      }
+    }
+
     "roll back the whole call (pipeline AND the already-created step gone) when an Output has a bad fieldMapping slot" in {
       val sourceId = newSource()
       // Give the pipeline a unique tag so we can find the row it created (if any survived the
