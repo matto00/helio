@@ -40,9 +40,26 @@ step is a correctness hazard, not just an unfinished feature.
 
 `PipelineCreateTransactionalSpec`'s existing "reject `upsertsource` until wired" case is
 therefore left standing. This ticket ships `UpsertSourceConfig`/`validateRawConfig`/
-`validateTargetOwnership` as free-standing, fully-tested building blocks; whichever of
-HEL-1100/1101/1102 does the actual registration wires them into a `PipelineStep.Companion`
-directly (the method bodies are copy-paste-ready — see the file's own scaladoc).
+`validateTargetOwnership` as free-standing, fully-tested building blocks.
+
+**Ownership and ordering (added per design-gate skeptic round 1 REFUTE, item 1).** Leaving the
+registering ticket unnamed re-opens exactly the hazard this decision exists to prevent: HEL-1100's
+own AC ("append preserves existing rows; replace swaps atomically") is only testable against a
+runnable, registered step, so without an explicit owner and an explicit order constraint, the
+likely path is HEL-1100 registering `upsertsource` while HEL-1101 (cycle detection) is still
+unstarted — a registered-but-cycle-unchecked write step, the same correctness hazard called out
+above. To close that gap:
+
+- **HEL-1100 is the ticket that registers `upsertsource`** in `PipelineStep.Registry` /
+  `PipelineStepKind.All` (it is the ticket that can actually supply `evaluate`; HEL-1101 and
+  HEL-1102 have no reason to touch the registry).
+- **HEL-1100 is blocked on HEL-1101.** Registration — and therefore flipping
+  `PipelineCreateTransactionalSpec`'s pinned rejection — MUST NOT land until HEL-1101's
+  validation-time cycle check exists and is wired into the same write path
+  (`PipelineService.create`/`addStep`). This ordering is recorded as a Linear `blockedBy` relation
+  (HEL-1100 blocked by HEL-1101) and restated in the capability spec's "not yet creatable"
+  requirement (`pipeline-upsertsource-config`), so it binds whoever eventually does the
+  registration, not just this design doc.
 
 **Alternative considered**: implement a `PipelineStep.Companion` now with `evaluate` throwing
 `NotImplementedError` and NOT add it to `Registry` (so it stays unreachable). Rejected as pure
@@ -74,3 +91,7 @@ into that exact call site is direct.
 - **Wire-shape lock-in.** The `{"kind": ...}` target shape and `append`/`replace` mode strings
   become load-bearing for HEL-1100/1101/1102 the moment this merges. Mitigated by mirroring the
   already-proven `SecondaryInput` convention rather than inventing one.
+- **An `existingSource` target with an empty `dataSourceId` passes write-time validation** (it is
+  the incomplete-draft default, matching `SecondaryInput`'s own `dataSourceId: ""` convention).
+  HEL-1100's `requiredConfigProblems`/run-time completeness check MUST reject it before a run —
+  `validateRawConfig` accepting a draft is not the same as the engine treating it as complete.

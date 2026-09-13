@@ -14,7 +14,8 @@
 
 ## 3. Tests
 
-- [x] 3.1 Read-path tolerance: legacy/malformed-absent row still decodes (no
+- [x] 3.1 Read-path tolerance: an absent-field ("legacy") row still decodes; a present
+      wrong-typed value still fails to decode, matching the spec (no
       `IllegalStateException` risk through `PipelineStepRepository.rowToDomain`).
 - [x] 3.2 Write-path rejections: wrong-typed `target`/`mode`/`target.name`/`target.dataSourceId`,
       unrecognised `target.kind`, unsupported `mode`, non-object top-level config, absent fields

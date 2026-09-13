@@ -2,10 +2,12 @@
 
 The `upsertsource` write-back step (epic HEL-1098) needs a config model and a strict
 write-path validator before its engine (HEL-1100), cycle detection (HEL-1101), or UI/MCP
-(HEL-1102) can be built on top of it. No step kind currently validates its config on write —
-today a mistyped value silently decodes to a typed default (the HEL-871 class of bug). This
-change ships the reusable config model and its write-path check now, without registering the
-step into the runtime.
+(HEL-1102) can be built on top of it. Every registered step kind already gets a generic
+`validateRawConfig` (`PipelineStep.Companion`, HEL-814), but that generic check does not know
+`upsertsource`'s own enum constraint — a `mode` outside `append`/`replace` would otherwise
+decode as though it were a value this kind understands. This change ships the reusable config
+model and its kind-specific write-path check now, without registering the step into the
+runtime.
 
 ## What Changes
 

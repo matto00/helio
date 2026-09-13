@@ -47,10 +47,16 @@ import scala.concurrent.{ExecutionContext, Future}
  *      absent id and one owned by another tenant — never a distinguishable cross-tenant
  *      existence oracle.
  *
- *  Whichever of HEL-1100/HEL-1101/HEL-1102 registers the real `UpsertSourceStep` into
- *  `PipelineStep.Registry` reuses this file's `UpsertSourceConfig`/`UpsertTarget` types and
+ *  '''HEL-1100 registers the real `UpsertSourceStep`''' into `PipelineStep.Registry` — it is the
+ *  ticket that supplies `evaluate`, so it is the one with a reason to touch the registry; HEL-1101
+ *  and HEL-1102 do not. HEL-1100 reuses this file's `UpsertSourceConfig`/`UpsertTarget` types and
  *  wires `validateRawConfig`/`validateTargetOwnership` into the `Companion` exactly as this
- *  scaladoc describes — no config-shape decision is deferred to that ticket. */
+ *  scaladoc describes — no config-shape decision is deferred to that ticket. Per design.md
+ *  Decision 1 (added after design-gate skeptic round 1 REFUTE): '''HEL-1100 is blocked on
+ *  HEL-1101''' — registration, and flipping `PipelineCreateTransactionalSpec`'s pinned rejection,
+ *  must not land before HEL-1101's validation-time cycle check exists, or a registered step could
+ *  run before a write→read cycle is rejected. This ordering is recorded as a Linear `blockedBy`
+ *  relation, not just prose here. */
 sealed trait UpsertTarget
 
 object UpsertTarget {
