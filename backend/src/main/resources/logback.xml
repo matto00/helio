@@ -1,42 +1,61 @@
 <configuration>
   <property name="LOG_LEVEL" value="${LOG_LEVEL:-INFO}" />
 
-  <!-- Select the console appender at startup from LOG_FORMAT. The <if> sits at
-       the top level (directly under <configuration>), wrapping two complete
-       <root> branches, so it does not nest inside a second-phase element
-       (<root>) and avoids the IfNestedWithinSecondPhaseElementSC startup WARN.
-       Each appender is defined INSIDE its own branch so only the selected one is
-       ever declared — nothing is left unreferenced, so there is no "Appender
-       named [...] not referenced" WARN either. True equality means any non-`json`
-       value (including typos/unset) resolves to plain text, never a dangling ref
-       that would leave the root with no appender. Requires Janino on the
-       classpath. -->
-  <if condition='p("LOG_FORMAT").equalsIgnoreCase("json")'>
-    <then>
-      <!-- Structured JSON output for production (Cloud Logging). LogstashEncoder
-           includes MDC entries by default. The level field is renamed to a
-           top-level `severity` field so Cloud Logging classifies entries. -->
-      <appender name="json" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-          <fieldNames>
-            <level>severity</level>
-          </fieldNames>
-        </encoder>
-      </appender>
-      <root level="${LOG_LEVEL}">
-        <appender-ref ref="json" />
-      </root>
-    </then>
-    <else>
-      <!-- Human-readable plain-text output (dev/local default). -->
-      <appender name="plain" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-          <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
-        </encoder>
-      </appender>
-      <root level="${LOG_LEVEL}">
-        <appender-ref ref="plain" />
-      </root>
-    </else>
-  </if>
+  <!-- HEL-1128: LOG_FORMAT selects the console appender WITHOUT using logback's
+       <if> conditional-processing construct. Local reproduction (real
+       Dockerfile + real throwaway Postgres, both with and without <if> in this
+       exact fat-jar build) probe-confirmed that ANY use of <if> here — whether
+       wrapping <root> at the top level, or nested inside <root> around just the
+       <appender-ref> — causes Joran to report a clean "End of configuration"
+       with no ERROR status, yet the root logger ends up with NO appender
+       attached at runtime: `-Dlogback.debug=true` surfaced "No appenders
+       present in context [default] for logger [...]" for Pekko's very first
+       log call, and zero application/Flyway output ever reached stdout
+       afterward, identically on both the LOG_FORMAT=json and LOG_FORMAT-unset
+       branches — proving the failure is in <if> processing itself in this
+       fat-jar build, not in which branch is selected. Removing <if> entirely
+       (both appenders declared unconditionally; the SELECTED appender's name
+       is chosen via plain property substitution in `<appender-ref ref="...">`)
+       was probe-confirmed, with the same local repro, to restore output on
+       both LOG_FORMAT values. See design.md for the full transcript.
+
+       HEL-1128 round 2 (skeptic-final-1.md REFUTE): a plain `${LOG_FORMAT:-plain}`
+       substitution only matches the literal string "json" exactly — `JSON`,
+       `Json`, or a typo silently left ROOT with no appender at all (the same
+       silent-logging-loss defect this ticket exists to fix, just for a
+       different set of input values), and regressed the case-insensitive
+       fallback contract in openspec/specs/structured-json-logging/spec.md and
+       CLAUDE.md's LOG_FORMAT row. Fixed with a `<define>` (a custom
+       `PropertyDefiner`, com.helio.logging.LogFormatPropertyDefiner) that
+       normalizes LOG_FORMAT case-insensitively into exactly "json" or "plain"
+       as plain JVM code, entirely outside logback's appender-attachment
+       processing — so there is still zero conditional-processing construct
+       anywhere in the appender-attachment path itself, only in computing
+       which already-resolved string value gets substituted into
+       `ref="${LOG_APPENDER}"`. Probe-confirmed (same local repro) that
+       LOG_FORMAT=JSON now gives JSON output and LOG_FORMAT=garbage gives
+       plain-text output, neither one silence. -->
+  <define name="LOG_APPENDER" class="com.helio.logging.LogFormatPropertyDefiner" />
+
+  <appender name="json" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- Structured JSON output for production (Cloud Logging). LogstashEncoder
+         includes MDC entries by default. The level field is renamed to a
+         top-level `severity` field so Cloud Logging classifies entries. -->
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <fieldNames>
+        <level>severity</level>
+      </fieldNames>
+    </encoder>
+  </appender>
+
+  <appender name="plain" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- Human-readable plain-text output (dev/local default). -->
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="${LOG_LEVEL}">
+    <appender-ref ref="${LOG_APPENDER}" />
+  </root>
 </configuration>
