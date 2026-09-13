@@ -17,7 +17,7 @@ import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByToken
 import com.helio.domain.steps.SecondaryInput
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineCycleGuard, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import org.postgresql.util.PSQLException
 import org.slf4j.LoggerFactory
@@ -362,7 +362,7 @@ final class PipelineService(
               val action: DBIO[PipelineSummary] = for {
                 createResult      <- pipelineRepo.createAction(req.name.trim, dataSources, user, tag)
                 (summary, rootIds) = createResult
-                stepIdMap         <- buildStepsAction(PipelineId(summary.id), req.steps, stepRootIdxs, rootIds)
+                stepIdMap         <- buildStepsAction(PipelineId(summary.id), req.steps, stepRootIdxs, rootIds, user.id.value)
                 _                 <- buildOutputsAction(PipelineId(summary.id), req.outputs, outputRootIdxs, rootIds, stepIdMap, user, analyzedNodes, sourceSchemasByRoot)
               } yield summary
 
@@ -370,8 +370,9 @@ final class PipelineService(
                 audit("pipeline.create", "pipeline", Some(summary.id), user)
                 Right(toSummaryResponse(summary))
               }.recover {
-                case PipelineCreateValidationFailure(err) => Left(err)
-                case ex                                    => Left(PipelineService.classifyDbError(ex))
+                case PipelineCreateValidationFailure(err)         => Left(err)
+                case PipelineCycleGuard.PipelineCycleRejected(msg) => Left(ServiceError.BadRequest(msg))
+                case ex                                            => Left(PipelineService.classifyDbError(ex))
               }
           }
       }
@@ -511,7 +512,12 @@ final class PipelineService(
       // return value) -- indices only become real ids at this point, since no root existed
       // before `createAction` ran.
       stepRootIdxs: Vector[Option[Int]],
-      rootIds: Vector[PipelineRootId]
+      rootIds: Vector[PipelineRootId],
+      // HEL-1101 skeptic-final-1.md CR1: threaded down to `insertInternalAction`'s own
+      // `actingUserId` param -- the create path's cycle check (a new pipeline's roots + any
+      // `upsertsource` step in this same request) needs the real acting caller, not the
+      // insert-shaped default.
+      actingUserId: String
   ): DBIO[Map[String, PipelineStepId]] =
     steps.zip(stepRootIdxs).foldLeft(DBIO.successful(Map.empty[String, PipelineStepId]): DBIO[Map[String, PipelineStepId]]) { (accAction, specAndRootIdx) =>
       val (spec, rootIdx) = specAndRootIdx
@@ -564,7 +570,7 @@ final class PipelineService(
                         "reference is not yet supported via this single-call create path"
                     )))
                   case Right(rewrittenConfig) =>
-                    pipelineStepRepo.insertInternalAction(pipelineId, spec.`type`, rewrittenConfig, spec.enabled.getOrElse(true), parentStepId, rootIdx.map(rootIds(_)))
+                    pipelineStepRepo.insertInternalAction(pipelineId, spec.`type`, rewrittenConfig, spec.enabled.getOrElse(true), parentStepId, rootIdx.map(rootIds(_)), actingUserId)
                       .map(step => clientIdMap + (spec.clientId -> step.id))
                 }
             }
@@ -799,6 +805,8 @@ final class PipelineService(
                       pipelineRootRepo.add(pipelineId, dsId, user).map { root =>
                         audit("pipeline.root.add", "pipeline", Some(pipelineId.value), user)
                         Right(PipelineRootSummaryResponse(root.id.value, ds.id.value, ds.name))
+                      }.recover {
+                        case PipelineCycleGuard.PipelineCycleRejected(msg) => Left(ServiceError.BadRequest(msg))
                       }
                   }
               }
@@ -1839,7 +1847,7 @@ final class PipelineService(
             case None =>
               Future.successful(Left(ServiceError.UnprocessableEntity(s"rootId '$rootIdRaw' is not a root of this pipeline")))
             case Some((rootId, _)) =>
-              pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, None, enabled, explicitRootId = Some(rootId))
+              pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, None, enabled, explicitRootId = Some(rootId), actingUserId = user.id.value)
                 .flatMap { step =>
                   audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
                   stepResponseWithRoot(pipelineId, step).map(resp => Right(resp))
@@ -1863,13 +1871,13 @@ final class PipelineService(
             // the anchor's existing children) -- see CreatePipelineStepRequest's doc comment.
             val persistF =
               if (req.attachAsTail.getOrElse(false))
-                pipelineStepRepo.attachTailInternal(pipelineId, req.`type`, typedConfig, PipelineStepId(parentStepIdRaw), enabled)
+                pipelineStepRepo.attachTailInternal(pipelineId, req.`type`, typedConfig, PipelineStepId(parentStepIdRaw), enabled, actingUserId = user.id.value)
               else
                 // A parentStepId anchor makes `explicitRootId` irrelevant to the repo (root is
                 // derived from the parent) -- see `spliceInsertAtInternal`'s own
                 // `(Some(_), _) => None` branch. `None` here is exactly correct, not a
                 // reintroduced silent default (task 7.3e).
-                pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, Some(PipelineStepId(parentStepIdRaw)), enabled, explicitRootId = None)
+                pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, Some(PipelineStepId(parentStepIdRaw)), enabled, explicitRootId = None, actingUserId = user.id.value)
             persistF
               .flatMap { step =>
                 audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
@@ -1913,7 +1921,7 @@ final class PipelineService(
         // no-`position` default here always anchors on trunk-last.
         pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
           val anchorParentId = pipelineStepRepo.trunkOf(current).lastOption.map(_.id)
-          pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None)
+          pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None, actingUserId = user.id.value)
             .flatMap { step =>
               audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
               stepResponseWithRoot(pipelineId, step).map(resp => Right(resp))
@@ -1941,7 +1949,7 @@ final class PipelineService(
             // sibling group that `insertAtInternal` would silently no-op
             // on for migrated (parent-chained) pipelines.
             val anchorParentId = if (index == 0) None else Some(current(index - 1).id)
-            pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None)
+            pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None, actingUserId = user.id.value)
               .flatMap { step =>
                 audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
                 stepResponseWithRoot(pipelineId, step).map(resp => Right(resp))
@@ -2046,7 +2054,7 @@ final class PipelineService(
                                   case Left(err) => Future.successful(Left(err))
                                   case Right(_)  =>
                                     // Safe: editor/owner access confirmed. Use internal update.
-                                    pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position, enabled = req.enabled)
+                                    pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position, enabled = req.enabled, actingUserId = user.id.value)
                                       .flatMap {
                                         case Some(step) =>
                                           audit("pipeline.step.update", "pipeline_step", Some(step.id.value), user)
@@ -2194,7 +2202,7 @@ final class PipelineService(
                     // `Some(existing.id)` anchor makes `explicitRootId` irrelevant to the repo,
                     // same as every other parentStepId-anchored call site (task 7.3e).
                     pipelineStepRepo
-                      .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled, explicitRootId = None)
+                      .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled, explicitRootId = None, actingUserId = user.id.value)
                       .flatMap { step =>
                         // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
                         // one-row-per-call convention; metadata carries the source stepId.

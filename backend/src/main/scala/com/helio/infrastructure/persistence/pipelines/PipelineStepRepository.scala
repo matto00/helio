@@ -1,9 +1,12 @@
 package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
 import com.helio.domain._
 import com.helio.domain.model._
+import com.helio.domain.pipelines.PipelineCycleValidator
+import com.helio.domain.steps.{UpsertSourceConfig, UpsertTarget}
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
@@ -32,6 +35,104 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   private val stepsTable     = TableQuery[PipelineStepTable]
   private val pipelinesTable = TableQuery[PipelineRepository.PipelineTable]
   private val rootsTable     = TableQuery[PipelineRootRepository.PipelineRootTable]
+  private val permTable      = TableQuery[ResourcePermissionRepository.ResourcePermissionTable]
+
+  // HEL-1101 task 3.4: needed only for its `findReadEdgesVisibleTo` query (`PipelineCycleGuard`'s
+  // graph read). `lazy` -- see `PipelineRootRepository.stepRepoForCycleCheck`'s matching comment
+  // for why an eager `val` pair here would recurse infinitely at construction time.
+  private lazy val rootRepoForCycleCheck = new PipelineRootRepository(ctx)
+
+  /** HEL-1101 task 3.4: runs `PipelineCycleGuard.checkAddWriteAction` ahead of an `upsertsource`
+   *  row write, scoped to steps whose target is an [[UpsertTarget.ExistingSource]] -- every
+   *  other step kind (including `upsertsource` targeting a not-yet-existing `NewSource`, which
+   *  names nothing that could close a cycle) is a documented no-op, verified by a control test
+   *  asserting no extra graph query fires. `actingUserId` is threaded in from
+   *  `PipelineService.addStep`/`updateStep`'s existing `user: AuthenticatedUser` -- the graph
+   *  queries must be scoped to the REAL acting caller, not privileged/unfiltered, even though
+   *  this whole DBIO runs on the BYPASSRLS privileged connection (design.md Decision 2/4). */
+  private def cycleCheckForUpsertAction(
+      pipelineId: PipelineId,
+      kind: String,
+      configJson: String,
+      actingUserId: String,
+      // HEL-1101 skeptic-final-1.md non-blocking note (folded into CR2): for an UPDATE of an
+      // already-persisted `upsertsource` step, the row's PRE-UPDATE raw config -- so its OLD
+      // `ExistingSource` target (if any) can be excluded from "the existing graph" while
+      // checking the NEW target (see `PipelineCycleGuard.checkAddWriteAction`'s
+      // `excludeExistingWriteTarget` doc). `None` for every insert-shaped call site (there is no
+      // "old" row to exclude).
+      oldConfigJson: Option[String] = None
+  ): DBIO[Unit] =
+    if (kind != "upsertsource") DBIO.successful(())
+    else
+      scala.util.Try(UpsertSourceConfig.decode(configJson)).toOption match {
+        case Some(UpsertSourceConfig(UpsertTarget.ExistingSource(dsId), _)) if dsId.trim.nonEmpty =>
+          // HEL-1101 skeptic-final-1.md non-blocking note 4: a blank `actingUserId` here would
+          // otherwise reach `UUID.fromString("")` inside `findReadEdgesVisibleTo`/
+          // `findUpsertWriteEdges` and crash with an opaque `IllegalArgumentException` from deep
+          // inside the transaction. Every parameter default above (`insertInternal`/
+          // `insertInternalAction`/`updateInternal`) is safe ONLY because this exact branch
+          // (`kind == "upsertsource"` with a real `ExistingSource` target) never fires for any
+          // existing call site -- if that ever stops being true without a real caller id, fail
+          // loudly and named here instead of with a cryptic UUID-parse crash.
+          if (actingUserId.trim.isEmpty)
+            DBIO.failed(new IllegalArgumentException(
+              "PipelineStepRepository: actingUserId is required to cycle-check an upsertsource write with an ExistingSource target"
+            ))
+          else {
+            val oldTarget: Option[DataSourceId] = oldConfigJson.flatMap { raw =>
+              scala.util.Try(UpsertSourceConfig.decode(raw)).toOption.collect {
+                case UpsertSourceConfig(UpsertTarget.ExistingSource(oldId), _) if oldId.trim.nonEmpty => DataSourceId(oldId)
+              }
+            }
+            pipelinesTable.filter(_.id === pipelineId.value).map(_.name).result.headOption.flatMap {
+              case None       => DBIO.successful(()) // pipeline vanished mid-transaction -- the FK on the write below will fail loudly instead.
+              case Some(name) =>
+                PipelineCycleGuard.checkAddWriteAction(
+                  rootRepoForCycleCheck, this, actingUserId, pipelineId, name, DataSourceId(dsId),
+                  excludeExistingWriteTarget = oldTarget
+                )
+            }
+          }
+        case _ => DBIO.successful(())
+      }
+
+  /** HEL-1101 task 1.2: every WRITE edge (`pipeline writes dataSourceId` via an `upsertsource`
+   *  step targeting an [[UpsertTarget.ExistingSource]]) visible to `userId` -- the write-side
+   *  half of `PipelineCycleValidator`'s graph, using the SAME explicit visibility filter as
+   *  `PipelineRootRepository.findReadEdgesVisibleTo` (design.md Decision 2), never RLS/the
+   *  `app.current_user_id` GUC -- this is what makes it safe to call from inside this
+   *  repository's own `withSystemContext` (BYPASSRLS) write paths (Decision 4). A step with a
+   *  `NewSource` target, or a config that fails to decode, is silently skipped -- neither is a
+   *  write edge this validator can reason about (a `NewSource` target names nothing that exists
+   *  yet to form a cycle with; an undecodable config is a pre-existing-data problem orthogonal
+   *  to this check, never thrown from here). */
+  def findUpsertWriteEdges(userId: String): DBIO[Vector[PipelineCycleValidator.WriteEdge]] = {
+    val uuid = UUID.fromString(userId)
+    val visiblePipelineIds =
+      pipelinesTable
+        .filter(p =>
+          p.ownerId === uuid ||
+            permTable.filter(g => g.resourceType === "pipeline" && g.resourceId === p.id && g.granteeId === uuid).exists
+        )
+        .map(_.id)
+    val query = for {
+      pipeline <- pipelinesTable if pipeline.id.in(visiblePipelineIds)
+      step     <- stepsTable if step.pipelineId === pipeline.id && step.op === "upsertsource"
+    } yield (pipeline.id, pipeline.name, step.config)
+    query.result.map(_.flatMap { case (pid, pname, configRaw) =>
+      scala.util.Try(UpsertSourceConfig.decode(configRaw)).toOption.collect {
+        case UpsertSourceConfig(UpsertTarget.ExistingSource(dsId), _) if dsId.trim.nonEmpty =>
+          PipelineCycleValidator.WriteEdge(PipelineId(pid), pname, DataSourceId(dsId))
+      }
+    }.toVector)
+  }
+
+  /** `Future` wrapper of [[findUpsertWriteEdges]] above, run on the privileged (BYPASSRLS) pool
+   *  -- safe on the same basis documented there (the visibility filter is explicit, never
+   *  RLS-dependent). */
+  def findUpsertWriteEdgesFuture(userId: String): Future[Vector[PipelineCycleValidator.WriteEdge]] =
+    ctx.withSystemContext(findUpsertWriteEdges(userId))
 
   /** HEL-913: resolves the LOWEST-POSITIONED root of `pipelineId` -- the single-root-compatible
    *  anchor every write below that creates or promotes a `parent_step_id IS NULL` row must set
@@ -235,9 +336,11 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       config: Any,
       enabled: Boolean = true,
       parentStepId: Option[PipelineStepId] = None,
-      explicitRootId: Option[PipelineRootId]
+      explicitRootId: Option[PipelineRootId],
+      // HEL-1101 skeptic-final-1.md CR1: see `insertInternalAction`'s matching parameter doc.
+      actingUserId: String = ""
   ): Future[PipelineStep] =
-    ctx.withSystemContext(insertInternalAction(pipelineId, kind, config, enabled, parentStepId, explicitRootId).transactionally)
+    ctx.withSystemContext(insertInternalAction(pipelineId, kind, config, enabled, parentStepId, explicitRootId, actingUserId).transactionally)
 
   /** DBIO variant of `insertInternal` above -- extracted (HEL-906 task 3.1, coordinator ruling
    *  D3) so `PipelineService`'s single-call transactional pipeline-creation path can compose
@@ -258,11 +361,29 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // unaffected; the single-call transactional create path (`PipelineService.buildStepsAction`)
       // passes it explicitly once a request names more than one root, never silently defaulting
       // to `roots[0]` under multi-root.
-      explicitRootId: Option[PipelineRootId]
+      explicitRootId: Option[PipelineRootId],
+      // HEL-1101 skeptic-final-1.md CR1 (round-1 REFUTE): the create path's own step insert had
+      // NO cycle check at all -- `buildStepsAction` calls this method directly, bypassing every
+      // other Internal method's `cycleCheckForUpsertAction` wiring, so a single `POST
+      // /api/pipelines` request naming a root S plus an `upsertsource` step targeting S would
+      // silently persist a direct self-cycle once HEL-1100 registers the kind. Defaulted to `""`
+      // -- safe because `cycleCheckForUpsertAction` short-circuits on `kind != "upsertsource"`
+      // BEFORE ever touching `actingUserId` (every one of this method's ~80 existing test call
+      // sites inserts an ordinary registered kind, never `upsertsource`), exactly mirroring
+      // `updateInternal`'s existing default. `PipelineService.buildStepsAction`'s own call site
+      // always passes the real `user.id.value`.
+      actingUserId: String = ""
   ): DBIO[PipelineStep] = {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
     for {
+      // HEL-1101 skeptic-final-1.md CR1 (design.md Decision 4): the lock + graph-read + check
+      // runs INSIDE this method's own existing DBIO chain, ahead of the `stepsTable += row`
+      // write below -- reads the SAME transaction `PipelineRepository.createAction`'s root
+      // inserts already ran in (same connection, same open transaction), so a brand-new
+      // pipeline's own just-inserted roots are already visible to `findReadEdgesVisibleTo` here,
+      // even though nothing has committed yet.
+      _        <- cycleCheckForUpsertAction(pipelineId, kind, configJson, actingUserId)
       // HEL-913 task 7.3b: `siblingsQuery(pipelineId, None)` matches EVERY root-level step in
       // the WHOLE PIPELINE regardless of which root -- correct for a single-root pipeline, but
       // WRONG under multi-root: root B's first step would otherwise collide with root A's
@@ -309,7 +430,12 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       id: PipelineStepId,
       config: Option[Any],
       position: Option[Int],
-      enabled: Option[Boolean] = None
+      enabled: Option[Boolean] = None,
+      // HEL-1101 task 3.4: see `spliceInsertAtInternal`'s matching parameter doc. Only consulted
+      // when `config` is `Some` -- an update that doesn't touch `config` cannot change this
+      // step's write target, so there is no new edge to check (a no-op call site, e.g. a bare
+      // `enabled`/`position` PATCH, never needs a real caller id here).
+      actingUserId: String = ""
   ): Future[Option[PipelineStep]] = {
     val now = Instant.now()
     val action = for {
@@ -321,7 +447,13 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             case Some(cfg) => encodeConfig(row.op, cfg)
             case None      => row.config
           }
-          positionScopedUpdateAction(row, newConfig, position, enabled, now).map(r => Some(rowToDomain(r)))
+          // HEL-1101 task 3.4 (design.md Decision 4): the lock + graph-read + check runs INSIDE
+          // this method's own existing DBIO chain, ahead of the position-scoped update below --
+          // never a separate pre-flight `Future` in `PipelineService.updateStep`.
+          val cycleCheck: DBIO[Unit] =
+            if (config.isDefined) cycleCheckForUpsertAction(PipelineId(row.pipelineId), row.op, newConfig, actingUserId, oldConfigJson = Some(row.config))
+            else DBIO.successful(())
+          cycleCheck.flatMap(_ => positionScopedUpdateAction(row, newConfig, position, enabled, now)).map(r => Some(rowToDomain(r)))
       }
     } yield updated
     ctx.withSystemContext(action.transactionally)
@@ -457,12 +589,22 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // unaffected; `PipelineService.persistNewStep` passes it explicitly once a caller names a
       // root, never silently defaulting to `roots[0]` under multi-root (task 7.3d/7.3e: this
       // default is scheduled for removal once every caller states a root explicitly).
-      explicitRootId: Option[PipelineRootId]
+      explicitRootId: Option[PipelineRootId],
+      // HEL-1101 task 3.4: the acting caller's id, threaded from `PipelineService.addStep`/
+      // `updateStep`'s existing `user: AuthenticatedUser` -- needed so the graph-read queries
+      // this method's own cycle check runs (`cycleCheckForUpsertAction`) are scoped to the REAL
+      // acting caller's own visibility, never unfiltered, even though this whole DBIO runs on
+      // the BYPASSRLS privileged connection (design.md Decision 2/4).
+      actingUserId: String
   ): Future[PipelineStep] = {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
     val newId      = UUID.randomUUID().toString
     val action = for {
+      // HEL-1101 task 3.4 (design.md Decision 4): the lock + graph-read + check runs INSIDE
+      // this method's own existing DBIO chain, ahead of the `stepsTable += newRow` write below --
+      // never a separate pre-flight `Future` in `PipelineService.addStep`/`updateStep`.
+      _                <- cycleCheckForUpsertAction(pipelineId, kind, configJson, actingUserId)
       // HEL-913: parentless insert needs `root_id` (V98 CHECK); see `insertInternalAction`.
       rootIdOpt        <- (parentStepId, explicitRootId) match {
         case (None, Some(rid)) => DBIO.successful(Some(rid.value))
@@ -544,9 +686,11 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       kind:         String,
       config:       Any,
       parentStepId: PipelineStepId,
-      enabled:      Boolean = true
+      enabled:      Boolean = true,
+      // HEL-1101 task 3.4: see `spliceInsertAtInternal`'s matching parameter doc.
+      actingUserId: String
   ): Future[PipelineStep] =
-    ctx.withSystemContext(attachTailInternalAction(pipelineId, kind, config, parentStepId, enabled).transactionally)
+    ctx.withSystemContext(attachTailInternalAction(pipelineId, kind, config, parentStepId, enabled, actingUserId).transactionally)
 
   /** DBIO body of [[attachTailInternal]] above -- extracted so route/service-level tests can
     * compose it into a larger transaction if ever needed, matching the `*InternalAction` idiom
@@ -556,11 +700,14 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       kind:         String,
       config:       Any,
       parentStepId: PipelineStepId,
-      enabled:      Boolean
+      enabled:      Boolean,
+      actingUserId: String
   ): DBIO[PipelineStep] = {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
     for {
+      // HEL-1101 task 3.4 (design.md Decision 4): see `spliceInsertAtInternal`'s matching comment.
+      _        <- cycleCheckForUpsertAction(pipelineId, kind, configJson, actingUserId)
       maxPos   <- siblingsQuery(pipelineId, Some(parentStepId)).map(_.position).max.result
       position  = maxPos.map(_ + 1).getOrElse(1).max(1)
       id        = UUID.randomUUID().toString

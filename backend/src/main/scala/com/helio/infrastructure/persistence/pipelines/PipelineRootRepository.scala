@@ -1,7 +1,9 @@
 package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.domain.model._
+import com.helio.domain.pipelines.PipelineCycleValidator
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
@@ -20,7 +22,19 @@ class PipelineRootRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import PipelineRootRepository._
 
-  private val rootsTable = TableQuery[PipelineRootTable]
+  private val rootsTable     = TableQuery[PipelineRootTable]
+  private val pipelinesTable = TableQuery[PipelineRepository.PipelineTable]
+  private val permTable      = TableQuery[ResourcePermissionRepository.ResourcePermissionTable]
+
+  // HEL-1101 task 3.3: needed only for its `findUpsertWriteEdges` query (`PipelineCycleGuard`'s
+  // graph read) -- same "no injected dependency needed" reasoning `PipelineRepository` already
+  // uses for its own `rootRepo`/`stepRepoForCycleCheck` fields, since this repo requires nothing
+  // beyond `ctx`. `lazy`: `PipelineStepRepository` symmetrically holds a lazy
+  // `PipelineRootRepository` of its own (for ITS OWN task 3.4 write-edge check) -- a pair of
+  // eager `val`s here would recurse infinitely at construction time (each side's constructor
+  // building the other, forever); `lazy val` defers construction to first actual use, by which
+  // point both constructors have already returned.
+  private lazy val stepRepoForCycleCheck = new PipelineStepRepository(ctx)
 
   private def rowToDomain(row: PipelineRootRow): PipelineRoot =
     PipelineRoot(
@@ -53,13 +67,54 @@ class PipelineRootRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val now = Instant.now()
     val nextPositionQuery =
       rootsTable.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
+    // HEL-1101 task 3.3 (design.md Decision 4): the lock + graph-read + check runs INSIDE this
+    // method's own existing `ctx.withUserContext` flatMap chain, ahead of the `rootsTable += row`
+    // insert -- never a separate pre-flight `Future` in `PipelineService.addRoot` (that would
+    // leave a window for a concurrent writer to interleave between the check and this insert).
+    val pipelineNameQuery = pipelinesTable.filter(_.id === pipelineId.value).map(_.name).result.head
     ctx.withUserContext(user.id.value) {
-      nextPositionQuery.flatMap { maxPosOpt =>
-        val row = PipelineRootRow(id, pipelineId.value, dataSourceId.value, maxPosOpt.map(_ + 1).getOrElse(0), now)
-        (rootsTable += row).map(_ => row)
-      }
+      for {
+        pipelineName <- pipelineNameQuery
+        _            <- PipelineCycleGuard.checkAddReadAction(this, stepRepoForCycleCheck, user.id.value, pipelineId, pipelineName, dataSourceId)
+        maxPosOpt    <- nextPositionQuery
+        row           = PipelineRootRow(id, pipelineId.value, dataSourceId.value, maxPosOpt.map(_ + 1).getOrElse(0), now)
+        _            <- rootsTable += row
+      } yield row
     }.map(rowToDomain)
   }
+
+  /** HEL-1101 task 1.1: every READ edge (`pipeline reads dataSourceId`) visible to `userId`,
+   *  labelled with the reading pipeline's id/name — the read-side half of
+   *  `PipelineCycleValidator`'s graph. EXPLICITLY filtered (never RLS/the `app.current_user_id`
+   *  GUC — design.md Decision 2) by a join mirroring `helio_can_access_pipeline`'s own predicate
+   *  (`V39__pipeline_sharing_grants.sql`): a pipeline is visible to `userId` iff it owns it, or
+   *  `userId` is a named grantee in `resource_permissions` for that pipeline. Runs under
+   *  `withSystemContext` so it returns the correct scoped set from ANY caller/connection —
+   *  including `PipelineStepRepository`'s privileged (BYPASSRLS) write paths (Decision 4), where
+   *  RLS does not apply at all. */
+  def findReadEdgesVisibleTo(userId: String): DBIO[Vector[PipelineCycleValidator.ReadEdge]] = {
+    val uuid = UUID.fromString(userId)
+    val visiblePipelineIds =
+      pipelinesTable
+        .filter(p =>
+          p.ownerId === uuid ||
+            permTable.filter(g => g.resourceType === "pipeline" && g.resourceId === p.id && g.granteeId === uuid).exists
+        )
+        .map(_.id)
+    val query = for {
+      pipeline <- pipelinesTable if pipeline.id.in(visiblePipelineIds)
+      root     <- rootsTable if root.pipelineId === pipeline.id
+    } yield (pipeline.id, pipeline.name, root.dataSourceId)
+    query.result.map(_.map { case (pid, pname, dsid) =>
+      PipelineCycleValidator.ReadEdge(PipelineId(pid), pname, DataSourceId(dsid))
+    }.toVector)
+  }
+
+  /** `Future` wrapper of [[findReadEdgesVisibleTo]] above, run on the privileged (BYPASSRLS)
+   *  pool — safe because the visibility filter is explicit (never RLS-dependent), per this
+   *  method's own scaladoc. */
+  def findReadEdgesVisibleToFuture(userId: String): Future[Vector[PipelineCycleValidator.ReadEdge]] =
+    ctx.withSystemContext(findReadEdgesVisibleTo(userId))
 
   /** DBIO variant of [[add]], for composition into the single-call transactional pipeline-create
    *  path (mirrors `PipelineRepository.createAction`). `position` is passed explicitly rather
