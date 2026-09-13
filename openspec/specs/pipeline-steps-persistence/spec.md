@@ -13,15 +13,21 @@ discriminated union over `type` with a typed `config` object per subtype.
 
 The backend SHALL maintain a `pipeline_steps` table with columns: `id` (TEXT PK),
 `pipeline_id` (TEXT FK → pipelines ON DELETE CASCADE), `position` (INT NOT NULL),
-`op` (TEXT with CHECK constraint: one of 'rename', 'filter', 'join', 'compute', 'groupby', 'cast', 'select', 'limit', 'sort', 'aggregate', 'splittext', 'extractheadings', 'chunkbytokencount'),
-`config` (TEXT NOT NULL — JSON blob), `enabled` (BOOLEAN NOT NULL DEFAULT true),
+`op` (TEXT with CHECK constraint: one of 'rename', 'filter', 'join', 'compute', 'groupby',
+'cast', 'select', 'limit', 'sort', 'aggregate', 'splittext', 'extractheadings',
+'chunkbytokencount', 'datebucket', 'pivot', 'window', 'unpivot', 'dedupe', 'fillnull',
+'stringops', 'union', 'lookup', 'assert', 'upsertsource', 'convertformat', 'analyzewithai',
+'generatetext'), `config` (TEXT NOT NULL — JSON blob), `enabled` (BOOLEAN NOT NULL DEFAULT true),
 `created_at` (TIMESTAMPTZ), `updated_at` (TIMESTAMPTZ).
 An index SHALL exist on `pipeline_id`. This table SHALL be created via Flyway migration V23 and the
 CHECK constraint SHALL be extended to include `'select'` via Flyway migration V25, `'limit'` via V26,
-`'sort'` via V27, `'aggregate'` via V31, `'splittext'` via V50, `'extractheadings'` via V51, and
-`'chunkbytokencount'` via V52. The `enabled` column SHALL be added via Flyway migration V86 with
-`NOT NULL DEFAULT true`, so existing rows remain enabled and behavior is unchanged for existing
-pipelines.
+`'sort'` via V27, `'aggregate'` via V31, `'splittext'` via V50, `'extractheadings'` via V51,
+`'chunkbytokencount'` via V52, `'datebucket'` via V64, `'pivot'` via V65, `'window'` via V66,
+`'unpivot'` via V67, `'dedupe'` via V68, `'fillnull'` via V69, `'stringops'` via V70, `'union'` via
+V71, `'lookup'` via V72, `'assert'` via V83, and `'upsertsource'`, `'convertformat'`,
+`'analyzewithai'`, `'generatetext'` together via V107. The `enabled` column SHALL be added via
+Flyway migration V86 with `NOT NULL DEFAULT true`, so existing rows remain enabled and behavior
+is unchanged for existing pipelines.
 
 The table SHALL additionally carry a `root_id` column referencing `pipeline_roots(id)` with `ON DELETE CASCADE`, added via Flyway migration V98. A step with no parent step SHALL have a non-null `root_id`; a step with a parent step SHALL derive its root from that parent and SHALL NOT rely on its own `root_id`.
 
@@ -36,7 +42,7 @@ The table SHALL additionally carry a `root_id` column referencing `pipeline_root
 #### Scenario: Pipeline steps table is created on migration
 
 - **WHEN** the backend starts and Flyway runs pending migrations
-- **THEN** the `pipeline_steps` table exists with the specified columns, FK, CHECK constraint (including `'chunkbytokencount'`), and index
+- **THEN** the `pipeline_steps` table exists with the specified columns, FK, CHECK constraint (including `'assert'`, `'upsertsource'`, `'convertformat'`, `'analyzewithai'`, and `'generatetext'`), and index
 
 #### Scenario: Enabled column defaults existing rows to true
 
@@ -72,6 +78,15 @@ The table SHALL additionally carry a `root_id` column referencing `pipeline_root
 
 - **WHEN** `POST /api/pipelines/:id/steps` is called with `type: "chunkbytokencount"` and a valid `config` object
 - **THEN** the response is `201 Created` and the step is persisted with `op = 'chunkbytokencount'`
+
+#### Scenario: Migration B widens the CHECK constraint without registering the new ops at the API
+
+- **WHEN** Flyway migration V107 has applied, adding `'upsertsource'`, `'convertformat'`,
+  `'analyzewithai'`, `'generatetext'` to `pipeline_steps_op_check`
+- **THEN** the database will accept an `INSERT` with any of those four `op` values, but
+  `POST /api/pipelines/:id/steps` still rejects a request naming one of those four as `type`
+  with `400 Bad Request` (per the existing "Returns 400 for invalid type discriminator"
+  scenario) until each op is separately registered in `PipelineStepKind.All`
 
 ### Requirement: GET /api/pipelines/:id/steps returns ordered typed steps
 
