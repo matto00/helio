@@ -22,6 +22,7 @@ import {
 import { assertExactlyOneCsvInput } from "./csvDataSourceSchema.js";
 import { panelSchema } from "./proposal.js";
 import { createRestDataSourceSchema } from "./restDataSourceSchema.js";
+import { CANONICAL_COLUMN_TYPES_LIST } from "./canonicalColumnTypes.js";
 import {
   DELETE_PIPELINE_SCHEDULE_DESCRIPTION,
   deletePipelineScheduleHandler,
@@ -61,14 +62,19 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Create data source (dataset)",
       description:
         "Create a `dataset` data source with a fully declared schema — the root of the canonical " +
-        "path Source → Pipeline → Output → Dashboard. Each column's `required`/`default` are " +
-        "forwarded to the backend unchanged and become part of the declared schema (an omitted " +
-        "`default` means no default; use `get_dataset_schema` afterward to confirm). Pass " +
-        "`rows: []` to create an EMPTY dataset with only its declared schema — populate it " +
-        "afterward with append_dataset_rows. Rows here (and everywhere on this surface) are " +
-        "POSITIONAL arrays matching the declared column order, never keyed objects. Returns the " +
-        "created source id ONLY -- this tool creates no pipeline and no Output; build a pipeline " +
-        "over the returned source id (create_pipeline) with an `outputs[]` entry if a " +
+        "path Source → Pipeline → Output → Dashboard. Each column's `type` MUST be one of the " +
+        `${CANONICAL_COLUMN_TYPES_LIST} canonical types. Each column's ` +
+        "`required`/`default` are forwarded to the backend unchanged and become part of the " +
+        "declared schema (an omitted `default` means no default; use `get_dataset_schema` " +
+        "afterward to confirm) — HOWEVER, an explicit `default: null` is currently " +
+        'indistinguishable from omitting `default` at creation time (both collapse to "no ' +
+        "default\"): if a field's default must genuinely be `null`, create the dataset without " +
+        "that default and set it afterward via `update_dataset_schema`, which does preserve the " +
+        "distinction. Pass `rows: []` to create an EMPTY dataset with only its declared schema — " +
+        "populate it afterward with append_dataset_rows. Rows here (and everywhere on this " +
+        "surface) are POSITIONAL arrays matching the declared column order, never keyed objects. " +
+        "Returns the created source id ONLY -- this tool creates no pipeline and no Output; build " +
+        "a pipeline over the returned source id (create_pipeline) with an `outputs[]` entry if a " +
         "panel-bindable projection is needed, or add_output onto an existing pipeline afterward. " +
         "For a real integration use create_csv_data_source, create_rest_data_source, or " +
         "create_sql_data_source instead. Optional `tag` (HEL-366, free-form grouping key, max 200 " +
@@ -101,11 +107,17 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Append rows to a `dataset` source (POST /api/data-sources/:id/rows). Each row is a " +
         "POSITIONAL array matching the declared column order — not a keyed object; call " +
-        "get_dataset_schema first if the column order is not already known. A row violating the " +
-        "declared schema (wrong arity/type, or a missing value for a `required` field with no " +
-        "`default`) is rejected verbatim by the backend — never partially applied. Returns only " +
-        "the newly appended rows (id/seq/updatedAt, not the full set) plus the source's resulting " +
-        "`updatedAt`.",
+        "get_dataset_schema first if the column order is not already known. A row LONGER than " +
+        "the declared schema is rejected outright. For a row no longer than the schema, each " +
+        "position is checked independently: a position that is MISSING (the row is shorter than " +
+        'the schema) OR an explicit `null` is treated identically as "missing" and PADDED from ' +
+        "that field's declared `default` (or left `null` if the field is optional with no " +
+        "default) — it is NOT rejected for arity or nullness. Only a `required` field that ends " +
+        "up missing/`null` with no `default`, or a present non-null value that doesn't satisfy " +
+        "the field's declared type, is rejected. Any rejection (row-length, type mismatch, or " +
+        "missing required field) is returned verbatim, naming the offending row and field — never " +
+        "partially applied. Returns only the newly appended rows (id/seq/updatedAt, not the full " +
+        "set) plus the source's resulting `updatedAt`.",
       inputSchema: {
         dataSourceId: z.string().min(1),
         rows: z.array(z.array(z.unknown())).min(1),
@@ -122,8 +134,11 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Replace ALL rows in a `dataset` source (PUT /api/data-sources/:id/rows) — every existing " +
         "row is discarded and replaced by the given set. Rows are POSITIONAL arrays matching the " +
-        "declared column order, same schema validation as append_dataset_rows. Returns the full " +
-        "new row set (id/seq/updatedAt per row) plus the source's resulting `updatedAt`. Pass an " +
+        "declared column order, same schema validation as append_dataset_rows (a too-long row is " +
+        "rejected; a short row or an explicit `null` position is padded from that field's " +
+        "`default`, or left `null` if optional with no default; only a `required` field left " +
+        "missing/`null` with no `default`, or a type mismatch, is rejected). Returns the full new " +
+        "row set (id/seq/updatedAt per row) plus the source's resulting `updatedAt`. Pass an " +
         "empty array to clear the dataset entirely.",
       inputSchema: {
         dataSourceId: z.string().min(1),
@@ -184,11 +199,14 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "FULL-REPLACEMENT update of a `dataset` source's declared schema (PATCH " +
         "/api/data-sources/:id/schema) — any field of the CURRENT schema omitted from `fields` is " +
-        "DROPPED. To rename a field, include it with its NEW `name` and set `previousName` to its " +
-        "old name; every kept-but-unrenamed field must still be listed. Dropping a field that " +
-        "already has row data requires `confirmDrop: true` — without it, the backend answers `409` " +
-        "naming the rejected fields verbatim (never silently ignored). Returns the resulting " +
-        "schema plus `rowsMigrated` (how many existing rows were reshaped to match).",
+        `DROPPED. Each field's \`type\` MUST be one of the ${CANONICAL_COLUMN_TYPES_LIST} ` +
+        "canonical types. To rename a field, include it with its NEW `name` and set " +
+        "`previousName` to its old name; every kept-but-unrenamed field must still be listed. " +
+        "Dropping a field that already has row data requires `confirmDrop: true` — without it, " +
+        "the backend answers `409` naming the rejected fields verbatim (never silently ignored). " +
+        "Unlike create_data_source, this path preserves an explicit `default: null` distinctly " +
+        "from an omitted `default`. Returns the resulting schema plus `rowsMigrated` (how many " +
+        "existing rows were reshaped to match).",
       inputSchema: {
         dataSourceId: z.string().min(1),
         fields: z
