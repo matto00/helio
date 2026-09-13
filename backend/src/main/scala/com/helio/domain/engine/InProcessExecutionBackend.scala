@@ -1,6 +1,6 @@
 package com.helio.domain.engine
 
-import com.helio.domain.model.{AssertionSink, DataSource, Pipeline, PipelineRootId, PipelineStep, PipelineStepId, TruncationSink}
+import com.helio.domain.model.{AssertionSink, DataSource, Pipeline, PipelineRootId, PipelineStep, PipelineStepId, TruncationSink, WriteBackSink}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 
@@ -21,6 +21,10 @@ import scala.concurrent.{ExecutionContext, Future}
  *  root's source fails the whole run atomically, naming that root via the failed `Future`. */
 final class InProcessExecutionBackend(engine: InProcessPipelineEngine, stepRepo: PipelineStepRepository) extends PipelineExecutionBackend {
 
+  // HEL-1100 (design.md Decision 3): the only backend that actually applies an `upsertsource`
+  // step's deferred write (via `PipelineRunService.executeRun`'s post-run apply point).
+  override def supportsWriteBack: Boolean = true
+
   def execute(
       pipeline: Pipeline,
       roots: Vector[(String, DataSource)],
@@ -28,7 +32,8 @@ final class InProcessExecutionBackend(engine: InProcessPipelineEngine, stepRepo:
       dataSourceRepo: DataSourceRepository,
       assertionSink: AssertionSink,
       truncationSink: TruncationSink,
-      onNodeProgress: (NodeKey, Long) => Unit = (_, _) => ()
+      onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
+      writeBackSink: WriteBackSink = new WriteBackSink
   )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = {
     require(roots.nonEmpty, "InProcessExecutionBackend.execute requires at least one root (design.md R1)")
     // With exactly one root (today's overwhelmingly common case, and every fixture that
@@ -52,7 +57,7 @@ final class InProcessExecutionBackend(engine: InProcessPipelineEngine, stepRepo:
       // is position-ordered by the caller) -- the same tiebreak `TreeWalkResult.rows` uses, so a
       // single-root pipeline's behavior is byte-identical to before this ticket.
       (_, primaryRows, primaryStats) = loaded.head
-      result       <- engine.executeTree(rootFrames, steps, stepRepo, rootIdOfStep, dataSourceRepo, assertionSink, truncationSink, onNodeProgress)
+      result       <- engine.executeTree(rootFrames, steps, stepRepo, rootIdOfStep, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink)
     } yield PipelineExecutionOutcome(result.rows, result.stepCounts, primaryRows.size.toLong, primaryStats, result.nodeOutcomes)
   }
 }

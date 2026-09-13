@@ -9,7 +9,7 @@ import { act, renderHook } from "@testing-library/react";
 
 import { useStepCardState } from "./useStepCardState";
 import { updatePipelineStep } from "../services/pipelineService";
-import { OP_TYPES } from "../state/stepNarrowing";
+import { OP_TYPES, unsupportedOpType } from "../state/stepNarrowing";
 import type { Step } from "../types/step";
 import type { PipelineStep, PipelineStepConfig } from "../types/pipelineStep";
 
@@ -335,5 +335,25 @@ describe("useStepCardState — union/lookup wire-shape widening (evaluation-1.md
       secondaryInput: { kind: "lane", stepId: "step-9" },
       mode: "byName",
     });
+  });
+});
+
+// HEL-1100 (design.md Decision 9) — an unsupported step kind has no config editor that could
+// have produced a real edit; `persist` must never PATCH for one, regardless of which handler is
+// invoked (every handler funnels through the same shared `persist`).
+describe("useStepCardState — persist skips unsupported op types (HEL-1100)", () => {
+  it("never calls updatePipelineStep for a step whose opType is unsupported", () => {
+    updatePipelineStepMock.mockResolvedValue(resolvedStep({ count: 6 }));
+    const onConfigChange = jest.fn();
+    const step = makeStep({ opType: unsupportedOpType("upsertsource") });
+    const { result } = renderHook(() => useStepCardState(step, onConfigChange));
+
+    act(() => {
+      result.current.onLimitChange({ count: 6 });
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(updatePipelineStepMock).not.toHaveBeenCalled();
+    expect(onConfigChange).not.toHaveBeenCalled();
   });
 });

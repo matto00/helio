@@ -171,7 +171,10 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
     // is at the service boundary that produces the route's real 400, not PipelineAnalyzeService's
     // "Unknown op" (which only fires inside an already-200 analyze response and would pass
     // vacuously here even if the DB accepted the op but the API also wrongly did).
-    Seq("upsertsource", "convertformat", "analyzewithai", "generatetext").foreach { op =>
+    // HEL-1100 task 3.1: `upsertsource` is now registered (`PipelineStepKind.All` includes it) --
+    // its own pinned rejection is flipped below. The other three ops (`convertformat`/
+    // `analyzewithai`/`generatetext`) remain unregistered and still 400 here, per C3.
+    Seq("convertformat", "analyzewithai", "generatetext").foreach { op =>
       s"reject a '$op' step with BadRequest (constraint accepts it now; PipelineStepKind.All does not yet)" in {
         val sourceId = newSource()
         val req = CreatePipelineRequest(
@@ -185,6 +188,27 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
         result.left.toOption.get shouldBe a[ServiceError.BadRequest]
         result.left.toOption.get.asInstanceOf[ServiceError.BadRequest].message should include(s"Invalid step type '$op'")
       }
+    }
+
+    // HEL-1100 task 3.1: `upsertsource` is now a registered, creatable step kind -- an
+    // `ExistingSource` target the owner does not own is still rejected (this is the ordinary
+    // ownership pre-flight, not the "unwired kind" 400 the removed case above asserted).
+    "accept an 'upsertsource' step (registered by HEL-1100) targeting a NewSource" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name  = "Upsertsource now wired",
+        roots = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
+        steps = Vector(CreatePipelineTransactionalStepRequest(
+          "s1", "upsertsource",
+          JsObject(
+            "target" -> JsObject("kind" -> JsString("newSource"), "name" -> JsString("upsertsource-e2e-target")),
+            "mode"   -> JsString("append")
+          )
+        ))
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Right[_, _]]
     }
 
     "roll back the whole call (pipeline AND the already-created step gone) when an Output has a bad fieldMapping slot" in {

@@ -61,7 +61,7 @@ final class DataSourceService(
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  private val staticMaxRows = 500
+  private val staticMaxRows = DataSourceService.DatasetMaxRows
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser): Unit =
     if (auditService != null)
@@ -1206,6 +1206,11 @@ final class DataSourceService(
 }
 
 object DataSourceService {
+  /** HEL-1100 design.md D6: the dataset row-count cap, promoted from a private val here to a
+   *  public companion constant so `PipelineRunService`/`DataSourceRepository.applyWriteBacks`
+   *  can share the SAME value rather than duplicating the literal `500`. Unchanged in value. */
+  val DatasetMaxRows: Int = 500
+
   /** Parse a Vector[FieldOverridePayload] from raw JSON bytes (sent in the
    *  CSV upload multipart). Returns an empty vector on parse failure to
    *  match the pre-CS2b behaviour. */

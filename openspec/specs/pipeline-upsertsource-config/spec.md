@@ -85,16 +85,3 @@ there is nothing to own yet.
   different caller, and separately for a target naming a wholly unknown id
 - **THEN** both report "data source not found", identical in shape, with no signal distinguishing
   "exists under another owner" from "does not exist"
-
-### Requirement: The upsertsource step is not yet creatable
-The `upsertsource` config model and its write-path validator SHALL exist independently of the
-pipeline step registry. The system SHALL continue to reject an attempt to create or add a
-pipeline step of type `upsertsource` through the pipeline creation and step-addition APIs, until
-a subsequent change registers a runnable step. That registration SHALL NOT land before a
-validation-time check exists rejecting a pipeline that writes to a source it reads (cycle
-detection) — a registered-but-cycle-unchecked write step is a correctness hazard, not merely an
-unfinished feature.
-
-#### Scenario: Creating a pipeline with an upsertsource step is rejected
-- **WHEN** a pipeline is created with a step of type `"upsertsource"`
-- **THEN** the request is rejected as an invalid step type

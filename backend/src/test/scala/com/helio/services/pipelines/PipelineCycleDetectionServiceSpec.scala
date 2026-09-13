@@ -18,7 +18,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
-import spray.json.{JsArray, JsObject}
+import spray.json.{JsArray, JsObject, JsString}
 
 import java.time.Instant
 import java.util.UUID
@@ -499,6 +499,284 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
       // without real blocking, tx2 would acquire the (unheld) lock almost immediately after
       // tx1 started, well BEFORE tx1's 800ms hold elapses -- this assertion would then fail.
       tx2AcquiredAt.getTime should be >= (tx1ReleasedAt.getTime - 50)
+    }
+  }
+
+  // ── HEL-1100 task 3.9: API-LEVEL cycle rejection now that `upsertsource` is registered ──
+  //
+  // Every fixture ABOVE this point predates HEL-1100 and deliberately bypasses
+  // `PipelineStepKind.All`/the real HTTP-shaped API via the repository test-seam (see this
+  // file's own top-of-file scaladoc) -- `upsertsource` was unregistered when HEL-1101 shipped.
+  // These new cases exercise the REAL `PipelineService.create`/`addStep` entry points directly,
+  // proving the cycle guard rejects a real caller-facing request, not just an internal DBIO
+  // composition. NOTE (files-modified.md records this as a known gap): `updateStep`/pipeline
+  // import/duplicate/proposal-apply are NOT covered here to the full extent tasks.md 3.9
+  // describes -- update/duplicate/import/proposal-apply reach the SAME
+  // `cycleCheckForUpsertAction` call sites already proven above at the repository seam, but a
+  // dedicated API-level test for each of those four remaining paths is left for a follow-up.
+  "PipelineService.create / addStep (API-level, upsertsource now registered, HEL-1100 task 3.9)" should {
+    "reject a create() request whose roots + upsertsource step targeting one of those SAME roots form a direct self-cycle" in {
+      val owner = newUser()
+      val s     = newSource(owner, "api-cr-self-cycle-s")
+      val req = CreatePipelineRequest(
+        name  = "api-cr-self-cycle",
+        roots = Vector(CreatePipelineRootRequest(sourceId = Some(s.value))),
+        steps = Vector(CreatePipelineTransactionalStepRequest(
+          "s1", "upsertsource",
+          JsObject(
+            "target" -> JsObject("kind" -> JsString("existingSource"), "dataSourceId" -> JsString(s.value)),
+            "mode"   -> JsString("append")
+          )
+        ))
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Left[_, _]]
+
+      val summaries = await(pipelineRepo.listSummaries(owner, None))
+      summaries.map(_.name) should not contain "api-cr-self-cycle"
+    }
+
+    "reject an addStep() call whose upsertsource target closes a cycle with this pipeline's own reads" in {
+      val owner = newUser()
+      val s1    = newSource(owner, "api-as-s1")
+      val s2    = newSource(owner, "api-as-s2")
+      val req = CreatePipelineRequest(name = "api-as-pipe", roots = Vector(CreatePipelineRootRequest(sourceId = Some(s1.value))))
+      val pid = PipelineId(await(service.create(req, owner)).getOrElse(fail("expected Right")).id)
+      // A different, already-persisted pipeline writes s1 from a read of s2 -- closing edge.
+      seedWriterPipeline(owner, s2, s1, "api-as-other-writer")
+
+      val addReq = CreatePipelineStepRequest(
+        `type` = "upsertsource",
+        config = JsObject(
+          "target" -> JsObject("kind" -> JsString("existingSource"), "dataSourceId" -> JsString(s2.value)),
+          "mode"   -> JsString("append")
+        )
+      )
+      val result = await(service.addStep(pid, addReq, owner))
+      result shouldBe a[Left[_, _]]
+
+      await(pipelineStepRepo.listByPipelineInternal(pid)) shouldBe empty
+    }
+
+    "accept an addStep() call whose upsertsource target closes no cycle" in {
+      val owner = newUser()
+      val s1    = newSource(owner, "api-as-clean-s1")
+      val target = newSource(owner, "api-as-clean-target")
+      val req = CreatePipelineRequest(name = "api-as-clean-pipe", roots = Vector(CreatePipelineRootRequest(sourceId = Some(s1.value))))
+      val pid = PipelineId(await(service.create(req, owner)).getOrElse(fail("expected Right")).id)
+
+      val addReq = CreatePipelineStepRequest(
+        `type` = "upsertsource",
+        config = JsObject(
+          "target" -> JsObject("kind" -> JsString("existingSource"), "dataSourceId" -> JsString(target.value)),
+          "mode"   -> JsString("append")
+        )
+      )
+      val result = await(service.addStep(pid, addReq, owner))
+      result shouldBe a[Right[_, _]]
+    }
+
+    "reject an addStep() call whose upsertsource target is this SAME pipeline's own root (direct self-cycle)" in {
+      val owner = newUser()
+      val s     = newSource(owner, "api-as-direct-s")
+      val req = CreatePipelineRequest(name = "api-as-direct-pipe", roots = Vector(CreatePipelineRootRequest(sourceId = Some(s.value))))
+      val pid = PipelineId(await(service.create(req, owner)).getOrElse(fail("expected Right")).id)
+
+      val addReq = CreatePipelineStepRequest(
+        `type` = "upsertsource",
+        config = JsObject(
+          "target" -> JsObject("kind" -> JsString("existingSource"), "dataSourceId" -> JsString(s.value)),
+          "mode"   -> JsString("append")
+        )
+      )
+      val result = await(service.addStep(pid, addReq, owner))
+      result shouldBe a[Left[_, _]]
+      await(pipelineStepRepo.listByPipelineInternal(pid)) shouldBe empty
+    }
+  }
+
+  // ── HEL-1100 evaluation-1.md CR1: updateStep / duplicateStep / proposal-apply at the API level ──
+
+  "PipelineService.updateStep (API-level, upsertsource now registered, HEL-1100 CR1)" should {
+    "reject a config update that retargets an upsertsource step into a DIRECT self-cycle" in {
+      val owner  = newUser()
+      val s      = newSource(owner, "api-us-direct-s")
+      val target = newSource(owner, "api-us-direct-target")
+      val req = CreatePipelineRequest(name = "api-us-direct-pipe", roots = Vector(CreatePipelineRootRequest(sourceId = Some(s.value))))
+      val pid = PipelineId(await(service.create(req, owner)).getOrElse(fail("expected Right")).id)
+      val addReq = CreatePipelineStepRequest(
+        `type` = "upsertsource",
+        config = JsObject(
+          "target" -> JsObject("kind" -> JsString("existingSource"), "dataSourceId" -> JsString(target.value)),
+          "mode"   -> JsString("append")
+        )
+      )
+      val step = await(service.addStep(pid, addReq, owner)).getOrElse(fail("expected Right"))
+
+      // Retarget the step at the pipeline's OWN root source -- a direct self-cycle.
+      val updateReq = UpdatePipelineStepRequest(
+        `type`  = None,
+        config  = Some(JsObject(
+          "target" -> JsObject("kind" -> JsString("existingSource"), "dataSourceId" -> JsString(s.value)),
+          "mode"   -> JsString("append")
+        )),
+        position = None
+      )
+      val result = await(service.updateStep(PipelineStepId(step.id), updateReq, owner))
+      result shouldBe a[Left[_, _]]
+
+      // The step's ORIGINAL (pre-update) target is unchanged -- the rejected update never persisted.
+      val persisted = await(pipelineStepRepo.findByIdInternal(PipelineStepId(step.id))).getOrElse(fail("step vanished"))
+      persisted.configValue.asInstanceOf[UpsertSourceConfig].target shouldBe UpsertTarget.ExistingSource(target.value)
+    }
+
+    "reject a config update that retargets an upsertsource step into a TRANSITIVE cycle (via another pipeline)" in {
+      val owner  = newUser()
+      val s1     = newSource(owner, "api-us-trans-s1")
+      val s2     = newSource(owner, "api-us-trans-s2")
+      val target = newSource(owner, "api-us-trans-target")
+      val req = CreatePipelineRequest(name = "api-us-trans-pipe", roots = Vector(CreatePipelineRootRequest(sourceId = Some(s1.value))))
+      val pid = PipelineId(await(service.create(req, owner)).getOrElse(fail("expected Right")).id)
+      val addReq = CreatePipelineStepRequest(
+        `type` = "upsertsource",
+        config = JsObject(
+          "target" -> JsObject("kind" -> JsString("existingSource"), "dataSourceId" -> JsString(target.value)),
+          "mode"   -> JsString("append")
+        )
+      )
+      val step = await(service.addStep(pid, addReq, owner)).getOrElse(fail("expected Right"))
+      // Another, already-persisted pipeline reads s2 and writes s1 -- closing edge for a
+      // retarget of THIS pipeline's step onto s2 (s1 -> s2 -> s1).
+      seedWriterPipeline(owner, s2, s1, "api-us-trans-other-writer")
+
+      val updateReq = UpdatePipelineStepRequest(
+        `type` = None,
+        config = Some(JsObject(
+          "target" -> JsObject("kind" -> JsString("existingSource"), "dataSourceId" -> JsString(s2.value)),
+          "mode"   -> JsString("append")
+        )),
+        position = None
+      )
+      val result = await(service.updateStep(PipelineStepId(step.id), updateReq, owner))
+      result shouldBe a[Left[_, _]]
+
+      val persisted = await(pipelineStepRepo.findByIdInternal(PipelineStepId(step.id))).getOrElse(fail("step vanished"))
+      persisted.configValue.asInstanceOf[UpsertSourceConfig].target shouldBe UpsertTarget.ExistingSource(target.value)
+    }
+  }
+
+  "PipelineService.duplicateStep (API-level, upsertsource now registered, HEL-1100 CR1)" should {
+    // `duplicateStep` clones an EXISTING step's config verbatim -- it can only ever re-propose
+    // the SAME write edge the original step already carries. To exercise a REAL rejection (not
+    // a vacuous re-check of an edge that was already accepted), the original row is seeded via
+    // the repository test-seam (raw SQL), simulating data that reached the table before a cycle
+    // now exists -- `duplicateStep`'s own fresh cycle check (never skipped, unlike a plain
+    // read) must still catch it.
+    "reject duplicating an upsertsource step whose target is this SAME pipeline's own root (direct self-cycle)" in {
+      val owner = newUser()
+      val s     = newSource(owner, "api-dup-direct-s")
+      val req = CreatePipelineRequest(name = "api-dup-direct-pipe", roots = Vector(CreatePipelineRootRequest(sourceId = Some(s.value))))
+      val pid = PipelineId(await(service.create(req, owner)).getOrElse(fail("expected Right")).id)
+
+      import PostgresProfile.api._
+      val stepId = UUID.randomUUID().toString
+      val rootId = await(db.run(sql"select id from pipeline_roots where pipeline_id = ${pid.value} order by position limit 1".as[String].head))
+      val configJson = s"""{"target":{"kind":"existingSource","dataSourceId":"${s.value}"},"mode":"append"}"""
+      await(db.run(sqlu"""INSERT INTO pipeline_steps
+               (id, pipeline_id, position, op, config, created_at, updated_at, root_id)
+               VALUES ($stepId, ${pid.value}, 0, 'upsertsource', $configJson::text, now(), now(), $rootId)"""))
+
+      val result = await(service.duplicateStep(PipelineStepId(stepId), owner))
+      result shouldBe a[Left[_, _]]
+
+      // Only the original (unchecked, seeded) row exists -- the duplicate never persisted.
+      await(pipelineStepRepo.listByPipelineInternal(pid)) should have size 1
+    }
+
+    "reject duplicating an upsertsource step whose target closes a TRANSITIVE cycle (via another pipeline)" in {
+      val owner = newUser()
+      val s1    = newSource(owner, "api-dup-trans-s1")
+      val s2    = newSource(owner, "api-dup-trans-s2")
+      val req = CreatePipelineRequest(name = "api-dup-trans-pipe", roots = Vector(CreatePipelineRootRequest(sourceId = Some(s1.value))))
+      val pid = PipelineId(await(service.create(req, owner)).getOrElse(fail("expected Right")).id)
+
+      import PostgresProfile.api._
+      val stepId = UUID.randomUUID().toString
+      val rootId = await(db.run(sql"select id from pipeline_roots where pipeline_id = ${pid.value} order by position limit 1".as[String].head))
+      val configJson = s"""{"target":{"kind":"existingSource","dataSourceId":"${s2.value}"},"mode":"append"}"""
+      await(db.run(sqlu"""INSERT INTO pipeline_steps
+               (id, pipeline_id, position, op, config, created_at, updated_at, root_id)
+               VALUES ($stepId, ${pid.value}, 0, 'upsertsource', $configJson::text, now(), now(), $rootId)"""))
+      // Another, already-persisted pipeline reads s2 and writes s1 -- closing edge, discovered
+      // only when `duplicateStep` re-checks the graph fresh.
+      seedWriterPipeline(owner, s2, s1, "api-dup-trans-other-writer")
+
+      val result = await(service.duplicateStep(PipelineStepId(stepId), owner))
+      result shouldBe a[Left[_, _]]
+      await(pipelineStepRepo.listByPipelineInternal(pid)) should have size 1
+    }
+  }
+
+  "PipelineProposalService.apply (API-level, upsertsource now registered, HEL-1100 CR1)" should {
+    def newProposalService(owner: AuthenticatedUser): PipelineProposalService =
+      new PipelineProposalService(
+        sourceService = null, dataSourceService = null, pipelineService = service,
+        pipelineRunService = pipelineRunService, dataSourceRepo = dataSourceRepo, outputRepo = outputRepo
+      )
+
+    "reject a proposal whose roots + upsertsource step form a DIRECT self-cycle" in {
+      val owner = newUser()
+      val s     = newSource(owner, "api-pa-direct-s")
+      val proposalService = newProposalService(owner)
+      val proposal = PipelineProposal(
+        pipelineName = "api-pa-direct",
+        roots = Vector(PipelineProposalSource(
+          sourceId = Some(s.value), `type` = None, name = None, csvConfig = None,
+          restConfig = None, sqlConfig = None, staticConfig = None
+        )),
+        steps = Vector(CreatePipelineTransactionalStepRequest(
+          "s1", "upsertsource",
+          JsObject(
+            "target" -> JsObject("kind" -> JsString("existingSource"), "dataSourceId" -> JsString(s.value)),
+            "mode"   -> JsString("append")
+          )
+        ))
+      )
+
+      val result = await(proposalService.apply(proposal, owner))
+      result shouldBe a[Left[_, _]]
+
+      val summaries = await(pipelineRepo.listSummaries(owner, None))
+      summaries.map(_.name) should not contain "api-pa-direct"
+    }
+
+    "reject a proposal whose upsertsource step closes a TRANSITIVE cycle (via another pipeline)" in {
+      val owner = newUser()
+      val s1    = newSource(owner, "api-pa-trans-s1")
+      val s2    = newSource(owner, "api-pa-trans-s2")
+      seedWriterPipeline(owner, s2, s1, "api-pa-trans-other-writer") // reads s2, writes s1
+      val proposalService = newProposalService(owner)
+      val proposal = PipelineProposal(
+        pipelineName = "api-pa-trans",
+        roots = Vector(PipelineProposalSource(
+          sourceId = Some(s1.value), `type` = None, name = None, csvConfig = None,
+          restConfig = None, sqlConfig = None, staticConfig = None
+        )),
+        steps = Vector(CreatePipelineTransactionalStepRequest(
+          "s1", "upsertsource",
+          JsObject(
+            "target" -> JsObject("kind" -> JsString("existingSource"), "dataSourceId" -> JsString(s2.value)),
+            "mode"   -> JsString("append")
+          )
+        ))
+      )
+
+      val result = await(proposalService.apply(proposal, owner))
+      result shouldBe a[Left[_, _]]
+
+      val summaries = await(pipelineRepo.listSummaries(owner, None))
+      summaries.map(_.name) should not contain "api-pa-trans"
     }
   }
 }

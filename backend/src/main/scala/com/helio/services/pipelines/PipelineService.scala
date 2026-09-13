@@ -4,16 +4,16 @@ import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.services.sources.{ContentSourceSupport, DataSourceService, SourceService}
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, DateBucketAnalyzeStepResponse, DeletePipelineStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, OutputAnalyzeResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, RootSourceSchemaResponse, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, WindowAnalyzeStepResponse}
+import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, DateBucketAnalyzeStepResponse, DeletePipelineStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, OutputAnalyzeResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, RootSourceSchemaResponse, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, UpsertSourceAnalyzeStepResponse, WindowAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{CreateSourceRequest, RestApiConfigPayload, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticDataSourceRequest}
 import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse}
 import com.helio.api.protocols.pipelines.{ConciseAnalyzeNode, PipelineAnalyzeConciseResponse, PipelineLaneTreeNode}
 import com.helio.api.protocols.panels.{PanelCapabilityColumnResponse, PanelCapabilityResponse}
 import com.helio.domain.panels.OutputBindingSpec
-import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSource, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, Output, OutputKind, Pipeline, PipelineId, PipelineRootId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSource, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, Output, OutputKind, Pipeline, PipelineId, PipelineRootId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift, UserId}
 import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, LaneReferenceError, PipelineAnalyzeService, RuntimeGraphPath, SchemaField}
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
-import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig}
+import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig, UpsertSourceConfig}
 import com.helio.domain.steps.SecondaryInput
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -449,9 +449,18 @@ final class PipelineService(
                   // unguarded-empty-id bug this change closes elsewhere -- union/lookup already
                   // `.nonEmpty`-guarded); now driven by the one shared extractor so this call site
                   // cannot drift from PipelineService.addStep/updateStep the way it already had.
-                  PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
+                  val crossOwnerF: Future[Either[ServiceError, Unit]] = PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
                     case Some(id) => checkOwnedSource(id, user)
                     case None     => Future.successful(Right(()))
+                  }
+                  crossOwnerF.flatMap {
+                    case Left(err) => Future.successful(Left(err))
+                    case Right(()) =>
+                      // HEL-1100 (design.md Decision 1): `create()`'s caller IS the new pipeline's
+                      // owner (there is no grantee at creation time), so `user.id` already IS
+                      // `pipeline.ownerId` here -- unlike addStep/updateStep, no separate pipeline
+                      // fetch is needed to know the owner.
+                      upsertOwnershipCheckF(typedConfig, user.id, user)
                   }
               }
           }
@@ -1650,6 +1659,7 @@ final class PipelineService(
       case Success(cfg: UnionConfig) => UnionAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: LookupConfig) => LookupAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(cfg: AssertConfig) => AssertAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
+      case Success(cfg: UpsertSourceConfig) => UpsertSourceAnalyzeStepResponse(s.id, s.position, cfg, inSchema, outSchema, s.validationError)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineService.toAnalyzeStepResponse: codec returned unexpected config type ${other.getClass.getName} for op '${s.op}'"
@@ -1798,17 +1808,41 @@ final class PipelineService(
                       requireEditorAccess(pipelineId, user).flatMap {
                         case Left(err) => Future.successful(Left(err))
                         case Right(_) =>
-                          // Safe: editor access confirmed. Use internal insert (no owner-JOIN).
-                          persistNewStep(pipelineId, req, typedConfig, user)
+                          upsertOwnershipCheckF(typedConfig, pipeline.ownerId, user).flatMap {
+                            case Left(err) => Future.successful(Left(err))
+                            case Right(_) =>
+                              // Safe: editor access confirmed. Use internal insert (no owner-JOIN).
+                              persistNewStep(pipelineId, req, typedConfig, user, pipeline.ownerId)
+                          }
                       }
-                    case Some(_) =>
+                    case Some(pipeline) =>
                       // Owner path — use internal insert (same as before, owner already confirmed)
-                      persistNewStep(pipelineId, req, typedConfig, user)
+                      upsertOwnershipCheckF(typedConfig, pipeline.ownerId, user).flatMap {
+                        case Left(err) => Future.successful(Left(err))
+                        case Right(_)  => persistNewStep(pipelineId, req, typedConfig, user, pipeline.ownerId)
+                      }
                   }
               }
           }
       }
   }
+
+  /** HEL-1100 (design.md Decision 1): an `upsertsource` step's target must be OWNED BY THE
+   *  PIPELINE OWNER, not the calling grantee -- resolved against
+   *  `AuthenticatedUser(pipeline.ownerId, ...)` (D5: writes always run as the owner), never the
+   *  caller's own identity. A grantee therefore cannot target the grantee's own dataset (rejected
+   *  here, "data source not found"), but can target the owner's. `None` for every non-`upsertsource`
+   *  config (mirrors `secondaryDataSourceId`'s own "no second source" no-op contract). */
+  private def upsertOwnershipCheckF(typedConfig: Any, pipelineOwnerId: UserId, caller: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    typedConfig match {
+      case cfg: UpsertSourceConfig =>
+        val ownerUser = AuthenticatedUser(pipelineOwnerId, caller.source, caller.tokenId)
+        UpsertSourceConfig.validateTargetOwnership(cfg.target, ownerUser, dataSourceRepo).map {
+          case Some(msg) => Left(ServiceError.NotFound(msg))
+          case None      => Right(())
+        }
+      case _ => Future.successful(Right(()))
+    }
 
   /** Shared persist branch for `addStep` (HEL-410) — called only after the
     * caller's editor-or-owner access has been confirmed by both branches
@@ -1824,7 +1858,12 @@ final class PipelineService(
       pipelineId:  PipelineId,
       req:         CreatePipelineStepRequest,
       typedConfig: Any,
-      user:        AuthenticatedUser
+      user:        AuthenticatedUser,
+      // HEL-1100 (design.md Decision 1): the cycle check's `actingUserId` at every insert call
+      // site below is the PIPELINE OWNER, not the caller -- the write-back this step could
+      // participate in always runs as the owner (D5), so the graph it must not close a cycle in
+      // is the owner's graph, not the (possibly-grantee) caller's.
+      pipelineOwnerId: UserId
   ): Future[Either[ServiceError, PipelineStepResponse]] = {
     // HEL-412: absent `enabled` creates an enabled step (the pre-existing
     // implicit behavior, made explicit).
@@ -1847,7 +1886,7 @@ final class PipelineService(
             case None =>
               Future.successful(Left(ServiceError.UnprocessableEntity(s"rootId '$rootIdRaw' is not a root of this pipeline")))
             case Some((rootId, _)) =>
-              pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, None, enabled, explicitRootId = Some(rootId), actingUserId = user.id.value)
+              pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, None, enabled, explicitRootId = Some(rootId), actingUserId = pipelineOwnerId.value)
                 .flatMap { step =>
                   audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
                   stepResponseWithRoot(pipelineId, step).map(resp => Right(resp))
@@ -1871,13 +1910,13 @@ final class PipelineService(
             // the anchor's existing children) -- see CreatePipelineStepRequest's doc comment.
             val persistF =
               if (req.attachAsTail.getOrElse(false))
-                pipelineStepRepo.attachTailInternal(pipelineId, req.`type`, typedConfig, PipelineStepId(parentStepIdRaw), enabled, actingUserId = user.id.value)
+                pipelineStepRepo.attachTailInternal(pipelineId, req.`type`, typedConfig, PipelineStepId(parentStepIdRaw), enabled, actingUserId = pipelineOwnerId.value)
               else
                 // A parentStepId anchor makes `explicitRootId` irrelevant to the repo (root is
                 // derived from the parent) -- see `spliceInsertAtInternal`'s own
                 // `(Some(_), _) => None` branch. `None` here is exactly correct, not a
                 // reintroduced silent default (task 7.3e).
-                pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, Some(PipelineStepId(parentStepIdRaw)), enabled, explicitRootId = None, actingUserId = user.id.value)
+                pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, Some(PipelineStepId(parentStepIdRaw)), enabled, explicitRootId = None, actingUserId = pipelineOwnerId.value)
             persistF
               .flatMap { step =>
                 audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
@@ -1921,7 +1960,7 @@ final class PipelineService(
         // no-`position` default here always anchors on trunk-last.
         pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
           val anchorParentId = pipelineStepRepo.trunkOf(current).lastOption.map(_.id)
-          pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None, actingUserId = user.id.value)
+          pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None, actingUserId = pipelineOwnerId.value)
             .flatMap { step =>
               audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
               stepResponseWithRoot(pipelineId, step).map(resp => Right(resp))
@@ -1949,7 +1988,7 @@ final class PipelineService(
             // sibling group that `insertAtInternal` would silently no-op
             // on for migrated (parent-chained) pipelines.
             val anchorParentId = if (index == 0) None else Some(current(index - 1).id)
-            pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None, actingUserId = user.id.value)
+            pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None, actingUserId = pipelineOwnerId.value)
               .flatMap { step =>
                 audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
                 stepResponseWithRoot(pipelineId, step).map(resp => Right(resp))
@@ -2053,8 +2092,13 @@ final class PipelineService(
                                 laneCheckF.flatMap {
                                   case Left(err) => Future.successful(Left(err))
                                   case Right(_)  =>
+                                    upsertOwnershipCheckF(typedConfig, pipeline.ownerId, user).flatMap {
+                                    case Left(err) => Future.successful(Left(err))
+                                    case Right(_)  =>
                                     // Safe: editor/owner access confirmed. Use internal update.
-                                    pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position, enabled = req.enabled, actingUserId = user.id.value)
+                                    // HEL-1100 (design.md Decision 1): actingUserId is the PIPELINE
+                                    // OWNER, not the caller -- see persistNewStep's matching doc.
+                                    pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position, enabled = req.enabled, actingUserId = pipeline.ownerId.value)
                                       .flatMap {
                                         case Some(step) =>
                                           audit("pipeline.step.update", "pipeline_step", Some(step.id.value), user)
@@ -2062,6 +2106,7 @@ final class PipelineService(
                                         case None       => Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
                                       }
                                       .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                                    }
                                 }
                             }
                         }
@@ -2202,7 +2247,7 @@ final class PipelineService(
                     // `Some(existing.id)` anchor makes `explicitRootId` irrelevant to the repo,
                     // same as every other parentStepId-anchored call site (task 7.3e).
                     pipelineStepRepo
-                      .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled, explicitRootId = None, actingUserId = user.id.value)
+                      .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled, explicitRootId = None, actingUserId = pipeline.ownerId.value)
                       .flatMap { step =>
                         // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
                         // one-row-per-call convention; metadata carries the source stepId.

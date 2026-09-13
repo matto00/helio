@@ -5,7 +5,8 @@ import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, OutputPreviewEntry, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse, RunTruncationRecord, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
-import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, Output, OutputId, Pipeline, PipelineId, PipelineRootId, PipelineRunId, PipelineStep, PipelineStepId, TruncatedRead, TruncationSink}
+import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, Output, OutputId, Pipeline, PipelineId, PipelineRootId, PipelineRunId, PipelineStep, PipelineStepId, PipelineStepKind, TruncatedRead, TruncationSink, UserId, WriteBackSink}
+import com.helio.services.sources.DataSourceService
 import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeDependencyClosure, NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException, StepKey}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
@@ -313,7 +314,18 @@ final class PipelineRunService(
         // step no longer present). The tree-walk engine itself skips a disabled node in place.
         pipelineStepRepo
           .listByPipelineInternal(pipelineId)
-          .flatMap(allSteps => executeRun(pipeline, roots, allSteps, isDry, user, triggerSource, triggeredByTokenId))
+          .flatMap { allSteps =>
+            // HEL-1100 design.md Decision 3: the backend is a deployment choice, not a pipeline
+            // property -- step CREATION is unaffected either way (PipelineService's own
+            // pre-flight is the create-time gate). Rejected at SUBMIT time, before `executeRun`/
+            // `backend.execute` ever runs, so a Spark-backed deployment never silently drops an
+            // `upsertsource` step's write.
+            if (!backend.supportsWriteBack && allSteps.exists(s => s.enabled && s.kind == PipelineStepKind.UpsertSource))
+              Future.successful(Left(ServiceError.UnprocessableEntity(
+                "The 'upsertsource' step requires the in-process engine"
+              )))
+            else executeRun(pipeline, roots, allSteps, isDry, user, triggerSource, triggeredByTokenId)
+          }
     }
 
   /** Run only the prefix of `steps` ending at `stepId`, returning at most 10
@@ -891,6 +903,12 @@ final class PipelineRunService(
     // HEL-861 (design D8): caller-supplied output parameter mirroring assertionSink exactly --
     // constructed here, before the engine call, and merged with the primary read's stats below.
     val truncationSink = new TruncationSink
+    // HEL-1100 (design.md Decision 2): caller-supplied output parameter every `upsertsource`
+    // step's evaluated write is deferred into. Constructed here (mirrors assertionSink/
+    // truncationSink) so it's ready before the engine call; only read back below, in the
+    // non-dry, not-blocked branch (design.md Decision 3 -- previews/dry runs evaluate but never
+    // apply).
+    val writeBackSink = new WriteBackSink
 
     publish(pidStr, RunStatusEvent("queued"))
 
@@ -919,7 +937,7 @@ final class PipelineRunService(
 
     val runFuture = preExec.flatMap { _ =>
       backend
-        .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress)
+        .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink)
         .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes))
     }
 
@@ -981,18 +999,23 @@ final class PipelineRunService(
         // the caller) -- same tiebreak as `TreeWalkResult.rows`/`primaryStats` above.
         val (truncated, availableRowCount, notice, truncatedReads) =
           truncationFields(roots.head._2.name, sourceCount, primaryStats, truncationSink)
-        val followUp: Future[Option[String]] =
-          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results, availableRowCount, truncatedReads).map(_ => None)
+        val followUp: Future[Either[ServiceError, Option[String]]] =
+          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results, availableRowCount, truncatedReads).map(_ => Right(None))
           else
-            onRunSuccess(roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionSink.results, availableRowCount, truncatedReads)
-        followUp.map { blockedSummary =>
-          val response = RunResultResponse(
-            jsRows, jsRows.size, stepCounts, sourceCount, runId = Some(runId.value),
-            blocked = blockedSummary.isDefined, blockedReason = blockedSummary,
-            sourceTruncated = truncated, sourceAvailableRowCount = availableRowCount,
-            truncationNotice = notice, truncatedReads = truncatedReads
-          )
-          Right(response)
+            onRunSuccess(
+              roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user,
+              assertionSink.results, availableRowCount, truncatedReads, writeBackSink, pipeline.ownerId
+            )
+        followUp.map {
+          case Left(err) => Left(err)
+          case Right(blockedSummary) =>
+            val response = RunResultResponse(
+              jsRows, jsRows.size, stepCounts, sourceCount, runId = Some(runId.value),
+              blocked = blockedSummary.isDefined, blockedReason = blockedSummary,
+              sourceTruncated = truncated, sourceAvailableRowCount = availableRowCount,
+              truncationNotice = notice, truncatedReads = truncatedReads
+            )
+            Right(response)
         }
     }
   }
@@ -1064,11 +1087,70 @@ final class PipelineRunService(
       user:               AuthenticatedUser,
       assertionResults:   Vector[AssertionResult],
       primaryAvailableRowCount: Option[Long],
-      truncatedReads:     Vector[TruncatedReadResponse]
-  ): Future[Option[String]] = {
+      truncatedReads:     Vector[TruncatedReadResponse],
+      // HEL-1100 (design.md Decision 3): the deferred write-back sink populated by the just-
+      // completed engine run, and the pipeline OWNER's id (D5: writes always run AS the owner,
+      // never the triggering caller -- a grantee-triggered or scheduler-fired run still writes
+      // under the owner's identity/RLS context).
+      writeBackSink:      WriteBackSink,
+      pipelineOwnerId:    UserId
+  ): Future[Either[ServiceError, Option[String]]] = {
     val blockingFailures = assertionResults.filter(r => r.severity == "error" && !r.passed)
-    if (blockingFailures.nonEmpty) onBlockedRun(pipelineId, runId, pidStr, user, assertionResults, blockingFailures)
-    else onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionResults, primaryAvailableRowCount, truncatedReads)
+    if (blockingFailures.nonEmpty)
+      // HEL-1100 (design.md Decision 3): blocked first -- a blocked run never applies its
+      // pending writes at all, matching the pre-existing "no snapshot write on block" contract.
+      onBlockedRun(pipelineId, runId, pidStr, user, assertionResults, blockingFailures).map(Right(_))
+    else applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user).flatMap {
+      case Left(reason) =>
+        val errMsg = s"Step (upsertsource): $reason"
+        onWriteBackFailure(pipelineId, runId, pidStr, user, assertionResults, errMsg).map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
+      case Right(()) =>
+        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionResults, primaryAvailableRowCount, truncatedReads).map(Right(_))
+    }
+  }
+
+  /** HEL-1100 (design.md Decision 3): applies every `upsertsource` step's deferred write, as the
+   *  pipeline OWNER (D5) -- never the triggering `user`, so a grantee-triggered or
+   *  scheduler-fired run still writes under the owner's identity/RLS context. A no-op
+   *  (`Right(())`) when nothing was deferred (every pipeline without an `upsertsource` step). */
+  private def applyPendingWriteBacks(
+      writeBackSink:   WriteBackSink,
+      pipelineOwnerId: UserId,
+      triggeringUser:  AuthenticatedUser
+  ): Future[Either[String, Unit]] = {
+    val writes = writeBackSink.writes
+    if (writes.isEmpty) Future.successful(Right(()))
+    else {
+      val ownerUser = AuthenticatedUser(pipelineOwnerId, triggeringUser.source, triggeringUser.tokenId)
+      dataSourceRepo.applyWriteBacks(ownerUser, writes, pipelineStepRepo, DataSourceService.DatasetMaxRows)
+    }
+  }
+
+  /** HEL-1100 (design.md Decision 3): the SAME terminal-failure bookkeeping the `executeRun`
+   *  Failure branch performs (`Failure(ex)` above) -- a write-back failure is a run failure,
+   *  discovered one step later (after the engine's own Future already succeeded), so it must
+   *  leave the pipeline/run rows in the identical terminal "failed" state, with the SAME
+   *  assertion-persistence step (assertions were already evaluated even though the run's
+   *  eventual write failed). */
+  private def onWriteBackFailure(
+      pipelineId: PipelineId,
+      runId: PipelineRunId,
+      pidStr: String,
+      user: AuthenticatedUser,
+      assertionResults: Vector[AssertionResult],
+      errMsg: String
+  ): Future[Unit] = {
+    log.error(s"Pipeline write-back failed for pipeline ${pipelineId.value}, run ${runId.value}: $errMsg")
+    publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg)))
+    val updateRun =
+      if (pipelineRunRepo != null)
+        pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
+      else Future.successful(())
+    updateRun.flatMap { _ =>
+      pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, truncated = Some(false))
+    }.flatMap { _ =>
+      persistAssertions(runId, assertionResults)
+    }
   }
 
   /** Blocked branch (design.md Decisions 2-4): terminal status `"failed"`

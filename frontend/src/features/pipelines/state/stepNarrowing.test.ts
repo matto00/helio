@@ -7,10 +7,12 @@
 import {
   OP_TYPES,
   defaultConfigFor,
+  isUnsupportedOpType,
   lookupConfigOf,
   makeStep,
   pipelineStepToStep,
   unionConfigOf,
+  unsupportedOpType,
 } from "./stepNarrowing";
 import type { LookupConfig, PipelineStep, UnionConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
@@ -195,5 +197,42 @@ describe("stepNarrowing — enabled (HEL-412)", () => {
       updatedAt: "",
     };
     expect(pipelineStepToStep(ps).enabled).toBe(true);
+  });
+});
+
+// HEL-1100 (design.md Decision 9) — an unrecognized persisted step type (e.g. `upsertsource`
+// before HEL-1102's real step card ships) must render as an unsupported placeholder, never
+// silently mis-render as the picker's first op ("Select fields").
+describe("stepNarrowing — unsupported op type (HEL-1100)", () => {
+  it("pipelineStepToStep falls back to unsupportedOpType for an unrecognized step type, never OP_TYPES[0]", () => {
+    // `PipelineStep`'s wire type intentionally does NOT include "upsertsource" (design.md D9 —
+    // the frontend type stays closed over the kinds it recognizes); a persisted row of an
+    // unrecognized kind is exactly what this fallback exists to handle, hence the cast.
+    const ps = {
+      id: "s1",
+      pipelineId: "p1",
+      position: 0,
+      type: "upsertsource",
+      config: { target: { kind: "existingSource", dataSourceId: "ds-1" }, mode: "append" },
+      createdAt: "",
+      updatedAt: "",
+      enabled: true,
+    } as unknown as PipelineStep;
+    const step = pipelineStepToStep(ps);
+    expect(step.opType.id).not.toBe(OP_TYPES[0].id);
+    expect(isUnsupportedOpType(step.opType)).toBe(true);
+    expect(step.opType.label).toContain("upsertsource");
+    // The config is carried through UNTOUCHED (design.md D9) — not discarded, not defaulted.
+    expect(step.config).toEqual(ps.config);
+  });
+
+  it("isUnsupportedOpType is false for every real OP_TYPES entry", () => {
+    OP_TYPES.forEach((op) => {
+      expect(isUnsupportedOpType(op)).toBe(false);
+    });
+  });
+
+  it("unsupportedOpType ids are namespaced so they can never collide with a real OpType id", () => {
+    expect(unsupportedOpType("upsertsource").id).toBe("unsupported:upsertsource");
   });
 });

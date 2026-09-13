@@ -40,6 +40,7 @@ private[services] object PipelineStepProjectionSupport {
     case s: UnionStep                => s.copy(position = position)
     case s: LookupStep               => s.copy(position = position)
     case s: AssertStep               => s.copy(position = position)
+    case s: UpsertSourceStep         => s.copy(position = position)
   }
 
   /** `.copy(config = ...)` across all 22 registered step kinds, given the
@@ -74,6 +75,7 @@ private[services] object PipelineStepProjectionSupport {
     case (s: UnionStep, c: UnionConfig)                          => Right(s.copy(config = c))
     case (s: LookupStep, c: LookupConfig)                        => Right(s.copy(config = c))
     case (s: AssertStep, c: AssertConfig)                        => Right(s.copy(config = c))
+    case (s: UpsertSourceStep, c: UpsertSourceConfig)            => Right(s.copy(config = c))
     case _ => Left(s"config decode produced a type mismatched with step kind '${step.kind}'")
   }
 }
