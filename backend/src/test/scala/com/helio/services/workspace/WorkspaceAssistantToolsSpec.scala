@@ -43,6 +43,13 @@ class WorkspaceAssistantToolsSpec extends AnyWordSpec with Matchers {
       val schema = tool.inputSchema.asJsObject
       assertObjectSchema(schema, Set("query", "resourceTypes"))
     }
+
+    // HEL-1127: description prose was renamed "DataType"->"Output", but the wire value the model
+    // must actually emit is still "dataType" (`WorkspaceResourceType.fromString`) -- the
+    // disambiguating hint must survive the rename.
+    "keeps the \"dataType\" wire-value hint in its description" in {
+      WorkspaceAssistantTools.findTool.description should include("dataType")
+    }
   }
 
   "WorkspaceAssistantTools.getResourceTool" should {
@@ -53,6 +60,11 @@ class WorkspaceAssistantToolsSpec extends AnyWordSpec with Matchers {
 
       val schema = tool.inputSchema.asJsObject
       assertObjectSchema(schema, Set("id", "type"))
+    }
+
+    // HEL-1127: same hint requirement as findTool above.
+    "keeps the \"dataType\" wire-value hint in its description" in {
+      WorkspaceAssistantTools.getResourceTool.description should include("dataType")
     }
   }
 }

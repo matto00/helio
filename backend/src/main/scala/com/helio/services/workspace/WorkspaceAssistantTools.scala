@@ -24,7 +24,7 @@ object WorkspaceAssistantTools {
   val findTool: ClaudeTool = ClaudeTool(
     name = "find",
     description =
-      "Keyword/substring search across the workspace's data sources, DataTypes, pipelines, " +
+      "Keyword/substring search across the workspace's data sources, Outputs (resource type \"dataType\"), pipelines, " +
       "and dashboards. Returns compact summaries (id, resourceType, name, description) " +
       "for the top matches. Use this to locate a resource before fetching its full detail with " +
       "get_resource.",
@@ -52,7 +52,7 @@ object WorkspaceAssistantTools {
     name = "get_resource",
     description =
       "Fetch full detail for one specific workspace resource by id and type: a pipeline's steps, " +
-      "a DataType's columns/sample rows/column stats, a dashboard's panel count, or a data source's " +
+      "an Output's (resource type \"dataType\") columns/sample rows/column stats, a dashboard's panel count, or a data source's " +
       "metadata.",
     inputSchema = JsObject(
       "type" -> JsString("object"),

@@ -45,8 +45,8 @@ object DashboardAuthoringPrompt {
       "- If the goal can only be partially satisfied from the data available, return the best-effort " +
       "proposal you can build from what is listed below — never fabricate an id."
 
-  /** One line per pipeline-output DataType: its id/name, columns (name/type/semantic role, from the
-   *  HEL-371 grounding context), and its panel-capability menu (HEL-365) — the exact per-DataType
+  /** One line per pipeline-output Output: its id/name, columns (name/type/semantic role, from the
+   *  HEL-371 grounding context), and its panel-capability menu (HEL-365) — the exact per-Output
    *  facts the spec.md "grounded in the caller's real data types" scenario asserts on. */
   private def groundingSection(
       dataTypes: Vector[WorkspaceContextOutput],
@@ -54,7 +54,7 @@ object DashboardAuthoringPrompt {
   ): String = {
     val entries = dataTypes.map { dt =>
       val columns = dt.columns.map(c => s"${c.name} (${c.dataType}, ${c.semanticRole})").mkString(", ")
-      val capText = capabilities.get(dt.id).map(capabilityMenuFor).getOrElse("no panel-capability data available for this data type")
+      val capText = capabilities.get(dt.id).map(capabilityMenuFor).getOrElse("no panel-capability data available for this output")
       s"- Output id=${dt.id} name=\"${dt.name}\"\n  columns: $columns\n  panel capabilities: $capText"
     }
     "Available pipeline Outputs:\n" + entries.mkString("\n")
@@ -69,7 +69,7 @@ object DashboardAuthoringPrompt {
 
   /** HEL-521 (420-C) design.md Decision 5: a compact "the user generally prefers/knows..." block,
    *  appended after `groundingSection`'s existing output -- kept as its own small,
-   *  self-contained function rather than interleaved with the per-DataType grounding text, so it
+   *  self-contained function rather than interleaved with the per-Output grounding text, so it
    *  reads as its own paragraph to the model and `groundingSection`'s existing, already-tested
    *  signature stays untouched. Returns `""` when BOTH `preferences` and `memory` are empty (spec
    *  scenario "Prompt omits the section cleanly when agentContext is empty" -- never a bare header

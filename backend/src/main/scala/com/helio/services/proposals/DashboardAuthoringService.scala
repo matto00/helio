@@ -59,7 +59,7 @@ final class DashboardAuthoringService(
   private val turns = new AuthoringConversationTurns(conversationRepo)
 
   private val EmptyWorkspaceMessage: String =
-    "Nothing to build a dashboard from — the workspace has no pipeline-output data types yet. " +
+    "Nothing to build a dashboard from — the workspace has no pipeline Outputs yet. " +
       "Run a pipeline first."
 
   /** Grounding context assembled once per FIRST-turn authoring call: the workspace snapshot, a
@@ -273,7 +273,7 @@ final class DashboardAuthoringService(
       .recover { case ex => Left(degradeMessage(outputId, Option(ex.getMessage).getOrElse(ex.getClass.getName))) }
 
   private def degradeMessage(outputId: String, reason: String): String =
-    s"Could not load panel capabilities for data type $outputId: $reason"
+    s"Could not load panel capabilities for output $outputId: $reason"
 
   // ── Shared parse -> validate core (unchanged since HEL-392) ────────────
 
