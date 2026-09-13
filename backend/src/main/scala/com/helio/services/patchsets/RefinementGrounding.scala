@@ -107,5 +107,5 @@ final class RefinementGrounding(
       .recover { case ex => Left(degradeMessage(outputId, Option(ex.getMessage).getOrElse(ex.getClass.getName))) }
 
   private def degradeMessage(outputId: String, reason: String): String =
-    s"Could not load panel capabilities for data type $outputId: $reason"
+    s"Could not load panel capabilities for output $outputId: $reason"
 }

@@ -122,5 +122,13 @@ class AssistantSystemPromptSpec extends AnyWordSpec with Matchers {
     "does not offer DataType as a propose_patch_set edit target" in {
       AssistantSystemPrompt.text should not include "data source, DataType, pipeline"
     }
+
+    // HEL-1127: prose was renamed "DataType"->"Output" for readability, but the ONLY wire value
+    // `WorkspaceResourceType.fromString` accepts is still "dataType" -- the find/get_resource
+    // descriptions must keep surfacing that literal so the model doesn't emit an invalid
+    // `type: "output"` argument.
+    "keeps the \"dataType\" wire-value hint alongside the renamed find/get_resource prose" in {
+      AssistantSystemPrompt.text should include("dataType")
+    }
   }
 }

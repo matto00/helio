@@ -52,7 +52,7 @@ private[protocols] trait AssistantProposalToolSchemas {
       "outputId" -> JsObject(
         "type" -> JsString("string"),
         "description" -> JsString(
-          "Required for output panels; must be an existing pipeline-output DataType id returned by " +
+          "Required for output panels; must be an existing pipeline-output Output id returned by " +
             "find/get_resource (or, inside propose_combined only, the literal sentinel " +
             "\"$pipelineOutput\"). Omitted for text/markdown/image."
         )
@@ -77,7 +77,7 @@ private[protocols] trait AssistantProposalToolSchemas {
 
   // HEL-700 design.md D2/D3 — one fully-formed propose_dashboard call, decode-pinned by
   // AssistantProposalToolSchemasSpec against `dashboardProposalFormat`. "dt_example_from_find" is an
-  // obviously-synthetic placeholder id, never a real DataType id.
+  // obviously-synthetic placeholder id, never a real Output id.
   private val DashboardProposalExample: JsValue =
     """{
       "dashboardName": "Q1 Revenue",
@@ -445,18 +445,18 @@ private[protocols] trait AssistantProposalToolSchemas {
   val proposeDashboardTool: ClaudeTool = ClaudeTool(
     name = "propose_dashboard",
     description =
-      "Propose a new dashboard (name + panels) bound to EXISTING pipeline-output DataTypes. " +
+      "Propose a new dashboard (name + panels) bound to EXISTING pipeline-output Outputs. " +
         "Validated but NEVER created — the user reviews and applies it separately. Use when the " +
         "workspace already has data that answers the goal; check get_resource's panelCapabilities " +
-        "for a DataType before proposing a panel kind against it.",
+        "for an Output before proposing a panel kind against it.",
     inputSchema = DashboardProposalSchema
   )
 
   val proposePipelineTool: ClaudeTool = ClaudeTool(
     name = "propose_pipeline",
     description =
-      "Propose a new pipeline (source + ordered transform steps + output DataType name). " +
-        "Validated but NEVER created. Use when find turns up no existing DataType that can answer " +
+      "Propose a new pipeline (source + ordered transform steps + output name). " +
+        "Validated but NEVER created. Use when find turns up no existing Output that can answer " +
         "the goal.",
     inputSchema = PipelineProposalSchema
   )

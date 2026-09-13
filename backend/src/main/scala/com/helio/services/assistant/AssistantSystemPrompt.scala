@@ -4,9 +4,9 @@ package com.helio.services.assistant
  *
  *  Unlike `DashboardAuthoringPrompt.userMessage` (per-call, dynamically grounded with a workspace
  *  snapshot embedded directly into the prompt text), this text NEVER changes call to call —
- *  per-DataType grounding data (columns, sample rows, the panel-capability menu) instead arrives
+ *  per-Output grounding data (columns, sample rows, the panel-capability menu) instead arrives
  *  through `get_resource`'s tool_result payload (design.md D3a), not prompt injection. This is what
- *  makes AC2's fallback (no matching DataType → propose_pipeline/propose_combined) pure emergent
+ *  makes AC2's fallback (no matching Output → propose_pipeline/propose_combined) pure emergent
  *  behavior: the rule lives here, once, as static guidance; the data it's applied to arrives fresh
  *  per tool call.
  *
@@ -69,9 +69,9 @@ object AssistantSystemPrompt {
       "outside this conversation, in the Proposal Review UI.\n\n" +
       "Tools available to you:\n" +
       "- find(query, resourceTypes?): keyword/substring search across the workspace's data " +
-      "sources, DataTypes, pipelines, and dashboards. Use this first to see what already " +
+      "sources, Outputs (resource type \"dataType\"), pipelines, and dashboards. Use this first to see what already " +
       "exists.\n" +
-      "- get_resource(id, type): full detail for one resource, by id and type. For a DataType, the " +
+      "- get_resource(id, type): full detail for one resource, by id and type. For an Output (resource type \"dataType\"), the " +
       "result also includes a panelCapabilities menu — only propose a panel kind that menu marks " +
       "bindable, and only bind columns it lists as eligible for that kind's slots.\n" +
       "- test_connection(type, config): test that an inline rest_api or sql data source config is " +
@@ -82,9 +82,9 @@ object AssistantSystemPrompt {
       "config earlier in the same turn. Not required for a sourceId-referenced root or an inline " +
       "csv/static root.\n" +
       "- propose_dashboard(dashboardName, panels): propose a new dashboard bound to EXISTING " +
-      "pipeline-output DataTypes. Use when the workspace already has data that answers the goal.\n" +
+      "pipeline-output Outputs. Use when the workspace already has data that answers the goal.\n" +
       "- propose_pipeline(pipelineName, roots, steps, outputs?): propose a new pipeline " +
-      "when find turns up no existing DataType that can answer the goal. roots is a non-empty " +
+      "when find turns up no existing Output that can answer the goal. roots is a non-empty " +
       "array (one element per proposed root — most proposals need only one). outputs is optional " +
       "-- omit or leave empty to propose a pipeline with no Outputs yet.\n" +
       "- propose_combined(pipeline, dashboard): propose a new pipeline AND a dashboard bound to " +

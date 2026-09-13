@@ -105,8 +105,8 @@ object RefinementPrompt extends PipelineStepProtocol {
   }
 
   /** Mirrors `DashboardAuthoringPrompt.groundingSection`/`capabilityMenuFor` verbatim — one line per
-   *  workspace-wide pipeline-output DataType: its id/name, columns, and its panel-capability menu
-   *  (HEL-365) — so a create edit binding a DataType not yet used on the target dashboard has
+   *  workspace-wide pipeline-output Output: its id/name, columns, and its panel-capability menu
+   *  (HEL-365) — so a create edit binding an Output not yet used on the target dashboard has
    *  something to bind to (AC5). */
   private def groundingSection(
       dataTypes: Vector[WorkspaceContextOutput],
@@ -114,11 +114,11 @@ object RefinementPrompt extends PipelineStepProtocol {
   ): String = {
     val entries = dataTypes.map { dt =>
       val columns = dt.columns.map(c => s"${c.name} (${c.dataType}, ${c.semanticRole})").mkString(", ")
-      val capText = capabilities.get(dt.id).map(capabilityMenuFor).getOrElse("no panel-capability data available for this data type")
-      s"- DataType id=${dt.id} name=\"${dt.name}\"\n  columns: $columns\n  panel capabilities: $capText"
+      val capText = capabilities.get(dt.id).map(capabilityMenuFor).getOrElse("no panel-capability data available for this output")
+      s"- Output id=${dt.id} name=\"${dt.name}\"\n  columns: $columns\n  panel capabilities: $capText"
     }
-    if (entries.isEmpty) "Available pipeline-output data types: (none yet)"
-    else "Available pipeline-output data types:\n" + entries.mkString("\n")
+    if (entries.isEmpty) "Available pipeline Outputs: (none yet)"
+    else "Available pipeline Outputs:\n" + entries.mkString("\n")
   }
 
   private def capabilityMenuFor(capabilities: PanelCapabilitiesResponse): String = {
