@@ -96,6 +96,12 @@ interface PipelineRiverViewProps {
    *  `PipelineDetailPage.handleDuplicateStep` owns splicing the clone in
    *  after the original. */
   onDuplicateStep: (stepId: string) => void;
+  /** HEL-706 — steps whose duplicate request is currently in flight, used to
+   *  disable each `StepCard`'s "Duplicate step" button while its own guard is
+   *  active. A boolean is computed inline at each `StepCard` call site
+   *  (`isDuplicating={duplicatingStepIds.has(step.id)}`) rather than passing
+   *  a function prop, since `StepCard` is `React.memo`-wrapped. */
+  duplicatingStepIds: ReadonlySet<string>;
   /** task 3.3 — one Outputs array per step id, from
    *  `selectOutputsByStepId`; feeds each `StepCard`'s `OutputsRail`. */
   outputsByStepId: Record<string, Output[]>;
@@ -129,6 +135,7 @@ export function PipelineRiverView({
   onReorderSteps,
   onToggleStepEnabled,
   onDuplicateStep,
+  duplicatingStepIds,
   outputsByStepId,
   previewRowCountByOutputId,
   onOpenOutput,
@@ -414,6 +421,7 @@ export function PipelineRiverView({
                         onMoveDown={idx < primarySteps.length - 1 ? handleMoveDown : undefined}
                         onToggleEnabled={onToggleStepEnabled}
                         onDuplicate={onDuplicateStep}
+                        isDuplicating={duplicatingStepIds.has(step.id)}
                         enabledBits={enabledBits}
                         outputs={outputsByStepId[step.id] ?? EMPTY_OUTPUTS}
                         previewRowCountByOutputId={previewRowCountByOutputId}
@@ -467,6 +475,7 @@ export function PipelineRiverView({
                               runStepRowCounts={runStepRowCounts}
                               onToggleStepEnabled={onToggleStepEnabled}
                               onDuplicateStep={onDuplicateStep}
+                              duplicatingStepIds={duplicatingStepIds}
                               enabledBits={enabledBits}
                               outputsByStepId={outputsByStepId}
                               previewRowCountByOutputId={previewRowCountByOutputId}
@@ -544,6 +553,7 @@ export function PipelineRiverView({
               runStepRowCounts={runStepRowCounts}
               onToggleStepEnabled={onToggleStepEnabled}
               onDuplicateStep={onDuplicateStep}
+              duplicatingStepIds={duplicatingStepIds}
               enabledBits={enabledBits}
               outputsByStepId={outputsByStepId}
               previewRowCountByOutputId={previewRowCountByOutputId}

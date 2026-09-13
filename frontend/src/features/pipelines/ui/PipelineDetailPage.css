@@ -426,12 +426,17 @@
 .pipeline-detail-page__step-card-drag-handle:hover,
 .pipeline-detail-page__step-card-move-btn:hover:not(:disabled),
 .pipeline-detail-page__step-card-toggle-enabled-btn:hover,
-.pipeline-detail-page__step-card-duplicate-btn:hover {
+.pipeline-detail-page__step-card-duplicate-btn:hover:not(:disabled) {
   background: var(--step-card-hover-bg);
   color: var(--app-text);
 }
 
-.pipeline-detail-page__step-card-move-btn:disabled {
+/* HEL-706 — `isDuplicating` disables this button while its own duplicate
+   request is in flight; matches the pre-existing `move-btn:disabled` rule
+   above (same group, same HEL-866 reasoning) so the pending state reads as
+   genuinely inert instead of visually identical to enabled. */
+.pipeline-detail-page__step-card-move-btn:disabled,
+.pipeline-detail-page__step-card-duplicate-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }

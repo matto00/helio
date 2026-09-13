@@ -64,6 +64,7 @@ function baseProps(overrides: Partial<ComponentProps<typeof StepCard>> = {}) {
     onStepDragEnd: jest.fn(),
     onToggleEnabled: jest.fn(),
     onDuplicate: jest.fn(),
+    isDuplicating: false,
     enabledBits: "1",
     outputs: [],
     previewRowCountByOutputId: {},

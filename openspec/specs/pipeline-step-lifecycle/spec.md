@@ -2,7 +2,9 @@
 
 ## Purpose
 Let pipeline authors manage a step's lifecycle beyond create/delete: duplicate a configured step (clone inserted directly after the original) and disable/enable a step without losing its config — with disabled steps excluded from every execution and analysis surface (runs, analyze, proposal analysis, bound-panel projection, preview) until re-enabled.
+
 ## Requirements
+
 ### Requirement: Disabled steps are excluded from execution, analysis, and preview
 A pipeline step SHALL carry a persisted `enabled` flag (default true). When `enabled` is false:
 - Full runs and dry runs SHALL execute the pipeline as if the step were absent (remaining steps
@@ -76,7 +78,10 @@ Each StepCard SHALL offer, as sibling controls in its header actions cluster:
   Enable step); toggling persists via the step PATCH and reflects optimistically, reverting with
   a visible error on failure
 - A "Duplicate step" action that invokes the duplicate endpoint and renders the clone directly
-  after the original on success, surfacing a visible error on failure
+  after the original on success, surfacing a visible error on failure. This action SHALL be
+  guarded against re-entry: while a duplicate request for a given step is in flight, further
+  activations of that step's "Duplicate step" action SHALL be ignored, and the guard SHALL clear
+  when the request settles (success or failure), re-enabling the action.
 - Disabled cards SHALL render visually muted (design-token styling), with the preview control
   unavailable; the config editor remains visible and editable
 - A toggle SHALL refresh analysis (and open previews) so schemas/validation reflect the changed
@@ -95,3 +100,13 @@ Each StepCard SHALL offer, as sibling controls in its header actions cluster:
 - **WHEN** the disable PATCH fails
 - **THEN** the card returns to its previous state and a visible error is surfaced
 
+#### Scenario: Double-activation while a duplicate request is in flight produces exactly one clone
+- **WHEN** the user activates "Duplicate step" on a step twice in rapid succession (including two
+  synchronous activations in the same event-loop tick) before the first request settles
+- **THEN** the system calls the duplicate endpoint exactly once
+- **AND** exactly one clone is inserted after the original
+
+#### Scenario: Duplicate step action re-enables after the request settles
+- **WHEN** a duplicate request for a step completes, whether successfully or with an error
+- **THEN** the "Duplicate step" action for that step is enabled again and a subsequent activation
+  issues a new request

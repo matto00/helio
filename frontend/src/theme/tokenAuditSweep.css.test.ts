@@ -151,13 +151,20 @@ const SPACING_BASELINE: BaselineEntry[] = [
   // detail-page__add-tail-row`, shifting every PipelineDetailPage.css
   // entry below line ~453 down by one — confirmed identical to a
   // from-scratch re-run, not a manual +1 offset.
+  //
+  // HEL-706 shifted every PipelineDetailPage.css entry below line ~434 down
+  // by 5 (a `:not(:disabled)` hover guard plus a combined `:disabled` rule
+  // + explanatory comment for the new `isDuplicating`-gated duplicate-step
+  // button) — verified line-by-line against the pre-change baseline (each
+  // entry's line content is byte-identical at old_line vs. old_line + 5),
+  // not a blind offset.
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 28 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 231 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 883 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 977 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1007 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1216 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1447 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 888 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 982 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1012 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1221 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1452 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 136 },
   { file: "features/sources/ui/AddSourceModal.css", line: 144 },
   { file: "features/sources/ui/AddSourceModal.css", line: 254 },

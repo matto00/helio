@@ -5,6 +5,7 @@ import { getOutputId } from "../state/panelNarrowing";
 import { deletePanel, duplicatePanel, fetchPanelPage } from "../state/panelsSlice";
 import { getAssertionStatus } from "../../pipelines/services/outputService";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { IconButton } from "../../../shared/ui/IconButton";
@@ -174,6 +175,7 @@ export const PanelCard = React.memo(function PanelCard({
   onDetail,
 }: PanelCardProps) {
   const dispatch = useAppDispatch();
+  const { isPending, guardedRun } = useInFlightGuard<string>();
 
   // HEL-909: assertion status now reads the panel's bound Output
   // (`GET /api/outputs/:id/assertion-status`) rather than a DataType. Not
@@ -225,8 +227,8 @@ export const PanelCard = React.memo(function PanelCard({
   const handleDetail = useCallback(() => onDetail(panel.id), [panel.id, onDetail]);
 
   const handleDuplicate = useCallback(
-    () => void dispatch(duplicatePanel({ panelId: panel.id, dashboardId })),
-    [dispatch, panel.id, dashboardId],
+    () => guardedRun(panel.id, () => dispatch(duplicatePanel({ panelId: panel.id, dashboardId }))),
+    [guardedRun, dispatch, panel.id, dashboardId],
   );
 
   const handleRequestDelete = useCallback(
@@ -310,7 +312,11 @@ export const PanelCard = React.memo(function PanelCard({
                   items={[
                     { label: "Rename", onClick: handleRename },
                     { label: "Customize", onClick: handleDetail },
-                    { label: "Duplicate", onClick: handleDuplicate },
+                    {
+                      label: "Duplicate",
+                      onClick: handleDuplicate,
+                      disabled: isPending(panel.id),
+                    },
                     { label: "Delete", onClick: handleRequestDelete, danger: true },
                   ]}
                 />

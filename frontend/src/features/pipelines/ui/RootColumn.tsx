@@ -30,6 +30,8 @@ interface RootColumnProps {
   runStepRowCounts: Record<string, number> | null | undefined;
   onToggleStepEnabled: (stepId: string, enabled: boolean) => void;
   onDuplicateStep: (stepId: string) => void;
+  /** HEL-706 — passed straight through to `LaneColumn`/`StepCard`. */
+  duplicatingStepIds: ReadonlySet<string>;
   enabledBits: string;
   outputsByStepId: Record<string, Output[]>;
   previewRowCountByOutputId: Record<string, number>;
@@ -62,6 +64,7 @@ export function RootColumn({
   runStepRowCounts,
   onToggleStepEnabled,
   onDuplicateStep,
+  duplicatingStepIds,
   enabledBits,
   outputsByStepId,
   previewRowCountByOutputId,
@@ -106,6 +109,7 @@ export function RootColumn({
           runStepRowCounts={runStepRowCounts}
           onToggleStepEnabled={onToggleStepEnabled}
           onDuplicateStep={onDuplicateStep}
+          duplicatingStepIds={duplicatingStepIds}
           enabledBits={enabledBits}
           outputsByStepId={outputsByStepId}
           previewRowCountByOutputId={previewRowCountByOutputId}

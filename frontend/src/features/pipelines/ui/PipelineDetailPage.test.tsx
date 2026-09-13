@@ -1396,6 +1396,94 @@ describe("PipelineDetailPage", () => {
       expect(stepLabels()).toEqual(["Rename column", "Rename column", "Filter rows"]);
     });
 
+    it("HEL-706: two synchronous activations of Duplicate step on the same step fire the duplicate call exactly once", async () => {
+      let resolveDuplicate!: (step: PipelineStep) => void;
+      duplicatePipelineStepMock.mockReturnValueOnce(
+        new Promise<PipelineStep>((resolve) => {
+          resolveDuplicate = resolve;
+        }),
+      );
+      renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      // Fire both activations before any re-render commits -- a rendered
+      // `isDuplicating`-disabled button would block the second click on its
+      // own regardless of whether the ref-based guard exists, which
+      // wouldn't prove the synchronous check is doing anything (the direct
+      // hook test in useInFlightGuard.test.ts already covers that check).
+      const duplicateButton = screen.getAllByRole("button", { name: "Duplicate step" })[0];
+      fireEvent.click(duplicateButton);
+      fireEvent.click(duplicateButton);
+
+      expect(duplicatePipelineStepMock).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        resolveDuplicate({ ...persistedRename, id: "x1-clone" });
+      });
+    });
+
+    it("HEL-706: the Duplicate step button re-enables after the request resolves, and a further click fires a new call", async () => {
+      let resolveDuplicate!: (step: PipelineStep) => void;
+      duplicatePipelineStepMock.mockReturnValueOnce(
+        new Promise<PipelineStep>((resolve) => {
+          resolveDuplicate = resolve;
+        }),
+      );
+      renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      const duplicateButton = screen.getAllByRole("button", { name: "Duplicate step" })[0];
+      fireEvent.click(duplicateButton);
+      expect(duplicateButton).toBeDisabled();
+
+      const duplicatedRename = { ...persistedRename, id: "x1-clone" };
+      getPipelineStepsMock.mockResolvedValueOnce([
+        persistedRename,
+        duplicatedRename,
+        persistedFilter,
+      ]);
+      duplicatePipelineStepMock.mockResolvedValueOnce({ ...persistedRename, id: "x1-clone-2" });
+
+      await act(async () => {
+        resolveDuplicate(duplicatedRename);
+      });
+
+      const reEnabledButton = screen.getAllByRole("button", { name: "Duplicate step" })[0];
+      expect(reEnabledButton).toBeEnabled();
+
+      await act(async () => {
+        fireEvent.click(reEnabledButton);
+      });
+
+      expect(duplicatePipelineStepMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("HEL-706: the Duplicate step button re-enables after the request rejects, and a further click fires a new call", async () => {
+      duplicatePipelineStepMock.mockRejectedValueOnce(new Error("Server error"));
+      renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+
+      const duplicateButton = screen.getAllByRole("button", { name: "Duplicate step" })[0];
+      await act(async () => {
+        fireEvent.click(duplicateButton);
+      });
+
+      expect(duplicateButton).toBeEnabled();
+
+      duplicatePipelineStepMock.mockResolvedValueOnce({ ...persistedRename, id: "x1-clone" });
+      getPipelineStepsMock.mockResolvedValueOnce([
+        persistedRename,
+        { ...persistedRename, id: "x1-clone" },
+        persistedFilter,
+      ]);
+
+      await act(async () => {
+        fireEvent.click(duplicateButton);
+      });
+
+      expect(duplicatePipelineStepMock).toHaveBeenCalledTimes(2);
+    });
+
     it("a failed duplicate leaves the step list unchanged and surfaces an error toast", async () => {
       duplicatePipelineStepMock.mockRejectedValueOnce(new Error("Server error"));
       const store = makeStore();

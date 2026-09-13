@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { waitFor } from "@testing-library/react";
 
 import {
@@ -530,6 +530,83 @@ describe("DashboardList", () => {
       await waitFor(() =>
         expect(screen.getByText("Failed to duplicate dashboard.")).toBeInTheDocument(),
       );
+    });
+
+    // HEL-706 — `ActionsMenu` closes itself on any item's `onClick` before
+    // that `onClick` runs, so a genuine double-activation here is "activate
+    // Duplicate, reopen the menu, activate Duplicate again", not two clicks
+    // on the same still-open item.
+    describe("HEL-706 duplicate re-entry guard", () => {
+      function deferredDuplicate() {
+        let resolve!: () => void;
+        let reject!: (reason?: unknown) => void;
+        const promise = new Promise<void>((res, rej) => {
+          resolve = res;
+          reject = rej;
+        });
+        duplicateDashboardMock.mockReturnValue(promise as never);
+        return { resolve, reject };
+      }
+
+      it("reopening the menu and activating Duplicate again while the first request is pending dispatches only once", async () => {
+        deferredDuplicate();
+        renderTwoDashboards();
+
+        openActionsMenu("Operations");
+        fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+        await waitFor(() => expect(duplicateDashboardMock).toHaveBeenCalledTimes(1));
+
+        openActionsMenu("Operations");
+        fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+
+        expect(duplicateDashboardMock).toHaveBeenCalledTimes(1);
+      });
+
+      it("re-enables Duplicate after the pending request resolves, and a further click issues a new dispatch", async () => {
+        const { resolve } = deferredDuplicate();
+        renderTwoDashboards();
+
+        openActionsMenu("Operations");
+        fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+        await waitFor(() => expect(duplicateDashboardMock).toHaveBeenCalledTimes(1));
+
+        await act(async () => {
+          resolve();
+          await Promise.resolve();
+          await Promise.resolve();
+        });
+
+        deferredDuplicate();
+        openActionsMenu("Operations");
+        expect(screen.getByRole("menuitem", { name: "Duplicate" })).toBeEnabled();
+        fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+        expect(duplicateDashboardMock).toHaveBeenCalledTimes(2);
+      });
+
+      it("re-enables Duplicate after the pending request rejects, and a further click issues a new dispatch", async () => {
+        const { reject } = deferredDuplicate();
+        renderTwoDashboards();
+
+        openActionsMenu("Operations");
+        fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+        await waitFor(() => expect(duplicateDashboardMock).toHaveBeenCalledTimes(1));
+
+        await act(async () => {
+          reject(new Error("network down"));
+          await Promise.resolve().catch(() => {});
+          await Promise.resolve();
+          await Promise.resolve();
+        });
+        await waitFor(() =>
+          expect(screen.getByText("Failed to duplicate dashboard.")).toBeInTheDocument(),
+        );
+
+        deferredDuplicate();
+        openActionsMenu("Operations");
+        expect(screen.getByRole("menuitem", { name: "Duplicate" })).toBeEnabled();
+        fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+        expect(duplicateDashboardMock).toHaveBeenCalledTimes(2);
+      });
     });
   });
 });

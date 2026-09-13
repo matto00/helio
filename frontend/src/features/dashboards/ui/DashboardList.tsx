@@ -13,6 +13,7 @@ import {
   setSelectedDashboardId,
 } from "../state/dashboardsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import type { DashboardSnapshot } from "../types/dashboard";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
@@ -57,6 +58,8 @@ export function DashboardList() {
   // for why (this component's DOM subtree is hidden entirely below the desktop breakpoint).
   const shareDialog = useShareDialog();
   const cancelledRef = useRef(false);
+  const { isPending: isDuplicatePending, guardedRun: guardedDuplicateRun } =
+    useInFlightGuard<string>();
 
   async function handleCreateDashboard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -402,7 +405,11 @@ export function DashboardList() {
                           },
                           {
                             label: "Duplicate",
-                            onClick: () => void handleDuplicateDashboard(dashboard.id),
+                            onClick: () =>
+                              guardedDuplicateRun(dashboard.id, () =>
+                                handleDuplicateDashboard(dashboard.id),
+                              ),
+                            disabled: isDuplicatePending(dashboard.id),
                           },
                           {
                             label: "Share",
