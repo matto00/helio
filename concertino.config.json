@@ -1,5 +1,5 @@
 {
-  "harnesses": ["claude-code"],
+  "harnesses": ["claude-code", "codex"],
   "project": {
     "name": "helio",
     "baseBranch": "main"
