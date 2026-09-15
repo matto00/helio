@@ -158,13 +158,21 @@ const SPACING_BASELINE: BaselineEntry[] = [
   // button) — verified line-by-line against the pre-change baseline (each
   // entry's line content is byte-identical at old_line vs. old_line + 5),
   // not a blind offset.
+  //
+  // HEL-1102 shifted the entries below line ~928 down: +1 for a
+  // `input[type="radio"]` accent-color selector joining the pre-existing
+  // `input[type="checkbox"]` one, then +34 more for the new
+  // `upsertsource` step-config CSS block inserted before
+  // `.pipeline-detail-page__compute-fields-hint-list` — verified
+  // line-by-line against the pre-change baseline (each entry's line
+  // content is byte-identical at its new line number).
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 28 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 231 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 888 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 982 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1012 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1221 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1452 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 983 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1046 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1255 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1486 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 136 },
   { file: "features/sources/ui/AddSourceModal.css", line: 144 },
   { file: "features/sources/ui/AddSourceModal.css", line: 254 },

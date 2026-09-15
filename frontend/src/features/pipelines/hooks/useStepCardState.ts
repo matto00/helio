@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { updatePipelineStep } from "../services/pipelineService";
+import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { isUnsupportedOpType } from "../state/stepNarrowing";
 import {
   aggregateConfigOf,
@@ -33,6 +34,7 @@ import {
   stringOpsConfigOf,
   unionConfigOf,
   unpivotConfigOf,
+  upsertSourceConfigOf,
   windowConfigOf,
 } from "../state/stepNarrowing";
 import type { PipelineStepConfig } from "../types/pipelineStep";
@@ -53,6 +55,7 @@ import type { SplitTextConfigValue } from "../ui/stepConfigs/SplitTextConfig";
 import type { StringOpsConfigValue } from "../ui/stepConfigs/StringOpsConfig";
 import type { UnionConfigValue } from "../ui/stepConfigs/UnionConfig";
 import type { UnpivotConfigValue } from "../ui/stepConfigs/UnpivotConfig";
+import type { UpsertSourceConfigValue } from "../ui/stepConfigs/UpsertSourceConfig";
 import type { WindowConfigValue } from "../ui/stepConfigs/WindowConfig";
 
 /** Debounce window (ms) between the last config-editor edit and the
@@ -86,6 +89,14 @@ export interface StepCardStateHandlers {
   unionConfig: UnionConfigValue;
   lookupConfig: LookupConfigValue;
   assertConfig: AssertConfigValue;
+  upsertSourceConfig: UpsertSourceConfigValue;
+  /** design.md Decision 6 — the current rejected-`persist()` message for
+   *  THIS step, or `null` when there is none. Scoped narrowly: only ever
+   *  populated by `onUpsertSourceChange`'s persist call site below, per this
+   *  ticket's own decision (other op kinds keep their pre-existing
+   *  swallow-on-reject behavior). Cleared at the start of the next `persist`
+   *  attempt (success or failure). */
+  saveError: string | null;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -107,6 +118,7 @@ export interface StepCardStateHandlers {
   onUnionChange: (config: UnionConfigValue) => void;
   onLookupChange: (config: LookupConfigValue) => void;
   onAssertChange: (config: AssertConfigValue) => void;
+  onUpsertSourceChange: (config: UpsertSourceConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -158,6 +170,12 @@ export function useStepCardState(
   const [unionConfig, setUnionConfig] = useState<UnionConfigValue>(() => unionConfigOf(step));
   const [lookupConfig, setLookupConfig] = useState<LookupConfigValue>(() => lookupConfigOf(step));
   const [assertConfig, setAssertConfig] = useState<AssertConfigValue>(() => assertConfigOf(step));
+  const [upsertSourceConfig, setUpsertSourceConfig] = useState<UpsertSourceConfigValue>(() =>
+    upsertSourceConfigOf(step),
+  );
+  // design.md Decision 6 — scoped to `upsertsource` only (see the field's
+  // own doc on `StepCardStateHandlers` above).
+  const [saveError, setSaveError] = useState<string | null>(null);
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -182,6 +200,7 @@ export function useStepCardState(
     setUnionConfig(unionConfigOf(step));
     setLookupConfig(lookupConfigOf(step));
     setAssertConfig(assertConfigOf(step));
+    setUpsertSourceConfig(upsertSourceConfigOf(step));
   }
 
   // Debounce ref for the persist path below, plus a monotonically
@@ -204,8 +223,14 @@ export function useStepCardState(
 
   /** Shared persistence path — debounces, then PATCHes the typed config and
    *  notifies the parent. Local editor state is updated by the caller (so
-   *  the UI stays responsive regardless of debounce/network latency). */
-  function persist(newConfig: PipelineStepConfig): void {
+   *  the UI stays responsive regardless of debounce/network latency).
+   *
+   *  `captureErrors` (design.md Decision 6, currently only passed `true` by
+   *  `onUpsertSourceChange`) opts a call site INTO surfacing a rejected
+   *  PATCH's backend message via `saveError` — every other op kind keeps
+   *  the pre-existing silent-swallow behavior (out of scope to change here)
+   *  by omitting it. */
+  function persist(newConfig: PipelineStepConfig, captureErrors = false): void {
     // HEL-1100 (design.md Decision 9): an unsupported step kind has no config editor that could
     // have produced this call in the first place, but the pending-`onChange` type shape allows
     // it to be invoked with a stale/default value regardless -- skip the PATCH entirely rather
@@ -214,6 +239,9 @@ export function useStepCardState(
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;
+      // Cleared at the start of THIS attempt (success or failure) so a stale error from a
+      // previous rejected PATCH never lingers past a subsequent try.
+      if (captureErrors) setSaveError(null);
       void updatePipelineStep(step.id, newConfig)
         .then(() => {
           // Drop a stale response: a newer edit may have already dispatched
@@ -223,8 +251,20 @@ export function useStepCardState(
             onConfigChange(step.id, newConfig);
           }
         })
-        .catch(() => {
-          // No-op: local state always reflects user intent even if PATCH fails.
+        .catch((err: unknown) => {
+          // The same `requestTokenRef` staleness guard as the success path above: an
+          // out-of-order/superseded rejection must never clobber a newer, still-in-flight or
+          // already-succeeded request's result.
+          if (captureErrors && requestTokenRef.current === token) {
+            setSaveError(
+              extractErrorMessage(
+                err,
+                "Failed to save this step's target or mode — the server didn't say why.",
+              ),
+            );
+          }
+          // Every other op kind: no-op, local state always reflects user intent even if the
+          // PATCH fails (pre-existing behavior, unchanged by this ticket — design.md Decision 6).
         });
     }, STEP_CONFIG_PERSIST_DEBOUNCE_MS);
   }
@@ -396,6 +436,11 @@ export function useStepCardState(
     persist(newConfig);
   }
 
+  function onUpsertSourceChange(newConfig: UpsertSourceConfigValue) {
+    setUpsertSourceConfig(newConfig);
+    persist({ target: newConfig.target, mode: newConfig.mode }, true);
+  }
+
   return {
     selectedFields,
     renames,
@@ -418,6 +463,8 @@ export function useStepCardState(
     unionConfig,
     lookupConfig,
     assertConfig,
+    upsertSourceConfig,
+    saveError,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -439,5 +486,6 @@ export function useStepCardState(
     onUnionChange,
     onLookupChange,
     onAssertChange,
+    onUpsertSourceChange,
   };
 }

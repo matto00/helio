@@ -13,6 +13,7 @@ import {
   pipelineStepToStep,
   unionConfigOf,
   unsupportedOpType,
+  upsertSourceConfigOf,
 } from "./stepNarrowing";
 import type { LookupConfig, PipelineStep, UnionConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
@@ -200,20 +201,21 @@ describe("stepNarrowing — enabled (HEL-412)", () => {
   });
 });
 
-// HEL-1100 (design.md Decision 9) — an unrecognized persisted step type (e.g. `upsertsource`
-// before HEL-1102's real step card ships) must render as an unsupported placeholder, never
-// silently mis-render as the picker's first op ("Select fields").
+// HEL-1100 (design.md Decision 9) — an unrecognized persisted step type must render as an
+// unsupported placeholder, never silently mis-render as the picker's first op ("Select
+// fields"). HEL-1102 registered `upsertsource` as a real op (see the describe block below),
+// so this suite now uses a genuinely unregistered made-up kind for the fallback case instead.
 describe("stepNarrowing — unsupported op type (HEL-1100)", () => {
   it("pipelineStepToStep falls back to unsupportedOpType for an unrecognized step type, never OP_TYPES[0]", () => {
-    // `PipelineStep`'s wire type intentionally does NOT include "upsertsource" (design.md D9 —
-    // the frontend type stays closed over the kinds it recognizes); a persisted row of an
+    // `PipelineStep`'s wire type intentionally does NOT include this made-up kind (design.md
+    // D9 — the frontend type stays closed over the kinds it recognizes); a persisted row of an
     // unrecognized kind is exactly what this fallback exists to handle, hence the cast.
     const ps = {
       id: "s1",
       pipelineId: "p1",
       position: 0,
-      type: "upsertsource",
-      config: { target: { kind: "existingSource", dataSourceId: "ds-1" }, mode: "append" },
+      type: "somefuturestep",
+      config: { foo: "bar" },
       createdAt: "",
       updatedAt: "",
       enabled: true,
@@ -221,7 +223,7 @@ describe("stepNarrowing — unsupported op type (HEL-1100)", () => {
     const step = pipelineStepToStep(ps);
     expect(step.opType.id).not.toBe(OP_TYPES[0].id);
     expect(isUnsupportedOpType(step.opType)).toBe(true);
-    expect(step.opType.label).toContain("upsertsource");
+    expect(step.opType.label).toContain("somefuturestep");
     // The config is carried through UNTOUCHED (design.md D9) — not discarded, not defaulted.
     expect(step.config).toEqual(ps.config);
   });
@@ -233,6 +235,97 @@ describe("stepNarrowing — unsupported op type (HEL-1100)", () => {
   });
 
   it("unsupportedOpType ids are namespaced so they can never collide with a real OpType id", () => {
-    expect(unsupportedOpType("upsertsource").id).toBe("unsupported:upsertsource");
+    expect(unsupportedOpType("somefuturestep").id).toBe("unsupported:somefuturestep");
+  });
+});
+
+// HEL-1102 (design.md Decisions 3/4) — `upsertsource` is now a real, registered op: OP_TYPES
+// entry, seed config, and narrowing all resolve it to the real OpType, not unsupportedOpType.
+describe("stepNarrowing — upsertsource (HEL-1102)", () => {
+  it("upsertsource is offered in the OP_TYPES picker", () => {
+    expect(OP_TYPES.some((op) => op.id === "upsertsource")).toBe(true);
+  });
+
+  it("defaultConfigFor('upsertsource') seeds mode:'append' with no target key", () => {
+    const config = defaultConfigFor("upsertsource");
+    expect(config).toEqual({ mode: "append" });
+    expect(config).not.toHaveProperty("target");
+  });
+
+  it("pipelineStepToStep resolves a persisted upsertsource step to the real OpType, not unsupportedOpType", () => {
+    const ps = {
+      id: "s1",
+      pipelineId: "p1",
+      position: 0,
+      type: "upsertsource",
+      config: { target: { kind: "existingSource", dataSourceId: "ds-1" }, mode: "replace" },
+      createdAt: "",
+      updatedAt: "",
+      enabled: true,
+    } as unknown as PipelineStep;
+    const step = pipelineStepToStep(ps);
+    expect(isUnsupportedOpType(step.opType)).toBe(false);
+    expect(step.opType.id).toBe("upsertsource");
+    expect(step.config).toEqual(ps.config);
+  });
+
+  it("upsertSourceConfigOf narrows a persisted step's config, target possibly absent", () => {
+    const opType = OP_TYPES.find((op) => op.id === "upsertsource");
+    if (!opType) throw new Error("upsertsource missing from OP_TYPES");
+    const step: Step = {
+      id: "step-1",
+      opType,
+      label: opType.label,
+      config: { mode: "append" },
+      enabled: true,
+    };
+    expect(upsertSourceConfigOf(step)).toEqual({ target: undefined, mode: "append" });
+  });
+
+  // evaluation-1.md CR1: this is the REAL round-tripped shape the backend returns for a
+  // freshly-added, not-yet-configured step -- `UpsertSourceConfig.decode` substitutes
+  // `UpsertTarget.Default = ExistingSource("")` for an absent `target`, and `format.write`
+  // always serializes a concrete object, so `target` is NEVER actually absent on the wire.
+  // Live-reproduced by the evaluator via a real add-step + refetch against the running backend.
+  it("upsertSourceConfigOf treats the backend's own ExistingSource('') round-trip sentinel as no target chosen (evaluation-1.md CR1)", () => {
+    const opType = OP_TYPES.find((op) => op.id === "upsertsource");
+    if (!opType) throw new Error("upsertsource missing from OP_TYPES");
+    const step: Step = {
+      id: "step-1",
+      opType,
+      label: opType.label,
+      config: { target: { kind: "existingSource", dataSourceId: "" }, mode: "append" },
+      enabled: true,
+    };
+    expect(upsertSourceConfigOf(step)).toEqual({ target: undefined, mode: "append" });
+  });
+
+  it("upsertSourceConfigOf narrows a fully-configured existingSource/replace step", () => {
+    const opType = OP_TYPES.find((op) => op.id === "upsertsource");
+    if (!opType) throw new Error("upsertsource missing from OP_TYPES");
+    const step: Step = {
+      id: "step-1",
+      opType,
+      label: opType.label,
+      config: { target: { kind: "existingSource", dataSourceId: "ds-1" }, mode: "replace" },
+      enabled: true,
+    };
+    expect(upsertSourceConfigOf(step)).toEqual({
+      target: { kind: "existingSource", dataSourceId: "ds-1" },
+      mode: "replace",
+    });
+  });
+
+  it("upsertSourceConfigOf falls back to defaults for a non-upsertsource step", () => {
+    const nonUpsertOpType = OP_TYPES.find((op) => op.id === "select");
+    if (!nonUpsertOpType) throw new Error("select missing from OP_TYPES");
+    const step: Step = {
+      id: "step-2",
+      opType: nonUpsertOpType,
+      label: nonUpsertOpType.label,
+      config: { fields: [] },
+      enabled: true,
+    };
+    expect(upsertSourceConfigOf(step)).toEqual({ target: undefined, mode: "append" });
   });
 });

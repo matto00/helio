@@ -28,6 +28,12 @@ interface StepCardProps {
    *  pre-existing non-union/lookup test site (which never exercises this
    *  path) doesn't need updating just to satisfy this prop. */
   allSteps?: Step[];
+  /** HEL-1102 (design.md Decision 2) — true only for the pipeline's owner;
+   *  passed straight through to `StepOpEditor`'s `UpsertSourceConfig`.
+   *  Optional/defaults to `true` so every pre-existing non-upsertsource test
+   *  site (which never exercises this path) doesn't need updating just to
+   *  satisfy this prop. */
+  isOwner?: boolean;
   /** HEL-407 — this step's index in the editor's step list. Threaded down so
    *  the Move up/down buttons know when to disable (design.md Decision 6),
    *  the drag handle can report which step is being dragged (Decision 5),
@@ -116,6 +122,7 @@ const EMPTY_ALL_STEPS: Step[] = [];
 export const StepCard = React.memo(function StepCard({
   step,
   allSteps = EMPTY_ALL_STEPS,
+  isOwner = true,
   stepIndex,
   pipelineId,
   onRemove,
@@ -327,6 +334,7 @@ export const StepCard = React.memo(function StepCard({
             analyzeColumns={analyzeColumns}
             analyzeSchema={analyzeSchema}
             validationError={validationError}
+            isOwner={isOwner}
             stepCardState={stepCardState}
           />
           <div className="pipeline-detail-page__step-card-actions">

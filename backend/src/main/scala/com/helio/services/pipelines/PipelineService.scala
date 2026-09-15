@@ -2351,6 +2351,14 @@ object PipelineService {
     case invalid: InvalidGraph =>
       log.warn(s"Pipeline step graph is invalid: ${invalid.message}")
       ServiceError.UnprocessableEntity(invalid.message)
+    // HEL-1102 (backend fix, cycle 2): every DB-level write path that recovers through this
+    // shared classifier -- not just the two call sites (:374/:818) that already caught this
+    // locally -- must map a cycle rejection to a named 400, never fall through to the generic
+    // `case other` 500 below. Added here once rather than duplicated at each of the ~9 other
+    // `.recover { case ex => Left(classifyDbError(ex)) }` sites so every current AND future
+    // call site gets it uniformly.
+    case PipelineCycleGuard.PipelineCycleRejected(msg) =>
+      ServiceError.BadRequest(msg)
     case e: PSQLException =>
       classifyPsqlException(e)
     case other =>

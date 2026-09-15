@@ -12,6 +12,7 @@ import type { ComponentProps } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import { StepCard } from "./StepCard";
+import { renderWithStore } from "../../../test/renderWithStore";
 import { OP_TYPES, unsupportedOpType } from "../state/stepNarrowing";
 import { fetchStepPreview, updatePipelineStep } from "../services/pipelineService";
 import type { OpType, Step } from "../types/step";
@@ -600,19 +601,40 @@ describe("StepCard — real schema diff chips (HEL-405)", () => {
 });
 
 // HEL-1100 (design.md Decision 9) — a persisted step whose kind this frontend build doesn't
-// recognize (e.g. `upsertsource` before HEL-1102's real step card ships) renders a read-only
-// notice, never a config editor and never a PATCH-triggering handler.
+// recognize renders a read-only notice, never a config editor and never a PATCH-triggering
+// handler. HEL-1102 registered `upsertsource` as a real op, so this uses a made-up kind.
 describe("StepCard — unsupported step type (HEL-1100)", () => {
   it("renders a read-only notice instead of any config editor", async () => {
     const step = makeStep({
-      opType: unsupportedOpType("upsertsource"),
-      label: "Unsupported step (upsertsource)",
+      opType: unsupportedOpType("somefuturestep"),
+      label: "Unsupported step (somefuturestep)",
     });
 
     render(<StepCard {...baseProps({ step })} />);
-    await click("Unsupported step (upsertsource)");
+    await click("Unsupported step (somefuturestep)");
 
     expect(screen.getByText(/not yet supported/i)).toBeInTheDocument();
+  });
+});
+
+// HEL-1102 task 2.3 — StepOpEditor's dispatch ladder renders the real UpsertSourceConfig
+// editor for an `upsertsource` step, not the unsupported-step notice.
+describe("StepCard — upsertsource dispatch (HEL-1102 task 2.3)", () => {
+  const UPSERTSOURCE_OP_TYPE = OP_TYPES.find((op) => op.id === "upsertsource")!;
+
+  it("renders the real editor, not the unsupported-step notice", async () => {
+    const step = makeStep({
+      opType: UPSERTSOURCE_OP_TYPE,
+      label: "Write to source",
+      config: { mode: "append" },
+    });
+
+    renderWithStore(<StepCard {...baseProps({ step })} />, { sources: { items: [] } });
+    await click("Write to source");
+
+    expect(screen.queryByText(/not yet supported/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Use existing dataset")).toBeInTheDocument();
+    expect(screen.getByLabelText("Mode")).toBeInTheDocument();
   });
 });
 

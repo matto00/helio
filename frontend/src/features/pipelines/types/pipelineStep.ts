@@ -154,6 +154,23 @@ export interface AssertRule {
 export interface AssertConfig {
   rules: AssertRule[];
 }
+// HEL-1102 (design.md Decision 1/4): mirrors the backend's `UpsertTarget`
+// (`UpsertSourceConfig.scala`) -- a `kind`-discriminated target object,
+// matching `SecondaryInput`'s established two-case-object convention rather
+// than a flat id field. `mode` is a plain string on the wire (not a closed
+// union type there — `UpsertMode.All` is a runtime Vector, not a Scala enum),
+// narrowed to `"append" | "replace"` here since those are the only two
+// values the write path accepts.
+export type UpsertTarget =
+  | { kind: "newSource"; name: string }
+  | { kind: "existingSource"; dataSourceId: string };
+export type UpsertMode = "append" | "replace";
+export interface UpsertSourceConfig {
+  // Absent on an incomplete draft (design.md Decision 3) -- the backend's
+  // own `decode` tolerates an absent `target` the same way.
+  target?: UpsertTarget;
+  mode: UpsertMode;
+}
 
 interface BasePipelineStep {
   id: string;
@@ -274,6 +291,10 @@ export interface AssertStep extends BasePipelineStep {
   type: "assert";
   config: AssertConfig;
 }
+export interface UpsertSourceStep extends BasePipelineStep {
+  type: "upsertsource";
+  config: UpsertSourceConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -298,7 +319,8 @@ export type PipelineStep =
   | StringOpsStep
   | UnionStep
   | LookupStep
-  | AssertStep;
+  | AssertStep
+  | UpsertSourceStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -323,7 +345,8 @@ export type PipelineStepConfig =
   | StringOpsConfig
   | UnionConfig
   | LookupConfig
-  | AssertConfig;
+  | AssertConfig
+  | UpsertSourceConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
 
@@ -432,6 +455,10 @@ export interface AssertAnalyzeStep extends BaseAnalyzeStep {
   type: "assert";
   config: AssertConfig;
 }
+export interface UpsertSourceAnalyzeStep extends BaseAnalyzeStep {
+  type: "upsertsource";
+  config: UpsertSourceConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -456,7 +483,8 @@ export type AnalyzeStepResult =
   | StringOpsAnalyzeStep
   | UnionAnalyzeStep
   | LookupAnalyzeStep
-  | AssertAnalyzeStep;
+  | AssertAnalyzeStep
+  | UpsertSourceAnalyzeStep;
 
 // HEL-910 final sweep: `outputDataTypeName`/`outputDataTypeId` removed from
 // `PipelineAnalyzeResponse`, `Pipeline`, and `PipelineSummary` -- the

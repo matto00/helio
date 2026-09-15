@@ -1,0 +1,28 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+Reviewed HEAD: 2cebcabbb4c43f0def242959d29aa448a0d5768b
+
+### What I verified (with evidence)
+- Spawn-cwd guard: `READY ambient=/home/matt/Development/helio branch=feature/upsertsource-step-card-mcp/HEL-1102`.
+- Siblings merged: `git log` shows ac5d1e6b (HEL-1099), 0cc7aef7 (HEL-1101), 2cebcabb (HEL-1100) on the branch base.
+- Registry: `PipelineStep.scala:234` has `UpsertSourceStep.Kind -> UpsertSourceStep.companion`. The claim that no backend change is needed holds.
+- Frontend fallback: `stepNarrowing.ts:132-141` (`unsupportedOpType`/`isUnsupportedOpType`), `:271` narrowing falls back to it, and `StepOpEditor.tsx:103` dispatches the notice. Matches the design.
+- `ConfirmInline` exists (`frontend/src/shared/ui/ConfirmInline.tsx`, DESIGN.md:468). Reusing it is legitimate.
+- MCP: `helio-mcp/src/tools/write.ts:371` `add_pipeline_step` lists op config shapes in prose. `:846` `update_pipeline_step` points back to that tool's description. Decision 6 holds.
+- **Save-error plumbing (contradicts Decision 5):** `useStepCardState` `persist` (lines 208-229) ends in `.catch(() => { // No-op: local state always reflects user intent even if PATCH fails. })`. `validationError` in `StepOpEditor`/`StepCard` comes from `getAnalyzeValidationError(step.id)` (`PipelineRiverView.tsx:78`, `LaneColumn.tsx:191`), and `types/pipelineStep.ts:340` puts it on `BaseAnalyzeStep`. It is the analyze-time error, not a save-failure channel. Today a rejected save of an upsertsource config is thrown away silently.
+- **Whose ownership counts (contradicts Decision 2):** `PipelineService.scala:1830-1846` `upsertOwnershipCheckF` checks the target against the **pipeline owner** (`AuthenticatedUser(pipelineOwnerId, ...)`), not the caller. The comment says "A grantee therefore cannot target the grantee's own dataset ... but can target the owner's." `DataSourceRepository.findAll` (`:118-128`) and `findByIdOwned` (`:155-160`) are owner-only, so `fetchSources` returns only the caller's own sources. The design's "owned+shared" premise is false. For an editor grantee, the planned picker would list exactly the datasets the backend rejects and none that it accepts.
+- Source discriminator: `features/sources/types/dataSource.ts:12,88,145` uses `type: "dataset"` (with `isStaticSource`), not `kind`.
+- Mode default: `pipeline-upsertsource-config` spec says an absent `mode` decodes to `"append"`. The new editor spec says mode is "not a silently-defaulted value".
+
+### Verdict: REFUTE
+
+### Change Requests
+1. **Rewrite Decision 5 and task 2.4. The error channel they name does not exist.** `validationError` is analyze-time, and `useStepCardState.persist`'s `.catch` swallows PATCH rejections (`useStepCardState` ~line 226). The design must say where a save-rejection message is stored (for example, new per-step save-error state in `useStepCardState`) and how the backend's message text is pulled out of the axios error. It must also say how that state is cleared on the next successful save, and how "config is not optimistically marked saved" is kept. Today `onConfigChange` only fires on success, but local editor state already shows the rejected value, so say what the user sees. Say whether this change is scoped to upsertsource or also affects every other op, which silently swallows today. Task 2.4's test must drive a rejected `updatePipelineStep` mock through the real hook, not a prop.
+2. **Fix Decision 2, the "writable" spec scenario, and the Risk section to use the backend's real rule.** Targets must be owned by the pipeline owner (`PipelineService.scala:1830`), and `fetchSources` is owner-only, not "owned+shared". Decide and write down what the card does when the viewer is not the pipeline owner (an editor grantee). Options: hide or disable the existing-dataset option with an explanation, or list the owner's datasets through some existing path. If that path does not exist, it is a backend gap, so spin it off or escalate. The spec scenario "datasets the current caller can write to" must name the pipeline owner. Add a test for the grantee case.
+3. **Fix the dataset filter field.** Decision 1 and task 2.1 say `kind === "dataset"`. The `DataSource` type uses `type: "dataset"` (`isStaticSource`, `dataSource.ts:145`). Say to use the existing `isStaticSource` guard.
+4. **Settle the mode-default contradiction.** The backend decodes an absent `mode` as `"append"`. The editor spec says mode is "not a silently-defaulted value". Task 1.3 says only "empty/incomplete-draft shape". Say exactly (a) the seed config literal (`{}` or `{mode:"append"}`), (b) what the toggle shows for a config with no `mode` (append selected, or neither), and (c) whether choosing append in that state persists anything. Change the spec wording to match.
+5. **Say how the replace confirmation interacts with the debounced persist.** Spell out that `persist` is not called until Confirm, and that Cancel returns the toggle to the last committed mode. Say what happens when a config that is already `replace` (for example, MCP-created) loads: no confirmation on load. Say what happens on a switch from replace to append and back. Say whether the toggle is the shared segmented or radio primitive (name the component from DESIGN.md) so task 4.3 is not left to guesswork.
+
+### Non-blocking notes
+- The MCP cycle proof (task 3.3) needs an `existingSource` target that the same pipeline (or a transitive one) reads. A `newSource` target cannot form a cycle. Say this in the task so the evidence is not a vacuous rejection.
+- The ownership-check wording in the MCP description should also say the target must be owned by the pipeline owner. Agents that use shared pipelines will hit this.

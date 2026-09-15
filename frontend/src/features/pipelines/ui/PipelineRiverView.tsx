@@ -39,6 +39,11 @@ const EMPTY_OUTPUTS: Output[] = [];
 
 interface PipelineRiverViewProps {
   steps: Step[];
+  /** HEL-1102 (design.md Decision 2) — passed straight through to every
+   *  `StepCard`/`LaneColumn`/`RootColumn`. Optional/defaults to `true` so
+   *  every pre-existing test site doesn't need updating just to satisfy
+   *  this prop. */
+  isOwner?: boolean;
   /** HEL-912 task 1.1 — n-lane grouping (design.md decision 1); the main
    *  list below maps the PRIMARY lane's steps, not `steps`, so every other
    *  lane is rendered via `LaneColumn` nested under the step it branches
@@ -114,6 +119,7 @@ interface PipelineRiverViewProps {
 
 export function PipelineRiverView({
   steps,
+  isOwner = true,
   laneGraph,
   roots,
   onRemoveRoot,
@@ -406,6 +412,7 @@ export function PipelineRiverView({
                       <StepCard
                         step={step}
                         allSteps={steps}
+                        isOwner={isOwner}
                         stepIndex={idx}
                         pipelineId={pipelineId}
                         onRemove={onRemoveStep}
@@ -465,6 +472,7 @@ export function PipelineRiverView({
                               lane={childLane}
                               laneGraph={laneGraph}
                               allSteps={steps}
+                              isOwner={isOwner}
                               pipelineId={pipelineId}
                               onRemove={onRemoveStep}
                               getAnalyzeColumns={getAnalyzeColumns}
@@ -543,6 +551,7 @@ export function PipelineRiverView({
               lane={rootLane}
               laneGraph={laneGraph}
               allSteps={steps}
+              isOwner={isOwner}
               pipelineId={pipelineId}
               onRemove={onRemoveStep}
               getAnalyzeColumns={getAnalyzeColumns}

@@ -20,6 +20,10 @@ interface RootColumnProps {
   lane: Lane | undefined;
   laneGraph: LaneGraph;
   allSteps: Step[];
+  /** HEL-1102 (design.md Decision 2) — passed straight through to `LaneColumn`/`StepCard`.
+   *  Optional/defaults to `true` so every pre-existing test site doesn't need updating just
+   *  to satisfy this prop. */
+  isOwner?: boolean;
   pipelineId: string;
   onRemove: (id: string) => void;
   getAnalyzeColumns: (stepId: string) => string[];
@@ -54,6 +58,7 @@ export function RootColumn({
   lane,
   laneGraph,
   allSteps,
+  isOwner = true,
   pipelineId,
   onRemove,
   getAnalyzeColumns,
@@ -99,6 +104,7 @@ export function RootColumn({
           lane={lane}
           laneGraph={laneGraph}
           allSteps={allSteps}
+          isOwner={isOwner}
           pipelineId={pipelineId}
           onRemove={onRemove}
           getAnalyzeColumns={getAnalyzeColumns}

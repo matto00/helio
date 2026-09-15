@@ -374,7 +374,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Append a transform step to a pipeline. `type` is one of rename/filter/join/compute/" +
         "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window/unpivot/dedupe/fillnull/" +
-        "stringops/union/lookup; `config` shape is " +
+        "stringops/union/lookup/assert/upsertsource; `config` shape is " +
         "keyed by `type` (e.g. limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}, " +
         "datebucket → {field, granularity: 'day'|'week'|'month'|'quarter'|'year', outputColumn?} " +
         "— floors `field` to the start of the granularity bucket in UTC, writing the result to " +
@@ -470,7 +470,26 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "checks; `field` is NOT used and must be omitted for these two kinds; " +
         "regex {field, params: {pattern}} — fails if `field`'s value doesn't match `pattern` " +
         "(partial match, like String.find). Every rule additionally requires `severity`: " +
-        '"warn" or "error". Use analyze_pipeline to ' +
+        '"warn" or "error"; ' +
+        "upsertsource → {target: {kind:'newSource', name} | {kind:'existingSource', dataSourceId}, " +
+        "mode?: 'append'|'replace'} — a TERMINAL step (HEL-1098) that writes this step's input " +
+        "rows to a `dataset` source instead of passing rows downstream. `target.kind:'newSource'` " +
+        "creates a brand-new dataset source named `name` at run time; `target.kind:'existingSource'` " +
+        "writes into an already-existing dataset identified by `dataSourceId`. `mode` (default " +
+        "'append' when omitted) selects 'append' (adds rows to the target's existing data) or " +
+        "'replace' (atomically overwrites the target's data entirely — irreversible, use with " +
+        "care). IMPORTANT ownership rule: an `existingSource` target must be a dataset OWNED BY THE " +
+        "PIPELINE OWNER, never the calling agent's own identity — an agent acting on a pipeline it " +
+        "was only granted editor access to (not owned) will get a 'not found' rejection for a " +
+        "dataset it itself owns if that dataset isn't ALSO owned by the pipeline's owner; this " +
+        "mirrors the identical-'not found' response for a genuinely nonexistent dataset id (no " +
+        "distinguishable cross-tenant existence oracle). A target that would close a WRITE-then-READ " +
+        "cycle — this pipeline (or another pipeline reachable through the caller's visible graph) " +
+        "already reads from the target dataset upstream — is rejected at write time with a named " +
+        "400 identifying the cycle, never silently accepted or generically failed; retarget to a " +
+        "dataset outside the cycle instead. Malformed `target`/`mode` (wrong shape, unrecognized " +
+        "`target.kind`, or a `mode` outside append/replace) is a named 400 at write time, not a " +
+        "silent default. Use analyze_pipeline to " +
         "see each step's resulting output columns. Optional parentStepId (HEL-907 task 3.3) " +
         "splices the new step in directly after that EXISTING step id, branching a NEW tail off " +
         "any existing node -- absent extends the trunk (unchanged default). Optional rootId " +

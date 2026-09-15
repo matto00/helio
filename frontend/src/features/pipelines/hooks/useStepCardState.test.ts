@@ -6,12 +6,29 @@
 // they all funnel through the same `persist` function.
 
 import { act, renderHook } from "@testing-library/react";
+import { AxiosError, AxiosHeaders } from "axios";
 
 import { useStepCardState } from "./useStepCardState";
 import { updatePipelineStep } from "../services/pipelineService";
 import { OP_TYPES, unsupportedOpType } from "../state/stepNarrowing";
 import type { Step } from "../types/step";
 import type { PipelineStep, PipelineStepConfig } from "../types/pipelineStep";
+
+function makeAxiosError(data: unknown, status = 400): AxiosError {
+  return new AxiosError(
+    `Request failed with status code ${status}`,
+    "ERR_BAD_REQUEST",
+    undefined,
+    undefined,
+    {
+      status,
+      statusText: "Bad Request",
+      headers: {},
+      config: { headers: new AxiosHeaders() },
+      data,
+    },
+  );
+}
 
 jest.mock("../services/pipelineService", () => ({
   updatePipelineStep: jest.fn(),
@@ -48,10 +65,16 @@ function resolvedStep(config: PipelineStepConfig): PipelineStep {
  *  exactly when — and in what order — two overlapping PATCH calls settle. */
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((r) => {
-    resolve = r;
+  let reject!: (err: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
   });
-  return { promise, resolve };
+  // A rejected promise with no attached `.catch` before the test explicitly rejects it fires
+  // Node's unhandledRejection warning — pre-attach a no-op catch (HEL-1102 task 2.4's new
+  // reject-path tests are this helper's first rejecting caller).
+  promise.catch(() => {});
+  return { promise, resolve, reject };
 }
 
 beforeEach(() => {
@@ -345,7 +368,7 @@ describe("useStepCardState — persist skips unsupported op types (HEL-1100)", (
   it("never calls updatePipelineStep for a step whose opType is unsupported", () => {
     updatePipelineStepMock.mockResolvedValue(resolvedStep({ count: 6 }));
     const onConfigChange = jest.fn();
-    const step = makeStep({ opType: unsupportedOpType("upsertsource") });
+    const step = makeStep({ opType: unsupportedOpType("somefuturestep") });
     const { result } = renderHook(() => useStepCardState(step, onConfigChange));
 
     act(() => {
@@ -355,5 +378,140 @@ describe("useStepCardState — persist skips unsupported op types (HEL-1100)", (
 
     expect(updatePipelineStepMock).not.toHaveBeenCalled();
     expect(onConfigChange).not.toHaveBeenCalled();
+  });
+});
+
+// HEL-1102 task 2.4 (design.md Decision 6) — `saveError` is a NEW, narrowly-scoped hook
+// state: `onUpsertSourceChange`'s `persist` call opts INTO surfacing a rejected PATCH's
+// backend message, while every other op kind (`onLimitChange` here as the representative,
+// matching this file's own convention above) keeps the pre-existing silent-swallow behavior.
+describe("useStepCardState — saveError (HEL-1102 task 2.4)", () => {
+  const UPSERTSOURCE_OP_TYPE = OP_TYPES.find((op) => op.id === "upsertsource")!;
+
+  function makeUpsertSourceStep(overrides: Partial<Step> = {}): Step {
+    return {
+      id: "step-1",
+      opType: UPSERTSOURCE_OP_TYPE,
+      label: "Write to source",
+      config: { mode: "append" },
+      enabled: true,
+      ...overrides,
+    };
+  }
+
+  it("shows the backend's rejection message verbatim", async () => {
+    updatePipelineStepMock.mockRejectedValueOnce(
+      makeAxiosError({ error: "Data source not found: ds-1" }),
+    );
+    const step = makeUpsertSourceStep();
+    const { result } = renderHook(() => useStepCardState(step, jest.fn()));
+
+    await act(async () => {
+      result.current.onUpsertSourceChange({
+        target: { kind: "existingSource", dataSourceId: "ds-1" },
+        mode: "append",
+      });
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(result.current.saveError).toBe("Data source not found: ds-1");
+  });
+
+  it("falls back to a specific message (not a generic one) when the rejection carries no backend message", async () => {
+    updatePipelineStepMock.mockRejectedValueOnce(makeAxiosError(undefined));
+    const step = makeUpsertSourceStep();
+    const { result } = renderHook(() => useStepCardState(step, jest.fn()));
+
+    await act(async () => {
+      result.current.onUpsertSourceChange({
+        target: { kind: "newSource", name: "x" },
+        mode: "append",
+      });
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(result.current.saveError).toBe(
+      "Failed to save this step's target or mode — the server didn't say why.",
+    );
+  });
+
+  it("clears saveError at the start of the next persist attempt", async () => {
+    updatePipelineStepMock.mockRejectedValueOnce(makeAxiosError({ error: "Cycle detected" }));
+    const step = makeUpsertSourceStep();
+    const { result } = renderHook(() => useStepCardState(step, jest.fn()));
+
+    await act(async () => {
+      result.current.onUpsertSourceChange({
+        target: { kind: "existingSource", dataSourceId: "ds-1" },
+        mode: "append",
+      });
+      jest.advanceTimersByTime(400);
+    });
+    expect(result.current.saveError).toBe("Cycle detected");
+
+    updatePipelineStepMock.mockResolvedValueOnce(
+      resolvedStep({ target: { kind: "newSource", name: "y" }, mode: "append" }),
+    );
+    await act(async () => {
+      result.current.onUpsertSourceChange({
+        target: { kind: "newSource", name: "y" },
+        mode: "append",
+      });
+      jest.advanceTimersByTime(400);
+    });
+    expect(result.current.saveError).toBeNull();
+  });
+
+  it("respects the requestTokenRef staleness guard: a superseded rejection never clobbers a newer success", async () => {
+    const first = deferred<never>();
+    const second = deferred<PipelineStep>();
+    updatePipelineStepMock.mockReturnValueOnce(first.promise as Promise<PipelineStep>);
+    updatePipelineStepMock.mockReturnValueOnce(second.promise);
+    const onConfigChange = jest.fn();
+    const step = makeUpsertSourceStep();
+    const { result } = renderHook(() => useStepCardState(step, onConfigChange));
+
+    act(() => {
+      result.current.onUpsertSourceChange({
+        target: { kind: "existingSource", dataSourceId: "ds-1" },
+        mode: "append",
+      });
+      jest.advanceTimersByTime(400);
+    });
+    act(() => {
+      result.current.onUpsertSourceChange({
+        target: { kind: "existingSource", dataSourceId: "ds-2" },
+        mode: "append",
+      });
+      jest.advanceTimersByTime(400);
+    });
+    expect(updatePipelineStepMock).toHaveBeenCalledTimes(2);
+
+    // Newer request succeeds first.
+    await act(async () => {
+      second.resolve(
+        resolvedStep({ target: { kind: "existingSource", dataSourceId: "ds-2" }, mode: "append" }),
+      );
+    });
+    expect(result.current.saveError).toBeNull();
+
+    // Older, now-stale request's rejection arrives after — must NOT set saveError.
+    await act(async () => {
+      first.reject(makeAxiosError({ error: "stale rejection" }));
+    });
+    expect(result.current.saveError).toBeNull();
+  });
+
+  it("does not populate saveError for other op kinds (existing swallow-on-reject behavior unchanged)", async () => {
+    updatePipelineStepMock.mockRejectedValueOnce(makeAxiosError({ error: "some backend error" }));
+    const step = makeStep(); // limit op
+    const { result } = renderHook(() => useStepCardState(step, jest.fn()));
+
+    await act(async () => {
+      result.current.onLimitChange({ count: 6 });
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(result.current.saveError).toBeNull();
   });
 });

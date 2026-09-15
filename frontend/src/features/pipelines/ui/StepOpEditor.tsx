@@ -28,6 +28,7 @@ import { SplitTextConfig } from "./stepConfigs/SplitTextConfig";
 import { StringOpsConfig } from "./stepConfigs/StringOpsConfig";
 import { UnionConfig } from "./stepConfigs/UnionConfig";
 import { UnpivotConfig } from "./stepConfigs/UnpivotConfig";
+import { UpsertSourceConfig } from "./stepConfigs/UpsertSourceConfig";
 import { WindowConfig } from "./stepConfigs/WindowConfig";
 
 interface StepOpEditorProps {
@@ -38,6 +39,10 @@ interface StepOpEditorProps {
   analyzeColumns: string[];
   analyzeSchema: SchemaField[];
   validationError?: string;
+  /** HEL-1102 (design.md Decision 2) — true only for the pipeline's owner;
+   *  threaded through to `UpsertSourceConfig`'s target picker, which
+   *  disables the "existing dataset" option for a non-owner editor grantee. */
+  isOwner: boolean;
   stepCardState: ReturnType<typeof useStepCardState>;
 }
 
@@ -49,6 +54,7 @@ export function StepOpEditor({
   analyzeColumns,
   analyzeSchema,
   validationError,
+  isOwner,
   stepCardState,
 }: StepOpEditorProps) {
   const {
@@ -73,6 +79,8 @@ export function StepOpEditor({
     unionConfig,
     lookupConfig,
     assertConfig,
+    upsertSourceConfig,
+    saveError,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -94,6 +102,7 @@ export function StepOpEditor({
     onUnionChange,
     onLookupChange,
     onAssertChange,
+    onUpsertSourceChange,
   } = stepCardState;
 
   // HEL-1100 (design.md Decision 9): a persisted step whose kind this frontend build doesn't
@@ -274,6 +283,16 @@ export function StepOpEditor({
   if (step.opType.id === "assert") {
     return (
       <AssertConfig config={assertConfig} analyzeSchema={analyzeSchema} onChange={onAssertChange} />
+    );
+  }
+  if (step.opType.id === "upsertsource") {
+    return (
+      <UpsertSourceConfig
+        config={upsertSourceConfig}
+        isOwner={isOwner}
+        saveError={saveError}
+        onChange={onUpsertSourceChange}
+      />
     );
   }
 
