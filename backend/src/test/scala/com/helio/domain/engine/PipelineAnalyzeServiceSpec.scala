@@ -569,6 +569,73 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
     }
 
 
+    // HEL-1106 task 3.5 (design.md D7): mirrors convertformat's validate-then-shape tests above.
+
+    "analyzewithai — valid string field appends the declared columns in declared order" in {
+      val schema = Vector(field("content", "string"))
+      val steps  = Vector(step(
+        "analyzewithai",
+        """{"inputField":"content","instruction":"go","outputSchema":[{"name":"sentiment","type":"string"},{"name":"score","type":"float"}]}"""
+      ))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(field("content", "string"), field("sentiment", "string"), field("score", "float"))
+    }
+
+    "analyzewithai — accepts a string-body input field too" in {
+      val schema = Vector(field("content", "string-body"))
+      val steps  = Vector(step(
+        "analyzewithai",
+        """{"inputField":"content","instruction":"go","outputSchema":[{"name":"summary","type":"string"}]}"""
+      ))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(field("content", "string-body"), field("summary", "string"))
+    }
+
+    "analyzewithai — unknown input field is flagged at analyze time" in {
+      val steps  = Vector(step(
+        "analyzewithai",
+        """{"inputField":"missing","instruction":"go","outputSchema":[{"name":"sentiment","type":"string"}]}"""
+      ))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe Some("Unknown field 'missing'")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "analyzewithai — a non-string input field is flagged at analyze time" in {
+      val steps  = Vector(step(
+        "analyzewithai",
+        """{"inputField":"amount","instruction":"go","outputSchema":[{"name":"sentiment","type":"string"}]}"""
+      ))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe defined
+      result(0).validationError.get should include("'amount' is not a string field")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "analyzewithai — an invalid config (empty instruction) is flagged before inference runs" in {
+      val schema = Vector(field("content", "string"))
+      val steps  = Vector(step("analyzewithai", """{"inputField":"content","instruction":"","outputSchema":[{"name":"x","type":"string"}]}"""))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe defined
+      result(0).validationError.get should include("instruction")
+      result(0).outputSchema shouldBe schema
+    }
+
+    "analyzewithai — malformed config produces validationError and identity outputSchema" in {
+      val steps  = Vector(step("analyzewithai", "NOT_JSON"))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
     "extractheadings — valid string-body field appends indexField and levelField as integer" in {
       val schema = Vector(field("content", "string-body"))
       val steps  = Vector(step("extractheadings", """{"field":"content","indexField":"headingIndex","levelField":"headingLevel"}"""))
@@ -1316,7 +1383,13 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       // filter/limit/sort/dedupe/fillnull above.
       "upsertsource"       -> ("""{"target":{"kind":"existingSource","dataSourceId":"ds-3"},"mode":"append"}""", baseSchema),
       // HEL-1105 (design.md D6): a 1:1 transform over a string-body field.
-      "convertformat"      -> ("""{"field":"content","from":"csv","to":"json"}""", contentSchema)
+      "convertformat"      -> ("""{"field":"content","from":"csv","to":"json"}""", contentSchema),
+      // HEL-1106 (design.md D7): appends declared columns over a string-body field, never
+      // calls the model.
+      "analyzewithai"      -> (
+        """{"inputField":"content","instruction":"go","outputSchema":[{"name":"sentiment","type":"string"}]}""",
+        contentSchema
+      )
     )
 
     /** Kinds deliberately excluded from `probesByKind`, by NAME with a stated reason -- never

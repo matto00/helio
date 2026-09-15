@@ -374,7 +374,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Append a transform step to a pipeline. `type` is one of rename/filter/join/compute/" +
         "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window/unpivot/dedupe/fillnull/" +
-        "stringops/union/lookup/assert/upsertsource; `config` shape is " +
+        "stringops/union/lookup/assert/upsertsource/convertformat/analyzewithai; `config` shape is " +
         "keyed by `type` (e.g. limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}, " +
         "datebucket → {field, granularity: 'day'|'week'|'month'|'quarter'|'year', outputColumn?} " +
         "— floors `field` to the start of the granularity bucket in UTC, writing the result to " +
@@ -489,7 +489,28 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "400 identifying the cycle, never silently accepted or generically failed; retarget to a " +
         "dataset outside the cycle instead. Malformed `target`/`mode` (wrong shape, unrecognized " +
         "`target.kind`, or a `mode` outside append/replace) is a named 400 at write time, not a " +
-        "silent default. Use analyze_pipeline to " +
+        "silent default; " +
+        "convertformat → {field, from, to, outputField?} — a 1:1 row transform: converts `field`'s " +
+        "value from format `from` to format `to`, writing the result to `outputField` (defaults to " +
+        "`field`, overwriting it in place). Supported `from`->`to` pairs: csv->json, json->csv, " +
+        "text->markdown, markdown->text (any other pair, including `from == to`, is rejected with a " +
+        "named 400 at write time). `field` must be a `string-body` column. Output schema is the " +
+        "input schema with `outputField` set/added as `string-body` — row count is unchanged; " +
+        "analyzewithai → {inputField, instruction, outputSchema: [{name, type}]} — for EVERY row, " +
+        "sends `instruction` plus `inputField`'s content to Claude and appends the declared " +
+        "`outputSchema` columns, strictly enforced against the model's response (a non-conforming " +
+        "response — missing/extra key, wrong JSON type, malformed JSON, or trailing content — fails " +
+        "the WHOLE run with a named reason; a response is never partially applied). `inputField` " +
+        "must be a `string`/`string-body` column. `outputSchema` is an ORDERED array of 1-50 " +
+        "`{name, type}` entries — `type` is one of 'string'|'integer'|'float'|'boolean' (a strict " +
+        "subset; timestamp/string-body/binary-ref are not supported since a model cannot reliably " +
+        "produce them); names must be non-empty, unique, and not equal to `inputField`. With no " +
+        "`ANTHROPIC_API_KEY` configured server-side, the pipeline still saves/analyzes normally but " +
+        "a RUN fails at this step naming 'ai-unavailable' — this op is never auto-run (see the " +
+        "cost/cheapness verdict from analyze_pipeline). Analyze never calls the model — the output " +
+        "schema shown by analyze_pipeline is exactly `outputSchema`'s declared names/types, appended " +
+        "to the input schema in declared order, and never reflects an actual model response. Use " +
+        "analyze_pipeline to " +
         "see each step's resulting output columns. Optional parentStepId (HEL-907 task 3.3) " +
         "splices the new step in directly after that EXISTING step id, branching a NEW tail off " +
         "any existing node -- absent extends the trunk (unchanged default). Optional rootId " +

@@ -2,7 +2,7 @@ package com.helio.domain.engine
 
 import com.helio.domain.model.{DataFieldType, PipelineStep}
 import com.helio.domain.steps.{
-  AggregateConfig, AggregateStep, ConvertFormatStep, FillNullConfig, FillNullStep, GroupByConfig, GroupByStep,
+  AggregateConfig, AggregateStep, AnalyzeWithAiConfig, ConvertFormatStep, FillNullConfig, FillNullStep, GroupByConfig, GroupByStep,
   JoinConfig, JoinStep, LookupConfig, PivotConfig, PivotStep, SecondaryInput, StringOpsConfig, StringOpsStep,
   UnionConfig, UnionStep, WindowConfig, WindowStep
 }
@@ -485,6 +485,7 @@ object PipelineAnalyzeService {
       case "assert"                     => inferAssert(config, inputSchema)
       case "groupby"                    => inferGroupBy(config, inputSchema)
       case "convertformat"              => inferConvertFormat(config, inputSchema)
+      case "analyzewithai"              => inferAnalyzeWithAi(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -661,6 +662,38 @@ object PipelineAnalyzeService {
       case ex: Exception =>
         log.warn("convertformat config error", ex)
         (inputSchema, Some("convertformat config error"))
+    }
+
+  /** analyzewithai (HEL-1106, design.md D7) -- never calls the model. Checks `inputField` exists
+   *  in the input schema and is `string`/`string-body` (the only types the model-content prompt
+   *  can be built from), and that the config itself is valid (shared `AnalyzeWithAiConfig
+   *  .validate`, the same check the write path/`requiredConfigProblems` runs -- the two surfaces
+   *  cannot diverge). On success, output = input schema plus the declared columns IN DECLARED
+   *  ORDER; a name colliding with an existing input column is replaced in place (same "declared
+   *  columns win" rule `compute`/`convertformat` already apply), matching the engine's own
+   *  documented overwrite behavior (design.md D6). */
+  private def inferAnalyzeWithAi(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    try {
+      val cfg = AnalyzeWithAiConfig.decode(config)
+      AnalyzeWithAiConfig.validate(cfg) match {
+        case Some(msg) => (inputSchema, Some(msg))
+        case None =>
+          inputSchema.find(_.name == cfg.inputField) match {
+            case None =>
+              (inputSchema, Some(s"Unknown field '${cfg.inputField}'"))
+            case Some(f) if f.`type` != "string-body" && f.`type` != "string" =>
+              (inputSchema, Some(s"Field '${cfg.inputField}' is not a string field; analyzewithai requires 'string' or 'string-body'"))
+            case Some(_) =>
+              val declaredNames = cfg.outputSchema.map(_.name).toSet
+              val without       = inputSchema.filterNot(f => declaredNames.contains(f.name))
+              val declared      = cfg.outputSchema.map(f => SchemaField(name = f.name, `type` = f.`type`))
+              (without ++ declared, None)
+          }
+      }
+    } catch {
+      case ex: Exception =>
+        log.warn("analyzewithai config error", ex)
+        (inputSchema, Some("analyzewithai config error"))
     }
 
   private def inferSplitText(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =

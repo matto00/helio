@@ -1,5 +1,6 @@
 package com.helio.domain.model
 
+import com.helio.domain.ai.AiStepClient
 import com.helio.domain.steps._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import spray.json.{JsObject, JsValue}
@@ -121,7 +122,13 @@ final case class PipelineExecutionContext(
      *  `upsertsource` step's `evaluate` records its [[PendingWrite]] into, mirroring
      *  `assertionSink`'s convention exactly. Defaults to a fresh, unread sink so every
      *  existing direct construction of this context (tests, preview) keeps compiling. */
-    writeBackSink: WriteBackSink = new WriteBackSink
+    writeBackSink: WriteBackSink = new WriteBackSink,
+    /** HEL-1106 (design.md D2): the injectable model-call seam every AI-backed step
+     *  (`analyzewithai`, and HEL-1107's `generatetext`) calls through. Defaults to
+     *  [[AiStepClient.Unavailable]] so every existing direct construction of this context
+     *  (tests, preview) keeps compiling and degrades to a named `ai-unavailable` failure rather
+     *  than an NPE. `InProcessPipelineEngine.makeContext` threads the real implementation. */
+    aiClient: AiStepClient = AiStepClient.Unavailable
 )
 
 object PipelineStep {
@@ -232,7 +239,8 @@ object PipelineStep {
     LookupStep.Kind -> LookupStep.companion,
     AssertStep.Kind -> AssertStep.companion,
     UpsertSourceStep.Kind -> UpsertSourceStep.companion,
-    ConvertFormatStep.Kind -> ConvertFormatStep.companion
+    ConvertFormatStep.Kind -> ConvertFormatStep.companion,
+    AnalyzeWithAiStep.Kind -> AnalyzeWithAiStep.companion
   )
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
@@ -276,6 +284,7 @@ object PipelineStepKind {
   val Assert: String     = AssertStep.Kind
   val UpsertSource: String = UpsertSourceStep.Kind
   val ConvertFormat: String = ConvertFormatStep.Kind
+  val AnalyzeWithAi: String = AnalyzeWithAiStep.Kind
 
   /** Registry-derived allow-list. After cycle 3 no consumer enumerates these
    *  manually — adding a new kind only requires updating

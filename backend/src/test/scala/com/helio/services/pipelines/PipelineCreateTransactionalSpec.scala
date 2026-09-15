@@ -174,9 +174,10 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
     // HEL-1100 task 3.1: `upsertsource` is now registered (`PipelineStepKind.All` includes it) --
     // its own pinned rejection is flipped below. HEL-1105 task 4.7: `convertformat` is now
     // registered too -- its own pinned rejection is flipped further below (mirrors the
-    // `upsertsource` flip). The remaining two ops (`analyzewithai`/`generatetext`) stay
-    // unregistered and still 400 here, per C3.
-    Seq("analyzewithai", "generatetext").foreach { op =>
+    // `upsertsource` flip). HEL-1106 task 2.3: `analyzewithai` is now registered too -- its own
+    // pinned rejection is flipped further below. The remaining op (`generatetext`, HEL-1107)
+    // stays unregistered and still 400s here, per C1/C3.
+    Seq("generatetext").foreach { op =>
       s"reject a '$op' step with BadRequest (constraint accepts it now; PipelineStepKind.All does not yet)" in {
         val sourceId = newSource()
         val req = CreatePipelineRequest(
@@ -223,6 +224,29 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
         steps = Vector(CreatePipelineTransactionalStepRequest(
           "s1", "convertformat",
           JsObject("field" -> JsString("content"), "from" -> JsString("csv"), "to" -> JsString("json"))
+        ))
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Right[_, _]]
+    }
+
+    // HEL-1106 task 2.3: `analyzewithai` is now a registered, creatable step kind -- a fully
+    // valid config over a fresh source succeeds (mirrors the `convertformat` flip above). No AI
+    // client is wired in this spec's `PipelineService` -- create/write validation never calls
+    // the model (design.md D7's "analyze never calls the model" extends to write validation too).
+    "accept an 'analyzewithai' step (registered by HEL-1106)" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name  = "Analyzewithai now wired",
+        roots = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
+        steps = Vector(CreatePipelineTransactionalStepRequest(
+          "s1", "analyzewithai",
+          JsObject(
+            "inputField"   -> JsString("content"),
+            "instruction"  -> JsString("Classify sentiment"),
+            "outputSchema" -> Vector(JsObject("name" -> JsString("sentiment"), "type" -> JsString("string"))).toJson
+          )
         ))
       )
 

@@ -8,7 +8,8 @@ import org.apache.pekko.http.cors.scaladsl.CorsDirectives._
 import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
-import com.helio.ai.{ClaudeClient, ClaudeConfig, HttpClaudeTransport}
+import com.helio.ai.{ClaudeAiStepClient, ClaudeClient, ClaudeConfig, HttpClaudeTransport}
+import com.helio.domain.ai.AiStepClient
 import com.helio.api.http._
 import com.helio.api.routes.agents._
 import com.helio.api.routes.alerts._
@@ -312,6 +313,21 @@ final class ApiRoutes(
   // HEL-758: threads the same RestApiConnectorDriver instance sourceService/
   // pipelineService already receive — runPipeline/previewStep now execute
   // rest_api sources in-process via InProcessPipelineEngine (design.md D3).
+  // HEL-1106 (design.md D2): built once, ahead of pipelineRunService below (which needs it as a
+  // constructor param) -- SAME ClaudeConfig.fromEnv() Left/Right log-warn pattern as
+  // assistantServiceOpt, a fresh ClaudeClient/HttpClaudeTransport pair (never shared, mirroring
+  // every other *ServiceOpt val's own convention). Degrades to AiStepClient.Unavailable (never
+  // constructed) rather than failing ApiRoutes construction, so the backend still boots with no
+  // ANTHROPIC_API_KEY (design.md D3).
+  private val aiStepClient: AiStepClient =
+    ClaudeConfig.fromEnv() match {
+      case Left(reason) =>
+        log.warn(s"pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): $reason")
+        AiStepClient.Unavailable
+      case Right(claudeConfig) =>
+        new ClaudeAiStepClient(new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey)))
+    }
+
   val pipelineRunService = new PipelineRunService(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
     pipelineRunCache, runRegistry, fileSystem, binaryRefRepo,
@@ -331,7 +347,8 @@ final class ApiRoutes(
     // DbContext (outputRepoOpt/nodeSnapshotRepoOpt above).
     executionBackend = null,
     outputRepo = outputRepoOpt.orNull,
-    nodeSnapshotRepo = nodeSnapshotRepoOpt.orNull
+    nodeSnapshotRepo = nodeSnapshotRepoOpt.orNull,
+    aiStepClient = aiStepClient
   )
   // HEL-906: mirrors alertRuleServiceOpt's nullable-optional wiring below —
   // fixtures that don't pass a DbContext simply don't get

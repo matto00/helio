@@ -57,6 +57,8 @@ package object domain {
   val  UpsertSourceStep = steps.UpsertSourceStep
   type ConvertFormatStep = steps.ConvertFormatStep
   val  ConvertFormatStep = steps.ConvertFormatStep
+  type AnalyzeWithAiStep = steps.AnalyzeWithAiStep
+  val  AnalyzeWithAiStep = steps.AnalyzeWithAiStep
 
   type RenameConfig    = steps.RenameConfig
   val  RenameConfig    = steps.RenameConfig
@@ -124,4 +126,8 @@ package object domain {
   val  UpsertSourceConfig = steps.UpsertSourceConfig
   type ConvertFormatConfig = steps.ConvertFormatConfig
   val  ConvertFormatConfig = steps.ConvertFormatConfig
+  type AnalyzeWithAiOutputField = steps.AnalyzeWithAiOutputField
+  val  AnalyzeWithAiOutputField = steps.AnalyzeWithAiOutputField
+  type AnalyzeWithAiConfig = steps.AnalyzeWithAiConfig
+  val  AnalyzeWithAiConfig = steps.AnalyzeWithAiConfig
 }
