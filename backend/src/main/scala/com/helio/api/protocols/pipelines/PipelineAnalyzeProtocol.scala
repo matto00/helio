@@ -195,19 +195,43 @@ final case class RootSourceSchemaResponse(
     sourceSchema:   Vector[SchemaFieldResponse]
 )
 
+/** HEL-1092: mirrors `PipelineCostEstimator.CostReason` on the wire. `stepId` is omitted (not
+ *  `null`) when the reason is pipeline-level rather than step-specific. */
+final case class CostReasonResponse(
+    code:   String,
+    detail: String,
+    stepId: Option[String] = None
+)
+
+/** HEL-1092: mirrors `PipelineCostEstimator.CostVerdict` on the wire. Always present (never
+ *  `Option`) on the non-concise `analyze` response -- design.md D6. `autoRunnable` is true iff
+ *  `reasons` is empty; `estimatedRows` is omitted when no estimate was available. */
+final case class CostVerdictResponse(
+    autoRunnable:  Boolean,
+    estimatedRows: Option[Long] = None,
+    stepCount:     Int,
+    reasons:       Vector[CostReasonResponse]
+)
+
 /** `sourceSchemaDrift` (HEL-462) is computed at analyze time and is absent
  *  when there is no baseline yet — i.e. the pipeline has never run
  *  successfully — or the current source schema matches the baseline exactly.
  *  spray-json omits `None` on the wire. `sourceSchemaDrift` itself remains scoped to the
  *  pipeline's PRIMARY (lowest-positioned) root's schema (HEL-913 task 7.2c) -- the 7.2c
  *  delta names only the source-schema-per-root SHALL, not a per-root drift baseline; a
- *  multi-root drift model is not this ticket's scope. */
+ *  multi-root drift model is not this ticket's scope.
+ *
+ *  `costVerdict` (HEL-1092) is always present on this response -- unlike every other optional
+ *  field here, it is NOT an `Option`, since deny-by-default means every pipeline has a verdict.
+ *  Never populated on `PipelineAnalyzeConciseResponse` or the proposal-mode analyze response
+ *  (design.md D6, ticket non-goals). */
 final case class PipelineAnalyzeResponse(
     id:                String,
     name:              String,
     sourceSchemas:     Vector[RootSourceSchemaResponse],
     steps:             Vector[AnalyzeStepResponse],
-    sourceSchemaDrift: Option[SourceSchemaDriftResponse] = None
+    sourceSchemaDrift: Option[SourceSchemaDriftResponse] = None,
+    costVerdict:       CostVerdictResponse
 )
 
 /** HEL-914 task 6.4/D6: `GET /pipelines/:id/analyze?concise=true`'s opt-in per-node
@@ -354,7 +378,10 @@ trait PipelineAnalyzeProtocol
 
   implicit val rootSourceSchemaResponseFormat: RootJsonFormat[RootSourceSchemaResponse] = jsonFormat3(RootSourceSchemaResponse.apply)
 
-  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat5(PipelineAnalyzeResponse.apply)
+  implicit val costReasonResponseFormat: RootJsonFormat[CostReasonResponse] = jsonFormat3(CostReasonResponse.apply)
+  implicit val costVerdictResponseFormat: RootJsonFormat[CostVerdictResponse] = jsonFormat4(CostVerdictResponse.apply)
+
+  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat6(PipelineAnalyzeResponse.apply)
 
   implicit val conciseAnalyzeNodeFormat: RootJsonFormat[ConciseAnalyzeNode] = jsonFormat3(ConciseAnalyzeNode.apply)
   implicit val pipelineAnalyzeConciseResponseFormat: RootJsonFormat[PipelineAnalyzeConciseResponse] =

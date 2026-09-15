@@ -519,11 +519,29 @@ export interface RootSourceSchema {
   sourceSchema: SchemaField[];
 }
 
+// HEL-1092: mirrors `PipelineCostEstimator.CostReason` / `CostVerdict` on the wire
+// (`PipelineAnalyzeProtocol.scala`'s `CostReasonResponse`/`CostVerdictResponse`). Always
+// present on `analyze` (non-concise); deny-by-default -- `autoRunnable` is true iff `reasons`
+// is empty.
+export interface CostReason {
+  code: string;
+  detail: string;
+  stepId?: string;
+}
+
+export interface CostVerdict {
+  autoRunnable: boolean;
+  estimatedRows?: number;
+  stepCount: number;
+  reasons: CostReason[];
+}
+
 export interface PipelineAnalyzeResponse {
   id: string;
   name: string;
   sourceSchemas: RootSourceSchema[];
   steps: AnalyzeStepResult[];
+  costVerdict: CostVerdict;
 }
 
 // Extracted from `types/models.ts` in CS4 cycle 1.

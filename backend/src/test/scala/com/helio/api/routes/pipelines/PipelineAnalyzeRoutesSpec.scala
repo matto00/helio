@@ -8,7 +8,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AnalyzeStepResponse, ErrorResponse, JsonProtocols, PipelineAnalyzeResponse}
 import com.helio.api.protocols.pipelines.PipelineAnalyzeConciseResponse
-import com.helio.api.protocols.pipelines.{RootSourceSchemaResponse, SchemaFieldResponse, SourceSchemaDriftResponse, TypeChangedColumnResponse}
+import com.helio.api.protocols.pipelines.{CostVerdictResponse, RootSourceSchemaResponse, SchemaFieldResponse, SourceSchemaDriftResponse, TypeChangedColumnResponse}
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
 import com.helio.domain.{AggregateConfig, AggregateField, Aggregation, CastConfig, ChunkByTokenCountConfig, ExtractHeadingsConfig, GroupByConfig, JoinConfig, PivotConfig, RenameConfig, SelectConfig, SplitTextConfig, StepConfigTypeMismatch, UnionConfig, WindowConfig}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -604,6 +604,80 @@ class PipelineAnalyzeRoutesSpec
     }
   }
 
+  // HEL-1092 tasks.md 4.4 (design.md D8): route-level probe through the real persisted-pipeline
+  // path -- `PipelineService.analyze` wiring, not the pure estimator (that's
+  // `PipelineCostEstimatorSpec`). Covers the allow arm and the `rest_api` deny arm named
+  // explicitly by the ticket AC; the AI-op arm is recorded as NOT reachable this way (see the
+  // third test below and files-modified.md for the confirmed root cause).
+  "GET /pipelines/:id/analyze costVerdict (HEL-1092)" should {
+
+    "allow a small local pipeline with only allowlisted enabled steps" in {
+      cleanPipelines()
+      import PostgresProfile.api._
+      val dsId    = UUID.randomUUID().toString
+      val pid     = UUID.randomUUID().toString
+      val ownerId = dummyUser.id.value
+
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+               VALUES ($dsId, 'cheap-ds', 'dataset', '{}', $ownerId::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at, last_run_row_count)
+               VALUES ($pid, 'cheap-pipeline', now(), now(), 5)""",
+        sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
+      )))
+      await(pipelineStepRepo.insertInternal(PipelineId(pid), "rename", RenameConfig(Map.empty), enabled = true, explicitRootId = None))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp: PipelineAnalyzeResponse = responseAs[PipelineAnalyzeResponse]
+        resp.costVerdict.autoRunnable shouldBe true
+        resp.costVerdict.reasons shouldBe empty
+        resp.costVerdict.estimatedRows shouldBe Some(5L)
+        resp.costVerdict.stepCount shouldBe 1
+      }
+    }
+
+    "deny a pipeline rooted at a rest_api source with remote-fetch" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+      await(pipelineStepRepo.insertInternal(PipelineId(pid), "rename", RenameConfig(Map.empty), enabled = true, explicitRootId = None))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val resp: PipelineAnalyzeResponse = responseAs[PipelineAnalyzeResponse]
+        resp.costVerdict.autoRunnable shouldBe false
+        resp.costVerdict.reasons.map(_.code) should contain("remote-fetch")
+      }
+    }
+
+    // design.md D8 / skeptic-design-1.md's independently-confirmed uncertain claim: a
+    // manually-inserted `analyzewithai` row (V107-legal, but `analyzewithai` has no
+    // `PipelineStep.Registry` entry -- HEL-1105 unshipped) makes `listByPipelineInternal`'s
+    // `rowToDomain` throw `IllegalStateException` when decoding it, which fails the whole
+    // `analyze` Future rather than reaching the estimator at all. Recorded here rather than
+    // assumed, per D8 -- this is the one AC arm the estimator-level spec (task 4.1) cannot
+    // exercise through this route, since request-time validation (`PipelineStepKind.All`)
+    // makes the row unreachable via any real API call; only a direct SQL insert (as here)
+    // can produce it.
+    "records that a persisted analyzewithai row cannot reach the estimator: it 500s at decode, before costVerdict is ever computed" in {
+      cleanPipelines()
+      val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
+      val (pid, _) = seedPipelineWithSchema(sourceFields)
+
+      import PostgresProfile.api._
+      val stepId = UUID.randomUUID().toString
+      await(db.run(sqlu"""
+        INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, root_id)
+        VALUES ($stepId, $pid, 0, 'analyzewithai', '{}', true, $pid)
+      """))
+
+      Get(s"/pipelines/$pid/analyze") ~> routes ~> check {
+        status shouldBe StatusCodes.InternalServerError
+      }
+    }
+  }
+
   "pipelineAnalyzeResponseFormat output (HEL-462 sourceSchemaDrift)" should {
 
     "validate cleanly against schemas/pipelines/pipeline-analyze-response.schema.json when sourceSchemaDrift is populated" in {
@@ -616,7 +690,8 @@ class PipelineAnalyzeRoutesSpec
           addedColumns       = Vector(SchemaFieldResponse("region", "string")),
           removedColumns     = Vector(SchemaFieldResponse("created_at", "string")),
           typeChangedColumns = Vector(TypeChangedColumnResponse("amount", previousType = "float", currentType = "integer"))
-        ))
+        )),
+        costVerdict       = CostVerdictResponse(autoRunnable = true, estimatedRows = Some(10L), stepCount = 0, reasons = Vector.empty)
       )
 
       val schema = JsonSchemaValidation.compile("pipelines/pipeline-analyze-response.schema.json")
@@ -630,7 +705,8 @@ class PipelineAnalyzeRoutesSpec
         name              = "Orders",
         sourceSchemas     = Vector.empty,
         steps             = Vector.empty,
-        sourceSchemaDrift = None
+        sourceSchemaDrift = None,
+        costVerdict       = CostVerdictResponse(autoRunnable = true, estimatedRows = None, stepCount = 0, reasons = Vector.empty)
       )
 
       val json = response.toJson.compactPrint

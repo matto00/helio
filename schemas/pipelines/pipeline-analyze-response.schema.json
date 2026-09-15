@@ -3,7 +3,7 @@
   "$id": "https://helio.local/schemas/pipelines/pipeline-analyze-response.schema.json",
   "title": "PipelineAnalyzeResponse",
   "type": "object",
-  "required": ["id", "name", "sourceSchemas", "steps"],
+  "required": ["id", "name", "sourceSchemas", "steps", "costVerdict"],
   "properties": {
     "id": {
       "type": "string",
@@ -28,6 +28,9 @@
     },
     "sourceSchemaDrift": {
       "$ref": "#/$defs/SourceSchemaDrift"
+    },
+    "costVerdict": {
+      "$ref": "#/$defs/CostVerdict"
     }
   },
   "additionalProperties": false,
@@ -110,6 +113,57 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/TypeChangedColumn"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "CostReason": {
+      "type": "object",
+      "required": ["code", "detail"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "ai-step",
+            "remote-fetch",
+            "rows-above-threshold",
+            "steps-above-bound",
+            "writeback-step",
+            "unclassified-op",
+            "unclassified-source",
+            "row-estimate-unavailable",
+            "no-roots"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        },
+        "stepId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "CostVerdict": {
+      "type": "object",
+      "required": ["autoRunnable", "stepCount", "reasons"],
+      "properties": {
+        "autoRunnable": {
+          "type": "boolean"
+        },
+        "estimatedRows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stepCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CostReason"
           }
         }
       },
