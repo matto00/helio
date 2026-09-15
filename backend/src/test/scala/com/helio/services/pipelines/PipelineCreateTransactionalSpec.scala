@@ -172,9 +172,11 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
     // "Unknown op" (which only fires inside an already-200 analyze response and would pass
     // vacuously here even if the DB accepted the op but the API also wrongly did).
     // HEL-1100 task 3.1: `upsertsource` is now registered (`PipelineStepKind.All` includes it) --
-    // its own pinned rejection is flipped below. The other three ops (`convertformat`/
-    // `analyzewithai`/`generatetext`) remain unregistered and still 400 here, per C3.
-    Seq("convertformat", "analyzewithai", "generatetext").foreach { op =>
+    // its own pinned rejection is flipped below. HEL-1105 task 4.7: `convertformat` is now
+    // registered too -- its own pinned rejection is flipped further below (mirrors the
+    // `upsertsource` flip). The remaining two ops (`analyzewithai`/`generatetext`) stay
+    // unregistered and still 400 here, per C3.
+    Seq("analyzewithai", "generatetext").foreach { op =>
       s"reject a '$op' step with BadRequest (constraint accepts it now; PipelineStepKind.All does not yet)" in {
         val sourceId = newSource()
         val req = CreatePipelineRequest(
@@ -204,6 +206,23 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
             "target" -> JsObject("kind" -> JsString("newSource"), "name" -> JsString("upsertsource-e2e-target")),
             "mode"   -> JsString("append")
           )
+        ))
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Right[_, _]]
+    }
+
+    // HEL-1105 task 4.7: `convertformat` is now a registered, creatable step kind -- a supported
+    // from/to pair over a fresh, empty config succeeds (mirrors the `upsertsource` flip above).
+    "accept a 'convertformat' step (registered by HEL-1105)" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name  = "Convertformat now wired",
+        roots = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
+        steps = Vector(CreatePipelineTransactionalStepRequest(
+          "s1", "convertformat",
+          JsObject("field" -> JsString("content"), "from" -> JsString("csv"), "to" -> JsString("json"))
         ))
       )
 

@@ -43,9 +43,10 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
   private val lookup = LookupStep(id, pid, 0, LookupConfig(SecondaryInput.Source("ds-3"), "code", "code", Vector("label")), now, now)
   private val assertStep = AssertStep(id, pid, 0, AssertConfig(Vector(AssertRule("notNull", Some("id"), JsObject.empty, "error"))), now, now)
   private val upsertSource = UpsertSourceStep(id, pid, 0, UpsertSourceConfig(UpsertTarget.ExistingSource("ds-4"), "append"), now, now)
+  private val convertFormat = ConvertFormatStep(id, pid, 0, ConvertFormatConfig("content", "csv", "json", "content"), now, now)
 
   private val allSubtypes: Seq[PipelineStep] =
-    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps, union, lookup, assertStep, upsertSource)
+    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps, union, lookup, assertStep, upsertSource, convertFormat)
 
   "PipelineStepKind" should {
     "define a constant for every subtype" in {
@@ -53,7 +54,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
         "rename", "filter", "join", "compute", "groupby",
         "cast", "select", "limit", "sort", "aggregate", "splittext", "extractheadings", "chunkbytokencount",
         "datebucket", "pivot", "window", "unpivot", "dedupe", "fillnull", "stringops", "union", "lookup", "assert",
-        "upsertsource"
+        "upsertsource", "convertformat"
       )
     }
 
@@ -151,6 +152,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
           case _: LookupStep     => PipelineStepKind.Lookup
           case _: AssertStep     => PipelineStepKind.Assert
           case _: UpsertSourceStep => PipelineStepKind.UpsertSource
+          case _: ConvertFormatStep => PipelineStepKind.ConvertFormat
         }
         tag shouldBe s.kind
       }

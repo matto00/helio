@@ -44,7 +44,7 @@ class PipelineCostEstimatorSpec extends AnyWordSpec with Matchers {
     }
 
     "deny with unclassified-op for an op outside the cheap allowlist and not a named deny op" in {
-      val input = CostInput(Vector(StepInput("s1", "convertformat")), Vector(cheapRoot), None)
+      val input = CostInput(Vector(StepInput("s1", "notarealop")), Vector(cheapRoot), None)
       val verdict = estimate(input)
       verdict.autoRunnable shouldBe false
       verdict.reasons.map(_.code) should contain("unclassified-op")
@@ -53,6 +53,14 @@ class PipelineCostEstimatorSpec extends AnyWordSpec with Matchers {
     "deny with writeback-step for upsertsource" in {
       val input = CostInput(Vector(StepInput("s1", "upsertsource")), Vector(cheapRoot), None)
       estimate(input).reasons.map(_.code) should contain("writeback-step")
+    }
+
+    "deny with content-conversion for an enabled convertformat step over a small dataset root" in {
+      val input = CostInput(Vector(StepInput("s1", "convertformat")), Vector(cheapRoot), None)
+      val verdict = estimate(input)
+      verdict.autoRunnable shouldBe false
+      verdict.reasons.map(_.code) should contain("content-conversion")
+      verdict.reasons.find(_.code == "content-conversion").flatMap(_.stepId) shouldBe Some("s1")
     }
 
     "deny with remote-fetch for a rest_api root" in {
@@ -130,29 +138,35 @@ class PipelineCostEstimatorSpec extends AnyWordSpec with Matchers {
   // three sets, i.e. exactly the failure mode a silent-absorption bug would produce.
   "op coverage (skeptic-final-1.md CR2 / tasks.md C4)" should {
 
-    "partition every registered op into exactly one of CheapOps, AiOps, WriteBackOps" in {
-      val classified = CheapOps ++ AiOps ++ WriteBackOps
+    "partition every registered op into exactly one of CheapOps, AiOps, WriteBackOps, ContentConversionOps" in {
+      val classified = CheapOps ++ AiOps ++ WriteBackOps ++ ContentConversionOps
       val registered = PipelineStep.Registry.keySet
 
       // Every registered op is classified somewhere...
       (registered -- classified) shouldBe empty
-      // ...and CheapOps/WriteBackOps are pure subsets of Registry (AiOps is deliberately allowed
-      // to name ops that are NOT registered -- analyzewithai/generatetext, tasks.md C3 -- so it is
-      // excluded from this direction of the check).
+      // ...and CheapOps/WriteBackOps/ContentConversionOps are pure subsets of Registry (AiOps is
+      // deliberately allowed to name ops that are NOT registered -- analyzewithai/generatetext,
+      // tasks.md C3 -- so it is excluded from this direction of the check).
       (CheapOps -- registered) shouldBe empty
       (WriteBackOps -- registered) shouldBe empty
-      // No op double-counted across the three sets.
+      (ContentConversionOps -- registered) shouldBe empty
+      // No op double-counted across the four sets.
       (CheapOps intersect AiOps) shouldBe empty
       (CheapOps intersect WriteBackOps) shouldBe empty
+      (CheapOps intersect ContentConversionOps) shouldBe empty
       (AiOps intersect WriteBackOps) shouldBe empty
+      (AiOps intersect ContentConversionOps) shouldBe empty
+      (WriteBackOps intersect ContentConversionOps) shouldBe empty
     }
 
-    "deny with unclassified-op an op that is registered-shaped but present in none of the three named sets" in {
+    "deny with unclassified-op an op that is registered-shaped but present in none of the four named sets" in {
       // Simulates the exact future-registration failure mode this ticket guards against: a new
       // op reaches the estimator (as it would the moment someone adds it to `Registry` without
-      // updating `CheapOps`) and must still be denied, never silently allowed.
-      val simulatedFutureOp = "convertformat"
-      (CheapOps ++ AiOps ++ WriteBackOps) should not contain simulatedFutureOp
+      // updating `CheapOps`) and must still be denied, never silently allowed. `convertformat` no
+      // longer serves as this stand-in now that it is itself registered and classified
+      // (`ContentConversionOps`) -- `notarealop` is a genuinely unregistered/unclassified name.
+      val simulatedFutureOp = "notarealop"
+      (CheapOps ++ AiOps ++ WriteBackOps ++ ContentConversionOps) should not contain simulatedFutureOp
 
       val input = CostInput(Vector(StepInput("s1", simulatedFutureOp)), Vector(cheapRoot), None)
       val verdict = estimate(input)

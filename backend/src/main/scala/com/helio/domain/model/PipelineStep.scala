@@ -231,7 +231,8 @@ object PipelineStep {
     UnionStep.Kind -> UnionStep.companion,
     LookupStep.Kind -> LookupStep.companion,
     AssertStep.Kind -> AssertStep.companion,
-    UpsertSourceStep.Kind -> UpsertSourceStep.companion
+    UpsertSourceStep.Kind -> UpsertSourceStep.companion,
+    ConvertFormatStep.Kind -> ConvertFormatStep.companion
   )
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
@@ -274,6 +275,7 @@ object PipelineStepKind {
   val Lookup: String     = LookupStep.Kind
   val Assert: String     = AssertStep.Kind
   val UpsertSource: String = UpsertSourceStep.Kind
+  val ConvertFormat: String = ConvertFormatStep.Kind
 
   /** Registry-derived allow-list. After cycle 3 no consumer enumerates these
    *  manually — adding a new kind only requires updating

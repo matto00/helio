@@ -1311,6 +1311,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case Success(cfg: LookupConfig) => LookupStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
       case Success(cfg: AssertConfig) => AssertStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
       case Success(cfg: UpsertSourceConfig) => UpsertSourceStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
+      case Success(cfg: ConvertFormatConfig) => ConvertFormatStep(stepId, pid, row.position, cfg, row.createdAt, row.updatedAt, parentStepId = row.parentStepId.map(PipelineStepId(_)), enabled = row.enabled)
       case Success(other) =>
         throw new IllegalStateException(
           s"PipelineStepRepository: codec returned unexpected config type ${other.getClass.getName} for op '${row.op}'"

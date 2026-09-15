@@ -19,7 +19,7 @@ object PipelineCostEstimator {
 
   /** AI ops: always denied with their own `ai-step` code, checked BEFORE the general allowlist
    *  so HEL-1108 can key on the reason code alone without re-deriving classification. Neither op
-   *  is implemented/registered (HEL-1105/1106) -- classified by op-name string only, per
+   *  is implemented/registered (HEL-1106/1107) -- classified by op-name string only, per
    *  tasks.md C3. */
   val AiOps: Set[String] = Set("analyzewithai", "generatetext")
 
@@ -28,13 +28,22 @@ object PipelineCostEstimator {
    *  designed (HEL-1093 territory, not this ticket). */
   val WriteBackOps: Set[String] = Set("upsertsource")
 
+  /** HEL-1105 (design.md D7): content-conversion ops are denied with their own `content-
+   *  conversion` code, checked after AI/write-back and before the general allowlist -- the
+   *  estimator's cheapness bounds are row/step-count only, and `convertformat`'s cost scales
+   *  with bytes per content cell (a single row can hold a multi-MB document), which `CostInput`
+   *  cannot see. A distinct code (rather than `unclassified-op`) records that this was classified
+   *  deliberately, not silently missed, and lets HEL-1093 relax it later with a content-size
+   *  signal. */
+  val ContentConversionOps: Set[String] = Set("convertformat")
+
   /** Explicit, HAND-MAINTAINED allowlist of ops considered cheap to auto-run (skeptic-final-1.md
    *  CR1). Deliberately NOT derived from `PipelineStep.Registry.keySet` -- a derived formula would
-   *  make every future `Registry` addition (e.g. HEL-1107's `convertformat`) automatically cheap
-   *  the moment it's registered, with no review attention on the cheapness question and no code
-   *  change in this file. `PipelineCostEstimatorSpec`'s "op coverage" describe block enforces the
-   *  converse invariant this hand-maintained set depends on: every op in `Registry.keySet` must
-   *  appear in exactly one of `CheapOps`/`AiOps`/`WriteBackOps`, so an op arriving in `Registry`
+   *  make every future `Registry` addition automatically cheap the moment it's registered, with
+   *  no review attention on the cheapness question and no code change in this file.
+   *  `PipelineCostEstimatorSpec`'s "op coverage" describe block enforces the converse invariant
+   *  this hand-maintained set depends on: every op in `Registry.keySet` must appear in exactly one
+   *  of `CheapOps`/`AiOps`/`WriteBackOps`/`ContentConversionOps`, so an op arriving in `Registry`
    *  without a matching entry here fails loudly instead of silently defaulting to allow. */
   val CheapOps: Set[String] = Set(
     "rename", "filter", "join", "compute", "groupby", "cast", "select", "limit", "sort",
@@ -103,6 +112,8 @@ object PipelineCostEstimator {
       Some(CostReason("ai-step", s"Step '${step.stepId}' uses AI op '${step.op}'", Some(step.stepId)))
     else if (WriteBackOps.contains(step.op))
       Some(CostReason("writeback-step", s"Step '${step.stepId}' writes back to a data source ('${step.op}')", Some(step.stepId)))
+    else if (ContentConversionOps.contains(step.op))
+      Some(CostReason("content-conversion", s"Step '${step.stepId}' converts content format ('${step.op}')", Some(step.stepId)))
     else if (CheapOps.contains(step.op))
       None
     else

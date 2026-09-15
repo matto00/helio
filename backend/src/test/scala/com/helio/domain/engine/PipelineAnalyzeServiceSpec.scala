@@ -498,6 +498,76 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema shouldBe baseSchema
     }
 
+    // HEL-1105 task 4.5 (design.md D6): mirrors `splittext`'s validate-then-shape tests above.
+
+    "convertformat — valid string-body field and supported pair sets outputField as string-body" in {
+      val schema = Vector(field("content", "string-body"))
+      val steps  = Vector(step("convertformat", """{"field":"content","from":"csv","to":"json"}"""))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(field("content", "string-body"))
+    }
+
+    "convertformat — a distinct outputField is appended as string-body, input field untouched" in {
+      val schema = Vector(field("content", "string-body"))
+      val steps  = Vector(step("convertformat", """{"field":"content","from":"csv","to":"json","outputField":"contentJson"}"""))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema shouldBe Vector(field("content", "string-body"), field("contentJson", "string-body"))
+    }
+
+    "convertformat — unknown field is flagged at analyze time" in {
+      val steps  = Vector(step("convertformat", """{"field":"missing","from":"csv","to":"json"}"""))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError shouldBe Some("Unknown field 'missing'")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
+    "convertformat — non-string-body field is flagged at analyze time" in {
+      val steps  = Vector(step("convertformat", """{"field":"price","from":"csv","to":"json"}"""))
+      val schema = Vector(field("price", "integer"))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe Some(
+        "Field 'price' is not a content field (string-body); convertformat requires a string-body field"
+      )
+      result(0).outputSchema shouldBe schema
+    }
+
+    "convertformat — an unsupported pair is flagged at analyze time" in {
+      // HEL-814 Decision 4: the write-path shape check (`validateRawConfig`, which
+      // `ConvertFormatConfig.pairError` is folded into) runs BEFORE `inferOutputSchema`
+      // dispatch, so a present-but-unsupported pair is caught there first -- this is the
+      // SAME validationError surface `analyze` reports either way, just phrased by the
+      // earlier hook rather than `inferConvertFormat`'s own message.
+      val schema = Vector(field("content", "string-body"))
+      val steps  = Vector(step("convertformat", """{"field":"content","from":"csv","to":"markdown"}"""))
+      val result = analyze(steps, schema)
+
+      result(0).validationError shouldBe defined
+      result(0).validationError.get should include("unsupported from/to pair")
+      result(0).outputSchema shouldBe schema
+    }
+
+    "convertformat — inferConvertFormat's own unsupported-pair message when invoked directly (bypassing the write-path hook)" in {
+      val schema = Vector(field("content", "string-body"))
+      val (outSchema, err) = inferOutputSchema("convertformat", """{"field":"content","from":"csv","to":"markdown"}""", schema)
+      err shouldBe defined
+      err.get should include("Unsupported convertformat pair")
+      outSchema shouldBe schema
+    }
+
+    "convertformat — malformed config produces validationError and identity outputSchema" in {
+      val steps  = Vector(step("convertformat", "NOT_JSON"))
+      val result = analyze(steps, baseSchema)
+
+      result(0).validationError should not be empty
+      result(0).outputSchema shouldBe baseSchema
+    }
+
 
     "extractheadings — valid string-body field appends indexField and levelField as integer" in {
       val schema = Vector(field("content", "string-body"))
@@ -1244,7 +1314,9 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       "assert"             -> ("""{"rules":[]}""", baseSchema),
       // HEL-1100 (design.md D8): a terminal write step -- pass-through, exactly like
       // filter/limit/sort/dedupe/fillnull above.
-      "upsertsource"       -> ("""{"target":{"kind":"existingSource","dataSourceId":"ds-3"},"mode":"append"}""", baseSchema)
+      "upsertsource"       -> ("""{"target":{"kind":"existingSource","dataSourceId":"ds-3"},"mode":"append"}""", baseSchema),
+      // HEL-1105 (design.md D6): a 1:1 transform over a string-body field.
+      "convertformat"      -> ("""{"field":"content","from":"csv","to":"json"}""", contentSchema)
     )
 
     /** Kinds deliberately excluded from `probesByKind`, by NAME with a stated reason -- never

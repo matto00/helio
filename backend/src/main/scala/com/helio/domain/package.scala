@@ -55,6 +55,8 @@ package object domain {
   val  AssertStep     = steps.AssertStep
   type UpsertSourceStep = steps.UpsertSourceStep
   val  UpsertSourceStep = steps.UpsertSourceStep
+  type ConvertFormatStep = steps.ConvertFormatStep
+  val  ConvertFormatStep = steps.ConvertFormatStep
 
   type RenameConfig    = steps.RenameConfig
   val  RenameConfig    = steps.RenameConfig
@@ -120,4 +122,6 @@ package object domain {
   val  UpsertTarget     = steps.UpsertTarget
   type UpsertSourceConfig = steps.UpsertSourceConfig
   val  UpsertSourceConfig = steps.UpsertSourceConfig
+  type ConvertFormatConfig = steps.ConvertFormatConfig
+  val  ConvertFormatConfig = steps.ConvertFormatConfig
 }

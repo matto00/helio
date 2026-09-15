@@ -2,7 +2,7 @@ package com.helio.domain.engine
 
 import com.helio.domain.model.{DataFieldType, PipelineStep}
 import com.helio.domain.steps.{
-  AggregateConfig, AggregateStep, FillNullConfig, FillNullStep, GroupByConfig, GroupByStep,
+  AggregateConfig, AggregateStep, ConvertFormatStep, FillNullConfig, FillNullStep, GroupByConfig, GroupByStep,
   JoinConfig, JoinStep, LookupConfig, PivotConfig, PivotStep, SecondaryInput, StringOpsConfig, StringOpsStep,
   UnionConfig, UnionStep, WindowConfig, WindowStep
 }
@@ -484,6 +484,7 @@ object PipelineAnalyzeService {
       case "lookup"                     => inferLookup(config, inputSchema, secondarySchema)
       case "assert"                     => inferAssert(config, inputSchema)
       case "groupby"                    => inferGroupBy(config, inputSchema)
+      case "convertformat"              => inferConvertFormat(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -624,6 +625,44 @@ object PipelineAnalyzeService {
    *  `validationError`, likewise passing the schema through unchanged. On
    *  success, appends `indexField` as `"integer"` (replacing any existing field
    *  of the same name — same collision rule `compute` already applies). */
+  /** convertformat (HEL-1105, design.md D6) -- mirrors `inferSplitText`'s validate-then-shape
+   *  pattern: `field` absent -> unknown-field error; present but not `string-body` -> "not a
+   *  content field" error; unsupported `from`/`to` pair -> error. Output schema on success is
+   *  the input schema with `outputField` set/added as `string-body` (a 1:1 transform, unlike
+   *  `splittext`'s flatMap shape -- no index field is appended). Shares
+   *  `ConvertFormatStep.SupportedPairs` with the engine and the write-path validator so the two
+   *  surfaces cannot diverge (D6). */
+  private def inferConvertFormat(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    try {
+      val json        = config.parseJson.asJsObject
+      val field       = json.fields("field").convertTo[String]
+      val from        = json.fields.get("from").map(_.convertTo[String]).getOrElse("")
+      val to          = json.fields.get("to").map(_.convertTo[String]).getOrElse("")
+      val outputField = json.fields.get("outputField").map(_.convertTo[String]).filter(_.nonEmpty).getOrElse(field)
+
+      inputSchema.find(_.name == field) match {
+        case None =>
+          (inputSchema, Some(s"Unknown field '$field'"))
+        case Some(f) if f.`type` != "string-body" =>
+          (inputSchema, Some(s"Field '$field' is not a content field (string-body); convertformat requires a string-body field"))
+        case Some(_) if !ConvertFormatStep.SupportedPairs.contains((from, to)) =>
+          (
+            inputSchema,
+            Some(
+              s"Unsupported convertformat pair: '$from' -> '$to'. Supported: " +
+                ConvertFormatStep.SupportedPairs.map { case (a, b) => s"$a->$b" }.mkString(", ")
+            )
+          )
+        case Some(_) =>
+          val without = inputSchema.filterNot(_.name == outputField)
+          (without :+ SchemaField(name = outputField, `type` = "string-body"), None)
+      }
+    } catch {
+      case ex: Exception =>
+        log.warn("convertformat config error", ex)
+        (inputSchema, Some("convertformat config error"))
+    }
+
   private def inferSplitText(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
     try {
       val json       = config.parseJson.asJsObject

@@ -130,6 +130,7 @@
             "rows-above-threshold",
             "steps-above-bound",
             "writeback-step",
+            "content-conversion",
             "unclassified-op",
             "unclassified-source",
             "row-estimate-unavailable",
