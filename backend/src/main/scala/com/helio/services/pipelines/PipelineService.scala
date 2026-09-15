@@ -7,11 +7,11 @@ import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, DateBucketAnalyzeStepResponse, DeletePipelineStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, OutputAnalyzeResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, RootSourceSchemaResponse, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, UpsertSourceAnalyzeStepResponse, WindowAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{CreateSourceRequest, RestApiConfigPayload, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticDataSourceRequest}
 import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse}
-import com.helio.api.protocols.pipelines.{ConciseAnalyzeNode, PipelineAnalyzeConciseResponse, PipelineLaneTreeNode}
+import com.helio.api.protocols.pipelines.{ConciseAnalyzeNode, CostReasonResponse, CostVerdictResponse, PipelineAnalyzeConciseResponse, PipelineLaneTreeNode}
 import com.helio.api.protocols.panels.{PanelCapabilityColumnResponse, PanelCapabilityResponse}
 import com.helio.domain.panels.OutputBindingSpec
-import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSource, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, Output, OutputKind, Pipeline, PipelineId, PipelineRootId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift, UserId}
-import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, LaneReferenceError, PipelineAnalyzeService, RuntimeGraphPath, SchemaField}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, CsvSource, DataFieldType, DataSource, DataSourceId, DataSourceKind, EphemeralRestConfig, ImageSource, InferredSchema, Output, OutputKind, PdfSource, Pipeline, PipelineId, PipelineRootId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift, TextSource, UserId}
+import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, LaneReferenceError, PipelineAnalyzeService, PipelineCostEstimator, RuntimeGraphPath, SchemaField}
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig, UpsertSourceConfig}
 import com.helio.domain.steps.SecondaryInput
@@ -945,18 +945,28 @@ final class PipelineService(
           // analyze. Mirrors the capabilities route's own root resolution (`resolveNodeSchema`
           // above) exactly: `listRootDataSourceIdsInternal` (position-ordered) + `rootIdsOf` (every
           // parentless step's owning root), pipeline access already confirmed by `findByIdShared`.
+          // HEL-1092: `rootDsOpts` also feeds `PipelineCostEstimator`'s per-root classification
+          // (kind/hasSourceUrl) below -- a root `findByIdOwned` can't see (e.g. a shared viewer)
+          // yields `None` here, which the estimator treats as `unclassified-source` (D7).
           val rootFetch = for {
             rootDataSourceIds <- pipelineRepo.listRootDataSourceIdsInternal(pipelineId)
             rootIdOfStep      <- pipelineStepRepo.rootIdsOf(pipelineId)
-            rootSchemas       <- Future.traverse(rootDataSourceIds) { case (rootId, dsId) =>
-                                    dataSourceRepo.findByIdOwned(dsId, user).map { dsOpt =>
-                                      (rootId.value, dsOpt.map(_.name).getOrElse(""), dsOpt.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField]))
-                                    }
+            rootDsOpts        <- Future.traverse(rootDataSourceIds) { case (rootId, dsId) =>
+                                    dataSourceRepo.findByIdOwned(dsId, user).map(dsOpt => (rootId.value, dsOpt))
                                   }
-          } yield (rootIdOfStep, rootSchemas)
+          } yield (rootIdOfStep, rootDsOpts)
 
-          rootFetch.flatMap { case (rootIdOfStep, rootSchemas) =>
+          rootFetch.flatMap { case (rootIdOfStep, rootDsOpts) =>
+            val rootSchemas = rootDsOpts.map { case (rid, dsOpt) =>
+              (rid, dsOpt.map(_.name).getOrElse(""), dsOpt.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField]))
+            }
             val schemasByRoot = rootSchemas.map { case (rid, _, schema) => rid -> schema }.toMap
+
+            // HEL-1092 design.md D7: dataset-row counts are needed only for `dataset`-kind
+            // roots; every other kind's `datasetRowCount` stays `None` and is simply unused by
+            // `estimateRows` (which only sums when EVERY root is a known-count dataset).
+            val datasetRootIds = rootDsOpts.collect { case (_, Some(ds)) if ds.kind == DataSourceKind.Dataset => ds.id }
+            dataSourceRepo.countDatasetRows(datasetRootIds).flatMap { datasetRowCounts =>
             // HEL-462's drift baseline predates multi-root and is not named by the 7.2c delta --
             // scoped here to the PRIMARY (lowest-positioned) root's schema, the same root
             // `findPrimaryDataSourceIdInternal` used to resolve alone, so existing single-root
@@ -989,6 +999,23 @@ final class PipelineService(
             // `analyzeNodes`'s own existing tolerant-degradation contract elsewhere in this file.
             val analyzed = enabledSteps.flatMap(s => projections.get(s.id.value))
 
+            // HEL-1092: build `CostInput` from enabled steps and resolved roots (D2), then hand
+            // off to the pure estimator. `hasSourceUrl` is read per-kind since `sourceUrl` lives
+            // on each source's typed config, not a common `DataSource` accessor (D3: rest_api/sql
+            // have no `sourceUrl` field and are unconditionally `remote-fetch` regardless).
+            val costRoots = rootDsOpts.map { case (rid, dsOpt) =>
+              PipelineCostEstimator.RootCost(
+                rootId          = rid,
+                kind            = dsOpt.map(_.kind),
+                hasSourceUrl    = dsOpt.exists(hasSourceUrl),
+                datasetRowCount = dsOpt.filter(_.kind == DataSourceKind.Dataset).flatMap(ds => datasetRowCounts.get(ds.id))
+              )
+            }
+            val costSteps = enabledSteps.map(s => PipelineCostEstimator.StepInput(s.id.value, s.kind))
+            val costVerdict = PipelineCostEstimator.estimate(
+              PipelineCostEstimator.CostInput(costSteps, costRoots, summary.lastRunRowCount)
+            )
+
             // HEL-462: compare the current (primary-root) source schema against the baseline
             // captured on the pipeline's last successful (non-dry) run.
             pipelineRepo.findLastSourceSchema(pipelineId, user).map { baselineJson =>
@@ -1002,15 +1029,36 @@ final class PipelineService(
                                       RootSourceSchemaResponse(rid, dsName, schema.map(toFieldResponse))
                                     },
                 steps             = analyzed.map(toAnalyzeStepResponse),
-                sourceSchemaDrift = drift.map(toDriftResponse)
+                sourceSchemaDrift = drift.map(toDriftResponse),
+                costVerdict       = toCostVerdictResponse(costVerdict)
               ))
             }
+          }
           }
         }
       case _ =>
         Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
     }
   }
+
+  /** HEL-1092: `hasSourceUrl` is per-kind since `sourceUrl` lives on each source's typed config,
+   *  not a common `DataSource` accessor -- rest_api/sql have no such field and always classify
+   *  `remote-fetch` unconditionally (design.md D3). */
+  private def hasSourceUrl(source: DataSource): Boolean = source match {
+    case s: CsvSource  => s.config.sourceUrl.isDefined
+    case s: TextSource => s.config.sourceUrl.isDefined
+    case s: PdfSource  => s.config.sourceUrl.isDefined
+    case s: ImageSource => s.config.sourceUrl.isDefined
+    case _             => false
+  }
+
+  private def toCostVerdictResponse(v: PipelineCostEstimator.CostVerdict): CostVerdictResponse =
+    CostVerdictResponse(
+      autoRunnable  = v.autoRunnable,
+      estimatedRows = v.estimatedRows,
+      stepCount     = v.stepCount,
+      reasons       = v.reasons.map(r => CostReasonResponse(r.code, r.detail, r.stepId))
+    )
 
   /** HEL-914 task 6.4 (design.md D5/D6): `GET /pipelines/:id/analyze?concise=true`'s opt-in
    *  per-node `{path, op, validationError}` projection — a wholly separate response from

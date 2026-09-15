@@ -504,6 +504,24 @@ export interface RootSourceSchemaResponse {
  *  HEL-913 task 7.2c: the retired scalar `sourceDataSourceName`/`sourceSchema` pair is REPLACED
  *  outright by `sourceSchemas` (one entry per root, keyed by root id) -- the `pipeline-analyze-api`
  *  spec delta's own SHALL, unmet until this task (5.9 root-keyed the internal grounding only). */
+/** HEL-1092: mirrors `PipelineCostEstimator.CostReason` on the wire (`CostReasonResponse`).
+ *  `stepId` omitted on the wire when the reason is pipeline-level, not step-specific. */
+export interface CostReasonResponse {
+  code: string;
+  detail: string;
+  stepId?: string;
+}
+
+/** HEL-1092: mirrors `PipelineCostEstimator.CostVerdict` on the wire (`CostVerdictResponse`).
+ *  Always present on `analyze` (non-concise); deny-by-default -- `autoRunnable` is true iff
+ *  `reasons` is empty. `estimatedRows` is omitted on the wire when no estimate was available. */
+export interface CostVerdictResponse {
+  autoRunnable: boolean;
+  estimatedRows?: number;
+  stepCount: number;
+  reasons: CostReasonResponse[];
+}
+
 export interface PipelineAnalyzeResponse {
   id: string;
   name: string;
@@ -518,6 +536,7 @@ export interface PipelineAnalyzeResponse {
     validationError: string | null;
   }>;
   sourceSchemaDrift?: SourceSchemaDriftResponse;
+  costVerdict: CostVerdictResponse;
 }
 
 /** `GET /api/pipelines/:id/analyze?concise=true` — HEL-914's opt-in per-node projection, reachable

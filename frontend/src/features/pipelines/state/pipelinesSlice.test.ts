@@ -874,6 +874,7 @@ const sampleAnalyzeResponse: PipelineAnalyzeResponse = {
       outputSchema: [{ name: "order_id", type: "string" }],
     },
   ],
+  costVerdict: { autoRunnable: true, stepCount: 1, reasons: [] },
 };
 
 describe("analyzePipeline reducer", () => {

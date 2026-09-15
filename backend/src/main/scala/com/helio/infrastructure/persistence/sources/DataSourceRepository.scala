@@ -159,6 +159,24 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ).map(_.map(rowToDomain))
   }
 
+  /** HEL-1092 design.md D7: grouped row count for a set of `dataset`-kind sources, for
+   *  `PipelineCostEstimator`'s row estimate. One `count(*) ... GROUP BY data_source_id` over
+   *  `dataset_rows` rather than N single-source queries. A source with zero rows (or not present
+   *  in `ids`'s result) is simply absent from the returned map -- callers should treat a missing
+   *  key as `0`, not `None`. Privileged (system context), same pool as `readDatasetRows` -- ACL is
+   *  enforced earlier, by the caller resolving `ids` via `findByIdOwned` in the first place. */
+  def countDatasetRows(ids: Seq[DataSourceId]): Future[Map[DataSourceId, Long]] =
+    if (ids.isEmpty) Future.successful(Map.empty)
+    else {
+      val rowsTable = TableQuery[DatasetRowTable]
+      val idValues  = ids.map(_.value).toSet
+      val query = rowsTable
+        .filter(r => r.dataSourceId.inSet(idValues))
+        .groupBy(_.dataSourceId)
+        .map { case (dsId, rows) => (dsId, rows.length) }
+      ctx.withSystemContext(query.result).map(_.map { case (dsId, count) => DataSourceId(dsId) -> count.toLong }.toMap)
+    }
+
   /** Insert a new data source row in user context.
    *
    *  The V35 RLS policy on `data_sources` evaluates `owner_id` against
