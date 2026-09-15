@@ -652,15 +652,17 @@ class PipelineAnalyzeRoutesSpec
     }
 
     // design.md D8 / skeptic-design-1.md's independently-confirmed uncertain claim: a
-    // manually-inserted `analyzewithai` row (V107-legal, but `analyzewithai` has no
-    // `PipelineStep.Registry` entry -- HEL-1105 unshipped) makes `listByPipelineInternal`'s
+    // manually-inserted `generatetext` row (V107-legal, but `generatetext` has no
+    // `PipelineStep.Registry` entry -- HEL-1107 unshipped) makes `listByPipelineInternal`'s
     // `rowToDomain` throw `IllegalStateException` when decoding it, which fails the whole
     // `analyze` Future rather than reaching the estimator at all. Recorded here rather than
     // assumed, per D8 -- this is the one AC arm the estimator-level spec (task 4.1) cannot
     // exercise through this route, since request-time validation (`PipelineStepKind.All`)
     // makes the row unreachable via any real API call; only a direct SQL insert (as here)
-    // can produce it.
-    "records that a persisted analyzewithai row cannot reach the estimator: it 500s at decode, before costVerdict is ever computed" in {
+    // can produce it. HEL-1106 task 3.6: was `analyzewithai` -- swapped to `generatetext` since
+    // `analyzewithai` is now registered by THIS ticket (see `PipelineAnalyzeAnalyzeWithAiSpec`
+    // for its own now-200 persisted-row analyze coverage).
+    "records that a persisted generatetext row cannot reach the estimator: it 500s at decode, before costVerdict is ever computed" in {
       cleanPipelines()
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
@@ -669,7 +671,7 @@ class PipelineAnalyzeRoutesSpec
       val stepId = UUID.randomUUID().toString
       await(db.run(sqlu"""
         INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, root_id)
-        VALUES ($stepId, $pid, 0, 'analyzewithai', '{}', true, $pid)
+        VALUES ($stepId, $pid, 0, 'generatetext', '{}', true, $pid)
       """))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {

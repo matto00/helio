@@ -1,5 +1,6 @@
 package com.helio.domain.engine
 
+import com.helio.domain.ai.AiStepClient
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DatasetSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineRootId, PipelineStep, PipelineStepId, RestSource, SqlSource, TextSource, TruncatedRead, TruncationSink, WriteBackSink}
 import com.helio.domain.steps.{JoinStep, LookupStep, SecondaryInput, UnionStep}
@@ -162,7 +163,11 @@ class InProcessPipelineEngine(
     // SqlSource runs — real DNS/denylist in production; an engine-level spec admits its known
     // test host without weakening the guard for any other host.
     sqlResolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
-    sqlIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+    sqlIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr),
+    // HEL-1106 (design.md D2): nullable-default convention mirrors urlFetch/sqlResolveHost
+    // above -- the real AiStepClient PipelineRunService threads through, defaulting to
+    // AiStepClient.Unavailable so every existing test fixture that omits it keeps compiling.
+    aiStepClient: AiStepClient = AiStepClient.Unavailable
 )(implicit ec: ExecutionContext) {
 
   /** Row bound for a real `rest_api`/`sql` run (design.md D2) — distinct from
@@ -695,7 +700,8 @@ class InProcessPipelineEngine(
         },
       assertionSink = assertionSink,
       resolveLane = resolveLane,
-      writeBackSink = writeBackSink
+      writeBackSink = writeBackSink,
+      aiClient = aiStepClient
     )
 
   // ── Text loader (HEL-215): single-row loader, deliberately not shared with

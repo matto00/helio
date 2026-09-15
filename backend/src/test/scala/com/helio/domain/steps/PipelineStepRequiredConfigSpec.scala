@@ -467,19 +467,19 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
     // kinds. If a 24th is added without revisiting that table, its fields get
     // no requiredness verdict and no spec citation — silently. This is the
     // mechanical half of "verified in BOTH directions".
-    // HEL-1100/HEL-1105: the archived `enumeration.md` (openspec/changes/archive/2026-08-29-
-    // harden-step-config-decoders/enumeration.md) is frozen at 23 kinds and is not amended by
-    // later tickets -- `upsertsource`'s and `convertformat`'s own required-config declarations
-    // are documented instead in their own `companion.requiredConfigProblems` scaladoc and their
-    // own design.md Decisions, the same "single per-kind declaration" contract HEL-814
-    // established.
-    "hold exactly the 25 kinds the HEL-814 enumeration plus HEL-1100's upsertsource and HEL-1105's convertformat cover" in {
-      PipelineStep.Registry should have size 25
+    // HEL-1100/HEL-1105/HEL-1106: the archived `enumeration.md` (openspec/changes/archive/
+    // 2026-08-29-harden-step-config-decoders/enumeration.md) is frozen at 23 kinds and is not
+    // amended by later tickets -- `upsertsource`'s, `convertformat`'s and `analyzewithai`'s own
+    // required-config declarations are documented instead in their own
+    // `companion.requiredConfigProblems` scaladoc and their own design.md Decisions, the same
+    // "single per-kind declaration" contract HEL-814 established.
+    "hold exactly the 26 kinds the HEL-814 enumeration plus HEL-1100's upsertsource, HEL-1105's convertformat and HEL-1106's analyzewithai cover" in {
+      PipelineStep.Registry should have size 26
       PipelineStep.Registry.keySet shouldBe Set(
         "aggregate", "assert", "cast", "chunkbytokencount", "compute", "datebucket", "dedupe",
         "extractheadings", "fillnull", "filter", "groupby", "join", "limit", "lookup", "pivot",
         "rename", "select", "sort", "splittext", "stringops", "union", "unpivot", "window",
-        "upsertsource", "convertformat"
+        "upsertsource", "convertformat", "analyzewithai"
       )
     }
 
@@ -498,12 +498,29 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
     // GUARD: and every kind still accepts the empty draft config the "+ Add
     // transformation step" picker seeds. Failable by mutation: make any
     // extractor raise on an absent key and this goes red.
-    "GUARD: accept the picker's empty `{}` seed config on EVERY kind" in {
-      PipelineStep.Registry.foreach { case (kind, companion) =>
+    //
+    // HEL-1106 (design.md D1, deliberate deviation): `analyzewithai` is EXEMPT here -- unlike
+    // every other kind's write-path check (which tolerates an absent/partial draft and only
+    // rejects a PRESENT-but-invalid value), `analyzewithai`'s own design.md D1 explicitly
+    // requires non-empty `inputField`/`instruction` and a non-empty `outputSchema` AT WRITE TIME,
+    // sharing one `AnalyzeWithAiConfig.validate` with `requiredConfigProblems` on purpose (the
+    // two surfaces cannot diverge, same contract every other kind's split enforces the opposite
+    // way). This is the ONE kind self-approved to reject the picker's bare `{}` seed immediately
+    // rather than saving an incomplete draft.
+    "GUARD: accept the picker's empty `{}` seed config on EVERY kind except analyzewithai (HEL-1106 design.md D1)" in {
+      (PipelineStep.Registry - "analyzewithai").foreach { case (kind, companion) =>
         withClue(s"step kind '$kind' rejected the picker's empty seed config: ") {
           companion.validateRawConfig("{}") shouldBe None
         }
       }
+    }
+
+    "analyzewithai rejects the picker's empty `{}` seed config, naming the missing fields (HEL-1106 design.md D1)" in {
+      val problem = PipelineStep.Registry("analyzewithai").validateRawConfig("{}")
+      problem shouldBe defined
+      problem.get should include("inputField")
+      problem.get should include("instruction")
+      problem.get should include("outputSchema")
     }
   }
 }

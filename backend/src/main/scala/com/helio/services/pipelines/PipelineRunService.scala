@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.domain.ai.AiStepClient
 import com.helio.services.ServiceError
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
@@ -74,7 +75,12 @@ final class PipelineRunService(
     // keyed by that same node — the sole row-materialization write now that
     // task 4.1 has removed the legacy `data_type_rows` write alongside it.
     outputRepo: OutputRepository = null,
-    nodeSnapshotRepo: NodeSnapshotRepository = null
+    nodeSnapshotRepo: NodeSnapshotRepository = null,
+    // HEL-1106 (design.md D2): nullable-default convention mirrors binaryRefRepo/
+    // alertEvaluationService above -- threaded through to InProcessPipelineEngine so an
+    // `analyzewithai` step can call the model. Defaults to AiStepClient.Unavailable so every
+    // fixture that omits it degrades to the named `ai-unavailable` run failure rather than an NPE.
+    aiStepClient: AiStepClient = AiStepClient.Unavailable
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -105,7 +111,7 @@ final class PipelineRunService(
   // HEL-952 design.md Decision 4a: reuses the SAME resolveHost/isBlocked this class already
   // takes for URL-backed sources — one override per ApiRoutes construction, not a second,
   // independently-drifting SQL-specific pair.
-  private val engine = new InProcessPipelineEngine(fileSystem, connector, urlFetchSeam, resolveHost, isBlocked)
+  private val engine = new InProcessPipelineEngine(fileSystem, connector, urlFetchSeam, resolveHost, isBlocked, aiStepClient)
 
   // HEL-330 (design.md Decision 3): the two execution call sites (`executeRun`, `previewStep`)
   // depend on this trait reference, not `engine` directly.
