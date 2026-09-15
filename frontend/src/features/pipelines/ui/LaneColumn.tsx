@@ -27,6 +27,11 @@ interface LaneColumnProps {
   lane: Lane;
   laneGraph: LaneGraph;
   allSteps: Step[];
+  /** HEL-1102 (design.md Decision 2) — passed straight through to child
+   *  `LaneColumn`s and each `StepCard` call site. Optional/defaults to
+   *  `true` so every pre-existing test site doesn't need updating just to
+   *  satisfy this prop. */
+  isOwner?: boolean;
   pipelineId: string;
   onRemove: (id: string) => void;
   getAnalyzeColumns: (stepId: string) => string[];
@@ -74,6 +79,7 @@ export function LaneColumn({
   lane,
   laneGraph,
   allSteps,
+  isOwner = true,
   pipelineId,
   onRemove,
   getAnalyzeColumns,
@@ -131,6 +137,7 @@ export function LaneColumn({
             lane={childLane}
             laneGraph={laneGraph}
             allSteps={allSteps}
+            isOwner={isOwner}
             pipelineId={pipelineId}
             onRemove={onRemove}
             getAnalyzeColumns={getAnalyzeColumns}
@@ -182,6 +189,7 @@ export function LaneColumn({
               <StepCard
                 step={step}
                 allSteps={allSteps}
+                isOwner={isOwner}
                 stepIndex={-1}
                 pipelineId={pipelineId}
                 onRemove={onRemove}
@@ -226,6 +234,7 @@ export function LaneColumn({
           <StepCard
             step={step}
             allSteps={allSteps}
+            isOwner={isOwner}
             stepIndex={-1}
             pipelineId={pipelineId}
             onRemove={onRemove}

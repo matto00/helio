@@ -29,6 +29,8 @@ import type {
   StringOpsConfig as StringOpsConfigType,
   UnionConfig as UnionConfigType,
   UnpivotConfig as UnpivotConfigType,
+  UpsertSourceConfig as UpsertSourceConfigType,
+  UpsertTarget,
   WindowConfig as WindowConfigType,
 } from "../types/pipelineStep";
 import type { OpType, Step } from "../types/step";
@@ -54,6 +56,7 @@ import {
 } from "../ui/stepConfigs/StringOpsConfig";
 import type { UnionConfigValue } from "../ui/stepConfigs/UnionConfig";
 import type { UnpivotConfigValue } from "../ui/stepConfigs/UnpivotConfig";
+import type { UpsertSourceConfigValue } from "../ui/stepConfigs/UpsertSourceConfig";
 import { WINDOW_FUNCTIONS, type WindowConfigValue } from "../ui/stepConfigs/WindowConfig";
 import {
   TextAlignStart,
@@ -76,6 +79,7 @@ import {
   List,
   PaintBucket,
   Pencil,
+  Save,
   Table2,
   Tags,
   Type,
@@ -117,6 +121,11 @@ export const OP_TYPES: OpType[] = [
   { id: "union", label: "Union / append rows", icon: Group },
   { id: "lookup", label: "Lookup / enrich", icon: Tags },
   { id: "assert", label: "Assert / validate", icon: ClipboardCheck },
+  // `upsertsource` (HEL-1102) is the fourth async/repo-touching op -- like
+  // `union`/`lookup`, it ships a full editor (UpsertSourceConfig.tsx) and
+  // its own ownership check (design.md Decision 2), so it also does NOT
+  // mirror join's exclusion.
+  { id: "upsertsource", label: "Write to source", icon: Save },
 ];
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
@@ -238,6 +247,11 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
       } as LookupConfigType;
     case "assert":
       return { rules: [] } as AssertConfigType;
+    case "upsertsource":
+      // design.md Decision 3/4: `target` is deliberately ABSENT (no synthesized default --
+      // HEL-386/620 precedent), `mode` is explicitly seeded to "append" (the toggle's own
+      // visible initial selection, matching the backend's own absent-`mode` decode default).
+      return { mode: "append" } as UpsertSourceConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -548,6 +562,35 @@ export function lookupConfigOf(step: Step): LookupConfigValue {
     sourceKey: cfg.sourceKey ?? "",
     lookupKey: cfg.lookupKey ?? "",
     columns: Array.isArray(cfg.columns) ? cfg.columns : [],
+  };
+}
+
+/** HEL-1102 evaluation-1.md CR1: the backend's `UpsertSourceConfig.decode` substitutes
+ *  `UpsertTarget.Default = ExistingSource("")` for a genuinely absent `target` (HEL-1099's own
+ *  tolerant-incomplete-draft contract, `UpsertSourceConfig.scala:131-135`), and `format.write`
+ *  always serializes a concrete `target` object -- there is no wire shape where `target` is
+ *  actually omitted once a step has round-tripped through the real backend. A freshly-added
+ *  step therefore comes back as `{kind:"existingSource", dataSourceId:""}`, never `undefined`.
+ *  This is the SAME "no target chosen yet" sentinel as an absent `target`, not a real
+ *  existing-source selection -- treating it as one is exactly the HEL-386/620 picker-empty-
+ *  default defect design.md Decision 3 forbids. */
+export function isUnconfiguredUpsertTarget(target: UpsertTarget | undefined): boolean {
+  return target === undefined || (target.kind === "existingSource" && target.dataSourceId === "");
+}
+
+/** HEL-1102: narrows `step.config` to `UpsertSourceConfigValue` -- `target` stays possibly
+ *  `undefined` (design.md Decision 3, mirrors the backend's own tolerant-absent-target
+ *  decode) rather than being synthesized into a fake default the way every other secondary-
+ *  input config's `DEFAULT_SECONDARY_INPUT` fallback does. Normalizes the backend's own
+ *  `ExistingSource("")` round-trip sentinel to `undefined` (evaluation-1.md CR1) so a
+ *  freshly-added, not-yet-configured step never renders as if "existing dataset" were chosen. */
+export function upsertSourceConfigOf(step: Step): UpsertSourceConfigValue {
+  const empty: UpsertSourceConfigValue = { target: undefined, mode: "append" };
+  if (step.opType.id !== "upsertsource") return empty;
+  const cfg = step.config as UpsertSourceConfigType;
+  return {
+    target: isUnconfiguredUpsertTarget(cfg.target) ? undefined : cfg.target,
+    mode: cfg.mode === "replace" ? "replace" : "append",
   };
 }
 

@@ -254,6 +254,7 @@ export function PipelineDetailPage() {
         >
           <PipelineRiverView
             steps={steps}
+            isOwner={isOwner}
             laneGraph={laneGraph}
             roots={roots}
             onRemoveRoot={(rootId) => void handleRemoveRoot(rootId)}
