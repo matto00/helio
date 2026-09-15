@@ -214,14 +214,19 @@ Cycle detection is required (a pipeline must not write to a source it reads).
 
 ### 6 — File & AI steps
 
-- `convertformat` — file format conversion (CSV↔JSON, etc.).
+- `convertformat` — deterministic, local file format conversion (CSV↔JSON,
+  text↔Markdown). No `ClaudeClient`, no AI hooks (owner ruling, HEL-1105); AI-backed
+  conversion is deferred to HEL-1135.
 - `analyzewithai` — structured extraction/classification over content fields.
 - `generatetext` — synthesize source data into a text Output.
 
-All three route through the existing `com.helio.ai` `ClaudeClient`, which already
-enforces `CLAUDE_MAX_TOKENS`, `CLAUDE_MAX_INPUT_TOKENS` and tier gating
-(`HELIO_BETA_DAILY_MESSAGE_LIMIT`). **These steps are the reason epic 4's cost
-gate exists** — an AI step must never be reachable by auto-run.
+`analyzewithai`/`generatetext` route through the existing `com.helio.ai`
+`ClaudeClient`, which already enforces `CLAUDE_MAX_TOKENS`,
+`CLAUDE_MAX_INPUT_TOKENS` and tier gating (`HELIO_BETA_DAILY_MESSAGE_LIMIT`).
+**These two steps are the reason epic 4's cost gate exists** — an AI step must
+never be reachable by auto-run. `convertformat` is denied auto-run separately
+(its own `content-conversion` reason code, HEL-1105), not because it is an AI
+step.
 
 ## Authorization & RLS
 

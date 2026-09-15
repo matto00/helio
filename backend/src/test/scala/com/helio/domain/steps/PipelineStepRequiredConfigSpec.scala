@@ -467,18 +467,19 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
     // kinds. If a 24th is added without revisiting that table, its fields get
     // no requiredness verdict and no spec citation — silently. This is the
     // mechanical half of "verified in BOTH directions".
-    // HEL-1100: the archived `enumeration.md` (openspec/changes/archive/2026-08-29-harden-step-
-    // config-decoders/enumeration.md) is frozen at 23 kinds and is not amended by later tickets --
-    // `upsertsource`'s own required-config declaration (an unset target) is documented instead in
-    // `UpsertSourceStep.companion.requiredConfigProblems`'s own scaladoc and this ticket's
-    // design.md Decision 1, the same "single per-kind declaration" contract HEL-814 established.
-    "hold exactly the 24 kinds the HEL-814 enumeration plus HEL-1100's upsertsource cover" in {
-      PipelineStep.Registry should have size 24
+    // HEL-1100/HEL-1105: the archived `enumeration.md` (openspec/changes/archive/2026-08-29-
+    // harden-step-config-decoders/enumeration.md) is frozen at 23 kinds and is not amended by
+    // later tickets -- `upsertsource`'s and `convertformat`'s own required-config declarations
+    // are documented instead in their own `companion.requiredConfigProblems` scaladoc and their
+    // own design.md Decisions, the same "single per-kind declaration" contract HEL-814
+    // established.
+    "hold exactly the 25 kinds the HEL-814 enumeration plus HEL-1100's upsertsource and HEL-1105's convertformat cover" in {
+      PipelineStep.Registry should have size 25
       PipelineStep.Registry.keySet shouldBe Set(
         "aggregate", "assert", "cast", "chunkbytokencount", "compute", "datebucket", "dedupe",
         "extractheadings", "fillnull", "filter", "groupby", "join", "limit", "lookup", "pivot",
         "rename", "select", "sort", "splittext", "stringops", "union", "unpivot", "window",
-        "upsertsource"
+        "upsertsource", "convertformat"
       )
     }
 

@@ -2,7 +2,7 @@ package com.helio.api.protocols.pipelines
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model.PipelineStepKind
-import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, UpsertSourceConfig, WindowConfig}
+import com.helio.domain.{AggregateConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, ConvertFormatConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, UpsertSourceConfig, WindowConfig}
 import spray.json._
 
 // ── Pipeline analyze API types (extracted from PipelineProtocol.scala per
@@ -175,6 +175,14 @@ final case class UpsertSourceAnalyzeStepResponse(
     validationError: Option[String]
 ) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.UpsertSource }
 
+/** HEL-1105 (design.md D6): analyze response for `convertformat` -- a 1:1 transform, same shape
+ *  as every other kind's analyze response. */
+final case class ConvertFormatAnalyzeStepResponse(
+    id: String, position: Int, config: ConvertFormatConfig,
+    inputSchema: Vector[SchemaFieldResponse], outputSchema: Vector[SchemaFieldResponse],
+    validationError: Option[String]
+) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.ConvertFormat }
+
 
 final case class TypeChangedColumnResponse(name: String, previousType: String, currentType: String)
 
@@ -311,6 +319,7 @@ trait PipelineAnalyzeProtocol
   private val assertAnalyzeFormat: RootJsonFormat[AssertAnalyzeStepResponse] = jsonFormat6(AssertAnalyzeStepResponse.apply)
   // `upsertSourceConfigFormat` is already an inherited implicit from `PipelineStepProtocol`.
   private val upsertSourceAnalyzeFormat: RootJsonFormat[UpsertSourceAnalyzeStepResponse] = jsonFormat6(UpsertSourceAnalyzeStepResponse.apply)
+  private val convertFormatAnalyzeFormat: RootJsonFormat[ConvertFormatAnalyzeStepResponse] = jsonFormat6(ConvertFormatAnalyzeStepResponse.apply)
 
   implicit object analyzeStepResponseFormat extends RootJsonFormat[AnalyzeStepResponse] {
     override def write(s: AnalyzeStepResponse): JsValue = {
@@ -339,6 +348,7 @@ trait PipelineAnalyzeProtocol
         case l: LookupAnalyzeStepResponse => lookupAnalyzeFormat.write(l).asJsObject
         case a: AssertAnalyzeStepResponse => assertAnalyzeFormat.write(a).asJsObject
         case u: UpsertSourceAnalyzeStepResponse => upsertSourceAnalyzeFormat.write(u).asJsObject
+        case c: ConvertFormatAnalyzeStepResponse => convertFormatAnalyzeFormat.write(c).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -368,6 +378,7 @@ trait PipelineAnalyzeProtocol
         case Some(JsString(PipelineStepKind.Lookup))     => lookupAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.Assert))     => assertAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.UpsertSource)) => upsertSourceAnalyzeFormat.read(json)
+        case Some(JsString(PipelineStepKind.ConvertFormat)) => convertFormatAnalyzeFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown analyze step type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on analyze step")
       }

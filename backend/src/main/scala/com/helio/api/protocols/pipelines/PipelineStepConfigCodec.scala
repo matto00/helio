@@ -1,7 +1,7 @@
 package com.helio.api.protocols.pipelines
 
 import com.helio.domain.model.{PipelineStep, PipelineStepKind}
-import com.helio.domain.steps.{SecondaryInput, UpsertSourceConfig}
+import com.helio.domain.steps.{ConvertFormatConfig, SecondaryInput, UpsertSourceConfig}
 import com.helio.domain.{AggregateConfig, AggregateStep, AssertConfig, AssertStep, CastConfig, CastStep, ChunkByTokenCountConfig, ChunkByTokenCountStep, ComputeConfig, ComputeStep, DateBucketConfig, DedupeConfig, DedupeStep, DateBucketStep, ExtractHeadingsConfig, ExtractHeadingsStep, FillNullConfig, FillNullStep, FilterConfig, FilterStep, GroupByConfig, GroupByStep, JoinConfig, JoinStep, LimitConfig, LimitStep, LookupConfig, LookupStep, PivotConfig, PivotStep, RenameConfig, RenameStep, SelectConfig, SelectStep, SortConfig, SortStep, SplitTextConfig, SplitTextStep, StringOpsConfig, StringOpsStep, UnionConfig, UnionStep, UnpivotConfig, UnpivotStep, WindowConfig, WindowStep}
 import spray.json._
 
@@ -80,6 +80,7 @@ object PipelineStepConfigCodec {
     // ticket's own repository-seam tests, and HEL-1100 once it registers the kind) serialize it
     // via this shared facade, using the type's own `format` exactly like every other config.
     case c: UpsertSourceConfig => c.toJson.compactPrint
+    case c: ConvertFormatConfig => PipelineStep.Registry(PipelineStepKind.ConvertFormat).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"

@@ -314,9 +314,9 @@ silently absorb a future kind.
 empty. The verdict SHALL deny with a distinct reason code for: an enabled AI step (`analyzewithai`, `generatetext`) as
 `ai-step`; a `rest_api`/`sql` root or a URL-backed root as `remote-fetch`; an estimate above the row threshold as
 `rows-above-threshold`; an enabled step count above the bound as `steps-above-bound`; a write-back step as
-`writeback-step`. Anything the estimator cannot classify SHALL be denied: an op outside the cheap allowlist
-(`unclassified-op`), an unresolvable or unknown root source (`unclassified-source`), no available row estimate
-(`row-estimate-unavailable`), or no roots (`no-roots`).
+`writeback-step`; an enabled content-conversion step (`convertformat`) as `content-conversion`. Anything the estimator
+cannot classify SHALL be denied: an op outside the cheap allowlist (`unclassified-op`), an unresolvable or unknown root
+source (`unclassified-source`), no available row estimate (`row-estimate-unavailable`), or no roots (`no-roots`).
 
 #### Scenario: Pipeline with an AI step is denied
 - **WHEN** a pipeline has an enabled `analyzewithai` step over a small dataset root
@@ -327,8 +327,12 @@ empty. The verdict SHALL deny with a distinct reason code for: an enabled AI ste
 - **THEN** `costVerdict.autoRunnable` is true and `reasons` is empty
 
 #### Scenario: Unclassifiable op is denied
-- **WHEN** a pipeline has an enabled step whose op is not in the cheap allowlist and not a named deny op (e.g. `convertformat`)
+- **WHEN** a pipeline has an enabled step whose op is not in the cheap allowlist and not a named deny op
 - **THEN** `costVerdict.autoRunnable` is false with reason code `unclassified-op`
+
+#### Scenario: Content-conversion step is denied
+- **WHEN** a pipeline has an enabled `convertformat` step over a small dataset root
+- **THEN** `costVerdict.autoRunnable` is false and `reasons` contains a reason with code `content-conversion` naming that step
 
 #### Scenario: Remote source is denied
 - **WHEN** a pipeline root is a `rest_api` source
