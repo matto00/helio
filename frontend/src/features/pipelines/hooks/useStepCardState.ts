@@ -12,18 +12,21 @@ import { useEffect, useRef, useState } from "react";
 
 import { updatePipelineStep } from "../services/pipelineService";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
-import { isUnsupportedOpType } from "../state/stepNarrowing";
+import { isTempStepId, isUnsupportedOpType } from "../state/stepNarrowing";
 import {
   aggregateConfigOf,
+  analyzeWithAiConfigOf,
   assertConfigOf,
   castsOf,
   chunkByTokenCountConfigOf,
   computeConfigOf,
+  convertFormatConfigOf,
   dateBucketConfigOf,
   dedupeConfigOf,
   extractHeadingsConfigOf,
   fillNullConfigOf,
   filterConfigOf,
+  generateTextConfigOf,
   limitCountOf,
   lookupConfigOf,
   pivotConfigOf,
@@ -36,6 +39,11 @@ import {
   unpivotConfigOf,
   upsertSourceConfigOf,
   windowConfigOf,
+} from "../state/stepNarrowing";
+import type {
+  AnalyzeWithAiConfigValue,
+  ConvertFormatConfigValue,
+  GenerateTextConfigValue,
 } from "../state/stepNarrowing";
 import type { PipelineStepConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
@@ -90,6 +98,9 @@ export interface StepCardStateHandlers {
   lookupConfig: LookupConfigValue;
   assertConfig: AssertConfigValue;
   upsertSourceConfig: UpsertSourceConfigValue;
+  convertFormatConfig: ConvertFormatConfigValue;
+  analyzeWithAiConfig: AnalyzeWithAiConfigValue;
+  generateTextConfig: GenerateTextConfigValue;
   /** design.md Decision 6 — the current rejected-`persist()` message for
    *  THIS step, or `null` when there is none. Scoped narrowly: only ever
    *  populated by `onUpsertSourceChange`'s persist call site below, per this
@@ -119,6 +130,9 @@ export interface StepCardStateHandlers {
   onLookupChange: (config: LookupConfigValue) => void;
   onAssertChange: (config: AssertConfigValue) => void;
   onUpsertSourceChange: (config: UpsertSourceConfigValue) => void;
+  onConvertFormatChange: (config: ConvertFormatConfigValue) => void;
+  onAnalyzeWithAiChange: (config: AnalyzeWithAiConfigValue) => void;
+  onGenerateTextChange: (config: GenerateTextConfigValue) => void;
 }
 
 export function useStepCardState(
@@ -173,6 +187,15 @@ export function useStepCardState(
   const [upsertSourceConfig, setUpsertSourceConfig] = useState<UpsertSourceConfigValue>(() =>
     upsertSourceConfigOf(step),
   );
+  const [convertFormatConfig, setConvertFormatConfig] = useState<ConvertFormatConfigValue>(() =>
+    convertFormatConfigOf(step),
+  );
+  const [analyzeWithAiConfig, setAnalyzeWithAiConfig] = useState<AnalyzeWithAiConfigValue>(() =>
+    analyzeWithAiConfigOf(step),
+  );
+  const [generateTextConfig, setGenerateTextConfig] = useState<GenerateTextConfigValue>(() =>
+    generateTextConfigOf(step),
+  );
   // design.md Decision 6 — scoped to `upsertsource` only (see the field's
   // own doc on `StepCardStateHandlers` above).
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -201,6 +224,9 @@ export function useStepCardState(
     setLookupConfig(lookupConfigOf(step));
     setAssertConfig(assertConfigOf(step));
     setUpsertSourceConfig(upsertSourceConfigOf(step));
+    setConvertFormatConfig(convertFormatConfigOf(step));
+    setAnalyzeWithAiConfig(analyzeWithAiConfigOf(step));
+    setGenerateTextConfig(generateTextConfigOf(step));
   }
 
   // Debounce ref for the persist path below, plus a monotonically
@@ -236,6 +262,18 @@ export function useStepCardState(
     // it to be invoked with a stale/default value regardless -- skip the PATCH entirely rather
     // than persisting a config no editor here actually computed.
     if (isUnsupportedOpType(step.opType)) return;
+    // HEL-1109 (design.md D3) — a step still carrying its `makeStep`-minted
+    // temp id (exactly `step-<counter>`, e.g. "step-1") has no server-side
+    // row yet: PATCHing it would 404 (swallowed for every kind except
+    // `upsertsource`, which is the only call site that captures errors
+    // today). This was a latent defect before this ticket (the removed
+    // `handleInsertStep:685` comment claiming otherwise was itself wrong,
+    // design.md D3) -- fixed here, for every op, rather than wiring each
+    // draft card to withhold `persist` individually. Uses the single
+    // `isTempStepId` source of truth (evaluation-1.md CR3) -- a semantic
+    // test-fixture id like "step-rename-1" is NOT a temp id and must still
+    // PATCH normally.
+    if (isTempStepId(step.id)) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;
@@ -441,6 +479,40 @@ export function useStepCardState(
     persist({ target: newConfig.target, mode: newConfig.mode }, true);
   }
 
+  /** HEL-1109 (design.md D3) — a not-yet-created draft (temp id) has no PATCH
+   *  path at all (`persist`'s own guard above), but the parent still needs to
+   *  see every edit immediately: `usePipelineDetailPage.handleStepConfigChange`
+   *  is what notices a draft's config just became complete and fires its
+   *  (exactly-once) create request. A real, persisted step keeps the normal
+   *  debounced PATCH path unchanged. */
+  function emitOrPersist(newConfig: PipelineStepConfig) {
+    if (isTempStepId(step.id)) {
+      onConfigChange(step.id, newConfig);
+      return;
+    }
+    persist(newConfig);
+  }
+
+  function onConvertFormatChange(newConfig: ConvertFormatConfigValue) {
+    setConvertFormatConfig(newConfig);
+    emitOrPersist({
+      field: newConfig.field,
+      from: newConfig.from,
+      to: newConfig.to,
+      outputField: newConfig.outputField ? newConfig.outputField : undefined,
+    });
+  }
+
+  function onAnalyzeWithAiChange(newConfig: AnalyzeWithAiConfigValue) {
+    setAnalyzeWithAiConfig(newConfig);
+    emitOrPersist(newConfig);
+  }
+
+  function onGenerateTextChange(newConfig: GenerateTextConfigValue) {
+    setGenerateTextConfig(newConfig);
+    emitOrPersist(newConfig);
+  }
+
   return {
     selectedFields,
     renames,
@@ -464,6 +536,9 @@ export function useStepCardState(
     lookupConfig,
     assertConfig,
     upsertSourceConfig,
+    convertFormatConfig,
+    analyzeWithAiConfig,
+    generateTextConfig,
     saveError,
     onFieldToggle,
     onRenameChange,
@@ -487,5 +562,8 @@ export function useStepCardState(
     onLookupChange,
     onAssertChange,
     onUpsertSourceChange,
+    onConvertFormatChange,
+    onAnalyzeWithAiChange,
+    onGenerateTextChange,
   };
 }

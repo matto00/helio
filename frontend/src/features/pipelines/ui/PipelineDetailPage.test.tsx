@@ -499,6 +499,267 @@ describe("PipelineDetailPage", () => {
     expect(deletePipelineStepMock).not.toHaveBeenCalled();
   });
 
+  // HEL-1109 (design.md D3, pipeline-ai-step-authoring spec) — an AI step's
+  // create is deferred until its config first becomes complete.
+  describe("deferred create for AI step kinds (HEL-1109)", () => {
+    function chooseSelectOption(comboboxName: RegExp, optionLabel: string) {
+      fireEvent.click(screen.getByRole("combobox", { name: comboboxName }));
+      fireEvent.click(screen.getByRole("option", { name: optionLabel }));
+    }
+
+    it("adding an analyzewithai step issues no create request and renders as an editable draft", () => {
+      renderDetailPage();
+
+      fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: /Analyze with AI/i }));
+
+      expect(screen.getByText("Analyze with AI")).toBeInTheDocument();
+      expect(screen.getByText(/draft.*not yet saved/i)).toBeInTheDocument();
+      expect(createPipelineStepMock).not.toHaveBeenCalled();
+    });
+
+    it("convertformat (config-tolerant) still creates immediately with its seed config, unaffected", async () => {
+      createPipelineStepMock.mockResolvedValueOnce({
+        id: "cf-1",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "convertformat",
+        config: { field: "" },
+        createdAt: "",
+        updatedAt: "",
+      });
+      renderDetailPage();
+
+      fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: /Convert format/i }));
+
+      await waitFor(() => {
+        expect(createPipelineStepMock).toHaveBeenCalledWith(
+          "pipe-1",
+          "convertformat",
+          { field: "" },
+          undefined,
+          undefined,
+          undefined,
+          "root-1",
+        );
+      });
+    });
+
+    // HEL-1109 (design.md Risks) — the draft's field picker falls back to the
+    // pipeline's own source schema (no upstream step exists yet for this
+    // first-ever step), so a real inputField selection is reachable here.
+    const analyzeWithSourceField = {
+      ...emptyAnalyzeResponse,
+      sourceSchemas: [{ rootId: "root-1", sourceSchema: [{ name: "notes", type: "string" }] }],
+    };
+
+    it("completing a draft's config fires exactly one create request", async () => {
+      analyzePipelineMock.mockResolvedValue(analyzeWithSourceField);
+      createPipelineStepMock.mockResolvedValueOnce({
+        id: "ai-1",
+        pipelineId: "pipe-1",
+        position: 0,
+        type: "generatetext",
+        config: { inputField: "notes", instruction: "Summarize", outputField: "summary" },
+        createdAt: "",
+        updatedAt: "",
+      });
+      renderDetailPage();
+      await waitFor(() => expect(analyzePipelineMock).toHaveBeenCalledTimes(1));
+
+      fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: /Generate text/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
+
+      expect(createPipelineStepMock).not.toHaveBeenCalled();
+      chooseSelectOption(/input field to generate from/i, "notes");
+      fireEvent.change(screen.getByRole("textbox", { name: /instruction for the model/i }), {
+        target: { value: "Summarize" },
+      });
+      fireEvent.change(screen.getByRole("textbox", { name: /destination field/i }), {
+        target: { value: "summary" },
+      });
+
+      await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(1));
+      expect(createPipelineStepMock).toHaveBeenCalledWith(
+        "pipe-1",
+        "generatetext",
+        { inputField: "notes", instruction: "Summarize", outputField: "summary" },
+        undefined,
+        undefined,
+        undefined,
+        "root-1",
+      );
+
+      // A further edit after the create resolved must PATCH, not re-create.
+      // (The card remounts with the real id as its React key -- the same
+      // pre-existing behavior every immediate-create op already has via
+      // `syncStepsFromServer` -- so it re-collapses; re-expand before editing.)
+      await waitFor(() =>
+        expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
+      );
+      fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
+      fireEvent.change(screen.getByRole("textbox", { name: /instruction for the model/i }), {
+        target: { value: "Summarize briefly" },
+      });
+      await waitFor(() =>
+        expect(updatePipelineStepMock).toHaveBeenCalledWith("ai-1", expect.anything()),
+      );
+      expect(createPipelineStepMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("draft create failure is shown inline and the step remains a draft", async () => {
+      analyzePipelineMock.mockResolvedValue(analyzeWithSourceField);
+      createPipelineStepMock.mockRejectedValueOnce(
+        new Error("Request failed with status code 422"),
+      );
+      renderDetailPage();
+      await waitFor(() => expect(analyzePipelineMock).toHaveBeenCalledTimes(1));
+
+      fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: /Generate text/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
+
+      chooseSelectOption(/input field to generate from/i, "notes");
+      fireEvent.change(screen.getByRole("textbox", { name: /instruction for the model/i }), {
+        target: { value: "Summarize" },
+      });
+      fireEvent.change(screen.getByRole("textbox", { name: /destination field/i }), {
+        target: { value: "summary" },
+      });
+
+      await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(1));
+      expect(await screen.findByText(/failed to save this step/i)).toBeInTheDocument();
+      expect(screen.getByText(/draft.*not yet saved/i)).toBeInTheDocument();
+    });
+
+    // evaluation-1.md CR2(c) — the "nearest earlier step" backward-walk path
+    // (trunk drafts, no `parentStepId`), previously untested: only the
+    // first-ever-step root-schema fallback was exercised before this cycle.
+    it("a trunk draft added after a persisted step offers THAT step's own output schema, not the root's source schema", async () => {
+      getPipelineStepsMock.mockResolvedValue([
+        {
+          id: "rename-1",
+          pipelineId: "pipe-1",
+          position: 0,
+          type: "rename",
+          config: { renames: { raw_notes: "clean_notes" } },
+          createdAt: "",
+          updatedAt: "",
+        },
+      ]);
+      analyzePipelineMock.mockResolvedValue({
+        ...emptyAnalyzeResponse,
+        // The root's OWN source schema deliberately has NO field named
+        // "clean_notes" -- if the draft's picker offered a root-schema
+        // fallback instead of the preceding step's real output, this
+        // field would not appear as an option at all.
+        sourceSchemas: [
+          { rootId: "root-1", sourceSchema: [{ name: "raw_notes", type: "string" }] },
+        ],
+        steps: [
+          {
+            id: "rename-1",
+            position: 0,
+            type: "rename",
+            config: { renames: { raw_notes: "clean_notes" } },
+            inputSchema: [{ name: "raw_notes", type: "string" }],
+            outputSchema: [{ name: "clean_notes", type: "string" }],
+          },
+        ],
+      });
+      renderDetailPage();
+      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await waitFor(() => expect(analyzePipelineMock).toHaveBeenCalled());
+
+      fireEvent.click(screen.getByRole("button", { name: "+ Add transformation step" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: /Generate text/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
+
+      fireEvent.click(screen.getByRole("combobox", { name: /input field to generate from/i }));
+      expect(screen.getByRole("option", { name: "clean_notes" })).toBeInTheDocument();
+      expect(screen.queryByRole("option", { name: "raw_notes" })).not.toBeInTheDocument();
+    });
+
+    // evaluation-1.md CR2(a)/(c) — a LANE draft resolves its field picker from
+    // its OWN anchor (`pendingDraftMetaRef`'s recorded `parentStepId`), never
+    // a flat array-position walk. This live end-to-end test is NOT
+    // discriminating on its own (`handleAddLaneStep`'s own insertion always
+    // keeps a fresh draft array-adjacent to its true anchor, so the two
+    // resolution strategies necessarily agree for any state a real "+lane"
+    // click can produce) -- the genuinely discriminating coverage is the
+    // pure `resolveDraftFallbackSchema` unit tests in `stepNarrowing.test.ts`
+    // (skeptic-final-1.md), which control array order and `meta.parentStepId`
+    // independently. This test's job is proving the wiring reaches the real
+    // app: the anchor-based contract fires end-to-end, not just in a unit.
+    it("a lane draft resolves its field picker from its own anchor step, not an unrelated trunk step", async () => {
+      getPipelineStepsMock.mockResolvedValue([
+        {
+          id: "rename-1",
+          pipelineId: "pipe-1",
+          position: 0,
+          type: "rename",
+          config: { renames: {} },
+          createdAt: "",
+          updatedAt: "",
+        },
+        {
+          id: "filter-1",
+          pipelineId: "pipe-1",
+          position: 1,
+          type: "filter",
+          config: { combinator: "AND", conditions: [] },
+          createdAt: "",
+          updatedAt: "",
+        },
+      ]);
+      analyzePipelineMock.mockResolvedValue({
+        ...emptyAnalyzeResponse,
+        sourceSchemas: [{ rootId: "root-1", sourceSchema: [] }],
+        steps: [
+          {
+            id: "rename-1",
+            position: 0,
+            type: "rename",
+            config: { renames: {} },
+            inputSchema: [],
+            outputSchema: [{ name: "anchor_field", type: "string" }],
+          },
+          {
+            id: "filter-1",
+            position: 1,
+            type: "filter",
+            config: { combinator: "AND", conditions: [] },
+            inputSchema: [{ name: "anchor_field", type: "string" }],
+            outputSchema: [{ name: "unrelated_trunk_field", type: "string" }],
+          },
+        ],
+      });
+      renderDetailPage();
+      const renameCard = await screen.findByRole("button", {
+        name: /Rename column/i,
+        expanded: false,
+      });
+      await waitFor(() => expect(analyzePipelineMock).toHaveBeenCalled());
+
+      const renameSection = renameCard.closest(".pipeline-detail-page__step-section");
+      fireEvent.click(
+        within(renameSection as HTMLElement).getByRole("button", {
+          name: /Branch this step into a new lane/i,
+        }),
+      );
+      fireEvent.click(screen.getByRole("menuitem", { name: /Generate text/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
+
+      fireEvent.click(screen.getByRole("combobox", { name: /input field to generate from/i }));
+      expect(screen.getByRole("option", { name: "anchor_field" })).toBeInTheDocument();
+      expect(
+        screen.queryByRole("option", { name: "unrelated_trunk_field" }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   it("removing a persisted step deletes it on the backend", async () => {
     getPipelineStepsMock.mockResolvedValue([
       {

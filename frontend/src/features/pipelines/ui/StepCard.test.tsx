@@ -34,9 +34,13 @@ const RENAME_OP_TYPE = OP_TYPES.find((op) => op.id === "rename")!;
 // dedicated editor, so it exercises StepCard's no-editor fallback branch.
 const JOIN_OP_TYPE: OpType = { id: "join", label: "Join tables", icon: Link2 };
 
+// HEL-1109: "persisted-step-N" (not "step-N") deliberately -- `StepCard`'s
+// new draft-chip check and `useStepCardState.persist`'s new not-yet-real-id
+// guard both treat exactly the `^step-\d+$` shape (the real `makeStep`
+// temp-id format from stepNarrowing.ts) as an unsaved draft.
 function makeStep(overrides: Partial<Step> = {}): Step {
   return {
-    id: "step-1",
+    id: "persisted-step-1",
     opType: LIMIT_OP_TYPE,
     label: "Limit rows",
     config: { count: 5 },
@@ -118,7 +122,7 @@ describe("StepCard preview — rows + schema (3.1)", () => {
     await click("Limit rows");
     await click("Preview data");
 
-    expect(fetchStepPreviewMock).toHaveBeenCalledWith("pipe-1", "step-1");
+    expect(fetchStepPreviewMock).toHaveBeenCalledWith("pipe-1", "persisted-step-1");
     expect(screen.getByText("alice")).toBeInTheDocument();
 
     const chips = container.querySelectorAll(".pipeline-detail-page__step-preview-schema-chip");
@@ -428,7 +432,7 @@ describe("StepCard preview — persistent open preference (3.3)", () => {
     await click("Limit rows");
 
     expect(screen.getByRole("button", { name: "Hide preview" })).toBeInTheDocument();
-    expect(fetchStepPreviewMock).toHaveBeenCalledWith("pipe-1", "step-1");
+    expect(fetchStepPreviewMock).toHaveBeenCalledWith("pipe-1", "persisted-step-1");
   });
 
   it("writes false to storage when the user hides an open preview", async () => {
@@ -470,8 +474,12 @@ describe("StepCard preview — cross-card same-session preference (3.4)", () => 
     // (false) in their mount-time lazy initializer.
     render(
       <>
-        <StepCard {...baseProps({ step: makeStep({ id: "step-1", label: "Card one" }) })} />
-        <StepCard {...baseProps({ step: makeStep({ id: "step-2", label: "Card two" }) })} />
+        <StepCard
+          {...baseProps({ step: makeStep({ id: "persisted-step-1", label: "Card one" }) })}
+        />
+        <StepCard
+          {...baseProps({ step: makeStep({ id: "persisted-step-2", label: "Card two" }) })}
+        />
       </>,
     );
 
@@ -597,6 +605,43 @@ describe("StepCard — real schema diff chips (HEL-405)", () => {
     expect(screen.queryByText("+ col_a")).not.toBeInTheDocument();
     expect(screen.queryByText(/col_b/)).not.toBeInTheDocument();
     expect(screen.queryByText(/col_c/)).not.toBeInTheDocument();
+  });
+
+  // evaluation-1.md CR1 — a draft's `analyzeSchema` is a best-effort
+  // FALLBACK (the schema flowing INTO it), never a real analyze entry, and
+  // its `analyzeOutputSchema` is always empty (a draft is never sent to
+  // /analyze). Rendering the diff regardless would compare a populated
+  // fallback input against a genuinely-empty output and falsely report
+  // every field as dropped.
+  it("renders zero removed-diff chips for a draft step, even with a populated fallback input schema", async () => {
+    const draftStep = makeStep({
+      id: "step-1",
+      opType: RENAME_OP_TYPE,
+      label: "Rename column",
+      config: { renames: {} },
+    });
+    const fallbackInputSchema: SchemaField[] = Array.from({ length: 124 }, (_, i) => ({
+      name: `col_${i}`,
+      type: "string",
+    }));
+
+    const { container } = render(
+      <StepCard
+        {...baseProps({
+          step: draftStep,
+          analyzeSchema: fallbackInputSchema,
+          analyzeOutputSchema: [],
+        })}
+      />,
+    );
+    await click(/Rename column/);
+
+    expect(
+      container.querySelectorAll(".pipeline-detail-page__step-card-diff-chip--removed"),
+    ).toHaveLength(0);
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card-diff"),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -754,7 +799,7 @@ describe("StepCard validationError surfacing (skeptic-final-1.md CR1)", () => {
 
   it("a compute step renders the error once, not twice, via its own contextual placement", async () => {
     const computeStep: Step = {
-      id: "step-1",
+      id: "persisted-step-1",
       opType: { id: "compute", label: "Compute column", icon: LIMIT_OP_TYPE.icon },
       label: "Compute column",
       config: { column: "revenue_per_user", expression: "$revenue / $users", type: "number" },
@@ -838,7 +883,7 @@ describe("StepCard disable/enable + duplicate (HEL-412)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
 
-    expect(onToggleEnabled).toHaveBeenCalledWith("step-1", false);
+    expect(onToggleEnabled).toHaveBeenCalledWith("persisted-step-1", false);
   });
 
   it("a disabled step shows an 'Enable step' button that calls onToggleEnabled(id, true)", () => {
@@ -847,7 +892,7 @@ describe("StepCard disable/enable + duplicate (HEL-412)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Enable step" }));
 
-    expect(onToggleEnabled).toHaveBeenCalledWith("step-1", true);
+    expect(onToggleEnabled).toHaveBeenCalledWith("persisted-step-1", true);
   });
 
   it("Duplicate step calls onDuplicate(id)", () => {
@@ -856,7 +901,7 @@ describe("StepCard disable/enable + duplicate (HEL-412)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Duplicate step" }));
 
-    expect(onDuplicate).toHaveBeenCalledWith("step-1");
+    expect(onDuplicate).toHaveBeenCalledWith("persisted-step-1");
   });
 
   // HEL-718: these icon-only buttons already had aria-label; this locks in

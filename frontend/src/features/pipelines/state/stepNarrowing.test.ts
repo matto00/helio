@@ -6,17 +6,36 @@
 
 import {
   OP_TYPES,
+  analyzeWithAiConfigOf,
+  convertFormatConfigOf,
   defaultConfigFor,
+  generateTextConfigOf,
+  isCompleteAiStepConfig,
   isUnsupportedOpType,
   lookupConfigOf,
   makeStep,
   pipelineStepToStep,
+  requiresCompleteConfigForCreate,
+  resolveDraftFallbackSchema,
   unionConfigOf,
   unsupportedOpType,
   upsertSourceConfigOf,
 } from "./stepNarrowing";
-import type { LookupConfig, PipelineStep, UnionConfig } from "../types/pipelineStep";
+import type {
+  AnalyzeWithAiConfig,
+  ConvertFormatConfig,
+  GenerateTextConfig,
+  LookupConfig,
+  PipelineStep,
+  UnionConfig,
+} from "../types/pipelineStep";
 import type { Step } from "../types/step";
+
+function makeStepOfKind<T>(kind: string, config: T): Step {
+  const opType = OP_TYPES.find((op) => op.id === kind);
+  if (!opType) throw new Error(`${kind} missing from OP_TYPES`);
+  return { id: "step-1", opType, label: opType.label, config: config as never, enabled: true };
+}
 
 function makeUnionStep(config: UnionConfig): Step {
   const opType = OP_TYPES.find((op) => op.id === "union");
@@ -327,5 +346,408 @@ describe("stepNarrowing — upsertsource (HEL-1102)", () => {
       enabled: true,
     };
     expect(upsertSourceConfigOf(step)).toEqual({ target: undefined, mode: "append" });
+  });
+});
+
+describe("stepNarrowing — HEL-1109 convertformat/analyzewithai/generatetext", () => {
+  it("all three ops are offered in the OP_TYPES picker", () => {
+    expect(OP_TYPES.some((op) => op.id === "convertformat")).toBe(true);
+    expect(OP_TYPES.some((op) => op.id === "analyzewithai")).toBe(true);
+    expect(OP_TYPES.some((op) => op.id === "generatetext")).toBe(true);
+  });
+
+  // design.md D3's central trap: the seed must OMIT from/to, not seed them ""
+  // like every sibling string field -- a present-and-empty pair is a 422.
+  it("defaultConfigFor('convertformat') omits from/to entirely, not merely leaves them empty", () => {
+    const seed = defaultConfigFor("convertformat") as ConvertFormatConfig;
+    expect(seed).toEqual({ field: "" });
+    expect("from" in seed).toBe(false);
+    expect("to" in seed).toBe(false);
+  });
+
+  it("defaultConfigFor seeds analyzewithai/generatetext with the shapes their cards edit locally", () => {
+    expect(defaultConfigFor("analyzewithai")).toEqual({
+      inputField: "",
+      instruction: "",
+      outputSchema: [],
+    });
+    expect(defaultConfigFor("generatetext")).toEqual({
+      inputField: "",
+      instruction: "",
+      outputField: "",
+    });
+  });
+
+  it("convertFormatConfigOf narrows a persisted config, including an unsupported legacy pair", () => {
+    const step = makeStepOfKind<ConvertFormatConfig>("convertformat", {
+      field: "body",
+      from: "csv",
+      to: "csv",
+      outputField: "converted",
+    });
+    expect(convertFormatConfigOf(step)).toEqual({
+      field: "body",
+      from: "csv",
+      to: "csv",
+      outputField: "converted",
+    });
+  });
+
+  it("convertFormatConfigOf covers an absent config gracefully for a non-convertformat step", () => {
+    const step = makeStepOfKind("select", { fields: [] });
+    expect(convertFormatConfigOf(step)).toEqual({ field: "" });
+  });
+
+  it("analyzeWithAiConfigOf narrows a persisted config, preserving outputSchema order", () => {
+    const step = makeStepOfKind<AnalyzeWithAiConfig>("analyzewithai", {
+      inputField: "text",
+      instruction: "Extract sentiment",
+      outputSchema: [
+        { name: "sentiment", type: "string" },
+        { name: "confidence", type: "float" },
+      ],
+    });
+    expect(analyzeWithAiConfigOf(step)).toEqual({
+      inputField: "text",
+      instruction: "Extract sentiment",
+      outputSchema: [
+        { name: "sentiment", type: "string" },
+        { name: "confidence", type: "float" },
+      ],
+    });
+  });
+
+  it("analyzeWithAiConfigOf covers a partial persisted config", () => {
+    const step = makeStepOfKind<Partial<AnalyzeWithAiConfig>>("analyzewithai", {
+      inputField: "text",
+    });
+    expect(analyzeWithAiConfigOf(step)).toEqual({
+      inputField: "text",
+      instruction: "",
+      outputSchema: [],
+    });
+  });
+
+  it("generateTextConfigOf narrows a persisted config", () => {
+    const step = makeStepOfKind<GenerateTextConfig>("generatetext", {
+      inputField: "notes",
+      instruction: "Summarize",
+      outputField: "summary",
+    });
+    expect(generateTextConfigOf(step)).toEqual({
+      inputField: "notes",
+      instruction: "Summarize",
+      outputField: "summary",
+    });
+  });
+
+  it("generateTextConfigOf covers an absent config", () => {
+    const step = makeStepOfKind("select", { fields: [] });
+    expect(generateTextConfigOf(step)).toEqual({
+      inputField: "",
+      instruction: "",
+      outputField: "",
+    });
+  });
+
+  // design.md D3 — [C2]: mutating the SOURCE OF TRUTH (the set of kinds this
+  // predicate consults), not a hardcoded twin, proves the guard fails in the
+  // direction of its stated purpose.
+  describe("requiresCompleteConfigForCreate", () => {
+    it("is true for exactly analyzewithai and generatetext", () => {
+      const deferred = OP_TYPES.filter((op) => requiresCompleteConfigForCreate(op.id)).map(
+        (op) => op.id,
+      );
+      expect(deferred.sort()).toEqual(["analyzewithai", "generatetext"]);
+    });
+
+    it("is false for convertformat and every other existing op", () => {
+      expect(requiresCompleteConfigForCreate("convertformat")).toBe(false);
+      expect(requiresCompleteConfigForCreate("select")).toBe(false);
+      expect(requiresCompleteConfigForCreate("upsertsource")).toBe(false);
+    });
+  });
+
+  describe("isCompleteAiStepConfig", () => {
+    it("rejects an empty analyzewithai draft (the exact seed defaultConfigFor produces)", () => {
+      expect(isCompleteAiStepConfig("analyzewithai", defaultConfigFor("analyzewithai"))).toBe(
+        false,
+      );
+    });
+
+    it("accepts a fully-specified analyzewithai config", () => {
+      const cfg: AnalyzeWithAiConfig = {
+        inputField: "text",
+        instruction: "Extract sentiment",
+        outputSchema: [{ name: "sentiment", type: "string" }],
+      };
+      expect(isCompleteAiStepConfig("analyzewithai", cfg)).toBe(true);
+    });
+
+    it("rejects an analyzewithai config with an empty outputSchema", () => {
+      const cfg: AnalyzeWithAiConfig = {
+        inputField: "text",
+        instruction: "Extract sentiment",
+        outputSchema: [],
+      };
+      expect(isCompleteAiStepConfig("analyzewithai", cfg)).toBe(false);
+    });
+
+    it("rejects an analyzewithai config with a duplicate declared name", () => {
+      const cfg: AnalyzeWithAiConfig = {
+        inputField: "text",
+        instruction: "x",
+        outputSchema: [
+          { name: "a", type: "string" },
+          { name: "a", type: "integer" },
+        ],
+      };
+      expect(isCompleteAiStepConfig("analyzewithai", cfg)).toBe(false);
+    });
+
+    it("rejects an analyzewithai config whose declared name collides with inputField", () => {
+      const cfg: AnalyzeWithAiConfig = {
+        inputField: "text",
+        instruction: "x",
+        outputSchema: [{ name: "text", type: "string" }],
+      };
+      expect(isCompleteAiStepConfig("analyzewithai", cfg)).toBe(false);
+    });
+
+    it("rejects an empty generatetext draft", () => {
+      expect(isCompleteAiStepConfig("generatetext", defaultConfigFor("generatetext"))).toBe(false);
+    });
+
+    it("accepts a fully-specified generatetext config", () => {
+      const cfg: GenerateTextConfig = {
+        inputField: "notes",
+        instruction: "Summarize",
+        outputField: "summary",
+      };
+      expect(isCompleteAiStepConfig("generatetext", cfg)).toBe(true);
+    });
+
+    it("rejects a generatetext config with a whitespace-only outputField", () => {
+      const cfg: GenerateTextConfig = {
+        inputField: "notes",
+        instruction: "Summarize",
+        outputField: "   ",
+      };
+      expect(isCompleteAiStepConfig("generatetext", cfg)).toBe(false);
+    });
+
+    it("treats every non-AI kind as always complete", () => {
+      expect(isCompleteAiStepConfig("convertformat", { field: "" })).toBe(true);
+    });
+  });
+});
+
+describe("stepNarrowing — HEL-1109 drift guard: OP_TYPES vs. backend registry", () => {
+  // Task 4.1 — parses the same Scala source of truth
+  // `canonicalFieldTypesDriftGuard.test.ts` uses, from repo root. `join` is
+  // the one deliberate OP_TYPES exclusion (stepNarrowing.ts comment above
+  // OP_TYPES) -- every other Registry-registered kind must have an OP_TYPES
+  // entry, or a persisted/agent-created step of that kind renders as
+  // "unsupported" with no way to author it in the UI.
+  const path = require("path") as typeof import("path");
+  const fs = require("fs") as typeof import("fs");
+
+  function findRepoRoot(startDir: string): string {
+    let dir = startDir;
+    for (let i = 0; i < 10; i++) {
+      if (fs.existsSync(path.join(dir, "backend", "src", "main"))) return dir;
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    throw new Error("Could not locate repo root (backend/src/main) from " + startDir);
+  }
+
+  // `PipelineStep.Registry` maps each `XxxStep.Kind -> XxxStep.companion` --
+  // the KEY is a reference, not a string literal, so the real kind string
+  // lives in each step's own file (`val Kind: String = "..."`). Resolving it
+  // there (rather than assuming `XxxStep` lowercases to its kind) is what
+  // makes this guard immune to a step class name that doesn't match its wire
+  // kind string.
+  function parseRegistryStepNames(source: string): string[] {
+    const registryBlockMatch = source.match(/val Registry[\s\S]*?Map\(([\s\S]*?)\n\s*\)/);
+    if (!registryBlockMatch) throw new Error("Could not locate PipelineStep.Registry block");
+    const block = registryBlockMatch[1];
+    const names: string[] = [];
+    const re = /(\w+Step)\.Kind\s*->/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(block)) !== null) {
+      names.push(m[1]);
+    }
+    return names;
+  }
+
+  function resolveKindString(repoRoot: string, stepClassName: string): string {
+    const stepFile = path.join(
+      repoRoot,
+      "backend/src/main/scala/com/helio/domain/steps",
+      `${stepClassName}.scala`,
+    );
+    const source = fs.readFileSync(stepFile, "utf8");
+    const match = source.match(/val Kind:\s*String\s*=\s*"([a-zA-Z]+)"/);
+    if (!match) throw new Error(`Could not find "val Kind" in ${stepFile}`);
+    return match[1];
+  }
+
+  function parseRegistryKinds(repoRoot: string, source: string): string[] {
+    return parseRegistryStepNames(source).map((name) => resolveKindString(repoRoot, name));
+  }
+
+  // `join` is the design.md-documented deliberate exclusion (no
+  // `JoinConfig.tsx` editor exists — stepNarrowing.ts's own comment above
+  // OP_TYPES). Running this guard against the real backend registry also
+  // surfaced `groupby` as unlisted -- a PRE-EXISTING gap unrelated to this
+  // ticket's three ops (no `GroupByConfig.tsx` editor exists either; its
+  // functionality appears superseded by `aggregate`, itself already in
+  // OP_TYPES). Out of scope to fix here (this ticket adds three ops, not a
+  // fourth editor for a fifth-generation-old step kind) -- flagged in the
+  // executor's report as a spinoff candidate, not silently absorbed.
+  const KNOWN_UNLISTED_KINDS = new Set(["join", "groupby"]);
+
+  function opTypesCoverRegistry(registryKinds: string[]): { missing: string[] } {
+    const opTypeIds = new Set(OP_TYPES.map((op) => op.id));
+    const missing = registryKinds.filter((k) => !KNOWN_UNLISTED_KINDS.has(k) && !opTypeIds.has(k));
+    return { missing };
+  }
+
+  it("OP_TYPES has an entry for every backend-registered kind except the deliberate join exclusion", () => {
+    const repoRoot = findRepoRoot(__dirname);
+    const source = fs.readFileSync(
+      path.join(repoRoot, "backend/src/main/scala/com/helio/domain/model/PipelineStep.scala"),
+      "utf8",
+    );
+    const registryKinds = parseRegistryKinds(repoRoot, source);
+    // 27 per the run brief's own count at time of writing (26 OP_TYPES + join).
+    expect(registryKinds.length).toBeGreaterThanOrEqual(27);
+    const { missing } = opTypesCoverRegistry(registryKinds);
+    expect(missing).toEqual([]);
+  });
+
+  // [C2] — proven failable in the direction of its STATED PURPOSE by
+  // mutating the parsed SOURCE OF TRUTH (a fake registry kind list), not a
+  // hardcoded twin of OP_TYPES.
+  it("fails when the parsed registry source contains a kind OP_TYPES doesn't have (guard is provably not vacuous)", () => {
+    const fakeRegistryKinds = ["select", "rename", "totallyMadeUpOpKind"];
+    const { missing } = opTypesCoverRegistry(fakeRegistryKinds);
+    expect(missing).toEqual(["totallyMadeUpOpKind"]);
+  });
+});
+
+describe("resolveDraftFallbackSchema (HEL-1109 evaluation-1.md CR2 / skeptic-final-1.md)", () => {
+  // Extracted as a pure function specifically so a test can control `steps`
+  // ARRAY ORDER and `meta.parentStepId` INDEPENDENTLY -- the two things a
+  // live UI-driven test cannot actually force to disagree, since
+  // `handleAddLaneStep`'s own insertion (`anchorIndex + 1`) always keeps a
+  // fresh draft array-adjacent to its true anchor.
+  const draftStep = {
+    id: "draft-1",
+    opType: OP_TYPES[0],
+    label: "x",
+    config: {},
+    enabled: true,
+  } as Step;
+
+  function schemaOf(name: string): { outputSchema: { name: string; type: string }[] } {
+    return { outputSchema: [{ name, type: "string" }] };
+  }
+
+  // Scenario 2, made discriminating: the step array-adjacent to the draft
+  // (by raw index) is a DIFFERENT step than the draft's real anchor
+  // (`meta.parentStepId`) -- a state a live "+lane" click can never actually
+  // produce (see the function's own doc comment), but which distinguishes
+  // "resolve via the anchor" from "resolve via array position" cleanly.
+  it("a lane draft (meta.parentStepId set) resolves from its TRUE anchor, not the array-adjacent step", () => {
+    const anchorStep = {
+      id: "anchor-1",
+      opType: OP_TYPES[0],
+      label: "x",
+      config: {},
+      enabled: true,
+    } as Step;
+    const unrelatedStep = {
+      id: "unrelated-1",
+      opType: OP_TYPES[0],
+      label: "x",
+      config: {},
+      enabled: true,
+    } as Step;
+    // Contrived array order: the step immediately BEFORE the draft (by raw
+    // index) is `unrelatedStep`, not `anchorStep` -- exactly the disagreement
+    // a live "+lane" insertion can never produce.
+    const steps = [anchorStep, unrelatedStep, draftStep];
+    const entries: Record<string, { outputSchema: { name: string; type: string }[] }> = {
+      [anchorStep.id]: schemaOf("anchor_field"),
+      [unrelatedStep.id]: schemaOf("unrelated_field"),
+    };
+    const result = resolveDraftFallbackSchema(
+      draftStep.id,
+      steps,
+      (id) => entries[id],
+      () => [],
+      { parentStepId: anchorStep.id },
+    );
+    expect(result).toEqual([{ name: "anchor_field", type: "string" }]);
+  });
+
+  it("a trunk draft (no parentStepId) walks backward to the nearest preceding step with an analyze entry", () => {
+    const stepA = { id: "a-1", opType: OP_TYPES[0], label: "x", config: {}, enabled: true } as Step;
+    const stepB = { id: "b-1", opType: OP_TYPES[0], label: "x", config: {}, enabled: true } as Step;
+    const steps = [stepA, stepB, draftStep];
+    const entries: Record<string, { outputSchema: { name: string; type: string }[] }> = {
+      [stepA.id]: schemaOf("a_field"),
+      [stepB.id]: schemaOf("b_field"),
+    };
+    const result = resolveDraftFallbackSchema(
+      draftStep.id,
+      steps,
+      (id) => entries[id],
+      () => [],
+      undefined,
+    );
+    expect(result).toEqual([{ name: "b_field", type: "string" }]);
+  });
+
+  // Scenario 4 — multi-root: the ultimate fallback (no anchor entry found)
+  // must match the draft's OWN root, not unconditionally whichever root
+  // `getRootSourceSchema` would return first.
+  it("falls back to the OWNING root's source schema on a multi-root pipeline, not always the first root", () => {
+    const rootSchemas: Record<string, { name: string; type: string }[]> = {
+      "root-1": [{ name: "root1_field", type: "string" }],
+      "root-2": [{ name: "root2_field", type: "string" }],
+    };
+    const getRootSourceSchema = (rootId: string | undefined) =>
+      rootId ? (rootSchemas[rootId] ?? []) : rootSchemas["root-1"];
+
+    const result = resolveDraftFallbackSchema(
+      draftStep.id,
+      [draftStep],
+      () => undefined,
+      getRootSourceSchema,
+      { rootId: "root-2" },
+    );
+    expect(result).toEqual([{ name: "root2_field", type: "string" }]);
+  });
+
+  it("a lane draft whose anchor has no analyze entry falls back to the anchor's OWN root, not the first root", () => {
+    const rootSchemas: Record<string, { name: string; type: string }[]> = {
+      "root-1": [{ name: "root1_field", type: "string" }],
+      "root-2": [{ name: "root2_field", type: "string" }],
+    };
+    const getRootSourceSchema = (rootId: string | undefined) =>
+      rootId ? (rootSchemas[rootId] ?? []) : rootSchemas["root-1"];
+
+    const result = resolveDraftFallbackSchema(
+      draftStep.id,
+      [draftStep],
+      () => undefined, // the anchor itself has no analyze entry yet
+      getRootSourceSchema,
+      { parentStepId: "anchor-in-root-2", rootId: "root-2" },
+    );
+    expect(result).toEqual([{ name: "root2_field", type: "string" }]);
   });
 });

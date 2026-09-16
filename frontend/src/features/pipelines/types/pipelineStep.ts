@@ -172,6 +172,38 @@ export interface UpsertSourceConfig {
   mode: UpsertMode;
 }
 
+// HEL-1109 (design.md D2/D3): `from`/`to` are deliberately optional -- the
+// seed omits both (an absent pair passes `pairError`; a present-and-empty
+// pair is rejected 422), and a legacy/agent-authored step may carry a pair
+// outside `SupportedPairs`, which the card must preserve rather than coerce.
+export type ConvertFormatFrom = "csv" | "json" | "text" | "markdown";
+export type ConvertFormatTo = "csv" | "json" | "text" | "markdown";
+export interface ConvertFormatConfig {
+  field: string;
+  from?: ConvertFormatFrom;
+  to?: ConvertFormatTo;
+  outputField?: string | null;
+}
+
+// HEL-1109 (design.md D4): order is contractual -- an ordered array, never
+// an object (spray-json would re-sort JsObject keys).
+export type OutputSchemaFieldType = "string" | "integer" | "float" | "boolean";
+export interface OutputSchemaField {
+  name: string;
+  type: OutputSchemaFieldType;
+}
+export interface AnalyzeWithAiConfig {
+  inputField: string;
+  instruction: string;
+  outputSchema: OutputSchemaField[];
+}
+
+export interface GenerateTextConfig {
+  inputField: string;
+  instruction: string;
+  outputField: string;
+}
+
 interface BasePipelineStep {
   id: string;
   pipelineId: string;
@@ -295,6 +327,18 @@ export interface UpsertSourceStep extends BasePipelineStep {
   type: "upsertsource";
   config: UpsertSourceConfig;
 }
+export interface ConvertFormatStep extends BasePipelineStep {
+  type: "convertformat";
+  config: ConvertFormatConfig;
+}
+export interface AnalyzeWithAiStep extends BasePipelineStep {
+  type: "analyzewithai";
+  config: AnalyzeWithAiConfig;
+}
+export interface GenerateTextStep extends BasePipelineStep {
+  type: "generatetext";
+  config: GenerateTextConfig;
+}
 
 export type PipelineStep =
   | RenameStep
@@ -320,7 +364,10 @@ export type PipelineStep =
   | UnionStep
   | LookupStep
   | AssertStep
-  | UpsertSourceStep;
+  | UpsertSourceStep
+  | ConvertFormatStep
+  | AnalyzeWithAiStep
+  | GenerateTextStep;
 
 export type PipelineStepConfig =
   | RenameConfig
@@ -346,9 +393,26 @@ export type PipelineStepConfig =
   | UnionConfig
   | LookupConfig
   | AssertConfig
-  | UpsertSourceConfig;
+  | UpsertSourceConfig
+  | ConvertFormatConfig
+  | AnalyzeWithAiConfig
+  | GenerateTextConfig;
 
 export type PipelineStepKind = PipelineStep["type"];
+
+// Compile-time proof that `PipelineStepKind` (derived from `PipelineStep`)
+// actually admits the three new kinds -- a passing `typecheck` alone proves
+// nothing here since a mistakenly-omitted union member would still typecheck
+// as a narrower derived type.
+type _AdmitsNewKinds = "convertformat" extends PipelineStepKind
+  ? "analyzewithai" extends PipelineStepKind
+    ? "generatetext" extends PipelineStepKind
+      ? true
+      : never
+    : never
+  : never;
+const _admitsNewKinds: _AdmitsNewKinds = true;
+void _admitsNewKinds;
 
 export interface SchemaField {
   name: string;
@@ -459,6 +523,18 @@ export interface UpsertSourceAnalyzeStep extends BaseAnalyzeStep {
   type: "upsertsource";
   config: UpsertSourceConfig;
 }
+export interface ConvertFormatAnalyzeStep extends BaseAnalyzeStep {
+  type: "convertformat";
+  config: ConvertFormatConfig;
+}
+export interface AnalyzeWithAiAnalyzeStep extends BaseAnalyzeStep {
+  type: "analyzewithai";
+  config: AnalyzeWithAiConfig;
+}
+export interface GenerateTextAnalyzeStep extends BaseAnalyzeStep {
+  type: "generatetext";
+  config: GenerateTextConfig;
+}
 
 export type AnalyzeStepResult =
   | RenameAnalyzeStep
@@ -484,7 +560,10 @@ export type AnalyzeStepResult =
   | UnionAnalyzeStep
   | LookupAnalyzeStep
   | AssertAnalyzeStep
-  | UpsertSourceAnalyzeStep;
+  | UpsertSourceAnalyzeStep
+  | ConvertFormatAnalyzeStep
+  | AnalyzeWithAiAnalyzeStep
+  | GenerateTextAnalyzeStep;
 
 // HEL-910 final sweep: `outputDataTypeName`/`outputDataTypeId` removed from
 // `PipelineAnalyzeResponse`, `Pipeline`, and `PipelineSummary` -- the

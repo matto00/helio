@@ -7,9 +7,9 @@ import React, { useState } from "react";
 
 import { useStepCardState } from "../hooks/useStepCardState";
 import { useStepCardPreview } from "../hooks/useStepCardPreview";
-import { DataGrid } from "../../../shared/ui/index";
+import { DataGrid, StatusChip } from "../../../shared/ui/index";
 import { InlineError } from "../../../shared/chrome/InlineError";
-import { renamesOf } from "../state/stepNarrowing";
+import { isTempStepId, renamesOf } from "../state/stepNarrowing";
 import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { StepOpEditor } from "./StepOpEditor";
@@ -103,6 +103,13 @@ interface StepCardProps {
    *  this ticket — see `execution-progress.md` Cycle 6 for why building new
    *  reorder UI on top of it isn't attempted here). */
   isTail?: boolean;
+  /** HEL-1109 (design.md D5) — the pipeline's own estimated row count,
+   *  threaded to `StepOpEditor`'s AI-card cost disclosure. */
+  estimatedRows?: number;
+  /** HEL-1109 (pipeline-ai-step-authoring spec) — this draft's rejected
+   *  create message, if its most recent create attempt failed. `undefined`
+   *  for a persisted step or a draft with no outstanding failure. */
+  draftError?: string;
 }
 
 // F-146 — rendered once per pipeline step, and every edit to any one step's
@@ -145,7 +152,15 @@ export const StepCard = React.memo(function StepCard({
   onOpenOutput,
   onAddOutput,
   isTail = false,
+  estimatedRows,
+  draftError,
 }: StepCardProps) {
+  // HEL-1109 (design.md D6, pipeline-ai-step-authoring spec) — a step still
+  // carrying its `makeStep`-minted temp id has no server-side representation
+  // yet. Uses the single `isTempStepId` source of truth (evaluation-1.md
+  // CR3) so a semantic test-fixture id like "step-rename-1" is never
+  // mistaken for a draft.
+  const isDraft = isTempStepId(step.id);
   const [expanded, setExpanded] = useState(false);
 
   // HEL-407 (design.md Decision 9) — the UI `Step` type has no persisted
@@ -212,6 +227,14 @@ export const StepCard = React.memo(function StepCard({
             <step.opType.icon size={ICON_SIZE.md} />
           </span>
           <span className="pipeline-detail-page__step-card-label">{step.label}</span>
+          {/* HEL-1109 (design.md D6) — an unsaved AI draft's own affordance;
+           * DESIGN.md's one pill recipe, same treatment as a never-run
+           * pipeline (`PipelineListTable.tsx:37-39`), not a new badge. */}
+          {isDraft && (
+            <StatusChip intent="neutral" dashed>
+              Draft — not yet saved
+            </StatusChip>
+          )}
           {/* Non-interactive chip, like the count chip below (design.md Decision 2). */}
           {validationError && (
             <span
@@ -317,17 +340,31 @@ export const StepCard = React.memo(function StepCard({
 
       {expanded && (
         <div className="pipeline-detail-page__step-card-body">
-          <StepSchemaDiffChips
-            input={analyzeSchema}
-            output={analyzeOutputSchema}
-            renames={step.opType.id === "rename" ? renamesOf(step) : undefined}
-          />
+          {/* evaluation-1.md CR1 -- a draft's `analyzeSchema` is a best-effort
+           * FALLBACK (input flowing in), never a real analyze entry, and
+           * `analyzeOutputSchema` is always empty for a draft (it's never
+           * sent to /analyze). Rendering the diff regardless would compare a
+           * populated fallback input against a genuinely-empty output and
+           * falsely report every field as dropped -- suppressed entirely for
+           * a draft rather than mirroring the fallback into the output side,
+           * which would instead assert the equally-unknown "nothing
+           * changes". */}
+          {!isDraft && (
+            <StepSchemaDiffChips
+              input={analyzeSchema}
+              output={analyzeOutputSchema}
+              renames={step.opType.id === "rename" ? renamesOf(step) : undefined}
+            />
+          )}
           {/* skeptic-final-1.md CR1 — a reorder-invalidated step must surface its
            * validationError regardless of op type (AC2 "surfacing"); previously
            * only the `compute` op rendered it (inline below its expression
            * input via `ComputeFieldConfig`, kept as-is below — excluded here
            * so it isn't rendered twice). */}
           {step.opType.id !== "compute" && <InlineError error={validationError ?? null} />}
+          {/* HEL-1109 (pipeline-ai-step-authoring spec) — a rejected deferred
+           * create is shown, not swallowed; the step remains a draft. */}
+          <InlineError error={draftError ?? null} />
           <StepOpEditor
             step={step}
             allSteps={allSteps}
@@ -335,6 +372,7 @@ export const StepCard = React.memo(function StepCard({
             analyzeSchema={analyzeSchema}
             validationError={validationError}
             isOwner={isOwner}
+            estimatedRows={estimatedRows}
             stepCardState={stepCardState}
           />
           <div className="pipeline-detail-page__step-card-actions">

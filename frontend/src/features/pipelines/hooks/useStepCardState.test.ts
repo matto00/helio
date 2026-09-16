@@ -38,9 +38,14 @@ const updatePipelineStepMock = jest.mocked(updatePipelineStep);
 
 const LIMIT_OP_TYPE = OP_TYPES.find((op) => op.id === "limit")!;
 
+// HEL-1109: `persisted-step-1` (not `step-1`) deliberately, everywhere in
+// this file — `persist`'s new not-yet-real-id guard treats exactly the
+// `^step-\d+$` shape (the real `makeStep` temp-id format) as a draft with no
+// PATCH path, so a fixture id in that same shape would silently defeat
+// every test below that expects a PATCH to fire.
 function makeStep(overrides: Partial<Step> = {}): Step {
   return {
-    id: "step-1",
+    id: "persisted-step-1",
     opType: LIMIT_OP_TYPE,
     label: "Limit rows",
     config: { count: 5 },
@@ -51,7 +56,7 @@ function makeStep(overrides: Partial<Step> = {}): Step {
 
 function resolvedStep(config: PipelineStepConfig): PipelineStep {
   return {
-    id: "step-1",
+    id: "persisted-step-1",
     pipelineId: "pipe-1",
     position: 0,
     type: "limit",
@@ -121,7 +126,7 @@ describe("useStepCardState — persist debounce (F-005)", () => {
     });
 
     expect(updatePipelineStepMock).toHaveBeenCalledTimes(1);
-    expect(updatePipelineStepMock).toHaveBeenCalledWith("step-1", { count: 9 });
+    expect(updatePipelineStepMock).toHaveBeenCalledWith("persisted-step-1", { count: 9 });
   });
 
   it("PATCHes again for a second edit made after the first debounce window elapsed", () => {
@@ -143,7 +148,7 @@ describe("useStepCardState — persist debounce (F-005)", () => {
       jest.advanceTimersByTime(400);
     });
     expect(updatePipelineStepMock).toHaveBeenCalledTimes(2);
-    expect(updatePipelineStepMock).toHaveBeenLastCalledWith("step-1", { count: 7 });
+    expect(updatePipelineStepMock).toHaveBeenLastCalledWith("persisted-step-1", { count: 7 });
   });
 
   it("clears the pending debounce timer on unmount — no PATCH fires after the component is gone", () => {
@@ -191,7 +196,7 @@ describe("useStepCardState — persist debounce (F-005)", () => {
       second.resolve(resolvedStep({ count: 7 }));
     });
     expect(onConfigChange).toHaveBeenCalledTimes(1);
-    expect(onConfigChange).toHaveBeenLastCalledWith("step-1", { count: 7 });
+    expect(onConfigChange).toHaveBeenLastCalledWith("persisted-step-1", { count: 7 });
 
     await act(async () => {
       first.resolve(resolvedStep({ count: 6 }));
@@ -200,7 +205,7 @@ describe("useStepCardState — persist debounce (F-005)", () => {
     // value — the parent's step.config must stay at the latest-dispatched
     // edit, never regress to an earlier one.
     expect(onConfigChange).toHaveBeenCalledTimes(1);
-    expect(onConfigChange).toHaveBeenLastCalledWith("step-1", { count: 7 });
+    expect(onConfigChange).toHaveBeenLastCalledWith("persisted-step-1", { count: 7 });
   });
 });
 
@@ -381,6 +386,57 @@ describe("useStepCardState — persist skips unsupported op types (HEL-1100)", (
   });
 });
 
+// evaluation-1.md CR4 (task 3.1) — the `persist` guard itself was the one new
+// behavior with no test in its own purpose's direction: every existing test
+// used `"persisted-step-1"` (a real-shaped id), so nothing proved the guard
+// actually skips a PATCH for a genuine temp id. A future edit could delete
+// the guard entirely and every pre-existing test would still pass.
+describe("useStepCardState — not-yet-real-id guard (HEL-1109 design.md D3, evaluation-1.md CR4)", () => {
+  it("never PATCHes for a makeStep-shaped temp id (step-<counter>)", () => {
+    updatePipelineStepMock.mockResolvedValue(resolvedStep({ count: 6 }));
+    const onConfigChange = jest.fn();
+    const step = makeStep({ id: "step-1" });
+    const { result } = renderHook(() => useStepCardState(step, onConfigChange));
+
+    act(() => {
+      result.current.onLimitChange({ count: 6 });
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(updatePipelineStepMock).not.toHaveBeenCalled();
+  });
+
+  it("still PATCHes for a real (non-temp-shaped) id", () => {
+    updatePipelineStepMock.mockResolvedValue(resolvedStep({ count: 6 }));
+    const onConfigChange = jest.fn();
+    const step = makeStep({ id: "a1b2c3d4-real-backend-id" });
+    const { result } = renderHook(() => useStepCardState(step, onConfigChange));
+
+    act(() => {
+      result.current.onLimitChange({ count: 6 });
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(updatePipelineStepMock).toHaveBeenCalledWith("a1b2c3d4-real-backend-id", {
+      count: 6,
+    });
+  });
+
+  it("does not mistake a semantic test-fixture id (e.g. step-rename-1) for a temp id", () => {
+    updatePipelineStepMock.mockResolvedValue(resolvedStep({ count: 6 }));
+    const onConfigChange = jest.fn();
+    const step = makeStep({ id: "step-rename-1" });
+    const { result } = renderHook(() => useStepCardState(step, onConfigChange));
+
+    act(() => {
+      result.current.onLimitChange({ count: 6 });
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(updatePipelineStepMock).toHaveBeenCalledWith("step-rename-1", { count: 6 });
+  });
+});
+
 // HEL-1102 task 2.4 (design.md Decision 6) — `saveError` is a NEW, narrowly-scoped hook
 // state: `onUpsertSourceChange`'s `persist` call opts INTO surfacing a rejected PATCH's
 // backend message, while every other op kind (`onLimitChange` here as the representative,
@@ -390,7 +446,7 @@ describe("useStepCardState — saveError (HEL-1102 task 2.4)", () => {
 
   function makeUpsertSourceStep(overrides: Partial<Step> = {}): Step {
     return {
-      id: "step-1",
+      id: "persisted-step-1",
       opType: UPSERTSOURCE_OP_TYPE,
       label: "Write to source",
       config: { mode: "append" },

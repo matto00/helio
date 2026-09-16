@@ -115,6 +115,12 @@ interface PipelineRiverViewProps {
   previewRowCountByOutputId: Record<string, number>;
   onOpenOutput: (output: Output) => void;
   onAddOutput: (stepId: string) => void;
+  /** HEL-1109 (design.md D5) — the pipeline's own estimated row count,
+   *  threaded through to each `StepCard`'s AI cost disclosure. */
+  estimatedRows?: number;
+  /** HEL-1109 (pipeline-ai-step-authoring spec) — a rejected deferred-create's
+   *  message, keyed by the draft's (still-temp) step id. */
+  draftCreateErrors?: Record<string, string>;
 }
 
 export function PipelineRiverView({
@@ -146,6 +152,8 @@ export function PipelineRiverView({
   previewRowCountByOutputId,
   onOpenOutput,
   onAddOutput,
+  estimatedRows,
+  draftCreateErrors = {},
 }: PipelineRiverViewProps) {
   // Only one add-step trigger is mounted at a time (empty-state XOR list), so a
   // single ref anchors the portalled OpDropdown to whichever button is showing.
@@ -434,6 +442,8 @@ export function PipelineRiverView({
                         previewRowCountByOutputId={previewRowCountByOutputId}
                         onOpenOutput={onOpenOutput}
                         onAddOutput={onAddOutput}
+                        estimatedRows={estimatedRows}
+                        draftError={draftCreateErrors[step.id]}
                       />
                       {/* HEL-912 — "+ lane" affordance, unconditional now
                        * (design.md Decision 1 removed the single-tail gate;
@@ -483,6 +493,8 @@ export function PipelineRiverView({
                               runStepRowCounts={runStepRowCounts}
                               onToggleStepEnabled={onToggleStepEnabled}
                               onDuplicateStep={onDuplicateStep}
+                              estimatedRows={estimatedRows}
+                              draftCreateErrors={draftCreateErrors}
                               duplicatingStepIds={duplicatingStepIds}
                               enabledBits={enabledBits}
                               outputsByStepId={outputsByStepId}
@@ -569,6 +581,8 @@ export function PipelineRiverView({
               onOpenOutput={onOpenOutput}
               onAddOutput={onAddOutput}
               onAddLaneStep={onAddLaneStep}
+              estimatedRows={estimatedRows}
+              draftCreateErrors={draftCreateErrors}
               onRemoveRoot={onRemoveRoot}
               canRemove={roots.length > 1}
               nodePathByStepId={nodePathByStepId}

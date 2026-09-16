@@ -15,7 +15,15 @@ import {
   submitPipelineRun,
   updatePipeline,
 } from "../state/pipelinesSlice";
-import { defaultConfigFor, makeStep, pipelineStepToStep } from "../state/stepNarrowing";
+import {
+  defaultConfigFor,
+  isCompleteAiStepConfig,
+  isTempStepId,
+  makeStep,
+  pipelineStepToStep,
+  requiresCompleteConfigForCreate,
+  resolveDraftFallbackSchema,
+} from "../state/stepNarrowing";
 import { buildLaneGraph } from "../state/stepTree";
 // HEL-878 (task 2.4): dispatched alongside `clearRunState` at every reset call
 // site so the run-scoped Output preview cache never drifts out of sync with
@@ -147,6 +155,26 @@ export function usePipelineDetailPage() {
   // re-rendering via `React.memo`'s prop comparison (see `StepCard.tsx`).
   const stepsRef = useRef(steps);
   stepsRef.current = steps;
+  // HEL-1109 (design.md D3) — metadata for a step whose create was deferred
+  // (an AI kind whose seed config the backend would reject): keyed by the
+  // temp id, holds whatever `handleInsertStep`/`handleAddLaneStep` would
+  // otherwise have passed straight to `createPipelineStep` at add-time.
+  // Consumed once, by `handleStepConfigChange`, the moment the draft's local
+  // config first satisfies `isCompleteAiStepConfig`.
+  const pendingDraftMetaRef = useRef(
+    new Map<
+      string,
+      { index?: number; parentStepId?: string; attachAsTail?: boolean; rootId?: string }
+    >(),
+  );
+  // Guards against firing a second create for the same draft while the
+  // first is still in flight (a burst of edits can call
+  // `handleStepConfigChange` several times before the create resolves).
+  const creatingDraftIdsRef = useRef(new Set<string>());
+  // HEL-1109 (pipeline-ai-step-authoring spec) — a rejected create's message,
+  // surfaced inline on the draft's own card rather than swallowed; cleared
+  // once the draft either creates successfully or is edited again.
+  const [draftCreateErrors, setDraftCreateErrors] = useState<Record<string, string>>({});
   // HEL-908 Cycle 13 -- read inside the SSE `onTerminal` closure (defined
   // below, before `allOutputs` itself is computed) so a completed run can
   // re-fetch every visible Output's preview without a stale closure over an
@@ -309,7 +337,13 @@ export function usePipelineDetailPage() {
   // HEL-412 (design.md Decision 8): `enabled` is folded in too — a toggle
   // changes the analyze endpoint's step list (a disabled step drops out
   // entirely), so it must re-trigger analyze exactly like a config edit does.
+  // HEL-1109 (design.md Risks) — a not-yet-created AI draft (still a local
+  // temp id, per `pendingDraftMetaRef`) is excluded entirely: it has no
+  // server-side representation yet for /analyze to reflect, so folding it in
+  // would either 404 the analyze call or dispatch one for a step the backend
+  // has never seen.
   const stepsFingerprint = steps
+    .filter((s) => !pendingDraftMetaRef.current.has(s.id))
     .map((s) => `${s.id}:${s.opType.id}:${s.enabled}:${JSON.stringify(s.config)}`)
     .join("|");
   stepsFingerprintRef.current = stepsFingerprint;
@@ -487,14 +521,55 @@ export function usePipelineDetailPage() {
     return map;
   }, [analyzeResult]);
 
+  // HEL-1109 / evaluation-1.md CR2 — a draft AI step's field-picker fallback.
+  // The actual resolution logic is the pure, independently-tested
+  // `resolveDraftFallbackSchema` (`stepNarrowing.ts`); this hook only wires
+  // in its own closures (the live `analyzeByStepId` map, the live `steps`
+  // array, and the root-source-schema lookup).
+  const sourceSchemaForRoot = useCallback(
+    (rootId: string | undefined): SchemaField[] => {
+      if (!analyzeResult) return EMPTY_ANALYZE_SCHEMA;
+      if (rootId) {
+        const match = analyzeResult.sourceSchemas.find((s) => s.rootId === rootId);
+        if (match) return match.sourceSchema;
+      }
+      return analyzeResult.sourceSchemas[0]?.sourceSchema ?? EMPTY_ANALYZE_SCHEMA;
+    },
+    [analyzeResult],
+  );
+
+  const getDraftFallbackSchema = useCallback(
+    (stepId: string): SchemaField[] =>
+      resolveDraftFallbackSchema(
+        stepId,
+        steps,
+        (id) => analyzeByStepId.get(id),
+        sourceSchemaForRoot,
+        pendingDraftMetaRef.current.get(stepId),
+      ),
+    [steps, analyzeByStepId, sourceSchemaForRoot],
+  );
+
   const getAnalyzeColumns = useCallback(
-    (stepId: string): string[] => analyzeByStepId.get(stepId)?.columns ?? EMPTY_ANALYZE_COLUMNS,
-    [analyzeByStepId],
+    (stepId: string): string[] => {
+      const entry = analyzeByStepId.get(stepId);
+      if (entry) return entry.columns;
+      if (pendingDraftMetaRef.current.has(stepId)) {
+        return getDraftFallbackSchema(stepId).map((f) => f.name);
+      }
+      return EMPTY_ANALYZE_COLUMNS;
+    },
+    [analyzeByStepId, getDraftFallbackSchema],
   );
 
   const getAnalyzeSchema = useCallback(
-    (stepId: string): SchemaField[] => analyzeByStepId.get(stepId)?.schema ?? EMPTY_ANALYZE_SCHEMA,
-    [analyzeByStepId],
+    (stepId: string): SchemaField[] => {
+      const entry = analyzeByStepId.get(stepId);
+      if (entry) return entry.schema;
+      if (pendingDraftMetaRef.current.has(stepId)) return getDraftFallbackSchema(stepId);
+      return EMPTY_ANALYZE_SCHEMA;
+    },
+    [analyzeByStepId, getDraftFallbackSchema],
   );
 
   // HEL-404 — mirror of getAnalyzeSchema, reading outputSchema instead of
@@ -666,6 +741,17 @@ export function usePipelineDetailPage() {
         next.splice(index, 0, tempStep);
         return next;
       });
+      // design.md D3 / pipeline-ai-step-authoring spec — a kind whose write-path
+      // validator rejects an incomplete config is never POSTed with its
+      // known-invalid seed. It stays a local-only draft (no create request at
+      // all) until `handleStepConfigChange` sees its config become complete.
+      if (requiresCompleteConfigForCreate(opType.id)) {
+        pendingDraftMetaRef.current.set(tempStep.id, {
+          index: isAppend ? undefined : index,
+          rootId: roots[0]?.id,
+        });
+        return;
+      }
       try {
         const initialConfig = defaultConfigFor(opType.id);
         await createPipelineStep(
@@ -730,6 +816,21 @@ export function usePipelineDetailPage() {
         next.splice(insertIndex, 0, tempStep);
         return next;
       });
+      // design.md D3 — same deferred-create rule as `handleInsertStep` above.
+      if (requiresCompleteConfigForCreate(opType.id)) {
+        // evaluation-1.md CR2(c) — carries the anchor's own `rootId` through
+        // so `getDraftFallbackSchema`'s last-resort root-source fallback
+        // (reached only if the anchor itself has no analyze entry yet)
+        // matches the correct root on a multi-root pipeline, not always
+        // `sourceSchemas[0]`.
+        const anchorStep = stepsRef.current.find((s) => s.id === parentStepId);
+        pendingDraftMetaRef.current.set(tempStep.id, {
+          parentStepId,
+          attachAsTail: true,
+          rootId: anchorStep?.rootId,
+        });
+        return;
+      }
       try {
         const initialConfig = defaultConfigFor(opType.id);
         await createPipelineStep(
@@ -930,9 +1031,57 @@ export function usePipelineDetailPage() {
   // closing over it directly) so their identity doesn't change on every
   // `steps` update — the precondition for `React.memo`'s `StepCard` to
   // actually skip re-rendering the steps a given edit didn't touch.
-  const handleStepConfigChange = useCallback((stepId: string, config: PipelineStepConfig) => {
-    setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, config } : s)));
-  }, []);
+  const handleStepConfigChange = useCallback(
+    (stepId: string, config: PipelineStepConfig) => {
+      setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, config } : s)));
+
+      // HEL-1109 (design.md D3) — a draft AI step (still carrying its
+      // makeStep-minted temp id) whose LOCAL config has just become complete
+      // is created exactly once, here, rather than at add-time. Any earlier
+      // rejected-create error is cleared the moment the draft is edited again.
+      setDraftCreateErrors((prev) => {
+        if (!(stepId in prev)) return prev;
+        const next = { ...prev };
+        delete next[stepId];
+        return next;
+      });
+      const meta = pendingDraftMetaRef.current.get(stepId);
+      if (!meta) return;
+      const step = stepsRef.current.find((s) => s.id === stepId);
+      if (!step || !requiresCompleteConfigForCreate(step.opType.id)) return;
+      if (!isCompleteAiStepConfig(step.opType.id, config)) return;
+      if (creatingDraftIdsRef.current.has(stepId)) return;
+      if (!id) return;
+      creatingDraftIdsRef.current.add(stepId);
+      pendingDraftMetaRef.current.delete(stepId);
+      void createPipelineStep(
+        id,
+        step.opType.id as PipelineStepKind,
+        config,
+        meta.index,
+        meta.parentStepId,
+        meta.attachAsTail,
+        meta.rootId,
+      )
+        .then((persisted) => {
+          setSteps((prev) =>
+            prev.map((s) =>
+              s.id === stepId ? { ...pipelineStepToStep(persisted), config: s.config } : s,
+            ),
+          );
+        })
+        .catch((err: unknown) => {
+          const message = extractErrorMessage(err, "Failed to save this step — try again.");
+          setDraftCreateErrors((prev) => ({ ...prev, [stepId]: message }));
+          // Restore the pending meta so a subsequent completing edit retries the create.
+          pendingDraftMetaRef.current.set(stepId, meta);
+        })
+        .finally(() => {
+          creatingDraftIdsRef.current.delete(stepId);
+        });
+    },
+    [id],
+  );
 
   // HEL-535 D5 — this used to swallow a rejected DELETE with a bare no-op
   // comment: the step vanished from the view (optimistic removal below) with
@@ -949,7 +1098,7 @@ export function usePipelineDetailPage() {
       // by `makeStep` carry a local `step-N` id and have no backend row yet, so a
       // DELETE would 404. Fire-and-forget mirrors the config-PATCH path in
       // useStepCardState: local state already reflects user intent.
-      if (!stepId.startsWith("step-")) {
+      if (!isTempStepId(stepId)) {
         void deletePipelineStep(stepId)
           .then(() => {
             // CR11 — `deleteInternal` on the backend mutates steps OTHER than
@@ -1052,7 +1201,7 @@ export function usePipelineDetailPage() {
           return;
         }
         persistedIds.push(
-          ...(trunkLane?.steps ?? []).filter((s) => !s.id.startsWith("step-")).map((s) => s.id),
+          ...(trunkLane?.steps ?? []).filter((s) => !isTempStepId(s.id)).map((s) => s.id),
         );
       }
       setSteps(newOrder);
@@ -1065,7 +1214,7 @@ export function usePipelineDetailPage() {
         // still mid-flight.
         setSteps(
           newOrder.map((s) => {
-            if (s.id.startsWith("step-")) return s;
+            if (isTempStepId(s.id)) return s;
             const persisted = response.find((r) => r.id === s.id);
             return persisted ? pipelineStepToStep(persisted) : s;
           }),
@@ -1311,6 +1460,13 @@ export function usePipelineDetailPage() {
     pipelineName,
     sourceByRootId,
     isOwner,
+    // HEL-1109 (design.md D5) — the pipeline's own estimated row count, when
+    // known, threaded through to the AI step cards' cost disclosure. Never
+    // presented as a per-step call count -- see `AiStepCostDisclosure`'s doc.
+    estimatedRows: analyzeResult?.costVerdict.estimatedRows,
+    // HEL-1109 (pipeline-ai-step-authoring spec) — a rejected deferred-create's
+    // message, keyed by the draft's (still-temp) step id.
+    draftCreateErrors,
     getAnalyzeColumns,
     getAnalyzeSchema,
     getAnalyzeOutputSchema,
