@@ -33,7 +33,8 @@ final class InProcessExecutionBackend(engine: InProcessPipelineEngine, stepRepo:
       assertionSink: AssertionSink,
       truncationSink: TruncationSink,
       onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
-      writeBackSink: WriteBackSink = new WriteBackSink
+      writeBackSink: WriteBackSink = new WriteBackSink,
+      ownerUserId: Option[String] = None
   )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = {
     require(roots.nonEmpty, "InProcessExecutionBackend.execute requires at least one root (design.md R1)")
     // With exactly one root (today's overwhelmingly common case, and every fixture that
@@ -57,7 +58,7 @@ final class InProcessExecutionBackend(engine: InProcessPipelineEngine, stepRepo:
       // is position-ordered by the caller) -- the same tiebreak `TreeWalkResult.rows` uses, so a
       // single-root pipeline's behavior is byte-identical to before this ticket.
       (_, primaryRows, primaryStats) = loaded.head
-      result       <- engine.executeTree(rootFrames, steps, stepRepo, rootIdOfStep, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink)
+      result       <- engine.executeTree(rootFrames, steps, stepRepo, rootIdOfStep, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId)
     } yield PipelineExecutionOutcome(result.rows, result.stepCounts, primaryRows.size.toLong, primaryStats, result.nodeOutcomes)
   }
 }

@@ -7,12 +7,13 @@ import com.helio.services.sources.ContentSourceSupport
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.PipelineRunService
 import com.helio.domain.connectors.RestApiConnectorDriver
+import com.helio.domain.ai.{AiStepClient, AiStepFailure, AiStepRequest}
 import com.helio.domain.engine.SchemaField
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.domain._
 import com.helio.domain.model._
-import com.helio.domain.steps.{ComputeConfig, FilterCondition, FilterConfig, LookupConfig, RenameConfig, SelectConfig, UnionConfig}
+import com.helio.domain.steps.{AnalyzeWithAiConfig, AnalyzeWithAiOutputField, ComputeConfig, FilterCondition, FilterConfig, LookupConfig, RenameConfig, SelectConfig, UnionConfig}
 import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeDependencyClosure, NodeKey, PipelineExecutionBackend, PipelineExecutionOutcome, StepKey}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -2442,6 +2443,147 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       spy.capturedSteps shouldBe defined
       spy.capturedSteps.get.map(_.id.value).toSet shouldBe Set(stepA.id.value, target.id.value)
     }
+
+    // HEL-1108 (design.md D2/C11, tasks.md 2.4a): the Output-backfill STEP/NODE arm
+    // (`:707-711`) is the mandatory threading site -- unthreaded, `evaluateNodeRowsForBackfill`
+    // would silently break every AI-pipeline step-bound backfill via its log-only `.recover`
+    // arm. Falsifiable at THIS site: a backfill over a closure containing an enabled AI step
+    // reaches a fake client carrying the pipeline owner's id.
+    "backfill's step/node arm threads the pipeline owner into an AI step's evaluation (HEL-1108 C11)" in {
+      val spyAiClient = new PipelineRunServiceSpec.SpyAiStepClient
+      val aiService = new PipelineRunService(
+        pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
+        new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")), connector = stubConnector,
+        outputRepo = outputRepo, nodeSnapshotRepo = nodeSnapshotRepo, aiStepClient = spyAiClient
+      )
+
+      val dsId   = seedRestDs("https://pipeline-run-service.test/ai-backfill-default")
+      val pid    = seedPipeline(dsId)
+      val cfg    = AnalyzeWithAiConfig(inputField = "name", instruction = "go", outputSchema = Vector(AnalyzeWithAiOutputField("sentiment", "string")))
+      val target = await(insertStep(pid, "analyzewithai", cfg, dummyUser))
+
+      // A prior successful run (seeded directly via the ACL-bypassing Internal methods, since
+      // this test isn't about run semantics), then materialize the Output AFTER the run so
+      // `backfillOutputNode`'s `hasSucceededOnce` gate is true and it actually reaches
+      // `evaluateNodeRowsForBackfill`.
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunInternal(runId, pid, java.time.Instant.now(), TriggerSource.Manual, None))
+      await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", java.time.Instant.now(), rowCount = Some(1), errorLog = None, truncatedReadsJson = None))
+      seedOutputAtTrunkLast(pid)
+      spyAiClient.lastOwnerUserId = None
+
+      await(aiService.backfillOutputNode(pid, Some(target.id), dummyUser, explicitRootId = None))
+
+      spyAiClient.lastOwnerUserId shouldBe Some("00000000-0000-0000-0000-000000000001")
+
+      // design.md D4/3b.4: a quota/AI denial during backfill is best-effort/log-only -- proven
+      // here by inspection PLUS this assertion: `persistBackfilledRows` (hence `overwriteRows`,
+      // which DELETEs before inserting) is reached ONLY inside `evaluateNodeRowsForBackfill`'s
+      // success `.flatMap`, never its `.recover` -- so a denial writes NOTHING, never an empty
+      // row set. `backfillOutputNode`'s OWN pre-check (`existing.nonEmpty => no-op`) makes the
+      // narrower "denial leaves PRE-EXISTING rows untouched" sub-case structurally unreachable
+      // through the only production caller (a backfill only ever runs when no rows exist yet for
+      // that node) -- recorded here rather than fabricated with a contrived direct call to the
+      // private method.
+      val rows = await(nodeSnapshotRepo.listRows(pid.value, Some(target.id.value), explicitRootId = None))
+      rows shouldBe empty
+    }
+  }
+
+  // HEL-1108 (design.md D10/C10, tasks.md 3b.1-3b.3): closing the preview viewer-drain hole --
+  // a preview whose target closure contains an ENABLED AI step is authorized like `submit`
+  // (owner or editor grantee only), never `findByIdShared` alone.
+  "PipelineRunService.previewStep (HEL-1108 D10: AI-step preview authorization)" should {
+
+    def seedPipelineWithAiStep(): (PipelineId, PipelineStep) = {
+      val dsId   = seedRestDs("https://pipeline-run-service.test/ai-preview-default")
+      val pid    = seedPipeline(dsId)
+      val cfg    = AnalyzeWithAiConfig(inputField = "name", instruction = "go", outputSchema = Vector(AnalyzeWithAiOutputField("sentiment", "string")))
+      val target = await(insertStep(pid, "analyzewithai", cfg, dummyUser))
+      (pid, target)
+    }
+
+    def grantViewer(pid: PipelineId, granteeId: String): Unit = {
+      import slick.jdbc.PostgresProfile.api._
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO users (id, email, created_at)
+               VALUES ($granteeId::uuid, ${s"$granteeId@test.local"}, now())""",
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role)
+               VALUES ('pipeline', ${pid.value}, $granteeId::uuid, 'viewer')"""
+      )))
+    }
+
+    def grantEditor(pid: PipelineId, granteeId: String): Unit = {
+      import slick.jdbc.PostgresProfile.api._
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO users (id, email, created_at)
+               VALUES ($granteeId::uuid, ${s"$granteeId@test.local"}, now())""",
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role)
+               VALUES ('pipeline', ${pid.value}, $granteeId::uuid, 'editor')"""
+      )))
+    }
+
+    // 3b.1/3b.2
+    "denies a viewer grantee previewing a closure containing an enabled AI step, with ZERO model calls" in {
+      val (pid, target) = seedPipelineWithAiStep()
+      val spyAiClient    = new PipelineRunServiceSpec.SpyAiStepClient
+      val aiService = new PipelineRunService(
+        pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
+        new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")), connector = stubConnector,
+        outputRepo = outputRepo, nodeSnapshotRepo = nodeSnapshotRepo, aiStepClient = spyAiClient
+      )
+      val viewerId = UUID.randomUUID().toString
+      grantViewer(pid, viewerId)
+
+      val result = await(aiService.previewStep(pid, target.id.value, AuthenticatedUser(UserId(viewerId))))
+      result shouldBe a[Left[_, _]]
+      result.left.toOption.get shouldBe a[ServiceError.Forbidden]
+      spyAiClient.lastOwnerUserId shouldBe None
+    }
+
+    // 3b.3: owner and editor previews are unaffected; charged to the OWNER.
+    "still permits the owner to preview a closure containing an enabled AI step, charged to the owner" in {
+      val (pid, target) = seedPipelineWithAiStep()
+      val spyAiClient    = new PipelineRunServiceSpec.SpyAiStepClient
+      val aiService = new PipelineRunService(
+        pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
+        new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")), connector = stubConnector,
+        outputRepo = outputRepo, nodeSnapshotRepo = nodeSnapshotRepo, aiStepClient = spyAiClient
+      )
+
+      await(aiService.previewStep(pid, target.id.value, dummyUser))
+      spyAiClient.lastOwnerUserId shouldBe Some(dummyUser.id.value)
+    }
+
+    "still permits an editor grantee to preview a closure containing an enabled AI step, charged to the OWNER" in {
+      val (pid, target) = seedPipelineWithAiStep()
+      val spyAiClient    = new PipelineRunServiceSpec.SpyAiStepClient
+      val aiService = new PipelineRunService(
+        pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
+        new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")), connector = stubConnector,
+        outputRepo = outputRepo, nodeSnapshotRepo = nodeSnapshotRepo, aiStepClient = spyAiClient
+      )
+      val editorId = UUID.randomUUID().toString
+      grantEditor(pid, editorId)
+
+      // The spy AiStepClient always denies (`Unavailable`), so the preview itself still fails --
+      // the point under test is that authorization passes (never `Forbidden`) and the call
+      // reaches the AI seam at all, charged to the OWNER, not the editor.
+      val result = await(aiService.previewStep(pid, target.id.value, AuthenticatedUser(UserId(editorId))))
+      result.left.toOption should not be Some(ServiceError.Forbidden("Forbidden"))
+      spyAiClient.lastOwnerUserId shouldBe Some(dummyUser.id.value)
+    }
+
+    "still permits a viewer grantee to preview a closure with NO AI step, exactly as before" in {
+      val dsId    = seedRestDs("https://pipeline-run-service.test/no-ai-preview-default")
+      val pid     = seedPipeline(dsId)
+      val target  = await(insertStep(pid, "limit", LimitConfig(5), dummyUser))
+      val viewerId = UUID.randomUUID().toString
+      grantViewer(pid, viewerId)
+
+      val result = await(service.previewStep(pid, target.id.value, AuthenticatedUser(UserId(viewerId))))
+      result shouldBe a[Right[_, _]]
+    }
   }
 
 }
@@ -2464,10 +2606,22 @@ object PipelineRunServiceSpec {
         assertionSink: AssertionSink,
         truncationSink: TruncationSink,
         onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
-        writeBackSink: WriteBackSink = new WriteBackSink
+        writeBackSink: WriteBackSink = new WriteBackSink,
+        ownerUserId: Option[String] = None
     )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = {
       capturedSteps = Some(steps)
-      delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink)
+      delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId)
+    }
+  }
+
+  /** HEL-1108 (design.md D2/C11, tasks.md 2.4a): records the `ownerUserId` every AI request
+   *  actually carried, proving the pipeline owner (not merely SOME value) reached the seam from
+   *  a specific execution site. */
+  final class SpyAiStepClient extends AiStepClient {
+    @volatile var lastOwnerUserId: Option[String] = None
+    override def complete(request: AiStepRequest): Future[Either[AiStepFailure, String]] = {
+      lastOwnerUserId = request.ownerUserId
+      Future.successful(Left(AiStepFailure.Unavailable("spy: not a real client")))
     }
   }
 }

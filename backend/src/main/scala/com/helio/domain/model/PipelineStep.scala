@@ -128,7 +128,15 @@ final case class PipelineExecutionContext(
      *  [[AiStepClient.Unavailable]] so every existing direct construction of this context
      *  (tests, preview) keeps compiling and degrades to a named `ai-unavailable` failure rather
      *  than an NPE. `InProcessPipelineEngine.makeContext` threads the real implementation. */
-    aiClient: AiStepClient = AiStepClient.Unavailable
+    aiClient: AiStepClient = AiStepClient.Unavailable,
+    /** HEL-1108 (design.md D2): the pipeline OWNER's user id (never the triggering caller's, per
+     *  HEL-1100 D5) -- threaded per-execution rather than stored on the engine, since the engine
+     *  is constructed once for the process lifetime while ownership varies per run. Populated
+     *  into `AiStepRequest.ownerUserId` by the AI steps so `ClaudeAiStepClient.complete`'s tier
+     *  gate can key on it. Defaults to `None` so every existing direct construction of this
+     *  context (tests, the test-only flat `executeWithStepCounts` path) keeps compiling; a `None`
+     *  owner is treated as NOT PERMITTED by the gate, never exempt (D8/3.5c). */
+    ownerUserId: Option[String] = None
 )
 
 object PipelineStep {

@@ -360,7 +360,10 @@ class InProcessPipelineEngine(
       assertionSink: AssertionSink = new AssertionSink,
       truncationSink: TruncationSink = new TruncationSink,
       onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
-      writeBackSink: WriteBackSink = new WriteBackSink
+      writeBackSink: WriteBackSink = new WriteBackSink,
+      // HEL-1108 (design.md D2/C11): the pipeline owner, forwarded into `makeContext` below so
+      // every AI step evaluated by this tree walk carries it through to the gate.
+      ownerUserId: Option[String] = None
   ): Future[TreeWalkResult] = {
     require(rootFrames.nonEmpty, "executeTree requires at least one root frame (design.md R1: every pipeline has at least one root)")
     val rootIdOfStepStr: Map[String, String] = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
@@ -415,7 +418,7 @@ class InProcessPipelineEngine(
     var evaluatedIds: Set[NodeKey] = rootIds.map(rid => RootKey(rid): NodeKey).toSet
     var counts: Map[String, Long] = Map.empty
 
-    val ctx = makeContext(dataSourceRepo, assertionSink, truncationSink, stepId => nodeOutcomes.get(StepKey(stepId)).map(_.rows), writeBackSink)
+    val ctx = makeContext(dataSourceRepo, assertionSink, truncationSink, stepId => nodeOutcomes.get(StepKey(stepId)).map(_.rows), writeBackSink, ownerUserId)
 
     rootFrames.foreach { case (rid, rows) => onNodeProgress(RootKey(rid), rows.size.toLong) }
 
@@ -688,7 +691,8 @@ class InProcessPipelineEngine(
       assertionSink: AssertionSink,
       truncationSink: TruncationSink,
       resolveLane: String => Option[Seq[Row]] = (_: String) => None,
-      writeBackSink: WriteBackSink = new WriteBackSink
+      writeBackSink: WriteBackSink = new WriteBackSink,
+      ownerUserId: Option[String] = None
   ): PipelineExecutionContext =
     PipelineExecutionContext(
       dataSourceRepo = dataSourceRepo,
@@ -701,7 +705,8 @@ class InProcessPipelineEngine(
       assertionSink = assertionSink,
       resolveLane = resolveLane,
       writeBackSink = writeBackSink,
-      aiClient = aiStepClient
+      aiClient = aiStepClient,
+      ownerUserId = ownerUserId
     )
 
   // ── Text loader (HEL-215): single-row loader, deliberately not shared with

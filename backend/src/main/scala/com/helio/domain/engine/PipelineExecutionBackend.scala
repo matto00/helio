@@ -50,7 +50,13 @@ trait PipelineExecutionBackend {
       // real-run path constructs one explicitly and reads `.writes` after the Future completes. An
       // implementation with no equivalent concept (`SparkJobSubmitter`) leaves it untouched, exactly
       // like the sinks above.
-      writeBackSink: WriteBackSink = new WriteBackSink
+      writeBackSink: WriteBackSink = new WriteBackSink,
+      // HEL-1108 (design.md D2): the pipeline OWNER's user id (never the triggering caller's,
+      // per HEL-1100 D5), threaded per-execution -- the engine is constructed once so ownership
+      // cannot be a constructor field. Defaulted so every pre-existing call site (previews, dry
+      // runs, SparkJobSubmitter which has no AI-step concept) keeps compiling; C11 requires every
+      // call site to actually pass it, this default only protects compilation.
+      ownerUserId: Option[String] = None
   )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome]
 }
 

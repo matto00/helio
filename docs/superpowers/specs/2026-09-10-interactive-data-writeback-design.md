@@ -221,12 +221,19 @@ Cycle detection is required (a pipeline must not write to a source it reads).
 - `generatetext` — synthesize source data into a text Output.
 
 `analyzewithai`/`generatetext` route through the existing `com.helio.ai`
-`ClaudeClient`, which already enforces `CLAUDE_MAX_TOKENS`,
-`CLAUDE_MAX_INPUT_TOKENS` and tier gating (`HELIO_BETA_DAILY_MESSAGE_LIMIT`).
-**These two steps are the reason epic 4's cost gate exists** — an AI step must
-never be reachable by auto-run. `convertformat` is denied auto-run separately
-(its own `content-conversion` reason code, HEL-1105), not because it is an AI
-step.
+`ClaudeClient`, which enforces `CLAUDE_MAX_TOKENS`/`CLAUDE_MAX_INPUT_TOKENS`.
+**Tier gating (`HELIO_BETA_DAILY_MESSAGE_LIMIT`) was NOT enforced on this path
+when these two steps shipped** — an earlier draft of this document asserted it
+was, which was false and is plausibly why both steps shipped ungated (HEL-1108
+Context). HEL-1108 closed the gap at the `com.helio.domain.ai.AiStepClient`
+seam (`ClaudeAiStepClient.complete`, the single call point every pipeline AI
+step's model call passes through): a required, non-defaulted
+`AiPipelineQuotaGate` denies BEFORE any model call, keyed on the pipeline
+OWNER's id (never the triggering caller's, per HEL-1100 D5), sharing the same
+daily counter/limit as chat. **These two steps are the reason epic 4's cost
+gate exists** — an AI step must never be reachable by auto-run. `convertformat`
+is denied auto-run separately (its own `content-conversion` reason code,
+HEL-1105), not because it is an AI step.
 
 ## Authorization & RLS
 

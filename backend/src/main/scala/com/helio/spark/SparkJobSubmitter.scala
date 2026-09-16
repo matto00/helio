@@ -151,7 +151,10 @@ class SparkJobSubmitter(
       // `PipelineRunService.runPipeline` rejects an `upsertsource`-containing run before this
       // method is ever reached with a real write pending -- accepted per the trait contract and
       // never invoked, same "leave untouched" convention as assertionSink/truncationSink above.
-      writeBackSink: WriteBackSink
+      writeBackSink: WriteBackSink,
+      // HEL-1108 (design.md D2): no AI-step concept in the Spark path -- accepted per the trait
+      // contract and never read, same "leave untouched" convention as the params above.
+      ownerUserId: Option[String] = None
   )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] =
     Future {
       val dataSource = roots.head._2

@@ -1,13 +1,14 @@
 package com.helio.services.pipelines
 
 import com.helio.ai.{ClaudeAiStepClient, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeClient, ClaudeConfig, ClaudeStreamEvent, ClaudeTransport}
-import com.helio.domain.ai.AiStepClient
+import com.helio.domain.ai.{AiStepClient, AiStepFailure, AiStepRequest}
 import com.helio.domain.model._
 import com.helio.domain.steps.{AnalyzeWithAiConfig, AnalyzeWithAiOutputField}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.services.auth.AiPipelineQuotaGate
 import com.helio.spark.PipelineRunCache
 import com.helio.testsupport.DatasetRowsTestSupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -68,6 +69,11 @@ class PipelineRunServiceAiStepClientWiringSpec extends AnyWordSpec with Matchers
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
+  // HEL-1108 (design-gate N16): this spec is about `aiStepClient` WIRING, not tier gating -- an
+  // always-permit fake avoids coupling it to the seeded system user's DB tier (`free` by
+  // V88's default, which the real gate would deny before ever reaching the transport).
+  private val alwaysPermitGate: AiPipelineQuotaGate = (_: UserId) => Future.successful(Right(()))
+
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
   private def newRunService(aiStepClient: AiStepClient): PipelineRunService =
@@ -112,6 +118,17 @@ class PipelineRunServiceAiStepClientWiringSpec extends AnyWordSpec with Matchers
       throw new UnsupportedOperationException("not exercised by this spec")
   }
 
+  // HEL-1108 (design.md D2/D5, tasks.md 2.3/2.5): records the `ownerUserId` every AI request
+  // actually carried, so these tests prove the OWNER (not the triggering caller) reaches the
+  // seam -- not merely that `aiStepClient` is invoked at all.
+  private class SpyAiStepClient extends AiStepClient {
+    @volatile var lastOwnerUserId: Option[String] = None
+    override def complete(request: AiStepRequest): Future[Either[AiStepFailure, String]] = {
+      lastOwnerUserId = request.ownerUserId
+      Future.successful(Left(AiStepFailure.Unavailable("spy: not a real client")))
+    }
+  }
+
   "PipelineRunService(aiStepClient = ...)" should {
 
     "defaults to AiStepClient.Unavailable when the param is omitted -- a run fails ai-unavailable" in {
@@ -128,7 +145,7 @@ class PipelineRunServiceAiStepClientWiringSpec extends AnyWordSpec with Matchers
       val dsId    = seedDsWithData()
       val pid     = seedPipelineWithAnalyzeWithAi(dsId)
       val config  = ClaudeConfig(apiKey = "sk-ant-test-key-not-a-real-credential", model = "claude-opus-4-8", temperature = 1.0, maxOutputTokens = 4096, maxInputTokens = 100000)
-      val client  = new ClaudeAiStepClient(new ClaudeClient(config, new FailingTransport))(ec)
+      val client  = new ClaudeAiStepClient(new ClaudeClient(config, new FailingTransport), alwaysPermitGate)(ec)
       val service = newRunService(client)
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
@@ -136,6 +153,45 @@ class PipelineRunServiceAiStepClientWiringSpec extends AnyWordSpec with Matchers
       val message = result.left.toOption.get.toString
       message should include("ai-error")
       message should not include "ai-unavailable"
+    }
+
+    // HEL-1108 (design.md D2, tasks.md 2.3): the AI request reaching the client carries the
+    // pipeline OWNER's id -- the default `pipelines.owner_id` (V32) equals `dummyUser.id` here.
+    "the AI request carries the pipeline owner's id" in {
+      val dsId    = seedDsWithData()
+      val pid     = seedPipelineWithAnalyzeWithAi(dsId)
+      val spy     = new SpyAiStepClient
+      val service = newRunService(spy)
+
+      await(service.submit(pid, isDry = false, dummyUser))
+      spy.lastOwnerUserId shouldBe Some("00000000-0000-0000-0000-000000000001")
+    }
+
+    // HEL-1108 (design.md D5, tasks.md 2.5): a SCHEDULED run's AI request STILL carries the
+    // pipeline owner, never the triggering caller -- reused verbatim from HEL-1100 D5's write-
+    // back precedent. `PipelineSchedulerService.fire` always submits AS the owner
+    // (`AuthenticatedUser(pipeline.ownerId, ...)`, never a third-party identity), so the
+    // realistic way to prove "owner, not caller" over `submit`'s own ACL is an EDITOR GRANTEE
+    // triggering a (marked-Scheduled) run -- a genuinely different caller identity `submit`
+    // actually permits.
+    "for a SCHEDULED run triggered by an editor grantee, the AI request still carries the pipeline owner" in {
+      val dsId        = seedDsWithData()
+      val pid         = seedPipelineWithAnalyzeWithAi(dsId)
+      val editorId    = UUID.randomUUID().toString
+      val editorUser  = AuthenticatedUser(UserId(editorId))
+      import PostgresProfile.api._
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO users (id, email, created_at)
+               VALUES ($editorId::uuid, ${s"$editorId@test.local"}, now())""",
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role)
+               VALUES ('pipeline', ${pid.value}, $editorId::uuid, 'editor')"""
+      )))
+      val spy     = new SpyAiStepClient
+      val service = newRunService(spy)
+
+      await(service.submit(pid, isDry = false, editorUser, triggerSource = TriggerSource.Scheduled))
+      spy.lastOwnerUserId shouldBe Some("00000000-0000-0000-0000-000000000001")
+      spy.lastOwnerUserId should not be Some(editorId)
     }
   }
 }
