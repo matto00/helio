@@ -9,15 +9,18 @@ import { isUnsupportedOpType } from "../state/stepNarrowing";
 import type { SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { AggregateConfig } from "./stepConfigs/AggregateConfig";
+import { AnalyzeWithAiConfig } from "./stepConfigs/AnalyzeWithAiConfig";
 import { AssertConfig } from "./stepConfigs/AssertConfig";
 import { CastFieldsConfig } from "./stepConfigs/CastFieldsConfig";
 import { ChunkByTokenCountConfig } from "./stepConfigs/ChunkByTokenCountConfig";
 import { ComputeFieldConfig } from "./stepConfigs/ComputeFieldConfig";
+import { ConvertFormatConfig } from "./stepConfigs/ConvertFormatConfig";
 import { DateBucketConfig } from "./stepConfigs/DateBucketConfig";
 import { DedupeConfig } from "./stepConfigs/DedupeConfig";
 import { ExtractHeadingsConfig } from "./stepConfigs/ExtractHeadingsConfig";
 import { FillNullConfig } from "./stepConfigs/FillNullConfig";
 import { FilterConfig } from "./stepConfigs/FilterConfig";
+import { GenerateTextConfig } from "./stepConfigs/GenerateTextConfig";
 import { LimitConfig } from "./stepConfigs/LimitConfig";
 import { LookupConfig } from "./stepConfigs/LookupConfig";
 import { PivotConfig } from "./stepConfigs/PivotConfig";
@@ -43,6 +46,8 @@ interface StepOpEditorProps {
    *  threaded through to `UpsertSourceConfig`'s target picker, which
    *  disables the "existing dataset" option for a non-owner editor grantee. */
   isOwner: boolean;
+  /** HEL-1109 (design.md D5) — threaded to the AI cards' cost disclosure. */
+  estimatedRows?: number;
   stepCardState: ReturnType<typeof useStepCardState>;
 }
 
@@ -55,6 +60,7 @@ export function StepOpEditor({
   analyzeSchema,
   validationError,
   isOwner,
+  estimatedRows,
   stepCardState,
 }: StepOpEditorProps) {
   const {
@@ -80,6 +86,9 @@ export function StepOpEditor({
     lookupConfig,
     assertConfig,
     upsertSourceConfig,
+    convertFormatConfig,
+    analyzeWithAiConfig,
+    generateTextConfig,
     saveError,
     onFieldToggle,
     onRenameChange,
@@ -103,6 +112,9 @@ export function StepOpEditor({
     onLookupChange,
     onAssertChange,
     onUpsertSourceChange,
+    onConvertFormatChange,
+    onAnalyzeWithAiChange,
+    onGenerateTextChange,
   } = stepCardState;
 
   // HEL-1100 (design.md Decision 9): a persisted step whose kind this frontend build doesn't
@@ -292,6 +304,36 @@ export function StepOpEditor({
         isOwner={isOwner}
         saveError={saveError}
         onChange={onUpsertSourceChange}
+      />
+    );
+  }
+
+  if (step.opType.id === "convertformat") {
+    return (
+      <ConvertFormatConfig
+        config={convertFormatConfig}
+        analyzeSchema={analyzeSchema}
+        onChange={onConvertFormatChange}
+      />
+    );
+  }
+  if (step.opType.id === "analyzewithai") {
+    return (
+      <AnalyzeWithAiConfig
+        config={analyzeWithAiConfig}
+        analyzeSchema={analyzeSchema}
+        estimatedRows={estimatedRows}
+        onChange={onAnalyzeWithAiChange}
+      />
+    );
+  }
+  if (step.opType.id === "generatetext") {
+    return (
+      <GenerateTextConfig
+        config={generateTextConfig}
+        analyzeSchema={analyzeSchema}
+        estimatedRows={estimatedRows}
+        onChange={onGenerateTextChange}
       />
     );
   }

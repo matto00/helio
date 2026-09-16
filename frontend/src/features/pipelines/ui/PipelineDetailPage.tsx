@@ -62,6 +62,8 @@ export function PipelineDetailPage() {
     pipelineName,
     sourceByRootId,
     isOwner,
+    estimatedRows,
+    draftCreateErrors,
     getAnalyzeColumns,
     getAnalyzeSchema,
     getAnalyzeOutputSchema,
@@ -270,6 +272,8 @@ export function PipelineDetailPage() {
             getAnalyzeSchema={getAnalyzeSchema}
             getAnalyzeOutputSchema={getAnalyzeOutputSchema}
             getAnalyzeValidationError={getAnalyzeValidationError}
+            estimatedRows={estimatedRows}
+            draftCreateErrors={draftCreateErrors}
             onStepConfigChange={handleStepConfigChange}
             runStepRowCounts={runStepRowCounts}
             onInstantiateShape={handleInstantiateShape}

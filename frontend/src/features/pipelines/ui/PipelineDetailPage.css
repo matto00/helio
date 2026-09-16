@@ -969,7 +969,12 @@
  * shrink to content width, producing the cramped "pill" look. */
 .pipeline-detail-page__compute-config,
 .pipeline-detail-page__limit-config,
-.pipeline-detail-page__splittext-config {
+.pipeline-detail-page__splittext-config,
+/* HEL-1109: the three new step cards reuse the same field-stack rhythm as
+ * every existing config -- no new layout primitive. */
+.pipeline-detail-page__convertformat-config,
+.pipeline-detail-page__analyzewithai-config,
+.pipeline-detail-page__generatetext-config {
   display: flex;
   flex-direction: column;
   /* HEL-830: 10px -> 8px, dense field-stack gap */

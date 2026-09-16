@@ -51,6 +51,10 @@ interface RootColumnProps {
   canRemove: boolean;
   /** HEL-968 D3/task 5.3 — passed straight through to `LaneColumn`. */
   nodePathByStepId: Record<string, string>;
+  /** HEL-1109 (design.md D5) — passed straight through to `LaneColumn`. */
+  estimatedRows?: number;
+  /** HEL-1109 (pipeline-ai-step-authoring spec) — passed straight through to `LaneColumn`. */
+  draftCreateErrors?: Record<string, string>;
 }
 
 export function RootColumn({
@@ -79,6 +83,8 @@ export function RootColumn({
   onRemoveRoot,
   canRemove,
   nodePathByStepId,
+  estimatedRows,
+  draftCreateErrors,
 }: RootColumnProps) {
   const hasSteps = (lane?.steps.length ?? 0) > 0;
 
@@ -125,6 +131,8 @@ export function RootColumn({
           isCompact={false}
           laneNumber={1}
           nodePathByStepId={nodePathByStepId}
+          estimatedRows={estimatedRows}
+          draftCreateErrors={draftCreateErrors}
         />
       ) : (
         // task 6.2 — an empty root renders an affordance rather than

@@ -7,21 +7,29 @@
 
 import type {
   AggregateConfig as AggregateConfigType,
+  AnalyzeWithAiConfig as AnalyzeWithAiConfigType,
   AssertConfig as AssertConfigType,
   CastConfig as CastConfigType,
   ChunkByTokenCountConfig as ChunkByTokenCountConfigType,
   ComputeConfig as ComputeConfigType,
+  ConvertFormatConfig as ConvertFormatConfigType,
+  ConvertFormatFrom,
+  ConvertFormatTo,
   DateBucketConfig as DateBucketConfigType,
   DedupeConfig as DedupeConfigType,
   ExtractHeadingsConfig as ExtractHeadingsConfigType,
   FillNullConfig as FillNullConfigType,
   FilterConfig as FilterConfigType,
+  GenerateTextConfig as GenerateTextConfigType,
   LimitConfig as LimitConfigType,
   LookupConfig as LookupConfigType,
+  OutputSchemaField,
+  OutputSchemaFieldType,
   PipelineStep,
   PipelineStepConfig,
   PivotConfig as PivotConfigType,
   RenameConfig as RenameConfigType,
+  SchemaField,
   SecondaryInput,
   SelectConfig as SelectConfigType,
   SortConfig as SortConfigType,
@@ -78,8 +86,11 @@ import {
   Link2,
   List,
   PaintBucket,
+  PenLine,
   Pencil,
+  Repeat2,
   Save,
+  Sparkles,
   Table2,
   Tags,
   Type,
@@ -126,7 +137,93 @@ export const OP_TYPES: OpType[] = [
   // its own ownership check (design.md Decision 2), so it also does NOT
   // mirror join's exclusion.
   { id: "upsertsource", label: "Write to source", icon: Save },
+  // HEL-1109 (design.md D1) — three ops, three OP_TYPES entries, no group
+  // field: HEL-1136 moves grouping to a backend-owned field.
+  { id: "convertformat", label: "Convert format", icon: Repeat2 },
+  { id: "analyzewithai", label: "Analyze with AI", icon: Sparkles },
+  { id: "generatetext", label: "Generate text", icon: PenLine },
 ];
+
+// design.md D2/D3 — the four supported `from`/`to` pairs, the ONLY pairs the
+// card's Select can produce. Mirrors the backend's `SupportedPairs`
+// (`ConvertFormatConfig.scala`).
+export const SUPPORTED_CONVERT_FORMAT_PAIRS: readonly [ConvertFormatFrom, ConvertFormatTo][] = [
+  ["csv", "json"],
+  ["json", "csv"],
+  ["text", "markdown"],
+  ["markdown", "text"],
+];
+
+/** design.md D4 — the four model-producible output-schema field types, the
+ *  only types `AnalyzeWithAiConfig`'s row editor can offer (the backend
+ *  rejects anything else with a named 422). */
+export const OUTPUT_SCHEMA_FIELD_TYPES: readonly OutputSchemaFieldType[] = [
+  "string",
+  "integer",
+  "float",
+  "boolean",
+];
+
+/** design.md D3 — matches `AnalyzeWithAiConfig.scala:30`. */
+export const MAX_OUTPUT_SCHEMA_ENTRIES = 50;
+
+// HEL-1108: AI steps are never auto-runnable and draw on a shared daily
+// budget -- the two kinds whose card carries the cost/quota disclosure
+// (design.md D5, pipeline-ai-step-authoring spec).
+const AI_STEP_KINDS = new Set(["analyzewithai", "generatetext"]);
+
+/** design.md D3 — true for a step kind whose write-path validator rejects an
+ *  incomplete config (today `analyzewithai`/`generatetext`, both delegating
+ *  to an all-fields-required `validate`). Derived here, in ONE place, so no
+ *  call site needs its own op-name check -- the 22 other ops (and
+ *  `convertformat`, whose seed tolerates an absent `from`/`to`) keep
+ *  create-immediately behavior unchanged. */
+export function requiresCompleteConfigForCreate(kind: string): boolean {
+  return AI_STEP_KINDS.has(kind);
+}
+
+/** design.md D5 / pipeline-ai-step-authoring spec — true for a step kind
+ *  whose card carries the per-row-cost/no-auto-run/shared-quota disclosure.
+ *  Currently identical to [[requiresCompleteConfigForCreate]]'s set, but kept
+ *  as its own named predicate since the two concerns (deferred-create vs.
+ *  cost disclosure) are independent contracts that happen to share a set of
+ *  kinds today, not the same rule. */
+export function isAiStepKind(kind: string): boolean {
+  return AI_STEP_KINDS.has(kind);
+}
+
+/** design.md D3 — the local completeness predicate mirrors the backend's own
+ *  `AnalyzeWithAiConfig.validate`/`GenerateTextConfig.validate` field-for-
+ *  field: non-empty (post-trim) `inputField`/`instruction`/`outputField`,
+ *  1..`MAX_OUTPUT_SCHEMA_ENTRIES` declared entries for `analyzewithai`, each
+ *  declared name non-empty/unique/not colliding with `inputField`, and each
+ *  declared type one of `OUTPUT_SCHEMA_FIELD_TYPES`. A narrower predicate
+ *  would fire a create that the backend 422s; a wider one means the step
+ *  never saves. Non-AI kinds are always considered complete (this predicate
+ *  is never consulted for them via `requiresCompleteConfigForCreate`). */
+export function isCompleteAiStepConfig(kind: string, config: PipelineStepConfig): boolean {
+  if (kind === "analyzewithai") {
+    const cfg = config as AnalyzeWithAiConfigType;
+    if (!cfg.inputField?.trim() || !cfg.instruction?.trim()) return false;
+    const schema = cfg.outputSchema ?? [];
+    if (schema.length < 1 || schema.length > MAX_OUTPUT_SCHEMA_ENTRIES) return false;
+    const seenNames = new Set<string>();
+    for (const field of schema) {
+      const name = field.name?.trim();
+      if (!name) return false;
+      if (name === cfg.inputField.trim()) return false;
+      if (seenNames.has(name)) return false;
+      seenNames.add(name);
+      if (!(OUTPUT_SCHEMA_FIELD_TYPES as readonly string[]).includes(field.type)) return false;
+    }
+    return true;
+  }
+  if (kind === "generatetext") {
+    const cfg = config as GenerateTextConfigType;
+    return Boolean(cfg.inputField?.trim() && cfg.instruction?.trim() && cfg.outputField?.trim());
+  }
+  return true;
+}
 
 // Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
 // so pipelineStepToStep can resolve existing backend-loaded join steps without
@@ -252,6 +349,22 @@ export function defaultConfigFor(kind: string): PipelineStepConfig {
       // HEL-386/620 precedent), `mode` is explicitly seeded to "append" (the toggle's own
       // visible initial selection, matching the backend's own absent-`mode` decode default).
       return { mode: "append" } as UpsertSourceConfigType;
+    case "convertformat":
+      // design.md D3 -- `from`/`to` are DELIBERATELY ABSENT, not seeded `""`
+      // like every sibling string field: a present-and-empty pair is
+      // rejected 422 by the backend's `pairError`, while an absent pair
+      // passes. This is the load-bearing seed the whole trap this ticket
+      // exists to avoid turns on.
+      return { field: "" } as ConvertFormatConfigType;
+    case "analyzewithai":
+      // No honest complete seed exists (design.md D3) -- this kind defers
+      // its create until the card's own local state satisfies
+      // `isCompleteAiStepConfig`, so this shape is only ever read by the
+      // card's own initial local state, never POSTed as-is.
+      return { inputField: "", instruction: "", outputSchema: [] } as AnalyzeWithAiConfigType;
+    case "generatetext":
+      // Same deferred-create rationale as `analyzewithai` above.
+      return { inputField: "", instruction: "", outputField: "" } as GenerateTextConfigType;
     default:
       return { fields: [] } as SelectConfigType;
   }
@@ -274,6 +387,80 @@ export function makeStep(opType: OpType, parentStepId?: string): Step {
     enabled: true,
     parentStepId,
   };
+}
+
+/** HEL-1109 (evaluation-1.md CR3) — single source of truth for "is this id a
+ *  not-yet-persisted local step", matching exactly the `step-<counter>` shape
+ *  [[makeStep]] mints above. The invariant belongs to `makeStep`'s minting
+ *  format, not to each call site re-deriving it: a real backend id is a UUID
+ *  and can never collide with this shape, but several pre-existing call
+ *  sites (`usePipelineDetailPage.ts`) used a looser `startsWith("step-")`
+ *  check that also (harmlessly, in production) matches a semantic id like
+ *  `"upsertsource-1"`'s prefix-adjacent cousins — exported here so every
+ *  site, old and new, derives the same answer from one place rather than
+ *  each guessing its own regex. */
+export function isTempStepId(id: string): boolean {
+  return /^step-\d+$/.test(id);
+}
+
+/** Minimal shape `resolveDraftFallbackSchema` needs from an analyze-derived
+ *  per-step entry -- deliberately narrower than `usePipelineDetailPage.ts`'s
+ *  own internal map-entry type, so this function stays independent of that
+ *  hook's private types. */
+export interface DraftFallbackAnalyzeEntry {
+  outputSchema: SchemaField[];
+}
+
+/** HEL-1109 (design.md Risks; pipeline-ai-step-authoring spec "A draft's
+ *  field picker falls back to its own anchor's schema") — a draft AI step
+ *  is never sent to `/analyze` (design.md D3/D6), so it has no analyze entry
+ *  of its own; without a fallback its field pickers would show zero options
+ *  until it were already complete, which is exactly the field it needs a
+ *  picker to fill.
+ *
+ *  evaluation-1.md CR2(a) — a LANE draft (`meta.parentStepId` set, from
+ *  `handleAddLaneStep`) resolves from that EXACT anchor's own output schema,
+ *  never a flat trunk-order walk: the anchor is known precisely (the step
+ *  the "+ lane" affordance was clicked on), so guessing via array position
+ *  could offer fields from an unrelated trunk step and let the draft
+ *  complete a config referencing a field its real input never has. A TRUNK
+ *  draft (no `parentStepId` — `handleInsertStep`) keeps the backward walk
+ *  over the local `steps` array to the nearest PRECEDING step with a real
+ *  analyze entry, using that step's own output schema.
+ *
+ *  Either path's ultimate fallback (no anchor entry found at all — the
+ *  draft is the pipeline's first-ever step, or its parent/nearest
+ *  predecessor is itself still a draft) is the OWNING root's source schema,
+ *  matched by `meta.rootId` when the draft recorded one, rather than
+ *  unconditionally the first root — a multi-root pipeline's second root has
+ *  its own distinct source schema.
+ *
+ *  Extracted as a pure, independently-testable function (skeptic-final-1.md
+ *  non-blocking note) rather than left as a closure inside the hook: every
+ *  reachable state via `handleAddLaneStep`'s own insertion ordering
+ *  (`anchorIndex + 1`) happens to keep a fresh draft array-adjacent to its
+ *  true anchor, so a live-UI-driven test cannot actually FORCE the two
+ *  resolution strategies (anchor-based vs. array-position) to disagree —
+ *  only a test that controls `steps` order and `meta.parentStepId`
+ *  independently, as this function's signature allows, can. */
+export function resolveDraftFallbackSchema(
+  stepId: string,
+  steps: Step[],
+  getAnalyzeEntry: (stepId: string) => DraftFallbackAnalyzeEntry | undefined,
+  getRootSourceSchema: (rootId: string | undefined) => SchemaField[],
+  meta: { parentStepId?: string; rootId?: string } | undefined,
+): SchemaField[] {
+  if (meta?.parentStepId) {
+    const parentEntry = getAnalyzeEntry(meta.parentStepId);
+    if (parentEntry) return parentEntry.outputSchema;
+    return getRootSourceSchema(meta.rootId);
+  }
+  const index = steps.findIndex((s) => s.id === stepId);
+  for (let i = index - 1; i >= 0; i--) {
+    const entry = getAnalyzeEntry(steps[i].id);
+    if (entry) return entry.outputSchema;
+  }
+  return getRootSourceSchema(meta?.rootId);
 }
 
 export function pipelineStepToStep(ps: PipelineStep): Step {
@@ -591,6 +778,63 @@ export function upsertSourceConfigOf(step: Step): UpsertSourceConfigValue {
   return {
     target: isUnconfiguredUpsertTarget(cfg.target) ? undefined : cfg.target,
     mode: cfg.mode === "replace" ? "replace" : "append",
+  };
+}
+
+export interface ConvertFormatConfigValue {
+  field: string;
+  from?: ConvertFormatFrom;
+  to?: ConvertFormatTo;
+  outputField?: string;
+}
+
+/** design.md D2 -- an unsupported persisted pair (a legacy or agent-authored
+ *  step whose `from`/`to` is not one of `SUPPORTED_CONVERT_FORMAT_PAIRS`) is
+ *  preserved verbatim, not coerced to one of the four (`SortConfig.tsx:68-76`
+ *  precedent). */
+export function convertFormatConfigOf(step: Step): ConvertFormatConfigValue {
+  const empty: ConvertFormatConfigValue = { field: "" };
+  if (step.opType.id !== "convertformat") return empty;
+  const cfg = step.config as ConvertFormatConfigType;
+  return {
+    field: cfg.field ?? "",
+    from: cfg.from,
+    to: cfg.to,
+    outputField: cfg.outputField ?? undefined,
+  };
+}
+
+export interface AnalyzeWithAiConfigValue {
+  inputField: string;
+  instruction: string;
+  outputSchema: OutputSchemaField[];
+}
+
+export function analyzeWithAiConfigOf(step: Step): AnalyzeWithAiConfigValue {
+  const empty: AnalyzeWithAiConfigValue = { inputField: "", instruction: "", outputSchema: [] };
+  if (step.opType.id !== "analyzewithai") return empty;
+  const cfg = step.config as AnalyzeWithAiConfigType;
+  return {
+    inputField: cfg.inputField ?? "",
+    instruction: cfg.instruction ?? "",
+    outputSchema: Array.isArray(cfg.outputSchema) ? cfg.outputSchema : [],
+  };
+}
+
+export interface GenerateTextConfigValue {
+  inputField: string;
+  instruction: string;
+  outputField: string;
+}
+
+export function generateTextConfigOf(step: Step): GenerateTextConfigValue {
+  const empty: GenerateTextConfigValue = { inputField: "", instruction: "", outputField: "" };
+  if (step.opType.id !== "generatetext") return empty;
+  const cfg = step.config as GenerateTextConfigType;
+  return {
+    inputField: cfg.inputField ?? "",
+    instruction: cfg.instruction ?? "",
+    outputField: cfg.outputField ?? "",
   };
 }
 

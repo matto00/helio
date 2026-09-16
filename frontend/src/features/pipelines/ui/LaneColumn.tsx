@@ -73,6 +73,12 @@ interface LaneColumnProps {
    *  `PipelineRiverView` and threaded straight through (mirrors
    *  `outputsByStepId`'s convention). */
   nodePathByStepId: Record<string, string>;
+  /** HEL-1109 (design.md D5) — the pipeline's own estimated row count,
+   *  passed straight through to each `StepCard`'s AI cost disclosure. */
+  estimatedRows?: number;
+  /** HEL-1109 (pipeline-ai-step-authoring spec) — passed straight through to
+   *  each `StepCard`'s own `draftError` lookup. */
+  draftCreateErrors?: Record<string, string>;
 }
 
 export function LaneColumn({
@@ -100,6 +106,8 @@ export function LaneColumn({
   isCompact,
   laneNumber,
   nodePathByStepId,
+  estimatedRows,
+  draftCreateErrors = {},
 }: LaneColumnProps) {
   const [laneDropdownForStepId, setLaneDropdownForStepId] = useState<string | null>(null);
   const [laneAnchorEl, setLaneAnchorEl] = useState<HTMLButtonElement | null>(null);
@@ -158,6 +166,8 @@ export function LaneColumn({
             isCompact={childLane.steps.length === 1}
             laneNumber={index + 1}
             nodePathByStepId={nodePathByStepId}
+            estimatedRows={estimatedRows}
+            draftCreateErrors={draftCreateErrors}
           />
         ))}
       </div>
@@ -211,6 +221,8 @@ export function LaneColumn({
                 previewRowCountByOutputId={previewRowCountByOutputId}
                 onOpenOutput={onOpenOutput}
                 onAddOutput={onAddOutput}
+                estimatedRows={estimatedRows}
+                draftError={draftCreateErrors[step.id]}
                 isTail
               />
             </div>
@@ -256,6 +268,8 @@ export function LaneColumn({
             previewRowCountByOutputId={previewRowCountByOutputId}
             onOpenOutput={onOpenOutput}
             onAddOutput={onAddOutput}
+            estimatedRows={estimatedRows}
+            draftError={draftCreateErrors[step.id]}
           />
           {renderAddLaneAffordance(step)}
           {renderChildLanes(step)}

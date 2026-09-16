@@ -169,10 +169,14 @@ const SPACING_BASELINE: BaselineEntry[] = [
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 28 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 231 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 888 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 983 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1046 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1255 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1486 },
+  // HEL-1109 shifted every PipelineDetailPage.css baseline entry below line
+  // ~980 down by 5 (three new `.pipeline-detail-page__{convertformat,
+  // analyzewithai,generatetext}-config` selectors + a comment added to the
+  // shared field-stack rule; net +6/-1 lines).
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 988 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1051 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1260 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1491 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 136 },
   { file: "features/sources/ui/AddSourceModal.css", line: 144 },
   { file: "features/sources/ui/AddSourceModal.css", line: 254 },
