@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.helio.domain.engine.PipelineRowJson
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -60,6 +60,8 @@ object LimitStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.FilterShape)
+    override def catalogDescription: String   = "Keep only the first N rows."
     def decodeConfig(raw: String): Any    = LimitConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[LimitConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[LimitConfig]

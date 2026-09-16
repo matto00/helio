@@ -6,6 +6,7 @@
 
 import {
   OP_TYPES,
+  STEP_ICONS,
   analyzeWithAiConfigOf,
   convertFormatConfigOf,
   defaultConfigFor,
@@ -542,7 +543,7 @@ describe("stepNarrowing — HEL-1109 convertformat/analyzewithai/generatetext", 
   });
 });
 
-describe("stepNarrowing — HEL-1109 drift guard: OP_TYPES vs. backend registry", () => {
+describe("stepNarrowing — HEL-1136 drift guard: STEP_ICONS vs. backend registry authorability", () => {
   // Task 4.1 — parses the same Scala source of truth
   // `canonicalFieldTypesDriftGuard.test.ts` uses, from repo root. `join` is
   // the one deliberate OP_TYPES exclusion (stepNarrowing.ts comment above
@@ -598,42 +599,61 @@ describe("stepNarrowing — HEL-1109 drift guard: OP_TYPES vs. backend registry"
     return parseRegistryStepNames(source).map((name) => resolveKindString(repoRoot, name));
   }
 
-  // `join` is the design.md-documented deliberate exclusion (no
-  // `JoinConfig.tsx` editor exists — stepNarrowing.ts's own comment above
-  // OP_TYPES). Running this guard against the real backend registry also
-  // surfaced `groupby` as unlisted -- a PRE-EXISTING gap unrelated to this
-  // ticket's three ops (no `GroupByConfig.tsx` editor exists either; its
-  // functionality appears superseded by `aggregate`, itself already in
-  // OP_TYPES). Out of scope to fix here (this ticket adds three ops, not a
-  // fourth editor for a fifth-generation-old step kind) -- flagged in the
-  // executor's report as a spinoff candidate, not silently absorbed.
-  const KNOWN_UNLISTED_KINDS = new Set(["join", "groupby"]);
+  // HEL-1136 task 6.3 (design.md Decision 8) — replaces the old
+  // `KNOWN_UNLISTED_KINDS` hardcoded frontend exception list: authorability is
+  // now a BACKEND declaration (`override def authorable: Boolean = false` on
+  // a companion), parsed here from the real step files rather than
+  // re-asserted as a frontend constant, so a future backend-declared
+  // unauthorable kind doesn't require touching this test at all.
+  function parseUnauthorableKinds(repoRoot: string, registryKinds: string[]): Set<string> {
+    const stepsDir = path.join(repoRoot, "backend/src/main/scala/com/helio/domain/steps");
+    const unauthorable = new Set<string>();
+    for (const file of fs.readdirSync(stepsDir)) {
+      if (!file.endsWith("Step.scala")) continue;
+      const source = fs.readFileSync(path.join(stepsDir, file), "utf8");
+      const kindMatch = source.match(/val Kind:\s*String\s*=\s*"([a-zA-Z]+)"/);
+      if (!kindMatch) continue;
+      const kind = kindMatch[1];
+      if (
+        registryKinds.includes(kind) &&
+        /override def authorable: Boolean\s*=\s*false/.test(source)
+      ) {
+        unauthorable.add(kind);
+      }
+    }
+    return unauthorable;
+  }
 
-  function opTypesCoverRegistry(registryKinds: string[]): { missing: string[] } {
-    const opTypeIds = new Set(OP_TYPES.map((op) => op.id));
-    const missing = registryKinds.filter((k) => !KNOWN_UNLISTED_KINDS.has(k) && !opTypeIds.has(k));
+  function iconsCoverAuthorableKinds(
+    registryKinds: string[],
+    unauthorableKinds: Set<string>,
+  ): { missing: string[] } {
+    const authorableKinds = registryKinds.filter((k) => !unauthorableKinds.has(k));
+    const missing = authorableKinds.filter((k) => !(k in STEP_ICONS));
     return { missing };
   }
 
-  it("OP_TYPES has an entry for every backend-registered kind except the deliberate join exclusion", () => {
+  it("STEP_ICONS has an entry for every authorable backend-registered kind", () => {
     const repoRoot = findRepoRoot(__dirname);
     const source = fs.readFileSync(
       path.join(repoRoot, "backend/src/main/scala/com/helio/domain/model/PipelineStep.scala"),
       "utf8",
     );
     const registryKinds = parseRegistryKinds(repoRoot, source);
-    // 27 per the run brief's own count at time of writing (26 OP_TYPES + join).
-    expect(registryKinds.length).toBeGreaterThanOrEqual(27);
-    const { missing } = opTypesCoverRegistry(registryKinds);
+    expect(registryKinds.length).toBe(27);
+    const unauthorableKinds = parseUnauthorableKinds(repoRoot, registryKinds);
+    // The two currently-declared unauthorable kinds (join, groupby) — asserted here so a future
+    // backend declaration change is visible in this test's failure, not silently absorbed.
+    expect(unauthorableKinds).toEqual(new Set(["join", "groupby"]));
+    const { missing } = iconsCoverAuthorableKinds(registryKinds, unauthorableKinds);
     expect(missing).toEqual([]);
   });
 
-  // [C2] — proven failable in the direction of its STATED PURPOSE by
-  // mutating the parsed SOURCE OF TRUTH (a fake registry kind list), not a
-  // hardcoded twin of OP_TYPES.
-  it("fails when the parsed registry source contains a kind OP_TYPES doesn't have (guard is provably not vacuous)", () => {
+  // [C2] — proven failable in the direction of its STATED PURPOSE by mutating the parsed source
+  // of truth (a fake registry kind list), not a hardcoded twin of STEP_ICONS.
+  it("fails when an authorable kind has no STEP_ICONS entry (guard is provably not vacuous)", () => {
     const fakeRegistryKinds = ["select", "rename", "totallyMadeUpOpKind"];
-    const { missing } = opTypesCoverRegistry(fakeRegistryKinds);
+    const { missing } = iconsCoverAuthorableKinds(fakeRegistryKinds, new Set());
     expect(missing).toEqual(["totallyMadeUpOpKind"]);
   });
 });

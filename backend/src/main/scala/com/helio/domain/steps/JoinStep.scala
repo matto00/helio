@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{DataSourceId, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{DataSourceId, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.helio.domain.engine.PipelineRowJson
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -110,6 +110,9 @@ object JoinStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.Combine)
+    override def catalogDescription: String   = "Join rows with a second data source or lane on a matching key."
+    override def authorable: Boolean          = false
     def decodeConfig(raw: String): Any    = JoinConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[JoinConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[JoinConfig]

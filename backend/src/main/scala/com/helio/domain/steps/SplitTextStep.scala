@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.helio.domain.engine.PipelineRowJson
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -126,6 +126,8 @@ object SplitTextStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.ContentFiles)
+    override def catalogDescription: String   = "Split a text field into segments, by paragraph or heading."
     def decodeConfig(raw: String): Any    = SplitTextConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[SplitTextConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[SplitTextConfig]

@@ -18,6 +18,7 @@ import type {
   ExpandPipelineShapeResponse,
   PipelineShapeCatalogEntry,
 } from "../types/pipelineShape";
+import type { PipelineStepCatalog } from "../types/pipelineStepCatalog";
 import { httpClient } from "../../../services/httpClient";
 
 export async function getPipelines(): Promise<PipelineSummary[]> {
@@ -386,5 +387,14 @@ export async function expandPipelineShape(
     `/api/pipeline-shapes/${shapeId}/expand`,
     { params },
   );
+  return response.data;
+}
+
+/** GET /api/pipeline-step-catalog (HEL-1136 design.md Decision 2) — the registry of add-step
+ *  kinds the palette renders, server-grouped/described/authorability-flagged. Registry-style
+ *  reference data, not app state — a direct service call with no Redux slice, mirroring
+ *  `getPipelineShapeCatalog` immediately above. */
+export async function getPipelineStepCatalog(): Promise<PipelineStepCatalog> {
+  const response = await httpClient.get<PipelineStepCatalog>("/api/pipeline-step-catalog");
   return response.data;
 }

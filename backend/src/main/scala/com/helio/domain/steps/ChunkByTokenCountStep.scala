@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.helio.domain.engine.PipelineRowJson
 import com.knuddels.jtokkit.Encodings
 import com.knuddels.jtokkit.api.{Encoding, EncodingType, IntArrayList}
@@ -155,6 +155,8 @@ object ChunkByTokenCountStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.ContentFiles)
+    override def catalogDescription: String   = "Split long text into token-bounded chunks for downstream processing."
     def decodeConfig(raw: String): Any    = ChunkByTokenCountConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[ChunkByTokenCountConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[ChunkByTokenCountConfig]

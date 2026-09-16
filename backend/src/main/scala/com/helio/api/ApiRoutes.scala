@@ -40,7 +40,7 @@ import com.helio.services.sharing.{ShareTokenService, ShareTokenValidatorImpl}
 import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardContentsService, DashboardService}
-import com.helio.services.pipelines.{OutputService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService}
+import com.helio.services.pipelines.{OutputService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
 import com.helio.services.ratelimit.{InMemoryRateLimiter, RateLimitConfig}
@@ -522,6 +522,9 @@ final class ApiRoutes(
   // HEL-391: dependency-free, mirrors ConnectorRoutes/ConnectorRegistry — no
   // repository, so no nullable-optional wiring needed.
   private val pipelineShapeService        = new PipelineShapeService()
+  // HEL-1136: dependency-free, mirrors pipelineShapeService immediately above — no
+  // repository, so no nullable-optional wiring needed.
+  private val pipelineStepCatalogService  = new PipelineStepCatalogService()
   // HEL-366: same nullable-optional wiring pattern as the repos above —
   // fixtures that don't pass a DbContext simply don't get the
   // /api/workspace/teardown route mounted.
@@ -837,6 +840,10 @@ final class ApiRoutes(
                   // `pipelines` — mount order relative to PipelineRoutes doesn't matter (design.md
                   // Decision 6).
                   new PipelineShapeRoutes(pipelineShapeService, authenticatedUser).routes,
+                  // HEL-1136: distinct top-level `pipeline-step-catalog` prefix, NOT nested under
+                  // `pipelines` — same reason `pipeline-shapes` is top-level immediately above
+                  // (design.md Decision 2); mount order relative to PipelineRoutes doesn't matter.
+                  new PipelineStepCatalogRoutes(pipelineStepCatalogService, authenticatedUser).routes,
                   new PipelineRoutes(pipelineService, authenticatedUser).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
                   // HEL-906: `/api/pipelines/:id/outputs` + `/api/outputs/:id` —

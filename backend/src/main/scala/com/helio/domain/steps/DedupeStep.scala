@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.helio.domain.engine.PipelineRowJson
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -121,6 +121,8 @@ object DedupeStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.FilterShape)
+    override def catalogDescription: String   = "Remove duplicate rows based on one or more key columns."
     def decodeConfig(raw: String): Any    = DedupeConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[DedupeConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[DedupeConfig]

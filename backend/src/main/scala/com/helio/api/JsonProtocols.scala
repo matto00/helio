@@ -55,6 +55,7 @@ import com.helio.api.protocols.workspace._
  *  - `PipelineScheduleProtocol` has no cross-domain dependency
  *  - `ConnectorProtocol` has no cross-domain dependency
  *  - `PipelineShapeProtocol` has no cross-domain dependency
+ *  - `PipelineStepCatalogProtocol` has no cross-domain dependency (HEL-1136)
  *  - `PanelCapabilityProtocol` has no cross-domain dependency
  *  - `DashboardAuthoringProtocol extends DashboardProposalProtocol` (DashboardAuthoringResponse
  *    nests DashboardProposal verbatim — HEL-392)
@@ -110,6 +111,7 @@ trait JsonProtocols
     with PipelineScheduleProtocol
     with ConnectorProtocol
     with PipelineShapeProtocol
+    with PipelineStepCatalogProtocol
     with PanelCapabilityProtocol
     with WorkspaceProtocol
     with WorkspaceContextProtocol

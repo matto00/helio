@@ -2,7 +2,7 @@ package com.helio.domain.steps
 
 import com.helio.domain.ai.{AiQuotaMessage, AiStepFailure, AiStepRequest}
 import com.helio.domain.engine.PipelineRowJson
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import spray.json._
 
 import java.time.Instant
@@ -79,6 +79,8 @@ object GenerateTextStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.Ai)
+    override def catalogDescription: String   = "Generate new text per row using an AI model, from an instruction and an input field."
     def decodeConfig(raw: String): Any    = GenerateTextConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[GenerateTextConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[GenerateTextConfig]

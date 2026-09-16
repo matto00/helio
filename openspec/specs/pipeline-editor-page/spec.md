@@ -222,7 +222,7 @@ The pipeline editor SHALL offer an "insert step here" affordance in each gap of 
 before the first step card and between each adjacent pair (appending after the last step remains
 the existing add-step row). The affordance SHALL:
 
-- Open the existing op-type picker anchored at that gap; selecting an op creates the step at that
+- Open the add-step palette carrying that gap's insert context; selecting a step creates it at that
   list index via the create endpoint's optional `position`
 - Reflect the inserted step immediately at the chosen position (optimistic), reconciling with the
   persisted step on success; on failure, keep the local step and surface a visible error (the

@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.helio.domain.engine.PipelineRowJson
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -104,6 +104,8 @@ object ExtractHeadingsStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.ContentFiles)
+    override def catalogDescription: String   = "Extract headings and their levels from structured text."
     def decodeConfig(raw: String): Any    = ExtractHeadingsConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[ExtractHeadingsConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[ExtractHeadingsConfig]
