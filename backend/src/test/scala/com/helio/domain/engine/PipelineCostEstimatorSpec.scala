@@ -144,9 +144,10 @@ class PipelineCostEstimatorSpec extends AnyWordSpec with Matchers {
 
       // Every registered op is classified somewhere...
       (registered -- classified) shouldBe empty
-      // ...and CheapOps/WriteBackOps/ContentConversionOps are pure subsets of Registry (AiOps is
-      // deliberately allowed to name ops that are NOT registered -- analyzewithai/generatetext,
-      // tasks.md C3 -- so it is excluded from this direction of the check).
+      // ...and CheapOps/WriteBackOps/ContentConversionOps are pure subsets of Registry. AiOps is
+      // excluded from this direction of the check not because its ops are unregistered (both
+      // analyzewithai/generatetext ARE registered, HEL-1106/1107) but because the check only
+      // needs to hold for the hand-maintained sets that could otherwise silently drift.
       (CheapOps -- registered) shouldBe empty
       (WriteBackOps -- registered) shouldBe empty
       (ContentConversionOps -- registered) shouldBe empty

@@ -8,7 +8,7 @@ import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatu
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, Output, OutputId, Pipeline, PipelineId, PipelineRootId, PipelineRunId, PipelineStep, PipelineStepId, PipelineStepKind, TruncatedRead, TruncationSink, UserId, WriteBackSink}
 import com.helio.services.sources.DataSourceService
-import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeDependencyClosure, NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException, StepKey}
+import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeDependencyClosure, NodeKey, NodeOutcome, PipelineCostEstimator, PipelineExecutionBackend, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException, StepKey}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -492,7 +492,8 @@ final class PipelineRunService(
             val dataSource = selectedRoot._2
             val truncationSink = new TruncationSink
             backend
-              .execute(pipeline, Vector(selectedRoot), Vector.empty, dataSourceRepo, new AssertionSink, truncationSink)
+              .execute(pipeline, Vector(selectedRoot), Vector.empty, dataSourceRepo, new AssertionSink, truncationSink,
+                ownerUserId = Some(pipeline.ownerId.value))
               .map { outcome =>
                 val allJsRows = outcome.rows.map { rowMap =>
                   JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
@@ -552,6 +553,22 @@ final class PipelineRunService(
                   // rejects previewing a disabled step itself.
                   val target      = sortedSteps(k)
                   val slicedSteps = NodeDependencyClosure.closureOf(sortedSteps.toVector, target)
+                  // HEL-1108 (design.md D10/C10): a preview whose closure contains an ENABLED AI
+                  // step issues a real model call charged to the pipeline OWNER (D5) -- without
+                  // this check, a read-only viewer grantee could repeatedly preview such a node
+                  // and drain the owner's combined chat+pipeline daily budget. `closureOf` does
+                  // not pre-filter disabled ancestors (see the comment above), so this check
+                  // must too, else a disabled AI step would over-deny a viewer previewing an
+                  // otherwise AI-free closure.
+                  val closureHasEnabledAiStep = slicedSteps.exists(s => s.enabled && PipelineCostEstimator.AiOps.contains(s.kind))
+                  val authorizedForAi: Future[Boolean] =
+                    if (!closureHasEnabledAiStep) Future.successful(true)
+                    else if (pipeline.ownerId.value == user.id.value) Future.successful(true)
+                    else pipelineRepo.findGrantRole(pipelineId, user).map(_.contains("editor"))
+                  authorizedForAi.flatMap {
+                    case false =>
+                      Future.successful(Left(ServiceError.Forbidden("Forbidden")))
+                    case true =>
                   // HEL-861 (design D8/task 2.2c): the step-preview site is the one call site
                   // design.md calls out by name -- it must construct and pass its OWN
                   // truncationSink here, mirroring the real-run site, or a preview whose
@@ -564,7 +581,8 @@ final class PipelineRunService(
                   // sink here preserves that behavior exactly, without sharing state with the
                   // run path's sink.
                   backend
-                    .execute(pipeline, roots, slicedSteps.toVector, dataSourceRepo, new AssertionSink, truncationSink)
+                    .execute(pipeline, roots, slicedSteps.toVector, dataSourceRepo, new AssertionSink, truncationSink,
+                      ownerUserId = Some(pipeline.ownerId.value))
                     .map { outcome =>
                       // HEL-905 (evaluation-1.md CR1): `outcome.rows` is always the TRUNK's
                       // terminal frame -- for a target step on a tail, the tail's own rows live
@@ -595,6 +613,7 @@ final class PipelineRunService(
                       case _                            => "Pipeline execution failed"
                     }
                     Left(ServiceError.UnprocessableEntity(errMsg))
+                  }
                   }
               }
             }
@@ -692,7 +711,10 @@ final class PipelineRunService(
             }
             if (roots.isEmpty) Future.successful(())
             else backend
-              .execute(pipeline, roots, Vector.empty, dataSourceRepo, new AssertionSink, new TruncationSink)
+              // HEL-1108 (C11): threaded for uniformity only -- this arm executes with
+              // Vector.empty steps (no step, hence no AI step, ever evaluates here).
+              .execute(pipeline, roots, Vector.empty, dataSourceRepo, new AssertionSink, new TruncationSink,
+                ownerUserId = Some(pipeline.ownerId.value))
               .flatMap(outcome => persistBackfilledRows(pipelineId, None, outcome.rows, explicitRootId))
               .recover { case ex =>
                 log.error(s"HEL-947: backfill source-level evaluation failed for pipeline ${pipelineId.value}", ex)
@@ -708,7 +730,8 @@ final class PipelineRunService(
                   // no third, independently-authored notion of "depends on" survives here.
                   val slicedSteps = NodeDependencyClosure.closureOf(allSteps.toVector, target)
                   backend
-                    .execute(pipeline, roots, slicedSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink)
+                    .execute(pipeline, roots, slicedSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink,
+                      ownerUserId = Some(pipeline.ownerId.value))
                     .flatMap { outcome =>
                       val targetRows = outcome.nodeOutcomes.get(StepKey(target.id.value)).map(_.rows).getOrElse(outcome.rows)
                       // Step-bound write (`nodeKey = Some(stepId)`) -- `explicitRootId` only
@@ -943,7 +966,8 @@ final class PipelineRunService(
 
     val runFuture = preExec.flatMap { _ =>
       backend
-        .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink)
+        .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink,
+          ownerUserId = Some(pipeline.ownerId.value))
         .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes))
     }
 

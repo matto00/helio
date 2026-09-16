@@ -29,7 +29,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.email.{EmailConfig, EmailSender, HttpResendEmailSender}
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
-import com.helio.services.auth.{ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserTierConfig}
+import com.helio.services.auth.{AiPipelineQuotaGate, ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserTierConfig}
 import com.helio.services.assistant.{AssistantConversationService, AssistantService}
 import com.helio.services.panels.{AutoLayoutService, PanelCapabilityService, PanelService}
 import com.helio.services.proposals.{CombinedProposalService, DashboardAuthoringService, DashboardProposalService}
@@ -319,13 +319,23 @@ final class ApiRoutes(
   // every other *ServiceOpt val's own convention). Degrades to AiStepClient.Unavailable (never
   // constructed) rather than failing ApiRoutes construction, so the backend still boots with no
   // ANTHROPIC_API_KEY (design.md D3).
+  // HEL-1108 (design.md D8, design-gate N6): built from `Option(dbContext)` directly, NOT from
+  // `chatAccessServiceOpt` (declared below, at :488) -- referencing that val here would silently
+  // capture `null` per Scala's declaration-order val initialization, with no compiler complaint.
+  // A missing `DbContext` (no fixtures wire one) degrades `aiStepClient` to `AiStepClient
+  // .Unavailable` below, exactly like the missing-`ANTHROPIC_API_KEY` branch -- an ungated
+  // `ClaudeAiStepClient` is never constructible either way.
   private val aiStepClient: AiStepClient =
-    ClaudeConfig.fromEnv() match {
-      case Left(reason) =>
+    (ClaudeConfig.fromEnv(), Option(dbContext)) match {
+      case (Left(reason), _) =>
         log.warn(s"pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): $reason")
         AiStepClient.Unavailable
-      case Right(claudeConfig) =>
-        new ClaudeAiStepClient(new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey)))
+      case (Right(_), None) =>
+        log.warn("pipeline AI steps disabled (no DbContext for the tier gate; falls back to ai-unavailable at run time)")
+        AiStepClient.Unavailable
+      case (Right(claudeConfig), Some(ctx)) =>
+        val quotaGate = new AiPipelineQuotaGate.Live(userRepo, new AssistantDailyUsageRepository(ctx), userTierConfig)
+        new ClaudeAiStepClient(new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey)), quotaGate)
     }
 
   val pipelineRunService = new PipelineRunService(

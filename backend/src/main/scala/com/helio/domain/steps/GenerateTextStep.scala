@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.ai.{AiStepFailure, AiStepRequest}
+import com.helio.domain.ai.{AiQuotaMessage, AiStepFailure, AiStepRequest}
 import com.helio.domain.engine.PipelineRowJson
 import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
 import spray.json._
@@ -17,8 +17,9 @@ import scala.concurrent.{ExecutionContext, Future}
  *  only (design.md D1/tasks.md C3) -- no batching, no N-to-1 collapse, no mode toggle. The whole
  *  run fails on the first bad row -- `outputField` is written only after the non-blank check, so
  *  a partially-written row is unreachable by construction (design.md D4). HEL-1108's tier/quota
- *  gating is deliberately NOT implemented here (tasks.md C1) -- `ctx.aiClient.complete` remains
- *  the single model call point that ticket will gate. */
+ *  gating is enforced at `ClaudeAiStepClient.complete` -- `ctx.aiClient.complete` remains the
+ *  single model call point that gate lives behind, and this file only maps its `QuotaExceeded`
+ *  denial to a named failure. */
 final case class GenerateTextStep(
     id: PipelineStepId,
     pipelineId: PipelineId,
@@ -62,12 +63,13 @@ object GenerateTextStep {
           case Some(s: String)   => s
           case Some(_)           => fail("field-not-string", s"field '${cfg.inputField}' is not a string")
         }
-        val request = AiStepRequest(instruction = cfg.instruction, content = content)
+        val request = AiStepRequest(instruction = cfg.instruction, content = content, ownerUserId = ctx.ownerUserId)
         ctx.aiClient.complete(request).map {
-          case Left(AiStepFailure.Unavailable(reason)) => fail("ai-unavailable", reason)
-          case Left(AiStepFailure.Guardrail(reason))   => fail("ai-guardrail", reason)
-          case Left(AiStepFailure.Api(status, body))   => fail("ai-error", s"API returned status $status: $body")
-          case Left(AiStepFailure.Transport(message))  => fail("ai-error", message)
+          case Left(AiStepFailure.Unavailable(reason))  => fail("ai-unavailable", reason)
+          case Left(AiStepFailure.Guardrail(reason))    => fail("ai-guardrail", reason)
+          case Left(AiStepFailure.Api(status, body))    => fail("ai-error", s"API returned status $status: $body")
+          case Left(AiStepFailure.Transport(message))   => fail("ai-error", message)
+          case Left(AiStepFailure.QuotaExceeded(limit)) => fail("ai-quota-exceeded", AiQuotaMessage(limit))
           case Right(responseText) =>
             if (responseText.trim.isEmpty) fail("response-empty", "model response is empty or whitespace-only")
             acc :+ (row + (cfg.outputField -> responseText))

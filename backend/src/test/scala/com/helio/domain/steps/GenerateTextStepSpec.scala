@@ -1,10 +1,11 @@
 package com.helio.domain.steps
 
 import com.helio.ai.{ClaudeAiStepClient, ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeStreamEvent, ClaudeTransport}
-import com.helio.domain.ai.AiStepClient
+import com.helio.domain.ai.{AiStepClient, AiStepFailure, AiStepRequest}
 import com.helio.domain.engine.{InProcessPipelineEngine, PipelineRowJson, StepExecutionException}
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStepId, UserId}
 import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.services.auth.AiPipelineQuotaGate
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import org.scalatest.matchers.should.Matchers
@@ -60,9 +61,19 @@ class GenerateTextStepSpec extends AnyWordSpec with Matchers {
       usage = ClaudeApiUsage(inputTokens = 5, outputTokens = 5)
     )
 
+  // HEL-1108 (design-gate N16): a real client's `complete` now denies a request carrying no
+  // owner (D8/3.5c), so every fixture below sets `ownerUserId` -- an always-permit fake gate
+  // (this spec is about response enforcement, not quota gating; that's `ClaudeAiStepClientSpec`).
+  private val alwaysPermitGate: AiPipelineQuotaGate = (_: UserId) => Future.successful(Right(()))
+
   private def contextWithTransport(transport: FakeTransport, maxInputTokens: Int = 100000): PipelineExecutionContext = {
     val client = new ClaudeClient(config(maxInputTokens), transport)
-    PipelineExecutionContext(dataSourceRepo = null, loadSource = _ => Future.successful(Seq.empty), aiClient = new ClaudeAiStepClient(client))
+    PipelineExecutionContext(
+      dataSourceRepo = null,
+      loadSource = _ => Future.successful(Seq.empty),
+      aiClient = new ClaudeAiStepClient(client, alwaysPermitGate),
+      ownerUserId = Some("test-owner-user-id")
+    )
   }
 
   private val cfg = GenerateTextConfig(inputField = "content", instruction = "Summarize this", outputField = "summary")
@@ -184,6 +195,19 @@ class GenerateTextStepSpec extends AnyWordSpec with Matchers {
       val ex = intercept[IllegalArgumentException] { await(GenerateTextStep.apply(rows("x"), cfg, contextWithTransport(transport))) }
       ex.getMessage should include("ai-error")
     }
+
+    // HEL-1108 (design.md D6, tasks.md 3.4): the QuotaExceeded mapping names the limit, the UTC
+    // reset, and that the budget is shared with chat (design-gate N2).
+    "fail with ai-quota-exceeded, naming the limit, the UTC reset, and the shared chat budget" in {
+      val quotaClient: AiStepClient = (_: AiStepRequest) =>
+        Future.successful(Left(AiStepFailure.QuotaExceeded(50)))
+      val ctx = PipelineExecutionContext(dataSourceRepo = null, loadSource = _ => Future.successful(Seq.empty), aiClient = quotaClient)
+      val ex = intercept[IllegalArgumentException] { await(GenerateTextStep.apply(rows("x"), cfg, ctx)) }
+      ex.getMessage should include("ai-quota-exceeded")
+      ex.getMessage should include("50")
+      ex.getMessage should include("midnight UTC")
+      ex.getMessage should include("shared")
+    }
   }
 
   // ── 3.5: response-empty ──────────────────────────────────────────────────
@@ -214,6 +238,23 @@ class GenerateTextStepSpec extends AnyWordSpec with Matchers {
         Await.result(engine.execute(Seq(Map("content" -> "x")), Seq(step), null), 5.seconds)
       }
       ex.reason should include("ai-unavailable")
+      ex.reason should not include "step execution failed"
+    }
+
+    // HEL-1108 (design.md D6, tasks.md 3.1a): the QuotaExceeded arm surfaces VERBATIM through
+    // `StepExecutionException.from`'s IllegalArgumentException allowlist. Mutation evidence
+    // (dropping this step file's QuotaExceeded match arm, which degrades this to the generic
+    // "step execution failed" via a scala.MatchError) is recorded in files-modified.md.
+    "surface a QuotaExceeded denial's message VERBATIM, never the generic 'step execution failed'" in {
+      val quotaClient: AiStepClient = (_: AiStepRequest) =>
+        Future.successful(Left(AiStepFailure.QuotaExceeded(50)))
+      val engine = new InProcessPipelineEngine(new LocalFileSystem(Paths.get("/tmp")), aiStepClient = quotaClient)(ec)
+      val now    = Instant.now()
+      val step = GenerateTextStep(PipelineStepId("step-gt"), PipelineId("pipe-gt"), 0, cfg, now, now)
+      val ex = intercept[StepExecutionException] {
+        Await.result(engine.execute(Seq(Map("content" -> "x")), Seq(step), null), 5.seconds)
+      }
+      ex.reason should include("ai-quota-exceeded")
       ex.reason should not include "step execution failed"
     }
   }

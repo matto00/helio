@@ -18,9 +18,9 @@ object PipelineCostEstimator {
   val MaxAutoRunSteps: Int = 20
 
   /** AI ops: always denied with their own `ai-step` code, checked BEFORE the general allowlist
-   *  so HEL-1108 can key on the reason code alone without re-deriving classification. Neither op
-   *  is implemented/registered (HEL-1106/1107) -- classified by op-name string only, per
-   *  tasks.md C3. */
+   *  so HEL-1108 can key on the reason code alone without re-deriving classification. Both ops
+   *  are implemented and registered (HEL-1106/1107, `PipelineStep.Registry`) -- classified by
+   *  op-name string here regardless, since auto-run denial is independent of registration. */
   val AiOps: Set[String] = Set("analyzewithai", "generatetext")
 
   /** Write-back ops: denied because auto-running a writer would cascade into further auto-runs

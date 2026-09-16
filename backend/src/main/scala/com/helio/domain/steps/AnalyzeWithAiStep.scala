@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.ai.{AiStepFailure, AiStepRequest}
+import com.helio.domain.ai.{AiQuotaMessage, AiStepFailure, AiStepRequest}
 import com.helio.domain.engine.PipelineRowJson
 import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
 import com.fasterxml.jackson.core.{JsonParser => JacksonJsonParser}
@@ -63,12 +63,13 @@ object AnalyzeWithAiStep {
           case Some(s: String)   => s
           case Some(_)           => fail("field-not-string", s"field '${cfg.inputField}' is not a string")
         }
-        val request = AiStepRequest(instruction = prompt(cfg), content = content)
+        val request = AiStepRequest(instruction = prompt(cfg), content = content, ownerUserId = ctx.ownerUserId)
         ctx.aiClient.complete(request).map {
-          case Left(AiStepFailure.Unavailable(reason)) => fail("ai-unavailable", reason)
-          case Left(AiStepFailure.Guardrail(reason))   => fail("ai-guardrail", reason)
-          case Left(AiStepFailure.Api(status, body))   => fail("ai-error", s"API returned status $status: $body")
-          case Left(AiStepFailure.Transport(message))  => fail("ai-error", message)
+          case Left(AiStepFailure.Unavailable(reason))   => fail("ai-unavailable", reason)
+          case Left(AiStepFailure.Guardrail(reason))     => fail("ai-guardrail", reason)
+          case Left(AiStepFailure.Api(status, body))     => fail("ai-error", s"API returned status $status: $body")
+          case Left(AiStepFailure.Transport(message))    => fail("ai-error", message)
+          case Left(AiStepFailure.QuotaExceeded(limit))  => fail("ai-quota-exceeded", AiQuotaMessage(limit))
           case Right(responseText) =>
             val values = enforce(responseText, cfg)
             acc :+ (row ++ values)
