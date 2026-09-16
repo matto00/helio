@@ -651,27 +651,29 @@ class PipelineAnalyzeRoutesSpec
       }
     }
 
-    // design.md D8 / skeptic-design-1.md's independently-confirmed uncertain claim: a
-    // manually-inserted `generatetext` row (V107-legal, but `generatetext` has no
-    // `PipelineStep.Registry` entry -- HEL-1107 unshipped) makes `listByPipelineInternal`'s
-    // `rowToDomain` throw `IllegalStateException` when decoding it, which fails the whole
-    // `analyze` Future rather than reaching the estimator at all. Recorded here rather than
-    // assumed, per D8 -- this is the one AC arm the estimator-level spec (task 4.1) cannot
-    // exercise through this route, since request-time validation (`PipelineStepKind.All`)
-    // makes the row unreachable via any real API call; only a direct SQL insert (as here)
-    // can produce it. HEL-1106 task 3.6: was `analyzewithai` -- swapped to `generatetext` since
-    // `analyzewithai` is now registered by THIS ticket (see `PipelineAnalyzeAnalyzeWithAiSpec`
-    // for its own now-200 persisted-row analyze coverage).
-    "records that a persisted generatetext row cannot reach the estimator: it 500s at decode, before costVerdict is ever computed" in {
+    // design.md D8: this probe must be RE-POINTED, not merely renamed, once HEL-1107 registers
+    // `generatetext` -- registering it means EVERY V107-legal op string now has a
+    // `PipelineStep.Registry` entry, so no V107-legal-but-unregistered op name exists any more
+    // for a probe of "an op the CHECK admits but the registry doesn't" to use. Using a fake name
+    // instead would fail the CHECK constraint at INSERT time (a distinct, boring Postgres error)
+    // rather than reaching `rowToDomain`'s `IllegalStateException` -- the probe would go green
+    // for the wrong reason. Fix: DROP `pipeline_steps_op_check` inside this suite's own
+    // `EmbeddedPostgres` (never the shared dev DB -- confined per-suite, precedent:
+    // `V98PipelineRootsMigrationSpec`/`PipelineStepsOpCheckOwnershipRequiredSpec`'s identical
+    // temporary-drop pattern) before inserting a genuinely-unregistered, non-V107-legal op name
+    // (`notarealop`), so the insert succeeds and the failure is forced to occur where the AC
+    // actually claims it does: at decode, in `rowToDomain`.
+    "records that a persisted row with an unregistered op cannot reach the estimator: it 500s at decode, before costVerdict is ever computed" in {
       cleanPipelines()
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
 
       import PostgresProfile.api._
       val stepId = UUID.randomUUID().toString
+      await(db.run(sqlu"ALTER TABLE pipeline_steps DROP CONSTRAINT pipeline_steps_op_check"))
       await(db.run(sqlu"""
         INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, enabled, root_id)
-        VALUES ($stepId, $pid, 0, 'generatetext', '{}', true, $pid)
+        VALUES ($stepId, $pid, 0, 'notarealop', '{}', true, $pid)
       """))
 
       Get(s"/pipelines/$pid/analyze") ~> routes ~> check {

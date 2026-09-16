@@ -1389,6 +1389,12 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       "analyzewithai"      -> (
         """{"inputField":"content","instruction":"go","outputSchema":[{"name":"sentiment","type":"string"}]}""",
         contentSchema
+      ),
+      // HEL-1107 (design.md D6): appends one string-body column over a string-body field, never
+      // calls the model.
+      "generatetext"       -> (
+        """{"inputField":"content","instruction":"go","outputField":"summary"}""",
+        contentSchema
       )
     )
 

@@ -170,6 +170,11 @@ final case class AnalyzeWithAiStepResponse(
     createdAt: String, updatedAt: String, config: AnalyzeWithAiConfig, enabled: Boolean = true, parentStepId: Option[String] = None, rootId: Option[String] = None
 ) extends PipelineStepResponse { def `type`: String = PipelineStepKind.AnalyzeWithAi }
 
+final case class GenerateTextStepResponse(
+    id: String, pipelineId: String, position: Int,
+    createdAt: String, updatedAt: String, config: GenerateTextConfig, enabled: Boolean = true, parentStepId: Option[String] = None, rootId: Option[String] = None
+) extends PipelineStepResponse { def `type`: String = PipelineStepKind.GenerateText }
+
 /** Create request — the `type` discriminator selects which subtype's config
  *  shape `config` must conform to. `position` is an OPTIONAL whole-pipeline
  *  execution-order index (HEL-410; semantics updated HEL-904 for the trunk/tail
@@ -276,6 +281,7 @@ object PipelineStepResponse {
     case s: UpsertSourceStep => UpsertSourceStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled, s.parentStepId.map(_.value), rootId)
     case s: ConvertFormatStep => ConvertFormatStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled, s.parentStepId.map(_.value), rootId)
     case s: AnalyzeWithAiStep => AnalyzeWithAiStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled, s.parentStepId.map(_.value), rootId)
+    case s: GenerateTextStep => GenerateTextStepResponse(s.id.value, s.pipelineId.value, s.position, s.createdAt.toString, s.updatedAt.toString, s.config, s.enabled, s.parentStepId.map(_.value), rootId)
     }
   }
 }
@@ -324,6 +330,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val convertFormatConfigFormat: RootJsonFormat[ConvertFormatConfig] = ConvertFormatConfig.format
   implicit val analyzeWithAiOutputFieldFormat: RootJsonFormat[AnalyzeWithAiOutputField] = AnalyzeWithAiOutputField.format
   implicit val analyzeWithAiConfigFormat: RootJsonFormat[AnalyzeWithAiConfig] = AnalyzeWithAiConfig.format
+  implicit val generateTextConfigFormat: RootJsonFormat[GenerateTextConfig] = GenerateTextConfig.format
 
   // ── Per-subtype response formatters (private — only consumed by the union) ─
   private val renameStepResponseFormat: RootJsonFormat[RenameStepResponse]       = jsonFormat9(RenameStepResponse.apply)
@@ -352,6 +359,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   private val upsertSourceStepResponseFormat: RootJsonFormat[UpsertSourceStepResponse] = jsonFormat9(UpsertSourceStepResponse.apply)
   private val convertFormatStepResponseFormat: RootJsonFormat[ConvertFormatStepResponse] = jsonFormat9(ConvertFormatStepResponse.apply)
   private val analyzeWithAiStepResponseFormat: RootJsonFormat[AnalyzeWithAiStepResponse] = jsonFormat9(AnalyzeWithAiStepResponse.apply)
+  private val generateTextStepResponseFormat: RootJsonFormat[GenerateTextStepResponse] = jsonFormat9(GenerateTextStepResponse.apply)
 
   /** Discriminated-union format for the [[PipelineStepResponse]] ADT. Dispatch
    *  is on the top-level `type` field; inbound deserialization rejects unknown
@@ -385,6 +393,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         case u: UpsertSourceStepResponse => upsertSourceStepResponseFormat.write(u).asJsObject
         case c: ConvertFormatStepResponse => convertFormatStepResponseFormat.write(c).asJsObject
         case a: AnalyzeWithAiStepResponse => analyzeWithAiStepResponseFormat.write(a).asJsObject
+        case g: GenerateTextStepResponse => generateTextStepResponseFormat.write(g).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -417,6 +426,7 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         case Some(JsString(PipelineStepKind.UpsertSource)) => upsertSourceStepResponseFormat.read(json)
         case Some(JsString(PipelineStepKind.ConvertFormat)) => convertFormatStepResponseFormat.read(json)
         case Some(JsString(PipelineStepKind.AnalyzeWithAi)) => analyzeWithAiStepResponseFormat.read(json)
+        case Some(JsString(PipelineStepKind.GenerateText)) => generateTextStepResponseFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown PipelineStep type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on PipelineStep")
       }

@@ -175,22 +175,32 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
     // its own pinned rejection is flipped below. HEL-1105 task 4.7: `convertformat` is now
     // registered too -- its own pinned rejection is flipped further below (mirrors the
     // `upsertsource` flip). HEL-1106 task 2.3: `analyzewithai` is now registered too -- its own
-    // pinned rejection is flipped further below. The remaining op (`generatetext`, HEL-1107)
-    // stays unregistered and still 400s here, per C1/C3.
-    Seq("generatetext").foreach { op =>
-      s"reject a '$op' step with BadRequest (constraint accepts it now; PipelineStepKind.All does not yet)" in {
-        val sourceId = newSource()
-        val req = CreatePipelineRequest(
-          name  = s"Reject $op until wired",
-          roots = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
-          steps = Vector(CreatePipelineTransactionalStepRequest("s1", op, JsObject.empty))
-        )
+    // pinned rejection is flipped further below. HEL-1107 task 4.6: `generatetext` is now
+    // registered too -- design.md D9's reject-loop (which pinned it as the one remaining
+    // unregistered op) is now empty and is replaced by its own accept case below, mirroring the
+    // `analyzewithai` flip.
 
-        val result = await(service.create(req, owner))
-        result shouldBe a[Left[_, _]]
-        result.left.toOption.get shouldBe a[ServiceError.BadRequest]
-        result.left.toOption.get.asInstanceOf[ServiceError.BadRequest].message should include(s"Invalid step type '$op'")
-      }
+    // HEL-1107 task 4.6: `generatetext` is now a registered, creatable step kind -- a fully
+    // valid config over a fresh source succeeds (mirrors the `analyzewithai` flip above). No AI
+    // client is wired in this spec's `PipelineService` -- create/write validation never calls
+    // the model.
+    "accept a 'generatetext' step (registered by HEL-1107)" in {
+      val sourceId = newSource()
+      val req = CreatePipelineRequest(
+        name  = "Generatetext now wired",
+        roots = Vector(CreatePipelineRootRequest(Some(sourceId.value))),
+        steps = Vector(CreatePipelineTransactionalStepRequest(
+          "s1", "generatetext",
+          JsObject(
+            "inputField"  -> JsString("content"),
+            "instruction" -> JsString("Summarize this"),
+            "outputField" -> JsString("summary")
+          )
+        ))
+      )
+
+      val result = await(service.create(req, owner))
+      result shouldBe a[Right[_, _]]
     }
 
     // HEL-1100 task 3.1: `upsertsource` is now a registered, creatable step kind -- an

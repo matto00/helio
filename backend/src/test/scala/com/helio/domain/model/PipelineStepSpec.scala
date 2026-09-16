@@ -45,9 +45,10 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
   private val upsertSource = UpsertSourceStep(id, pid, 0, UpsertSourceConfig(UpsertTarget.ExistingSource("ds-4"), "append"), now, now)
   private val convertFormat = ConvertFormatStep(id, pid, 0, ConvertFormatConfig("content", "csv", "json", "content"), now, now)
   private val analyzeWithAi = AnalyzeWithAiStep(id, pid, 0, AnalyzeWithAiConfig("content", "go", Vector(AnalyzeWithAiOutputField("sentiment", "string"))), now, now)
+  private val generateText = GenerateTextStep(id, pid, 0, GenerateTextConfig("content", "go", "summary"), now, now)
 
   private val allSubtypes: Seq[PipelineStep] =
-    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps, union, lookup, assertStep, upsertSource, convertFormat, analyzeWithAi)
+    Seq(rename, filter, join, compute, groupBy, cast, select, limit, sort, aggregate, splitText, extractHeadings, chunkByTokenCount, dateBucket, pivot, window, unpivot, dedupe, fillNull, stringOps, union, lookup, assertStep, upsertSource, convertFormat, analyzeWithAi, generateText)
 
   "PipelineStepKind" should {
     "define a constant for every subtype" in {
@@ -55,7 +56,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
         "rename", "filter", "join", "compute", "groupby",
         "cast", "select", "limit", "sort", "aggregate", "splittext", "extractheadings", "chunkbytokencount",
         "datebucket", "pivot", "window", "unpivot", "dedupe", "fillnull", "stringops", "union", "lookup", "assert",
-        "upsertsource", "convertformat", "analyzewithai"
+        "upsertsource", "convertformat", "analyzewithai", "generatetext"
       )
     }
 
@@ -155,6 +156,7 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
           case _: UpsertSourceStep => PipelineStepKind.UpsertSource
           case _: ConvertFormatStep => PipelineStepKind.ConvertFormat
           case _: AnalyzeWithAiStep => PipelineStepKind.AnalyzeWithAi
+          case _: GenerateTextStep  => PipelineStepKind.GenerateText
         }
         tag shouldBe s.kind
       }

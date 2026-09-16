@@ -374,7 +374,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Append a transform step to a pipeline. `type` is one of rename/filter/join/compute/" +
         "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window/unpivot/dedupe/fillnull/" +
-        "stringops/union/lookup/assert/upsertsource/convertformat/analyzewithai; `config` shape is " +
+        "stringops/union/lookup/assert/upsertsource/convertformat/analyzewithai/generatetext; `config` shape is " +
         "keyed by `type` (e.g. limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}, " +
         "datebucket → {field, granularity: 'day'|'week'|'month'|'quarter'|'year', outputColumn?} " +
         "— floors `field` to the start of the granularity bucket in UTC, writing the result to " +
@@ -511,7 +511,24 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "schema shown by analyze_pipeline is exactly `outputSchema`'s declared names/types, appended " +
         "to the input schema in declared order, and never reflects an actual model response. Use " +
         "analyze_pipeline to " +
-        "see each step's resulting output columns. Optional parentStepId (HEL-907 task 3.3) " +
+        "see each step's resulting output columns; " +
+        "generatetext → {inputField, instruction, outputField} — for EVERY row (one model call " +
+        "per row, sequentially — never batched or collapsed into a single call), sends " +
+        "`instruction` plus `inputField`'s content to Claude and writes the raw response text to " +
+        "`outputField` (unlike analyzewithai, there is no declared schema to enforce — the " +
+        "deliverable IS free-form prose). `outputField` does NOT default to `inputField`, unlike " +
+        "convertformat — an explicit, non-empty `outputField` is required at write time (empty/ " +
+        "absent inputField/instruction/outputField is a named 400), since silently overwriting " +
+        "the summarized source would destroy it; naming an EXISTING column still overwrites it, " +
+        "documented. `inputField` must be a `string`/`string-body` column. With no " +
+        "`ANTHROPIC_API_KEY` configured server-side, the pipeline still saves/analyzes normally " +
+        "but a RUN fails at this step naming 'ai-unavailable' — this op is never auto-run (see " +
+        "the cost/cheapness verdict from analyze_pipeline, reason code 'ai-step'). Analyze never " +
+        "calls the model — the output schema shown by analyze_pipeline is the input schema with " +
+        "`outputField` added/replaced as `string-body`, and never reflects an actual model " +
+        "response. A blank (empty or whitespace-only) model response fails the run naming " +
+        "'response-empty' rather than writing an empty cell. Use analyze_pipeline to see each " +
+        "step's resulting output columns. Optional parentStepId (HEL-907 task 3.3) " +
         "splices the new step in directly after that EXISTING step id, branching a NEW tail off " +
         "any existing node -- absent extends the trunk (unchanged default). Optional rootId " +
         "(HEL-913 task 9.5, multi-root only) is the alternative anchor: for a PARENTLESS step, " +
