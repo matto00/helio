@@ -2139,6 +2139,27 @@ class ApiRoutesSpec
       }
     }
 
+    // HEL-1136: composed-route-tree coverage for GET /api/pipeline-step-catalog — the same
+    // routing-collision guard as the pipeline-shapes tests above (design.md Decision 2), driven
+    // through the fully composed `ApiRoutes` tree so a future mounting mistake that let
+    // `PipelineRoutes`'s `path(PipelineIdSegment)` catch-all swallow `/api/pipeline-step-catalog`
+    // would fail here, not just in the isolated `PipelineStepCatalogRoutesSpec`.
+    "return 401 for GET /api/pipeline-step-catalog without Authorization (HEL-1136)" in {
+      Get("/api/pipeline-step-catalog") ~> rawRoutes() ~> check {
+        status shouldBe StatusCodes.Unauthorized
+        responseAs[ErrorResponse].message shouldBe "Unauthorized"
+      }
+    }
+
+    "return 200 with the real step catalog for GET /api/pipeline-step-catalog when authenticated (HEL-1136)" in {
+      Get("/api/pipeline-step-catalog") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[PipelineStepCatalogResponse]
+        resp.steps.map(_.kind) should contain("select")
+        resp.groups.map(_.id) should contain("filter-shape")
+      }
+    }
+
     // HEL-472 (420-A): composed-route-tree coverage for /api/preferences — proves the request
     // is rejected by the AuthDirectives layer itself (before ever reaching
     // agentPreferencesServiceOpt.fold(reject)), so this holds even though `rawRoutes()` doesn't

@@ -14,8 +14,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type { DragEvent } from "react";
 
 import { BranchAffordance } from "./BranchAffordance";
-import { OpDropdown } from "./OpDropdown";
 import { RibbonSegment } from "./RibbonSegment";
+import { StepPalette } from "./StepPalette";
 import { ShapePickerModal } from "./shapes/ShapePickerModal";
 import { StepCard } from "./StepCard";
 import { LaneColumn } from "./LaneColumn";
@@ -155,9 +155,6 @@ export function PipelineRiverView({
   estimatedRows,
   draftCreateErrors = {},
 }: PipelineRiverViewProps) {
-  // Only one add-step trigger is mounted at a time (empty-state XOR list), so a
-  // single ref anchors the portalled OpDropdown to whichever button is showing.
-  const addStepButtonRef = useRef<HTMLButtonElement>(null);
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
   // HEL-908 task 6.1 — "Add Outputs from a shape" targets a chosen anchor
   // node: `undefined` for the empty-state trigger (seeds a new primary
@@ -195,17 +192,14 @@ export function PipelineRiverView({
   // compact "+" button per gap (before the first card + between each pair;
   // after-last stays the existing add row).
   const [insertDropdownAt, setInsertDropdownAt] = useState<number | null>(null);
-  const [insertAnchorEl, setInsertAnchorEl] = useState<HTMLButtonElement | null>(null);
 
   // HEL-912 — "+ lane" create affordance, keyed by step id.
   const [laneDropdownForStepId, setLaneDropdownForStepId] = useState<string | null>(null);
-  const [laneAnchorEl, setLaneAnchorEl] = useState<HTMLButtonElement | null>(null);
 
-  function openLaneDropdown(stepId: string, anchorEl: HTMLButtonElement) {
+  function openLaneDropdown(stepId: string) {
     closeDropdown();
     setInsertDropdownAt(null);
     setLaneDropdownForStepId(stepId);
-    setLaneAnchorEl(anchorEl);
   }
 
   function openBottomDropdown() {
@@ -215,12 +209,11 @@ export function PipelineRiverView({
     openDropdown();
   }
 
-  function openGapDropdown(index: number, anchorEl: HTMLButtonElement) {
+  function openGapDropdown(index: number) {
     // Only one dropdown open at a time — opening a gap picker closes the
     // add-row picker.
     closeDropdown();
     setInsertDropdownAt(index);
-    setInsertAnchorEl(anchorEl);
   }
 
   // HEL-407 — drag-reorder state (design.md Decision 5): `draggedIndex` is
@@ -317,17 +310,20 @@ export function PipelineRiverView({
           type="button"
           className="pipeline-detail-page__gap-insert-btn"
           aria-label="Insert step here"
-          onClick={(e) => openGapDropdown(index, e.currentTarget)}
+          onClick={() => openGapDropdown(index)}
         >
           <Plus aria-hidden="true" size={ICON_SIZE.sm} />
         </button>
-        {insertDropdownAt === index && (
-          <OpDropdown
-            anchorRef={{ current: insertAnchorEl }}
-            onSelect={(opType) => onInsertStep(opType, index)}
-            onClose={() => setInsertDropdownAt(null)}
-          />
-        )}
+        {/* HEL-1136 evaluation-1.md CR1 — `open` is the real boolean, not a conditional-mount
+         * `{cond && <StepPalette open .../>}`: `Modal`'s focus-restore effect
+         * (`previouslyFocusedRef.current?.focus()`) only runs on a true->false `open` transition,
+         * never on unmount, so unmounting the whole tree on close silently drops focus to
+         * `<body>` on Escape. */}
+        <StepPalette
+          open={insertDropdownAt === index}
+          onSelect={(opType) => onInsertStep(opType, index)}
+          onClose={() => setInsertDropdownAt(null)}
+        />
       </div>
     );
   }
@@ -375,7 +371,6 @@ export function PipelineRiverView({
               />
               <div className="pipeline-detail-page__empty-state-actions">
                 <button
-                  ref={addStepButtonRef}
                   type="button"
                   className="pipeline-detail-page__add-step-btn"
                   onClick={openBottomDropdown}
@@ -393,13 +388,9 @@ export function PipelineRiverView({
                   Add Outputs from a shape
                 </button>
               </div>
-              {dropdownOpen && (
-                <OpDropdown
-                  anchorRef={addStepButtonRef}
-                  onSelect={onAddStep}
-                  onClose={closeDropdown}
-                />
-              )}
+              {/* HEL-1136 evaluation-1.md CR1 -- `open` is the real boolean (see renderGap's comment
+               * above for why conditional-mount broke Escape focus-restore). */}
+              <StepPalette open={dropdownOpen} onSelect={onAddStep} onClose={closeDropdown} />
             </div>
           ) : (
             <>
@@ -456,8 +447,7 @@ export function PipelineRiverView({
                        * the gap/bottom-add pickers) around it. */}
                       <BranchAffordance
                         isOpen={laneDropdownForStepId === step.id}
-                        anchorEl={laneAnchorEl}
-                        onOpen={(anchorEl) => openLaneDropdown(step.id, anchorEl)}
+                        onOpen={() => openLaneDropdown(step.id)}
                         onSelect={(opType) => {
                           onAddLaneStep(opType, step.id);
                           setLaneDropdownForStepId(null);
@@ -515,7 +505,6 @@ export function PipelineRiverView({
               })}
               <div className="pipeline-detail-page__add-step-row">
                 <button
-                  ref={addStepButtonRef}
                   type="button"
                   className="pipeline-detail-page__add-step-dashed-btn"
                   onClick={openBottomDropdown}
@@ -537,13 +526,9 @@ export function PipelineRiverView({
                 >
                   Add Outputs from a shape
                 </button>
-                {dropdownOpen && (
-                  <OpDropdown
-                    anchorRef={addStepButtonRef}
-                    onSelect={onAddStep}
-                    onClose={closeDropdown}
-                  />
-                )}
+                {/* HEL-1136 evaluation-1.md CR1 -- `open` is the real boolean (see renderGap's comment
+                 * above for why conditional-mount broke Escape focus-restore). */}
+                <StepPalette open={dropdownOpen} onSelect={onAddStep} onClose={closeDropdown} />
               </div>
             </>
           )}

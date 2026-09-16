@@ -29,6 +29,7 @@ import {
   putPipelineSchedule,
   deletePipelineSchedule,
   getPipelineShapeCatalog,
+  getPipelineStepCatalog,
   expandPipelineShape,
   reorderPipelineSteps,
   updatePipelineStepEnabled,
@@ -37,6 +38,7 @@ import {
   addPipelineRoot,
   removePipelineRoot,
 } from "../services/pipelineService";
+import type { PipelineStepCatalog } from "../types/pipelineStepCatalog";
 import type {
   PipelineAnalyzeResponse,
   PipelineRunRecord,
@@ -65,6 +67,7 @@ jest.mock("../services/pipelineService", () => ({
   putPipelineSchedule: jest.fn(),
   deletePipelineSchedule: jest.fn(),
   getPipelineShapeCatalog: jest.fn(),
+  getPipelineStepCatalog: jest.fn(),
   expandPipelineShape: jest.fn(),
   reorderPipelineSteps: jest.fn(),
   updatePipelineStepEnabled: jest.fn(),
@@ -92,6 +95,7 @@ const getPipelineScheduleMock = jest.mocked(getPipelineSchedule);
 const putPipelineScheduleMock = jest.mocked(putPipelineSchedule);
 const deletePipelineScheduleMock = jest.mocked(deletePipelineSchedule);
 const getPipelineShapeCatalogMock = jest.mocked(getPipelineShapeCatalog);
+const getPipelineStepCatalogMock = jest.mocked(getPipelineStepCatalog);
 const expandPipelineShapeMock = jest.mocked(expandPipelineShape);
 const reorderPipelineStepsMock = jest.mocked(reorderPipelineSteps);
 const updatePipelineStepEnabledMock = jest.mocked(updatePipelineStepEnabled);
@@ -112,6 +116,99 @@ function axiosError(status: number, message?: string) {
 // Default across the whole file: no schedule set (404), mirroring the common
 // case — individual tests override with mockResolvedValueOnce/mockRejectedValueOnce.
 getPipelineScheduleMock.mockRejectedValue(axiosError(404));
+
+// HEL-1136: the step palette (StepPalette) fetches the catalog on open — every test that opens
+// an add-step control needs this resolved. Fixture covers every kind any test in this file
+// selects via the palette (label text asserted with `findByRole("option", { name: /.../ })`).
+const stepCatalogFixture: PipelineStepCatalog = {
+  groups: [
+    { id: "filter-shape", label: "Filter & shape" },
+    { id: "aggregate", label: "Aggregate" },
+    { id: "compute-cast", label: "Compute & cast" },
+    { id: "content-files", label: "Content & files" },
+    { id: "ai", label: "AI" },
+  ],
+  steps: [
+    {
+      kind: "select",
+      label: "Select fields",
+      description: "Keep only the selected columns.",
+      group: "filter-shape",
+      authorable: true,
+    },
+    {
+      kind: "rename",
+      label: "Rename column",
+      description: "Rename one or more columns.",
+      group: "filter-shape",
+      authorable: true,
+    },
+    {
+      kind: "filter",
+      label: "Filter rows",
+      description: "Keep only matching rows.",
+      group: "filter-shape",
+      authorable: true,
+    },
+    {
+      kind: "limit",
+      label: "Limit rows",
+      description: "Keep only the first N rows.",
+      group: "filter-shape",
+      authorable: true,
+    },
+    {
+      kind: "sort",
+      label: "Sort rows",
+      description: "Sort rows by one or more columns.",
+      group: "filter-shape",
+      authorable: true,
+    },
+    {
+      kind: "cast",
+      label: "Cast type",
+      description: "Convert a column to a different type.",
+      group: "compute-cast",
+      authorable: true,
+    },
+    {
+      kind: "compute",
+      label: "Compute column",
+      description: "Add a computed column.",
+      group: "compute-cast",
+      authorable: true,
+    },
+    {
+      kind: "aggregate",
+      label: "Group & aggregate",
+      description: "Group and aggregate rows.",
+      group: "aggregate",
+      authorable: true,
+    },
+    {
+      kind: "convertformat",
+      label: "Convert format",
+      description: "Convert a field's format.",
+      group: "content-files",
+      authorable: true,
+    },
+    {
+      kind: "analyzewithai",
+      label: "Analyze with AI",
+      description: "Extract fields with AI.",
+      group: "ai",
+      authorable: true,
+    },
+    {
+      kind: "generatetext",
+      label: "Generate text",
+      description: "Generate text with AI.",
+      group: "ai",
+      authorable: true,
+    },
+  ],
+};
+getPipelineStepCatalogMock.mockResolvedValue(stepCatalogFixture);
 
 const emptyAnalyzeResponse: PipelineAnalyzeResponse = {
   id: "pipe-1",
@@ -454,11 +551,11 @@ describe("PipelineDetailPage", () => {
     expect(screen.getByText(/^Add your first transformation step/)).toBeInTheDocument();
   });
 
-  it("adding a step adds a card to the river view", () => {
+  it("adding a step adds a card to the river view", async () => {
     renderDetailPage();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /Filter rows/i }));
+    fireEvent.click(await screen.findByRole("option", { name: /Filter rows/i }));
 
     expect(screen.getByText("Filter rows")).toBeInTheDocument();
     expect(screen.queryByText(/^Add your first transformation step/)).not.toBeInTheDocument();
@@ -473,7 +570,7 @@ describe("PipelineDetailPage", () => {
     renderDetailPage("pipe-1", store);
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /Filter rows/i }));
+    fireEvent.click(await screen.findByRole("option", { name: /Filter rows/i }));
 
     await waitFor(() => {
       const toasts = store.getState().toasts.items;
@@ -483,11 +580,11 @@ describe("PipelineDetailPage", () => {
     });
   });
 
-  it("removing a step removes its card", () => {
+  it("removing a step removes its card", async () => {
     renderDetailPage();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /Rename column/i }));
+    fireEvent.click(await screen.findByRole("option", { name: /Rename column/i }));
 
     // Expand it to get the Remove button
     fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
@@ -507,11 +604,11 @@ describe("PipelineDetailPage", () => {
       fireEvent.click(screen.getByRole("option", { name: optionLabel }));
     }
 
-    it("adding an analyzewithai step issues no create request and renders as an editable draft", () => {
+    it("adding an analyzewithai step issues no create request and renders as an editable draft", async () => {
       renderDetailPage();
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
-      fireEvent.click(screen.getByRole("menuitem", { name: /Analyze with AI/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Analyze with AI/i }));
 
       expect(screen.getByText("Analyze with AI")).toBeInTheDocument();
       expect(screen.getByText(/draft.*not yet saved/i)).toBeInTheDocument();
@@ -531,7 +628,7 @@ describe("PipelineDetailPage", () => {
       renderDetailPage();
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
-      fireEvent.click(screen.getByRole("menuitem", { name: /Convert format/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Convert format/i }));
 
       await waitFor(() => {
         expect(createPipelineStepMock).toHaveBeenCalledWith(
@@ -569,7 +666,7 @@ describe("PipelineDetailPage", () => {
       await waitFor(() => expect(analyzePipelineMock).toHaveBeenCalledTimes(1));
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
-      fireEvent.click(screen.getByRole("menuitem", { name: /Generate text/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
       fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
 
       expect(createPipelineStepMock).not.toHaveBeenCalled();
@@ -618,7 +715,7 @@ describe("PipelineDetailPage", () => {
       await waitFor(() => expect(analyzePipelineMock).toHaveBeenCalledTimes(1));
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
-      fireEvent.click(screen.getByRole("menuitem", { name: /Generate text/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
       fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
 
       chooseSelectOption(/input field to generate from/i, "notes");
@@ -674,7 +771,7 @@ describe("PipelineDetailPage", () => {
       await waitFor(() => expect(analyzePipelineMock).toHaveBeenCalled());
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add transformation step" }));
-      fireEvent.click(screen.getByRole("menuitem", { name: /Generate text/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
       fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
 
       fireEvent.click(screen.getByRole("combobox", { name: /input field to generate from/i }));
@@ -749,7 +846,7 @@ describe("PipelineDetailPage", () => {
           name: /Branch this step into a new lane/i,
         }),
       );
-      fireEvent.click(screen.getByRole("menuitem", { name: /Generate text/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
       fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
 
       fireEvent.click(screen.getByRole("combobox", { name: /input field to generate from/i }));
@@ -917,7 +1014,7 @@ describe("PipelineDetailPage", () => {
       await screen.findByRole("button", { name: /Rename column/i, expanded: false });
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add transformation step" }));
-      fireEvent.click(screen.getByRole("menuitem", { name: /Limit rows/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Limit rows/i }));
       expect(stepLabels(container)).toEqual(["Rename column", "Filter rows", "Limit rows"]);
 
       let resolveReorder!: (steps: PipelineStep[]) => void;
@@ -1839,7 +1936,7 @@ describe("PipelineDetailPage", () => {
       const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
       expect(gapButtons).toHaveLength(2);
       fireEvent.click(gapButtons[0]);
-      fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
 
       // Optimistic — renders immediately, before the POST settles.
       expect(stepLabels(container)).toEqual(["Cast type", "Rename column", "Filter rows"]);
@@ -1864,7 +1961,7 @@ describe("PipelineDetailPage", () => {
 
       const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
       fireEvent.click(gapButtons[1]);
-      fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
 
       expect(stepLabels(container)).toEqual(["Rename column", "Cast type", "Filter rows"]);
 
@@ -1886,7 +1983,7 @@ describe("PipelineDetailPage", () => {
       await screen.findByRole("button", { name: /Rename column/i, expanded: false });
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add transformation step" }));
-      fireEvent.click(screen.getByRole("menuitem", { name: /Limit rows/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Limit rows/i }));
 
       expect(stepLabels(container)).toEqual(["Rename column", "Filter rows", "Limit rows"]);
 
@@ -1911,7 +2008,7 @@ describe("PipelineDetailPage", () => {
 
       const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
       fireEvent.click(gapButtons[0]);
-      fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
 
       expect(stepLabels(container)).toEqual(["Cast type", "Rename column", "Filter rows"]);
 
@@ -1954,7 +2051,7 @@ describe("PipelineDetailPage", () => {
 
       const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
       fireEvent.click(gapButtons[1]);
-      fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
 
       await waitFor(() =>
         expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(callsBeforeInsert),
@@ -1989,7 +2086,7 @@ describe("PipelineDetailPage", () => {
       // shifts from 1 to 2, changing its `${stepIndex}:config` fingerprint.
       const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
       fireEvent.click(gapButtons[1]);
-      fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+      fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
 
       await waitFor(
         () => expect(fetchStepPreviewMock.mock.calls.length).toBeGreaterThan(callsBeforeInsert),

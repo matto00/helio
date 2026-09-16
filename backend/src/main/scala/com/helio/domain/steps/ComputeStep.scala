@@ -1,7 +1,7 @@
 package com.helio.domain.steps
 
 import com.helio.domain.engine.{ExpressionEvaluator, PipelineRowJson}
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -81,6 +81,8 @@ object ComputeStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.ComputeCast)
+    override def catalogDescription: String   = "Add a new column computed from an expression over existing columns."
     def decodeConfig(raw: String): Any    = ComputeConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[ComputeConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[ComputeConfig]

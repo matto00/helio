@@ -14,6 +14,7 @@ import {
   fetchRunHistory,
   getPipelineSchedule,
   getPipelineShapeCatalog,
+  getPipelineStepCatalog,
   getPipelineSteps,
   putPipelineSchedule,
   updatePipelineStepEnabled,
@@ -169,6 +170,39 @@ describe("pipelineService shape catalog + expand", () => {
     mockedHttpClient.post.mockRejectedValueOnce(rejection);
 
     await expect(expandPipelineShape("single-row", { mode: "aggregate" })).rejects.toBe(rejection);
+  });
+});
+
+// HEL-1136: pipeline step catalog service call.
+describe("pipelineService step catalog", () => {
+  it("getPipelineStepCatalog GETs /api/pipeline-step-catalog and returns the response data", async () => {
+    const catalog = {
+      groups: [{ id: "filter-shape", label: "Filter & shape" }],
+      steps: [
+        {
+          kind: "select",
+          label: "Select fields",
+          description: "Keep only the selected columns, dropping the rest.",
+          group: "filter-shape",
+          authorable: true,
+        },
+        // HEL-1136 owner ruling 2 / C5: an ungrouped entry's `group` key is ABSENT on the wire,
+        // not present as `null` — this fixture mirrors the real absent-field shape.
+        {
+          kind: "assert",
+          label: "Assert / validate",
+          description: "Validate rows against rules.",
+          authorable: true,
+        },
+      ],
+    };
+    mockedHttpClient.get.mockResolvedValueOnce({ data: catalog });
+
+    const result = await getPipelineStepCatalog();
+
+    expect(mockedHttpClient.get).toHaveBeenCalledWith("/api/pipeline-step-catalog");
+    expect(result).toEqual(catalog);
+    expect("group" in result.steps[1]).toBe(false);
   });
 });
 

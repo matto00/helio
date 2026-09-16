@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.helio.domain.engine.PipelineRowJson
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -54,6 +54,8 @@ object SelectStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.FilterShape)
+    override def catalogDescription: String   = "Keep only the selected columns, dropping the rest."
     def decodeConfig(raw: String): Any    = SelectConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[SelectConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[SelectConfig]

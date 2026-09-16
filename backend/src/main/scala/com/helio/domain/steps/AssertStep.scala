@@ -118,6 +118,7 @@ object AssertStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def catalogDescription: String   = "Validate rows against rules and flag or fail ones that don't match."
     def decodeConfig(raw: String): Any    = AssertConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[AssertConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[AssertConfig]

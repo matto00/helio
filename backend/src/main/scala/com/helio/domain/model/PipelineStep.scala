@@ -148,6 +148,28 @@ object PipelineStep {
   trait Companion {
     def kind: String
 
+    /** HEL-1136 (design.md Decision 1): this kind's backend-declared display category, exposed
+     *  by `GET /api/pipeline-step-catalog`. `None` (the default) is a first-class, permanent
+     *  "ungrouped" state (ticket.md owner ruling 2) — NOT a compile error and NOT coerced to a
+     *  catch-all group. An ungrouped kind's catalog entry omits this field on the wire entirely
+     *  (spray-json drops `None`); see `PipelineStepCatalogProtocol`. */
+    def group: Option[StepGroup] = None
+
+    /** HEL-1136: a one-line, user-facing description of what this kind does, written for someone
+     *  choosing a step by what it accomplishes rather than by its kind string. Exposed by the
+     *  catalog; every registered kind must declare a non-blank one (`PipelineStepCatalogSpec`
+     *  fails a companion that leaves this at the default empty string). Defaulted to `""` (rather
+     *  than left abstract) so adding this member doesn't itself force-touch all 27 companions in
+     *  the same commit as the trait change — task 1.3 still gives each one a real value. */
+    def catalogDescription: String = ""
+
+    /** HEL-1136 (design.md Decision 5): whether a client may offer this kind as a choice the user
+     *  can successfully create and configure. Defaults `true` so a newly registered kind is
+     *  offered unless a companion explicitly opts out — the opposite default would let a new kind
+     *  silently vanish from the palette, which the `pipeline-step-catalog-api` spec forbids. `join`
+     *  and `groupby` are the two declared exceptions (no authoring surface exists for either). */
+    def authorable: Boolean = true
+
     /** Decode the persisted JSON-text config blob into a typed `*Config`.
      *  Must be tolerant: missing keys yield typed defaults so partial /
      *  legacy rows survive the read path and any required-field violations

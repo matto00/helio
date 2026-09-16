@@ -2,7 +2,7 @@ package com.helio.domain.steps
 
 import com.helio.domain.ai.{AiQuotaMessage, AiStepFailure, AiStepRequest}
 import com.helio.domain.engine.PipelineRowJson
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.fasterxml.jackson.core.{JsonParser => JacksonJsonParser}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -174,6 +174,8 @@ object AnalyzeWithAiStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.Ai)
+    override def catalogDescription: String   = "Extract structured fields from each row's text using an AI model."
     def decodeConfig(raw: String): Any    = AnalyzeWithAiConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[AnalyzeWithAiConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[AnalyzeWithAiConfig]

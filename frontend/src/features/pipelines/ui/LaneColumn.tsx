@@ -110,7 +110,6 @@ export function LaneColumn({
   draftCreateErrors = {},
 }: LaneColumnProps) {
   const [laneDropdownForStepId, setLaneDropdownForStepId] = useState<string | null>(null);
-  const [laneAnchorEl, setLaneAnchorEl] = useState<HTMLButtonElement | null>(null);
 
   if (lane.steps.length === 0) return null;
 
@@ -118,11 +117,7 @@ export function LaneColumn({
     return (
       <BranchAffordance
         isOpen={laneDropdownForStepId === step.id}
-        anchorEl={laneAnchorEl}
-        onOpen={(anchorEl) => {
-          setLaneDropdownForStepId(step.id);
-          setLaneAnchorEl(anchorEl);
-        }}
+        onOpen={() => setLaneDropdownForStepId(step.id)}
         onSelect={(opType) => {
           onAddLaneStep(opType, step.id);
           setLaneDropdownForStepId(null);

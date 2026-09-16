@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.helio.domain.engine.PipelineRowJson
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -252,6 +252,8 @@ object WindowStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.Aggregate)
+    override def catalogDescription: String   = "Compute a windowed value, like a rank or running total, over ordered rows."
     def decodeConfig(raw: String): Any    = WindowConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[WindowConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[WindowConfig]

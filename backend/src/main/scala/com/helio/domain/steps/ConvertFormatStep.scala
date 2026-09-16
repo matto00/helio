@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.helio.domain.engine.PipelineRowJson
 import com.fasterxml.jackson.core.{JsonParser => JacksonJsonParser}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
@@ -314,6 +314,8 @@ object ConvertFormatStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.ContentFiles)
+    override def catalogDescription: String   = "Convert a field's content between formats, such as CSV/JSON or text/Markdown."
     def decodeConfig(raw: String): Any    = ConvertFormatConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[ConvertFormatConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[ConvertFormatConfig]

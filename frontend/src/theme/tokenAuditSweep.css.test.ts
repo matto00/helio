@@ -167,16 +167,23 @@ const SPACING_BASELINE: BaselineEntry[] = [
   // line-by-line against the pre-change baseline (each entry's line
   // content is byte-identical at its new line number).
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 28 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 231 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 888 },
   // HEL-1109 shifted every PipelineDetailPage.css baseline entry below line
   // ~980 down by 5 (three new `.pipeline-detail-page__{convertformat,
   // analyzewithai,generatetext}-config` selectors + a comment added to the
   // shared field-stack rule; net +6/-1 lines).
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 988 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1051 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1260 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1491 },
+  //
+  // HEL-1136 deleted `OpDropdown`'s now-dead CSS block (`.pipeline-detail-
+  // page__op-dropdown{,-item,-item:hover}`, 39 lines including its own
+  // `padding: 4px` literal that previously pinned line 231 here — that
+  // literal no longer exists in the file, so its baseline entry is removed
+  // rather than shifted) — every entry below line ~260 shifts up by 39,
+  // verified line-by-line (each entry's line content is byte-identical at
+  // new_line = old_line - 39).
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 849 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 949 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1012 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1221 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1452 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 136 },
   { file: "features/sources/ui/AddSourceModal.css", line: 144 },
   { file: "features/sources/ui/AddSourceModal.css", line: 254 },

@@ -308,6 +308,14 @@ package object api {
   type ExpandPipelineShapeResponse = protocols.pipelines.ExpandPipelineShapeResponse
   val ExpandPipelineShapeResponse: protocols.pipelines.ExpandPipelineShapeResponse.type = protocols.pipelines.ExpandPipelineShapeResponse
 
+  // HEL-1136
+  type StepGroupResponse = protocols.pipelines.StepGroupResponse
+  val StepGroupResponse: protocols.pipelines.StepGroupResponse.type = protocols.pipelines.StepGroupResponse
+  type PipelineStepCatalogEntryResponse = protocols.pipelines.PipelineStepCatalogEntryResponse
+  val PipelineStepCatalogEntryResponse: protocols.pipelines.PipelineStepCatalogEntryResponse.type = protocols.pipelines.PipelineStepCatalogEntryResponse
+  type PipelineStepCatalogResponse = protocols.pipelines.PipelineStepCatalogResponse
+  val PipelineStepCatalogResponse: protocols.pipelines.PipelineStepCatalogResponse.type = protocols.pipelines.PipelineStepCatalogResponse
+
   type TeardownRequest = protocols.workspace.TeardownRequest
   val TeardownRequest: protocols.workspace.TeardownRequest.type = protocols.workspace.TeardownRequest
   type TeardownConflictResponse = protocols.workspace.TeardownConflictResponse

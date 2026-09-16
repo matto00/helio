@@ -220,45 +220,6 @@
   border-style: solid;
 }
 
-.pipeline-detail-page__op-dropdown {
-  /* Positioned inline (position: fixed + coords) by OpDropdown, which portals
-     this menu to document.body. `max-height` is also set inline per-open
-     (clamped to the trigger's remaining viewport space — see OpDropdown.tsx);
-     the fallback here covers the first paint before that measurement lands. */
-  z-index: var(--z-popover);
-  list-style: none;
-  margin: 0;
-  padding: 4px;
-  background: var(--app-surface-strong);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-md);
-  box-shadow: var(--app-shadow-soft);
-  min-width: 200px;
-  max-height: min(400px, calc(100vh - 24px));
-  overflow-y: auto;
-}
-
-.pipeline-detail-page__op-dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  /* HEL-830: 7px 10px -> 8px 12px, matches the repo-wide var(--space-2) var(--space-3) input padding idiom */
-  padding: var(--space-2) var(--space-3);
-  background: transparent;
-  border: none;
-  border-radius: var(--app-radius-sm);
-  color: var(--app-text);
-  font-size: var(--text-sm);
-  text-align: left;
-  cursor: pointer;
-}
-
-.pipeline-detail-page__op-dropdown-item:hover {
-  background: var(--app-accent-surface);
-  color: var(--app-accent-text);
-}
-
 .pipeline-detail-page__step-card {
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-md);

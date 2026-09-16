@@ -7,13 +7,68 @@
 // with the callback (persistence, reconciliation, revert-on-failure).
 
 import type { ComponentProps } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+
+// HEL-1136 — `StepPalette` renders on the shared `Modal` (<dialog> showModal/close), which jsdom
+// doesn't implement natively; stub them (mirrors Modal.test.tsx / CommandPalette.test.tsx).
+beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  });
+  HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+  });
+});
 
 import { PipelineRiverView } from "./PipelineRiverView";
 import { OP_TYPES } from "../state/stepNarrowing";
 import { buildLaneGraph } from "../state/stepTree";
+import { getPipelineStepCatalog } from "../services/pipelineService";
 import type { PipelineRoot } from "../types/pipelineStep";
 import type { Step } from "../types/step";
+
+// HEL-1136 — `StepPalette` (opened by every gap/branch/add-step control this file exercises)
+// fetches the step catalog on open; mocked here rather than hitting the real httpClient/axios.
+jest.mock("../services/pipelineService", () => ({
+  getPipelineStepCatalog: jest.fn(),
+}));
+const getPipelineStepCatalogMock = jest.mocked(getPipelineStepCatalog);
+getPipelineStepCatalogMock.mockResolvedValue({
+  groups: [
+    { id: "filter-shape", label: "Filter & shape" },
+    { id: "compute-cast", label: "Compute & cast" },
+  ],
+  steps: [
+    {
+      kind: "filter",
+      label: "Filter rows",
+      description: "Keep only matching rows.",
+      group: "filter-shape",
+      authorable: true,
+    },
+    {
+      kind: "limit",
+      label: "Limit rows",
+      description: "Keep only the first N rows.",
+      group: "filter-shape",
+      authorable: true,
+    },
+    {
+      kind: "sort",
+      label: "Sort rows",
+      description: "Sort rows by one or more columns.",
+      group: "filter-shape",
+      authorable: true,
+    },
+    {
+      kind: "cast",
+      label: "Cast type",
+      description: "Convert a column to a different type.",
+      group: "compute-cast",
+      authorable: true,
+    },
+  ],
+});
 
 /** HEL-912 — this file's fixtures historically had no `parentStepId` at
  *  all, relying on the OLD `buildStepTree`'s "append any parentless step
@@ -258,22 +313,44 @@ describe("PipelineRiverView insert-at-position (HEL-410 design.md Decision 5)", 
     expect(screen.getAllByRole("button", { name: "Insert step here" })).toHaveLength(3);
   });
 
-  it("clicking a gap button opens the op picker anchored at that gap", () => {
+  it("clicking a gap button opens the op picker anchored at that gap", async () => {
     render(<PipelineRiverView {...baseProps()} />);
 
     const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
     fireEvent.click(gapButtons[1]); // gap between Filter and Limit
 
-    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Add step" })).toBeInTheDocument();
   });
 
-  it("selecting an op from a gap's dropdown invokes onInsertStep with that gap's index", () => {
+  // HEL-1136 evaluation-1.md CR1 — the palette must keep `Modal`'s `open` prop toggling (not
+  // conditionally unmount) so `Modal`'s focus-restore effect actually runs on close; this is the
+  // regression test for the live-reproduced "Escape leaves focus on <body>" defect.
+  it("pressing Escape closes the gap palette and restores focus to the gap button that opened it", async () => {
+    render(<PipelineRiverView {...baseProps()} />);
+
+    const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
+    const triggerButton = gapButtons[1];
+    triggerButton.focus();
+    fireEvent.click(triggerButton);
+
+    const dialog = await screen.findByRole("dialog", { name: "Add step" });
+    // jsdom doesn't implement real <dialog> Escape-to-cancel behavior; dispatch the native
+    // `cancel` event Modal listens for directly (mirrors Modal.test.tsx's own Escape coverage).
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Add step" })).not.toBeInTheDocument();
+    });
+    expect(triggerButton).toHaveFocus();
+  });
+
+  it("selecting an op from a gap's dropdown invokes onInsertStep with that gap's index", async () => {
     const onInsertStep = jest.fn();
     render(<PipelineRiverView {...baseProps({ onInsertStep })} />);
 
     const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
     fireEvent.click(gapButtons[1]); // gap index 1 (between Filter and Limit)
-    fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+    fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
 
     expect(onInsertStep).toHaveBeenCalledTimes(1);
     const [opType, index] = onInsertStep.mock.calls[0];
@@ -281,22 +358,22 @@ describe("PipelineRiverView insert-at-position (HEL-410 design.md Decision 5)", 
     expect(index).toBe(1);
   });
 
-  it("opening the bottom add-step dropdown closes an open gap dropdown, and vice versa", () => {
+  it("opening the bottom add-step dropdown closes an open gap dropdown, and vice versa", async () => {
     const closeDropdown = jest.fn();
     const openDropdown = jest.fn();
     render(<PipelineRiverView {...baseProps({ closeDropdown, openDropdown })} />);
 
     const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
     fireEvent.click(gapButtons[0]);
-    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Add step" })).toBeInTheDocument();
     expect(closeDropdown).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add transformation step" }));
     expect(openDropdown).toHaveBeenCalledTimes(1);
     // The gap dropdown closed as part of the bottom-row open (only one
     // dropdown at a time); `dropdownOpen` itself stays parent-controlled
-    // (a mock here), so no menu remains mounted from either picker.
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    // (a mock here), so no palette remains mounted from either picker.
+    expect(screen.queryByRole("dialog", { name: "Add step" })).not.toBeInTheDocument();
   });
 });
 
@@ -387,7 +464,7 @@ describe("PipelineRiverView one-step lane compact rendering (HEL-912 task 3.3)",
 // HEL-912 task 4.3 — "+ lane" (formerly "+ tail") is now unconditional: a
 // step can gain a second AND third lane, with no refusal message.
 describe("PipelineRiverView '+ lane' affordance (HEL-912 task 4.3)", () => {
-  it("adding a second lane to the same step succeeds and renders, no refusal message", () => {
+  it("adding a second lane to the same step succeeds and renders, no refusal message", async () => {
     const onAddLaneStep = jest.fn();
     const linkedA: Step = { ...stepA, parentStepId: undefined };
     const laneOne: Step = { ...stepB, parentStepId: "a", position: 1 };
@@ -402,7 +479,7 @@ describe("PipelineRiverView '+ lane' affordance (HEL-912 task 4.3)", () => {
     // One "+ lane" affordance per step (A's own, and B's own inside its
     // compact lane rendering) — click A's.
     fireEvent.click(branchButtons[0]);
-    fireEvent.click(screen.getByRole("menuitem", { name: /Sort rows/i }));
+    fireEvent.click(await screen.findByRole("option", { name: /Sort rows/i }));
 
     expect(onAddLaneStep).toHaveBeenCalledTimes(1);
     const [opType, parentStepId] = onAddLaneStep.mock.calls[0];
@@ -411,7 +488,7 @@ describe("PipelineRiverView '+ lane' affordance (HEL-912 task 4.3)", () => {
     expect(screen.queryByText(/already has a tail/i)).not.toBeInTheDocument();
   });
 
-  it("adding a third lane to the same step also succeeds, no refusal message", () => {
+  it("adding a third lane to the same step also succeeds, no refusal message", async () => {
     const onAddLaneStep = jest.fn();
     const linkedA: Step = { ...stepA, parentStepId: undefined };
     const laneOne: Step = { ...stepB, parentStepId: "a", position: 1 };
@@ -425,7 +502,7 @@ describe("PipelineRiverView '+ lane' affordance (HEL-912 task 4.3)", () => {
 
     const branchButtons = screen.getAllByRole("button", { name: /Branch this step/i });
     fireEvent.click(branchButtons[0]);
-    fireEvent.click(screen.getByRole("menuitem", { name: /Cast type/i }));
+    fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
 
     expect(onAddLaneStep).toHaveBeenCalledTimes(1);
     expect(onAddLaneStep.mock.calls[0][1]).toBe("a");

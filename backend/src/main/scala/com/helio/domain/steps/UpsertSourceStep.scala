@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{PendingWrite, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{PendingWrite, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import spray.json._
 
 import java.time.Instant
@@ -39,6 +39,8 @@ object UpsertSourceStep {
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
+    override def group: Option[StepGroup]     = Some(StepGroup.WriteBack)
+    override def catalogDescription: String   = "Write rows back to an existing or new data source."
     def decodeConfig(raw: String): Any    = UpsertSourceConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[UpsertSourceConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[UpsertSourceConfig]

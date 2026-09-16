@@ -95,6 +95,7 @@ import {
   Tags,
   Type,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 // OP_TYPES drives the picker dropdown — join is intentionally excluded: no
 // `JoinConfig.tsx` editor exists (HEL-264's original rationale — showing an
@@ -143,6 +144,22 @@ export const OP_TYPES: OpType[] = [
   { id: "analyzewithai", label: "Analyze with AI", icon: Sparkles },
   { id: "generatetext", label: "Generate text", icon: PenLine },
 ];
+
+// HEL-1136 (design.md Decision 7) — the step palette's label/description/group/order all come
+// from the backend catalog (`GET /api/pipeline-step-catalog`) now; icons cannot cross the wire
+// (`OpType.icon` is a `LucideIcon` component reference), so this is the one presentation-only
+// lookup that stays client-side. NOT the forbidden client-side group mapping the ticket's owner
+// ruling forbids — this maps a kind to a glyph, never a kind to a category. Derived from OP_TYPES'
+// existing icon choices so every icon a user already recognizes stays unchanged.
+export const STEP_ICONS: Record<string, LucideIcon> = Object.fromEntries(
+  OP_TYPES.map((op) => [op.id, op.icon]),
+);
+
+/** A kind with no entry in `STEP_ICONS` (e.g. a newly registered kind the catalog already
+ *  returns but this map hasn't been updated for yet) falls back to this glyph rather than
+ *  failing to render — `StepPalette` never refuses to show an authorable catalog entry for want
+ *  of an icon. */
+export const DEFAULT_STEP_ICON: LucideIcon = HelpCircle;
 
 // design.md D2/D3 — the four supported `from`/`to` pairs, the ONLY pairs the
 // card's Select can produce. Mirrors the backend's `SupportedPairs`

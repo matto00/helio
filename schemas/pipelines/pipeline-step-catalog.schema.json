@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/pipeline-step-catalog.schema.json",
+  "title": "PipelineStepCatalogResponse",
+  "description": "GET /api/pipeline-step-catalog response body (HEL-1136) -- every registered PipelineStep.Registry kind, plus the declared display order of their groups. `groups` and `steps` are ORDERED ARRAYS, never conveyed via object-key order (design.md Decision 3).",
+  "type": "object",
+  "properties": {
+    "groups": {
+      "type": "array",
+      "description": "Every declared StepGroup, in the backend's declared display order.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable group identifier, e.g. \"filter-shape\"."
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "label"],
+        "additionalProperties": false
+      }
+    },
+    "steps": {
+      "type": "array",
+      "description": "One entry per PipelineStep.Registry kind -- exactly one per kind, no kind omitted.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "Stable step-kind discriminator, e.g. \"select\"."
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "description": "A one-line, user-facing description of what this step does."
+          },
+          "group": {
+            "type": "string",
+            "description": "The declared group's id, e.g. \"filter-shape\". ABSENT (not null) when the kind declares no group -- an ungrouped kind is a permanent, valid state, not an error."
+          },
+          "authorable": {
+            "type": "boolean",
+            "description": "Whether a client may offer this kind as a choice the user can create and configure. false for a registered-but-no-authoring-surface kind (e.g. join, groupby)."
+          }
+        },
+        "required": ["kind", "label", "description", "authorable"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["groups", "steps"],
+  "additionalProperties": false
+}
