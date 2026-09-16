@@ -2,7 +2,9 @@
 
 ## Purpose
 Assistant/chat endpoints are gated by account tier — free-tier users are denied with a machine-readable error the frontend renders as a request-access prompt, beta-tier converse is capped per UTC day, and owner-tier is unlimited — controlling Claude cost exposure and rollout.. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Free-tier users are denied all assistant conversation endpoints
 The system SHALL reject requests from a `free`-tier user on every `AssistantConversationRoutes`
 endpoint (conversation list, create, read/messages, converse, and the PATCH rename/pin operation)
@@ -23,13 +25,20 @@ or persistence.
 
 ### Requirement: Beta-tier message sends are capped per day
 A `beta`-tier user SHALL be able to use all assistant conversation endpoints, except that sending a
-message (the converse endpoint) SHALL be capped at a configurable number of user messages per UTC day.
-The limit SHALL come from configuration (env-var-backed with a conservative built-in default) and
-SHALL be enforced by counting the user's converse message sends for the current UTC day (persisted in
-a per-user daily usage record — the transcript blob has no per-message timestamps to count from)
-before invoking the model. A request over the cap SHALL return `429 Too Many Requests` with a JSON
-body carrying machine-readable code `CHAT_LIMIT_REACHED`, the configured limit, and a human-readable
-message. An over-cap request SHALL NOT invoke the model and SHALL NOT persist any turns.
+message (the converse endpoint) SHALL be capped at a configurable number of user messages per UTC
+day. The limit SHALL come from configuration (env-var-backed with a conservative built-in default)
+and SHALL be enforced by counting the user's converse message sends for the current UTC day
+(persisted in a per-user daily usage record — the transcript blob has no per-message timestamps to
+count from) before invoking the model. A request over the cap SHALL return `429 Too Many Requests`
+with a JSON body carrying machine-readable code `CHAT_LIMIT_REACHED`, the configured limit, and a
+human-readable message. An over-cap request SHALL NOT invoke the model and SHALL NOT persist any
+turns.
+
+The SAME per-user daily record and the SAME configured limit SHALL also count pipeline-triggered AI
+model calls, so a user has ONE combined daily AI budget rather than a separate allowance per
+surface. Chat sends and pipeline AI calls SHALL therefore draw down the same counter, and each
+surface SHALL report its own denial in its own established shape (chat: `429` with
+`CHAT_LIMIT_REACHED`; pipeline: a named step failure).
 
 #### Scenario: Beta user under the cap converses normally
 - **WHEN** a `beta`-tier user who has sent fewer messages today than the configured limit calls the
@@ -50,6 +59,11 @@ message. An over-cap request SHALL NOT invoke the model and SHALL NOT persist an
 #### Scenario: Daily usage records are isolated per user by RLS
 - **WHEN** one user's database context attempts to read or modify another user's daily usage record
 - **THEN** row-level security prevents the access (no row visible, no row modified)
+
+#### Scenario: Pipeline AI calls draw down the same daily counter
+- **WHEN** a `beta`-tier user's pipeline issues AI model calls and the user then calls converse
+- **THEN** the pipeline's calls have already counted against the same daily limit, and converse is
+  denied with `CHAT_LIMIT_REACHED` once the combined total reaches the limit
 
 ### Requirement: Owner-tier users are unlimited
 An `owner`-tier user SHALL pass the tier gate on every assistant conversation endpoint with no daily
@@ -75,4 +89,3 @@ render the request-access state proactively for `free`-tier users.
 - **WHEN** a `beta`-tier user receives a `CHAT_LIMIT_REACHED` response from converse
 - **THEN** the assistant UI shows a limit-reached notice (including that it resets daily) while the
   existing transcript remains visible and readable
-
