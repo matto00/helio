@@ -240,7 +240,8 @@ object PipelineStep {
     AssertStep.Kind -> AssertStep.companion,
     UpsertSourceStep.Kind -> UpsertSourceStep.companion,
     ConvertFormatStep.Kind -> ConvertFormatStep.companion,
-    AnalyzeWithAiStep.Kind -> AnalyzeWithAiStep.companion
+    AnalyzeWithAiStep.Kind -> AnalyzeWithAiStep.companion,
+    GenerateTextStep.Kind -> GenerateTextStep.companion
   )
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
@@ -285,6 +286,7 @@ object PipelineStepKind {
   val UpsertSource: String = UpsertSourceStep.Kind
   val ConvertFormat: String = ConvertFormatStep.Kind
   val AnalyzeWithAi: String = AnalyzeWithAiStep.Kind
+  val GenerateText: String = GenerateTextStep.Kind
 
   /** Registry-derived allow-list. After cycle 3 no consumer enumerates these
    *  manually — adding a new kind only requires updating

@@ -473,13 +473,13 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
     // required-config declarations are documented instead in their own
     // `companion.requiredConfigProblems` scaladoc and their own design.md Decisions, the same
     // "single per-kind declaration" contract HEL-814 established.
-    "hold exactly the 26 kinds the HEL-814 enumeration plus HEL-1100's upsertsource, HEL-1105's convertformat and HEL-1106's analyzewithai cover" in {
-      PipelineStep.Registry should have size 26
+    "hold exactly the 27 kinds the HEL-814 enumeration plus HEL-1100's upsertsource, HEL-1105's convertformat, HEL-1106's analyzewithai and HEL-1107's generatetext cover" in {
+      PipelineStep.Registry should have size 27
       PipelineStep.Registry.keySet shouldBe Set(
         "aggregate", "assert", "cast", "chunkbytokencount", "compute", "datebucket", "dedupe",
         "extractheadings", "fillnull", "filter", "groupby", "join", "limit", "lookup", "pivot",
         "rename", "select", "sort", "splittext", "stringops", "union", "unpivot", "window",
-        "upsertsource", "convertformat", "analyzewithai"
+        "upsertsource", "convertformat", "analyzewithai", "generatetext"
       )
     }
 
@@ -507,8 +507,8 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
     // two surfaces cannot diverge, same contract every other kind's split enforces the opposite
     // way). This is the ONE kind self-approved to reject the picker's bare `{}` seed immediately
     // rather than saving an incomplete draft.
-    "GUARD: accept the picker's empty `{}` seed config on EVERY kind except analyzewithai (HEL-1106 design.md D1)" in {
-      (PipelineStep.Registry - "analyzewithai").foreach { case (kind, companion) =>
+    "GUARD: accept the picker's empty `{}` seed config on EVERY kind except analyzewithai and generatetext (HEL-1106/HEL-1107 design.md D1/D2)" in {
+      (PipelineStep.Registry -- Set("analyzewithai", "generatetext")).foreach { case (kind, companion) =>
         withClue(s"step kind '$kind' rejected the picker's empty seed config: ") {
           companion.validateRawConfig("{}") shouldBe None
         }
@@ -521,6 +521,18 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
       problem.get should include("inputField")
       problem.get should include("instruction")
       problem.get should include("outputSchema")
+    }
+
+    // HEL-1107 (design.md D2/D9): `generatetext` joins `analyzewithai` as exempt from the
+    // empty-seed GUARD above -- all three of `inputField`/`instruction`/`outputField` are
+    // required non-empty at write time, sharing `GenerateTextConfig.validate` with
+    // `requiredConfigProblems` so the two surfaces cannot diverge.
+    "generatetext rejects the picker's empty `{}` seed config, naming the missing fields (HEL-1107 design.md D2)" in {
+      val problem = PipelineStep.Registry("generatetext").validateRawConfig("{}")
+      problem shouldBe defined
+      problem.get should include("inputField")
+      problem.get should include("instruction")
+      problem.get should include("outputField")
     }
   }
 }

@@ -1,7 +1,7 @@
 package com.helio.api.protocols.pipelines
 
 import com.helio.domain.model.{PipelineStep, PipelineStepKind}
-import com.helio.domain.steps.{AnalyzeWithAiConfig, ConvertFormatConfig, SecondaryInput, UpsertSourceConfig}
+import com.helio.domain.steps.{AnalyzeWithAiConfig, ConvertFormatConfig, GenerateTextConfig, SecondaryInput, UpsertSourceConfig}
 import com.helio.domain.{AggregateConfig, AggregateStep, AssertConfig, AssertStep, CastConfig, CastStep, ChunkByTokenCountConfig, ChunkByTokenCountStep, ComputeConfig, ComputeStep, DateBucketConfig, DedupeConfig, DedupeStep, DateBucketStep, ExtractHeadingsConfig, ExtractHeadingsStep, FillNullConfig, FillNullStep, FilterConfig, FilterStep, GroupByConfig, GroupByStep, JoinConfig, JoinStep, LimitConfig, LimitStep, LookupConfig, LookupStep, PivotConfig, PivotStep, RenameConfig, RenameStep, SelectConfig, SelectStep, SortConfig, SortStep, SplitTextConfig, SplitTextStep, StringOpsConfig, StringOpsStep, UnionConfig, UnionStep, UnpivotConfig, UnpivotStep, WindowConfig, WindowStep}
 import spray.json._
 
@@ -82,6 +82,7 @@ object PipelineStepConfigCodec {
     case c: UpsertSourceConfig => c.toJson.compactPrint
     case c: ConvertFormatConfig => PipelineStep.Registry(PipelineStepKind.ConvertFormat).encodeConfig(c)
     case c: AnalyzeWithAiConfig => PipelineStep.Registry(PipelineStepKind.AnalyzeWithAi).encodeConfig(c)
+    case c: GenerateTextConfig  => PipelineStep.Registry(PipelineStepKind.GenerateText).encodeConfig(c)
     case other =>
       throw new IllegalArgumentException(
         s"PipelineStepConfigCodec.encodeConfig: unexpected config type ${other.getClass.getName}"

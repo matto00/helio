@@ -2,7 +2,7 @@ package com.helio.domain.engine
 
 import com.helio.domain.model.{DataFieldType, PipelineStep}
 import com.helio.domain.steps.{
-  AggregateConfig, AggregateStep, AnalyzeWithAiConfig, ConvertFormatStep, FillNullConfig, FillNullStep, GroupByConfig, GroupByStep,
+  AggregateConfig, AggregateStep, AnalyzeWithAiConfig, ConvertFormatStep, FillNullConfig, FillNullStep, GenerateTextConfig, GroupByConfig, GroupByStep,
   JoinConfig, JoinStep, LookupConfig, PivotConfig, PivotStep, SecondaryInput, StringOpsConfig, StringOpsStep,
   UnionConfig, UnionStep, WindowConfig, WindowStep
 }
@@ -486,6 +486,7 @@ object PipelineAnalyzeService {
       case "groupby"                    => inferGroupBy(config, inputSchema)
       case "convertformat"              => inferConvertFormat(config, inputSchema)
       case "analyzewithai"              => inferAnalyzeWithAi(config, inputSchema)
+      case "generatetext"               => inferGenerateText(config, inputSchema)
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
@@ -694,6 +695,35 @@ object PipelineAnalyzeService {
       case ex: Exception =>
         log.warn("analyzewithai config error", ex)
         (inputSchema, Some("analyzewithai config error"))
+    }
+
+  /** generatetext (HEL-1107, design.md D6) -- never calls the model. Checks `inputField` exists
+   *  in the input schema and is `string`/`string-body` (the only types the model-content prompt
+   *  can be built from), and that the config itself is valid (shared `GenerateTextConfig
+   *  .validate`, the same check the write path/`requiredConfigProblems` runs). On success, output
+   *  = input schema with `outputField` set/added as `string-body`, using the SAME collision
+   *  pattern as `inferConvertFormat` (`filterNot(_.name == outputField) :+ ...`) rather than
+   *  `inferAnalyzeWithAi`'s multi-column replace -- `generatetext` only ever adds one column. */
+  private def inferGenerateText(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
+    try {
+      val cfg = GenerateTextConfig.decode(config)
+      GenerateTextConfig.validate(cfg) match {
+        case Some(msg) => (inputSchema, Some(msg))
+        case None =>
+          inputSchema.find(_.name == cfg.inputField) match {
+            case None =>
+              (inputSchema, Some(s"Unknown field '${cfg.inputField}'"))
+            case Some(f) if f.`type` != "string-body" && f.`type` != "string" =>
+              (inputSchema, Some(s"Field '${cfg.inputField}' is not a string field; generatetext requires 'string' or 'string-body'"))
+            case Some(_) =>
+              val without = inputSchema.filterNot(_.name == cfg.outputField)
+              (without :+ SchemaField(name = cfg.outputField, `type` = "string-body"), None)
+          }
+      }
+    } catch {
+      case ex: Exception =>
+        log.warn("generatetext config error", ex)
+        (inputSchema, Some("generatetext config error"))
     }
 
   private def inferSplitText(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =

@@ -59,6 +59,8 @@ package object domain {
   val  ConvertFormatStep = steps.ConvertFormatStep
   type AnalyzeWithAiStep = steps.AnalyzeWithAiStep
   val  AnalyzeWithAiStep = steps.AnalyzeWithAiStep
+  type GenerateTextStep = steps.GenerateTextStep
+  val  GenerateTextStep = steps.GenerateTextStep
 
   type RenameConfig    = steps.RenameConfig
   val  RenameConfig    = steps.RenameConfig
@@ -130,4 +132,6 @@ package object domain {
   val  AnalyzeWithAiOutputField = steps.AnalyzeWithAiOutputField
   type AnalyzeWithAiConfig = steps.AnalyzeWithAiConfig
   val  AnalyzeWithAiConfig = steps.AnalyzeWithAiConfig
+  type GenerateTextConfig = steps.GenerateTextConfig
+  val  GenerateTextConfig = steps.GenerateTextConfig
 }

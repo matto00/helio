@@ -2,7 +2,7 @@ package com.helio.api.protocols.pipelines
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model.PipelineStepKind
-import com.helio.domain.{AggregateConfig, AnalyzeWithAiConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, ConvertFormatConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, UpsertSourceConfig, WindowConfig}
+import com.helio.domain.{AggregateConfig, AnalyzeWithAiConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, ConvertFormatConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GenerateTextConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, UpsertSourceConfig, WindowConfig}
 import spray.json._
 
 // ── Pipeline analyze API types (extracted from PipelineProtocol.scala per
@@ -191,6 +191,14 @@ final case class AnalyzeWithAiAnalyzeStepResponse(
     validationError: Option[String]
 ) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.AnalyzeWithAi }
 
+/** HEL-1107 (design.md D6): analyze response for `generatetext` -- output = input schema with
+ *  `outputField` set/added as `string-body`, same shape as every other kind's analyze response. */
+final case class GenerateTextAnalyzeStepResponse(
+    id: String, position: Int, config: GenerateTextConfig,
+    inputSchema: Vector[SchemaFieldResponse], outputSchema: Vector[SchemaFieldResponse],
+    validationError: Option[String]
+) extends AnalyzeStepResponse { def `type`: String = PipelineStepKind.GenerateText }
+
 
 final case class TypeChangedColumnResponse(name: String, previousType: String, currentType: String)
 
@@ -330,6 +338,8 @@ trait PipelineAnalyzeProtocol
   private val convertFormatAnalyzeFormat: RootJsonFormat[ConvertFormatAnalyzeStepResponse] = jsonFormat6(ConvertFormatAnalyzeStepResponse.apply)
   // `analyzeWithAiConfigFormat` is already an inherited implicit from `PipelineStepProtocol`.
   private val analyzeWithAiAnalyzeFormat: RootJsonFormat[AnalyzeWithAiAnalyzeStepResponse] = jsonFormat6(AnalyzeWithAiAnalyzeStepResponse.apply)
+  // `generateTextConfigFormat` is already an inherited implicit from `PipelineStepProtocol`.
+  private val generateTextAnalyzeFormat: RootJsonFormat[GenerateTextAnalyzeStepResponse] = jsonFormat6(GenerateTextAnalyzeStepResponse.apply)
 
   implicit object analyzeStepResponseFormat extends RootJsonFormat[AnalyzeStepResponse] {
     override def write(s: AnalyzeStepResponse): JsValue = {
@@ -360,6 +370,7 @@ trait PipelineAnalyzeProtocol
         case u: UpsertSourceAnalyzeStepResponse => upsertSourceAnalyzeFormat.write(u).asJsObject
         case c: ConvertFormatAnalyzeStepResponse => convertFormatAnalyzeFormat.write(c).asJsObject
         case a: AnalyzeWithAiAnalyzeStepResponse => analyzeWithAiAnalyzeFormat.write(a).asJsObject
+        case g: GenerateTextAnalyzeStepResponse => generateTextAnalyzeFormat.write(g).asJsObject
       }
       JsObject(inner.fields + ("type" -> JsString(s.`type`)))
     }
@@ -391,6 +402,7 @@ trait PipelineAnalyzeProtocol
         case Some(JsString(PipelineStepKind.UpsertSource)) => upsertSourceAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.ConvertFormat)) => convertFormatAnalyzeFormat.read(json)
         case Some(JsString(PipelineStepKind.AnalyzeWithAi)) => analyzeWithAiAnalyzeFormat.read(json)
+        case Some(JsString(PipelineStepKind.GenerateText)) => generateTextAnalyzeFormat.read(json)
         case Some(other)                                => deserializationError(s"Unknown analyze step type: $other")
         case None                                       => deserializationError("Missing 'type' discriminator on analyze step")
       }
