@@ -10,6 +10,7 @@ import com.helio.domain.panels._
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.domain.panels.OutputPanel
 import com.helio.services.panels.PanelServiceHelpers._
 import org.slf4j.LoggerFactory
@@ -66,7 +67,12 @@ final class PanelService(
     // convention as a fixture that never wires `auditService`) — only
     // exercised once a caller actually creates/patches an `"output"`-kind
     // panel with a non-empty `outputId`.
-    outputRepo: OutputRepository = null
+    outputRepo: OutputRepository = null,
+    // HEL-1083: nullable-optional wiring, same convention as `outputRepo` —
+    // a `null` dataSourceRepo skips the dataSourceId-existence/ownership
+    // check entirely, only exercised once a caller actually creates/patches
+    // a `"form"`-kind panel with a non-empty `dataSourceId` (design.md D6).
+    dataSourceRepo: DataSourceRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -187,7 +193,10 @@ final class PanelService(
       case Left(err) =>
         Future.successful(Left(ServiceError.BadRequest(err)))
       case Right((createConfig, appearance)) =>
-        rejectMissingOutput(outputIdFromCreateConfig(createConfig), user).map {
+        rejectMissingOutput(outputIdFromCreateConfig(createConfig), user).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_)  => rejectMissingDataSource(dataSourceIdFromCreateConfig(createConfig), user)
+        }.map {
           case Left(err) => Left(err)
           case Right(_) =>
             val now = Instant.now()
@@ -441,8 +450,12 @@ final class PanelService(
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(spec) =>
-                val incomingOutputId = spec.configPatch.flatMap(outputIdFromConfigPatch)
+                val incomingOutputId     = spec.configPatch.flatMap(outputIdFromConfigPatch)
+                val incomingDataSourceId = spec.configPatch.flatMap(dataSourceIdFromConfigPatch)
                 rejectMissingOutput(incomingOutputId, user).flatMap {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(_)  => rejectMissingDataSource(incomingDataSourceId, user)
+                }.flatMap {
                   case Left(err) => Future.successful(Left(err))
                   case Right(_) =>
                     patchApplier.apply(panelId, spec)
@@ -482,6 +495,25 @@ final class PanelService(
         outputRepo.findByIdOwned(outputId, user).map {
           case Some(_) => Right(())
           case None    => Left(ServiceError.NotFound("Output not found"))
+        }
+    }
+
+  /** 404 when `dataSourceIdOpt` is provided but does not resolve to a real,
+   *  owned data source (design.md D6). Mirrors `rejectMissingOutput`
+   *  verbatim, including its nullable-optional repository wiring so no
+   *  existing fixture changes behaviour, and its `findByIdOwned` →
+   *  not-found mapping so existence is never leaked (never 403, never 500). */
+  private def rejectMissingDataSource(
+      dataSourceIdOpt: Option[DataSourceId],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] =
+    dataSourceIdOpt match {
+      case None => Future.successful(Right(()))
+      case Some(_) if dataSourceRepo == null => Future.successful(Right(()))
+      case Some(dataSourceId) =>
+        dataSourceRepo.findByIdOwned(dataSourceId, user).map {
+          case Some(_) => Right(())
+          case None    => Left(ServiceError.NotFound("Data source not found"))
         }
     }
 

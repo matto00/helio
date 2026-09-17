@@ -736,7 +736,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         // Unlike create_content_panel's `type` enum (text/markdown/image/divider only -- no
         // "output", which place_outputs creates instead), this tool's `type` validates against an
         // EXISTING panel's stored kind, so "output" is included here.
-        type: z.enum(["output", "text", "markdown", "image", "divider"]).optional(),
+        type: z.enum(["output", "text", "markdown", "image", "divider", "form"]).optional(),
         config: z.record(z.string(), z.unknown()).optional(),
         appearance: z.record(z.string(), z.unknown()).optional(),
       },

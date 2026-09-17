@@ -55,7 +55,7 @@ export interface PanelAppearance {
   chart?: ChartAppearance;
 }
 
-export type PanelKind = "output" | "text" | "markdown" | "image" | "divider";
+export type PanelKind = "output" | "text" | "markdown" | "image" | "divider" | "form";
 
 export type ImageFit = "contain" | "cover" | "fill";
 
@@ -155,12 +155,62 @@ export interface DividerPanelConfig {
   color?: string | null;
 }
 
+//
+// Config for the `form`-kind panel (HEL-1083). Mirrors backend
+// `domain/panels/FormPanel.scala`'s `FormPanelConfig`. A `form` panel writes
+// rows into a `dataset`-kind data source rather than reading a materialized
+// Output — it binds via `dataSourceId`, not `outputId`. `control` is a
+// presentation vocabulary deliberately orthogonal to the dataset's own
+// declared field type — a form field never re-declares its own data type.
+
+export type FormFieldControl =
+  | "text"
+  | "textarea"
+  | "number"
+  | "date"
+  | "select"
+  | "checkbox"
+  | "file";
+
+export interface FormFieldSpec {
+  sourceField: string;
+  control: FormFieldControl;
+  label?: string;
+  placeholder?: string;
+  helpText?: string;
+  /** Tighten-only: absent inherits the dataset declaration, `true` adds a
+   *  form-level requirement. `false` is rejected by the backend as malformed. */
+  required?: boolean;
+  /** Prefill only — never changes what is stored for an omitted field. */
+  initialValue?: unknown;
+  /** Valid only alongside `control: "number"`. Its PRESENCE is the counter
+   *  discriminator for a future single-field compact configuration. */
+  step?: number;
+  /** Required when `control` is `"select"`. */
+  options?: unknown;
+}
+
+export interface FormSubmitSpec {
+  /** Fixed to `"append"` — a form submit appends one row and never replaces
+   *  the dataset's contents. */
+  writeMode: "append";
+  label?: string;
+  resetOnSuccess?: boolean;
+}
+
+export interface FormPanelConfig {
+  dataSourceId: string;
+  fields: FormFieldSpec[];
+  submit: FormSubmitSpec;
+}
+
 export type PanelConfig =
   | OutputPanelConfig
   | TextPanelConfig
   | MarkdownPanelConfig
   | ImagePanelConfig
-  | DividerPanelConfig;
+  | DividerPanelConfig
+  | FormPanelConfig;
 
 //
 // Common fields live on `PanelBase`; each variant adds `kind` + typed
@@ -210,7 +260,12 @@ export interface DividerPanel extends PanelBase {
   config: DividerPanelConfig;
 }
 
-export type Panel = OutputPanel | TextPanel | MarkdownPanel | ImagePanel | DividerPanel;
+export interface FormPanel extends PanelBase {
+  type: "form";
+  config: FormPanelConfig;
+}
+
+export type Panel = OutputPanel | TextPanel | MarkdownPanel | ImagePanel | DividerPanel | FormPanel;
 
 // Legacy alias — `PanelType` was the discriminator string literal union under
 // the pre-HEL-909 shape. Same set as `PanelKind`; kept as an alias so
@@ -242,6 +297,12 @@ export const emptyDividerConfig = (): DividerPanelConfig => ({
   orientation: "horizontal",
 });
 
+export const emptyFormConfig = (): FormPanelConfig => ({
+  dataSourceId: "",
+  fields: [],
+  submit: { writeMode: "append" },
+});
+
 export function emptyConfigForKind(kind: PanelKind): PanelConfig {
   switch (kind) {
     case "output":
@@ -254,6 +315,8 @@ export function emptyConfigForKind(kind: PanelKind): PanelConfig {
       return emptyImageConfig();
     case "divider":
       return emptyDividerConfig();
+    case "form":
+      return emptyFormConfig();
   }
 }
 

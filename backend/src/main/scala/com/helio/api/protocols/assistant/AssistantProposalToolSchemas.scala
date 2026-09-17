@@ -47,8 +47,11 @@ private[protocols] trait AssistantProposalToolSchemas {
       // design doc); "output" is the sole data-bindable placement kind now. Matches
       // schemas/dashboards/dashboard-proposal.schema.json's own `type` enum exactly (no `divider`
       // here either -- dropped from the proposal flow's agent-facing type set for parity with
-      // create_panel, per that schema file's own description).
-      "type" -> enumSchema("text", "markdown", "image", "output"),
+      // create_panel, per that schema file's own description). `form` joins
+      // this set (HEL-1083 design.md D7) with no carve-out beside `divider` --
+      // compared set-equal in BOTH directions against the proposal JSON schema
+      // by check-schema-drift.mjs, so omitting it here fails check:schemas.
+      "type" -> enumSchema("text", "markdown", "image", "output", "form"),
       "outputId" -> JsObject(
         "type" -> JsString("string"),
         "description" -> JsString(

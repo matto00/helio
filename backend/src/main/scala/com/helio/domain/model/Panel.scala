@@ -89,7 +89,8 @@ object Panel {
     MarkdownPanel.Kind   -> MarkdownPanel.companion,
     ImagePanel.Kind      -> ImagePanel.companion,
     DividerPanel.Kind    -> DividerPanel.companion,
-    OutputPanel.Kind     -> OutputPanel.companion
+    OutputPanel.Kind     -> OutputPanel.companion,
+    FormPanel.Kind       -> FormPanel.companion
   )
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
@@ -112,6 +113,7 @@ object PanelKind {
   val Image: String      = ImagePanel.Kind
   val Divider: String    = DividerPanel.Kind
   val Output: String     = OutputPanel.Kind
+  val Form: String       = FormPanel.Kind
 
   val Default: String = Output
 

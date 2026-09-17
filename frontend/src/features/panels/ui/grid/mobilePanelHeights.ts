@@ -90,6 +90,7 @@ export function computeMobilePanelHeight(
     case "text":
     case "image":
     case "divider":
+    case "form":
       return { height: null, scrollsInternally: false };
   }
 }

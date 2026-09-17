@@ -21,7 +21,7 @@
     },
     "type": {
       "type": "string",
-      "enum": ["text", "markdown", "image", "divider", "output"]
+      "enum": ["text", "markdown", "image", "divider", "output", "form"]
     },
     "meta": {
       "$ref": "https://helio.local/schemas/shared/resource-meta.schema.json"
@@ -104,6 +104,16 @@
           "$ref": "#/$defs/DividerConfig"
         }
       }
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "form"
+        },
+        "config": {
+          "$ref": "#/$defs/FormConfig"
+        }
+      }
     }
   ],
   "$defs": {
@@ -167,6 +177,81 @@
         "color": {
           "type": ["string", "null"],
           "pattern": "^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$"
+        }
+      }
+    },
+    "FormConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Config for the `form` panel kind (HEL-1083) — a panel that writes rows into a `dataset`-kind data source rather than reading a materialized Output. `fields` is an ordered list; order is preserved across persistence and every read. `control` is a presentation vocabulary deliberately orthogonal to the dataset's own declared field type — a form field never re-declares its own data type.",
+      "properties": {
+        "dataSourceId": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FormFieldConfig"
+          }
+        },
+        "submit": {
+          "$ref": "#/$defs/FormSubmitConfig"
+        }
+      }
+    },
+    "FormFieldConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceField", "control"],
+      "properties": {
+        "sourceField": {
+          "type": "string",
+          "description": "The dataset field this entry writes to, by name (design.md D3) — the dataset's declared schema remains the single authoritative source of the field's type/required-ness/write-time default."
+        },
+        "control": {
+          "type": "string",
+          "enum": ["text", "textarea", "number", "date", "select", "checkbox", "file"]
+        },
+        "label": {
+          "type": "string"
+        },
+        "placeholder": {
+          "type": "string"
+        },
+        "helpText": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Tighten-only (design.md D3a): absent inherits the dataset declaration, true adds a form-level requirement. false is rejected as malformed."
+        },
+        "initialValue": {
+          "description": "Prefill only — seeds the control before first input and never changes what is stored for an omitted field."
+        },
+        "step": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Valid only alongside control: number. A counter (the single-field compact configuration) is expressed as control: number carrying step — step's PRESENCE is the counter discriminator."
+        },
+        "options": {
+          "description": "Required when control is select."
+        }
+      }
+    },
+    "FormSubmitConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A form's submit behaviour (design.md D4). writeMode is fixed to `append` — `replace` is meaningful to the dataset write API but not to a form submit, and is rejected rather than silently coerced.",
+      "properties": {
+        "writeMode": {
+          "type": "string",
+          "enum": ["append"]
+        },
+        "label": {
+          "type": "string"
+        },
+        "resetOnSuccess": {
+          "type": "boolean"
         }
       }
     }

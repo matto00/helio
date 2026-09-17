@@ -317,6 +317,11 @@ object PanelRepository {
    *  returned 200 with the new id in the response body while the row (and
    *  every subsequent read) kept the old one. Added here so this is the
    *  single source of truth it already claims to be. */
+  // HEL-1083: `form_config` (FormPanel's sole config column, `panels.form_config`
+  // JSONB) folded in here too, same discipline as `output_id`'s HEL-909
+  // follow-up — a config column present on `PanelRow` but absent from THIS
+  // tuple makes `replace()`/batch config-patch writes silently keep the OLD
+  // value while returning the new one in the response body (C4).
   def configColumnsOf(r: PanelTable): (
       Rep[Option[String]],
       Rep[Option[String]],
@@ -324,15 +329,17 @@ object PanelRepository {
       Rep[Option[Int]],
       Rep[Option[String]],
       Rep[Option[String]],
+      Rep[Option[String]],
       Rep[Option[String]]
   ) =
-    (r.content, r.imageUrl, r.imageFit, r.dividerWeight, r.dividerOrientation, r.dividerColor, r.outputId)
+    (r.content, r.imageUrl, r.imageFit, r.dividerWeight, r.dividerOrientation, r.dividerColor, r.outputId, r.formConfig)
 
   def configColumnValuesOf(row: PanelRow): (
       Option[String],
       Option[String],
       Option[String],
       Option[Int],
+      Option[String],
       Option[String],
       Option[String],
       Option[String]
@@ -344,7 +351,8 @@ object PanelRepository {
       row.dividerWeight,
       row.dividerOrientation,
       row.dividerColor,
-      row.outputId
+      row.outputId,
+      row.formConfig
     )
 
   case class PanelRow(
@@ -370,7 +378,10 @@ object PanelRepository {
       // divider`) is now the sole subtype discriminator (`type`/`type_id`
       // dropped) and NOT NULL — every write sets it via
       // `PanelRowMapper.domainToRow`.
-      kind: String
+      kind: String,
+      // HEL-1083: `FormPanel`'s sole config column (V108 `panels.form_config`
+      // JSONB, nullable) — set only for `kind = 'form'` rows.
+      formConfig: Option[String] = None
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -391,10 +402,11 @@ object PanelRepository {
     def imageCaption        = column[Option[String]]("image_caption")
     def outputId            = column[Option[String]]("output_id")
     def kind                = column[String]("kind")
+    def formConfig          = column[Option[String]]("form_config")
 
     def * =
       (id :: dashboardId :: title :: createdBy :: createdAt :: lastUpdated :: appearance ::
         ownerId :: content :: imageUrl :: imageFit :: dividerOrientation :: dividerWeight ::
-        dividerColor :: imageCaption :: outputId :: kind :: HNil).mapTo[PanelRow]
+        dividerColor :: imageCaption :: outputId :: kind :: formConfig :: HNil).mapTo[PanelRow]
   }
 }

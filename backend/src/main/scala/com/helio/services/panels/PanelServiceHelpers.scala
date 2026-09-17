@@ -141,6 +141,7 @@ object PanelServiceHelpers {
     case PanelConfigCodec.ImageCreate(c)    => ImagePanel(id, dashboardId, title, meta, appearance, ownerId, c)
     case PanelConfigCodec.DividerCreate(c)  => DividerPanel(id, dashboardId, title, meta, appearance, ownerId, c)
     case PanelConfigCodec.OutputCreate(c)     => OutputPanel(id, dashboardId, title, meta, appearance, ownerId, c)
+    case PanelConfigCodec.FormCreate(c)       => FormPanel(id, dashboardId, title, meta, appearance, ownerId, c)
   }
 
   private[services] def validateCreatePanelRequest(request: CreatePanelRequest): Either[String, DashboardId] =
@@ -182,6 +183,24 @@ object PanelServiceHelpers {
     json match {
       case JsObject(fields) =>
         fields.get("outputId").collect { case JsString(s) if s.nonEmpty => OutputId(s) }
+      case _ => None
+    }
+
+  /** Extract the `dataSourceId` a `"form"`-kind create-side config targets, if
+   *  any — mirrors `outputIdFromCreateConfig` (design.md D6). Feeds
+   *  `PanelService.rejectMissingDataSource`. */
+  private[services] def dataSourceIdFromCreateConfig(config: PanelConfigCodec.CreateConfig): Option[DataSourceId] =
+    config match {
+      case PanelConfigCodec.FormCreate(c) => Option(c.dataSourceId).filter(_.value.nonEmpty)
+      case _                              => None
+    }
+
+  /** Extract the `dataSourceId` an incoming PATCH `config` payload explicitly
+   *  sets to a non-null value, if any — mirrors `outputIdFromConfigPatch`. */
+  private[services] def dataSourceIdFromConfigPatch(json: JsValue): Option[DataSourceId] =
+    json match {
+      case JsObject(fields) =>
+        fields.get("dataSourceId").collect { case JsString(s) if s.nonEmpty => DataSourceId(s) }
       case _ => None
     }
 

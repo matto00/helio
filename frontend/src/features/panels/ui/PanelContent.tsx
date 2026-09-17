@@ -6,6 +6,7 @@ import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import {
   isDividerPanel,
+  isFormPanel,
   isImagePanel,
   isMarkdownPanel,
   isOutputPanel,
@@ -314,7 +315,22 @@ export function PanelContent({
   if (isMarkdownPanel(panel)) return <MarkdownRenderer content={panel.config.content} />;
   if (isImagePanel(panel)) return <ImageRenderer panel={panel} />;
   if (isDividerPanel(panel)) return <DividerRenderer panel={panel} />;
+  if (isFormPanel(panel)) {
+    // HEL-1083 design.md D10: a `form` panel has no renderer yet (HEL-1085's
+    // remit) — a neutral, unconfigured placeholder, matching the sibling
+    // "No data available" state's shape, rather than falling through to
+    // `MetricRenderer` below. The if-chain dispatcher is NOT
+    // typecheck-protected (C10), so this branch has to be enumerated by hand.
+    return (
+      <div className="panel-content panel-content--state" role="status">
+        <span className="panel-content__state-label">Form not configured</span>
+      </div>
+    );
+  }
 
-  // Exhaustiveness fallback — the union is closed so this is unreachable.
+  // Exhaustiveness fallback — this WAS unreachable when the union covered
+  // only output/text/markdown/image/divider; it is reachable again the
+  // moment a new kind is added without its own branch above (HEL-1083 D10 —
+  // this if-chain is not typecheck-protected, unlike an exhaustive switch).
   return <MetricRenderer data={data} />;
 }

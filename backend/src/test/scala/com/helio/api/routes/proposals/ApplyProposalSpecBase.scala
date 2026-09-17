@@ -73,6 +73,15 @@ abstract class ApplyProposalSpecBase
   // DataTypeRepository — OutputPanelConfig's outputId also carries a real
   // FK to outputs(id) at the DB layer).
   protected var pipelineOutputId = ""
+  // HEL-1083: the seeded `dataset`-kind data source (owned by `userId`) that
+  // `pipelineForOutputId` itself reads from — reused as a `form` panel's
+  // bindable `dataSourceId` fixture so form-panel specs don't need their own
+  // seed.
+  protected var datasetSourceId = ""
+  // HEL-1083: a second `dataset`-kind source owned by `otherId` — the
+  // cross-owner fixture for form-panel `dataSourceId` rejection specs
+  // (design.md D6).
+  protected var otherDatasetSourceId = ""
 
   private val stubSessionRepo: UserSessionRepository = new UserSessionRepository {
     override def findValidSession(token: String): Future[Option[AuthenticatedUser]] =
@@ -156,11 +165,16 @@ abstract class ApplyProposalSpecBase
     otherUserTypeId = UUID.randomUUID().toString
     val pipelineForOutputId = UUID.randomUUID().toString
     pipelineOutputId = UUID.randomUUID().toString
+    datasetSourceId = srcId
+    val otherSrcId = UUID.randomUUID().toString
+    otherDatasetSourceId = otherSrcId
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, 'a1@helio.test', now())""",
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherId::uuid, 'a2@helio.test', now())""",
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($srcId::uuid, 'src', 'dataset', '{}'::jsonb, $userId::uuid, now(), now())""",
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ($otherSrcId::uuid, 'other-src', 'dataset', '{}'::jsonb, $otherId::uuid, now(), now())""",
       // Pipeline-output type: source_id NULL, owned by userId → bindable.
       
       // Companion type: source_id set → NOT bindable.

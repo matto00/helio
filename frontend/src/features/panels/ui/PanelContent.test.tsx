@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { PanelContent } from "./PanelContent";
 import type { ChartPanelProps } from "./ChartPanel";
-import { makeOutputPanel, makeTextPanel } from "../../../test/panelFixtures";
+import { makeFormPanel, makeOutputPanel, makeTextPanel } from "../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
 import type { Output } from "../../pipelines/types/output";
 
@@ -311,5 +311,19 @@ describe("PanelContent — live text data", () => {
     );
     const liveEl = container.querySelector(".panel-content__text-live");
     expect(liveEl).toHaveTextContent("Fresh bound value");
+  });
+});
+
+// HEL-1083 design.md D10/C10 — `PanelContent`'s dispatcher is an if-chain,
+// not a switch, so adding `form` to `PanelKind` does NOT fail `tsc`. This
+// is the only guard that proves a `form` panel gets its own neutral
+// placeholder rather than silently falling through to `MetricRenderer`
+// beneath the "union is closed" comment — deleting the `isFormPanel` branch
+// added by task 3.4 must turn this test red (task 4.10's mutation).
+describe("PanelContent — form kind (HEL-1083)", () => {
+  it("renders the unconfigured placeholder, never MetricRenderer, for a form panel", () => {
+    const { container } = render(<PanelContent panel={makeFormPanel()} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Form not configured");
+    expect(container.querySelector(".panel-content--metric")).not.toBeInTheDocument();
   });
 });

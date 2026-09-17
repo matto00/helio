@@ -13,6 +13,8 @@
 import type {
   DividerPanel,
   DividerPanelConfig,
+  FormPanel,
+  FormPanelConfig,
   ImagePanel,
   ImagePanelConfig,
   MarkdownPanel,
@@ -111,4 +113,15 @@ export function makeDividerPanel(
     color: overrides.config?.color,
   };
   return applyBase<DividerPanel>(overrides, "divider", config);
+}
+
+export function makeFormPanel(
+  overrides: PanelBaseOverrides & { config?: Partial<FormPanelConfig> } = {},
+): FormPanel {
+  const config: FormPanelConfig = {
+    dataSourceId: overrides.config?.dataSourceId ?? "source-1",
+    fields: overrides.config?.fields ?? [],
+    submit: overrides.config?.submit ?? { writeMode: "append" },
+  };
+  return applyBase<FormPanel>(overrides, "form", config);
 }
