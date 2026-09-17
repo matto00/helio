@@ -16,7 +16,7 @@
     },
     "type": {
       "type": "string",
-      "enum": ["text", "markdown", "image", "divider", "output"]
+      "enum": ["text", "markdown", "image", "divider", "output", "form"]
     },
     "config": {
       "type": "object"
@@ -108,6 +108,23 @@
         "properties": {
           "config": {
             "$ref": "panel.schema.json#/$defs/DividerConfig"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "form"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "config": {
+            "$ref": "panel.schema.json#/$defs/FormConfig"
           }
         }
       }

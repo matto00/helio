@@ -12,6 +12,7 @@
 import type {
   DividerOrientation,
   DividerPanel,
+  FormPanel,
   ImageFit,
   ImagePanel,
   MarkdownPanel,
@@ -25,6 +26,7 @@ export const isTextPanel = (p: Panel): p is TextPanel => p.type === "text";
 export const isMarkdownPanel = (p: Panel): p is MarkdownPanel => p.type === "markdown";
 export const isImagePanel = (p: Panel): p is ImagePanel => p.type === "image";
 export const isDividerPanel = (p: Panel): p is DividerPanel => p.type === "divider";
+export const isFormPanel = (p: Panel): p is FormPanel => p.type === "form";
 
 /** Returns the placement's bound Output id, or `null` for a non-output panel
  *  or an unset placement. */
@@ -73,4 +75,12 @@ export function getDividerWeight(panel: Panel): number | null {
 export function getDividerColor(panel: Panel): string | null {
   if (!isDividerPanel(panel)) return null;
   return panel.config.color ?? null;
+}
+
+/** Returns the placement's bound data-source id for a `form` panel, or
+ *  `null` for a non-form panel or an unset binding. */
+export function getFormDataSourceId(panel: Panel): string | null {
+  if (!isFormPanel(panel)) return null;
+  const id = panel.config.dataSourceId;
+  return id.length > 0 ? id : null;
 }

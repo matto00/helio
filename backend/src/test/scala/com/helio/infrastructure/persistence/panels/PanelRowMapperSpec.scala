@@ -78,4 +78,81 @@ class PanelRowMapperSpec extends AnyWordSpec with Matchers {
     }
 
   }
+
+  // HEL-1083: `rowToDomain` ends in `case _ => OutputPanel(...)` — a `form`
+  // row omitted from the explicit `FormPanel.Kind` arm decodes SILENTLY as
+  // an output panel. This spec calls `rowToDomain` DIRECTLY (not through an
+  // HTTP create-response echo), so it actually traverses the mutated code —
+  // task 4.7's mutation-evidence transcript deletes the `form` arm and
+  // records this test (and `FormPanelRoundTripSpec`'s 4.3b/4.4) going red.
+  "PanelRowMapper — form kind (HEL-1083, design.md D8/D9)" should {
+    "round-trip a Form panel's dataSourceId/fields/submit through domainToRow/rowToDomain" in {
+      val cfg = FormPanelConfig(
+        DataSourceId("ds-1"),
+        Vector(FormFieldSpec("quantity", "number", step = Some(1))),
+        FormSubmitSpec.Default
+      )
+      val panel = FormPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.kind shouldBe FormPanel.Kind
+      row.formConfig should not be None
+
+      val decoded = PanelRowMapper.rowToDomain(row)
+      decoded shouldBe a[FormPanel]
+      decoded.asInstanceOf[FormPanel].config shouldBe cfg
+    }
+
+    "never decode a form row as an OutputPanel" in {
+      val cfg   = FormPanelConfig(DataSourceId("ds-1"), Vector.empty, FormSubmitSpec.Default)
+      val panel = FormPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
+      val row   = PanelRowMapper.domainToRow(panel)
+
+      PanelRowMapper.rowToDomain(row) should not be a[OutputPanel]
+    }
+
+    // 4.9 (C11) — the tolerant read path: a stored `form_config` carrying an
+    // attribute this build doesn't recognize (e.g. written by a later
+    // version, or a rolled-back deploy) must stay READABLE, never 500.
+    "decode an unrecognized stored form_config attribute as Empty, never throwing" in {
+      val malformed = JsObject(
+        "dataSourceId" -> JsString("ds-1"),
+        "fields" -> JsArray(JsObject(
+          "sourceField" -> JsString("q"),
+          "control"     -> JsString("number"),
+          "min"         -> JsNumber(0) // not yet a recognized attribute
+        ))
+      ).compactPrint
+
+      val row = PanelRowMapper.domainToRow(
+        FormPanel(id, dashboardId, "t", meta, appearance, owner, FormPanelConfig.Empty)
+      ).copy(formConfig = Some(malformed))
+
+      noException should be thrownBy PanelRowMapper.rowToDomain(row)
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[FormPanel]
+      decoded.config shouldBe FormPanelConfig.Empty
+    }
+
+    // evaluation-1.md CR3: the top-level AllowedKeys check added to
+    // FormPanelConfig.read is a decode-time failure just like a field-level
+    // one, so it must ALSO stay tolerant on read (D9 layer iii / C11) — a
+    // stored row carrying an unrecognized top-level key (e.g. from a rolled-
+    // back future version) must decode to Empty + a logged warning, never a
+    // 500-on-read.
+    "decode an unrecognized stored form_config TOP-LEVEL attribute as Empty, never throwing" in {
+      val malformed = JsObject(
+        "dataSourceId"  -> JsString("ds-1"),
+        "fields"        -> JsArray(),
+        "bogusTopLevel" -> JsNumber(123)
+      ).compactPrint
+
+      val row = PanelRowMapper.domainToRow(
+        FormPanel(id, dashboardId, "t", meta, appearance, owner, FormPanelConfig.Empty)
+      ).copy(formConfig = Some(malformed))
+
+      noException should be thrownBy PanelRowMapper.rowToDomain(row)
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[FormPanel]
+      decoded.config shouldBe FormPanelConfig.Empty
+    }
+  }
 }

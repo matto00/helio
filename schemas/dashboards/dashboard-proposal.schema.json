@@ -31,8 +31,8 @@
         },
         "type": {
           "type": "string",
-          "enum": ["text", "markdown", "image", "output"],
-          "description": "No `divider`: dropped from the proposal flow's agent-facing type set for parity with create_panel (HEL-249/HEL-315/HEL-316). The backend wire (PanelType.fromString) still accepts it on other paths."
+          "enum": ["text", "markdown", "image", "output", "form"],
+          "description": "No `divider`: dropped from the proposal flow's agent-facing type set for parity with create_panel (HEL-249/HEL-315/HEL-316). The backend wire (PanelType.fromString) still accepts it on other paths. `form` joins this set (HEL-1083 design.md D7) with no carve-out beside `divider`: the proposal wire has no typed data-source field, so a proposal supplying no config is rejected with a 400 naming `dataSourceId`; a proposal supplying `config.dataSourceId` through the generic config passthrough is created successfully."
         },
         "outputId": {
           "type": "string",

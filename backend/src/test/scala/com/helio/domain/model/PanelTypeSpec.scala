@@ -34,6 +34,22 @@ class PanelTypeSpec extends AnyWordSpec with Matchers {
     "parse \"output\" as Output" in {
       PanelType.fromString("output") shouldBe Right(PanelType.Output)
     }
+
+    "parse \"form\" as Form" in {
+      PanelType.fromString("form") shouldBe Right(PanelType.Form)
+    }
+
+    "name form in the rejection message" in {
+      PanelType.fromString("bogus") shouldBe Left(
+        "Unknown panel type: 'bogus'. Valid values: text, markdown, image, divider, output, form"
+      )
+    }
+  }
+
+  "PanelType.Default" should {
+    "still be Divider after form is registered" in {
+      PanelType.Default shouldBe PanelType.Divider
+    }
   }
 
   "PanelType.asString" should {
@@ -53,8 +69,12 @@ class PanelTypeSpec extends AnyWordSpec with Matchers {
       PanelType.asString(PanelType.Output) shouldBe "output"
     }
 
+    "serialise Form as \"form\"" in {
+      PanelType.asString(PanelType.Form) shouldBe "form"
+    }
+
     "round-trip all types" in {
-      val all = Seq(PanelType.Text, PanelType.Markdown, PanelType.Image, PanelType.Divider, PanelType.Output)
+      val all = Seq(PanelType.Text, PanelType.Markdown, PanelType.Image, PanelType.Divider, PanelType.Output, PanelType.Form)
       all.foreach { t =>
         PanelType.fromString(PanelType.asString(t)) shouldBe Right(t)
       }

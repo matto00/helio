@@ -26,6 +26,7 @@ object PanelConfigCodec {
     case i:  ImagePanel      => i.config.toJson
     case d:  DividerPanel    => d.config.toJson
     case op: OutputPanel     => op.config.toJson
+    case f:  FormPanel       => f.config.toJson
     case other               => deserializationError(s"Unknown panel kind for encode: '${other.kind}'")
   }
 
@@ -39,6 +40,7 @@ object PanelConfigCodec {
   final case class ImageCreate(config: ImagePanelConfig)       extends CreateConfig
   final case class DividerCreate(config: DividerPanelConfig)   extends CreateConfig
   final case class OutputCreate(config: OutputPanelConfig)         extends CreateConfig
+  final case class FormCreate(config: FormPanelConfig)             extends CreateConfig
 
   /** Decode a create-side typed config from `(kind, config?)`. `decode(None)`
    *  yields the subtype's `Empty` config (codec read-path tolerance rule). */
@@ -50,6 +52,7 @@ object PanelConfigCodec {
       case ImagePanel.Kind    => safe(ImageCreate(ImagePanelConfig.decodeCreate(payload)))
       case DividerPanel.Kind  => safe(DividerCreate(DividerPanelConfig.decodeCreate(payload)))
       case OutputPanel.Kind     => safe(OutputCreate(OutputPanelConfig.decodeCreate(payload)))
+      case FormPanel.Kind      => safe(FormCreate(FormPanelConfig.decodeCreate(payload)))
       case unknown            =>
         Left(s"Unknown panel type: '$unknown'. Valid values: ${Panel.Registry.keySet.toSeq.sorted.mkString(", ")}")
     }
@@ -68,6 +71,7 @@ object PanelConfigCodec {
     case i:  ImagePanel      => i.applyPatch(ImagePanelConfig.Patch.decode(json))
     case d:  DividerPanel    => d.applyPatch(DividerPanelConfig.Patch.decode(json))
     case op: OutputPanel     => op.applyPatch(OutputPanelConfig.Patch.decode(json))
+    case f:  FormPanel       => f.applyPatch(FormPanelConfig.Patch.decode(json))
     case other               => deserializationError(s"Unknown panel kind for patch: '${other.kind}'")
   }
 

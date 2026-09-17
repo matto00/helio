@@ -136,6 +136,7 @@ object PanelType {
   case object Image    extends PanelType
   case object Divider  extends PanelType
   case object Output   extends PanelType
+  case object Form     extends PanelType
 
   // HEL-904: was `Output` from the 5-value collapse commit — a genuine bug
   // (not a design decision), since `OutputPanelConfig` REQUIRES a non-empty
@@ -154,7 +155,8 @@ object PanelType {
     case "image"    => Right(Image)
     case "divider"  => Right(Divider)
     case "output"   => Right(Output)
-    case other      => Left(s"Unknown panel type: '$other'. Valid values: text, markdown, image, divider, output")
+    case "form"     => Right(Form)
+    case other      => Left(s"Unknown panel type: '$other'. Valid values: text, markdown, image, divider, output, form")
   }
 
   def asString(t: PanelType): String = t match {
@@ -163,6 +165,7 @@ object PanelType {
     case Image    => "image"
     case Divider  => "divider"
     case Output   => "output"
+    case Form     => "form"
   }
 }
 

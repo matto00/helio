@@ -14,14 +14,14 @@ describe("mobilePanelHeights — output", () => {
 
   it("is the only kind that scrolls internally", () => {
     expect(computeMobilePanelHeight("output", 5, PHONE_CONTENT_WIDTH).scrollsInternally).toBe(true);
-    for (const kind of ["markdown", "text", "image", "divider"] as const) {
+    for (const kind of ["markdown", "text", "image", "divider", "form"] as const) {
       expect(computeMobilePanelHeight(kind, 5, PHONE_CONTENT_WIDTH).scrollsInternally).toBe(false);
     }
   });
 });
 
-describe("mobilePanelHeights — markdown, text, image, divider", () => {
-  it.each(["markdown", "text", "image", "divider"] as const)(
+describe("mobilePanelHeights — markdown, text, image, divider, form", () => {
+  it.each(["markdown", "text", "image", "divider", "form"] as const)(
     "%s is fully intrinsic — no fixed height, no internal scroll",
     (kind) => {
       const policy = computeMobilePanelHeight(kind, 5, PHONE_CONTENT_WIDTH);

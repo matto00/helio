@@ -24,7 +24,7 @@
           },
           "type": {
             "type": "string",
-            "enum": ["text", "markdown", "image", "divider", "output"]
+            "enum": ["text", "markdown", "image", "divider", "output", "form"]
           },
           "config": {
             "type": "object"

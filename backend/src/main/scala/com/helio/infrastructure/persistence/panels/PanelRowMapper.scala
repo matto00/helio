@@ -3,6 +3,7 @@ package com.helio.infrastructure.persistence.panels
 import com.helio.api.protocols.panels.PanelProtocol
 import com.helio.domain.model._
 import com.helio.domain.panels._
+import org.slf4j.LoggerFactory
 import spray.json._
 
 import java.util.UUID
@@ -17,6 +18,8 @@ import java.util.UUID
  *  throwing — `listByDashboard` returns 200, and the UI surfaces a "no data
  *  type bound" empty state. */
 object PanelRowMapper extends PanelProtocol {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   def rowToDomain(row: PanelRepository.PanelRow): Panel = {
     val id          = PanelId(row.id)
@@ -40,6 +43,8 @@ object PanelRowMapper extends PanelProtocol {
         ImagePanel(id, dashboardId, row.title, meta, appearance, ownerId, imageConfig(row))
       case DividerPanel.Kind =>
         DividerPanel(id, dashboardId, row.title, meta, appearance, ownerId, dividerConfig(row))
+      case FormPanel.Kind =>
+        FormPanel(id, dashboardId, row.title, meta, appearance, ownerId, formConfig(row))
       case _ =>
         OutputPanel(id, dashboardId, row.title, meta, appearance, ownerId, outputConfig(row))
     }
@@ -67,7 +72,8 @@ object PanelRowMapper extends PanelProtocol {
       // `type_id` dropped) and NOT NULL — every write sets it from the
       // panel's own `kind` string, matching the DB CHECK constraint's
       // allow-list exactly.
-      kind               = p.kind
+      kind               = p.kind,
+      formConfig         = None
     )
 
     p match {
@@ -76,6 +82,7 @@ object PanelRowMapper extends PanelProtocol {
       case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit), imageCaption = i.config.caption)
       case d: DividerPanel    => base.copy(dividerOrientation = Some(d.config.orientation), dividerWeight = d.config.weight, dividerColor = d.config.color)
       case op: OutputPanel    => base.copy(outputId = optString(op.config.outputId.value))
+      case f: FormPanel       => base.copy(formConfig = Some(f.config.toJson.compactPrint))
       case _                  => base
     }
   }
@@ -108,6 +115,25 @@ object PanelRowMapper extends PanelProtocol {
       weight      = row.dividerWeight,
       color       = row.dividerColor
     )
+
+  // D9 layer iii / C11: the ONLY tolerant caller of FormFieldSpec/FormPanelConfig's
+  // otherwise-strict decode. A row written by a later (or rolled-back) version
+  // that carries an attribute this build doesn't recognize must stay READABLE —
+  // every dashboard read funnels through this mapper, so a 500 here would take
+  // down the whole dashboard read for one malformed panel. Falls back to
+  // `FormPanelConfig.Empty` with a logged warning naming the panel id, never a
+  // silent decode-as-another-kind (D9/C11).
+  private def formConfig(row: PanelRepository.PanelRow): FormPanelConfig =
+    row.formConfig match {
+      case None       => FormPanelConfig.Empty
+      case Some(json) =>
+        try FormPanelConfig.decode(json.parseJson)
+        catch {
+          case e: DeserializationException =>
+            log.warn(s"panel ${row.id}: form_config failed to decode (${e.getMessage}); falling back to Empty")
+            FormPanelConfig.Empty
+        }
+    }
 
   private def optString(s: String): Option[String] =
     if (s.isEmpty) None else Some(s)

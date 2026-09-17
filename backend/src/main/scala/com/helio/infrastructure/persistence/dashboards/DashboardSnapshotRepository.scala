@@ -181,6 +181,7 @@ trait DashboardSnapshotOps { self: DashboardRepository =>
         case PanelConfigCodec.ImageCreate(c)    => ImagePanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
         case PanelConfigCodec.DividerCreate(c)  => DividerPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
         case PanelConfigCodec.OutputCreate(c)     => OutputPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
+        case PanelConfigCodec.FormCreate(c)       => FormPanel(panelId, dashId, entry.title, meta, appearance, ownerId, c)
       }
     }
 

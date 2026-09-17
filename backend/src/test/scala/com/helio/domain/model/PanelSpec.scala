@@ -52,15 +52,18 @@ class PanelSpec extends AnyWordSpec with Matchers {
     DividerPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
   private def output(cfg: OutputPanelConfig = OutputPanelConfig.Empty): OutputPanel =
     OutputPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
+  private def form(cfg: FormPanelConfig = FormPanelConfig.Empty): FormPanel =
+    FormPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
 
   "Panel.Registry" should {
-    "be the single source of truth for all 5 panel kinds" in {
+    "be the single source of truth for all 6 panel kinds" in {
       Panel.Registry.keySet shouldBe Set(
         TextPanel.Kind,
         MarkdownPanel.Kind,
         ImagePanel.Kind,
         DividerPanel.Kind,
-        OutputPanel.Kind
+        OutputPanel.Kind,
+        FormPanel.Kind
       )
     }
 
@@ -70,6 +73,7 @@ class PanelSpec extends AnyWordSpec with Matchers {
       ImagePanel.Kind      shouldBe "image"
       DividerPanel.Kind    shouldBe "divider"
       OutputPanel.Kind     shouldBe "output"
+      FormPanel.Kind       shouldBe "form"
     }
   }
 
@@ -86,7 +90,7 @@ class PanelSpec extends AnyWordSpec with Matchers {
 
   "Each subtype" should {
     "expose its registered kind via the trait" in {
-      val all: Seq[Panel] = Seq(text(), md(), img(), divider(), output())
+      val all: Seq[Panel] = Seq(text(), md(), img(), divider(), output(), form())
       all.foreach { p =>
         Panel.Registry.contains(p.kind) shouldBe true
         Panel.Registry(p.kind).kind shouldBe p.kind
@@ -100,6 +104,7 @@ class PanelSpec extends AnyWordSpec with Matchers {
       divider().validateConfig shouldBe Right(())
       output(OutputPanelConfig(OutputId("out-1"))).validateConfig shouldBe Right(())
       output().validateConfig.isLeft shouldBe true // empty outputId is invalid
+      form().validateConfig.isLeft shouldBe true // empty dataSourceId is invalid
 
       // DividerPanel.weight invariant: must be positive if present.
       divider(DividerPanelConfig("horizontal", Some(0), None)).validateConfig.isLeft shouldBe true
@@ -264,14 +269,15 @@ class PanelSpec extends AnyWordSpec with Matchers {
   }
 
   "Exhaustiveness over Panel subtypes" should {
-    "cover all 5 kinds in a closed match" in {
-      val all: Seq[Panel] = Seq(text(), md(), img(), divider(), output())
+    "cover all 6 kinds in a closed match" in {
+      val all: Seq[Panel] = Seq(text(), md(), img(), divider(), output(), form())
       all.foreach {
         case _: TextPanel       => succeed
         case _: MarkdownPanel   => succeed
         case _: ImagePanel      => succeed
         case _: DividerPanel    => succeed
         case _: OutputPanel     => succeed
+        case _: FormPanel       => succeed
       }
     }
   }
