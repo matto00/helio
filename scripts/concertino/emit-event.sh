@@ -85,6 +85,15 @@ now_ms() {
   esac
 }
 
+# CON-188 design.md Decision 1: a short random hex suffix so two raises
+# landing in the same millisecond (a `--raise-only` bubble followed quickly by
+# a re-raise) still get distinct escalation_ids. node is already a hard
+# dependency of this script (see utf8_safe_prefix above), so this reuses it
+# rather than adding a new randomness source.
+random_hex() {
+  node -e 'process.stdout.write(require("crypto").randomBytes(3).toString("hex"))' 2>/dev/null
+}
+
 KIND="${1:-}"
 [ -z "$KIND" ] && exit 0
 shift || true
@@ -243,7 +252,29 @@ SUB_QUESTIONS=""
 # `*)` case still folds head_sha into FIELDS/OTHER_FIELDS unchanged for every
 # other event kind; this var only drives the head_sha_source decision.
 HEAD_SHA=""
+# CON-189/CON-194: captured separately (like HEAD_SHA above) so the
+# verdict-field validation block below — which sits AFTER the CON-171
+# auditor-lease release, never in this loop (design.md Decision 3) — can
+# validate the caller-supplied value. The `*)` case already folds these into
+# FIELDS/OTHER_FIELDS unchanged for every event kind; these vars only carry
+# the extra raw copy the post-loop validation needs.
+CATEGORY=""
+GATE_FIELD=""
 MAX_WAIT_SEC=""
+# CON-190/CON-191: captured separately (like CATEGORY/GATE_FIELD above) so the
+# post-lease-release validation block below can enforce ticket.filed's
+# required fields/enums and the closed role set, without refusing in the
+# k=v loop (design.md Decision 5 / C3). Each still falls through to
+# FIELDS/OTHER_FIELDS unchanged via the generic `*)` case for every other
+# event kind — these vars only carry the extra raw copy validation needs.
+TICKET_ID_FIELD=""
+ORIGIN_TICKET=""
+ORIGIN_REPO=""
+ORIGIN_ROLE=""
+ORIGIN_PHASE=""
+ORIGIN_KIND=""
+SUGGESTED_BY=""
+TRIAGE_FIELD=""
 
 for kv in ${ARGS+"${ARGS[@]}"}; do
   key="${kv%%=*}"
@@ -270,6 +301,23 @@ for kv in ${ARGS+"${ARGS[@]}"}; do
     # by a language model, which is exactly where a plausible-looking `t=` comes
     # from.
     t|kind)  ;;
+    resolution_channel)
+      # CON-188 design.md Decision 4/7: validated here so EVERY caller — the
+      # generic write path used by `concertino answer` (lib/cli/answer.js),
+      # and any future caller — is refused non-zero, before any RUN_DIR is
+      # created or line written, rather than silently recording a bogus
+      # channel. Falls through to FIELDS/OTHER_FIELDS exactly like the
+      # generic `*)` case once validated — no new encoding path.
+      case "$val" in
+        dashboard|cli|chat|self-approved) ;;
+        *)
+          echo "emit-event.sh: invalid resolution_channel '${val}' (must be one of: dashboard, cli, chat, self-approved)" >&2
+          exit 1
+          ;;
+      esac
+      FIELDS="${FIELDS},\"resolution_channel\":$(json_value "$val")"
+      OTHER_FIELDS="${OTHER_FIELDS},\"resolution_channel\":$(json_value "$val")"
+      ;;
     context)
       # Still folded into FIELDS like any other caller field, so the first
       # (untruncated) candidate line is byte-for-byte what it would have been
@@ -278,6 +326,68 @@ for kv in ${ARGS+"${ARGS[@]}"}; do
       # needs if that candidate line turns out to be too long.
       CONTEXT="$val"
       FIELDS="${FIELDS},\"context\":$(json_value "$val")"
+      ;;
+    category)
+      # CON-189: captured raw here; refused (if missing/illegal on a verdict,
+      # or illegal on any other kind) below the CON-171 lease release, NOT in
+      # this loop — the loop runs above that release, and refusing here would
+      # strand an auditor verdict's teardown lease behind --force-teardown
+      # (design.md Decision 3). Falls through to FIELDS/OTHER_FIELDS exactly
+      # like the generic `*)` case; no new encoding path.
+      CATEGORY="$val"
+      FIELDS="${FIELDS},\"category\":$(json_value "$val")"
+      OTHER_FIELDS="${OTHER_FIELDS},\"category\":$(json_value "$val")"
+      ;;
+    gate)
+      # CON-194: same capture-only-here, validate-below-the-release pattern as
+      # `category` above, for the same CON-171 reason.
+      GATE_FIELD="$val"
+      FIELDS="${FIELDS},\"gate\":$(json_value "$val")"
+      OTHER_FIELDS="${OTHER_FIELDS},\"gate\":$(json_value "$val")"
+      ;;
+    ticket_id)
+      # CON-190: the newly filed ticket's id — required on ticket.filed,
+      # validated below the CON-171 lease release, never in this loop.
+      TICKET_ID_FIELD="$val"
+      FIELDS="${FIELDS},\"ticket_id\":$(json_value "$val")"
+      OTHER_FIELDS="${OTHER_FIELDS},\"ticket_id\":$(json_value "$val")"
+      ;;
+    origin_ticket)
+      ORIGIN_TICKET="$val"
+      FIELDS="${FIELDS},\"origin_ticket\":$(json_value "$val")"
+      OTHER_FIELDS="${OTHER_FIELDS},\"origin_ticket\":$(json_value "$val")"
+      ;;
+    origin_repo)
+      ORIGIN_REPO="$val"
+      FIELDS="${FIELDS},\"origin_repo\":$(json_value "$val")"
+      OTHER_FIELDS="${OTHER_FIELDS},\"origin_repo\":$(json_value "$val")"
+      ;;
+    origin_role)
+      ORIGIN_ROLE="$val"
+      FIELDS="${FIELDS},\"origin_role\":$(json_value "$val")"
+      OTHER_FIELDS="${OTHER_FIELDS},\"origin_role\":$(json_value "$val")"
+      ;;
+    origin_phase)
+      ORIGIN_PHASE="$val"
+      FIELDS="${FIELDS},\"origin_phase\":$(json_value "$val")"
+      OTHER_FIELDS="${OTHER_FIELDS},\"origin_phase\":$(json_value "$val")"
+      ;;
+    origin_kind)
+      ORIGIN_KIND="$val"
+      FIELDS="${FIELDS},\"origin_kind\":$(json_value "$val")"
+      OTHER_FIELDS="${OTHER_FIELDS},\"origin_kind\":$(json_value "$val")"
+      ;;
+    suggested_by)
+      SUGGESTED_BY="$val"
+      FIELDS="${FIELDS},\"suggested_by\":$(json_value "$val")"
+      OTHER_FIELDS="${OTHER_FIELDS},\"suggested_by\":$(json_value "$val")"
+      ;;
+    triage)
+      # design.md Decision 7: JSON-encoded value, following the `models=`
+      # precedent — travels through json_value like any other string field.
+      TRIAGE_FIELD="$val"
+      FIELDS="${FIELDS},\"triage\":$(json_value "$val")"
+      OTHER_FIELDS="${OTHER_FIELDS},\"triage\":$(json_value "$val")"
       ;;
     sub_questions)
       # Raised alongside (never instead of) question/options — CON-46's
@@ -359,6 +469,139 @@ if [ "$KIND" = "verdict" ] && [ "$ROLE" = "auditor" ]; then
   lease_release "$ROOT" "$TICKET" || true
 fi
 
+# --- CON-191: closed role validation -----------------------------------------
+# Deliberately placed HERE — after the CON-171 lease release above, never in
+# the k=v argument loop — so a refused invocation (of ANY kind, including a
+# `verdict`) still releases its Phase-4 teardown lease (design.md Decision 5 /
+# C3). The legal set is the five agent roles plus `script` (the emitter's own
+# default, and what every procedure script — including cleanup.sh's run.end —
+# emits under) and `dashboard` (currently inert — see design.md Decision 5 —
+# but retained so routing lib/ui/session.js through this emitter later is not
+# a silent breaking change). A five-value set would refuse `run.end` and
+# leave every run non-terminal forever; do not narrow this without re-reading
+# that decision.
+case "$ROLE" in
+  orchestrator|executor|evaluator|skeptic|auditor|script|dashboard) ;;
+  *)
+    echo "emit-event.sh: invalid role '${ROLE}' (must be one of: orchestrator, executor, evaluator, skeptic, auditor, script, dashboard)" >&2
+    exit 1
+    ;;
+esac
+
+# --- CON-190: ticket.filed required-field + enum validation ------------------
+# Same placement rule as the role check above and the verdict checks below —
+# after the CON-171 lease release, never in the k=v loop (design.md Decision 5
+# / C3). Applies ONLY to kind=ticket.filed; every other kind is unaffected
+# (design.md Goals / spec.md "Required fields are enforced only for
+# ticket.filed").
+if [ "$KIND" = "ticket.filed" ]; then
+  if [ -z "$TICKET_ID_FIELD" ]; then
+    echo "emit-event.sh: missing required field 'ticket_id' for ticket.filed" >&2
+    exit 1
+  fi
+  if [ -z "$ORIGIN_TICKET" ]; then
+    echo "emit-event.sh: missing required field 'origin_ticket' for ticket.filed" >&2
+    exit 1
+  fi
+  if [ -z "$ORIGIN_REPO" ]; then
+    echo "emit-event.sh: missing required field 'origin_repo' for ticket.filed" >&2
+    exit 1
+  fi
+  if [ -z "$ORIGIN_ROLE" ]; then
+    echo "emit-event.sh: missing required field 'origin_role' for ticket.filed" >&2
+    exit 1
+  fi
+  if [ -z "$ORIGIN_PHASE" ]; then
+    echo "emit-event.sh: missing required field 'origin_phase' for ticket.filed" >&2
+    exit 1
+  fi
+  if [ -z "$ORIGIN_KIND" ]; then
+    echo "emit-event.sh: missing required field 'origin_kind' for ticket.filed" >&2
+    exit 1
+  fi
+  if [ -z "$SUGGESTED_BY" ]; then
+    echo "emit-event.sh: missing required field 'suggested_by' for ticket.filed" >&2
+    exit 1
+  fi
+  if [ -z "$TRIAGE_FIELD" ]; then
+    echo "emit-event.sh: missing required field 'triage' for ticket.filed" >&2
+    exit 1
+  fi
+  case "$ORIGIN_KIND" in
+    followup|roadmap|escalation-split|human) ;;
+    *)
+      echo "emit-event.sh: invalid origin_kind '${ORIGIN_KIND}' (must be one of: followup, roadmap, escalation-split, human)" >&2
+      exit 1
+      ;;
+  esac
+  case "$SUGGESTED_BY" in
+    agent|human) ;;
+    *)
+      echo "emit-event.sh: invalid suggested_by '${SUGGESTED_BY}' (must be one of: agent, human)" >&2
+      exit 1
+      ;;
+  esac
+fi
+
+# --- CON-189/CON-187/CON-194: verdict-field validation -----------------------
+# Deliberately placed HERE — after the CON-171 lease release above, never in
+# the k=v argument loop — so a refused auditor verdict still releases its
+# Phase-4 teardown lease (design.md Decision 3). Each refusal is a non-zero
+# exit with no event appended, matching the CON-188 `resolution_channel`
+# precedent extended here to `verdict`'s own required fields (design.md
+# Decision 1).
+if [ -n "$CATEGORY" ] || [ "$KIND" = "verdict" ]; then
+  case "$KIND" in
+    verdict)
+      case "$CATEGORY" in
+        mechanical|spec-divergence|design-judgment|intent-mismatch) ;;
+        *)
+          echo "emit-event.sh: invalid or missing category '${CATEGORY}' (must be one of: mechanical, spec-divergence, design-judgment, intent-mismatch)" >&2
+          exit 1
+          ;;
+      esac
+      ;;
+    *)
+      # CON-189 task 2.3: a category is never required on a non-verdict
+      # event, but an illegal one supplied anyway is still refused rather
+      # than recorded meaningless.
+      case "$CATEGORY" in
+        mechanical|spec-divergence|design-judgment|intent-mismatch) ;;
+        *)
+          echo "emit-event.sh: invalid category '${CATEGORY}' (must be one of: mechanical, spec-divergence, design-judgment, intent-mismatch)" >&2
+          exit 1
+          ;;
+      esac
+      ;;
+  esac
+fi
+
+if [ "$KIND" = "verdict" ]; then
+  # CON-187: a STATED head_sha must be a full 40-character hex SHA. Omitted
+  # SHAs are untouched (design.md Context fact 3 / proposal.md) — this check
+  # only fires when the caller actually passed head_sha=.
+  if [ -n "$HEAD_SHA" ]; then
+    if ! [[ "$HEAD_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+      echo "emit-event.sh: invalid head_sha '${HEAD_SHA}' (must be a full 40-character hexadecimal SHA)" >&2
+      exit 1
+    fi
+  fi
+
+  # CON-194: a skeptic verdict must state which gate it resolves, so a
+  # duplicate record for one review (same ticket/role/gate) is mechanically
+  # detectable (design.md Decision 5). Evaluator and auditor verdicts are
+  # unaffected.
+  if [ "$ROLE" = "skeptic" ]; then
+    case "$GATE_FIELD" in
+      design|final) ;;
+      *)
+        echo "emit-event.sh: invalid or missing gate '${GATE_FIELD}' (must be one of: design, final)" >&2
+        exit 1
+        ;;
+    esac
+  fi
+fi
+
 RUN_DIR="${ROOT}/.concertino/runs/${TICKET}"
 mkdir -p "$RUN_DIR" 2>/dev/null || exit 0
 LOG="${RUN_DIR}/events.jsonl"
@@ -403,6 +646,39 @@ if [ "$AWAIT" -eq 0 ] && [ "$RAISE_ONLY" -eq 0 ] && [ "$WAIT_ONLY" -eq 0 ]; then
   write_line "$KIND" || true      # a lost event never fails the run
   exit 0
 fi
+
+# CON-188 design.md Decision 2: reads the LAST escalation.raised event logged
+# for $TICKET and prints one field of it ("raised_at", "sub_questions", or
+# "escalation_id"); empty if none is found. Re-derived fresh on every call —
+# never cached — since the resolving process is frequently a different one
+# than the raising process (--raise-only raises, `concertino answer` or a
+# later --wait-only resolves), so there is no call-stack to thread the id
+# through. Moved to top level (was previously defined only inside the
+# --wait-only branch) so try_resolve() and the --await paths below can call it
+# too, not just --wait-only's own poll loop.
+read_raised_field() {
+  node -e '
+    try {
+      const fs = require("fs");
+      const raw = fs.readFileSync(process.argv[1], "utf8");
+      const ticket = process.argv[2];
+      const field = process.argv[3];
+      let last = null;
+      for (const line of raw.split("\n")) {
+        if (!line.trim()) continue;
+        let ev;
+        try { ev = JSON.parse(line); } catch { continue; }
+        if (ev && ev.kind === "escalation.raised" && ev.ticket === ticket) last = ev;
+      }
+      if (!last) { process.stdout.write(""); process.exit(0); }
+      let v;
+      if (field === "raised_at") v = last.t;
+      else if (field === "escalation_id") v = last.escalation_id;
+      else v = last.sub_questions;
+      process.stdout.write(v == null ? "" : String(v));
+    } catch (e) { process.stdout.write(""); }
+  ' "$LOG" "$TICKET" "$1" 2>/dev/null
+}
 
 # escalation.raised's `context` field (if any) gets its own write path: an
 # oversized context is what pays down the byte budget — truncated visibly and
@@ -548,7 +824,12 @@ write_escalation_raised() {
 # as part of the write, never as part of --wait-only.
 discard_stale_answer() {
   if [ -e "$ANSWER_FILE" ]; then
+    # CON-188 task 3.4: ESCALATION_ID is already set (this always runs
+    # immediately after write_escalation_raised(), which sets it) so the
+    # discarded-answer record is attributable to the escalation that
+    # triggered the discard.
     FIELDS=""
+    [ -n "${ESCALATION_ID:-}" ] && FIELDS=",\"escalation_id\":$(json_string "$ESCALATION_ID")"
     write_line escalation.answer_discarded || true
   fi
   rm -f "$ANSWER_FILE" 2>/dev/null || true
@@ -729,9 +1010,16 @@ try_resolve() {
         MALFORMED_POLL_N=$(( ${MALFORMED_POLL_N:-0} + 1 ))
         if [ ! -f "$warn_marker" ] || [ "$stored_hash" != "$content_hash" ]; then
           echo "concertino: $ANSWER_FILE is malformed and was NOT recorded as an answer — $reason" >&2
+          # CON-188 task 3.4: read back rather than relying on any in-process
+          # ESCALATION_ID — try_resolve() runs in both --await's own process
+          # (which raised the escalation) and --wait-only's separate poll
+          # process (which never raised it in this process at all).
+          local resolve_id
+          resolve_id="$(read_raised_field escalation_id)"
           FIELDS=",\"reason\":$(json_value "$reason")"
           FIELDS="${FIELDS},\"pid\":$$,\"poll_n\":$MALFORMED_POLL_N"
           FIELDS="${FIELDS},\"content_hash\":$(json_value "$content_hash"),\"stored_hash\":$(json_value "$stored_hash")"
+          [ -n "$resolve_id" ] && FIELDS="${FIELDS},\"escalation_id\":$(json_string "$resolve_id")"
           write_line escalation.malformed || true
           printf '%s' "$content_hash" > "$warn_marker" 2>/dev/null || true
         fi
@@ -744,10 +1032,16 @@ try_resolve() {
     # Disarm before the final write — same reasoning as the single-question
     # path just below.
     trap - TERM INT
+    # CON-188 task 3.2: this path resolves by observing answer.json, the
+    # dashboard's write path — same reasoning as the single-question path
+    # below (task 3.1).
+    local resolve_id
+    resolve_id="$(read_raised_field escalation_id)"
     # `sub_answers` mirrors the existing singular `answer` field — a
     # JSON-string-encoded value through the same generic mechanism
     # `sub_questions` itself uses (design.md Decision 5).
-    FIELDS=",\"sub_answers\":$(json_value "$sub_answers_json")"
+    FIELDS=",\"sub_answers\":$(json_value "$sub_answers_json"),\"resolution_channel\":\"dashboard\",\"answer_source\":\"human\""
+    [ -n "$resolve_id" ] && FIELDS="${FIELDS},\"escalation_id\":$(json_string "$resolve_id")"
     write_line escalation.answered
     # One sub-answer per line, in sub-question order — the stdout contract
     # stays "read stdout, get the answer(s)" without inventing a second
@@ -777,9 +1071,15 @@ try_resolve() {
   # answer, so a signal landing in this last stretch must not overwrite that
   # outcome with a spurious escalation.timeout.
   trap - TERM INT
+  # CON-188 task 3.1: this path resolves by observing answer.json, the
+  # dashboard's write path — hence resolution_channel=dashboard/
+  # answer_source=human (design.md Decisions 4/6).
+  local resolve_id
+  resolve_id="$(read_raised_field escalation_id)"
   # $answer is free text a human typed at the escalation screen — unbounded by
   # construction, so this write needs the cap as much as any other.
-  FIELDS=",\"answer\":$(json_value "$answer")"
+  FIELDS=",\"answer\":$(json_value "$answer"),\"resolution_channel\":\"dashboard\",\"answer_source\":\"human\""
+  [ -n "$resolve_id" ] && FIELDS="${FIELDS},\"escalation_id\":$(json_string "$resolve_id")"
   write_line escalation.answered
   printf '%s\n' "$answer"
   return 0
@@ -794,31 +1094,9 @@ if [ "$WAIT_ONLY" -eq 1 ]; then
     ''|*[!0-9]*) MAX_WAIT_SEC=25 ;;
   esac
 
-  # Reads the LAST escalation.raised event logged for $TICKET and prints one
-  # field of it ("raised_at" or "sub_questions"); empty if none is found.
-  # Re-derived fresh on every call (design.md Decision 2) — never cached
-  # across --wait-only invocations, since each is its own process.
-  read_raised_field() {
-    node -e '
-      try {
-        const fs = require("fs");
-        const raw = fs.readFileSync(process.argv[1], "utf8");
-        const ticket = process.argv[2];
-        const field = process.argv[3];
-        let last = null;
-        for (const line of raw.split("\n")) {
-          if (!line.trim()) continue;
-          let ev;
-          try { ev = JSON.parse(line); } catch { continue; }
-          if (ev && ev.kind === "escalation.raised" && ev.ticket === ticket) last = ev;
-        }
-        if (!last) { process.stdout.write(""); process.exit(0); }
-        const v = field === "raised_at" ? last.t : last.sub_questions;
-        process.stdout.write(v == null ? "" : String(v));
-      } catch (e) { process.stdout.write(""); }
-    ' "$LOG" "$TICKET" "$1" 2>/dev/null
-  }
-
+  # read_raised_field() is defined at top level (above write_escalation_raised)
+  # so it is shared with try_resolve()/the --await paths — see its definition
+  # for the full rationale.
   RAISED_AT="$(read_raised_field raised_at)"
   # design.md Decision 1b: sub_questions/total detection reads from the same
   # already-logged escalation.raised event raised_at is read from — the same
@@ -860,7 +1138,11 @@ if [ "$WAIT_ONLY" -eq 1 ]; then
     if [ -n "$RAISED_AT" ] && [ "$(now_ms)" -ge "$REAL_DEADLINE_MS" ]; then
       # The escalation's own real deadline — not this call's max_wait_sec —
       # has been reached: terminal, exactly as --await's own timeout is.
+      # CON-188 task 3.3: escalation_id only, NO resolution_channel — a
+      # timeout is the absence of a resolution channel (design.md Decision 4).
       FIELDS=""
+      RESOLVE_ID="$(read_raised_field escalation_id)"
+      [ -n "$RESOLVE_ID" ] && FIELDS=",\"escalation_id\":$(json_string "$RESOLVE_ID")"
       write_line escalation.timeout || true
       exit 1
     fi
@@ -877,6 +1159,17 @@ fi
 # before the write is deliberate: the longer kind string has to be inside the
 # byte cap, not sneaked past it afterwards.
 #
+# CON-188 design.md Decision 1: generate the escalation_id here, once per
+# raise — this point is reached exactly once per --await/--raise-only call
+# (the WAIT_ONLY branch above always exits before here), so it is the one
+# moment every escalation passes through exactly once, in both modes.
+# Folded into both FIELDS and OTHER_FIELDS (like sub_questions above) so it
+# survives write_escalation_raised()'s oversized-line rebuild paths, which
+# rebuild the line from OTHER_FIELDS.
+ESCALATION_ID="${TICKET}-$(now_ms)-$(random_hex)"
+FIELDS="${FIELDS},\"escalation_id\":$(json_string "$ESCALATION_ID")"
+OTHER_FIELDS="${OTHER_FIELDS},\"escalation_id\":$(json_string "$ESCALATION_ID")"
+
 # If that write fails there is nothing for a human to answer — the dashboard
 # will never show the escalation, so polling for an answer would block for the
 # full timeout on a question nobody was asked. Bail immediately instead and let
@@ -934,7 +1227,10 @@ fi
 # escalation.timeout while the process itself kept running, which is worse
 # than doing nothing. A plain `exit` has no such failure mode.
 on_kill() {
+  # CON-188 task 3.3: ESCALATION_ID is already set — this trap only fires
+  # downstream of the raise in this same process.
   FIELDS=""
+  [ -n "${ESCALATION_ID:-}" ] && FIELDS=",\"escalation_id\":$(json_string "$ESCALATION_ID")"
   write_line escalation.timeout || true
   exit 1
 }
@@ -960,6 +1256,9 @@ done
 # Disarm first: this is already writing escalation.timeout, so a signal
 # arriving in this last stretch must not race on_kill into writing it twice.
 trap - TERM INT
+# CON-188 task 3.3: ESCALATION_ID is already set (this is the same process
+# that raised the escalation).
 FIELDS=""
+[ -n "${ESCALATION_ID:-}" ] && FIELDS=",\"escalation_id\":$(json_string "$ESCALATION_ID")"
 write_line escalation.timeout || true
 exit 1

@@ -68,17 +68,26 @@
       "command": "cd backend && sbt test"
     }
   ],
+  "agentMerge": {
+    "enabled": true
+  },
   "canonicalDocs": [
     {
       "path": "CONTRIBUTING.md",
       "summary": "code-quality standard (imports/qualifiers, file-size budgets, AI-collaborator expectations)",
-      "bindTo": ["executor", "evaluator"],
+      "bindTo": ["executor", "evaluator", "auditor"],
+      "when": "always"
+    },
+    {
+      "path": "MISTAKES.md",
+      "summary": "repo-specific tripping hazards: things that look correct and fail silently (read before trusting a green suite)",
+      "bindTo": ["auditor", "orchestrator"],
       "when": "always"
     },
     {
       "path": "DESIGN.md",
       "summary": "design-language standard (--app-*/--space-*/--text-* tokens, shared components, light/dark parity)",
-      "bindTo": ["executor", "evaluator", "skeptic"],
+      "bindTo": ["executor", "evaluator", "skeptic", "auditor"],
       "when": "frontend/**"
     }
   ],

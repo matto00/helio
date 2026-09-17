@@ -89,3 +89,6 @@ frontend/src/features/assistant/.hel993-locked-dir/
 # (unreviewed WIP, never invoked from helio) — HEL-812.
 scripts/concertino/pricing-table.json
 scripts/concertino/report-cost.sh
+
+# Rendered by `concertino sync`; machine-local, never committed (CON-210)
+scripts/concertino/.instrumentation-manifest.json
