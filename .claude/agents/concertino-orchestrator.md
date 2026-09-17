@@ -494,7 +494,7 @@ Never let telemetry block delivery: if a call fails, continue.
    has to improvise.
 6. **Resolve `AGENT_MERGE` once, for the whole run.** `AGENT_MERGE_OVERRIDE`
    takes precedence when it is `true` or `false`; otherwise fall back to the
-   config default `false`. This resolution happens
+   config default `true`. This resolution happens
    exactly once, here — never recomputed later in the run.
 7. Write initial `workflow-state.md` (PHASE: Planning, `REVIEW_BASE_BRANCH:
    <resolved value>` and `REVIEW_BASE_REMOTE: <resolved value>` (from step
@@ -612,6 +612,11 @@ never a second, parallel implementation of it.
 ## Phase 1: Planning
 
 Execute directly (no subagent).
+
+The project's **canonical standards** are binding for the planning artifacts
+you author below — read the relevant one now, at the point you need it, not
+from memory:
+   - `MISTAKES.md` — repo-specific tripping hazards: things that look correct and fail silently (read before trusting a green suite) (binding always).
 
 1. **Derive a change name** from the ticket title: kebab-case, 3–5 words. Set as `CHANGE_NAME`.
 2. **Scaffold the change and write ticket context:**
@@ -939,12 +944,19 @@ path there is no other way the verdict reaches you.
   any other option set and a legitimate override leaves the gate permanently
   unsatisfiable.
 
-  **Never emit a `verdict role=skeptic` event yourself to represent an
-  override.** The gate is cleared by the human's recorded answer, not by your
+  **Never emit a `verdict` event yourself, for any role, gate, or outcome**
+  (CON-194) — this override case is only the motivating example, not the
+  scope. The gate is cleared by the human's recorded answer, not by your
   report of it: `escalation.answered` is written only by `emit-event.sh`'s own
   resolution path from an answer file a human wrote, so no agent can forge
   one. A relayed authorization is not authority — an orchestrator-written
-  CONFIRM would be exactly that, and the auditor is right to refuse it.
+  CONFIRM would be exactly that, and the auditor is right to refuse it. The
+  same rule holds outside an override too: on HEL-1109 the orchestrator
+  emitted its own `verdict` after the design gate's round-2 CONFIRM, creating
+  two log entries for one review — a `verdict` event is a reviewing role's
+  own record of its own review, never the orchestrator's summary of one. Your
+  own accounting of a verdict stays what it already is: record it in
+  `workflow-state.md`, never as an additional `emit-event.sh verdict` call.
   If the harness can't wait inline on either the executor resume or the
   skeptic re-spawn, poll for the executor's new commit / the skeptic's report
   file instead of returning control, or escalate.
@@ -1060,19 +1072,31 @@ led to the plan actually being revised.
 3. **Run the triage script, capturing its stdout:**
 
    ```bash
-   TRIAGE_CONTEXT="$(scripts/concertino/triage-followup.sh \
+   TRIAGE_OUTPUT="$(scripts/concertino/triage-followup.sh \
      description="<one-line description>" \
      files="<comma-separated files, or unknown>" \
      ac_relevant=<yes|no> \
      effort=<small|large> \
-     worktree="$WORKTREE_PATH")" || TRIAGE_CONTEXT=""
+     worktree="$WORKTREE_PATH")" || TRIAGE_OUTPUT=""
+   TRIAGE_CONTEXT="$(printf '%s\n' "$TRIAGE_OUTPUT" | grep -v '^TRIAGE_JSON:')"
+   # CON-190: the one machine-readable `TRIAGE_JSON:`-prefixed line — this is
+   # what a `standalone` verdict's `ticket.filed` emission below records as
+   # `triage=`, capturing the same ac_relevant/effort/overlap/recommendation
+   # signal `TRIAGE_CONTEXT` already presents to the human, rather than
+   # letting it be thrown away once the escalation resolves.
+   TRIAGE_JSON="$(printf '%s\n' "$TRIAGE_OUTPUT" | sed -n 's/^TRIAGE_JSON://p')"
    ```
 
-   On `FAIL` (or any script failure), `TRIAGE_CONTEXT` is simply empty —
-   proceed to the escalation below anyway, without `context=`, exactly like
-   `gather-escalation-context.sh`'s existing fallback rule ("How to raise
-   one" below). Never let a malformed triage call block the escalation
-   itself.
+   On `FAIL` (or any script failure), `TRIAGE_OUTPUT`/`TRIAGE_CONTEXT`/
+   `TRIAGE_JSON` are simply empty — proceed to the escalation below anyway,
+   without `context=`, exactly like `gather-escalation-context.sh`'s existing
+   fallback rule ("How to raise one" below). Never let a malformed triage
+   call block the escalation itself. A `standalone` verdict with an empty
+   `TRIAGE_JSON` still emits `ticket.filed` below (per required-field
+   validation, `triage=` cannot be omitted) — fall back to a minimal JSON
+   object recording your own stated `ac_relevant`/`effort` and
+   `overlap: unknown`/`recommendation: unknown` in that case, rather than
+   skipping the emission.
 4. **Raise the escalation** through "How to raise one" below, in full — the
    same TUI-liveness check, topology branch, per-call timeout, and off-ramp
    rules, not a second, hand-rolled call. Use
@@ -1090,8 +1114,26 @@ led to the plan actually being revised.
      summary. No ticket filed, no plan revision.
    - **`standalone`** — file a new Linear ticket (`mcp__linear__save_issue`,
      no `id`) summarizing `description` and linking back to the current
-     ticket (`$TICKET_ID`); note the new ticket's identifier in your summary
-     to the human. No re-planning, no scope change to the current run.
+     ticket (`$TICKET_ID`). Include `origin_kind: followup` and
+     `origin_ticket: $TICKET_ID` in the new ticket's description so its
+     provenance is queryable independently of the event log; note the new
+     ticket's identifier in your summary to the human. No re-planning, no
+     scope change to the current run.
+
+     Then mirror provenance onto the filed ticket and record it:
+     ```bash
+     ORIGIN_REPO="$(basename "$(dirname "$(git -C "$WORKTREE_PATH" rev-parse --git-common-dir)")")"
+     scripts/concertino/emit-event.sh ticket.filed \
+       ticket="$TICKET_ID" ticket_id="<new ticket id>" \
+       origin_ticket="$TICKET_ID" origin_repo="$ORIGIN_REPO" \
+       origin_role=orchestrator origin_phase="<current phase>" \
+       origin_kind=followup suggested_by=<agent|human> \
+       "triage=$TRIAGE_JSON"
+     ```
+     `suggested_by` is `human` only when the human — not the evaluator/skeptic
+     report, nor your own Phase 4 observation — originated the suggestion text;
+     otherwise `agent`. `$TRIAGE_JSON` is the machine-readable line captured in
+     "Triaging a suggested follow-up" step 3 above.
    - **`fold-in`** — the CON-30 fix: a recorded `escalation.answered` of
      `fold-in` alone is **not** sufficient. Before proceeding past this point
      (into/back through Execution at the Phase 3 call site; before Phase 4
@@ -1657,19 +1699,19 @@ itself, or a non-root run silently loses its only path to the human (CON-76).
     escalation.answered` call:
 
     ```bash
-    concertino answer $TICKET_ID "<their decision>"
+    concertino answer $TICKET_ID "<their decision>" --channel=chat
     # or, for one step of a multi-part escalation (--sub is 1-based: the
     # first sub-question is --sub 1, matching the dashboard wizard's own
     # "sub-question N of total" display and this command's confirmation):
-    concertino answer $TICKET_ID "<their decision>" --sub <index> --total <n>
+    concertino answer $TICKET_ID "<their decision>" --sub <index> --total <n> --channel=chat
     ```
 
-    This is a genuine write-path change from the root's `TUI_ATTACHED=1`
-    `--await`-timeout fallback below (which still uses a raw `emit-event.sh
-    escalation.answered` call and is unmodified) — this branch specifically
-    uses `concertino answer` because the ticket requires it be the single
-    authoritative write path for a chat-collected answer whenever a store
-    exists to write to. `concertino answer`'s existing
+    This branch specifically uses `concertino answer` (CON-188: as does the
+    root's `TUI_ATTACHED=1` `--await`-timeout fallback below, since that raw
+    `emit-event.sh escalation.answered` call was replaced too) because the
+    ticket requires it be the single authoritative write path for a
+    chat-collected answer whenever a store exists to write to. `concertino
+    answer`'s existing
     refusal-on-already-answered, first-write-wins guarantee applies
     unweakened here. "A timeout is never an approval" holds trivially in this
     branch: there is no deadline anywhere in it, so there is no elapsed-time
@@ -1765,14 +1807,19 @@ below, fit comfortably inside the harness default too.)
   its `TERM`/`INT` trap firing). Fall back to chat exactly as before — you
   already presented the question there; simply wait for the human's reply.
   **A timeout is never an approval — never treat it, or silence, as one.**
-  Once you have the answer from chat, record it yourself, since nothing else
-  will:
+  Once you have the answer from chat, record it through `concertino answer`
+  (CON-188 — no more hand-composed `emit-event.sh escalation.answered` call:
+  the guarded command is the single authoritative write path for a
+  chat-collected answer, exactly like the `TUI_ATTACHED=0` branch above),
+  never through a raw `emit-event.sh escalation.answered` call:
 
   ```bash
-  scripts/concertino/emit-event.sh escalation.answered \
-    ticket=$TICKET_ID role=orchestrator \
-    answer="<their decision, one line>" || true
+  concertino answer $TICKET_ID "<their decision, one line>" --channel=chat
   ```
+
+  This remains the *documented manual fallback* for a chat-collected answer
+  after a dashboard timeout — only its mechanism changed from a hand-assembled
+  event line to this guarded command.
 
 **A sub-agent-originated escalation (CON-127).** When executor/evaluator/
 skeptic returns `ESCALATION`, or auditor returns `ESCALATION-RAISE`, raise it
@@ -1876,9 +1923,9 @@ child):
    `concertino answer` rather than acting on it directly:
 
    ```bash
-   concertino answer $TICKET_ID "<their decision>"
+   concertino answer $TICKET_ID "<their decision>" --channel=chat
    # or, for one step of a multi-part escalation (--sub is 1-based, see above):
-   concertino answer $TICKET_ID "<their decision>" --sub <index> --total <n>
+   concertino answer $TICKET_ID "<their decision>" --sub <index> --total <n> --channel=chat
    ```
 
    Branch directly on its result (see the `escalation-answer-cli` capability)
