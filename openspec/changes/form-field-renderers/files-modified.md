@@ -1,0 +1,3 @@
+- `MISTAKES.md` — added two `## Tooling` trap entries per design.md D11 (fold-in): the Husky pre-commit-timeout backgrounding trap and the unanchored `pgrep -f` self-match deadlock trap.
+- `openspec/changes/form-field-renderers/tasks.md` — ticked 5.1–5.3 (fold-in docs group).
+- `openspec/changes/form-field-renderers/*` (rest) — restore rename from `openspec/changes/archive/2026-09-17-form-field-renderers/` back to the active change dir (uncommitted `git mv` present at Setup; carried through unchanged, plus new `skeptic-design-2.md`).

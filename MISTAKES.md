@@ -259,6 +259,41 @@ milestone-filtered view.
 Also: `save_comment` with an `id` **replaces** the body (data loss), and a
 `parentId` cannot be cleared once set.
 
+### `git commit` without a long tool timeout is backgrounded mid-hook
+
+`.husky/pre-commit` runs repo-integrity, lint, three typechecks (frontend,
+e2e, helio-mcp), Prettier, and schema/spec-structure/openspec (+selftest)/
+dependabot (+selftest)/scala-quality/test-temp-dir-hygiene (+selftest)/
+credential-leak (+selftest)/token (+selftest) checks, then the full Jest
+suite — comfortably past a 120s default tool timeout. A `git commit` issued
+without an explicit ~600000ms timeout gets backgrounded partway through that
+chain, and the agent's turn ends waiting on a notification that never
+arrives in the expected shape: the hook is still running, not finished and
+not failed. Re-running the commit in that state races the live hook against
+a second one on the same index. Recovery: locate the still-running chain,
+then wait on `.git/worktrees/<name>/COMMIT_EDITMSG` (the exact path is
+whatever `git rev-parse --git-dir` prints for that worktree) via
+`scripts/concertino/await-sentinel.sh` rather than polling by hand — never
+re-run the commit mid-hook. This bit the HEL-1087 executor even after its
+own brief warned about it explicitly; a warning in prose does not prevent
+it, only the timeout does.
+
+### An unanchored `pgrep -f` poll matches itself
+
+`until ! pgrep -f "git commit"; do sleep …; done` never terminates: the
+polling shell's own command line contains the string `"git commit"`, so the
+loop never sees a falsy match and blocks forever. The leaked shell then holds the
+worktree open against `cleanup.sh`, which cannot reclaim a worktree with a
+live process inside it. Anchor every pattern check to the actual target
+(`pgrep -c -f '^bash .*<script>'`) or use
+`scripts/concertino/await-sentinel.sh`, which deliberately polls by sentinel
+file existence rather than by process/pattern match for this exact reason.
+This has bitten seven separate times in one batch: CON-200 first disclosed
+it, the driver repeated it twice, the CON-189 lane killed its own shell with
+it, CON-193 deadlocked on it, HEL-1084's executor leaked five deadlocked
+shells that held its worktree open against `cleanup.sh`, and the HEL-1150
+orchestrator self-matched once while checking hygiene.
+
 ---
 
 ## Process

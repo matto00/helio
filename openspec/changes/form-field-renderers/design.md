@@ -105,6 +105,24 @@ since HEL-1083); `panelGridConfig` `minW` (kind-generic); `OutputPanelDefaultSiz
 `panel-type-rendering` spec (pre-HEL-909, not extended); `RefinementEditShape` and agent prompt copy (still
 deferred); `create_content_panel` (excluded by definition, HEL-1083).
 
+**D11 — Fold-in (Phase 4 follow-up, owner ruling `fold-in`): two `MISTAKES.md` trap entries, docs-only.** Both go under
+`## Tooling` (`MISTAKES.md:224-262`), after the epic-cascade entry, in that section's voice — a trap that looks correct
+and fails silently, one short entry each, ~80-column wrapped, and Prettier-checked (root markdown is NOT in
+`.prettierignore`, unlike `openspec/`). (a) **A `git commit` without a ~600000 ms tool timeout is backgrounded
+mid-hook** — `.husky/pre-commit` runs lint, three typechecks (frontend, e2e, helio-mcp), Prettier, schema/spec/openspec/
+dependabot/scala-quality/temp-dir/credential-leak/token checks and the full Jest suite, far past a 120 s default; the
+agent then ends its turn "waiting for a notification" that never arrives in the expected shape. Recovery: find the live
+chain (`pstree -p <git pid>`), wait on `.git/worktrees/<name>/COMMIT_EDITMSG` with
+`scripts/concertino/await-sentinel.sh`,
+never re-run the commit. Evidence: bit the HEL-1087 executor AFTER its brief warned explicitly. (b) **An unanchored
+`pgrep -f` poll matches itself** — `until ! pgrep -f "git commit"; do sleep …; done` never terminates because the loop's
+own command line contains the pattern, and the leaked shell holds the worktree open against `cleanup.sh`. Anchor every
+check (`pgrep -c -f '^bash .*<script>'`) or use `await-sentinel.sh`. Evidence: seven hits in one batch (CON-200, the
+driver twice, CON-189, CON-193, HEL-1084's five leaked shells, HEL-1150). No spec delta — `MISTAKES.md` is not a
+behaviour contract — so the re-archive uses `--skip-specs` (the first archive already merged this change's only delta).
+Rejected: a standalone ticket (the triage recommendation) — the owner ruled fold-in because this file is bound to every
+run's orchestrator and auditor, so the four remaining epic leaves read it.
+
 ## Risks / Trade-offs
 
 - [`Toggle` announces "switch", the vocabulary says checkbox] → both are boolean on/off controls with identical
