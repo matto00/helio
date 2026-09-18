@@ -209,6 +209,19 @@ class FormPanelSpec extends AnyWordSpec with Matchers {
       form(validConfig(Vector(FormFieldSpec("q", "text", step = Some(1))))).validateConfig.isLeft shouldBe true
     }
 
+    // HEL-1088 design.md Decision 5 — step is shared by number and counter now.
+    "accept a step on a counter control" in {
+      form(
+        validConfig(Vector(FormFieldSpec("q", "counter", required = Some(true), step = Some(5)))),
+      ).validateConfig shouldBe Right(())
+    }
+
+    "reject a non-positive step on a counter control" in {
+      form(
+        validConfig(Vector(FormFieldSpec("q", "counter", required = Some(true), step = Some(0)))),
+      ).validateConfig.isLeft shouldBe true
+    }
+
     "reject writeMode: replace naming append" in {
       val cfg = validConfig().copy(submit = FormSubmitSpec("replace"))
       form(cfg).validateConfig shouldBe Left("writeMode must be 'append'")

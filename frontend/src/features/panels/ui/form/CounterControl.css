@@ -1,0 +1,47 @@
+/* HEL-1088 design.md Decision 4 — the compact value/`+`/`-` counter chrome. Tokens only
+   (DESIGN.md §3): `--space-*` for gaps, `--control-sm`/`--app-radius-sm` matching the rest of the
+   form panel's control sizing, `--app-focus-ring` for the spinbutton's own keyboard focus. */
+
+.counter-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.counter-control__value {
+  min-width: var(--control-lg);
+  padding: 0 var(--space-2);
+  text-align: center;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+  color: var(--app-text);
+  border-radius: var(--app-radius-sm);
+  cursor: default;
+}
+
+.counter-control__value:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+.counter-control__value[aria-invalid="true"] {
+  color: var(--app-error);
+}
+
+/* Compact single-counter-field panel layout (design.md Decision 2) — the counter chrome fills the
+   panel body, larger and centered rather than a form-row-sized control. */
+.form-panel-view__compact-counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  width: 100%;
+  height: 100%;
+  padding: var(--space-4);
+}
+
+.form-panel-view__compact-counter .counter-control__value {
+  font-size: var(--text-3xl);
+  font-family: var(--font-mono);
+}

@@ -66,13 +66,23 @@ describe("FormFieldRow", () => {
     expect(props.onAttrChange).toHaveBeenCalledWith({ required: true });
   });
 
-  it("shows step only for the number control", () => {
+  it("shows step for the number and counter controls, not others", () => {
     renderRow({ field: { sourceField: "quantity", control: "number", step: 1 } });
+    expect(screen.getByLabelText("Step for quantity")).toBeInTheDocument();
+    cleanup();
+
+    renderRow({ field: { sourceField: "quantity", control: "counter", step: 5 } });
     expect(screen.getByLabelText("Step for quantity")).toBeInTheDocument();
     cleanup();
 
     renderRow({ field: { sourceField: "quantity", control: "text" } });
     expect(screen.queryAllByLabelText("Step for quantity")).toHaveLength(0);
+  });
+
+  it("persists step on save for a counter field", () => {
+    const props = renderRow({ field: { sourceField: "quantity", control: "counter" } });
+    fireEvent.change(screen.getByLabelText("Step for quantity"), { target: { value: "5" } });
+    expect(props.onAttrChange).toHaveBeenCalledWith({ step: 5 });
   });
 
   it("shows options only for the select control", () => {

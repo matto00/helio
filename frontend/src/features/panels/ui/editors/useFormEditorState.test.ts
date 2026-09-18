@@ -122,6 +122,42 @@ describe("useFormEditorState", () => {
     expect(result.current.config.fields.map((f) => f.sourceField)).toEqual(["quantity"]);
     expect(result.current.rowKeys).toEqual([quantityKey]);
   });
+
+  // HEL-1088 design.md Decision 3/task 2.2 — a single-counter-field config's persisted
+  // `submit.resetOnSuccess` is ALWAYS `false`, never user-configurable.
+  it("a single counter field forces submit.resetOnSuccess: false", () => {
+    const config: FormPanelConfig = {
+      dataSourceId: "ds-1",
+      fields: [{ sourceField: "delta", control: "counter" }],
+      submit: { writeMode: "append" },
+    };
+    const { result } = renderHook(() => useFormEditorState(config));
+    expect(result.current.config.submit).toEqual({ writeMode: "append", resetOnSuccess: false });
+  });
+
+  it("a counter alongside another field does NOT force resetOnSuccess: false", () => {
+    const config: FormPanelConfig = {
+      dataSourceId: "ds-1",
+      fields: [
+        { sourceField: "note", control: "text" },
+        { sourceField: "delta", control: "counter" },
+      ],
+      submit: { writeMode: "append" },
+    };
+    const { result } = renderHook(() => useFormEditorState(config));
+    expect(result.current.config.submit).toEqual({ writeMode: "append" });
+  });
+
+  it("setControl to counter preserves an existing step attribute", () => {
+    const config: FormPanelConfig = {
+      dataSourceId: "ds-1",
+      fields: [{ sourceField: "quantity", control: "number", step: 3 }],
+      submit: { writeMode: "append" },
+    };
+    const { result } = renderHook(() => useFormEditorState(config));
+    act(() => result.current.setControl(0, "counter"));
+    expect(result.current.config.fields[0].step).toBe(3);
+  });
 });
 
 // evaluation-1.md CR1 — the pure focus-target computation `FormEditor.tsx`
