@@ -100,3 +100,28 @@ describe("buildDividerPatch", () => {
     expect(patch).toEqual({ orientation: "vertical", weight: 2, color: "#000" });
   });
 });
+
+// HEL-1084 task 2.2 — `config` override, used only by `form` (design.md D6).
+describe("buildCreatePanelBody — form kind", () => {
+  it("uses the supplied config override as-is when creating a form panel", () => {
+    const config = { dataSourceId: "ds-1", fields: [], submit: { writeMode: "append" as const } };
+    const body = buildCreatePanelBody({ dashboardId: "d1", type: "form", config });
+    expect(body.config).toEqual(config);
+  });
+
+  it("falls back to the empty form config when no override is supplied", () => {
+    const body = buildCreatePanelBody({ dashboardId: "d1", type: "form" });
+    expect(body.config).toEqual({ dataSourceId: "", fields: [], submit: { writeMode: "append" } });
+  });
+
+  it("ignores a config override for a non-form kind", () => {
+    const config = { dataSourceId: "ds-1", fields: [], submit: { writeMode: "append" as const } };
+    const body = buildCreatePanelBody({
+      dashboardId: "d1",
+      type: "output",
+      outputId: "out-1",
+      config,
+    });
+    expect(body.config).toEqual({ outputId: "out-1" });
+  });
+});

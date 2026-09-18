@@ -16,6 +16,7 @@ import {
   patchPanelOutputId as patchPanelOutputIdRequest,
   updatePanelAppearance as updatePanelAppearanceRequest,
   updatePanelDivider as updatePanelDividerRequest,
+  updatePanelForm as updatePanelFormRequest,
   updatePanelImage as updatePanelImageRequest,
   updatePanelMarkdownContent as updatePanelMarkdownContentRequest,
   updatePanelsBatch as updatePanelsBatchRequest,
@@ -30,9 +31,11 @@ import {
 import type { RootState } from "../../../store/store";
 import type {
   DividerOrientation,
+  FormPanelConfig,
   ImageFit,
   Panel,
   PanelAppearance,
+  PanelConfig,
   PanelKind,
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
@@ -80,13 +83,17 @@ export const createPanel = createAsyncThunk<
     type: PanelKind;
     title?: string;
     outputId?: string;
+    config?: PanelConfig;
   },
   { state: RootState; rejectValue: string }
 >(
   "panels/createPanel",
-  async ({ dashboardId, type, title, outputId }, { dispatch, getState, rejectWithValue }) => {
+  async (
+    { dashboardId, type, title, outputId, config },
+    { dispatch, getState, rejectWithValue },
+  ) => {
     try {
-      const createdPanel = await createPanelRequest(dashboardId, type, title, outputId);
+      const createdPanel = await createPanelRequest(dashboardId, type, title, outputId, config);
       // Decision-15 (HEL-909 CR6/spec `output-picker/spec.md`): the server
       // computes and returns the placed layout on `createdPanel.layout` —
       // merge it into the dashboard's own layout locally so the grid
@@ -275,6 +282,19 @@ export const updatePanelDivider = createAsyncThunk<
     }
   },
 );
+
+/** PATCH a `form` panel's whole config from the builder's Save. */
+export const updatePanelForm = createAsyncThunk<
+  Panel,
+  { panelId: string; config: FormPanelConfig },
+  { rejectValue: string }
+>("panels/updatePanelForm", async ({ panelId, config }, { rejectWithValue }) => {
+  try {
+    return await updatePanelFormRequest(panelId, config);
+  } catch {
+    return rejectWithValue("Failed to save form settings.");
+  }
+});
 
 export const updatePanelsBatch = createAsyncThunk<
   UpdatePanelsBatchResponse,

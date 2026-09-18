@@ -2,10 +2,17 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { updatePanelAppearance as updatePanelAppearanceRequest } from "../../services/panelService";
 import { updatePanelDivider as updatePanelDividerRequest } from "../../services/panelService";
+import { updatePanelForm as updatePanelFormRequest } from "../../services/panelService";
 import { uploadPanelImage as uploadPanelImageRequest } from "../../services/panelService";
 import { getOutputById as getOutputByIdRequest } from "../../../pipelines/services/outputService";
+import { fetchDatasetSchema as fetchDatasetSchemaRequest } from "../../../sources/services/dataSourceService";
 import { renderWithStore } from "../../../../test/renderWithStore";
-import { makeDividerPanel, makeImagePanel, makeOutputPanel } from "../../../../test/panelFixtures";
+import {
+  makeDividerPanel,
+  makeFormPanel,
+  makeImagePanel,
+  makeOutputPanel,
+} from "../../../../test/panelFixtures";
 import type { Output } from "../../../pipelines/types/output";
 import { PanelDetailModal } from "./PanelDetailModal";
 
@@ -16,6 +23,7 @@ jest.mock("../../services/panelService", () => ({
   updatePanelImage: jest.fn(),
   uploadPanelImage: jest.fn(),
   updatePanelDivider: jest.fn(),
+  updatePanelForm: jest.fn(),
   updatePanelTextContent: jest.fn(),
   updatePanelMarkdownContent: jest.fn(),
 }));
@@ -26,10 +34,16 @@ jest.mock("../../../pipelines/services/outputService", () => ({
   listOutputPanels: jest.fn().mockResolvedValue([]),
 }));
 
+jest.mock("../../../sources/services/dataSourceService", () => ({
+  fetchDatasetSchema: jest.fn(),
+}));
+
 const updateAppearanceMock = jest.mocked(updatePanelAppearanceRequest);
 const updateDividerMock = jest.mocked(updatePanelDividerRequest);
+const updateFormMock = jest.mocked(updatePanelFormRequest);
 const uploadImageMock = jest.mocked(uploadPanelImageRequest);
 const getOutputByIdMock = jest.mocked(getOutputByIdRequest);
+const fetchDatasetSchemaMock = jest.mocked(fetchDatasetSchemaRequest);
 
 const panelBaseFields = {
   id: "p1",
@@ -56,6 +70,14 @@ const dividerTestPanelNullColor = makeDividerPanel({
 const imageTestPanel = makeImagePanel({
   ...panelBaseFields,
   config: { imageUrl: "https://example.com/img.png", imageFit: "contain" },
+});
+const formTestPanel = makeFormPanel({
+  ...panelBaseFields,
+  config: {
+    dataSourceId: "ds-1",
+    fields: [{ sourceField: "quantity", control: "number" }],
+    submit: { writeMode: "append" },
+  },
 });
 
 const testOutput: Output = {
@@ -99,13 +121,40 @@ function renderImageModal(onClose = jest.fn()) {
   return renderWithStore(<PanelDetailModal panel={imageTestPanel} onClose={onClose} />);
 }
 
+function renderFormModal(onClose = jest.fn()) {
+  setupDialog();
+  return renderWithStore(<PanelDetailModal panel={formTestPanel} onClose={onClose} />, {
+    sources: {
+      items: [
+        {
+          id: "ds-1",
+          type: "dataset",
+          name: "Orders",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          inferredSchema: [],
+        },
+      ],
+      status: "succeeded",
+    },
+  });
+}
+
 describe("PanelDetailModal", () => {
   beforeEach(() => {
     updateAppearanceMock.mockReset();
     updateDividerMock.mockReset();
+    updateFormMock.mockReset();
     uploadImageMock.mockReset();
     getOutputByIdMock.mockReset();
     getOutputByIdMock.mockResolvedValue(testOutput);
+    fetchDatasetSchemaMock.mockReset();
+    fetchDatasetSchemaMock.mockResolvedValue({
+      fields: [
+        { name: "quantity", type: "integer", required: true },
+        { name: "note", type: "string", required: false },
+      ],
+    });
   });
 
   it("shows the panel title in the header", () => {
@@ -559,5 +608,33 @@ describe("Image editor upload (HEL-246)", () => {
 
     await waitFor(() => expect(screen.getByText(/Upload failed/)).toBeInTheDocument());
     expect(screen.getByLabelText("Image URL")).toHaveValue("https://example.com/img.png");
+  });
+});
+
+// HEL-1084 task 4.11 — a form panel renders the builder (not an empty body),
+// an edit marks the sheet dirty, Save calls the form thunk. C5: the
+// `isFormPanel` arm in both if-chains is what makes this pass — removing
+// either arm (mutation evidence in mutation-evidence.md) makes this red.
+describe("PanelDetailModal — form panel", () => {
+  it("renders the form builder as the kind-specific section, not an empty body", async () => {
+    renderFormModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+
+    expect(await screen.findByRole("heading", { name: "Form" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Bound dataset")).toBeInTheDocument();
+  });
+
+  it("marks the sheet dirty on a builder edit and Save calls the form thunk", async () => {
+    renderFormModal();
+    fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
+    await screen.findByRole("heading", { name: "Form" });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add field" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+
+    updateFormMock.mockResolvedValue(formTestPanel);
+    fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
+
+    await waitFor(() => expect(updateFormMock).toHaveBeenCalled());
   });
 });

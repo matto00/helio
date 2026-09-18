@@ -1,6 +1,6 @@
 package com.helio.domain.panels
 
-import com.helio.domain.model.{DashboardId, DataSourceId, Panel, PanelAppearance, PanelId, ResourceMeta, UserId}
+import com.helio.domain.model.{DashboardId, DataFieldType, DataSourceId, Panel, PanelAppearance, PanelId, ResourceMeta, UserId}
 import spray.json._
 
 /** A single entry in a [[FormPanelConfig]]'s ordered `fields` list. References
@@ -38,6 +38,24 @@ object FormFieldSpec {
 
   val ValidControls: Set[String] =
     Set("text", "textarea", "number", "date", "select", "checkbox", "file")
+
+  /** design.md D2 — the control-to-type fitness matrix, first entry = the
+   *  type's default control. THE single source of truth: the frontend's
+   *  `CONTROL_FITNESS` (`state/formConfigValidation.ts`) mirrors this and is
+   *  drift-guarded by a Jest test that parses this literal out of this file
+   *  (C4) — never edit one side without the other. */
+  val FittingControls: Map[DataFieldType, Vector[String]] = Map(
+    DataFieldType.StringType     -> Vector("text", "textarea", "select"),
+    DataFieldType.StringBodyType -> Vector("textarea", "text", "select"),
+    DataFieldType.IntegerType    -> Vector("number", "select", "text"),
+    DataFieldType.FloatType      -> Vector("number", "select", "text"),
+    DataFieldType.BooleanType    -> Vector("checkbox", "select"),
+    DataFieldType.TimestampType  -> Vector("date", "text", "select"),
+    DataFieldType.BinaryRefType  -> Vector("file")
+  )
+
+  /** The declared type's default control — the fitting matrix's first entry. */
+  def defaultControlFor(fieldType: DataFieldType): String = FittingControls(fieldType).head
 
   implicit val format: RootJsonFormat[FormFieldSpec] = new RootJsonFormat[FormFieldSpec] {
     def write(f: FormFieldSpec): JsValue = {

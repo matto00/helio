@@ -111,3 +111,13 @@
   border-top: 1px solid var(--app-border-subtle);
   padding-top: var(--space-3);
 }
+
+.output-picker__dataset-step-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.output-picker__dataset-step-header .output-picker__search {
+  flex: 1;
+}

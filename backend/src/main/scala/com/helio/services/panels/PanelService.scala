@@ -196,9 +196,9 @@ final class PanelService(
         rejectMissingOutput(outputIdFromCreateConfig(createConfig), user).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_)  => rejectMissingDataSource(dataSourceIdFromCreateConfig(createConfig), user)
-        }.map {
-          case Left(err) => Left(err)
-          case Right(_) =>
+        }.flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_)  =>
             val now = Instant.now()
             val panel = buildNewPanel(
               id           = PanelId(UUID.randomUUID().toString),
@@ -210,8 +210,12 @@ final class PanelService(
               createConfig = createConfig
             )
             panel.validateConfig match {
-              case Left(msg) => Left(ServiceError.BadRequest(msg))
-              case Right(_)  => Right(panel)
+              case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
+              case Right(_)  =>
+                rejectInconsistentForm(formConfigOf(panel), user).map {
+                  case Left(err) => Left(err)
+                  case Right(_)  => Right(panel)
+                }
             }
         }
     }
@@ -457,6 +461,9 @@ final class PanelService(
                   case Right(_)  => rejectMissingDataSource(incomingDataSourceId, user)
                 }.flatMap {
                   case Left(err) => Future.successful(Left(err))
+                  case Right(_)  => rejectInconsistentForm(effectiveFormConfig(existing, spec), user)
+                }.flatMap {
+                  case Left(err) => Future.successful(Left(err))
                   case Right(_) =>
                     patchApplier.apply(panelId, spec)
                       .map {
@@ -514,6 +521,58 @@ final class PanelService(
         dataSourceRepo.findByIdOwned(dataSourceId, user).map {
           case Some(_) => Right(())
           case None    => Left(ServiceError.NotFound("Data source not found"))
+        }
+    }
+
+  /** Extracts a `form` panel's config from a domain `Panel`, `None` for every other kind. Feeds
+   *  `rejectInconsistentForm` with the effective (post-patch, on `update`) config. */
+  private def formConfigOf(panel: Panel): Option[FormPanelConfig] = panel match {
+    case p: FormPanel => Some(p.config)
+    case _            => None
+  }
+
+  /** The EFFECTIVE post-patch form config for `update` (C2): `existing` as a `FormPanel`,
+   *  `applyPatch`ed with the decoded form patch — never the incoming patch alone, so a
+   *  `dataSourceId`-only PATCH re-validates the existing fields against the new dataset. `None`
+   *  when `existing` is not a `form` panel, or the patch carries no `configPatch` at all (nothing
+   *  form-related changed, nothing to re-check). */
+  private def effectiveFormConfig(existing: Panel, spec: ResolvedPanelPatch): Option[FormPanelConfig] =
+    (existing, spec.configPatch) match {
+      case (form: FormPanel, Some(patchJson)) =>
+        Some(form.applyPatch(FormPanelConfig.Patch.decode(patchJson)).config)
+      case _ => None
+    }
+
+  /** HEL-1084 design.md D1: schema-consistency check for a `form` panel's config, evaluated on
+   *  the EFFECTIVE config (C2) — the caller passes the post-patch config on update, never the
+   *  incoming patch alone, so a `dataSourceId`-only PATCH still re-validates the existing fields
+   *  against the new dataset. `None` (not a form panel, or a form config with an empty
+   *  `dataSourceId` — `rejectMissingDataSource` already 400s/404s that case) and a `null`
+   *  `dataSourceRepo` (unwired fixture, mirrors this file's other nullable-optional dependencies)
+   *  both skip the check. Rule (a) — bound source must be `dataset`-kind — is checked here since
+   *  it needs the resolved `DataSource`, not just its declaration; (b)-(e) delegate to
+   *  `FormSchemaConsistency.check`. */
+  private def rejectInconsistentForm(
+      configOpt: Option[FormPanelConfig],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] =
+    configOpt.filter(_.dataSourceId.value.nonEmpty) match {
+      case None => Future.successful(Right(()))
+      case Some(_) if dataSourceRepo == null => Future.successful(Right(()))
+      case Some(config) =>
+        dataSourceRepo.findByIdOwned(config.dataSourceId, user).flatMap {
+          case None => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+          case Some(_: DatasetSource) =>
+            dataSourceRepo.getDeclaredSchema(config.dataSourceId, user).map {
+              case None => Left(ServiceError.NotFound("Data source not found"))
+              case Some(declaration) =>
+                FormSchemaConsistency.check(config, declaration) match {
+                  case Left(msg) => Left(ServiceError.BadRequest(msg))
+                  case Right(()) => Right(())
+                }
+            }
+          case Some(ds) =>
+            Future.successful(Left(ServiceError.BadRequest(s"form panels must be bound to a dataset source (this source is '${ds.kind}')")))
         }
     }
 

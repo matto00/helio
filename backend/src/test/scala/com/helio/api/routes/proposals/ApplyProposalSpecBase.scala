@@ -82,6 +82,15 @@ abstract class ApplyProposalSpecBase
   // cross-owner fixture for form-panel `dataSourceId` rejection specs
   // (design.md D6).
   protected var otherDatasetSourceId = ""
+  // HEL-1084 task 4.3: a THIRD `dataset`-kind source owned by `userId`,
+  // declaring `note` but NOT `quantity` — the re-bind fixture for the
+  // "PATCH re-binding dataSourceId re-validates existing fields" spec
+  // (design.md D1/C2).
+  protected var datasetSourceIdWithoutQuantity = ""
+  // HEL-1083/1084: a `csv`-kind source owned by `userId` — the non-dataset
+  // fixture for the "form must bind a dataset-kind source" rejection spec
+  // (design.md D1(a)).
+  protected var csvSourceId = ""
 
   private val stubSessionRepo: UserSessionRepository = new UserSessionRepository {
     override def findValidSession(token: String): Future[Option[AuthenticatedUser]] =
@@ -168,13 +177,31 @@ abstract class ApplyProposalSpecBase
     datasetSourceId = srcId
     val otherSrcId = UUID.randomUUID().toString
     otherDatasetSourceId = otherSrcId
+    val noQuantitySrcId = UUID.randomUUID().toString
+    datasetSourceIdWithoutQuantity = noQuantitySrcId
+    val csvSrcId = UUID.randomUUID().toString
+    csvSourceId = csvSrcId
+    // HEL-1084 task 4.3: `datasetSourceId`'s declared schema — `quantity` (integer, required),
+    // `note` (string), `when` (timestamp), `flag` (boolean), plus `total` (integer) which the
+    // pre-existing "persist a config PATCH's new fields" spec below already binds a field to.
+    val datasetSchemaJson =
+      """[{"name":"quantity","type":"integer","required":true},
+        | {"name":"note","type":"string","required":false},
+        | {"name":"when","type":"timestamp","required":false},
+        | {"name":"flag","type":"boolean","required":false},
+        | {"name":"total","type":"integer","required":false}]""".stripMargin.replaceAll("\n", "")
+    val noQuantitySchemaJson = """[{"name":"note","type":"string","required":false}]"""
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, 'a1@helio.test', now())""",
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherId::uuid, 'a2@helio.test', now())""",
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at, dataset_schema)
+             VALUES ($srcId::uuid, 'src', 'dataset', '{}'::jsonb, $userId::uuid, now(), now(), $datasetSchemaJson::jsonb)""",
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at, dataset_schema)
+             VALUES ($otherSrcId::uuid, 'other-src', 'dataset', '{}'::jsonb, $otherId::uuid, now(), now(), $datasetSchemaJson::jsonb)""",
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at, dataset_schema)
+             VALUES ($noQuantitySrcId::uuid, 'src-no-quantity', 'dataset', '{}'::jsonb, $userId::uuid, now(), now(), $noQuantitySchemaJson::jsonb)""",
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($srcId::uuid, 'src', 'dataset', '{}'::jsonb, $userId::uuid, now(), now())""",
-      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($otherSrcId::uuid, 'other-src', 'dataset', '{}'::jsonb, $otherId::uuid, now(), now())""",
+             VALUES ($csvSrcId::uuid, 'src-csv', 'csv', '{"path":"csv/test.csv"}'::jsonb, $userId::uuid, now(), now())""",
       // Pipeline-output type: source_id NULL, owned by userId → bindable.
       
       // Companion type: source_id set → NOT bindable.

@@ -1,8 +1,10 @@
 import type {
   DividerOrientation,
+  FormPanelConfig,
   ImageFit,
   Panel,
   PanelAppearance,
+  PanelConfig,
   PanelKind,
   UpdatePanelsBatchRequest,
   UpdatePanelsBatchResponse,
@@ -35,8 +37,9 @@ export async function createPanel(
   type: PanelKind,
   title?: string,
   outputId?: string,
+  config?: PanelConfig,
 ): Promise<Panel> {
-  const body = buildCreatePanelBody({ dashboardId, title, type, outputId });
+  const body = buildCreatePanelBody({ dashboardId, title, type, outputId, config });
   const response = await httpClient.post<Panel>("/api/panels", body);
   return response.data;
 }
@@ -124,6 +127,15 @@ export async function uploadPanelImage(file: File): Promise<UploadPanelImageResp
   const response = await httpClient.post<UploadPanelImageResponse>("/api/uploads/image", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+  return response.data;
+}
+
+/** PATCH a `form` panel's whole config — carries all three keys
+ *  (`dataSourceId`, `fields`, `submit`); HEL-1083's `Patch` replaces per key
+ *  (MISTAKES.md "PATCH is a replace"), so a partial config here would drop
+ *  the fields the caller didn't happen to touch. */
+export async function updatePanelForm(panelId: string, config: FormPanelConfig): Promise<Panel> {
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
 }
 

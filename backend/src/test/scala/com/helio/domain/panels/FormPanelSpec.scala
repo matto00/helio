@@ -1,6 +1,6 @@
 package com.helio.domain.panels
 
-import com.helio.domain.model.{DashboardId, DataSourceId, PanelAppearance, PanelId, ResourceMeta, UserId}
+import com.helio.domain.model.{DashboardId, DataFieldType, DataSourceId, PanelAppearance, PanelId, ResourceMeta, UserId}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -28,6 +28,29 @@ class FormPanelSpec extends AnyWordSpec with Matchers {
 
   private def validConfig(fields: Vector[FormFieldSpec] = Vector(numberField())): FormPanelConfig =
     FormPanelConfig(DataSourceId("ds-1"), fields, FormSubmitSpec.Default)
+
+  "FormFieldSpec.FittingControls" should {
+    "declare a non-empty fitting set for every DataFieldType (task 1.1)" in {
+      val allTypes = Vector(
+        DataFieldType.StringType, DataFieldType.IntegerType, DataFieldType.FloatType,
+        DataFieldType.BooleanType, DataFieldType.TimestampType, DataFieldType.StringBodyType,
+        DataFieldType.BinaryRefType
+      )
+      allTypes.foreach { t =>
+        FormFieldSpec.FittingControls(t) should not be empty
+      }
+    }
+
+    "map binary-ref to file only" in {
+      FormFieldSpec.FittingControls(DataFieldType.BinaryRefType) shouldBe Vector("file")
+    }
+
+    "expose the type's default control as the fitting set's first entry" in {
+      FormFieldSpec.defaultControlFor(DataFieldType.IntegerType) shouldBe "number"
+      FormFieldSpec.defaultControlFor(DataFieldType.StringType) shouldBe "text"
+      FormFieldSpec.defaultControlFor(DataFieldType.BooleanType) shouldBe "checkbox"
+    }
+  }
 
   "FormPanelConfig.decode" should {
     "be tolerant of a missing/empty payload" in {

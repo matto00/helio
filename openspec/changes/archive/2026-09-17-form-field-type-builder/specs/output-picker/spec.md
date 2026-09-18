@@ -1,9 +1,4 @@
-# output-picker Specification
-
-## Purpose
-Defines the searchable Output picker modal that replaces the retired multi-step panel-creation wizard: grouped-by-pipeline live Output cards, placement counts, keyboard-operable navigation, and one-click placement onto a dashboard using the server-owned decision-15 default size (no frontend-computed or optimistic layout).
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Add panel opens a searchable Output picker grouped by pipeline
 "Add panel" on a dashboard MUST open a single modal that lists every Output the user can place, grouped by pipeline, with a search/type-ahead filter. Each Output card MUST show its kind, its name, and its current placement count, plus an "already on this board" state when it is already placed on the dashboard being edited. A content-panel row (text, markdown, image, divider, form) MUST be shown below the Output groups. Unlike the other four, activating Form does not create a panel directly: it presents the user's `dataset`-kind sources inside the same modal, and choosing one creates a `form` panel bound to it (see the `form-panel-builder` capability for that step's behaviour).
@@ -30,25 +25,3 @@ A live per-card thumbnail/value/sparkline (rendered from the last dry or live ru
 #### Scenario: Form entry is absent in swap mode
 - **WHEN** the picker opens in swap mode for an output panel
 - **THEN** no content-panel row, and therefore no Form entry, is shown
-
-### Requirement: Selecting an Output places it with the server-owned default size
-Selecting an Output in the picker MUST call `POST /api/panels` with `{dashboardId, kind: "output", outputId, title?}` and **no** `layout`. The response's placed layout (server-computed per the kind's decision-15 default) is what the dashboard grid renders. The frontend MUST NOT compute or optimistically render a layout before the response arrives.
-
-#### Scenario: Placing an Output uses the server's returned layout
-- **WHEN** the user selects an Output in the picker
-- **THEN** `POST /api/panels` is sent with no `layout` field
-- **AND** the panel is rendered on the grid using the layout returned in the response
-
-### Requirement: Picker is keyboard-operable
-The picker MUST be fully operable by keyboard: arrow keys move focus through the grouped list, and Enter places the currently focused item. Every interactive element MUST have an accessible name per DESIGN.md §8.
-
-#### Scenario: Arrow keys and Enter place an Output
-- **WHEN** the user presses arrow keys to focus an Output card and then presses Enter
-- **THEN** that Output is placed exactly as a click would place it
-
-### Requirement: Picker offers an escape hatch when no Output fits
-When no existing Output satisfies the user's need, the picker MUST offer links to start a new pipeline and to ask the assistant, rather than leaving the user with only a dead-end empty state.
-
-#### Scenario: Empty search result still offers next steps
-- **WHEN** a search in the picker matches no Output
-- **THEN** the empty state shows links to "New pipeline" and "Ask the assistant"

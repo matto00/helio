@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 import "./FormField.css";
 
@@ -15,14 +15,23 @@ interface FormFieldProps {
   hint?: ReactNode;
   className?: string;
   children: ReactNode;
+  /** Stable id for the error `<p>` (HEL-1084 skeptic-final-1.md CR1). `role="alert"`
+   *  alone is a one-shot live-region announcement — it creates no durable
+   *  programmatic association with the control, so a caller that needs
+   *  `aria-invalid`/`aria-describedby` on its own control (per DESIGN.md §8 /
+   *  this ticket's design.md D7) must pass an id here and thread the SAME id
+   *  onto that control's `aria-describedby`. Optional: existing callers that
+   *  don't need this wiring can omit it — an internal id is still generated
+   *  and applied to the error `<p>` either way, so `error`'s behavior for
+   *  every pre-existing call site is unchanged. */
+  errorId?: string;
 }
 
 /** Label + control + error/hint wrapper for form fields (F-058). Replaces the
  * ~10 hand-rolled `.xxx__field { display:flex; flex-direction:column; gap:... }`
  * recipes scattered across feature CSS with one tokened, consistent layout.
- * Not yet adopted by any call site in this batch — new forms should reach for
- * this instead of re-deriving the recipe; migrating existing forms is a
- * separate follow-up. */
+ * Adopted by `FormFieldRow.tsx` (HEL-1084) and the connector-setup forms;
+ * new forms should reach for this instead of re-deriving the recipe. */
 export function FormField({
   label,
   htmlFor,
@@ -31,8 +40,11 @@ export function FormField({
   hint,
   className,
   children,
+  errorId,
 }: FormFieldProps) {
   const classes = ["ui-form-field", className ?? null].filter(Boolean).join(" ");
+  const generatedErrorId = useId();
+  const resolvedErrorId = errorId ?? generatedErrorId;
 
   return (
     <div className={classes}>
@@ -42,7 +54,7 @@ export function FormField({
       </label>
       {children}
       {error ? (
-        <p className="ui-form-field__error" role="alert">
+        <p id={resolvedErrorId} className="ui-form-field__error" role="alert">
           {error}
         </p>
       ) : hint ? (
