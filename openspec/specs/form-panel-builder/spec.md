@@ -67,10 +67,11 @@ The builder SHALL check the form's fields against the bound dataset's live decla
 when the bound dataset is switched, and on every field edit, and SHALL surface each mismatch as an error
 associated with the offending field: a field naming an undeclared dataset field, a control that does not fit the
 declared type, a `select` whose options are missing, empty, or not valid values of the declared type, an initial
-value that is not a valid value of the declared type, a `step` on a non-number control, and a duplicate field.
-While any such error exists the builder SHALL NOT save, and SHALL say why. Fixing every error SHALL re-enable
-saving. If the write API rejects the save (for example because the dataset's schema changed after it was read),
-the rejection SHALL be shown inline and the schema re-read; the user's edits SHALL be preserved.
+value that is not a valid value of the declared type, a `step` on a control that is neither `number` nor
+`counter`, and a duplicate field. While any such error exists the builder SHALL NOT save, and SHALL say why.
+Fixing every error SHALL re-enable saving. If the write API rejects the save (for example because the dataset's
+schema changed after it was read), the rejection SHALL be shown inline and the schema re-read; the user's edits
+SHALL be preserved.
 
 #### Scenario: Orphaned field surfaced on open
 - **WHEN** the sheet opens for a form whose field `legacy` is not declared by the bound dataset
@@ -103,12 +104,13 @@ the rejection SHALL be shown inline and the schema re-read; the user's edits SHA
 
 The builder SHALL let the user add a field, remove a field, and move a field up or down; the authored order SHALL
 be the persisted order. Per field it SHALL let the user set label, placeholder, help text, required, initial
-value, `step` (shown only for the `number` control), and options (shown only for the `select` control, one typed
-value per option). Required SHALL be tighten-only: a field the dataset declares required SHALL be shown as
-required and not un-checkable, and its config SHALL omit `required` rather than write `false`; a field the
-dataset does not declare required SHALL persist `required: true` when checked and no `required` key when
-unchecked. Changing a field's control SHALL visibly drop an attribute the new control does not accept rather than
-persist it. Saving SHALL persist the whole form config; discarding SHALL restore the last saved state.
+value, `step` (shown for the `number` control and the `counter` control), and options (shown only for the
+`select` control, one typed value per option). Required SHALL be tighten-only: a field the dataset declares
+required SHALL be shown as required and not un-checkable, and its config SHALL omit `required` rather than write
+`false`; a field the dataset does not declare required SHALL persist `required: true` when checked and no
+`required` key when unchecked. Changing a field's control SHALL visibly drop an attribute the new control does not
+accept rather than persist it. Saving SHALL persist the whole form config; discarding SHALL restore the last saved
+state.
 
 #### Scenario: Reorder persists
 - **WHEN** the user moves the second of three fields up and saves
@@ -127,6 +129,10 @@ persist it. Saving SHALL persist the whole form config; discarding SHALL restore
 - **WHEN** the user changes a field's control from `number` (with a `step`) to `text`
 - **THEN** the step input disappears, a hint says the step was cleared, and the saved config carries no `step`
 
+#### Scenario: Step is authorable for a counter field
+- **WHEN** the user sets a field's control to `counter` and enters a step of `5`
+- **THEN** the step input is shown, and the saved config carries `step: 5` for that field
+
 #### Scenario: Options are authored as typed values
 - **WHEN** the user sets a `select` control on an integer field and enters options
 - **THEN** each option is entered through a numeric input and the saved config's options are integers
@@ -134,6 +140,11 @@ persist it. Saving SHALL persist the whole form config; discarding SHALL restore
 #### Scenario: Discard restores the saved state
 - **WHEN** the user edits fields and then discards
 - **THEN** the builder shows the last saved fields and the sheet reports no unsaved changes
+
+#### Scenario: A single-counter-field form is saved with `resetOnSuccess` forced off
+- **WHEN** the user saves a form whose only field is `control: "counter"`
+- **THEN** the saved config carries `submit.resetOnSuccess: false`, regardless of any other setting, so the
+  compact layout's counter value is never wiped by the form's own submit-reset behavior
 
 ### Requirement: The builder is keyboard-operable and screen-reader-labelled
 
