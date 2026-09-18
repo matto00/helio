@@ -24,6 +24,22 @@ object FormSubmission {
     case _                                => false
   }
 
+  /** HEL-1086 design.md D2: validates a `file` control's supplied value — either the
+   *  presence-marker placeholder `PanelService.submitForm` folds in before the pre-lock check, or
+   *  the real `binary-ref` object substituted in before the final in-lock check (both carry
+   *  `filename`/`sizeBytes`, so the same check applies to either shape) — against
+   *  `FormUploadConfig`'s extension allowlist and size bound. Never touches file bytes. */
+  private def validateFilePlaceholder(value: JsValue): Either[String, Unit] = value match {
+    case obj: JsObject =>
+      obj.fields.get("filename") match {
+        case Some(JsString(filename)) =>
+          val sizeBytes = obj.fields.get("sizeBytes").collect { case JsNumber(n) => n.toLong }.getOrElse(Long.MaxValue)
+          FormUploadConfig.validate(filename, sizeBytes)
+        case _ => Left("missing filename")
+      }
+    case _ => Left("not a file value")
+  }
+
   /** Builds one positional row from `values` (the wire's `{"<sourceField>": <value>}` map),
    *  validating it against both the form's own rules (`config`) and the dataset's declared schema
    *  (`declaration`) — design.md D3 (i)-(viii). `Left` with every collected `FieldError` on any
@@ -61,33 +77,37 @@ object FormSubmission {
           else
             Right(None)
         case Some(declared) =>
-          // (ii) — a value for a `file` control is never accepted (HEL-1086).
-          if (field.control == "file" && supplied.isDefined) {
-            Left(FieldError(field.sourceField, "file fields are not yet supported"))
+          val required = configRequired || declared.required
+          if (supplied.isEmpty) {
+            // (v) — required (form OR declared) with no supplied value: rejected, with NO
+            // declared-default fill (the client blocks it, so the server must too). An optional
+            // field left unsupplied is positionally absent below and takes the declared
+            // default/`JsNull` via `DatasetRowValidator`.
+            if (required) Left(FieldError(field.sourceField, "required"))
+            else Right(None)
           } else {
-            val required = configRequired || declared.required
-            if (supplied.isEmpty) {
-              // (v) — required (form OR declared) with no supplied value: rejected, with NO
-              // declared-default fill (the client blocks it, so the server must too). An optional
-              // field left unsupplied is positionally absent below and takes the declared
-              // default/`JsNull` via `DatasetRowValidator`.
-              if (required) Left(FieldError(field.sourceField, "required"))
-              else Right(None)
-            } else {
-              val value = supplied.get
+            val value = supplied.get
+            // (ii) — HEL-1086: a `file` control's supplied value is a placeholder/real
+            // `binary-ref` JSON object (`{"filename", "sizeBytes", ...}`, design.md D2) — its
+            // extension and size are validated against `FormUploadConfig` here, exactly like any
+            // other field-level rule; no bytes are ever touched by this pure builder.
+            if (field.control == "file") {
+              validateFilePlaceholder(value) match {
+                case Left(_)  => Left(FieldError(field.sourceField, "invalid"))
+                case Right(_) => Right(Some(field.sourceField -> value))
+              }
+            } else if (field.control == "select") {
               // (vi) — a `select`'s options must be a non-empty JSON array; when they are not,
               // EVERY supplied value is rejected rather than the membership check being skipped.
-              if (field.control == "select") {
-                field.options match {
-                  case Some(JsArray(opts)) if opts.nonEmpty =>
-                    if (opts.contains(value)) Right(Some(field.sourceField -> value))
-                    else Left(FieldError(field.sourceField, "not one of the configured options"))
-                  case _ =>
-                    Left(FieldError(field.sourceField, "options are not configured"))
-                }
-              } else {
-                Right(Some(field.sourceField -> value))
+              field.options match {
+                case Some(JsArray(opts)) if opts.nonEmpty =>
+                  if (opts.contains(value)) Right(Some(field.sourceField -> value))
+                  else Left(FieldError(field.sourceField, "not one of the configured options"))
+                case _ =>
+                  Left(FieldError(field.sourceField, "options are not configured"))
               }
+            } else {
+              Right(Some(field.sourceField -> value))
             }
           }
       }

@@ -14,6 +14,7 @@ import { extractErrorMessage } from "../../../../services/extractErrorMessage";
 import { parseFieldErrors, submitFormPanel } from "../../services/panelService";
 import { computeFormIssues } from "../../state/formConfigValidation";
 import {
+  buildSubmitFiles,
   buildSubmitValues,
   mapServerFieldErrors,
   validateForSubmit,
@@ -129,7 +130,8 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
     setSubmitState("pending");
     try {
       const submitValues = buildSubmitValues(config, schema, values.values);
-      await submitFormPanel(panelId, submitValues);
+      const submitFiles = buildSubmitFiles(config, schema, values.values);
+      await submitFormPanel(panelId, submitValues, submitFiles);
       setSubmitState("succeeded");
       setStatusText("The row was added.");
       // evaluator's non-blocking note: clears any lingering server-reported error explicitly,

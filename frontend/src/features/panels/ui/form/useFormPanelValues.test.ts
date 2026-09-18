@@ -135,6 +135,6 @@ describe("useFormPanelValues", () => {
       { name: "photo", type: "binary-ref", required: false },
     ];
     const { result } = renderHook(() => useFormPanelValues([fileField], fileSchema));
-    expect(result.current.values.photo).toBe("");
+    expect(result.current.values.photo).toBeNull();
   });
 });

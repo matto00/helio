@@ -143,16 +143,36 @@ export async function updatePanelForm(panelId: string, config: FormPanelConfig):
   return response.data;
 }
 
-/** `POST /api/panels/:id/submit` (HEL-1087 design.md D1/D2) — a `form` panel's submit path.
- *  `values` are already the typed, submit-ready payload (`state/formSubmission.ts`'s
- *  `buildSubmitValues`) — this function does no shaping of its own. */
+/** `POST /api/panels/:id/submit` (HEL-1087 design.md D1/D2, HEL-1086 design.md D1/D5) — a `form`
+ *  panel's submit path. `values` are already the typed, submit-ready payload
+ *  (`state/formSubmission.ts`'s `buildSubmitValues`) — this function does no shaping of its own.
+ *  `files` (`state/formSubmission.ts`'s `buildSubmitFiles`) is empty for every existing non-file
+ *  form — plain JSON keeps being sent, zero behavior change (design.md D5). Only when at least one
+ *  file is attached does this switch to a multipart body: one `values` part carrying the same JSON
+ *  shape as the plain-JSON call, plus one file part per attached field, named by its
+ *  `sourceField` — mirrors `uploadPanelImage`'s multipart shape above. */
 export async function submitFormPanel(
   panelId: string,
   values: Record<string, unknown>,
+  files: Record<string, File> = {},
 ): Promise<RowWriteResponse> {
-  const response = await httpClient.post<RowWriteResponse>(`/api/panels/${panelId}/submit`, {
-    values,
-  });
+  if (Object.keys(files).length === 0) {
+    const response = await httpClient.post<RowWriteResponse>(`/api/panels/${panelId}/submit`, {
+      values,
+    });
+    return response.data;
+  }
+
+  const formData = new FormData();
+  formData.append("values", JSON.stringify(values));
+  for (const [sourceField, file] of Object.entries(files)) {
+    formData.append(sourceField, file, file.name);
+  }
+  const response = await httpClient.post<RowWriteResponse>(
+    `/api/panels/${panelId}/submit`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
   return response.data;
 }
 

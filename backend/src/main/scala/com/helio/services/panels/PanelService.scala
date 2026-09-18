@@ -13,7 +13,8 @@ import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.domain.panels.OutputPanel
+import com.helio.infrastructure.storage.FileSystem
+import com.helio.domain.panels.{FormUploadConfig, OutputPanel}
 import com.helio.services.panels.PanelServiceHelpers._
 import org.slf4j.LoggerFactory
 import spray.json._
@@ -78,7 +79,11 @@ final class PanelService(
     // HEL-1087: nullable-optional wiring, same convention as `dataSourceRepo` — a `null`
     // dataSourceService means `submitForm` is the only method that can't be called (every other
     // existing caller/fixture is unaffected, appended last).
-    dataSourceService: DataSourceService = null
+    dataSourceService: DataSourceService = null,
+    // HEL-1086: nullable-optional wiring, same convention as `dataSourceService` — a `null`
+    // fileSystem only breaks `submitForm` when the caller actually attaches a file (the
+    // no-file submit path never touches it, matching every other existing fixture/caller).
+    fileSystem: FileSystem = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -99,27 +104,108 @@ final class PanelService(
   def findById(panelId: PanelId, callerOpt: Option[AuthenticatedUser]): Future[Option[Panel]] =
     panelRepo.findById(panelId, callerOpt)
 
-  /** `POST /api/panels/:id/submit` (HEL-1087 design.md D1/D4). Sharing-aware visibility
-   *  (`findById`) → `404`; non-`form` panel → `400`; a visible panel the caller doesn't OWN →
-   *  `403` (D4's message — decidable from the panel alone: a grantee's insert could not succeed
-   *  under their own RLS context anyway, and the panel owner is the source owner by HEL-1084's
-   *  config-time ownership check). Delegates the actual build+write to
+  /** `POST /api/panels/:id/submit` (HEL-1087 design.md D1/D4, HEL-1086 design.md D2). Sharing-aware
+   *  visibility (`findById`) → `404`; non-`form` panel → `400`; a visible panel the caller doesn't
+   *  OWN → `403` (D4's message — decidable from the panel alone: a grantee's insert could not
+   *  succeed under their own RLS context anyway, and the panel owner is the source owner by
+   *  HEL-1084's config-time ownership check). `files` is empty for the plain-JSON submit path
+   *  (every existing non-file form, unchanged behavior) — delegates straight to
    *  `DataSourceService.appendFormRow`, partially applying `FormSubmission.buildRow` over the
-   *  panel's config and the submitted `values` — the declaration itself is resolved fresh, under
-   *  the source's own lock, INSIDE that call, never here (D3's "no pre-lock mapping" rule). */
-  def submitForm(panelId: PanelId, values: Map[String, JsValue], user: AuthenticatedUser): Future[Either[FormSubmitError, RowWriteResult]] =
+   *  panel's config and the submitted `values`, the declaration resolved fresh, under the source's
+   *  own lock, INSIDE that call (D3's "no pre-lock mapping" rule). A non-empty `files` routes
+   *  through `submitFormWithFiles` instead (HEL-1086 D2's two-phase validate-then-store). */
+  def submitForm(
+      panelId: PanelId,
+      values:  Map[String, JsValue],
+      user:    AuthenticatedUser,
+      files:   Map[String, (String, Array[Byte])] = Map.empty
+  ): Future[Either[FormSubmitError, RowWriteResult]] =
     panelRepo.findById(panelId, Some(user)).flatMap {
       case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Panel not found"))))
       case Some(panel: FormPanel) =>
         if (panel.ownerId != user.id)
           Future.successful(Left(FormSubmitError(ServiceError.Forbidden("Only this form's owner can submit to its data source"))))
-        else {
+        else if (files.isEmpty) {
           val build: Vector[DatasetFieldDeclaration] => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
             declaration => FormSubmission.buildRow(panel.config, declaration, values)
           dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user)
+        } else {
+          submitFormWithFiles(panelId, panel, values, files, user)
         }
       case Some(_) => Future.successful(Left(FormSubmitError(ServiceError.BadRequest("panel is not a form panel"))))
     }
+
+  /** HEL-1086 design.md D2: the two-phase file-attached submit path. Phase 1 (pre-lock, read-only):
+   *  fold `files` into `values` as presence-marker placeholders (`{"__file", "filename",
+   *  "sizeBytes"}`) and run `FormSubmission.buildRow` once against the schema read via
+   *  `getDeclaredSchema` — this single pass already validates EVERY field, file included (C2/C3:
+   *  a sibling field's failure is caught here, before any byte is written). Only on `Right` does
+   *  phase 2 write each file's real bytes via `FileSystem.write` (design.md D3 storage-key shape)
+   *  and substitute the placeholder with the real `binary-ref` JSON object, then delegate to
+   *  `DataSourceService.appendFormRow` exactly like the no-file path — which re-runs `buildRow`
+   *  a second time, atomically, under the source's own lock, against the declaration read fresh
+   *  there (closing the same concurrent-schema-change race the no-file path already closes). */
+  private def submitFormWithFiles(
+      panelId: PanelId,
+      panel:   FormPanel,
+      values:  Map[String, JsValue],
+      files:   Map[String, (String, Array[Byte])],
+      user:    AuthenticatedUser
+  ): Future[Either[FormSubmitError, RowWriteResult]] = {
+    val placeholderValues = foldFilePlaceholders(values, files)
+    dataSourceRepo.getDeclaredSchema(panel.config.dataSourceId, user).flatMap {
+      case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Data source not found"))))
+      case Some(declaration) =>
+        FormSubmission.buildRow(panel.config, declaration, placeholderValues) match {
+          case Left(errors) => Future.successful(Left(FormSubmitError.fromFieldErrors(errors)))
+          case Right(_) =>
+            storeFormFiles(files).flatMap { refsByField =>
+              val realValues = values ++ refsByField
+              val build: Vector[DatasetFieldDeclaration] => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
+                decl => FormSubmission.buildRow(panel.config, decl, realValues)
+              dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user)
+            }
+        }
+    }
+  }
+
+  /** `{sourceField -> (filename, bytes)}` folded into `values` as the presence-marker placeholder
+   *  `FormSubmission.buildRow`'s file-control branch validates (design.md D2). Overwrites any
+   *  entry already present at that key — a `file` field's value only ever comes from a multipart
+   *  part, never the JSON `values` body. */
+  private def foldFilePlaceholders(
+      values: Map[String, JsValue],
+      files:  Map[String, (String, Array[Byte])]
+  ): Map[String, JsValue] =
+    values ++ files.map { case (field, (filename, bytes)) =>
+      field -> JsObject(
+        "__file"    -> JsBoolean(true),
+        "filename"  -> JsString(filename),
+        "sizeBytes" -> JsNumber(bytes.length.toLong)
+      )
+    }
+
+  /** Writes every attached file's real bytes via `FileSystem.write` at `form-uploads/<uuid>.<ext>`
+   *  (design.md D3 — a UUID-named storage key, never the caller-supplied filename, closes the
+   *  path-traversal scenario by construction) and returns the real `binary-ref` JSON object
+   *  (`storageKey`, `mimeType`, `filename`, `sizeBytes`) per field, ready to substitute into
+   *  `values` for the final in-lock `buildRow`/`appendFormRow` call. Only ever invoked AFTER the
+   *  pre-lock `buildRow` pass above returned `Right` — never on a submit that phase already
+   *  rejected (C3: a rejected submit stores no file). */
+  private def storeFormFiles(files: Map[String, (String, Array[Byte])]): Future[Map[String, JsValue]] =
+    Future.traverse(files.toVector) { case (field, (filename, bytes)) =>
+      val ext        = FormUploadConfig.extensionOf(filename)
+      val storageKey = s"form-uploads/${UUID.randomUUID().toString}.$ext"
+      val mimeType   = FormUploadConfig.mimeTypeOf(filename)
+      fileSystem.write(storageKey, bytes).map { _ =>
+        field -> (JsObject(
+          "storageKey" -> JsString(storageKey),
+          "mimeType"   -> JsString(mimeType),
+          "filename"   -> JsString(filename),
+          "sizeBytes"  -> JsNumber(bytes.length.toLong)
+        ): JsValue)
+      }
+    }.map(_.toMap)
 
   /** `POST /api/panels`. Returns the inserted panel plus, for an Output
    *  panel only, the decision-15 default-size [[DashboardLayoutItem]] it was

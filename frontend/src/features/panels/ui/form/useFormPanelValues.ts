@@ -11,7 +11,9 @@ import { isFieldRequired, validateFieldValue } from "../../state/formFieldValida
 import type { DatasetFieldResponse } from "../../../sources/types/dataSource";
 import type { FormFieldSpec } from "../../types/panel";
 
-export type FormFieldValue = string | boolean;
+// HEL-1086: widened to include a `file` control's value — `File` when chosen, `null` when not
+// (never `undefined`/`""`, so `isEmptyValue`'s existing null/undefined check covers it for free).
+export type FormFieldValue = string | boolean | File | null;
 
 interface UseFormPanelValuesResult {
   values: Record<string, FormFieldValue>;
@@ -32,7 +34,9 @@ interface UseFormPanelValuesResult {
 /** A field's empty representation, per control shape (design.md's "A field is prefilled from its
  *  initial value" requirement: "unchecked for checkbox, no option chosen for select"). */
 function emptyValueFor(control: FormFieldSpec["control"]): FormFieldValue {
-  return control === "checkbox" ? false : "";
+  if (control === "checkbox") return false;
+  if (control === "file") return null;
+  return "";
 }
 
 /** Coerces a config `initialValue` (arbitrary JSON) into this hook's control-shaped value

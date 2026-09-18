@@ -263,7 +263,7 @@ final class ApiRoutes(
   // HEL-904 task 4.1: `PanelService` no longer takes `dataTypeRepo`/
   // `metricRepo` — Text/Markdown's data-bound "Source mode" and metrics are
   // both removed outright.
-  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepoOpt.orNull, dataSourceRepo, dataSourceService)
+  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepoOpt.orNull, dataSourceRepo, dataSourceService, fileSystem)
   private val proposalService   = new DashboardProposalService(dashboardService, panelService, outputRepoOpt.orNull)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // accessChecker instances the other dashboard/panel services use.
