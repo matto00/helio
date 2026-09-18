@@ -114,6 +114,10 @@ class PanelPackerSpec extends AnyWordSpec with Matchers {
     "never let width exceed cols" in {
       PanelPacker.clamp(PanelKind.Output, w = 999, h = 8, cols = 12) shouldBe (12, 8)
     }
+
+    "clamp an undersized form panel to its minW/minH floor (task 1.1)" in {
+      PanelPacker.clamp(PanelKind.Form, w = 1, h = 2, cols = 12) shouldBe (3, 5)
+    }
   }
 
   "overlap-freedom property" should {

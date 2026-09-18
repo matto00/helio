@@ -30,6 +30,9 @@ interface SelectProps {
    *  to the trigger (not present for the error's one-shot `role="alert"`
    *  announcement) still gets the association. */
   ariaDescribedBy?: string;
+  /** Marks the trigger required for assistive tech (task 2.3, mirrors
+   *  `ariaInvalid`/`ariaDescribedBy` above). */
+  ariaRequired?: boolean;
 }
 
 /** App-styled custom dropdown that replaces native <select>. Renders a button
@@ -46,6 +49,7 @@ export function Select({
   className,
   ariaInvalid,
   ariaDescribedBy,
+  ariaRequired,
 }: SelectProps) {
   const { triggerRef, panelRef, isOpen, panelPos, handleOpen, close } =
     usePortalPopover<HTMLButtonElement>();
@@ -147,6 +151,7 @@ export function Select({
         aria-label={ariaLabel}
         aria-invalid={ariaInvalid ? "true" : undefined}
         aria-describedby={ariaDescribedBy}
+        aria-required={ariaRequired ? "true" : undefined}
         disabled={disabled}
       >
         <span

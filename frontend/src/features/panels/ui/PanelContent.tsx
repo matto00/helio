@@ -25,6 +25,7 @@ import { computeAggregate } from "../../../utils/aggregate";
 import { ChartRenderer } from "./renderers/ChartRenderer";
 import { CollectionRenderer } from "./renderers/CollectionRenderer";
 import { DividerRenderer } from "./renderers/DividerRenderer";
+import { FormRenderer } from "./renderers/FormRenderer";
 import { ImageRenderer } from "./renderers/ImageRenderer";
 import { MarkdownRenderer } from "./renderers/MarkdownRenderer";
 import { MetricRenderer } from "./renderers/MetricRenderer";
@@ -316,16 +317,11 @@ export function PanelContent({
   if (isImagePanel(panel)) return <ImageRenderer panel={panel} />;
   if (isDividerPanel(panel)) return <DividerRenderer panel={panel} />;
   if (isFormPanel(panel)) {
-    // HEL-1083 design.md D10: a `form` panel has no renderer yet (HEL-1085's
-    // remit) — a neutral, unconfigured placeholder, matching the sibling
-    // "No data available" state's shape, rather than falling through to
-    // `MetricRenderer` below. The if-chain dispatcher is NOT
-    // typecheck-protected (C10), so this branch has to be enumerated by hand.
-    return (
-      <div className="panel-content panel-content--state" role="status">
-        <span className="panel-content__state-label">Form not configured</span>
-      </div>
-    );
+    // HEL-1085 design.md D1: dispatches to `FormRenderer`, which renders the
+    // "Form not configured" placeholder itself for an empty field list. The
+    // if-chain dispatcher is NOT typecheck-protected (C4), so this branch has
+    // to be enumerated by hand — proven by mutation (`PanelContent.test.tsx`).
+    return <FormRenderer panel={panel} />;
   }
 
   // Exhaustiveness fallback — this WAS unreachable when the union covered

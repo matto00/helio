@@ -616,6 +616,14 @@ describe("Image editor upload (HEL-246)", () => {
 // `isFormPanel` arm in both if-chains is what makes this pass — removing
 // either arm (mutation evidence in mutation-evidence.md) makes this red.
 describe("PanelDetailModal — form panel", () => {
+  // HEL-1085 design.md D1 — view mode already reaches `PanelContent` (`:412`), so no third
+  // if-chain arm is needed there; this proves it.
+  it("view mode renders the configured form's fields, not an empty body", async () => {
+    renderFormModal();
+    expect(await screen.findByRole("form")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton")).toBeInTheDocument();
+  });
+
   it("renders the form builder as the kind-specific section, not an empty body", async () => {
     renderFormModal();
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));

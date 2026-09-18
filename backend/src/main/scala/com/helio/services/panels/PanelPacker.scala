@@ -39,7 +39,8 @@ object PanelPacker {
   private val Bounds: Map[String, ClampBounds] = Map(
     PanelKind.Output     -> ClampBounds(minW = 4, minH = 6, maxH = 24),
     PanelKind.Image      -> ClampBounds(minW = 3, minH = 5, maxH = 24),
-    PanelKind.Markdown   -> ClampBounds(minW = 3, minH = 5, maxH = 24)
+    PanelKind.Markdown   -> ClampBounds(minW = 3, minH = 5, maxH = 24),
+    PanelKind.Form       -> ClampBounds(minW = 3, minH = 5, maxH = 24)
   )
 
   /** `_FILL_THRESHOLD` in helio-news is a fixed `7` against a fixed

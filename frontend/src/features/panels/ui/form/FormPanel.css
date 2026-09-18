@@ -1,0 +1,17 @@
+/* HEL-1085 design.md D8 — the form's own internal field stack. The scroll-affordance recipe
+   (overflow-y/scrollbar/edge-gradient) and container-query density live on `.panel-content--form`
+   itself, in `PanelContent.css` (task 3.6), alongside every other kind's variant. */
+
+.form-panel-view__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+/* `Textarea`'s default rows/min-height is tuned for a full-page composer; a form-panel field
+   needs to stay compact enough that a card with several fields doesn't force a scroll on one
+   multi-line control alone. */
+.form-panel-view__fields .ui-textarea {
+  min-height: 56px;
+}
