@@ -2,9 +2,11 @@ package com.helio.api.routes.panels
 
 import com.helio.api.routes.ServiceResponse
 import org.apache.pekko.actor.typed.ActorSystem
-import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.{Multipart, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.stream.{Materializer, SystemMaterializer}
+import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.PanelIdSegment
 import com.helio.api.protocols.panels.{FieldValidationError, FieldValidationErrorResponse, FormSubmitRequest}
@@ -13,8 +15,10 @@ import com.helio.domain.model._
 import com.helio.services.FormSubmitError
 import com.helio.services.panels.PanelService
 import com.helio.services.sources.RowWriteResult
+import spray.json._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.duration.DurationInt
 
 /** Thin HTTP shell for `/api/panels`. All validation, ACL, and patch
  *  composition lives in [[com.helio.services.PanelService]] (which absorbed
@@ -27,6 +31,7 @@ final class PanelRoutes(
     with JsonProtocols {
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
+  private implicit val mat: Materializer                         = SystemMaterializer(system).materializer
 
   /** HEL-1087 design.md D5: route-local completion for `submitForm` — NOT `ServiceResponse.run`,
    *  whose `completeError` hardcodes the generic `ErrorResponse` and has no way to thread
@@ -106,14 +111,43 @@ final class PanelRoutes(
           }
         },
         // HEL-1087: `POST /api/panels/:id/submit` — a `form` panel's submit path. Placed
-        // alongside `duplicate`, using the same `PanelIdSegment / "<segment>"` shape.
+        // alongside `duplicate`, using the same `PanelIdSegment / "<segment>"` shape. HEL-1086
+        // design.md D1: `concat` of the pre-existing JSON branch and a new multipart branch —
+        // Pekko HTTP's per-branch unmarshaller rejects on content-type mismatch and falls through
+        // to the next branch (the same mechanism `DataSourceRoutes.createMultipartUploadRoute`
+        // relies on), so no explicit `Content-Type` header switch is needed here.
         path(PanelIdSegment / "submit") { panelId =>
           post {
-            entity(as[FormSubmitRequest]) { request =>
-              completeSubmit(panelService.submitForm(panelId, request.values.fields, user))
-            }
+            concat(
+              entity(as[FormSubmitRequest]) { request =>
+                completeSubmit(panelService.submitForm(panelId, request.values.fields, user))
+              },
+              submitFormMultipartRoute(panelId)
+            )
           }
         }
       )
+    }
+
+  /** HEL-1086 design.md D1: collects a multipart `POST .../submit` body's parts once (a live
+   *  request's multipart entity can only be materialized once, mirroring
+   *  `DataSourceRoutes.createMultipartUploadRoute`'s own comment) into a `values` JSON part (the
+   *  same wire shape the JSON branch above accepts) plus zero-or-more named file parts, then
+   *  delegates to `PanelService.submitForm`'s file-attached path. */
+  private def submitFormMultipartRoute(panelId: PanelId): Route =
+    entity(as[Multipart.FormData]) { formData =>
+      val collectedF =
+        formData.parts
+          .mapAsync(1)(p => p.toStrict(60.seconds).map(s => (p.name, s.entity.data, p.filename)))
+          .runWith(Sink.seq)
+      onSuccess(collectedF) { parts =>
+        val valuesJsonOpt = parts.collectFirst { case ("values", data, _) => data.utf8String }
+        val values: Map[String, JsValue] =
+          valuesJsonOpt.map(_.parseJson.asJsObject.fields).getOrElse(Map.empty)
+        val files: Map[String, (String, Array[Byte])] = parts.collect {
+          case (name, data, Some(filename)) if name != "values" => name -> (filename, data.toArray)
+        }.toMap
+        completeSubmit(panelService.submitForm(panelId, values, user, files))
+      }
     }
 }

@@ -27,11 +27,52 @@ class FormSubmissionSpec extends AnyWordSpec with Matchers {
       result shouldBe Left(Vector(FieldError("bogus", "not part of this form")))
     }
 
-    "reject a value supplied for a `file` control" in {
+    // HEL-1086 design.md D2: `file` is a real, editable control — its supplied value is the
+    // presence-marker placeholder / real `binary-ref` object `PanelService.submitForm` folds in
+    // (both carry `filename`/`sizeBytes`), validated against `FormUploadConfig` here.
+    "accept a valid `file` placeholder (allowed extension, within size bound)" in {
       val declaration = Vector(decl("photo", DataFieldType.BinaryRefType))
       val cfg = config(field("photo", "file"))
-      val result = FormSubmission.buildRow(cfg, declaration, Map("photo" -> JsObject("id" -> JsString("x"))))
-      result shouldBe Left(Vector(FieldError("photo", "file fields are not yet supported")))
+      val placeholder = JsObject("__file" -> JsBoolean(true), "filename" -> JsString("report.pdf"), "sizeBytes" -> JsNumber(1024))
+      val result = FormSubmission.buildRow(cfg, declaration, Map("photo" -> placeholder))
+      result shouldBe Right(Vector(placeholder))
+    }
+
+    "reject a `file` placeholder with a disallowed extension, reason 'invalid'" in {
+      val declaration = Vector(decl("photo", DataFieldType.BinaryRefType))
+      val cfg = config(field("photo", "file"))
+      val placeholder = JsObject("__file" -> JsBoolean(true), "filename" -> JsString("payload.exe"), "sizeBytes" -> JsNumber(10))
+      val result = FormSubmission.buildRow(cfg, declaration, Map("photo" -> placeholder))
+      result shouldBe Left(Vector(FieldError("photo", "invalid")))
+    }
+
+    "reject an oversized `file` placeholder, reason 'invalid'" in {
+      val declaration = Vector(decl("photo", DataFieldType.BinaryRefType))
+      val cfg = config(field("photo", "file"))
+      val placeholder = JsObject("__file" -> JsBoolean(true), "filename" -> JsString("report.pdf"), "sizeBytes" -> JsNumber(FormUploadConfig.maxFileSizeBytes + 1))
+      val result = FormSubmission.buildRow(cfg, declaration, Map("photo" -> placeholder))
+      result shouldBe Left(Vector(FieldError("photo", "invalid")))
+    }
+
+    "reject a required `file` field with no attached file, reason 'required'" in {
+      val declaration = Vector(decl("photo", DataFieldType.BinaryRefType))
+      val cfg = config(field("photo", "file", required = Some(true)))
+      val result = FormSubmission.buildRow(cfg, declaration, Map.empty)
+      result shouldBe Left(Vector(FieldError("photo", "required")))
+    }
+
+    "leave an optional `file` field unsupplied without error" in {
+      val declaration = Vector(decl("photo", DataFieldType.BinaryRefType))
+      val cfg = config(field("photo", "file"))
+      val result = FormSubmission.buildRow(cfg, declaration, Map.empty)
+      result shouldBe Right(Vector(JsNull))
+    }
+
+    "reject a `file` field's placeholder missing a filename, reason 'invalid'" in {
+      val declaration = Vector(decl("photo", DataFieldType.BinaryRefType))
+      val cfg = config(field("photo", "file"))
+      val result = FormSubmission.buildRow(cfg, declaration, Map("photo" -> JsObject("sizeBytes" -> JsNumber(10))))
+      result shouldBe Left(Vector(FieldError("photo", "invalid")))
     }
 
     "reject a required, undeclared configured field even when unsupplied — reason wins over required" in {

@@ -1,9 +1,11 @@
-// HEL-1085 design.md D3/D4/D7 — maps one authored `FormFieldSpec` to the shared primitive its
-// `control` calls for, wrapped in `FormField` so name/description/error association is uniform
-// across all six controls plus the issue/`file` surfaced-but-disabled shapes (C3).
+// HEL-1085/HEL-1086 design.md D3/D4/D7 — maps one authored `FormFieldSpec` to the shared
+// primitive its `control` calls for (all seven controls, `file` included as of HEL-1086), wrapped
+// in `FormField` so name/description/error association is uniform, plus the issue-surfaced
+// disabled shape (C3).
 
 import { useId } from "react";
 
+import { FileField } from "../../../../shared/ui/FileField";
 import { FormField } from "../../../../shared/ui/FormField";
 import { Select, type SelectOption } from "../../../../shared/ui/Select";
 import { TextField } from "../../../../shared/ui/TextField";
@@ -44,26 +46,6 @@ export function FormFieldControl({
   const label = field.label ?? field.sourceField;
   const required = declared ? isFieldRequired(field, declared) : false;
   const describedBy = error ? errorId : field.helpText ? hintId : undefined;
-
-  if (field.control === "file") {
-    return (
-      <FormField
-        label={label}
-        htmlFor={controlId}
-        hint="File upload is not yet available"
-        hintId={hintId}
-      >
-        <TextField
-          id={controlId}
-          value=""
-          disabled
-          placeholder="File upload"
-          readOnly
-          aria-describedby={hintId}
-        />
-      </FormField>
-    );
-  }
 
   if (issue) {
     return (
@@ -205,6 +187,17 @@ function renderControl({
           id={controlId}
           checked={value === true}
           ariaLabel={field.label ?? field.sourceField}
+          ariaInvalid={invalid}
+          ariaDescribedBy={describedBy}
+          ariaRequired={required}
+          onChange={onChange}
+        />
+      );
+    case "file":
+      return (
+        <FileField
+          id={controlId}
+          value={value instanceof File ? value : null}
           ariaInvalid={invalid}
           ariaDescribedBy={describedBy}
           ariaRequired={required}

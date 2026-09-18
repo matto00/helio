@@ -5,13 +5,14 @@
 import { computeFormIssues } from "./formConfigValidation";
 import { isValidTypedValue, parseTypedValue } from "./formConfigValidation";
 import { isFieldRequired, validateFieldValue } from "./formFieldValidation";
+import { validateFileUpload } from "./formUploadConfig";
 import type { DatasetFieldResponse } from "../../sources/types/dataSource";
 import type { FieldValidationError, FormFieldSpec, FormPanelConfig } from "../types/panel";
 import type { FormFieldValue } from "../ui/form/useFormPanelValues";
 
-/** A non-editable field (a `file` control, or any field `computeFormIssues` flags) that blocks
- *  submit up front — either because it is required or because it currently holds a value that
- *  cannot be sent (design.md D6). */
+/** A non-editable field (any field `computeFormIssues` flags — orphaned, unfit, bad options; a
+ *  `file` control is editable as of HEL-1086) that blocks submit up front — either because it is
+ *  required or because it currently holds a value that cannot be sent (design.md D6). */
 export interface SubmitBlock {
   field: string;
   message: string;
@@ -27,21 +28,20 @@ export interface ValidateForSubmitResult {
 }
 
 /** Whether `value` counts as a genuinely HELD value for a non-editable field's "holds a value
- *  that cannot be sent" check — a `checkbox`'s `true`, or any other control's non-empty/
- *  non-whitespace string. Mirrors `formFieldValidation.ts`'s `isEmptyValue`, inverted, since that
- *  helper is not exported (kept private to its own module's blur-time concern). */
+ *  that cannot be sent" check — a `checkbox`'s `true`, a `file` control's chosen `File`, or any
+ *  other control's non-empty/non-whitespace string. Mirrors `formFieldValidation.ts`'s
+ *  `isEmptyValue`, inverted, since that helper is not exported (kept private to its own module's
+ *  blur-time concern). */
 function holdsValue(control: FormFieldSpec["control"], value: FormFieldValue): boolean {
   if (control === "checkbox") return value === true;
+  if (control === "file") return value instanceof File;
   return typeof value === "string" && value.trim() !== "";
 }
 
-/** The human-readable reason a non-editable field cannot be entered/sent — the two D6 example
- *  wordings ("file upload is not yet available" for a `file` control; the `computeFormIssues`
- *  message otherwise). */
-function nonEditableReason(field: FormFieldSpec, issue: string | undefined): string {
-  return field.control === "file"
-    ? "file upload is not yet available"
-    : (issue ?? "it cannot be sent");
+/** The human-readable reason a non-editable field cannot be entered/sent (design.md D6/D8 — the
+ *  `computeFormIssues` message; `file` is editable as of HEL-1086, so it never reaches here). */
+function nonEditableReason(_field: FormFieldSpec, issue: string | undefined): string {
+  return issue ?? "it cannot be sent";
 }
 
 /** Validates one EDITABLE field's current value against the form's rules and the dataset's
@@ -59,6 +59,18 @@ function validateEditableField(
   if (baseError) return baseError;
 
   const label = field.label ?? field.sourceField;
+
+  // HEL-1086 design.md D6/spec: a `file` field's extension/size are checked here, mirroring the
+  // server's `FormUploadConfig` rules, once `baseError` above has already cleared the
+  // required/empty check (an absent, optional file has nothing further to validate).
+  if (field.control === "file") {
+    if (value instanceof File) {
+      const reason = validateFileUpload(value);
+      if (reason) return `${label}: ${reason}`;
+    }
+    return null;
+  }
+
   const stringValue = typeof value === "string" ? value : "";
   const nonEmpty = stringValue.trim() !== "";
 
@@ -107,7 +119,9 @@ export function validateForSubmit(
   for (const field of config.fields) {
     const issue = issuesByField.get(field.sourceField);
     const declared = declaredByField.get(field.sourceField);
-    const nonEditable = field.control === "file" || issue !== undefined;
+    // HEL-1086: `file` is editable as of this ticket — only an `issue`-flagged field (orphaned,
+    // unfit, bad options) is non-editable now.
+    const nonEditable = issue !== undefined;
     const value = values[field.sourceField];
     const label = field.label ?? field.sourceField;
 
@@ -140,9 +154,11 @@ export function validateForSubmit(
 /** Shapes `values` into the typed JSON payload the submit request sends — `select` resolves the
  *  typed option by matching its `String()` key (first match wins), `checkbox` sends the boolean,
  *  an empty/whitespace string is omitted (the server treats it as not-supplied anyway, D3), and a
- *  `file`/non-editable (`computeFormIssues`-flagged) field is NEVER sent, regardless of what it
- *  holds — `validateForSubmit` above is what blocks a submit that would otherwise silently drop a
- *  held value (C3). */
+ *  `file`/non-editable (`computeFormIssues`-flagged) field is NEVER sent here — a `file` field's
+ *  chosen `File` travels as its own multipart part instead (see `buildSubmitFiles` below;
+ *  `panelService.submitFormPanel` sends this JSON payload as the multipart body's `values` part
+ *  alongside it when any file is attached, design.md D5). `validateForSubmit` above is what blocks
+ *  a submit that would otherwise silently drop a held value (C3). */
 export function buildSubmitValues(
   config: FormPanelConfig,
   schema: DatasetFieldResponse[],
@@ -184,6 +200,30 @@ export function buildSubmitValues(
   return result;
 }
 
+/** HEL-1086 design.md D5: the `sourceField -> File` map for every editable, declared `file` field
+ *  currently holding a chosen file — `panelService.submitFormPanel` sends plain JSON when this is
+ *  empty (zero behavior change for every existing non-file form), and multipart only when it
+ *  holds at least one entry. */
+export function buildSubmitFiles(
+  config: FormPanelConfig,
+  schema: DatasetFieldResponse[],
+  values: Record<string, FormFieldValue>,
+): Record<string, File> {
+  const issues = computeFormIssues(config, schema);
+  const issuesByField = new Map(issues.map((i) => [i.field, i.message]));
+  const declaredByField = new Map(schema.map((f) => [f.name, f]));
+
+  const result: Record<string, File> = {};
+  for (const field of config.fields) {
+    if (field.control !== "file") continue;
+    if (issuesByField.has(field.sourceField)) continue;
+    if (!declaredByField.get(field.sourceField)) continue;
+    const value = values[field.sourceField];
+    if (value instanceof File) result[field.sourceField] = value;
+  }
+  return result;
+}
+
 export interface MappedServerErrors {
   /** Per-editable-field message, associated with that RENDERED control's `aria-invalid`/
    *  `aria-describedby`. */
@@ -216,8 +256,7 @@ export function mapServerFieldErrors(
     const label = field?.label ?? err.field;
     const message = err.reason === "required" ? `${label} is required` : `${label}: ${err.reason}`;
 
-    const editable =
-      field !== undefined && field.control !== "file" && !issuesByField.has(err.field);
+    const editable = field !== undefined && !issuesByField.has(err.field);
     if (editable) {
       fieldMessages[err.field] = message;
     } else {

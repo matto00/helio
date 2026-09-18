@@ -1,12 +1,21 @@
-// HEL-1087 tasks.md 3.4 — unit coverage for `validateForSubmit`, `buildSubmitValues`, and
-// `mapServerFieldErrors` (design.md D6).
+// HEL-1087/HEL-1086 tasks.md 3.4 — unit coverage for `validateForSubmit`, `buildSubmitValues`,
+// `buildSubmitFiles`, and `mapServerFieldErrors` (design.md D6).
 
-import { buildSubmitValues, mapServerFieldErrors, validateForSubmit } from "./formSubmission";
+import {
+  buildSubmitFiles,
+  buildSubmitValues,
+  mapServerFieldErrors,
+  validateForSubmit,
+} from "./formSubmission";
 import type { DatasetFieldResponse } from "../../sources/types/dataSource";
 import type { FieldValidationError, FormFieldSpec, FormPanelConfig } from "../types/panel";
 
 function config(fields: FormFieldSpec[]): FormPanelConfig {
   return { dataSourceId: "ds-1", fields, submit: { writeMode: "append" } };
+}
+
+function makeFile(name: string, sizeBytes = 10): File {
+  return new File([new Uint8Array(sizeBytes)], name);
 }
 
 const schema: DatasetFieldResponse[] = [
@@ -15,6 +24,7 @@ const schema: DatasetFieldResponse[] = [
   { name: "when", type: "timestamp", required: false },
   { name: "status", type: "string", required: false },
   { name: "active", type: "boolean", required: false },
+  { name: "photo", type: "binary-ref", required: false },
 ];
 
 describe("validateForSubmit", () => {
@@ -91,17 +101,36 @@ describe("validateForSubmit", () => {
     expect(result.blocks[0].field).toBe("ghost");
   });
 
-  it("a required file field blocks with a form-level summary naming the reason", () => {
+  it("a required file field left empty is a field error, not a block (HEL-1086: file is editable)", () => {
     const field: FormFieldSpec = {
       sourceField: "photo",
       control: "file",
       label: "Photo",
       required: true,
     };
-    const result = validateForSubmit(config([field]), schema, { photo: "" });
-    expect(result.blocks).toEqual([
-      { field: "photo", message: "Photo is required but file upload is not yet available" },
-    ]);
+    const result = validateForSubmit(config([field]), schema, { photo: null });
+    expect(result.fieldErrors.photo).toBe("Photo is required");
+    expect(result.blocks).toEqual([]);
+  });
+
+  it("an oversized attached file is a field error naming the reason", () => {
+    const field: FormFieldSpec = { sourceField: "photo", control: "file", label: "Photo" };
+    const oversized = makeFile("big.pdf", 20 * 1024 * 1024);
+    const result = validateForSubmit(config([field]), schema, { photo: oversized });
+    expect(result.fieldErrors.photo).toMatch(/exceeds the maximum/);
+  });
+
+  it("a disallowed extension is a field error naming the reason", () => {
+    const field: FormFieldSpec = { sourceField: "photo", control: "file", label: "Photo" };
+    const badExt = makeFile("payload.exe");
+    const result = validateForSubmit(config([field]), schema, { photo: badExt });
+    expect(result.fieldErrors.photo).toMatch(/[Uu]nsupported file extension/);
+  });
+
+  it("a valid attached file is not a field error", () => {
+    const field: FormFieldSpec = { sourceField: "photo", control: "file", label: "Photo" };
+    const result = validateForSubmit(config([field]), schema, { photo: makeFile("report.pdf") });
+    expect(result.fieldErrors.photo).toBeUndefined();
   });
 
   it("a required (undeclared, form-only) issue field blocks with a form-level summary", () => {
@@ -116,9 +145,9 @@ describe("validateForSubmit", () => {
     expect(result.blocks[0].message).toContain("Ghost is required but");
   });
 
-  it("an optional non-editable field holding no value is skipped (no error, no block)", () => {
+  it("an optional file field holding no value is skipped (no error, no block)", () => {
     const field: FormFieldSpec = { sourceField: "photo", control: "file", label: "Photo" };
-    const result = validateForSubmit(config([field]), schema, { photo: "" });
+    const result = validateForSubmit(config([field]), schema, { photo: null });
     expect(result.fieldErrors).toEqual({});
     expect(result.blocks).toEqual([]);
   });
@@ -154,15 +183,42 @@ describe("buildSubmitValues", () => {
     expect(buildSubmitValues(config(fields), schema, { active: false })).toEqual({ active: false });
   });
 
-  it("never sends a file field", () => {
+  it("never sends a file field in the JSON values payload (it travels as its own multipart part)", () => {
     const fields: FormFieldSpec[] = [{ sourceField: "photo", control: "file" }];
-    const result = buildSubmitValues(config(fields), schema, { photo: "anything" });
+    const result = buildSubmitValues(config(fields), schema, { photo: makeFile("report.pdf") });
     expect(result).toEqual({});
   });
 
   it("never sends a non-editable (issue) field", () => {
     const fields: FormFieldSpec[] = [{ sourceField: "ghost", control: "text" }];
     const result = buildSubmitValues(config(fields), schema, { ghost: "value" });
+    expect(result).toEqual({});
+  });
+});
+
+describe("buildSubmitFiles", () => {
+  it("includes a declared, fitting file field currently holding a chosen file", () => {
+    const fields: FormFieldSpec[] = [{ sourceField: "photo", control: "file" }];
+    const file = makeFile("report.pdf");
+    const result = buildSubmitFiles(config(fields), schema, { photo: file });
+    expect(result).toEqual({ photo: file });
+  });
+
+  it("omits a file field holding no chosen file", () => {
+    const fields: FormFieldSpec[] = [{ sourceField: "photo", control: "file" }];
+    const result = buildSubmitFiles(config(fields), schema, { photo: null });
+    expect(result).toEqual({});
+  });
+
+  it("omits an orphaned (undeclared) file field even when it holds a chosen file", () => {
+    const fields: FormFieldSpec[] = [{ sourceField: "missing", control: "file" }];
+    const result = buildSubmitFiles(config(fields), schema, { missing: makeFile("report.pdf") });
+    expect(result).toEqual({});
+  });
+
+  it("never includes a non-file field", () => {
+    const fields: FormFieldSpec[] = [{ sourceField: "note", control: "text" }];
+    const result = buildSubmitFiles(config(fields), schema, { note: "hello" });
     expect(result).toEqual({});
   });
 });
@@ -194,13 +250,11 @@ describe("mapServerFieldErrors", () => {
     expect(result.summaryLines).toEqual(["bogus: not part of this form"]);
   });
 
-  it("puts an error naming a file field into the summary, not fieldMessages", () => {
+  it("associates a file field's server error with its rendered control (HEL-1086: file is editable)", () => {
     const fields: FormFieldSpec[] = [{ sourceField: "photo", control: "file", label: "Photo" }];
-    const errors: FieldValidationError[] = [
-      { field: "photo", reason: "file fields are not yet supported" },
-    ];
+    const errors: FieldValidationError[] = [{ field: "photo", reason: "invalid" }];
     const result = mapServerFieldErrors(config(fields), schema, errors);
-    expect(result.fieldMessages).toEqual({});
-    expect(result.summaryLines).toEqual(["Photo: file fields are not yet supported"]);
+    expect(result.fieldMessages.photo).toBe("Photo: invalid");
+    expect(result.summaryLines).toEqual([]);
   });
 });

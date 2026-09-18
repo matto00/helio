@@ -6,10 +6,13 @@ import type { DatasetFieldResponse } from "../../sources/types/dataSource";
 import type { FormFieldSpec } from "../types/panel";
 
 /** Whether `value` counts as "empty" for the required-field check, per control shape — a
- *  `checkbox`'s `false` is a real, present value (never "empty"); every other control's empty
- *  representation is an empty/whitespace-only string, `undefined`, or `null`. */
+ *  `checkbox`'s `false` is a real, present value (never "empty"); a `file` control's empty
+ *  representation is `null` (no `File` chosen — a chosen `File` is always a real, present value,
+ *  HEL-1086); every other control's empty representation is an empty/whitespace-only string,
+ *  `undefined`, or `null`. */
 function isEmptyValue(control: FormFieldSpec["control"], value: unknown): boolean {
   if (control === "checkbox") return false;
+  if (control === "file") return !(value instanceof File);
   if (value === undefined || value === null) return true;
   return typeof value === "string" && value.trim() === "";
 }

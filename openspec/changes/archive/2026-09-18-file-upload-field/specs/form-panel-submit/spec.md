@@ -1,31 +1,4 @@
-# form-panel-submit Specification
-
-## Purpose
-Defines how a `form` panel's input becomes one appended dataset row: the panel-scoped submit API, the server-side
-enforcement of the form's own rules and of the dataset's declared schema, the error shape a client can act on, and
-the panel's submit-time behaviour — its states, preserved input on rejection, and assistive-technology announcements.
-
-## Requirements
-
-### Requirement: A configured form panel exposes a submit affordance
-
-A `form` panel with at least one field SHALL render one submit button, labelled with the config's `submit.label` or
-"Submit" when none is configured, reachable by keyboard after the last field. Pressing Enter inside a single-line
-text-entry control SHALL submit the form; Enter inside a multi-line control SHALL insert a line break and SHALL NOT
-submit. While a submit is in flight the button SHALL be disabled and SHALL indicate that state, so a second activation
-cannot start a second write.
-
-#### Scenario: Default label
-- **WHEN** a form panel's config has no `submit.label`
-- **THEN** the submit button's accessible name is "Submit"
-
-#### Scenario: Enter in a single-line field submits
-- **WHEN** the user presses Enter inside a `text` field of a valid form
-- **THEN** one submit request is sent
-
-#### Scenario: No double submit
-- **WHEN** the submit button is activated twice while the first request is still pending
-- **THEN** only one request is sent
+## MODIFIED Requirements
 
 ### Requirement: Submit-time client validation blocks a request the declared schema would reject
 
@@ -78,27 +51,6 @@ validation is a convenience; the server enforces the same rules independently.
   longer valid values, the control still holds the previously chosen value, and the user submits
 - **THEN** no request is sent, the assertive region names the field and says its value cannot be sent, no control is
   marked invalid, and the submit button remains the focused element
-
-### Requirement: A submit appends exactly one row to the panel's bound source through a panel-scoped API
-
-The system SHALL expose `POST /api/panels/:id/submit` accepting `{"values": {"<sourceField>": <value>}}` for a
-`form` panel. A successful submit SHALL append exactly one row to the source the panel is bound to and SHALL respond
-`201 Created` with that row's identity (`id`, `seq`, `updatedAt`). The write target SHALL be the panel's persisted
-binding only: the request SHALL NOT be able to name a source, and a request body carrying any key other than
-`values` SHALL be rejected with `400`. Fields the form does not configure SHALL be written as absent, so the dataset's
-declared default (or declared requirement) applies.
-
-#### Scenario: One row lands on the bound source only
-- **WHEN** a valid submit is made for a panel bound to source A while source B also exists
-- **THEN** source A has exactly one more row and source B is unchanged
-
-#### Scenario: A request cannot redirect the write
-- **WHEN** the request body is `{"values": {...}, "dataSourceId": "<other source>"}`
-- **THEN** the response is `400` and no source is modified
-
-#### Scenario: Unconfigured declared field takes its default
-- **WHEN** the dataset declares `status` with a default and the form has no `status` field
-- **THEN** the appended row holds the declared default for `status`
 
 ### Requirement: The server enforces the form's rules and the declared schema, writing nothing on rejection
 
@@ -168,92 +120,7 @@ human-readable `message`.
 - **THEN** the response is `400` with a field error with reason `invalid`, no file is written to the uploads
   backend, and the row count is unchanged
 
-### Requirement: Only a caller who can see the panel and owns its source may submit
-
-`POST /api/panels/:id/submit` SHALL respond `404` when the panel is not visible to the caller, `400` when the panel is
-not a `form` panel, `403` when the panel is visible but the caller is not its owner, and `404` when the owner's bound
-source no longer exists, is not the caller's, or the config carries no binding. No row SHALL be written in any of
-these cases.
-
-#### Scenario: Grantee cannot write the owner's source
-- **WHEN** a user who has been granted access to the dashboard but does not own the panel submits
-- **THEN** the response is `403` and the source is unchanged
-
-#### Scenario: Deleted bound source is reported as not found
-- **WHEN** the owner submits to a form panel whose bound source has since been deleted
-- **THEN** the response is `404` and nothing is written
-
-#### Scenario: Non-form panel is rejected
-- **WHEN** the panel id names a `text` panel
-- **THEN** the response is `400`
-
-### Requirement: A rejected submit preserves the user's input
-
-When a submit is rejected — by client-side validation, by a `400` with field errors, by any other error response, or
-by a transport failure — every field SHALL keep the value the user entered. The form SHALL NOT be reset on any
-rejection.
-
-#### Scenario: Server field error keeps values
-- **WHEN** the server rejects a submit with a field error for one field
-- **THEN** every control, including the rejected one, still holds the value the user entered
-
-#### Scenario: Network failure keeps values
-- **WHEN** the submit request fails without a response
-- **THEN** every control still holds the value the user entered
-
-### Requirement: Every outcome is announced to assistive technology and errors are associated with their field
-
-The form SHALL contain live regions that exist before any submit: an assertive region for failures and a polite
-region for success. A rejection SHALL set the assertive region's text to a summary of what failed (or the transport
-failure) and SHALL mark each rejected rendered editable control invalid with its error as its computed accessible
-description. When at least one rendered editable control is rejected, focus SHALL move to the first such control;
-when none is — every error names a field the form does not render or renders non-editably, or the failure is not
-field-level — focus SHALL remain on the submit button and the summary SHALL name each such field. A success SHALL
-set the polite region's text. Regions SHALL be emptied when the next attempt starts. These properties SHALL be
-asserted by the regions' computed roles, their
-text after the outcome, the control's computed ARIA state, and the focused element — never by the presence of an
-alert node.
-
-#### Scenario: Asynchronous server rejection is announced and associated
-- **WHEN** the server rejects a submit with a field error for `quantity`
-- **THEN** the assertive region's text names the failure, the `quantity` control is marked invalid with the error as
-  its description, and it is the focused element
-
-#### Scenario: Rejection of an unrendered field keeps focus on the submit button
-- **WHEN** the only field error names a declared-required column the form does not render
-- **THEN** the assertive region's text names that column, no control is marked invalid, and the submit button is the
-  focused element
-
-#### Scenario: Transport failure is announced
-- **WHEN** the submit request fails without a response
-- **THEN** the assertive region's text says the submit could not be completed and invites a retry
-
-#### Scenario: Success is announced
-- **WHEN** a submit succeeds
-- **THEN** the polite region's text says the row was added and focus remains on the submit button
-
-### Requirement: A successful submit resets the form unless configured not to
-
-After a `201` response the form SHALL return every field to its initial state (prefill or empty) unless
-`submit.resetOnSuccess` is `false`, in which case the entered values SHALL remain.
-
-#### Scenario: Default resets
-- **WHEN** `submit.resetOnSuccess` is absent and a submit succeeds
-- **THEN** every field is back to its initial value
-
-#### Scenario: Opt-out keeps values
-- **WHEN** `submit.resetOnSuccess` is `false` and a submit succeeds
-- **THEN** every field still holds the submitted value
-
-### Requirement: A transport or non-field failure is surfaced as a retryable error state
-
-When the submit request fails without a response, or the response is an error without field errors, the form SHALL
-show the response's message when one is present and a generic could-not-submit message otherwise, in the assertive
-region, and SHALL leave the submit button enabled so the user can retry.
-
-#### Scenario: Row-count bound is surfaced
-- **WHEN** the server rejects because the source is at its row-count bound
-- **THEN** the assertive region shows the server's message and the submit button is enabled
+## ADDED Requirements
 
 ### Requirement: An accepted file is stored through the configured uploads backend and referenced as a `binary-ref` cell
 

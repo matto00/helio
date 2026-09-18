@@ -142,16 +142,51 @@ describe("FormFieldControl", () => {
     expect(onBlur).toHaveBeenCalled();
   });
 
-  it("file control is surfaced disabled with a not-yet-available note as its description", () => {
+  it("file control has a computed accessible name (HEL-1086)", () => {
     const field: FormFieldSpec = {
       sourceField: "attachment",
       control: "file",
       label: "Attachment",
     };
-    render(<Harness field={field} />);
-    const control = screen.getByLabelText("Attachment");
-    expect(control).toBeDisabled();
-    expect(control).toHaveAccessibleDescription("File upload is not yet available");
+    render(
+      <Harness
+        field={field}
+        declared={{ name: "attachment", type: "binary-ref", required: false }}
+      />,
+    );
+    expect(screen.getByLabelText("Attachment")).not.toBeDisabled();
+  });
+
+  it("file control's initial visible state is 'no file selected'", () => {
+    const field: FormFieldSpec = {
+      sourceField: "attachment",
+      control: "file",
+      label: "Attachment",
+    };
+    render(
+      <Harness
+        field={field}
+        declared={{ name: "attachment", type: "binary-ref", required: false }}
+      />,
+    );
+    expect(screen.getByLabelText("Attachment")).toHaveAccessibleDescription("No file selected");
+  });
+
+  it("selecting a file updates the visible/exposed selected-file state", () => {
+    const field: FormFieldSpec = {
+      sourceField: "attachment",
+      control: "file",
+      label: "Attachment",
+    };
+    const file = new File(["contents"], "report.pdf", { type: "application/pdf" });
+    render(
+      <Harness
+        field={field}
+        declared={{ name: "attachment", type: "binary-ref", required: false }}
+        initialValue={file}
+      />,
+    );
+    expect(screen.getByLabelText("Attachment")).toHaveAccessibleDescription("report.pdf");
   });
 
   it("orphaned field is surfaced disabled with the issue as its description", () => {

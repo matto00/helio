@@ -5,7 +5,7 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
-import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity}
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, Multipart}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.http.{AuthDirectives, SessionCookies}
@@ -75,8 +75,15 @@ class FormSubmitRoutesSpec
       })
   }
 
+  // HEL-1086 tasks.md 3.1/3.2: records every `write` call so a test can assert "no file written"
+  // (C3) by before/after count, without a real FileSystem backend.
+  private val writtenPaths = scala.collection.mutable.ArrayBuffer.empty[String]
+
   private val stubFileSystem: FileSystem = new FileSystem {
-    def write(path: String, bytes: Array[Byte]): Future[Unit]                                   = Future.successful(())
+    def write(path: String, bytes: Array[Byte]): Future[Unit] = {
+      writtenPaths.synchronized(writtenPaths += path)
+      Future.successful(())
+    }
     def read(path: String): Future[Array[Byte]]                                                 = Future.successful(Array.empty)
     def delete(path: String): Future[Unit]                                                       = Future.successful(())
     def exists(path: String): Future[Boolean]                                                    = Future.successful(false)
@@ -192,6 +199,24 @@ class FormSubmitRoutesSpec
 
   private def submit(panelId: String, body: String, token: String = ownerToken) =
     Post(s"/api/panels/$panelId/submit", json(body)).addHeader(sessionCookie(token)).addHeader(csrfHeader)
+
+  // HEL-1086 tasks.md 3.1/3.2: builds the multipart body `PanelRoutes.submitFormMultipartRoute`
+  // expects — one `values` part (the same JSON shape the plain-JSON `submit` helper sends) plus
+  // one file part per `(fieldName, filename, bytes)` triple, named by its `sourceField`.
+  private def submitMultipart(
+      panelId: String,
+      valuesJson: String,
+      files: Seq[(String, String, Array[Byte])],
+      token: String = ownerToken
+  ) = {
+    val fileParts = files.map { case (fieldName, filename, bytes) =>
+      Multipart.FormData.BodyPart.Strict(fieldName, HttpEntity(bytes), Map("filename" -> filename))
+    }
+    val formData = Multipart.FormData(
+      Multipart.FormData.BodyPart.Strict("values", HttpEntity(ContentTypes.`text/plain(UTF-8)`, valuesJson)) +: fileParts: _*
+    )
+    Post(s"/api/panels/$panelId/submit", formData).addHeader(sessionCookie(token)).addHeader(csrfHeader)
+  }
 
   private val validFieldsJson =
     """[{"sourceField":"quantity","control":"number","required":true},
@@ -432,6 +457,163 @@ class FormSubmitRoutesSpec
       submit(panelId, """{"values":{}}""") ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
       }
+    }
+  }
+
+  // HEL-1086 tasks.md 3.1/3.2: file-field coverage — a declared `photo` (`binary-ref`) field
+  // alongside the shared `quantity`/`note`/`status` schema above.
+  private val fileSchemaJson =
+    """[{"name":"quantity","type":"integer","required":true},
+      | {"name":"note","type":"string","required":false},
+      | {"name":"photo","type":"binary-ref","required":false}]"""
+      .stripMargin.replaceAll("\n", "")
+
+  private val fileFieldsJson =
+    """[{"sourceField":"quantity","control":"number","required":true},
+      | {"sourceField":"note","control":"text"},
+      | {"sourceField":"photo","control":"file"}]""".stripMargin
+
+  private val requiredFileFieldsJson =
+    """[{"sourceField":"quantity","control":"number","required":true},
+      | {"sourceField":"note","control":"text"},
+      | {"sourceField":"photo","control":"file","required":true}]""".stripMargin
+
+  "POST /api/panels/:id/submit — file fields (HEL-1086)" should {
+    "store an attached file on local backend and write a resolvable binary-ref cell" in {
+      val before = writtenPaths.size
+      val src = seedDataset(ownerId, "src-file-ok", schemaJson = fileSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, formConfig(fileFieldsJson).replace("__DS__", src))
+
+      submitMultipart(
+        panelId,
+        """{"quantity":3,"note":"hello"}""",
+        Seq(("photo", "report.pdf", "file bytes".getBytes("UTF-8")))
+      ) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      rowCount(src) shouldBe 1
+      writtenPaths.size shouldBe (before + 1)
+      writtenPaths.last should startWith("form-uploads/")
+      writtenPaths.last should endWith(".pdf")
+
+      val row = await(ctx.withSystemContext(
+        sql"""SELECT data FROM dataset_rows WHERE data_source_id = $src""".as[String].head
+      )).parseJson.convertTo[Vector[JsValue]]
+      val photoCell = row(2).asJsObject
+      photoCell.fields("storageKey") shouldBe JsString(writtenPaths.last)
+      photoCell.fields("filename") shouldBe JsString("report.pdf")
+    }
+
+    "never let the submitted filename become the storage key (path-traversal safe)" in {
+      val src = seedDataset(ownerId, "src-file-traversal", schemaJson = fileSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, formConfig(fileFieldsJson).replace("__DS__", src))
+
+      submitMultipart(
+        panelId,
+        """{"quantity":3,"note":"hello"}""",
+        Seq(("photo", "../../etc/passwd.txt", "x".getBytes("UTF-8")))
+      ) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      val row = await(ctx.withSystemContext(
+        sql"""SELECT data FROM dataset_rows WHERE data_source_id = $src""".as[String].head
+      )).parseJson.convertTo[Vector[JsValue]]
+      val storageKey = row(2).asJsObject.fields("storageKey").convertTo[String]
+      storageKey should startWith("form-uploads/")
+      storageKey should not include ".."
+      storageKey should not include "/etc/"
+    }
+
+    "reject a required file field with no attached file, writing nothing" in {
+      val before = writtenPaths.size
+      val src = seedDataset(ownerId, "src-file-required", schemaJson = fileSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, formConfig(requiredFileFieldsJson).replace("__DS__", src))
+
+      submit(panelId, """{"values":{"quantity":3,"note":"hello"}}""") ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        val fieldErrors = responseAs[String].parseJson.asJsObject.fields("fieldErrors").convertTo[Vector[JsValue]].map(_.asJsObject)
+        fieldErrors.exists(e => e.fields("field") == JsString("photo") && e.fields("reason") == JsString("required")) shouldBe true
+      }
+      rowCount(src) shouldBe 0
+      writtenPaths.size shouldBe before
+    }
+
+    "reject a disallowed file extension, writing nothing" in {
+      val before = writtenPaths.size
+      val src = seedDataset(ownerId, "src-file-badext", schemaJson = fileSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, formConfig(fileFieldsJson).replace("__DS__", src))
+
+      submitMultipart(
+        panelId,
+        """{"quantity":3,"note":"hello"}""",
+        Seq(("photo", "payload.exe", "x".getBytes("UTF-8")))
+      ) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        val fieldErrors = responseAs[String].parseJson.asJsObject.fields("fieldErrors").convertTo[Vector[JsValue]].map(_.asJsObject)
+        fieldErrors.exists(e => e.fields("field") == JsString("photo") && e.fields("reason") == JsString("invalid")) shouldBe true
+      }
+      rowCount(src) shouldBe 0
+      writtenPaths.size shouldBe before
+    }
+
+    "reject an oversized file, writing nothing" in {
+      val before = writtenPaths.size
+      val src = seedDataset(ownerId, "src-file-toobig", schemaJson = fileSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, formConfig(fileFieldsJson).replace("__DS__", src))
+      val oversized = new Array[Byte](10485760 + 1)
+
+      submitMultipart(
+        panelId,
+        """{"quantity":3,"note":"hello"}""",
+        Seq(("photo", "report.pdf", oversized))
+      ) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        val fieldErrors = responseAs[String].parseJson.asJsObject.fields("fieldErrors").convertTo[Vector[JsValue]].map(_.asJsObject)
+        fieldErrors.exists(e => e.fields("field") == JsString("photo") && e.fields("reason") == JsString("invalid")) shouldBe true
+      }
+      rowCount(src) shouldBe 0
+      writtenPaths.size shouldBe before
+    }
+
+    // C3/design.md "A rejected submit stores no file": the file itself is valid, but a SIBLING
+    // field (the form-tightened-required `note`, missing here) fails — no file write must happen.
+    "never write a valid attached file when a sibling field fails (C3)" in {
+      val before = writtenPaths.size
+      val src = seedDataset(ownerId, "src-file-sibling-fails", schemaJson = fileSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val requiredNoteFields =
+        """[{"sourceField":"quantity","control":"number","required":true},
+          | {"sourceField":"note","control":"text","required":true},
+          | {"sourceField":"photo","control":"file"}]""".stripMargin
+      val panelId = seedFormPanel(dashboardId, ownerId, formConfig(requiredNoteFields).replace("__DS__", src))
+
+      submitMultipart(
+        panelId,
+        """{"quantity":3}""",
+        Seq(("photo", "report.pdf", "file bytes".getBytes("UTF-8")))
+      ) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        val fieldErrors = responseAs[String].parseJson.asJsObject.fields("fieldErrors").convertTo[Vector[JsValue]].map(_.asJsObject)
+        fieldErrors.exists(e => e.fields("field") == JsString("note") && e.fields("reason") == JsString("required")) shouldBe true
+      }
+      rowCount(src) shouldBe 0
+      writtenPaths.size shouldBe before
+    }
+
+    "leave an optional file field unsupplied without error" in {
+      val src = seedDataset(ownerId, "src-file-optional-empty", schemaJson = fileSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, formConfig(fileFieldsJson).replace("__DS__", src))
+
+      submit(panelId, """{"values":{"quantity":3,"note":"hello"}}""") ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      rowCount(src) shouldBe 1
     }
   }
 }

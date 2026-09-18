@@ -99,7 +99,44 @@ describe("FormPanelView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() =>
-      expect(submitFormPanelMock).toHaveBeenCalledWith("panel-1", { note: "hello", quantity: 3 }),
+      expect(submitFormPanelMock).toHaveBeenCalledWith(
+        "panel-1",
+        { note: "hello", quantity: 3 },
+        {},
+      ),
+    );
+  });
+
+  it("HEL-1086: submits an attached file alongside typed values via the multipart path", async () => {
+    const fileConfig: FormPanelConfig = {
+      dataSourceId: "ds-1",
+      fields: [
+        { sourceField: "note", control: "text", label: "Note" },
+        { sourceField: "attachment", control: "file", label: "Attachment" },
+      ],
+      submit: { writeMode: "append" },
+    };
+    const fileSchemaFields = [
+      { name: "note", type: "string" as const, required: false },
+      { name: "attachment", type: "binary-ref" as const, required: false },
+    ];
+    fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: fileSchemaFields });
+    submitFormPanelMock.mockResolvedValueOnce({
+      rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
+      updatedAt: "now",
+    });
+    render(<FormPanelView title="My form" panelId="panel-1" config={fileConfig} />);
+    await screen.findByRole("form", { name: "My form" });
+
+    const file = new File(["contents"], "report.pdf", { type: "application/pdf" });
+    const fileInput = screen.getByLabelText("Attachment");
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    expect(fileInput).toHaveAccessibleDescription("report.pdf");
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() =>
+      expect(submitFormPanelMock).toHaveBeenCalledWith("panel-1", {}, { attachment: file }),
     );
   });
 
