@@ -16,5 +16,5 @@ export function FormRenderer({ panel }: FormRendererProps) {
       </div>
     );
   }
-  return <FormPanelView title={panel.title} config={panel.config} />;
+  return <FormPanelView title={panel.title} panelId={panel.id} config={panel.config} />;
 }

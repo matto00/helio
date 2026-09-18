@@ -114,9 +114,23 @@ object DatasetRowValidator {
     else Right(perRow.map(_.getOrElse(Vector.empty)))
   }
 
-  private def validateRow(declaration: Vector[DatasetFieldDeclaration], row: Vector[JsValue], rowIndex: Int): RowResult = {
+  /** Structured, unrendered outcome of validating one row: either a positional row-length
+   *  mismatch or a set of field-level failures — never a rendered message (HEL-1087 tasks.md
+   *  1.1). */
+  sealed trait RowFailure
+  final case class RowLengthFailure(expected: Int, actual: Int) extends RowFailure
+  final case class RowFieldFailures(errors: Vector[FieldError]) extends RowFailure
+
+  /** Public structured single-row entry point (HEL-1087 tasks.md 1.1): the SAME per-field
+   *  acceptance/required/default logic `validateRow` used to run inline, now the single
+   *  implementation both `validateRow` (below, rendering into the pinned `"; "`-joined string
+   *  format) and `FormSubmission.buildRow` (HEL-1087 design.md D3 step viii, which needs
+   *  structured `FieldError`s, not a rendered string) call through. Behaviour-preserving: every
+   *  existing `DatasetRowValidatorSpec` message assertion is unchanged because `validateRow`
+   *  renders this exact same outcome the same way it always did. */
+  def validateRowStructured(declaration: Vector[DatasetFieldDeclaration], row: Vector[JsValue]): Either[RowFailure, Vector[JsValue]] =
     if (row.size > declaration.size) {
-      Left(renderRowFailures(rowIndex, Vector.empty, Some(RowLengthError(declaration.size, row.size))))
+      Left(RowLengthFailure(declaration.size, row.size))
     } else {
       val results = declaration.zipWithIndex.map { case (field, i) =>
         val raw     = row.lift(i).getOrElse(JsNull)
@@ -136,8 +150,16 @@ object DatasetRowValidator {
         }
       }
       val errors = results.collect { case Left(e) => e }
-      if (errors.nonEmpty) Left(renderRowFailures(rowIndex, errors, None))
+      if (errors.nonEmpty) Left(RowFieldFailures(errors))
       else Right(results.collect { case Right(v) => v })
     }
-  }
+
+  private def validateRow(declaration: Vector[DatasetFieldDeclaration], row: Vector[JsValue], rowIndex: Int): RowResult =
+    validateRowStructured(declaration, row) match {
+      case Left(RowLengthFailure(expected, actual)) =>
+        Left(renderRowFailures(rowIndex, Vector.empty, Some(RowLengthError(expected, actual))))
+      case Left(RowFieldFailures(errors)) =>
+        Left(renderRowFailures(rowIndex, errors, None))
+      case Right(validated) => Right(validated)
+    }
 }

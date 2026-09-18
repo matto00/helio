@@ -32,7 +32,7 @@ context: |
 
   Public: `GET /health`
   Dashboards: `GET/POST /api/dashboards`, `PATCH/DELETE /api/dashboards/:id`, `POST /api/dashboards/:id/duplicate`, `GET /api/dashboards/:id/export`, `POST /api/dashboards/import`
-  Panels: `GET /api/dashboards/:id/panels` (public/shared, optional-auth), `GET /api/dashboards/:dashboardId/panels/:panelId/rows` (public/shared, optional-auth), `POST /api/panels`, `PATCH/DELETE /api/panels/:id`, `POST /api/panels/:id/duplicate`
+  Panels: `GET /api/dashboards/:id/panels` (public/shared, optional-auth), `GET /api/dashboards/:dashboardId/panels/:panelId/rows` (public/shared, optional-auth), `POST /api/panels`, `PATCH/DELETE /api/panels/:id`, `POST /api/panels/:id/duplicate`, `POST /api/panels/:id/submit` (HEL-1087, `form` panel row-append)
   Pipelines & Outputs: `GET/POST /api/pipelines` (single-call source/steps/outputs), `GET/POST /api/pipelines/:id/outputs`, `GET/PATCH/DELETE /api/outputs/:id`, `GET /api/outputs/:id/rows`, `GET /api/outputs`
   DataSources: `GET/POST /api/data-sources`, `GET/DELETE /api/data-sources/:id`, `GET /api/data-sources/:id/sources`
   Auth (HEL-33, pending merge): `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/panels/form-submit-request.schema.json",
+  "title": "FormSubmitRequest",
+  "description": "Request body for POST /api/panels/:id/submit (HEL-1087). `values` is the ONLY recognized key -- a `form` panel's submit target is its own persisted `dataSourceId`, never a value the request can name, so any other top-level key is rejected rather than silently ignored.",
+  "type": "object",
+  "required": ["values"],
+  "properties": {
+    "values": {
+      "type": "object",
+      "description": "`{\"<sourceField>\": <typed JSON value>}` -- the submitted values, keyed by the dataset's declared field name."
+    }
+  },
+  "additionalProperties": false
+}

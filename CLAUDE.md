@@ -112,6 +112,7 @@ Key endpoints:
 - `POST /api/panels` — requires `dashboardId` in body
 - `PATCH /api/panels/:id` — updates appearance
 - `POST /api/panels/:id/duplicate`
+- `POST /api/panels/:id/submit` — a `form` panel's submit path (HEL-1087): appends one row to the panel's bound `dataset` source, `{"values": {"<sourceField>": <value>}}` only; `400` validation failures carry structured `fieldErrors: [{"field", "reason"}]` alongside `message`
 - `GET/POST /api/pipelines/:id/outputs`, `GET/PATCH/DELETE /api/outputs/:id`, `GET /api/outputs/:id/rows` — latest materialized `node_snapshots` for that Output, `GET /api/outputs` — every Output the caller owns
 - `GET/POST /api/pipelines` (single-call: source/steps/outputs in one request), `GET /api/pipelines/:id/analyze`, plus step/run/status sub-routes — pipelines are the only path that produces panel-bindable Outputs (source → pipeline → Output → panel); `/api/types` and `/api/metrics` were retired outright by the pipelines-and-outputs remodel (HEL-903/904) and now 404
 - `GET/PUT/DELETE /api/pipelines/:id/schedule` — per-pipeline cron/interval schedule (data model + CRUD only; `PUT` upserts). No runtime firing yet — that's the sibling scheduler-runtime ticket (HEL-415)

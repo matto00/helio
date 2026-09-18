@@ -1,6 +1,6 @@
 package com.helio.services.sources
 
-import com.helio.services.ServiceError
+import com.helio.services.{FormSubmitError, ServiceError}
 import com.helio.services.audit.AuditService
 import com.helio.domain.engine.{DatasetRowValidator, DatasetSchemaMigration, PipelineRowJson, SchemaField, SchemaInferenceEngine}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -63,9 +63,9 @@ final class DataSourceService(
 
   private val staticMaxRows = DataSourceService.DatasetMaxRows
 
-  private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser): Unit =
+  private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)
-      auditService.record(Some(user.id), user.tokenId, user.source, action, "data_source", resourceId, JsObject.empty)
+      auditService.record(Some(user.id), user.tokenId, user.source, action, "data_source", resourceId, metadata)
 
   /** Max upload / URL-fetch size for text/PDF/image sources (HEL-215/214/216).
    *  HEL-881: hoisted to `ContentSourceSupport` so this manual-refresh path and
@@ -781,6 +781,37 @@ final class DataSourceService(
           }
         case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
       }
+
+  /** HEL-1087 design.md D1/D3/D4: the form-submit write seam `PanelService.submitForm` calls
+   *  into. `build` is `FormSubmission.buildRow`, partially applied over the submitted `values` —
+   *  it runs INSIDE `appendBuiltRow`'s locked transaction, against the declaration read fresh
+   *  there, never a pre-lock read here (the same race `appendRows` already closes). Ownership +
+   *  kind check mirrors `appendRows`'s own `findByIdOwned` exactly, including its "Data source
+   *  not found" message for `None` — which also covers an unbound `DataSourceId("")`, since that
+   *  value never resolves to a row. Audits with `{"panelId"}` metadata (D4) — the one thing this
+   *  audit entry adds over `appendRows`'s own, which has no panel to attribute the write to. */
+  def appendFormRow(
+      id:      DataSourceId,
+      build:   Vector[DatasetFieldDeclaration] => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
+      panelId: PanelId,
+      user:    AuthenticatedUser
+  ): Future[Either[FormSubmitError, RowWriteResult]] =
+    dataSourceRepo.findByIdOwned(id, user).flatMap {
+      case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Data source not found"))))
+      case Some(_: DatasetSource) =>
+        val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
+        dataSourceRepo.appendBuiltRow(id, build, staticMaxRows, now, user).map {
+          case None => Left(FormSubmitError(ServiceError.NotFound("Data source not found")))
+          case Some(Left(DataSourceRepository.FormRowBuildFailure.FieldErrors(errors))) =>
+            Left(FormSubmitError.fromFieldErrors(errors))
+          case Some(Left(DataSourceRepository.FormRowBuildFailure.RowLimitExceeded(msg))) =>
+            Left(FormSubmitError(ServiceError.BadRequest(msg)))
+          case Some(Right((ds, inserted))) =>
+            audit("data_source.rows.append", Some(ds.id.value), user, JsObject("panelId" -> JsString(panelId.value)))
+            Right(RowWriteResult.fromRepositoryRows(ds, Vector(inserted)))
+        }
+      case Some(_) => Future.successful(Left(FormSubmitError(ServiceError.BadRequest("row writes are only supported for dataset sources"))))
+    }
 
   /** HEL-1077 design.md D1/D6: PUT is a full-set atomic replace that never touches the declared
    *  schema (`declaration = None` -- `replaceRows` reads+keeps whatever schema is current AT LOCK

@@ -598,22 +598,86 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
               else DatasetRowValidator.validate(declaration, newRows) match {
                 case Left(errors) => DBIO.successful(Some(Left(errors.mkString("; "))))
                 case Right(validatedRows) =>
-                  val maxExistingSeq = existingRows.map(_.seq).maxOption.getOrElse(-1L)
-                  val inserted = validatedRows.zipWithIndex.map { case (row, idx) =>
-                    DatasetRowRow(UUID.randomUUID().toString, id.value, maxExistingSeq + 1 + idx, JsArray(row).compactPrint, updatedAt, updatedAt)
-                  }
-                  val allCells = existingRows.map(r => r.data.parseJson.asInstanceOf[JsArray].elements) ++ inserted.map(r => r.data.parseJson.asInstanceOf[JsArray].elements)
-                  val inferredSchema = declaration.zipWithIndex.map { case (field, i) =>
-                    val cells = allCells.map(_.lift(i).getOrElse(JsNull))
-                    SchemaField(field.name, PipelineRowJson.staticColumnRuntimeType(DataFieldType.asString(field.fieldType), cells))
-                  }
-                  for {
-                    _      <- rowsTable ++= inserted
-                    _      <- table.filter(_.id === id.value).map(r => (r.inferredSchema, r.updatedAt)).update((inferredSchema, updatedAt))
-                    dsOpt  <- table.filter(_.id === id.value).result.headOption
-                  } yield Some(Right((dsOpt.map(rowToDomain).get, inserted)))
+                  insertAppendedRowsAction(id, declaration, existingRows, validatedRows, updatedAt)
+                    .map(outcome => Some(Right(outcome)))
               }
           } yield result
+      }
+    } yield result
+  }
+
+  /** HEL-1087 tasks.md 1.3: DBIO body of the actual insert, extracted VERBATIM from
+   *  `appendRowsAction`'s former inline `Right(validatedRows)` branch — byte-identical row-seq
+   *  numbering, `inferred_schema` recompute, and final re-read, so `applyWriteBacks` (HEL-1100)
+   *  composes exactly what it always composed. The ONLY new caller is `appendBuiltRowAction`
+   *  below (HEL-1087's single-row submit path), which supplies `Vector(row)` for `validatedRows`
+   *  — everything from here down is unaware of, and unchanged by, that caller's existence. */
+  private[persistence] def insertAppendedRowsAction(
+      id:            DataSourceId,
+      declaration:   Vector[DatasetFieldDeclaration],
+      existingRows:  Seq[DatasetRowRow],
+      validatedRows: Vector[Vector[JsValue]],
+      updatedAt:     Instant
+  ): DBIO[(DataSource, Vector[DatasetRowRow])] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    val maxExistingSeq = existingRows.map(_.seq).maxOption.getOrElse(-1L)
+    val inserted = validatedRows.zipWithIndex.map { case (row, idx) =>
+      DatasetRowRow(UUID.randomUUID().toString, id.value, maxExistingSeq + 1 + idx, JsArray(row).compactPrint, updatedAt, updatedAt)
+    }
+    val allCells = existingRows.map(r => r.data.parseJson.asInstanceOf[JsArray].elements) ++ inserted.map(r => r.data.parseJson.asInstanceOf[JsArray].elements)
+    val inferredSchema = declaration.zipWithIndex.map { case (field, i) =>
+      val cells = allCells.map(_.lift(i).getOrElse(JsNull))
+      SchemaField(field.name, PipelineRowJson.staticColumnRuntimeType(DataFieldType.asString(field.fieldType), cells))
+    }
+    for {
+      _      <- rowsTable ++= inserted
+      _      <- table.filter(_.id === id.value).map(r => (r.inferredSchema, r.updatedAt)).update((inferredSchema, updatedAt))
+      dsOpt  <- table.filter(_.id === id.value).result.headOption
+    } yield (dsOpt.map(rowToDomain).get, inserted)
+  }
+
+  /** HEL-1087 design.md D3/tasks.md 1.3: the form-submit write seam. Runs `build` on the
+   *  declaration read FRESH under `lockSource` — never a pre-lock copy, so a concurrent schema
+   *  change can't be raced — and writes NOTHING on a `Left` (no row insert, no schema/updatedAt
+   *  touch). On `Right`, reuses `insertAppendedRowsAction` for the actual persistence, exactly
+   *  like `appendRowsAction` does, just with a single built row instead of a caller-supplied
+   *  batch. Returns `None` when `id` does not exist (mirrors every other row-mutating method's
+   *  not-found contract). */
+  def appendBuiltRow(
+      id:        DataSourceId,
+      build:      Vector[DatasetFieldDeclaration] => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
+      maxRows:   Int,
+      updatedAt: Instant,
+      user:      AuthenticatedUser
+  ): Future[Option[Either[FormRowBuildFailure, (DataSource, DatasetRowRow)]]] =
+    ctx.withUserContext(user.id.value)(appendBuiltRowAction(id, build, maxRows, updatedAt))
+
+  private[persistence] def appendBuiltRowAction(
+      id:        DataSourceId,
+      build:      Vector[DatasetFieldDeclaration] => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
+      maxRows:   Int,
+      updatedAt: Instant
+  ): DBIO[Option[Either[FormRowBuildFailure, (DataSource, DatasetRowRow)]]] = {
+    val rowsTable = TableQuery[DatasetRowTable]
+    for {
+      _            <- lockSource(id)
+      schemaColOpt <- table.filter(_.id === id.value).map(_.datasetSchema).result.headOption
+      result <- schemaColOpt match {
+        case None => DBIO.successful(None)
+        case Some(schemaCol) =>
+          val declaration = schemaCol.map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]]).getOrElse(Vector.empty)
+          build(declaration) match {
+            case Left(errors) => DBIO.successful(Some(Left(FormRowBuildFailure.FieldErrors(errors))))
+            case Right(row) =>
+              rowsTable.filter(_.dataSourceId === id.value).sortBy(_.seq).result.flatMap { existingRows =>
+                if (existingRows.size + 1 > maxRows)
+                  DBIO.successful(Some(Left(FormRowBuildFailure.RowLimitExceeded(s"Payload exceeds the maximum of $maxRows rows"))))
+                else
+                  insertAppendedRowsAction(id, declaration, existingRows, Vector(row), updatedAt).map { case (ds, inserted) =>
+                    Some(Right((ds, inserted.head)))
+                  }
+              }
+          }
       }
     } yield result
   }
@@ -1022,6 +1086,18 @@ object DataSourceRepository {
    *  genuinely absent `Option`, D2), and `total` is the source's full row count as of this
    *  request (D7: not pinned for a caller's whole paging session). */
   final case class RowListPage(rows: Vector[DatasetRowRow], nextCursor: Option[Long], total: Int)
+
+  /** HEL-1087 design.md D3: the two distinguishable failure shapes of `appendBuiltRow` — a
+   *  sealed trait (not a bare `String`/`Either`) so `DataSourceService.appendFormRow` can map
+   *  each to the right `FormSubmitError` shape without re-parsing a message. `FieldErrors` carries
+   *  `FormSubmission.buildRow`'s own structured failures; `RowLimitExceeded` mirrors
+   *  `appendRowsAction`'s existing plain-string row-count-bound message (never field-attributed —
+   *  no single field caused it). */
+  sealed trait FormRowBuildFailure
+  object FormRowBuildFailure {
+    final case class FieldErrors(errors: Vector[DatasetRowValidator.FieldError]) extends FormRowBuildFailure
+    final case class RowLimitExceeded(message: String) extends FormRowBuildFailure
+  }
 
   /** HEL-987: one pipeline `soleRootDependentPipelines` found blocking a delete -- named fields
    *  instead of a positional `(String, String)` tuple so `id`/`name` can't be swapped by

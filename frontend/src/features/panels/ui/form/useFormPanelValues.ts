@@ -20,6 +20,13 @@ interface UseFormPanelValuesResult {
   setValue: (sourceField: string, value: FormFieldValue) => void;
   touch: (sourceField: string) => void;
   reset: () => void;
+  /** HEL-1087: marks every field touched at once — a client-side-blocked submit attempt shows
+   *  every failing field's error immediately, not only ones the user has individually blurred. */
+  markAllTouched: () => void;
+  /** HEL-1087 design.md D7: sets server-reported errors, keyed by `sourceField` — takes
+   *  precedence over the client-side rule for that field until `setValue` clears it (the next
+   *  edit invalidates a stale server verdict). */
+  setExternalErrors: (errors: Record<string, string>) => void;
 }
 
 /** A field's empty representation, per control shape (design.md's "A field is prefilled from its
@@ -29,8 +36,11 @@ function emptyValueFor(control: FormFieldSpec["control"]): FormFieldValue {
 }
 
 /** Coerces a config `initialValue` (arbitrary JSON) into this hook's control-shaped value
- *  representation — every control but `checkbox` stores a string. */
+ *  representation — every control but `checkbox` stores a string. A `file` control always seeds
+ *  empty regardless of `initialValue` (HEL-1087: there is no typed entry point for a
+ *  `binary-ref` value in this builder — design.md D7). */
 function seedValueFor(field: FormFieldSpec): FormFieldValue {
+  if (field.control === "file") return emptyValueFor(field.control);
   if (field.initialValue === undefined || field.initialValue === null) {
     return emptyValueFor(field.control);
   }
@@ -58,6 +68,7 @@ export function useFormPanelValues(
   const [seededKey, setSeededKey] = useState(key);
   const [values, setValues] = useState(() => seedValues(fields));
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [externalErrors, setExternalErrorsState] = useState<Record<string, string>>({});
 
   // "Adjusting state when a prop changes" (react.dev) — a field-list edit re-seeds synchronously
   // during render rather than via an effect, so no stale-values frame is ever painted.
@@ -75,6 +86,12 @@ export function useFormPanelValues(
 
   const errors: Record<string, string | null> = {};
   for (const field of fields) {
+    // HEL-1087 design.md D7: a server-reported error takes precedence over the client-side rule
+    // for this field until the next `setValue` edit clears it.
+    if (externalErrors[field.sourceField] !== undefined) {
+      errors[field.sourceField] = externalErrors[field.sourceField];
+      continue;
+    }
     if (!touched[field.sourceField]) {
       errors[field.sourceField] = null;
       continue;
@@ -87,6 +104,12 @@ export function useFormPanelValues(
 
   function setValue(sourceField: string, value: FormFieldValue) {
     setValues((prev) => ({ ...prev, [sourceField]: value }));
+    setExternalErrorsState((prev) => {
+      if (!(sourceField in prev)) return prev;
+      const next = { ...prev };
+      delete next[sourceField];
+      return next;
+    });
   }
 
   function touch(sourceField: string) {
@@ -98,7 +121,19 @@ export function useFormPanelValues(
     setTouched({});
   }
 
-  return { values, touched, errors, setValue, touch, reset };
+  function markAllTouched() {
+    setTouched((prev) => {
+      const next = { ...prev };
+      for (const field of fields) next[field.sourceField] = true;
+      return next;
+    });
+  }
+
+  function setExternalErrors(next: Record<string, string>) {
+    setExternalErrorsState(next);
+  }
+
+  return { values, touched, errors, setValue, touch, reset, markAllTouched, setExternalErrors };
 }
 
 export { isFieldRequired };
