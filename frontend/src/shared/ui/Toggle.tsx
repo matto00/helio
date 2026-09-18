@@ -12,6 +12,15 @@ interface ToggleProps {
   disabled?: boolean;
   id?: string;
   className?: string;
+  /** Marks the native input invalid for assistive tech (task 2.4, mirrors
+   *  `Select`'s `ariaInvalid`). */
+  ariaInvalid?: boolean;
+  /** Id(s) of the element(s) that describe this control's error/hint (task
+   *  2.4, mirrors `Select`'s `ariaDescribedBy`). */
+  ariaDescribedBy?: string;
+  /** Marks the native input required for assistive tech (task 2.4, mirrors
+   *  `Select`'s `ariaRequired`). */
+  ariaRequired?: boolean;
 }
 
 /** Minimal switch primitive (HEL-553 design.md D4) — no other checkbox/switch
@@ -28,6 +37,9 @@ export function Toggle({
   disabled = false,
   id,
   className,
+  ariaInvalid,
+  ariaDescribedBy,
+  ariaRequired,
 }: ToggleProps) {
   const classes = ["ui-toggle", disabled ? "ui-toggle--disabled" : null, className ?? null]
     .filter(Boolean)
@@ -43,6 +55,9 @@ export function Toggle({
         checked={checked}
         disabled={disabled}
         aria-label={ariaLabel ?? label}
+        aria-invalid={ariaInvalid ? "true" : undefined}
+        aria-describedby={ariaDescribedBy}
+        aria-required={ariaRequired ? "true" : undefined}
         onChange={(e) => onChange(e.target.checked)}
       />
       <span className="ui-toggle__track" aria-hidden="true">

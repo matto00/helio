@@ -25,6 +25,11 @@ interface FormFieldProps {
    *  and applied to the error `<p>` either way, so `error`'s behavior for
    *  every pre-existing call site is unchanged. */
   errorId?: string;
+  /** Stable id for the hint `<p>` (task 2.2, design.md D4). Threaded onto a
+   *  caller's own control `aria-describedby` when no error is shown, so the
+   *  control's computed accessible description resolves to the hint text.
+   *  Never applied to the error `<p>` — that one uses `errorId`. */
+  hintId?: string;
 }
 
 /** Label + control + error/hint wrapper for form fields (F-058). Replaces the
@@ -41,6 +46,7 @@ export function FormField({
   className,
   children,
   errorId,
+  hintId,
 }: FormFieldProps) {
   const classes = ["ui-form-field", className ?? null].filter(Boolean).join(" ");
   const generatedErrorId = useId();
@@ -58,7 +64,9 @@ export function FormField({
           {error}
         </p>
       ) : hint ? (
-        <p className="ui-form-field__hint">{hint}</p>
+        <p id={hintId} className="ui-form-field__hint">
+          {hint}
+        </p>
       ) : null}
     </div>
   );

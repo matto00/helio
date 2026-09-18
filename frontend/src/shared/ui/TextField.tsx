@@ -3,7 +3,7 @@ import { forwardRef, type InputHTMLAttributes } from "react";
 import "./inputs.css";
 
 interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
-  type?: "text" | "number" | "search" | "email" | "url" | "tel" | "password";
+  type?: "text" | "number" | "search" | "email" | "url" | "tel" | "password" | "date";
   /** When true, applies a monospace stack — used for expressions and field names. */
   mono?: boolean;
 }

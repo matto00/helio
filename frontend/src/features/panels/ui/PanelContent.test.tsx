@@ -5,6 +5,7 @@ import { PanelContent } from "./PanelContent";
 import type { ChartPanelProps } from "./ChartPanel";
 import { makeFormPanel, makeOutputPanel, makeTextPanel } from "../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
+import { fetchDatasetSchema as fetchDatasetSchemaRequest } from "../../sources/services/dataSourceService";
 import type { Output } from "../../pipelines/types/output";
 
 let capturedChartProps: ChartPanelProps | null = null;
@@ -20,7 +21,12 @@ jest.mock("../../pipelines/services/outputService", () => ({
   getOutputById: jest.fn(),
 }));
 
+jest.mock("../../sources/services/dataSourceService", () => ({
+  fetchDatasetSchema: jest.fn(),
+}));
+
 const getOutputByIdMock = jest.mocked(getOutputByIdRequest);
+const fetchDatasetSchemaMock = jest.mocked(fetchDatasetSchemaRequest);
 
 beforeEach(() => {
   capturedChartProps = null;
@@ -324,6 +330,22 @@ describe("PanelContent — form kind (HEL-1083)", () => {
   it("renders the unconfigured placeholder, never MetricRenderer, for a form panel", () => {
     const { container } = render(<PanelContent panel={makeFormPanel()} />);
     expect(screen.getByRole("status")).toHaveTextContent("Form not configured");
+    expect(container.querySelector(".panel-content--metric")).not.toBeInTheDocument();
+  });
+
+  // HEL-1085 task 4.6 — a configured form panel dispatches to `FormRenderer`, never
+  // `MetricRenderer`, proving the `form` branch is doing real dispatch work, not just
+  // rendering the shared empty-state shape.
+  it("dispatches a configured form panel to FormRenderer, never MetricRenderer", async () => {
+    fetchDatasetSchemaMock.mockResolvedValueOnce({
+      fields: [{ name: "note", type: "string", required: false }],
+    });
+    const panel = makeFormPanel({
+      config: { fields: [{ sourceField: "note", control: "text", label: "Note" }] },
+    });
+    const { container } = render(<PanelContent panel={panel} />);
+
+    await screen.findByRole("form", { name: panel.title });
     expect(container.querySelector(".panel-content--metric")).not.toBeInTheDocument();
   });
 });
