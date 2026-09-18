@@ -32,14 +32,17 @@ export interface CreatePanelBody {
 
 /** Build a `POST /api/panels` body. `outputId` is required for an
  *  output-kind panel and ignored otherwise. Content-kind panels are
- *  created with an empty default literal config. */
+ *  created with an empty default literal config. `config` is an explicit
+ *  override — used only by `form` (design.md D6: the picker's dataset step
+ *  creates a form panel already bound to a dataset, never empty). */
 export function buildCreatePanelBody(args: {
   dashboardId: string;
   title?: string;
   type: PanelKind;
   outputId?: string;
+  config?: PanelConfig;
 }): CreatePanelBody {
-  const config = seedCreateConfig(args.type, args.outputId);
+  const config = seedCreateConfig(args.type, args.outputId, args.config);
   const body: CreatePanelBody = {
     dashboardId: args.dashboardId,
     type: args.type,
@@ -51,7 +54,14 @@ export function buildCreatePanelBody(args: {
   return body;
 }
 
-function seedCreateConfig(type: PanelKind, outputId: string | undefined): PanelConfig {
+function seedCreateConfig(
+  type: PanelKind,
+  outputId: string | undefined,
+  configOverride: PanelConfig | undefined,
+): PanelConfig {
+  if (type === "form" && configOverride !== undefined) {
+    return configOverride;
+  }
   const base = emptyConfigForKind(type);
   if (type === "output") {
     return { outputId: outputId ?? "" };

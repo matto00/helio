@@ -159,6 +159,142 @@ class FormPanelRoundTripSpec extends ApplyProposalSpecBase {
         responseAs[String] should include("dataSourceId")
       }
     }
+
+    // HEL-1084 task 4.2 — the schema-consistency checks (design.md D1).
+    "reject a form bound to a csv-kind source, naming csv" in {
+      val dashboardId = createDashboard("Form Csv Bound")
+      Post(
+        "/api/panels",
+        json(s"""{"dashboardId":"$dashboardId","title":"Bad Form","type":"form",
+                |"config":{"dataSourceId":"$csvSourceId","fields":[],"submit":{"writeMode":"append"}}}""".stripMargin)
+      ).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("csv")
+      }
+    }
+
+    "reject an undeclared sourceField, naming it" in {
+      val dashboardId = createDashboard("Form Undeclared Field")
+      Post(
+        "/api/panels",
+        json(s"""{"dashboardId":"$dashboardId","title":"Bad Form","type":"form",
+                |"config":{"dataSourceId":"$datasetSourceId","fields":[{"sourceField":"legacy","control":"text"}],"submit":{"writeMode":"append"}}}""".stripMargin)
+      ).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("legacy")
+      }
+    }
+
+    "reject checkbox on a declared string field, naming the fitting controls" in {
+      val dashboardId = createDashboard("Form Unfit Control")
+      Post(
+        "/api/panels",
+        json(s"""{"dashboardId":"$dashboardId","title":"Bad Form","type":"form",
+                |"config":{"dataSourceId":"$datasetSourceId","fields":[{"sourceField":"note","control":"checkbox"}],"submit":{"writeMode":"append"}}}""".stripMargin)
+      ).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("note")
+      }
+    }
+
+    "accept text on a declared integer field" in {
+      val dashboardId = createDashboard("Form Fitting Control")
+      Post(
+        "/api/panels",
+        json(s"""{"dashboardId":"$dashboardId","title":"Ok Form","type":"form",
+                |"config":{"dataSourceId":"$datasetSourceId","fields":[{"sourceField":"quantity","control":"text"}],"submit":{"writeMode":"append"}}}""".stripMargin)
+      ).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+    }
+
+    "reject wrongly typed options, naming the offending value" in {
+      val dashboardId = createDashboard("Form Bad Options")
+      Post(
+        "/api/panels",
+        json(s"""{"dashboardId":"$dashboardId","title":"Bad Form","type":"form",
+                |"config":{"dataSourceId":"$datasetSourceId","fields":[{"sourceField":"quantity","control":"select","options":[1,"two"]}],"submit":{"writeMode":"append"}}}""".stripMargin)
+      ).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("two")
+      }
+    }
+
+    "reject empty-array options" in {
+      val dashboardId = createDashboard("Form Empty Options")
+      Post(
+        "/api/panels",
+        json(s"""{"dashboardId":"$dashboardId","title":"Bad Form","type":"form",
+                |"config":{"dataSourceId":"$datasetSourceId","fields":[{"sourceField":"quantity","control":"select","options":[]}],"submit":{"writeMode":"append"}}}""".stripMargin)
+      ).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "reject non-array options" in {
+      val dashboardId = createDashboard("Form NonArray Options")
+      Post(
+        "/api/panels",
+        json(s"""{"dashboardId":"$dashboardId","title":"Bad Form","type":"form",
+                |"config":{"dataSourceId":"$datasetSourceId","fields":[{"sourceField":"quantity","control":"select","options":"nope"}],"submit":{"writeMode":"append"}}}""".stripMargin)
+      ).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "reject a wrongly typed initialValue on a timestamp field" in {
+      val dashboardId = createDashboard("Form Bad InitialValue")
+      Post(
+        "/api/panels",
+        json(s"""{"dashboardId":"$dashboardId","title":"Bad Form","type":"form",
+                |"config":{"dataSourceId":"$datasetSourceId","fields":[{"sourceField":"when","control":"text","initialValue":"soon"}],"submit":{"writeMode":"append"}}}""".stripMargin)
+      ).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "reject a PATCH that re-binds dataSourceId only to a dataset lacking an existing field — panel unchanged" in {
+      val dashboardId = createDashboard("Form Rebind Target")
+      val panelId = Post(
+        "/api/panels",
+        json(s"""{"dashboardId":"$dashboardId","title":"Rebind Form","type":"form",
+                |"config":{"dataSourceId":"$datasetSourceId","fields":[{"sourceField":"quantity","control":"number"}],"submit":{"writeMode":"append"}}}""".stripMargin)
+      ).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[String].parseJson.asJsObject.fields("id").convertTo[String]
+      }
+
+      Patch(s"/api/panels/$panelId", json(s"""{"config":{"dataSourceId":"$datasetSourceIdWithoutQuantity"}}"""))
+        .addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("quantity")
+      }
+
+      // C7 — re-read via a no-op title touch: the panel is unchanged, still
+      // bound to the original dataset.
+      Patch(s"/api/panels/$panelId", json("""{"title":"Rebind Form (unchanged)"}"""))
+        .addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String].parseJson.asJsObject.fields("config").asJsObject
+          .fields("dataSourceId") shouldBe JsString(datasetSourceId)
+      }
+    }
+
+    "accept a config whose every field is declared, fits, and carries valid typed options/initialValue" in {
+      val dashboardId = createDashboard("Form Consistent Config")
+      val body =
+        s"""{"dashboardId":"$dashboardId","title":"Consistent Form","type":"form",
+           |"config":{"dataSourceId":"$datasetSourceId","fields":[
+           |  {"sourceField":"quantity","control":"select","options":[1,2,3],"initialValue":2},
+           |  {"sourceField":"flag","control":"checkbox"}
+           |],"submit":{"writeMode":"append"}}}""".stripMargin
+      Post("/api/panels", json(body)).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val config = responseAs[String].parseJson.asJsObject.fields("config").asJsObject
+        config.fields("fields").convertTo[Vector[JsValue]].map(_.asJsObject.fields("sourceField").convertTo[String]) shouldBe
+          Vector("quantity", "flag")
+      }
+    }
   }
 
   "Dashboard export/import — form kind" should {

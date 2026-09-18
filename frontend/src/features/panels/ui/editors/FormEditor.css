@@ -1,0 +1,54 @@
+.form-editor__dataset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.form-editor__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.form-editor__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+}
+
+.form-editor__row-header {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.form-editor__row-header > div:first-child {
+  flex: 1;
+}
+
+.form-editor__row-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.form-editor__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-editor__option-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.form-editor__issue-summary {
+  color: var(--app-error);
+  font-size: var(--text-sm);
+}

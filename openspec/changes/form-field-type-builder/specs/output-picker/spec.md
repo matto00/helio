@@ -1,0 +1,27 @@
+## MODIFIED Requirements
+
+### Requirement: Add panel opens a searchable Output picker grouped by pipeline
+"Add panel" on a dashboard MUST open a single modal that lists every Output the user can place, grouped by pipeline, with a search/type-ahead filter. Each Output card MUST show its kind, its name, and its current placement count, plus an "already on this board" state when it is already placed on the dashboard being edited. A content-panel row (text, markdown, image, divider, form) MUST be shown below the Output groups. Unlike the other four, activating Form does not create a panel directly: it presents the user's `dataset`-kind sources inside the same modal, and choosing one creates a `form` panel bound to it (see the `form-panel-builder` capability for that step's behaviour).
+
+A live per-card thumbnail/value/sparkline (rendered from the last dry or live run) was scoped out for this cycle (HEL-909 evaluator cycle-1 finding 2; `tasks.md` 1.4 records it as deferred): with a dashboard's Output list realistically in the tens and the picker's placement-count fetch already an accepted N+1 that has produced live `429`s (see this delta's sibling `useOutputPickerData` note), fetching a live preview per card as well would multiply that load rather than merely add to it. A future cycle MAY add this once placement counts are served in bulk (a single list-response field) rather than N+1, at which point a per-card preview fetch would no longer be adding a second independent N+1.
+
+#### Scenario: Picker groups Outputs by pipeline
+- **WHEN** the Output picker opens with Outputs from more than one pipeline
+- **THEN** the list is grouped under each pipeline's name, not a single flat list
+
+#### Scenario: Already-placed Output is marked
+- **WHEN** an Output already appears as a panel on the current dashboard
+- **THEN** its card in the picker shows an "already on this board" indicator
+
+#### Scenario: Search filters by name across groups
+- **WHEN** the user types into the picker's search field
+- **THEN** only Outputs (and pipelines with a matching Output) remain visible
+
+#### Scenario: Form entry binds a dataset instead of creating immediately
+- **WHEN** the user activates the Form entry in the content-panel row
+- **THEN** no panel is created yet; the modal shows the user's `dataset`-kind sources to choose from, and
+  choosing one creates a `form` panel bound to it
+
+#### Scenario: Form entry is absent in swap mode
+- **WHEN** the picker opens in swap mode for an output panel
+- **THEN** no content-panel row, and therefore no Form entry, is shown

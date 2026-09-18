@@ -384,6 +384,7 @@ describe("panelsSlice", () => {
         "output",
         "Revenue",
         "out-x",
+        undefined,
       );
     });
 

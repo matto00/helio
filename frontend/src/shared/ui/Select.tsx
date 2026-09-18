@@ -21,6 +21,15 @@ interface SelectProps {
   /** ARIA label for the trigger. */
   ariaLabel?: string;
   className?: string;
+  /** Marks the trigger invalid for assistive tech (HEL-1084 skeptic-final-1.md
+   *  CR1) — pass `true` whenever a caller-owned validation error applies to
+   *  this control. Distinct from `disabled`; does not affect interactivity. */
+  ariaInvalid?: boolean;
+  /** Id(s) of the element(s) that describe this control's error/hint — pass
+   *  a `FormField`'s `errorId` here so a screen-reader user tabbing directly
+   *  to the trigger (not present for the error's one-shot `role="alert"`
+   *  announcement) still gets the association. */
+  ariaDescribedBy?: string;
 }
 
 /** App-styled custom dropdown that replaces native <select>. Renders a button
@@ -35,6 +44,8 @@ export function Select({
   disabled = false,
   ariaLabel,
   className,
+  ariaInvalid,
+  ariaDescribedBy,
 }: SelectProps) {
   const { triggerRef, panelRef, isOpen, panelPos, handleOpen, close } =
     usePortalPopover<HTMLButtonElement>();
@@ -134,6 +145,8 @@ export function Select({
           isOpen && focusedIndex >= 0 ? `${baseId}-option-${focusedIndex}` : undefined
         }
         aria-label={ariaLabel}
+        aria-invalid={ariaInvalid ? "true" : undefined}
+        aria-describedby={ariaDescribedBy}
         disabled={disabled}
       >
         <span

@@ -226,7 +226,7 @@
           "description": "Tighten-only (design.md D3a): absent inherits the dataset declaration, true adds a form-level requirement. false is rejected as malformed."
         },
         "initialValue": {
-          "description": "Prefill only — seeds the control before first input and never changes what is stored for an omitted field."
+          "description": "Prefill only — seeds the control before first input and never changes what is stored for an omitted field. When present and not null, must be a valid value of the bound dataset field's declared type (HEL-1084 design.md D1(e))."
         },
         "step": {
           "type": "number",
@@ -234,7 +234,9 @@
           "description": "Valid only alongside control: number. A counter (the single-field compact configuration) is expressed as control: number carrying step — step's PRESENCE is the counter discriminator."
         },
         "options": {
-          "description": "Required when control is select."
+          "type": "array",
+          "minItems": 1,
+          "description": "Required when control is select: a non-empty array of TYPED values, each a valid value of the bound dataset field's declared type (HEL-1084 design.md D1(d)/D3) — e.g. [1, 2, 3] for an integer field, [\"a\", \"b\"] for a string field."
         }
       }
     },

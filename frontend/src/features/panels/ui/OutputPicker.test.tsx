@@ -257,7 +257,13 @@ describe("OutputPicker", () => {
       // HEL-946 Bug C(1): `placeOutput` now passes the Output's own name as
       // `title` so a newly-created panel doesn't fall back to "Untitled
       // Panel" — this was `undefined` before the fix.
-      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "output", "Signups", "output-2"),
+      expect(createPanelMock).toHaveBeenCalledWith(
+        "dashboard-1",
+        "output",
+        "Signups",
+        "output-2",
+        undefined,
+      ),
     );
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
@@ -486,5 +492,173 @@ describe("OutputPicker", () => {
 
     await waitFor(() => expect(screen.getByText("3 placements")).toBeInTheDocument());
     expect(listOutputPanelsMock).not.toHaveBeenCalled();
+  });
+
+  // HEL-1084 task 4.10 — the Form entry.
+  const datasetSourcesState = {
+    items: [
+      {
+        id: "ds-1",
+        type: "dataset" as const,
+        name: "Orders",
+        createdAt: "",
+        updatedAt: "",
+        inferredSchema: [],
+      },
+      {
+        id: "ds-2",
+        type: "dataset" as const,
+        name: "Shipments",
+        createdAt: "",
+        updatedAt: "",
+        inferredSchema: [],
+      },
+    ],
+    status: "succeeded" as const,
+  };
+
+  it("shows a Form card alongside the content-panel kinds in place mode", async () => {
+    listAllOutputsMock.mockResolvedValue([]);
+    renderWithStore(
+      <OutputPicker dashboardId="dashboard-1" currentDashboardPanels={[]} onClose={jest.fn()} />,
+      { dashboards: baseDashboardsState, panels: { items: [] }, pipelines: pipelinesState },
+    );
+
+    expect(await screen.findByRole("option", { name: /Add Form panel/ })).toBeInTheDocument();
+  });
+
+  it("does not show a Form card (or any content row) in swap mode", async () => {
+    listAllOutputsMock.mockResolvedValue([]);
+    renderWithStore(
+      <OutputPicker
+        dashboardId="dashboard-1"
+        currentDashboardPanels={[]}
+        onClose={jest.fn()}
+        mode="swap"
+        swapPanelId="panel-1"
+      />,
+      { dashboards: baseDashboardsState, panels: { items: [] }, pipelines: pipelinesState },
+    );
+
+    await waitFor(() => expect(listAllOutputsMock).toHaveBeenCalled());
+    expect(screen.queryByRole("option", { name: /Add Form panel/ })).not.toBeInTheDocument();
+  });
+
+  it("activating Form switches to the dataset step, lists and filters datasets", async () => {
+    listAllOutputsMock.mockResolvedValue([]);
+    renderWithStore(
+      <OutputPicker dashboardId="dashboard-1" currentDashboardPanels={[]} onClose={jest.fn()} />,
+      {
+        dashboards: baseDashboardsState,
+        panels: { items: [] },
+        pipelines: pipelinesState,
+        sources: datasetSourcesState,
+      },
+    );
+
+    fireEvent.click(await screen.findByRole("option", { name: /Add Form panel/ }));
+
+    expect(await screen.findByRole("option", { name: "Orders" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Shipments" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search datasets"), { target: { value: "Ship" } });
+    expect(screen.queryByRole("option", { name: "Orders" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Shipments" })).toBeInTheDocument();
+  });
+
+  it("dataset step is keyboard-operable: arrow/Enter/Back", async () => {
+    createPanelMock.mockResolvedValue({
+      id: "panel-2",
+      dashboardId: "dashboard-1",
+      title: "Shipments",
+      type: "form" as const,
+      config: { dataSourceId: "ds-2", fields: [], submit: { writeMode: "append" } },
+      meta: defaultMeta,
+      appearance: { background: "transparent", color: "inherit", transparency: 0 },
+    });
+    fetchPanelsMock.mockResolvedValue([]);
+    listAllOutputsMock.mockResolvedValue([]);
+    const onClose = jest.fn();
+    renderWithStore(
+      <OutputPicker dashboardId="dashboard-1" currentDashboardPanels={[]} onClose={onClose} />,
+      {
+        dashboards: baseDashboardsState,
+        panels: { items: [] },
+        pipelines: pipelinesState,
+        sources: datasetSourcesState,
+      },
+    );
+
+    fireEvent.click(await screen.findByRole("option", { name: /Add Form panel/ }));
+    const searchInput = await screen.findByLabelText("Search datasets");
+
+    fireEvent.keyDown(searchInput.closest(".output-picker__inner") as HTMLElement, {
+      key: "ArrowDown",
+    });
+    fireEvent.keyDown(searchInput.closest(".output-picker__inner") as HTMLElement, {
+      key: "Enter",
+    });
+
+    await waitFor(() =>
+      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "form", "Shipments", undefined, {
+        dataSourceId: "ds-2",
+        fields: [],
+        submit: { writeMode: "append" },
+      }),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("shows an empty-state CTA to create a dataset when none exist", async () => {
+    listAllOutputsMock.mockResolvedValue([]);
+    renderWithStore(
+      <OutputPicker dashboardId="dashboard-1" currentDashboardPanels={[]} onClose={jest.fn()} />,
+      {
+        dashboards: baseDashboardsState,
+        panels: { items: [] },
+        pipelines: pipelinesState,
+        sources: { items: [], status: "succeeded" as const },
+      },
+    );
+
+    fireEvent.click(await screen.findByRole("option", { name: /Add Form panel/ }));
+    expect(await screen.findByText("No dataset yet")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New dataset" })).toBeInTheDocument();
+  });
+
+  it("choosing a dataset creates a form panel bound to it, with type: form and a bound config", async () => {
+    createPanelMock.mockResolvedValue({
+      id: "panel-2",
+      dashboardId: "dashboard-1",
+      title: "Orders",
+      type: "form" as const,
+      config: { dataSourceId: "ds-1", fields: [], submit: { writeMode: "append" } },
+      meta: defaultMeta,
+      appearance: { background: "transparent", color: "inherit", transparency: 0 },
+    });
+    fetchPanelsMock.mockResolvedValue([]);
+    listAllOutputsMock.mockResolvedValue([]);
+    const onClose = jest.fn();
+    renderWithStore(
+      <OutputPicker dashboardId="dashboard-1" currentDashboardPanels={[]} onClose={onClose} />,
+      {
+        dashboards: baseDashboardsState,
+        panels: { items: [] },
+        pipelines: pipelinesState,
+        sources: datasetSourcesState,
+      },
+    );
+
+    fireEvent.click(await screen.findByRole("option", { name: /Add Form panel/ }));
+    fireEvent.click(await screen.findByRole("option", { name: "Orders" }));
+
+    await waitFor(() =>
+      expect(createPanelMock).toHaveBeenCalledWith("dashboard-1", "form", "Orders", undefined, {
+        dataSourceId: "ds-1",
+        fields: [],
+        submit: { writeMode: "append" },
+      }),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 });

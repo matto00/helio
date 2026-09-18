@@ -11,6 +11,7 @@ import { Modal } from "../../../../shared/ui/Modal";
 import { accumulatePanelUpdate } from "../../state/panelsSlice";
 import {
   isDividerPanel,
+  isFormPanel,
   isImagePanel,
   isMarkdownPanel,
   isOutputPanel,
@@ -33,6 +34,7 @@ import type { ChartAppearance, Panel, PanelAppearance } from "../../types/panel"
 import { PanelContent } from "../PanelContent";
 import { AppearanceEditor } from "../editors/AppearanceEditor";
 import { DividerEditor } from "../editors/DividerEditor";
+import { FormEditor } from "../editors/FormEditor";
 import { ImageEditor } from "../editors/ImageEditor";
 import { MarkdownEditor } from "../editors/MarkdownEditor";
 import { TextContentEditor } from "../editors/TextContentEditor";
@@ -181,19 +183,22 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
   const [transparency, setTransparency] = useState(initialTransparency);
   const [chartAppearance, setChartAppearance] = useState<ChartAppearance>(initialChart);
 
-  // ── Subtype editor refs (only one is mounted at a time, content-kind panels
-  //    only — an output-kind panel has no subtype editor, see
-  //    `OutputPanelSection` above) ─
+  // ── Subtype editor refs (only one is mounted at a time, content-kind
+  //    panels only — an output-kind panel has no subtype editor, see
+  //    `OutputPanelSection` above; `form` is a content-kind panel too —
+  //    HEL-1084 — and follows the same one-ref-per-kind pattern) ─
   const markdownEditorRef = useRef<PanelEditorHandle | null>(null);
   const textEditorRef = useRef<PanelEditorHandle | null>(null);
   const imageEditorRef = useRef<PanelEditorHandle | null>(null);
   const dividerEditorRef = useRef<PanelEditorHandle | null>(null);
+  const formEditorRef = useRef<PanelEditorHandle | null>(null);
 
   function activeEditorRef(): RefObject<PanelEditorHandle | null> | null {
     if (isMarkdownPanel(panel)) return markdownEditorRef;
     if (isTextPanel(panel)) return textEditorRef;
     if (isImagePanel(panel)) return imageEditorRef;
     if (isDividerPanel(panel)) return dividerEditorRef;
+    if (isFormPanel(panel)) return formEditorRef;
     return null;
   }
 
@@ -342,7 +347,14 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
         />
       );
     }
-    // Output-kind panels: no subtype editor — see OutputPanelSection instead.
+    if (isFormPanel(panel)) {
+      return (
+        <FormEditor ref={formEditorRef} panel={panel} onDirtyChange={handleSubtypeDirtyChange} />
+      );
+    }
+    // Output-kind panels: no subtype editor — see OutputPanelSection instead;
+    // every other panel kind (text/markdown/image/divider/form) renders one
+    // via its own arm above.
     return null;
   }
 

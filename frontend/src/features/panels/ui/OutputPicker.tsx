@@ -1,6 +1,13 @@
 import { type KeyboardEvent, type ReactElement, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlignLeft, FileText, Image as ImageIcon, Minus, Search } from "lucide-react";
+import {
+  AlignLeft,
+  ClipboardList,
+  FileText,
+  Image as ImageIcon,
+  Minus,
+  Search,
+} from "lucide-react";
 
 import "./OutputPicker.css";
 import { Modal } from "../../../shared/ui/Modal";
@@ -10,6 +17,7 @@ import { EmptyState } from "../../../shared/ui/EmptyState";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { createPanel, swapPanelOutput } from "../state/panelThunks";
 import { useOutputPickerData, type OutputPickerEntry } from "../hooks/useOutputPickerData";
+import { DatasetStep } from "./DatasetStep";
 import type { Panel, PanelKind } from "../types/panel";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
@@ -24,6 +32,10 @@ const CONTENT_PANEL_KINDS: { kind: PanelKind; label: string; icon: ReactElement 
   { kind: "markdown", label: "Markdown", icon: <AlignLeft size={ICON_SIZE.md} /> },
   { kind: "image", label: "Image", icon: <ImageIcon size={ICON_SIZE.md} /> },
   { kind: "divider", label: "Divider", icon: <Minus size={ICON_SIZE.md} /> },
+  // HEL-1084 design.md D6 — unlike the other four, activating Form doesn't
+  // create a panel directly: it switches the modal into the dataset step
+  // (see `datasetStepOpen` below).
+  { kind: "form", label: "Form", icon: <ClipboardList size={ICON_SIZE.md} /> },
 ];
 
 // Flattened, keyboard-navigable item — either an Output entry or one of the
@@ -67,6 +79,9 @@ export function OutputPicker({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // HEL-1084 design.md D6 — activating the Form entry doesn't create a panel;
+  // it switches the modal into this second step instead.
+  const [datasetStepOpen, setDatasetStepOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const optionRefs = useRef(new Map<number, HTMLButtonElement>());
 
@@ -137,6 +152,10 @@ export function OutputPicker({
   }
 
   async function placeContentPanel(kind: PanelKind) {
+    if (kind === "form") {
+      setDatasetStepOpen(true);
+      return;
+    }
     if (isSubmitting) return;
     setSubmitError(null);
     setIsSubmitting(true);
@@ -205,6 +224,25 @@ export function OutputPicker({
     });
     return map;
   }, [flatItems]);
+
+  if (datasetStepOpen) {
+    return (
+      <Modal
+        open
+        size="lg"
+        title="Choose a dataset"
+        ariaLabel="Choose a dataset"
+        onClose={onClose}
+        className="output-picker"
+      >
+        <DatasetStep
+          dashboardId={dashboardId}
+          onBack={() => setDatasetStepOpen(false)}
+          onClose={onClose}
+        />
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -332,7 +370,9 @@ export function OutputPicker({
                     className={`output-picker__card output-picker__card--content${
                       index === focusedIndex ? " output-picker__card--focused" : ""
                     }${index === hoveredIndex ? " output-picker__card--hovered" : ""}`}
-                    aria-label={`Add ${label} panel`}
+                    aria-label={
+                      kind === "form" ? "Add Form panel — choose a dataset" : `Add ${label} panel`
+                    }
                     onClick={() => void placeContentPanel(kind)}
                     onMouseEnter={() => setHoveredIndex(index)}
                     onMouseLeave={() => setHoveredIndex((i) => (i === index ? null : i))}
