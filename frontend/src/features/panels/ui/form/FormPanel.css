@@ -15,3 +15,45 @@
 .form-panel-view__fields .ui-textarea {
   min-height: 56px;
 }
+
+/* HEL-1087 design.md D9 — always-mounted live regions, emptied at the start of every attempt.
+   Visually hidden when empty is unnecessary here: an empty `<p>` renders as zero height already,
+   so no extra "visually-hidden-until-populated" class is needed. */
+.form-panel-view__alert,
+.form-panel-view__status {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+.form-panel-view__alert:not(:empty) {
+  color: var(--app-error);
+}
+
+.form-panel-view__status:not(:empty) {
+  color: var(--app-text-muted);
+}
+
+/* HEL-1087 design.md D9 — the Primary recipe (DESIGN.md §5): solid `--app-accent`, hover
+   `--app-accent-strong`, no border, `--control-sm` height, `--app-radius-sm`, tokens only. */
+.form-panel-view__submit {
+  align-self: flex-start;
+  height: var(--control-sm);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+.form-panel-view__submit:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.form-panel-view__submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}

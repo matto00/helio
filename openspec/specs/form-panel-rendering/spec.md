@@ -152,12 +152,3 @@ An auto-layout re-flow SHALL clamp a `form` panel to a minimum of 3 columns wide
 #### Scenario: Auto-layout clamps an undersized form
 - **WHEN** an auto-layout request includes a `form` panel with `w: 1, h: 2`
 - **THEN** the packed item is at least `w: 3, h: 5`
-
-### Requirement: No submit affordance is rendered yet
-
-Until the submit path ships, the form SHALL render no submit control, and pressing Enter inside a text field
-SHALL NOT navigate, reload, or submit anything.
-
-#### Scenario: Enter in a text field is inert
-- **WHEN** the user presses Enter inside a `text` field
-- **THEN** the page does not navigate and no request is sent

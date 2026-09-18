@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/shared/field-validation-error-response.schema.json",
+  "title": "FieldValidationErrorResponse",
+  "description": "400 body for a submit rejected by validation (HEL-1087 design.md D5). `message` is kept so `extractErrorMessage` and every existing client-side error-message reader keep working unchanged; `fieldErrors` is the new, structured addition a form can associate per control.",
+  "type": "object",
+  "required": ["message", "fieldErrors"],
+  "properties": {
+    "message": {
+      "type": "string"
+    },
+    "fieldErrors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/FieldValidationError"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "FieldValidationError": {
+      "type": "object",
+      "required": ["field", "reason"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "description": "The offending key."
+        },
+        "reason": {
+          "type": "string",
+          "description": "One of FormSubmission.buildRow's pinned reasons or DatasetRowValidator's 'expected <type>, got <kind>' template."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

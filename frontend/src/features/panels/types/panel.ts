@@ -303,6 +303,19 @@ export const emptyFormConfig = (): FormPanelConfig => ({
   submit: { writeMode: "append" },
 });
 
+// HEL-1087 design.md D2/D5 — the wire shapes for `POST /api/panels/:id/submit`.
+
+/** Request body — `values` is the only recognized key (backend `FormSubmitRequest`). */
+export interface FormSubmitRequest {
+  values: Record<string, unknown>;
+}
+
+/** One field-level validation failure on the wire (backend `FieldValidationError`). */
+export interface FieldValidationError {
+  field: string;
+  reason: string;
+}
+
 export function emptyConfigForKind(kind: PanelKind): PanelConfig {
   switch (kind) {
     case "output":

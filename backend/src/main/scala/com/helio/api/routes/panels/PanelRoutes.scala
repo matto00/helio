@@ -7,10 +7,14 @@ import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.PanelIdSegment
+import com.helio.api.protocols.panels.{FieldValidationError, FieldValidationErrorResponse, FormSubmitRequest}
+import com.helio.api.protocols.sources.RowWriteResponse
 import com.helio.domain.model._
+import com.helio.services.FormSubmitError
 import com.helio.services.panels.PanelService
+import com.helio.services.sources.RowWriteResult
 
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /** Thin HTTP shell for `/api/panels`. All validation, ACL, and patch
  *  composition lives in [[com.helio.services.PanelService]] (which absorbed
@@ -23,6 +27,25 @@ final class PanelRoutes(
     with JsonProtocols {
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
+
+  /** HEL-1087 design.md D5: route-local completion for `submitForm` — NOT `ServiceResponse.run`,
+   *  whose `completeError` hardcodes the generic `ErrorResponse` and has no way to thread
+   *  `fieldErrors` through it (`DashboardAuthoringRoutes.completeAuthoring` is the precedent for
+   *  this exact shape). Reuses `ServiceResponse.statusCodeFor` so the status-code mapping is never
+   *  duplicated — only the response BODY shape diverges, and only when `fieldErrors` is
+   *  non-empty; every other failure (403/404/non-form-400) renders the same bare
+   *  `ErrorResponse(message)` every other route already emits. */
+  private def completeSubmit(result: Future[Either[FormSubmitError, RowWriteResult]]): Route =
+    onSuccess(result) {
+      case Right(r) => complete(StatusCodes.Created, RowWriteResponse.fromDomain(r))
+      case Left(FormSubmitError(err, fieldErrors)) if fieldErrors.nonEmpty =>
+        complete(
+          ServiceResponse.statusCodeFor(err),
+          FieldValidationErrorResponse(err.message, fieldErrors.map(e => FieldValidationError(e.field, e.reason)))
+        )
+      case Left(FormSubmitError(err, _)) =>
+        complete(ServiceResponse.statusCodeFor(err), ErrorResponse(err.message))
+    }
 
   val routes: Route =
     pathPrefix("panels") {
@@ -79,6 +102,15 @@ final class PanelRoutes(
           post {
             ServiceResponse.run(panelService.duplicate(panelId, user)) { panel =>
               StatusCodes.Created -> PanelResponse.fromDomain(panel)
+            }
+          }
+        },
+        // HEL-1087: `POST /api/panels/:id/submit` — a `form` panel's submit path. Placed
+        // alongside `duplicate`, using the same `PanelIdSegment / "<segment>"` shape.
+        path(PanelIdSegment / "submit") { panelId =>
+          post {
+            entity(as[FormSubmitRequest]) { request =>
+              completeSubmit(panelService.submitForm(panelId, request.values.fields, user))
             }
           }
         }

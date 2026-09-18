@@ -1,5 +1,8 @@
+import { isAxiosError } from "axios";
+
 import type {
   DividerOrientation,
+  FieldValidationError,
   FormPanelConfig,
   ImageFit,
   Panel,
@@ -10,6 +13,7 @@ import type {
   UpdatePanelsBatchResponse,
 } from "../types/panel";
 import type { PagedResult } from "../../../types/models";
+import type { RowWriteResponse } from "../../sources/types/dataSource";
 import {
   buildContentPatch,
   buildCreatePanelBody,
@@ -137,6 +141,37 @@ export async function uploadPanelImage(file: File): Promise<UploadPanelImageResp
 export async function updatePanelForm(panelId: string, config: FormPanelConfig): Promise<Panel> {
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
   return response.data;
+}
+
+/** `POST /api/panels/:id/submit` (HEL-1087 design.md D1/D2) — a `form` panel's submit path.
+ *  `values` are already the typed, submit-ready payload (`state/formSubmission.ts`'s
+ *  `buildSubmitValues`) — this function does no shaping of its own. */
+export async function submitFormPanel(
+  panelId: string,
+  values: Record<string, unknown>,
+): Promise<RowWriteResponse> {
+  const response = await httpClient.post<RowWriteResponse>(`/api/panels/${panelId}/submit`, {
+    values,
+  });
+  return response.data;
+}
+
+/** Extracts `{field, reason}` entries from a `400` `FieldValidationErrorResponse` body — `[]` for
+ *  any other error shape (a transport failure, a non-field `400`, a `403`/`404`), so a caller can
+ *  branch on "did the server name specific fields" without its own type-narrowing (design.md D5,
+ *  `state/formSubmission.ts`'s `mapServerFieldErrors`). */
+export function parseFieldErrors(err: unknown): FieldValidationError[] {
+  if (!isAxiosError(err)) return [];
+  const data = err.response?.data as Record<string, unknown> | undefined;
+  const fieldErrors = data?.fieldErrors;
+  if (!Array.isArray(fieldErrors)) return [];
+  return fieldErrors.filter(
+    (e): e is FieldValidationError =>
+      typeof e === "object" &&
+      e !== null &&
+      typeof (e as Record<string, unknown>).field === "string" &&
+      typeof (e as Record<string, unknown>).reason === "string",
+  );
 }
 
 export async function updatePanelDivider(

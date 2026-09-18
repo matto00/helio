@@ -1,10 +1,12 @@
 package com.helio.services.panels
 
-import com.helio.services.ServiceError
+import com.helio.services.{FormSubmitError, ServiceError}
 import com.helio.services.auth.AccessChecker
 import com.helio.services.audit.AuditService
+import com.helio.services.sources.{DataSourceService, RowWriteResult}
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.panels.{CreatePanelRequest, CreatePanelsBatchRequest, PanelBatchItem, UpdatePanelRequest}
+import com.helio.domain.engine.DatasetRowValidator
 import com.helio.domain.model._
 import com.helio.domain.panels._
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
@@ -72,7 +74,11 @@ final class PanelService(
     // a `null` dataSourceRepo skips the dataSourceId-existence/ownership
     // check entirely, only exercised once a caller actually creates/patches
     // a `"form"`-kind panel with a non-empty `dataSourceId` (design.md D6).
-    dataSourceRepo: DataSourceRepository = null
+    dataSourceRepo: DataSourceRepository = null,
+    // HEL-1087: nullable-optional wiring, same convention as `dataSourceRepo` — a `null`
+    // dataSourceService means `submitForm` is the only method that can't be called (every other
+    // existing caller/fixture is unaffected, appended last).
+    dataSourceService: DataSourceService = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -92,6 +98,28 @@ final class PanelService(
    *  `callerOpt = None`). Closes the `/api/panels/:id/query` ACL hole. */
   def findById(panelId: PanelId, callerOpt: Option[AuthenticatedUser]): Future[Option[Panel]] =
     panelRepo.findById(panelId, callerOpt)
+
+  /** `POST /api/panels/:id/submit` (HEL-1087 design.md D1/D4). Sharing-aware visibility
+   *  (`findById`) → `404`; non-`form` panel → `400`; a visible panel the caller doesn't OWN →
+   *  `403` (D4's message — decidable from the panel alone: a grantee's insert could not succeed
+   *  under their own RLS context anyway, and the panel owner is the source owner by HEL-1084's
+   *  config-time ownership check). Delegates the actual build+write to
+   *  `DataSourceService.appendFormRow`, partially applying `FormSubmission.buildRow` over the
+   *  panel's config and the submitted `values` — the declaration itself is resolved fresh, under
+   *  the source's own lock, INSIDE that call, never here (D3's "no pre-lock mapping" rule). */
+  def submitForm(panelId: PanelId, values: Map[String, JsValue], user: AuthenticatedUser): Future[Either[FormSubmitError, RowWriteResult]] =
+    panelRepo.findById(panelId, Some(user)).flatMap {
+      case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Panel not found"))))
+      case Some(panel: FormPanel) =>
+        if (panel.ownerId != user.id)
+          Future.successful(Left(FormSubmitError(ServiceError.Forbidden("Only this form's owner can submit to its data source"))))
+        else {
+          val build: Vector[DatasetFieldDeclaration] => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
+            declaration => FormSubmission.buildRow(panel.config, declaration, values)
+          dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user)
+        }
+      case Some(_) => Future.successful(Left(FormSubmitError(ServiceError.BadRequest("panel is not a form panel"))))
+    }
 
   /** `POST /api/panels`. Returns the inserted panel plus, for an Output
    *  panel only, the decision-15 default-size [[DashboardLayoutItem]] it was

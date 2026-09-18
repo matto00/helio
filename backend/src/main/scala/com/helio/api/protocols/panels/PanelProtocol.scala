@@ -107,6 +107,26 @@ final case class CreatePanelBatchItem(
 final case class CreatePanelsBatchRequest(dashboardId: Option[String], panels: Vector[CreatePanelBatchItem])
 final case class CreatePanelsBatchResponse(panels: Vector[PanelResponse])
 
+/** HEL-1087 design.md D2: request body for `POST /api/panels/:id/submit` — `{"values":
+ *  {"<sourceField>": <typed JSON>}}`, and NOTHING else. The write target is the panel's own
+ *  persisted `dataSourceId`; a request cannot name a source, so any OTHER top-level key (e.g. a
+ *  `dataSourceId` the client tried to redirect the write with) is a decode failure, not a
+ *  silently-ignored extra field — mirrors `FormPanelConfig.format.read`'s closed-key strictness
+ *  (schemas/panels/form-submit-request.schema.json titled `FormSubmitRequest`). */
+final case class FormSubmitRequest(values: JsObject)
+
+/** HEL-1087 design.md D2/D5: one field-level validation failure on the wire — `field` names the
+ *  offending key, `reason` is one of `FormSubmission.buildRow`'s pinned reasons or
+ *  `DatasetRowValidator`'s `"expected <type>, got <kind>"` template
+ *  (schemas/shared/field-validation-error-response.schema.json's `$defs` entry). */
+final case class FieldValidationError(field: String, reason: String)
+
+/** HEL-1087 design.md D5: the `400` body for a validation-rejected submit — `message` is kept so
+ *  `extractErrorMessage` and every existing client-side error-message reader keep working
+ *  unchanged; `fieldErrors` is the new, structured addition a form can actually associate per
+ *  control (titled `FieldValidationErrorResponse`). */
+final case class FieldValidationErrorResponse(message: String, fieldErrors: Vector[FieldValidationError])
+
 object PanelResponse {
 
   /** Build a discriminated-wire response from the typed `Panel` ADT.
@@ -248,4 +268,28 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
   implicit val createPanelBatchItemFormat: RootJsonFormat[CreatePanelBatchItem] = jsonFormat4(CreatePanelBatchItem.apply)
   implicit val createPanelsBatchRequestFormat: RootJsonFormat[CreatePanelsBatchRequest] = jsonFormat2(CreatePanelsBatchRequest.apply)
   implicit val createPanelsBatchResponseFormat: RootJsonFormat[CreatePanelsBatchResponse] = jsonFormat1(CreatePanelsBatchResponse.apply)
+
+  /** HEL-1087 design.md D2: hand-rolled, strict — `values` is the ONLY recognized key; any other
+   *  top-level key (e.g. a `dataSourceId` attempting to redirect the write) is a decode failure,
+   *  mirroring `FormPanelConfig.format.read`'s closed-key strictness (tasks.md 1.6). */
+  implicit val formSubmitRequestFormat: RootJsonFormat[FormSubmitRequest] = new RootJsonFormat[FormSubmitRequest] {
+    def write(r: FormSubmitRequest): JsValue = JsObject("values" -> r.values)
+
+    def read(json: JsValue): FormSubmitRequest = json match {
+      case JsObject(fields) =>
+        val unknown = fields.keySet - "values"
+        if (unknown.nonEmpty)
+          deserializationError(s"Unrecognized submit attribute(s): ${unknown.toSeq.sorted.mkString(", ")}")
+        fields.get("values") match {
+          case Some(v: JsObject) => FormSubmitRequest(v)
+          case Some(x)           => deserializationError(s"values must be an object, got $x")
+          case None              => deserializationError("values is required")
+        }
+      case x => deserializationError(s"submit request must be an object, got $x")
+    }
+  }
+
+  implicit val fieldValidationErrorFormat: RootJsonFormat[FieldValidationError] = jsonFormat2(FieldValidationError.apply)
+  implicit val fieldValidationErrorResponseFormat: RootJsonFormat[FieldValidationErrorResponse] =
+    jsonFormat2(FieldValidationErrorResponse.apply)
 }

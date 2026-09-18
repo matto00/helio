@@ -256,10 +256,14 @@ final class ApiRoutes(
   private val oauthStateStore   = new OAuthStateRepository(dbContext)
   private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore)
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService, outputRepoOpt.orNull)
+  // HEL-1087: constructed ahead of `panelService` (moved up from its former position below
+  // `autoLayoutService`) so `panelService` can wire it in for `submitForm` — no behavior change
+  // to `dataSourceService` itself, only its construction ORDER.
+  private val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService)
   // HEL-904 task 4.1: `PanelService` no longer takes `dataTypeRepo`/
   // `metricRepo` — Text/Markdown's data-bound "Source mode" and metrics are
   // both removed outright.
-  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepoOpt.orNull, dataSourceRepo)
+  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepoOpt.orNull, dataSourceRepo, dataSourceService)
   private val proposalService   = new DashboardProposalService(dashboardService, panelService, outputRepoOpt.orNull)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // accessChecker instances the other dashboard/panel services use.
@@ -268,7 +272,6 @@ final class ApiRoutes(
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.
   private val autoLayoutService = new AutoLayoutService(dashboardRepo, panelRepo, accessChecker, auditService)
-  private val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService)
   // HEL-822: same nullable-optional wiring pattern as connectorEntityServiceOpt below —
   // constructed early (before sourceService) so SourceService.createRest's legacy-url
   // dual-support path (task 1.2a) has a repository to synthesize an implicit Connector
