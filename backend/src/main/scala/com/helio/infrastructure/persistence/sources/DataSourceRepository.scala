@@ -645,7 +645,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  not-found contract). */
   def appendBuiltRow(
       id:        DataSourceId,
-      build:      Vector[DatasetFieldDeclaration] => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
+      build:      (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
       maxRows:   Int,
       updatedAt: Instant,
       user:      AuthenticatedUser
@@ -654,7 +654,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   private[persistence] def appendBuiltRowAction(
       id:        DataSourceId,
-      build:      Vector[DatasetFieldDeclaration] => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
+      build:      (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
       maxRows:   Int,
       updatedAt: Instant
   ): DBIO[Option[Either[FormRowBuildFailure, (DataSource, DatasetRowRow)]]] = {
@@ -666,7 +666,10 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         case None => DBIO.successful(None)
         case Some(schemaCol) =>
           val declaration = schemaCol.map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]]).getOrElse(Vector.empty)
-          build(declaration) match {
+          // HEL-1089 design.md Decision 1/3a: the SAME `updatedAt` instant this call already uses for
+          // the row/source timestamps is also handed to `build` as `occurred_at` for a counter
+          // submission — one instant, no second `Instant.now()` call, both assigned inside this lock.
+          build(declaration, updatedAt) match {
             case Left(errors) => DBIO.successful(Some(Left(FormRowBuildFailure.FieldErrors(errors))))
             case Right(row) =>
               rowsTable.filter(_.dataSourceId === id.value).sortBy(_.seq).result.flatMap { existingRows =>

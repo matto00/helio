@@ -14,8 +14,8 @@ import type { FormFieldControl, FormFieldSpec, FormPanelConfig } from "../types/
 export const CONTROL_FITNESS: Record<DatasetFieldType, FormFieldControl[]> = {
   string: ["text", "textarea", "select"],
   "string-body": ["textarea", "text", "select"],
-  integer: ["number", "select", "text"],
-  float: ["number", "select", "text"],
+  integer: ["number", "select", "text", "counter"],
+  float: ["number", "select", "text", "counter"],
   boolean: ["checkbox", "select"],
   timestamp: ["date", "text", "select"],
   "binary-ref": ["file"],
@@ -171,5 +171,57 @@ export function computeFormIssues(
     }
   }
 
+  const counterIssue = checkCounterRowShape(config, schema);
+  if (counterIssue) issues.push(counterIssue);
+
   return issues;
+}
+
+/** HEL-1089 design.md Decision 3a "Failure mode" — client-side mirror of the backend's
+ *  `FormSchemaConsistency.checkCounterRowShape`: a `counter`-control field can only be saved
+ *  bound to a dataset declaring a `timestamp` field named `occurred_at` and a numeric,
+ *  non-required field named `value`. Runs only when the config actually has a counter field. */
+function checkCounterRowShape(
+  config: FormPanelConfig,
+  schema: DatasetFieldResponse[],
+): FormFieldIssue | undefined {
+  const counterField = config.fields.find((f) => f.control === "counter");
+  if (!counterField) return undefined;
+
+  const occurredAt = schema.find((f) => f.name === "occurred_at");
+  if (!occurredAt) {
+    return {
+      field: counterField.sourceField,
+      message: "counter field requires the bound dataset to declare a field named 'occurred_at'",
+    };
+  }
+  if (occurredAt.type !== "timestamp") {
+    return {
+      field: counterField.sourceField,
+      message: "counter field requires 'occurred_at' to be declared as a timestamp field",
+    };
+  }
+
+  const value = schema.find((f) => f.name === "value");
+  if (!value) {
+    return {
+      field: counterField.sourceField,
+      message: "counter field requires the bound dataset to declare a field named 'value'",
+    };
+  }
+  if (value.type !== "integer" && value.type !== "float") {
+    return {
+      field: counterField.sourceField,
+      message: "counter field requires 'value' to be declared as a numeric field",
+    };
+  }
+  if (value.required) {
+    return {
+      field: counterField.sourceField,
+      message:
+        "counter field requires 'value' to be declared as not required — a nullable snapshot can never be required",
+    };
+  }
+
+  return undefined;
 }

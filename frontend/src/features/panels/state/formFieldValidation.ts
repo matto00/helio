@@ -18,9 +18,12 @@ function isEmptyValue(control: FormFieldSpec["control"], value: unknown): boolea
 }
 
 /** Resolves whether `field` is presented as required — config `required: true` OR the dataset's
- *  own declaration (tighten-only; design.md D3a/the spec's "Required-ness" requirement). */
+ *  own declaration (tighten-only; design.md D3a/the spec's "Required-ness" requirement). A
+ *  `counter` field's `delta` is ALWAYS required (HEL-1089 design.md/spec — zero is a legal delta,
+ *  but a delta must be present), independent of `field.required`/`declared.required`, mirroring
+ *  `FormSubmission.buildRow`'s own unconditional override for the `counter` control. */
 export function isFieldRequired(field: FormFieldSpec, declared: DatasetFieldResponse): boolean {
-  return field.required === true || declared.required;
+  return field.control === "counter" || field.required === true || declared.required;
 }
 
 /** Validates one field's current raw value against `field`/`declared`, returning the error
@@ -37,7 +40,10 @@ export function validateFieldValue(
     return `${label} is required`;
   }
 
-  if (field.control === "number" && !isEmptyValue(field.control, value)) {
+  if (
+    (field.control === "number" || field.control === "counter") &&
+    !isEmptyValue(field.control, value)
+  ) {
     const text = typeof value === "string" ? value : String(value);
     const parsed = parseTypedValue(declared.type, text);
     if (parsed === undefined) {

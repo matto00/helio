@@ -210,7 +210,7 @@
         },
         "control": {
           "type": "string",
-          "enum": ["text", "textarea", "number", "date", "select", "checkbox", "file"]
+          "enum": ["text", "textarea", "number", "date", "select", "checkbox", "file", "counter"]
         },
         "label": {
           "type": "string"
@@ -231,7 +231,7 @@
         "step": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "description": "Valid only alongside control: number. A counter (the single-field compact configuration) is expressed as control: number carrying step — step's PRESENCE is the counter discriminator."
+          "description": "Valid only alongside control: number. Superseded as the counter discriminator by HEL-1089 — a counter is now its own control value (control: counter), not control: number carrying step."
         },
         "options": {
           "type": "array",

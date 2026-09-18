@@ -231,5 +231,65 @@ class FormSubmissionSpec extends AnyWordSpec with Matchers {
       val result = FormSubmission.buildRow(cfg, declaration, Map("quantity" -> JsString("5"), "status" -> JsString("a")))
       result shouldBe Left(Vector(FieldError("quantity", "expected integer, got string")))
     }
+
+    // HEL-1089 design.md Decision 1/3a — the `counter` control's own submit semantics.
+    "reject a non-numeric delta for a counter field with 'number is required'" in {
+      val declaration = Vector(
+        decl("delta", DataFieldType.IntegerType),
+        decl("occurred_at", DataFieldType.TimestampType),
+        decl("value", DataFieldType.IntegerType, required = false)
+      )
+      val cfg = config(field("delta", "counter"))
+      val result = FormSubmission.buildRow(cfg, declaration, Map("delta" -> JsString("nope")))
+      result shouldBe Left(Vector(FieldError("delta", "number is required")))
+    }
+
+    "reject a missing delta for a counter field as required, even though the form field itself is not marked required" in {
+      val declaration = Vector(
+        decl("delta", DataFieldType.IntegerType),
+        decl("occurred_at", DataFieldType.TimestampType),
+        decl("value", DataFieldType.IntegerType, required = false)
+      )
+      val cfg = config(field("delta", "counter"))
+      val result = FormSubmission.buildRow(cfg, declaration, Map.empty)
+      result shouldBe Left(Vector(FieldError("delta", "required")))
+    }
+
+    "accept a zero delta for a counter field — zero is a legal delta" in {
+      val declaration = Vector(
+        decl("delta", DataFieldType.IntegerType),
+        decl("occurred_at", DataFieldType.TimestampType),
+        decl("value", DataFieldType.IntegerType, required = false)
+      )
+      val cfg = config(field("delta", "counter"))
+      val now = java.time.Instant.parse("2026-09-18T00:00:00Z")
+      val result = FormSubmission.buildRow(cfg, declaration, Map("delta" -> JsNumber(0)), now)
+      result shouldBe Right(Vector(JsNumber(0), JsString(now.toString), JsNull))
+    }
+
+    "inject the server-supplied now as occurred_at, ignoring a client-supplied occurred_at outright" in {
+      val declaration = Vector(
+        decl("delta", DataFieldType.IntegerType),
+        decl("occurred_at", DataFieldType.TimestampType),
+        decl("value", DataFieldType.IntegerType, required = false)
+      )
+      val cfg = config(field("delta", "counter"))
+      val now = java.time.Instant.parse("2026-09-18T00:00:00Z")
+      val spoofed = "1999-01-01T00:00:00Z"
+      val result = FormSubmission.buildRow(cfg, declaration, Map("delta" -> JsNumber(1), "occurred_at" -> JsString(spoofed)), now)
+      result shouldBe Right(Vector(JsNumber(1), JsString(now.toString), JsNull))
+    }
+
+    "pass through a client-supplied value as an inert snapshot, never computed by the server" in {
+      val declaration = Vector(
+        decl("delta", DataFieldType.IntegerType),
+        decl("occurred_at", DataFieldType.TimestampType),
+        decl("value", DataFieldType.IntegerType, required = false)
+      )
+      val cfg = config(field("delta", "counter"))
+      val now = java.time.Instant.parse("2026-09-18T00:00:00Z")
+      val result = FormSubmission.buildRow(cfg, declaration, Map("delta" -> JsNumber(1), "value" -> JsNumber(42)), now)
+      result shouldBe Right(Vector(JsNumber(1), JsString(now.toString), JsNumber(42)))
+    }
   }
 }

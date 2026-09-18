@@ -29,11 +29,39 @@ object FormSchemaConsistency {
           .orElse(checkOptions(field, declared))
           .orElse(checkInitialValue(field, declared))
       })
-    } match {
+    }.orElse(checkCounterRowShape(config, byName)) match {
       case Some(err) => Left(err)
       case None      => Right(())
     }
   }
+
+  /** HEL-1089 design.md Decision 3a "Failure mode" — a `counter`-control field can only be saved
+   *  bound to a dataset whose declaration structurally supports the `{occurred_at, delta, value}`
+   *  row shape: a `TimestampType` field literally named `occurred_at`, and a numeric, non-required
+   *  field literally named `value`. Runs only when `config.fields` actually contains a `counter`
+   *  field — every other form config is unaffected. */
+  private def checkCounterRowShape(
+      config: FormPanelConfig,
+      byName: Map[String, DatasetFieldDeclaration]
+  ): Option[String] =
+    if (!config.fields.exists(_.control == "counter")) None
+    else
+      byName.get("occurred_at") match {
+        case None =>
+          Some("counter field requires the bound dataset to declare a field named 'occurred_at'")
+        case Some(f) if f.fieldType != DataFieldType.TimestampType =>
+          Some("counter field requires 'occurred_at' to be declared as a timestamp field")
+        case Some(_) =>
+          byName.get("value") match {
+            case None =>
+              Some("counter field requires the bound dataset to declare a field named 'value'")
+            case Some(f) if f.fieldType != DataFieldType.IntegerType && f.fieldType != DataFieldType.FloatType =>
+              Some("counter field requires 'value' to be declared as a numeric field")
+            case Some(f) if f.required =>
+              Some("counter field requires 'value' to be declared as not required — a nullable snapshot can never be required")
+            case Some(_) => None
+          }
+      }
 
   private def checkControlFitness(field: FormFieldSpec, declared: DatasetFieldDeclaration): Option[String] = {
     val fitting = FormFieldSpec.FittingControls(declared.fieldType)

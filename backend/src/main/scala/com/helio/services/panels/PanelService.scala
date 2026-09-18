@@ -126,8 +126,8 @@ final class PanelService(
         if (panel.ownerId != user.id)
           Future.successful(Left(FormSubmitError(ServiceError.Forbidden("Only this form's owner can submit to its data source"))))
         else if (files.isEmpty) {
-          val build: Vector[DatasetFieldDeclaration] => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
-            declaration => FormSubmission.buildRow(panel.config, declaration, values)
+          val build: (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
+            (declaration, now) => FormSubmission.buildRow(panel.config, declaration, values, now)
           dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user)
         } else {
           submitFormWithFiles(panelId, panel, values, files, user)
@@ -161,8 +161,8 @@ final class PanelService(
           case Right(_) =>
             storeFormFiles(files).flatMap { refsByField =>
               val realValues = values ++ refsByField
-              val build: Vector[DatasetFieldDeclaration] => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
-                decl => FormSubmission.buildRow(panel.config, decl, realValues)
+              val build: (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
+                (decl, now) => FormSubmission.buildRow(panel.config, decl, realValues, now)
               dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user)
             }
         }

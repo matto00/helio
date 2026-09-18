@@ -22,6 +22,14 @@ describe("isFieldRequired", () => {
   it("is optional when neither the config nor the dataset requires it", () => {
     expect(isFieldRequired(field(), declared({ required: false }))).toBe(false);
   });
+
+  // HEL-1089: a counter field's delta is ALWAYS required, independent of both flags — mirrors
+  // FormSubmission.buildRow's unconditional override for the counter control.
+  it("is required for a counter control even when neither the config nor the dataset requires it", () => {
+    expect(isFieldRequired(field({ control: "counter" }), declared({ required: false }))).toBe(
+      true,
+    );
+  });
 });
 
 describe("validateFieldValue", () => {
@@ -70,6 +78,33 @@ describe("validateFieldValue", () => {
       false,
     );
     expect(message).toBeNull();
+  });
+
+  it("errors, naming the label, when a counter field's delta is empty — required regardless of declared/config", () => {
+    const message = validateFieldValue(
+      field({ sourceField: "delta", control: "counter", label: "Delta" }),
+      declared({ name: "delta", type: "integer", required: false }),
+      "",
+    );
+    expect(message).toBe("Delta is required");
+  });
+
+  it("returns null for a counter field's valid zero delta", () => {
+    const message = validateFieldValue(
+      field({ sourceField: "delta", control: "counter", label: "Delta" }),
+      declared({ name: "delta", type: "integer", required: false }),
+      "0",
+    );
+    expect(message).toBeNull();
+  });
+
+  it("errors on a non-numeric counter delta", () => {
+    const message = validateFieldValue(
+      field({ sourceField: "delta", control: "counter", label: "Delta" }),
+      declared({ name: "delta", type: "integer", required: false }),
+      "nope",
+    );
+    expect(message).toBe("Delta must be a whole number");
   });
 
   it("returns null for an optional, empty non-number field", () => {

@@ -23,7 +23,7 @@ function config(fields: FormFieldSpec[]): FormPanelConfig {
 
 describe("fittingControls / defaultControl", () => {
   it("defaults integer to number", () => {
-    expect(fittingControls("integer")).toEqual(["number", "select", "text"]);
+    expect(fittingControls("integer")).toEqual(["number", "select", "text", "counter"]);
     expect(defaultControl("integer")).toBe("number");
   });
 

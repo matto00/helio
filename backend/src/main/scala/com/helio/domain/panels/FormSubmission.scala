@@ -5,6 +5,8 @@ import com.helio.domain.engine.DatasetRowValidator.FieldError
 import com.helio.domain.model.DatasetFieldDeclaration
 import spray.json._
 
+import java.time.Instant
+
 /** HEL-1087 design.md D3: pure, side-effect-free builder for a `form` panel's submit path — the
  *  server-side mirror of the client's own tightening rules, run under the bound source's lock
  *  (`DataSourceRepository.appendBuiltRow`), never before it, so a concurrent declaration change
@@ -46,17 +48,31 @@ object FormSubmission {
    *  failure; `Right` with the row to persist (default-filled per `DatasetRowValidator`) on
    *  success. Never partially builds a row: a `Left` here means `DataSourceRepository
    *  .appendBuiltRow` writes nothing (D3, C8). */
+  /** `now` (HEL-1089 design.md Decision 1/3a): the server-assigned instant injected into a
+   *  counter-configured submission's `occurred_at` cell — defaulted to `Instant.now()` so every
+   *  pre-existing non-counter caller/test is unaffected, but always caller-suppliable so a test
+   *  can freeze it (tasks.md 2.3's millisecond-collision scenario). Never read from `values` —
+   *  a client-supplied `occurred_at` is discarded outright (D3a). */
   def buildRow(
       config:      FormPanelConfig,
       declaration: Vector[DatasetFieldDeclaration],
-      values:      Map[String, JsValue]
+      values:      Map[String, JsValue],
+      now:         Instant = Instant.now()
   ): Either[Vector[FieldError], Vector[JsValue]] = {
     val declaredByName  = declaration.map(f => f.name -> f).toMap
     val configuredNames = config.fields.map(_.sourceField).toSet
+    val hasCounterField = config.fields.exists(_.control == "counter")
+
+    // HEL-1089 design.md Decision 3a: `occurred_at`/`value` are convention-named declared fields
+    // injected by this method, never configured form fields — so a key by either literal name is
+    // excluded from the "unconfigured" rejection below when a counter field is present. This is
+    // what makes a spoofed `values("occurred_at")` merely IGNORED (spec scenario) rather than a
+    // submission-rejecting field error.
+    val injectedKeys = if (hasCounterField) Set("occurred_at", "value") else Set.empty[String]
 
     // (i) a key in `values` that names no configured field at all.
     val unconfiguredErrors: Vector[FieldError] =
-      values.keySet.diff(configuredNames).toVector.sorted.map(k => FieldError(k, "not part of this form"))
+      values.keySet.diff(configuredNames).diff(injectedKeys).toVector.sorted.map(k => FieldError(k, "not part of this form"))
 
     // Per configured field: `Left` on any rule violation; `Right(Some(name -> value))` to write;
     // `Right(None)` to leave positionally absent (optional-and-unsupplied, or an
@@ -77,7 +93,10 @@ object FormSubmission {
           else
             Right(None)
         case Some(declared) =>
-          val required = configRequired || declared.required
+          // HEL-1089 design.md spec (form-panel-submit) — a `counter` field's `delta` is ALWAYS
+          // required, zero included (a no-op click is still an event): its requiredness is never
+          // gated on `field.required`/`declared.required` the way every other control is.
+          val required = configRequired || declared.required || field.control == "counter"
           if (supplied.isEmpty) {
             // (v) — required (form OR declared) with no supplied value: rejected, with NO
             // declared-default fill (the client blocks it, so the server must too). An optional
@@ -95,6 +114,13 @@ object FormSubmission {
               validateFilePlaceholder(value) match {
                 case Left(_)  => Left(FieldError(field.sourceField, "invalid"))
                 case Right(_) => Right(Some(field.sourceField -> value))
+              }
+            } else if (field.control == "counter") {
+              // HEL-1089 design.md Decision 1 — a counter field's submitted value is a signed
+              // `delta`; any non-number shape is rejected before a row is ever built (D3, C8).
+              value match {
+                case n: JsNumber => Right(Some(field.sourceField -> n))
+                case _            => Left(FieldError(field.sourceField, "number is required"))
               }
             } else if (field.control == "select") {
               // (vi) — a `select`'s options must be a non-empty JSON array; when they are not,
@@ -119,7 +145,20 @@ object FormSubmission {
     if (allErrors.nonEmpty) {
       Left(allErrors)
     } else {
-      val suppliedByName = perField.collect { case Right(Some((n, v))) => n -> v }.toMap
+      val configuredByName = perField.collect { case Right(Some((n, v))) => n -> v }.toMap
+
+      // HEL-1089 design.md Decision 3a — for a counter-configured submission, inject the
+      // server-assigned `occurred_at` (never the client's, D3) and pass through whatever `value`
+      // (if anything) the client sent, for any declared field literally named that way. Both
+      // bypass the ordinary "configured field" path entirely — neither is ever a `FormFieldSpec`.
+      val injectedByName: Map[String, JsValue] =
+        if (!hasCounterField) Map.empty
+        else Vector(
+          declaredByName.get("occurred_at").map(_ => "occurred_at" -> (JsString(now.toString): JsValue)),
+          declaredByName.get("value").map(_ => "value" -> values.getOrElse("value", JsNull))
+        ).flatten.toMap
+
+      val suppliedByName = configuredByName ++ injectedByName
 
       // (vii) — the positional row, in DECLARED order: `JsNull` for both an unsupplied configured
       // field and a field the form never configures at all — either way, the declared default (or

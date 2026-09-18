@@ -181,7 +181,7 @@ class FormPanelSpec extends AnyWordSpec with Matchers {
 
     "reject an unknown control" in {
       form(validConfig(Vector(FormFieldSpec("q", "unknown-control")))).validateConfig shouldBe
-        Left("unknown control: 'unknown-control'. Valid values: checkbox, date, file, number, select, text, textarea")
+        Left("unknown control: 'unknown-control'. Valid values: checkbox, counter, date, file, number, select, text, textarea")
     }
 
     "reject a select field with no options" in {

@@ -616,4 +616,122 @@ class FormSubmitRoutesSpec
       rowCount(src) shouldBe 1
     }
   }
+
+  // HEL-1089 tasks.md 2.6: no counter UI chrome exists yet (HEL-1088) — this exercises the
+  // `counter`-control submit path end-to-end through the real HTTP route, the only feasible
+  // "e2e" coverage available at this ticket's scope. `FormSchemaConsistencySpec`/
+  // `FormSubmissionSpec` already cover the domain-layer rules exhaustively; this confirms the
+  // whole stack (route -> PanelService -> DataSourceService -> DataSourceRepository) wires
+  // together for a real request.
+  private val counterSchemaJson =
+    """[{"name":"delta","type":"integer","required":true},
+      | {"name":"occurred_at","type":"timestamp","required":true},
+      | {"name":"value","type":"integer","required":false}]"""
+      .stripMargin.replaceAll("\n", "")
+
+  private def counterFormConfig: String =
+    formConfig("""[{"sourceField":"delta","control":"counter"}]""")
+
+  "POST /api/panels/:id/submit — counter control (HEL-1089)" should {
+    "append a row with a server-assigned occurred_at, ignoring a client-supplied one" in {
+      val src = seedDataset(ownerId, "src-counter-occurred-at", schemaJson = counterSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, counterFormConfig.replace("__DS__", src))
+
+      submit(panelId, """{"values":{"delta":1,"occurred_at":"1999-01-01T00:00:00Z"}}""") ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      val row = await(ctx.withSystemContext(
+        sql"""SELECT data FROM dataset_rows WHERE data_source_id = $src""".as[String].head
+      )).parseJson.convertTo[Vector[JsValue]]
+      row.head shouldBe JsNumber(1)
+      val storedOccurredAt = row(1).asInstanceOf[JsString].value
+      storedOccurredAt should not be "1999-01-01T00:00:00Z"
+      java.time.Instant.parse(storedOccurredAt).isAfter(java.time.Instant.parse("2020-01-01T00:00:00Z")) shouldBe true
+      row(2) shouldBe JsNull
+    }
+
+    "pass through a client-supplied value as an inert snapshot" in {
+      val src = seedDataset(ownerId, "src-counter-value-passthrough", schemaJson = counterSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, counterFormConfig.replace("__DS__", src))
+
+      submit(panelId, """{"values":{"delta":-1,"value":41}}""") ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      val row = await(ctx.withSystemContext(
+        sql"""SELECT data FROM dataset_rows WHERE data_source_id = $src""".as[String].head
+      )).parseJson.convertTo[Vector[JsValue]]
+      row(2) shouldBe JsNumber(41)
+    }
+
+    "reject a non-numeric delta with a structured fieldError and write nothing" in {
+      val src = seedDataset(ownerId, "src-counter-bad-delta", schemaJson = counterSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, counterFormConfig.replace("__DS__", src))
+
+      submit(panelId, """{"values":{"delta":"nope"}}""") ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        val fieldErrors = responseAs[String].parseJson.asJsObject.fields("fieldErrors").convertTo[Vector[JsValue]].map(_.asJsObject)
+        fieldErrors.exists(e => e.fields("field") == JsString("delta") && e.fields("reason") == JsString("number is required")) shouldBe true
+      }
+      rowCount(src) shouldBe 0
+    }
+
+    "accept a zero delta — zero is a legal event" in {
+      val src = seedDataset(ownerId, "src-counter-zero", schemaJson = counterSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, counterFormConfig.replace("__DS__", src))
+
+      submit(panelId, """{"values":{"delta":0}}""") ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      rowCount(src) shouldBe 1
+    }
+
+    "produce one row per submission across a mixed +/- sequence, never mutating earlier rows" in {
+      val src = seedDataset(ownerId, "src-counter-sequence", schemaJson = counterSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, counterFormConfig.replace("__DS__", src))
+
+      val deltas = Seq(1, 1, -1, 1, -1)
+      deltas.foreach { d =>
+        submit(panelId, s"""{"values":{"delta":$d}}""") ~> routes ~> check {
+          status shouldBe StatusCodes.Created
+        }
+      }
+      rowCount(src) shouldBe deltas.size
+
+      val rowsBefore = await(ctx.withSystemContext(
+        sql"""SELECT id, data FROM dataset_rows WHERE data_source_id = $src ORDER BY seq""".as[(String, String)]
+      ))
+      submit(panelId, """{"values":{"delta":1}}""") ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+      }
+      val rowsAfter = await(ctx.withSystemContext(
+        sql"""SELECT id, data FROM dataset_rows WHERE data_source_id = $src ORDER BY seq""".as[(String, String)]
+      ))
+      rowsAfter.size shouldBe rowsBefore.size + 1
+      // Every earlier row's id AND byte-for-byte `data` payload is untouched — the new
+      // submission is a pure INSERT, never a read-modify-write of an existing row.
+      rowsBefore.zip(rowsAfter.take(rowsBefore.size)).foreach { case ((idBefore, dataBefore), (idAfter, dataAfter)) =>
+        idAfter shouldBe idBefore
+        dataAfter shouldBe dataBefore
+      }
+    }
+
+    "reject binding a counter field to a dataset missing occurred_at/value at config time" in {
+      val src = seedDataset(ownerId, "src-counter-bad-schema",
+        schemaJson = """[{"name":"delta","type":"integer","required":true}]""")
+      val dashboardId = seedDashboard(ownerId)
+
+      Post(
+        "/api/panels",
+        json(s"""{"dashboardId":"$dashboardId","title":"Counter","type":"form",
+                 |"config":${counterFormConfig.replace("__DS__", src)}}""".stripMargin)
+      ).addHeader(sessionCookie(ownerToken)).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+  }
 }

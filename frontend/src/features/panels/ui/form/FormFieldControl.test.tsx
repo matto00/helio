@@ -66,6 +66,16 @@ describe("FormFieldControl", () => {
     expect(control).toHaveAttribute("aria-required", "true");
   });
 
+  it("counter: renders a spinbutton and is always aria-required, regardless of declared/config required", () => {
+    const field: FormFieldSpec = { sourceField: "delta", control: "counter", label: "Delta" };
+    render(
+      <Harness field={field} declared={{ name: "delta", type: "integer", required: false }} />,
+    );
+    const control = screen.getByRole("spinbutton", { name: "Delta" });
+    expect(control).toHaveAttribute("type", "number");
+    expect(control).toHaveAttribute("aria-required", "true");
+  });
+
   it("date: renders a date-typed input", () => {
     const field: FormFieldSpec = { sourceField: "when", control: "date", label: "When" };
     render(
