@@ -49,11 +49,13 @@
   transition: background-color var(--app-transition);
 }
 
-.form-panel-view__submit:hover:not(:disabled) {
+.form-panel-view__submit:hover:not([aria-disabled="true"]) {
   background: var(--app-accent-strong);
 }
 
-.form-panel-view__submit:disabled {
+/* HEL-1090: `aria-disabled`, not `:disabled` — see the button's own comment in
+   `FormPanelView.tsx` for why the native attribute can't be used here. */
+.form-panel-view__submit[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.7;
 }
