@@ -30,11 +30,21 @@ function toState(config: FormPanelConfig): FormEditorState {
   };
 }
 
+/** design.md Decision 3: a single-counter-field config's persisted `submit.resetOnSuccess` is
+ *  ALWAYS `false`, not a user-facing toggle — the compact layout's client-side optimistic tally
+ *  (HEL-1088) would otherwise be wiped by `FormPanelView.handleSubmit`'s existing
+ *  `if (config.submit.resetOnSuccess !== false) values.reset();` line after every single click. */
+function isSingleCounterField(fields: FormFieldSpec[]): boolean {
+  return fields.length === 1 && fields[0].control === "counter";
+}
+
 function toConfig(state: FormEditorState): FormPanelConfig {
   return {
     dataSourceId: state.dataSourceId,
     fields: state.fields,
-    submit: { writeMode: "append" },
+    submit: isSingleCounterField(state.fields)
+      ? { writeMode: "append", resetOnSuccess: false }
+      : { writeMode: "append" },
   };
 }
 
@@ -62,7 +72,7 @@ function dropIncompatibleAttrs(
   newControl: FormFieldSpec["control"],
 ): FormFieldSpec {
   const next = { ...field, control: newControl };
-  if (newControl !== "number") delete next.step;
+  if (newControl !== "number" && newControl !== "counter") delete next.step;
   if (newControl !== "select") delete next.options;
   return next;
 }

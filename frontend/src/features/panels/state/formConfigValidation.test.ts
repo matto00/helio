@@ -170,4 +170,28 @@ describe("computeFormIssues", () => {
     );
     expect(issues[0].message).toContain("Step must be positive");
   });
+
+  // HEL-1088 design.md Decision 5 — step is shared by number and counter now. `checkCounterRowShape`
+  // requires `occurred_at`/`value` for a counter field, so this schema adds them.
+  const counterSchema: DatasetFieldResponse[] = [
+    ...schema,
+    { name: "occurred_at", type: "timestamp", required: false },
+    { name: "value", type: "integer", required: false },
+  ];
+
+  it("allows step on a counter control", () => {
+    const issues = computeFormIssues(
+      config([{ sourceField: "quantity", control: "counter", step: 5 }]),
+      counterSchema,
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it("flags a non-positive step on a counter control", () => {
+    const issues = computeFormIssues(
+      config([{ sourceField: "quantity", control: "counter", step: 0 }]),
+      counterSchema,
+    );
+    expect(issues[0].message).toContain("Step must be positive");
+  });
 });

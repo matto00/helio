@@ -1,6 +1,7 @@
 // HEL-1084 design.md D5/D7 — one form field's row: field chooser, control
 // chooser, label/placeholder/help text, required, initial value, step
-// (number only), options (select only), and reorder/remove controls.
+// (number and counter, HEL-1088), options (select only), and reorder/remove
+// controls.
 
 import { useId, type RefObject } from "react";
 
@@ -170,7 +171,7 @@ export function FormFieldRow({
             />
           </FormField>
 
-          {field.control === "number" && (
+          {(field.control === "number" || field.control === "counter") && (
             <FormField label={`Step for ${fieldLabel}`}>
               <TextField
                 type="number"

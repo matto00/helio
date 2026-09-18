@@ -1,11 +1,4 @@
-# form-panel-rendering Specification
-
-## Purpose
-Defines how a configured `form` panel renders its fields on a dashboard: the control each field
-presents, how labels, descriptions and errors are exposed to assistive technology, keyboard completability,
-how the panel fits a grid cell, and how inconsistent fields are surfaced.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: A configured form panel renders one control per field, in authored order
 
@@ -30,25 +23,6 @@ controls. A form panel whose config has no fields SHALL keep rendering the "Form
 #### Scenario: Empty field list keeps the unconfigured state
 - **WHEN** a form panel's config has an empty `fields` list
 - **THEN** the panel body renders "Form not configured" and no controls
-
-### Requirement: Every field has a computed accessible name and, when help text is configured, description
-
-Every rendered control SHALL have a computed accessible name equal to the field's `label`, or its
-`sourceField` when no label is configured. When a field has `helpText`, the control's computed accessible
-description SHALL equal that help text while no error is shown. These properties SHALL be asserted by
-computed accessible name and description — never by the presence of a label or text node in the DOM.
-
-#### Scenario: Label gives the accessible name
-- **WHEN** a field has `label: "Quantity"`
-- **THEN** its control's computed accessible name is "Quantity"
-
-#### Scenario: Source field is the fallback name
-- **WHEN** a field has no `label` and `sourceField: "note"`
-- **THEN** its control's computed accessible name is "note"
-
-#### Scenario: Help text is the accessible description
-- **WHEN** a field has `helpText: "Whole units only"` and no error
-- **THEN** its control's computed accessible description is "Whole units only"
 
 ### Requirement: Every field is reachable and completable by keyboard alone
 
@@ -77,116 +51,7 @@ with Tab SHALL move focus to the next field, never trap it.
 - **WHEN** a `counter` control holds focus and the user presses ArrowUp
 - **THEN** one increment activation by the configured `step` is triggered, equivalent to activating `+`
 
-### Requirement: Required-ness is derived from the config or the dataset declaration
-
-A field SHALL be presented as required when the config sets `required: true` OR the bound dataset declares
-the field required, and as optional otherwise. Presentation as required SHALL be exposed to assistive
-technology on the control itself.
-
-#### Scenario: Dataset-declared requirement is honoured without a config flag
-- **WHEN** the dataset declares `quantity` as required and the form field for `quantity` has no `required`
-- **THEN** the `quantity` control is exposed as required
-
-#### Scenario: Config can tighten but the renderer never loosens
-- **WHEN** the dataset declares `note` optional and the form field sets `required: true`
-- **THEN** the `note` control is exposed as required
-
-### Requirement: Field-level errors are associated with their field by computed ARIA state
-
-When a field is left with a value that fails a field-level rule — a required field left empty, or a
-`number` control holding a value that is not a valid value of the declared type (a non-integer for an
-integer field, a non-number for either numeric type) — the renderer SHALL show an error message naming the
-field, mark the control invalid, and make the error text the control's computed accessible description. No
-error SHALL be shown for a field the user has not yet left. Correcting the value SHALL clear the error and
-restore the help text as the description. Association SHALL be asserted by computed ARIA state, never by
-the presence of an alert node.
-
-#### Scenario: Required field left empty
-- **WHEN** a required `number` field is focused and left empty
-- **THEN** the control is marked invalid and its computed accessible description is the error naming the field
-
-#### Scenario: Non-integer in an integer field
-- **WHEN** a `number` field on an integer-typed dataset field is left holding `1.5`
-- **THEN** the control is marked invalid and its description says a whole number is required
-
-#### Scenario: No error before interaction
-- **WHEN** a form panel with a required, empty field first renders
-- **THEN** no control is marked invalid and no error message is shown
-
-#### Scenario: Correcting clears the error
-- **WHEN** an invalid field is corrected and left again
-- **THEN** the control is no longer marked invalid and its description is its help text, if any
-
-### Requirement: A field is prefilled from its initial value
-
-A field with an `initialValue` SHALL start holding that value; a field without one SHALL start empty
-(unchecked for `checkbox`, no option chosen for `select`). Prefill never changes what a dataset stores for an
-omitted field.
-
-#### Scenario: Prefilled number
-- **WHEN** a `number` field has `initialValue: 5`
-- **THEN** its control initially holds `5`
-
-### Requirement: The renderer loads the declared schema and surfaces its loading and failure states
-
-Rendering requires the bound dataset's declared schema. While it loads, the panel body SHALL show a loading
-state; if it cannot be loaded, the panel body SHALL show an inline error with a retry action rather than
-rendering fields from the config alone.
-
-#### Scenario: Schema fails to load
-- **WHEN** the declared schema request fails
-- **THEN** the panel body shows an error with a retry action and no field controls
-
-### Requirement: A form panel is sized for a grid cell
-
-The form body SHALL fit the panel card: fields stack in one column, the body scrolls vertically inside the
-card when the fields exceed its height rather than overflowing it, and density tightens in a short card.
-An auto-layout re-flow SHALL clamp a `form` panel to a minimum of 3 columns wide and 5 rows tall.
-
-#### Scenario: Overflowing fields scroll inside the card
-- **WHEN** a form panel's fields are taller than its card
-- **THEN** the body scrolls within the card and the card's own bounds are unchanged
-
-#### Scenario: Auto-layout clamps an undersized form
-- **WHEN** an auto-layout request includes a `form` panel with `w: 1, h: 2`
-- **THEN** the packed item is at least `w: 3, h: 5`
-
-### Requirement: Inconsistent fields are surfaced, never dropped
-
-A field the renderer cannot honour SHALL still render its label together with a visible, field-associated
-reason and a non-editable control: a `sourceField` the dataset does not declare, a control that does not fit
-the declared type, or a `select` whose `options` are not a non-empty list. Such a field SHALL NOT be omitted
-from the rendered form.
-
-#### Scenario: Orphaned field is surfaced
-- **WHEN** a form field names a `sourceField` the bound dataset no longer declares
-- **THEN** the field renders its label with a reason that the dataset does not declare it, as its description
-
-### Requirement: A `file` field renders a keyboard-operable picker with a visible selected-file state
-
-A form field with `control: "file"` SHALL render a file-picker control associated with the field's label by
-computed accessible name, reachable by Tab in authored order and operable without a pointer (activatable
-with Enter or Space, opening the platform file-selection UI). Before a file is chosen, the control SHALL
-expose a visible and programmatically-determinable "no file selected" state. After a file is chosen, the
-control SHALL expose the chosen file's name as a visible, programmatically-determinable selected-file state,
-replacing the "no file chosen" state. These properties SHALL be asserted by computed accessible name and by
-the control's exposed/visible state — never by DOM node presence alone.
-
-#### Scenario: File control has a computed accessible name
-- **WHEN** a `file` field has `label: "Attachment"`
-- **THEN** its control's computed accessible name is "Attachment"
-
-#### Scenario: Keyboard operates the picker
-- **WHEN** the file control has focus and the user presses Enter (or Space)
-- **THEN** the platform file-selection UI opens
-
-#### Scenario: Selecting a file updates the visible state
-- **WHEN** the user selects a file named `report.pdf`
-- **THEN** the control's visible/exposed state shows `report.pdf` in place of "no file chosen"
-
-#### Scenario: No file selected is the initial state
-- **WHEN** a `file` field first renders with no `initialValue`
-- **THEN** the control's visible/exposed state indicates no file is selected
+## ADDED Requirements
 
 ### Requirement: A `counter`-control field renders compact `+`/`-`/value chrome with computed ARIA state
 

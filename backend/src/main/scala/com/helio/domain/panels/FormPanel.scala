@@ -337,8 +337,10 @@ final case class FormPanel(
               s"required cannot be false for field '${f.sourceField}' — requiredness may only be tightened"
             case f if f.step.exists(_ <= 0) =>
               s"step must be positive for field '${f.sourceField}'"
-            case f if f.step.isDefined && f.control != "number" =>
-              s"step is only valid alongside control: number (field '${f.sourceField}' has control '${f.control}')"
+            // HEL-1088: step is shared by number and counter (the counter's +/- increment size) —
+            // mirrors the frontend's `formConfigValidation.ts` check.
+            case f if f.step.isDefined && f.control != "number" && f.control != "counter" =>
+              s"step is only valid alongside control: number or counter (field '${f.sourceField}' has control '${f.control}')"
           } match {
             case Some(err) => Left(err)
             case None       => Right(())

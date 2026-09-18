@@ -137,13 +137,18 @@ export function computeFormIssues(
       continue;
     }
 
-    if (field.control === "number" && field.step !== undefined && field.step <= 0) {
+    // HEL-1088: `step` is shared by `number` and `counter` (design.md Decision 5).
+    if (
+      (field.control === "number" || field.control === "counter") &&
+      field.step !== undefined &&
+      field.step <= 0
+    ) {
       issues.push({ field: field.sourceField, message: "Step must be positive" });
     }
-    if (field.step !== undefined && field.control !== "number") {
+    if (field.step !== undefined && field.control !== "number" && field.control !== "counter") {
       issues.push({
         field: field.sourceField,
-        message: "Step is only valid for the number control",
+        message: "Step is only valid for the number and counter controls",
       });
     }
 

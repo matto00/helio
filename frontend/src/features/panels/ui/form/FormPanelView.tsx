@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 
 import "./FormPanel.css";
+import "./CounterControl.css";
 import { PanelBodySkeleton } from "../PanelBodySkeleton";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import { fetchDatasetSchema } from "../../../sources/services/dataSourceService";
@@ -102,6 +103,52 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
     submitButtonRef.current?.focus();
   }, [focusTrigger, values.errors]);
 
+  // design.md Decision 1/2/3 — the compact single-counter-field layout's `+`/`-` handler. Reuses
+  // the existing submit path (`submitFormPanel`) directly rather than going through `handleSubmit`
+  // above: there is no whole-form validation to run (the counter is the only field, always
+  // required, always numeric) and the payload is the DELTA (`±step`), not the field's stored
+  // value — unlike `buildSubmitValues`, which sends the field's current value verbatim. The local
+  // value is an explicitly cosmetic, session-local optimistic running tally (never read from or
+  // trusted as a server response), advanced before the request resolves and reverted on
+  // rejection/failure.
+  async function handleImmediateStep(direction: 1 | -1) {
+    if (!schema || submitState === "pending") return;
+
+    const field = config.fields[0];
+    const step = field.step ?? 1;
+    const delta = step * direction;
+    const currentValue = values.values[field.sourceField];
+    const previous =
+      typeof currentValue === "string" && currentValue !== "" ? Number(currentValue) || 0 : 0;
+    const next = previous + delta;
+
+    flushSync(() => {
+      setAlertText("");
+      setStatusText("");
+    });
+    values.setValue(field.sourceField, String(next));
+
+    setSubmitState("pending");
+    try {
+      await submitFormPanel(panelId, { [field.sourceField]: delta }, {});
+      setSubmitState("succeeded");
+      setStatusText("The row was added.");
+    } catch (err) {
+      setSubmitState("failed");
+      // Revert the optimistic tally — a rejected/failed click must not silently advance the
+      // displayed count (design.md Decision 3).
+      values.setValue(field.sourceField, String(previous));
+      const serverFieldErrors = parseFieldErrors(err);
+      if (serverFieldErrors.length > 0) {
+        setAlertText(serverFieldErrors.map((e) => e.reason).join(" "));
+      } else {
+        setAlertText(
+          extractErrorMessage(err, "The submit could not be completed. Please try again."),
+        );
+      }
+    }
+  }
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!schema || submitState === "pending") return;
@@ -180,6 +227,46 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
     );
   }
 
+  // design.md Decision 1/2: the compact layout applies ONLY when the config has exactly one field
+  // and it is a counter — zero fields, one non-counter field, and 2+ fields (including one
+  // counter) all keep the standard stacked-field layout below, with any counter field rendered
+  // `immediate={false}` (local-value-only, participates in the shared Submit button).
+  const isCompactCounter = config.fields.length === 1 && config.fields[0].control === "counter";
+
+  if (isCompactCounter) {
+    const field = config.fields[0];
+    return (
+      <div className="panel-content panel-content--form">
+        <div className="form-panel-view__compact-counter" aria-label={title}>
+          {/* `FormFieldControl` already renders the field's own label via `FormField` — no
+             separate label span here, which would otherwise duplicate it visually. */}
+          <FormFieldControl
+            field={field}
+            declared={declaredByField.get(field.sourceField)}
+            issue={issuesByField.get(field.sourceField)}
+            value={values.values[field.sourceField]}
+            error={values.errors[field.sourceField]}
+            onChange={() => {
+              /* compact layout never edits local value directly — every activation submits */
+            }}
+            onBlur={() => {
+              /* no blur-driven validation in the compact layout — there is nothing else to
+                 mark touched */
+            }}
+            immediate
+            onImmediateStep={(direction) => void handleImmediateStep(direction)}
+          />
+          <p role="alert" className="form-panel-view__alert">
+            {alertText}
+          </p>
+          <p role="status" className="form-panel-view__status">
+            {statusText}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const submitLabel = submitState === "pending" ? "Submitting…" : (config.submit.label ?? "Submit");
 
   return (
@@ -204,6 +291,7 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
             error={values.errors[field.sourceField]}
             onChange={(v) => values.setValue(field.sourceField, v)}
             onBlur={() => values.touch(field.sourceField)}
+            immediate={false}
           />
         ))}
         {/* HEL-1087 design.md D8: always-mounted live regions, emptied at the start of every

@@ -2,7 +2,7 @@
 // and the submit path: success, client-side block, server field errors, transport failure,
 // preserved input on rejection, and computed-ARIA-only assertions (C1).
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AxiosError, AxiosHeaders } from "axios";
 
 import { FormPanelView } from "./FormPanelView";
@@ -299,5 +299,155 @@ describe("FormPanelView", () => {
     fireEvent.submit(form);
 
     await waitFor(() => expect(submitFormPanelMock).toHaveBeenCalledTimes(1));
+  });
+});
+
+// HEL-1088 design.md Decision 1/2/3 — the compact single-counter-field layout: every `+`/`-`
+// submits immediately as a delta, the local value is an optimistic tally that accumulates across
+// clicks and reverts on rejection, and a rejected/failed increment must write nothing.
+describe("FormPanelView — compact single-counter-field layout", () => {
+  const counterConfig: FormPanelConfig = {
+    dataSourceId: "ds-2",
+    fields: [{ sourceField: "delta", control: "counter", label: "Widgets", step: 5 }],
+    submit: { writeMode: "append", resetOnSuccess: false },
+  };
+  const counterSchemaFields = [
+    { name: "delta", type: "integer" as const, required: false },
+    { name: "occurred_at", type: "timestamp" as const, required: false },
+    { name: "value", type: "integer" as const, required: false },
+  ];
+
+  beforeEach(() => {
+    fetchDatasetSchemaMock.mockReset();
+    submitFormPanelMock.mockReset();
+  });
+
+  async function renderCompact() {
+    fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: counterSchemaFields });
+    render(<FormPanelView title="Widgets" panelId="panel-2" config={counterConfig} />);
+    return screen.findByRole("spinbutton", { name: "Widgets" });
+  }
+
+  it("2.1/2.3: a single counter field renders the compact layout, not the standard Submit-button form", async () => {
+    await renderCompact();
+    expect(screen.queryByRole("form")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
+  });
+
+  it("2.3: zero fields, one non-counter field, and 2+ fields (incl. a counter) all keep the standard layout", async () => {
+    const zeroFieldConfig: FormPanelConfig = {
+      dataSourceId: "ds-3",
+      fields: [],
+      submit: { writeMode: "append" },
+    };
+    fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: [] });
+    render(<FormPanelView title="Empty" panelId="panel-3" config={zeroFieldConfig} />);
+    await screen.findByRole("form", { name: "Empty" });
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    cleanup();
+
+    const oneNonCounterConfig: FormPanelConfig = {
+      dataSourceId: "ds-4",
+      fields: [{ sourceField: "note", control: "text", label: "Note" }],
+      submit: { writeMode: "append" },
+    };
+    fetchDatasetSchemaMock.mockResolvedValueOnce({
+      fields: [{ name: "note", type: "string" as const, required: false }],
+    });
+    render(<FormPanelView title="Note form" panelId="panel-4" config={oneNonCounterConfig} />);
+    await screen.findByRole("form", { name: "Note form" });
+    cleanup();
+
+    const twoFieldConfig: FormPanelConfig = {
+      dataSourceId: "ds-5",
+      fields: [
+        { sourceField: "note", control: "text", label: "Note" },
+        { sourceField: "delta", control: "counter", label: "Delta" },
+      ],
+      submit: { writeMode: "append" },
+    };
+    fetchDatasetSchemaMock.mockResolvedValueOnce({
+      fields: [
+        { name: "note", type: "string" as const, required: false },
+        { name: "delta", type: "integer" as const, required: false },
+        { name: "occurred_at", type: "timestamp" as const, required: false },
+        { name: "value", type: "integer" as const, required: false },
+      ],
+    });
+    render(<FormPanelView title="Mixed form" panelId="panel-5" config={twoFieldConfig} />);
+    await screen.findByRole("form", { name: "Mixed form" });
+    // The embedded counter renders via the standard layout's shared Submit button, not per-click.
+    expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
+  });
+
+  it("2.4: a counter embedded in a multi-field form never submits on its own +/- activation, and never touches sibling fields", async () => {
+    const twoFieldConfig: FormPanelConfig = {
+      dataSourceId: "ds-6",
+      fields: [
+        { sourceField: "note", control: "text", label: "Note", required: true },
+        { sourceField: "delta", control: "counter", label: "Delta" },
+      ],
+      submit: { writeMode: "append" },
+    };
+    fetchDatasetSchemaMock.mockResolvedValueOnce({
+      fields: [
+        { name: "note", type: "string" as const, required: false },
+        { name: "delta", type: "integer" as const, required: false },
+        { name: "occurred_at", type: "timestamp" as const, required: false },
+        { name: "value", type: "integer" as const, required: false },
+      ],
+    });
+    render(<FormPanelView title="Mixed form" panelId="panel-6" config={twoFieldConfig} />);
+    await screen.findByRole("form", { name: "Mixed form" });
+
+    fireEvent.click(screen.getByRole("button", { name: /increase delta/i }));
+
+    expect(submitFormPanelMock).not.toHaveBeenCalled();
+    const noteField = screen.getByRole("textbox", { name: "Note" });
+    expect(noteField).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("1.2/1.3/4.1: +/- immediately submits the configured step as a delta and accumulates the displayed value", async () => {
+    submitFormPanelMock.mockResolvedValue({
+      rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
+      updatedAt: "now",
+    });
+    const control = await renderCompact();
+    expect(control).toHaveAttribute("aria-valuenow", "0");
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() =>
+      expect(submitFormPanelMock).toHaveBeenCalledWith("panel-2", { delta: 5 }, {}),
+    );
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "5"));
+
+    fireEvent.click(screen.getByRole("button", { name: /decrease widgets/i }));
+    await waitFor(() =>
+      expect(submitFormPanelMock).toHaveBeenCalledWith("panel-2", { delta: -5 }, {}),
+    );
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "0"));
+  });
+
+  it("1.3/4.3: a rejected increment reverts the optimistic tally and writes nothing", async () => {
+    submitFormPanelMock.mockRejectedValueOnce(new Error("Network Error"));
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    await waitFor(() => expect(submitFormPanelMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "0"));
+    expect(screen.getByRole("alert")).toHaveTextContent(/could not be completed/i);
+  });
+
+  it("resetOnSuccess: false is respected — the compact layout never wipes the tally after a click", async () => {
+    submitFormPanelMock.mockResolvedValueOnce({
+      rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
+      updatedAt: "now",
+    });
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "5"));
   });
 });

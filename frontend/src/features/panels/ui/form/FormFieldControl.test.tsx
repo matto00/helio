@@ -72,8 +72,107 @@ describe("FormFieldControl", () => {
       <Harness field={field} declared={{ name: "delta", type: "integer", required: false }} />,
     );
     const control = screen.getByRole("spinbutton", { name: "Delta" });
-    expect(control).toHaveAttribute("type", "number");
     expect(control).toHaveAttribute("aria-required", "true");
+  });
+
+  it("counter: exposes computed ARIA value/step state and defaults step to 1", () => {
+    const field: FormFieldSpec = { sourceField: "delta", control: "counter", label: "Delta" };
+    render(
+      <Harness
+        field={field}
+        declared={{ name: "delta", type: "integer", required: false }}
+        initialValue="3"
+      />,
+    );
+    const control = screen.getByRole("spinbutton", { name: "Delta" });
+    expect(control).toHaveAttribute("aria-valuenow", "3");
+    expect(control).toHaveAttribute("aria-valuetext", "3, step 1");
+  });
+
+  it("counter: exposes the configured step in aria-valuetext", () => {
+    const field: FormFieldSpec = {
+      sourceField: "delta",
+      control: "counter",
+      label: "Delta",
+      step: 5,
+    };
+    render(
+      <Harness
+        field={field}
+        declared={{ name: "delta", type: "integer", required: false }}
+        initialValue="12"
+      />,
+    );
+    const control = screen.getByRole("spinbutton", { name: "Delta" });
+    expect(control).toHaveAttribute("aria-valuenow", "12");
+    expect(control).toHaveAttribute("aria-valuetext", "12, step 5");
+  });
+
+  it("counter: non-immediate +/- updates local value via onChange, never submits directly", () => {
+    const onChange = jest.fn();
+    const field: FormFieldSpec = {
+      sourceField: "delta",
+      control: "counter",
+      label: "Delta",
+      step: 2,
+    };
+    render(
+      <FormFieldControl
+        field={field}
+        declared={{ name: "delta", type: "integer", required: false }}
+        value="4"
+        error={null}
+        onChange={onChange}
+        onBlur={() => {}}
+        immediate={false}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /increase delta/i }));
+    expect(onChange).toHaveBeenCalledWith("6");
+  });
+
+  it("counter: immediate mode calls onImmediateStep instead of onChange", () => {
+    const onChange = jest.fn();
+    const onImmediateStep = jest.fn();
+    const field: FormFieldSpec = { sourceField: "delta", control: "counter", label: "Delta" };
+    render(
+      <FormFieldControl
+        field={field}
+        declared={{ name: "delta", type: "integer", required: false }}
+        value="0"
+        error={null}
+        onChange={onChange}
+        onBlur={() => {}}
+        immediate
+        onImmediateStep={onImmediateStep}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /increase delta/i }));
+    expect(onImmediateStep).toHaveBeenCalledWith(1);
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /decrease delta/i }));
+    expect(onImmediateStep).toHaveBeenCalledWith(-1);
+  });
+
+  it("counter: ArrowUp/ArrowDown on the spinbutton step the value", () => {
+    const onChange = jest.fn();
+    const field: FormFieldSpec = { sourceField: "delta", control: "counter", label: "Delta" };
+    render(
+      <FormFieldControl
+        field={field}
+        declared={{ name: "delta", type: "integer", required: false }}
+        value="0"
+        error={null}
+        onChange={onChange}
+        onBlur={() => {}}
+        immediate={false}
+      />,
+    );
+    const control = screen.getByRole("spinbutton", { name: "Delta" });
+    fireEvent.keyDown(control, { key: "ArrowUp" });
+    expect(onChange).toHaveBeenCalledWith("1");
+    fireEvent.keyDown(control, { key: "ArrowDown" });
+    expect(onChange).toHaveBeenCalledWith("-1");
   });
 
   it("date: renders a date-typed input", () => {

@@ -184,9 +184,9 @@ export interface FormFieldSpec {
   required?: boolean;
   /** Prefill only — never changes what is stored for an omitted field. */
   initialValue?: unknown;
-  /** Valid only alongside `control: "number"`. Superseded as the counter
-   *  discriminator by HEL-1089 — a counter is now its own `control: "counter"`
-   *  value, not `control: "number"` carrying `step`. */
+  /** Valid alongside `control: "number"` or `control: "counter"` (HEL-1088)
+   *  — the counter's `+`/`-` increment size, defaulting to `1` when absent.
+   *  Not valid for any other control. */
   step?: number;
   /** Required when `control` is `"select"`. */
   options?: unknown;

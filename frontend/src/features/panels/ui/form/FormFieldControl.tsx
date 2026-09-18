@@ -5,6 +5,7 @@
 
 import { useId } from "react";
 
+import { CounterControl } from "./CounterControl";
 import { FileField } from "../../../../shared/ui/FileField";
 import { FormField } from "../../../../shared/ui/FormField";
 import { Select, type SelectOption } from "../../../../shared/ui/Select";
@@ -29,6 +30,16 @@ interface FormFieldControlProps {
   error: string | null;
   onChange: (value: FormFieldValue) => void;
   onBlur: () => void;
+  /** design.md Decision 1/2 — meaningful only for `control: "counter"`. `true` selects the
+   *  compact single-field layout's per-click-submits behavior (`onImmediateStep` is called
+   *  instead of `onChange`); `false`/absent (every other layout, including a counter embedded in
+   *  a multi-field form) keeps `+`/`-` as ordinary local-value editing via `onChange`, exactly
+   *  like typing into a `number` field. */
+  immediate?: boolean;
+  /** Required when `immediate` is `true` on a `control: "counter"` field — invoked instead of
+   *  `onChange` on every `+`/`-`/arrow-key activation, so the caller can submit the delta through
+   *  the existing submit path rather than merely updating local state. */
+  onImmediateStep?: (direction: 1 | -1) => void;
 }
 
 export function FormFieldControl({
@@ -39,6 +50,8 @@ export function FormFieldControl({
   error,
   onChange,
   onBlur,
+  immediate,
+  onImmediateStep,
 }: FormFieldControlProps) {
   const controlId = useId();
   const errorId = useId();
@@ -77,6 +90,8 @@ export function FormFieldControl({
           invalid: error !== null,
           describedBy,
           onChange,
+          immediate,
+          onImmediateStep,
         })}
       </div>
     </FormField>
@@ -92,6 +107,8 @@ interface RenderControlArgs {
   invalid: boolean;
   describedBy: string | undefined;
   onChange: (value: FormFieldValue) => void;
+  immediate?: boolean;
+  onImmediateStep?: (direction: 1 | -1) => void;
 }
 
 function renderControl({
@@ -103,6 +120,8 @@ function renderControl({
   invalid,
   describedBy,
   onChange,
+  immediate,
+  onImmediateStep,
 }: RenderControlArgs) {
   const stringValue = typeof value === "string" ? value : "";
 
@@ -152,25 +171,33 @@ function renderControl({
         />
       );
     }
-    // HEL-1089: a plain, functional numeric input for a counter field's `delta` — always
-    // required (mirrors `isFieldRequired`'s unconditional override for this control). The
-    // compact `+`/`-`/step-size chrome is HEL-1088's scope; this exists only so a counter field
-    // is genuinely fillable/submittable in the meantime.
+    // HEL-1088 design.md Decision 4: compact value/`+`/`-` chrome with computed ARIA state
+    // (`role="spinbutton"`), always required (mirrors `isFieldRequired`'s unconditional override
+    // for this control). `step` defaults to `1` when unset (design.md Decision 5, mirroring
+    // `number`'s own default-step handling above).
     case "counter": {
-      const isInteger = declared?.type === "integer";
+      const step = field.step ?? 1;
+      const numericValue = stringValue === "" ? 0 : Number(stringValue) || 0;
+      const label = field.label ?? field.sourceField;
+
+      function handleStep(direction: 1 | -1) {
+        if (immediate) {
+          onImmediateStep?.(direction);
+        } else {
+          onChange(String(numericValue + direction * step));
+        }
+      }
+
       return (
-        <TextField
+        <CounterControl
           id={controlId}
-          type="number"
-          value={stringValue}
-          placeholder={field.placeholder ?? "0"}
-          step={isInteger ? 1 : "any"}
-          inputMode={isInteger ? "numeric" : "decimal"}
-          required={required}
-          aria-required="true"
-          aria-invalid={invalid ? "true" : undefined}
-          aria-describedby={describedBy}
-          onChange={(e) => onChange(e.target.value)}
+          value={numericValue}
+          step={step}
+          ariaLabel={label}
+          ariaInvalid={invalid}
+          ariaDescribedBy={describedBy}
+          ariaRequired
+          onStep={handleStep}
         />
       );
     }
