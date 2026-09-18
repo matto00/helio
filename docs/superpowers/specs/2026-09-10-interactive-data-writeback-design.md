@@ -156,11 +156,17 @@ last-write-wins with an `updatedAt` precondition on row edits.
 
 ### 2 — Form panel
 
-New `PanelKind` `form`, registered in `Panel.Registry` (`Panel.scala:109`) — the
-allow-list is registry-derived, so registration is the only enumeration to
-change. Field-type builder: text, textarea, number, date, select, checkbox,
-file. Submit appends one row. Validation and required fields are enforced both
-client-side and at the write API, against the dataset's declared schema.
+_(corrected 2026-09-17 by HEL-1150, after HEL-1083/HEL-1084 delivered against
+the original text)_
+
+New `PanelKind` `form`, registered as a `Panel.Companion` entry in
+`Panel.Registry` (`backend/src/main/scala/com/helio/domain/model/Panel.scala`).
+Registration in the registry is **one hand-enumerated site among many** —
+many other sites must also change; see "Drift surface for a new panel
+kind" below for the full set HEL-1083 actually had to touch. Field-type
+builder: text, textarea, number, date, select, checkbox, file. Submit appends
+one row. Validation and required fields are enforced both client-side and at
+the write API, against the dataset's declared schema.
 
 The **file field** stores through the existing uploads backend
 (`HELIO_UPLOADS_BACKEND`, local/gcs) and writes a `binary-ref` cell — the same
@@ -169,9 +175,70 @@ convention `ImageSource` already uses — so no new storage concept is introduce
 **Input/counter** is this panel with one field and a compact chrome: a numeric
 field with `+`/`−` and a step size, appending `{occurred_at, delta, value}`.
 
-A `form` panel binds to a source rather than an Output. It is the second panel
-kind after `divider` that requires no Output binding, and `PanelType.Default`
-(currently `Divider`, see `model.scala:141`) is untouched.
+A `form` panel binds to a source rather than an Output. The content kinds
+(`text`, `markdown`, `image`, `divider`) bind nothing at all; `form` is the
+first kind to bind a _source_ (`dataSourceId`) rather than an Output. Only
+`output` carries `outputId`. `PanelType.Default` (currently `Divider`, see
+`PanelType` in `backend/src/main/scala/com/helio/domain/model/model.scala`) is
+untouched.
+
+**Migration requirement.** `panels_kind_check` is a closed-set Postgres CHECK
+constraint (`V94__outputs_model.sql`) — a CHECK cannot be widened in place, so
+adding any new panel kind requires a migration that drops and re-adds the
+constraint with the new value included. This is the same drop/re-add pattern
+Decision 8 above already uses for `pipeline_steps_op_check`. `form`'s own
+precedent is `V108__add_form_panel_kind.sql`, which does the drop/re-add and
+adds the panel's per-kind config column in the same migration — do this in
+one migration, not two.
+
+**Drift surface for a new panel kind** (as of HEL-1083/HEL-1084, 2026-09-17 —
+not authoritative; re-derive before relying on it, e.g. `grep -rn '"divider"'`
+or `grep -rn divider` across the layers below to find every current
+enumeration site for an existing kind, then treat each hit as a candidate
+site for the new one):
+
+- **Backend model:** `Panel.Registry` and `Panel.Companion`
+  (`backend/src/main/scala/com/helio/domain/model/Panel.scala`, `PanelKind.All`);
+  `PanelType` — the `fromString`/`asString` case list and the hand-written
+  "Valid values" string literal in the `Left` error branch (no gate checks the
+  literal) (`backend/src/main/scala/com/helio/domain/model/model.scala`).
+- **Codec:** `PanelConfigCodec`
+  (`backend/src/main/scala/com/helio/domain/panels/PanelConfigCodec.scala`).
+- **Service:** `PanelServiceHelpers.buildNewPanel`
+  (`backend/src/main/scala/com/helio/services/panels/PanelServiceHelpers.scala`).
+- **Persistence:** `PanelRowMapper.rowToDomain` (silent fallthrough:
+  `case _ => OutputPanel`) and `.domainToRow` (silent fallthrough:
+  `case _ => base`)
+  (`backend/src/main/scala/com/helio/infrastructure/persistence/panels/PanelRowMapper.scala`);
+  `PanelRepository.configColumnsOf` and `.configColumnValuesOf`
+  (`backend/src/main/scala/com/helio/infrastructure/persistence/panels/PanelRepository.scala`);
+  `DashboardSnapshotRepository`'s `PanelConfigCodec` match
+  (`backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/DashboardSnapshotRepository.scala`).
+- **JSON schemas:** `schemas/panels/*.schema.json` and
+  `schemas/dashboards/dashboard-proposal.schema.json`.
+- **Assistant tool schemas:** `AssistantProposalToolSchemas`
+  (`backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala`).
+- **helio-mcp:** `helio-mcp/src/tools/proposal.ts` and
+  `helio-mcp/src/tools/write.ts`.
+- **Frontend:** `PanelKind` union, per-kind config, and `emptyConfigForKind`
+  in `frontend/src/features/panels/types/panel.ts`; also `proposal.ts` in
+  `frontend/src/features/dashboards/types/`; `mobilePanelHeights.ts`
+  (`frontend/src/features/panels/ui/grid/`); `panelNarrowing.ts`
+  (`frontend/src/features/panels/state/`); `OutputPicker.CONTENT_PANEL_KINDS`
+  (`frontend/src/features/panels/ui/OutputPicker.tsx`); `PanelContent.tsx`
+  (`frontend/src/features/panels/ui/PanelContent.tsx`) — **two** silent
+  if-chains, one on output kind inside `OutputPanelContent` (falls through to
+  an "Unsupported output kind" state), one on panel kind in the default export
+  (falls through to `MetricRenderer`, not typecheck-protected); and
+  `PanelDetailModal.tsx`
+  (`frontend/src/features/panels/ui/detailModal/PanelDetailModal.tsx`) —
+  **two** more per-kind if-chains, `activeEditorRef` and
+  `renderSubtypeEditor`.
+- **Gates that actually fire on a missed site** (everything else above
+  degrades silently): `PanelSpec`'s "Panel.Registry" / "PanelKind.All" blocks
+  (`backend/src/test/scala/com/helio/domain/model/PanelSpec.scala`, hardcoded
+  expected key set) and `scripts/check-schema-drift.mjs` (parses
+  `PanelType.fromString` and derives `agentFacingPanelTypes`).
 
 ### 3 — Output controls & parameterized Outputs _(HEL-915, HEL-1027)_
 
