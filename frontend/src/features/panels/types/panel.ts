@@ -170,7 +170,8 @@ export type FormFieldControl =
   | "date"
   | "select"
   | "checkbox"
-  | "file";
+  | "file"
+  | "counter";
 
 export interface FormFieldSpec {
   sourceField: string;
@@ -183,8 +184,9 @@ export interface FormFieldSpec {
   required?: boolean;
   /** Prefill only — never changes what is stored for an omitted field. */
   initialValue?: unknown;
-  /** Valid only alongside `control: "number"`. Its PRESENCE is the counter
-   *  discriminator for a future single-field compact configuration. */
+  /** Valid only alongside `control: "number"`. Superseded as the counter
+   *  discriminator by HEL-1089 — a counter is now its own `control: "counter"`
+   *  value, not `control: "number"` carrying `step`. */
   step?: number;
   /** Required when `control` is `"select"`. */
   options?: unknown;

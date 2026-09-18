@@ -152,6 +152,28 @@ function renderControl({
         />
       );
     }
+    // HEL-1089: a plain, functional numeric input for a counter field's `delta` — always
+    // required (mirrors `isFieldRequired`'s unconditional override for this control). The
+    // compact `+`/`-`/step-size chrome is HEL-1088's scope; this exists only so a counter field
+    // is genuinely fillable/submittable in the meantime.
+    case "counter": {
+      const isInteger = declared?.type === "integer";
+      return (
+        <TextField
+          id={controlId}
+          type="number"
+          value={stringValue}
+          placeholder={field.placeholder ?? "0"}
+          step={isInteger ? 1 : "any"}
+          inputMode={isInteger ? "numeric" : "decimal"}
+          required={required}
+          aria-required="true"
+          aria-invalid={invalid ? "true" : undefined}
+          aria-describedby={describedBy}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
+    }
     case "date":
       return (
         <TextField

@@ -792,7 +792,7 @@ final class DataSourceService(
    *  audit entry adds over `appendRows`'s own, which has no panel to attribute the write to. */
   def appendFormRow(
       id:      DataSourceId,
-      build:   Vector[DatasetFieldDeclaration] => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
+      build:   (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
       panelId: PanelId,
       user:    AuthenticatedUser
   ): Future[Either[FormSubmitError, RowWriteResult]] =

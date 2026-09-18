@@ -37,18 +37,21 @@ object FormFieldSpec {
     Set("sourceField", "control", "label", "placeholder", "helpText", "required", "initialValue", "step", "options")
 
   val ValidControls: Set[String] =
-    Set("text", "textarea", "number", "date", "select", "checkbox", "file")
+    Set("text", "textarea", "number", "date", "select", "checkbox", "file", "counter")
 
   /** design.md D2 — the control-to-type fitness matrix, first entry = the
    *  type's default control. THE single source of truth: the frontend's
    *  `CONTROL_FITNESS` (`state/formConfigValidation.ts`) mirrors this and is
    *  drift-guarded by a Jest test that parses this literal out of this file
-   *  (C4) — never edit one side without the other. */
+   *  (C4) — never edit one side without the other. `counter` (HEL-1089
+   *  design.md Decision 1) is numeric-only — it does not fit
+   *  String/Boolean/Timestamp/BinaryRef, so it is appended only to the
+   *  Integer/Float entries. */
   val FittingControls: Map[DataFieldType, Vector[String]] = Map(
     DataFieldType.StringType     -> Vector("text", "textarea", "select"),
     DataFieldType.StringBodyType -> Vector("textarea", "text", "select"),
-    DataFieldType.IntegerType    -> Vector("number", "select", "text"),
-    DataFieldType.FloatType      -> Vector("number", "select", "text"),
+    DataFieldType.IntegerType    -> Vector("number", "select", "text", "counter"),
+    DataFieldType.FloatType      -> Vector("number", "select", "text", "counter"),
     DataFieldType.BooleanType    -> Vector("checkbox", "select"),
     DataFieldType.TimestampType  -> Vector("date", "text", "select"),
     DataFieldType.BinaryRefType  -> Vector("file")

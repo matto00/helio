@@ -89,5 +89,65 @@ class FormSchemaConsistencySpec extends AnyWordSpec with Matchers {
     "accept an empty field list" in {
       FormSchemaConsistency.check(config(Vector.empty), declaration) shouldBe Right(())
     }
+
+    // HEL-1089 design.md Decision 3a "Failure mode" — a counter field's structural row-shape
+    // requirement on the bound dataset.
+    "reject a counter field bound to a dataset missing 'occurred_at'" in {
+      val counterDeclaration = Vector(
+        DatasetFieldDeclaration("delta", DataFieldType.IntegerType),
+        DatasetFieldDeclaration("value", DataFieldType.IntegerType, required = false)
+      )
+      val cfg = config(Vector(FormFieldSpec("delta", "counter")))
+      FormSchemaConsistency.check(cfg, counterDeclaration) shouldBe
+        Left("counter field requires the bound dataset to declare a field named 'occurred_at'")
+    }
+
+    "reject a counter field bound to a dataset where 'occurred_at' is not a timestamp" in {
+      val counterDeclaration = Vector(
+        DatasetFieldDeclaration("delta", DataFieldType.IntegerType),
+        DatasetFieldDeclaration("occurred_at", DataFieldType.StringType),
+        DatasetFieldDeclaration("value", DataFieldType.IntegerType, required = false)
+      )
+      val cfg = config(Vector(FormFieldSpec("delta", "counter")))
+      FormSchemaConsistency.check(cfg, counterDeclaration) shouldBe
+        Left("counter field requires 'occurred_at' to be declared as a timestamp field")
+    }
+
+    "reject a counter field bound to a dataset missing 'value'" in {
+      val counterDeclaration = Vector(
+        DatasetFieldDeclaration("delta", DataFieldType.IntegerType),
+        DatasetFieldDeclaration("occurred_at", DataFieldType.TimestampType)
+      )
+      val cfg = config(Vector(FormFieldSpec("delta", "counter")))
+      FormSchemaConsistency.check(cfg, counterDeclaration) shouldBe
+        Left("counter field requires the bound dataset to declare a field named 'value'")
+    }
+
+    "reject a counter field bound to a dataset with a required 'value'" in {
+      val counterDeclaration = Vector(
+        DatasetFieldDeclaration("delta", DataFieldType.IntegerType),
+        DatasetFieldDeclaration("occurred_at", DataFieldType.TimestampType),
+        DatasetFieldDeclaration("value", DataFieldType.IntegerType, required = true)
+      )
+      val cfg = config(Vector(FormFieldSpec("delta", "counter")))
+      FormSchemaConsistency.check(cfg, counterDeclaration) shouldBe
+        Left("counter field requires 'value' to be declared as not required — a nullable snapshot can never be required")
+    }
+
+    "accept a counter field bound to a dataset structurally supporting the row shape" in {
+      val counterDeclaration = Vector(
+        DatasetFieldDeclaration("delta", DataFieldType.IntegerType),
+        DatasetFieldDeclaration("occurred_at", DataFieldType.TimestampType),
+        DatasetFieldDeclaration("value", DataFieldType.IntegerType, required = false)
+      )
+      val cfg = config(Vector(FormFieldSpec("delta", "counter")))
+      FormSchemaConsistency.check(cfg, counterDeclaration) shouldBe Right(())
+    }
+
+    "never run the counter row-shape check when no counter field is configured" in {
+      // The declaration lacks 'occurred_at'/'value' entirely — a non-counter config must not
+      // trip the counter-specific rule.
+      FormSchemaConsistency.check(config(Vector(FormFieldSpec("quantity", "number"))), declaration) shouldBe Right(())
+    }
   }
 }

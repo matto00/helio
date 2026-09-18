@@ -38,7 +38,7 @@ describe("FormFieldRow", () => {
     const optionTexts = Array.from(listbox.querySelectorAll("[role='option']")).map(
       (el) => el.textContent,
     );
-    expect(optionTexts).toEqual(["number", "select", "text"]);
+    expect(optionTexts).toEqual(["number", "select", "text", "counter"]);
   });
 
   it("does not offer an already-used field a second time (availableFields excludes it)", () => {
