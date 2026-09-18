@@ -303,11 +303,20 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
         <p role="status" className="form-panel-view__status">
           {statusText}
         </p>
+        {/* HEL-1090: `aria-disabled`, NOT the native `disabled` attribute, while pending — the
+           browser silently blurs a focused element the instant it becomes natively `disabled`
+           (moving focus to <body>, confirmed via a bare-HTML Playwright probe with no app code
+           involved), which violates the spec's "focus SHALL remain on or return to the submit
+           control ... never lost to the document body" requirement for the in-flight state.
+           `aria-disabled` communicates the same state to assistive tech without triggering that
+           browser behavior; `handleSubmit`'s own `submitState === "pending"` early-return (and
+           `handleImmediateStep`'s matching guard) is what actually blocks a re-entrant submit,
+           so no native `disabled` is needed for that purpose either. */}
         <button
           ref={submitButtonRef}
           type="submit"
           className="form-panel-view__submit"
-          disabled={submitState === "pending"}
+          aria-disabled={submitState === "pending" ? "true" : undefined}
         >
           {submitLabel}
         </button>
