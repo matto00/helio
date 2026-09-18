@@ -36,6 +36,13 @@
 - [x] 4.8 `e2e/hel1085-form-field-renderers-keyboard.spec.ts` (D9): seed dataset + dashboard + form panel via API, Tab through all six controls completing each by keyboard only, assert `toHaveAccessibleName`/`toHaveAccessibleDescription` per control, blur an empty required field → `aria-invalid="true"` + error description, capture light and dark screenshots; verify with `DEV_PORT=<port> npx playwright test e2e/hel1085-*.spec.ts` against this run's servers, teardown in `finally`
 - [x] 4.9 Full gates: `npm test`, `npm run lint`, `npm run typecheck`, `sbt test` (backend), then commit with `timeout: 600000` (C2); verify Husky exits zero
 
+## 5. Fold-in — MISTAKES.md trap entries (Phase 4 follow-up; design.md D11; docs-only)
+
+### Docs
+- [x] 5.1 Add the "`git commit` without a ~600000 ms tool timeout is backgrounded mid-hook" entry under `## Tooling`, immediately after the epic-cascade entry (D11a: what the chain runs, the failure shape, recovery via `await-sentinel.sh` on `.git/worktrees/<name>/COMMIT_EDITMSG`, never re-run mid-hook, HEL-1087 evidence); verify `npm run format:check` exits zero and `grep -c 'backgrounded mid-hook' MISTAKES.md` is 1
+- [x] 5.2 Add the "unanchored `pgrep -f` poll matches itself" entry immediately after 5.1's (D11b: mechanism, the leaked shell holding the worktree open against `cleanup.sh`, anchored pattern or `await-sentinel.sh`, seven-hit field evidence); verify `npm run format:check` exits zero and `grep -c 'matches itself' MISTAKES.md` is 1
+- [x] 5.3 Confirm the diff against the live merge base (`scripts/concertino/resolve-review-base.sh`) touches only `MISTAKES.md` and `openspec/changes/form-field-renderers/**`, then commit with `timeout: 600000` (C2); verify Husky exits zero and `git diff --stat <base>...HEAD` lists no other path
+
 ## Standing Constraints
 
 - [C1] A11y claims are asserted by computed accessible name/description and computed ARIA state (`aria-invalid="true"`, `toHaveAccessibleDescription`), never by DOM/role presence; focus, visibility and size claims need Playwright measurement against the running app — jsdom is not evidence. (HEL-1084 C6+C8, driver brief.)

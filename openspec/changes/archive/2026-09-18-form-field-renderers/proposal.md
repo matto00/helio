@@ -23,6 +23,9 @@ panel is usable on the grid and HEL-1087 (submit) has fields to submit.
 - `PanelPacker.Bounds` gains a `form` entry so an `/auto-layout` re-flow cannot clamp a form to one column —
   deferred to this ticket explicitly by HEL-1083's design.
 - No submit button or submit wiring (HEL-1087), no file upload (HEL-1086), no counter chrome (HEL-1088).
+- **Fold-in (Phase 4 follow-up, owner ruling):** two `MISTAKES.md` trap entries — the Husky pre-commit timeout
+  (a `git commit` without a ~600000 ms tool timeout is backgrounded mid-hook) and the `pgrep -f` self-match poll
+  deadlock — docs-only, no spec delta; see design.md D11 and ticket.md "Fold-in scope".
 
 ## Capabilities
 
