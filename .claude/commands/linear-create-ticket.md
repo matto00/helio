@@ -41,6 +41,7 @@ Ask a question **only if** the answer would materially change the ticket's scope
 - Missing acceptance criteria when none can be inferred and the feature is ambiguous
 - Priority when the description gives no signal (no urgency language, no "broken/can't use")
 - Scope ambiguity that would produce meaningfully different tickets
+- Origin, when the description reads like a spinoff ("found while working…", "noticed in…") but names no ticket — see step 3a
 
 **Do NOT ask about:**
 
@@ -50,6 +51,16 @@ Ask a question **only if** the answer would materially change the ticket's scope
 - Things the executor/planner will figure out
 
 For a single clear ticket: ask **0 questions** and create it directly.
+
+### 3a. Classify the origin (so the board can tell it from original scope)
+
+Decide which of three the ticket is. Infer it from the description and from any ticket id it names (`HEL-N`); do not ask when it is clear.
+
+- **Original work** — new work planned on its own merits. No origin, no label.
+- **Follow-up** — a spinoff: a gap, defect or idea found while working ticket X that X's own acceptance criteria do not need. Origin ticket X is required.
+- **Scope addition** — something an original-scope ticket _cannot be delivered without_ (a blocker found when checking a premise), or something the owner adds to an existing epic. Test: **would the origin ticket's own AC be unmeetable without it?** Yes → scope addition. No → follow-up.
+
+This matters because `createdAt` alone cannot separate them, and a follow-up filed without a marker is invisible to anyone auditing the board later.
 
 ### 4. For epics: show breakdown and wait for confirmation
 
@@ -84,6 +95,18 @@ For each ticket, create it in Linear with:
 - What: what will change
 - (For bugs) Observed behavior, expected behavior, steps to reproduce
 - (If duplicate was found and user chose to proceed) `Related: [URL]`
+- (**Follow-up only**) these two lines, verbatim, so provenance is queryable independently of any event log:
+
+  ```
+  origin_kind: followup
+  origin_ticket: HEL-N
+  ```
+
+**Provenance and labels** — apply these on the **same** `mcp__linear__save_issue` call that creates the ticket, never as a step to remember afterwards:
+
+- Follow-up → label `Follow-up`, and `relatedTo: ["HEL-N"]` for the origin ticket.
+- Scope addition → label `Scope addition`, `parentId` set to the epic it extends, and `blocks` set for any original-scope ticket that cannot ship without it.
+- Original work → no origin label.
 
 **Acceptance criteria** — at least 2, each testable and specific:
 
@@ -107,11 +130,13 @@ For each ticket, create it in Linear with:
 - API/backend/server/database → assign to current active backend project
 - Use `mcp__linear__list_projects` to find the right project if needed
 
-**Team** — Helio
+**Team** — Helio Platform
 
 ### 6. Show results
 
-After creating all tickets, display:
+After creating all tickets, **read each one back** (`mcp__linear__get_issue`) and confirm that any label the ticket should carry is actually on it — whether a label name that does not exist errors or is silently dropped depends on the tool, so do not assume.
+
+Then display:
 
 - Title and Linear URL for each ticket created
 - Brief note if any decisions were inferred (e.g., "Set priority to Medium — no urgency signal in description")
@@ -129,6 +154,7 @@ Before creating, verify each ticket satisfies:
 - [ ] Scope is achievable in one worktree session (for single tickets)
 - [ ] Bug tickets include: observed behavior, expected behavior, reproduction steps
 - [ ] Not a duplicate of an existing open ticket (or user confirmed)
+- [ ] A follow-up carries `origin_kind: followup`, `origin_ticket`, the `Follow-up` label and a `relatedTo` link; a scope addition carries the `Scope addition` label, a `parentId`, and any `blocks` — verified by reading the ticket back
 
 ---
 
