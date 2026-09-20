@@ -7,7 +7,8 @@
   "ticketProvider": {
     "kind": "linear",
     "idExample": "HEL-26",
-    "teamKey": "HEL"
+    "teamKey": "HEL",
+    "followUpLabel": "Follow-up"
   },
   "specProvider": {
     "kind": "openspec",

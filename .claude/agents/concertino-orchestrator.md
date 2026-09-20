@@ -1120,6 +1120,13 @@ led to the plan actually being revised.
      ticket's identifier in your summary to the human. No re-planning, no
      scope change to the current run.
 
+     Also label the new ticket: pass `addLabels: ["Follow-up"]` on that same
+     `save_issue` call, and link it to the ticket it came from with
+     `relatedTo: ["$TICKET_ID"]` on that call too. The label is how the board
+     tells this follow-up from original scope, and the relation is how it
+     finds the origin; the `origin_kind` description lines above are the
+     provenance record, not a substitute for either.
+
      Then mirror provenance onto the filed ticket and record it:
      ```bash
      ORIGIN_REPO="$(basename "$(dirname "$(git -C "$WORKTREE_PATH" rev-parse --git-common-dir)")")"
