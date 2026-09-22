@@ -6,7 +6,7 @@ Every production secret the backend depends on, where it lives, and how to rotat
 
 ## `helio-anthropic-api-key`
 
-- **What it is**: Anthropic API key for the server-side Claude client (`com.helio.ai`).
+- **What it is**: Anthropic API key for the server-side Claude client (`com.helio.infrastructure.ai`).
 - **Where it lives**: Secret Manager secret `helio-anthropic-api-key`, injected into the backend
   process as `ANTHROPIC_API_KEY` by `infra/deploy-backend.sh`'s `--set-secrets`. Never committed,
   never set in `infra/.env.deploy.example`.

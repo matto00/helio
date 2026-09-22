@@ -10,7 +10,7 @@ instead. Consistent naming is not enforced.
 tests are `*.test.ts(x)` files co-located with the source they test (e.g.
 `frontend/src/app/App.test.tsx`). Backend unit tests are ScalaTest suites in
 a separate, mirrored tree at `backend/src/test/scala/` (e.g.
-`backend/src/test/scala/com/helio/ai/ClaudeClientSpec.scala`) — not
+`backend/src/test/scala/com/helio/infrastructure/ai/ClaudeClientSpec.scala`) — not
 co-located, and not `.test.ts(x)` files.
 
 ## HEL-813 mobile touch-target floor guard

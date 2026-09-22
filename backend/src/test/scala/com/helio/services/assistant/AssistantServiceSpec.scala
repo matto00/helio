@@ -12,7 +12,7 @@ import com.helio.services.pipelines.PipelineProposalService
 import com.helio.services.proposals.DashboardProposalService
 import com.helio.services.assistant.AssistantService
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
-import com.helio.ai._
+import com.helio.infrastructure.ai._
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository

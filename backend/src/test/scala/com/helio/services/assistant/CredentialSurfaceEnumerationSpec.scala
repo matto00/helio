@@ -11,7 +11,7 @@ import scala.jdk.CollectionConverters._
  *  the model). A token-grep change-detector over the two agent-facing Scala package roots plus
  *  `helio-mcp/src/`, pinned against fresh `grep -rniIl "credential"` output at the time this spec
  *  was written (round 2 CR-1/2/3 corrections — `services/ai` does not exist, the real path is
- *  `com.helio.ai`; both Scala roots currently match ZERO files).
+ *  `com.helio.infrastructure.ai`; both Scala roots currently match ZERO files).
  *
  *  Deliberately a real filesystem walk, not a hardcoded list of "files that exist today" alone —
  *  a NEW file added to either Scala root that mentions "credential" fails this spec immediately,
@@ -58,9 +58,9 @@ class CredentialSurfaceEnumerationSpec extends AnyWordSpec with Matchers {
       .map(f => f.getAbsolutePath.stripPrefix(root.getAbsolutePath + File.separator))
       .sorted
 
-  "the agent-facing Scala surfaces (com.helio.ai, com.helio.services.assistant)" should {
+  "the agent-facing Scala surfaces (com.helio.infrastructure.ai, com.helio.services.assistant)" should {
     "currently match ZERO files for the token 'credential'" in {
-      filesContainingToken(new File(root, "backend/src/main/scala/com/helio/ai"), "credential") shouldBe empty
+      filesContainingToken(new File(root, "backend/src/main/scala/com/helio/infrastructure/ai"), "credential") shouldBe empty
       filesContainingToken(new File(root, "backend/src/main/scala/com/helio/services/assistant"), "credential") shouldBe empty
     }
   }

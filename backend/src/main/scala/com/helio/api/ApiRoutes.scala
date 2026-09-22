@@ -8,7 +8,7 @@ import org.apache.pekko.http.cors.scaladsl.CorsDirectives._
 import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
-import com.helio.ai.{ClaudeAiStepClient, ClaudeClient, ClaudeConfig, HttpClaudeTransport}
+import com.helio.infrastructure.ai.{ClaudeAiStepClient, ClaudeClient, ClaudeConfig, HttpClaudeTransport}
 import com.helio.domain.ai.AiStepClient
 import com.helio.api.http._
 import com.helio.api.routes.HealthRoutes
@@ -27,7 +27,7 @@ import com.helio.api.routes.sources._
 import com.helio.api.routes.workspace._
 import com.helio.domain.model.{ConnectorId, DashboardId, DataSourceId, PanelId, PipelineId}
 import com.helio.domain.connectors.RestApiConnectorDriver
-import com.helio.email.{EmailConfig, EmailSender, HttpResendEmailSender}
+import com.helio.infrastructure.email.{EmailConfig, EmailSender, HttpResendEmailSender}
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
 import com.helio.services.auth.{AiPipelineQuotaGate, ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserTierConfig}

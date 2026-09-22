@@ -4,7 +4,7 @@ import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
 import com.helio.services.assistant.AssistantConversationService
-import com.helio.ai.{ClaudeContentBlock, ClaudeRole, ClaudeToolMessage}
+import com.helio.infrastructure.ai.{ClaudeContentBlock, ClaudeRole, ClaudeToolMessage}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository._
 import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository

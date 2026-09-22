@@ -6,7 +6,7 @@ import com.helio.services.pipelines.PipelineProposalService
 import com.helio.services.proposals.{CombinedProposalService, DashboardProposalService}
 import com.helio.services.sources.SourceService
 import com.helio.services.workspace.WorkspaceSearchService
-import com.helio.ai.{ClaudeClient, ClaudeContentBlock, ClaudeError, ClaudeRole, ClaudeToolMessage, ClaudeToolOutcome, ClaudeToolRequest}
+import com.helio.infrastructure.ai.{ClaudeClient, ClaudeContentBlock, ClaudeError, ClaudeRole, ClaudeToolMessage, ClaudeToolOutcome, ClaudeToolRequest}
 import com.helio.api.protocols.assistant.{AssistantProposal, AssistantProtocol, AssistantTurnResult}
 import com.helio.domain.model.AuthenticatedUser
 import spray.json._

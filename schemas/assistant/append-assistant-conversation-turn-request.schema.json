@@ -8,7 +8,7 @@
   "properties": {
     "turns": {
       "type": "array",
-      "description": "One or more turns, each shaped like ClaudeToolMessage (com.helio.ai): { role: string, content: [...] }. Opaque to this schema (server-validated).",
+      "description": "One or more turns, each shaped like ClaudeToolMessage (com.helio.infrastructure.ai): { role: string, content: [...] }. Opaque to this schema (server-validated).",
       "items": {
         "type": "object",
         "properties": {

@@ -2,7 +2,7 @@ package com.helio.infrastructure.persistence.proposals
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
-import com.helio.ai.{ClaudeMessage, ClaudeRole}
+import com.helio.infrastructure.ai.{ClaudeMessage, ClaudeRole}
 import com.helio.api.protocols.proposals.{AuthoringDisplayTurn, DashboardProposal}
 import com.helio.api.protocols.patchsets.PatchSet
 import com.helio.domain.model._

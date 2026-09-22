@@ -1,7 +1,7 @@
 package com.helio.services.proposals
 
 import com.helio.services.ServiceError
-import com.helio.ai.TokenUsage
+import com.helio.infrastructure.ai.TokenUsage
 
 /** Distinguishes WHY an authoring call failed, threaded ALONGSIDE the existing [[ServiceError]]
  *  (HEL-401 design.md D1) rather than folded into it — `ServiceError`'s own doc comment states it

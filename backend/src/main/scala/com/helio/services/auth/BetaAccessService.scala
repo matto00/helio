@@ -1,7 +1,7 @@
 package com.helio.services.auth
 
 import com.helio.domain.model.{AuthenticatedUser, User, UserId, UserTier}
-import com.helio.email.EmailSender
+import com.helio.infrastructure.email.EmailSender
 import com.helio.infrastructure.persistence.auth.{InviteCodeRepository, UserRepository}
 import com.helio.infrastructure.crypto.TokenHashing
 

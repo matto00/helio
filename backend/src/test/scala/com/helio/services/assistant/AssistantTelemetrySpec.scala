@@ -7,7 +7,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.auth.UserRepository
 import com.helio.infrastructure.storage.LocalFileSystem
-import com.helio.ai._
+import com.helio.infrastructure.ai._
 import com.helio.api.http.TraceContextDirective
 import com.helio.api.JsonProtocols
 import com.helio.domain.model._

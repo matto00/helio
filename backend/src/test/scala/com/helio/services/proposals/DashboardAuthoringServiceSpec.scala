@@ -16,7 +16,7 @@ import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, O
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
-import com.helio.ai.{ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeError, ClaudeMessage, ClaudeRole, ClaudeStreamEvent, ClaudeTransport}
+import com.helio.infrastructure.ai.{ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeError, ClaudeMessage, ClaudeRole, ClaudeStreamEvent, ClaudeTransport}
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.proposals.{AuthoringDisplayTurn, AuthoringStreamEvent, DashboardAuthoringRequest, DashboardProposal}
 import com.helio.api.protocols.patchsets.PatchSet

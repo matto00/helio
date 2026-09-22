@@ -1,6 +1,6 @@
 package com.helio.api.protocols.assistant
 
-import com.helio.ai.ClaudeTool
+import com.helio.infrastructure.ai.ClaudeTool
 import spray.json._
 
 /** JSON-Schema `inputSchema`s for the 4 `propose_*` `ClaudeTool`s (HEL-662 tasks.md 2.4), plus

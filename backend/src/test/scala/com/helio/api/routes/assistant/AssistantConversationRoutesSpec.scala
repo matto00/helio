@@ -3,7 +3,7 @@ package com.helio.api.routes.assistant
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.routes.assistant.AssistantConversationRoutes
-import com.helio.ai._
+import com.helio.infrastructure.ai._
 import com.helio.api.JsonProtocols
 import com.helio.api.protocols.assistant.TierErrorResponse
 import com.helio.domain.model._

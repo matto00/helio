@@ -3,7 +3,7 @@ package com.helio.api.routes.auth
 import com.helio.api.routes.auth.BetaAccessRoutes
 import com.helio.api.{JsonProtocols, UserResponse}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
-import com.helio.email.EmailSender
+import com.helio.infrastructure.email.EmailSender
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.{InviteCodeRepository, UserRepository}
 import com.helio.infrastructure.crypto.TokenHashing

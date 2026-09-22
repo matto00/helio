@@ -6,7 +6,7 @@ import com.helio.services.pipelines.PipelineProposalService
 import com.helio.services.proposals.{CombinedProposalService, DashboardProposalService}
 import com.helio.services.sources.SourceService
 import com.helio.services.workspace.WorkspaceSearchService
-import com.helio.ai.ClaudeToolExecutor
+import com.helio.infrastructure.ai.ClaudeToolExecutor
 import com.helio.api.protocols.assistant.AssistantProposal
 import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalProtocol, DashboardProposal}
 import com.helio.api.protocols.panels.PanelCapabilityProtocol

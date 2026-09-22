@@ -7,7 +7,7 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.ai.{ClaudeContentBlock, ClaudeError, ClaudeToolMessage}
+import com.helio.infrastructure.ai.{ClaudeContentBlock, ClaudeError, ClaudeToolMessage}
 import com.helio.api.http.RequestValidation
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.IdParsing.AssistantConversationIdSegment

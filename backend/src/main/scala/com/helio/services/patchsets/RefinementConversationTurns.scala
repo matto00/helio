@@ -1,6 +1,6 @@
 package com.helio.services.patchsets
 
-import com.helio.ai.{ClaudeMessage, ClaudeRole}
+import com.helio.infrastructure.ai.{ClaudeMessage, ClaudeRole}
 import com.helio.api.protocols.proposals.AuthoringDisplayTurn
 import com.helio.api.protocols.patchsets.PatchSet
 import com.helio.domain.model.{AuthenticatedUser, AuthoringConversationId}

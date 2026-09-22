@@ -1,7 +1,7 @@
 package com.helio.infrastructure.persistence.proposals
 
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.ai.ClaudeMessage
+import com.helio.infrastructure.ai.ClaudeMessage
 import com.helio.api.protocols.proposals.{AuthoringConversationProtocol, AuthoringDisplayTurn, DashboardProposal}
 import com.helio.api.protocols.patchsets.PatchSet
 import com.helio.domain.model._
@@ -129,7 +129,7 @@ object AuthoringConversationRepository {
   private val proto = new AuthoringConversationProtocol {}
   import proto._
 
-  /** `ClaudeMessage` (`com.helio.ai`) is never wire-exposed — `api_history` never leaves this
+  /** `ClaudeMessage` (`com.helio.infrastructure.ai`) is never wire-exposed — `api_history` never leaves this
    *  repository (design.md D3) — so its JSON format lives here, repository-internal, rather than
    *  under `com.helio.api.protocols` (reserved for actually wire-facing types). */
   implicit val claudeMessageFormat: RootJsonFormat[ClaudeMessage] = jsonFormat2(ClaudeMessage.apply)
