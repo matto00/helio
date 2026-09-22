@@ -1,4 +1,4 @@
-package com.helio.api.routes.workspace
+package com.helio.api.routes
 
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route

@@ -11,6 +11,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.ai.{ClaudeAiStepClient, ClaudeClient, ClaudeConfig, HttpClaudeTransport}
 import com.helio.domain.ai.AiStepClient
 import com.helio.api.http._
+import com.helio.api.routes.HealthRoutes
 import com.helio.api.routes.agents._
 import com.helio.api.routes.alerts._
 import com.helio.api.routes.assistant._
