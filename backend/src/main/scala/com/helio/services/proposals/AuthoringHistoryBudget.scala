@@ -1,6 +1,6 @@
 package com.helio.services.proposals
 
-import com.helio.ai.{ClaudeMessage, ClaudeTokenEstimator}
+import com.helio.infrastructure.ai.{ClaudeMessage, ClaudeTokenEstimator}
 
 /** Deterministic history bounding for continued authoring conversations (HEL-397 design.md D4/D5)
  *  — oldest-turn-pairs-first truncation via the existing `ClaudeTokenEstimator`, never an

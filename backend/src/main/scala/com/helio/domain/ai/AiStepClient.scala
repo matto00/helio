@@ -3,7 +3,7 @@ package com.helio.domain.ai
 import scala.concurrent.Future
 
 /** HEL-1106 (design.md D2) -- the reusable, injectable seam every AI-backed pipeline step calls
- *  the model through. Lives in `com.helio.domain` (not `com.helio.ai`) so step files never need
+ *  the model through. Lives in `com.helio.domain` (not `com.helio.infrastructure.ai`) so step files never need
  *  to import `ClaudeClient`/`ClaudeConfig` -- tests inject a fake implementation directly, and
  *  production wires [[ClaudeAiStepClient]] over the real `ClaudeClient`. `analyzewithai` is the
  *  first caller; HEL-1107 `generatetext` reuses `complete` unchanged. */
@@ -17,9 +17,9 @@ trait AiStepClient {
  *  permitted, never exempt (design.md D8). */
 final case class AiStepRequest(instruction: String, content: String, ownerUserId: Option[String] = None)
 
-/** Closed failure set an [[AiStepClient]] may return, mirroring [[com.helio.ai.ClaudeError]]'s
+/** Closed failure set an [[AiStepClient]] may return, mirroring [[com.helio.infrastructure.ai.ClaudeError]]'s
  *  "sealed trait + object of case classes" convention -- deliberately a DIFFERENT type (not a
- *  re-export of `ClaudeError`) so a step's enforcement code never needs `com.helio.ai` in scope. */
+ *  re-export of `ClaudeError`) so a step's enforcement code never needs `com.helio.infrastructure.ai` in scope. */
 sealed trait AiStepFailure
 
 object AiStepFailure {

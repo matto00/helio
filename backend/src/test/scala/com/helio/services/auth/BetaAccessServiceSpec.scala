@@ -2,7 +2,7 @@ package com.helio.services.auth
 
 import com.helio.services.auth.{BetaAccessError, BetaAccessService, UserTierConfig}
 import com.helio.domain.model.{AuthenticatedUser, UserId, UserTier}
-import com.helio.email.EmailSender
+import com.helio.infrastructure.email.EmailSender
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.{InviteCodeRepository, UserRepository}
 import com.helio.infrastructure.crypto.TokenHashing

@@ -1,6 +1,6 @@
 package com.helio.services.pipelines
 
-import com.helio.ai.{ClaudeAiStepClient, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeClient, ClaudeConfig, ClaudeStreamEvent, ClaudeTransport}
+import com.helio.infrastructure.ai.{ClaudeAiStepClient, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeClient, ClaudeConfig, ClaudeStreamEvent, ClaudeTransport}
 import com.helio.domain.ai.{AiStepClient, AiStepFailure, AiStepRequest}
 import com.helio.domain.model._
 import com.helio.domain.steps.{AnalyzeWithAiConfig, AnalyzeWithAiOutputField}

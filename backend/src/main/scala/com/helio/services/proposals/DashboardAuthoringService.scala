@@ -4,7 +4,7 @@ import com.helio.services.workspace.WorkspaceContextBudget
 import com.helio.services.panels.PanelCapabilityService
 import com.helio.services.workspace.WorkspaceContextService
 import com.helio.services.ServiceError
-import com.helio.ai.{ClaudeClient, ClaudeError, ClaudeMessage, ClaudeRequest, ClaudeRole, ClaudeStreamEvent, TokenUsage}
+import com.helio.infrastructure.ai.{ClaudeClient, ClaudeError, ClaudeMessage, ClaudeRequest, ClaudeRole, ClaudeStreamEvent, TokenUsage}
 import com.helio.api.protocols.proposals.{AuthoringContextOptions, AuthoringConversationView, AuthoringStreamEvent, DashboardAuthoringRequest, DashboardAuthoringResponse, DashboardProposal}
 import com.helio.api.protocols.panels.PanelCapabilitiesResponse
 import com.helio.api.protocols.workspace.{WorkspaceContextOutput, WorkspaceContextResponse}

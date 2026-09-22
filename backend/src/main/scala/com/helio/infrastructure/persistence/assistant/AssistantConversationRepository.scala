@@ -1,7 +1,7 @@
 package com.helio.infrastructure.persistence.assistant
 
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.ai.{ClaudeContentBlock, ClaudeToolMessage}
+import com.helio.infrastructure.ai.{ClaudeContentBlock, ClaudeToolMessage}
 import com.helio.domain.model._
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -146,7 +146,7 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
       ts      => ts.toInstant
     )
 
-  /** `ClaudeContentBlock`/`ClaudeToolMessage` (`com.helio.ai`) have no spray-json formatter before
+  /** `ClaudeContentBlock`/`ClaudeToolMessage` (`com.helio.infrastructure.ai`) have no spray-json formatter before
    *  this ticket — no prior consumer ever serialized them (design.md D3). Hand-written (a genuine
    *  sealed-trait discriminated union for `ClaudeContentBlock`, mirroring `ClaudeApiContentBlock`'s
    *  formatter style in `ClaudeProtocol.scala`; `jsonFormat2` for `ClaudeToolMessage`) and declared

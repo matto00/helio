@@ -1,6 +1,6 @@
 package com.helio.services.proposals
 
-import com.helio.ai.TokenUsage
+import com.helio.infrastructure.ai.TokenUsage
 import com.helio.api.protocols.proposals.{AuthoringStreamEvent, DashboardAuthoringResponse, DashboardProposal}
 
 import java.util.{Map => JMap}

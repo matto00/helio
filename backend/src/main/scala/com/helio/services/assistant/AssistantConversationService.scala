@@ -1,7 +1,7 @@
 package com.helio.services.assistant
 
 import com.helio.services.ServiceError
-import com.helio.ai.{ClaudeContentBlock, ClaudeToolMessage}
+import com.helio.infrastructure.ai.{ClaudeContentBlock, ClaudeToolMessage}
 import com.helio.domain.model.{AssistantConversationId, AuthenticatedUser}
 import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository._
 import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository

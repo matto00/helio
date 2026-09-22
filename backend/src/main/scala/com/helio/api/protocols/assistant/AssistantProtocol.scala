@@ -3,7 +3,7 @@ package com.helio.api.protocols.assistant
 import com.helio.api.protocols.patchsets.{PatchSet, PatchSetPreviewResponse}
 import com.helio.api.protocols.pipelines.PipelineProposal
 import com.helio.api.protocols.proposals.{CombinedProposal, DashboardProposal}
-import com.helio.ai.{ClaudeTool, ClaudeToolMessage, TokenUsage}
+import com.helio.infrastructure.ai.{ClaudeTool, ClaudeToolMessage, TokenUsage}
 import com.helio.services.workspace.WorkspaceAssistantTools
 
 //

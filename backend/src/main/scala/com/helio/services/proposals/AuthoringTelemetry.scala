@@ -1,6 +1,6 @@
 package com.helio.services.proposals
 
-import com.helio.ai.TokenUsage
+import com.helio.infrastructure.ai.TokenUsage
 import com.helio.infrastructure.concurrency.MdcPropagatingExecutionContext
 import org.slf4j.{Logger, LoggerFactory, MDC}
 

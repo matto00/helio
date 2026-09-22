@@ -1,0 +1,34 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+### What I verified (with evidence)
+
+- **Live file inventory matches the ticket's premise-validation note.** `find backend/src/main/scala/com/helio/ai -type f` → 11 `.scala` files + `README.md`; `com/helio/email` → 3 `.scala` files + `README.md`. Matches ticket.md's premise-validation note (11 for `ai`, 3 for `email`).
+- **Scope boundary (spark/app/build.sbt untouched) is correctly stated and verifiable.** `grep -n 'mainClass' backend/build.sbt` → both `Compile / run / mainClass` and `assembly / mainClass` are `com.helio.app.Main`, matching the ticket's AC and tasks.md 2.6. No task moves or edits `spark/`/`app/`.
+- **`infrastructure/README.md` convention claim is accurate.** Read it directly: exactly four subdirectories enumerated (`persistence/`, `storage/`, `crypto/`, `concurrency/`) with the "no file lives directly in infrastructure/" claim — matches design.md D4's premise exactly. `storage/README.md` confirms the "what it is / not a domain / Does NOT hold" convention design.md D3 asks the executor to follow.
+- **`skip_specs: true` is justified.** `openspec/specs/claude-api-client/spec.md` is the only live spec touched, and only for a prose FQN mention (`ClaudeConfig` is "defined in `com.helio.ai`"), not a requirement/behavior delta — consistent with the precedent proposal.md cites (HEL-633/634/811, structural refactors archived with `--skip-specs`).
+- **Reference-count claims in design.md's Context section and proposal.md's "What Changes" are materially wrong against the live tree** — reproduced with two independent grep patterns (`\bcom\.helio\.ai\b` and the broader `helio\.ai`), both gave the same result:
+  - `com.helio.ai` test files referencing it from outside the package: design.md/proposal.md state **20**; live tree has **14** (`grep -rl 'com\.helio\.ai\b' backend/src/test --include="*.scala" | grep -v '/com/helio/ai/' | wc -l` → 14, listed and inspected).
+  - `com.helio.ai` main files referencing it from outside the package: design.md/proposal.md state **24**; live tree has **25** — I inspected every match line-by-line; all 25 are genuine imports/doc-comment FQN mentions, no false positives.
+  - `com.helio.email` test files referencing it from outside the package: design.md/proposal.md state **3**; live tree has **2**.
+  - `com.helio.email` main files: 2 stated, 2 actual — this one matches.
+  - This matters because **tasks.md task 1.1 literally instructs the executor to "confirm the counts match design.md's Context section"** — as written this cannot succeed (they don't match on 3 of 4 axes), and no task says what to do when they don't. A competent implementer hits this on the very first execution task with no guidance: block? trust the live grep over the stale doc? Nothing resolves it.
+- **The "full reference survey" is not full — it missed two entire classes of files, verified by a repo-wide grep** (`grep -rl 'com\.helio\.ai\b\|com\.helio\.email\b'` across `*.md/*.scala/*.ts/*.tsx/*.sh/*.yml/*.yaml/*.json`, excluding `node_modules` and `openspec/changes/archive/**`):
+  - `frontend/src/features/assistant/types.ts` lines 32 and 39: doc comments `Mirrors com.helio.ai.ClaudeToolMessage` and `Mirrors com.helio.ai.ClaudeContentBlock`. Not mentioned anywhere in ticket.md, proposal.md, design.md, or tasks.md.
+  - Three JSON Schema files under `schemas/assistant/` — the repo's own CLAUDE.md calls `schemas/` "the source of truth for request/response shapes": `create-assistant-conversation-request.schema.json` (line 14, `"shaped like ClaudeToolMessage (com.helio.ai)"`), `assistant-conversation.schema.json` (line 5, `"com.helio.ai"`), `append-assistant-conversation-turn-request.schema.json` (line 11, `"(com.helio.ai)"`). Also not mentioned anywhere in the planning artifacts.
+  - Design.md's own D2 mitigation (compile + re-grep to zero) only covers `backend/src/**`; tasks.md 3.4/3.5 are scoped to `backend/src/**` and tasks.md 5.3's final "zero residual hits" check is explicitly scoped to `backend/src/**`, `CLAUDE.md`, `docs/secrets-inventory.md`, and live `openspec/specs/**` — **`frontend/**` and `schemas/**` are outside every completeness gate this plan defines.** Unlike the backend numeric-count gap (which D2's compile-driven re-grep would still catch regardless of the stated count), these five sites in `frontend/`/`schemas/` will ship stale (referencing the pre-move package path) with nothing in the plan positioned to catch it.
+
+### Verdict: REFUTE
+
+### Change Requests
+
+1. **Correct the reference counts** in design.md's Context section and proposal.md's "What Changes" to match the live tree: `com.helio.ai` — 25 main files / 14 test files (not 24/20); `com.helio.email` — 2 main / 2 test (not 2/3). Re-verify with `grep -rl 'com\.helio\.ai\b' backend/src/{main,test} --include="*.scala" | grep -v '/com/helio/ai/'` and the `email` equivalent before finalizing.
+2. **Fix tasks.md task 1.1** so it is executable as written: either state the corrected counts as the baseline, or replace "confirm the counts match design.md's Context section" with something that survives a mismatch, e.g. "record the live grep counts; if they diverge from design.md's Context section, the live grep is authoritative — proceed without blocking, and note the drift." As written, task 1.1 asks the executor to confirm a false statement with no fallback instruction.
+3. **Add the five missed reference sites to design.md's Context section and to tasks.md's "READMEs and docs" section**, as new tasks parallel to 4.5/4.6 (CLAUDE.md/secrets-inventory.md updates):
+   - `frontend/src/features/assistant/types.ts:32,39` — update the two `Mirrors com.helio.ai...` doc comments to `com.helio.infrastructure.ai...`.
+   - `schemas/assistant/create-assistant-conversation-request.schema.json:14`, `schemas/assistant/assistant-conversation.schema.json:5`, `schemas/assistant/append-assistant-conversation-turn-request.schema.json:11` — update the `(com.helio.ai)` mentions in each `description` field to `(com.helio.infrastructure.ai)`.
+4. **Widen tasks.md 5.3's final "zero residual hits" verification** to also cover `frontend/src/**` and `schemas/**`, not just `backend/src/**` + the three named docs + live `openspec/specs/**` — otherwise a stale reference in either directory has no gate positioned to catch it, unlike the backend where `sbt compile`/re-grep (D2) provides a safety net regardless of the stated count being off.
+
+### Non-blocking notes
+
+- The `domain/ai/AiStepClient.scala` doc-comment cross-reference and the `email/`-package-internal cross-references to `com.helio.ai` (both correctly identified in ticket.md's premise-validation notes and covered by tasks.md 3.1) check out against the live tree — no issue there.
+- `docs/superpowers/specs/2026-09-10-interactive-data-writeback-design.md`'s non-blocking treatment (design.md D5) is reasonable given it's a dated design-history snapshot; no objection.

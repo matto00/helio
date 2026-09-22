@@ -12,7 +12,7 @@ import spray.json.JsObject
  *  the same budget reason — this file holds only orchestration).
  *
  *  HEL-390's `ClaudeRequest` models only `user`/`assistant` messages, no separate `system` field (see
- *  `com.helio.ai.ClaudeModels`) — so the instructions + grounding context + the user's message are
+ *  `com.helio.infrastructure.ai.ClaudeModels`) — so the instructions + grounding context + the user's message are
  *  all composed into ONE initial `user` message, exactly mirroring `DashboardAuthoringPrompt`'s own
  *  precedent.
  *

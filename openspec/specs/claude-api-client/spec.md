@@ -7,7 +7,7 @@ like the In-App NL Authoring endpoint can be thin callers instead of each re-imp
 handling, streaming, and budget enforcement.
 ## Requirements
 ### Requirement: Config is env-sourced and never hardcoded at call sites
-The backend SHALL define `ClaudeConfig` in `com.helio.ai`, constructed via `ClaudeConfig.fromEnv():
+The backend SHALL define `ClaudeConfig` in `com.helio.infrastructure.ai`, constructed via `ClaudeConfig.fromEnv():
 Either[String, ClaudeConfig]`, reading the API key from `ANTHROPIC_API_KEY`, the model id from
 `CLAUDE_MODEL` (default `claude-opus-4-8`), temperature from `CLAUDE_TEMPERATURE` (default `1.0`),
 token ceilings from `CLAUDE_MAX_TOKENS` (default `4096`) / `CLAUDE_MAX_INPUT_TOKENS` (default

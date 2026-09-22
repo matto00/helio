@@ -1,6 +1,6 @@
 package com.helio.services.proposals
 
-import com.helio.ai.{ClaudeMessage, ClaudeRole}
+import com.helio.infrastructure.ai.{ClaudeMessage, ClaudeRole}
 import com.helio.api.protocols.proposals.{AuthoringDisplayTurn, DashboardProposal}
 import com.helio.domain.model.{AuthenticatedUser, AuthoringConversationId}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository

@@ -6,7 +6,7 @@ import spray.json._
 //
 // `AssistantConversationRoutes`'s HTTP surface (design.md D5). `firstMessage`/`turns`/`transcript`
 // carry the caller-facing Claude tool-message shape as raw `JsValue`, deliberately -- `ClaudeContentBlock`/
-// `ClaudeToolMessage` (`com.helio.ai`) get their OWN spray-json formatter, but it's declared
+// `ClaudeToolMessage` (`com.helio.infrastructure.ai`) get their OWN spray-json formatter, but it's declared
 // repository-internal (`AssistantConversationRepository`'s companion object, design.md D3), never
 // under `com.helio.api.protocols` (this package would have to depend on `com.helio.infrastructure` to
 // reach it, backwards from this codebase's layering). `AssistantConversationRoutes` converts

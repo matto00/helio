@@ -29,14 +29,14 @@ export interface AssistantConversationDetail extends AssistantConversationSummar
   lastIdempotencyKey?: string;
 }
 
-/** Mirrors `com.helio.ai.ClaudeToolMessage` — one turn of the tool-use-loop
+/** Mirrors `com.helio.infrastructure.ai.ClaudeToolMessage` — one turn of the tool-use-loop
  * conversation. */
 export interface ClaudeToolMessageDto {
   role: string;
   content: ClaudeContentBlockDto[];
 }
 
-/** Mirrors `com.helio.ai.ClaudeContentBlock`'s discriminated union, using the
+/** Mirrors `com.helio.infrastructure.ai.ClaudeContentBlock`'s discriminated union, using the
  * exact `blockType` discriminator `AssistantConversationRepository`'s
  * hand-written formatter puts on the wire. */
 export type ClaudeContentBlockDto =

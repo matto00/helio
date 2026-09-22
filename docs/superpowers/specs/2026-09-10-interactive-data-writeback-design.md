@@ -287,7 +287,7 @@ Cycle detection is required (a pipeline must not write to a source it reads).
 - `analyzewithai` — structured extraction/classification over content fields.
 - `generatetext` — synthesize source data into a text Output.
 
-`analyzewithai`/`generatetext` route through the existing `com.helio.ai`
+`analyzewithai`/`generatetext` route through the existing `com.helio.infrastructure.ai`
 `ClaudeClient`, which enforces `CLAUDE_MAX_TOKENS`/`CLAUDE_MAX_INPUT_TOKENS`.
 **Tier gating (`HELIO_BETA_DAILY_MESSAGE_LIMIT`) was NOT enforced on this path
 when these two steps shipped** — an earlier draft of this document asserted it

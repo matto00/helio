@@ -3,7 +3,7 @@ package com.helio.services.patchsets
 import com.helio.services.proposals.{AuthoringErrorKind, AuthoringHistoryBudget}
 import com.helio.services.ServiceError
 import com.helio.services.proposals.AuthoringError
-import com.helio.ai.{ClaudeClient, ClaudeError, ClaudeMessage, ClaudeRequest, ClaudeRole, TokenUsage}
+import com.helio.infrastructure.ai.{ClaudeClient, ClaudeError, ClaudeMessage, ClaudeRequest, ClaudeRole, TokenUsage}
 import com.helio.api.protocols.patchsets.{PatchSet, RefinementRequest, RefinementResponse}
 import com.helio.domain.model.{AuthenticatedUser, AuthoringConversationId}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository

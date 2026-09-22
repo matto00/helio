@@ -9,7 +9,7 @@ import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, Workspac
  *  grows past CONTRIBUTING's ~250-line soft budget.
  *
  *  HEL-390's `ClaudeRequest` models only `user`/`assistant` messages, no separate `system` field
- *  (see `com.helio.ai.ClaudeModels`) — so the instructions + grounding context + the user's goal
+ *  (see `com.helio.infrastructure.ai.ClaudeModels`) — so the instructions + grounding context + the user's goal
  *  are all composed into ONE initial `user` message, not a distinct system prompt. */
 object DashboardAuthoringPrompt {
 

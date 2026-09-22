@@ -1,13 +1,13 @@
 package com.helio.services.workspace
 
-import com.helio.ai.ClaudeTool
+import com.helio.infrastructure.ai.ClaudeTool
 import spray.json.{JsArray, JsObject, JsString}
 
 /** `ClaudeTool` schema definitions for `find`/`get_resource` (HEL-661 design.md D7), ready for
  *  HEL-662's `AssistantService` to hand straight to `ClaudeClient.sendWithTools`'s `tools` list.
- *  Colocated with [[WorkspaceSearchService]] in `com.helio.services`, not `com.helio.ai` — these
+ *  Colocated with [[WorkspaceSearchService]] in `com.helio.services`, not `com.helio.infrastructure.ai` — these
  *  schemas describe workspace-domain concepts (`find`/`get_resource`'s parameters), and belong beside
- *  the service they front; `com.helio.ai` stays workspace-agnostic, knowing only generic
+ *  the service they front; `com.helio.infrastructure.ai` stays workspace-agnostic, knowing only generic
  *  `ClaudeTool`/`ClaudeClient` shapes, never a specific tool's domain meaning.
  *
  *  No executor wiring here — parsing Claude's raw string `type`/`resourceTypes` tool-call arguments

@@ -11,7 +11,7 @@
     },
     "firstMessage": {
       "type": "object",
-      "description": "A single Claude tool-message turn (role + content blocks) that seeds the conversation's transcript, shaped like ClaudeToolMessage (com.helio.ai): { role: string, content: [{ blockType: 'text'|'tool_use'|'tool_result', ... } ] }. Opaque to this schema (server-validated); absent when the conversation starts with no seed message.",
+      "description": "A single Claude tool-message turn (role + content blocks) that seeds the conversation's transcript, shaped like ClaudeToolMessage (com.helio.infrastructure.ai): { role: string, content: [{ blockType: 'text'|'tool_use'|'tool_result', ... } ] }. Opaque to this schema (server-validated); absent when the conversation starts with no seed message.",
       "properties": {
         "role": {
           "type": "string"
