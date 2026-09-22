@@ -79,6 +79,45 @@ spray-json no-`NullOptions` convention (an absent Scala `None` serializes as a m
   than a single flat object, but matches the existing `Panel` precedent rather than inventing a
   new convention.
 
+## Gate-Chain Implications Checklist
+
+This change modifies `scripts/check-schema-drift.mjs`, which `.husky/pre-commit` invokes via
+`npm run check:schemas` — a commit-gate-chain-touching diff per CON-132's classification, so this
+checklist is answered even though the actual edit is a 2-line, purely additive `SKIP`-set entry.
+
+**What does it execute?** A pure Node.js script (`node scripts/check-schema-drift.mjs`, no shell
+wrapper) that reads every `*.schema.json` file under `schemas/`, every `.scala` file under
+`backend/src/main/scala/com/helio/api/protocols/**` plus the `JsonProtocols.scala` aggregator, and
+a handful of other named source files (`domain/model/model.scala`,
+`DashboardProposalService.scala`, `helio-mcp/src/tools/proposal*.ts`,
+`ProposalReview.tsx`) via `readFileSync`, parses `case class` declarations with a regex, and
+`console.error`/`process.exit(1)`s on drift. It never shells out, never uses `child_process`,
+never imports a git library.
+
+**What environment does it inherit, and from where?** Whatever environment the invoking shell
+(Husky's pre-commit hook, or a bare `node` invocation) already has — the script reads no env vars
+itself (confirmed: no `process.env` reference anywhere in the file) and needs none; its only
+inputs are the file paths it resolves relative to its own `import.meta.url`.
+
+**Does it write anything outside its own sandbox?** No. The script contains zero filesystem write
+calls (`writeFileSync`, `appendFileSync`, `mkdirSync`, etc. — none present) and zero git
+invocations of any kind (no `execSync`/`spawn`/`child_process` import at all). It is read-only by
+construction: every `errors.push`/`checked.push` mutates only in-memory arrays used for its own
+console output.
+
+**Does it behave differently from a linked worktree than from a main checkout?** No — every path
+it reads is resolved via `join(dirname(fileURLToPath(import.meta.url)), ...)`, i.e. relative to
+the script's own location on disk, never via any git-dir/work-tree distinction. A linked worktree
+and a main checkout both present the same file layout at that relative path, so this script's
+behavior is identical in either.
+
+**What happens on its first run?** Nothing special — there is no state, cache, or lockfile this
+script creates or depends on existing. The very first invocation (e.g. right after this ticket's
+own `SKIP`-list edit lands) behaves identically to the 1000th: it reads the current file set fresh
+each time and reports drift or exits 0. The change made here (`SKIP.add("DataSourceResponse")`)
+is exercised by the isolation-test run below, which confirms the script still exits 0 against a
+disposable fixture with no observable difference from before the edit.
+
 ## Planner Notes
 
 - `skip_specs: true` self-approved (see `proposal.md`'s Capabilities section) — no capability
