@@ -1,4 +1,0 @@
-- `backend/src/main/scala/com/helio/api/routes/HealthRoutes.scala` — moved via `git mv` from `api/routes/workspace/`; `package` declaration updated to `com.helio.api.routes`. No logic/signature change.
-- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — added `import com.helio.api.routes.HealthRoutes` (the existing `import com.helio.api.routes.workspace._` is retained, still needed for `WorkspaceRoutes`).
-- `backend/src/main/scala/com/helio/api/routes/README.md` — documents `HealthRoutes` as a second named-shared-file exception at root (alongside `ServiceResponse.scala`), with rationale; rewrote the now-otherwise-contradictory summary sentence to acknowledge the one exception.
-- `backend/src/main/scala/com/helio/api/routes/workspace/README.md` — removed `HealthRoutes` from the "Holds" list and its explanatory sentence; added a pointer to the new root location.
