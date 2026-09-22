@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/expand-pipeline-shape-response.schema.json",
+  "title": "ExpandPipelineShapeResponse",
+  "description": "HEL-933: `POST /api/pipeline-shapes/:id/expand` response envelope (HEL-906 cycle 7, task 3.8, BREAKING -- was a bare `Vector[ShapeStepExpansionResponse]` array). `outputs` is `Option[JsArray]`, `None` for EVERY shape today (no `PipelineShape.expand` domain contract declares an output yet) -- absent, never `null`, on the wire (this protocol's no-`NullOptions` spray-json convention), so `outputs` is deliberately NOT in `required` and carries no `null` in its type.",
+  "type": "object",
+  "required": ["steps"],
+  "properties": {
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ShapeStepExpansionResponse" }
+    },
+    "outputs": {
+      "type": "array",
+      "description": "Absent on every response today -- forward-compatible only. Never populated by `ExpandPipelineShapeResponse.fromDomain`."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ShapeStepExpansionResponse": {
+      "type": "object",
+      "description": "One expanded step. `clientId` is a synthetic per-response id (\"step-0\", \"step-1\", ...) assigned in expansion order; `parentStepId` references the PRIOR entry's `clientId` (absent for the first entry) so `steps` can be passed directly as POST /api/pipelines' own `steps[]` without re-deriving the chain.",
+      "required": ["clientId", "kind", "config"],
+      "properties": {
+        "clientId": { "type": "string" },
+        "kind": { "type": "string" },
+        "config": { "type": "object" },
+        "parentStepId": {
+          "type": "string",
+          "description": "References the prior entry's clientId. Absent for the first entry in the chain."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

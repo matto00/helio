@@ -1,0 +1,13 @@
+## 1. Backend / tooling
+
+- [x] 1.1 Add `"DataSourceResponse"` to `scripts/check-schema-drift.mjs`'s `SKIP` set (mirroring the existing `"Panel"` entry, with a one-line comment explaining why) and verify `node scripts/check-schema-drift.mjs` still exits 0 before adding the schema file itself.
+- [x] 1.2 Create `schemas/sources/data-source.schema.json`, titled `"DataSourceResponse"`, `oneOf` over the 7 `DataSourceResponse` subtypes (Csv/Rest/Sql/Static/Text/Pdf/Image), each variant listing its own fields as `required` including `inferredSchema` (array of `{name, displayName, dataType, nullable}`, matching `InferredFieldResponse`) — verify by hand-validating one sample JSON object per subtype (e.g. via `ajv` or a quick Node script) against the written schema.
+- [x] 1.3 Create `schemas/pipelines/node-capabilities-response.schema.json`, titled `"NodeCapabilitiesResponse"`, matching `stepId: string|null` (optional/absent), `columns: PanelCapabilityColumnResponse[]` ({name, dataType, nullable}), `capabilities: object` (keyed map of `PanelCapabilityResponse`: {bindable, requiredSlots, optionalSlots, eligibleColumns (keyed map of string[]), reason (nullable/absent), message (nullable/absent)}) — verify `npm run check:schemas` passes with this file present (case-class field-name diff).
+- [x] 1.4 Create `schemas/pipelines/expand-pipeline-shape-response.schema.json`, titled `"ExpandPipelineShapeResponse"`, matching `steps: ShapeStepExpansionResponse[]` ({clientId, kind, config (object), parentStepId (nullable/absent)}) and `outputs` as an OPTIONAL top-level key (absent from `required`, `type: array` when present, no `null` in its type union) — verify `npm run check:schemas` passes with this file present.
+- [x] 1.5 Run `npm run check:schemas` (full suite, all three new files present) and confirm it exits 0 with no drift errors reported for any of the three.
+
+## 2. Verification
+
+- [x] 2.1 Run `openspec validate remaining-output-pipeline-schemas --type change` and confirm it exits 0 (change has `skip_specs: true`, zero spec deltas expected).
+- [x] 2.2 Confirm no `proposal.md`/`design.md`/`tasks.md` file under `openspec/changes/output-routes-api-contracts/` (HEL-906's archived, P1.4-owned patch-set files) was touched by this change — `git diff --stat` against the base branch shows only files under `schemas/sources/`, `schemas/pipelines/`, `scripts/check-schema-drift.mjs`, and this change's own `openspec/changes/remaining-output-pipeline-schemas/` directory.
+- [x] 2.3 Run the backend test suite (`sbt test` from `backend/`, `timeout: 600000`) and confirm no regression — this change touches no Scala source, so this is a smoke check that the JS/schema changes haven't broken anything unexpected.
