@@ -30,7 +30,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
  *  Never logs raw goal text (privacy — only `goalLength` + a truncated hash) or the API key (never
  *  held by this object in the first place — only a `modelId` string ever reaches here). */
 object AuthoringTelemetry {
-  private val log: Logger = LoggerFactory.getLogger("com.helio.services.AuthoringTelemetry")
+  private val log: Logger = LoggerFactory.getLogger(getClass)
 
   private val GoalHashPrefixLength = 12
 

@@ -227,7 +227,7 @@ class AuthoringTelemetrySpec
       val transport = new FakeClaudeTransport(Future.failed(ClaudeApiException(503, "upstream unavailable")))
       val service   = serviceWith(transport, modelId)
 
-      JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.proposals.AuthoringTelemetry$") { read =>
         tracedPost("/authoring/dashboard", requestBodyFor("Show total revenue")) ~> tracedRoutesFor(Some(service), user) ~> check {
           status shouldBe StatusCodes.BadGateway
           val obj = responseAs[String].parseJson.asJsObject
@@ -255,7 +255,7 @@ class AuthoringTelemetrySpec
       // DashboardAuthoringServiceSpec; this test only asserts the terminal kind.
       val service = serviceWith(new FakeClaudeTransport(cannedResponse(invalidProposalJson)), modelId)
 
-      JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.proposals.AuthoringTelemetry$") { read =>
         tracedPost("/authoring/dashboard", requestBodyFor("Show total revenue")) ~> tracedRoutesFor(Some(service), user) ~> check {
           status shouldBe StatusCodes.UnprocessableEntity
           val obj = responseAs[String].parseJson.asJsObject
@@ -277,7 +277,7 @@ class AuthoringTelemetrySpec
       val transport = new FakeClaudeTransport(cannedResponse("{}"))
       val service   = serviceWith(transport, modelId)
 
-      JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.proposals.AuthoringTelemetry$") { read =>
         tracedPost("/authoring/dashboard", requestBodyFor("Show total revenue")) ~> tracedRoutesFor(Some(service), user) ~> check {
           status shouldBe StatusCodes.UnprocessableEntity
           val obj = responseAs[String].parseJson.asJsObject
@@ -301,7 +301,7 @@ class AuthoringTelemetrySpec
       // DashboardAuthoringServiceSpec's identical trigger).
       val service = serviceWith(transport, modelId, maxInputTokens = 1)
 
-      JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.proposals.AuthoringTelemetry$") { read =>
         tracedPost("/authoring/dashboard", requestBodyFor("Show total revenue")) ~> tracedRoutesFor(Some(service), user) ~> check {
           status shouldBe StatusCodes.UnprocessableEntity
           val obj = responseAs[String].parseJson.asJsObject
@@ -343,7 +343,7 @@ class AuthoringTelemetrySpec
 
       var responseAuthoringRequestId: String = ""
 
-      JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.proposals.AuthoringTelemetry$") { read =>
         tracedPost("/authoring/dashboard", requestBodyFor("Show total revenue")) ~> tracedRoutesFor(Some(service), user) ~> check {
           status shouldBe StatusCodes.OK
           val obj = responseAs[String].parseJson.asJsObject
@@ -389,7 +389,7 @@ class AuthoringTelemetrySpec
       val transport = new FakeClaudeTransport(cannedResponse(""), Seq(ClaudeStreamEvent.Error(ClaudeError.ApiError(503, "upstream unavailable"))))
       val service   = serviceWith(transport, modelId)
 
-      JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.proposals.AuthoringTelemetry$") { read =>
         tracedPost("/authoring/dashboard?stream=true", requestBodyFor("Show total revenue")) ~> tracedRoutesFor(Some(service), user) ~> check {
           status shouldBe StatusCodes.OK
           val events = sseEvents(responseAs[String])
@@ -415,7 +415,7 @@ class AuthoringTelemetrySpec
       val modelId   = s"model-${UUID.randomUUID()}"
       val service   = serviceWith(new FakeClaudeTransport(cannedResponse("{}")), modelId)
 
-      JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.proposals.AuthoringTelemetry$") { read =>
         tracedPost("/authoring/dashboard?stream=true", requestBodyFor("Show total revenue")) ~> tracedRoutesFor(Some(service), user) ~> check {
           status shouldBe StatusCodes.OK
           val events = sseEvents(responseAs[String])
@@ -443,7 +443,7 @@ class AuthoringTelemetrySpec
 
       var resultAuthoringRequestId: String = ""
 
-      JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.proposals.AuthoringTelemetry$") { read =>
         tracedPost("/authoring/dashboard?stream=true", requestBodyFor("Show total revenue")) ~> tracedRoutesFor(Some(service), user) ~> check {
           status shouldBe StatusCodes.OK
           val events = sseEvents(responseAs[String])
@@ -474,7 +474,7 @@ class AuthoringTelemetrySpec
       val service          = serviceWith(new FakeClaudeTransport(cannedResponse("{}")), s"model-${UUID.randomUUID()}")
       val authoringRequestId = UUID.randomUUID().toString // never a real, previously-minted id
 
-      JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.proposals.AuthoringTelemetry$") { read =>
         tracedPost(s"/authoring/requests/$authoringRequestId/outcome", """{"outcome":"accepted"}""") ~>
           tracedRoutesFor(Some(service), user) ~> check {
             status shouldBe StatusCodes.NoContent
@@ -494,7 +494,7 @@ class AuthoringTelemetrySpec
       val service          = serviceWith(new FakeClaudeTransport(cannedResponse("{}")), s"model-${UUID.randomUUID()}")
       val authoringRequestId = UUID.randomUUID().toString
 
-      JsonLogCapture.withCapture("com.helio.services.AuthoringTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.proposals.AuthoringTelemetry$") { read =>
         tracedPost(s"/authoring/requests/$authoringRequestId/outcome", """{"outcome":"rejected"}""") ~>
           tracedRoutesFor(Some(service), user) ~> check {
             status shouldBe StatusCodes.NoContent

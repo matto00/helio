@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
  *  `hopBudgetExhausted`/`searchedWithNoResults`/`modelId`/token usage/propose-call quality counters
  *  ever reach here. */
 object AssistantTelemetry {
-  private val log: Logger = LoggerFactory.getLogger("com.helio.services.AssistantTelemetry")
+  private val log: Logger = LoggerFactory.getLogger(getClass)
 
   /** `event=assistant_tool_loop_outcome` — emitted once per successful `POST /:id/converse` call
    *  (design.md D6). Callers MUST guard this on `AssistantService.converse` having resolved to
