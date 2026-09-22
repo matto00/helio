@@ -179,7 +179,7 @@ class AssistantTelemetrySpec
       val service   = assistantServiceWith(new FakeTransport(finalTextResponse("Hi there!")), modelId)
       val messageText = "a secret goal that must never be logged"
 
-      JsonLogCapture.withCapture("com.helio.services.AssistantTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.assistant.AssistantTelemetry$") { read =>
         tracedPost(s"/assistant-conversations/${detail.record.id.value}/converse", s"""{"message":"$messageText"}""") ~>
           tracedRoutesFor(user, Some(service)) ~> check {
             status shouldBe StatusCodes.OK
@@ -220,7 +220,7 @@ class AssistantTelemetrySpec
       // repeated tool_use response can safely drive all the way to the 4-hop cap (HEL-756).
       val service = assistantServiceWith(new FakeTransport(toolUseResponse("t", "unknown_tool")), modelId)
 
-      JsonLogCapture.withCapture("com.helio.services.AssistantTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.assistant.AssistantTelemetry$") { read =>
         tracedPost(s"/assistant-conversations/${detail.record.id.value}/converse", """{"message":"Hello"}""") ~>
           tracedRoutesFor(user, Some(service)) ~> check {
             status shouldBe StatusCodes.OK
@@ -249,7 +249,7 @@ class AssistantTelemetrySpec
       val modelId = s"model-${UUID.randomUUID()}"
       val service = assistantServiceWith(new FakeTransport(toolUseResponseWithCacheRead("t", "unknown_tool", cacheReadInputTokens = 50)), modelId)
 
-      JsonLogCapture.withCapture("com.helio.services.AssistantTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.assistant.AssistantTelemetry$") { read =>
         tracedPost(s"/assistant-conversations/${detail.record.id.value}/converse", """{"message":"Hello"}""") ~>
           tracedRoutesFor(user, Some(service)) ~> check {
             status shouldBe StatusCodes.OK
@@ -278,7 +278,7 @@ class AssistantTelemetrySpec
       val modelId = s"model-${UUID.randomUUID()}"
       val service = assistantServiceWith(new FakeTransport(toolUseResponse("t", "propose_dashboard")), modelId)
 
-      JsonLogCapture.withCapture("com.helio.services.AssistantTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.assistant.AssistantTelemetry$") { read =>
         tracedPost(s"/assistant-conversations/${detail.record.id.value}/converse", """{"message":"Hello"}""") ~>
           tracedRoutesFor(user, Some(service)) ~> check {
             status shouldBe StatusCodes.OK
@@ -309,7 +309,7 @@ class AssistantTelemetrySpec
       val modelId = s"model-${UUID.randomUUID()}"
       val service = assistantServiceWith(new FakeTransport(Future.failed(ClaudeApiException(500, "internal server error"))), modelId)
 
-      JsonLogCapture.withCapture("com.helio.services.AssistantTelemetry") { read =>
+      JsonLogCapture.withCapture("com.helio.services.assistant.AssistantTelemetry$") { read =>
         tracedPost(s"/assistant-conversations/${detail.record.id.value}/converse", """{"message":"Hello"}""") ~>
           tracedRoutesFor(user, Some(service)) ~> check {
             status shouldBe StatusCodes.BadGateway
