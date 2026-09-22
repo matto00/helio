@@ -11,8 +11,10 @@ correct on the wire, but have no matching `schemas/**/*.schema.json` file, so `c
 ## What Changes
 
 - Add `schemas/sources/data-source.schema.json` documenting the `DataSourceResponse` union
-  (`GET/POST /api/data-sources`, `GET /api/data-sources/:id`), including the already-shipped
-  `inferredSchema` field.
+  (`GET/POST /api/data-sources` list/create, `PATCH /api/data-sources/:id` update — **not**
+  `GET /api/data-sources/:id`, which does not exist as a bare route; `DataSourceRoutes.scala`
+  wires only `patch`/`delete` at that path — corrected post-audit, see `ticket.md`'s premise
+  validation for the finding), including the already-shipped `inferredSchema` field.
 - Add `schemas/pipelines/node-capabilities-response.schema.json` documenting
   `NodeCapabilitiesResponse` (`GET /api/pipelines/:id/capabilities`) — the ticket's own addendum
   named this `output-capabilities-response.schema.json`, but no `OutputCapabilities*` type exists;
