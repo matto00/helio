@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/data-source.schema.json",
+  "title": "DataSourceResponse",
+  "description": "HEL-933: `GET/POST /api/data-sources` (list, create) and `PATCH /api/data-sources/:id` (update) — a discriminated union over `DataSourceResponse`'s 7 case-class subtypes (`com.helio.api.protocols.sources.DataSourceProtocol`), each serialized with a `\"type\"` discriminator plus its own fields (`dataSourceResponseFormat.write` injects `type` onto the subtype's own JSON object). No bare `GET /api/data-sources/:id` route exists (`DataSourceRoutes.scala` wires only `patch`/`delete` at that path; every GET under a source id is scoped to a subpath -- `/preview`, `/rows`, `/schema` -- none of which returns this shape) -- verified directly against `DataSourceRoutes.scala`/`DataSourcePreviewRoutes.scala` after the ticket's own AC text was found to claim otherwise (HEL-933 auditor finding). `type: \"static\"` requests still deserialize, but every response emits `\"dataset\"` (HEL-1073 canonicalization) -- `StaticSourceResponse` is the wire name for what the `type` field reports as `dataset`. `inferredSchema` (HEL-909) is shared by every subtype -- the source's inferred column schema, moved onto the source payload itself now that the standalone DataType concept is retired. This schema is `SKIP`-listed in `check-schema-drift.mjs` (no single case class named `DataSourceResponse` to diff against -- mirrors the `Panel` precedent) and is therefore not mechanically checked field-by-field; keep it in sync by hand when `DataSourceProtocol.scala` changes.",
+  "oneOf": [
+    { "$ref": "#/$defs/CsvSourceResponse" },
+    { "$ref": "#/$defs/RestSourceResponse" },
+    { "$ref": "#/$defs/SqlSourceResponse" },
+    { "$ref": "#/$defs/StaticSourceResponse" },
+    { "$ref": "#/$defs/TextSourceResponse" },
+    { "$ref": "#/$defs/PdfSourceResponse" },
+    { "$ref": "#/$defs/ImageSourceResponse" }
+  ],
+  "$defs": {
+    "InferredFieldResponse": {
+      "type": "object",
+      "required": ["name", "displayName", "dataType", "nullable"],
+      "properties": {
+        "name": { "type": "string" },
+        "displayName": { "type": "string" },
+        "dataType": { "type": "string" },
+        "nullable": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "CsvSourceResponse": {
+      "type": "object",
+      "required": ["id", "name", "createdAt", "updatedAt", "type", "config", "inferredSchema"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "type": { "const": "csv" },
+        "config": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string" },
+            "sourceUrl": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "tag": { "type": "string" },
+        "inferredSchema": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/InferredFieldResponse" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "RestSourceResponse": {
+      "type": "object",
+      "required": ["id", "name", "createdAt", "updatedAt", "type", "config", "inferredSchema"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "type": { "const": "rest_api" },
+        "config": {
+          "type": "object",
+          "description": "HEL-822: `connectorId` (new path) or `url` (legacy bare-URL path) is present, never both. `auth` is retained on the wire type only to detect and reject a legacy request that still sends it (400) -- it is never populated on a response.",
+          "properties": {
+            "connectorId": { "type": "string" },
+            "url": { "type": "string" },
+            "endpoint": { "type": "string" },
+            "method": { "type": "string" },
+            "queryParams": { "type": "object" },
+            "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+            "body": { "type": "string" },
+            "bodyContentType": { "type": "string" },
+            "rootSelector": { "type": "string" },
+            "parameters": { "type": "object", "additionalProperties": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "tag": { "type": "string" },
+        "inferredSchema": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/InferredFieldResponse" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "SqlSourceResponse": {
+      "type": "object",
+      "required": ["id", "name", "createdAt", "updatedAt", "type", "config", "inferredSchema"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "type": { "const": "sql" },
+        "config": {
+          "type": "object",
+          "required": ["dialect", "host", "port", "database", "user", "password", "query"],
+          "properties": {
+            "dialect": { "type": "string" },
+            "host": { "type": "string" },
+            "port": { "type": "integer" },
+            "database": { "type": "string" },
+            "user": { "type": "string" },
+            "password": { "type": "string" },
+            "query": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "tag": { "type": "string" },
+        "inferredSchema": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/InferredFieldResponse" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "StaticSourceResponse": {
+      "type": "object",
+      "description": "No `config` field -- static/dataset rows live in `data_source_rows`, not a config blob. `type` always reports `\"dataset\"` on the wire (HEL-1073).",
+      "required": ["id", "name", "createdAt", "updatedAt", "type", "inferredSchema"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "type": { "const": "dataset" },
+        "tag": { "type": "string" },
+        "inferredSchema": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/InferredFieldResponse" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "TextSourceResponse": {
+      "type": "object",
+      "required": ["id", "name", "createdAt", "updatedAt", "type", "config", "inferredSchema"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "type": { "const": "text" },
+        "config": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string" },
+            "sourceUrl": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "tag": { "type": "string" },
+        "inferredSchema": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/InferredFieldResponse" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "PdfSourceResponse": {
+      "type": "object",
+      "required": ["id", "name", "createdAt", "updatedAt", "type", "config", "inferredSchema"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "type": { "const": "pdf" },
+        "config": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string" },
+            "sourceUrl": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "tag": { "type": "string" },
+        "inferredSchema": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/InferredFieldResponse" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ImageSourceResponse": {
+      "type": "object",
+      "required": ["id", "name", "createdAt", "updatedAt", "type", "config", "inferredSchema"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "type": { "const": "image" },
+        "config": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string" },
+            "sourceUrl": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "tag": { "type": "string" },
+        "inferredSchema": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/InferredFieldResponse" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

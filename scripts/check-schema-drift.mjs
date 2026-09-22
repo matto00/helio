@@ -109,6 +109,8 @@ const SKIP = new Set([
   "PanelAppearancePatch", // HEL-362: UpdatePanelRequest/PanelBatchItem.appearance is a raw
   // JsValue (mirroring `config`), decoded by PanelAppearance.Patch —
   // no matching case class to diff against.
+  "DataSourceResponse", // HEL-933: response composed across the sealed trait's 7 case-class
+  // subtypes (Csv/Rest/Sql/Static/Text/Pdf/Image), each with its own field list.
 ]);
 
 const errors = [];

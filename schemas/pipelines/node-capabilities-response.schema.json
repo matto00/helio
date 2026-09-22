@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/node-capabilities-response.schema.json",
+  "title": "NodeCapabilitiesResponse",
+  "description": "HEL-933: `GET /api/pipelines/:id/capabilities?stepId=` -- the node-scoped successor to the retired `GET /api/types/:id/panel-capabilities`. `stepId` is absent for the pipeline's root (a specific step's projected schema vs. the whole pipeline's). Reuses `PanelCapabilityColumnResponse`/`PanelCapabilityResponse` (`com.helio.api.protocols.panels.PanelCapabilityProtocol`) verbatim -- inlined here rather than as their own referenced schema files, since neither is separately gapped by HEL-933 (see design.md Decision 3).",
+  "type": "object",
+  "required": ["columns", "capabilities"],
+  "properties": {
+    "stepId": {
+      "type": "string",
+      "description": "The pipeline node this capability report is scoped to. Absent for the pipeline's root."
+    },
+    "columns": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/PanelCapabilityColumnResponse" }
+    },
+    "capabilities": {
+      "type": "object",
+      "description": "Keyed by `OutputKind.asString` (`table`/`metric`/`chart`/`collection`/`timeline`/`markdown`) -- one `PanelCapabilityResponse` per bindable Output kind.",
+      "additionalProperties": { "$ref": "#/$defs/PanelCapabilityResponse" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "PanelCapabilityColumnResponse": {
+      "type": "object",
+      "description": "One column of the node's projected shape -- name, wire-string dataType (`DataFieldType.asString`), and nullability.",
+      "required": ["name", "dataType", "nullable"],
+      "properties": {
+        "name": { "type": "string" },
+        "dataType": { "type": "string" },
+        "nullable": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "PanelCapabilityResponse": {
+      "type": "object",
+      "description": "`reason`/`message` are present only when `bindable` is `false`.",
+      "required": ["bindable", "requiredSlots", "optionalSlots", "eligibleColumns"],
+      "properties": {
+        "bindable": { "type": "boolean" },
+        "requiredSlots": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "optionalSlots": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "eligibleColumns": {
+          "type": "object",
+          "description": "Keyed by slot name (every entry in requiredSlots ++ optionalSlots) -- the column names eligible for that slot. Advisory, not a bind-time guarantee.",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "reason": {
+          "type": "string",
+          "description": "Present only when bindable is false. \"not-pipeline-output\" carries the V41 rejection text as `message`; any other false carries \"missing-required-column-type\"."
+        },
+        "message": {
+          "type": "string",
+          "description": "Present only when bindable is false, alongside reason."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
