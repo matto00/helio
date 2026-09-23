@@ -13,6 +13,7 @@ import { TextField } from "../../../shared/ui/TextField";
 import { PanelContent } from "./PanelContent";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
+import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import type { Panel } from "../types/panel";
 import { GripVertical } from "lucide-react";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
@@ -77,9 +78,26 @@ export const PanelCardBody = React.memo(function PanelCardBody({
     rowsTruncated,
     refresh,
   } = usePanelData(panel);
-  usePanelPolling(refresh, panel.refreshInterval ?? null, getOutputId(panel));
-
   const outputId = getOutputId(panel);
+  usePanelPolling(refresh, panel.refreshInterval ?? null, outputId);
+
+  // HEL-1094 (design.md D4/D5) — fans this panel into the shared per-pipeline run-status SSE
+  // subscription; `refresh` re-fetches on a `succeeded` event, and `refreshAnnouncement` (bumped
+  // in the same callback) drives the sr-only status region below so a screen reader hears a
+  // genuinely new announcement on every fan-out-triggered refresh. Bumped here — inside the
+  // callback `usePanelRunRefresh` invokes from its own subscription effect, not inside a
+  // `useEffect` body of this component — per react.dev's "subscribe to an external system, call
+  // setState in a callback" pattern (`react-hooks/set-state-in-effect` flags the alternative of
+  // deriving this from a watched-value-changed effect as an unnecessary effect for pure derived
+  // state, and this codebase's stricter `react-hooks/refs` additionally forbids the
+  // previous-value-ref comparison that pattern would otherwise need during render).
+  const [refreshAnnouncement, setRefreshAnnouncement] = useState(0);
+  const handleFanoutRefresh = useCallback(() => {
+    refresh();
+    setRefreshAnnouncement((n) => n + 1);
+  }, [refresh]);
+  usePanelRunRefresh(outputId, handleFanoutRefresh);
+
   const handleLoadMore = useCallback(() => {
     if (paginationEntry && !paginationEntry.isLoadingMore && outputId) {
       void dispatch(
@@ -98,31 +116,44 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   if (frozen) return null;
 
   return (
-    <PanelContent
-      panel={panel}
-      appearance={panel.appearance}
-      data={data}
-      rawRows={rawRows}
-      headers={headers}
-      isLoading={isLoading}
-      error={error}
-      errorKind={errorKind}
-      onRetry={refresh}
-      retryVariant="icon-only"
-      noData={noData}
-      neverMaterialized={neverMaterialized}
-      paginationRows={paginationEntry?.rows ?? null}
-      paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
-      onLoadMore={handleLoadMore}
-      // HEL-451 design D4/task 4.0: `rowsTruncated` (from `usePanelData`) is
-      // the branch-independent truncation signal — must be wired at BOTH
-      // `PanelContent` call sites (this one AND `PanelDetailModal.tsx:400`),
-      // or the inversion this task fixes just relocates to the surface
-      // whichever call site is missed.
-      rowsTruncated={rowsTruncated}
-      chartAggregate={chartAggregate}
-      compact={compact}
-    />
+    <>
+      <PanelContent
+        panel={panel}
+        appearance={panel.appearance}
+        data={data}
+        rawRows={rawRows}
+        headers={headers}
+        isLoading={isLoading}
+        error={error}
+        errorKind={errorKind}
+        onRetry={refresh}
+        retryVariant="icon-only"
+        noData={noData}
+        neverMaterialized={neverMaterialized}
+        paginationRows={paginationEntry?.rows ?? null}
+        paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
+        onLoadMore={handleLoadMore}
+        // HEL-451 design D4/task 4.0: `rowsTruncated` (from `usePanelData`) is
+        // the branch-independent truncation signal — must be wired at BOTH
+        // `PanelContent` call sites (this one AND `PanelDetailModal.tsx:400`),
+        // or the inversion this task fixes just relocates to the surface
+        // whichever call site is missed.
+        rowsTruncated={rowsTruncated}
+        chartAggregate={chartAggregate}
+        compact={compact}
+      />
+      {/* HEL-1094 (design.md D5) — visually-hidden per-panel announcement region for an
+          output-bound panel, reusing theme.css's canonical `.sr-only` clip (same recipe as
+          Toast.tsx's live regions). `role="status"` carries an implicit `aria-live="polite"`;
+          the counter suffix makes the accessible text genuinely change on every fan-out-triggered
+          refresh, not merely re-render with identical text, per Standing Constraint C4 — verified
+          via a computed-ARIA check, never by grepping for this attribute's presence. */}
+      {outputId && (
+        <div className="sr-only" role="status">
+          {refreshAnnouncement > 0 ? `${panel.title} updated (refresh ${refreshAnnouncement})` : ""}
+        </div>
+      )}
+    </>
   );
 });
 
