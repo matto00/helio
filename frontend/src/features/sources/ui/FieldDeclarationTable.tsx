@@ -161,6 +161,7 @@ export function FieldDeclarationTable({
                 <td>
                   <input
                     type="checkbox"
+                    className="field-declaration-table__checkbox"
                     aria-label={`Field ${index + 1} required`}
                     checked={row.required}
                     onChange={(e) => updateRow(row.id, { required: e.target.checked })}

@@ -66,6 +66,35 @@ describe("FieldDeclarationTable", () => {
     expect(screen.getByLabelText("Field 1 default value")).toBeInTheDocument();
   });
 
+  describe("Required checkbox (HEL-1125)", () => {
+    it("exposes the checkbox by its computed accessible name and unchecked state", () => {
+      render(<Harness initialRows={[row({ name: "a", required: false })]} />);
+      const checkbox = screen.getByRole("checkbox", { name: "Field 1 required" });
+      expect(checkbox).not.toBeChecked();
+    });
+
+    it("reflects a required field as checked via its computed accessible state", () => {
+      render(<Harness initialRows={[row({ name: "a", required: true })]} />);
+      expect(screen.getByRole("checkbox", { name: "Field 1 required" })).toBeChecked();
+    });
+
+    it("is a real, focusable tab stop, and toggles required on activation", () => {
+      render(<Harness initialRows={[row({ name: "a", required: false })]} />);
+      const checkbox = screen.getByRole("checkbox", { name: "Field 1 required" });
+
+      // Proves the checkbox is a genuine, reachable tab stop -- not disabled or otherwise
+      // removed from the tab order -- before exercising the activation it would receive from
+      // a keyboard Space press (jsdom has no `@testing-library/user-event` dependency to
+      // synthesize real key-to-click translation; see DatasetRowGridFocusAndConflict.test.tsx's
+      // HEL-1080 note for the same repo-wide caveat and convention).
+      checkbox.focus();
+      expect(document.activeElement).toBe(checkbox);
+
+      fireEvent.click(checkbox);
+      expect(checkbox).toBeChecked();
+    });
+  });
+
   describe("focus contract (design.md Decision 6)", () => {
     it("moves focus to the moved row's own name input after a reorder", () => {
       render(<Harness initialRows={[row({ name: "a" }), row({ name: "b" })]} />);

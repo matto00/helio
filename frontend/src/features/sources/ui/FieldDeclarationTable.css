@@ -15,3 +15,13 @@
   align-items: center;
   gap: var(--space-1);
 }
+
+/* HEL-1125: mirrors DatasetRowGrid.css's `.dataset-row-grid__draft-checkbox` (HEL-1080) --
+   the native checkbox previously rendered at the browser's unstyled ~13px default next to
+   this row's 32px token-sized text/select inputs. No `align-self` here (design.md Decision
+   3): this checkbox sits directly in a `<td>`, not a flex parent, so it would be a no-op. */
+.field-declaration-table__checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--app-accent);
+}
