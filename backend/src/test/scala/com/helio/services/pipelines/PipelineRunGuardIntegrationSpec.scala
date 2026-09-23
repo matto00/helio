@@ -4,6 +4,7 @@ import com.helio.testkit.TempDirectorySupport
 import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.services.ServiceError
 import com.helio.domain.model._
+import com.helio.domain.engine.{NodeKey, PipelineExecutionBackend, PipelineExecutionOutcome, SourceReadStats}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -21,7 +22,7 @@ import slick.jdbc.{JdbcBackend, PostgresProfile}
 import java.nio.file.Paths
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 
 /** HEL-505 tasks.md 8.1/8.2/8.3 -- END-TO-END coverage of the pipeline-run guard through
  *  `PipelineRunService.submit`, the single choke point every trigger path (manual, hook/external,
@@ -116,6 +117,60 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
       guardConfig = guardConfig
     )
 
+  /** A `PipelineExecutionBackend` whose `execute` blocks on `gate` before returning an empty
+   *  successful outcome -- root cause (systematic-debugging.md): with the REAL engine, a
+   *  `dataset`-source pipeline (no steps) executes and reaches a terminal `updateRunTerminal`
+   *  write fast enough that, under connection-pool contention (reproduced locally by forcing the
+   *  pool down to `Some(3)`; the reported CI failure is the same effect under CI's own real
+   *  contention -- MISTAKES.md "gates all run on one machine"), an EARLIER admitted submission in
+   *  a "concurrent burst" test can complete and free its slot BEFORE every later submission in the
+   *  SAME burst has even reached its OWN concurrency-cap check -- legitimately (and correctly,
+   *  per the concurrency cap's own "completing a run frees a slot" contract, exercised by the
+   *  sibling test below) admitting MORE than `maxConcurrent` successes across the whole burst. That
+   *  is a property of "at most N NON-TERMINAL runs at any instant", not "of N simultaneously-
+   *  launched submissions, at most N will ever succeed" -- this test's own prior assertion
+   *  conflated the two. Gating `execute` keeps every ADMITTED run's row in `queued` (non-terminal)
+   *  for the whole burst, so the admission decisions the guard actually makes are the only ones
+   *  under test -- proven correct, deterministically, by `PipelineRunRepositorySpec`'s own
+   *  `insertRunIfUnderConcurrencyCap` concurrent-race test, which never completes a run at all. */
+  private class GatedExecutionBackend(gate: Future[Unit]) extends PipelineExecutionBackend {
+    override def execute(
+        pipeline: Pipeline,
+        roots: Vector[(String, DataSource)],
+        steps: Vector[PipelineStep],
+        dataSourceRepo: DataSourceRepository,
+        assertionSink: AssertionSink,
+        truncationSink: TruncationSink,
+        onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
+        writeBackSink: WriteBackSink = new WriteBackSink,
+        ownerUserId: Option[String] = None
+    )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] =
+      gate.map(_ => PipelineExecutionOutcome(Seq.empty, Map.empty, 0L, SourceReadStats(truncated = false, availableRowCount = None)))
+  }
+
+  private def newGatedService(guardConfig: PipelineRunGuardConfig, gate: Future[Unit]): PipelineRunService =
+    new PipelineRunService(
+      pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
+      new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
+      pipelineRunGuardRepo = guardRepo,
+      guardConfig = guardConfig,
+      executionBackend = new GatedExecutionBackend(gate)
+    )
+
+  /** Polls (up to 5s) until exactly `expected` `queued`-status rows exist for `pid` -- the signal
+   *  that every admission decision in a gated concurrent burst has settled (no row can transition
+   *  out of `queued` while `execute` stays gated, so this count is stable once reached; a
+   *  still-in-flight submission that hasn't reached its OWN check yet will correctly see this
+   *  same stable count and be rejected whenever it does). */
+  private def awaitQueuedCount(pid: PipelineId, user: AuthenticatedUser, expected: Int): Unit = {
+    val deadline = System.nanoTime() + 5.seconds.toNanos
+    while (
+      System.nanoTime() < deadline &&
+      await(pipelineRunRepo.listByPipeline(pid, user)).count(_.status == "queued") != expected
+    ) Thread.sleep(20)
+    await(pipelineRunRepo.listByPipeline(pid, user)).count(_.status == "queued") shouldBe expected
+  }
+
   private def tooManyRequests(result: Either[ServiceError, _]): ServiceError.TooManyRequests =
     result match {
       case Left(e: ServiceError.TooManyRequests) => e
@@ -199,14 +254,28 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
     "rejects more than maxConcurrent REAL concurrent submissions with TooManyRequests" in {
       val user = freshOwner()
       val pid  = seedPipelineFor(user.id)
-      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 100, rateWindowSeconds = 60, maxConcurrent = 3, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
+      val maxConcurrent = 3
+      // Gated execution (see GatedExecutionBackend's doc): keeps every ADMITTED run's row in
+      // `queued` for the whole burst, so "completing a run frees a slot" (correct, separately
+      // tested below) can never confound this test's admission-count assertion -- root-caused via
+      // a forced-small-pool local repro of the CI failure this test previously had (see PR review
+      // cycle 2: 4/8, then repro'd 6/20 under a pool of 3; the SAME dataset-source pipeline
+      // completing early under contention, not a guard defect).
+      val gate = Promise[Unit]()
+      val service = newGatedService(
+        PipelineRunGuardConfig(rateLimitPerWindow = 100, rateWindowSeconds = 60, maxConcurrent = maxConcurrent, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30),
+        gate.future
+      )
 
       val attempts = 8
-      val results = await(Future.sequence(Vector.fill(attempts)(service.submit(pid, isDry = false, user))))
+      val resultsF = Future.sequence(Vector.fill(attempts)(service.submit(pid, isDry = false, user)))
+      awaitQueuedCount(pid, user, maxConcurrent)
+      gate.success(())
+      val results = await(resultsF)
 
-      results.count(_.isRight) shouldBe 3
+      results.count(_.isRight) shouldBe maxConcurrent
       val rejections = results.collect { case Left(e: ServiceError.TooManyRequests) => e }
-      rejections should have size (attempts - 3)
+      rejections should have size (attempts - maxConcurrent)
       rejections.foreach(_.retryAfterSeconds should be > 0L)
     }
 
