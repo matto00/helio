@@ -66,7 +66,19 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       startedAt: Instant,
       triggerSource: String = "manual",
       triggeredByTokenId: Option[String] = None
-  ): Future[Unit] = {
+  ): Future[Unit] =
+    ctx.withSystemContext(insertRunRowAction(runId, pipelineId, startedAt, triggerSource, triggeredByTokenId)).map(_ => ())
+
+  /** The queued-row insert as a plain `DBIO`, factored out of [[insertRunInternal]] so
+    * [[insertRunIfUnderConcurrencyCap]] (HEL-505) can compose it into the SAME `DBIO` chain as the
+    * concurrency check, rather than issuing it as a second, separately-transacted call. */
+  private def insertRunRowAction(
+      runId: PipelineRunId,
+      pipelineId: PipelineId,
+      startedAt: Instant,
+      triggerSource: String,
+      triggeredByTokenId: Option[String]
+  ): DBIO[Unit] = {
     val row = PipelineRunRow(
       id                 = runId.value,
       pipelineId         = pipelineId.value,
@@ -82,8 +94,78 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // decided, non-escalation exception to "every terminal row is non-null" (task 2.7).
       truncatedReads     = None
     )
-    ctx.withSystemContext(runsTable += row).map(_ => ())
+    (runsTable += row).map(_ => ())
   }
+
+  /** HEL-505 (design.md Decision 3, C1/C2): the concurrency-cap-gated counterpart to `insertRun`,
+    * replacing (not supplementing) that plain call in `PipelineRunService.executeRun`'s `preExec`
+    * for the non-dry path. Composes THREE steps into ONE chained `DBIO`, passed to a SINGLE
+    * `ctx.withUserContext` call -- never as separate repository calls issuing separate DB
+    * round-trips -- because `DbContext.withUserContext` wraps exactly the `DBIO` it is given in
+    * one transaction, and only a single shared transaction makes the advisory lock actually
+    * serialize the count-then-insert decision against a second concurrent writer (a lock held
+    * across two SEPARATE `withUserContext` calls, each its own transaction, would not prevent both
+    * from reading the pre-insert count under READ COMMITTED before either commits):
+    *
+    *   1. `pg_advisory_xact_lock(hashtext('pipeline-run-concurrency:' || userId))` -- serializes
+    *      concurrent submits from the SAME owner; auto-released at commit/rollback.
+    *   2. The pipeline-owned check (`pipelineOwnedAction`, same ACL gate `insertRun` already uses)
+    *      -- `false` denies without ever counting or inserting, mirroring `insertRun`'s own silent
+    *      no-op-for-non-owner semantics (this method is only ever reached post-ACL-check from
+    *      `executeRun`, so this branch is defensive, not a load-bearing security boundary here).
+    *   3. A live count of this owner's non-terminal REAL runs (`status NOT IN ('succeeded',
+    *      'failed', 'dry_run')`, across every pipeline they own) -- `< maxConcurrent` inserts the
+    *      new queued row inside the SAME transaction; otherwise rolls back without inserting.
+    *
+    * Dry runs never reach this method (C7) -- `insertDryRun`/`insertDryRunInternal` write their
+    * own already-terminal row from an entirely different call site, `onDryRunSuccess`, reached
+    * only after the dry run has already executed.
+    *
+    * Returns [[PipelineRunRepository.ConcurrencyCapResult]]: `NotOwned` (silent no-op, mirroring
+    * `insertRun`'s own pre-existing non-owner semantics -- NOT a cap rejection; an
+    * editor-grantee-triggered run has always resolved normally despite no persisted run row, and
+    * this method must not change that) is distinguished from `CapExceeded` (a real rejection,
+    * `executeRun` returns `TooManyRequests`) precisely so the caller can tell them apart. */
+  def insertRunIfUnderConcurrencyCap(
+      runId: PipelineRunId,
+      pipelineId: PipelineId,
+      startedAt: Instant,
+      user: AuthenticatedUser,
+      triggerSource: String,
+      triggeredByTokenId: Option[String],
+      maxConcurrent: Int
+  ): Future[PipelineRunRepository.ConcurrencyCapResult] = {
+    import PipelineRunRepository.ConcurrencyCapResult._
+    val ownerUuid = UUID.fromString(user.id.value)
+    val nonTerminalCountAction: DBIO[Int] = {
+      val query = for {
+        run      <- runsTable if run.status =!= "succeeded" && run.status =!= "failed" && run.status =!= "dry_run"
+        pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
+      } yield run.id
+      query.length.result
+    }
+    val action: DBIO[PipelineRunRepository.ConcurrencyCapResult] =
+      for {
+        _      <- concurrencyLockAction(user.id.value)
+        owned  <- pipelineOwnedAction(pipelineId, user)
+        result <- if (!owned) DBIO.successful(NotOwned)
+                  else nonTerminalCountAction.flatMap { count =>
+                    if (count < maxConcurrent)
+                      insertRunRowAction(runId, pipelineId, startedAt, triggerSource, triggeredByTokenId).map(_ => Inserted)
+                    else DBIO.successful(CapExceeded)
+                  }
+      } yield result
+    ctx.withUserContext(user.id.value)(action)
+  }
+
+  /** Transaction-scoped advisory lock keyed by owner id (design.md Decision 3), mirroring
+    * `PipelineCycleGuard.lockAction`'s exact `pg_advisory_xact_lock(...)::text` shape (a scalar
+    * `void`-returning function called via `SELECT`, decoded as `String` then discarded -- Slick's
+    * plain-SQL `.as[T]` needs a concrete `GetResult[T]`, which `void` has none of, so the
+    * established idiom here is to cast the result to `text` and ignore it). `hashtext` returns
+    * `int4`, which Postgres implicitly widens to the `bigint` `pg_advisory_xact_lock` expects. */
+  private def concurrencyLockAction(userId: String): DBIO[Unit] =
+    sql"SELECT pg_advisory_xact_lock(hashtext(${"pipeline-run-concurrency:" + userId}))::text".as[String].map(_ => ())
 
   /** Owner-scoped terminal update via JOIN to `pipelines.owner_id`. Silent
     * no-op when the caller does not own the parent pipeline. */
@@ -327,6 +409,18 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 }
 
 object PipelineRunRepository {
+
+  /** The three outcomes of [[PipelineRunRepository.insertRunIfUnderConcurrencyCap]] (HEL-505).
+   *  `NotOwned` is deliberately distinct from `CapExceeded` -- collapsing them into one `Boolean`
+   *  would turn a non-owner's pre-existing silent-no-op-but-still-executes semantics (an
+   *  editor-grantee-triggered run has always resolved normally despite no persisted run row) into
+   *  an incorrect 429 rejection. */
+  sealed trait ConcurrencyCapResult
+  object ConcurrencyCapResult {
+    case object Inserted extends ConcurrencyCapResult
+    case object CapExceeded extends ConcurrencyCapResult
+    case object NotOwned extends ConcurrencyCapResult
+  }
 
   case class PipelineRunRow(
       id: String,

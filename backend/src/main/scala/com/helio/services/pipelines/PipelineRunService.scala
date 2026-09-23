@@ -13,7 +13,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.PipelineRunAssertionRow
@@ -80,7 +80,20 @@ final class PipelineRunService(
     // alertEvaluationService above -- threaded through to InProcessPipelineEngine so an
     // `analyzewithai` step can call the model. Defaults to AiStepClient.Unavailable so every
     // fixture that omits it degrades to the named `ai-unavailable` run failure rather than an NPE.
-    aiStepClient: AiStepClient = AiStepClient.Unavailable
+    aiStepClient: AiStepClient = AiStepClient.Unavailable,
+    // HEL-505 (design.md Decisions 1/2): nullable-default convention mirrors alertEvaluationService/
+    // outputRepo above -- fixtures that don't pass a PipelineRunGuardRepository simply skip the
+    // rate-limit check in `executeRun` (guard off, matching every other nullable-optional
+    // collaborator's fixture behavior in this file).
+    pipelineRunGuardRepo: PipelineRunGuardRepository = null,
+    // HEL-505: NOT nullable, unlike pipelineRunGuardRepo above -- `guardConfig.maxConcurrent` is
+    // read by the CONCURRENCY CAP (3.2), which is gated on `pipelineRunRepo != null` alone (the
+    // SAME collaborator every pre-existing fixture with a real repo already passes), not on
+    // `pipelineRunGuardRepo`. Defaults to `PipelineRunGuardConfig.fromEnv()`'s conservative
+    // production values (mirrors `RateLimitConfig`'s fromEnv-once-inject-explicitly convention) so
+    // a fixture that constructs this service with a real `pipelineRunRepo` but no explicit config
+    // still gets a real (non-zero) cap rather than an NPE.
+    guardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv()
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -941,38 +954,95 @@ final class PipelineRunService(
 
     publish(pidStr, RunStatusEvent("queued"))
 
-    val preExec: Future[Unit] =
-      if (!isDry && pipelineRunRepo != null)
-        pipelineRunRepo
-          .insertRun(runId, pipelineId, startAt, user, triggerSource, triggeredByTokenId)
-          .flatMap(_ => pipelineRunRepo.deleteOldRuns(pipelineId, user, keepN = 10))
-          .recoverWith { case _ => Future.successful(()) }
-      else Future.successful(())
+    // HEL-505 (design.md Decision 2, C7): the pipeline-run rate limit is checked FIRST,
+    // unconditionally regardless of `isDry` -- the ONLY guard check dry runs are subject to (the
+    // concurrency cap below is real-runs-only). `pipelineRunGuardRepo == null` (fixtures that
+    // don't pass one) skips the check entirely, mirroring every other nullable-optional
+    // collaborator in this file.
+    val rateLimitCheck: Future[Either[ServiceError, Unit]] =
+      if (pipelineRunGuardRepo != null)
+        pipelineRunGuardRepo.incrementRateIfUnderLimit(user.id, guardConfig.rateLimitPerWindow, guardConfig.rateWindowSeconds).map {
+          case Right(())            => Right(())
+          case Left(retryAfterSecs) => Left(ServiceError.TooManyRequests(retryAfterSecs, "Pipeline-run rate limit exceeded"))
+        }
+      else Future.successful(Right(()))
 
-    publish(pidStr, RunStatusEvent("running"))
+    rateLimitCheck.flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(()) =>
+        // HEL-505 (design.md Decision 3, C1/C2/C7): `insertRunIfUnderConcurrencyCap` REPLACES the
+        // plain `insertRun` call for the non-dry path -- dry runs skip this call entirely (already
+        // covered by the rate limit above) and proceed straight to `backend.execute`. On `false`
+        // (cap reached), `executeRun` returns `Left(TooManyRequests(...))` immediately, WITHOUT
+        // ever calling `backend.execute` -- hence `preExec`'s short-circuiting
+        // `Future[Either[ServiceError, Unit]]` shape (was `Future[Unit]` pre-HEL-505).
+        val preExec: Future[Either[ServiceError, Unit]] =
+          if (!isDry && pipelineRunRepo != null)
+            pipelineRunRepo
+              .insertRunIfUnderConcurrencyCap(runId, pipelineId, startAt, user, triggerSource, triggeredByTokenId, guardConfig.maxConcurrent)
+              .flatMap {
+                // HEL-505 (skeptic-caught regression during delivery): `NotOwned` mirrors the
+                // pre-existing `insertRun` no-op-for-a-non-owner behavior -- an editor-grantee-
+                // triggered run has always resolved normally despite no persisted run row, and
+                // must keep doing so. Only `CapExceeded` is a real rejection.
+                case PipelineRunRepository.ConcurrencyCapResult.Inserted | PipelineRunRepository.ConcurrencyCapResult.NotOwned =>
+                  pipelineRunRepo
+                    .deleteOldRuns(pipelineId, user, keepN = 10)
+                    .recoverWith { case _ => Future.successful(()) }
+                    .map(_ => Right(()))
+                case PipelineRunRepository.ConcurrencyCapResult.CapExceeded =>
+                  Future.successful(Left(ServiceError.TooManyRequests(guardConfig.concurrencyRetryAfterSeconds, "Pipeline-run concurrency limit exceeded")))
+              }
+          else Future.successful(Right(()))
 
-    // HEL-905 (design.md Decision 6): the tree walk invokes this once per node completed;
-    // published as a non-terminal "node-progress" SSE event so the stream stays open across it.
-    // HEL-913 R15 (now complete): `nodeKind` is the explicit wire discriminator -- "root" or
-    // "step" -- so a consumer never has to already know which ids in this pipeline are roots to
-    // interpret `nodeId` correctly.
-    def onNodeProgress(key: NodeKey, rowCount: Long): Unit = {
-      val (nodeId, nodeKind) = key match {
-        case RootKey(rootId) => (rootId, "root")
-        case StepKey(stepId) => (stepId, "step")
-      }
-      publish(pidStr, RunStatusEvent("node-progress", nodeId = Some(nodeId), nodeKind = Some(nodeKind), rowCount = Some(rowCount.toInt)))
+        preExec.flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(()) =>
+            publish(pidStr, RunStatusEvent("running"))
+
+            // HEL-905 (design.md Decision 6): the tree walk invokes this once per node completed;
+            // published as a non-terminal "node-progress" SSE event so the stream stays open across it.
+            // HEL-913 R15 (now complete): `nodeKind` is the explicit wire discriminator -- "root" or
+            // "step" -- so a consumer never has to already know which ids in this pipeline are roots to
+            // interpret `nodeId` correctly.
+            def onNodeProgress(key: NodeKey, rowCount: Long): Unit = {
+              val (nodeId, nodeKind) = key match {
+                case RootKey(rootId) => (rootId, "root")
+                case StepKey(stepId) => (stepId, "step")
+              }
+              publish(pidStr, RunStatusEvent("node-progress", nodeId = Some(nodeId), nodeKind = Some(nodeKind), rowCount = Some(rowCount.toInt)))
+            }
+
+            val runFuture = backend
+              .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink,
+                ownerUserId = Some(pipeline.ownerId.value))
+              .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes))
+
+            runFuture.transformWith {
+              case Failure(ex) =>
+                executeRunFailure(pipelineId, runId, pidStr, isDry, user, assertionSink, ex)
+              case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes)) =>
+                executeRunSuccess(
+                  pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, assertionSink, truncationSink, writeBackSink,
+                  resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes
+                )
+            }
+        }
     }
+  }
 
-    val runFuture = preExec.flatMap { _ =>
-      backend
-        .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink,
-          ownerUserId = Some(pipeline.ownerId.value))
-        .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes))
-    }
-
-    runFuture.transformWith {
-      case Failure(ex) =>
+  /** The `Failure(ex)` branch of `executeRun`'s original inline `transformWith` (HEL-505: factored
+   *  out, unchanged in behavior, so the guard-check nesting added above it doesn't push this
+   *  method's line count past the file-size budget). */
+  private def executeRunFailure(
+      pipelineId: PipelineId,
+      runId: PipelineRunId,
+      pidStr: String,
+      isDry: Boolean,
+      user: AuthenticatedUser,
+      assertionSink: AssertionSink,
+      ex: Throwable
+  ): Future[Either[ServiceError, RunResultResponse]] = {
         // HEL-311: this single `errMsg` fans out to three client-visible
         // surfaces — the SSE `errorLog` event, `RunStatusResponse.error`,
         // and the persisted `PipelineRunRecord.errorLog` returned by
@@ -1008,8 +1078,28 @@ final class PipelineRunService(
             }
           } else Future.successful(())
         failWork.map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
+  }
 
-      case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes)) =>
+  /** The `Success(...)` branch of `executeRun`'s original inline `transformWith` (HEL-505:
+   *  factored out alongside `executeRunFailure`, unchanged in behavior). */
+  private def executeRunSuccess(
+      pipeline: Pipeline,
+      roots: Vector[(String, DataSource)],
+      pipelineId: PipelineId,
+      runId: PipelineRunId,
+      startAt: Instant,
+      pidStr: String,
+      isDry: Boolean,
+      user: AuthenticatedUser,
+      assertionSink: AssertionSink,
+      truncationSink: TruncationSink,
+      writeBackSink: WriteBackSink,
+      resultRows: Seq[Map[String, Any]],
+      stepCounts: Map[String, Long],
+      sourceCount: Long,
+      primaryStats: SourceReadStats,
+      nodeOutcomes: Map[NodeKey, NodeOutcome]
+  ): Future[Either[ServiceError, RunResultResponse]] = {
         val jsRows = resultRows.map { rowMap =>
           JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
         }.toVector
@@ -1047,7 +1137,6 @@ final class PipelineRunService(
             )
             Right(response)
         }
-    }
   }
 
   /** Best-effort persistence of assertion results — wrapped in `recoverWith`

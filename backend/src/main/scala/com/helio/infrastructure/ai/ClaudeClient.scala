@@ -14,7 +14,18 @@ import scala.util.{Failure, Success}
  *
  *  Never logs `apiKey`: this class never holds one — it only holds `config.model`/
  *  `config.temperature`/token ceilings and a [[ClaudeTransport]] (which encapsulates the key, if
- *  any, entirely on its own side of the SPI boundary). */
+ *  any, entirely on its own side of the SPI boundary).
+ *
+ *  '''HEL-505 (design.md Decision 7) — the expensive-op guard hook for a future user-facing
+ *  chat/assistant route.''' No such route exists yet (see CLAUDE.md's `ANTHROPIC_API_KEY` row:
+ *  "no route consumes this yet"), so there is nothing to wire a guard onto today. When one is
+ *  built, its Pekko HTTP route MUST wrap itself with `rateLimitDirective.rateLimit(<a tighter
+ *  limit than the default>)` — the SAME `RateLimitDirective` `SourcePreviewRoutes`/
+ *  `DataSourcePreviewRoutes` already use (HEL-505 design.md Decision 6) — UPSTREAM of (i.e.
+ *  wrapping around) any call into this class, never downstream. This is a rate/concurrency
+ *  front-end only: it must never duplicate `ClaudeConfig`'s own token/spend budgets (`send`'s
+ *  `guardrailReject` above) or HEL-1108's `assistant_daily_usage` tier-gated spend cap (pipeline
+ *  AI-step spend is already covered there) — those stay exactly as they are. */
 class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)

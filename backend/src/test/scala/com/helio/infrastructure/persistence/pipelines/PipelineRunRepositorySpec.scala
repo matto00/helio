@@ -44,16 +44,24 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
   private val systemUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
-  private def seedPipeline(): PipelineId = {
+  private def seedPipeline(): PipelineId = seedPipelineFor(UserId("00000000-0000-0000-0000-000000000001"))
+
+  /** HEL-505 tasks.md 3.1/8.1/8.4: parameterized owner variant of `seedPipeline` above, so the
+   *  concurrency-cap tests below can seed two pipelines for the SAME owner (cross-pipeline count)
+   *  or pipelines for two DIFFERENT owners (independent budgets) -- `seedPipeline()`'s hardcoded
+   *  owner (the V32-seeded system user) stays the default for every pre-existing test in this file. */
+  private def seedPipelineFor(ownerId: UserId): PipelineId = {
     import PostgresProfile.api._
-    val ownerId = "00000000-0000-0000-0000-000000000001"
-    val dsId    = UUID.randomUUID().toString
-    val pid     = UUID.randomUUID().toString
+    val dsId = UUID.randomUUID().toString
+    val pid  = UUID.randomUUID().toString
     await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO users (id, email, created_at)
+             VALUES (${ownerId.value}::uuid, ${s"${ownerId.value}@test.local"}, now())
+             ON CONFLICT DO NOTHING""",
       sqlu"""INSERT INTO data_sources
                (id, name, source_type, config, owner_id, created_at, updated_at)
-               VALUES ($dsId, 'ds', 'dataset', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipelines (id, name, created_at, updated_at) VALUES ($pid, 'pipe', now(), now())""",
+               VALUES ($dsId, 'ds', 'dataset', '{"columns":[],"rows":[]}', ${ownerId.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', ${ownerId.value}::uuid, now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
     PipelineId(pid)
@@ -488,6 +496,167 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
       val runs = await(pipelineRunRepo.listByPipelineInternal(pid))
       runs.head.truncatedReads shouldBe None
+    }
+
+    // HEL-505 tasks.md 3.1/8.1/8.4 -- `insertRunIfUnderConcurrencyCap`'s atomic
+    // lock+count+insert composition (design.md Decision 3).
+    //
+    // Deliberately uses a FRESH random owner (`seedPipelineFor(UserId(UUID.randomUUID...))`) per
+    // test below, never the shared `systemUser`/`seedPipeline()` this file's PRE-EXISTING tests
+    // use -- root cause (systematic-debugging.md): dozens of those pre-existing tests call
+    // `insertRun` for `systemUser` and never reach a terminal status, so by the time this describe
+    // block runs, `systemUser` already has 50+ accumulated non-terminal `pipeline_runs` rows
+    // across many pipelines from EARLIER tests in this same file (no `cleanDb()` exists in this
+    // spec). `insertRunIfUnderConcurrencyCap`'s count is deliberately GLOBAL across every pipeline
+    // the owner owns (design.md Decision 3) -- exactly correct behavior that made every test below
+    // fail when first written against the shared, cross-test-polluted `systemUser`. A fresh owner
+    // per test has no such history and needs no new cleanup helper.
+    def freshOwner(): (UserId, AuthenticatedUser) = {
+      val owner = UserId(UUID.randomUUID().toString)
+      (owner, AuthenticatedUser(owner))
+    }
+
+    import PipelineRunRepository.ConcurrencyCapResult
+
+    "insertRunIfUnderConcurrencyCap inserts and returns Inserted when under the cap" in {
+      val (owner, user) = freshOwner()
+      val pid   = seedPipelineFor(owner)
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      val result = await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+        runId, pid, Instant.now(), user, triggerSource = "manual", triggeredByTokenId = None, maxConcurrent = 3
+      ))
+      result shouldBe ConcurrencyCapResult.Inserted
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, user))
+      runs should have size 1
+      runs.head.id     shouldBe runId.value
+      runs.head.status shouldBe "queued"
+    }
+
+    "insertRunIfUnderConcurrencyCap returns CapExceeded and inserts nothing once the owner is at the cap" in {
+      val (owner, user) = freshOwner()
+      val pid = seedPipelineFor(owner)
+      // Fill the cap with maxConcurrent=2 non-terminal (queued) runs.
+      (1 to 2).foreach { _ =>
+        await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+          PipelineRunId(UUID.randomUUID().toString), pid, Instant.now(), user,
+          triggerSource = "manual", triggeredByTokenId = None, maxConcurrent = 2
+        )) shouldBe ConcurrencyCapResult.Inserted
+      }
+
+      val rejectedId = PipelineRunId(UUID.randomUUID().toString)
+      val result = await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+        rejectedId, pid, Instant.now(), user, triggerSource = "manual", triggeredByTokenId = None, maxConcurrent = 2
+      ))
+      result shouldBe ConcurrencyCapResult.CapExceeded
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, user))
+      runs should have size 2
+      runs.map(_.id) should not contain rejectedId.value
+    }
+
+    "the cap counts non-terminal runs across EVERY pipeline the owner owns, not just one" in {
+      val (owner, user) = freshOwner()
+      val pidA  = seedPipelineFor(owner)
+      val pidB  = seedPipelineFor(owner)
+
+      await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+        PipelineRunId(UUID.randomUUID().toString), pidA, Instant.now(), user, "manual", None, maxConcurrent = 2
+      )) shouldBe ConcurrencyCapResult.Inserted
+      await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+        PipelineRunId(UUID.randomUUID().toString), pidB, Instant.now(), user, "manual", None, maxConcurrent = 2
+      )) shouldBe ConcurrencyCapResult.Inserted
+
+      // A third submission, for either pipeline, is rejected -- the SAME owner is already at the
+      // cap across their two pipelines combined.
+      val rejected = await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+        PipelineRunId(UUID.randomUUID().toString), pidA, Instant.now(), user, "manual", None, maxConcurrent = 2
+      ))
+      rejected shouldBe ConcurrencyCapResult.CapExceeded
+    }
+
+    "succeeded/failed/dry_run runs do not count toward the cap (terminal states are excluded)" in {
+      val (owner, user) = freshOwner()
+      val pid = seedPipelineFor(owner)
+      val terminalRunId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(terminalRunId, pid, Instant.now(), user))
+      await(pipelineRunRepo.updateRunTerminal(
+        terminalRunId, "succeeded", Instant.now(), rowCount = Some(1), errorLog = None, user,
+        truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)
+      ))
+      await(pipelineRunRepo.insertDryRun(
+        PipelineRunId(UUID.randomUUID().toString), pid, Instant.now(), rowCount = 1, user,
+        truncatedReadsJson = PipelineRunService.EmptyTruncationJson
+      ))
+
+      // Both existing rows are terminal (succeeded / dry_run) -- a maxConcurrent=1 submission
+      // still succeeds, proving neither counted against the cap.
+      val result = await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+        PipelineRunId(UUID.randomUUID().toString), pid, Instant.now(), user, "manual", None, maxConcurrent = 1
+      ))
+      result shouldBe ConcurrencyCapResult.Inserted
+    }
+
+    "completing a run (updateRunTerminal) frees a concurrency slot for a subsequent submission" in {
+      val (owner, user) = freshOwner()
+      val pid    = seedPipelineFor(owner)
+      val firstId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+        firstId, pid, Instant.now(), user, "manual", None, maxConcurrent = 1
+      )) shouldBe ConcurrencyCapResult.Inserted
+
+      // At the cap -- a second submission is rejected.
+      await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+        PipelineRunId(UUID.randomUUID().toString), pid, Instant.now(), user, "manual", None, maxConcurrent = 1
+      )) shouldBe ConcurrencyCapResult.CapExceeded
+
+      // Completing the first run frees the slot.
+      await(pipelineRunRepo.updateRunTerminal(
+        firstId, "succeeded", Instant.now(), rowCount = Some(1), errorLog = None, user,
+        truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)
+      ))
+
+      val afterId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+        afterId, pid, Instant.now(), user, "manual", None, maxConcurrent = 1
+      )) shouldBe ConcurrencyCapResult.Inserted
+    }
+
+    // HEL-505 (skeptic-caught regression during delivery): `NotOwned` is distinct from
+    // `CapExceeded` -- a non-owner is a silent no-op (matching `insertRun`'s own pre-existing
+    // behavior; `PipelineRunServiceSpec`'s "an editor-grantee-triggered real run resolves
+    // normally despite no persisted run row" depends on this), never a 429-shaped rejection.
+    "insertRunIfUnderConcurrencyCap returns NotOwned (not CapExceeded) and inserts nothing for a non-owner (CS2 parity)" in {
+      val (owner, user) = freshOwner()
+      val pid = seedPipelineFor(owner)
+      val result = await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+        PipelineRunId(UUID.randomUUID().toString), pid, Instant.now(), otherUser, "manual", None, maxConcurrent = 5
+      ))
+      result shouldBe ConcurrencyCapResult.NotOwned
+      await(pipelineRunRepo.listByPipeline(pid, user)) shouldBe empty
+    }
+
+    // HEL-505 tasks.md 8.4/C2 -- the genuine concurrent-writer race the advisory lock exists to
+    // serialize: many simultaneous submissions for the SAME owner must never let more than
+    // `maxConcurrent` of them succeed, proving the lock+count+insert composition is atomic (not a
+    // separate check-then-insert pair, which would let a race window admit more than the cap).
+    "concurrent submissions for the same owner never exceed the concurrency cap" in {
+      val (owner, user) = freshOwner()
+      val pid           = seedPipelineFor(owner)
+      val maxConcurrent = 3
+      val attempts      = 12
+      val results = await(Future.sequence(Vector.fill(attempts)(
+        pipelineRunRepo.insertRunIfUnderConcurrencyCap(
+          PipelineRunId(UUID.randomUUID().toString), pid, Instant.now(), user, "manual", None, maxConcurrent
+        )
+      )))
+
+      results.count(_ == ConcurrencyCapResult.Inserted) shouldBe maxConcurrent
+      results.count(_ == ConcurrencyCapResult.CapExceeded) shouldBe (attempts - maxConcurrent)
+
+      val runs = await(pipelineRunRepo.listByPipeline(pid, user))
+      runs should have size maxConcurrent
+      runs.map(_.status).distinct shouldBe Seq("queued")
     }
   }
 }

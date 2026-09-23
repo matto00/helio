@@ -51,6 +51,11 @@ class PipelineRoutes(
         },
         // HEL-914 task 6.4: `?concise=true` is opt-in -- absent/false is BYTE-IDENTICAL to the
         // pre-existing full response (design.md D6).
+        // HEL-505 (design.md Decision 5, C5): deliberately NOT wrapped with a tighter rate limit,
+        // unlike SourcePreviewRoutes/DataSourcePreviewRoutes -- HEL-1092 established that `analyze`
+        // walks the pipeline DAG symbolically without reading rows, so it is not actually
+        // expensive; owner-approved deviation from HEL-505's literal ticket text. Do not "fix"
+        // this as a missed AC.
         path(PipelineIdSegment / "analyze") { pipelineId =>
           get {
             parameter("concise".as[Boolean].?) {

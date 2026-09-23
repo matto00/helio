@@ -41,7 +41,7 @@ import com.helio.services.sharing.{ShareTokenService, ShareTokenValidatorImpl}
 import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardContentsService, DashboardService}
-import com.helio.services.pipelines.{OutputService, PipelineProposalService, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService}
+import com.helio.services.pipelines.{OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
 import com.helio.services.ratelimit.{InMemoryRateLimiter, RateLimitConfig}
@@ -54,7 +54,7 @@ import com.helio.services.audit.AuditService
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, OAuthStateRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRootRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -171,7 +171,20 @@ final class ApiRoutes(
     // fixtures that don't pass an AuditEventRepository get every mutating
     // service constructed with `auditService = null` (each service's own
     // `audit(...)` helper no-ops on `null` — see design.md Decision 1).
-    auditEventRepo: AuditEventRepository = null
+    auditEventRepo: AuditEventRepository = null,
+    // HEL-505: same nullable-optional wiring pattern as the repos above — fixtures that don't pass
+    // a PipelineRunGuardRepository get `pipelineRunService` constructed with `pipelineRunGuardRepo
+    // = null`, which skips the rate-limit check entirely (PipelineRunService's own null-checked
+    // pattern). Threaded explicitly (like pipelineRunRepo) rather than derived from `dbContext`
+    // here, since `Main.scala`/`PipelineSchedulerService` also need the SAME instance for its
+    // cleanup tick (design.md Decision 2) — mirrors pipelineRunRepo's own explicit-param wiring,
+    // not outputRepoOpt's dbContext-derived one. Appended last for the same purely-additive reason.
+    pipelineRunGuardRepo: PipelineRunGuardRepository = null,
+    // HEL-505: explicit constructor param (default `fromEnv()`), NOT a private fromEnv()-only val
+    // like rateLimitConfig/userTierConfig above — a spec needs to inject a small
+    // `sourceFetchRateLimitPerWindow`/`maxConcurrent` to exercise the guard deterministically
+    // (mirrors cookieConfig's own overridable-with-a-default convention, not rateLimitConfig's).
+    pipelineRunGuardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv()
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -230,6 +243,24 @@ final class ApiRoutes(
     userSessionRepo,
     Option(apiTokenRepo),
     rateLimitConfig.requestsPerWindow,
+    rateLimitConfig.windowSeconds
+  )
+  // HEL-505 (design.md Decision 6): a SEPARATE `RateLimitDirective` instance -- own
+  // `InMemoryRateLimiter`, hence its own per-principal bucket map -- rather than reusing
+  // `rateLimitDirective` above. `SourcePreviewRoutes`/`DataSourcePreviewRoutes` are always nested
+  // INSIDE the general `/api` wrap (line ~736 below), so BOTH checks run on every matched
+  // request; `InMemoryRateLimiter.tryAcquire` keys its bucket purely by principal, with no
+  // per-route/per-limit scoping, so reusing the SAME instance for both would let one matched
+  // request increment ONE shared counter twice (once via the general 120-default check, once via
+  // this tighter one), silently halving the configured tighter limit's real capacity -- caught by
+  // this ticket's own route-level test. A second, independent `InMemoryRateLimiter` instance
+  // keeps the two budgets genuinely separate while still reusing `RateLimitDirective` itself
+  // unmodified (design.md Decision 6's own framing).
+  private val sourceFetchRateLimitDirective = new RateLimitDirective(
+    new InMemoryRateLimiter(),
+    userSessionRepo,
+    Option(apiTokenRepo),
+    pipelineRunGuardConfig.sourceFetchRateLimitPerWindow,
     rateLimitConfig.windowSeconds
   )
   private val runRegistry    = new PipelineRunRegistry()
@@ -362,7 +393,13 @@ final class ApiRoutes(
     executionBackend = null,
     outputRepo = outputRepoOpt.orNull,
     nodeSnapshotRepo = nodeSnapshotRepoOpt.orNull,
-    aiStepClient = aiStepClient
+    aiStepClient = aiStepClient,
+    // HEL-505: `pipelineRunGuardRepo` is `null` in fixtures that don't pass one (constructor
+    // default `null`, purely additive) -- `pipelineRunGuardConfig` is always real (fromEnv-once
+    // above), so a fixture that DOES pass a real `pipelineRunRepo` still gets a real (non-zero)
+    // concurrency cap even without an explicit `PipelineRunGuardRepository`.
+    pipelineRunGuardRepo = pipelineRunGuardRepo,
+    guardConfig = pipelineRunGuardConfig
   )
   // HEL-906: mirrors alertRuleServiceOpt's nullable-optional wiring below —
   // fixtures that don't pass a DbContext simply don't get
@@ -825,9 +862,19 @@ final class ApiRoutes(
                   new PermissionRoutes(permissionService, authenticatedUser).routes,
                   shareTokenServiceOpt.fold(reject: Route)(svc => new ShareTokenRoutes(svc, authenticatedUser).routes),
                   new DataSourceRoutes(dataSourceService, authenticatedUser).routes,
-                  new DataSourcePreviewRoutes(dataSourceService, authenticatedUser).routes,
+                  // HEL-505 (design.md Decision 6): the tighter per-user rate limit is threaded
+                  // IN to each route class and applied AFTER its own internal path match, never
+                  // wrapped externally around the whole `.routes` value -- an external wrap here
+                  // would run the rate-limit check (and consume budget) for EVERY request that
+                  // merely REACHES this point in the outer `concat`, including one this route
+                  // class's own `pathPrefix` ultimately rejects (e.g. a `/api/pipelines/...`
+                  // request falling through toward `PipelineRoutes` below), since Pekko directives
+                  // run before the inner route's own match/reject is known. Found via this
+                  // ticket's own route-level test (`ApiRoutesPipelineRunGuardSpec`): an external
+                  // wrap here made `analyze` -- never intentionally wrapped -- start 429ing too.
+                  new DataSourcePreviewRoutes(dataSourceService, authenticatedUser, sourceFetchRateLimitDirective, pipelineRunGuardConfig.sourceFetchRateLimitPerWindow).routes,
                   new SourceRoutes(sourceService, authenticatedUser).routes,
-                  new SourcePreviewRoutes(sourceService, authenticatedUser).routes,
+                  new SourcePreviewRoutes(sourceService, authenticatedUser, sourceFetchRateLimitDirective, pipelineRunGuardConfig.sourceFetchRateLimitPerWindow).routes,
                   new ConnectorRoutes(authenticatedUser).routes,
                   // HEL-821: `ConnectorEntityRoutes` is distinct from `ConnectorRoutes` above
                   // (design.md Decision 7) -- serves the new /api/connectors entity CRUD surface,

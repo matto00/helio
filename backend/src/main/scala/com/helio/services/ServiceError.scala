@@ -35,4 +35,12 @@ object ServiceError {
    *  URL). CSV's existing oversized-upload check lives entirely at the route
    *  layer and doesn't need this variant. */
   final case class PayloadTooLarge(message: String) extends ServiceError
+  /** 429 Too Many Requests — the pipeline-run guard's rejection (HEL-505 design.md Decision 1):
+   *  either the per-user rate limit or the per-user concurrency cap was exceeded.
+   *  `retryAfterSeconds` becomes the response's `Retry-After` header (`ServiceResponse
+   *  .completeError`), mirroring `RateLimitDirective`'s existing 429 shape so the wire contract is
+   *  consistent between the general per-request limiter and this service-layer guard. */
+  final case class TooManyRequests(retryAfterSeconds: Long, reason: String) extends ServiceError {
+    override def message: String = reason
+  }
 }
