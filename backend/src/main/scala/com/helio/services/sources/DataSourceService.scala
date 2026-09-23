@@ -11,6 +11,7 @@ import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository.{BlockingPipeline, DatasetRowRow, RowListPage, RowMutationFailure}
 import com.helio.infrastructure.storage.FileSystem
+import com.helio.services.pipelines.AutoRunTriggerService
 import SourceConfigParsing._
 import spray.json._
 
@@ -56,7 +57,12 @@ final class DataSourceService(
     resolveHost:    String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
     isBlocked:      (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr),
     // HEL-477: nullable-optional wiring mirrors this file's other DI.
-    auditService: AuditService = null
+    auditService: AuditService = null,
+    // HEL-1093 (design.md Decision 2): nullable-optional wiring mirrors auditService above --
+    // fixtures that don't pass an AutoRunTriggerService simply skip the debounce-scheduling call
+    // on every row-mutation method's successful-write branch (this class's own null-checked
+    // `triggerAutoRun` helper below).
+    autoRunTriggerService: AutoRunTriggerService = null
 )(implicit ec: ExecutionContext, @annotation.unused mat: Materializer, system: ActorSystem[_]) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -66,6 +72,16 @@ final class DataSourceService(
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)
       auditService.record(Some(user.id), user.tokenId, user.source, action, "data_source", resourceId, metadata)
+
+  /** HEL-1093 (design.md Decision 2): fire-and-forget from every row-mutation method's
+   *  successful-write branch, alongside `audit(...)`. Wrapped in `.recover` that logs and
+   *  swallows any exception -- a debounce-scheduling failure must never fail the write itself,
+   *  exactly like `audit`'s own optional/no-op convention. */
+  private def triggerAutoRun(dataSourceId: DataSourceId): Unit =
+    if (autoRunTriggerService != null)
+      autoRunTriggerService.triggerAutoRun(dataSourceId, Instant.now()).recover { case ex =>
+        log.error(s"DataSourceService: triggerAutoRun failed for data source ${dataSourceId.value}", ex)
+      }
 
   /** Max upload / URL-fetch size for text/PDF/image sources (HEL-215/214/216).
    *  HEL-881: hoisted to `ContentSourceSupport` so this manual-refresh path and
@@ -777,6 +793,7 @@ final class DataSourceService(
             case Some(Left(errMsg))       => Left(ServiceError.BadRequest(errMsg))
             case Some(Right((ds, added))) =>
               audit("data_source.rows.append", Some(ds.id.value), user)
+              triggerAutoRun(id)
               Right(RowWriteResult.fromRepositoryRows(ds, added))
           }
         case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
@@ -808,6 +825,7 @@ final class DataSourceService(
             Left(FormSubmitError(ServiceError.BadRequest(msg)))
           case Some(Right((ds, inserted))) =>
             audit("data_source.rows.append", Some(ds.id.value), user, JsObject("panelId" -> JsString(panelId.value)))
+            triggerAutoRun(id)
             Right(RowWriteResult.fromRepositoryRows(ds, Vector(inserted)))
         }
       case Some(_) => Future.successful(Left(FormSubmitError(ServiceError.BadRequest("row writes are only supported for dataset sources"))))
@@ -828,6 +846,7 @@ final class DataSourceService(
           case Some(Left(errMsg))       => Left(ServiceError.BadRequest(errMsg))
           case Some(Right((ds, all)))   =>
             audit("data_source.rows.replace", Some(ds.id.value), user)
+            triggerAutoRun(id)
             Right(RowWriteResult.fromRepositoryRows(ds, all))
         }
       case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
@@ -854,6 +873,7 @@ final class DataSourceService(
                 Left(ServiceError.Conflict(s"row $rowId was modified concurrently: expected updatedAt '$expectedUpdatedAt', current is '$cur'"))
               case Right((ds, row)) =>
                 audit("data_source.rows.patch", Some(ds.id.value), user)
+                triggerAutoRun(id)
                 Right(RowMutationResult.fromRepositoryRow(ds, row))
             }
           case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
@@ -878,6 +898,7 @@ final class DataSourceService(
                 Left(ServiceError.Conflict(s"row $rowId was modified concurrently: expected updatedAt '$expectedUpdatedAt', current is '$cur'"))
               case Right(ds) =>
                 audit("data_source.rows.delete", Some(ds.id.value), user)
+                triggerAutoRun(id)
                 Right(())
             }
           case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))

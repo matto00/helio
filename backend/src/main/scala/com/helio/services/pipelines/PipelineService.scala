@@ -10,7 +10,7 @@ import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapa
 import com.helio.api.protocols.pipelines.{ConciseAnalyzeNode, CostReasonResponse, CostVerdictResponse, PipelineAnalyzeConciseResponse, PipelineLaneTreeNode}
 import com.helio.api.protocols.panels.{PanelCapabilityColumnResponse, PanelCapabilityResponse}
 import com.helio.domain.panels.OutputBindingSpec
-import com.helio.domain.model.{AuditSource, AuthenticatedUser, CsvSource, DataFieldType, DataSource, DataSourceId, DataSourceKind, EphemeralRestConfig, ImageSource, InferredSchema, Output, OutputKind, PdfSource, Pipeline, PipelineId, PipelineRootId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift, TextSource, UserId}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSource, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, Output, OutputKind, Pipeline, PipelineId, PipelineRootId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift, UserId}
 import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, LaneReferenceError, PipelineAnalyzeService, PipelineCostEstimator, RuntimeGraphPath, SchemaField}
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.{AggregateConfig, AnalyzeWithAiConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, ConvertFormatConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GenerateTextConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig, UpsertSourceConfig}
@@ -80,6 +80,11 @@ final class PipelineService(
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
+
+  // HEL-1093 (design.md Decision 2a): shared with `AutoRunTriggerService` -- `analyze` below
+  // supplies its own ACL-scoped `resolveRoot` (`findByIdOwned`), unchanged from this file's
+  // pre-existing inline behavior; only the gathering plumbing itself moved out.
+  private val costInputGathering = new PipelineCostInputGathering(pipelineRepo, dataSourceRepo)
 
   private def audit(
       action: String,
@@ -962,11 +967,6 @@ final class PipelineService(
             }
             val schemasByRoot = rootSchemas.map { case (rid, _, schema) => rid -> schema }.toMap
 
-            // HEL-1092 design.md D7: dataset-row counts are needed only for `dataset`-kind
-            // roots; every other kind's `datasetRowCount` stays `None` and is simply unused by
-            // `estimateRows` (which only sums when EVERY root is a known-count dataset).
-            val datasetRootIds = rootDsOpts.collect { case (_, Some(ds)) if ds.kind == DataSourceKind.Dataset => ds.id }
-            dataSourceRepo.countDatasetRows(datasetRootIds).flatMap { datasetRowCounts =>
             // HEL-462's drift baseline predates multi-root and is not named by the 7.2c delta --
             // scoped here to the PRIMARY (lowest-positioned) root's schema, the same root
             // `findPrimaryDataSourceIdInternal` used to resolve alone, so existing single-root
@@ -999,22 +999,20 @@ final class PipelineService(
             // `analyzeNodes`'s own existing tolerant-degradation contract elsewhere in this file.
             val analyzed = enabledSteps.flatMap(s => projections.get(s.id.value))
 
-            // HEL-1092: build `CostInput` from enabled steps and resolved roots (D2), then hand
-            // off to the pure estimator. `hasSourceUrl` is read per-kind since `sourceUrl` lives
-            // on each source's typed config, not a common `DataSource` accessor (D3: rest_api/sql
-            // have no `sourceUrl` field and are unconditionally `remote-fetch` regardless).
-            val costRoots = rootDsOpts.map { case (rid, dsOpt) =>
-              PipelineCostEstimator.RootCost(
-                rootId          = rid,
-                kind            = dsOpt.map(_.kind),
-                hasSourceUrl    = dsOpt.exists(hasSourceUrl),
-                datasetRowCount = dsOpt.filter(_.kind == DataSourceKind.Dataset).flatMap(ds => datasetRowCounts.get(ds.id))
-              )
-            }
-            val costSteps = enabledSteps.map(s => PipelineCostEstimator.StepInput(s.id.value, s.kind))
-            val costVerdict = PipelineCostEstimator.estimate(
-              PipelineCostEstimator.CostInput(costSteps, costRoots, summary.lastRunRowCount)
-            )
+            // HEL-1092/HEL-1093 (design.md Decision 2a): `CostInput` gathering is shared with the
+            // auto-run trigger path via `PipelineCostInputGathering` -- this call site supplies
+            // `resolveRoot = findByIdOwned(_, user)`, byte-for-byte the same ACL-scoped resolution
+            // this method already performed inline before the extraction (unlike the auto-run
+            // path's own privileged `findByIdInternal` resolveRoot -- see that class's doc).
+            // `gather` re-derives its own root list and dataset-row-count lookup rather than
+            // accepting `rootDsOpts` (already resolved above for the schema-drift computation)
+            // pre-computed -- the shared helper's contract is deliberately self-contained for its
+            // one other caller (AutoRunTriggerService), which has no equivalent value in scope.
+            costInputGathering.gather(
+              pipelineId, enabledSteps, summary.lastRunRowCount,
+              resolveRoot = dsId => dataSourceRepo.findByIdOwned(dsId, user)
+            ).flatMap { costInput =>
+            val costVerdict = PipelineCostEstimator.estimate(costInput)
 
             // HEL-462: compare the current (primary-root) source schema against the baseline
             // captured on the pipeline's last successful (non-dry) run.
@@ -1033,7 +1031,7 @@ final class PipelineService(
                 costVerdict       = toCostVerdictResponse(costVerdict)
               ))
             }
-          }
+            }
           }
         }
       case _ =>
@@ -1041,16 +1039,9 @@ final class PipelineService(
     }
   }
 
-  /** HEL-1092: `hasSourceUrl` is per-kind since `sourceUrl` lives on each source's typed config,
-   *  not a common `DataSource` accessor -- rest_api/sql have no such field and always classify
-   *  `remote-fetch` unconditionally (design.md D3). */
-  private def hasSourceUrl(source: DataSource): Boolean = source match {
-    case s: CsvSource  => s.config.sourceUrl.isDefined
-    case s: TextSource => s.config.sourceUrl.isDefined
-    case s: PdfSource  => s.config.sourceUrl.isDefined
-    case s: ImageSource => s.config.sourceUrl.isDefined
-    case _             => false
-  }
+  // HEL-1093 (design.md Decision 2a): `hasSourceUrl` moved to `PipelineCostInputGathering` — both
+  // `analyze` (via `costInputGathering.gather`) and `AutoRunTriggerService` now share one
+  // implementation instead of two.
 
   private def toCostVerdictResponse(v: PipelineCostEstimator.CostVerdict): CostVerdictResponse =
     CostVerdictResponse(

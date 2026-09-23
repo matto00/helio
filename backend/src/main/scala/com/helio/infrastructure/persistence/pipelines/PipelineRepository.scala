@@ -135,6 +135,18 @@ class PipelineRepository(
         .result
     ).map(_.map { case (rid, dsid) => (PipelineRootId(rid), DataSourceId(dsid)) }.toVector)
 
+  /** HEL-1093 (design.md Decision 2a, task 1.5): privileged scalar accessor for
+    * `pipelines.last_run_row_count` -- the auto-run trigger path's `lastRunRowCount` supply for
+    * `PipelineCostInputGathering.gather`. `analyze`'s own call site gets this value for free from
+    * `findSummaryByIdShared`'s ACL-scoped summary; the auto-run path has no such summary in scope
+    * (its caller is the dataset writer, not a pipeline-ACL-checked request), so it needs this
+    * one-column privileged read instead. Mirrors this file's existing small internal-getter
+    * convention (`findPrimaryDataSourceIdInternal`). */
+  def findLastRunRowCountInternal(id: PipelineId): Future[Option[Long]] =
+    ctx.withSystemContext(
+      pipelinesTable.filter(_.id === id.value).map(_.lastRunRowCount).result.headOption
+    ).map(_.flatten)
+
   /** HEL-914 (production N+1 fix, HEL-865's field report -- 220,197-char response on a
     * 25-source/43-pipeline workspace): the multi-pipeline sibling of
     * [[listRootDataSourceIdsInternal]] -- one round trip for every id in `pipelineIds` instead of

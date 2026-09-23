@@ -59,6 +59,18 @@ class PipelineRootRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       rootsTable.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
     ).map(_.map(rowToDomain).toVector)
 
+  /** HEL-1093 (design.md Decision 2, task 1.4): every DISTINCT pipeline that has at least one
+   *  root reading `dataSourceId` -- the auto-run trigger's "who reads what I just wrote" lookup.
+   *  Privileged (not scoped to the writing user): the eligible pipelines may be owned by a
+   *  different user than the writer (a pipeline root's data source is only required to be owned
+   *  by whoever ADDED that root, an editor grantee in the general case -- design.md Context). The
+   *  writer has already proven ownership of `dataSourceId` itself at the call site above this
+   *  method; this lookup exists only to find which pipelines care, not to re-check ACL. */
+  def listPipelineIdsForDataSourceInternal(dataSourceId: DataSourceId): Future[Vector[PipelineId]] =
+    ctx.withSystemContext(
+      rootsTable.filter(_.dataSourceId === dataSourceId.value).map(_.pipelineId).distinct.result
+    ).map(_.map(PipelineId.apply).toVector)
+
   /** Appends one root at the next available position. Caller (the service layer) is responsible
    *  for authorizing `dataSourceId` against the owner before calling this -- mirrors
    *  `PipelineRepository.create`'s existing `dataSourceRepo.findByIdOwned` contract. */
