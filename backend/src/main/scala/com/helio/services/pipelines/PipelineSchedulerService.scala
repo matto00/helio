@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, PipelineSchedule}
 import com.helio.domain.util.{Clock, CronSchedule}
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineScheduleRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository}
 import org.slf4j.LoggerFactory
 
 import java.time.Instant
@@ -21,7 +21,13 @@ final class PipelineSchedulerService(
     pipelineRepo: PipelineRepository,
     runRepo: PipelineRunRepository,
     pipelineRunService: PipelineRunService,
-    clock: Clock
+    clock: Clock,
+    // HEL-505 (design.md Decision 2, C3): nullable-optional wiring, mirrors this codebase's
+    // established nullable-collaborator convention (see ApiRoutes) -- a fixture that doesn't pass
+    // one simply skips the rate-window cleanup sweep below. Piggybacked on this service's existing
+    // tick cadence (rather than a second timer) since a scheduler tick's own cost already
+    // dominates a bounded DELETE by a wide margin.
+    pipelineRunGuardRepo: PipelineRunGuardRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -47,9 +53,20 @@ final class PipelineSchedulerService(
    *  siblings — mirrors `AlertEvaluationService`'s per-rule isolation). */
   def tick(): Future[Unit] = {
     val now = clock.now()
-    scheduleRepo.listTickCandidatesInternal(now).flatMap { candidates =>
+    val candidatesWork = scheduleRepo.listTickCandidatesInternal(now).flatMap { candidates =>
       Future.traverse(candidates)(candidate => processCandidate(candidate, now)).map(_ => ())
     }
+    // HEL-505 (design.md Decision 2, C3): the pipeline-run rate-limit table's bounded cleanup,
+    // piggybacked on this existing tick cadence -- run concurrently with candidate processing (an
+    // unrelated table, no ordering dependency) and never allowed to fail the tick itself.
+    val cleanupWork =
+      if (pipelineRunGuardRepo != null)
+        pipelineRunGuardRepo.cleanupOldWindows().recover { case ex =>
+          log.error("PipelineSchedulerService: pipeline_run_rate_window cleanup failed", ex)
+          0
+        }
+      else Future.successful(0)
+    candidatesWork.zip(cleanupWork).map(_ => ())
   }
 
   private def processCandidate(schedule: PipelineSchedule, now: Instant): Future[Unit] =

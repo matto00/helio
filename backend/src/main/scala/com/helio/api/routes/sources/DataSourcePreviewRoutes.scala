@@ -1,9 +1,10 @@
 package com.helio.api.routes.sources
 
+import com.helio.api.http.RateLimitDirective
 import com.helio.api.routes.ServiceResponse
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.{Multipart, StatusCodes}
-import org.apache.pekko.http.scaladsl.server.Directives
+import org.apache.pekko.http.scaladsl.server.{Directive0, Directives}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
@@ -17,10 +18,18 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.DurationInt
 
 /** Thin HTTP shell for `/api/data-sources/:id/refresh|preview` and
- *  `/api/data-sources/infer`. All logic lives in [[DataSourceService]]. */
+ *  `/api/data-sources/infer`. All logic lives in [[DataSourceService]].
+ *
+ *  `rateLimitDirective`/`rateLimitPerWindow` (HEL-505 design.md Decision 6, both nullable/`0`-
+ *  defaulted so every pre-existing fixture keeps compiling): mirrors `SourcePreviewRoutes`'s own
+ *  doc -- applied INSIDE `pathPrefix("data-sources")`, never wrapped externally, so an unrelated
+ *  request (e.g. `/api/pipelines/...`) that merely reaches this point in `ApiRoutes`'s outer
+ *  `concat` before falling through is never charged against this budget. */
 final class DataSourcePreviewRoutes(
     dataSourceService: DataSourceService,
-    user: AuthenticatedUser
+    user: AuthenticatedUser,
+    rateLimitDirective: RateLimitDirective = null,
+    rateLimitPerWindow: Int = 0
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -28,8 +37,12 @@ final class DataSourcePreviewRoutes(
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
   private implicit val mat: Materializer                         = SystemMaterializer(system).materializer
 
+  private def rateLimited: Directive0 =
+    if (rateLimitDirective != null) rateLimitDirective.rateLimit(rateLimitPerWindow) else pass
+
   val routes: Route =
     pathPrefix("data-sources") {
+      rateLimited {
       concat(
         path(DataSourceIdSegment / "refresh") { sourceId =>
           post {
@@ -76,5 +89,6 @@ final class DataSourcePreviewRoutes(
           }
         }
       )
+      }
     }
 }

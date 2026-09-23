@@ -141,7 +141,10 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V105 — oauth_states, deny-all (no owner column; unauthenticated writer) (HEL-1019)
     "oauth_states" -> Some(Set("oauth_states_deny_all")),
     // V106 — dataset_rows, indirect owner via data_source_id -> data_sources.owner_id (HEL-1074)
-    "dataset_rows" -> None
+    "dataset_rows" -> None,
+    // V109 — pipeline_run_rate_window, direct owner (user_id is part of the composite PK),
+    // V88 (assistant_daily_usage) pattern (HEL-505)
+    "pipeline_run_rate_window" -> None
   )
 
   override def beforeAll(): Unit = {

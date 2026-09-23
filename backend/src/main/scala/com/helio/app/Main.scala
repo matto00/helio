@@ -13,7 +13,7 @@ import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, Agent
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository, ImageUploadRepository}
@@ -109,6 +109,10 @@ object Main {
       val pipelineStepRepo   = new PipelineStepRepository(ctx)
       val outputRepo         = new OutputRepository(ctx)
       val pipelineRunRepo    = new PipelineRunRepository(ctx)
+      // HEL-505: shared with both ApiRoutes (rate-limit check inside PipelineRunService.executeRun)
+      // and PipelineSchedulerService (cleanupOldWindows piggybacked on its tick cadence) below --
+      // mirrors pipelineRunRepo's own single-instance-shared-across-both-sites wiring.
+      val pipelineRunGuardRepo = new PipelineRunGuardRepository(ctx)
       val apiTokenRepo       = new ApiTokenRepository(ctx)
       val binaryRefRepo      = new BinaryRefRepository(ctx)
       val imageUploadRepo    = new ImageUploadRepository(ctx)
@@ -226,7 +230,8 @@ object Main {
         agentPreferencesRepo = agentPreferencesRepo,
         agentMemoryRepo = agentMemoryRepo,
         mfaRepo = mfaRepo,
-        auditEventRepo = auditEventRepo
+        auditEventRepo = auditEventRepo,
+        pipelineRunGuardRepo = pipelineRunGuardRepo
       )
 
       // HEL-415: scheduler runtime — reuses apiRoutes.pipelineRunService so
@@ -238,7 +243,8 @@ object Main {
         pipelineRepo,
         pipelineRunRepo,
         apiRoutes.pipelineRunService,
-        SystemClock
+        SystemClock,
+        pipelineRunGuardRepo = pipelineRunGuardRepo
       )
       context.spawn(PipelineSchedulerActor(pipelineSchedulerService, schedulerTickInterval), "pipeline-scheduler")
 

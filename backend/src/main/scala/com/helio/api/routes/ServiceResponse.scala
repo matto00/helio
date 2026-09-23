@@ -2,6 +2,7 @@ package com.helio.api.routes
 
 import org.apache.pekko.http.scaladsl.marshalling.ToResponseMarshallable
 import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCode, StatusCodes}
+import org.apache.pekko.http.scaladsl.model.headers.`Retry-After`
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols}
@@ -66,7 +67,18 @@ object ServiceResponse extends JsonProtocols {
       case Left(e)  => completeError(e)
     }
 
-  private def completeError(e: ServiceError): Route = complete(statusCodeFor(e), ErrorResponse(e.message))
+  /** HEL-505 (design.md Decision 1): `TooManyRequests` carries a `Retry-After` header, unlike
+   *  every other variant — mirrors `RateLimitDirective.rateLimit`'s existing
+   *  `respondWithHeader(`Retry-After`(...)) & complete(...)` shape so a caller sees the identical
+   *  wire contract whether the 429 came from the general per-request limiter or this service-layer
+   *  guard. */
+  private def completeError(e: ServiceError): Route = e match {
+    case ServiceError.TooManyRequests(retryAfterSeconds, _) =>
+      respondWithHeader(`Retry-After`(retryAfterSeconds)) {
+        complete(statusCodeFor(e), ErrorResponse(e.message))
+      }
+    case _ => complete(statusCodeFor(e), ErrorResponse(e.message))
+  }
 
   /** Status-code mapping for each `ServiceError` variant — `private[routes]` (not `private`) so
    *  `DashboardAuthoringRoutes`'s bespoke completion helper (HEL-401 design.md D1: `completeError`
@@ -83,5 +95,6 @@ object ServiceResponse extends JsonProtocols {
     case ServiceError.BadGateway(_)          => StatusCodes.BadGateway
     case ServiceError.InternalError(_)       => StatusCodes.InternalServerError
     case ServiceError.PayloadTooLarge(_)     => StatusCodes.RequestEntityTooLarge
+    case ServiceError.TooManyRequests(_, _)  => StatusCodes.TooManyRequests
   }
 }
