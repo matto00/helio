@@ -144,7 +144,10 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     "dataset_rows" -> None,
     // V109 — pipeline_run_rate_window, direct owner (user_id is part of the composite PK),
     // V88 (assistant_daily_usage) pattern (HEL-505)
-    "pipeline_run_rate_window" -> None
+    "pipeline_run_rate_window" -> None,
+    // V110 — pipeline_auto_run_debounce, indirect owner via pipeline_id -> pipelines.owner_id,
+    // V62 (pipeline_schedules) pattern (HEL-1093)
+    "pipeline_auto_run_debounce" -> None
   )
 
   override def beforeAll(): Unit = {

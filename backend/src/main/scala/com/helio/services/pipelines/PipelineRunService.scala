@@ -1602,13 +1602,18 @@ final case class CachedRunStatus(
     rowCount: Option[Int]
 )
 
-/** The three `pipeline_runs.trigger_source` literals (HEL-417). Modeled as a
+/** The `pipeline_runs.trigger_source` literals (HEL-417). Modeled as a
  *  plain-`String` constants holder rather than a sealed domain type — mirrors
  *  the existing bare-`String` convention `PipelineRunRow`/`PipelineRunRecord`
  *  already use for `status` (see design.md Decision 1). `External` is
- *  reserved for HEL-369; no caller passes it yet. */
+ *  reserved for HEL-369; no caller passes it yet.
+ *
+ *  HEL-1093: `AutoRun` is set by `PipelineSchedulerService.tick`'s claim-and-fire pass when
+ *  firing a debounced dataset-write auto-run (design.md Decision 3) — V110 widens the
+ *  `pipeline_runs_trigger_source_check` CHECK constraint to admit it. */
 object TriggerSource {
   val Manual: String    = "manual"
   val Scheduled: String = "scheduled"
   val External: String  = "external"
+  val AutoRun: String   = "auto-run"
 }

@@ -41,7 +41,7 @@ import com.helio.services.sharing.{ShareTokenService, ShareTokenValidatorImpl}
 import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardContentsService, DashboardService}
-import com.helio.services.pipelines.{OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService}
+import com.helio.services.pipelines.{AutoRunTriggerService, OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
 import com.helio.services.ratelimit.{InMemoryRateLimiter, RateLimitConfig}
@@ -54,7 +54,7 @@ import com.helio.services.audit.AuditService
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, OAuthStateRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -184,7 +184,15 @@ final class ApiRoutes(
     // like rateLimitConfig/userTierConfig above — a spec needs to inject a small
     // `sourceFetchRateLimitPerWindow`/`maxConcurrent` to exercise the guard deterministically
     // (mirrors cookieConfig's own overridable-with-a-default convention, not rateLimitConfig's).
-    pipelineRunGuardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv()
+    pipelineRunGuardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv(),
+    // HEL-1093 (design.md Decision 1/2): same nullable-optional wiring pattern as
+    // pipelineRunGuardRepo above — fixtures that don't pass a PipelineAutoRunDebounceRepository
+    // simply get `dataSourceService` constructed with `autoRunTriggerService = null`, which skips
+    // debounce-scheduling entirely. Threaded explicitly (like pipelineRunRepo/pipelineRunGuardRepo)
+    // rather than derived from `dbContext` here, since `Main.scala`/`PipelineSchedulerService` also
+    // need the SAME instance for its claim-and-fire tick pass (design.md Decision 3) — mirrors
+    // pipelineRunGuardRepo's own explicit-param, single-instance-shared-across-both-sites wiring.
+    autoRunDebounceRepo: PipelineAutoRunDebounceRepository = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -209,6 +217,16 @@ final class ApiRoutes(
   // can be validated against the pipeline's real roots instead of silently ignored.
   private val pipelineRootRepoOpt: Option[PipelineRootRepository] = Option(dbContext).map(new PipelineRootRepository(_))
   private val nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = Option(dbContext).map(new NodeSnapshotRepository(_))
+  // HEL-1093 (design.md Decision 2): built from `pipelineRootRepoOpt` above and the explicitly
+  // threaded `autoRunDebounceRepo` (nullable-optional, see that constructor param's own doc) --
+  // `None` unless BOTH are present, so a fixture that passes neither (or only one) simply gets
+  // `dataSourceService` constructed with `autoRunTriggerService = null` (debounce-scheduling
+  // skipped entirely on every row-mutation call).
+  private val autoRunTriggerServiceOpt: Option[AutoRunTriggerService] =
+    for {
+      rootRepo     <- pipelineRootRepoOpt
+      debounceRepo <- Option(autoRunDebounceRepo)
+    } yield new AutoRunTriggerService(rootRepo, pipelineRepo, pipelineStepRepo, dataSourceRepo, debounceRepo)
   // HEL-590: same nullable-DbContext-derived wiring pattern as outputRepoOpt/nodeSnapshotRepoOpt
   // above -- fixtures that don't pass a DbContext simply don't get /api/dashboards/:id/share-tokens
   // mounted (shareTokenServiceOpt.fold(reject) below), and the token fallback in AclDirective
@@ -291,7 +309,7 @@ final class ApiRoutes(
   // HEL-1087: constructed ahead of `panelService` (moved up from its former position below
   // `autoLayoutService`) so `panelService` can wire it in for `submitForm` — no behavior change
   // to `dataSourceService` itself, only its construction ORDER.
-  private val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService)
+  private val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService, autoRunTriggerServiceOpt.orNull)
   // HEL-904 task 4.1: `PanelService` no longer takes `dataTypeRepo`/
   // `metricRepo` — Text/Markdown's data-bound "Source mode" and metrics are
   // both removed outright.

@@ -13,7 +13,7 @@ import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, Agent
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository, ImageUploadRepository}
@@ -113,6 +113,11 @@ object Main {
       // and PipelineSchedulerService (cleanupOldWindows piggybacked on its tick cadence) below --
       // mirrors pipelineRunRepo's own single-instance-shared-across-both-sites wiring.
       val pipelineRunGuardRepo = new PipelineRunGuardRepository(ctx)
+      // HEL-1093 (design.md Decision 1): shared with both ApiRoutes (the write-time UPSERT inside
+      // DataSourceService's row-mutation methods, via AutoRunTriggerService) and
+      // PipelineSchedulerService (the claim-and-fire tick pass) below -- mirrors
+      // pipelineRunGuardRepo's own single-instance-shared-across-both-sites wiring.
+      val autoRunDebounceRepo = new PipelineAutoRunDebounceRepository(ctx)
       val apiTokenRepo       = new ApiTokenRepository(ctx)
       val binaryRefRepo      = new BinaryRefRepository(ctx)
       val imageUploadRepo    = new ImageUploadRepository(ctx)
@@ -231,7 +236,8 @@ object Main {
         agentMemoryRepo = agentMemoryRepo,
         mfaRepo = mfaRepo,
         auditEventRepo = auditEventRepo,
-        pipelineRunGuardRepo = pipelineRunGuardRepo
+        pipelineRunGuardRepo = pipelineRunGuardRepo,
+        autoRunDebounceRepo = autoRunDebounceRepo
       )
 
       // HEL-415: scheduler runtime — reuses apiRoutes.pipelineRunService so
@@ -244,7 +250,8 @@ object Main {
         pipelineRunRepo,
         apiRoutes.pipelineRunService,
         SystemClock,
-        pipelineRunGuardRepo = pipelineRunGuardRepo
+        pipelineRunGuardRepo = pipelineRunGuardRepo,
+        autoRunDebounceRepo = autoRunDebounceRepo
       )
       context.spawn(PipelineSchedulerActor(pipelineSchedulerService, schedulerTickInterval), "pipeline-scheduler")
 
