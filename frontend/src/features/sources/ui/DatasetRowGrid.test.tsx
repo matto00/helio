@@ -76,6 +76,7 @@ describe("DatasetRowGrid", () => {
     patchSourceRowMock.mockResolvedValue({
       row: { id: "r1", seq: 0, updatedAt: "2026-01-02T00:00:00Z", data: ["Alicia", "hi"] },
       sourceUpdatedAt: "2026-01-02T00:00:00Z",
+      deniedPipelines: [],
     });
 
     renderWithStore(<DatasetRowGrid sourceId={sourceId} />);
@@ -101,6 +102,7 @@ describe("DatasetRowGrid", () => {
     patchSourceRowMock.mockResolvedValue({
       row: { id: "r1", seq: 0, updatedAt: "2026-01-02T00:00:00Z", data: ["Alicia", "hi"] },
       sourceUpdatedAt: "2026-01-02T00:00:00Z",
+      deniedPipelines: [],
     });
 
     renderWithStore(<DatasetRowGrid sourceId={sourceId} />);
@@ -162,6 +164,7 @@ describe("DatasetRowGrid", () => {
     patchSourceRowMock.mockResolvedValue({
       row: { id: "r1", seq: 0, updatedAt: "2026-01-02T00:00:00Z", data: ["Alice", null] },
       sourceUpdatedAt: "2026-01-02T00:00:00Z",
+      deniedPipelines: [],
     });
 
     renderWithStore(<DatasetRowGrid sourceId={sourceId} />);
@@ -228,6 +231,7 @@ describe("DatasetRowGrid", () => {
     appendSourceRowsMock.mockResolvedValue({
       rows: [{ id: "r2", seq: 1, updatedAt: "2026-01-01T00:00:00Z" }],
       updatedAt: "2026-01-01T00:00:00Z",
+      deniedPipelines: [],
     });
     fetchSourceRowsMock.mockResolvedValueOnce(
       onePage([
@@ -291,6 +295,7 @@ describe("DatasetRowGrid", () => {
     patchSourceRowMock.mockResolvedValue({
       row: { id: "r1", seq: 0, updatedAt: "2026-01-02T00:00:00Z", data: ["Alice", "hi"] },
       sourceUpdatedAt: "2026-01-02T00:00:00Z",
+      deniedPipelines: [],
     });
 
     const { container } = renderWithStore(<DatasetRowGrid sourceId={sourceId} />);
@@ -319,6 +324,7 @@ describe("DatasetRowGrid", () => {
     patchSourceRowMock.mockResolvedValue({
       row: { id: "r1", seq: 0, updatedAt: "2026-01-02T00:00:00Z", data: ["Alice", "hi"] },
       sourceUpdatedAt: "2026-01-02T00:00:00Z",
+      deniedPipelines: [],
     });
 
     renderWithStore(<DatasetRowGrid sourceId={sourceId} />);

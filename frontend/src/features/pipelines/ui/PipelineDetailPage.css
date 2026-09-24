@@ -1926,6 +1926,58 @@
   flex: 1 1 auto;
 }
 
+/* HEL-1096 design.md D5/D6: the auto-run denial block, shown in the footer region when the
+   pipeline's costVerdict denies auto-run -- same --app-warning tokens/shape as the truncation
+   banner above (design.md D6: denial is expected/recoverable, not a hard failure), between the
+   meta-bar and the footer proper. */
+.pipeline-detail-page__denial-block {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-2) var(--space-5) 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-warning-surface);
+  color: var(--app-warning);
+  border: 1px solid color-mix(in srgb, var(--app-warning) 35%, transparent);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.pipeline-detail-page__denial-text {
+  flex: 1 1 auto;
+}
+
+/* Inline text-link action, mirroring shared/ui/toast.css's `.toast__action` shape (underlined,
+   intent-coloured, no button chrome) since this control lives INSIDE an intent-coloured banner
+   rather than the footer's own button cluster. */
+.pipeline-detail-page__denial-run-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--app-warning);
+  font-size: var(--text-xs);
+  font-family: inherit;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: opacity var(--app-transition);
+}
+
+.pipeline-detail-page__denial-run-btn:hover {
+  opacity: 0.8;
+}
+
+.pipeline-detail-page__denial-run-btn:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
 /* ── Steps / Outputs tab bar (task 4.1) ── */
 .pipeline-detail-page__tabs {
   display: flex;

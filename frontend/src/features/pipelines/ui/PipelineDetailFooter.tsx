@@ -21,13 +21,17 @@
 // distinguish which holds what. The page has exactly one actions menu now.
 
 import type { RunStatusEventData } from "../hooks/usePipelineRunEvents";
-import type { SchemaField } from "../types/pipelineStep";
+import type { CostVerdict, SchemaField } from "../types/pipelineStep";
 import { StatusChip } from "../../../shared/ui/StatusChip";
 import { TextField } from "../../../shared/ui/TextField";
 import { SCHEMA_FIELD_VIEWER_SMALL_THRESHOLD } from "../../../shared/ui/useSchemaFieldSearch";
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
+import { denyReasonCopy } from "../services/denyReasonCopy";
 import { OutputSchemaDisclosure } from "./OutputSchemaDisclosure";
 import { TruncatedRowCountBadge } from "./TruncatedRowCountBadge";
+
+// HEL-1096 design.md D5: static — one `PipelineDetailFooter` instance is ever mounted per page.
+const DENIAL_REASON_ID = "pipeline-detail-footer-denial-reason";
 
 interface SseLike {
   status: RunStatusEventData["status"] | null;
@@ -71,6 +75,10 @@ interface PipelineDetailFooterProps {
    *  identically to `false` here (design.md Decision 4 — neither state gets
    *  an affirmative marker, only truncated gets one). */
   lastRunTruncated: boolean | null;
+  /** HEL-1096 design.md D5: the pipeline's own auto-run cost verdict — `null` while `analyze`
+   *  hasn't returned yet, in which case no denial block renders. */
+  costVerdict: CostVerdict | null;
+  handleRunToUpdate: () => void;
 }
 
 export function PipelineDetailFooter({
@@ -100,6 +108,8 @@ export function PipelineDetailFooter({
   lastRunRowCount,
   lastRunStatus,
   lastRunTruncated,
+  costVerdict,
+  handleRunToUpdate,
 }: PipelineDetailFooterProps) {
   return (
     <div className="pipeline-detail-page__footer-region">
@@ -122,6 +132,28 @@ export function PipelineDetailFooter({
             <StatusChip intent={lastRunStatus === "succeeded" ? "success" : "error"}>
               {lastRunStatus === "succeeded" ? "Succeeded" : "Failed"}
             </StatusChip>
+          )}
+        </div>
+      )}
+      {/* HEL-1096 design.md D5: additive over already-fetched `costVerdict` data — renders only
+          once `analyze` has returned AND the verdict denies auto-run. `role="status"`/
+          `aria-live="polite"` gives the reason a COMPUTED accessible announcement (C4) rather
+          than relying on mere visible text; the action button's native `aria-describedby`
+          association ties it back to that same reason for both surfaces' announced text. */}
+      {costVerdict !== null && !costVerdict.autoRunnable && (
+        <div className="pipeline-detail-page__denial-block" role="status" aria-live="polite">
+          <span id={DENIAL_REASON_ID} className="pipeline-detail-page__denial-text">
+            {costVerdict.reasons.map(denyReasonCopy).join(" ")}
+          </span>
+          {costVerdict.canRun && (
+            <button
+              type="button"
+              className="pipeline-detail-page__denial-run-btn"
+              aria-describedby={DENIAL_REASON_ID}
+              onClick={handleRunToUpdate}
+            >
+              Run to update
+            </button>
           )}
         </div>
       )}

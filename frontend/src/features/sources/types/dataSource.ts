@@ -7,6 +7,10 @@
 // Extracted from `./models.ts` so the panel + data-source + pipeline-step
 // ADTs each live in their own file.
 
+// HEL-1096: `DeniedPipelineResponse.reasons` reuses the pipelines feature's `CostReason` type
+// verbatim -- see that type's own doc for why (one shape, one deny-copy mapping).
+import type { CostReason } from "../../pipelines/types/pipelineStep";
+
 // HEL-1073: the API returns "dataset" on read; "static" is still accepted on
 // write for one minor release as a legacy alias (backend `DataSourceKind.canonicalize`).
 export type DataSourceKind = "csv" | "rest_api" | "sql" | "dataset" | "text" | "pdf" | "image";
@@ -195,12 +199,27 @@ export interface RowWriteRow {
   updatedAt: string;
 }
 
+/** HEL-1096 design.md D1: one downstream pipeline a write denied auto-run for, that the writing
+ *  user has at least a viewer grant on -- an invisible denial never appears here at all. `reasons`
+ *  reuses `CostReason` (`features/pipelines/types/pipelineStep.ts`) verbatim -- the SAME wire
+ *  shape `costVerdict.reasons` already carries on the analyze response -- so the deny-copy
+ *  mapping (design.md D6) has one shape to key off regardless of which surface renders it.
+ *  `canRun` mirrors `POST /api/pipelines/:id/run`'s own owner-or-editor-grantee check. */
+export interface DeniedPipelineResponse {
+  pipelineId: string;
+  name: string;
+  reasons: CostReason[];
+  canRun: boolean;
+}
+
 /** Response body for both row-write routes. `rows` carries only the newly appended rows on
  *  POST, or the full new set on PUT. Row `data` is deliberately omitted -- fetch rows through
- *  the existing preview/read path. */
+ *  the existing preview/read path. `deniedPipelines` (HEL-1096) is `[]` when nothing was denied
+ *  or every denial was invisible to the writer. */
 export interface RowWriteResponse {
   rows: RowWriteRow[];
   updatedAt: string;
+  deniedPipelines: DeniedPipelineResponse[];
 }
 
 /** HEL-1078: the single row a successful PATCH .../rows/:rowId edited -- unlike `RowWriteRow`,
@@ -214,10 +233,14 @@ export interface RowResponseRow {
 }
 
 /** Response body for `PATCH /api/data-sources/:id/rows/:rowId` -- the edited row plus the
- *  source-level `updatedAt`. `DELETE .../rows/:rowId` returns `204` with no body. */
+ *  source-level `updatedAt`. `DELETE .../rows/:rowId` returns `204` with no body -- HEL-1096
+ *  deliberately does not touch that contract (owner ruling, see the backend design.md
+ *  Non-Goals), so `RowResponse` alone gains `deniedPipelines`, identical in meaning to
+ *  `RowWriteResponse`'s own field. */
 export interface RowResponse {
   row: RowResponseRow;
   sourceUpdatedAt: string;
+  deniedPipelines: DeniedPipelineResponse[];
 }
 
 // HEL-1121: GET /api/data-sources/:id/rows -- paged row listing with identity, for HEL-1080's

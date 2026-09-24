@@ -2,7 +2,7 @@
 // and the submit path: success, client-side block, server field errors, transport failure,
 // preserved input on rejection, and computed-ARIA-only assertions (C1).
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { AxiosError, AxiosHeaders } from "axios";
 
 import { FormPanelView } from "./FormPanelView";
@@ -11,6 +11,7 @@ import {
   fetchFieldAggregate as fetchFieldAggregateRequest,
 } from "../../../sources/services/dataSourceService";
 import { submitFormPanel as submitFormPanelRequest } from "../../services/panelService";
+import { renderWithStore } from "../../../../test/renderWithStore";
 import type { FormPanelConfig } from "../../types/panel";
 
 jest.mock("../../../sources/services/dataSourceService", () => ({
@@ -53,7 +54,7 @@ function axiosErrorWith(status: number, data: unknown): AxiosError {
 
 async function renderReady() {
   fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: schemaFields });
-  render(<FormPanelView title="My form" panelId="panel-1" config={config} />);
+  renderWithStore(<FormPanelView title="My form" panelId="panel-1" config={config} />);
   return screen.findByRole("form", { name: "My form" });
 }
 
@@ -65,13 +66,13 @@ describe("FormPanelView", () => {
 
   it("shows a loading state while the schema fetch is in flight", () => {
     fetchDatasetSchemaMock.mockReturnValue(new Promise(() => {}));
-    render(<FormPanelView title="My form" panelId="panel-1" config={config} />);
+    renderWithStore(<FormPanelView title="My form" panelId="panel-1" config={config} />);
     expect(screen.getByLabelText("Loading form fields")).toBeInTheDocument();
   });
 
   it("shows InlineError with a working Retry action on failure", async () => {
     fetchDatasetSchemaMock.mockRejectedValueOnce(new Error("boom"));
-    render(<FormPanelView title="My form" panelId="panel-1" config={config} />);
+    renderWithStore(<FormPanelView title="My form" panelId="panel-1" config={config} />);
 
     await screen.findByRole("alert");
     expect(screen.queryByRole("form")).not.toBeInTheDocument();
@@ -94,6 +95,7 @@ describe("FormPanelView", () => {
     submitFormPanelMock.mockResolvedValueOnce({
       rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
       updatedAt: "now",
+      deniedPipelines: [],
     });
     await renderReady();
 
@@ -129,8 +131,9 @@ describe("FormPanelView", () => {
     submitFormPanelMock.mockResolvedValueOnce({
       rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
       updatedAt: "now",
+      deniedPipelines: [],
     });
-    render(<FormPanelView title="My form" panelId="panel-1" config={fileConfig} />);
+    renderWithStore(<FormPanelView title="My form" panelId="panel-1" config={fileConfig} />);
     await screen.findByRole("form", { name: "My form" });
 
     const file = new File(["contents"], "report.pdf", { type: "application/pdf" });
@@ -245,6 +248,7 @@ describe("FormPanelView", () => {
     submitFormPanelMock.mockResolvedValueOnce({
       rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
       updatedAt: "now",
+      deniedPipelines: [],
     });
     await renderReady();
 
@@ -265,9 +269,10 @@ describe("FormPanelView", () => {
     submitFormPanelMock.mockResolvedValueOnce({
       rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
       updatedAt: "now",
+      deniedPipelines: [],
     });
     fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: schemaFields });
-    render(<FormPanelView title="My form" panelId="panel-1" config={noResetConfig} />);
+    renderWithStore(<FormPanelView title="My form" panelId="panel-1" config={noResetConfig} />);
     await screen.findByRole("form", { name: "My form" });
 
     fireEvent.change(screen.getByRole("textbox", { name: "Note" }), { target: { value: "hello" } });
@@ -281,7 +286,7 @@ describe("FormPanelView", () => {
     let resolveSubmit: (() => void) | undefined;
     submitFormPanelMock.mockReturnValueOnce(
       new Promise((resolve) => {
-        resolveSubmit = () => resolve({ rows: [], updatedAt: "now" });
+        resolveSubmit = () => resolve({ rows: [], updatedAt: "now", deniedPipelines: [] });
       }),
     );
     await renderReady();
@@ -296,7 +301,7 @@ describe("FormPanelView", () => {
   });
 
   it("Enter in a single-line text field submits the form", async () => {
-    submitFormPanelMock.mockResolvedValueOnce({ rows: [], updatedAt: "now" });
+    submitFormPanelMock.mockResolvedValueOnce({ rows: [], updatedAt: "now", deniedPipelines: [] });
     await renderReady();
 
     fireEvent.change(screen.getByRole("textbox", { name: "Note" }), { target: { value: "hello" } });
@@ -330,7 +335,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
 
   async function renderCompact() {
     fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: counterSchemaFields });
-    render(<FormPanelView title="Widgets" panelId="panel-2" config={counterConfig} />);
+    renderWithStore(<FormPanelView title="Widgets" panelId="panel-2" config={counterConfig} />);
     return screen.findByRole("spinbutton", { name: "Widgets" });
   }
 
@@ -347,7 +352,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
       submit: { writeMode: "append" },
     };
     fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: [] });
-    render(<FormPanelView title="Empty" panelId="panel-3" config={zeroFieldConfig} />);
+    renderWithStore(<FormPanelView title="Empty" panelId="panel-3" config={zeroFieldConfig} />);
     await screen.findByRole("form", { name: "Empty" });
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     cleanup();
@@ -360,7 +365,9 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     fetchDatasetSchemaMock.mockResolvedValueOnce({
       fields: [{ name: "note", type: "string" as const, required: false }],
     });
-    render(<FormPanelView title="Note form" panelId="panel-4" config={oneNonCounterConfig} />);
+    renderWithStore(
+      <FormPanelView title="Note form" panelId="panel-4" config={oneNonCounterConfig} />,
+    );
     await screen.findByRole("form", { name: "Note form" });
     cleanup();
 
@@ -380,7 +387,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
         { name: "value", type: "integer" as const, required: false },
       ],
     });
-    render(<FormPanelView title="Mixed form" panelId="panel-5" config={twoFieldConfig} />);
+    renderWithStore(<FormPanelView title="Mixed form" panelId="panel-5" config={twoFieldConfig} />);
     await screen.findByRole("form", { name: "Mixed form" });
     // The embedded counter renders via the standard layout's shared Submit button, not per-click.
     expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
@@ -403,7 +410,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
         { name: "value", type: "integer" as const, required: false },
       ],
     });
-    render(<FormPanelView title="Mixed form" panelId="panel-6" config={twoFieldConfig} />);
+    renderWithStore(<FormPanelView title="Mixed form" panelId="panel-6" config={twoFieldConfig} />);
     await screen.findByRole("form", { name: "Mixed form" });
 
     fireEvent.click(screen.getByRole("button", { name: /increase delta/i }));
@@ -417,6 +424,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     submitFormPanelMock.mockResolvedValue({
       rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
       updatedAt: "now",
+      deniedPipelines: [],
     });
     fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 5 });
     fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 0 });
@@ -451,6 +459,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     submitFormPanelMock.mockResolvedValueOnce({
       rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
       updatedAt: "now",
+      deniedPipelines: [],
     });
     fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 5 });
     const control = await renderCompact();
@@ -468,7 +477,11 @@ describe("FormPanelView — compact single-counter-field layout", () => {
   // concurrently by the pending-delta map.
   it("2.2: a second click fired before the first settles still submits its own request and accumulates its own delta", async () => {
     const resolvers: Array<
-      (v: { rows: { id: string; seq: number; updatedAt: string }[]; updatedAt: string }) => void
+      (v: {
+        rows: { id: string; seq: number; updatedAt: string }[];
+        updatedAt: string;
+        deniedPipelines: never[];
+      }) => void
     > = [];
     submitFormPanelMock.mockImplementation(
       () =>
@@ -487,7 +500,11 @@ describe("FormPanelView — compact single-counter-field layout", () => {
 
     fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 10 });
     await act(async () => {
-      resolvers[0]({ rows: [{ id: "r1", seq: 0, updatedAt: "now" }], updatedAt: "now" });
+      resolvers[0]({
+        rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
+        updatedAt: "now",
+        deniedPipelines: [],
+      });
       await Promise.resolve();
     });
     // The first settle alone must not empty the map or dispatch a reconciliation fetch -- the
@@ -495,7 +512,11 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     expect(fetchFieldAggregateMock).not.toHaveBeenCalled();
 
     await act(async () => {
-      resolvers[1]({ rows: [{ id: "r2", seq: 1, updatedAt: "now" }], updatedAt: "now" });
+      resolvers[1]({
+        rows: [{ id: "r2", seq: 1, updatedAt: "now" }],
+        updatedAt: "now",
+        deniedPipelines: [],
+      });
       await Promise.resolve();
     });
     await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1));
@@ -505,6 +526,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     let resolveSubmit!: (v: {
       rows: { id: string; seq: number; updatedAt: string }[];
       updatedAt: string;
+      deniedPipelines: never[];
     }) => void;
     submitFormPanelMock.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -518,7 +540,11 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
     await waitFor(() => expect(control).toHaveAttribute("aria-busy", "true"));
 
-    resolveSubmit({ rows: [{ id: "r1", seq: 0, updatedAt: "now" }], updatedAt: "now" });
+    resolveSubmit({
+      rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
+      updatedAt: "now",
+      deniedPipelines: [],
+    });
     await waitFor(() => expect(control).not.toHaveAttribute("aria-busy", "true"));
   });
 
@@ -530,6 +556,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     submitFormPanelMock.mockResolvedValueOnce({
       rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
       updatedAt: "now",
+      deniedPipelines: [],
     });
     // The server's aggregate (e.g. a concurrent writer's row already landed) differs from what
     // this session's own optimistic delta alone would compute (0 + 5 = 5) -- only a real
@@ -566,7 +593,11 @@ describe("FormPanelView — compact single-counter-field layout", () => {
   // quiesce gate), and the displayed value never regresses below what's already shown.
   it("3.3: ten rapid clicks accumulate with no reconciliation until the burst fully settles, resolved out of order", async () => {
     const resolvers: Array<
-      (v: { rows: { id: string; seq: number; updatedAt: string }[]; updatedAt: string }) => void
+      (v: {
+        rows: { id: string; seq: number; updatedAt: string }[];
+        updatedAt: string;
+        deniedPipelines: never[];
+      }) => void
     > = [];
     submitFormPanelMock.mockImplementation(
       () =>
@@ -590,7 +621,11 @@ describe("FormPanelView — compact single-counter-field layout", () => {
       // before the next one fires -- proves the value never regresses mid-burst, not just at
       // the very end.
       await act(async () => {
-        resolve({ rows: [{ id: "r", seq: 0, updatedAt: "now" }], updatedAt: "now" });
+        resolve({
+          rows: [{ id: "r", seq: 0, updatedAt: "now" }],
+          updatedAt: "now",
+          deniedPipelines: [],
+        });
         await Promise.resolve();
       });
       const now = Number(control.getAttribute("aria-valuenow"));
@@ -610,6 +645,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     submitFormPanelMock.mockResolvedValueOnce({
       rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
       updatedAt: "now",
+      deniedPipelines: [],
     });
     let resolveAggregate!: (v: { field: string; op: string; value: number }) => void;
     fetchFieldAggregateMock.mockReturnValueOnce(
@@ -631,6 +667,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     submitFormPanelMock.mockResolvedValueOnce({
       rows: [{ id: "r2", seq: 1, updatedAt: "now" }],
       updatedAt: "now",
+      deniedPipelines: [],
     });
     fireEvent.click(increaseButton);
     await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "10"));
@@ -658,6 +695,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     submitFormPanelMock.mockResolvedValueOnce({
       rows: [{ id: "a", seq: 0, updatedAt: "now" }],
       updatedAt: "now",
+      deniedPipelines: [],
     });
     let resolveF1!: (v: { field: string; op: string; value: number }) => void;
     fetchFieldAggregateMock.mockReturnValueOnce(
@@ -676,6 +714,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     let resolveB!: (v: {
       rows: { id: string; seq: number; updatedAt: string }[];
       updatedAt: string;
+      deniedPipelines: never[];
     }) => void;
     let rejectC!: (e: Error) => void;
     submitFormPanelMock.mockReturnValueOnce(
@@ -695,7 +734,11 @@ describe("FormPanelView — compact single-counter-field layout", () => {
 
     // B settles success -- map still has C outstanding, so no new fetch is dispatched.
     await act(async () => {
-      resolveB({ rows: [{ id: "b", seq: 1, updatedAt: "now" }], updatedAt: "now" });
+      resolveB({
+        rows: [{ id: "b", seq: 1, updatedAt: "now" }],
+        updatedAt: "now",
+        deniedPipelines: [],
+      });
       await Promise.resolve();
       await Promise.resolve();
     });

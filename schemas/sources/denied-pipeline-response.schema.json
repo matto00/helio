@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/denied-pipeline-response.schema.json",
+  "title": "DeniedPipelineResponse",
+  "description": "HEL-1096 design.md D1: one downstream pipeline a dataset write denied auto-run for, that the writing user has at least a viewer grant on -- a pipeline the writer has no grant on at all never appears here, no id/name/reason leaked. Carried by RowWriteResponse (POST/PUT rows) and RowResponse (PATCH row) alike.",
+  "type": "object",
+  "required": ["pipelineId", "name", "reasons", "canRun"],
+  "properties": {
+    "pipelineId": { "type": "string", "minLength": 1 },
+    "name": { "type": "string" },
+    "reasons": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/CostReason" }
+    },
+    "canRun": {
+      "description": "True iff the writing user is the pipeline's owner or holds an editor grant on it -- the same check POST /api/pipelines/:id/run enforces.",
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "CostReason": {
+      "type": "object",
+      "required": ["code", "detail"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "ai-step",
+            "remote-fetch",
+            "rows-above-threshold",
+            "steps-above-bound",
+            "writeback-step",
+            "content-conversion",
+            "unclassified-op",
+            "unclassified-source",
+            "row-estimate-unavailable",
+            "no-roots"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        },
+        "stepId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

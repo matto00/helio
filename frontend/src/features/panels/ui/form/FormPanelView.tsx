@@ -15,6 +15,9 @@ import {
   fetchFieldAggregate,
 } from "../../../sources/services/dataSourceService";
 import { extractErrorMessage } from "../../../../services/extractErrorMessage";
+import { buildDeniedPipelinesToast } from "../../../pipelines/services/deniedPipelinesToast";
+import { useRunToUpdate } from "../../../pipelines/hooks/useRunToUpdate";
+import { useToast } from "../../../toasts/hooks/useToast";
 import { parseFieldErrors, submitFormPanel } from "../../services/panelService";
 import { computeFormIssues } from "../../state/formConfigValidation";
 import {
@@ -25,7 +28,7 @@ import {
 } from "../../state/formSubmission";
 import { FormFieldControl } from "./FormFieldControl";
 import { useFormPanelValues } from "./useFormPanelValues";
-import type { DatasetFieldResponse } from "../../../sources/types/dataSource";
+import type { DatasetFieldResponse, RowWriteResponse } from "../../../sources/types/dataSource";
 import type { FormPanelConfig } from "../../types/panel";
 
 interface FormPanelViewProps {
@@ -40,6 +43,11 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
   const [schema, setSchema] = useState<DatasetFieldResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryToken, setRetryToken] = useState(0);
+
+  // HEL-1096 design.md D3/D7 — pushes the denial toast (if any) from a successful write's
+  // `deniedPipelines`, and the "Run to update" action's own click behavior.
+  const { push: pushToast } = useToast();
+  const runToUpdateAction = useRunToUpdate();
 
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [alertText, setAlertText] = useState("");
@@ -73,6 +81,16 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
   function requestFocus(intent: "invalid" | "button") {
     pendingFocusRef.current = intent;
     setFocusTrigger((t) => t + 1);
+  }
+
+  // HEL-1096 design.md D3: exactly one toast per write, built from `response.deniedPipelines` —
+  // a no-op when nothing was denied (or every denial was invisible to the writer, design.md D1).
+  function pushDenialToastIfAny(response: RowWriteResponse) {
+    const denied = response.deniedPipelines;
+    if (denied.length === 0) return;
+    const toastId = pushToast(
+      buildDeniedPipelinesToast(denied, () => runToUpdateAction(denied[0].pipelineId, toastId)),
+    );
   }
 
   // Re-fetch on mount, on dataset switch, and on retry — mirrors `FormEditor.tsx`'s cancelled-flag
@@ -149,8 +167,9 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
     setPendingCount(pendingDeltasRef.current.size);
 
     try {
-      await submitFormPanel(panelId, { [field.sourceField]: delta }, {});
+      const response = await submitFormPanel(panelId, { [field.sourceField]: delta }, {});
       setStatusText("The row was added.");
+      pushDenialToastIfAny(response);
 
       // Unconditional on every settle, success or failure alike (design-gate round 4) — this is
       // what lets a fetch already dispatched below be invalidated by a LATER sibling click's own
@@ -238,9 +257,10 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
     try {
       const submitValues = buildSubmitValues(config, schema, values.values);
       const submitFiles = buildSubmitFiles(config, schema, values.values);
-      await submitFormPanel(panelId, submitValues, submitFiles);
+      const response = await submitFormPanel(panelId, submitValues, submitFiles);
       setSubmitState("succeeded");
       setStatusText("The row was added.");
+      pushDenialToastIfAny(response);
       // evaluator's non-blocking note: clears any lingering server-reported error explicitly,
       // rather than relying on `values.reset()` alone — a field the user never re-edited after a
       // prior server rejection must not carry a stale error onto a freshly reset form.

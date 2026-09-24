@@ -117,6 +117,15 @@ class AutoRunTriggerServiceSpec extends AnyWordSpec with Matchers with BeforeAnd
     await(pipelineStepRepo.insertInternal(pipelineId, "analyzewithai", cfg, enabled = true, parentStepId = None, explicitRootId = None))
   }
 
+  private def seedGrant(pipelineId: PipelineId, granteeId: UserId, role: String): Unit = {
+    import PostgresProfile.api._
+    await(db.run(sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+                          VALUES ('pipeline', ${pipelineId.value}, ${granteeId.value}::uuid, $role, now())"""))
+  }
+
+  private def deniedEntry(results: Vector[EvaluatedPipeline], pipelineId: PipelineId): Option[EvaluatedPipeline.Denied] =
+    results.collectFirst { case d: EvaluatedPipeline.Denied if d.pipelineId == pipelineId => d }
+
   private def debounceRowExists(pipelineId: PipelineId): Boolean = {
     import PostgresProfile.api._
     await(db.run(sql"""SELECT 1 FROM pipeline_auto_run_debounce WHERE pipeline_id = ${pipelineId.value}""".as[Int])).nonEmpty
@@ -130,7 +139,7 @@ class AutoRunTriggerServiceSpec extends AnyWordSpec with Matchers with BeforeAnd
       val dsId  = seedDataset(owner)
       val pid   = seedPipeline(owner, Vector(dsId))
 
-      await(service.triggerAutoRun(dsId, Instant.now()))
+      await(service.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now()))
 
       debounceRowExists(pid) shouldBe true
     }
@@ -146,7 +155,7 @@ class AutoRunTriggerServiceSpec extends AnyWordSpec with Matchers with BeforeAnd
       seedAnalyzeWithAiStep(deniedPid)
       val eligiblePid = seedPipeline(owner, Vector(dsId))
 
-      await(service.triggerAutoRun(dsId, Instant.now()))
+      await(service.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now()))
 
       debounceRowExists(deniedPid) shouldBe false
       debounceRowExists(eligiblePid) shouldBe true
@@ -160,7 +169,7 @@ class AutoRunTriggerServiceSpec extends AnyWordSpec with Matchers with BeforeAnd
       val pidB = seedPipeline(owner, Vector(dsId))
       val pidC = seedPipeline(owner, Vector(dsId))
 
-      await(service.triggerAutoRun(dsId, Instant.now()))
+      await(service.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now()))
 
       debounceRowExists(pidA) shouldBe true
       debounceRowExists(pidB) shouldBe true
@@ -188,7 +197,7 @@ class AutoRunTriggerServiceSpec extends AnyWordSpec with Matchers with BeforeAnd
       // grantee's own source bound as a co-root (design.md Context).
       val pid = seedPipeline(writer, Vector(writerDsId, otherDsId))
 
-      await(service.triggerAutoRun(writerDsId, Instant.now()))
+      await(service.triggerAutoRun(writerDsId, AuthenticatedUser(writer), Instant.now()))
 
       debounceRowExists(pid) shouldBe true
     }
@@ -210,6 +219,88 @@ class AutoRunTriggerServiceSpec extends AnyWordSpec with Matchers with BeforeAnd
       )
       verdict.autoRunnable shouldBe false
       verdict.reasons should not be empty
+    }
+  }
+
+  // HEL-1096 design.md D1 (skeptic-design-1.md CR1): the two ACL checks -- `visible` (gates
+  // whether an entry is returned AT ALL) and `canRun` (gates the run action only) -- both
+  // computed against the WRITER passed to `triggerAutoRun`, never the pipeline owner.
+  "the response-facing visibility/canRun gates for a denied pipeline (HEL-1096 design.md D1)" should {
+
+    "returns a Denied entry with canRun=true when the WRITER is the pipeline's owner" in {
+      cleanDb()
+      val owner = seedUser()
+      val dsId  = seedDataset(owner)
+      val pid   = seedPipeline(owner, Vector(dsId))
+      seedAnalyzeWithAiStep(pid)
+
+      val results = await(service.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now()))
+
+      val entry = deniedEntry(results, pid)
+      entry shouldBe defined
+      entry.get.canRun shouldBe true
+      entry.get.reasons should not be empty
+    }
+
+    "returns a Denied entry with canRun=true when the WRITER holds an EDITOR grant (not ownership)" in {
+      cleanDb()
+      val owner  = seedUser()
+      val editor = seedUser()
+      val dsId   = seedDataset(owner)
+      val pid    = seedPipeline(owner, Vector(dsId))
+      seedAnalyzeWithAiStep(pid)
+      seedGrant(pid, editor, "editor")
+
+      val results = await(service.triggerAutoRun(dsId, AuthenticatedUser(editor), Instant.now()))
+
+      val entry = deniedEntry(results, pid)
+      entry shouldBe defined
+      entry.get.canRun shouldBe true
+    }
+
+    "returns a Denied entry with canRun=false (reasons still present) when the WRITER holds only " +
+      "a VIEWER grant" in {
+      cleanDb()
+      val owner  = seedUser()
+      val viewer = seedUser()
+      val dsId   = seedDataset(owner)
+      val pid    = seedPipeline(owner, Vector(dsId))
+      seedAnalyzeWithAiStep(pid)
+      seedGrant(pid, viewer, "viewer")
+
+      val results = await(service.triggerAutoRun(dsId, AuthenticatedUser(viewer), Instant.now()))
+
+      val entry = deniedEntry(results, pid)
+      entry shouldBe defined
+      entry.get.canRun shouldBe false
+      entry.get.reasons should not be empty
+    }
+
+    "omits the entry entirely when the WRITER holds no grant (owner, editor, or viewer) on the " +
+      "denied pipeline at all -- the denial is still evaluated/logged, just never returned" in {
+      cleanDb()
+      val owner    = seedUser()
+      val stranger = seedUser()
+      val dsId     = seedDataset(owner)
+      val pid      = seedPipeline(owner, Vector(dsId))
+      seedAnalyzeWithAiStep(pid)
+
+      val results = await(service.triggerAutoRun(dsId, AuthenticatedUser(stranger), Instant.now()))
+
+      deniedEntry(results, pid) shouldBe None
+    }
+
+    "an ALLOWED pipeline is unaffected by the writer's visibility -- it's reported as Allowed " +
+      "regardless of grant" in {
+      cleanDb()
+      val owner    = seedUser()
+      val stranger = seedUser()
+      val dsId     = seedDataset(owner)
+      val pid      = seedPipeline(owner, Vector(dsId))
+
+      val results = await(service.triggerAutoRun(dsId, AuthenticatedUser(stranger), Instant.now()))
+
+      results.collectFirst { case a: EvaluatedPipeline.Allowed if a.pipelineId == pid => a } shouldBe defined
     }
   }
 

@@ -608,11 +608,15 @@ export interface CostReason {
   stepId?: string;
 }
 
+// HEL-1096 design.md D1: true iff the requesting user is the pipeline's owner or holds an
+// editor grant on it -- the same check `POST /api/pipelines/:id/run` enforces -- set
+// regardless of `autoRunnable`.
 export interface CostVerdict {
   autoRunnable: boolean;
   estimatedRows?: number;
   stepCount: number;
   reasons: CostReason[];
+  canRun: boolean;
 }
 
 export interface PipelineAnalyzeResponse {

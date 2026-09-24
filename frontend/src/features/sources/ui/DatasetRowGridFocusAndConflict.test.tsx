@@ -167,6 +167,7 @@ describe("DatasetRowGrid arrow-key DOM focus + edit-end focus return (skeptic-fi
     patchSourceRowMock.mockResolvedValue({
       row: { id: "r0", seq: 0, updatedAt: "2026-01-02T00:00:00Z", data: ["changed"] },
       sourceUpdatedAt: "2026-01-02T00:00:00Z",
+      deniedPipelines: [],
     });
 
     const { container } = renderWithStore(<DatasetRowGrid sourceId={sourceId} />);
@@ -236,6 +237,7 @@ describe("DatasetRowGrid stale-conflict retry/discard (skeptic-final-1.md CR4/CR
     patchSourceRowMock.mockResolvedValueOnce({
       row: { id: "r0", seq: 0, updatedAt: "2026-01-03T00:00:00Z", data: ["new", "untouched"] },
       sourceUpdatedAt: "2026-01-03T00:00:00Z",
+      deniedPipelines: [],
     });
 
     renderWithStore(<DatasetRowGrid sourceId={sourceId} />);

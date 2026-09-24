@@ -2,15 +2,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/sources/row-write-response.schema.json",
   "title": "RowWriteResponse",
-  "description": "Response body for both POST (append) and PUT (replace) /api/data-sources/:id/rows (HEL-1077). `rows` carries only the newly appended rows on POST, or the full new set on PUT. Row `data` is deliberately omitted -- readers fetch rows through the existing preview/read path.",
+  "description": "Response body for both POST (append) and PUT (replace) /api/data-sources/:id/rows (HEL-1077). `rows` carries only the newly appended rows on POST, or the full new set on PUT. Row `data` is deliberately omitted -- readers fetch rows through the existing preview/read path. `deniedPipelines` (HEL-1096) lists every downstream pipeline this write denied auto-run for that the writer has visibility into -- empty when nothing was denied.",
   "type": "object",
-  "required": ["rows", "updatedAt"],
+  "required": ["rows", "updatedAt", "deniedPipelines"],
   "properties": {
     "rows": {
       "type": "array",
       "items": { "$ref": "./row-write-row-response.schema.json" }
     },
-    "updatedAt": { "type": "string", "format": "date-time" }
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "deniedPipelines": {
+      "type": "array",
+      "items": { "$ref": "./denied-pipeline-response.schema.json" }
+    }
   },
   "additionalProperties": false
 }
