@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/field-aggregate-response.schema.json",
+  "title": "FieldAggregateResponse",
+  "description": "Response body for GET /api/data-sources/:id/rows/aggregate (HEL-1095 design.md D2) -- a dataset-kind source's server-computed aggregate for one declared numeric field, computed fresh on every request. `field`/`op` echo the request's own query parameters; `value` is the computed aggregate. Only op=sum is supported today.",
+  "type": "object",
+  "required": ["field", "op", "value"],
+  "properties": {
+    "field": { "type": "string" },
+    "op": { "type": "string", "enum": ["sum"] },
+    "value": { "type": "number" }
+  },
+  "additionalProperties": false
+}

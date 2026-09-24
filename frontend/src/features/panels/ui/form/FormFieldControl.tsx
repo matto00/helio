@@ -40,6 +40,12 @@ interface FormFieldControlProps {
    *  `onChange` on every `+`/`-`/arrow-key activation, so the caller can submit the delta through
    *  the existing submit path rather than merely updating local state. */
   onImmediateStep?: (direction: 1 | -1) => void;
+  /** HEL-1095 design.md D8 — meaningful only for `control: "counter"`: exposes `aria-busy="true"`
+   *  on the counter's `role="spinbutton"` element while a submit request from this counter's
+   *  immediate-submit path is outstanding. Absent/`false` for every other control, and for a
+   *  counter rendered `immediate={false}` (its own submit goes through the shared form button's
+   *  `aria-disabled` state instead). */
+  busy?: boolean;
 }
 
 export function FormFieldControl({
@@ -52,6 +58,7 @@ export function FormFieldControl({
   onBlur,
   immediate,
   onImmediateStep,
+  busy,
 }: FormFieldControlProps) {
   const controlId = useId();
   const errorId = useId();
@@ -92,6 +99,7 @@ export function FormFieldControl({
           onChange,
           immediate,
           onImmediateStep,
+          busy,
         })}
       </div>
     </FormField>
@@ -109,6 +117,7 @@ interface RenderControlArgs {
   onChange: (value: FormFieldValue) => void;
   immediate?: boolean;
   onImmediateStep?: (direction: 1 | -1) => void;
+  busy?: boolean;
 }
 
 function renderControl({
@@ -122,6 +131,7 @@ function renderControl({
   onChange,
   immediate,
   onImmediateStep,
+  busy,
 }: RenderControlArgs) {
   const stringValue = typeof value === "string" ? value : "";
 
@@ -197,6 +207,7 @@ function renderControl({
           ariaInvalid={invalid}
           ariaDescribedBy={describedBy}
           ariaRequired
+          ariaBusy={immediate ? busy : undefined}
           onStep={handleStep}
         />
       );

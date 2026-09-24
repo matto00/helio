@@ -320,6 +320,12 @@ object DatasetFieldResponse {
     DatasetFieldResponse(f.name, DataFieldType.asString(f.fieldType), f.required, f.default)
 }
 
+/** HEL-1095 design.md D2: `GET /api/data-sources/:id/rows/aggregate`'s response shape -- `field`
+ *  and `op` echo the request's own query parameters (so a caller need not thread them through
+ *  separately) and `value` is the computed aggregate, `sum(delta)` at present (only `op=sum` is
+ *  supported -- see `dataset-field-aggregate` spec.md). */
+final case class FieldAggregateResponse(field: String, op: String, value: BigDecimal)
+
 /** HEL-1124 design.md Decision 3: wire shape for one field edit in `PATCH
  *  /api/data-sources/:id/schema`'s request. `previousName` identifies a rename (`None` for an
  *  added field or an unrenamed kept field); `default` uses the `Option[Option[JsValue]]` idiom
@@ -673,6 +679,10 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       }
     }
   implicit val datasetSchemaResponseFormat: RootJsonFormat[DatasetSchemaResponse] = jsonFormat1(DatasetSchemaResponse.apply)
+
+  // HEL-1095: `GET /api/data-sources/:id/rows/aggregate`'s response format -- `value` is a plain
+  // `BigDecimal`, already covered by `DefaultJsonProtocol`'s built-in `BigDecimalJsonFormat`.
+  implicit val fieldAggregateResponseFormat: RootJsonFormat[FieldAggregateResponse] = jsonFormat3(FieldAggregateResponse.apply)
 
   /** HEL-1124 design.md Decision 3: hand-rolled (not `jsonFormat5`) so `default`'s
    *  `Option[Option[JsValue]]` idiom round-trips correctly -- a raw `jsonFormat5` would read a

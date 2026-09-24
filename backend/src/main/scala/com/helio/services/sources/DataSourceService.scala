@@ -6,7 +6,7 @@ import com.helio.domain.engine.{DatasetRowValidator, DatasetSchemaMigration, Pip
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.stream.Materializer
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.sources.{CsvPreviewResponse, DatasetFieldResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, SchemaFieldRejection, SchemaUpdateConflictResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest, UpdateDatasetSchemaRequest}
+import com.helio.api.protocols.sources.{CsvPreviewResponse, DatasetFieldResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, FieldAggregateResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, SchemaFieldRejection, SchemaUpdateConflictResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest, UpdateDatasetSchemaRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository.{BlockingPipeline, DatasetRowRow, RowListPage, RowMutationFailure}
@@ -950,6 +950,42 @@ final class DataSourceService(
         }
       case Some(ds) => Future.successful(Left(ServiceError.BadRequest(s"declared schema is only available for dataset sources (this source is '${ds.kind}')")))
     }
+
+  /** HEL-1095 design.md D2/D3/D4, `dataset-field-aggregate` spec.md: `GET
+   *  /api/data-sources/:id/rows/aggregate`. Same ACL/error-ordering convention as
+   *  `getDatasetSchema` above -- `findByIdOwned` 404, `400` for a non-`dataset`-kind source --
+   *  plus two aggregate-specific `400`s: `op` unsupported (checked first -- no DB call needed to
+   *  reject it) and `field` either undeclared or declared non-numeric (checked against the SAME
+   *  declaration read `getDatasetSchema` uses, via `getDeclaredSchema`, so the two routes can
+   *  never disagree about what's declared). The field's resolved POSITIONAL INDEX -- not its name
+   *  -- is what `DataSourceRepository.aggregateField` actually needs (design.md Risks: the
+   *  positional `dataset_rows.data` array). */
+  def getFieldAggregate(
+      id:    DataSourceId,
+      field: String,
+      op:    String,
+      user:  AuthenticatedUser
+  ): Future[Either[ServiceError, FieldAggregateResponse]] =
+    if (op != "sum")
+      Future.successful(Left(ServiceError.BadRequest(s"unsupported aggregate operation: '$op'")))
+    else
+      dataSourceRepo.findByIdOwned(id, user).flatMap {
+        case None                   => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+        case Some(_: DatasetSource) =>
+          dataSourceRepo.getDeclaredSchema(id, user).flatMap {
+            case None => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+            case Some(declaration) =>
+              declaration.indexWhere(_.name == field) match {
+                case -1 =>
+                  Future.successful(Left(ServiceError.BadRequest(s"field '$field' is not declared on this dataset")))
+                case idx if declaration(idx).fieldType != DataFieldType.IntegerType && declaration(idx).fieldType != DataFieldType.FloatType =>
+                  Future.successful(Left(ServiceError.BadRequest(s"field '$field' is not numeric and cannot be aggregated")))
+                case idx =>
+                  dataSourceRepo.aggregateField(id, idx, user).map(value => Right(FieldAggregateResponse(field, op, value)))
+              }
+          }
+        case Some(ds) => Future.successful(Left(ServiceError.BadRequest(s"aggregation is only supported for dataset sources (this source is '${ds.kind}')")))
+      }
 
   /** HEL-1124 design.md Decision 1/6: ACL via `findByIdOwned` (HEL-1002 404 shape, same as every
    *  sibling route), `400` for a non-`dataset`-kind source, delegates the actual

@@ -154,6 +154,60 @@ describe("FormFieldControl", () => {
     expect(onImmediateStep).toHaveBeenCalledWith(-1);
   });
 
+  // HEL-1095 tasks.md 2.5, design.md D8: computed aria-busy, plumbed from the caller's own
+  // pending state -- never DOM presence.
+  it("counter: immediate mode exposes the caller's `busy` prop as aria-busy on the spinbutton", () => {
+    const field: FormFieldSpec = { sourceField: "delta", control: "counter", label: "Delta" };
+    const { rerender } = render(
+      <FormFieldControl
+        field={field}
+        declared={{ name: "delta", type: "integer", required: false }}
+        value="0"
+        error={null}
+        onChange={() => {}}
+        onBlur={() => {}}
+        immediate
+        onImmediateStep={() => {}}
+        busy={false}
+      />,
+    );
+    expect(screen.getByRole("spinbutton", { name: "Delta" })).not.toHaveAttribute("aria-busy");
+
+    rerender(
+      <FormFieldControl
+        field={field}
+        declared={{ name: "delta", type: "integer", required: false }}
+        value="0"
+        error={null}
+        onChange={() => {}}
+        onBlur={() => {}}
+        immediate
+        onImmediateStep={() => {}}
+        busy
+      />,
+    );
+    expect(screen.getByRole("spinbutton", { name: "Delta" })).toHaveAttribute("aria-busy", "true");
+  });
+
+  // A non-immediate counter (embedded in a multi-field form) has no request of its own to be
+  // busy about -- `busy` must never surface there even if a caller mistakenly passes it.
+  it("counter: a non-immediate counter never exposes aria-busy, even if `busy` is passed", () => {
+    const field: FormFieldSpec = { sourceField: "delta", control: "counter", label: "Delta" };
+    render(
+      <FormFieldControl
+        field={field}
+        declared={{ name: "delta", type: "integer", required: false }}
+        value="0"
+        error={null}
+        onChange={() => {}}
+        onBlur={() => {}}
+        immediate={false}
+        busy
+      />,
+    );
+    expect(screen.getByRole("spinbutton", { name: "Delta" })).not.toHaveAttribute("aria-busy");
+  });
+
   it("counter: ArrowUp/ArrowDown on the spinbutton step the value", () => {
     const onChange = jest.fn();
     const field: FormFieldSpec = { sourceField: "delta", control: "counter", label: "Delta" };

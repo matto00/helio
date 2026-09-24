@@ -10,7 +10,10 @@ import "./FormPanel.css";
 import "./CounterControl.css";
 import { PanelBodySkeleton } from "../PanelBodySkeleton";
 import { InlineError } from "../../../../shared/chrome/InlineError";
-import { fetchDatasetSchema } from "../../../sources/services/dataSourceService";
+import {
+  fetchDatasetSchema,
+  fetchFieldAggregate,
+} from "../../../sources/services/dataSourceService";
 import { extractErrorMessage } from "../../../../services/extractErrorMessage";
 import { parseFieldErrors, submitFormPanel } from "../../services/panelService";
 import { computeFormIssues } from "../../state/formConfigValidation";
@@ -51,6 +54,21 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
 
   const formRef = useRef<HTMLFormElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
+
+  // HEL-1095 design.md D9 — the compact counter's per-click pending-delta map, replacing
+  // HEL-1087's single-value `submitState === "pending"` reentrancy guard (that guard silently
+  // dropped every click after the first in a burst — design-gate round 1). Held in a ref (not
+  // state): every read of "is the map still empty right now" must see the value as of the exact
+  // moment it's checked, never a value captured by an earlier render's closure — an async
+  // settle callback from an EARLIER click otherwise reads a stale snapshot from before a LATER
+  // click's own mutation. `pendingCount` mirrors the ref's size purely to trigger a re-render for
+  // `aria-busy` (D8) — it is never itself read for a correctness decision.
+  const pendingDeltasRef = useRef<Map<object, number>>(new Map());
+  const [pendingCount, setPendingCount] = useState(0);
+  // Bumped on EVERY settle (success or failure), never just a success that empties the map
+  // (design-gate round 4) — this is what lets a fetch already in flight be invalidated by a
+  // sibling click's outcome even when that outcome alone wouldn't have dispatched a new fetch.
+  const reconcileGenerationRef = useRef(0);
 
   function requestFocus(intent: "invalid" | "button") {
     pendingFocusRef.current = intent;
@@ -103,41 +121,83 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
     submitButtonRef.current?.focus();
   }, [focusTrigger, values.errors]);
 
-  // design.md Decision 1/2/3 — the compact single-counter-field layout's `+`/`-` handler. Reuses
-  // the existing submit path (`submitFormPanel`) directly rather than going through `handleSubmit`
-  // above: there is no whole-form validation to run (the counter is the only field, always
-  // required, always numeric) and the payload is the DELTA (`±step`), not the field's stored
-  // value — unlike `buildSubmitValues`, which sends the field's current value verbatim. The local
-  // value is an explicitly cosmetic, session-local optimistic running tally (never read from or
-  // trusted as a server response), advanced before the request resolves and reverted on
-  // rejection/failure.
+  // design.md Decision 1/2/3, HEL-1095 design.md D9 — the compact single-counter-field layout's
+  // `+`/`-` handler. Reuses the existing submit path (`submitFormPanel`) directly rather than
+  // going through `handleSubmit` above: there is no whole-form validation to run (the counter is
+  // the only field, always required, always numeric) and the payload is the DELTA (`±step`), not
+  // the field's stored value — unlike `buildSubmitValues`, which sends the field's current value
+  // verbatim. Every activation fires its own request immediately (no reentrancy guard — a burst
+  // of clicks is genuinely concurrent, tracked via `pendingDeltasRef`), advances the displayed
+  // value by `delta` on top of whatever is already shown, and reconciles against the dataset's
+  // own server-computed aggregate once the whole burst quiesces (HEL-1095 C1: decoupled from any
+  // downstream pipeline run entirely — see design.md D1's owner ruling).
   async function handleImmediateStep(direction: 1 | -1) {
-    if (!schema || submitState === "pending") return;
+    if (!schema) return;
 
     const field = config.fields[0];
     const step = field.step ?? 1;
     const delta = step * direction;
-    const currentValue = values.values[field.sourceField];
-    const previous =
-      typeof currentValue === "string" && currentValue !== "" ? Number(currentValue) || 0 : 0;
-    const next = previous + delta;
+    const token = {};
 
     flushSync(() => {
       setAlertText("");
       setStatusText("");
     });
-    values.setValue(field.sourceField, String(next));
+    values.adjustNumericValue(field.sourceField, delta);
 
-    setSubmitState("pending");
+    pendingDeltasRef.current.set(token, delta);
+    setPendingCount(pendingDeltasRef.current.size);
+
     try {
       await submitFormPanel(panelId, { [field.sourceField]: delta }, {});
-      setSubmitState("succeeded");
       setStatusText("The row was added.");
+
+      // Unconditional on every settle, success or failure alike (design-gate round 4) — this is
+      // what lets a fetch already dispatched below be invalidated by a LATER sibling click's own
+      // outcome, even when that outcome alone doesn't empty the map and so doesn't dispatch a new
+      // fetch of its own.
+      pendingDeltasRef.current.delete(token);
+      reconcileGenerationRef.current += 1;
+      setPendingCount(pendingDeltasRef.current.size);
+
+      // Quiesce-gated: fetch the authoritative aggregate ONLY when THIS settle is the one that
+      // empties the map (design-gate round 2 — fetching on every success let a still-in-flight
+      // sibling's already-committed write get double-corrected by a second, later fetch, a
+      // visible backward snap). A response is only ever sent after its write commits, so once the
+      // LAST outstanding request in a burst is processed here, every request in that burst has
+      // already committed — the aggregate this fetch reads back is guaranteed to include all of
+      // them.
+      if (pendingDeltasRef.current.size === 0) {
+        const myGen = reconcileGenerationRef.current;
+        try {
+          const aggregate = await fetchFieldAggregate(config.dataSourceId, field.sourceField);
+          // Applied only if NOTHING has settled since this fetch was dispatched (the generation
+          // check — design-gate round 4) AND the map is still empty right now (design-gate round
+          // 3, a brand-new click racing this fetch's own round trip). Either condition failing
+          // means the fetch's triggering condition no longer holds by the time it resolves, so
+          // its result is stale and must be discarded rather than overwrite a newer optimistic
+          // value — the click(s) that invalidated it will themselves drive a fresh reconciliation
+          // once they settle.
+          if (myGen === reconcileGenerationRef.current && pendingDeltasRef.current.size === 0) {
+            values.setValue(field.sourceField, String(aggregate.value));
+          }
+        } catch {
+          // The WRITE already succeeded (we're past the `submitFormPanel` await above) — only
+          // this read-back failed. Never a rollback trigger (design.md D7/C2: rollback is scoped
+          // to the submit request's own rejection/failure only); the optimistic tally already
+          // reflects the true total for this session's own writes, so it's left as-is rather than
+          // surfacing a spurious error for a persisted write.
+        }
+      }
     } catch (err) {
-      setSubmitState("failed");
-      // Revert the optimistic tally — a rejected/failed click must not silently advance the
-      // displayed count (design.md Decision 3).
-      values.setValue(field.sourceField, String(previous));
+      pendingDeltasRef.current.delete(token);
+      reconcileGenerationRef.current += 1;
+      setPendingCount(pendingDeltasRef.current.size);
+      // Relative rollback — subtract only THIS click's own delta from the CURRENT displayed
+      // value, never revert to an absolute snapshot (HEL-1087's original approach, wrong once a
+      // sibling click can be concurrently in flight: an earlier snapshot may no longer reflect a
+      // sibling's contribution that has since landed — design.md D9).
+      values.adjustNumericValue(field.sourceField, -delta);
       const serverFieldErrors = parseFieldErrors(err);
       if (serverFieldErrors.length > 0) {
         setAlertText(serverFieldErrors.map((e) => e.reason).join(" "));
@@ -255,6 +315,7 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
             }}
             immediate
             onImmediateStep={(direction) => void handleImmediateStep(direction)}
+            busy={pendingCount > 0}
           />
           <p role="alert" className="form-panel-view__alert">
             {alertText}

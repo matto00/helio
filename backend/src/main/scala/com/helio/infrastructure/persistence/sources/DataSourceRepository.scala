@@ -946,6 +946,25 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     }
   }
 
+  /** HEL-1095 design.md D2/D3/D4: `sum(delta)` over a dataset source's rows, for one field
+   *  identified by its DECLARED POSITIONAL INDEX (`dataset_rows.data` is a positional JSONB
+   *  array -- design.md's Risks section -- so the caller resolves `field`'s index against
+   *  `dataset_schema` via `getDeclaredSchema` BEFORE calling this, mirroring
+   *  `parseStaticPayload`'s schema-then-rows read order). Runs under `ctx.withUserContext`
+   *  (D3) -- never the privileged pool -- so RLS on `dataset_rows` still applies exactly like
+   *  every other per-user row read in this file. `data ->> fieldIndex` extracts the element at
+   *  that position as text; a row shorter than `fieldIndex` yields SQL `NULL`, which `SUM`
+   *  already excludes on its own -- the outer `COALESCE` only covers the all-NULL/zero-row case,
+   *  so an empty (or entirely short) dataset aggregates to `0`, never `NULL` (D4: no new index
+   *  needed -- the existing `idx_dataset_rows_data_source_id (data_source_id, seq)` index already
+   *  covers this query's `WHERE data_source_id = ?` predicate at the current 500-row write cap). */
+  def aggregateField(id: DataSourceId, fieldIndex: Int, user: AuthenticatedUser): Future[BigDecimal] = {
+    val action = sql"""SELECT COALESCE(SUM((data ->> $fieldIndex)::numeric), 0)
+                        FROM dataset_rows
+                        WHERE data_source_id = ${id.value}""".as[BigDecimal].head
+    ctx.withUserContext(user.id.value)(action)
+  }
+
   /** HEL-1124 design.md Decision 1/2/4: `PATCH /api/data-sources/:id/schema`'s write path.
    *  Reuses `lockSource` exactly like `appendRows`/`replaceRows` -- everything from the
    *  re-read of the CURRENT declaration/rows through the final write happens inside one locked
