@@ -19,6 +19,7 @@ import { buildDeniedPipelinesToast } from "../../../pipelines/services/deniedPip
 import { useRunToUpdate } from "../../../pipelines/hooks/useRunToUpdate";
 import { useToast } from "../../../toasts/hooks/useToast";
 import { parseFieldErrors, submitFormPanel } from "../../services/panelService";
+import { isDefiniteRejection } from "../../state/classifySubmitFailure";
 import { computeFormIssues } from "../../state/formConfigValidation";
 import {
   buildSubmitFiles,
@@ -166,11 +167,17 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
     pendingDeltasRef.current.set(token, delta);
     setPendingCount(pendingDeltasRef.current.size);
 
-    try {
-      const response = await submitFormPanel(panelId, { [field.sourceField]: delta }, {});
-      setStatusText("The row was added.");
-      pushDenialToastIfAny(response);
-
+    // HEL-1169 design.md D2 — extracted so it can be called unconditionally from all THREE
+    // settle outcomes below (success, definite rejection, indeterminate failure alike), fixing a
+    // real correctness gap: scoping this to only two of the three branches means a burst that
+    // happens to quiesce on a definite-rejection settle would never reconcile, even when an
+    // earlier sibling in the same burst was indeterminate and genuinely needs correcting.
+    // `onReconcileFailed` is invoked only when THIS settle emptied the pending map AND the
+    // aggregate fetch itself failed — the caller decides whether that's worth surfacing
+    // (design.md D4); this helper never does. Applies a fetched aggregate via `reconcileValue`,
+    // NEVER `setValue` — `setValue`'s unconditional `externalErrors` clear would otherwise erase
+    // a definite rejection's just-set `aria-invalid` state on this SAME settle (design.md D3a).
+    async function reconciliationTail(onReconcileFailed?: () => void) {
       // Unconditional on every settle, success or failure alike (design-gate round 4) — this is
       // what lets a fetch already dispatched below be invalidated by a LATER sibling click's own
       // outcome, even when that outcome alone doesn't empty the map and so doesn't dispatch a new
@@ -198,32 +205,60 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
           // value — the click(s) that invalidated it will themselves drive a fresh reconciliation
           // once they settle.
           if (myGen === reconcileGenerationRef.current && pendingDeltasRef.current.size === 0) {
-            values.setValue(field.sourceField, String(aggregate.value));
+            values.reconcileValue(field.sourceField, String(aggregate.value));
           }
         } catch {
-          // The WRITE already succeeded (we're past the `submitFormPanel` await above) — only
-          // this read-back failed. Never a rollback trigger (design.md D7/C2: rollback is scoped
-          // to the submit request's own rejection/failure only); the optimistic tally already
-          // reflects the true total for this session's own writes, so it's left as-is rather than
-          // surfacing a spurious error for a persisted write.
+          onReconcileFailed?.();
         }
       }
+    }
+
+    try {
+      const response = await submitFormPanel(panelId, { [field.sourceField]: delta }, {});
+      setStatusText("The row was added.");
+      pushDenialToastIfAny(response);
+      // HEL-1169 design.md D3 (round-1 design-gate CR3) — clears any stale rejection error
+      // UNCONDITIONALLY, independent of whether this settle's own trailing reconciliation fetch
+      // below succeeds: relying on `reconcileValue`'s incidental non-clearing would leave a stale
+      // `aria-invalid` across a later successful click whose own fetch happens to fail.
+      values.setExternalErrors({});
+      // No `onReconcileFailed` here — a failed trailing fetch after a KNOWN-successful write
+      // stays silent, exactly as before this ticket (nothing was ever in doubt).
+      await reconciliationTail();
     } catch (err) {
-      pendingDeltasRef.current.delete(token);
-      reconcileGenerationRef.current += 1;
-      setPendingCount(pendingDeltasRef.current.size);
-      // Relative rollback — subtract only THIS click's own delta from the CURRENT displayed
-      // value, never revert to an absolute snapshot (HEL-1087's original approach, wrong once a
-      // sibling click can be concurrently in flight: an earlier snapshot may no longer reflect a
-      // sibling's contribution that has since landed — design.md D9).
-      values.adjustNumericValue(field.sourceField, -delta);
-      const serverFieldErrors = parseFieldErrors(err);
-      if (serverFieldErrors.length > 0) {
-        setAlertText(serverFieldErrors.map((e) => e.reason).join(" "));
+      if (isDefiniteRejection(err)) {
+        // Definite rejection: the server (or an intermediate proxy) answered, so the write is
+        // known NOT to have committed. Relative rollback — subtract only THIS click's own delta
+        // from the CURRENT displayed value, never revert to an absolute snapshot (HEL-1087's
+        // original approach, wrong once a sibling click can be concurrently in flight: an earlier
+        // snapshot may no longer reflect a sibling's contribution that has since landed —
+        // design.md D9).
+        values.adjustNumericValue(field.sourceField, -delta);
+        const serverFieldErrors = parseFieldErrors(err);
+        const message =
+          serverFieldErrors.length > 0
+            ? serverFieldErrors.map((e) => e.reason).join(" ")
+            : extractErrorMessage(err, "The submit could not be completed. Please try again.");
+        setAlertText(message);
+        // HEL-1169 design.md D3 — associates the rejection with the control itself
+        // (`aria-invalid`/`aria-describedby`), matching what `handleSubmit` already does via
+        // `setExternalErrors` on its own rejection path (today the compact counter never did).
+        values.setExternalErrors({ [field.sourceField]: message });
+        // No `onReconcileFailed` here (design.md D4) — a failed trailing fetch must never
+        // overwrite this rejection's own already-announced error text.
+        await reconciliationTail();
       } else {
-        setAlertText(
-          extractErrorMessage(err, "The submit could not be completed. Please try again."),
-        );
+        // Indeterminate: no HTTP exchange completed at all, so whether the write actually
+        // committed is genuinely unknown — rolling back here could revert an already-persisted
+        // write (the lost-ack case HEL-1169 exists to fix). Never adjust the optimistic value
+        // directly; once the burst quiesces, `reconciliationTail` fetches the dataset's own
+        // authoritative aggregate and replaces the (possibly-wrong) optimistic tally with it. If
+        // that reconciliation fetch ALSO fails, the optimistic value is left as-is (never
+        // silently discarded) and the assertive region announces that it could not be confirmed —
+        // distinct wording from a definite rejection's own error.
+        await reconciliationTail(() => {
+          setAlertText("Couldn't confirm the current value. It may not be up to date.");
+        });
       }
     }
   }

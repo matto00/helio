@@ -444,15 +444,195 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "0"));
   });
 
+  // HEL-1169: updated from a response-less `Error` to a definite (axios, response-carrying)
+  // rejection — under the new classification (design.md D1) a response-less failure is
+  // indeterminate and must NOT roll back (see 1.1 above, which covers that case); this test's own
+  // intent ("a rejected submit reverts the tally") is preserved by making the rejection definite.
   it("1.3/4.3: a rejected increment reverts the optimistic tally and writes nothing", async () => {
-    submitFormPanelMock.mockRejectedValueOnce(new Error("Network Error"));
+    submitFormPanelMock.mockRejectedValueOnce(axiosErrorWith(500, {}));
+    fetchFieldAggregateMock.mockRejectedValueOnce(new Error("aggregate refetch failed"));
     const control = await renderCompact();
 
     fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
 
     await waitFor(() => expect(submitFormPanelMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "0"));
-    expect(screen.getByRole("alert")).toHaveTextContent(/could not be completed/i);
+    // Two `role="alert"` regions now co-exist on a rejection (the shared alert region AND the
+    // field-associated error `FormField` renders once `aria-invalid` is set) -- scoped to the
+    // shared region specifically, matching this test's own original intent.
+    expect(document.querySelector(".form-panel-view__alert")).toHaveTextContent(
+      /could not be completed/i,
+    );
+  });
+
+  // ── HEL-1169 tasks.md Section 1 — red-first: prove the defect before fixing it ────────────
+
+  // 1.1: a network failure with no response, AFTER the server actually committed the write
+  // (the aggregate mock already reflects the new total), must reconcile to the true total —
+  // not roll back a write that persisted. Red against pre-HEL-1169 code: the old catch branch
+  // treats every rejection identically and always subtracts the click's own delta, so the old
+  // behavior displays "0" here, not the persisted "5".
+  it("HEL-1169 1.1: a lost acknowledgement after a committed write reconciles to the true total, not a rollback", async () => {
+    submitFormPanelMock.mockRejectedValueOnce(new Error("Network Error"));
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 5 });
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledWith("ds-2", "delta"));
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "5"));
+    // Indeterminate settles are silent unless their own trailing reconciliation fetch also
+    // fails (design.md D4) — this one succeeds, so nothing is announced.
+    expect(document.querySelector(".form-panel-view__alert")).toHaveTextContent("");
+  });
+
+  // 1.2: a definite rejection (a real HTTP response) must still roll back AND associate the
+  // error with the counter control itself via computed `aria-invalid`/`aria-describedby` — not
+  // just the shared alert region's text. Red against pre-HEL-1169 code: today the compact
+  // counter path never calls `setExternalErrors`, so the control never gets `aria-invalid`.
+  it("HEL-1169 1.2: a definite rejection rolls back and marks the counter control invalid via computed ARIA", async () => {
+    submitFormPanelMock.mockRejectedValueOnce(
+      axiosErrorWith(400, {
+        message: "bad",
+        fieldErrors: [{ field: "delta", reason: "delta must be positive" }],
+      }),
+    );
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "0"));
+    await waitFor(() => expect(control).toHaveAttribute("aria-invalid", "true"));
+    expect(control).toHaveAccessibleDescription(/delta must be positive/i);
+  });
+
+  // ── HEL-1169 tasks.md Section 2 — implementation-verifying tests ──────────────────────────
+
+  // 2.4: when the settle that empties the pending set is itself indeterminate, AND the resulting
+  // reconciliation fetch also fails, the optimistic value is left as-is (never discarded) and the
+  // assertive region announces an unconfirmed state, distinct from a definite rejection's wording.
+  it("HEL-1169 2.4: an indeterminate failure whose own reconciliation fetch also fails leaves the value and announces 'couldn't confirm'", async () => {
+    submitFormPanelMock.mockRejectedValueOnce(new Error("Network Error"));
+    fetchFieldAggregateMock.mockRejectedValueOnce(new Error("aggregate refetch failed"));
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledWith("ds-2", "delta"));
+    // The optimistic value is never rolled back for an indeterminate failure, and stays put even
+    // when the follow-up reconciliation fetch can't confirm it.
+    expect(control).toHaveAttribute("aria-valuenow", "5");
+    await waitFor(() =>
+      expect(document.querySelector(".form-panel-view__alert")).toHaveTextContent(
+        /couldn't confirm/i,
+      ),
+    );
+    expect(document.querySelector(".form-panel-view__alert")).not.toHaveTextContent(
+      /could not be completed/i,
+    );
+  });
+
+  // 2.5: a field-associated rejection error is cleared unconditionally by the NEXT successful
+  // settle — even when that success's own trailing reconciliation fetch fails, since relying on
+  // the fetch's own outcome would leave a stale `aria-invalid` indefinitely (design.md D3, CR3).
+  it("HEL-1169 2.5: a successful settle clears a prior rejection's aria-invalid even when its own reconciliation fetch fails", async () => {
+    submitFormPanelMock.mockRejectedValueOnce(
+      axiosErrorWith(400, { fieldErrors: [{ field: "delta", reason: "delta must be positive" }] }),
+    );
+    fetchFieldAggregateMock.mockRejectedValueOnce(new Error("aggregate refetch failed"));
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() => expect(control).toHaveAttribute("aria-invalid", "true"));
+
+    submitFormPanelMock.mockResolvedValueOnce({
+      rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
+      updatedAt: "now",
+      deniedPipelines: [],
+    });
+    fetchFieldAggregateMock.mockRejectedValueOnce(new Error("aggregate refetch failed again"));
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    await waitFor(() => expect(control).not.toHaveAttribute("aria-invalid", "true"));
+    // A success's own trailing fetch failure stays silent -- no "couldn't confirm" announcement,
+    // exactly the existing accepted silent-swallow behavior (design.md D4).
+    expect(document.querySelector(".form-panel-view__alert")).not.toHaveTextContent(
+      /couldn't confirm/i,
+    );
+  });
+
+  // 2.6: a burst that happens to quiesce on a DEFINITE-REJECTION settle must still reconcile an
+  // earlier sibling's indeterminate outcome within the same burst (design.md D2, round-1
+  // design-gate CR2) -- not just the success/indeterminate branches.
+  it("HEL-1169 2.6: a burst that quiesces on a definite-rejection settle still reconciles an earlier sibling's indeterminate outcome", async () => {
+    let rejectA!: (e: unknown) => void;
+    let rejectB!: (e: unknown) => void;
+    submitFormPanelMock.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectA = reject;
+      }),
+    );
+    submitFormPanelMock.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectB = reject;
+      }),
+    );
+    const control = await renderCompact();
+    const increaseButton = screen.getByRole("button", { name: /increase widgets/i });
+
+    fireEvent.click(increaseButton); // A
+    fireEvent.click(increaseButton); // B
+    await waitFor(() => expect(submitFormPanelMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "10")); // A(5)+B(5)
+
+    // A settles indeterminate first -- sibling B still pending, so no fetch dispatched yet, and
+    // A's own optimistic delta is NOT rolled back.
+    await act(async () => {
+      rejectA(new Error("Network Error"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchFieldAggregateMock).not.toHaveBeenCalled();
+    expect(control).toHaveAttribute("aria-valuenow", "10");
+
+    // B settles with a DEFINITE rejection second -- empties the pending set. B's own delta rolls
+    // back, AND the reconciliation fetch fires (fixing the pre-HEL-1169 gap where a burst that
+    // quiesced on a rejection never reconciled A's own indeterminate outcome at all). The
+    // resolved aggregate (8) differs from what local rollback math alone would produce (5),
+    // proving this is a real server-confirmed correction, not leftover optimistic arithmetic.
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 8 });
+    await act(async () => {
+      rejectB(axiosErrorWith(500, {}));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledWith("ds-2", "delta"));
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "8"));
+  });
+
+  // 2.8: the single most common real-world path for AC #1 -- an isolated rejected click, no
+  // sibling in flight, whose own trailing reconciliation fetch SUCCEEDS. The fix (design.md D3a,
+  // round-2 design-gate CR1) is that `reconcileValue` (not `setValue`) applies the fetched total,
+  // so this success can never incidentally clear the rejection's own `aria-invalid`.
+  it("HEL-1169 2.8: a rejected click's own successful trailing reconciliation does not clear its aria-invalid (primary path)", async () => {
+    submitFormPanelMock.mockRejectedValueOnce(
+      axiosErrorWith(400, { fieldErrors: [{ field: "delta", reason: "delta must be positive" }] }),
+    );
+    // Differs from the post-rollback local value (0) so a later assertion can distinguish
+    // "reconciliation actually applied" from "the value just happened to already be right".
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 20 });
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    // Rollback and the trailing reconciliation fetch can resolve close enough together that an
+    // intermediate "0" is never observed as its own distinct state (real timers, not asserted
+    // here) -- what matters is the FINAL state once reconciliation has applied (20, not 0 or 5).
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "20")); // reconciled
+    // The reconciliation fetch succeeded and updated the TOTAL -- but must not have cleared the
+    // rejection's own error state.
+    expect(control).toHaveAttribute("aria-invalid", "true");
+    expect(control).toHaveAccessibleDescription(/delta must be positive/i);
   });
 
   it("resetOnSuccess: false is respected — the compact layout never wipes the tally after a click", async () => {
@@ -576,15 +756,26 @@ describe("FormPanelView — compact single-counter-field layout", () => {
   // regression guard confirming 2.2/2.3/2.4's new per-click map/relative-subtraction plumbing
   // didn't disturb it -- this single-click case passes against BOTH the pre- and post-1095 code,
   // unlike 3.7's genuinely new multi-click relative-rollback assertion, which is red pre-fix).
+  // HEL-1169: updated from a response-less `Error` to a definite (axios) rejection — a
+  // response-less failure is now indeterminate and must NOT roll back (see 1.1). Also updated:
+  // per design.md D2, EVERY settle (including a definite rejection) now unconditionally triggers
+  // the shared reconciliation tail once it empties the pending map, so `fetchFieldAggregateMock`
+  // IS called here now, unlike pre-HEL-1169 behavior.
   it("3.2: a rejected submit rolls back and announces the failure", async () => {
-    submitFormPanelMock.mockRejectedValueOnce(new Error("Network Error"));
+    submitFormPanelMock.mockRejectedValueOnce(axiosErrorWith(500, {}));
+    fetchFieldAggregateMock.mockRejectedValueOnce(new Error("aggregate refetch failed"));
     const control = await renderCompact();
 
     fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
 
     await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "0"));
-    expect(screen.getByRole("alert")).toHaveTextContent(/could not be completed/i);
-    expect(fetchFieldAggregateMock).not.toHaveBeenCalled();
+    // Two `role="alert"` regions now co-exist on a rejection (the shared alert region AND the
+    // field-associated error `FormField` renders once `aria-invalid` is set) -- scoped to the
+    // shared region specifically, matching this test's own original intent.
+    expect(document.querySelector(".form-panel-view__alert")).toHaveTextContent(
+      /could not be completed/i,
+    );
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledWith("ds-2", "delta"));
   });
 
   // 3.3: ten rapid clicks accumulate optimistically with no reconciliation fetch until the very
@@ -686,11 +877,16 @@ describe("FormPanelView — compact single-counter-field layout", () => {
 
   // 3.7 (failing-first before the unconditional reconcileGeneration bump): click A settles
   // (success, dispatches fetch F1), then B and C fire; B settles (success, map still has C --
-  // no new dispatch); C settles (failure, empties the map -- still no new dispatch, since a
-  // failure never triggers a fetch); F1 then resolves with a value that predates B's commit.
-  // This exact ordering is forced (never a same-order mock) -- F1's result must be discarded, and
-  // the displayed value must still reflect B's own committed contribution.
-  it("3.7: a stale fetch is discarded even when invalidated by a sibling's success that didn't itself empty the map, followed by a failure that did", async () => {
+  // no new dispatch); C settles (a definite rejection, empties the map). This exact ordering is
+  // forced (never a same-order mock) -- F1's result must be discarded as stale, and the displayed
+  // value must reflect B's own committed contribution plus C's own rollback.
+  // HEL-1169: updated per design.md D2 -- C's own settle (whatever kind) now ALSO
+  // unconditionally dispatches its own reconciliation fetch (F2) once it empties the map, unlike
+  // pre-HEL-1169 behavior where a rejection never reconciled at all. C is kept a DEFINITE
+  // rejection here (not response-less) so this test's own rollback assertion stays exactly what
+  // it always tested -- the response-less/indeterminate case is covered separately by 1.1 and
+  // 2.6.
+  it("3.7: a stale fetch is discarded even when invalidated by a sibling's success that didn't itself empty the map, followed by a rejection that did (which now dispatches its own fetch too)", async () => {
     // Click A: resolves immediately (its own settle dispatches F1, captured below).
     submitFormPanelMock.mockResolvedValueOnce({
       rows: [{ id: "a", seq: 0, updatedAt: "now" }],
@@ -716,7 +912,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
       updatedAt: string;
       deniedPipelines: never[];
     }) => void;
-    let rejectC!: (e: Error) => void;
+    let rejectC!: (e: unknown) => void;
     submitFormPanelMock.mockReturnValueOnce(
       new Promise((resolve) => {
         resolveB = resolve;
@@ -745,24 +941,42 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1);
     expect(control).toHaveAttribute("aria-valuenow", "15");
 
-    // C settles failure -- empties the map, still no new fetch (a failure never dispatches one),
-    // and C's own delta rolls back.
+    // C settles with a DEFINITE rejection -- empties the map. C's own delta rolls back
+    // immediately, AND (design.md D2) this settle now ALSO dispatches its own reconciliation
+    // fetch (F2), captured below so its resolution can be controlled independently of F1's.
+    let resolveF2!: (v: { field: string; op: string; value: number }) => void;
+    fetchFieldAggregateMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveF2 = resolve;
+      }),
+    );
     await act(async () => {
-      rejectC(new Error("Network Error"));
+      rejectC(axiosErrorWith(500, {}));
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1);
+    expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(2);
     await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "10")); // A(5)+B(5)
 
     // F1 (from A) finally resolves with a value that predates B's own commit -- it must be
     // discarded: `reconcileGeneration` moved twice since F1 was dispatched (B's success, C's
-    // failure), so F1's `myGen` no longer matches.
+    // rejection), so F1's `myGen` no longer matches.
     await act(async () => {
       resolveF1({ field: "delta", op: "sum", value: 5 });
       await Promise.resolve();
       await Promise.resolve();
     });
     expect(control).toHaveAttribute("aria-valuenow", "10");
+
+    // F2 (from C's own rejection settle) resolves last and IS applied -- it's the current
+    // generation's own fetch, not a stale one, and applying it never disturbs C's own
+    // already-set field error (design.md D3a -- `reconcileValue`, not `setValue`).
+    await act(async () => {
+      resolveF2({ field: "delta", op: "sum", value: 10 });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(control).toHaveAttribute("aria-valuenow", "10");
+    expect(control).toHaveAttribute("aria-invalid", "true");
   });
 });
