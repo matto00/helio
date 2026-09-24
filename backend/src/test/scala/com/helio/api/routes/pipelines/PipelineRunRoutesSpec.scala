@@ -818,6 +818,26 @@ class PipelineRunRoutesSpec
       }
     }
 
+    // HEL-1168 task 3.6: confirms ACL scoping is unaffected by the multi-subscriber/cross-instance
+    // fan-out rewrite -- a subscriber for one pipeline never receives an event published (via the
+    // SAME shared registry the routes use) for a DIFFERENT pipeline it never subscribed to.
+    "GET /pipelines/:id/run-events only delivers events for the subscribed pipeline, not another pipeline sharing the registry" in {
+      val dsIdX = seedDs("dataset")
+      val pidX  = seedPipeline(dsIdX)
+      val dsIdY = seedDs("dataset")
+      val pidY  = seedPipeline(dsIdY)
+      val reg   = new PipelineRunRegistry()(typedSystem)
+
+      val eventsFuture = reg.subscribe(pidX.value).take(1).runWith(Sink.seq)(Materializer(system))
+
+      reg.publish(pidY.value, RunStatusEvent("succeeded"))
+      reg.publish(pidX.value, RunStatusEvent("failed", errorLog = Some("only pidX")))
+
+      val events = Await.result(eventsFuture, 10.seconds)
+      events.map(_.status) shouldBe Seq("failed")
+      events.head.errorLog shouldBe Some("only pidX")
+    }
+
     "POST /pipelines/:id/run publishes queued -> running -> succeeded via SSE" in {
       val cache = new PipelineRunCache()
       val dsId  = seedDsWithData()

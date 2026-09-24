@@ -72,9 +72,11 @@ jobs:
           # --update-secrets is the same additive idiom for Secret Manager refs
           # (--set-secrets would instead replace the whole secrets list on
           # every deploy, dropping any not named here).
-          # --max-instances=2 keeps the privileged DB pool (5 connections/instance,
-          # helio.db.privileged in application.conf) within db-g1-small's
-          # connection budget — 3+ instances previously exhausted it under load.
+          # --max-instances=2 keeps the per-instance DB connection footprint (5 app + 5
+          # privileged + 1 dedicated LISTEN connection for cross-instance pipeline-run-event
+          # fan-out, HEL-1168 — see application.conf's helio.db comment — = 11/instance, 2 × 11 =
+          # 22 total) within db-g1-small's connection budget — 3+ instances previously exhausted
+          # it under load.
           # CONNECTOR_MASTER_KEY / _KEY_ID wrap connector credentials at rest
           # (HEL-536). Both are required together: EnvMasterKeyProvider fails
           # CLOSED without them, so every connector credential write errors
