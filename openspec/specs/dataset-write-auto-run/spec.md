@@ -113,6 +113,13 @@ logged) rather than silently dropped.
 - **THEN** the resulting auto-run, if any, is attributed to and counts against the pipeline
   owner's rate limit and concurrency cap, not the writing user's
 
+#### Scenario: A guard-rejected auto-run's debounce claim is released without a retry storm
+- **WHEN** a debounced auto-run's claim is rejected by the pipeline-run guard on a given scheduler
+  tick
+- **THEN** the debounce claim for that pipeline is released (not left stuck) on that same tick, and
+  no further fire attempt for the SAME denied write occurs on any subsequent tick — a fresh fire
+  attempt for that pipeline only occurs following a NEW dataset write that re-schedules the debounce
+
 ### Requirement: An auto-run trigger never itself cascades into a further auto-run
 The system SHALL NOT treat a pipeline's own write-back output as a dataset write capable of
 scheduling a further downstream auto-run — write-back-producing pipelines are already excluded from
