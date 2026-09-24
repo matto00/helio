@@ -399,3 +399,24 @@ export async function updateDatasetSchema(
   );
   return response.data;
 }
+
+// HEL-1095 design.md D2: GET /api/data-sources/:id/rows/aggregate -- a dataset-kind source's
+// server-computed sum for one declared numeric field, computed fresh on every request. Only
+// `op=sum` is supported today (design.md D1/D2); the compact counter's reconciliation path
+// (FormPanelView.tsx) is the only caller so far.
+export interface FieldAggregateResponse {
+  field: string;
+  op: string;
+  value: number;
+}
+
+export async function fetchFieldAggregate(
+  sourceId: string,
+  field: string,
+): Promise<FieldAggregateResponse> {
+  const response = await httpClient.get<FieldAggregateResponse>(
+    `/api/data-sources/${sourceId}/rows/aggregate`,
+    { params: { field, op: "sum" } },
+  );
+  return response.data;
+}

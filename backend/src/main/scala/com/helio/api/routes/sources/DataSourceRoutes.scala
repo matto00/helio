@@ -166,6 +166,17 @@ final class DataSourceRoutes(
             }
           )
         },
+        // HEL-1095 design.md D2: read-only aggregate route -- MUST be matched before the sibling
+        // `rows/:rowId` route below, since a bare `Segment` there would otherwise swallow the
+        // literal path segment "aggregate" as if it were a row id (Pekko HTTP tries `concat`
+        // alternatives in declaration order, first match wins).
+        path(DataSourceIdSegment / "rows" / "aggregate") { sourceId =>
+          get {
+            parameters("field", "op") { (field, op) =>
+              ServiceResponse.run(dataSourceService.getFieldAggregate(sourceId, field, op, user))(identity)
+            }
+          }
+        },
         // HEL-1078: per-row edit/delete, guarded by an `updatedAt` precondition (design.md D3:
         // DELETE's precondition is a query parameter, not a body). Same rate-limit/auth
         // composition as the sibling `rows` path above -- no new wiring needed.

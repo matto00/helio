@@ -707,6 +707,27 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
       readBack.fields("columns") shouldBe declared.toJson
       readBack.fields("rows") shouldBe JsArray(Vector(JsArray(Vector(JsString("x"))), JsArray(Vector(JsString("y")))))
     }
+
+    // ── HEL-1095 tasks.md 1.1: DataSourceRepository.aggregateField ────────
+    "aggregateField sums a numeric field's declared positional index across every stored row" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("label", DataFieldType.StringType), DatasetFieldDeclaration("delta", DataFieldType.IntegerType))
+      val id = newDatasetSource(
+        "ds-aggregate-multi-row",
+        declared,
+        Vector(Vector(JsString("a"), JsNumber(1)), Vector(JsString("b"), JsNumber(2)), Vector(JsString("c"), JsNumber(3)))
+      )
+      val sum = await(repo.aggregateField(id, fieldIndex = 1, user1))
+      sum shouldBe BigDecimal(6)
+    }
+
+    "aggregateField returns 0 for a dataset source with zero rows" in {
+      cleanDb()
+      val declared = Vector(DatasetFieldDeclaration("delta", DataFieldType.IntegerType))
+      val id = newDatasetSource("ds-aggregate-empty", declared, Vector.empty)
+      val sum = await(repo.aggregateField(id, fieldIndex = 0, user1))
+      sum shouldBe BigDecimal(0)
+    }
   }
 
   // ── HEL-1124: updateDatasetSchema -- persistence-level coverage (algorithm cases are exhaustively

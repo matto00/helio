@@ -2,16 +2,20 @@
 // and the submit path: success, client-side block, server field errors, transport failure,
 // preserved input on rejection, and computed-ARIA-only assertions (C1).
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AxiosError, AxiosHeaders } from "axios";
 
 import { FormPanelView } from "./FormPanelView";
-import { fetchDatasetSchema as fetchDatasetSchemaRequest } from "../../../sources/services/dataSourceService";
+import {
+  fetchDatasetSchema as fetchDatasetSchemaRequest,
+  fetchFieldAggregate as fetchFieldAggregateRequest,
+} from "../../../sources/services/dataSourceService";
 import { submitFormPanel as submitFormPanelRequest } from "../../services/panelService";
 import type { FormPanelConfig } from "../../types/panel";
 
 jest.mock("../../../sources/services/dataSourceService", () => ({
   fetchDatasetSchema: jest.fn(),
+  fetchFieldAggregate: jest.fn(),
 }));
 
 jest.mock("../../services/panelService", () => ({
@@ -20,6 +24,7 @@ jest.mock("../../services/panelService", () => ({
 }));
 
 const fetchDatasetSchemaMock = jest.mocked(fetchDatasetSchemaRequest);
+const fetchFieldAggregateMock = jest.mocked(fetchFieldAggregateRequest);
 const submitFormPanelMock = jest.mocked(submitFormPanelRequest);
 
 const config: FormPanelConfig = {
@@ -320,6 +325,7 @@ describe("FormPanelView — compact single-counter-field layout", () => {
   beforeEach(() => {
     fetchDatasetSchemaMock.mockReset();
     submitFormPanelMock.mockReset();
+    fetchFieldAggregateMock.mockReset();
   });
 
   async function renderCompact() {
@@ -412,6 +418,8 @@ describe("FormPanelView — compact single-counter-field layout", () => {
       rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
       updatedAt: "now",
     });
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 5 });
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 0 });
     const control = await renderCompact();
     expect(control).toHaveAttribute("aria-valuenow", "0");
 
@@ -444,10 +452,274 @@ describe("FormPanelView — compact single-counter-field layout", () => {
       rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
       updatedAt: "now",
     });
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 5 });
     const control = await renderCompact();
 
     fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
 
     await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "5"));
+  });
+
+  // ── HEL-1095 tasks.md 2.2/2.5/3.1/3.2/3.3/3.4/3.7 ──────────────────────────
+
+  // 2.2: the old single-value `submitState === "pending"` guard silently dropped every click
+  // after the first in a burst (design-gate round 1) -- a second click fired BEFORE the first
+  // settles must still fire its own request and accumulate its own delta, both tracked
+  // concurrently by the pending-delta map.
+  it("2.2: a second click fired before the first settles still submits its own request and accumulates its own delta", async () => {
+    const resolvers: Array<
+      (v: { rows: { id: string; seq: number; updatedAt: string }[]; updatedAt: string }) => void
+    > = [];
+    submitFormPanelMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    const control = await renderCompact();
+    const increaseButton = screen.getByRole("button", { name: /increase widgets/i });
+
+    fireEvent.click(increaseButton);
+    fireEvent.click(increaseButton);
+
+    await waitFor(() => expect(submitFormPanelMock).toHaveBeenCalledTimes(2));
+    expect(control).toHaveAttribute("aria-valuenow", "10");
+
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 10 });
+    await act(async () => {
+      resolvers[0]({ rows: [{ id: "r1", seq: 0, updatedAt: "now" }], updatedAt: "now" });
+      await Promise.resolve();
+    });
+    // The first settle alone must not empty the map or dispatch a reconciliation fetch -- the
+    // second request is still outstanding.
+    expect(fetchFieldAggregateMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolvers[1]({ rows: [{ id: "r2", seq: 1, updatedAt: "now" }], updatedAt: "now" });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("2.5: aria-busy is true while the immediate-submit request is outstanding, and clears once it settles", async () => {
+    let resolveSubmit!: (v: {
+      rows: { id: string; seq: number; updatedAt: string }[];
+      updatedAt: string;
+    }) => void;
+    submitFormPanelMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSubmit = resolve;
+      }),
+    );
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 5 });
+    const control = await renderCompact();
+    expect(control).not.toHaveAttribute("aria-busy", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() => expect(control).toHaveAttribute("aria-busy", "true"));
+
+    resolveSubmit({ rows: [{ id: "r1", seq: 0, updatedAt: "now" }], updatedAt: "now" });
+    await waitFor(() => expect(control).not.toHaveAttribute("aria-busy", "true"));
+  });
+
+  // 3.1 (failing-first before 2.3): a submit succeeds with no downstream pipeline bound (this
+  // ticket never even queries one -- C1) -- the displayed value settles to the server's own
+  // aggregate rather than the client-computed optimistic tally, proving reconciliation actually
+  // replaces the local value rather than merely leaving it alone.
+  it("3.1: a successful submit reconciles the displayed value to the server's own aggregate", async () => {
+    submitFormPanelMock.mockResolvedValueOnce({
+      rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
+      updatedAt: "now",
+    });
+    // The server's aggregate (e.g. a concurrent writer's row already landed) differs from what
+    // this session's own optimistic delta alone would compute (0 + 5 = 5) -- only a real
+    // reconciliation, not the optimistic tally surviving untouched, produces 11 here.
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 11 });
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledWith("ds-2", "delta"));
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "11"));
+  });
+
+  // 3.2: a rejected submit reverts the optimistic value and announces the failure via the
+  // assertive alert region (design.md D7/2.6 -- the single-click rollback trigger itself is
+  // UNCHANGED by this ticket, already red-then-green proven at HEL-1087; verified here as a
+  // regression guard confirming 2.2/2.3/2.4's new per-click map/relative-subtraction plumbing
+  // didn't disturb it -- this single-click case passes against BOTH the pre- and post-1095 code,
+  // unlike 3.7's genuinely new multi-click relative-rollback assertion, which is red pre-fix).
+  it("3.2: a rejected submit rolls back and announces the failure", async () => {
+    submitFormPanelMock.mockRejectedValueOnce(new Error("Network Error"));
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "0"));
+    expect(screen.getByRole("alert")).toHaveTextContent(/could not be completed/i);
+    expect(fetchFieldAggregateMock).not.toHaveBeenCalled();
+  });
+
+  // 3.3: ten rapid clicks accumulate optimistically with no reconciliation fetch until the very
+  // last response settles, REGARDLESS of the order the ten responses actually resolve in --
+  // resolved out of request order here (a same-order mock would never exercise design.md D9's
+  // quiesce gate), and the displayed value never regresses below what's already shown.
+  it("3.3: ten rapid clicks accumulate with no reconciliation until the burst fully settles, resolved out of order", async () => {
+    const resolvers: Array<
+      (v: { rows: { id: string; seq: number; updatedAt: string }[]; updatedAt: string }) => void
+    > = [];
+    submitFormPanelMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 50 });
+    const control = await renderCompact();
+    const increaseButton = screen.getByRole("button", { name: /increase widgets/i });
+
+    for (let i = 0; i < 10; i++) fireEvent.click(increaseButton);
+    await waitFor(() => expect(submitFormPanelMock).toHaveBeenCalledTimes(10));
+    // All ten optimistic deltas are already reflected before any response has settled.
+    expect(control).toHaveAttribute("aria-valuenow", "50");
+
+    // Resolve out of request order: last-fired resolves first, first-fired resolves last.
+    const outOfOrder = [...resolvers].reverse();
+    for (const resolve of outOfOrder) {
+      // Yield a microtask so each settle's synchronous map-mutation/state-update actually lands
+      // before the next one fires -- proves the value never regresses mid-burst, not just at
+      // the very end.
+      await act(async () => {
+        resolve({ rows: [{ id: "r", seq: 0, updatedAt: "now" }], updatedAt: "now" });
+        await Promise.resolve();
+      });
+      const now = Number(control.getAttribute("aria-valuenow"));
+      expect(now).toBe(50);
+    }
+
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "50"));
+  });
+
+  // 3.4 (failing-first before the myGen/map-empty guard): a click settles and dispatches its
+  // reconciliation fetch; before that fetch resolves, a NEW click fires and updates the displayed
+  // value. The fetch is then forced to resolve strictly AFTER the new click's own optimistic
+  // state update has already committed (never a same-order mock) -- the stale fetch result must
+  // be discarded, not overwrite the new click's own optimistic delta.
+  it("3.4: a stale reconciliation fetch is discarded when a new click fires before it resolves", async () => {
+    submitFormPanelMock.mockResolvedValueOnce({
+      rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
+      updatedAt: "now",
+    });
+    let resolveAggregate!: (v: { field: string; op: string; value: number }) => void;
+    fetchFieldAggregateMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveAggregate = resolve;
+      }),
+    );
+    const control = await renderCompact();
+    const increaseButton = screen.getByRole("button", { name: /increase widgets/i });
+
+    fireEvent.click(increaseButton);
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1));
+    // The first click's own settle already committed its optimistic value (5) before its
+    // reconciliation fetch (still unresolved) was dispatched.
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "5"));
+
+    // A brand-new click fires and commits its own optimistic update BEFORE the first fetch
+    // resolves.
+    submitFormPanelMock.mockResolvedValueOnce({
+      rows: [{ id: "r2", seq: 1, updatedAt: "now" }],
+      updatedAt: "now",
+    });
+    fireEvent.click(increaseButton);
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "10"));
+
+    // Only now does the FIRST (now-stale) fetch resolve -- strictly after the new click's own
+    // state update, per the task's explicit ordering requirement.
+    await act(async () => {
+      resolveAggregate({ field: "delta", op: "sum", value: 5 });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // The stale result (5) must never overwrite the new click's own optimistic value (10).
+    expect(control).toHaveAttribute("aria-valuenow", "10");
+  });
+
+  // 3.7 (failing-first before the unconditional reconcileGeneration bump): click A settles
+  // (success, dispatches fetch F1), then B and C fire; B settles (success, map still has C --
+  // no new dispatch); C settles (failure, empties the map -- still no new dispatch, since a
+  // failure never triggers a fetch); F1 then resolves with a value that predates B's commit.
+  // This exact ordering is forced (never a same-order mock) -- F1's result must be discarded, and
+  // the displayed value must still reflect B's own committed contribution.
+  it("3.7: a stale fetch is discarded even when invalidated by a sibling's success that didn't itself empty the map, followed by a failure that did", async () => {
+    // Click A: resolves immediately (its own settle dispatches F1, captured below).
+    submitFormPanelMock.mockResolvedValueOnce({
+      rows: [{ id: "a", seq: 0, updatedAt: "now" }],
+      updatedAt: "now",
+    });
+    let resolveF1!: (v: { field: string; op: string; value: number }) => void;
+    fetchFieldAggregateMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveF1 = resolve;
+      }),
+    );
+    const control = await renderCompact();
+    const increaseButton = screen.getByRole("button", { name: /increase widgets/i });
+
+    fireEvent.click(increaseButton); // A
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "5")); // A's own delta
+
+    // B and C fire while F1 is still outstanding -- both held open until explicitly resolved.
+    let resolveB!: (v: {
+      rows: { id: string; seq: number; updatedAt: string }[];
+      updatedAt: string;
+    }) => void;
+    let rejectC!: (e: Error) => void;
+    submitFormPanelMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveB = resolve;
+      }),
+    );
+    submitFormPanelMock.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectC = reject;
+      }),
+    );
+    fireEvent.click(increaseButton); // B
+    fireEvent.click(increaseButton); // C
+    await waitFor(() => expect(submitFormPanelMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "15")); // A(5)+B(5)+C(5)
+
+    // B settles success -- map still has C outstanding, so no new fetch is dispatched.
+    await act(async () => {
+      resolveB({ rows: [{ id: "b", seq: 1, updatedAt: "now" }], updatedAt: "now" });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1);
+    expect(control).toHaveAttribute("aria-valuenow", "15");
+
+    // C settles failure -- empties the map, still no new fetch (a failure never dispatches one),
+    // and C's own delta rolls back.
+    await act(async () => {
+      rejectC(new Error("Network Error"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "10")); // A(5)+B(5)
+
+    // F1 (from A) finally resolves with a value that predates B's own commit -- it must be
+    // discarded: `reconcileGeneration` moved twice since F1 was dispatched (B's success, C's
+    // failure), so F1's `myGen` no longer matches.
+    await act(async () => {
+      resolveF1({ field: "delta", op: "sum", value: 5 });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(control).toHaveAttribute("aria-valuenow", "10");
   });
 });

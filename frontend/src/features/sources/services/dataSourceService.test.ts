@@ -11,11 +11,11 @@
 // test that mocks the service module would not catch a regression here.
 
 import { httpClient } from "../../../services/httpClient";
-import { testConnection } from "./dataSourceService";
+import { fetchFieldAggregate, testConnection } from "./dataSourceService";
 import type { SqlSourceConfig } from "./dataSourceService";
 
 jest.mock("../../../services/httpClient", () => ({
-  httpClient: { post: jest.fn() },
+  httpClient: { post: jest.fn(), get: jest.fn() },
 }));
 
 const mockedHttpClient = jest.mocked(httpClient);
@@ -75,5 +75,24 @@ describe("dataSourceService.testConnection", () => {
     await testConnection("rest_api", config);
 
     expect(mockedHttpClient.post).toHaveBeenCalledWith("/api/sources/test", config);
+  });
+});
+
+// HEL-1095 tasks.md 2.1: mirrors `fetchDatasetSchema`'s own thin-wrapper shape -- the only
+// behavior worth a unit test here is the request URL/params and the response passthrough.
+describe("dataSourceService.fetchFieldAggregate", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("requests the field's sum aggregate and returns the response body verbatim", async () => {
+    mockedHttpClient.get.mockResolvedValueOnce({ data: { field: "delta", op: "sum", value: 12 } });
+
+    const result = await fetchFieldAggregate("source-1", "delta");
+
+    expect(mockedHttpClient.get).toHaveBeenCalledWith("/api/data-sources/source-1/rows/aggregate", {
+      params: { field: "delta", op: "sum" },
+    });
+    expect(result).toEqual({ field: "delta", op: "sum", value: 12 });
   });
 });

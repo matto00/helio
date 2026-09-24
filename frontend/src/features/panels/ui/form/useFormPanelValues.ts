@@ -29,6 +29,15 @@ interface UseFormPanelValuesResult {
    *  precedence over the client-side rule for that field until `setValue` clears it (the next
    *  edit invalidates a stale server verdict). */
   setExternalErrors: (errors: Record<string, string>) => void;
+  /** HEL-1095 design.md D9: adds `delta` to `sourceField`'s CURRENT numeric value via React's
+   *  functional `setState` updater — never a value read from an async closure, which could be
+   *  stale by the time a concurrent immediate-submit request's callback runs (a second click can
+   *  commit its own state update between this call being scheduled and the updater actually
+   *  running). This is what makes rapid-click accumulation and per-click rollback correct: every
+   *  call is applied against whatever the LATEST committed value is, in call order, even when
+   *  several fire within the same tick. Non-numeric/empty parses as `0`, mirroring every other
+   *  numeric-field empty-string handling in this hook's callers. */
+  adjustNumericValue: (sourceField: string, delta: number) => void;
 }
 
 /** A field's empty representation, per control shape (design.md's "A field is prefilled from its
@@ -137,7 +146,25 @@ export function useFormPanelValues(
     setExternalErrorsState(next);
   }
 
-  return { values, touched, errors, setValue, touch, reset, markAllTouched, setExternalErrors };
+  function adjustNumericValue(sourceField: string, delta: number) {
+    setValues((prev) => {
+      const current = prev[sourceField];
+      const currentNum = typeof current === "string" && current !== "" ? Number(current) || 0 : 0;
+      return { ...prev, [sourceField]: String(currentNum + delta) };
+    });
+  }
+
+  return {
+    values,
+    touched,
+    errors,
+    setValue,
+    touch,
+    reset,
+    markAllTouched,
+    setExternalErrors,
+    adjustNumericValue,
+  };
 }
 
 export { isFieldRequired };

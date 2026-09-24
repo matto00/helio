@@ -26,6 +26,11 @@ interface CounterControlProps {
    *  `"true"` from every call site, not computed from `declared`/config `required` like other
    *  controls. */
   ariaRequired?: boolean;
+  /** HEL-1095 design.md D8/D9 — `true` while ANY immediate-submit request from this counter is
+   *  outstanding (computed from the caller's pending-delta map, never the old single-value
+   *  `submitState`). `undefined`/`false` for a non-`immediate` counter, which has no request of
+   *  its own to be busy about. */
+  ariaBusy?: boolean;
   disabled?: boolean;
   onStep: (direction: 1 | -1) => void;
 }
@@ -45,6 +50,7 @@ export function CounterControl({
   ariaDescribedBy,
   ariaInvalid,
   ariaRequired,
+  ariaBusy,
   disabled,
   onStep,
 }: CounterControlProps) {
@@ -83,6 +89,7 @@ export function CounterControl({
         aria-describedby={ariaDescribedBy}
         aria-invalid={ariaInvalid ? "true" : undefined}
         aria-required={ariaRequired ? "true" : undefined}
+        aria-busy={ariaBusy ? "true" : undefined}
         aria-disabled={disabled ? "true" : undefined}
         onKeyDown={handleKeyDown}
       >

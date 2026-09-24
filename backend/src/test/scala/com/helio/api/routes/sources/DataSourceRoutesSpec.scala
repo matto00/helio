@@ -17,7 +17,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.persistence.{Database, DbContext}
-import com.helio.api.protocols.sources.{DatasetSchemaResponse, DatasetSchemaUpdateResponse, RowListResponse, RowResponse, RowWriteResponse, SchemaUpdateConflictResponse}
+import com.helio.api.protocols.sources.{DatasetSchemaResponse, DatasetSchemaUpdateResponse, FieldAggregateResponse, RowListResponse, RowResponse, RowWriteResponse, SchemaUpdateConflictResponse}
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -1762,6 +1762,101 @@ class DataSourceRoutesSpec
         val items = responseAs[JsValue].asJsObject.fields("items").asInstanceOf[JsArray].elements
         val raw = items.map(_.asJsObject).find(_.fields("id") == JsString(sourceId)).getOrElse(fail("source not found in list"))
         raw.fields.keySet shouldBe Set("id", "name", "createdAt", "updatedAt", "inferredSchema", "type")
+      }
+    }
+  }
+
+  // HEL-1095 design.md D2/D3/D4, `dataset-field-aggregate` spec.md: the reconciliation read
+  // FormPanelView's compact counter fetches after a successful submit. Task 1.3 (route wiring)
+  // + task 3.6 (ACL: non-owner 404, non-dataset 400, undeclared/non-numeric field 400) -- same
+  // per-rejection-branch style as the sibling `GET .../schema` suite above.
+  "GET /api/data-sources/:id/rows/aggregate" should {
+
+    "returns {field, op, value} summing the field's delta across every stored row" in {
+      cleanDb()
+      val sourceId = createDatasetSource(
+        "Aggregate Base",
+        """[{"name": "label", "type": "string"}, {"name": "delta", "type": "integer"}]""",
+        """[["a", 1], ["b", 2], ["c", 3]]"""
+      )
+
+      Get(s"/api/data-sources/$sourceId/rows/aggregate?field=delta&op=sum") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[FieldAggregateResponse]
+        resp.field shouldBe "delta"
+        resp.op shouldBe "sum"
+        resp.value shouldBe BigDecimal(6)
+      }
+    }
+
+    "reflects a row appended by a different request before the aggregate is read" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Aggregate Live", """[{"name": "delta", "type": "integer"}]""", """[[1]]""")
+
+      Post(s"/api/data-sources/$sourceId/rows", HttpEntity(ContentTypes.`application/json`, """{"rows": [[4]]}""")) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      Get(s"/api/data-sources/$sourceId/rows/aggregate?field=delta&op=sum") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[FieldAggregateResponse].value shouldBe BigDecimal(5)
+      }
+    }
+
+    "rejects an unsupported op with 400 and computes no aggregate" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Aggregate Bad Op", """[{"name": "delta", "type": "integer"}]""", """[[1]]""")
+
+      Get(s"/api/data-sources/$sourceId/rows/aggregate?field=delta&op=avg") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "rejects a non-numeric field with 400" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Aggregate Non Numeric", """[{"name": "label", "type": "string"}]""", """[["x"]]""")
+
+      Get(s"/api/data-sources/$sourceId/rows/aggregate?field=label&op=sum") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("label")
+      }
+    }
+
+    "rejects an undeclared field with 400" in {
+      cleanDb()
+      val sourceId = createDatasetSource("Aggregate Undeclared", """[{"name": "delta", "type": "integer"}]""", """[[1]]""")
+
+      Get(s"/api/data-sources/$sourceId/rows/aggregate?field=nope&op=sum") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("nope")
+      }
+    }
+
+    "rejects a non-dataset (csv) source with 400" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Csv For Aggregate Reject", validCsv)) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        sourceId = responseAs[DataSourceResponse].id
+      }
+
+      Get(s"/api/data-sources/$sourceId/rows/aggregate?field=a&op=sum") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "returns 404 for a source owned by another user" in {
+      cleanDb()
+      val sourceId = seedOtherOwnerDatasetSource()
+
+      Get(s"/api/data-sources/$sourceId/rows/aggregate?field=a&op=sum") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "returns 404 for a nonexistent source id" in {
+      Get("/api/data-sources/does-not-exist/rows/aggregate?field=a&op=sum") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
       }
     }
   }
