@@ -192,7 +192,13 @@ final class ApiRoutes(
     // rather than derived from `dbContext` here, since `Main.scala`/`PipelineSchedulerService` also
     // need the SAME instance for its claim-and-fire tick pass (design.md Decision 3) — mirrors
     // pipelineRunGuardRepo's own explicit-param, single-instance-shared-across-both-sites wiring.
-    autoRunDebounceRepo: PipelineAutoRunDebounceRepository = null
+    autoRunDebounceRepo: PipelineAutoRunDebounceRepository = null,
+    // HEL-1168 (design.md D6): same nullable-optional wiring pattern as the repos above --
+    // fixtures/tests that don't pass a PipelineRunNotifyBus get `runRegistry` constructed with
+    // `eventBus = null`, which keeps today's pure local-only broadcast (PipelineRunRegistrySpec's
+    // existing tests are unaffected). `Main.scala` constructs the real one from `helio.db.*`
+    // once per process and passes it here. Appended last for the same purely-additive reason.
+    pipelineRunNotifyBus: PipelineRunNotifyBus = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -281,7 +287,7 @@ final class ApiRoutes(
     pipelineRunGuardConfig.sourceFetchRateLimitPerWindow,
     rateLimitConfig.windowSeconds
   )
-  private val runRegistry    = new PipelineRunRegistry()
+  private val runRegistry    = new PipelineRunRegistry(eventBus = pipelineRunNotifyBus)
   private val health         = new HealthRoutes()
   // HEL-116: propagates the Cloud Run trace id (X-Cloud-Trace-Context) into the
   // MDC for every request handled below, including the async onComplete error

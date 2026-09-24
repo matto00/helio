@@ -1,11 +1,14 @@
 package com.helio.app
 
+import org.apache.pekko.actor.CoordinatedShutdown
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import org.apache.pekko.Done
 import com.helio.api.http.CookieConfig
 import com.helio.api.ApiRoutes
+import com.helio.api.routes.pipelines.PipelineRunNotifyBus
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.util.SystemClock
@@ -86,6 +89,30 @@ object Main {
       val db          = Database.initApp(config)
       val privilegedDb = Database.initPrivileged(config)
       val ctx         = new DbContext(db, privilegedDb)
+
+      // HEL-1168 (design.md D2/D3/D6): the cross-instance run-event bus. Reuses the SAME plain,
+      // non-privileged `helio.db.*` credentials as the app pool above (never helio_privileged --
+      // LISTEN/NOTIFY needs no table access and no BYPASSRLS) for its own dedicated,
+      // outside-both-pools LISTEN connection. Construction opens that connection synchronously
+      // and throws if the database is unreachable -- fails loud at startup like every other
+      // required-at-boot dependency here, rather than silently degrading to local-only broadcast.
+      val dbConfigStanza = config.getConfig("helio.db")
+      val pipelineRunNotifyBus = new PipelineRunNotifyBus(
+        db,
+        dbConfigStanza.getString("url"),
+        if (dbConfigStanza.hasPath("user")) dbConfigStanza.getString("user") else "",
+        if (dbConfigStanza.hasPath("password")) dbConfigStanza.getString("password") else ""
+      )
+      // Best-effort JVM hygiene (design.md D8) -- not load-bearing for correctness, since events
+      // are ephemeral and a thread that never gets to close its connection before the process
+      // dies (Cloud Run's SIGTERM-then-kill teardown) causes no data loss. This is the FIRST use
+      // of CoordinatedShutdown in this codebase -- there is no existing graceful-shutdown pattern
+      // to register alongside (a repo-wide grep found none); mainly matters for a clean `sbt
+      // test`/local-dev process exit rather than production correctness.
+      CoordinatedShutdown.get(system.classicSystem).addTask(CoordinatedShutdown.PhaseBeforeActorSystemTerminate, "pipeline-run-notify-bus-shutdown") { () =>
+        pipelineRunNotifyBus.shutdown()
+        Future.successful(Done)
+      }
 
       def requireEnv(name: String): String =
         sys.env.get(name).filter(_.nonEmpty).getOrElse {
@@ -237,7 +264,8 @@ object Main {
         mfaRepo = mfaRepo,
         auditEventRepo = auditEventRepo,
         pipelineRunGuardRepo = pipelineRunGuardRepo,
-        autoRunDebounceRepo = autoRunDebounceRepo
+        autoRunDebounceRepo = autoRunDebounceRepo,
+        pipelineRunNotifyBus = pipelineRunNotifyBus
       )
 
       // HEL-415: scheduler runtime — reuses apiRoutes.pipelineRunService so

@@ -10,6 +10,7 @@ import org.apache.pekko.util.ByteString
 import spray.json._
 
 import java.util.concurrent.ConcurrentHashMap
+import scala.jdk.CollectionConverters._
 
 
 /** HEL-913 R15: `nodeKind` is the explicit wire discriminator distinguishing a `nodeId` that
@@ -57,17 +58,28 @@ object RunStatusEvent {
 
 
 /**
- * In-memory publish/subscribe channel for pipeline run-status events.
+ * In-memory publish/subscribe channel for pipeline run-status events, optionally fanned out
+ * across backend instances via a [[PipelineRunNotifyBus]] (HEL-1168 design.md D5-D7).
  *
- * One SSE subscription per pipeline is maintained at a time (single-active-run
- * assumption). The actor ref produced by Source.actorRef is stored in a
- * ConcurrentHashMap keyed by pipeline ID.
+ * Every live subscriber for a pipelineId receives every event published for that pipeline id
+ * -- HEL-1168 replaced the earlier single-`ActorRef`-per-pipeline map (an unconditional
+ * `put` overwrite that silently starved every subscriber but the most recently registered one)
+ * with a `Set[ActorRef]` per pipeline id.
  */
-final class PipelineRunRegistry(implicit system: ActorSystem[_]) {
+final class PipelineRunRegistry(eventBus: PipelineRunNotifyBus = null)(implicit system: ActorSystem[_]) {
   private implicit val mat: Materializer = Materializer(system.classicSystem)
 
-  // pipelineId -> actor ref from the currently active Source.actorRef
-  private val refs = new ConcurrentHashMap[String, ActorRef]()
+  // pipelineId -> the set of actor refs from every currently-subscribed Source.actorRef.
+  private val refs = new ConcurrentHashMap[String, java.util.Set[ActorRef]]()
+
+  // HEL-1168 design.md D6: registering here (rather than the bus polling the registry) keeps
+  // PipelineRunNotifyBus ignorant of PipelineRunRegistry's existence -- the bus only knows how
+  // to send/receive raw (pipelineId, RunStatusEvent) pairs. The bus itself drops any notification
+  // whose originInstanceId matches its own (D7 self-echo guard) before this handler ever runs, so
+  // `broadcastLocal` below is never called twice for the instance that originated an event.
+  if (eventBus != null) {
+    eventBus.onReceive((pipelineId, event) => broadcastLocal(pipelineId, event))
+  }
 
   /**
    * Create a new SSE source for pipelineId and return it.
@@ -86,20 +98,54 @@ final class PipelineRunRegistry(implicit system: ActorSystem[_]) {
     val (ref, source) = Source
       .actorRef[RunStatusEvent](completionMatcher, failureMatcher, 8, OverflowStrategy.dropHead)
       .preMaterialize()
-    refs.put(pipelineId, ref)
-    source
+
+    val subscribers = refs.computeIfAbsent(pipelineId, _ => ConcurrentHashMap.newKeySet[ActorRef]())
+    subscribers.add(ref)
+
+    // HEL-1168 task 1.2: remove this specific ref from the pipeline's subscriber set once its
+    // stream terminates (client disconnect, or normal completion) -- closes the ticket's "no
+    // cleanup on disconnect" gap. watchTermination's callback fires exactly once regardless of
+    // whether the stream completed normally or failed.
+    source.watchTermination() { (mat2, doneF) =>
+      doneF.onComplete(_ => subscribers.remove(ref))(system.executionContext)
+      mat2
+    }
   }
 
   /**
-   * Publish event to the current subscriber for pipelineId.
-   * On terminal events the stream is completed and the entry removed from the map.
+   * Broadcast `event` to every current LOCAL subscriber for pipelineId (i.e. subscribers whose
+   * SSE connection is held open on THIS instance). Never itself triggers a remote NOTIFY --
+   * used both by `publish` (below, always) and by the eventBus receive-handler above (for events
+   * that originated on a different instance).
    */
-  def publish(pipelineId: String, event: RunStatusEvent): Unit =
-    Option(refs.get(pipelineId)).foreach { ref =>
-      ref ! event
+  private def broadcastLocal(pipelineId: String, event: RunStatusEvent): Unit =
+    Option(refs.get(pipelineId)).foreach { subscribers =>
+      subscribers.asScala.foreach(_ ! event)
       if (RunStatusEvent.isTerminal(event.status)) {
-        ref ! ActorStatus.Success(())
+        subscribers.asScala.foreach(_ ! ActorStatus.Success(()))
         refs.remove(pipelineId)
       }
     }
+
+  /**
+   * Publish event to every current subscriber for pipelineId, on every backend instance.
+   * On terminal events the streams are completed and the entry removed from the local map.
+   *
+   * Always broadcasts to this instance's own local subscribers first (synchronously), THEN --
+   * only when an eventBus is wired (HEL-1168 design.md D6, nullable-optional collaborator; a
+   * fixture/test that constructs this class with no eventBus gets pure local-only broadcast,
+   * unchanged from pre-HEL-1168 behaviour) -- notifies every OTHER instance via Postgres
+   * LISTEN/NOTIFY so their own local subscribers receive the same event.
+   */
+  def publish(pipelineId: String, event: RunStatusEvent): Unit = {
+    broadcastLocal(pipelineId, event)
+    if (eventBus != null) eventBus.notifyRemote(pipelineId, event)
+  }
+
+  /** Test-only accessor: the number of live local subscribers currently registered for
+   *  pipelineId. Lets a disconnect-cleanup test (HEL-1168 task 1.2) wait deterministically for
+   *  watchTermination's async removal callback to have actually run, instead of racing it with a
+   *  fixed sleep. */
+  private[pipelines] def subscriberCountForTest(pipelineId: String): Int =
+    Option(refs.get(pipelineId)).map(_.size()).getOrElse(0)
 }
