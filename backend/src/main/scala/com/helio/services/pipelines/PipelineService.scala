@@ -1014,9 +1014,19 @@ final class PipelineService(
             ).flatMap { costInput =>
             val costVerdict = PipelineCostEstimator.estimate(costInput)
 
+            // HEL-1096 design.md D1: `canRun` mirrors `PipelineRunService.submit`'s own
+            // owner-or-editor-grantee check, computed regardless of `autoRunnable` -- see
+            // `CostVerdictResponse`'s own doc.
+            val canRunF: Future[Boolean] =
+              if (pipeline.ownerId.value == user.id.value) Future.successful(true)
+              else pipelineRepo.findGrantRole(pipelineId, user).map(_.contains("editor"))
+
             // HEL-462: compare the current (primary-root) source schema against the baseline
             // captured on the pipeline's last successful (non-dry) run.
-            pipelineRepo.findLastSourceSchema(pipelineId, user).map { baselineJson =>
+            for {
+              canRun       <- canRunF
+              baselineJson <- pipelineRepo.findLastSourceSchema(pipelineId, user)
+            } yield {
               val baseline = parseBaselineSchema(pipelineId, baselineJson)
               val drift    = PipelineSchemaDrift.diff(baseline, primarySchema)
 
@@ -1028,7 +1038,7 @@ final class PipelineService(
                                     },
                 steps             = analyzed.map(toAnalyzeStepResponse),
                 sourceSchemaDrift = drift.map(toDriftResponse),
-                costVerdict       = toCostVerdictResponse(costVerdict)
+                costVerdict       = toCostVerdictResponse(costVerdict, canRun)
               ))
             }
             }
@@ -1043,12 +1053,13 @@ final class PipelineService(
   // `analyze` (via `costInputGathering.gather`) and `AutoRunTriggerService` now share one
   // implementation instead of two.
 
-  private def toCostVerdictResponse(v: PipelineCostEstimator.CostVerdict): CostVerdictResponse =
+  private def toCostVerdictResponse(v: PipelineCostEstimator.CostVerdict, canRun: Boolean): CostVerdictResponse =
     CostVerdictResponse(
       autoRunnable  = v.autoRunnable,
       estimatedRows = v.estimatedRows,
       stepCount     = v.stepCount,
-      reasons       = v.reasons.map(r => CostReasonResponse(r.code, r.detail, r.stepId))
+      reasons       = v.reasons.map(r => CostReasonResponse(r.code, r.detail, r.stepId)),
+      canRun        = canRun
     )
 
   /** HEL-914 task 6.4 (design.md D5/D6): `GET /pipelines/:id/analyze?concise=true`'s opt-in

@@ -50,6 +50,7 @@ describe("DatasetRowGrid pager consistency after Add row (tasks.md 3.6, skeptic-
     appendSourceRowsMock.mockResolvedValue({
       rows: [{ id: "r1", seq: 1, updatedAt: "t" }],
       updatedAt: "t",
+      deniedPipelines: [],
     });
     // appendDatasetRow re-pages from the top: page 1 (full), then page 2 (the new row, no more
     // after it).
@@ -95,6 +96,7 @@ describe("DatasetRowGrid pager consistency after Add row (tasks.md 3.6, skeptic-
     appendSourceRowsMock.mockResolvedValue({
       rows: [{ id: "r2", seq: 2, updatedAt: "t" }],
       updatedAt: "t",
+      deniedPipelines: [],
     });
     fetchSourceRowsMock.mockResolvedValueOnce(
       page([{ id: "r0", seq: 0, updatedAt: "t", data: ["a"] }], 1),
@@ -180,6 +182,7 @@ describe("DatasetRowGrid focus-loss paths (skeptic-final-2.md CR-D)", () => {
     patchSourceRowMock.mockResolvedValueOnce({
       row: { id: "r0", seq: 0, updatedAt: "t3", data: ["new"] },
       sourceUpdatedAt: "t3",
+      deniedPipelines: [],
     });
 
     const { container } = renderWithStore(<DatasetRowGrid sourceId={sourceId} />);
@@ -304,6 +307,7 @@ describe("DatasetRowGrid add-row draft form focus paths (skeptic-final-3.md CR-H
     appendSourceRowsMock.mockResolvedValue({
       rows: [{ id: "r1", seq: 1, updatedAt: "t" }],
       updatedAt: "t",
+      deniedPipelines: [],
     });
 
     renderWithStore(<DatasetRowGrid sourceId={sourceId} />);
@@ -336,6 +340,7 @@ describe("DatasetRowGrid add-row draft form focus paths (skeptic-final-3.md CR-H
     let resolveAppend!: (value: {
       rows: { id: string; seq: number; updatedAt: string }[];
       updatedAt: string;
+      deniedPipelines: never[];
     }) => void;
     appendSourceRowsMock.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -356,7 +361,11 @@ describe("DatasetRowGrid add-row draft form focus paths (skeptic-final-3.md CR-H
     expect(addRowButton).not.toBeDisabled();
 
     await act(async () => {
-      resolveAppend({ rows: [{ id: "r1", seq: 1, updatedAt: "t" }], updatedAt: "t" });
+      resolveAppend({
+        rows: [{ id: "r1", seq: 1, updatedAt: "t" }],
+        updatedAt: "t",
+        deniedPipelines: [],
+      });
       await Promise.resolve();
     });
 

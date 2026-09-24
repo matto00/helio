@@ -161,7 +161,7 @@ class DatasetWriteAutoRunCoalescingSpec extends AnyWordSpec with Matchers with B
 
       // Ten "increments" spread across a 1.8s window (within the AC's 2s burst).
       for (i <- 0 until 10) {
-        await(triggerService.triggerAutoRun(dsId, t0.plusMillis(i * 200L)))
+        await(triggerService.triggerAutoRun(dsId, AuthenticatedUser(owner), t0.plusMillis(i * 200L)))
       }
 
       // No run yet -- the write path never submits synchronously.
@@ -220,8 +220,8 @@ class DatasetWriteAutoRunCoalescingSpec extends AnyWordSpec with Matchers with B
       // Five writes via "instance A", five via "instance B", interleaved within a 1.8s window.
       for (i <- 0 until 10) {
         val t = t0.plusMillis(i * 200L)
-        if (i % 2 == 0) await(triggerServiceA.triggerAutoRun(dsId, t))
-        else            await(triggerServiceB.triggerAutoRun(dsId, t))
+        if (i % 2 == 0) await(triggerServiceA.triggerAutoRun(dsId, AuthenticatedUser(owner), t))
+        else            await(triggerServiceB.triggerAutoRun(dsId, AuthenticatedUser(owner), t))
       }
 
       runCount(pid) shouldBe 0

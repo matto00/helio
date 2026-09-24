@@ -63,6 +63,8 @@ export function PipelineDetailPage() {
     sourceByRootId,
     isOwner,
     estimatedRows,
+    costVerdict,
+    handleRunToUpdate,
     draftCreateErrors,
     getAnalyzeColumns,
     getAnalyzeSchema,
@@ -346,6 +348,8 @@ export function PipelineDetailPage() {
         runError={runError}
         runIsDry={runIsDry}
         runResult={runResult}
+        costVerdict={costVerdict}
+        handleRunToUpdate={handleRunToUpdate}
         isDirty={isDirty}
         updateError={updateError}
         updateStatus={updateStatus}

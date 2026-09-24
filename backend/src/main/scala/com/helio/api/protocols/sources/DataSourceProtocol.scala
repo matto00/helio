@@ -1,9 +1,11 @@
 package com.helio.api.protocols.sources
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import com.helio.api.protocols.pipelines.{CostReasonResponse, PipelineAnalyzeProtocol}
 import com.helio.domain.model._
 import com.helio.domain.engine.SchemaField
 import com.helio.services.auth.{HasSecrets, SecretField, SecretRedaction}
+import com.helio.services.pipelines.EvaluatedPipeline
 import com.helio.services.sources.{RowListResult, RowMutationResult, RowWriteResult}
 import spray.json._
 
@@ -257,15 +259,42 @@ final case class RowWriteRequest(rows: Vector[Vector[JsValue]])
  *  since HEL-1078's precondition binds to the ROW's `updated_at` (design.md D6). */
 final case class RowWriteRowResponse(id: String, seq: Long, updatedAt: String)
 
+/** HEL-1096 (design.md D1): one downstream pipeline this write denied auto-run for, that the
+ *  writing user has at least a viewer grant on -- an invisible denial never reaches this type at
+ *  all (`AutoRunTriggerService.handleDenied` drops it before it's returned). `reasons` reuses the
+ *  SAME `CostReasonResponse` wire shape `costVerdict.reasons` already carries on the analyze
+ *  response (`pipeline-analyze-api`), so the frontend's deny-copy mapping (design.md D6) has one
+ *  shape to key off regardless of which surface it's rendering. `canRun` mirrors
+ *  `POST /api/pipelines/:id/run`'s own owner-or-editor-grantee check. */
+final case class DeniedPipelineResponse(
+    pipelineId: String,
+    name: String,
+    reasons: Vector[CostReasonResponse],
+    canRun: Boolean
+)
+
+object DeniedPipelineResponse {
+  def fromDomain(d: EvaluatedPipeline.Denied): DeniedPipelineResponse =
+    DeniedPipelineResponse(
+      pipelineId = d.pipelineId.value,
+      name       = d.name,
+      reasons    = d.reasons.map(r => CostReasonResponse(r.code, r.detail, r.stepId)),
+      canRun     = d.canRun
+    )
+}
+
 /** Response body for both row-write routes: the affected rows (append: newly appended only;
- *  replace: the full new set) plus the source's resulting `updatedAt`. */
-final case class RowWriteResponse(rows: Vector[RowWriteRowResponse], updatedAt: String)
+ *  replace: the full new set) plus the source's resulting `updatedAt`. `deniedPipelines`
+ *  (HEL-1096) is empty on the wire (an empty JSON array, never omitted -- unlike this file's
+ *  `Option`-typed fields) when nothing was denied or every denial was invisible to the writer. */
+final case class RowWriteResponse(rows: Vector[RowWriteRowResponse], updatedAt: String, deniedPipelines: Vector[DeniedPipelineResponse])
 
 object RowWriteResponse {
   def fromDomain(result: RowWriteResult): RowWriteResponse =
     RowWriteResponse(
-      rows      = result.rows.map(r => RowWriteRowResponse(r.id, r.seq, r.updatedAt.toString)),
-      updatedAt = result.source.updatedAt.toString
+      rows            = result.rows.map(r => RowWriteRowResponse(r.id, r.seq, r.updatedAt.toString)),
+      updatedAt       = result.source.updatedAt.toString,
+      deniedPipelines = result.deniedPipelines.map(DeniedPipelineResponse.fromDomain)
     )
 }
 
@@ -278,14 +307,15 @@ final case class RowPatchRequest(updatedAt: String, data: Vector[JsValue])
  *  `RowWriteRowResponse` which deliberately omits it per HEL-1077 D6) plus the source-level
  *  `updatedAt` -- a new type, not a reuse of `RowWriteResponse`, since that type wraps a `rows`
  *  array and was never meant to carry per-row `data`. */
-final case class RowResponse(row: RowResponseRow, sourceUpdatedAt: String)
+final case class RowResponse(row: RowResponseRow, sourceUpdatedAt: String, deniedPipelines: Vector[DeniedPipelineResponse])
 final case class RowResponseRow(id: String, seq: Long, updatedAt: String, data: Vector[JsValue])
 
 object RowResponse {
   def fromDomain(result: RowMutationResult): RowResponse =
     RowResponse(
       row             = RowResponseRow(result.rowId, result.seq, result.rowUpdatedAt.toString, result.data),
-      sourceUpdatedAt = result.source.updatedAt.toString
+      sourceUpdatedAt = result.source.updatedAt.toString,
+      deniedPipelines = result.deniedPipelines.map(DeniedPipelineResponse.fromDomain)
     )
 }
 /** HEL-1121 design.md D4/D2: response body for `GET /api/data-sources/:id/rows` -- each row
@@ -559,7 +589,14 @@ object RestApiConfigPayload {
 // `DataSourceConfigCodec` lives in `DataSourceConfigCodec.scala` — used by
 // the repository to encode/decode the stored config JSON blob.
 
-trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
+// HEL-1096: `DeniedPipelineResponse.reasons` reuses `CostReasonResponse` verbatim (the same wire
+// shape `costVerdict.reasons` already carries on the analyze response) -- extending
+// `PipelineAnalyzeProtocol` pulls in its ALREADY-DEFINED `costReasonResponseFormat` rather than
+// this trait declaring a second, competing implicit for the same type (which would be ambiguous
+// wherever both traits are mixed into `JsonProtocols`, e.g. `check-schema-drift`'s own consumers
+// and every route that already imports both). Mirrors `PipelineProposalProtocol extends
+// DataSourceProtocol`'s existing cross-package reuse precedent, just in the other direction.
+trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with PipelineAnalyzeProtocol {
 
   implicit val dataSourceDeleteConflictResponseFormat: RootJsonFormat[DataSourceDeleteConflictResponse] =
     jsonFormat5(DataSourceDeleteConflictResponse.apply)
@@ -642,13 +679,17 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val staticDataPayloadFormat: RootJsonFormat[StaticDataPayload]             = jsonFormat2(StaticDataPayload.apply)
   implicit val staticDataSourceRequestFormat: RootJsonFormat[StaticDataSourceRequest] = jsonFormat5(StaticDataSourceRequest.apply)
 
+  // HEL-1096: `costReasonResponseFormat` comes from the `PipelineAnalyzeProtocol` mixin (see this
+  // trait's own doc) -- not redeclared here.
+  implicit val deniedPipelineResponseFormat: RootJsonFormat[DeniedPipelineResponse] = jsonFormat4(DeniedPipelineResponse.apply)
+
   implicit val rowWriteRequestFormat: RootJsonFormat[RowWriteRequest]         = jsonFormat1(RowWriteRequest.apply)
   implicit val rowWriteRowResponseFormat: RootJsonFormat[RowWriteRowResponse] = jsonFormat3(RowWriteRowResponse.apply)
-  implicit val rowWriteResponseFormat: RootJsonFormat[RowWriteResponse]       = jsonFormat2(RowWriteResponse.apply)
+  implicit val rowWriteResponseFormat: RootJsonFormat[RowWriteResponse]       = jsonFormat3(RowWriteResponse.apply)
 
   implicit val rowPatchRequestFormat: RootJsonFormat[RowPatchRequest]     = jsonFormat2(RowPatchRequest.apply)
   implicit val rowResponseRowFormat: RootJsonFormat[RowResponseRow]       = jsonFormat4(RowResponseRow.apply)
-  implicit val rowResponseFormat: RootJsonFormat[RowResponse]             = jsonFormat2(RowResponse.apply)
+  implicit val rowResponseFormat: RootJsonFormat[RowResponse]             = jsonFormat3(RowResponse.apply)
   implicit val rowListResponseFormat: RootJsonFormat[RowListResponse]     = jsonFormat3(RowListResponse.apply)
 
   /** HEL-1122 design.md Decision 1: hand-rolled (not `jsonFormat4`) so `write` omits the

@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { fetchSources } from "../../sources/state/sourcesSlice";
 import type { DataSource } from "../../sources/types/dataSource";
+import { useRunToUpdate } from "./useRunToUpdate";
 import {
   analyzePipeline,
   clearRunState,
@@ -1394,6 +1395,18 @@ export function usePipelineDetailPage() {
     }
   }, [dispatch, id, refreshVisibleOutputPreviews]);
 
+  // HEL-1096 design.md D5/D7 — the denial block's own "Run to update" control, shown when
+  // `costVerdict.autoRunnable` is false and `costVerdict.canRun` is true (see the returned
+  // `costVerdict` below). Reuses the SAME shared handler the denial toast's action uses
+  // (`useRunToUpdate`) rather than `handleRunPipeline` above — this is a distinct manual-run
+  // trigger for the gate-denial case, not a retrofit of the pre-existing always-visible "Run
+  // pipeline" button (design.md Non-Goals).
+  const runToUpdateAction = useRunToUpdate();
+  const handleRunToUpdate = useCallback(() => {
+    if (!id) return;
+    runToUpdateAction(id);
+  }, [id, runToUpdateAction]);
+
   const handleSave = useCallback(async () => {
     if (!id) return;
     try {
@@ -1464,6 +1477,10 @@ export function usePipelineDetailPage() {
     // known, threaded through to the AI step cards' cost disclosure. Never
     // presented as a per-step call count -- see `AiStepCostDisclosure`'s doc.
     estimatedRows: analyzeResult?.costVerdict.estimatedRows,
+    // HEL-1096 design.md D5 — the whole verdict, so the footer's denial block can render
+    // `reasons`/`canRun` itself; `null` while analyze hasn't returned yet (renders nothing).
+    costVerdict: analyzeResult?.costVerdict ?? null,
+    handleRunToUpdate,
     // HEL-1109 (pipeline-ai-step-authoring spec) — a rejected deferred-create's
     // message, keyed by the draft's (still-temp) step id.
     draftCreateErrors,

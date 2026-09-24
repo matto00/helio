@@ -215,7 +215,7 @@ const emptyAnalyzeResponse: PipelineAnalyzeResponse = {
   name: "Test Pipeline",
   sourceSchemas: [{ rootId: "root-1", sourceSchema: [] }],
   steps: [],
-  costVerdict: { autoRunnable: true, stepCount: 0, reasons: [] },
+  costVerdict: { autoRunnable: true, stepCount: 0, reasons: [], canRun: true },
 };
 
 const defaultPipeline: PipelineSummary = {
@@ -2778,7 +2778,7 @@ describe("PipelineDetailPage select step config round-trip", () => {
           validationError: undefined,
         },
       ],
-      costVerdict: { autoRunnable: true, stepCount: 1, reasons: [] },
+      costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
     });
   });
 
@@ -2852,7 +2852,7 @@ describe("PipelineDetailPage rename step config", () => {
         validationError: undefined,
       },
     ],
-    costVerdict: { autoRunnable: true, stepCount: 1, reasons: [] },
+    costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
   };
 
   beforeEach(() => {

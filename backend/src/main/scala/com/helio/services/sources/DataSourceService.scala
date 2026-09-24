@@ -11,7 +11,7 @@ import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository.{BlockingPipeline, DatasetRowRow, RowListPage, RowMutationFailure}
 import com.helio.infrastructure.storage.FileSystem
-import com.helio.services.pipelines.AutoRunTriggerService
+import com.helio.services.pipelines.{AutoRunTriggerService, EvaluatedPipeline}
 import SourceConfigParsing._
 import spray.json._
 
@@ -73,15 +73,32 @@ final class DataSourceService(
     if (auditService != null)
       auditService.record(Some(user.id), user.tokenId, user.source, action, "data_source", resourceId, metadata)
 
-  /** HEL-1093 (design.md Decision 2): fire-and-forget from every row-mutation method's
-   *  successful-write branch, alongside `audit(...)`. Wrapped in `.recover` that logs and
+  /** HEL-1093 (design.md Decision 2): fire-and-forget from `deleteRow`'s successful-write branch
+   *  ONLY, alongside `audit(...)` -- unchanged by HEL-1096 (owner ruling, design.md Non-Goals:
+   *  `DELETE`'s `204`/no-body contract must not change). Wrapped in `.recover` that logs and
    *  swallows any exception -- a debounce-scheduling failure must never fail the write itself,
    *  exactly like `audit`'s own optional/no-op convention. */
-  private def triggerAutoRun(dataSourceId: DataSourceId): Unit =
+  private def triggerAutoRunFireAndForget(dataSourceId: DataSourceId, user: AuthenticatedUser): Unit =
     if (autoRunTriggerService != null)
-      autoRunTriggerService.triggerAutoRun(dataSourceId, Instant.now()).recover { case ex =>
+      autoRunTriggerService.triggerAutoRun(dataSourceId, user, Instant.now()).recover { case ex =>
         log.error(s"DataSourceService: triggerAutoRun failed for data source ${dataSourceId.value}", ex)
       }
+
+  /** HEL-1096 (design.md D1): AWAITED form used by `appendRows`/`appendFormRow`/`replaceRows`/
+   *  `patchRow` -- the four in-scope call sites -- so denied-and-visible pipelines can be folded
+   *  into each method's response. Still never fails the write itself: a debounce-scheduling
+   *  failure is logged and degrades to "no denials reported" (`Vector.empty`), exactly like the
+   *  fire-and-forget form's `.recover` swallows it, just no longer discarding the SUCCESS path
+   *  too. */
+  private def triggerAutoRunAwaited(dataSourceId: DataSourceId, user: AuthenticatedUser): Future[Vector[EvaluatedPipeline.Denied]] =
+    if (autoRunTriggerService != null)
+      autoRunTriggerService.triggerAutoRun(dataSourceId, user, Instant.now())
+        .map(_.collect { case d: EvaluatedPipeline.Denied => d })
+        .recover { case ex =>
+          log.error(s"DataSourceService: triggerAutoRun failed for data source ${dataSourceId.value}", ex)
+          Vector.empty
+        }
+    else Future.successful(Vector.empty)
 
   /** Max upload / URL-fetch size for text/PDF/image sources (HEL-215/214/216).
    *  HEL-881: hoisted to `ContentSourceSupport` so this manual-refresh path and
@@ -788,13 +805,14 @@ final class DataSourceService(
           // identical comment; without this, the per-row `updatedAt` this method hands back to
           // `RowWriteResponse.fromDomain` disagrees with what's actually stored in Postgres.
           val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
-          dataSourceRepo.appendRows(id, rows, staticMaxRows, now, user).map {
-            case None                     => Left(ServiceError.NotFound("Data source not found"))
-            case Some(Left(errMsg))       => Left(ServiceError.BadRequest(errMsg))
+          dataSourceRepo.appendRows(id, rows, staticMaxRows, now, user).flatMap {
+            case None                     => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+            case Some(Left(errMsg))       => Future.successful(Left(ServiceError.BadRequest(errMsg)))
             case Some(Right((ds, added))) =>
               audit("data_source.rows.append", Some(ds.id.value), user)
-              triggerAutoRun(id)
-              Right(RowWriteResult.fromRepositoryRows(ds, added))
+              triggerAutoRunAwaited(id, user).map { denied =>
+                Right(RowWriteResult.fromRepositoryRows(ds, added, denied))
+              }
           }
         case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
       }
@@ -817,16 +835,17 @@ final class DataSourceService(
       case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Data source not found"))))
       case Some(_: DatasetSource) =>
         val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
-        dataSourceRepo.appendBuiltRow(id, build, staticMaxRows, now, user).map {
-          case None => Left(FormSubmitError(ServiceError.NotFound("Data source not found")))
+        dataSourceRepo.appendBuiltRow(id, build, staticMaxRows, now, user).flatMap {
+          case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Data source not found"))))
           case Some(Left(DataSourceRepository.FormRowBuildFailure.FieldErrors(errors))) =>
-            Left(FormSubmitError.fromFieldErrors(errors))
+            Future.successful(Left(FormSubmitError.fromFieldErrors(errors)))
           case Some(Left(DataSourceRepository.FormRowBuildFailure.RowLimitExceeded(msg))) =>
-            Left(FormSubmitError(ServiceError.BadRequest(msg)))
+            Future.successful(Left(FormSubmitError(ServiceError.BadRequest(msg))))
           case Some(Right((ds, inserted))) =>
             audit("data_source.rows.append", Some(ds.id.value), user, JsObject("panelId" -> JsString(panelId.value)))
-            triggerAutoRun(id)
-            Right(RowWriteResult.fromRepositoryRows(ds, Vector(inserted)))
+            triggerAutoRunAwaited(id, user).map { denied =>
+              Right(RowWriteResult.fromRepositoryRows(ds, Vector(inserted), denied))
+            }
         }
       case Some(_) => Future.successful(Left(FormSubmitError(ServiceError.BadRequest("row writes are only supported for dataset sources"))))
     }
@@ -841,13 +860,14 @@ final class DataSourceService(
         // skeptic-final-1.md CR1: truncated to microseconds -- see `applyStaticRefresh`'s
         // identical comment.
         val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
-        dataSourceRepo.replaceRows(id, None, rows, staticMaxRows, now, user).map {
-          case None                     => Left(ServiceError.NotFound("Data source not found"))
-          case Some(Left(errMsg))       => Left(ServiceError.BadRequest(errMsg))
+        dataSourceRepo.replaceRows(id, None, rows, staticMaxRows, now, user).flatMap {
+          case None                     => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+          case Some(Left(errMsg))       => Future.successful(Left(ServiceError.BadRequest(errMsg)))
           case Some(Right((ds, all)))   =>
             audit("data_source.rows.replace", Some(ds.id.value), user)
-            triggerAutoRun(id)
-            Right(RowWriteResult.fromRepositoryRows(ds, all))
+            triggerAutoRunAwaited(id, user).map { denied =>
+              Right(RowWriteResult.fromRepositoryRows(ds, all, denied))
+            }
         }
       case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
     }
@@ -865,16 +885,17 @@ final class DataSourceService(
           case None                   => Future.successful(Left(ServiceError.NotFound("Data source not found")))
           case Some(_: DatasetSource) =>
             val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
-            dataSourceRepo.patchRow(id, rowId, data, expectedUpdatedAt, now, user).map {
-              case Left(RowMutationFailure.SourceNotFound)          => Left(ServiceError.NotFound("Data source not found"))
-              case Left(RowMutationFailure.RowNotFound)             => Left(ServiceError.NotFound("Row not found"))
-              case Left(RowMutationFailure.ValidationFailed(msg))   => Left(ServiceError.BadRequest(msg))
+            dataSourceRepo.patchRow(id, rowId, data, expectedUpdatedAt, now, user).flatMap {
+              case Left(RowMutationFailure.SourceNotFound)          => Future.successful(Left(ServiceError.NotFound("Data source not found")))
+              case Left(RowMutationFailure.RowNotFound)             => Future.successful(Left(ServiceError.NotFound("Row not found")))
+              case Left(RowMutationFailure.ValidationFailed(msg))   => Future.successful(Left(ServiceError.BadRequest(msg)))
               case Left(RowMutationFailure.StalePrecondition(cur))  =>
-                Left(ServiceError.Conflict(s"row $rowId was modified concurrently: expected updatedAt '$expectedUpdatedAt', current is '$cur'"))
+                Future.successful(Left(ServiceError.Conflict(s"row $rowId was modified concurrently: expected updatedAt '$expectedUpdatedAt', current is '$cur'")))
               case Right((ds, row)) =>
                 audit("data_source.rows.patch", Some(ds.id.value), user)
-                triggerAutoRun(id)
-                Right(RowMutationResult.fromRepositoryRow(ds, row))
+                triggerAutoRunAwaited(id, user).map { denied =>
+                  Right(RowMutationResult.fromRepositoryRow(ds, row, denied))
+                }
             }
           case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
         }
@@ -898,7 +919,7 @@ final class DataSourceService(
                 Left(ServiceError.Conflict(s"row $rowId was modified concurrently: expected updatedAt '$expectedUpdatedAt', current is '$cur'"))
               case Right(ds) =>
                 audit("data_source.rows.delete", Some(ds.id.value), user)
-                triggerAutoRun(id)
+                triggerAutoRunFireAndForget(id, user)
                 Right(())
             }
           case Some(_) => Future.successful(Left(ServiceError.BadRequest("row writes are only supported for dataset sources")))
@@ -1312,14 +1333,19 @@ object DataSourceService {
  *  existing read path; echoing the request back adds nothing this ticket's consumers need). */
 final case class RowWriteRow(id: String, seq: Long, updatedAt: Instant)
 
-/** Result of `DataSourceService.appendRows`/`replaceRows`: the affected rows (append: only the
- *  newly appended ones; replace: the full new set) plus the source, so the route can read both
- *  the per-row and the source-level `updatedAt` (design.md D6). */
-final case class RowWriteResult(source: DataSource, rows: Vector[RowWriteRow])
+/** Result of `DataSourceService.appendRows`/`appendFormRow`/`replaceRows`: the affected rows
+ *  (append: only the newly appended ones; replace: the full new set) plus the source, so the
+ *  route can read both the per-row and the source-level `updatedAt` (design.md D6).
+ *
+ *  `deniedPipelines` (HEL-1096 design.md D1): every downstream pipeline this write denied
+ *  auto-run for AND the writer has at least a viewer grant on -- already filtered by
+ *  `AutoRunTriggerService.handleDenied`, never re-filtered here. Empty when nothing was denied,
+ *  or when every denied pipeline was invisible to the writer. */
+final case class RowWriteResult(source: DataSource, rows: Vector[RowWriteRow], deniedPipelines: Vector[EvaluatedPipeline.Denied])
 
 object RowWriteResult {
-  def fromRepositoryRows(source: DataSource, rows: Vector[DatasetRowRow]): RowWriteResult =
-    RowWriteResult(source, rows.map(r => RowWriteRow(r.id, r.seq, r.updatedAt)))
+  def fromRepositoryRows(source: DataSource, rows: Vector[DatasetRowRow], deniedPipelines: Vector[EvaluatedPipeline.Denied] = Vector.empty): RowWriteResult =
+    RowWriteResult(source, rows.map(r => RowWriteRow(r.id, r.seq, r.updatedAt)), deniedPipelines)
 }
 
 /** HEL-1121 design.md D1/D4: one page of `DataSourceService.listRows` -- the trimmed, in-order
@@ -1336,10 +1362,14 @@ object RowListResult {
 /** HEL-1078 design.md D8: result of a successful `patchRow` -- the edited row's `id`/`seq`/
  *  `updatedAt`/full `data` (unlike `RowWriteRow`, PATCH's response DOES echo `data` back, since
  *  the caller submitted the full row and the response confirms exactly what was persisted --
- *  design.md D8) plus the source, so the route can build `RowResponse`'s `sourceUpdatedAt`. */
-final case class RowMutationResult(source: DataSource, rowId: String, seq: Long, rowUpdatedAt: Instant, data: Vector[JsValue])
+ *  design.md D8) plus the source, so the route can build `RowResponse`'s `sourceUpdatedAt`.
+ *
+ *  `deniedPipelines` (HEL-1096 design.md D1): identical meaning/filtering to `RowWriteResult`'s
+ *  own field -- `patchRow`'s wire type (`RowResponse`) is distinct from `RowWriteResponse`, but
+ *  the denied-pipeline reporting is byte-for-byte the same behavior. */
+final case class RowMutationResult(source: DataSource, rowId: String, seq: Long, rowUpdatedAt: Instant, data: Vector[JsValue], deniedPipelines: Vector[EvaluatedPipeline.Denied])
 
 object RowMutationResult {
-  def fromRepositoryRow(source: DataSource, row: DatasetRowRow): RowMutationResult =
-    RowMutationResult(source, row.id, row.seq, row.updatedAt, row.data.parseJson.asInstanceOf[JsArray].elements)
+  def fromRepositoryRow(source: DataSource, row: DatasetRowRow, deniedPipelines: Vector[EvaluatedPipeline.Denied] = Vector.empty): RowMutationResult =
+    RowMutationResult(source, row.id, row.seq, row.updatedAt, row.data.parseJson.asInstanceOf[JsArray].elements, deniedPipelines)
 }

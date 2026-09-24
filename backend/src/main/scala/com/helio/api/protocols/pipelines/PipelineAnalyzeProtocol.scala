@@ -229,12 +229,19 @@ final case class CostReasonResponse(
 
 /** HEL-1092: mirrors `PipelineCostEstimator.CostVerdict` on the wire. Always present (never
  *  `Option`) on the non-concise `analyze` response -- design.md D6. `autoRunnable` is true iff
- *  `reasons` is empty; `estimatedRows` is omitted when no estimate was available. */
+ *  `reasons` is empty; `estimatedRows` is omitted when no estimate was available.
+ *
+ *  `canRun` (HEL-1096 design.md D1): true iff the REQUESTING user is the pipeline's owner or
+ *  holds an editor grant on it -- the same check `POST /api/pipelines/:id/run` enforces -- set
+ *  regardless of `autoRunnable` (a viewer can be told they *could* run an already-allowed
+ *  pipeline too, though the pipeline-detail page only renders the "Run to update" control when
+ *  BOTH `autoRunnable` is false and `canRun` is true, per the `run-to-update-affordance` spec). */
 final case class CostVerdictResponse(
     autoRunnable:  Boolean,
     estimatedRows: Option[Long] = None,
     stepCount:     Int,
-    reasons:       Vector[CostReasonResponse]
+    reasons:       Vector[CostReasonResponse],
+    canRun:        Boolean
 )
 
 /** `sourceSchemaDrift` (HEL-462) is computed at analyze time and is absent
@@ -414,7 +421,7 @@ trait PipelineAnalyzeProtocol
   implicit val rootSourceSchemaResponseFormat: RootJsonFormat[RootSourceSchemaResponse] = jsonFormat3(RootSourceSchemaResponse.apply)
 
   implicit val costReasonResponseFormat: RootJsonFormat[CostReasonResponse] = jsonFormat3(CostReasonResponse.apply)
-  implicit val costVerdictResponseFormat: RootJsonFormat[CostVerdictResponse] = jsonFormat4(CostVerdictResponse.apply)
+  implicit val costVerdictResponseFormat: RootJsonFormat[CostVerdictResponse] = jsonFormat5(CostVerdictResponse.apply)
 
   implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat6(PipelineAnalyzeResponse.apply)
 

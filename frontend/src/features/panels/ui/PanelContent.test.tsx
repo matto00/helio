@@ -343,7 +343,7 @@ describe("PanelContent — form kind (HEL-1083)", () => {
     const panel = makeFormPanel({
       config: { fields: [{ sourceField: "note", control: "text", label: "Note" }] },
     });
-    const { container } = render(<PanelContent panel={panel} />);
+    const { container } = renderWithStore(<PanelContent panel={panel} />);
 
     await screen.findByRole("form", { name: panel.title });
     expect(container.querySelector(".panel-content--metric")).not.toBeInTheDocument();

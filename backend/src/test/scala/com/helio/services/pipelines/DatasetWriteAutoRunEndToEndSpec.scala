@@ -202,7 +202,7 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
 
       // The WRITER (whose own budget has never been touched) writes to their own dataset.
       val triggerService = newTriggerService(debounceSeconds = 0L)
-      await(triggerService.triggerAutoRun(writerDsId, Instant.now()))
+      await(triggerService.triggerAutoRun(writerDsId, AuthenticatedUser(writer), Instant.now()))
 
       val scheduler = newScheduler(runService)
       // If the auto-run were (incorrectly) attributed to the WRITER, it would succeed here
@@ -225,7 +225,7 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
       val zeroGuard = PipelineRunGuardConfig(rateLimitPerWindow = 0, rateWindowSeconds = 60, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30)
       val runService = newRunService(zeroGuard)
       val triggerService = newTriggerService(debounceSeconds = 0L)
-      await(triggerService.triggerAutoRun(dsId, Instant.now()))
+      await(triggerService.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now()))
 
       val scheduler = newScheduler(runService)
       // tick() must complete normally (not fail the returned Future) even though the fire it
@@ -261,7 +261,7 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
       val scheduler = newScheduler(runService)
 
       val lastWriteAt = Instant.now()
-      await(triggerService.triggerAutoRun(dsId, lastWriteAt))
+      await(triggerService.triggerAutoRun(dsId, AuthenticatedUser(owner), lastWriteAt))
 
       val startNanos = System.nanoTime()
       pollUntil(scheduler, 10.seconds)(runCount(pid) >= 1)

@@ -98,6 +98,7 @@ describe("DatasetRowGrid keyboard matrix (tasks.md 5.6)", () => {
     patchSourceRowMock.mockResolvedValue({
       row: { id: "r0", seq: 0, updatedAt: "2026-01-02T00:00:00Z", data: ["changed"] },
       sourceUpdatedAt: "2026-01-02T00:00:00Z",
+      deniedPipelines: [],
     });
 
     renderWithStore(<DatasetRowGrid sourceId={sourceId} />);
@@ -163,6 +164,7 @@ describe("DatasetRowGrid required-field-emptying matrix (tasks.md 5.6a)", () => 
     patchSourceRowMock.mockResolvedValue({
       row: { id: "r0", seq: 0, updatedAt: "2026-01-02T00:00:00Z", data: [null] },
       sourceUpdatedAt: "2026-01-02T00:00:00Z",
+      deniedPipelines: [],
     });
 
     renderWithStore(<DatasetRowGrid sourceId={sourceId} />);
@@ -215,6 +217,7 @@ describe("DatasetRowGrid required-field-emptying matrix (tasks.md 5.6a)", () => 
     patchSourceRowMock.mockResolvedValue({
       row: { id: "r0", seq: 0, updatedAt: "2026-01-02T00:00:00Z", data: [null] },
       sourceUpdatedAt: "2026-01-02T00:00:00Z",
+      deniedPipelines: [],
     });
 
     renderWithStore(<DatasetRowGrid sourceId={sourceId} />);

@@ -85,6 +85,8 @@ const pipelineFooterNoopProps = {
   lastRunRowCount: null,
   lastRunStatus: null,
   lastRunTruncated: null,
+  costVerdict: null,
+  handleRunToUpdate: jest.fn(),
 };
 
 describe("HEL-440 raw-element guard — migrated rename controls", () => {

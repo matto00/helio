@@ -2,12 +2,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/sources/row-response.schema.json",
   "title": "RowResponse",
-  "description": "Response body (200) for a successful PATCH /api/data-sources/:id/rows/:rowId (HEL-1078 design.md D8) -- the edited row plus the source-level `updatedAt`. DELETE returns 204 with no body and has no corresponding schema.",
+  "description": "Response body (200) for a successful PATCH /api/data-sources/:id/rows/:rowId (HEL-1078 design.md D8) -- the edited row plus the source-level `updatedAt`. DELETE returns 204 with no body and has no corresponding schema. `deniedPipelines` (HEL-1096) lists every downstream pipeline this patch denied auto-run for that the writer has visibility into -- empty when nothing was denied.",
   "type": "object",
-  "required": ["row", "sourceUpdatedAt"],
+  "required": ["row", "sourceUpdatedAt", "deniedPipelines"],
   "properties": {
     "row": { "$ref": "./row-response-row.schema.json" },
-    "sourceUpdatedAt": { "type": "string", "format": "date-time" }
+    "sourceUpdatedAt": { "type": "string", "format": "date-time" },
+    "deniedPipelines": {
+      "type": "array",
+      "items": { "$ref": "./denied-pipeline-response.schema.json" }
+    }
   },
   "additionalProperties": false
 }
