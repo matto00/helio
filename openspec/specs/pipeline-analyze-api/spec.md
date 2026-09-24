@@ -310,8 +310,10 @@ silently absorb a future kind.
 
 ### Requirement: Analyze response carries a deny-by-default cost verdict
 `GET /api/pipelines/:id/analyze` (non-concise) SHALL include a `costVerdict` object with `autoRunnable`, optional
-`estimatedRows`, `stepCount` (enabled steps) and `reasons`. `autoRunnable` SHALL be true if and only if `reasons` is
-empty. The verdict SHALL deny with a distinct reason code for: an enabled AI step (`analyzewithai`, `generatetext`) as
+`estimatedRows`, `stepCount` (enabled steps), `reasons`, and `canRun`. `autoRunnable` SHALL be true if and only if
+`reasons` is empty. `canRun` SHALL be true if and only if the requesting user is the pipeline's owner or holds an
+editor grant on it — the same check `POST /api/pipelines/:id/run` enforces — regardless of `autoRunnable`. The
+verdict SHALL deny with a distinct reason code for: an enabled AI step (`analyzewithai`, `generatetext`) as
 `ai-step`; a `rest_api`/`sql` root or a URL-backed root as `remote-fetch`; an estimate above the row threshold as
 `rows-above-threshold`; an enabled step count above the bound as `steps-above-bound`; a write-back step as
 `writeback-step`; an enabled content-conversion step (`convertformat`) as `content-conversion`. Anything the estimator
@@ -337,3 +339,13 @@ source (`unclassified-source`), no available row estimate (`row-estimate-unavail
 #### Scenario: Remote source is denied
 - **WHEN** a pipeline root is a `rest_api` source
 - **THEN** `costVerdict.autoRunnable` is false with reason code `remote-fetch`
+
+#### Scenario: The owner viewing their own denied pipeline can run it
+- **WHEN** the pipeline owner requests `/analyze` for their own pipeline, and `autoRunnable` is
+  false
+- **THEN** `costVerdict.canRun` is true
+
+#### Scenario: A viewer grantee cannot run a denied pipeline
+- **WHEN** a user holding only a viewer grant requests `/analyze` for a pipeline they don't own,
+  and `autoRunnable` is false
+- **THEN** `costVerdict.canRun` is false
