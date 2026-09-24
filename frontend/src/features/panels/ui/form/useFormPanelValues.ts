@@ -38,6 +38,13 @@ interface UseFormPanelValuesResult {
    *  several fire within the same tick. Non-numeric/empty parses as `0`, mirroring every other
    *  numeric-field empty-string handling in this hook's callers. */
   adjustNumericValue: (sourceField: string, delta: number) => void;
+  /** HEL-1169 design.md D3a: applies a fetched aggregate WITHOUT touching `externalErrors` —
+   *  unlike `setValue`, whose unconditional `externalErrors` clear would otherwise silently erase
+   *  a definite-rejection's just-set `aria-invalid` state on the very same settle (round-2
+   *  design-gate CR1). `setValue` remains the right primitive for a genuine user-driven edit,
+   *  which SHOULD invalidate a stale server verdict for that field; this primitive is for a
+   *  background reconciliation of the displayed TOTAL, which must never have that side effect. */
+  reconcileValue: (sourceField: string, value: FormFieldValue) => void;
 }
 
 /** A field's empty representation, per control shape (design.md's "A field is prefilled from its
@@ -154,6 +161,10 @@ export function useFormPanelValues(
     });
   }
 
+  function reconcileValue(sourceField: string, value: FormFieldValue) {
+    setValues((prev) => ({ ...prev, [sourceField]: value }));
+  }
+
   return {
     values,
     touched,
@@ -164,6 +175,7 @@ export function useFormPanelValues(
     markAllTouched,
     setExternalErrors,
     adjustNumericValue,
+    reconcileValue,
   };
 }
 

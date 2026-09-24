@@ -124,6 +124,20 @@ describe("useFormPanelValues", () => {
     expect(result.current.errors.note).toBe("server says no");
   });
 
+  // HEL-1169 tasks.md 2.0, design.md D3a — `reconcileValue` applies a fetched aggregate but must
+  // never clear an `externalErrors` entry the way `setValue` does; otherwise a definite
+  // rejection's own trailing reconciliation fetch would silently erase the `aria-invalid` state
+  // the same settle just set (round-2 design-gate CR1).
+  it("reconcileValue updates the value but leaves an external error untouched", () => {
+    const { result } = renderHook(() => useFormPanelValues([noteField], schema));
+    act(() => result.current.setExternalErrors({ note: "server says no" }));
+    expect(result.current.errors.note).toBe("server says no");
+
+    act(() => result.current.reconcileValue("note", "5"));
+    expect(result.current.errors.note).toBe("server says no");
+    expect(result.current.values.note).toBe("5");
+  });
+
   it("a file control seeds empty despite a configured initialValue", () => {
     const fileField: FormFieldSpec = {
       sourceField: "photo",
