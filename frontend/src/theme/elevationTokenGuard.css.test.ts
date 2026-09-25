@@ -348,10 +348,13 @@ function scanAll(files: string[]) {
 describe("elevation token guard (HEL-442)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 118)", () => {
+  it("walks every CSS file in frontend/src (currently 119)", () => {
     // HEL-584 added `PanelFullscreenOverlay.css` (117 -> 118); it declares
     // no box-shadow/border-radius, so no new pin was needed.
-    expect(files.length).toBe(118);
+    // HEL-572 added `PanelInspectView.css` (118 -> 119); its one
+    // `border-radius` declaration uses `var(--app-radius-sm)` (a token, not
+    // a literal), so it produces zero hits and needed no new pin either.
+    expect(files.length).toBe(119);
   });
 
   it("has zero hits in a file with no box-shadow/border-radius declarations at all", () => {

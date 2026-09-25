@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // F-022 — `/core` entry point + our own selectively-registered `echarts`
 // instance (`echartsCore.ts`), instead of the default `echarts-for-react`
 // export, which hard-imports the full, non-tree-shakeable `echarts` package
@@ -15,10 +15,31 @@ import {
   applyHoverEmphasis,
   prefersReducedMotion,
   resolveChartTheme,
+  resolveChartType,
 } from "../../../utils/chartAppearance";
 import type { ChartType } from "../../../utils/chartAppearance";
 import { applyChartTypeOptions, makeScatterSymbolSize } from "../../../utils/chartTypeOptions";
 import type { GroupedAggregate } from "../../../utils/aggregate";
+// HEL-572 — kept as a SEPARATE, echarts-import-free module (see its own
+// header comment) so `PanelCard.tsx`/`PanelFullscreenOverlay.tsx` can reuse
+// the row-filter half without pulling this file's lazy-loaded echarts chunk
+// into the main bundle (HEL-512).
+import {
+  mapChartClickToSelection,
+  resolveDataColumns,
+  resolvePieValueColumn,
+} from "../../../utils/chartClickSelection";
+import type { ChartClickParams, ChartClickSelection } from "../../../utils/chartClickSelection";
+
+/** The slice of ECharts' own click-callback `params` shape this component's
+ *  handler reads: `ChartClickParams` (chartClickSelection.ts's module-
+ *  boundary-safe subset) plus the nested native-event handle design.md D2
+ *  calls `stopPropagation` on. Declared here (not in that echarts-import-
+ *  free module) since only this file's `onEvents` handler ever sees the raw
+ *  ECharts event shape. */
+interface EChartsClickEventParams extends ChartClickParams {
+  event?: { event?: { stopPropagation?: () => void } };
+}
 import { useTheme } from "../../../theme/ThemeProvider";
 import {
   CHART_COMPACT_HEIGHT_PX,
@@ -53,7 +74,33 @@ const COMPACT_AXIS_LABEL_FONT_SIZE = 10;
  *  the plotted series a near-invisible sliver. */
 const COMPACT_GRID_INSET_PX = 8;
 
+/** HEL-572 design.md D6 — merges `cursor: "pointer"` onto every series entry
+ *  a `buildDataOption` branch returns, applied here (a single post-process
+ *  wrapping the whole function, see `buildDataOption` below) so it's
+ *  impossible for a future branch to forget it, and so it stays entirely on
+ *  the data-derived half of the option — never merged onto the
+ *  `appearance`-derived half, which is what closes the HEL-1178 hazard (a
+ *  chart panel with no stored `appearance.chart` still gets a clickable
+ *  cursor, since this runs unconditionally regardless of `appearance`). */
+function withPointerCursor(dataOption: Partial<EChartsOption>): Partial<EChartsOption> {
+  const series = dataOption.series;
+  if (!Array.isArray(series) || series.length === 0) return dataOption;
+  return { ...dataOption, series: series.map((s) => ({ ...(s as object), cursor: "pointer" })) };
+}
+
 function buildDataOption(
+  rawRows: string[][],
+  headers: string[],
+  fieldMapping: Record<string, string> | null | undefined,
+  chartType: ChartType,
+  scatterOptions?: ScatterChartOptions,
+): Partial<EChartsOption> {
+  return withPointerCursor(
+    buildDataOptionCore(rawRows, headers, fieldMapping, chartType, scatterOptions),
+  );
+}
+
+function buildDataOptionCore(
   rawRows: string[][],
   headers: string[],
   fieldMapping: Record<string, string> | null | undefined,
@@ -62,13 +109,10 @@ function buildDataOption(
 ): Partial<EChartsOption> {
   if (rawRows.length === 0 || headers.length === 0) return {};
 
-  const xColName = fieldMapping?.xAxis;
-  const yColName = fieldMapping?.yAxis;
-  const seriesColName = fieldMapping?.series;
-
-  const xCol = xColName ? headers.indexOf(xColName) : 0;
-  const yCol = yColName ? headers.indexOf(yColName) : -1;
-  const seriesCol = seriesColName ? headers.indexOf(seriesColName) : -1;
+  // HEL-572 tasks.md 2.1 / design.md D4 — extracted so `mapChartClickToSelection`/
+  // `filterRowsForSelection` (chartClickSelection.ts) can never resolve a
+  // different column than what was actually plotted here.
+  const { xCol, yCol, seriesCol } = resolveDataColumns(headers, fieldMapping);
 
   if (xCol === -1) return {};
 
@@ -124,30 +168,19 @@ function buildDataOption(
   // pie, which needs `{name,value}[]`). Branching on `chartType === 'pie'`
   // unconditionally, before that fallthrough, closes both defects at once.
   if (chartType === "pie") {
-    if (yCol !== -1) {
-      const data = rawRows.map((r) => ({
-        name: r[xCol] ?? "",
-        value: parseFloat(r[yCol] ?? "") || 0,
-      }));
-      return { series: [{ type: "pie", data }] };
-    }
-
-    // No y mapping — auto-detect the first numeric column (skipping xCol),
-    // same scan as the generic fallback below, but stopping at the first
-    // hit: a pie series can only bind one value column.
-    for (let col = 0; col < headers.length; col++) {
-      if (col === xCol) continue;
-      const parsed = rawRows.map((r) => parseFloat(r[col] ?? ""));
-      if (parsed.some((n) => !isNaN(n))) {
-        const data = rawRows.map((r, i) => ({
-          name: r[xCol] ?? "",
-          value: isNaN(parsed[i]) ? 0 : parsed[i],
-        }));
-        return { series: [{ type: "pie", data }] };
-      }
-    }
-    // No numeric column anywhere — no valid pie slices to build.
-    return {};
+    // HEL-572 tasks.md 2.1/2.3 — `resolvePieValueColumn` (chartClickSelection.ts)
+    // is the SAME mapped-or-auto-detected resolution previously inlined
+    // here (yCol when mapped, else the first numeric column skipping xCol)
+    // — shared with `mapChartClickToSelection`'s pie branch (design.md D3)
+    // so a click can never resolve a different value column than the one
+    // that actually built the slice.
+    const valueCol = resolvePieValueColumn(rawRows, headers, xCol, yCol);
+    if (valueCol === -1) return {};
+    const data = rawRows.map((r) => ({
+      name: r[xCol] ?? "",
+      value: parseFloat(r[valueCol] ?? "") || 0,
+    }));
+    return { series: [{ type: "pie", data }] };
   }
 
   if (seriesCol !== -1 && yCol !== -1) {
@@ -254,6 +287,15 @@ export interface ChartPanelProps {
    *  (F-094/F-026 — see `useMeasuredChartHeight`), so a short *desktop*
    *  chart gets the same treatment without needing this prop threaded to it. */
   compact?: boolean;
+  /** HEL-572 design.md D2 — invoked with the click-resolved selection
+   *  (design.md D3) whenever the user clicks a genuine chart series element
+   *  (a bar, line point, pie slice, or scatter point) — never the legend,
+   *  an axis, or empty grid area. `ChartPanel` stays free of Redux
+   *  (consistent with its existing presentational-component shape); the
+   *  caller (`PanelCard`/`PanelFullscreenOverlay`) owns dispatching
+   *  `selectDataPoint`. Omitted entirely for a non-chart-eligible mount —
+   *  see `ChartInspectConfig`. */
+  onDataPointSelect?: (selection: ChartClickSelection) => void;
 }
 
 export function ChartPanel({
@@ -264,6 +306,7 @@ export function ChartPanel({
   chartAggregate,
   chartOptions,
   compact = false,
+  onDataPointSelect,
 }: ChartPanelProps = {}) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const measuredHeight = useMeasuredChartHeight(wrapperRef);
@@ -493,11 +536,44 @@ export function ChartPanel({
     themeSyncTick,
   ]);
 
+  // HEL-572 design.md D2 — bails out (does nothing) unless the click landed
+  // on a genuine series element, so a legend or empty-grid-area click still
+  // falls through unmodified to the existing panel-body-click "open
+  // Customize" handler on `article onClick` (DesktopPanelGrid.tsx). For a
+  // genuine series click, `stopPropagation` runs BEFORE anything else —
+  // including before resolving whether a mapping is even possible — so the
+  // click never reaches that handler regardless of mapping outcome. This is
+  // the one call site translating ECharts' own click-event shape into the
+  // module-boundary-safe `ChartClickParams` (chartClickSelection.ts) — see
+  // that module's header comment for why the mapping/filtering logic itself
+  // never imports `echarts`.
+  const handleChartClick = useCallback(
+    (params: EChartsClickEventParams) => {
+      if (params.componentType !== "series") return;
+      params.event?.event?.stopPropagation?.();
+      if (!onDataPointSelect || !rawRows || !headers || headers.length === 0) return;
+      const chartType = resolveChartType(appearance?.chart);
+      const selection = mapChartClickToSelection(
+        params,
+        chartType,
+        fieldMapping,
+        headers,
+        rawRows,
+        chartOptions?.scatter,
+      );
+      if (selection) onDataPointSelect(selection);
+    },
+    [onDataPointSelect, rawRows, headers, fieldMapping, chartOptions, appearance],
+  );
+
+  const chartOnEvents = useMemo(() => ({ click: handleChartClick }), [handleChartClick]);
+
   return (
     <div ref={wrapperRef} style={{ height: "100%", width: "100%" }}>
       <ReactECharts
         echarts={echarts}
         option={option}
+        onEvents={chartOnEvents}
         // Kept `true`: switching `chartType` between cartesian (bar/line/
         // scatter) and pie needs ECharts to fully replace its internal
         // series/axis state, not merge onto it — a stale `xAxis` or `series`

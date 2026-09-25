@@ -22,6 +22,7 @@ import type {
   PanelBatchItem,
   PanelPaginationState,
   PanelUpdateFields,
+  SelectionDescriptor,
   UpdatePanelsBatchRequest,
 } from "../types/panel";
 interface PanelsState {
@@ -33,6 +34,12 @@ interface PanelsState {
   lastSavedAt: number | null;
   /** Pagination state for table panels, keyed by panelId */
   paginationState: Record<string, PanelPaginationState>;
+  /** HEL-572 design.md D1 — the chart-drilldown-inspect click→selection
+   *  descriptor, keyed by panelId. View state only (never persisted/sent to
+   *  the backend), cleared on panel delete and dashboard switch (see the
+   *  `deletePanel.fulfilled` and `fetchPanels.pending` cases below) — never
+   *  as a side effect of a DIFFERENT panel's inspect view opening/closing. */
+  interactionState: Record<string, SelectionDescriptor | null>;
   /** HEL-548 D1 — the dashboard id `markDashboardPanelsStale` most recently
    *  invalidated, or `null` once a `fetchPanels` for it has been dispatched.
    *  Purely additive: it does NOT widen the `status` union (D1 rejects that
@@ -61,6 +68,7 @@ const initialState: PanelsState = {
   pendingPanelUpdates: {},
   lastSavedAt: null,
   paginationState: {},
+  interactionState: {},
   staleDashboardId: null,
   panelCreationModalOpen: false,
 };
@@ -102,6 +110,18 @@ const panelsSlice = createSlice({
     setPanelCreationModalOpen(state, action: PayloadAction<boolean>) {
       state.panelCreationModalOpen = action.payload;
     },
+    // HEL-572 design.md D1 — records a chart click's (or an ActionsMenu
+    // "Inspect" open's) resolved selection for the panel it belongs to.
+    selectDataPoint(state, action: PayloadAction<SelectionDescriptor>) {
+      state.interactionState[action.payload.panelId] = action.payload;
+    },
+    // HEL-572 design.md D5 — the inspect view's clear/return control. A
+    // panel's selection is cleared ONLY here, on panel delete, or on
+    // dashboard switch — never as a side effect of any inspect view
+    // (this panel's or another's) merely opening or closing.
+    clearSelection(state, action: PayloadAction<string>) {
+      delete state.interactionState[action.payload];
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -124,6 +144,13 @@ const panelsSlice = createSlice({
         // pre-dispatch-frame condition distinguish "not dispatched yet" from
         // "dispatched, in flight".
         state.staleDashboardId = null;
+        // HEL-572 design.md D1 — a dashboard switch (this is the existing
+        // dashboard-switch signal `loadedDashboardId` is reset off of)
+        // clears every panel's selection wholesale; a same-dashboard
+        // refetch (manual refresh) firing this same action is an accepted,
+        // harmless over-clear per the ticket's "cleared on panel/dashboard
+        // switch" requirement.
+        state.interactionState = {};
       })
       .addCase(fetchPanels.fulfilled, (state, action) => {
         state.items = action.payload;
@@ -150,6 +177,9 @@ const panelsSlice = createSlice({
       })
       .addCase(deletePanel.fulfilled, (state, action) => {
         state.items = state.items.filter((p) => p.id !== action.payload);
+        // HEL-572 design.md D1 — a deleted panel's selection (if any) must
+        // not linger as an orphaned entry.
+        delete state.interactionState[action.payload];
       })
       .addCase(duplicatePanel.rejected, (state, action) => {
         state.error = action.payload ?? "Failed to duplicate panel.";
@@ -239,6 +269,8 @@ export const {
   resetPanelSaveState,
   resetPanelPagination,
   setPanelCreationModalOpen,
+  selectDataPoint,
+  clearSelection,
 } = panelsSlice.actions;
 export const panelsReducer = panelsSlice.reducer;
 

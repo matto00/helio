@@ -103,6 +103,19 @@ export function formatChartNumber(value: unknown): string {
   return Number.isFinite(n) ? chartNumberFormat.format(n) : String(value);
 }
 
+/** HEL-572 — the chart type a panel actually renders is `appearance.chart.
+ *  chartType`, defaulting `"line"` when unset (mirrors
+ *  `appearanceToEChartsOption`'s own derivation, which is the only other
+ *  place this was previously computed inline). Exported so `ChartPanel`'s
+ *  click handler and `PanelCard`/`PanelFullscreenOverlay`'s inspect-view
+ *  mounting (which never call `appearanceToEChartsOption` — that also
+ *  builds a full ECharts option object, wasted work for a value this small)
+ *  resolve the SAME chart type without a second, divergence-prone copy of
+ *  this fallback. */
+export function resolveChartType(chart: ChartAppearance | undefined): ChartType {
+  return (chart?.chartType as ChartType | undefined) ?? "line";
+}
+
 function legendPositionProps(position: string): Record<string, unknown> {
   switch (position) {
     case "top":
@@ -122,7 +135,7 @@ export function appearanceToEChartsOption(
   chart: ChartAppearance,
   themeTokens: ChartThemeTokens = resolveChartTheme(),
 ): AppearanceResult {
-  const chartType: ChartType = (chart.chartType as ChartType) ?? "line";
+  const chartType: ChartType = resolveChartType(chart);
   // F-024: gridlines/axis-lines/ticks were never theme-aware (no color at
   // all → ECharts' own default, which is a bright white/black streak
   // depending on theme). Wire them to the same subtle border token the rest

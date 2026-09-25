@@ -363,6 +363,20 @@ export interface UpdatePanelsBatchResponse {
   panels: Panel[];
 }
 
+// HEL-572 — the reusable click→selection descriptor originated by
+// chart-drilldown-inspect (design.md D1 / "SelectionDescriptor field
+// semantics"), also consumed by HEL-588 (cross-filtering). `dimension` is
+// the SOURCE COLUMN NAME the selection is keyed on (e.g. `"quarter"`),
+// `value` is the clicked category/label itself (e.g. `"Q1"`), and `series`
+// identifies the clicked measure/group (the y-column's name for a single
+// series, or the clicked group's value when grouped).
+export interface SelectionDescriptor {
+  panelId: string;
+  dimension: string;
+  value: string;
+  series: string;
+}
+
 export interface PanelPaginationState {
   currentPage: number;
   hasMore: boolean;
