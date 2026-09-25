@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
 import {
@@ -7,6 +7,7 @@ import {
   makeImagePanel,
   makeMarkdownPanel,
   makeOutputPanel,
+  makeTextPanel,
 } from "../../../test/panelFixtures";
 import {
   getAssertionStatus as getAssertionStatusRequest,
@@ -620,8 +621,167 @@ describe("PanelCardBody — HEL-579 prop reference stability across an unrelated
     });
 
     // Header (title + actions) remains visible during drag-freeze; the body
-    // (PanelContent output) does not.
-    expect(screen.getByText("Revenue")).toBeInTheDocument();
+    // (PanelContent output) does not. Scoped to the card's own `<h3>` — HEL-584
+    // added an always-mounted (open or not) `PanelFullscreenOverlay` whose
+    // Modal header ALSO renders the panel title as an `<h2>`, so a bare
+    // `getByText("Revenue")` is ambiguous as of this ticket.
+    expect(container.querySelector(".panel-grid-card__title")?.textContent).toBe("Revenue");
     expect(container.querySelector(".panel-content")).not.toBeInTheDocument();
+  });
+});
+
+// HEL-584 tasks.md 1.1/1.2/2.2/4.1/4.2 — jsdom does not implement
+// showModal/close natively; stub them the same way Modal.test.tsx does
+// (moving focus into the dialog's first focusable descendant on open) so
+// the focus-restore assertion below is meaningful, not vacuously true — see
+// that file's own comment for the mutation-tested rationale.
+const DIALOG_FOCUSABLE_SELECTOR =
+  'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+describe("PanelCard — HEL-584 fullscreen/focus mode (tasks 2.1/2.2/4.1/4.2)", () => {
+  beforeEach(() => {
+    getAssertionStatusMock.mockReset();
+    getAssertionStatusMock.mockResolvedValue({
+      outputId: "output-1",
+      invalid: false,
+      failedRuleCount: 0,
+    });
+    // noData: false (unlike this file's other describe blocks) — several
+    // tests below assert the panel's REAL content renders (in the card and
+    // the overlay), which `PanelContent` short-circuits past with a "No data
+    // available" state whenever `noData` is true, regardless of panel kind.
+    mockUsePanelData.mockReturnValue({
+      data: null,
+      rawRows: null,
+      headers: null,
+      isLoading: false,
+      error: null,
+      errorKind: null,
+      noData: false,
+      neverMaterialized: false,
+      chartAggregate: null,
+      rowsTruncated: false,
+      refresh: jest.fn(),
+      isRefreshing: false,
+    });
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+      const first = this.querySelector<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR);
+      first?.focus();
+    });
+    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+      this.dispatchEvent(new Event("close"));
+    });
+  });
+
+  // spec.md "Fullscreen control on eligible panel kinds" — output/text/
+  // markdown/image get the control; divider/form (config.6) do not.
+  it.each([
+    ["output", () => makeOutputPanel({ title: "Revenue" })],
+    ["text", () => makeTextPanel({ title: "Caption" })],
+    ["markdown", () => makeMarkdownPanel({ title: "Notes" })],
+    ["image", () => makeImagePanel({ title: "Logo" })],
+  ] as const)("renders a Fullscreen control for a %s panel", async (_kind, makePanel) => {
+    const panel = makePanel();
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    expect(screen.getByRole("button", { name: `Fullscreen ${panel.title}` })).toBeInTheDocument();
+
+    // The card body's own `PanelContent` (unrelated to the Fullscreen
+    // control under test) may render via a `React.lazy` renderer (markdown
+    // — HEL-512); this settles it before the test ends so its resolution is
+    // never observed outside `act()` during RTL's automatic unmount.
+    await waitFor(() => {});
+  });
+
+  it.each([
+    ["divider", () => makeDividerPanel({ title: "Sep" })],
+    ["form", () => makeFormPanel({ title: "Intake" })],
+  ] as const)("renders no Fullscreen control for a %s panel", (_kind, makePanel) => {
+    const panel = makePanel();
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    expect(screen.queryByRole("button", { name: /^Fullscreen /i })).not.toBeInTheDocument();
+  });
+
+  it("activating the Fullscreen control opens the overlay showing the same content via the shared renderer", async () => {
+    const panel = makeMarkdownPanel({ title: "Notes", config: { content: "Panel body content" } });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    // The card itself already renders the content once.
+    expect(screen.getByText("Panel body content")).toBeInTheDocument();
+
+    const trigger = screen.getByRole("button", { name: "Fullscreen Notes" });
+    fireEvent.click(trigger);
+
+    const dialog = await screen.findByRole("dialog", { name: "Notes fullscreen" });
+    // Scoped to the dialog: proves the overlay renders the SAME content via
+    // the SAME renderer, not merely that the text exists somewhere on the
+    // page (it already does, in the card behind it). `MarkdownRenderer` is a
+    // `React.lazy` target (HEL-512) — awaited rather than asserted
+    // synchronously, mirroring `PanelContent.test.tsx`'s convention.
+    expect(await within(dialog).findByText("Panel body content")).toBeInTheDocument();
+  });
+
+  it("the fullscreen overlay renders no editing controls (view-only, spec.md)", async () => {
+    const panel = makeMarkdownPanel({ title: "Notes", config: { content: "Panel body content" } });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Fullscreen Notes" }));
+    const dialog = await screen.findByRole("dialog", { name: "Notes fullscreen" });
+    await within(dialog).findByText("Panel body content");
+
+    expect(within(dialog).queryByRole("button", { name: /rename|customize|delete/i })).toBeNull();
+    expect(within(dialog).queryByRole("textbox")).toBeNull();
+  });
+
+  // spec.md "Closing restores focus" — Esc is Modal's native `cancel` event.
+  it("Esc closes the overlay and restores focus to the Fullscreen button that opened it (spec.md)", async () => {
+    const panel = makeMarkdownPanel({ title: "Notes", config: { content: "Panel body content" } });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    const trigger = screen.getByRole("button", { name: "Fullscreen Notes" });
+    trigger.focus();
+    expect(document.activeElement).toBe(trigger);
+
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole("dialog", { name: "Notes fullscreen" });
+    // Lets the lazily-loaded MarkdownRenderer settle before closing, so its
+    // chunk-resolution promise doesn't land outside `act()` after the
+    // overlay's body unmounts (the same reasoning as the two tests above).
+    await within(dialog).findByText("Panel body content");
+    // The stubbed showModal() above moved focus into the dialog — confirms
+    // focus genuinely left the trigger, so the restore assertion below is
+    // not vacuously true (mirrors Modal.test.tsx's own CR1 rationale).
+    expect(document.activeElement).not.toBe(trigger);
+
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+
+    await waitFor(() => expect(dialog).not.toHaveAttribute("open"));
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("opening fullscreen for an output panel triggers no additional data fetch (design.md Decision 2)", async () => {
+    getOutputRowsMock.mockReset();
+    getOutputRowsMock.mockReturnValue(new Promise(() => {})); // never resolves — no render-driven noise
+    mockUsePanelData.mockImplementation(actualUsePanelData);
+
+    const panel = makeOutputPanel({ title: "Revenue", config: { outputId: "output-9" } });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+    await waitFor(() => expect(getOutputRowsMock).toHaveBeenCalledTimes(1));
+
+    const trigger = screen.getByRole("button", { name: "Fullscreen Revenue" });
+    fireEvent.click(trigger);
+    await screen.findByRole("dialog", { name: "Revenue fullscreen" });
+
+    // Opening the overlay re-renders PanelCard (new isFullscreenOpen state)
+    // but must not trigger a SECOND, independent fetch for the same panel —
+    // the overlay consumes the caller's existing `usePanelData` result as
+    // props (design.md Decision 2), never calling the hook itself (also
+    // statically proven in PanelFullscreenOverlay.test.tsx).
+    expect(getOutputRowsMock).toHaveBeenCalledTimes(1);
+
+    mockUsePanelData.mockReset();
   });
 });

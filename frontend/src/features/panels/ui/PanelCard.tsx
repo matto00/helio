@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
-import { getOutputId } from "../state/panelNarrowing";
+import { getOutputId, isFullscreenEligible } from "../state/panelNarrowing";
 import { deletePanel, duplicatePanel, fetchPanelPage } from "../state/panelsSlice";
 import { getAssertionStatus } from "../../pipelines/services/outputService";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
@@ -11,12 +11,13 @@ import { InlineError } from "../../../shared/chrome/InlineError";
 import { IconButton } from "../../../shared/ui/IconButton";
 import { TextField } from "../../../shared/ui/TextField";
 import { PanelContent } from "./PanelContent";
+import { PanelFullscreenOverlay } from "./PanelFullscreenOverlay";
 import type { PanelDataResult } from "../hooks/usePanelData";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import type { Panel } from "../types/panel";
-import { GripVertical, RotateCw } from "lucide-react";
+import { GripVertical, Maximize2, RotateCw } from "lucide-react";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 import { Spinner } from "../../../shared/ui/Spinner";
 
@@ -235,6 +236,14 @@ export const PanelCard = React.memo(function PanelCard({
   const panelData = usePanelData(panel);
   const { refresh, isRefreshing } = panelData;
 
+  // HEL-584 design.md Decision 2 — the fullscreen overlay consumes THIS
+  // `panelData` result as props (below); it never calls `usePanelData`
+  // itself, so opening it can't race HEL-579's in-flight refresh guard with
+  // a second, independent fetch instance for the same panel.
+  const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
+  const handleOpenFullscreen = useCallback(() => setIsFullscreenOpen(true), []);
+  const handleCloseFullscreen = useCallback(() => setIsFullscreenOpen(false), []);
+
   const [isDataInvalid, setIsDataInvalid] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -382,6 +391,22 @@ export const PanelCard = React.memo(function PanelCard({
                   onClick={refresh}
                 />
               )}
+              {/* HEL-584: view-only fullscreen/focus-mode overlay, gated on
+                  the eligible content kinds (design.md Decision 3 — excludes
+                  `divider`/`form`). Kept visible during title-editing, like
+                  the Refresh control above, since it's unrelated to
+                  renaming. */}
+              {isFullscreenEligible(panel) && (
+                <IconButton
+                  icon={<Maximize2 aria-hidden="true" size={ICON_SIZE.sm} />}
+                  variant="secondary"
+                  size="xs"
+                  className="panel-grid-card__fullscreen-btn"
+                  aria-label={`Fullscreen ${panel.title}`}
+                  title="Fullscreen"
+                  onClick={handleOpenFullscreen}
+                />
+              )}
               {isEditingTitle ? null : (
                 <ActionsMenu
                   label={`${panel.title} panel actions`}
@@ -436,6 +461,33 @@ export const PanelCard = React.memo(function PanelCard({
         rowsTruncated={panelData.rowsTruncated}
         refresh={panelData.refresh}
       />
+      {/* HEL-584 design.md Decision 2/3 — mounted unconditionally (matching
+          `QuickLauncherOverlay`'s always-mounted-with-a-toggled-`open`-prop
+          precedent), gated only on eligibility so excluded kinds get no
+          trace of this overlay, not just a hidden control. Visibility is
+          the `open` prop, not mount/unmount — see that component's own doc
+          comment for why (Modal's focus-restore effect needs a real
+          `open` transition, not a fresh mount that starts already-open).
+          Fed the SAME `panelData` result the body above receives, never its
+          own `usePanelData` call. */}
+      {isFullscreenEligible(panel) && (
+        <PanelFullscreenOverlay
+          panel={panel}
+          open={isFullscreenOpen}
+          onClose={handleCloseFullscreen}
+          data={panelData.data}
+          rawRows={panelData.rawRows}
+          headers={panelData.headers}
+          isLoading={panelData.isLoading}
+          error={panelData.error}
+          errorKind={panelData.errorKind}
+          noData={panelData.noData}
+          neverMaterialized={panelData.neverMaterialized}
+          chartAggregate={panelData.chartAggregate}
+          rowsTruncated={panelData.rowsTruncated}
+          refresh={panelData.refresh}
+        />
+      )}
       <div className="panel-grid-card__footer">
         <span className="panel-grid-card__type-badge">{panel.type}</span>
         {isDataInvalid && (

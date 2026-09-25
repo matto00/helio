@@ -1,0 +1,27 @@
+/* HEL-584 design.md Decision 1a — Modal.css's base `.ui-modal` sets only
+   `max-height: 90vh`, never an explicit `height` (a shrink-to-fit box — see
+   Modal.css's own HEL-746 comment: a percentage height on a child only
+   resolves against an ancestor with a *definite* height, and `max-height`
+   alone never establishes one). Without this override, `ChartPanel`'s
+   `height: 100%` wrapper has no real box to resolve against, so neither
+   "maximized" nor the chart-resize AC would hold. Mirrors
+   `PanelDetailModal.css`'s `.panel-detail-modal--view` pattern: `90vh`
+   matches Modal's own `max-height` cap exactly (no wasted headroom);
+   `1000px` is a deliberately slightly larger ceiling than
+   `--view`'s `900px` since this overlay carries no tab-bar/footer chrome to
+   reserve space for. */
+.panel-fullscreen-overlay {
+  height: min(90vh, 1000px);
+  overflow: hidden;
+}
+
+/* Fills the dialog's real (flex-resolved) body box so `PanelContent`'s own
+   `flex: 1` has a flex parent to participate in — mirrors
+   `.panel-detail-modal__view-body`'s identical role for
+   `PanelDetailModal`'s view mode. */
+.panel-fullscreen-overlay__body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}

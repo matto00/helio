@@ -1,0 +1,39 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+### What I verified (with evidence)
+
+- **Spawn-cwd guard**: `assert-cwd.sh` returned `READY ambient=/home/matt/Development/helio branch=feature/panel-fullscreen-focus-mode/HEL-584` before any other read.
+- **Read all planning artifacts**: `ticket.md`, `proposal.md`, `design.md`, `tasks.md`, `specs/panel-fullscreen/spec.md` in full.
+- **`usePanelData` single-call-site premise**: confirmed. `frontend/src/features/panels/ui/PanelCard.tsx:235` is the sole `usePanelData(panel)` call for the desktop grid; `PanelCardBody` (same file, line 74+) takes the result as individual props, matching design.md's Decision 2 claim. `MobilePanelStack.tsx:47` has its own separate call, consistent with Decision 4 (fullscreen excluded there).
+- **`Modal size="full"` precedent**: confirmed. `PanelDetailModal.tsx:364` is the only other consumer (`grep 'size="full"'` across `src` turns up only `PanelDetailModal.tsx` and `Modal.test.tsx`). `Modal.css:54-56` (`width: min(1200px, calc(100vw - 32px))`) and `Modal.css:9` (`max-height: 90vh`) confirm the "1200px/90vh cap" figures design.md cites.
+- **`autoResize` claim**: confirmed textually — `ChartPanel.tsx:453` passes `autoResize={true}` to `ReactECharts`, self-observing via `echarts-for-react`'s internal `ResizeObserver`. No new resize code is planned or needed *for the resize call itself* (see gap below for why this is necessary-but-not-sufficient).
+- **`PanelKind` union / exclusion list**: confirmed. `panelNarrowing.ts` defines exactly `output | text | markdown | image | divider | form`; `MobilePanelStack.tsx:42` literally says "This stack is read-only (no header actions)" verbatim, matching the design's citation.
+- **Divider/form exclusion rationale**: `DividerRenderer`/`FormRenderer` dispatch confirmed in `PanelContent.tsx:317-325`; excluding a write surface (`form`) and a no-content kind (`divider`) from a view-only maximize overlay is sound and consistent between design.md Decision 3, tasks.md 2.1/4.1, and spec.md's three eligibility scenarios.
+
+### Gap found (code-grounded, not internal-consistency-only)
+
+**The design never establishes that the new overlay's `<dialog>` gets an actual filled/definite height — the single load-bearing prerequisite for "maximized" to mean anything, and for the chart-resize AC to be true.**
+
+Evidence, read directly from the files the design cites as reused "for free":
+
+1. `Modal.css:1-10` — `.ui-modal` has **no explicit `height`**, only `max-height: 90vh`. A `<dialog>` sized this way is a shrink-to-fit block: with `display:flex; flex-direction:column` (`Modal.css:23-24`) and no definite own height, `flex-grow` on children does not expand them past their content's hypothetical size — the container itself sizes to fit content, capped only by `max-height`. `Modal.css:154-158` confirms `.ui-modal__body { flex: 1; overflow-y: auto; }` has no `min-height: 0` override either.
+2. `PanelDetailModal.css:7-14` proves this is a real, previously-hit problem, not theoretical: `PanelDetailModal` needs its **own additional CSS class**, `.panel-detail-modal--view { height: min(88vh, 900px); }` (applied via `className={...' panel-detail-modal--view' : ''}` at `PanelDetailModal.tsx:367`), layered on top of the base `.panel-detail-modal { height: min(680px, 90vh) }`, to give its `size="full"` dialog a *definite* height at all. Everything below that (`.panel-detail-modal__inner { height: 100% }` at `PanelDetailModal.css:22`, `.panel-detail-modal__view-body { flex:1; min-height:0 }` at `PanelDetailModal.css:61-66`, `.panel-content { flex:1; min-height:0 }` at `PanelContent.css:1-8`) only resolves into a real box because that top-level explicit height exists.
+3. `Modal.css:63-97`'s own in-file comment (HEL-746) documents the exact failure mode this produces when the definite-height prerequisite is missing: content grows past the dialog's real cap, the dialog's native `overflow:auto` becomes the scroll container for the whole header+body+footer column, and a consumer got "a mostly-blank slice — the reported 'blank area with a horizontal line'." That comment explicitly calls out "every consumer whose `.ui-modal` has no explicit `height` override — i.e. every consumer except `PanelDetailModal`" as exposed to this class of bug.
+4. `ChartPanel.tsx:441,454` renders its wrapper and the ECharts instance at `height: "100%"; width: "100%"`. A `100%` height only resolves against an ancestor with a *definite* height (CSS percentage-height rule, the same rule `Modal.css`'s own comment cites). Without `PanelDetailModal`'s kind of explicit height override propagated down the chain, `PanelFullscreenOverlay`'s chart wrapper has nothing definite to resolve `100%` against — the practical outcome ranges from a collapsed/near-zero-height ECharts canvas to a shrink-to-content dialog that never actually "fills the overlay's content area at its larger size" as spec.md's own scenario (`spec.md:37-43`) requires.
+
+design.md's Decisions/Goals list what `Modal` supplies "for free" (opaque surface, backdrop, entrance animation, focus trap, Esc-close, focus restore — all correctly cited) but never identifies that the *one specific thing PanelDetailModal itself had to add on top of Modal* — an explicit height override — is exactly what makes "maximized" real rather than cosmetic. proposal.md's Impact section (lines 34-37) lists only two files, `PanelCard.tsx` and the new `PanelFullscreenOverlay.tsx`; no CSS file is anticipated. tasks.md 1.1 asks only for a render test that the component "renders," and task 3.1 (chart-resize verification) is built on the unstated assumption that the overlay already has a real, viewport-sized box to resize into — an assumption nothing in this design set actually establishes or tests.
+
+This is not a hypothetical edge case: it is the literal, previously-shipped, previously-regressed bug this codebase's own Modal.css comments were written to document, for the *one other* `size="full"` consumer in the tree.
+
+### Verdict: REFUTE
+
+### Change Requests
+
+1. **design.md**: Add a decision (or extend Decision 1) explicitly addressing how `PanelFullscreenOverlay`'s `<dialog>` gets a definite height, mirroring `PanelDetailModal.css`'s `.panel-detail-modal--view { height: min(88vh, 900px); }` pattern (an overlay-specific CSS class passed via `Modal`'s `className` prop) — or an equivalent, deliberately-chosen mechanism — rather than leaving it implicit that `Modal size="full"` alone produces a filled, maximized box. Name the specific height value/formula chosen and why.
+2. **proposal.md** Impact section: add the CSS file (new or appended to an existing one) this will require — the current two-file list (`PanelCard.tsx`, `PanelFullscreenOverlay.tsx`) omits it.
+3. **tasks.md**: add a task under section 1 (or 3) that creates/verifies this height rule, and make task 3.1's chart-resize verification explicitly depend on it (verify the overlay's content area itself reaches a real, non-content-shrunk size before or as part of verifying the chart resizes into it) — otherwise 3.1 can pass vacuously against a small, content-sized container and never exercise the "larger viewport" the AC and spec.md's scenario (`spec.md:37-43`) actually describe.
+
+### Non-blocking notes
+
+- Eligibility gating (Decision 3), the `usePanelData` single-call-site discipline (Decision 2), the `MobilePanelStack` exclusion (Decision 4), and the divider/form exclusion are all well-grounded in the actual code and internally consistent across proposal/design/tasks/spec — no changes needed there.
+- Task 3.1's phrasing ("a rendered test asserting the chart's container reports the overlay's larger dimensions, or an equivalent resize-call assertion") already hedges toward a resize-call assertion, which is sensible given jsdom doesn't perform real CSS layout — no change needed there beyond tying it to CR3 above.
