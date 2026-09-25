@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 // F-022 — `/core` entry point + our own selectively-registered `echarts`
 // instance (`echartsCore.ts`), instead of the default `echarts-for-react`
 // export, which hard-imports the full, non-tree-shakeable `echarts` package
@@ -9,7 +9,13 @@ import ReactECharts from "echarts-for-react/esm/core";
 import type { EChartsOption } from "echarts";
 
 import type { ChartTypeOptionsMap, PanelAppearance, ScatterChartOptions } from "../types/panel";
-import { appearanceToEChartsOption, resolveChartTheme } from "../../../utils/chartAppearance";
+import {
+  appearanceToEChartsOption,
+  applyAxisTriggerTooltip,
+  applyHoverEmphasis,
+  prefersReducedMotion,
+  resolveChartTheme,
+} from "../../../utils/chartAppearance";
 import type { ChartType } from "../../../utils/chartAppearance";
 import { applyChartTypeOptions, makeScatterSymbolSize } from "../../../utils/chartTypeOptions";
 import type { GroupedAggregate } from "../../../utils/aggregate";
@@ -266,23 +272,60 @@ export function ChartPanel({
   const measuredPieLegendOverlap =
     measuredHeight > 0 && measuredHeight <= PIE_LEGEND_HIDE_HEIGHT_PX;
 
-  // `theme` is read only to force the memo below to recompute when the user
-  // flips light/dark — `resolveChartTheme()` re-reads the live computed CSS
-  // custom properties itself and isn't derived from this value directly.
-  const { theme } = useTheme();
+  // `theme`/`accentColor` are read only to force the memo below to recompute
+  // when the user flips light/dark or changes accent — `resolveChartTheme()`
+  // re-reads the live computed CSS custom properties itself and isn't
+  // derived from either value directly.
+  const { theme, accentColor } = useTheme();
+
+  // HEL-566 skeptic-final-1 CR1 — a `theme`/`accentColor` change alone is
+  // NOT enough to guarantee the memo below reads the CORRECT tokens: on the
+  // very render this state change triggers, `document.documentElement`'s
+  // `data-theme` attribute (and the accent custom properties
+  // `applyAccentTokens` writes) have NOT been updated yet — that DOM
+  // mutation happens in `ThemeProvider`'s own `useEffect`, which (like every
+  // passive effect) runs strictly AFTER the render phase of the triggering
+  // commit, so `resolveChartTheme()`'s live `getComputedStyle` read captures
+  // the PREVIOUS theme/accent's values. A same-commit child effect in THIS
+  // component doesn't help either — passive effects fire child-before-parent
+  // within one commit, so a plain `useEffect([theme, accentColor])` here
+  // still runs before `ThemeProvider`'s own effect. Root-cause confirmed via
+  // a minimal probe (mounting `ThemeProvider` + a consumer that records
+  // `document.documentElement`'s attribute at render time, a same-commit
+  // child-effect time, and a `requestAnimationFrame`-deferred time across a
+  // toggle): the render-time and child-effect-time reads both observed the
+  // STALE attribute; only the rAF-deferred read (which fires after the
+  // browser paints — i.e. after every effect of the commit, ancestor AND
+  // descendant, has already run) observed the corrected one. `themeSyncTick`
+  // forces exactly one corrective recompute once that's guaranteed true.
+  const [themeSyncTick, setThemeSyncTick] = useState(0);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setThemeSyncTick((n) => n + 1));
+    return () => cancelAnimationFrame(raf);
+  }, [theme, accentColor]);
 
   // F-231 — this used to rebuild the full ECharts option object on every
   // render. Memoized on the actual inputs that can change its shape.
   const option = useMemo<EChartsOption>(() => {
     // Deliberate cache-buster (see the comment above the `useTheme()` call):
     // `resolveChartTheme()` re-reads the live computed CSS custom properties
-    // itself rather than deriving from this value, so it's referenced here
-    // only to justify `theme`'s presence in the dependency array below.
+    // itself rather than deriving from either value, so they're referenced
+    // here only to justify their presence in the dependency array below.
+    // HEL-566: `accentStrong` (the hover-emphasis color) is derived from
+    // `--app-accent` via CSS `color-mix`, so an accent-only change — no
+    // theme toggle — still needs to force this memo to re-resolve it
+    // (design.md Decision 5). `themeSyncTick` is the corrective re-resolve
+    // once the DOM is guaranteed to reflect the new theme/accent — see the
+    // comment above its `useEffect` above.
     void theme;
+    void accentColor;
+    void themeSyncTick;
+
+    const themeTokens = resolveChartTheme();
 
     const { option: appearanceOption, chartType } =
       appearance?.chart != null
-        ? appearanceToEChartsOption(appearance.chart, resolveChartTheme())
+        ? appearanceToEChartsOption(appearance.chart, themeTokens)
         : { option: {} as EChartsOption, chartType: "line" as ChartType };
 
     const useAggregate =
@@ -371,6 +414,17 @@ export function ChartPanel({
     // (HEL-301) stays the last transform and is unchanged.
     built = applyChartTypeOptions(built, chartType, chartOptions);
 
+    // HEL-566 D3/D4 — axis-trigger tooltip (shared-x, multi-series bar/line)
+    // and hover-emphasis styling both need the FINAL series array (after
+    // chart-type options, so a normalized-stacking or scatter-grouping pass
+    // above has already settled series count/shape), so both run as their
+    // own post-merge passes here, mirroring `applyChartTypeOptions`
+    // immediately above rather than folding into `appearanceToEChartsOption`
+    // — which runs before `dataOption`'s real series are known (design.md
+    // Decision 3).
+    built = applyAxisTriggerTooltip(built, chartType);
+    built = applyHoverEmphasis(built, themeTokens, prefersReducedMotion());
+
     // F-026 — a pie's own outer data-labels extend well outside its donut
     // radius, so a top/bottom legend collides with them at a *taller*
     // measured height than the generic compact tier below is set for.
@@ -435,6 +489,8 @@ export function ChartPanel({
     effectiveCompact,
     measuredPieLegendOverlap,
     theme,
+    accentColor,
+    themeSyncTick,
   ]);
 
   return (
