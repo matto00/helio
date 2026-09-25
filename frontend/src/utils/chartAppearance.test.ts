@@ -1,4 +1,13 @@
-import { appearanceToEChartsOption, formatChartNumber, resolveChartTheme } from "./chartAppearance";
+import type { EChartsOption } from "echarts";
+
+import {
+  appearanceToEChartsOption,
+  applyAxisTriggerTooltip,
+  applyHoverEmphasis,
+  formatChartNumber,
+  prefersReducedMotion,
+  resolveChartTheme,
+} from "./chartAppearance";
 import type { ChartAppearance } from "../features/panels/types/panel";
 const baseChart: ChartAppearance = {
   seriesColors: [],
@@ -147,8 +156,20 @@ describe("appearanceToEChartsOption", () => {
       expect(option.tooltip).toMatchObject({
         backgroundColor: theme.surfaceStrong,
         borderColor: theme.borderSubtle,
-        textStyle: { color: theme.text, fontFamily: theme.fontSans },
+        // HEL-566: mono, not sans — unlike the rest of the chart's chrome,
+        // the tooltip's values are tabular numerals (Decision 2).
+        textStyle: { color: theme.text, fontFamily: theme.fontMono },
       });
+    });
+
+    // HEL-566 — the tooltip's DOM box (shadow/radius) isn't reachable through
+    // ECharts' typed tooltip props; it has to go through `extraCssText`
+    // (Decision 1).
+    it("carries the tooltip's shadow/radius tokens in extraCssText", () => {
+      const { option } = appearanceToEChartsOption(baseChart);
+      const extraCssText = (option.tooltip as { extraCssText?: string }).extraCssText ?? "";
+      expect(extraCssText).toContain(theme.shadowSoft);
+      expect(extraCssText).toContain(theme.radiusMd);
     });
 
     it("colors axisLine/axisTick/splitLine from the border-subtle token", () => {
@@ -204,5 +225,132 @@ describe("appearanceToEChartsOption", () => {
         .valueFormatter;
       expect(valueFormatter?.(2000000)).toBe("2000000");
     });
+  });
+});
+
+// HEL-566 — `shadowSoft`/`radiusMd`/`accentStrong` read with the same
+// live/fallback pattern as the existing five `ChartThemeTokens`.
+describe("resolveChartTheme — new tokens (HEL-566)", () => {
+  it("resolves shadowSoft, radiusMd, and accentStrong (falling back off jsdom, same as the existing tokens)", () => {
+    const theme = resolveChartTheme();
+    expect(theme.shadowSoft).toBeTruthy();
+    expect(theme.radiusMd).toBeTruthy();
+    expect(theme.accentStrong).toBeTruthy();
+  });
+});
+
+describe("prefersReducedMotion", () => {
+  const originalMatchMedia = window.matchMedia;
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it("returns true when the media query matches", () => {
+    window.matchMedia = jest.fn().mockReturnValue({ matches: true }) as typeof window.matchMedia;
+    expect(prefersReducedMotion()).toBe(true);
+    expect(window.matchMedia).toHaveBeenCalledWith("(prefers-reduced-motion: reduce)");
+  });
+
+  it("returns false when the media query does not match", () => {
+    window.matchMedia = jest.fn().mockReturnValue({ matches: false }) as typeof window.matchMedia;
+    expect(prefersReducedMotion()).toBe(false);
+  });
+});
+
+// HEL-566 D3 — axis-trigger tooltip fires only for a bar/line chart with more
+// than one series; pie/scatter and single-series bar/line keep the existing
+// item-trigger tooltip unchanged.
+describe("applyAxisTriggerTooltip", () => {
+  function optionWithSeries(count: number, type: string): EChartsOption {
+    return {
+      tooltip: { show: true, trigger: "item" },
+      series: Array.from({ length: count }, (_, i) => ({ type, name: `s${i}`, data: [] })),
+    } as unknown as EChartsOption;
+  }
+
+  it("sets axis trigger with a shadow pointer for a multi-series bar chart", () => {
+    const option = applyAxisTriggerTooltip(optionWithSeries(2, "bar"), "bar");
+    expect(option.tooltip).toMatchObject({ trigger: "axis", axisPointer: { type: "shadow" } });
+  });
+
+  it("sets axis trigger with a line pointer for a multi-series line chart", () => {
+    const option = applyAxisTriggerTooltip(optionWithSeries(2, "line"), "line");
+    expect(option.tooltip).toMatchObject({ trigger: "axis", axisPointer: { type: "line" } });
+  });
+
+  it("keeps item trigger for a single-series bar chart", () => {
+    const option = applyAxisTriggerTooltip(optionWithSeries(1, "bar"), "bar");
+    expect((option.tooltip as { trigger?: string }).trigger).toBe("item");
+    expect((option.tooltip as { axisPointer?: unknown }).axisPointer).toBeUndefined();
+  });
+
+  it("keeps item trigger for a single-series line chart", () => {
+    const option = applyAxisTriggerTooltip(optionWithSeries(1, "line"), "line");
+    expect((option.tooltip as { trigger?: string }).trigger).toBe("item");
+  });
+
+  it("keeps item trigger for a pie chart regardless of series count", () => {
+    const option = applyAxisTriggerTooltip(optionWithSeries(1, "pie"), "pie");
+    expect((option.tooltip as { trigger?: string }).trigger).toBe("item");
+  });
+
+  it("keeps item trigger for a scatter chart regardless of series count", () => {
+    const option = applyAxisTriggerTooltip(optionWithSeries(2, "scatter"), "scatter");
+    expect((option.tooltip as { trigger?: string }).trigger).toBe("item");
+    expect((option.tooltip as { axisPointer?: unknown }).axisPointer).toBeUndefined();
+  });
+
+  it("preserves the rest of the tooltip config it did not set", () => {
+    const option = applyAxisTriggerTooltip(optionWithSeries(2, "bar"), "bar");
+    expect((option.tooltip as { show?: boolean }).show).toBe(true);
+  });
+});
+
+// HEL-566 D4 — subtle, accent-strong-colored hover emphasis on every series;
+// reduced motion makes the state change instant instead of omitting it.
+describe("applyHoverEmphasis", () => {
+  const themeTokens = resolveChartTheme();
+  const optionWithSeries = (): EChartsOption => ({
+    series: [
+      { type: "bar", data: [1, 2] },
+      { type: "line", data: [3, 4] },
+    ],
+  });
+
+  it("adds accent-strong-colored emphasis with focus:series to every series (animated case)", () => {
+    const option = applyHoverEmphasis(optionWithSeries(), themeTokens, false);
+    const series = option.series as Array<{ emphasis?: Record<string, unknown> }>;
+    for (const s of series) {
+      expect(s.emphasis).toMatchObject({
+        focus: "series",
+        itemStyle: { borderColor: themeTokens.accentStrong },
+      });
+    }
+  });
+
+  it("does not set animation:false when motion is not reduced", () => {
+    const option = applyHoverEmphasis(optionWithSeries(), themeTokens, false);
+    const series = option.series as Array<{ animation?: boolean }>;
+    for (const s of series) {
+      expect(s.animation).toBeUndefined();
+    }
+  });
+
+  it("sets animation:false on every series when reduced motion is requested, while keeping emphasis", () => {
+    const option = applyHoverEmphasis(optionWithSeries(), themeTokens, true);
+    const series = option.series as Array<{
+      animation?: boolean;
+      emphasis?: Record<string, unknown>;
+    }>;
+    for (const s of series) {
+      expect(s.animation).toBe(false);
+      expect(s.emphasis).toMatchObject({ focus: "series" });
+    }
+  });
+
+  it("returns the option unchanged when there is no series", () => {
+    const option = applyHoverEmphasis({ tooltip: { show: true } }, themeTokens, false);
+    expect(option.series).toBeUndefined();
   });
 });
