@@ -32,8 +32,17 @@ export interface PanelDataResult {
    *  Output itself now owns any groupBy aggregation, so this is always
    *  `null`. */
   chartAggregate: null;
-  /** Reset the fetch-deduplication key and trigger a fresh data fetch. */
+  /** Reset the fetch-deduplication key and trigger a fresh data fetch. A
+   *  no-op while a fetch for the current key is already in flight (design.md
+   *  D2) — guards the manual-refresh, poll, and SSE-fan-out callers uniformly
+   *  since all three ultimately call this same closure. */
   refresh: () => void;
+  /** HEL-579 design.md D3: true while ANY fetch (first load or refresh) is
+   *  pending for `paginationEntry`. Distinct from `isLoading`, which stays
+   *  `false` once a panel has data — `isLoading` gates the full skeleton,
+   *  this gates the Refresh control's spinner so a refresh of already-loaded
+   *  data never re-triggers the skeleton. */
+  isRefreshing: boolean;
 }
 
 /** Fetches rows for an output-kind panel's bound Output
@@ -53,7 +62,19 @@ export function usePanelData(panel: Panel): PanelDataResult {
     kind: RequestErrorKind;
   } | null>(null);
 
+  // HEL-579 design.md D2: mutated SYNCHRONOUSLY INLINE at the two points this
+  // hook actually starts/settles a fetch -- never mirrored from Redux state
+  // via a second `useEffect`, which would lag the real dispatch by a full
+  // render-plus-passive-effect-flush cycle and fail to close a same-tick
+  // double-activation race. This is the single guard shared by all three
+  // `refresh()` callers (manual button, `usePanelPolling`, and the HEL-1094
+  // SSE fan-out) -- one `usePanelData` instance per panel, so one ref covers
+  // all three uniformly.
+  const inFlightRef = useRef(false);
+
   const refresh = useCallback(() => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     prevFetchKey.current = null;
     setErrorForKey(null);
     setRefreshToken((t) => t + 1);
@@ -61,6 +82,9 @@ export function usePanelData(panel: Panel): PanelDataResult {
 
   useEffect(() => {
     if (!currentFetchKey || !outputId) {
+      // Losing the Output binding mid-fetch must not wedge the guard `true`
+      // for a hook instance that could later be rebound to a new Output.
+      inFlightRef.current = false;
       return;
     }
 
@@ -69,6 +93,9 @@ export function usePanelData(panel: Panel): PanelDataResult {
     }
     prevFetchKey.current = currentFetchKey;
 
+    // Covers the initial mount / output-changed dispatch too, which never
+    // goes through `refresh()` at all.
+    inFlightRef.current = true;
     const keyAtDispatch = currentFetchKey;
 
     void dispatch(fetchPanelPage({ panelId: panel.id, outputId, page: 0, pageSize: 200 }))
@@ -82,6 +109,9 @@ export function usePanelData(panel: Panel): PanelDataResult {
           message: err?.message ?? "Failed to load data.",
           kind: err?.kind ?? "error",
         });
+      })
+      .finally(() => {
+        inFlightRef.current = false;
       });
   }, [currentFetchKey, outputId, panel.id, dispatch, refreshToken, paginationEntry]);
 
@@ -115,6 +145,7 @@ export function usePanelData(panel: Panel): PanelDataResult {
       chartAggregate: null,
       rowsTruncated: false,
       refresh,
+      isRefreshing: false,
     };
   }
 
@@ -129,6 +160,7 @@ export function usePanelData(panel: Panel): PanelDataResult {
   // `paginationEntry.materialized` only becomes meaningful once `noData` is
   // also true.
   const neverMaterialized = noData && paginationEntry?.materialized === false;
+  const isRefreshing = paginationEntry?.isLoadingMore ?? false;
 
   return {
     data: null,
@@ -142,5 +174,6 @@ export function usePanelData(panel: Panel): PanelDataResult {
     chartAggregate: null,
     rowsTruncated: paginationEntry?.hasMore ?? false,
     refresh,
+    isRefreshing,
   };
 }

@@ -11,12 +11,14 @@ import { InlineError } from "../../../shared/chrome/InlineError";
 import { IconButton } from "../../../shared/ui/IconButton";
 import { TextField } from "../../../shared/ui/TextField";
 import { PanelContent } from "./PanelContent";
+import type { PanelDataResult } from "../hooks/usePanelData";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import type { Panel } from "../types/panel";
-import { GripVertical } from "lucide-react";
+import { GripVertical, RotateCw } from "lucide-react";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
+import { Spinner } from "../../../shared/ui/Spinner";
 
 // Exported for reuse by `MobilePanelStack` (HEL-301), which builds its own
 // read-only card markup rather than reusing this file's drag/edit-oriented
@@ -46,11 +48,22 @@ export function getPanelCardStyle(
 // re-renders when its `panel` prop is referentially unchanged, and returns null
 // immediately when `frozen` is true so expensive chart/table repaints are
 // suppressed during drag operations.
+//
+// HEL-579 design.md Decision 1: `usePanelData(panel)` is called exactly ONCE,
+// by the nearest common ancestor of the header (where the Refresh control
+// renders) and this body (where the data is consumed) — `PanelCard` for the
+// desktop grid, `MobilePanelStack` for the phone stack. This component
+// receives the hook's result as individual props rather than calling the
+// hook itself, so both callers share one `inFlightRef`/`refreshToken` state
+// tree per panel instead of racing two independent ones.
 
-interface PanelCardBodyProps {
+interface PanelCardBodyProps extends Omit<PanelDataResult, "isRefreshing"> {
   panel: Panel;
   /** When true the body short-circuits and renders nothing (drag-freeze). */
   frozen: boolean;
+  /** `getOutputId(panel)`, computed once by the caller alongside its
+   *  `usePanelData(panel)` call rather than re-derived here. */
+  outputId: string | null;
   /** HEL-301: true when rendered in the phone stack — forwarded to
    *  `ChartRenderer` so ECharts hides the legend and shrinks axis labels
    *  instead of overflowing a narrow phone width (W5). No effect on other
@@ -61,24 +74,22 @@ interface PanelCardBodyProps {
 export const PanelCardBody = React.memo(function PanelCardBody({
   panel,
   frozen,
+  outputId,
+  data,
+  rawRows,
+  headers,
+  isLoading,
+  error,
+  errorKind,
+  noData,
+  neverMaterialized,
+  chartAggregate,
+  rowsTruncated,
+  refresh,
   compact,
 }: PanelCardBodyProps) {
   const dispatch = useAppDispatch();
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
-  const {
-    data,
-    rawRows,
-    headers,
-    isLoading,
-    error,
-    errorKind,
-    noData,
-    neverMaterialized,
-    chartAggregate,
-    rowsTruncated,
-    refresh,
-  } = usePanelData(panel);
-  const outputId = getOutputId(panel);
   usePanelPolling(refresh, panel.refreshInterval ?? null, outputId);
 
   // HEL-1094 (design.md D4/D5) — fans this panel into the shared per-pipeline run-status SSE
@@ -214,6 +225,16 @@ export const PanelCard = React.memo(function PanelCard({
   // since the prior DataType path's slice-level dedupe (`fetchAssertionStatus`'s
   // `condition`) has no Output-side equivalent yet.
   const outputId = getOutputId(panel);
+
+  // HEL-579 design.md Decision 1: the SOLE `usePanelData(panel)` call site
+  // for this panel — `PanelCard` is the nearest common ancestor of the
+  // header (where the Refresh control below renders) and `PanelCardBody`
+  // (where the rest of this result is consumed). See that component's own
+  // doc comment for why a second, independent call here would defeat the
+  // shared in-flight guard.
+  const panelData = usePanelData(panel);
+  const { refresh, isRefreshing } = panelData;
+
   const [isDataInvalid, setIsDataInvalid] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -337,6 +358,30 @@ export const PanelCard = React.memo(function PanelCard({
             // alongside Confirm/× crowds the header at the exact moment the
             // user should be making a focused binary choice.
             <>
+              {/* HEL-579: output-bound panels only (design.md Goals /
+                  spec.md "no Refresh control for a non-output panel"). Kept
+                  visible during title-editing (like the drag handle below,
+                  unlike ActionsMenu) since refreshing data is unrelated to
+                  renaming. `refresh` and `isRefreshing` come from the single
+                  `usePanelData(panel)` call above — no prop-threading
+                  through `PanelCardBody` needed for this button. */}
+              {outputId && (
+                <IconButton
+                  icon={
+                    isRefreshing ? (
+                      <Spinner size="sm" />
+                    ) : (
+                      <RotateCw aria-hidden="true" size={ICON_SIZE.sm} />
+                    )
+                  }
+                  variant="secondary"
+                  size="xs"
+                  className="panel-grid-card__refresh-btn"
+                  aria-label={`Refresh ${panel.title}`}
+                  disabled={isRefreshing}
+                  onClick={refresh}
+                />
+              )}
               {isEditingTitle ? null : (
                 <ActionsMenu
                   label={`${panel.title} panel actions`}
@@ -368,7 +413,29 @@ export const PanelCard = React.memo(function PanelCard({
           )}
         </div>
       </div>
-      <PanelCardBody panel={panel} frozen={isDragging} />
+      {/* HEL-579 design.md Decision 1: individual props, NOT a single spread
+          object — `PanelCardBody` is wrapped in `React.memo`, and a fresh
+          object literal every render would defeat its shallow-prop
+          comparison on every render (dragging or not). `refresh` stays a
+          stable `useCallback([])` reference and `rawRows`/`headers` stay
+          `useMemo`-stable, so memo bails correctly when only unrelated
+          `PanelCard` state (e.g. title-edit keystrokes) changes. */}
+      <PanelCardBody
+        panel={panel}
+        frozen={isDragging}
+        outputId={outputId}
+        data={panelData.data}
+        rawRows={panelData.rawRows}
+        headers={panelData.headers}
+        isLoading={panelData.isLoading}
+        error={panelData.error}
+        errorKind={panelData.errorKind}
+        noData={panelData.noData}
+        neverMaterialized={panelData.neverMaterialized}
+        chartAggregate={panelData.chartAggregate}
+        rowsTruncated={panelData.rowsTruncated}
+        refresh={panelData.refresh}
+      />
       <div className="panel-grid-card__footer">
         <span className="panel-grid-card__type-badge">{panel.type}</span>
         {isDataInvalid && (

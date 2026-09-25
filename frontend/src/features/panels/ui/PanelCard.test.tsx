@@ -1,13 +1,23 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
-import { makeOutputPanel } from "../../../test/panelFixtures";
-import { getAssertionStatus as getAssertionStatusRequest } from "../../pipelines/services/outputService";
+import {
+  makeDividerPanel,
+  makeFormPanel,
+  makeImagePanel,
+  makeMarkdownPanel,
+  makeOutputPanel,
+} from "../../../test/panelFixtures";
+import {
+  getAssertionStatus as getAssertionStatusRequest,
+  getOutputRows as getOutputRowsRequest,
+} from "../../pipelines/services/outputService";
 import {
   duplicatePanel as duplicatePanelRequest,
   fetchPanels as fetchPanelsRequest,
 } from "../services/panelService";
 import { usePanelData } from "../hooks/usePanelData";
+import { usePanelPolling } from "../hooks/usePanelPolling";
 import { PanelCard } from "./PanelCard";
 
 // jest.fn() (not a plain factory function), matching MobilePanelStack.test.tsx's
@@ -26,21 +36,48 @@ jest.mock("../hooks/usePanelData", () => ({
     chartAggregate: null,
     rowsTruncated: false,
     refresh: jest.fn(),
+    isRefreshing: false,
   })),
 }));
 
 const mockUsePanelData = jest.mocked(usePanelData);
+// HEL-579 task 2.8 — the real hook (not the module-level mock above), used
+// only by the reference-stability describe block at the bottom of this file,
+// which needs `usePanelData`'s genuine `useCallback`/`useMemo` stability to
+// prove anything about `PanelCardBody`'s `React.memo` bail-out.
+const actualUsePanelData = jest.requireActual<{ usePanelData: typeof usePanelData }>(
+  "../hooks/usePanelData",
+).usePanelData;
 
 jest.mock("../hooks/usePanelPolling", () => ({
   usePanelPolling: jest.fn(),
 }));
 
+const mockUsePanelPolling = jest.mocked(usePanelPolling);
+
+// HEL-579 task 2.8 — `usePanelRunRefresh` internally calls `useOutputMeta`,
+// which owns its OWN internal `useState`/async-fetch cycle entirely
+// independent of `usePanelData`/memo props (see `PanelCardBody.fanoutStatus.
+// test.tsx`'s identical mock). Left real, its async `setIsLoading` landing at
+// an indeterminate microtask tick causes `PanelCardBody` to re-render for a
+// reason that has nothing to do with prop stability, confounding the
+// reference-stability assertions in the last describe block below.
+jest.mock("../hooks/usePanelRunRefresh", () => ({
+  usePanelRunRefresh: jest.fn(),
+}));
+
 jest.mock("../../pipelines/services/outputService", () => ({
   getAssertionStatus: jest.fn(),
   getOutputById: jest.fn(() => new Promise(() => {})), // never resolves — body stays a skeleton
+  // HEL-579 task 2.8 — never resolves either, so the real `usePanelData`'s
+  // pending pagination state is stable for the whole test (no store update
+  // firing a SECOND, data-driven re-render that would confound the
+  // "unrelated re-render" assertion).
+  getOutputRows: jest.fn(() => new Promise(() => {})),
 }));
 
 const getAssertionStatusMock = jest.mocked(getAssertionStatusRequest);
+const getOutputRowsMock = jest.mocked(getOutputRowsRequest);
 
 // HEL-706 — mocked at the service boundary (not the thunk) so
 // `duplicatePanel`'s dispatch-cycle timing (including the follow-up
@@ -247,6 +284,7 @@ describe("PanelCard — error state retry (HEL-539)", () => {
       chartAggregate: null,
       rowsTruncated: false,
       refresh,
+      isRefreshing: false,
     });
 
     const panel = makeOutputPanel({ title: "Revenue" });
@@ -271,6 +309,7 @@ describe("PanelCard — error state retry (HEL-539)", () => {
       chartAggregate: null,
       rowsTruncated: false,
       refresh: jest.fn(),
+      isRefreshing: false,
     });
 
     const panel = makeOutputPanel({ title: "Revenue" });
@@ -370,5 +409,219 @@ describe("PanelCard — HEL-706 duplicate re-entry guard", () => {
     expect(screen.getByRole("menuitem", { name: "Duplicate" })).toBeEnabled();
     fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
     expect(duplicatePanelMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+// HEL-579 design.md Goals / spec.md "no Refresh control for a non-output
+// panel" — the control is gated on `getOutputId(panel)`, computed from the
+// real `panel` prop (not the mocked hook), so this exercises the real gate
+// regardless of what `usePanelData` returns.
+describe("PanelCard — HEL-579 manual refresh control placement (tasks 2.4/2.5)", () => {
+  beforeEach(() => {
+    getAssertionStatusMock.mockReset();
+    getAssertionStatusMock.mockResolvedValue({
+      outputId: "output-1",
+      invalid: false,
+      failedRuleCount: 0,
+    });
+    mockUsePanelData.mockReturnValue({
+      data: null,
+      rawRows: null,
+      headers: null,
+      isLoading: false,
+      error: null,
+      errorKind: null,
+      noData: true,
+      neverMaterialized: false,
+      chartAggregate: null,
+      rowsTruncated: false,
+      refresh: jest.fn(),
+      isRefreshing: false,
+    });
+  });
+
+  it("renders a Refresh control for an output-bound panel", () => {
+    const panel = makeOutputPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    expect(screen.getByRole("button", { name: "Refresh Revenue" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["markdown", () => makeMarkdownPanel({ title: "Notes" })],
+    ["image", () => makeImagePanel({ title: "Logo" })],
+    ["divider", () => makeDividerPanel({ title: "Sep" })],
+    ["form", () => makeFormPanel({ title: "Intake" })],
+  ] as const)("renders no Refresh control for a %s panel (no bound Output)", (_kind, makePanel) => {
+    const panel = makePanel();
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    expect(screen.queryByRole("button", { name: /^Refresh /i })).not.toBeInTheDocument();
+  });
+});
+
+// HEL-579 design.md D3 / spec.md "repeat manual activation while loading is
+// a no-op" — the component-level guard (`disabled={isRefreshing}`), belt-
+// and-suspenders on top of the hook-level guard (task 1.1).
+describe("PanelCard — HEL-579 manual refresh activation + guard (tasks 2.6/2.7)", () => {
+  beforeEach(() => {
+    getAssertionStatusMock.mockReset();
+    getAssertionStatusMock.mockResolvedValue({
+      outputId: "output-1",
+      invalid: false,
+      failedRuleCount: 0,
+    });
+  });
+
+  it("activating the control calls refresh()", () => {
+    const refresh = jest.fn();
+    mockUsePanelData.mockReturnValue({
+      data: null,
+      rawRows: null,
+      headers: null,
+      isLoading: false,
+      error: null,
+      errorKind: null,
+      noData: true,
+      neverMaterialized: false,
+      chartAggregate: null,
+      rowsTruncated: false,
+      refresh,
+      isRefreshing: false,
+    });
+    const panel = makeOutputPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh Revenue" }));
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("activating it again while isRefreshing is true does not call refresh() again (disabled, native button)", () => {
+    const refresh = jest.fn();
+    mockUsePanelData.mockReturnValue({
+      data: null,
+      rawRows: null,
+      headers: null,
+      isLoading: false,
+      error: null,
+      errorKind: null,
+      noData: true,
+      neverMaterialized: false,
+      chartAggregate: null,
+      rowsTruncated: false,
+      refresh,
+      isRefreshing: true,
+    });
+    const panel = makeOutputPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    const button = screen.getByRole("button", { name: "Refresh Revenue" });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  // Matches AnalyzeWithAiConfig.test.tsx's established convention for this
+  // codebase: `@testing-library/user-event` is not a dependency, so a native
+  // `<button>`'s Enter/Space activation is verified as two platform
+  // guarantees rather than a synthesized keypress — (1) genuinely focusable
+  // and in the tab order (real `<button>`, no `tabindex="-1"`, not
+  // `aria-hidden`, not disabled) and (2) a click (the SAME handler Enter/
+  // Space would reach) activates it.
+  it("the control is a real, focusable, non-disabled button reachable by keyboard", () => {
+    const refresh = jest.fn();
+    mockUsePanelData.mockReturnValue({
+      data: null,
+      rawRows: null,
+      headers: null,
+      isLoading: false,
+      error: null,
+      errorKind: null,
+      noData: true,
+      neverMaterialized: false,
+      chartAggregate: null,
+      rowsTruncated: false,
+      refresh,
+      isRefreshing: false,
+    });
+    const panel = makeOutputPanel({ title: "Revenue" });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    const button = screen.getByRole("button", { name: "Refresh Revenue" });
+    expect(button.tagName).toBe("BUTTON");
+    expect(button).not.toBeDisabled();
+    expect(button).not.toHaveAttribute("tabindex", "-1");
+    expect(button).not.toHaveAttribute("aria-hidden");
+
+    button.focus();
+    expect(button).toHaveFocus();
+    fireEvent.click(button);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+// HEL-579 design.md Decision 1 / task 2.8 — regression-check for
+// `PanelCardBody`'s memo boundary now that it receives fetch state as
+// individual props from `PanelCard` instead of calling `usePanelData`
+// itself. Uses the REAL hook (not the module-level mock above) — a mocked
+// `usePanelData` returns a fresh object/fresh `jest.fn()` on every call,
+// which would make every prop "change" on every render regardless of
+// whether the real implementation's `useCallback`/`useMemo` stability holds.
+describe("PanelCardBody — HEL-579 prop reference stability across an unrelated PanelCard re-render (task 2.8)", () => {
+  beforeEach(() => {
+    getAssertionStatusMock.mockReset();
+    // Never resolves -- unlike the other describe blocks in this file, this
+    // one must not have a SECOND, independent async state update
+    // (`PanelCard`'s `isDataInvalid`) landing at an indeterminate time and
+    // confounding the render-count assertion below.
+    getAssertionStatusMock.mockReturnValue(new Promise(() => {}));
+    getOutputRowsMock.mockReset();
+    getOutputRowsMock.mockReturnValue(new Promise(() => {})); // never resolves
+    mockUsePanelPolling.mockClear();
+    mockUsePanelData.mockImplementation(actualUsePanelData);
+  });
+
+  afterAll(() => {
+    // Restore the file's default mocked behavior for any test that might
+    // run after this block within the same file (defensive — this describe
+    // is the last in the file today).
+    mockUsePanelData.mockReset();
+  });
+
+  it("PanelCardBody does not re-render when only unrelated PanelCard state changes (title-edit keystrokes)", async () => {
+    const panel = makeOutputPanel({ title: "Revenue" });
+    const { rerender } = renderWithStore(
+      <PanelCard panel={panel} {...noopProps} isEditingTitle={false} />,
+      { panels: { items: [] } },
+    );
+
+    // Let the mount-triggered fetch dispatch settle into pending state
+    // before counting.
+    await waitFor(() => expect(getOutputRowsMock).toHaveBeenCalledTimes(1));
+    const callsBeforeRerender = mockUsePanelPolling.mock.calls.length;
+    expect(callsBeforeRerender).toBeGreaterThan(0);
+
+    // Simulate title-edit keystrokes -- a PanelCard-only prop change with no
+    // effect on this panel's fetched data.
+    rerender(<PanelCard panel={panel} {...noopProps} isEditingTitle={true} editingTitle="Rev" />);
+
+    // `usePanelPolling` is called unconditionally in PanelCardBody's own
+    // render body -- its call count only grows if PanelCardBody itself
+    // re-rendered. A memo bail-out leaves it unchanged.
+    expect(mockUsePanelPolling.mock.calls.length).toBe(callsBeforeRerender);
+    // No second fetch was ever dispatched either.
+    expect(getOutputRowsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("frozen=true still short-circuits to render nothing, regardless of the individually-threaded props", () => {
+    const panel = makeOutputPanel({ title: "Revenue" });
+    const { container } = renderWithStore(<PanelCard panel={panel} {...noopProps} isDragging />, {
+      panels: { items: [] },
+    });
+
+    // Header (title + actions) remains visible during drag-freeze; the body
+    // (PanelContent output) does not.
+    expect(screen.getByText("Revenue")).toBeInTheDocument();
+    expect(container.querySelector(".panel-content")).not.toBeInTheDocument();
   });
 });

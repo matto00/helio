@@ -12,9 +12,40 @@ import { Provider } from "react-redux";
 
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import * as outputService from "../../pipelines/services/outputService";
+import { getOutputId } from "../state/panelNarrowing";
 import { panelsReducer } from "../state/panelsSlice";
+import { usePanelData } from "../hooks/usePanelData";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import { PanelCardBody } from "./PanelCard";
+import type { Panel } from "../types/panel";
+
+// HEL-579 design.md Decision 1: `PanelCardBody` no longer calls `usePanelData`
+// itself -- this harness plays the role `PanelCard` plays in production (the
+// single call site), so this test keeps driving a REAL store + `panelsReducer`
+// (see the file-level comment above for why a real store, not a mocked hook,
+// is what actually exercises the memo-visible re-render this suite tests).
+function PanelCardBodyHarness({ panel }: { panel: Panel }) {
+  const outputId = getOutputId(panel);
+  const panelData = usePanelData(panel);
+  return (
+    <PanelCardBody
+      panel={panel}
+      frozen={false}
+      outputId={outputId}
+      data={panelData.data}
+      rawRows={panelData.rawRows}
+      headers={panelData.headers}
+      isLoading={panelData.isLoading}
+      error={panelData.error}
+      errorKind={panelData.errorKind}
+      noData={panelData.noData}
+      neverMaterialized={panelData.neverMaterialized}
+      chartAggregate={panelData.chartAggregate}
+      rowsTruncated={panelData.rowsTruncated}
+      refresh={panelData.refresh}
+    />
+  );
+}
 
 jest.mock("../hooks/usePanelPolling", () => ({
   usePanelPolling: jest.fn(),
@@ -79,7 +110,7 @@ describe("PanelCardBody — fan-out refresh status region (HEL-1094 D5, task 2.3
     const store = makeStore(panel);
     render(
       <Provider store={store}>
-        <PanelCardBody panel={panel} frozen={false} />
+        <PanelCardBodyHarness panel={panel} />
       </Provider>,
     );
 
@@ -136,7 +167,7 @@ describe("PanelCardBody — fan-out refresh status region (HEL-1094 D5, task 2.3
 
     render(
       <Provider store={store}>
-        <PanelCardBody panel={panel} frozen={false} />
+        <PanelCardBodyHarness panel={panel} />
       </Provider>,
     );
 

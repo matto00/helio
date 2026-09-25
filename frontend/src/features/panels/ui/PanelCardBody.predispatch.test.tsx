@@ -27,10 +27,39 @@ import { MemoryRouter } from "react-router-dom";
 
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { ThemeProvider } from "../../../theme/ThemeProvider";
+import { getOutputId } from "../state/panelNarrowing";
 import { panelsReducer } from "../state/panelsSlice";
+import { usePanelData } from "../hooks/usePanelData";
 import { PanelCardBody } from "./PanelCard";
 import { PanelDetailModal } from "./detailModal/PanelDetailModal";
 import type { Panel } from "../types/panel";
+
+// HEL-579 design.md Decision 1: `PanelCardBody` no longer calls `usePanelData`
+// itself -- this harness plays the role `PanelCard` plays in production (the
+// single call site), so this test keeps driving a REAL store + `panelsReducer`
+// rather than mocking the hook outright.
+function PanelCardBodyHarness({ panel }: { panel: Panel }) {
+  const outputId = getOutputId(panel);
+  const panelData = usePanelData(panel);
+  return (
+    <PanelCardBody
+      panel={panel}
+      frozen={false}
+      outputId={outputId}
+      data={panelData.data}
+      rawRows={panelData.rawRows}
+      headers={panelData.headers}
+      isLoading={panelData.isLoading}
+      error={panelData.error}
+      errorKind={panelData.errorKind}
+      noData={panelData.noData}
+      neverMaterialized={panelData.neverMaterialized}
+      chartAggregate={panelData.chartAggregate}
+      rowsTruncated={panelData.rowsTruncated}
+      refresh={panelData.refresh}
+    />
+  );
+}
 
 jest.mock("../../pipelines/services/outputService", () => ({
   getOutputById: jest.fn(() => new Promise(() => {})),
@@ -58,7 +87,7 @@ function renderCardBody(panel: Panel) {
   const store = makeFrozenPaginationStore(panel);
   return render(
     <Provider store={store}>
-      <PanelCardBody panel={panel} frozen={false} />
+      <PanelCardBodyHarness panel={panel} />
     </Provider>,
   );
 }
