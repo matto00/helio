@@ -20,6 +20,8 @@ import { useCallback, useMemo, useState, type CSSProperties, type MouseEvent } f
 
 import { resolveDashboardLayout } from "../../../dashboards/state/dashboardLayout";
 import { useTheme } from "../../../../theme/ThemeProvider";
+import { getOutputId } from "../../state/panelNarrowing";
+import { usePanelData } from "../../hooks/usePanelData";
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import type { Panel } from "../../types/panel";
 import { getPanelCardStyle, PanelCardBody } from "../PanelCard";
@@ -28,6 +30,41 @@ import { computeMobilePanelHeight, resolveStackContentWidth } from "./mobilePane
 import { orderPanelsForMobileStack } from "./panelGridConfig";
 import "./PanelGrid.css";
 import "./MobilePanelStack.css";
+
+// HEL-579 design.md Decision 1: `PanelCardBody` no longer calls `usePanelData`
+// itself -- its nearest common ancestor must, exactly once per panel, and
+// pass the result down as individual props. `MobilePanelStack` is a SECOND
+// top-level caller of `PanelCardBody` alongside `PanelCard` (the desktop
+// grid never renders through this component and vice versa), and its own
+// render function maps over an array, where a hook cannot legally be called
+// per-iteration -- so each stack item needs its own component boundary to
+// own that one `usePanelData(panel)` call, mirroring what `PanelCard` does
+// for the desktop grid. This stack is read-only (no header actions), so no
+// Refresh control renders here -- only the data-fetch wiring is threaded
+// through.
+function MobileStackPanelBody({ panel, compact }: { panel: Panel; compact?: boolean }) {
+  const outputId = getOutputId(panel);
+  const panelData = usePanelData(panel);
+  return (
+    <PanelCardBody
+      panel={panel}
+      frozen={false}
+      compact={compact}
+      outputId={outputId}
+      data={panelData.data}
+      rawRows={panelData.rawRows}
+      headers={panelData.headers}
+      isLoading={panelData.isLoading}
+      error={panelData.error}
+      errorKind={panelData.errorKind}
+      noData={panelData.noData}
+      neverMaterialized={panelData.neverMaterialized}
+      chartAggregate={panelData.chartAggregate}
+      rowsTruncated={panelData.rowsTruncated}
+      refresh={panelData.refresh}
+    />
+  );
+}
 
 interface MobilePanelStackProps {
   panels: Panel[];
@@ -92,7 +129,7 @@ export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanel
               key={panel.id}
               className="mobile-panel-stack__item mobile-panel-stack__item--divider"
             >
-              <PanelCardBody panel={stackPanel} frozen={false} />
+              <MobileStackPanelBody panel={stackPanel} />
             </div>
           );
         }
@@ -115,7 +152,7 @@ export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanel
             <div className="mobile-panel-stack__header">
               <h3 className="panel-grid-card__title">{panel.title}</h3>
             </div>
-            <PanelCardBody panel={panel} frozen={false} compact />
+            <MobileStackPanelBody panel={panel} compact />
           </article>
         );
       })}

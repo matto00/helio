@@ -73,6 +73,18 @@
   border-radius: var(--app-radius-pill);
 }
 
+/* HEL-579 — matches the ActionsMenu trigger's and drag handle's circular
+ * 24px treatment in this row. `IconButton`'s own `--xs` size is already the
+ * right 24px box (shared with the delete-confirm "x" button elsewhere in
+ * this header, which is deliberately NOT circular — it pairs with the
+ * rectangular "Confirm" button, not with these two), so only the radius is
+ * overridden here, scoped to this one button via its own class rather than
+ * broadening `.panel-grid-card__actions .ui-icon-btn--xs` and silently
+ * reshaping that unrelated button too. */
+.panel-grid-card__refresh-btn {
+  border-radius: var(--app-radius-pill);
+}
+
 .panel-grid-card__actions .actions-menu__dots {
   flex-direction: row;
   gap: 3px;

@@ -78,6 +78,7 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
       chartAggregate: null,
       rowsTruncated: false,
       refresh: jest.fn(),
+      isRefreshing: false,
     });
   });
 
@@ -217,6 +218,7 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
       chartAggregate: null,
       rowsTruncated: false,
       refresh: jest.fn(),
+      isRefreshing: false,
     });
 
     const divider = makeDividerPanel({
