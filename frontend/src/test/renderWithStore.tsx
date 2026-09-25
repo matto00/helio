@@ -202,6 +202,7 @@ export function renderWithStore(
           error: preloadedState.panels?.error ?? null,
           pendingPanelUpdates: {},
           paginationState: {},
+          interactionState: {},
           lastSavedAt: null,
           staleDashboardId: preloadedState.panels?.staleDashboardId ?? null,
           panelCreationModalOpen: preloadedState.panels?.panelCreationModalOpen ?? false,

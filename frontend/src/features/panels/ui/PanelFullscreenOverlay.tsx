@@ -1,13 +1,27 @@
+import { useCallback, useState } from "react";
+
 import "./PanelFullscreenOverlay.css";
 import { Modal } from "../../../shared/ui/Modal";
 import { PanelContent } from "./PanelContent";
+import { PanelInspectView } from "./PanelInspectView";
+import { clearSelection, selectDataPoint } from "../state/panelsSlice";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
 import type { PanelDataResult } from "../hooks/usePanelData";
 import type { Panel } from "../types/panel";
+import type { ChartClickSelection, ChartInspectConfig } from "../../../utils/chartClickSelection";
 
 export interface PanelFullscreenOverlayProps extends Omit<PanelDataResult, "isRefreshing"> {
   panel: Panel;
   open: boolean;
   onClose: () => void;
+  /** HEL-572 design.md D5 — computed once by the caller (`PanelCard`, from
+   *  its own `useOutputMeta` call) and threaded down here, rather than
+   *  re-fetched — this overlay is mounted UNCONDITIONALLY (gated only on
+   *  `isFullscreenEligible`, not on `open`), so a second independent
+   *  `GET /api/outputs/:id` here would fire on every dashboard render, not
+   *  only while fullscreen is actually open. `null` for a non-chart-eligible
+   *  panel — this overlay mounts no inspect view then. */
+  chartInspectConfig: ChartInspectConfig | null;
 }
 
 /**
@@ -60,7 +74,32 @@ export function PanelFullscreenOverlay({
   chartAggregate,
   rowsTruncated,
   refresh,
+  chartInspectConfig,
 }: PanelFullscreenOverlayProps) {
+  const dispatch = useAppDispatch();
+
+  // HEL-572 design.md D5 — this overlay's OWN "is the inspect view open"
+  // local boolean, parallel to `PanelCard`'s grid-context one; the
+  // SELECTION itself stays the single Redux-owned source of truth both
+  // mount points read (`PanelInspectView`).
+  const [isInspectOpen, setIsInspectOpen] = useState(false);
+  const handleDataPointSelect = useCallback(
+    (selection: ChartClickSelection) => {
+      dispatch(selectDataPoint({ panelId: panel.id, ...selection }));
+      setIsInspectOpen(true);
+    },
+    [dispatch, panel.id],
+  );
+  // spec.md — Modal's own dismiss (Escape/backdrop/X) closes the view
+  // without clearing the selection; only the explicit clear/return control
+  // does both. See `PanelInspectView`'s own `onClose`/`onClear` doc
+  // comments, and `PanelCard`'s identical split for the grid-context view.
+  const handleCloseInspect = useCallback(() => setIsInspectOpen(false), []);
+  const handleClearInspect = useCallback(() => {
+    setIsInspectOpen(false);
+    dispatch(clearSelection(panel.id));
+  }, [dispatch, panel.id]);
+
   return (
     <Modal
       open={open}
@@ -93,7 +132,31 @@ export function PanelFullscreenOverlay({
             neverMaterialized={neverMaterialized}
             chartAggregate={chartAggregate}
             rowsTruncated={rowsTruncated}
+            onDataPointSelect={handleDataPointSelect}
           />
+          {/* HEL-572 design.md D5 — nested inside the already-open
+              Fullscreen dialog; both are native `<dialog>`s (Modal), so
+              Escape while Inspect is open closes only the topmost (Inspect)
+              for free from the browser — no bespoke stacking logic needed
+              (design.md Context). Gated on the SAME `open` as the body
+              above: Inspect can only ever be reached via a click inside it,
+              so it never needs to exist while Fullscreen itself is closed.
+              `DataGrid variant="full"`, matching the space available here
+              (ticket §6). */}
+          {chartInspectConfig && (
+            <PanelInspectView
+              panelId={panel.id}
+              panelTitle={panel.title}
+              open={isInspectOpen}
+              onClose={handleCloseInspect}
+              onClear={handleClearInspect}
+              rawRows={rawRows ?? null}
+              headers={headers ?? null}
+              chartInspectConfig={chartInspectConfig}
+              rowsTruncated={rowsTruncated}
+              variant="full"
+            />
+          )}
         </div>
       )}
     </Modal>

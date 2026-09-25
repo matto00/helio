@@ -87,6 +87,10 @@ const basePanelDataProps = {
   chartAggregate: null,
   rowsTruncated: false,
   refresh: jest.fn(),
+  // HEL-572 — non-chart-eligible for this file's existing markdown/output
+  // fixtures unless a test explicitly overrides it; `null` mounts no
+  // inspect view, matching every one of these tests' pre-HEL-572 behavior.
+  chartInspectConfig: null,
 };
 
 beforeEach(() => {

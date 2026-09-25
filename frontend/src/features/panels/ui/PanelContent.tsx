@@ -4,6 +4,7 @@ import { InlineError } from "../../../shared/chrome/InlineError";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
 import type { GroupedAggregate } from "../../../utils/aggregate";
+import type { ChartClickSelection } from "../../../utils/chartClickSelection";
 import {
   isDividerPanel,
   isFormPanel,
@@ -76,6 +77,9 @@ export interface PanelContentProps {
   /** HEL-301: forwarded to `ChartRenderer` only — see `ChartPanel`'s
    *  `compact` prop. */
   compact?: boolean;
+  /** HEL-572: forwarded to `ChartRenderer` (chart-kind output panels only)
+   *  — see `ChartPanel`'s `onDataPointSelect` prop. */
+  onDataPointSelect?: (selection: ChartClickSelection) => void;
 }
 
 /** Dispatches on an output-kind panel's fetched Output `kind`/`config`
@@ -93,6 +97,7 @@ function OutputPanelContent({
   chartAggregate,
   compact,
   outputId,
+  onDataPointSelect,
 }: {
   rawRows?: string[][] | null;
   headers?: string[] | null;
@@ -104,6 +109,7 @@ function OutputPanelContent({
   chartAggregate?: GroupedAggregate | null;
   compact?: boolean;
   outputId: string;
+  onDataPointSelect?: (selection: ChartClickSelection) => void;
 }) {
   const { output, isLoading } = useOutputMeta(outputId);
 
@@ -129,6 +135,7 @@ function OutputPanelContent({
         chartOptions={cfg.chartOptions}
         annotation={cfg.annotation ?? null}
         compact={compact}
+        onDataPointSelect={onDataPointSelect}
       />
     );
   }
@@ -233,6 +240,7 @@ export function PanelContent({
   rowsTruncated,
   chartAggregate,
   compact,
+  onDataPointSelect,
 }: PanelContentProps) {
   if (isLoading) {
     // HEL-528 design.md D6/D7 — a shape-matched skeleton, not the accent
@@ -309,6 +317,7 @@ export function PanelContent({
         chartAggregate={chartAggregate}
         compact={compact}
         outputId={panel.config.outputId}
+        onDataPointSelect={onDataPointSelect}
       />
     );
   }

@@ -3,12 +3,15 @@ import * as panelService from "../services/panelService";
 import {
   accumulatePanelUpdate,
   clearPendingPanelUpdates,
+  clearSelection,
   createPanel,
+  deletePanel,
   fetchPanelPage,
   fetchPanels,
   markDashboardPanelsStale,
   panelsReducer,
   resetPanelPagination,
+  selectDataPoint,
   updatePanelAppearance,
   updatePanelMarkdownContent,
   updatePanelsBatch,
@@ -339,6 +342,145 @@ describe("panelsSlice", () => {
     });
   });
 
+  // HEL-572 tasks.md 1.2 — selectDataPoint / clearSelection reducers.
+  describe("selectDataPoint / clearSelection", () => {
+    it("selectDataPoint stores the descriptor keyed by panelId", () => {
+      const state = panelsReducer(
+        undefined,
+        selectDataPoint({
+          panelId: "panel-1",
+          dimension: "quarter",
+          value: "Q1",
+          series: "revenue",
+        }),
+      );
+      expect(state.interactionState["panel-1"]).toEqual({
+        panelId: "panel-1",
+        dimension: "quarter",
+        value: "Q1",
+        series: "revenue",
+      });
+    });
+
+    it("selectDataPoint does not affect another panel's selection", () => {
+      let state = panelsReducer(
+        undefined,
+        selectDataPoint({
+          panelId: "panel-1",
+          dimension: "quarter",
+          value: "Q1",
+          series: "revenue",
+        }),
+      );
+      state = panelsReducer(
+        state,
+        selectDataPoint({ panelId: "panel-2", dimension: "region", value: "East", series: "cost" }),
+      );
+      expect(state.interactionState["panel-1"]).toMatchObject({ value: "Q1" });
+      expect(state.interactionState["panel-2"]).toMatchObject({ value: "East" });
+    });
+
+    it("clearSelection removes only the given panel's selection", () => {
+      let state = panelsReducer(
+        undefined,
+        selectDataPoint({
+          panelId: "panel-1",
+          dimension: "quarter",
+          value: "Q1",
+          series: "revenue",
+        }),
+      );
+      state = panelsReducer(
+        state,
+        selectDataPoint({ panelId: "panel-2", dimension: "region", value: "East", series: "cost" }),
+      );
+
+      const cleared = panelsReducer(state, clearSelection("panel-1"));
+
+      expect(cleared.interactionState["panel-1"]).toBeUndefined();
+      expect(cleared.interactionState["panel-2"]).toMatchObject({ value: "East" });
+    });
+  });
+
+  // HEL-572 tasks.md 1.3 — clearing on panel delete and dashboard switch.
+  // Red-first per Standing Constraint C3: with the `delete
+  // state.interactionState[action.payload]` line in `deletePanel.fulfilled`
+  // (and the `state.interactionState = {}` line in `fetchPanels.pending`)
+  // temporarily removed, both assertions below failed (the selection
+  // survived) before being restored — see files-modified.md for the exact
+  // probe output.
+  describe("interactionState is cleared on panel delete and dashboard switch", () => {
+    it("deletePanel.fulfilled clears the deleted panel's selection", () => {
+      const withSelection = panelsReducer(
+        undefined,
+        selectDataPoint({
+          panelId: "panel-1",
+          dimension: "quarter",
+          value: "Q1",
+          series: "revenue",
+        }),
+      );
+      expect(withSelection.interactionState["panel-1"]).toBeDefined();
+
+      const afterDelete = panelsReducer(
+        withSelection,
+        deletePanel.fulfilled("panel-1", "req-1", {
+          panelId: "panel-1",
+          dashboardId: "dashboard-1",
+        }),
+      );
+
+      expect(afterDelete.interactionState["panel-1"]).toBeUndefined();
+    });
+
+    it("deletePanel.fulfilled does not affect another panel's selection", () => {
+      let state = panelsReducer(
+        undefined,
+        selectDataPoint({
+          panelId: "panel-1",
+          dimension: "quarter",
+          value: "Q1",
+          series: "revenue",
+        }),
+      );
+      state = panelsReducer(
+        state,
+        selectDataPoint({ panelId: "panel-2", dimension: "region", value: "East", series: "cost" }),
+      );
+
+      const afterDelete = panelsReducer(
+        state,
+        deletePanel.fulfilled("panel-1", "req-1", {
+          panelId: "panel-1",
+          dashboardId: "dashboard-1",
+        }),
+      );
+
+      expect(afterDelete.interactionState["panel-2"]).toMatchObject({ value: "East" });
+    });
+
+    it("fetchPanels.pending (dashboard switch) clears every panel's selection", () => {
+      let state = panelsReducer(
+        undefined,
+        selectDataPoint({
+          panelId: "panel-1",
+          dimension: "quarter",
+          value: "Q1",
+          series: "revenue",
+        }),
+      );
+      state = panelsReducer(
+        state,
+        selectDataPoint({ panelId: "panel-2", dimension: "region", value: "East", series: "cost" }),
+      );
+      expect(Object.keys(state.interactionState)).toHaveLength(2);
+
+      const afterSwitch = panelsReducer(state, fetchPanels.pending("req-2", "dashboard-2"));
+
+      expect(afterSwitch.interactionState).toEqual({});
+    });
+  });
+
   // Task 4.1 — createPanel thunk passes outputId through to the service request
   describe("createPanel thunk", () => {
     afterEach(() => {
@@ -362,6 +504,7 @@ describe("panelsSlice", () => {
             pendingPanelUpdates: {},
             lastSavedAt: null,
             paginationState: {},
+            interactionState: {},
             // HEL-548 D1/D5a — PanelsState grew these two fields; this
             // literal is checked against the real (uncast) reducer type.
             staleDashboardId: null,
@@ -413,6 +556,7 @@ describe("panelsSlice", () => {
             pendingPanelUpdates: {},
             lastSavedAt: null,
             paginationState: {},
+            interactionState: {},
             staleDashboardId: null,
             panelCreationModalOpen: false,
           },
@@ -577,6 +721,7 @@ describe("panelsSlice", () => {
             pendingPanelUpdates: {},
             lastSavedAt: null,
             paginationState: {},
+            interactionState: {},
             staleDashboardId: "dashboard-1",
             panelCreationModalOpen: false,
           },

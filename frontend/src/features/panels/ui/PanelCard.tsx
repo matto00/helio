@@ -2,21 +2,32 @@ import React, { useCallback, useEffect, useMemo, useState, type CSSProperties } 
 
 import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
 import { getOutputId, isFullscreenEligible } from "../state/panelNarrowing";
-import { deletePanel, duplicatePanel, fetchPanelPage } from "../state/panelsSlice";
+import {
+  clearSelection,
+  deletePanel,
+  duplicatePanel,
+  fetchPanelPage,
+  selectDataPoint,
+} from "../state/panelsSlice";
 import { getAssertionStatus } from "../../pipelines/services/outputService";
+import { readChartConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
+import { useOutputMeta } from "../hooks/useOutputMeta";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { IconButton } from "../../../shared/ui/IconButton";
 import { TextField } from "../../../shared/ui/TextField";
 import { PanelContent } from "./PanelContent";
 import { PanelFullscreenOverlay } from "./PanelFullscreenOverlay";
+import { PanelInspectView } from "./PanelInspectView";
 import type { PanelDataResult } from "../hooks/usePanelData";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import type { Panel } from "../types/panel";
+import { resolveChartType } from "../../../utils/chartAppearance";
+import type { ChartClickSelection, ChartInspectConfig } from "../../../utils/chartClickSelection";
 import { GripVertical, Maximize2, RotateCw } from "lucide-react";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 import { Spinner } from "../../../shared/ui/Spinner";
@@ -70,6 +81,9 @@ interface PanelCardBodyProps extends Omit<PanelDataResult, "isRefreshing"> {
    *  instead of overflowing a narrow phone width (W5). No effect on other
    *  renderers; unset (desktop grid) is unchanged. */
   compact?: boolean;
+  /** HEL-572: forwarded to `PanelContent` — see `ChartPanel`'s
+   *  `onDataPointSelect` prop. */
+  onDataPointSelect?: (selection: ChartClickSelection) => void;
 }
 
 export const PanelCardBody = React.memo(function PanelCardBody({
@@ -88,6 +102,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   rowsTruncated,
   refresh,
   compact,
+  onDataPointSelect,
 }: PanelCardBodyProps) {
   const dispatch = useAppDispatch();
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
@@ -153,6 +168,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
         rowsTruncated={rowsTruncated}
         chartAggregate={chartAggregate}
         compact={compact}
+        onDataPointSelect={onDataPointSelect}
       />
       {/* HEL-1094 (design.md D5) — visually-hidden per-panel announcement region for an
           output-bound panel, reusing theme.css's canonical `.sr-only` clip (same recipe as
@@ -243,6 +259,45 @@ export const PanelCard = React.memo(function PanelCard({
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const handleOpenFullscreen = useCallback(() => setIsFullscreenOpen(true), []);
   const handleCloseFullscreen = useCallback(() => setIsFullscreenOpen(false), []);
+
+  // HEL-572 design.md D1/D5 — a SECOND, independent `useOutputMeta` fetch
+  // (mirrors the existing precedent: `PanelContent`'s own `OutputPanelContent`
+  // and `usePanelRunRefresh`, called from `PanelCardBody`, each already fetch
+  // this same Output independently). Resolved HERE (not re-fetched again by
+  // `PanelFullscreenOverlay`) specifically so mounting the fullscreen overlay
+  // — which HEL-584 mounts unconditionally, gated only on eligibility, not on
+  // `isFullscreenOpen` — never adds a THIRD/FOURTH redundant network call;
+  // `chartInspectConfig` below is computed once and threaded down as a prop.
+  const { output } = useOutputMeta(outputId);
+  const chartInspectConfig: ChartInspectConfig | null = useMemo(() => {
+    if (output?.kind !== "chart") return null;
+    const cfg = readChartConfig(output.config);
+    return {
+      chartType: resolveChartType(panel.appearance.chart),
+      fieldMapping: cfg.fieldMapping,
+      scatterOptions: cfg.chartOptions?.scatter,
+    };
+  }, [output, panel.appearance.chart]);
+
+  const [isInspectOpen, setIsInspectOpen] = useState(false);
+  const handleDataPointSelect = useCallback(
+    (selection: ChartClickSelection) => {
+      dispatch(selectDataPoint({ panelId: panel.id, ...selection }));
+      setIsInspectOpen(true);
+    },
+    [dispatch, panel.id],
+  );
+  // spec.md "The selection descriptor is view state, cleared on panel/
+  // dashboard switch" — Modal's own dismiss (Escape/backdrop/X) closes the
+  // view WITHOUT clearing the selection; only the explicit clear/return
+  // control (handleClearInspect) does both. See `PanelInspectView`'s own
+  // `onClose`/`onClear` doc comments.
+  const handleCloseInspect = useCallback(() => setIsInspectOpen(false), []);
+  const handleClearInspect = useCallback(() => {
+    setIsInspectOpen(false);
+    dispatch(clearSelection(panel.id));
+  }, [dispatch, panel.id]);
+  const handleOpenInspectFromMenu = useCallback(() => setIsInspectOpen(true), []);
 
   const [isDataInvalid, setIsDataInvalid] = useState(false);
   useEffect(() => {
@@ -418,6 +473,13 @@ export const PanelCard = React.memo(function PanelCard({
                       onClick: handleDuplicate,
                       disabled: isPending(panel.id),
                     },
+                    // HEL-572 design.md D7 — chart-eligible panels only
+                    // (`chartInspectConfig` is non-null exactly then); opens
+                    // for the panel's current selection, or `PanelInspectView`'s
+                    // own empty state when nothing is selected yet.
+                    ...(chartInspectConfig
+                      ? [{ label: "Inspect", onClick: handleOpenInspectFromMenu }]
+                      : []),
                     { label: "Delete", onClick: handleRequestDelete, danger: true },
                   ]}
                 />
@@ -460,7 +522,29 @@ export const PanelCard = React.memo(function PanelCard({
         chartAggregate={panelData.chartAggregate}
         rowsTruncated={panelData.rowsTruncated}
         refresh={panelData.refresh}
+        onDataPointSelect={handleDataPointSelect}
       />
+      {/* HEL-572 design.md D5 — the grid-context inspect view (`DataGrid
+          variant="preview"`), gated on `chartInspectConfig` (chart-eligible
+          panels only — non-output panels, and non-chart-kind output panels,
+          mount nothing here). Owns its own `isInspectOpen` local boolean,
+          parallel to the fullscreen overlay's own `isFullscreenOpen` above;
+          the SELECTION itself is the single Redux-owned source of truth
+          `PanelInspectView` reads directly (see that component). */}
+      {chartInspectConfig && (
+        <PanelInspectView
+          panelId={panel.id}
+          panelTitle={panel.title}
+          open={isInspectOpen}
+          onClose={handleCloseInspect}
+          onClear={handleClearInspect}
+          rawRows={panelData.rawRows}
+          headers={panelData.headers}
+          chartInspectConfig={chartInspectConfig}
+          rowsTruncated={panelData.rowsTruncated}
+          variant="preview"
+        />
+      )}
       {/* HEL-584 design.md Decision 2/3 — mounted unconditionally (matching
           `QuickLauncherOverlay`'s always-mounted-with-a-toggled-`open`-prop
           precedent), gated only on eligibility so excluded kinds get no
@@ -486,6 +570,7 @@ export const PanelCard = React.memo(function PanelCard({
           chartAggregate={panelData.chartAggregate}
           rowsTruncated={panelData.rowsTruncated}
           refresh={panelData.refresh}
+          chartInspectConfig={chartInspectConfig}
         />
       )}
       <div className="panel-grid-card__footer">
