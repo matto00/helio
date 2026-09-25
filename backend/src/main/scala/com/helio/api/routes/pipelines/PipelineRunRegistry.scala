@@ -27,7 +27,14 @@ final case class RunStatusEvent(
     // HEL-913 R15: `nodeKind` (below) is the discriminator; `nodeId` alone is now ambiguous
     // under multi-root without it.
     nodeId:   Option[String] = None,
-    nodeKind: Option[String] = None
+    nodeKind: Option[String] = None,
+    // HEL-1174 (design.md Decision 3, option (i)): the run this event belongs to. Lets the
+    // live-event path (`pipelineRunFanout.ts`) set `entry.lastObservedRunId` directly at the
+    // point it fires, the same bookkeeping the reconcile-on-connect path
+    // (`GET .../runs/latest`) performs -- one code path either way, and avoids the redundant
+    // extra "new run" firing the no-wire-change alternative would otherwise risk on the very
+    // next reconnect.
+    runId:    Option[String] = None
 )
 
 object RunStatusEvent {
@@ -51,6 +58,7 @@ object RunStatusEvent {
     event.errorLog.foreach(s => fields("errorLog") = JsString(s))
     event.nodeId.foreach(s => fields("nodeId") = JsString(s))
     event.nodeKind.foreach(s => fields("nodeKind") = JsString(s))
+    event.runId.foreach(s => fields("runId") = JsString(s))
     val json = JsObject(fields.toMap).compactPrint
     ByteString("event: run-status\ndata: " + json + "\n\n")
   }

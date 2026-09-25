@@ -938,6 +938,12 @@ final class ApiRoutes(
                   // PatchSet-in-body shape; mount order relative to PatchSetRoutes is irrelevant.
                   new PatchSetUndoRoutes(patchSetUndoService, authenticatedUser).routes,
                   new PipelineRunSubmitRoutes(pipelineRunService, authenticatedUser).routes,
+                  // HEL-1174: mounted BEFORE PipelineRunStatusRoutes so the literal "latest"
+                  // path segment (runs/latest) is never shadowed by PipelineRunStatusRoutes'
+                  // `path("runs" / Segment)` wildcard, which would otherwise bind runId = "latest"
+                  // and swallow this request (design-gate round 1, change request 2 — see
+                  // PipelineRunLatestRoutes.scala's own doc comment).
+                  new PipelineRunLatestRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelineRunStatusRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelineRunHistoryRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelineRunStreamRoutes(pipelineRunService, authenticatedUser).routes,

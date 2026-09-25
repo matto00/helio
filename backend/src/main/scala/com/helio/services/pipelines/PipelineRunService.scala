@@ -4,7 +4,7 @@ import com.helio.domain.ai.AiStepClient
 import com.helio.services.ServiceError
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
-import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, OutputPreviewEntry, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse, RunTruncationRecord, TruncatedReadResponse}
+import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionStatusResponse, AssertionSummary, LatestRunResponse, OutputPreviewEntry, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse, RunTruncationRecord, TruncatedReadResponse}
 import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, AuthenticatedUser, BinaryRef, DataFieldType, DataSource, DataSourceId, Output, OutputId, Pipeline, PipelineId, PipelineRootId, PipelineRunId, PipelineStep, PipelineStepId, PipelineStepKind, TruncatedRead, TruncationSink, UserId, WriteBackSink}
 import com.helio.services.sources.DataSourceService
@@ -782,6 +782,39 @@ final class PipelineRunService(
     }
   }
 
+  /** `GET /api/pipelines/:id/runs/latest` (HEL-1174, design.md Decision 2): sharing-aware --
+   *  owner, editor, and viewer grantees all resolve; a never-run pipeline (or a pipeline the
+   *  caller cannot access) both come back `NotFound`, matching `history`'s no-grant behavior --
+   *  existence is not leaked. Deliberately NOT modeled on `status(runId)` above: that is a bare
+   *  in-memory-cache lookup with no ownership/sharing check at all, safe only because it is keyed
+   *  by an opaque, unguessable run id -- copying it for THIS pipeline-id-keyed endpoint would leak
+   *  any pipeline's latest run status/error detail to any authenticated user who guesses or
+   *  enumerates pipeline ids. Reads through the durable `pipeline_runs` table (`latestRunInternal`),
+   *  never the ephemeral `PipelineRunRegistry`/cache -- correct across backend instances (HEL-1168)
+   *  regardless of which instance executed the run. */
+  def latestRun(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, LatestRunResponse]] =
+    if (pipelineRunRepo == null)
+      Future.successful(Left(ServiceError.NotFound("No runs yet for pipeline: " + pipelineId.value)))
+    else
+      pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+        case None =>
+          Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
+        case Some(_) =>
+          // Safe: access confirmed by findByIdShared, same as history's own system-context read.
+          pipelineRunRepo.latestRunInternal(pipelineId).map {
+            case None =>
+              Left(ServiceError.NotFound("No runs yet for pipeline: " + pipelineId.value))
+            case Some(row) =>
+              Right(LatestRunResponse(
+                id          = row.id,
+                status      = row.status,
+                completedAt = row.completedAt.map(_.toString),
+                rowCount    = row.rowCount,
+                errorLog    = row.errorLog
+              ))
+          }
+      }
+
   /** Fetch the cached status of a run (queued/running/succeeded/failed). */
   def status(runId: String): Option[CachedRunStatus] =
     cache.get(runId).map { entry =>
@@ -952,7 +985,7 @@ final class PipelineRunService(
     // apply).
     val writeBackSink = new WriteBackSink
 
-    publish(pidStr, RunStatusEvent("queued"))
+    publish(pidStr, RunStatusEvent("queued", runId = Some(runId.value)))
 
     // HEL-505 (design.md Decision 2, C7): the pipeline-run rate limit is checked FIRST,
     // unconditionally regardless of `isDry` -- the ONLY guard check dry runs are subject to (the
@@ -998,7 +1031,7 @@ final class PipelineRunService(
         preExec.flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(()) =>
-            publish(pidStr, RunStatusEvent("running"))
+            publish(pidStr, RunStatusEvent("running", runId = Some(runId.value)))
 
             // HEL-905 (design.md Decision 6): the tree walk invokes this once per node completed;
             // published as a non-terminal "node-progress" SSE event so the stream stays open across it.
@@ -1010,7 +1043,7 @@ final class PipelineRunService(
                 case RootKey(rootId) => (rootId, "root")
                 case StepKey(stepId) => (stepId, "step")
               }
-              publish(pidStr, RunStatusEvent("node-progress", nodeId = Some(nodeId), nodeKind = Some(nodeKind), rowCount = Some(rowCount.toInt)))
+              publish(pidStr, RunStatusEvent("node-progress", nodeId = Some(nodeId), nodeKind = Some(nodeKind), rowCount = Some(rowCount.toInt), runId = Some(runId.value)))
             }
 
             val runFuture = backend
@@ -1058,7 +1091,7 @@ final class PipelineRunService(
           case see: StepExecutionException => see.getMessage
           case _                           => "Pipeline execution failed"
         }
-        publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg)))
+        publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg), runId = Some(runId.value)))
         val failWork: Future[Unit] =
           // HEL-509 (419-B, design.md Decision 4): a failed dry run has no
           // `pipeline_runs` row to attach assertion results to (a dry run's
@@ -1169,7 +1202,7 @@ final class PipelineRunService(
       // statement (bypassing `updateRunTerminalInternal` entirely) -- it must never persist NULL.
       truncatedReads:   Vector[TruncatedReadResponse]
   ): Future[Unit] = {
-    publish(pidStr, RunStatusEvent("dry_run", rowCount = Some(rowCount)))
+    publish(pidStr, RunStatusEvent("dry_run", rowCount = Some(rowCount), runId = Some(runId.value)))
     if (pipelineRunRepo != null)
       pipelineRunRepo
         .insertDryRun(runId, pipelineId, startAt, rowCount, user, truncatedReadsToJson(primaryAvailableRowCount, truncatedReads))
@@ -1260,7 +1293,7 @@ final class PipelineRunService(
       errMsg: String
   ): Future[Unit] = {
     log.error(s"Pipeline write-back failed for pipeline ${pipelineId.value}, run ${runId.value}: $errMsg")
-    publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg)))
+    publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg), runId = Some(runId.value)))
     val updateRun =
       if (pipelineRunRepo != null)
         pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
@@ -1288,7 +1321,7 @@ final class PipelineRunService(
       blockingFailures: Vector[AssertionResult]
   ): Future[Option[String]] = {
     val summary = summarizeBlockingFailures(blockingFailures)
-    publish(pidStr, RunStatusEvent("failed", errorLog = Some(summary)))
+    publish(pidStr, RunStatusEvent("failed", errorLog = Some(summary), runId = Some(runId.value)))
     val now = Instant.now()
     // HEL-873 (design.md Decision 2a): a blocked run is persisted as a failed run -- `[]`, never
     // NULL.
@@ -1321,7 +1354,7 @@ final class PipelineRunService(
       primaryAvailableRowCount: Option[Long],
       truncatedReads:     Vector[TruncatedReadResponse]
   ): Future[Option[String]] = {
-    publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size)))
+    publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size), runId = Some(runId.value)))
     val now = Instant.now()
     // HEL-905 (design.md Decisions 3, 4): a materialized node is one carrying >= 1 `outputs`
     // row. For each materialized node, `node_snapshots` is replaced atomically (per-node, via
