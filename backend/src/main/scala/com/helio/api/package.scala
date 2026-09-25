@@ -226,6 +226,8 @@ package object api {
   val RunSubmitResponse: protocols.pipelines.RunSubmitResponse.type = protocols.pipelines.RunSubmitResponse
   type RunStatusResponse = protocols.pipelines.RunStatusResponse
   val RunStatusResponse: protocols.pipelines.RunStatusResponse.type = protocols.pipelines.RunStatusResponse
+  type LatestRunResponse = protocols.pipelines.LatestRunResponse
+  val LatestRunResponse: protocols.pipelines.LatestRunResponse.type = protocols.pipelines.LatestRunResponse
   type PipelineRunRecord = protocols.pipelines.PipelineRunRecord
   val PipelineRunRecord: protocols.pipelines.PipelineRunRecord.type = protocols.pipelines.PipelineRunRecord
   type RunResultResponse = protocols.pipelines.RunResultResponse

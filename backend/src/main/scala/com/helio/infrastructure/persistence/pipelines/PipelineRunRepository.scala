@@ -314,6 +314,23 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         .result
     ).map(_.toVector)
 
+  /** ACL-bypassing lookup of the single most recent run (by `startedAt` desc, any status -- not
+   *  just successful) for a pipeline, or `None` for a never-run pipeline (HEL-1174, design.md
+   *  Decision 2). Safe to call only after the caller's pipeline access has been confirmed via
+   *  `PipelineRepository.findByIdShared`, mirroring `listByPipelineInternal`'s own contract --
+   *  backs `GET /api/pipelines/:id/runs/latest`, the durable reconciliation read a (re)connecting
+   *  SSE subscriber uses instead of the ephemeral push channel alone. `.take(1)` before `.result`
+   *  so the LIMIT is pushed down to Postgres rather than fetching every row and taking the head
+   *  in Scala. */
+  def latestRunInternal(pipelineId: PipelineId): Future[Option[PipelineRunRow]] =
+    ctx.withSystemContext(
+      runsTable
+        .filter(_.pipelineId === pipelineId.value)
+        .sortBy(_.startedAt.desc)
+        .take(1)
+        .result
+    ).map(_.headOption)
+
   /** ACL-bypassing lookup of the most recent SUCCESSFUL run's `completedAt`
    *  for a pipeline (HEL-946 Bug C(2)). Used to distinguish "this node was
    *  never materialized" from "this node ran and legitimately returned zero

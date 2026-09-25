@@ -3,7 +3,7 @@ package com.helio.api.routes.pipelines
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.testsupport.DatasetRowsTestSupport
-import com.helio.api.routes.pipelines.{PipelineRunHistoryRoutes, PipelineRunRegistry, PipelineRunStatusRoutes, PipelineRunStreamRoutes, PipelineRunSubmitRoutes}
+import com.helio.api.routes.pipelines.{PipelineRunHistoryRoutes, PipelineRunLatestRoutes, PipelineRunRegistry, PipelineRunStatusRoutes, PipelineRunStreamRoutes, PipelineRunSubmitRoutes}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -13,7 +13,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.concat
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
-import com.helio.api.{ErrorResponse, JsonProtocols, PipelineRunRecord, RunResultResponse, RunStatusResponse}
+import com.helio.api.{ErrorResponse, JsonProtocols, LatestRunResponse, PipelineRunRecord, RunResultResponse, RunStatusResponse}
 import com.helio.domain._
 import com.helio.domain.model._
 import com.helio.domain.steps.{FilterCondition, FilterConfig, RenameConfig}
@@ -242,6 +242,10 @@ class PipelineRunRoutesSpec
     )
     concat(
       new PipelineRunSubmitRoutes(service, user).routes,
+      // HEL-1174: mounted BEFORE PipelineRunStatusRoutes -- exercises the SAME mount-order
+      // precedence this spec's "runs/latest is not shadowed by runs/:runId" test relies on (see
+      // PipelineRunLatestRoutes.scala's own doc comment / ApiRoutes.scala's mount-order comment).
+      new PipelineRunLatestRoutes(service, user).routes,
       new PipelineRunStatusRoutes(service, user).routes,
       new PipelineRunHistoryRoutes(service, user).routes,
       new PipelineRunStreamRoutes(service, user).routes
@@ -388,6 +392,108 @@ class PipelineRunRoutesSpec
       val cache = new PipelineRunCache()
       Get("/pipelines/nonexistent/run-history") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
         status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // HEL-1174 (design.md Decision 2, tasks.md 2.3): the reconciliation read a (re)connecting SSE
+    // subscriber uses instead of the ephemeral push channel alone.
+    "GET /pipelines/:id/runs/latest returns 404 for a never-run pipeline" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDs("dataset")
+      val pid   = seedPipeline(dsId)
+      Get(s"/pipelines/${pid.value}/runs/latest") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "GET /pipelines/:id/runs/latest returns 404 for unknown pipeline" in {
+      val cache = new PipelineRunCache()
+      Get("/pipelines/nonexistent/runs/latest") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    "GET /pipelines/:id/runs/latest returns 200 with the most recent run's summary" in {
+      val cache  = new PipelineRunCache()
+      val dsId   = seedDs("dataset")
+      val pid    = seedPipeline(dsId)
+      val runId1 = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId1, pid, Instant.now(), dummyUser))
+      await(pipelineRunRepo.updateRunTerminal(runId1, "succeeded", Instant.now(), rowCount = Some(1), errorLog = None, dummyUser, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
+      // A second, LATER run -- the response must reflect this one, not the first.
+      val runId2 = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId2, pid, Instant.now().plusSeconds(5), dummyUser))
+      await(pipelineRunRepo.updateRunTerminal(runId2, "succeeded", Instant.now(), rowCount = Some(3), errorLog = None, dummyUser, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
+
+      Get(s"/pipelines/${pid.value}/runs/latest") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[LatestRunResponse]
+        resp.id       shouldBe runId2.value
+        resp.status   shouldBe "succeeded"
+        resp.rowCount shouldBe Some(3)
+      }
+    }
+
+    // HEL-299-style ACL parity with run-events/run-history: a viewer grantee (non-owner) can read
+    // the latest-run summary; a caller with no grant at all gets 404 (existence not leaked).
+    "GET /pipelines/:id/runs/latest returns 200 for a viewer grantee (non-owner)" in {
+      import PostgresProfile.api._
+      val cache     = new PipelineRunCache()
+      val dsId      = seedDs("dataset")
+      val pid       = seedPipeline(dsId)
+      val runId     = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), dummyUser))
+      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", Instant.now(), rowCount = Some(1), errorLog = None, dummyUser, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
+      val granteeId = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO users (id, email, display_name, created_at, updated_at)
+                 VALUES ($granteeId::uuid, 'hel1174-grantee@test', 'Grantee', now(), now())""",
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+                 VALUES ('pipeline', ${pid.value}, $granteeId::uuid, 'viewer', now())"""
+      )))
+      val grantee = AuthenticatedUser(UserId(granteeId))
+      Get(s"/pipelines/${pid.value}/runs/latest") ~> makeRoutes(cache, pipelineRunRepo, user = grantee) ~> check {
+        status shouldBe StatusCodes.OK
+        val resp = responseAs[LatestRunResponse]
+        resp.id shouldBe runId.value
+      }
+    }
+
+    "GET /pipelines/:id/runs/latest returns 404 for a caller with no grant on the pipeline (existence not leaked)" in {
+      import PostgresProfile.api._
+      val cache     = new PipelineRunCache()
+      val dsId      = seedDs("dataset")
+      val pid       = seedPipeline(dsId)
+      val runId     = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), dummyUser))
+      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", Instant.now(), rowCount = Some(1), errorLog = None, dummyUser, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
+      val strangerId = UUID.randomUUID().toString
+      await(db.run(
+        sqlu"""INSERT INTO users (id, email, display_name, created_at, updated_at)
+                 VALUES ($strangerId::uuid, 'hel1174-stranger@test', 'Stranger', now(), now())"""
+      ))
+      val stranger = AuthenticatedUser(UserId(strangerId))
+      Get(s"/pipelines/${pid.value}/runs/latest") ~> makeRoutes(cache, pipelineRunRepo, user = stranger) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+
+    // HEL-1174 (design-gate round 1, change request 2): the mount-order regression itself, at the
+    // HTTP-request level -- proves the literal "latest" segment is NOT swallowed by
+    // PipelineRunStatusRoutes' `path("runs" / Segment)` wildcard mounted immediately after it in
+    // `makeRoutes`'s own `concat(...)` above. If mount order regressed, this would come back 404
+    // with body "Run not found: latest" (runService.status("latest")'s message) instead of 200.
+    "GET /pipelines/:id/runs/latest is not shadowed by the runs/:runId wildcard route" in {
+      val cache = new PipelineRunCache()
+      val dsId  = seedDs("dataset")
+      val pid   = seedPipeline(dsId)
+      val runId = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(runId, pid, Instant.now(), dummyUser))
+      await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", Instant.now(), rowCount = Some(1), errorLog = None, dummyUser, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
+
+      Get(s"/pipelines/${pid.value}/runs/latest") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[LatestRunResponse].id shouldBe runId.value
       }
     }
 

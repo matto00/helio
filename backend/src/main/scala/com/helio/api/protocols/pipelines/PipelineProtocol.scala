@@ -131,6 +131,20 @@ final case class RunStatusResponse(
     error: Option[String],
     rowCount: Option[Int] = None
 )
+/** `GET /api/pipelines/:id/runs/latest` response (HEL-1174, design.md Decision 2): the
+ *  pipeline's single most recent `pipeline_runs` row, read from the durable table rather than
+ *  the ephemeral SSE/in-memory-cache layer -- the reconciliation source of truth a (re)connecting
+ *  subscriber reads so a terminal outcome published while it was disconnected is never
+ *  permanently lost. Deliberately its OWN small type, not a reuse of `PipelineRunRecord`
+ *  (run-history's row shape) -- `history` also joins each run's assertion rows, real DB work this
+ *  reconciliation path would otherwise trigger on every SSE (re)connect. */
+final case class LatestRunResponse(
+    id: String,
+    status: String,
+    completedAt: Option[String],
+    rowCount: Option[Int],
+    errorLog: Option[String]
+)
 /** One failing assertion rule's detail (HEL-576, design.md Decision 1) --
  *  `AssertionSummary.failures` carries only the FAILED results; a passing
  *  result is just a count, never a detail. Mirrors
@@ -364,6 +378,8 @@ trait PipelineProtocol
       )
     }
   }
+
+  implicit val latestRunResponseFormat: RootJsonFormat[LatestRunResponse] = jsonFormat5(LatestRunResponse.apply)
 
   // HEL-861: MUST be declared ABOVE runResultResponseFormat -- implicit vals in a spray-json
   // protocol trait initialize in declaration order, so declaring this after runResultResponseFormat

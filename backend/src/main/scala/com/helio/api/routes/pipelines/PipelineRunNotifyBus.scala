@@ -154,6 +154,10 @@ final class PipelineRunNotifyBus(
     event.errorLog.foreach(s => fields("errorLog") = JsString(truncateUtf8(s, ErrorLogByteBudget)))
     event.nodeId.foreach(s => fields("nodeId") = JsString(s))
     event.nodeKind.foreach(s => fields("nodeKind") = JsString(s))
+    // HEL-1174 (design.md Decision 3, option (i)): carried cross-instance too, so a client whose
+    // SSE connection is served by a DIFFERENT instance than the one that executed the run still
+    // gets runId on the live event, not only via the runs/latest reconcile fallback.
+    event.runId.foreach(s => fields("runId") = JsString(s))
     JsObject(fields.toMap).compactPrint
   }
 
@@ -168,7 +172,8 @@ final class PipelineRunNotifyBus(
         rowCount = fields.get("rowCount").map(_.convertTo[Int]),
         errorLog = fields.get("errorLog").map(_.convertTo[String]),
         nodeId   = fields.get("nodeId").map(_.convertTo[String]),
-        nodeKind = fields.get("nodeKind").map(_.convertTo[String])
+        nodeKind = fields.get("nodeKind").map(_.convertTo[String]),
+        runId    = fields.get("runId").map(_.convertTo[String])
       )
       Some((originInstanceId, pipelineId, event))
     } catch {

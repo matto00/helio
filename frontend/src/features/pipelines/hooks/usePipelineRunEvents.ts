@@ -17,6 +17,12 @@ export interface RunStatusEventData {
   /** HEL-905: present only on a "node-progress" event -- the completed node's step id
    *  (absent/undefined for the pipeline root). */
   nodeId?: string;
+  /** HEL-1174 (design.md Decision 3): the run this event belongs to -- added to the wire shape
+   *  for `pipelineRunFanout.ts`'s reconcile-on-connect dedup bookkeeping. Not read by this hook
+   *  (a single explicit run-watch never reconnects after a terminal event -- see design.md's
+   *  Non-Goals -- so it has no dedup bookkeeping to feed); present here only so the shared
+   *  `RunStatusEvent` wire shape decodes without surprises if a caller ever inspects it. */
+  runId?: string;
 }
 
 export interface RunEventsState {
