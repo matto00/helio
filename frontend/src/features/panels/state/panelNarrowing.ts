@@ -84,3 +84,12 @@ export function getFormDataSourceId(panel: Panel): string | null {
   const id = panel.config.dataSourceId;
   return id.length > 0 ? id : null;
 }
+
+/** HEL-584 design.md Decision 3 — the fullscreen/focus-mode overlay is
+ *  eligible for `output` (every Output sub-kind), `text`, `markdown`, and
+ *  `image` panels. Excluded: `divider` (no content worth maximizing) and
+ *  `form` (a write surface — a view-only overlay is the wrong place to
+ *  submit data). */
+export function isFullscreenEligible(panel: Panel): boolean {
+  return !isDividerPanel(panel) && !isFormPanel(panel);
+}
