@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRef } from "react";
 // F-022 — `/core` entry point + our own selectively-registered `echarts`
 // instance (`echartsCore.ts`), instead of the default `echarts-for-react`
 // export, which hard-imports the full, non-tree-shakeable `echarts` package
@@ -6,265 +6,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // it ships, defeating bundler tree-shaking regardless of what's actually
 // used here (bar/line/pie/scatter only — see `ChartType`).
 import ReactECharts from "echarts-for-react/esm/core";
-import type { EChartsOption } from "echarts";
 
-import type { ChartTypeOptionsMap, PanelAppearance, ScatterChartOptions } from "../types/panel";
-import {
-  appearanceToEChartsOption,
-  applyAxisTriggerTooltip,
-  applyHoverEmphasis,
-  prefersReducedMotion,
-  resolveChartTheme,
-  resolveChartType,
-} from "../../../utils/chartAppearance";
-import type { ChartType } from "../../../utils/chartAppearance";
-import { applyChartTypeOptions, makeScatterSymbolSize } from "../../../utils/chartTypeOptions";
+import type { ChartTypeOptionsMap, PanelAppearance } from "../types/panel";
 import type { GroupedAggregate } from "../../../utils/aggregate";
-// HEL-572 — kept as a SEPARATE, echarts-import-free module (see its own
-// header comment) so `PanelCard.tsx`/`PanelFullscreenOverlay.tsx` can reuse
-// the row-filter half without pulling this file's lazy-loaded echarts chunk
-// into the main bundle (HEL-512).
-import {
-  mapChartClickToSelection,
-  resolveDataColumns,
-  resolvePieValueColumn,
-} from "../../../utils/chartClickSelection";
-import type { ChartClickParams, ChartClickSelection } from "../../../utils/chartClickSelection";
-
-/** The slice of ECharts' own click-callback `params` shape this component's
- *  handler reads: `ChartClickParams` (chartClickSelection.ts's module-
- *  boundary-safe subset) plus the nested native-event handle design.md D2
- *  calls `stopPropagation` on. Declared here (not in that echarts-import-
- *  free module) since only this file's `onEvents` handler ever sees the raw
- *  ECharts event shape. */
-interface EChartsClickEventParams extends ChartClickParams {
-  event?: { event?: { stopPropagation?: () => void } };
-}
-import { useTheme } from "../../../theme/ThemeProvider";
+import type { ChartClickSelection } from "../../../utils/chartClickSelection";
 import {
   CHART_COMPACT_HEIGHT_PX,
   PIE_LEGEND_HIDE_HEIGHT_PX,
   useMeasuredChartHeight,
 } from "./useChartCompact";
+import { useChartOption } from "./useChartOption";
+import { useChartClickHandler } from "./useChartClickHandler";
 import echarts from "./echartsCore";
-
-// `type`/`data` only — no placeholder `name` (unlike the persisted-appearance
-// default, `defaultChartAppearance` in theme/appearance.ts, this is never
-// actually surfaced: the option-assembly below always reconstructs `xAxis`/
-// `yAxis` from `dataOption/appearanceOption` and never falls back to this
-// object's own `name`). Kept type-shaped so `EChartsOption` inference below
-// still holds when data/appearance are both absent (see the "no data" tests).
-const defaultOption: EChartsOption = {
-  legend: { show: true },
-  xAxis: { type: "category", data: [] },
-  yAxis: { type: "value" },
-  series: [{ type: "line" }],
-};
-
-/** `compact` mode (HEL-301, phone stack + F-094/F-026 measured-small panels):
- *  axis-label font size, shrunk from ECharts' default to fit a narrow width
- *  (W5: "fix via ECharts config, not CSS" — this is an ECharts option value,
- *  not a CSS token). */
-const COMPACT_AXIS_LABEL_FONT_SIZE = 10;
-
-/** F-028 — compact-mode grid inset (px). Paired with `containLabel: true` so
- *  ECharts reserves exactly the space the (now-shrunk) axis labels/names
- *  need instead of its own default percentage-based margins, which — on a
- *  ~140px-tall mobile chart canvas — consumed nearly the entire box and left
- *  the plotted series a near-invisible sliver. */
-const COMPACT_GRID_INSET_PX = 8;
-
-/** HEL-572 design.md D6 — merges `cursor: "pointer"` onto every series entry
- *  a `buildDataOption` branch returns, applied here (a single post-process
- *  wrapping the whole function, see `buildDataOption` below) so it's
- *  impossible for a future branch to forget it, and so it stays entirely on
- *  the data-derived half of the option — never merged onto the
- *  `appearance`-derived half, which is what closes the HEL-1178 hazard (a
- *  chart panel with no stored `appearance.chart` still gets a clickable
- *  cursor, since this runs unconditionally regardless of `appearance`). */
-function withPointerCursor(dataOption: Partial<EChartsOption>): Partial<EChartsOption> {
-  const series = dataOption.series;
-  if (!Array.isArray(series) || series.length === 0) return dataOption;
-  return { ...dataOption, series: series.map((s) => ({ ...(s as object), cursor: "pointer" })) };
-}
-
-function buildDataOption(
-  rawRows: string[][],
-  headers: string[],
-  fieldMapping: Record<string, string> | null | undefined,
-  chartType: ChartType,
-  scatterOptions?: ScatterChartOptions,
-): Partial<EChartsOption> {
-  return withPointerCursor(
-    buildDataOptionCore(rawRows, headers, fieldMapping, chartType, scatterOptions),
-  );
-}
-
-function buildDataOptionCore(
-  rawRows: string[][],
-  headers: string[],
-  fieldMapping: Record<string, string> | null | undefined,
-  chartType: ChartType,
-  scatterOptions?: ScatterChartOptions,
-): Partial<EChartsOption> {
-  if (rawRows.length === 0 || headers.length === 0) return {};
-
-  // HEL-572 tasks.md 2.1 / design.md D4 — extracted so `mapChartClickToSelection`/
-  // `filterRowsForSelection` (chartClickSelection.ts) can never resolve a
-  // different column than what was actually plotted here.
-  const { xCol, yCol, seriesCol } = resolveDataColumns(headers, fieldMapping);
-
-  if (xCol === -1) return {};
-
-  // Scatter: coordinate pairs [[x, y], ...], optionally with a third `size`
-  // dimension (`sizeField` → bubble sizing) and/or grouped into one series per
-  // distinct `colorField` value (legend entry per group). HEL-248.
-  if (chartType === "scatter" && yCol !== -1) {
-    const sizeCol = scatterOptions?.sizeField ? headers.indexOf(scatterOptions.sizeField) : -1;
-    const colorCol = scatterOptions?.colorField ? headers.indexOf(scatterOptions.colorField) : -1;
-
-    const toPoint = (r: string[]): number[] => {
-      const xVal = parseFloat(r[xCol] ?? "");
-      const yVal = parseFloat(r[yCol] ?? "");
-      const point = [isNaN(xVal) ? 0 : xVal, isNaN(yVal) ? 0 : yVal];
-      if (sizeCol !== -1) {
-        const sizeVal = parseFloat(r[sizeCol] ?? "");
-        point.push(isNaN(sizeVal) ? 0 : sizeVal);
-      }
-      return point;
-    };
-
-    const symbolSize =
-      sizeCol !== -1
-        ? makeScatterSymbolSize(rawRows.map((r) => parseFloat(r[sizeCol] ?? "")))
-        : undefined;
-
-    if (colorCol !== -1) {
-      const groups = [...new Set(rawRows.map((r) => r[colorCol] ?? ""))];
-      return {
-        legend: { data: groups },
-        series: groups.map((group) => ({
-          type: "scatter",
-          name: group,
-          data: rawRows.filter((r) => (r[colorCol] ?? "") === group).map(toPoint),
-          ...(symbolSize ? { symbolSize } : {}),
-        })),
-      };
-    }
-
-    return {
-      series: [
-        { type: "scatter", data: rawRows.map(toPoint), ...(symbolSize ? { symbolSize } : {}) },
-      ],
-    };
-  }
-
-  // Pie: [{ name, value }] from x (label) and y (value). F-027 — this branch
-  // used to require `yCol !== -1` and silently fall through to the generic
-  // "auto-detect numeric columns" branch below otherwise, which returns a
-  // cartesian `{xAxis, series:[{type:'pie', data: number[]}]}` shape: an
-  // orphaned category `xAxis` with no matching `grid` (invalid — crashes
-  // ECharts' axis builder) carrying a bare-number series (wrong shape for
-  // pie, which needs `{name,value}[]`). Branching on `chartType === 'pie'`
-  // unconditionally, before that fallthrough, closes both defects at once.
-  if (chartType === "pie") {
-    // HEL-572 tasks.md 2.1/2.3 — `resolvePieValueColumn` (chartClickSelection.ts)
-    // is the SAME mapped-or-auto-detected resolution previously inlined
-    // here (yCol when mapped, else the first numeric column skipping xCol)
-    // — shared with `mapChartClickToSelection`'s pie branch (design.md D3)
-    // so a click can never resolve a different value column than the one
-    // that actually built the slice.
-    const valueCol = resolvePieValueColumn(rawRows, headers, xCol, yCol);
-    if (valueCol === -1) return {};
-    const data = rawRows.map((r) => ({
-      name: r[xCol] ?? "",
-      value: parseFloat(r[valueCol] ?? "") || 0,
-    }));
-    return { series: [{ type: "pie", data }] };
-  }
-
-  if (seriesCol !== -1 && yCol !== -1) {
-    // Group rows by unique series-column values, x-values are shared categories
-    const allX = [...new Set(rawRows.map((r) => r[xCol] ?? ""))];
-    const groups = [...new Set(rawRows.map((r) => r[seriesCol] ?? ""))];
-
-    const lookup: Record<string, Record<string, number>> = {};
-    for (const row of rawRows) {
-      const x = row[xCol] ?? "";
-      const g = row[seriesCol] ?? "";
-      const y = parseFloat(row[yCol] ?? "");
-      if (!lookup[g]) lookup[g] = {};
-      if (!isNaN(y)) lookup[g][x] = y;
-    }
-
-    return {
-      xAxis: { type: "category", data: allX },
-      legend: { data: groups },
-      series: groups.map((g) => ({
-        type: chartType,
-        name: g,
-        data: allX.map((x) => lookup[g]?.[x] ?? 0),
-      })),
-    };
-  }
-
-  if (yCol !== -1) {
-    // Single series: x categories from xCol, y values from yCol
-    const categories = rawRows.map((r) => r[xCol] ?? "");
-    const values = rawRows.map((r) => {
-      const n = parseFloat(r[yCol] ?? "");
-      return isNaN(n) ? 0 : n;
-    });
-    return {
-      xAxis: { type: "category", data: categories },
-      legend: { data: [headers[yCol]] },
-      series: [{ type: chartType, name: headers[yCol], data: values }],
-    };
-  }
-
-  // No y mapping — auto-detect numeric columns (skipping xCol)
-  const categories = rawRows.map((r) => r[xCol] ?? "");
-  const autoSeries: Array<{ name: string; data: number[] }> = [];
-  for (let col = 0; col < headers.length; col++) {
-    if (col === xCol) continue;
-    const parsed = rawRows.map((r) => parseFloat(r[col] ?? ""));
-    if (parsed.some((n) => !isNaN(n))) {
-      autoSeries.push({ name: headers[col], data: parsed.map((n) => (isNaN(n) ? 0 : n)) });
-    }
-  }
-  if (autoSeries.length === 0) return {};
-
-  return {
-    xAxis: { type: "category", data: categories },
-    legend: { data: autoSeries.map((s) => s.name) },
-    series: autoSeries.map((s) => ({ type: chartType, name: s.name, data: s.data })),
-  };
-}
-
-/** HEL-292 — render a precomputed groupBy aggregate (`categories`/`values`
- *  from `usePanelData`'s `groupAndAggregate` over typed rows) directly,
- *  instead of grouping `rawRows`. `ChartPanel` never re-derives grouping from
- *  stringified data — see design.md Decision 4. */
-function buildAggregateDataOption(
-  aggregate: GroupedAggregate,
-  chartType: ChartType,
-): Partial<EChartsOption> {
-  if (chartType === "pie") {
-    return {
-      series: [
-        {
-          type: "pie",
-          data: aggregate.categories.map((name, i) => ({ name, value: aggregate.values[i] })),
-        },
-      ],
-    };
-  }
-
-  return {
-    xAxis: { type: "category", data: aggregate.categories },
-    series: [{ type: chartType, data: aggregate.values }],
-  };
-}
 
 export interface ChartPanelProps {
   appearance?: PanelAppearance;
@@ -315,214 +68,7 @@ export function ChartPanel({
   const measuredPieLegendOverlap =
     measuredHeight > 0 && measuredHeight <= PIE_LEGEND_HIDE_HEIGHT_PX;
 
-  // `theme`/`accentColor` are read only to force the memo below to recompute
-  // when the user flips light/dark or changes accent — `resolveChartTheme()`
-  // re-reads the live computed CSS custom properties itself and isn't
-  // derived from either value directly.
-  const { theme, accentColor } = useTheme();
-
-  // HEL-566 skeptic-final-1 CR1 — a `theme`/`accentColor` change alone is
-  // NOT enough to guarantee the memo below reads the CORRECT tokens: on the
-  // very render this state change triggers, `document.documentElement`'s
-  // `data-theme` attribute (and the accent custom properties
-  // `applyAccentTokens` writes) have NOT been updated yet — that DOM
-  // mutation happens in `ThemeProvider`'s own `useEffect`, which (like every
-  // passive effect) runs strictly AFTER the render phase of the triggering
-  // commit, so `resolveChartTheme()`'s live `getComputedStyle` read captures
-  // the PREVIOUS theme/accent's values. A same-commit child effect in THIS
-  // component doesn't help either — passive effects fire child-before-parent
-  // within one commit, so a plain `useEffect([theme, accentColor])` here
-  // still runs before `ThemeProvider`'s own effect. Root-cause confirmed via
-  // a minimal probe (mounting `ThemeProvider` + a consumer that records
-  // `document.documentElement`'s attribute at render time, a same-commit
-  // child-effect time, and a `requestAnimationFrame`-deferred time across a
-  // toggle): the render-time and child-effect-time reads both observed the
-  // STALE attribute; only the rAF-deferred read (which fires after the
-  // browser paints — i.e. after every effect of the commit, ancestor AND
-  // descendant, has already run) observed the corrected one. `themeSyncTick`
-  // forces exactly one corrective recompute once that's guaranteed true.
-  const [themeSyncTick, setThemeSyncTick] = useState(0);
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => setThemeSyncTick((n) => n + 1));
-    return () => cancelAnimationFrame(raf);
-  }, [theme, accentColor]);
-
-  // F-231 — this used to rebuild the full ECharts option object on every
-  // render. Memoized on the actual inputs that can change its shape.
-  const option = useMemo<EChartsOption>(() => {
-    // Deliberate cache-buster (see the comment above the `useTheme()` call):
-    // `resolveChartTheme()` re-reads the live computed CSS custom properties
-    // itself rather than deriving from either value, so they're referenced
-    // here only to justify their presence in the dependency array below.
-    // HEL-566: `accentStrong` (the hover-emphasis color) is derived from
-    // `--app-accent` via CSS `color-mix`, so an accent-only change — no
-    // theme toggle — still needs to force this memo to re-resolve it
-    // (design.md Decision 5). `themeSyncTick` is the corrective re-resolve
-    // once the DOM is guaranteed to reflect the new theme/accent — see the
-    // comment above its `useEffect` above.
-    void theme;
-    void accentColor;
-    void themeSyncTick;
-
-    const themeTokens = resolveChartTheme();
-
-    const { option: appearanceOption, chartType } =
-      appearance?.chart != null
-        ? appearanceToEChartsOption(appearance.chart, themeTokens)
-        : { option: {} as EChartsOption, chartType: "line" as ChartType };
-
-    const useAggregate =
-      chartAggregate != null &&
-      (chartType === "bar" || chartType === "line" || chartType === "pie");
-
-    const dataOption = useAggregate
-      ? buildAggregateDataOption(chartAggregate, chartType)
-      : rawRows && rawRows.length > 0 && headers && headers.length > 0
-        ? buildDataOption(rawRows, headers, fieldMapping, chartType, chartOptions?.scatter)
-        : {};
-
-    const isPie = chartType === "pie";
-
-    const textColor = appearance?.color;
-    const textStyleOverride = textColor ? { color: textColor } : {};
-    // F-196: `appearanceOption.textStyle` is where chartAppearance.ts wires
-    // `fontFamily: --font-sans` (and the tooltip/axisLabel equivalents). Every
-    // spot below that renders its own `textStyle`-shaped object must MERGE
-    // that base in rather than replace it outright, or the color override
-    // silently drops the font — the bug this finding described (legend text
-    // rendering in ECharts' canvas-default font instead of the app's).
-    const baseTextStyle = (appearanceOption.textStyle as object | undefined) ?? {};
-    const textStyle = { ...baseTextStyle, ...textStyleOverride };
-
-    let built: EChartsOption;
-    if (isPie) {
-      const { xAxis: _axA, yAxis: _ayA, ...appearOpt } = appearanceOption;
-      const { xAxis: _axD, yAxis: _ayD, series: _sD, ...defaultOpt } = defaultOption;
-      built = {
-        ...defaultOpt,
-        ...dataOption,
-        ...appearOpt,
-        backgroundColor: "transparent",
-        textStyle,
-        legend: {
-          ...(dataOption.legend as object),
-          ...(appearOpt.legend as object),
-          textStyle: {
-            ...baseTextStyle,
-            ...((appearOpt.legend as { textStyle?: object } | undefined)?.textStyle ?? {}),
-            ...textStyleOverride,
-          },
-        },
-      };
-    } else {
-      built = {
-        ...defaultOption,
-        ...dataOption,
-        ...appearanceOption,
-        backgroundColor: "transparent",
-        textStyle,
-        xAxis: {
-          ...(dataOption.xAxis as object),
-          ...(appearanceOption.xAxis as object),
-          nameTextStyle: textStyle,
-          axisLabel: {
-            ...(appearanceOption.xAxis as { axisLabel?: object } | undefined)?.axisLabel,
-            color: textColor,
-          },
-        },
-        yAxis: {
-          ...(defaultOption.yAxis as object),
-          ...(appearanceOption.yAxis as object),
-          nameTextStyle: textStyle,
-          axisLabel: {
-            ...(appearanceOption.yAxis as { axisLabel?: object } | undefined)?.axisLabel,
-            color: textColor,
-          },
-        },
-        legend: {
-          ...(dataOption.legend as object),
-          ...(appearanceOption.legend as object),
-          textStyle: {
-            ...baseTextStyle,
-            ...((appearanceOption.legend as { textStyle?: object } | undefined)?.textStyle ?? {}),
-            ...textStyleOverride,
-          },
-        },
-      };
-    }
-
-    // HEL-248 — apply the active chart type's persisted display options (line
-    // smoothing/markers/area, bar stacking/orientation/gap, pie donut/labels)
-    // after appearance merge and before the mobile `compact` pass, so `compact`
-    // (HEL-301) stays the last transform and is unchanged.
-    built = applyChartTypeOptions(built, chartType, chartOptions);
-
-    // HEL-566 D3/D4 — axis-trigger tooltip (shared-x, multi-series bar/line)
-    // and hover-emphasis styling both need the FINAL series array (after
-    // chart-type options, so a normalized-stacking or scatter-grouping pass
-    // above has already settled series count/shape), so both run as their
-    // own post-merge passes here, mirroring `applyChartTypeOptions`
-    // immediately above rather than folding into `appearanceToEChartsOption`
-    // — which runs before `dataOption`'s real series are known (design.md
-    // Decision 3).
-    built = applyAxisTriggerTooltip(built, chartType);
-    built = applyHoverEmphasis(built, themeTokens, prefersReducedMotion());
-
-    // F-026 — a pie's own outer data-labels extend well outside its donut
-    // radius, so a top/bottom legend collides with them at a *taller*
-    // measured height than the generic compact tier below is set for.
-    // Independent of `effectiveCompact` so a default-sized (`h: 4`) pie
-    // panel clears the collision even though it's well above the generic
-    // small-chart threshold.
-    const hideLegendForMeasuredSize = effectiveCompact || (isPie && measuredPieLegendOverlap);
-
-    if (hideLegendForMeasuredSize) {
-      built = { ...built, legend: { ...(built.legend as object), show: false } };
-    }
-
-    if (effectiveCompact && !isPie) {
-      built = {
-        ...built,
-        // F-028 — an explicit small inset + `containLabel` so ECharts
-        // reserves only the space the (shrunk) axis labels/names actually
-        // need, instead of its own default percentage-based grid margins,
-        // which ate nearly the whole plot area on a ~140px-tall mobile
-        // chart canvas.
-        grid: {
-          ...(built.grid as object),
-          top: COMPACT_GRID_INSET_PX,
-          right: COMPACT_GRID_INSET_PX,
-          bottom: COMPACT_GRID_INSET_PX,
-          left: COMPACT_GRID_INSET_PX,
-          containLabel: true,
-        },
-        xAxis: {
-          ...(built.xAxis as object),
-          axisLabel: {
-            ...(built.xAxis as { axisLabel?: object } | undefined)?.axisLabel,
-            fontSize: COMPACT_AXIS_LABEL_FONT_SIZE,
-          },
-          nameTextStyle: {
-            ...(built.xAxis as { nameTextStyle?: object } | undefined)?.nameTextStyle,
-            fontSize: COMPACT_AXIS_LABEL_FONT_SIZE,
-          },
-        },
-        yAxis: {
-          ...(built.yAxis as object),
-          axisLabel: {
-            ...(built.yAxis as { axisLabel?: object } | undefined)?.axisLabel,
-            fontSize: COMPACT_AXIS_LABEL_FONT_SIZE,
-          },
-          nameTextStyle: {
-            ...(built.yAxis as { nameTextStyle?: object } | undefined)?.nameTextStyle,
-            fontSize: COMPACT_AXIS_LABEL_FONT_SIZE,
-          },
-        },
-      };
-    }
-
-    return built;
-  }, [
+  const option = useChartOption({
     appearance,
     rawRows,
     headers,
@@ -531,42 +77,16 @@ export function ChartPanel({
     chartOptions,
     effectiveCompact,
     measuredPieLegendOverlap,
-    theme,
-    accentColor,
-    themeSyncTick,
-  ]);
+  });
 
-  // HEL-572 design.md D2 — bails out (does nothing) unless the click landed
-  // on a genuine series element, so a legend or empty-grid-area click still
-  // falls through unmodified to the existing panel-body-click "open
-  // Customize" handler on `article onClick` (DesktopPanelGrid.tsx). For a
-  // genuine series click, `stopPropagation` runs BEFORE anything else —
-  // including before resolving whether a mapping is even possible — so the
-  // click never reaches that handler regardless of mapping outcome. This is
-  // the one call site translating ECharts' own click-event shape into the
-  // module-boundary-safe `ChartClickParams` (chartClickSelection.ts) — see
-  // that module's header comment for why the mapping/filtering logic itself
-  // never imports `echarts`.
-  const handleChartClick = useCallback(
-    (params: EChartsClickEventParams) => {
-      if (params.componentType !== "series") return;
-      params.event?.event?.stopPropagation?.();
-      if (!onDataPointSelect || !rawRows || !headers || headers.length === 0) return;
-      const chartType = resolveChartType(appearance?.chart);
-      const selection = mapChartClickToSelection(
-        params,
-        chartType,
-        fieldMapping,
-        headers,
-        rawRows,
-        chartOptions?.scatter,
-      );
-      if (selection) onDataPointSelect(selection);
-    },
-    [onDataPointSelect, rawRows, headers, fieldMapping, chartOptions, appearance],
-  );
-
-  const chartOnEvents = useMemo(() => ({ click: handleChartClick }), [handleChartClick]);
+  const { onEvents: chartOnEvents } = useChartClickHandler({
+    appearance,
+    rawRows,
+    headers,
+    fieldMapping,
+    chartOptions,
+    onDataPointSelect,
+  });
 
   return (
     <div ref={wrapperRef} style={{ height: "100%", width: "100%" }}>
@@ -580,7 +100,7 @@ export function ChartPanel({
         // shape left over from the previous chart type is exactly the kind
         // of invalid-option crash F-027 fixes elsewhere. The real fix for
         // F-231's other complaint (rebuilding the option object itself) is
-        // the `useMemo` above.
+        // the `useMemo` inside `useChartOption`.
         notMerge={true}
         autoResize={true}
         style={{ height: "100%", width: "100%" }}
