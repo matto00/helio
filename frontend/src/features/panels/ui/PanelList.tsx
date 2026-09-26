@@ -9,6 +9,7 @@ import { updateUserPreferences } from "../../auth/state/authSlice";
 import { useCreateDashboardAction } from "../../dashboards/hooks/useCreateDashboardAction";
 import { useOnboardingHost } from "../../onboarding/hooks/useOnboardingHost";
 import { OnboardingChecklist } from "../../onboarding/ui/OnboardingChecklist";
+import { CrossFilterIndicator } from "./CrossFilterIndicator";
 import { PanelGrid } from "./grid/PanelGrid";
 import { PanelGridSkeleton } from "./grid/PanelGridSkeleton";
 import { panelGridConfig } from "./grid/panelGridConfig";
@@ -348,6 +349,11 @@ export function PanelList() {
           emphasisVariant={onboardingSupersedesEmptyState ? "primary" : "secondary"}
         />
       ) : null}
+      {/* HEL-588 tasks.md 4.3 — mounted unconditionally; self-gates on
+          `crossFilter !== null` (renders nothing otherwise). Placed above the
+          grid, alongside the onboarding checklist, so the active filter is
+          visible before scrolling into the narrowed panels themselves. */}
+      <CrossFilterIndicator />
       {/* HEL-528 design.md D10/D11/D12 — the same `.panel-list__zoom-container`
           wrapper the resolved grid renders into, so a saved zoom level other
           than 1 does not displace the swap when real panels arrive.

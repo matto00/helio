@@ -72,7 +72,7 @@ describe("PanelContent — appearance forwarding", () => {
     };
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     const panel = makeOutputPanel({ appearance });
-    render(<PanelContent panel={panel} appearance={appearance} />);
+    renderWithStore(<PanelContent panel={panel} appearance={appearance} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(appearance);
   });
@@ -80,7 +80,7 @@ describe("PanelContent — appearance forwarding", () => {
   it("forwards panel.appearance when no appearance prop is provided", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     const panel = makeOutputPanel();
-    render(<PanelContent panel={panel} />);
+    renderWithStore(<PanelContent panel={panel} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(panel.appearance);
   });
@@ -89,13 +89,13 @@ describe("PanelContent — appearance forwarding", () => {
 describe("PanelContent — output kind dispatch", () => {
   it("renders the metric placeholder for output kind metric", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "metric" }));
-    render(<PanelContent panel={makeOutputPanel()} />);
+    renderWithStore(<PanelContent panel={makeOutputPanel()} />);
     expect(await screen.findByText("--")).toBeInTheDocument();
   });
 
   it("renders an ECharts chart panel for output kind chart", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
-    render(<PanelContent panel={makeOutputPanel()} />);
+    renderWithStore(<PanelContent panel={makeOutputPanel()} />);
     expect(await screen.findByTestId("chart-panel")).toBeInTheDocument();
   });
 
@@ -201,7 +201,7 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
     const rawRows = [["2024-01-01", "100"]];
     const headers = ["date", "price"];
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart", config: { fieldMapping } }));
-    render(<PanelContent panel={makeOutputPanel()} rawRows={rawRows} headers={headers} />);
+    renderWithStore(<PanelContent panel={makeOutputPanel()} rawRows={rawRows} headers={headers} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual(fieldMapping);
     expect(capturedChartProps?.rawRows).toEqual(rawRows);
@@ -210,7 +210,7 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
 
   it("forwards an empty fieldMapping object to ChartPanel when the Output config has none", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
-    render(<PanelContent panel={makeOutputPanel()} />);
+    renderWithStore(<PanelContent panel={makeOutputPanel()} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual({});
   });
@@ -219,14 +219,14 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
   // hide the legend / shrink axis labels (W5).
   it("forwards compact=true to ChartPanel", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
-    render(<PanelContent panel={makeOutputPanel()} compact />);
+    renderWithStore(<PanelContent panel={makeOutputPanel()} compact />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBe(true);
   });
 
   it("leaves compact undefined for the desktop grid (no compact prop passed)", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
-    render(<PanelContent panel={makeOutputPanel()} />);
+    renderWithStore(<PanelContent panel={makeOutputPanel()} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBeUndefined();
   });
@@ -240,14 +240,14 @@ describe("PanelContent — chart annotation resolution (HEL-323)", () => {
     getOutputByIdMock.mockResolvedValue(
       makeOutput({ kind: "chart", config: { annotation: "Fixed note" } }),
     );
-    const { container } = render(<PanelContent panel={makeOutputPanel()} />);
+    const { container } = renderWithStore(<PanelContent panel={makeOutputPanel()} />);
     await screen.findByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent("Fixed note");
   });
 
   it("renders no annotation element when none is set", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
-    const { container } = render(<PanelContent panel={makeOutputPanel()} />);
+    const { container } = renderWithStore(<PanelContent panel={makeOutputPanel()} />);
     await screen.findByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).not.toBeInTheDocument();
   });

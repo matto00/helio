@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import * as panelService from "../services/panelService";
 import {
   accumulatePanelUpdate,
+  clearCrossFilter,
   clearPendingPanelUpdates,
   clearSelection,
   createPanel,
@@ -12,6 +13,7 @@ import {
   panelsReducer,
   resetPanelPagination,
   selectDataPoint,
+  setCrossFilter,
   updatePanelAppearance,
   updatePanelMarkdownContent,
   updatePanelsBatch,
@@ -481,6 +483,79 @@ describe("panelsSlice", () => {
     });
   });
 
+  // HEL-588 tasks.md 6.3 — setCrossFilter / clearCrossFilter, and the three
+  // reset points (dashboard switch, origin-panel delete, clear-all).
+  describe("crossFilter (HEL-588)", () => {
+    const descriptorA = {
+      panelId: "panel-1",
+      dimension: "quarter",
+      value: "Q1",
+      series: "revenue",
+    };
+    const descriptorB = {
+      panelId: "panel-2",
+      dimension: "region",
+      value: "East",
+      series: "cost",
+    };
+
+    it("starts as null in initial state", () => {
+      const state = panelsReducer(undefined, { type: "@@INIT" });
+      expect(state.crossFilter).toBeNull();
+    });
+
+    it("setCrossFilter sets the active cross-filter", () => {
+      const state = panelsReducer(undefined, setCrossFilter(descriptorA));
+      expect(state.crossFilter).toEqual(descriptorA);
+    });
+
+    it("setCrossFilter with a DIFFERENT selection replaces the active cross-filter", () => {
+      const withA = panelsReducer(undefined, setCrossFilter(descriptorA));
+      const withB = panelsReducer(withA, setCrossFilter(descriptorB));
+      expect(withB.crossFilter).toEqual(descriptorB);
+    });
+
+    // spec.md "re-activating the filter action for the identical selection is
+    // a no-op" — proven via reference equality, not just value equality: the
+    // reducer must leave `state.crossFilter` completely untouched, not merely
+    // replace it with an equal-by-value object.
+    it("re-setting an IDENTICAL descriptor is a no-op (same reference, not just equal value)", () => {
+      const withA = panelsReducer(undefined, setCrossFilter(descriptorA));
+      const again = panelsReducer(withA, setCrossFilter({ ...descriptorA }));
+      expect(again.crossFilter).toBe(withA.crossFilter);
+    });
+
+    it("clearCrossFilter clears the active cross-filter", () => {
+      const withA = panelsReducer(undefined, setCrossFilter(descriptorA));
+      const cleared = panelsReducer(withA, clearCrossFilter());
+      expect(cleared.crossFilter).toBeNull();
+    });
+
+    it("fetchPanels.pending (dashboard switch) clears the active cross-filter", () => {
+      const withA = panelsReducer(undefined, setCrossFilter(descriptorA));
+      const afterSwitch = panelsReducer(withA, fetchPanels.pending("req", "dashboard-2"));
+      expect(afterSwitch.crossFilter).toBeNull();
+    });
+
+    it("deletePanel.fulfilled clears the cross-filter when the deleted panel originated it", () => {
+      const withA = panelsReducer(undefined, setCrossFilter(descriptorA));
+      const afterDelete = panelsReducer(
+        withA,
+        deletePanel.fulfilled("panel-1", "req", { panelId: "panel-1", dashboardId: "dashboard-1" }),
+      );
+      expect(afterDelete.crossFilter).toBeNull();
+    });
+
+    it("deletePanel.fulfilled leaves the cross-filter untouched when a DIFFERENT panel is deleted", () => {
+      const withA = panelsReducer(undefined, setCrossFilter(descriptorA));
+      const afterDelete = panelsReducer(
+        withA,
+        deletePanel.fulfilled("panel-2", "req", { panelId: "panel-2", dashboardId: "dashboard-1" }),
+      );
+      expect(afterDelete.crossFilter).toEqual(descriptorA);
+    });
+  });
+
   // Task 4.1 — createPanel thunk passes outputId through to the service request
   describe("createPanel thunk", () => {
     afterEach(() => {
@@ -505,6 +580,7 @@ describe("panelsSlice", () => {
             lastSavedAt: null,
             paginationState: {},
             interactionState: {},
+            crossFilter: null,
             // HEL-548 D1/D5a — PanelsState grew these two fields; this
             // literal is checked against the real (uncast) reducer type.
             staleDashboardId: null,
@@ -557,6 +633,7 @@ describe("panelsSlice", () => {
             lastSavedAt: null,
             paginationState: {},
             interactionState: {},
+            crossFilter: null,
             staleDashboardId: null,
             panelCreationModalOpen: false,
           },
@@ -722,6 +799,7 @@ describe("panelsSlice", () => {
             lastSavedAt: null,
             paginationState: {},
             interactionState: {},
+            crossFilter: null,
             staleDashboardId: "dashboard-1",
             panelCreationModalOpen: false,
           },

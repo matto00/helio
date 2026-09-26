@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { MousePointerClick } from "lucide-react";
 
 import "./PanelInspectView.css";
@@ -6,7 +6,8 @@ import { Modal } from "../../../shared/ui/Modal";
 import { DataGrid } from "../../../shared/ui/DataGrid";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
-import { useAppSelector } from "../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { setCrossFilter } from "../state/panelsSlice";
 import { filterRowsForSelection } from "../../../utils/chartClickSelection";
 import type { ChartInspectConfig } from "../../../utils/chartClickSelection";
 
@@ -63,7 +64,20 @@ export function PanelInspectView({
   rowsTruncated,
   variant,
 }: PanelInspectViewProps) {
+  const dispatch = useAppDispatch();
   const selection = useAppSelector((state) => state.panels.interactionState[panelId] ?? null);
+
+  // HEL-588 design.md D3 / owner ruling "Action in Inspect" — the ONLY
+  // writer of the dashboard's cross-filter. A chart click (`PanelCard.
+  // handleDataPointSelect`) never reaches this; only this explicit footer
+  // action does. Dispatches, then closes the SAME way the header ×/Escape/
+  // backdrop already do (`onClose`, not `onClear` — the selection itself is
+  // untouched, only the dashboard-level filter changes).
+  const handleFilterDashboard = useCallback(() => {
+    if (!selection) return;
+    dispatch(setCrossFilter(selection));
+    onClose();
+  }, [dispatch, selection, onClose]);
 
   const filteredRows = useMemo(() => {
     if (!selection || !rawRows || !headers || headers.length === 0) return [];
@@ -97,13 +111,31 @@ export function PanelInspectView({
       description={headerLabel ? <span>{headerLabel}</span> : undefined}
       ariaLabel={`Inspect ${panelTitle}`}
       footer={
-        <button
-          type="button"
-          className="ui-modal-btn ui-modal-btn--secondary"
-          onClick={selection ? onClear : onClose}
-        >
-          {selection ? "Clear selection" : "Close"}
-        </button>
+        <>
+          {/* HEL-588 design.md D3/tasks.md 2.1 — owner ruling "Action in
+              Inspect": the ONLY gesture that sets the dashboard's
+              cross-filter. Rendered only alongside a real selection — there
+              is nothing to filter by from the empty state. An ordinary
+              `<button>`, natively focusable/Tab-reachable (tasks.md 2.4) —
+              no bespoke keyboard plumbing needed. */}
+          {selection && (
+            <button
+              type="button"
+              className="ui-modal-btn ui-modal-btn--primary"
+              onClick={handleFilterDashboard}
+            >
+              Filter dashboard by {selection.dimension} ={" "}
+              <span className="mono">{selection.value}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="ui-modal-btn ui-modal-btn--secondary"
+            onClick={selection ? onClear : onClose}
+          >
+            {selection ? "Clear selection" : "Close"}
+          </button>
+        </>
       }
     >
       {selection ? (

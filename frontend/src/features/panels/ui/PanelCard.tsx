@@ -23,6 +23,7 @@ import { PanelFullscreenOverlay } from "./PanelFullscreenOverlay";
 import { PanelInspectView } from "./PanelInspectView";
 import type { PanelDataResult } from "../hooks/usePanelData";
 import { usePanelData } from "../hooks/usePanelData";
+import { useCrossFilteredPanelData } from "../hooks/useCrossFilteredPanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import type { Panel } from "../types/panel";
@@ -106,6 +107,15 @@ export const PanelCardBody = React.memo(function PanelCardBody({
 }: PanelCardBodyProps) {
   const dispatch = useAppDispatch();
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
+  // evaluation-1.md CR1 (cycle 2) — this selector's raw `paginationEntry.rows`
+  // is passed straight through to `PanelContent`'s `paginationRows` prop
+  // below UNFILTERED, exactly like `rawRows`/`headers` above; the dashboard's
+  // active cross-filter is applied ONCE, downstream, inside
+  // `OutputPanelContent` (which already resolves the SAME Output this
+  // component needs for table/chart/etc. rendering — see that component's
+  // own comment for why applying the filter there, rather than here or in
+  // `PanelCard`, is what actually keeps a Table-kind panel's `paginationRows`
+  // branch and its `rawRows` fallback in permanent agreement).
   usePanelPolling(refresh, panel.refreshInterval ?? null, outputId);
 
   // HEL-1094 (design.md D4/D5) — fans this panel into the shared per-pipeline run-status SSE
@@ -278,6 +288,42 @@ export const PanelCard = React.memo(function PanelCard({
       scatterOptions: cfg.chartOptions?.scatter,
     };
   }, [output, panel.appearance.chart]);
+
+  // HEL-588 design.md D4 / evaluation-1.md CR1 (cycle 2) / skeptic-final-1.md
+  // CR1 (cycle 3) / evaluation-3.md CR1 (cycle 3) — the ALREADY
+  // cross-filtered rawRows/headers, used by EVERY `PanelInspectView` mount
+  // (both the grid-context one below AND, via `inspectRawRows`/
+  // `inspectHeaders`, the one nested inside `PanelFullscreenOverlay`):
+  // Inspect renders its own `DataGrid` directly from these props rather than
+  // going through `PanelContent`/`OutputPanelContent`, so it's the one
+  // consumer that genuinely needs the filtered values threaded down to it
+  // explicitly, in BOTH mount contexts. `PanelCardBody`/
+  // `PanelFullscreenOverlay`'s own `<PanelContent>` calls receive the RAW
+  // `panelData.rawRows`/`panelData.headers` instead (see their own call
+  // sites below) — `OutputPanelContent` filters those itself, using ITS OWN
+  // already-resolved `output` (no new fetch, no race), and needs the RAW
+  // input specifically so its `crossFilterLoadedRowCount` truncation-count
+  // math reads the panel's TRUE total loaded rows, not an already-narrowed
+  // count (skeptic-final-1.md CR1's fix). Reuses THIS component's own
+  // pre-existing `output` (never a second fetch) — exactly the same one
+  // `chartInspectConfig` above already resolves.
+  //
+  // History (two related-but-distinct defects, same class, one call site
+  // apart): skeptic-final-1.md CR1 fixed `PanelFullscreenOverlay` receiving
+  // these cross-filtered values for its `<PanelContent>` prop (corrupting
+  // the truncation count) by switching that ONE prop pair to raw. That fix's
+  // own side effect — `PanelFullscreenOverlay` has only ONE `rawRows`/
+  // `headers` prop pair internally, shared by its `<PanelContent>` AND its
+  // nested `<PanelInspectView>` — meant the nested Inspect ALSO started
+  // reading raw rows, silently ignoring the active cross-filter for a
+  // sibling panel's own click-selection (evaluation-3.md's live repro: a
+  // panel plotted by "region" but filterable by "quarter" correctly showed 1
+  // row in the grid's Inspect and incorrectly showed all 4 in Fullscreen's).
+  // Fixed by giving `PanelFullscreenOverlay` a SECOND, separate prop pair
+  // (`inspectRawRows`/`inspectHeaders`) so its two internal consumers can
+  // each get what they need without one shared value serving both.
+  const { rawRows: crossFilteredRawRows, headers: crossFilteredHeaders } =
+    useCrossFilteredPanelData(panel, panelData.rawRows, panelData.headers, output);
 
   const [isInspectOpen, setIsInspectOpen] = useState(false);
   const handleDataPointSelect = useCallback(
@@ -538,8 +584,8 @@ export const PanelCard = React.memo(function PanelCard({
           open={isInspectOpen}
           onClose={handleCloseInspect}
           onClear={handleClearInspect}
-          rawRows={panelData.rawRows}
-          headers={panelData.headers}
+          rawRows={crossFilteredRawRows}
+          headers={crossFilteredHeaders}
           chartInspectConfig={chartInspectConfig}
           rowsTruncated={panelData.rowsTruncated}
           variant="preview"
@@ -560,8 +606,34 @@ export const PanelCard = React.memo(function PanelCard({
           open={isFullscreenOpen}
           onClose={handleCloseFullscreen}
           data={panelData.data}
+          // skeptic-final-1.md CR1 — `rawRows`/`headers` here feed THIS
+          // overlay's OWN `<PanelContent>` and must stay RAW (matching
+          // `PanelCardBody`'s call): `OutputPanelContent` (reached via
+          // `<PanelContent>`) is the ONE place that applies the cross-filter,
+          // using ITS OWN already-resolved `output` — feeding it an
+          // ALREADY-filtered `rawRows` corrupted `crossFilterLoadedRowCount`
+          // (the D7 truncation disclosure's denominator) down to the
+          // post-filter match count (probe-confirmed live: "50 of 50" instead
+          // of the grid card's correct "50 of 200").
           rawRows={panelData.rawRows}
           headers={panelData.headers}
+          // evaluation-3.md CR1 — a SEPARATE prop pair for the overlay's
+          // nested `PanelInspectView` specifically, which needs the OPPOSITE
+          // of the above: the ALREADY cross-filtered values (the same ones
+          // the grid-context `PanelInspectView` below already gets), since
+          // Inspect renders its own `DataGrid` directly from these rather
+          // than going through `OutputPanelContent`. Without this second pair
+          // the overlay's chart correctly narrows by the active cross-filter
+          // while its own nested Inspect (for an identical click) silently
+          // ignored it — a live-reproduced violation of HEL-572's preserved
+          // "Inspect shows exactly the plotted rows for its selection"
+          // invariant (probe: a panel plotted by "region" but filterable by
+          // "quarter" showed the grid's Inspect correctly narrowing to 1 row
+          // while Fullscreen's nested Inspect for the identical click showed
+          // all 4, even though the Fullscreen chart itself visibly plotted
+          // only 1 point).
+          inspectRawRows={crossFilteredRawRows}
+          inspectHeaders={crossFilteredHeaders}
           isLoading={panelData.isLoading}
           error={panelData.error}
           errorKind={panelData.errorKind}
