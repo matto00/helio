@@ -162,3 +162,79 @@ describe("PanelInspectView — tasks.md 4.4 (clear/return control)", () => {
     expect(onClear).not.toHaveBeenCalled();
   });
 });
+
+// HEL-588 tasks.md 2.1/2.2/2.4 — the owner-ruled "Action in Inspect" footer
+// action: sets the dashboard's cross-filter and closes Inspect (never
+// onClear — the selection itself is untouched).
+describe("PanelInspectView — HEL-588 (Filter dashboard action)", () => {
+  it("renders no filter action in the empty state (nothing selected)", () => {
+    renderInspectView();
+    expect(screen.queryByRole("button", { name: /Filter dashboard by/ })).not.toBeInTheDocument();
+  });
+
+  it("dispatches setCrossFilter with the current selection and closes Inspect (not onClear)", async () => {
+    const onClose = jest.fn();
+    const onClear = jest.fn();
+    const { store } = renderInspectView({ onClose, onClear });
+    act(() => {
+      store.dispatch(
+        selectDataPoint({ panelId: "panel-1", dimension: "quarter", value: "Q1", series: "West" }),
+      );
+    });
+
+    const filterButton = await screen.findByRole("button", {
+      name: "Filter dashboard by quarter = Q1",
+    });
+    filterButton.click();
+
+    expect(store.getState().panels.crossFilter).toEqual({
+      panelId: "panel-1",
+      dimension: "quarter",
+      value: "Q1",
+      series: "West",
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClear).not.toHaveBeenCalled();
+  });
+
+  it("activating the filter action for a different selection replaces the active cross-filter", async () => {
+    const { store } = renderInspectView();
+    act(() => {
+      store.dispatch(
+        selectDataPoint({ panelId: "panel-1", dimension: "quarter", value: "Q1", series: "West" }),
+      );
+    });
+    (await screen.findByRole("button", { name: "Filter dashboard by quarter = Q1" })).click();
+
+    act(() => {
+      store.dispatch(
+        selectDataPoint({ panelId: "panel-1", dimension: "quarter", value: "Q2", series: "East" }),
+      );
+    });
+    (await screen.findByRole("button", { name: "Filter dashboard by quarter = Q2" })).click();
+
+    expect(store.getState().panels.crossFilter).toMatchObject({ value: "Q2" });
+  });
+
+  // tasks.md 2.4 — reachable via Tab after opening Inspect through the
+  // ActionsMenu path (not a chart click), and operable via a synthetic
+  // click (jsdom's userEvent click already exercises Enter/Space-equivalent
+  // native <button> activation — the load-bearing fact here is that the
+  // action is a REAL, natively-focusable <button>, not a div/span).
+  it("the filter action is a native, focusable button reachable by Tab", async () => {
+    const { store } = renderInspectView();
+    act(() => {
+      store.dispatch(
+        selectDataPoint({ panelId: "panel-1", dimension: "quarter", value: "Q1", series: "West" }),
+      );
+    });
+
+    const filterButton = await screen.findByRole("button", {
+      name: "Filter dashboard by quarter = Q1",
+    });
+    expect(filterButton.tagName).toBe("BUTTON");
+    expect(filterButton).not.toHaveAttribute("disabled");
+    filterButton.focus();
+    expect(filterButton).toHaveFocus();
+  });
+});

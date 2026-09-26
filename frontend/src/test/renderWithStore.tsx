@@ -31,7 +31,12 @@ import type {
 } from "../features/assistant/types";
 import type { DashboardAppearance, DashboardLayout } from "../features/dashboards/types/dashboard";
 import type { PipelineSummary } from "../features/pipelines/types/pipelineStep";
-import type { PanelAppearance, PanelKind } from "../features/panels/types/panel";
+import type {
+  PanelAppearance,
+  PanelKind,
+  PanelPaginationState,
+  SelectionDescriptor,
+} from "../features/panels/types/panel";
 import type { DataSource } from "../features/sources/types/dataSource";
 import type { ResourceMeta } from "../types/models";
 const defaultMeta: ResourceMeta = {
@@ -73,6 +78,17 @@ interface TestState {
     staleDashboardId?: string | null;
     /** HEL-548 D5a — see `panelsSlice.ts`'s `PanelsState.panelCreationModalOpen`. */
     panelCreationModalOpen?: boolean;
+    /** HEL-588 — see `panelsSlice.ts`'s `PanelsState.crossFilter`. Defaults to
+     *  `null` (no active cross-filter), matching the slice's own initial state. */
+    crossFilter?: SelectionDescriptor | null;
+    /** evaluation-1.md CR1 — lets a test seed `paginationState[panelId]`
+     *  (what a real `fetchPanelPage(page: 0)` dispatch produces) so a
+     *  `PanelCard`/`PanelCardBody` test can exercise `TableRenderer`'s real
+     *  `paginationRows`-preferred branch, not only the `rawRows` fallback
+     *  branch that only exists in production before the first page-0 fetch
+     *  resolves. Defaults to `{}` (no seeded pagination state), matching the
+     *  slice's own initial state. */
+    paginationState?: Record<string, PanelPaginationState>;
   };
   sources?: {
     items?: DataSource[];
@@ -201,8 +217,9 @@ export function renderWithStore(
           status: preloadedState.panels?.status ?? "idle",
           error: preloadedState.panels?.error ?? null,
           pendingPanelUpdates: {},
-          paginationState: {},
+          paginationState: preloadedState.panels?.paginationState ?? {},
           interactionState: {},
+          crossFilter: preloadedState.panels?.crossFilter ?? null,
           lastSavedAt: null,
           staleDashboardId: preloadedState.panels?.staleDashboardId ?? null,
           panelCreationModalOpen: preloadedState.panels?.panelCreationModalOpen ?? false,

@@ -22,6 +22,26 @@ export interface PanelFullscreenOverlayProps extends Omit<PanelDataResult, "isRe
    *  only while fullscreen is actually open. `null` for a non-chart-eligible
    *  panel — this overlay mounts no inspect view then. */
   chartInspectConfig: ChartInspectConfig | null;
+  /** evaluation-3.md CR1 — the nested `PanelInspectView`'s OWN rawRows/
+   *  headers, DELIBERATELY SEPARATE from `rawRows`/`headers` above (which
+   *  feed this component's own `<PanelContent>` and must stay RAW for D7
+   *  truncation-count correctness — see `skeptic-final-1.md`'s fix). Inspect
+   *  renders its own `DataGrid` directly from these props rather than going
+   *  through `PanelContent`/`OutputPanelContent`, so it needs the ALREADY
+   *  cross-filtered values `PanelCard` already computes for the grid-context
+   *  `PanelInspectView` (`crossFilteredRawRows`/`crossFilteredHeaders`) —
+   *  without this SECOND prop pair, Fullscreen's chart correctly narrows by
+   *  the active cross-filter while its own nested Inspect (for an identical
+   *  click) silently shows every row regardless of dimension, contradicting
+   *  HEL-572's preserved "Inspect shows exactly the plotted rows for its
+   *  selection" invariant (probe-confirmed live: a dimension-mismatch panel
+   *  — plotted by "region", filterable by "quarter" — showed the grid's
+   *  Inspect correctly narrowing to 1 row while Fullscreen's nested Inspect
+   *  for the identical click showed all 4). Falls back to `rawRows`/
+   *  `headers` when omitted (defensive only — `PanelCard` always passes
+   *  this explicitly). */
+  inspectRawRows?: string[][] | null;
+  inspectHeaders?: string[] | null;
 }
 
 /**
@@ -75,6 +95,8 @@ export function PanelFullscreenOverlay({
   rowsTruncated,
   refresh,
   chartInspectConfig,
+  inspectRawRows,
+  inspectHeaders,
 }: PanelFullscreenOverlayProps) {
   const dispatch = useAppDispatch();
 
@@ -150,8 +172,8 @@ export function PanelFullscreenOverlay({
               open={isInspectOpen}
               onClose={handleCloseInspect}
               onClear={handleClearInspect}
-              rawRows={rawRows ?? null}
-              headers={headers ?? null}
+              rawRows={inspectRawRows !== undefined ? inspectRawRows : (rawRows ?? null)}
+              headers={inspectHeaders !== undefined ? inspectHeaders : (headers ?? null)}
               chartInspectConfig={chartInspectConfig}
               rowsTruncated={rowsTruncated}
               variant="full"

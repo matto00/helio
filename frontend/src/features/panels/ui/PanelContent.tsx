@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import "./PanelContent.css";
 import { PanelBodySkeleton } from "./PanelBodySkeleton";
 import { InlineError } from "../../../shared/chrome/InlineError";
@@ -14,6 +16,7 @@ import {
   isTextPanel,
 } from "../state/panelNarrowing";
 import { useOutputMeta } from "../hooks/useOutputMeta";
+import { useAppSelector } from "../../../hooks/reduxHooks";
 import {
   readChartConfig,
   readCollectionConfig,
@@ -23,11 +26,17 @@ import {
   readTimelineConfig,
 } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import { computeAggregate } from "../../../utils/aggregate";
+import {
+  filterRecordRowsByDimension,
+  filterRowsByDimension,
+  isPanelFilterableByDimension,
+} from "../../../utils/crossFilterRows";
 import { ChartRenderer } from "./renderers/ChartRenderer";
 import { CollectionRenderer } from "./renderers/CollectionRenderer";
 import { DividerRenderer } from "./renderers/DividerRenderer";
 import { FormRenderer } from "./renderers/FormRenderer";
 import { ImageRenderer } from "./renderers/ImageRenderer";
+import { LoadedScopeDisclosure } from "./renderers/LoadedScopeDisclosure";
 import { MarkdownRenderer } from "./renderers/MarkdownRenderer";
 import { MetricRenderer } from "./renderers/MetricRenderer";
 import { TableRenderer } from "./renderers/TableRenderer";
@@ -87,6 +96,7 @@ export interface PanelContentProps {
  *  enough info to render). Non-output panel kinds (text/markdown/image/
  *  divider) are dashboard-native and never reach here. */
 function OutputPanelContent({
+  panelId,
   rawRows,
   headers,
   appearance,
@@ -99,6 +109,7 @@ function OutputPanelContent({
   outputId,
   onDataPointSelect,
 }: {
+  panelId: string;
   rawRows?: string[][] | null;
   headers?: string[] | null;
   appearance: PanelAppearance;
@@ -112,6 +123,27 @@ function OutputPanelContent({
   onDataPointSelect?: (selection: ChartClickSelection) => void;
 }) {
   const { output, isLoading } = useOutputMeta(outputId);
+  // evaluation-1.md CR1/CR2 (cycle 2) — applying the cross-filter HERE,
+  // rather than upstream at PanelCard/MobileStackPanelBody, is what makes
+  // this genuinely a SINGLE call site: this `useOutputMeta` fetch is the
+  // SAME ONE this component already needs (unconditionally) to pick a
+  // renderer for `output.kind` — no NEW fetch, and therefore no fetch-timing
+  // race between two INDEPENDENT `useOutputMeta` instances resolving at
+  // different times. That race is exactly what the cycle-1 design (applying
+  // the filter in the caller, using the caller's OWN separately-fetched
+  // `output`) introduced for `MobileStackPanelBody` specifically — it had no
+  // pre-existing `useOutputMeta` call before this ticket, so adding one there
+  // for cross-filtering purposes created a second, independent fetch of the
+  // same Output that could resolve AFTER this component's own, producing a
+  // live, reproducible transient window where a Table-kind sibling panel's
+  // rows rendered UNFILTERED right after a desktop-grid/mobile-stack
+  // breakpoint remount (probe-confirmed: `page.evaluate` reading rendered
+  // `<td>` text immediately after `setViewportSize` at the 768px breakpoint
+  // showed all 4 unfiltered rows; the same check after a 300ms settle showed
+  // the correct 2 filtered rows — the transient window closes as soon as the
+  // slower of the two fetches resolves). Moving filtering to this ALREADY-
+  // resolving-exactly-once fetch closes that window entirely.
+  const crossFilter = useAppSelector((state) => state.panels.crossFilter);
 
   if (isLoading || !output) {
     return (
@@ -121,14 +153,41 @@ function OutputPanelContent({
     );
   }
 
+  const isEligibleTarget =
+    crossFilter !== null &&
+    crossFilter.panelId !== panelId &&
+    isPanelFilterableByDimension(
+      output.kind,
+      output.config,
+      headers ?? null,
+      crossFilter.dimension,
+    );
+
+  const filteredRawRows =
+    isEligibleTarget && rawRows && headers
+      ? filterRowsByDimension(rawRows, headers, crossFilter!.dimension, crossFilter!.value)
+      : rawRows;
+  const filteredPaginationRows =
+    isEligibleTarget && paginationRows
+      ? filterRecordRowsByDimension(paginationRows, crossFilter!.dimension, crossFilter!.value)
+      : paginationRows;
+  // Reference inequality — see `useCrossFilteredPanelData`'s identical
+  // convention — distinguishes "actually narrowed" from a safe no-op
+  // (`isPanelFilterableByDimension` passed, but the dimension still isn't
+  // literally present in this fetch's OWN `headers`, a drift case
+  // `filterRowsByDimension`'s own no-op guard protects against).
+  const isCrossFiltered = isEligibleTarget && filteredRawRows !== rawRows;
+  const crossFilterLoadedRowCount = rawRows?.length ?? 0;
+
   const kind = output.kind;
+  let content: ReactNode;
 
   if (kind === "chart") {
     const cfg = readChartConfig(output.config);
-    return (
+    content = (
       <ChartRenderer
         appearance={appearance}
-        rawRows={rawRows}
+        rawRows={filteredRawRows}
         headers={headers}
         fieldMapping={cfg.fieldMapping}
         chartAggregate={chartAggregate}
@@ -138,17 +197,15 @@ function OutputPanelContent({
         onDataPointSelect={onDataPointSelect}
       />
     );
-  }
-
-  if (kind === "table") {
+  } else if (kind === "table") {
     const cfg = readTableConfig(output.config);
-    return (
+    content = (
       <TableRenderer
         outputId={outputId}
         ownerId={output.ownerId}
-        rawRows={rawRows}
+        rawRows={filteredRawRows}
         headers={headers}
-        paginationRows={paginationRows}
+        paginationRows={filteredPaginationRows}
         paginationIsLoadingMore={paginationIsLoadingMore}
         onLoadMore={onLoadMore}
         rowsTruncated={rowsTruncated ?? false}
@@ -159,18 +216,16 @@ function OutputPanelContent({
         pinnedColumns={cfg.pinnedColumns}
       />
     );
-  }
-
-  if (kind === "metric") {
+  } else if (kind === "metric") {
     const cfg = readMetricConfig(output.config);
     const firstRow =
-      rawRows && headers && rawRows.length > 0
-        ? Object.fromEntries(headers.map((h, i) => [h, rawRows[0][i]]))
+      filteredRawRows && headers && filteredRawRows.length > 0
+        ? Object.fromEntries(headers.map((h, i) => [h, filteredRawRows[0][i]]))
         : null;
     const valueColumn = Object.values(cfg.fieldMapping)[0];
     const rowsAsRecords =
-      rawRows && headers
-        ? rawRows.map((row) => Object.fromEntries(headers.map((h, i) => [h, row[i]])))
+      filteredRawRows && headers
+        ? filteredRawRows.map((row) => Object.fromEntries(headers.map((h, i) => [h, row[i]])))
         : [];
     const value =
       valueColumn && cfg.aggregation?.agg
@@ -179,43 +234,62 @@ function OutputPanelContent({
           ? String(firstRow[valueColumn] ?? "")
           : "";
     const data: MappedPanelData = { value, label: cfg.label ?? "", unit: cfg.unit ?? "" };
-    return <MetricRenderer data={data} format={cfg.format} />;
-  }
-
-  if (kind === "markdown") {
+    content = <MetricRenderer data={data} format={cfg.format} />;
+  } else if (kind === "markdown") {
     const cfg = readMarkdownConfig(output.config);
-    return <MarkdownRenderer content={cfg.content} />;
-  }
-
-  if (kind === "collection") {
+    content = <MarkdownRenderer content={cfg.content} />;
+  } else if (kind === "collection") {
     const cfg = readCollectionConfig(output.config);
-    return (
+    content = (
       <CollectionRenderer
         fieldMapping={cfg.fieldMapping}
         layout={cfg.layout}
         format={cfg.format}
-        rawRows={rawRows}
+        rawRows={filteredRawRows}
         headers={headers}
       />
     );
-  }
-
-  if (kind === "timeline") {
+  } else if (kind === "timeline") {
     const cfg = readTimelineConfig(output.config);
-    return (
+    content = (
       <TimelineRenderer
         fieldMapping={cfg.fieldMapping}
         sort={cfg.sort}
-        rawRows={rawRows}
+        rawRows={filteredRawRows}
         headers={headers}
       />
+    );
+  } else {
+    content = (
+      <div className="panel-content panel-content--state">
+        <span className="panel-content__state-label">Unsupported output kind</span>
+      </div>
     );
   }
 
   return (
-    <div className="panel-content panel-content--state">
-      <span className="panel-content__state-label">Unsupported output kind</span>
-    </div>
+    <>
+      {content}
+      {/* HEL-588 design.md D7 — reuses `LoadedScopeDisclosure` (HEL-448/451)
+          rather than a new component: a cross-filtered, non-origin panel
+          whose own loaded rows are truncated must say so, not imply the
+          filtered result is complete (spec.md). `filtering: true` +
+          matchCount/loadedCount reuses the SAME "N of M loaded rows match."
+          wording the table quick-filter already uses — the shape fits
+          exactly, since a cross-filter is, mechanically, one more row
+          filter over the same loaded set. Deliberately wired HERE (every
+          output kind) rather than inside `TableRenderer` alone, so a table
+          panel that is ALSO truncated shows both its own column-filter
+          disclosure and this cross-filter-scoped one when both apply. */}
+      {isCrossFiltered && rowsTruncated && (
+        <LoadedScopeDisclosure
+          rowsTruncated
+          filtering
+          matchCount={filteredRawRows?.length ?? 0}
+          loadedCount={crossFilterLoadedRowCount ?? 0}
+        />
+      )}
+    </>
   );
 }
 
@@ -307,6 +381,7 @@ export function PanelContent({
   if (isOutputPanel(panel)) {
     return (
       <OutputPanelContent
+        panelId={panel.id}
         rawRows={rawRows}
         headers={headers}
         appearance={appearance ?? panel.appearance}

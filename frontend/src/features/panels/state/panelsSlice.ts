@@ -40,6 +40,15 @@ interface PanelsState {
    *  `deletePanel.fulfilled` and `fetchPanels.pending` cases below) — never
    *  as a side effect of a DIFFERENT panel's inspect view opening/closing. */
   interactionState: Record<string, SelectionDescriptor | null>;
+  /** HEL-588 design.md D2 — the single dashboard-wide active cross-filter,
+   *  set ONLY via `PanelInspectView`'s "Filter dashboard by..." footer
+   *  action (never by a chart click — `interactionState` above stays the
+   *  click→selection descriptor; this is a SEPARATE piece of state so a
+   *  chart click can never implicitly change it). View state only — never
+   *  persisted, never sent to the backend. Cleared on dashboard switch
+   *  (`fetchPanels.pending`, mirroring `interactionState`'s own reset point)
+   *  and when the originating panel is deleted (`deletePanel.fulfilled`). */
+  crossFilter: SelectionDescriptor | null;
   /** HEL-548 D1 — the dashboard id `markDashboardPanelsStale` most recently
    *  invalidated, or `null` once a `fetchPanels` for it has been dispatched.
    *  Purely additive: it does NOT widen the `status` union (D1 rejects that
@@ -69,6 +78,7 @@ const initialState: PanelsState = {
   lastSavedAt: null,
   paginationState: {},
   interactionState: {},
+  crossFilter: null,
   staleDashboardId: null,
   panelCreationModalOpen: false,
 };
@@ -122,6 +132,31 @@ const panelsSlice = createSlice({
     clearSelection(state, action: PayloadAction<string>) {
       delete state.interactionState[action.payload];
     },
+    // HEL-588 design.md D2/D3 — the ONLY writer is `PanelInspectView`'s
+    // footer action (never a chart click). Re-setting an IDENTICAL
+    // descriptor (same panelId/dimension/value/series) is a genuine no-op —
+    // the draft is left untouched so `state.crossFilter`'s reference is
+    // unchanged too (spec.md "idempotent, not a toggle"; tasks.md 6.3).
+    setCrossFilter(state, action: PayloadAction<SelectionDescriptor>) {
+      const next = action.payload;
+      const current = state.crossFilter;
+      if (
+        current &&
+        current.panelId === next.panelId &&
+        current.dimension === next.dimension &&
+        current.value === next.value &&
+        current.series === next.series
+      ) {
+        return;
+      }
+      state.crossFilter = next;
+    },
+    // HEL-588 spec.md "the indicator's clear control is the only way to
+    // clear an active cross-filter (aside from panel deletion or dashboard
+    // switch)" — the CrossFilterIndicator's clear-all control.
+    clearCrossFilter(state) {
+      state.crossFilter = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -151,6 +186,9 @@ const panelsSlice = createSlice({
         // harmless over-clear per the ticket's "cleared on panel/dashboard
         // switch" requirement.
         state.interactionState = {};
+        // HEL-588 spec.md "switching dashboards clears the cross-filter" —
+        // same reset point as interactionState above.
+        state.crossFilter = null;
       })
       .addCase(fetchPanels.fulfilled, (state, action) => {
         state.items = action.payload;
@@ -180,6 +218,13 @@ const panelsSlice = createSlice({
         // HEL-572 design.md D1 — a deleted panel's selection (if any) must
         // not linger as an orphaned entry.
         delete state.interactionState[action.payload];
+        // HEL-588 design.md D2 (design-gate round 1, CR3) — a cross-filter
+        // ORIGINATED by the deleted panel must not survive it (spec.md
+        // "deleting the originating panel clears the cross-filter"); a
+        // cross-filter originated by a DIFFERENT panel is unaffected.
+        if (state.crossFilter?.panelId === action.payload) {
+          state.crossFilter = null;
+        }
       })
       .addCase(duplicatePanel.rejected, (state, action) => {
         state.error = action.payload ?? "Failed to duplicate panel.";
@@ -271,6 +316,8 @@ export const {
   setPanelCreationModalOpen,
   selectDataPoint,
   clearSelection,
+  setCrossFilter,
+  clearCrossFilter,
 } = panelsSlice.actions;
 export const panelsReducer = panelsSlice.reducer;
 

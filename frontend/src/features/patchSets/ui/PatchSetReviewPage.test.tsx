@@ -318,6 +318,7 @@ describe("PatchSetReviewPage", () => {
       lastSavedAt: null,
       paginationState: {},
       interactionState: {},
+      crossFilter: null,
       // HEL-548 D1/D5a — PanelsState grew these two fields; this literal is
       // checked against the real (uncast) reducer type, so both are required.
       staleDashboardId: null,

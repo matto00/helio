@@ -45,6 +45,20 @@ import "./MobilePanelStack.css";
 function MobileStackPanelBody({ panel, compact }: { panel: Panel; compact?: boolean }) {
   const outputId = getOutputId(panel);
   const panelData = usePanelData(panel);
+  // evaluation-1.md CR1/CR2 (cycle 2) — this component does NOT need its own
+  // `useOutputMeta` fetch for cross-filtering: an earlier version of this
+  // ticket added one here specifically to resolve the Output for
+  // `useCrossFilteredPanelData`, which created a SECOND, independent fetch
+  // of the same Output racing against `OutputPanelContent`'s own pre-existing
+  // one (nested inside `PanelContent` below) — probe-confirmed live as a
+  // transient window, right after a desktop-grid/mobile-stack breakpoint
+  // remount, where the dashboard's cross-filter was active but this
+  // component's OWN fetch hadn't yet resolved, so a Table-kind sibling
+  // panel's rows rendered briefly UNFILTERED. The cross-filter is now
+  // applied entirely inside `OutputPanelContent`, using the Output it
+  // already resolves for kind-dispatch — this component passes `rawRows`/
+  // `headers` straight through, unfiltered, exactly as it did before this
+  // ticket.
   return (
     <PanelCardBody
       panel={panel}

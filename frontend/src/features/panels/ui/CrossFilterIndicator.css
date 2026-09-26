@@ -1,0 +1,24 @@
+/* HEL-588 — an active-selection chip, not a status/error banner: uses the
+   accent-dim wash + accent-mid border DESIGN.md §3 already names for
+   "selection/checked states", never a hardcoded color. Mirrors
+   StatusMessage.css's shape (padding/radius/border) for chrome consistency. */
+.cross-filter-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--app-accent-mid);
+  border-radius: var(--app-radius-md);
+  background: var(--app-accent-dim);
+  font-size: var(--text-sm);
+}
+
+.cross-filter-indicator__text {
+  color: var(--app-text);
+}
+
+.cross-filter-indicator__value {
+  font-weight: var(--weight-medium);
+}
