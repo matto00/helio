@@ -21,8 +21,10 @@ import slick.jdbc.{JdbcBackend, PostgresProfile}
 
 import java.nio.file.Paths
 import java.util.UUID
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.util.Success
 
 /** HEL-505 tasks.md 8.1/8.2/8.3 -- END-TO-END coverage of the pipeline-run guard through
  *  `PipelineRunService.submit`, the single choke point every trigger path (manual, hook/external,
@@ -133,7 +135,12 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
    *  for the whole burst, so the admission decisions the guard actually makes are the only ones
    *  under test -- proven correct, deterministically, by `PipelineRunRepositorySpec`'s own
    *  `insertRunIfUnderConcurrencyCap` concurrent-race test, which never completes a run at all. */
-  private class GatedExecutionBackend(gate: Future[Unit]) extends PipelineExecutionBackend {
+  /** HEL-1184: `onAdmitted` fires the instant `execute()` is entered, strictly BEFORE blocking on
+   *  `gate` -- `PipelineRunService.executeRun`'s concurrency-cap decision (the guard insert) has
+   *  already committed by this point (it fully resolves before `backend.execute()` is ever
+   *  called), so this is a faithful "this submission's admission decision has settled: Admitted"
+   *  signal. Defaults to a no-op so existing callers are unaffected. */
+  private class GatedExecutionBackend(gate: Future[Unit], onAdmitted: () => Unit = () => ()) extends PipelineExecutionBackend {
     override def execute(
         pipeline: Pipeline,
         roots: Vector[(String, DataSource)],
@@ -144,32 +151,36 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
         onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
         writeBackSink: WriteBackSink = new WriteBackSink,
         ownerUserId: Option[String] = None
-    )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] =
+    )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = {
+      onAdmitted()
       gate.map(_ => PipelineExecutionOutcome(Seq.empty, Map.empty, 0L, SourceReadStats(truncated = false, availableRowCount = None)))
+    }
   }
 
-  private def newGatedService(guardConfig: PipelineRunGuardConfig, gate: Future[Unit]): PipelineRunService =
+  private def newGatedService(guardConfig: PipelineRunGuardConfig, gate: Future[Unit], onAdmitted: () => Unit = () => ()): PipelineRunService =
     new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
       new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
       pipelineRunGuardRepo = guardRepo,
       guardConfig = guardConfig,
-      executionBackend = new GatedExecutionBackend(gate)
+      executionBackend = new GatedExecutionBackend(gate, onAdmitted)
     )
 
-  /** Polls (up to 5s) until exactly `expected` `queued`-status rows exist for `pid` -- the signal
-   *  that every admission decision in a gated concurrent burst has settled (no row can transition
-   *  out of `queued` while `execute` stays gated, so this count is stable once reached; a
-   *  still-in-flight submission that hasn't reached its OWN check yet will correctly see this
-   *  same stable count and be rejected whenever it does). */
-  private def awaitQueuedCount(pid: PipelineId, user: AuthenticatedUser, expected: Int): Unit = {
-    val deadline = System.nanoTime() + 5.seconds.toNanos
-    while (
-      System.nanoTime() < deadline &&
-      await(pipelineRunRepo.listByPipeline(pid, user)).count(_.status == "queued") != expected
-    ) Thread.sleep(20)
-    await(pipelineRunRepo.listByPipeline(pid, user)).count(_.status == "queued") shouldBe expected
-  }
+  /** HEL-1184 (root cause -- see `PipelineRunGuardIntegrationSpec` H1 investigation in
+   *  files-modified.md/commit body): the coordination this REPLACES (a DB poll for "exactly
+   *  `expected` `queued` rows exist") could return once merely `maxConcurrent` rows were visible,
+   *  which does NOT prove every one of the `attempts` submissions in the burst has independently
+   *  reached its OWN terminal admission decision -- a still-in-flight straggler (still waiting on
+   *  the advisory lock, e.g. under connection-pool contention) could settle its own decision AFTER
+   *  the gate is released, by which point an already-admitted run's completion may have freed a
+   *  slot, letting the straggler be legitimately (and separately-correctly) admitted too --
+   *  over-admitting across the whole burst. This blocks until every one of `attempts` submissions
+   *  has independently signalled its own settlement (admitted-and-entered-execute, or rejected),
+   *  never inferring settlement from a row count. */
+  private def awaitAllSettled(latch: CountDownLatch): Unit =
+    withClue(s"${latch.getCount} of the burst's submissions never settled an admission decision") {
+      latch.await(5, TimeUnit.SECONDS) shouldBe true
+    }
 
   private def tooManyRequests(result: Either[ServiceError, _]): ServiceError.TooManyRequests =
     result match {
@@ -262,14 +273,26 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
       // cycle 2: 4/8, then repro'd 6/20 under a pool of 3; the SAME dataset-source pipeline
       // completing early under contention, not a guard defect).
       val gate = Promise[Unit]()
+      val attempts = 8
+      // HEL-1184: settlement latch REPLACES the prior DB-poll (`awaitQueuedCount`) coordination --
+      // see `awaitAllSettled`'s doc for why the poll could return before every submission's own
+      // admission decision had actually settled. `onAdmitted` (wired below) counts down for every
+      // ADMITTED submission; a rejected submission's own `submit()` Future counts down itself,
+      // via the `andThen` below, the instant it resolves.
+      val settled = new CountDownLatch(attempts)
       val service = newGatedService(
         PipelineRunGuardConfig(rateLimitPerWindow = 100, rateWindowSeconds = 60, maxConcurrent = maxConcurrent, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30),
-        gate.future
+        gate.future,
+        onAdmitted = () => settled.countDown()
       )
 
-      val attempts = 8
-      val resultsF = Future.sequence(Vector.fill(attempts)(service.submit(pid, isDry = false, user)))
-      awaitQueuedCount(pid, user, maxConcurrent)
+      val resultsF = Future.sequence(Vector.fill(attempts) {
+        service.submit(pid, isDry = false, user).andThen {
+          case Success(Left(_: ServiceError.TooManyRequests)) => settled.countDown()
+          case _                                               => () // admitted case already counted down by `onAdmitted`
+        }
+      })
+      awaitAllSettled(settled)
       gate.success(())
       val results = await(resultsF)
 
