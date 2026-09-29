@@ -1,0 +1,86 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuite hostname="archlinux" name="com.helio.services.pipelines.PipelineRunGuardIntegrationSpec" tests="10" errors="0" failures="1" skipped="0" time="1.522" timestamp="2026-09-28T23:58:01">
+          <properties>
+      <property name="java.specification.version" value="21"/><property name="sun.jnu.encoding" value="UTF-8"/><property name="sun.arch.data.model" value="64"/><property name="java.vendor.url" value="https://openjdk.org/"/><property name="sun.boot.library.path" value="/usr/lib/jvm/java-21-openjdk/lib"/><property name="sun.java.command" value="/home/matt/.sbt/launchers/1.10.10/sbt-launch.jar testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec testOnly com.helio.services.pipelines.PipelineRunGuardIntegrationSpec"/><property name="jdk.debug" value="release"/><property name="java.specification.vendor" value="Oracle Corporation"/><property name="java.version.date" value="2026-07-21"/><property name="java.home" value="/usr/lib/jvm/java-21-openjdk"/><property name="file.separator" value="/"/><property name="java.vm.compressedOopsMode" value="Zero based"/><property name="line.separator" value="
+"/><property name="java.vm.specification.vendor" value="Oracle Corporation"/><property name="java.specification.name" value="Java Platform API Specification"/><property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/><property name="java.runtime.version" value="21.0.12+8"/><property name="user.name" value="matt"/><property name="log4j.ignoreTCL" value="true"/><property name="file.encoding" value="UTF-8"/><property name="jnidispatch.path" value="/home/matt/.cache/JNA/temp/jna9830003967542179.tmp"/><property name="jna.loaded" value="true"/><property name="java.io.tmpdir" value="/tmp"/><property name="java.version" value="21.0.12"/><property name="java.vm.specification.name" value="Java Virtual Machine Specification"/><property name="native.encoding" value="UTF-8"/><property name="java.library.path" value="/usr/java/packages/lib:/usr/lib64:/lib64:/lib:/usr/lib"/><property name="stderr.encoding" value="UTF-8"/><property name="java.vendor" value="Arch Linux"/><property name="sun.io.unicode.encoding" value="UnicodeLittle"/><property name="java.class.path" value="/home/matt/.sbt/launchers/1.10.10/sbt-launch.jar"/><property name="java.vm.vendor" value="Arch Linux"/><property name="jline.shutdownhook" value="false"/><property name="user.timezone" value="America/Los_Angeles"/><property name="java.vm.specification.version" value="21"/><property name="os.name" value="Linux"/><property name="sun.java.launcher" value="SUN_STANDARD"/><property name="user.country" value="US"/><property name="sun.cpu.endian" value="little"/><property name="user.home" value="/home/matt"/><property name="user.language" value="en"/><property name="sbt.ipcsocket.tmpdir" value="/run/user/1000/.sbt56a571ba/ipcsocket"/><property name="swoval.tmpdir" value="/run/user/1000/.sbt56a571ba/swoval"/><property name="jline.esc.timeout" value="0"/><property name="stdout.encoding" value="UTF-8"/><property name="path.separator" value=":"/><property name="os.version" value="7.1.5-arch1-2"/><property name="jna.nosys" value="true"/><property name="java.runtime.name" value="OpenJDK Runtime Environment"/><property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/><property name="jna.platform.library.path" value="/usr/lib64:/lib64:/usr/lib:/lib:/usr/lib32:/opt/intel/oneapi/compiler/latest/lib:/opt/cuda/lib64:/opt/cuda/nvvm/lib64:/usr/lib/libfakeroot:/usr/lib/R/lib"/><property name="java.vendor.url.bug" value="https://bugreport.java.com/bugreport/"/><property name="user.dir" value="/home/matt/Development/helio/.claude/worktrees/bug/repro-pipeline-guard-flake/HEL-1195/backend"/><property name="os.arch" value="amd64"/><property name="sbt.ivy.home" value=".ivy2"/><property name="java.vm.info" value="mixed mode, sharing"/><property name="java.vm.version" value="21.0.12+8"/><property name="java.class.version" value="65.0"/>
+    </properties>
+          <testcase classname="com.helio.services.pipelines.PipelineRunGuardIntegrationSpec" name="PipelineRunService pipeline-run guard: rate limit (HEL-505 tasks.md 8.2) should rejects the (limit+1)th submission within a window with TooManyRequests + a positive retryAfterSeconds" time="0.471">
+                      <failure message="org.scalatest.exceptions.TestFailedException: expected Left(TooManyRequests), got Right(RunResultResponse(Vector({&quot;name&quot;:&quot;alice&quot;}),1,Map(),1,Some(8dca23be-84bf-487a-b6bf-6d5795577e20),false,None,false,None,None,Vector()))" type="sbt.ForkMain$ForkError">sbt.ForkMain$ForkError: org.scalatest.exceptions.TestFailedException: expected Left(TooManyRequests), got Right(RunResultResponse(Vector({&quot;name&quot;:&quot;alice&quot;}),1,Map(),1,Some(8dca23be-84bf-487a-b6bf-6d5795577e20),false,None,false,None,None,Vector()))
+	at org.scalatest.Assertions.newAssertionFailedException(Assertions.scala:472)
+	at org.scalatest.Assertions.newAssertionFailedException$(Assertions.scala:471)
+	at org.scalatest.wordspec.AnyWordSpec.newAssertionFailedException(AnyWordSpec.scala:1880)
+	at org.scalatest.Assertions.fail(Assertions.scala:933)
+	at org.scalatest.Assertions.fail$(Assertions.scala:929)
+	at org.scalatest.wordspec.AnyWordSpec.fail(AnyWordSpec.scala:1880)
+	at com.helio.services.pipelines.PipelineRunGuardIntegrationSpec.tooManyRequests(PipelineRunGuardIntegrationSpec.scala:188)
+	at com.helio.services.pipelines.PipelineRunGuardIntegrationSpec.$anonfun$new$2(PipelineRunGuardIntegrationSpec.scala:202)
+	at org.scalatest.OutcomeOf.outcomeOf(OutcomeOf.scala:85)
+	at org.scalatest.OutcomeOf.outcomeOf$(OutcomeOf.scala:83)
+	at org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+	at org.scalatest.Transformer.apply(Transformer.scala:22)
+	at org.scalatest.Transformer.apply(Transformer.scala:20)
+	at org.scalatest.wordspec.AnyWordSpecLike$$anon$3.apply(AnyWordSpecLike.scala:1240)
+	at org.scalatest.TestSuite.withFixture(TestSuite.scala:196)
+	at org.scalatest.TestSuite.withFixture$(TestSuite.scala:195)
+	at org.scalatest.wordspec.AnyWordSpec.withFixture(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.invokeWithFixture$1(AnyWordSpecLike.scala:1238)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTest$1(AnyWordSpecLike.scala:1250)
+	at org.scalatest.SuperEngine.runTestImpl(Engine.scala:306)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest(AnyWordSpecLike.scala:1250)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest$(AnyWordSpecLike.scala:1232)
+	at org.scalatest.wordspec.AnyWordSpec.runTest(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTests$1(AnyWordSpecLike.scala:1309)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:413)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:390)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:427)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:396)
+	at org.scalatest.SuperEngine.runTestsImpl(Engine.scala:475)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests(AnyWordSpecLike.scala:1309)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests$(AnyWordSpecLike.scala:1308)
+	at org.scalatest.wordspec.AnyWordSpec.runTests(AnyWordSpec.scala:1880)
+	at org.scalatest.Suite.run(Suite.scala:1114)
+	at org.scalatest.Suite.run$(Suite.scala:1096)
+	at org.scalatest.wordspec.AnyWordSpec.org$scalatest$wordspec$AnyWordSpecLike$$super$run(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$run$1(AnyWordSpecLike.scala:1354)
+	at org.scalatest.SuperEngine.runImpl(Engine.scala:535)
+	at org.scalatest.wordspec.AnyWordSpecLike.run(AnyWordSpecLike.scala:1354)
+	at org.scalatest.wordspec.AnyWordSpecLike.run$(AnyWordSpecLike.scala:1352)
+	at com.helio.services.pipelines.PipelineRunGuardIntegrationSpec.org$scalatest$BeforeAndAfterAll$$super$run(PipelineRunGuardIntegrationSpec.scala:41)
+	at org.scalatest.BeforeAndAfterAll.liftedTree1$1(BeforeAndAfterAll.scala:213)
+	at org.scalatest.BeforeAndAfterAll.run(BeforeAndAfterAll.scala:210)
+	at org.scalatest.BeforeAndAfterAll.run$(BeforeAndAfterAll.scala:208)
+	at com.helio.services.pipelines.PipelineRunGuardIntegrationSpec.run(PipelineRunGuardIntegrationSpec.scala:41)
+	at org.scalatest.tools.Framework.org$scalatest$tools$Framework$$runSuite(Framework.scala:321)
+	at org.scalatest.tools.Framework$ScalaTestTask.execute(Framework.scala:517)
+	at sbt.ForkMain$Run.lambda$runTest$1(ForkMain.java:414)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+</failure>
+                    </testcase><testcase classname="com.helio.services.pipelines.PipelineRunGuardIntegrationSpec" name="PipelineRunService pipeline-run guard: rate limit (HEL-505 tasks.md 8.2) should a different owner's rate-limit budget is unaffected by another owner's submissions" time="0.131">
+                      
+                    </testcase><testcase classname="com.helio.services.pipelines.PipelineRunGuardIntegrationSpec" name="PipelineRunService pipeline-run guard: rate limit (HEL-505 tasks.md 8.2) should dry runs ARE subject to the rate limit, identically to real runs (design.md Decision 2)" time="0.063">
+                      
+                    </testcase><testcase classname="com.helio.services.pipelines.PipelineRunGuardIntegrationSpec" name="PipelineRunService pipeline-run guard: rate limit (HEL-505 tasks.md 8.2) should a mix of dry and real submissions share ONE rate-limit budget" time="0.12">
+                      
+                    </testcase><testcase classname="com.helio.services.pipelines.PipelineRunGuardIntegrationSpec" name="PipelineRunService pipeline-run guard: rate limit (HEL-505 tasks.md 8.2) should a hook-triggered (External) submission is rejected exactly like a manual one" time="0.084">
+                      
+                    </testcase><testcase classname="com.helio.services.pipelines.PipelineRunGuardIntegrationSpec" name="PipelineRunService pipeline-run guard: rate limit (HEL-505 tasks.md 8.2) should a scheduled submission is rejected exactly like a manual one" time="0.093">
+                      
+                    </testcase><testcase classname="com.helio.services.pipelines.PipelineRunGuardIntegrationSpec" name="PipelineRunService pipeline-run guard: concurrency cap (HEL-505 tasks.md 8.1) should rejects more than maxConcurrent REAL concurrent submissions with TooManyRequests" time="0.14">
+                      
+                    </testcase><testcase classname="com.helio.services.pipelines.PipelineRunGuardIntegrationSpec" name="PipelineRunService pipeline-run guard: concurrency cap (HEL-505 tasks.md 8.1) should completing a run frees a slot for a subsequent submission (AC's own integration-test requirement)" time="0.191">
+                      
+                    </testcase><testcase classname="com.helio.services.pipelines.PipelineRunGuardIntegrationSpec" name="PipelineRunService pipeline-run guard: concurrency cap (HEL-505 tasks.md 8.1) should dry runs are NOT subject to the concurrency cap even when the owner is already at the real-run cap (C7)" time="0.092">
+                      
+                    </testcase><testcase classname="com.helio.services.pipelines.PipelineRunGuardIntegrationSpec" name="PipelineRunService pipeline-run guard: concurrency cap (HEL-505 tasks.md 8.1) should a non-owner (editor grantee) real run still resolves normally, NEVER as a 429 (regression guard)" time="0.137">
+                      
+                    </testcase>
+          <system-out><![CDATA[]]></system-out>
+          <system-err><![CDATA[]]></system-err>
+        </testsuite>

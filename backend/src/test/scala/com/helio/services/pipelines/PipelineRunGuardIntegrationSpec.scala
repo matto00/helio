@@ -188,12 +188,29 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
       case other                                  => fail(s"expected Left(TooManyRequests), got $other")
     }
 
+  /** HEL-1195 (root cause -- see `repro-findings.md`): every test below issues 2-3 sequential,
+   *  `await`-blocking `service.submit` calls and expects a LATER one to be rejected by the rate
+   *  limiter. `PipelineRunGuardRepository.incrementRateIfUnderLimit`'s window bucketing
+   *  (`bucketStart`) is an ABSOLUTE, wall-clock-anchored fixed window -- a new bucket starts at
+   *  every exact multiple of `rateWindowSeconds` since the epoch, regardless of when the caller's
+   *  own burst began (existing, intentional, already-covered behavior --
+   *  `PipelineRunGuardRepositorySpec`'s "buckets by window" test). With `rateWindowSeconds = 60`
+   *  (the original value here), if real wall-clock time happens to cross one of those
+   *  once-a-minute boundaries between two of a test's own sequential submissions -- CI/full-suite
+   *  contention widens the exposure window slightly, but even an idle run has a nonzero chance --
+   *  the later submission lands in a fresh bucket and is incorrectly admitted instead of rejected.
+   *  `PipelineRunService.executeRun` calls `incrementRateIfUnderLimit` with no explicit `now`, so
+   *  there is no clock-injection seam at this (integration, not repository-level) test's disposal
+   *  to pin time deterministically. Widening to 3600s here (test-only; no production change, and
+   *  no assertion below depends on the specific window value) cuts the boundary-crossing exposure
+   *  by ~60x -- a test would need to run for over an hour, instead of over a minute, to have the
+   *  same absolute per-run collision probability. */
   "PipelineRunService pipeline-run guard: rate limit (HEL-505 tasks.md 8.2)" should {
 
     "rejects the (limit+1)th submission within a window with TooManyRequests + a positive retryAfterSeconds" in {
       val user = freshOwner()
       val pid  = seedPipelineFor(user.id)
-      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 2, rateWindowSeconds = 60, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
+      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 2, rateWindowSeconds = 3600, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
 
       await(service.submit(pid, isDry = false, user)) shouldBe a[Right[_, _]]
       await(service.submit(pid, isDry = false, user)) shouldBe a[Right[_, _]]
@@ -208,7 +225,7 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
       val userB = freshOwner()
       val pidA  = seedPipelineFor(userA.id)
       val pidB  = seedPipelineFor(userB.id)
-      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 1, rateWindowSeconds = 60, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
+      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 1, rateWindowSeconds = 3600, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
 
       await(service.submit(pidA, isDry = false, userA)) shouldBe a[Right[_, _]]
       tooManyRequests(await(service.submit(pidA, isDry = false, userA)))
@@ -220,7 +237,7 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
     "dry runs ARE subject to the rate limit, identically to real runs (design.md Decision 2)" in {
       val user = freshOwner()
       val pid  = seedPipelineFor(user.id)
-      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 1, rateWindowSeconds = 60, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
+      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 1, rateWindowSeconds = 3600, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
 
       await(service.submit(pid, isDry = true, user)) shouldBe a[Right[_, _]]
       tooManyRequests(await(service.submit(pid, isDry = true, user)))
@@ -229,7 +246,7 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
     "a mix of dry and real submissions share ONE rate-limit budget" in {
       val user = freshOwner()
       val pid  = seedPipelineFor(user.id)
-      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 2, rateWindowSeconds = 60, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
+      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 2, rateWindowSeconds = 3600, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
 
       await(service.submit(pid, isDry = true, user)) shouldBe a[Right[_, _]]
       await(service.submit(pid, isDry = false, user)) shouldBe a[Right[_, _]]
@@ -244,7 +261,7 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
     "a hook-triggered (External) submission is rejected exactly like a manual one" in {
       val user = freshOwner()
       val pid  = seedPipelineFor(user.id)
-      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 1, rateWindowSeconds = 60, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
+      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 1, rateWindowSeconds = 3600, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
 
       await(service.submit(pid, isDry = false, user, triggerSource = TriggerSource.External)) shouldBe a[Right[_, _]]
       tooManyRequests(await(service.submit(pid, isDry = false, user, triggerSource = TriggerSource.External)))
@@ -253,7 +270,7 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
     "a scheduled submission is rejected exactly like a manual one" in {
       val user = freshOwner()
       val pid  = seedPipelineFor(user.id)
-      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 1, rateWindowSeconds = 60, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
+      val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 1, rateWindowSeconds = 3600, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
 
       await(service.submit(pid, isDry = false, user, triggerSource = TriggerSource.Scheduled)) shouldBe a[Right[_, _]]
       tooManyRequests(await(service.submit(pid, isDry = false, user, triggerSource = TriggerSource.Scheduled)))
@@ -296,9 +313,15 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
       gate.success(())
       val results = await(resultsF)
 
-      results.count(_.isRight) shouldBe maxConcurrent
+      // HEL-1195 (design.md Decision 4): a future failure here self-describes the actual
+      // admitted/rejected breakdown observed, rather than requiring a human to have watched the
+      // run live -- mirrors `awaitAllSettled`'s own `withClue` pattern above.
+      val admitted  = results.count(_.isRight)
       val rejections = results.collect { case Left(e: ServiceError.TooManyRequests) => e }
-      rejections should have size (attempts - maxConcurrent)
+      withClue(s"admitted=$admitted, rejected=${rejections.size}, attempts=$attempts, maxConcurrent=$maxConcurrent -- ") {
+        admitted shouldBe maxConcurrent
+        rejections should have size (attempts - maxConcurrent)
+      }
       rejections.foreach(_.retryAfterSeconds should be > 0L)
     }
 
