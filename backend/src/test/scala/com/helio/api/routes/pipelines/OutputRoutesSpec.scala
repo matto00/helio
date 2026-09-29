@@ -10,7 +10,7 @@ import com.helio.api.protocols.pipelines.{AssertionStatusResponse, CreateOutputR
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.domain.steps.RenameConfig
-import com.helio.services.pipelines.OutputRowsQuery
+import com.helio.services.pipelines.{OutputFilterCapability, OutputRowsQuery}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -1130,6 +1130,484 @@ class OutputRoutesSpec
         val hasMore = paged.fields("offset").convertTo[Int] + paged.fields("limit").convertTo[Int] < paged.fields("total").convertTo[Int]
         hasMore shouldBe false
         paged.fields("items").convertTo[Vector[JsObject]].map(_.fields("label")) shouldBe Vector.fill(3)(JsString("target"))
+      }
+    }
+  }
+
+  // HEL-1188 task 7.1 -- the required RED-FIRST test (Iron Law: systematic-debugging.md). Run
+  // against the pre-implementation codebase (no `ops` support at all), this fails: `parseFilterParam`
+  // silently ignores the unrecognized `ops` key (spray-json tolerates unknown object fields), so
+  // `filter` resolves as if only `quick`/`columns` were given (both empty here) -- i.e. NO filter at
+  // all. The route then returns the RAW, unfiltered Output (`total` = 60, `items` = the first `limit`
+  // rows by `row_index`, most of which violate the requested range/in-list predicate). Captured RED
+  // output (this exact test, run via `sbt "testOnly *OutputRoutesSpec -- -z \"task 7.1\""` on the
+  // pre-fix tree): `total` was `60` (expected the filtered count) and `items` included out-of-range
+  // dates/regions -- both assertions failed. GREEN after implementing `ops` end-to-end below.
+  "GET /outputs/:id/rows ops[] range + in-list filter (HEL-1188 task 7.1)" should {
+    "narrows the WHOLE Output on a date-range AND an in-list column together, not just the fetched page" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "ops-filter-out", OutputKind.Table,
+        schema = Vector(SchemaField("signup_date", "timestamp"), SchemaField("region", "string")),
+        explicitRootId = None
+      ))
+      val fixtureRows = (0 until 60).map { i =>
+        val date   = java.time.LocalDate.of(2026, 1, 1).plusDays(i.toLong).toString
+        val region = i % 3 match { case 0 => "US"; case 1 => "EU"; case _ => "APAC" }
+        (date, region)
+      }
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, fixtureRows.map { case (date, region) =>
+        JsObject("signup_date" -> JsString(date), "region" -> JsString(region))
+      }, explicitRootId = None))
+
+      val rangeStart = "2026-01-11"
+      val rangeEnd   = "2026-02-19"
+      val expectedMatches = fixtureRows.filter { case (date, region) =>
+        date >= rangeStart && date <= rangeEnd && Set("US", "EU").contains(region)
+      }
+      expectedMatches should not be empty
+      expectedMatches.size should be > 10 // enough to span beyond a small page
+
+      val filterJson =
+        s"""{"ops":[{"column":"signup_date","op":"gte","value":"$rangeStart"},
+           |{"column":"signup_date","op":"lte","value":"$rangeEnd"},
+           |{"column":"region","op":"in","values":["US","EU"]}]}""".stripMargin
+      val filter = java.net.URLEncoder.encode(filterJson, "UTF-8")
+
+      // Large enough limit to fetch every match in one page -- proves the WHOLE Output was
+      // filtered, not merely the first page by row_index (most matches sit beyond row_index 20).
+      Get(s"/outputs/${output.id.value}/rows?filter=$filter&limit=100") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        paged.fields("total") shouldBe JsNumber(expectedMatches.size)
+        val items = paged.fields("items").convertTo[Vector[JsObject]]
+        items.map(i => (i.fields("signup_date").convertTo[String], i.fields("region").convertTo[String])) should contain theSameElementsAs expectedMatches
+      }
+
+      // A small page proves the SAME filtered total holds regardless of page size (pagination is
+      // over the filtered set, not applied after truncating to one page).
+      Get(s"/outputs/${output.id.value}/rows?filter=$filter&limit=5") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        paged.fields("total") shouldBe JsNumber(expectedMatches.size)
+        val items = paged.fields("items").convertTo[Vector[JsObject]]
+        items should have size 5
+        items.foreach { item =>
+          val date   = item.fields("signup_date").convertTo[String]
+          val region = item.fields("region").convertTo[String]
+          (date >= rangeStart && date <= rangeEnd && Set("US", "EU").contains(region)) shouldBe true
+        }
+      }
+    }
+  }
+
+  "OutputFilterCapability.distinctValueCountCapped / topDistinctValues (HEL-1188 task 1.2)" should {
+    "distinctValueCountCapped counts distinct non-null values, and topDistinctValues orders by frequency" in {
+      val pipelineId = newSharedPipeline()
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
+        JsObject("region" -> JsString("US")),
+        JsObject("region" -> JsString("US")),
+        JsObject("region" -> JsString("US")),
+        JsObject("region" -> JsString("EU")),
+        JsObject("region" -> JsString("EU")),
+        JsObject("region" -> JsString("APAC")),
+        JsObject("region" -> JsNull) // NULLs are excluded from both the count and the values read
+      ), explicitRootId = None))
+
+      val count = await(nodeSnapshotRepo.distinctValueCountCapped(pipelineId.value, None, None, "region", capPlusOne = 51))
+      count shouldBe 3
+
+      val top = await(nodeSnapshotRepo.topDistinctValues(pipelineId.value, None, None, "region", cap = 50))
+      top shouldBe Vector(("US", 3), ("EU", 2), ("APAC", 1))
+    }
+
+    "distinctValueCountCapped is capped at capPlusOne even when more distinct values exist (D2's own corrected cost model: the CAP is on the count returned, not the scan)" in {
+      val pipelineId = newSharedPipeline()
+      val rows = (0 until 10).map(i => JsObject("v" -> JsString(s"val-$i")))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, rows, explicitRootId = None))
+      val count = await(nodeSnapshotRepo.distinctValueCountCapped(pipelineId.value, None, None, "v", capPlusOne = 5))
+      count shouldBe 5
+    }
+  }
+
+  "NodeSnapshotRepository ops[] filter fragments (HEL-1188 task 2.3)" should {
+    "a gte+lte pair on the same column expresses a range" in {
+      val pipelineId = newSharedPipeline()
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, (1 to 10).map(i => JsObject("amount" -> JsNumber(i))), explicitRootId = None))
+      val filterSpec = NodeSnapshotRepository.FilterSpec(None, Vector.empty, Map.empty, ops = Vector(
+        NodeSnapshotRepository.OpSpec.Gte("amount", NodeSnapshotRepository.SortCast.AsNumeric, "3"),
+        NodeSnapshotRepository.OpSpec.Lte("amount", NodeSnapshotRepository.SortCast.AsNumeric, "7")
+      ))
+      val result = await(nodeSnapshotRepo.listRowsPaged(pipelineId.value, None, Page(0, 20), explicitRootId = None, filter = Some(filterSpec)))
+      result.total shouldBe 5
+      result.items.map(_.fields("amount").convertTo[Int]) shouldBe Vector(3, 4, 5, 6, 7)
+    }
+
+    "in matches a numeric column via the cast form, not text comparison (\"1000\" matches a stored 1000.0-equivalent value)" in {
+      val pipelineId = newSharedPipeline()
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
+        JsObject("amount" -> JsNumber(BigDecimal("1000.0"))),
+        JsObject("amount" -> JsNumber(2000))
+      ), explicitRootId = None))
+      val filterSpec = NodeSnapshotRepository.FilterSpec(None, Vector.empty, Map.empty, ops = Vector(
+        NodeSnapshotRepository.OpSpec.In("amount", NodeSnapshotRepository.SortCast.AsNumeric, Vector("1000"))
+      ))
+      val result = await(nodeSnapshotRepo.listRowsPaged(pipelineId.value, None, Page(0, 20), explicitRootId = None, filter = Some(filterSpec)))
+      result.total shouldBe 1
+    }
+  }
+
+  "OutputFilterCapability.buildContract / eqInEligibleColumn (HEL-1188 task 1.3)" should {
+    def capabilityFixture(): Output = {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "capability-out", OutputKind.Table,
+        schema = Vector(
+          SchemaField("region", "string"),
+          SchemaField("notes", "string"),
+          SchemaField("body", "string-body")
+        ),
+        explicitRootId = None
+      ))
+      val rows = (0 until 60).map { i =>
+        JsObject(
+          "region" -> JsString(if (i % 3 == 0) "US" else if (i % 3 == 1) "EU" else "APAC"),
+          "notes"  -> JsString(s"note-$i"), // 60 distinct values -- over the 50 cardinality cap
+          "body"   -> JsString("ignored")
+        )
+      }
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, rows, explicitRootId = None))
+      output
+    }
+
+    "grants eq/in for a low-cardinality column, withholds it for a high-cardinality column of the SAME declared type, and omits Content-category columns entirely" in {
+      val output = capabilityFixture()
+      val contract = await(OutputFilterCapability.buildContract(output, nodeSnapshotRepo))
+      val byColumn = contract.columns.map(c => c.column -> c.operators).toMap
+
+      byColumn("region") shouldBe Set(OutputFilterCapability.Operator.Contains, OutputFilterCapability.Operator.Eq, OutputFilterCapability.Operator.In)
+      byColumn("notes") shouldBe Set(OutputFilterCapability.Operator.Contains)
+      byColumn.keySet should not contain "body"
+    }
+
+    "eqInEligibleColumn: Right for the low-cardinality column, Left for high-cardinality/Content/absent columns" in {
+      val output = capabilityFixture()
+      await(OutputFilterCapability.eqInEligibleColumn(output, nodeSnapshotRepo, "region")) shouldBe Right(())
+      await(OutputFilterCapability.eqInEligibleColumn(output, nodeSnapshotRepo, "notes")) shouldBe a[Left[_, _]]
+      await(OutputFilterCapability.eqInEligibleColumn(output, nodeSnapshotRepo, "body")) shouldBe a[Left[_, _]]
+      await(OutputFilterCapability.eqInEligibleColumn(output, nodeSnapshotRepo, "nonexistent")) shouldBe a[Left[_, _]]
+    }
+  }
+
+  "GET /outputs/:id/filter-capabilities (HEL-1188 task 3.1)" should {
+    "reports operators derived from the Output's own schema+data, 404 for an unrelated caller" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "fc-out", OutputKind.Table,
+        schema = Vector(SchemaField("amount", "integer"), SchemaField("region", "string"), SchemaField("notes", "string-body")),
+        explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
+        JsObject("amount" -> JsNumber(1), "region" -> JsString("US"), "notes" -> JsString("x")),
+        JsObject("amount" -> JsNumber(2), "region" -> JsString("EU"), "notes" -> JsString("y"))
+      ), explicitRootId = None))
+
+      Get(s"/outputs/${output.id.value}/filter-capabilities") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val columns = responseAs[JsObject].fields("columns").convertTo[Vector[JsObject]]
+        val byName = columns.map(c => c.fields("column").convertTo[String] -> c.fields("operators").convertTo[Vector[String]]).toMap
+        byName("amount") shouldBe Vector("contains", "gte", "lte", "eq", "in")
+        byName("region") shouldBe Vector("contains", "eq", "in")
+        byName.keySet should not contain "notes"
+      }
+      Get(s"/outputs/${output.id.value}/filter-capabilities") ~> routesFor(other) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
+  "GET /outputs/:id/distinct-values (HEL-1188 tasks 3.2/7.3)" should {
+    "returns capped frequency-ordered values for an eligible column, 400 for an ineligible one, 404 for an unrelated caller" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "dv-out", OutputKind.Table,
+        schema = Vector(SchemaField("region", "string"), SchemaField("notes", "string")),
+        explicitRootId = None
+      ))
+      val regionRows = Seq("US", "US", "US", "EU", "APAC").map(r => JsObject("region" -> JsString(r), "notes" -> JsString(java.util.UUID.randomUUID().toString)))
+      // Pad with enough distinct `notes` values to push it over the eq/in cardinality cap, while
+      // keeping every one of these rows' `region` at "US" (so `region`'s own cardinality stays low).
+      val extraNotes = (0 until 55).map(i => JsObject("region" -> JsString("US"), "notes" -> JsString(s"note-$i")))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, regionRows ++ extraNotes, explicitRootId = None))
+
+      Get(s"/outputs/${output.id.value}/distinct-values?column=region") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        paged.fields("column") shouldBe JsString("region")
+        val values = paged.fields("values").convertTo[Vector[JsObject]]
+        values should have size 3
+        // Frequency-descending: US (3 + 55 = 58) strictly outranks EU/APAC (1 each) -- their
+        // relative order between themselves is not asserted (a legitimate tie, not part of the AC).
+        values.head.fields("value") shouldBe JsString("US")
+        values.head.fields("count") shouldBe JsNumber(58)
+        values.map(_.fields("value").convertTo[String]).toSet shouldBe Set("US", "EU", "APAC")
+      }
+      Get(s"/outputs/${output.id.value}/distinct-values?column=notes") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("notes")
+      }
+      Get(s"/outputs/${output.id.value}/distinct-values?column=region") ~> routesFor(other) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
+  // HEL-1188 task 7.2 -- both directions, per column x per op, against a real seeded Output. The
+  // required MUTATION PROOF (verify step): temporarily changed `OutputFilterCapability.buildContract`'s
+  // `cardinalityEligible(distinctCount)` call to `cardinalityEligible(distinctCount, cap = 10)` --
+  // a divergent bound applied ONLY at the contract-build call site, leaving `eqInEligibleColumn`
+  // (the rows endpoint's own shared call) at the real `MaxDropdownCardinality = 50`. Re-ran this
+  // exact test: it went RED -- `column=region op=eq listed=false` (region's 20 distinct values
+  // exceed the mutated cap of 10) while the (unmutated) rows endpoint still returned `200 OK` for
+  // that same request (20 <= the real 50), so the `listed=false => expect BadRequest` branch failed
+  // against the actual `200`. Reverted immediately after -- re-ran and confirmed GREEN again. See
+  // the executor's handoff for the exact `sbt testOnly` transcript of both runs.
+  "Capability contract <-> rows-endpoint parity, both directions (HEL-1188 task 7.2)" should {
+    "every operator the contract lists for a column is accepted by /rows; every operator not listed is rejected" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "drift-out", OutputKind.Table,
+        schema = Vector(SchemaField("amount", "integer"), SchemaField("region", "string"), SchemaField("notes", "string")),
+        explicitRootId = None
+      ))
+      // amount: 3 distinct values -> eq/in eligible, plus gte/lte/contains (numeric).
+      // region: 20 distinct values -> eq/in eligible (under the 50 cap); contains only otherwise (string, no gte/lte).
+      // notes: 60 distinct values -> NOT eq/in eligible; contains only.
+      val rows = (0 until 60).map { i =>
+        JsObject(
+          "amount" -> JsNumber(i % 3),
+          "region" -> JsString(s"r${i % 20}"),
+          "notes"  -> JsString(s"n-$i")
+        )
+      }
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, rows, explicitRootId = None))
+
+      val contract = await(outputService.filterCapabilities(output.id, owner)).getOrElse(fail("expected Right"))
+      val byColumn = contract.columns.map(c => c.column -> c.operators).toMap
+
+      def opsFilterFor(column: String, op: String): String =
+        if (op == "in") s"""{"ops":[{"column":"$column","op":"in","values":["placeholder"]}]}"""
+        else s"""{"ops":[{"column":"$column","op":"$op","value":"placeholder"}]}"""
+
+      // `contains` uses the pre-existing `columns` shape, not `ops` -- out of scope for this matrix.
+      val allOps = Vector("gte", "lte", "eq", "in")
+      for {
+        column <- Vector("amount", "region", "notes")
+        opName <- allOps
+      } {
+        val op     = OutputFilterCapability.Operator.fromString(opName).get
+        val listed = byColumn.getOrElse(column, Set.empty).contains(op)
+        val filter = java.net.URLEncoder.encode(opsFilterFor(column, opName), "UTF-8")
+        Get(s"/outputs/${output.id.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+          withClue(s"column=$column op=$opName listed=$listed status=$status ") {
+            if (listed) status shouldBe StatusCodes.OK
+            else status shouldBe StatusCodes.BadRequest
+          }
+        }
+      }
+    }
+  }
+
+  "GET /outputs/:id/rows ops[] hostile input (HEL-1188 task 7.4)" should {
+    "a hostile column name in ops[].column is rejected as 400 before ever reaching SQL" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "hostile-ops-col-out", OutputKind.Table,
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1))), explicitRootId = None))
+      val hostileColumn = "'; DROP TABLE node_snapshots; --"
+      val filterJson    = s"""{"ops":[{"column":${JsString(hostileColumn).compactPrint},"op":"gte","value":"1"}]}"""
+      val filter        = java.net.URLEncoder.encode(filterJson, "UTF-8")
+
+      Get(s"/outputs/${output.id.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+      val stillThere = await(nodeSnapshotRepo.listRows(pipelineId.value, None, explicitRootId = None))
+      stillThere should have size 1
+    }
+
+    "a hostile column name in distinct-values' column param is rejected as 400, no SQL error, no data leakage" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "hostile-dv-col-out", OutputKind.Table,
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1))), explicitRootId = None))
+      val hostile = java.net.URLEncoder.encode("'; DROP TABLE node_snapshots; --", "UTF-8")
+
+      Get(s"/outputs/${output.id.value}/distinct-values?column=$hostile") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+      val stillThere = await(nodeSnapshotRepo.listRows(pipelineId.value, None, explicitRootId = None))
+      stillThere should have size 1
+    }
+
+    // MUTATION PROOF (verify step): temporarily changed `opValueCastExpr`'s `AsNumeric` case from
+    // the bound `sql"safe_numeric($value)"` to the raw-spliced `sql"safe_numeric(#$value)"` (Slick's
+    // `#$x` -- literal, unescaped SQL text, vs. `$x`'s bind parameter) -- exactly the "reintroduces a
+    // one-bad-row-500 / injection surface" shape design.md D3 warns against. Re-ran the two tests
+    // below: both went RED -- the hostile value's embedded `'` unbalanced the raw SQL text, and the
+    // request failed with a 500 (`PSQLException: syntax error`) instead of the expected `200 OK`
+    // zero/partial-match response. Reverted immediately after -- re-ran and confirmed GREEN again.
+    // See the executor's handoff for the exact `sbt testOnly` transcript of both runs.
+    "a hostile value in ops[].value never alters SQL -- degrades to a no-match 200, table intact" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "hostile-ops-val-out", OutputKind.Table,
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1)), JsObject("amount" -> JsNumber(2))), explicitRootId = None))
+      val hostileValue = "'; DROP TABLE node_snapshots; --"
+      val filterJson    = s"""{"ops":[{"column":"amount","op":"eq","value":${JsString(hostileValue).compactPrint}}]}"""
+      val filter        = java.net.URLEncoder.encode(filterJson, "UTF-8")
+
+      Get(s"/outputs/${output.id.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsObject].fields("total") shouldBe JsNumber(0)
+      }
+      val stillThere = await(nodeSnapshotRepo.listRows(pipelineId.value, None, explicitRootId = None))
+      stillThere should have size 2
+    }
+
+    "a hostile element inside ops[].values never alters SQL -- the hostile element matches nothing, valid elements are unaffected" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "hostile-ops-values-out", OutputKind.Table,
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1)), JsObject("amount" -> JsNumber(2))), explicitRootId = None))
+      val hostileValue = "'; DROP TABLE node_snapshots; --"
+      val filterJson    = s"""{"ops":[{"column":"amount","op":"in","values":[${JsString(hostileValue).compactPrint},"1"]}]}"""
+      val filter        = java.net.URLEncoder.encode(filterJson, "UTF-8")
+
+      Get(s"/outputs/${output.id.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        paged.fields("total") shouldBe JsNumber(1)
+        paged.fields("items").convertTo[Vector[JsObject]].map(_.fields("amount")) shouldBe Vector(JsNumber(1))
+      }
+      val stillThere = await(nodeSnapshotRepo.listRows(pipelineId.value, None, explicitRootId = None))
+      stillThere should have size 2
+    }
+  }
+
+  "GET /outputs/:id/rows ops[] malformed-value handling (HEL-1188 task 7.5)" should {
+    "a malformed eq value returns 200 with zero matches for that clause, never 500" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "malformed-val-out", OutputKind.Table,
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1)), JsObject("amount" -> JsNumber(2))), explicitRootId = None))
+      val filter = java.net.URLEncoder.encode("""{"ops":[{"column":"amount","op":"eq","value":"not-a-number"}]}""", "UTF-8")
+
+      Get(s"/outputs/${output.id.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsObject].fields("total") shouldBe JsNumber(0)
+      }
+    }
+
+    "a malformed element inside an in-list matches no row, while the other valid elements are unaffected" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "malformed-in-out", OutputKind.Table,
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
+        JsObject("amount" -> JsNumber(1)),
+        JsObject("amount" -> JsNumber(2)),
+        JsObject("amount" -> JsNumber(3))
+      ), explicitRootId = None))
+      val filter = java.net.URLEncoder.encode("""{"ops":[{"column":"amount","op":"in","values":["1","not-a-number","3"]}]}""", "UTF-8")
+
+      Get(s"/outputs/${output.id.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        paged.fields("total") shouldBe JsNumber(2)
+        paged.fields("items").convertTo[Vector[JsObject]].map(_.fields("amount").convertTo[Int]) should contain theSameElementsAs Vector(1, 3)
+      }
+    }
+  }
+
+  "GET /outputs/:id/rows ops[] shape + type validation (HEL-1188 tasks 2.1/2.2)" should {
+    def seededOutput(): OutputId = {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "ops-shape-out", OutputKind.Table,
+        schema = Vector(SchemaField("amount", "integer"), SchemaField("label", "string")), explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1), "label" -> JsString("a"))), explicitRootId = None))
+      output.id
+    }
+
+    "400s an unrecognized op" in {
+      val outputId = seededOutput()
+      val filter = java.net.URLEncoder.encode("""{"ops":[{"column":"amount","op":"bogus","value":"1"}]}""", "UTF-8")
+      Get(s"/outputs/${outputId.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "400s eq missing a value" in {
+      val outputId = seededOutput()
+      val filter = java.net.URLEncoder.encode("""{"ops":[{"column":"amount","op":"eq"}]}""", "UTF-8")
+      Get(s"/outputs/${outputId.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "400s in with an empty values array" in {
+      val outputId = seededOutput()
+      val filter = java.net.URLEncoder.encode("""{"ops":[{"column":"amount","op":"in","values":[]}]}""", "UTF-8")
+      Get(s"/outputs/${outputId.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "400s in with more than 100 values, naming the column" in {
+      val outputId = seededOutput()
+      val values = (1 to 101).map(i => s""""$i"""").mkString(",")
+      val filter = java.net.URLEncoder.encode(s"""{"ops":[{"column":"amount","op":"in","values":[$values]}]}""", "UTF-8")
+      Get(s"/outputs/${outputId.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("amount")
+      }
+    }
+
+    "400s a duplicate column+op pair, naming it as ambiguous" in {
+      val outputId = seededOutput()
+      val filter = java.net.URLEncoder.encode("""{"ops":[{"column":"amount","op":"gte","value":"1"},{"column":"amount","op":"gte","value":"2"}]}""", "UTF-8")
+      Get(s"/outputs/${outputId.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "400s gte on a string column, naming column+op" in {
+      val outputId = seededOutput()
+      val filter = java.net.URLEncoder.encode("""{"ops":[{"column":"label","op":"gte","value":"a"}]}""", "UTF-8")
+      Get(s"/outputs/${outputId.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("label")
+      }
+    }
+
+    "400s eq/in on a column absent from schema, naming it" in {
+      val outputId = seededOutput()
+      val filter = java.net.URLEncoder.encode("""{"ops":[{"column":"bogus","op":"eq","value":"1"}]}""", "UTF-8")
+      Get(s"/outputs/${outputId.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("bogus")
       }
     }
   }

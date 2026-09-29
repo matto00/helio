@@ -75,16 +75,20 @@ function check(name, actual, expected) {
 // HEL-1027 line-number remap (post-merge, no code change): this entry shifted from :52 to :92
 // because HEL-1027's sort/filter machinery was inserted earlier in the file -- see that file's
 // own KNOWN_UNFIXED_LINES comment for the full remap note.
+//
+// HEL-1188 line-number remap (post-merge, no code change): shifted again from :92 to :113 because
+// HEL-1188 inserted its own `OpSpec` ADT/`FilterSpec.ops` field above this arm -- see that file's
+// own KNOWN_UNFIXED_LINES comment for the full remap note.
 {
   const relPath =
     "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala";
-  const text = Array.from({ length: 92 }, (_, i) =>
-    i === 91
+  const text = Array.from({ length: 113 }, (_, i) =>
+    i === 112
       ? `        sqlu"DELETE FROM node_snapshots WHERE pipeline_id = $pipelineId AND node_step_id IS NULL"`
       : "",
   ).join("\n");
   const violations = scanTextForViolations(relPath, text);
-  check("known-unfixed line 92 of NodeSnapshotRepository.scala is exempted", violations.length, 0);
+  check("known-unfixed line 113 of NodeSnapshotRepository.scala is exempted", violations.length, 0);
 }
 
 // (h) The SAME banned pattern at a DIFFERENT, non-exempted line in that same file DOES fire --

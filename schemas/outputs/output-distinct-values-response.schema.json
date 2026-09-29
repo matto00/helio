@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/output-distinct-values-response.schema.json",
+  "title": "OutputDistinctValuesResponse",
+  "description": "Response for GET /api/outputs/:id/distinct-values?column= (HEL-1188). The named `column` is refused with a defined 400 (naming the column) unless it is currently reported eq/in-eligible by GET /api/outputs/:id/filter-capabilities for this same Output. On success, `values` carries that column's distinct non-null values across the Output's node_snapshots data, each paired with its occurrence count, ordered by occurrence count descending, capped at the same bound filter-capabilities uses to decide eq/in eligibility (see openspec/specs/output-routes-api/spec.md).",
+  "type": "object",
+  "properties": {
+    "column": { "type": "string", "minLength": 1 },
+    "values": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": { "type": "string" },
+          "count": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["value", "count"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["column", "values"],
+  "additionalProperties": false
+}

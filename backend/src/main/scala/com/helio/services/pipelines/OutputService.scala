@@ -373,24 +373,70 @@ final class OutputService(
       case Some(_) if nodeSnapshotRepo == null =>
         Future.successful(Right(OutputRowsResponse(Vector.empty, 0, page.offset, page.limit, materialized = false)))
       case Some(output) =>
-        (OutputRowsQuery.resolveSort(output.schema, sort), OutputRowsQuery.resolveFilter(output.schema, filter)) match {
-          case (Left(err), _) => Future.successful(Left(err))
-          case (_, Left(err)) => Future.successful(Left(err))
-          case (Right(resolvedSort), Right(resolvedFilter)) =>
+        OutputRowsQuery.resolveSort(output.schema, sort) match {
+          case Left(err) => Future.successful(Left(err))
+          case Right(resolvedSort) =>
+            // HEL-1188 design.md D3: `resolveFilter` is now `Future`-returning (the `eq`/`in`
+            // on-demand cardinality check needs `nodeSnapshotRepo`) -- `resolveSort` above stays
+            // synchronous, unaffected.
+            OutputRowsQuery.resolveFilter(output, filter, nodeSnapshotRepo).flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(resolvedFilter) =>
+                nodeSnapshotRepo
+                  .listRowsPaged(
+                    output.node.pipelineId.value,
+                    output.node.stepId.map(_.value),
+                    page,
+                    explicitRootId = output.node.rootId.map(_.value),
+                    sort = resolvedSort,
+                    filter = resolvedFilter
+                  )
+                  .flatMap { paged =>
+                    materializedFor(output, paged, filterActive = resolvedFilter.isDefined).map { materialized =>
+                      Right(OutputRowsResponse(paged.items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, materialized = materialized))
+                    }
+                  }
+            }
+        }
+    }
+
+  /** `GET /api/outputs/:id/filter-capabilities` (HEL-1188 design.md D1/D5) — same ACL surface as
+   *  `rows` above (`outputRepo.findById`'s sharing-aware select); the per-column operator contract
+   *  itself is `OutputFilterCapability.buildContract`'s job, not this method's. A missing
+   *  `nodeSnapshotRepo` (nullable-optional wiring, mirroring every other such fixture in this file)
+   *  degrades to an empty contract rather than an NPE. */
+  def filterCapabilities(id: OutputId, user: AuthenticatedUser): Future[Either[ServiceError, OutputFilterCapability.FilterCapabilityContract]] =
+    outputRepo.findById(id, user).flatMap {
+      case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
+      case Some(_) if nodeSnapshotRepo == null =>
+        Future.successful(Right(OutputFilterCapability.FilterCapabilityContract(Vector.empty)))
+      case Some(output) =>
+        OutputFilterCapability.buildContract(output, nodeSnapshotRepo).map(Right(_))
+    }
+
+  /** `GET /api/outputs/:id/distinct-values?column=` (HEL-1188 design.md D4) — same ACL surface as
+   *  `rows`/`filterCapabilities` above. Gated on the SAME `eqInEligibleColumn` check
+   *  `resolveFilter`'s `eq`/`in` branch uses (design.md D2's "the contract and the rows endpoint
+   *  can't drift" guarantee, extended to this third surface) -- never a fourth, hand-copied
+   *  eligibility check. */
+  def distinctValues(id: OutputId, user: AuthenticatedUser, column: String): Future[Either[ServiceError, Vector[(String, Int)]]] =
+    outputRepo.findById(id, user).flatMap {
+      case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
+      case Some(_) if nodeSnapshotRepo == null =>
+        Future.successful(Left(ServiceError.BadRequest(s"column not eq/in-eligible: '$column'")))
+      case Some(output) =>
+        OutputFilterCapability.eqInEligibleColumn(output, nodeSnapshotRepo, column).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(()) =>
             nodeSnapshotRepo
-              .listRowsPaged(
+              .topDistinctValues(
                 output.node.pipelineId.value,
                 output.node.stepId.map(_.value),
-                page,
-                explicitRootId = output.node.rootId.map(_.value),
-                sort = resolvedSort,
-                filter = resolvedFilter
+                output.node.rootId.map(_.value),
+                column,
+                OutputFilterCapability.MaxDropdownCardinality
               )
-              .flatMap { paged =>
-                materializedFor(output, paged, filterActive = resolvedFilter.isDefined).map { materialized =>
-                  Right(OutputRowsResponse(paged.items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, materialized = materialized))
-                }
-              }
+              .map(Right(_))
         }
     }
 
