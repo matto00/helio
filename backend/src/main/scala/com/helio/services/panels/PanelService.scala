@@ -11,7 +11,7 @@ import com.helio.domain.model._
 import com.helio.domain.panels._
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.domain.panels.{FormUploadConfig, OutputPanel}
@@ -83,12 +83,19 @@ final class PanelService(
     // HEL-1086: nullable-optional wiring, same convention as `dataSourceService` — a `null`
     // fileSystem only breaks `submitForm` when the caller actually attaches a file (the
     // no-file submit path never touches it, matching every other existing fixture/caller).
-    fileSystem: FileSystem = null
+    fileSystem: FileSystem = null,
+    // HEL-1189: nullable-optional wiring, same convention as `outputRepo` — a `null`
+    // nodeSnapshotRepo skips `rejectInvalidControls`'s `dropdown`-kind eq/in cardinality check
+    // entirely (only that one kind needs it; text/numeric-range/date-range eligibility is derived
+    // purely from the Output's declared schema, zero DB cost — design.md D3), only exercised once a
+    // caller actually adds/rebinds a `dropdown` control on an "output"-kind panel.
+    nodeSnapshotRepo: NodeSnapshotRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
   private val patchApplier = new PanelPatchApplier(panelRepo)
+  private val outputControlsValidator = new OutputControlsValidator(outputRepo, nodeSnapshotRepo)
 
   /** Fire-and-forget audit call, a no-op when `auditService` is `null`.
    *  HEL-483: `source`/`actor_token_id` come from the caller's resolved
@@ -326,9 +333,15 @@ final class PanelService(
             panel.validateConfig match {
               case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
               case Right(_)  =>
-                rejectInconsistentForm(formConfigOf(panel), user).map {
-                  case Left(err) => Left(err)
-                  case Right(_)  => Right(panel)
+                // HEL-1189 design.md D4: create has no pre-existing persisted controls, so every
+                // entry in a new panel's `controls` is "new" and gets validated.
+                outputControlsValidator.reject(outputIdOf(panel), controlsOf(panel), Vector.empty, user).flatMap {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(_)  =>
+                    rejectInconsistentForm(formConfigOf(panel), user).map {
+                      case Left(err) => Left(err)
+                      case Right(_)  => Right(panel)
+                    }
                 }
             }
         }
@@ -575,6 +588,26 @@ final class PanelService(
                   case Right(_)  => rejectMissingDataSource(incomingDataSourceId, user)
                 }.flatMap {
                   case Left(err) => Future.successful(Left(err))
+                  case Right(_)  =>
+                    // HEL-1189 design.md D4: validated against the EFFECTIVE post-patch config (C2
+                    // convention, mirroring rejectInconsistentForm below) — a `controls`-only PATCH
+                    // (or an outputId-only one) is diffed correctly either way, and a PATCH that
+                    // omits `config`/`controls` entirely carries the unchanged persisted list
+                    // through untouched (nothing to validate, per D4's "an update omitting
+                    // controls is unaffected" rule).
+                    val effectiveOutput = effectiveOutputConfig(existing, spec)
+                    val existingControls = existing match {
+                      case op: OutputPanel => op.config.controls
+                      case _               => Vector.empty
+                    }
+                    outputControlsValidator.reject(
+                      effectiveOutput.map(_.outputId).filter(_.value.nonEmpty),
+                      effectiveOutput.map(_.controls).getOrElse(Vector.empty),
+                      existingControls,
+                      user
+                    )
+                }.flatMap {
+                  case Left(err) => Future.successful(Left(err))
                   case Right(_)  => rejectInconsistentForm(effectiveFormConfig(existing, spec), user)
                 }.flatMap {
                   case Left(err) => Future.successful(Left(err))
@@ -636,6 +669,30 @@ final class PanelService(
           case Some(_) => Right(())
           case None    => Left(ServiceError.NotFound("Data source not found"))
         }
+    }
+
+  /** Extracts an `output` panel's `outputId`/`controls`, `None`/empty for every other kind. Feeds
+   *  `outputControlsValidator.reject` with the newly-built panel on `create`. */
+  private def outputIdOf(panel: Panel): Option[OutputId] = panel match {
+    case p: OutputPanel => p.outputId
+    case _              => None
+  }
+
+  private def controlsOf(panel: Panel): Vector[OutputControlSpec] = panel match {
+    case p: OutputPanel => p.config.controls
+    case _              => Vector.empty
+  }
+
+  /** The EFFECTIVE post-patch output config for `update` (C2, mirrors `effectiveFormConfig`):
+   *  `existing` as an `OutputPanel`, `applyPatch`ed with the decoded patch — never the incoming
+   *  patch alone, so a `controls`-only PATCH still carries the CURRENT `outputId` through (and vice
+   *  versa). `None` when `existing` is not an output panel, or the patch carries no `configPatch`
+   *  at all (nothing config-related changed on this update). */
+  private def effectiveOutputConfig(existing: Panel, spec: ResolvedPanelPatch): Option[OutputPanelConfig] =
+    (existing, spec.configPatch) match {
+      case (op: OutputPanel, Some(patchJson)) =>
+        Some(op.applyPatch(OutputPanelConfig.Patch.decode(patchJson)).config)
+      case _ => None
     }
 
   /** Extracts a `form` panel's config from a domain `Panel`, `None` for every other kind. Feeds

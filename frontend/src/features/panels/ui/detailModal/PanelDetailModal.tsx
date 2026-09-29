@@ -37,6 +37,7 @@ import { DividerEditor } from "../editors/DividerEditor";
 import { FormEditor } from "../editors/FormEditor";
 import { ImageEditor } from "../editors/ImageEditor";
 import { MarkdownEditor } from "../editors/MarkdownEditor";
+import { OutputControlsEditor } from "../editors/OutputControlsEditor";
 import { TextContentEditor } from "../editors/TextContentEditor";
 import type { PanelEditorHandle } from "../editors/editorTypes";
 
@@ -184,14 +185,19 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
   const [chartAppearance, setChartAppearance] = useState<ChartAppearance>(initialChart);
 
   // ── Subtype editor refs (only one is mounted at a time, content-kind
-  //    panels only — an output-kind panel has no subtype editor, see
+  //    panels only — an output-kind panel has no CONTENT subtype editor, see
   //    `OutputPanelSection` above; `form` is a content-kind panel too —
-  //    HEL-1084 — and follows the same one-ref-per-kind pattern) ─
+  //    HEL-1084 — and follows the same one-ref-per-kind pattern). HEL-1189:
+  //    `controlsEditorRef` is a SIBLING slot, not part of this if-chain — an
+  //    output panel has no content editor but DOES have the controls editor,
+  //    rendered alongside `OutputPanelSection` below, so it needs its OWN ref
+  //    threaded into save/reset independently of `activeEditorRef()`. ─
   const markdownEditorRef = useRef<PanelEditorHandle | null>(null);
   const textEditorRef = useRef<PanelEditorHandle | null>(null);
   const imageEditorRef = useRef<PanelEditorHandle | null>(null);
   const dividerEditorRef = useRef<PanelEditorHandle | null>(null);
   const formEditorRef = useRef<PanelEditorHandle | null>(null);
+  const controlsEditorRef = useRef<PanelEditorHandle | null>(null);
 
   function activeEditorRef(): RefObject<PanelEditorHandle | null> | null {
     if (isMarkdownPanel(panel)) return markdownEditorRef;
@@ -199,6 +205,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     if (isImagePanel(panel)) return imageEditorRef;
     if (isDividerPanel(panel)) return dividerEditorRef;
     if (isFormPanel(panel)) return formEditorRef;
+    if (isOutputPanel(panel)) return controlsEditorRef;
     return null;
   }
 
@@ -456,7 +463,18 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
                 chartAppearance={chartAppearance}
                 setChartAppearance={setChartAppearance}
               />
-              {isOutputPanel(panel) ? <OutputPanelSection panel={panel} /> : renderSubtypeEditor()}
+              {isOutputPanel(panel) ? (
+                <>
+                  <OutputPanelSection panel={panel} />
+                  <OutputControlsEditor
+                    ref={controlsEditorRef}
+                    panel={panel}
+                    onDirtyChange={handleSubtypeDirtyChange}
+                  />
+                </>
+              ) : (
+                renderSubtypeEditor()
+              )}
             </form>
 
             {showDiscardWarning ? (

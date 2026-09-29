@@ -24,6 +24,7 @@ jest.mock("../../services/panelService", () => ({
   uploadPanelImage: jest.fn(),
   updatePanelDivider: jest.fn(),
   updatePanelForm: jest.fn(),
+  updatePanelOutputControls: jest.fn(),
   updatePanelTextContent: jest.fn(),
   updatePanelMarkdownContent: jest.fn(),
 }));
@@ -32,6 +33,7 @@ jest.mock("../../../pipelines/services/outputService", () => ({
   getOutputById: jest.fn(),
   getOutputRows: jest.fn().mockResolvedValue({ items: [], total: 0, offset: 0, limit: 200 }),
   listOutputPanels: jest.fn().mockResolvedValue([]),
+  getFilterCapabilities: jest.fn().mockResolvedValue({ columns: [] }),
 }));
 
 jest.mock("../../../sources/services/dataSourceService", () => ({

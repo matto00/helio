@@ -51,7 +51,10 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
 
     // Regression: a proposal with no `config` field produces byte-for-byte the
     // same created-panel config as before this change — merge is a no-op when
-    // `config` is absent.
+    // `config` is absent. HEL-1189 added `controls` to `OutputPanelConfig`'s
+    // wire format (always emitted, defaulting to `[]`) — updated here per the
+    // "panel config changes touch several enumeration sites" lesson
+    // (MISTAKES.md, HEL-1082).
     "apply a flat-field-only proposal (no config) unchanged (HEL-316 regression)" in {
       val before = dashboardCount()
       val body =
@@ -66,7 +69,10 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
         val obj    = responseAs[String].parseJson.asJsObject
         val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
         val metric = panels.find(_.fields("title").convertTo[String] == "Total").get
-        metric.fields("config").asJsObject shouldBe JsObject("outputId" -> JsString(pipelineOutputId))
+        metric.fields("config").asJsObject shouldBe JsObject(
+          "outputId" -> JsString(pipelineOutputId),
+          "controls" -> JsArray()
+        )
       }
       dashboardCount() shouldBe (before + 1)
     }

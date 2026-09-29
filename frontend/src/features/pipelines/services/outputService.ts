@@ -6,6 +6,7 @@ import type {
   ExpressionValidationResult,
   NodeCapabilities,
   Output,
+  OutputFilterCapabilitiesResponse,
   OutputPanelPlacement,
   PipelinePreviewResult,
   RunResult,
@@ -90,6 +91,22 @@ export async function listOutputPanels(outputId: string): Promise<OutputPanelPla
 export async function getAssertionStatus(outputId: string): Promise<AssertionStatus> {
   const response = await httpClient.get<AssertionStatus>(
     `/api/outputs/${outputId}/assertion-status`,
+  );
+  return response.data;
+}
+
+/** HEL-1189 design.md D6 — `GET /api/outputs/:id/filter-capabilities` (HEL-1188): for every
+ *  Structured column in the Output's declared schema, the operators the capability contract
+ *  currently allows (already folding in the eq/in cardinality gate). Fetched once per
+ *  `OutputControlsEditor` open — same cost model the endpoint's own backend doc states ("called
+ *  once per panel load/config-open, not the hot path") — and combined with the Output's own
+ *  `schema` (already fetched via `useOutputMeta`) to compute offered kinds/columns client-side via
+ *  `outputControlEligibility.ts`'s `kindsFor`. */
+export async function getFilterCapabilities(
+  outputId: string,
+): Promise<OutputFilterCapabilitiesResponse> {
+  const response = await httpClient.get<OutputFilterCapabilitiesResponse>(
+    `/api/outputs/${outputId}/filter-capabilities`,
   );
   return response.data;
 }

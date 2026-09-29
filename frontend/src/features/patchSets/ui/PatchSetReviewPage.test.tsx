@@ -70,7 +70,7 @@ const demoPanel: Panel = {
   type: "output",
   meta: defaultMeta,
   appearance: { background: "transparent", color: "inherit", transparency: 0 },
-  config: { outputId: "output-1" },
+  config: { outputId: "output-1", controls: [] },
 };
 
 const explicitPatchSet: PatchSet = {

@@ -9,6 +9,7 @@ import com.helio.domain.model._
 import com.helio.domain.panels.OutputPanel
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository}
+import com.helio.services.panels.OutputControlsValidator
 import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -44,6 +45,16 @@ final class PublicDashboardRoutes(
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
+  // HEL-1189 design.md D5 — same nullable-optional `.orNull` convention `ApiRoutes.scala` uses to
+  // wire `PanelService`'s own instance; reused here (rather than threading `PanelService` itself
+  // into this route, a broader constructor change) so this, the app's one true panel-READ path
+  // (`GET /api/dashboards/:id/panels` — see this class's own doc comment: authenticated dashboard
+  // viewing and public/shared viewing both funnel through here), can compute live orphan status
+  // per `output-panel-placement`'s Requirement 3 ("reported as orphaned wherever the panel's
+  // controls are read") using the SAME decision `OutputControlsValidator.reject` (write-time)
+  // makes — never a second, independently-maintained copy.
+  private val outputControlsValidator = new OutputControlsValidator(outputRepoOpt.orNull, nodeSnapshotRepoOpt.orNull)
+
   /** `None` for any panel kind other than `OutputPanel`, or when either repo is unavailable
    *  (mirrors this codebase's existing `Option[Repository]`-degrades-gracefully convention, e.g.
    *  `outputRepoOpt` in `ApiRoutes.scala`), or when the Output/pipeline can no longer be
@@ -61,6 +72,30 @@ final class PublicDashboardRoutes(
           case None => Future.successful(None)
         }
       case _ => Future.successful(None)
+    }
+
+  /** HEL-1189 design.md D5 — the ids of `panel`'s controls currently orphaned (bound column
+   *  absent from the Output's CURRENT declared schema, or present but no longer eligible for its
+   *  kind), mirroring `resolveDataAsOf`'s own per-panel async-resolve pattern and degrade-
+   *  gracefully convention. `Set.empty` for any non-`OutputPanel` kind, a panel with no controls,
+   *  an unresolvable Output, or when `outputRepoOpt` is unavailable — never a failed page. */
+  private def resolveOrphanedControlIds(panel: Panel): Future[Set[String]] =
+    (panel, outputRepoOpt) match {
+      case (op: OutputPanel, Some(outputRepo)) if op.config.controls.nonEmpty =>
+        op.outputId match {
+          case Some(outputId) =>
+            outputRepo.findByIdInternal(outputId).flatMap {
+              case None => Future.successful(Set.empty[String])
+              case Some(output) =>
+                Future
+                  .traverse(op.config.controls) { control =>
+                    outputControlsValidator.isOrphaned(output, control).map(orphaned => if (orphaned) Some(control.id) else None)
+                  }
+                  .map(_.flatten.toSet)
+            }
+          case None => Future.successful(Set.empty[String])
+        }
+      case _ => Future.successful(Set.empty[String])
     }
 
   /** HEL-910 task 1.1: `GET /dashboards/:dashboardId/panels/:panelId/rows`. Resolves
@@ -160,9 +195,20 @@ final class PublicDashboardRoutes(
                 // (and fail to re-derive) it from `userOpt` alone.
                 val resultF = panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, page, accessAlreadyGranted = true)
                   .flatMap { paged =>
-                    Future.sequence(paged.items.map(panel => resolveDataAsOf(panel).map(panel -> _)))
-                      .map { withDataAsOf =>
-                        val responses = withDataAsOf.map { case (panel, dataAsOf) => PanelResponse.fromDomain(panel, dataAsOf) }
+                    // HEL-1189 design.md D5: `orphanedControlIds` resolved alongside `dataAsOf` per
+                    // panel, same async-resolve-then-merge shape — this is the app's one true
+                    // panel-READ path, so it's where Requirement 3's "reported as orphaned wherever
+                    // the panel's controls are read" is actually enforced.
+                    Future.sequence(paged.items.map(panel =>
+                      for {
+                        dataAsOf    <- resolveDataAsOf(panel)
+                        orphanedIds <- resolveOrphanedControlIds(panel)
+                      } yield (panel, dataAsOf, orphanedIds)
+                    ))
+                      .map { rows =>
+                        val responses = rows.map { case (panel, dataAsOf, orphanedIds) =>
+                          PanelResponse.fromDomain(panel, dataAsOf, orphanedControlIds = Some(orphanedIds))
+                        }
                         PagedResult(responses, paged.total, paged.offset, paged.limit)
                       }
                   }

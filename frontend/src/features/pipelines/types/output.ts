@@ -80,6 +80,18 @@ export interface AssertionStatus {
   failedRuleCount: number;
 }
 
+/** `GET /api/outputs/:id/filter-capabilities` response (HEL-1188), mirrors backend
+ *  `OutputFilterCapabilitiesResponse`. A column absent from `columns` is not filterable at all —
+ *  never an empty-`operators` entry. */
+export interface OutputFilterCapabilityColumn {
+  column: string;
+  operators: Array<"contains" | "gte" | "lte" | "eq" | "in">;
+}
+
+export interface OutputFilterCapabilitiesResponse {
+  columns: OutputFilterCapabilityColumn[];
+}
+
 export interface TruncatedRead {
   dataSourceName: string;
   rowsRead: number;

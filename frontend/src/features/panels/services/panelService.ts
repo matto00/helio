@@ -5,6 +5,7 @@ import type {
   FieldValidationError,
   FormPanelConfig,
   ImageFit,
+  OutputControlSpec,
   Panel,
   PanelAppearance,
   PanelConfig,
@@ -140,6 +141,20 @@ export async function uploadPanelImage(file: File): Promise<UploadPanelImageResp
  *  the fields the caller didn't happen to touch. */
 export async function updatePanelForm(panelId: string, config: FormPanelConfig): Promise<Panel> {
   const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, { config });
+  return response.data;
+}
+
+/** HEL-1189 — PATCH an `output` panel's `controls` list only (add/rebind/remove). `outputId` is
+ *  omitted from the patch entirely — `OutputPanelConfig.Patch`'s per-key absent-vs-present
+ *  semantics (mirroring `FormPanelConfig.Patch`) keep the panel's current Output binding
+ *  untouched, so this never needs to know or resend it. */
+export async function updatePanelOutputControls(
+  panelId: string,
+  controls: OutputControlSpec[],
+): Promise<Panel> {
+  const response = await httpClient.patch<Panel>(`/api/panels/${panelId}`, {
+    config: { controls },
+  });
   return response.data;
 }
 
