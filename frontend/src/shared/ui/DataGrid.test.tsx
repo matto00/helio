@@ -584,6 +584,36 @@ describe("DataGrid — sortable headers (HEL-448)", () => {
   });
 });
 
+// HEL-1027 design.md D3 (task 4.5) — a per-column override of the grid-wide `sortable` flag.
+describe("DataGrid — per-column disabledReason (HEL-1027 D3)", () => {
+  it("a column with disabledReason renders no sort button, a titled plain label instead, and aria-sort omitted", () => {
+    const onSort = jest.fn();
+    render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1, b: 2 }]}
+        onSort={onSort}
+        columns={[{ key: "a" }, { key: "b", disabledReason: "not eligible" }]}
+      />,
+    );
+    const headers = screen.getAllByRole("columnheader");
+    const colA = headers.find((h) => h.textContent?.startsWith("a"));
+    const colB = headers.find((h) => h.textContent?.startsWith("b"));
+
+    expect(colA?.querySelector(".sortable-th__btn")).toBeInTheDocument();
+    expect(colA).toHaveAttribute("aria-sort", "none");
+
+    expect(colB?.querySelector(".sortable-th__btn")).not.toBeInTheDocument();
+    expect(colB).not.toHaveAttribute("aria-sort");
+    const disabledLabel = colB?.querySelector(".sortable-th__disabled-label");
+    expect(disabledLabel).toHaveTextContent("b");
+    expect(disabledLabel).toHaveAttribute("title", "not eligible");
+
+    fireEvent.click(colB?.querySelector(".sortable-th__disabled-label") as HTMLElement);
+    expect(onSort).not.toHaveBeenCalled();
+  });
+});
+
 // HEL-451: filter row rendering (task 3.1-3.2). Matching semantics live in
 // `TableRenderer`'s `tableFilterPredicate.ts` — `DataGrid` only renders
 // controls and reports raw changes.
@@ -626,6 +656,24 @@ describe("DataGrid — filter row (HEL-451)", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Filter column a" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Filter column b" })).toBeInTheDocument();
+  });
+
+  // HEL-1027 design.md D3 (task 4.5) — a column with `disabledReason` gets a disabled,
+  // titled filter input, never indistinguishable from an active one.
+  it("a column with disabledReason renders a disabled, titled filter input", () => {
+    render(
+      <DataGrid
+        variant="full"
+        rows={[{ a: 1, b: 2 }]}
+        onFilterChange={jest.fn()}
+        columns={[{ key: "a" }, { key: "b", disabledReason: "not eligible" }]}
+      />,
+    );
+    expandFilters();
+    const inputB = screen.getByRole("textbox", { name: "Filter column b" });
+    expect(inputB).toBeDisabled();
+    expect(inputB).toHaveAttribute("title", "not eligible");
+    expect(screen.getByRole("textbox", { name: "Filter column a" })).not.toBeDisabled();
   });
 
   it("typing in the quick filter reports the FULL next filters value", () => {

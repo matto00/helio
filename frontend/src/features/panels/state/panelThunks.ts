@@ -23,7 +23,11 @@ import {
   updatePanelTextContent as updatePanelTextContentRequest,
   updatePanelTitle as updatePanelTitleRequest,
 } from "../services/panelService";
-import { getOutputRows } from "../../pipelines/services/outputService";
+import {
+  getOutputRows,
+  type OutputRowsFilter,
+  type OutputRowsSort,
+} from "../../pipelines/services/outputService";
 import {
   classifyRequestError,
   type RequestErrorKind,
@@ -314,6 +318,14 @@ export const updatePanelsBatch = createAsyncThunk<
 
 // An output-kind panel reads rows from its bound Output
 // (`GET /api/outputs/:id/rows`); pagination is sliced on the client.
+//
+// HEL-1027 design.md D1/D4 (task 4.3) — `sort`/`filter` are optional so every pre-existing
+// dispatch (`usePanelData`'s own initial fetch) keeps compiling and behaving identically;
+// `usePanelSortFilter` is the caller that passes them, on a (debounced) sort/filter change,
+// always paired with `page: 0`. `PanelCard.tsx`'s "Load more" (page > 0) also carries them, so an
+// appended page never silently reverts to the raw/unfiltered default. skeptic-final-1.md CR2 —
+// this thunk does NOT itself sequence responses; staleness is discarded downstream in
+// `panelsSlice.ts`'s `.fulfilled`/`.rejected` via `latestFetchRequestId`.
 export const fetchPanelPage = createAsyncThunk<
   {
     panelId: string;
@@ -321,16 +333,34 @@ export const fetchPanelPage = createAsyncThunk<
     rows: Record<string, unknown>[];
     hasMore: boolean;
     materialized: boolean;
+    total: number;
   },
-  { panelId: string; outputId: string; page: number; pageSize: number },
+  {
+    panelId: string;
+    outputId: string;
+    page: number;
+    pageSize: number;
+    sort?: OutputRowsSort;
+    filter?: OutputRowsFilter;
+  },
   { state: RootState; rejectValue: { message: string; kind: RequestErrorKind } }
->("panels/fetchPanelPage", async ({ panelId, outputId, page, pageSize }, { rejectWithValue }) => {
-  try {
-    const offset = page * pageSize;
-    const result = await getOutputRows(outputId, offset, pageSize);
-    const hasMore = offset + pageSize < result.total;
-    return { panelId, page, rows: result.items, hasMore, materialized: result.materialized };
-  } catch (err: unknown) {
-    return rejectWithValue(classifyRequestError(err, "Failed to load panel data."));
-  }
-});
+>(
+  "panels/fetchPanelPage",
+  async ({ panelId, outputId, page, pageSize, sort, filter }, { rejectWithValue }) => {
+    try {
+      const offset = page * pageSize;
+      const result = await getOutputRows(outputId, offset, pageSize, sort, filter);
+      const hasMore = offset + pageSize < result.total;
+      return {
+        panelId,
+        page,
+        rows: result.items,
+        hasMore,
+        materialized: result.materialized,
+        total: result.total,
+      };
+    } catch (err: unknown) {
+      return rejectWithValue(classifyRequestError(err, "Failed to load panel data."));
+    }
+  },
+);

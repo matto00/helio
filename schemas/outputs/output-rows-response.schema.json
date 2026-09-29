@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/output-rows-response.schema.json",
+  "title": "OutputRowsResponse",
+  "description": "Response for GET /api/outputs/:id/rows?offset=&limit=&sort=&filter= (HEL-906 cycle 7, extended HEL-1027). `sort` (`<column>:<asc|desc>`) and `filter` (URL-encoded JSON `{quick?, columns?}`, matching `TableColumnFilters`' case-insensitive substring semantics) are query parameters, not part of this body -- see openspec/specs/output-routes-api/spec.md for their full contract. HEL-1027: when `filter` is present and non-empty, `total` reflects the count of rows matching the filter (not the Output's raw row count) -- the same value the client derives `hasMore` from (`offset + limit < total`). `materialized` is independent of a filter's match count: `false` only when the bound node has never had a successful pipeline run at all -- a filter that legitimately matches zero rows of an Output with real data is `materialized: true`.",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": { "type": "object" },
+      "description": "The requested page's rows, each an arbitrary JSON object keyed by column name."
+    },
+    "total": {
+      "type": "integer",
+      "description": "Row count for the current `sort`/`filter` -- the Output's raw row count when `filter` is absent or empty, the filtered row count otherwise."
+    },
+    "offset": {
+      "type": "integer"
+    },
+    "limit": {
+      "type": "integer"
+    },
+    "materialized": {
+      "type": "boolean",
+      "description": "False only when the bound node has never had a successful pipeline run since the Output was added -- never derived from a filter's match count."
+    }
+  },
+  "required": ["items", "total", "offset", "limit", "materialized"],
+  "additionalProperties": false
+}

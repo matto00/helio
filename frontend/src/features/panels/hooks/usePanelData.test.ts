@@ -31,6 +31,11 @@ function makeStore(panel?: Panel) {
             pendingPanelUpdates: {},
             lastSavedAt: null,
             paginationState: {},
+            // HEL-1027 skeptic-final-1.md CR2 — `fetchPanelPage.pending` now writes
+            // `latestFetchRequestId[panelId]` unconditionally; an absent field here (unlike the
+            // other omitted-but-never-WRITTEN `PanelsState` fields this fixture already skips)
+            // throws at runtime instead of silently reading as `undefined`.
+            latestFetchRequestId: {},
           },
         } as never)
       : undefined,
@@ -85,7 +90,10 @@ describe("usePanelData", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(mockGetOutputRows).toHaveBeenCalledWith("out-1", 0, 200);
+    // HEL-1027 — `fetchPanelPage`'s thunk now always forwards `sort`/`filter` positionally to
+    // `getOutputRows` (both `undefined` here — `usePanelData`'s own initial fetch never sets
+    // them; only `PanelCardBody`'s sort/filter-driven refetch does).
+    expect(mockGetOutputRows).toHaveBeenCalledWith("out-1", 0, 200, undefined, undefined);
     expect(result.current.rawRows).toEqual([["west", "10"]]);
     expect(result.current.headers).toEqual(["region", "amount"]);
     expect(result.current.noData).toBe(false);

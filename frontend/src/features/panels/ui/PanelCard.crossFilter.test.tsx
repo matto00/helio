@@ -142,6 +142,7 @@ function renderPanelCard(
                   isLoadingMore: false,
                   rows: options.seedPaginationRows,
                   materialized: true,
+                  total: options.seedPaginationRows.length,
                 },
               },
             }

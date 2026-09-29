@@ -67,6 +67,14 @@ interface PanelsState {
    *  it, so leaving this unreset would let a `Cmd/Ctrl+K` navigate-away
    *  re-open the modal unbidden on the next visit to `/`. */
   panelCreationModalOpen: boolean;
+  /** HEL-1027 skeptic-final-1.md CR2 — the most recently DISPATCHED `fetchPanelPage` requestId
+   *  per panel (`createAsyncThunk`'s own `action.meta.requestId`, recorded in `.pending`), so
+   *  `.fulfilled`/`.rejected` can detect and discard a STALE response that settles after a NEWER
+   *  request for the same panel has already been dispatched — e.g. React StrictMode's mount-effect
+   *  double-invoke racing a sort/filter-driven refetch, or two rapid sort/filter changes. Ordered
+   *  by DISPATCH time, not settlement time, which is what makes this correct regardless of which
+   *  promise resolves first. */
+  latestFetchRequestId: Record<string, string>;
 }
 
 const initialState: PanelsState = {
@@ -81,6 +89,7 @@ const initialState: PanelsState = {
   crossFilter: null,
   staleDashboardId: null,
   panelCreationModalOpen: false,
+  latestFetchRequestId: {},
 };
 
 const panelsSlice = createSlice({
@@ -273,17 +282,41 @@ const panelsSlice = createSlice({
       })
       .addCase(fetchPanelPage.pending, (state, action) => {
         const { panelId } = action.meta.arg;
+        // HEL-1027 skeptic-final-1.md CR2 — records this dispatch as the latest for this panel,
+        // UNCONDITIONALLY (never gated on the previous latest) -- a `.pending` is always the
+        // newest thing dispatched at the moment it fires, by construction (dispatch order IS
+        // registration order here; see the field's own doc comment).
+        state.latestFetchRequestId[panelId] = action.meta.requestId;
         const existing = state.paginationState[panelId];
+        // Keeps the PREVIOUSLY loaded rows/page visible (isLoadingMore: true is the existing
+        // "refreshing" signal `usePanelData.isRefreshing` already exposes) rather than emptying
+        // them -- for a sort/filter-driven page-0 refetch (`usePanelSortFilter`, no
+        // `resetPanelPagination` call anymore -- see that hook's own doc comment) this is what
+        // keeps `TableRenderer` (and the filter textbox itself) mounted through the request
+        // instead of `usePanelData`'s `isLoading` flipping back to true and swapping in the full
+        // skeleton mid-keystroke (skeptic-final-1.md Defect 1).
         state.paginationState[panelId] = {
           currentPage: existing?.currentPage ?? 0,
           hasMore: existing?.hasMore ?? true,
           isLoadingMore: true,
           rows: existing?.rows ?? [],
           materialized: existing?.materialized ?? true,
+          total: existing?.total ?? 0,
         };
       })
       .addCase(fetchPanelPage.fulfilled, (state, action) => {
-        const { panelId, page, rows, hasMore, materialized } = action.payload;
+        const { panelId, page, rows, hasMore, materialized, total } = action.payload;
+        // HEL-1027 skeptic-final-1.md CR2 (Defect 2) — a response whose OWN dispatch is no
+        // longer the latest one recorded for this panel is STALE (a newer request has already
+        // superseded it, regardless of which one's promise happens to settle first) and must
+        // never be allowed to overwrite the newer request's eventual result. Concretely: React
+        // StrictMode's mount-effect double-invoke of `usePanelData`'s own unfiltered fetch can
+        // resolve AFTER a `usePanelSortFilter`-driven filtered refetch that was dispatched LATER
+        // -- without this guard, the stale unfiltered response would silently win, settling the
+        // displayed `total`/`hasMore` on the wrong (raw, unfiltered) values while the rows
+        // visibly shown remain correctly filtered via `TableRenderer`'s own client-side masking
+        // (D7) -- live-reproduced and screenshotted in skeptic-final-1.md.
+        if (state.latestFetchRequestId[panelId] !== action.meta.requestId) return;
         const existing = state.paginationState[panelId];
         // Append rows on page > 0 (load more), replace on page 0 (initial/reset)
         const updatedRows = page > 0 && existing ? [...existing.rows, ...rows] : rows;
@@ -293,10 +326,15 @@ const panelsSlice = createSlice({
           isLoadingMore: false,
           rows: updatedRows,
           materialized,
+          total,
         };
       })
       .addCase(fetchPanelPage.rejected, (state, action) => {
         const { panelId } = action.meta.arg;
+        // Same staleness guard as `.fulfilled` above -- a superseded request's FAILURE must not
+        // clear `isLoadingMore` out from under the newer request that's still legitimately in
+        // flight.
+        if (state.latestFetchRequestId[panelId] !== action.meta.requestId) return;
         const existing = state.paginationState[panelId];
         if (existing) {
           state.paginationState[panelId] = {

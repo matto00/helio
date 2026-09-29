@@ -100,10 +100,20 @@ const KNOWN_ROOT_QUALIFIED_LINES = new Set([
 //
 // Kept here, exempted BY NAME with this proof, not silently -- any NEW occurrence anywhere else
 // in these files still fails the guard.
+//
+// HEL-1027 line-number remap (post-merge, no code change): `NodeSnapshotRepository.scala`'s three
+// entries shifted from :52/:100/:135 to :92/:140/:164 because HEL-1027's sort/filter machinery was
+// inserted earlier in the file -- the count stays at 3, not a new violation. The former :135 arm
+// (`listRowsPaged`'s own inline `nodeFilter` val) was ALSO extracted, by HEL-1027, into the new
+// shared `private def nodeFilterFragment(...)` helper, whose `(None, None)` arm is now at :164 and
+// is called by BOTH `listRowsPaged` (:264) and the new `hasAnyRow` (:301) -- one shared arm, not a
+// new occurrence of the pattern. `hasAnyRow`'s only caller (`OutputService.materializedFor`, via
+// `OutputService.rows`) derives `explicitRootId` from `output.node.rootId`, the exact same
+// structurally-safe derivation this proof already audits for every other production caller above.
 const KNOWN_UNFIXED_LINES = new Set([
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:52",
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:100",
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:135",
+  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:92",
+  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:140",
+  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:164",
   "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala:49",
   "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala:108",
   "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala:128",

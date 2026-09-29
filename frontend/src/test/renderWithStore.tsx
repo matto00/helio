@@ -218,6 +218,11 @@ export function renderWithStore(
           error: preloadedState.panels?.error ?? null,
           pendingPanelUpdates: {},
           paginationState: preloadedState.panels?.paginationState ?? {},
+          // HEL-1027 skeptic-final-1.md CR2 — `fetchPanelPage.pending` writes
+          // `latestFetchRequestId[panelId]` unconditionally; every test using this shared harness
+          // needs the field present (as an empty map, same convention as `panelsSlice.ts`'s own
+          // `initialState`) or a real `fetchPanelPage` dispatch throws at runtime.
+          latestFetchRequestId: {},
           interactionState: {},
           crossFilter: preloadedState.panels?.crossFilter ?? null,
           lastSavedAt: null,

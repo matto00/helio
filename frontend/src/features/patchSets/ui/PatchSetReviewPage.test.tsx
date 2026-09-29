@@ -323,6 +323,7 @@ describe("PatchSetReviewPage", () => {
       // checked against the real (uncast) reducer type, so both are required.
       staleDashboardId: null,
       panelCreationModalOpen: false,
+      latestFetchRequestId: {},
     };
   }
 

@@ -8,10 +8,12 @@ import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.IdParsing.{OutputIdSegment, PipelineIdSegment}
 import com.helio.api.protocols.pipelines.{CreateOutputRequest, OutputsResponse, UpdateOutputRequest}
 import com.helio.domain.model.{AuthenticatedUser, Page, PagedResult}
-import com.helio.services.pipelines.OutputService
-import spray.json.JsObject
+import com.helio.infrastructure.persistence.pipelines.NodeSnapshotRepository
+import com.helio.services.pipelines.{OutputRowsQuery, OutputService}
+import spray.json._
 
 import scala.concurrent.ExecutionContext
+import scala.util.{Failure, Success, Try}
 
 /** Thin HTTP shell for `/api/pipelines/:id/outputs` and `/api/outputs/:id`
  *  (HEL-906, P1.3 of the Pipelines & Outputs remodel). All logic in
@@ -88,19 +90,75 @@ class OutputRoutes(
         // HEL-906 cycle 7: `GET /api/outputs/:id/rows` (P1.4's `get_output_rows` dependency),
         // offset/limit paginated -- mirrors `PublicDashboardRoutes`' own offset/limit param
         // parsing convention (negative offset -> 400 before reaching the service).
+        // HEL-1027 design.md D1/D3/task 3.2: `sort`/`filter` SHAPE validation (direction against
+        // a closed 2-value set; `filter`'s JSON well-formedness) happens HERE, in Scala, before
+        // either reaches `OutputService.rows` -- that service layer separately validates the
+        // named COLUMN(s) against the Output's own schema (D2/D3), a check this route cannot make
+        // without the Output already in hand.
         path("rows") {
           get {
-            parameters("offset".as[Int].withDefault(Page.Default.offset), "limit".as[Int].withDefault(Page.Default.limit)) { (offsetRaw, limitRaw) =>
+            parameters(
+              "offset".as[Int].withDefault(Page.Default.offset),
+              "limit".as[Int].withDefault(Page.Default.limit),
+              "sort".optional,
+              "filter".optional
+            ) { (offsetRaw, limitRaw, sortRaw, filterRaw) =>
               if (offsetRaw < 0)
                 complete(StatusCodes.BadRequest, ErrorResponse("offset must not be negative"))
-              else {
-                val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
-                ServiceResponse.run(outputService.rows(outputId, page, user))(identity)
-              }
+              else
+                (parseSortParam(sortRaw), parseFilterParam(filterRaw)) match {
+                  case (Left(err), _) => complete(StatusCodes.BadRequest, ErrorResponse(err))
+                  case (_, Left(err)) => complete(StatusCodes.BadRequest, ErrorResponse(err))
+                  case (Right(sortParam), Right(filterParam)) =>
+                    val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
+                    ServiceResponse.run(outputService.rows(outputId, page, user, sortParam, filterParam))(identity)
+                }
             }
           }
         }
       )
+    }
+
+  /** HEL-1027 design.md D1/D6 (task 3.2) — `sort=<column>:<asc|desc>`, split on the LAST `:` (a
+   *  column name is vanishingly unlikely to contain one, but this is robust either way). The
+   *  direction is validated against a closed 2-value set HERE, in Scala, before it can ever reach
+   *  SQL — D6 forbids parameterizing `ASC`/`DESC` as a bind value (Postgres doesn't accept a
+   *  keyword there), so this Scala-level check is what makes embedding the literal safe later. */
+  private def parseSortParam(raw: Option[String]): Either[String, Option[OutputRowsQuery.SortParam]] =
+    raw match {
+      case None => Right(None)
+      case Some(s) =>
+        val idx = s.lastIndexOf(':')
+        if (idx <= 0 || idx == s.length - 1)
+          Left(s"sort must be '<column>:<asc|desc>', got '$s'")
+        else
+          s.substring(idx + 1) match {
+            case "asc"  => Right(Some(OutputRowsQuery.SortParam(s.substring(0, idx), NodeSnapshotRepository.SortDirection.Asc)))
+            case "desc" => Right(Some(OutputRowsQuery.SortParam(s.substring(0, idx), NodeSnapshotRepository.SortDirection.Desc)))
+            case other  => Left(s"sort direction must be 'asc' or 'desc', got '$other'")
+          }
+    }
+
+  /** HEL-1027 design.md D1 (task 3.2) — `filter` is URL-encoded JSON matching the client's own
+   *  `TableColumnFilters` shape (`{"quick"?: string, "columns"?: {[column]: string}}`); Pekko
+   *  HTTP's `parameters` directive already URL-decodes the raw query value before this sees it.
+   *  Malformed JSON, or JSON that isn't an object matching this shape, is `400` -- never a thrown
+   *  `DeserializationException`/`ParsingException` surfacing as a 500. */
+  private def parseFilterParam(raw: Option[String]): Either[String, Option[OutputRowsQuery.FilterParam]] =
+    raw match {
+      case None => Right(None)
+      case Some(s) =>
+        Try {
+          val obj    = s.parseJson.asJsObject
+          val quick  = obj.fields.get("quick").collect { case JsString(v) => v }
+          val columns = obj.fields.get("columns").collect { case JsObject(fields) =>
+            fields.collect { case (k, JsString(v)) => k -> v }
+          }.getOrElse(Map.empty[String, String])
+          OutputRowsQuery.FilterParam(quick, columns)
+        } match {
+          case Success(parsed) => Right(Some(parsed))
+          case Failure(_)      => Left("filter must be valid JSON matching {quick?: string, columns?: {[key]: string}}")
+        }
     }
 
   /** `GET /api/outputs` (HEL-906 cycle 7, task 2.6, absorbs HEL-722) -- lean paginated list of

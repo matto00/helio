@@ -6,11 +6,13 @@ import type { ColumnDef } from "../../../../shared/ui/index";
 import {
   useSortedRows,
   type SortColumn,
+  type SortDirection,
   type SortState,
   type SortValue,
 } from "../../../../shared/ui/useSortedRows";
 import { updateOutput } from "../../../pipelines/services/outputService";
 import { useAppSelector } from "../../../../hooks/reduxHooks";
+import { isStructuredFieldType, type OutputSchemaField } from "../../../pipelines/types/output";
 import type {
   TableColumnFilters,
   TableColumnFormats,
@@ -76,6 +78,46 @@ interface TableRendererProps {
    *  rather than inheriting the host's locale (or mutating the `Intl`
    *  global, which design D4/task 4.0 rules out). */
   formatIntl?: FormatIntlOptions;
+  /** HEL-1027 design.md D2/D3 (task 4.5) — the bound Output's own declared schema, used ONLY to
+   *  gate a column's sort/filter control (never to reorder/reformat anything — that stays
+   *  `columnFormats`' job). `undefined` (not passed at all, e.g. an older test) means "no
+   *  information" and disables nothing, preserving every pre-existing caller's behavior; an
+   *  explicit empty array means "this Output has no declared fields at all" and disables every
+   *  column, matching the server's own D2 rule for a legacy/never-analyzed Output. */
+  schema?: OutputSchemaField[];
+  /** HEL-1027 design.md D4 — fired from the UNCONDITIONAL first half of `handleSort` (alongside
+   *  the existing local `toggleSort`), so it runs for every caller regardless of `canWrite`.
+   *  `undefined` (no server-side round trip to drive — `PanelDetailModal`,
+   *  `PanelFullscreenOverlay`) is a complete no-op via optional chaining. */
+  onSortChange?: (column: string, direction: SortDirection | null) => void;
+  /** HEL-1027 design.md D4 — same unconditional-first-half contract as `onSortChange` above. */
+  onFilterChange?: (filters: TableColumnFilters) => void;
+  /** HEL-1027 design.md D5/D7 (task 5.2) — the server's row count for the CURRENT sort/filter
+   *  (`PanelPaginationState.total`), used for the loaded-scope disclosure's count so it describes
+   *  the WHOLE Output rather than just the currently-loaded page. `undefined` (a caller with no
+   *  pagination at all, e.g. the panel detail modal) falls back to the loaded/filtered row count
+   *  actually in hand — the D7 "client-side-fallback-only" path. */
+  totalRowCount?: number;
+}
+
+/** HEL-1027 design.md D2/D3 (task 4.5) — `undefined` when `schema` itself is `undefined` (no
+ *  information at all, never disable); otherwise names the column as ineligible when it's either
+ *  absent from `schema` or present with a Content-category type. Mirrors the backend's
+ *  `OutputRowsQuery.resolveSort`/`resolveFilter` eligibility check exactly (same two conditions),
+ *  never inferred from row data — MISTAKES.md's row-0-inference trap. */
+function sortFilterDisabledReason(
+  schema: OutputSchemaField[] | undefined,
+  columnKey: string,
+): string | undefined {
+  if (schema === undefined) return undefined;
+  const field = schema.find((f) => f.name === columnKey);
+  if (!field) {
+    return "This column isn't part of the Output's declared schema, so it can't be sorted or filtered.";
+  }
+  if (!isStructuredFieldType(field.type)) {
+    return "This column's type doesn't support server-side sort or filter.";
+  }
+  return undefined;
 }
 
 /** Matches `DataGrid.deriveColumns`'s natural/numeric collator so a column set
@@ -234,6 +276,10 @@ export function TableRenderer({
   columnFormats,
   pinnedColumns,
   formatIntl,
+  schema,
+  onSortChange,
+  onFilterChange,
+  totalRowCount,
 }: TableRendererProps) {
   // Local-only column widths (no longer persisted — see the file's HEL-909
   // interface-parity note, now folded into the `outputId` doc comment).
@@ -255,14 +301,32 @@ export function TableRenderer({
   // is an ERROR under this repo's zero-warnings policy) since the
   // `paginationRows` and `rawRows` branches below derive DIFFERENT rows
   // (already-keyed records vs. positional arrays) and DIFFERENT columns.
-  const usingPagination = Boolean(paginationRows && paginationRows.length > 0);
+  // HEL-1027 design.md D10 (task 4.7 RED-FIRST finding) — distinguishes "a real fetch has
+  // landed, even with zero matching rows" (`paginationRows` is a real, possibly-empty array)
+  // from "no pagination fetch has happened at all yet" (`null`/`undefined` — e.g. before
+  // `usePanelData`'s own fetch resolves, a window `PanelContent`'s `isLoading` skeleton already
+  // covers upstream). The OLD `.length > 0` check conflated these two: a genuine server-side
+  // zero-match filtered result (this ticket) arrives as `paginationRows = []`, which that check
+  // treated identically to "never fetched", silently falling through to the bare unstyled
+  // skeleton below instead of `DataGrid`'s own `emptyText`/`emptyAction` empty state — this is
+  // the exact defect the D10 RED-FIRST proof (`PanelCard.filterEmptyState.test.tsx`) caught live.
+  const usingPagination = paginationRows !== null && paginationRows !== undefined;
   const usingRaw = !usingPagination && Boolean(rawRows && rawRows.length > 0);
 
   const naturalKeys = useMemo(() => {
-    if (usingPagination) return deriveKeys(paginationRows as Record<string, unknown>[]);
+    if (usingPagination) {
+      const rows = paginationRows as Record<string, unknown>[];
+      if (rows.length > 0) return deriveKeys(rows);
+      // Zero rows -- `deriveKeys` has nothing to infer column keys FROM (inferring a schema
+      // from row data is a MISTAKES.md trap in the first place). Fall back to the Output's own
+      // DECLARED schema (already resolved by the caller, no new fetch) so a zero-match filtered
+      // grid still shows real column headers and per-column filter inputs, rather than a
+      // columnless empty grid.
+      return (schema ?? []).map((f) => f.name);
+    }
     if (usingRaw) return headers ?? (rawRows as string[][])[0].map((_, i) => String(i + 1));
     return [];
-  }, [usingPagination, usingRaw, paginationRows, headers, rawRows]);
+  }, [usingPagination, usingRaw, paginationRows, headers, rawRows, schema]);
 
   const columns = useMemo<ColumnDef[]>(
     () => orderedColumns(naturalKeys, columnOrder),
@@ -294,15 +358,17 @@ export function TableRenderer({
     const specs = columnFormats ?? {};
     return columns.map((col) => {
       const spec = specs[col.key];
-      if (!spec) return col;
-      const formatter = formatters[col.key];
-      return {
-        ...col,
-        align: spec.type === "number" || spec.type === "currency" ? "right" : col.align,
-        render: (_row: Record<string, unknown>, value: unknown) => formatter(value),
-      };
+      const disabledReason = sortFilterDisabledReason(schema, col.key);
+      const base: ColumnDef = spec
+        ? {
+            ...col,
+            align: spec.type === "number" || spec.type === "currency" ? "right" : col.align,
+            render: (_row: Record<string, unknown>, value: unknown) => formatters[col.key](value),
+          }
+        : col;
+      return disabledReason ? { ...base, disabledReason } : base;
     });
-  }, [columns, columnFormats, formatters]);
+  }, [columns, columnFormats, formatters, schema]);
 
   // The `rawRows` branch previously rebuilt this record array on every
   // render (inline in JSX below the early return) — memoized here too, or
@@ -361,6 +427,18 @@ export function TableRenderer({
     sortColumns,
     defaultSort,
   );
+
+  // HEL-1027 design.md D4 (task 4.4) — bypasses the hook's own client-side reordering ONLY when a
+  // real server round trip exists to have done it correctly instead: `usingPagination` (a table
+  // fed paginated rows at all) AND `onSortChange` wired (the production `PanelCardBody` path,
+  // which re-fetches server-sorted on every sort click). In that case the rows arriving in
+  // `filteredRows` are ALREADY in the server's final order, and re-sorting them client-side would
+  // risk exactly the masking bug the skeptic flagged (a local `toggleSort` cycling to a direction
+  // the server was never asked for, silently disagreeing with what was actually fetched). Absent
+  // `onSortChange` (`PanelDetailModal`/`PanelFullscreenOverlay`, which have no pagination/server
+  // round trip at all — or a bare component test) keeps the ORIGINAL client-side resort exactly
+  // as before this ticket, since there is no server response to trust instead.
+  const displayRows = usingPagination && onSortChange != null ? filteredRows : sortedRows;
 
   // HEL-448 design D6: the debounced PATCH MUST flush (not cancel) on
   // unmount — closing the panel detail modal unmounts this component, which
@@ -506,11 +584,16 @@ export function TableRenderer({
   // the PATCH body is computed independently rather than read back.
   function handleSort(key: string) {
     toggleSort(key);
-    if (key === UNSORTED_SENTINEL || !canWrite) return;
     const next: SortState<string> =
       sortState.key !== key
         ? { key, direction: "asc" }
         : { key, direction: sortState.direction === "asc" ? "desc" : "asc" };
+    // HEL-1027 design.md D4 — unconditional: fires for every caller regardless of `canWrite`,
+    // mirroring `toggleSort` above (the local UI update) rather than the persist-write gate below
+    // — a non-owner shared-dashboard viewer's sort click still drives the server refetch even
+    // though it never reaches `persistColumnSort` (skeptic-design-2.md CR2's exact concern).
+    onSortChange?.(next.key, next.direction);
+    if (key === UNSORTED_SENTINEL || !canWrite) return;
     pendingSortRef.current = next;
     if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
     persistTimerRef.current = setTimeout(() => {
@@ -531,6 +614,9 @@ export function TableRenderer({
   // `handleSort`'s persist fires from a handler rather than an effect.
   function handleFilterChange(next: TableColumnFilters) {
     setFilters(next);
+    // HEL-1027 design.md D4 — unconditional, same rationale as `handleSort`'s `onSortChange`
+    // call above.
+    onFilterChange?.(next);
     if (!canWrite) return;
     const normalized = normalizeColumnFiltersForWrite(next);
     pendingFiltersRef.current = normalized;
@@ -596,7 +682,7 @@ export function TableRenderer({
   // auto-collapsed. If `DataGrid` ever needs `TableRenderer` to branch on
   // its expand state for this, that is a contract change to state HERE,
   // not a silent assumption to lose track of again.
-  const isEmpty = sortedRows.length === 0;
+  const isEmpty = displayRows.length === 0;
 
   // HEL-451 skeptic CR5 — 4.0g NAMED BOOLEANS, corrected. Task 4.0g's
   // original formula (`showSortNote = rowsTruncated && !filtering`) predates
@@ -611,11 +697,11 @@ export function TableRenderer({
   // `filtering` internally, per the 4.0f supersession) rather than only the
   // un-filtered one. Amended in design.md D4b/tasks.md 4.0g in the same
   // commit as this fix.
-  // `|| filtering`: the THIRD message state this note covers is
-  // `filtering && !rowsTruncated` (an unqualified, complete-answer match
-  // count) — task 4.3 requires the disclosure to disappear ENTIRELY only
-  // when neither is true (nothing loaded-scope-relevant to say).
-  const showLoadedScopeNote = rowsTruncated || filtering;
+  // HEL-1027 design.md D7 (task 5.1) — tightened from `rowsTruncated || filtering`:
+  // `LoadedScopeDisclosure`'s `!filtering` branch always returns `null` now (the removed HEL-448
+  // sort note), so a sort-only truncation (no filter active) has nothing left to show here —
+  // showing it would render an empty wrapper `<div>` below for no reason.
+  const showLoadedScopeNote = filtering;
   const showLoadMoreBtn = rowsTruncated && onLoadMore != null;
   // The wrapper is STILL derived from its children, per 4.0g's own
   // discipline — not simplified to `rowsTruncated` alone, even though that
@@ -625,13 +711,16 @@ export function TableRenderer({
   // replace it.
   const showTruncationWrapper = !isEmpty && (showLoadedScopeNote || showLoadMoreBtn);
 
-  const emptyText = !filtering
-    ? undefined
-    : rowsTruncated
-      ? showLoadMoreBtn
-        ? `No rows match your filter in the ${normalizedRows.length} rows loaded so far. More rows may match — load more to widen the search.`
-        : `No rows match your filter in the ${normalizedRows.length} rows loaded so far. More rows may match.`
-      : "No rows match your filter.";
+  // HEL-1027 design.md D10 (task 4.8) — collapses all three prior `filtering && isEmpty` cases
+  // (truncated-with-load-more, truncated-without-load-more, not-truncated) to the SAME simple
+  // message. The "rows loaded so far... load more to widen the search" wording is now FALSE:
+  // filtering is server-side, so `rowsTruncated`/`hasMore` already derive from the FILTERED total
+  // (D5) — a filtered total of `0` makes `hasMore` false for any non-negative offset/limit, so
+  // this branch is reachable only as a brief, transient artifact of a filter/sort change whose
+  // refetch hasn't landed yet, never a real "more of the Output might still match" state.
+  // `showLoadMoreBtn`'s existing gating is unchanged — it already correctly hides the "Load more"
+  // button in the true zero-total steady state; only this TEXT changes.
+  const emptyText = !filtering ? undefined : "No rows match your filter.";
 
   const emptyAction = !filtering ? undefined : (
     <div className="panel-content__filter-empty-actions">
@@ -671,7 +760,7 @@ export function TableRenderer({
       <div className="panel-content panel-content--table">
         <DataGrid
           variant="full"
-          rows={sortedRows}
+          rows={displayRows}
           columns={formattedColumns}
           columnWidths={widths}
           onColumnResize={handleColumnResize}
@@ -695,9 +784,16 @@ export function TableRenderer({
                 the owner, kept behind one removal seam as good structure,
                 not as a placeholder pending approval. */}
             <LoadedScopeDisclosure
-              rowsTruncated={rowsTruncated}
+              // HEL-1027 design.md D5/D7 (task 5.2) — once server-side filtering ships,
+              // `matchCount` is the Output-WIDE filtered total (`totalRowCount`), which is never
+              // "partial" relative to itself — always `rowsTruncated={false}` here so the
+              // component's own `filtering` branch collapses to the single "{total} results."
+              // wording (never "N of M loaded rows match", now-removed stale phrasing). Falls
+              // back to the currently-loaded/filtered count when `totalRowCount` is unavailable
+              // (a caller with no pagination — D7's client-side-fallback-only path).
+              rowsTruncated={totalRowCount === undefined && rowsTruncated}
               filtering={filtering}
-              matchCount={sortedRows.length}
+              matchCount={totalRowCount ?? filteredRows.length}
               loadedCount={normalizedRows.length}
             />
             {/* `rowsTruncated &&` is kept even though the dashboard grid

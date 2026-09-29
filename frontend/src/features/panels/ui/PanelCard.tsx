@@ -14,6 +14,7 @@ import { readChartConfig } from "../../pipelines/ui/outputEditor/outputConfigTyp
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import { useOutputMeta } from "../hooks/useOutputMeta";
+import { usePanelSortFilter } from "../hooks/usePanelSortFilter";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { IconButton } from "../../../shared/ui/IconButton";
@@ -106,6 +107,37 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   onDataPointSelect,
 }: PanelCardBodyProps) {
   const dispatch = useAppDispatch();
+  // HEL-1027 skeptic-final-3.md CR1 (cycle 4) — `PanelCardBody` is the actual shared ancestor of
+  // BOTH top-level callers (`PanelCard`'s desktop grid AND `MobilePanelStack`'s phone stack), so
+  // resolving the Output HERE — once — and threading it both to `usePanelSortFilter` (below) and
+  // down through `PanelContent`/`OutputPanelContent` (which now accepts it as a prop instead of
+  // fetching its own copy — see that component) gives every consumer the SAME single fetch,
+  // rather than two independently-resolving ones that could disagree for up to a render.
+  // Previously, `output` arrived here as an OPTIONAL prop that only `PanelCard` (desktop) ever
+  // supplied (from ITS OWN separate `useOutputMeta` call, kept for `chartInspectConfig`) —
+  // `MobileStackPanelBody` had no resolved Output to offer at all, so this hook's persisted-
+  // default correction effect could never seed on the phone-stack path (`seededOutputId` stayed
+  // `null` forever): a table panel with a persisted `columnFilters` default rendered in
+  // `MobilePanelStack` settled on the server's UNFILTERED total, deterministically, on every load
+  // — see `grid/MobilePanelStack.staleFetchSequencing.test.tsx` for the regression proof. This does NOT
+  // reintroduce the DIFFERENT, already-fixed `evaluation-1.md` CR1/CR2 race (a SECOND independent
+  // `useOutputMeta` call inside `MobileStackPanelBody` itself, used for cross-filtering, racing
+  // against `OutputPanelContent`'s own): that fix's invariant — cross-filtering reads `output`
+  // from exactly ONE fetch — is preserved here, since `OutputPanelContent` no longer performs its
+  // own fetch AT ALL once this component supplies one (see its own doc comment).
+  const { output, isLoading: isOutputMetaLoading } = useOutputMeta(outputId);
+  // HEL-1027 design.md D4/D10 (tasks 4.1-4.3, 4.7) — the authoritative sort/filter state driving
+  // this panel's server-side round trip; see the hook's own doc comment for the full contract.
+  const { filterActive, activeSort, activeFilter, handleSortChange, handleFilterChange } =
+    usePanelSortFilter(panel.id, outputId, output);
+  // HEL-1027 design.md D10 — suppresses `PanelContent`'s top-level `noData`/`neverMaterialized`
+  // short-circuit whenever a table filter is genuinely active, so a filter matching zero rows
+  // across the whole Output falls through to `TableRenderer`'s own correct
+  // "No rows match your filter." + "Clear filters" empty state instead of the generic
+  // "No data available" one. Never affects a non-table panel: `filterActive` can only be true
+  // once `TableRenderer`'s own filter UI has set it (D4), which only exists for `table`-kind
+  // Outputs in the first place.
+  const effectiveNoData = noData && !filterActive;
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
   // evaluation-1.md CR1 (cycle 2) — this selector's raw `paginationEntry.rows`
   // is passed straight through to `PanelContent`'s `paginationRows` prop
@@ -135,6 +167,13 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   }, [refresh]);
   usePanelRunRefresh(outputId, handleFanoutRefresh);
 
+  // HEL-1027 skeptic-final-1.md follow-on finding — "Load more" (page > 0) must carry the SAME
+  // active sort/filter the current page-0 window was fetched under, or the appended page would
+  // silently revert to the raw/unfiltered default (a page-1 fetch with no `sort`/`filter` at all
+  // does not restrict itself to the same rows the just-sorted/filtered page 0 came from) — a
+  // direct AC #2 ("no duplicated or dropped rows across pages") violation for a sorted/filtered
+  // table specifically. `activeSort`/`activeFilter` come from `usePanelSortFilter`, the same
+  // authoritative state a sort/filter CHANGE already uses.
   const handleLoadMore = useCallback(() => {
     if (paginationEntry && !paginationEntry.isLoadingMore && outputId) {
       void dispatch(
@@ -143,10 +182,14 @@ export const PanelCardBody = React.memo(function PanelCardBody({
           outputId,
           page: paginationEntry.currentPage + 1,
           pageSize: 50,
+          sort: activeSort
+            ? { column: activeSort.key, direction: activeSort.direction }
+            : undefined,
+          filter: activeFilter ?? undefined,
         }),
       );
     }
-  }, [dispatch, panel.id, outputId, paginationEntry]);
+  }, [dispatch, panel.id, outputId, paginationEntry, activeSort, activeFilter]);
 
   // All hooks are called unconditionally above; the early return is safe here.
   // Body is hidden only during active drag — title and handle remain visible.
@@ -165,7 +208,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
         errorKind={errorKind}
         onRetry={refresh}
         retryVariant="icon-only"
-        noData={noData}
+        noData={effectiveNoData}
         neverMaterialized={neverMaterialized}
         paginationRows={paginationEntry?.rows ?? null}
         paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
@@ -179,6 +222,18 @@ export const PanelCardBody = React.memo(function PanelCardBody({
         chartAggregate={chartAggregate}
         compact={compact}
         onDataPointSelect={onDataPointSelect}
+        onSortChange={handleSortChange}
+        onFilterChange={handleFilterChange}
+        // HEL-1027 design.md D5/D7 — the server's row count for the CURRENT sort/filter (D5),
+        // threaded through to `TableRenderer`'s loaded-scope disclosure so a filtered count
+        // describes the WHOLE Output, never just the currently-loaded page (task 5.2).
+        totalRowCount={paginationEntry?.total}
+        // HEL-1027 skeptic-final-3.md CR1 (cycle 4) — this component's OWN `useOutputMeta`
+        // result (above), so `OutputPanelContent` renders from the SAME fetch this component's
+        // `usePanelSortFilter` already seeded from, instead of independently fetching its own
+        // copy. See `PanelContentProps.output`'s own doc comment for the full contract.
+        output={output}
+        outputMetaLoading={isOutputMetaLoading}
       />
       {/* HEL-1094 (design.md D5) — visually-hidden per-panel announcement region for an
           output-bound panel, reusing theme.css's canonical `.sr-only` clip (same recipe as
