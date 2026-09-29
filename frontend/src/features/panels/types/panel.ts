@@ -129,8 +129,41 @@ export interface ChartTypeOptionsMap {
 // Placement config for an output-kind panel. Mirrors backend
 // `domain/panels/OutputPanel.scala`'s `OutputPanelConfig`.
 
+// HEL-1189 design.md D2 — a single author-configured control on an `output` panel. `id` is
+// CLIENT-generated (`crypto.randomUUID()`) at "Add control" time — the server persists it
+// verbatim, never mints or rewrites it. `defaultValue`'s shape is fixed per `kind`: a single
+// string for `text`/`dropdown`; `{min, max}` (each nullable) for `numeric-range`; `{from, to}`
+// (each nullable, ISO-8601 date strings) for `date-range`.
+export type OutputControlKind = "text" | "dropdown" | "numeric-range" | "date-range";
+
+export interface OutputControlNumericRangeValue {
+  min: number | null;
+  max: number | null;
+}
+
+export interface OutputControlDateRangeValue {
+  from: string | null;
+  to: string | null;
+}
+
+export type OutputControlDefaultValue =
+  | string
+  | OutputControlNumericRangeValue
+  | OutputControlDateRangeValue;
+
+export interface OutputControlSpec {
+  id: string;
+  kind: OutputControlKind;
+  column: string;
+  label: string;
+  defaultValue?: OutputControlDefaultValue;
+}
+
 export interface OutputPanelConfig {
   outputId: string;
+  /** Author-configured date-range/dropdown/numeric-range/text controls that parameterize the
+   *  read (HEL-1189, leaf 2 of HEL-915). Absent/empty on a pre-existing panel. */
+  controls: OutputControlSpec[];
 }
 
 export interface TextPanelConfig {
@@ -280,6 +313,7 @@ export type PanelType = PanelKind;
 
 export const emptyOutputConfig = (): OutputPanelConfig => ({
   outputId: "",
+  controls: [],
 });
 
 export const emptyTextConfig = (): TextPanelConfig => ({

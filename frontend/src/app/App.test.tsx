@@ -331,7 +331,7 @@ describe("App", () => {
                 lastUpdated: "2026-03-14T12:30:00Z",
               },
               appearance: defaultPanelAppearance,
-              config: { outputId: "output-1" },
+              config: { outputId: "output-1", controls: [] },
             },
           ]
         : [
@@ -346,7 +346,7 @@ describe("App", () => {
                 lastUpdated: "2026-03-14T13:30:00Z",
               },
               appearance: defaultPanelAppearance,
-              config: { outputId: "output-2" },
+              config: { outputId: "output-2", controls: [] },
             },
           ],
     );

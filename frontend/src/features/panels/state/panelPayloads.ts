@@ -64,7 +64,9 @@ function seedCreateConfig(
   }
   const base = emptyConfigForKind(type);
   if (type === "output") {
-    return { outputId: outputId ?? "" };
+    // `controls` is never seeded at create time — an author adds them later via
+    // `OutputControlsEditor`, so a freshly-created output panel always starts with none.
+    return { outputId: outputId ?? "", controls: [] };
   }
   return base;
 }

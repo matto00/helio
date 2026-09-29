@@ -19,6 +19,7 @@ import {
   updatePanelForm as updatePanelFormRequest,
   updatePanelImage as updatePanelImageRequest,
   updatePanelMarkdownContent as updatePanelMarkdownContentRequest,
+  updatePanelOutputControls as updatePanelOutputControlsRequest,
   updatePanelsBatch as updatePanelsBatchRequest,
   updatePanelTextContent as updatePanelTextContentRequest,
   updatePanelTitle as updatePanelTitleRequest,
@@ -37,6 +38,7 @@ import type {
   DividerOrientation,
   FormPanelConfig,
   ImageFit,
+  OutputControlSpec,
   Panel,
   PanelAppearance,
   PanelConfig,
@@ -297,6 +299,19 @@ export const updatePanelForm = createAsyncThunk<
     return await updatePanelFormRequest(panelId, config);
   } catch {
     return rejectWithValue("Failed to save form settings.");
+  }
+});
+
+/** PATCH an `output` panel's `controls` list from `OutputControlsEditor`'s Save. */
+export const updatePanelOutputControls = createAsyncThunk<
+  Panel,
+  { panelId: string; controls: OutputControlSpec[] },
+  { rejectValue: string }
+>("panels/updatePanelOutputControls", async ({ panelId, controls }, { rejectWithValue }) => {
+  try {
+    return await updatePanelOutputControlsRequest(panelId, controls);
+  } catch {
+    return rejectWithValue("Failed to save control settings.");
   }
 });
 

@@ -13,6 +13,7 @@ import {
   updatePanelForm,
   updatePanelImage,
   updatePanelMarkdownContent,
+  updatePanelOutputControls,
   updatePanelsBatch,
   updatePanelTextContent,
   updatePanelTitle,
@@ -263,6 +264,11 @@ const panelsSlice = createSlice({
           panel.id === action.payload.id ? action.payload : panel,
         );
       })
+      .addCase(updatePanelOutputControls.fulfilled, (state, action) => {
+        state.items = state.items.map((panel) =>
+          panel.id === action.payload.id ? action.payload : panel,
+        );
+      })
       .addCase(updatePanelsBatch.fulfilled, (state, action) => {
         const updatedById = new Map(action.payload.panels.map((p) => [p.id, p]));
         state.items = state.items.map((panel) => updatedById.get(panel.id) ?? panel);
@@ -374,6 +380,7 @@ export {
   updatePanelForm,
   updatePanelImage,
   updatePanelMarkdownContent,
+  updatePanelOutputControls,
   updatePanelsBatch,
   updatePanelTextContent,
   updatePanelTitle,

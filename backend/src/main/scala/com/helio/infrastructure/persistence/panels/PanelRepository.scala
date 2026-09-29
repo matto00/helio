@@ -322,6 +322,11 @@ object PanelRepository {
   // follow-up — a config column present on `PanelRow` but absent from THIS
   // tuple makes `replace()`/batch config-patch writes silently keep the OLD
   // value while returning the new one in the response body (C4).
+  // HEL-1189: `output_controls` (OutputPanel's second config column, V112 JSONB, nullable) folded
+  // in here too, same discipline as `output_id`'s HEL-909 follow-up and `form_config`'s HEL-1083
+  // entry above -- a config column present on `PanelRow` but absent from THIS tuple makes
+  // `replace()`/batch config-patch writes silently keep the OLD value while returning the new one
+  // in the response body (C4).
   def configColumnsOf(r: PanelTable): (
       Rep[Option[String]],
       Rep[Option[String]],
@@ -330,15 +335,17 @@ object PanelRepository {
       Rep[Option[String]],
       Rep[Option[String]],
       Rep[Option[String]],
+      Rep[Option[String]],
       Rep[Option[String]]
   ) =
-    (r.content, r.imageUrl, r.imageFit, r.dividerWeight, r.dividerOrientation, r.dividerColor, r.outputId, r.formConfig)
+    (r.content, r.imageUrl, r.imageFit, r.dividerWeight, r.dividerOrientation, r.dividerColor, r.outputId, r.formConfig, r.outputControls)
 
   def configColumnValuesOf(row: PanelRow): (
       Option[String],
       Option[String],
       Option[String],
       Option[Int],
+      Option[String],
       Option[String],
       Option[String],
       Option[String],
@@ -352,7 +359,8 @@ object PanelRepository {
       row.dividerOrientation,
       row.dividerColor,
       row.outputId,
-      row.formConfig
+      row.formConfig,
+      row.outputControls
     )
 
   case class PanelRow(
@@ -381,7 +389,12 @@ object PanelRepository {
       kind: String,
       // HEL-1083: `FormPanel`'s sole config column (V108 `panels.form_config`
       // JSONB, nullable) — set only for `kind = 'form'` rows.
-      formConfig: Option[String] = None
+      formConfig: Option[String] = None,
+      // HEL-1189: `OutputPanel`'s second config column (V112 `panels.output_controls` JSONB,
+      // nullable) — the author-configured control list (date-range/dropdown/numeric-range/text),
+      // set only for `kind = 'output'` rows that carry at least one control; `None` (including
+      // every pre-existing panel) decodes to an empty list.
+      outputControls: Option[String] = None
   )
 
   class PanelTable(tag: Tag) extends Table[PanelRow](tag, "panels") {
@@ -403,10 +416,11 @@ object PanelRepository {
     def outputId            = column[Option[String]]("output_id")
     def kind                = column[String]("kind")
     def formConfig          = column[Option[String]]("form_config")
+    def outputControls      = column[Option[String]]("output_controls")
 
     def * =
       (id :: dashboardId :: title :: createdBy :: createdAt :: lastUpdated :: appearance ::
         ownerId :: content :: imageUrl :: imageFit :: dividerOrientation :: dividerWeight ::
-        dividerColor :: imageCaption :: outputId :: kind :: formConfig :: HNil).mapTo[PanelRow]
+        dividerColor :: imageCaption :: outputId :: kind :: formConfig :: outputControls :: HNil).mapTo[PanelRow]
   }
 }

@@ -72,6 +72,7 @@ export function makeOutputPanel(
 ): OutputPanel {
   const config: OutputPanelConfig = {
     outputId: overrides.config?.outputId ?? "output-1",
+    controls: overrides.config?.controls ?? [],
   };
   return applyBase<OutputPanel>(overrides, "output", config);
 }

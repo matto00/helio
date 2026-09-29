@@ -73,7 +73,8 @@ object PanelRowMapper extends PanelProtocol {
       // panel's own `kind` string, matching the DB CHECK constraint's
       // allow-list exactly.
       kind               = p.kind,
-      formConfig         = None
+      formConfig         = None,
+      outputControls     = None
     )
 
     p match {
@@ -81,20 +82,46 @@ object PanelRowMapper extends PanelProtocol {
       case m: MarkdownPanel   => base.copy(content = optString(m.config.content))
       case i: ImagePanel      => base.copy(imageUrl = optString(i.config.imageUrl), imageFit = Some(i.config.imageFit), imageCaption = i.config.caption)
       case d: DividerPanel    => base.copy(dividerOrientation = Some(d.config.orientation), dividerWeight = d.config.weight, dividerColor = d.config.color)
-      case op: OutputPanel    => base.copy(outputId = optString(op.config.outputId.value))
+      case op: OutputPanel    =>
+        base.copy(
+          outputId       = optString(op.config.outputId.value),
+          // HEL-1189: kept NULL for the common "no controls" case rather than persisting `"[]"` —
+          // matches the migration's "NULL/absent decodes to empty list" plan and leaves every panel
+          // untouched by this ticket's own column unchanged.
+          outputControls = if (op.config.controls.isEmpty) None else Some(JsArray(op.config.controls.map(_.toJson)).compactPrint)
+        )
       case f: FormPanel       => base.copy(formConfig = Some(f.config.toJson.compactPrint))
       case _                  => base
     }
   }
 
 
-  // HEL-904 task 3.6: rebuild an OutputPanelConfig from `output_id` — the
-  // sole field an OutputPanel placement carries. Tolerant read path
-  // (matches this mapper's philosophy elsewhere): a row with `kind =
-  // 'output'` but a NULL `output_id` decodes to `OutputPanelConfig.Empty`
+  // HEL-904 task 3.6 / HEL-1189: rebuild an OutputPanelConfig from `output_id` +
+  // `output_controls`. Tolerant read path (matches this mapper's philosophy elsewhere): a row with
+  // `kind = 'output'` but a NULL `output_id` decodes `outputId` to the empty-string sentinel
   // rather than throwing.
   private def outputConfig(row: PanelRepository.PanelRow): OutputPanelConfig =
-    OutputPanelConfig(outputId = row.outputId.fold(OutputId(""))(OutputId(_)))
+    OutputPanelConfig(outputId = row.outputId.fold(OutputId(""))(OutputId(_)), controls = outputControlsOf(row))
+
+  // D9 layer iii / C11 mirror (see `formConfig` below): the only tolerant caller of
+  // `OutputControlSpec`'s otherwise-strict decode. A row written by a later (or rolled-back)
+  // version that carries an attribute this build doesn't recognize must stay READABLE — every
+  // dashboard read funnels through this mapper, so a 500 here would take down the whole dashboard
+  // read for one malformed panel. Falls back to an empty controls list with a logged warning
+  // naming the panel id, never a silent decode-as-another-kind.
+  private def outputControlsOf(row: PanelRepository.PanelRow): Vector[OutputControlSpec] =
+    row.outputControls match {
+      case None       => Vector.empty
+      case Some(json) =>
+        try json.parseJson match {
+          case JsArray(items) => items.map(_.convertTo[OutputControlSpec])
+          case _               => Vector.empty
+        } catch {
+          case e: DeserializationException =>
+            log.warn(s"panel ${row.id}: output_controls failed to decode (${e.getMessage}); falling back to empty")
+            Vector.empty
+        }
+    }
 
   private def textConfig(row: PanelRepository.PanelRow): TextPanelConfig =
     TextPanelConfig(content = row.content.getOrElse(""))

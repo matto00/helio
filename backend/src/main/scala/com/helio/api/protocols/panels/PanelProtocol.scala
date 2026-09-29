@@ -137,11 +137,20 @@ object PanelResponse {
    *  config payload as the `config` field.
    *
    *  `dataAsOf` (HEL-234): every call site now passes `None` (see the class
-   *  doc comment above). */
+   *  doc comment above).
+   *
+   *  `orphanedControlIds` (HEL-1189 design.md D5): `None` (every existing call site, unchanged
+   *  behavior) emits `config` via the plain `PanelConfigCodec.encodeConfig` — no `orphaned` key on
+   *  any control, exactly as before this ticket. `Some(ids)` — passed only by the read path that
+   *  has actually computed live orphan status against the Output's CURRENT schema/contract
+   *  (`PublicDashboardRoutes`'s panel-list route, `resolveOrphanedControlIds`) — instead emits
+   *  `OutputPanelConfig.responseJson`, which bakes `orphaned: Boolean` onto every control. Ignored
+   *  for every non-`OutputPanel` kind. */
   def fromDomain(
       panel: Panel,
       dataAsOf: Option[String] = None,
-      layout: Option[PanelLayoutResponse] = None
+      layout: Option[PanelLayoutResponse] = None,
+      orphanedControlIds: Option[Set[String]] = None
   ): PanelResponse =
     PanelResponse(
       id          = panel.id.value,
@@ -151,10 +160,16 @@ object PanelResponse {
       meta        = ResourceMetaResponse.fromDomain(panel.meta),
       appearance  = PanelAppearanceResponse.fromDomain(panel.appearance),
       ownerId     = panel.ownerId.value,
-      config      = PanelConfigCodec.encodeConfig(panel),
+      config      = configJsonFor(panel, orphanedControlIds),
       dataAsOf    = dataAsOf,
       layout      = layout
     )
+
+  private def configJsonFor(panel: Panel, orphanedControlIds: Option[Set[String]]): JsValue =
+    (panel, orphanedControlIds) match {
+      case (op: OutputPanel, Some(orphanedIds)) => OutputPanelConfig.responseJson(op.config, orphanedIds)
+      case _                                    => PanelConfigCodec.encodeConfig(panel)
+    }
 }
 
 object PanelAppearanceResponse {

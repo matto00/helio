@@ -176,7 +176,7 @@ describe("OutputPicker", () => {
       dashboardId: "dashboard-1",
       title: "Throughput",
       type: "output" as const,
-      config: { outputId: "output-1" },
+      config: { outputId: "output-1", controls: [] },
       meta: defaultMeta,
       appearance: { background: "transparent", color: "inherit", transparency: 0 },
     };
@@ -231,7 +231,7 @@ describe("OutputPicker", () => {
       dashboardId: "dashboard-1",
       title: "Signups",
       type: "output",
-      config: { outputId: "output-2" },
+      config: { outputId: "output-2", controls: [] },
       meta: defaultMeta,
       appearance: { background: "transparent", color: "inherit", transparency: 0 },
     });
@@ -419,7 +419,7 @@ describe("OutputPicker", () => {
       dashboardId: "dashboard-1",
       title: "Panel",
       type: "output",
-      config: { outputId: "output-1" },
+      config: { outputId: "output-1", controls: [] },
       meta: defaultMeta,
       appearance: { background: "transparent", color: "inherit", transparency: 0 },
     });

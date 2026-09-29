@@ -18,12 +18,12 @@ describe("buildCreatePanelBody — output kind", () => {
     });
 
     expect(body.type).toBe("output");
-    expect(body.config).toEqual({ outputId: "out-1" });
+    expect(body.config).toEqual({ outputId: "out-1", controls: [] });
   });
 
   it("defaults outputId to empty string when none is supplied", () => {
     const body = buildCreatePanelBody({ dashboardId: "d1", type: "output" });
-    expect(body.config).toEqual({ outputId: "" });
+    expect(body.config).toEqual({ outputId: "", controls: [] });
   });
 
   it("omits title when not supplied", () => {
@@ -122,6 +122,6 @@ describe("buildCreatePanelBody — form kind", () => {
       outputId: "out-1",
       config,
     });
-    expect(body.config).toEqual({ outputId: "out-1" });
+    expect(body.config).toEqual({ outputId: "out-1", controls: [] });
   });
 });

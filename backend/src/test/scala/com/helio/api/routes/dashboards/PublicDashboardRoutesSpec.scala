@@ -3,6 +3,7 @@ package com.helio.api.routes.dashboards
 import com.helio.api.JsonProtocols
 import com.helio.api.http.{AclDirective, ResourceType => AclResourceType, ResourceTypeRegistry}
 import com.helio.api.protocols.panels.{PanelResponse, PanelsResponse}
+import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
@@ -139,6 +140,31 @@ class PublicDashboardRoutesSpec
     panelId
   }
 
+  /** HEL-1189 design.md D5 — an Output panel seeded WITH a `controls` list, bound to `column` on
+   *  an Output whose declared `schema` starts as `[{column: TimestampType}]` (eligible for the
+   *  seeded date-range control). Returns the Output's id so a test can drift its schema via
+   *  `outputRepo.updateSchemaInternal` afterward. */
+  private def seedOutputPanelWithDateRangeControl(dashId: String, pipelineId: PipelineId, column: String): (String, OutputId) = {
+    val output = await(outputRepo.insertInternal(
+      pipelineId, None, owner.id, "Controls Output", OutputKind.Table,
+      schema = Vector(SchemaField(column, "timestamp")),
+      explicitRootId = None
+    ))
+    import PostgresProfile.api._
+    val panelId = UUID.randomUUID().toString
+    val controlsJson = s"""[{"id":"c1","kind":"date-range","column":"$column","label":"Date"}]"""
+    await(db.run(
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, output_id, output_controls, owner_id)
+               VALUES ($panelId, $dashId, 'Controls Panel', $ownerId, now(), now(),
+                       '{"background":"transparent","color":"inherit","transparency":0.0}',
+                       'output', ${output.id.value}, $controlsJson::jsonb, ${ownerId}::uuid)"""
+    ))
+    (panelId, output.id)
+  }
+
+  private def firstControlOrphaned(items: Vector[PanelResponse]): Boolean =
+    items.head.config.asJsObject.fields("controls").convertTo[Vector[JsObject]].head.fields("orphaned").convertTo[Boolean]
+
   "GET /dashboards/:id/panels" should {
     "return dataAsOf = the bound pipeline's lastRunAt for an Output-backed placement" in {
       val dashId       = seedDashboardWithPublicGrant()
@@ -188,6 +214,105 @@ class PublicDashboardRoutesSpec
         status shouldBe StatusCodes.OK
         val items = responseAs[JsObject].fields("items").convertTo[Vector[PanelResponse]]
         items.head.dataAsOf shouldBe None
+      }
+    }
+
+    // HEL-1189 design.md D5 / evaluation-1.md CR1 — the panel-READ path (this route) is where
+    // `output-panel-placement`'s Requirement 3 ("reported as orphaned wherever the panel's
+    // controls are read") is actually enforced. Both AC drift scenarios covered: column removed
+    // from the schema entirely, and column retyped so it no longer fits the control's kind.
+    "reports orphaned: false for a control whose bound column is still eligible" in {
+      val dashId   = seedDashboardWithPublicGrant()
+      val pipeline = await(pipelineRepo.create(
+        "controls-pipe",
+        Vector(await(dataSourceRepo.insert(DatasetSource(DataSourceId(UUID.randomUUID().toString), "src-controls", owner.id, Instant.now(), Instant.now()), owner)).id),
+        owner
+      )).getOrElse(throw new IllegalStateException("fixture: pipeline create failed"))
+      seedOutputPanelWithDateRangeControl(dashId, PipelineId(pipeline.id), "created_at")
+
+      Get(s"/dashboards/$dashId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsObject].fields("items").convertTo[Vector[PanelResponse]]
+        firstControlOrphaned(items) shouldBe false
+      }
+    }
+
+    "reports orphaned: true after the bound column is removed from the Output's schema" in {
+      val dashId   = seedDashboardWithPublicGrant()
+      val pipeline = await(pipelineRepo.create(
+        "controls-pipe-removed",
+        Vector(await(dataSourceRepo.insert(DatasetSource(DataSourceId(UUID.randomUUID().toString), "src-removed", owner.id, Instant.now(), Instant.now()), owner)).id),
+        owner
+      )).getOrElse(throw new IllegalStateException("fixture: pipeline create failed"))
+      val (_, outputId) = seedOutputPanelWithDateRangeControl(dashId, PipelineId(pipeline.id), "created_at")
+
+      // Schema drift: the column the control was bound to is dropped from the Output entirely.
+      await(outputRepo.updateSchemaInternal(outputId, Vector.empty))
+
+      Get(s"/dashboards/$dashId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsObject].fields("items").convertTo[Vector[PanelResponse]]
+        firstControlOrphaned(items) shouldBe true
+      }
+    }
+
+    "reports orphaned: true after the bound column is retyped to no longer fit the control's kind" in {
+      val dashId   = seedDashboardWithPublicGrant()
+      val pipeline = await(pipelineRepo.create(
+        "controls-pipe-retyped",
+        Vector(await(dataSourceRepo.insert(DatasetSource(DataSourceId(UUID.randomUUID().toString), "src-retyped", owner.id, Instant.now(), Instant.now()), owner)).id),
+        owner
+      )).getOrElse(throw new IllegalStateException("fixture: pipeline create failed"))
+      val (_, outputId) = seedOutputPanelWithDateRangeControl(dashId, PipelineId(pipeline.id), "created_at")
+
+      // Schema drift: "created_at" survives but is no longer a timestamp column, so the
+      // date-range control (Gte+Lte AND type = timestamp, design.md D3) no longer fits it.
+      await(outputRepo.updateSchemaInternal(outputId, Vector(SchemaField("created_at", "string"))))
+
+      Get(s"/dashboards/$dashId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsObject].fields("items").convertTo[Vector[PanelResponse]]
+        firstControlOrphaned(items) shouldBe true
+      }
+    }
+
+    // evaluation-1.md CR2 — genuine end-to-end coverage of the refactored `dropdown` branch
+    // (`OutputControlsValidator.resolveOperators` -> a REAL `eqInEligibleColumn` cardinality scan
+    // -> `OutputControlEligibility.kindsFor`), not just the pure-function `kindsFor` coverage
+    // `OutputControlEligibilitySpec` already has. Low real cardinality (2 distinct values, well
+    // under the 50 cap) on a real `node_snapshots` row set -> eq/in-eligible -> not orphaned.
+    "reports orphaned: false for a dropdown control whose real cardinality is low (real eq/in scan, not just schema/type)" in {
+      val dashId   = seedDashboardWithPublicGrant()
+      val pipeline = await(pipelineRepo.create(
+        "controls-pipe-dropdown",
+        Vector(await(dataSourceRepo.insert(DatasetSource(DataSourceId(UUID.randomUUID().toString), "src-dropdown", owner.id, Instant.now(), Instant.now()), owner)).id),
+        owner
+      )).getOrElse(throw new IllegalStateException("fixture: pipeline create failed"))
+      val pipelineId = PipelineId(pipeline.id)
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "Dropdown Output", OutputKind.Table,
+        schema = Vector(SchemaField("region", "string")),
+        explicitRootId = None
+      ))
+      import PostgresProfile.api._
+      val panelId = UUID.randomUUID().toString
+      await(db.run(
+        sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, output_id, output_controls, owner_id)
+                 VALUES ($panelId, $dashId, 'Dropdown Panel', $ownerId, now(), now(),
+                         '{"background":"transparent","color":"inherit","transparency":0.0}',
+                         'output', ${output.id.value},
+                         '[{"id":"c1","kind":"dropdown","column":"region","label":"Region"}]'::jsonb, ${ownerId}::uuid)"""
+      ))
+      await(nodeSnapshotRepo.overwriteRows(
+        pipelineId.value, None,
+        Seq(JsObject("region" -> JsString("east")), JsObject("region" -> JsString("west"))),
+        explicitRootId = None
+      ))
+
+      Get(s"/dashboards/$dashId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsObject].fields("items").convertTo[Vector[PanelResponse]]
+        firstControlOrphaned(items) shouldBe false
       }
     }
   }

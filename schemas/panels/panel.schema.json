@@ -120,10 +120,45 @@
     "OutputConfig": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Config for the `output` panel kind (HEL-904 task 3.6) \u2014 a placement of one Output. Everything the five retired bound configs (metric/chart/table/collection/timeline) used to carry (fieldMapping, aggregation, chartOptions, columnWidths/density/columnOrder, timelineOptions, metricId, label/unit) now lives on the Output itself (see schemas/outputs/), not on the placement. Tolerant read: an absent/empty outputId decodes to the empty-string sentinel rather than a validation error; the server still 400s an outputId-less output panel at create/update time.",
+      "description": "Config for the `output` panel kind (HEL-904 task 3.6) \u2014 a placement of one Output. Everything the five retired bound configs (metric/chart/table/collection/timeline) used to carry (fieldMapping, aggregation, chartOptions, columnWidths/density/columnOrder, timelineOptions, metricId, label/unit) now lives on the Output itself (see schemas/outputs/), not on the placement. Tolerant read: an absent/empty outputId decodes to the empty-string sentinel rather than a validation error; the server still 400s an outputId-less output panel at create/update time. `controls` (HEL-1189) is the author-configured date-range/dropdown/numeric-range/text control list that parameterizes the read (leaf 2 of HEL-915); absent/empty decodes to an empty list.",
       "properties": {
         "outputId": {
           "type": "string"
+        },
+        "controls": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OutputControlConfig"
+          }
+        }
+      }
+    },
+    "OutputControlConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "column", "label"],
+      "description": "One author-configured control on an `output` panel (HEL-1189 design.md D2). `id` is client-generated (UUID v4) at add time \u2014 the server persists it verbatim, never mints or rewrites it. `defaultValue`'s JSON shape is fixed per `kind`: a single string for `text`/`dropdown`; `{\"min\", \"max\"}` (each nullable) for `numeric-range`; `{\"from\", \"to\"}` (each nullable, ISO-8601 date strings) for `date-range`. Never server-validated, like FormFieldConfig.initialValue.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["date-range", "dropdown", "numeric-range", "text"]
+        },
+        "column": {
+          "type": "string",
+          "description": "The bound Output schema column name. Validated against HEL-1188's filter-capability contract only when this entry is new or its column/kind changed from the persisted entry with the same id (design.md D4) \u2014 an untouched, currently-orphaned entry is never re-validated on an unrelated save."
+        },
+        "label": {
+          "type": "string"
+        },
+        "defaultValue": {
+          "description": "Author-supplied default value, shape fixed per kind (see above). Omitted entirely when unset."
+        },
+        "orphaned": {
+          "type": "boolean",
+          "description": "HEL-1189 design.md D5 — read-time-only classification: true iff this control's bound `column` is absent from the Output's CURRENT declared schema, or present but no longer eligible for this control's `kind` per the current filter-capability contract. Never persisted, never accepted on write (a create/update patch carrying this key is rejected — OutputControlConfig's closed key set does not include it). Present only on responses from the panel-READ path (`GET /api/dashboards/:id/panels`) that has actually computed live orphan status; omitted entirely from create/update echo responses and every other OutputControlConfig producer."
         }
       }
     },

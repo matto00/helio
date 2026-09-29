@@ -77,6 +77,53 @@ class PanelRowMapperSpec extends AnyWordSpec with Matchers {
       PanelRowMapper.rowToDomain(blankRow).asInstanceOf[ImagePanel].config.caption shouldBe None
     }
 
+    // HEL-1189 tasks.md 1.4 — round-trips `output_controls` through domainToRow/rowToDomain, the
+    // same codec layer `PanelRepository.insert`/`.replace`/`.findByIdInternal` funnel every write
+    // and read through (mirrors this file's existing form_config/image_caption round-trip style).
+    "round-trip an Output panel's controls through domainToRow/rowToDomain" in {
+      val controls = Vector(
+        OutputControlSpec("c1", "date-range", "created_at", "Date"),
+        OutputControlSpec("c2", "dropdown", "region", "Region", Some(JsString("west")))
+      )
+      val panel = OutputPanel(id, dashboardId, "t", meta, appearance, owner, OutputPanelConfig(OutputId("o-1"), controls))
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.kind shouldBe OutputPanel.Kind
+      row.outputControls should not be None
+
+      val decoded = PanelRowMapper.rowToDomain(row).asInstanceOf[OutputPanel]
+      decoded.config.controls shouldBe controls
+      decoded.config.outputId shouldBe OutputId("o-1")
+    }
+
+    "write NULL output_controls for an Output panel with no controls; NULL reads back as an empty list" in {
+      val panel = OutputPanel(id, dashboardId, "t", meta, appearance, owner, OutputPanelConfig(OutputId("o-1")))
+
+      val row = PanelRowMapper.domainToRow(panel)
+      row.outputControls shouldBe None
+
+      PanelRowMapper.rowToDomain(row).asInstanceOf[OutputPanel].config.controls shouldBe Vector.empty
+    }
+
+    // D9 layer iii / C11 mirror of form_config's tolerant-read test above — a stored
+    // output_controls carrying an unrecognized attribute (e.g. written by a later version) must
+    // stay READABLE, never 500.
+    "decode an unrecognized stored output_controls attribute as an empty list, never throwing" in {
+      val malformed = JsArray(JsObject(
+        "id"     -> JsString("c1"),
+        "kind"   -> JsString("text"),
+        "column" -> JsString("name"),
+        "label"  -> JsString("Name"),
+        "bogus"  -> JsString("nope")
+      )).compactPrint
+
+      val row = PanelRowMapper.domainToRow(
+        OutputPanel(id, dashboardId, "t", meta, appearance, owner, OutputPanelConfig(OutputId("o-1")))
+      ).copy(outputControls = Some(malformed))
+
+      noException should be thrownBy PanelRowMapper.rowToDomain(row)
+      PanelRowMapper.rowToDomain(row).asInstanceOf[OutputPanel].config.controls shouldBe Vector.empty
+    }
   }
 
   // HEL-1083: `rowToDomain` ends in `case _ => OutputPanel(...)` — a `form`
