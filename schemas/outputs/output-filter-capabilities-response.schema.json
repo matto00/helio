@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/output-filter-capabilities-response.schema.json",
+  "title": "OutputFilterCapabilitiesResponse",
+  "description": "Response for GET /api/outputs/:id/filter-capabilities (HEL-1188). For every column present in the Output's declared schema with a Structured DataFieldType, lists exactly the operators GET /api/outputs/:id/rows's `filter.ops` will currently accept for that column: `contains` always; `gte`/`lte` for integer/float/timestamp columns; `eq`/`in` only when the column's actual distinct-value count in this Output's own node_snapshots data is at or below the capability contract's cardinality bound (see openspec/specs/output-routes-api/spec.md). A column absent from the schema, or present with a Content-category type (string-body/binary-ref), never appears in this response. Two Outputs sharing identical column types MAY report different operators for the same column name when their underlying data's cardinality differs -- this contract is derived from the Output's own data, never from column type alone.",
+  "type": "object",
+  "properties": {
+    "columns": {
+      "type": "array",
+      "description": "One entry per eligible column -- a column with no eligible operators at all is omitted from this array entirely, never listed with an empty `operators` array.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "column": { "type": "string", "minLength": 1 },
+          "operators": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["contains", "gte", "lte", "eq", "in"] },
+            "minItems": 1
+          }
+        },
+        "required": ["column", "operators"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["columns"],
+  "additionalProperties": false
+}

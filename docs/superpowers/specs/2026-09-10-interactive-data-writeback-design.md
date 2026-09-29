@@ -240,7 +240,7 @@ site for the new one):
   expected key set) and `scripts/check-schema-drift.mjs` (parses
   `PanelType.fromString` and derives `agentFacingPanelTypes`).
 
-### 3 — Output controls & parameterized Outputs _(HEL-915, HEL-1027)_
+### 3 — Output controls & parameterized Outputs _(HEL-915, HEL-1027, HEL-1188)_
 
 Viewer-facing controls on an `output` panel: date range, axis limits, dropdown
 filters, drill-down. Controls resolve in one of two ways, decided per control:
@@ -257,6 +257,30 @@ filters, drill-down. Controls resolve in one of two ways, decided per control:
 Also lands **HEL-350 Panel Interactivity** whole (cross-filtering, drill-down,
 fullscreen, richer tooltips) — the same "panels that act" story, and splitting
 the epic across milestones would strand half of it.
+
+> **Re-scope (2026-09-29, owner ruling via the driver, recorded on HEL-915).**
+> This section's original "Refetch vs. Recompute" split (above) is restated
+> here, not deleted, as the historical record of what this design session
+> actually decided — the owner's later ruling narrows v0.8's shipped scope,
+> it does not retroactively make the original design wrong. For v0.8:
+>
+> - **Server-refetch only.** Every per-panel output control HEL-1188/1189/1190/1191
+>   ship is a **Refetch** control in the sense above — it narrows a query
+>   the Output can already answer from its own stored `node_snapshots` rows
+>   (HEL-1027's range/filter/count machinery, extended by HEL-1188's
+>   `gte`/`lte`/`eq`/`in` operators and per-Output capability contract).
+> - **"Recompute" is dropped for v0.8 entirely — not deferred, removed from
+>   this milestone's scope.** No control ships that re-runs the pipeline with
+>   an overridden parameter (a bucket width, a top-N bound); that whole
+>   mechanism, and the cost-gate wiring epic 4 would have shared with it, is
+>   out of scope for every v0.8 output-controls ticket.
+> - **Dashboard-wide variables move to v0.9 (HEL-1192).** A `{{var}}`-style
+>   value shared across multiple panels on a dashboard — as opposed to a
+>   control scoped to one panel's own Output — is deferred whole, not
+>   partially built here.
+>
+> Per HEL-915's own re-scope comment convention: where the two disagree, the
+> comment (and this restatement) wins over the original prose above it.
 
 ### 4 — Write → run → refresh loop
 

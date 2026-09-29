@@ -31,10 +31,31 @@ object NodeSnapshotRepository {
 
   final case class SortSpec(column: String, direction: SortDirection, cast: SortCast)
 
+  /** HEL-1188 design.md D3/D5 — one resolved `ops[]` entry (already validated: column present +
+   *  Structured, op type-eligible, `eq`/`in` cardinality-checked -- `OutputRowsQuery.resolveFilter`
+   *  is the only producer). `cast` is the SAME `SortCast` a sort/quick/columns comparison on this
+   *  column would use, so `eq`/`gte`/`lte`/`in` share the identical `safe_numeric`/`safe_timestamptz`
+   *  wrapping this file already established for sort (D2 of HEL-1027, reused verbatim here). */
+  sealed trait OpSpec { def column: String }
+  object OpSpec {
+    final case class Eq(column: String, cast: SortCast, value: String)            extends OpSpec
+    final case class In(column: String, cast: SortCast, values: Vector[String])   extends OpSpec
+    final case class Gte(column: String, cast: SortCast, value: String)           extends OpSpec
+    final case class Lte(column: String, cast: SortCast, value: String)           extends OpSpec
+  }
+
   /** D1 — `quickTerm` (if any) matches when ANY of `quickColumns` (every Structured-category
    *  column in the Output's schema, resolved by the caller) contains it; `columnTerms` are
-   *  already-validated per-column terms, ANDed together and with the quick term. */
-  final case class FilterSpec(quickTerm: Option[String], quickColumns: Vector[String], columnTerms: Map[String, String])
+   *  already-validated per-column terms, ANDed together and with the quick term. `ops` (HEL-1188
+   *  design.md D3) adds range/equality/list-membership terms, ANDed together with everything else --
+   *  defaulted to `Vector.empty` so every pre-existing `FilterSpec(...)` construction site (this
+   *  file's own tests, `OutputRowsQuery`) keeps compiling unchanged. */
+  final case class FilterSpec(
+      quickTerm: Option[String],
+      quickColumns: Vector[String],
+      columnTerms: Map[String, String],
+      ops: Vector[OpSpec] = Vector.empty
+  )
 
   /** Task 1.2 — resolves a declared `DataFieldType` to its sortable-cast-expression kind. `None`
    *  for a Content-category type (`string-body`/`binary-ref`) — "not sortable" (D3), the caller's
@@ -196,11 +217,43 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     }
   }
 
-  /** Builds the `WHERE`-clause tail (beyond the node filter) for `filter` (D1/D5/D6): the quick
-   *  term's OR-fragment (if a non-blank quick term is present) ANDed with one `ILIKE` comparison
-   *  per named column term. Returns `None` when `filter` is absent or carries no active term at
-   *  all, so the caller can omit this fragment from the `WHERE` clause entirely rather than
-   *  appending a vacuous `AND TRUE`. */
+  /** HEL-1188 design.md D3 (skeptic-design-1.md CR2's revision) — the VALUE side of an `ops[]`
+   *  comparison, cast identically to the column side (`sortCastExpr` below) so
+   *  `safe_numeric(data ->> $col) = safe_numeric($value)` never degrades to a raw
+   *  `data ->> $col = $value::numeric` (which would reintroduce HEL-1027 D2's one-bad-row-500 bug
+   *  on the value side). `AsText` binds the value plainly -- no cast applies to a text/boolean
+   *  comparison, matching `eq`'s existing quick/columns text-compare treatment. */
+  private def opValueCastExpr(value: String, cast: NodeSnapshotRepository.SortCast): SQLActionBuilder = cast match {
+    case NodeSnapshotRepository.SortCast.AsText      => sql"$value"
+    case NodeSnapshotRepository.SortCast.AsNumeric   => sql"safe_numeric($value)"
+    case NodeSnapshotRepository.SortCast.AsTimestamp => sql"safe_timestamptz($value)"
+  }
+
+  /** HEL-1188 design.md D3 — one bound comparison fragment per `OpSpec`. `In`'s value list casts
+   *  EACH element individually (never a single raw `IN (...)` compared as text) -- a malformed
+   *  element casts to `NULL` and simply matches no row, never failing the other elements or the
+   *  request (task 7.5). `values` is guaranteed non-empty by `OutputRoutes.parseFilterParam`
+   *  (an empty `in` list is rejected as 400 before this is ever reached), so `.tail`/`.head` below
+   *  are safe. */
+  private def opFragment(op: NodeSnapshotRepository.OpSpec): SQLActionBuilder = op match {
+    case NodeSnapshotRepository.OpSpec.Eq(column, cast, value) =>
+      sortCastExpr(column, cast).concat(sql" = ").concat(opValueCastExpr(value, cast))
+    case NodeSnapshotRepository.OpSpec.Gte(column, cast, value) =>
+      sortCastExpr(column, cast).concat(sql" >= ").concat(opValueCastExpr(value, cast))
+    case NodeSnapshotRepository.OpSpec.Lte(column, cast, value) =>
+      sortCastExpr(column, cast).concat(sql" <= ").concat(opValueCastExpr(value, cast))
+    case NodeSnapshotRepository.OpSpec.In(column, cast, values) =>
+      val valueExprs = values.map(v => opValueCastExpr(v, cast))
+      val joined     = valueExprs.tail.foldLeft(valueExprs.head) { (acc, v) => acc.concat(sql", ").concat(v) }
+      sortCastExpr(column, cast).concat(sql" IN (").concat(joined).concat(sql")")
+  }
+
+  /** Builds the `WHERE`-clause tail (beyond the node filter) for `filter` (D1/D5/D6, extended by
+   *  HEL-1188 D3): the quick term's OR-fragment (if a non-blank quick term is present) ANDed with
+   *  one `ILIKE` comparison per named column term, ANDed with one comparison fragment per `ops[]`
+   *  entry. Returns `None` when `filter` is absent or carries no active term at all, so the caller
+   *  can omit this fragment from the `WHERE` clause entirely rather than appending a vacuous
+   *  `AND TRUE`. */
   private def filterWhereFragment(filter: Option[NodeSnapshotRepository.FilterSpec]): Option[SQLActionBuilder] =
     filter.flatMap { f =>
       val quickPart = f.quickTerm.filter(_.trim.nonEmpty).map(term => quickTermFragment(term, f.quickColumns))
@@ -209,7 +262,8 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           val pattern = s"%${escapeLikeTerm(term)}%"
           sql"(data ->> $col) ILIKE $pattern ESCAPE $likeEscapeChar"
       }.toVector
-      val allParts = quickPart.toVector ++ columnParts
+      val opParts: Vector[SQLActionBuilder] = f.ops.map(opFragment)
+      val allParts = quickPart.toVector ++ columnParts ++ opParts
       if (allParts.isEmpty) None
       else Some(allParts.tail.foldLeft(sql" AND ".concat(allParts.head)) { (acc, part) => acc.concat(sql" AND ").concat(part) })
     }
@@ -301,5 +355,54 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         .concat(nodeFilterFragment(nodeStepId, explicitRootId))
         .concat(sql" LIMIT 1)")
     ctx.withSystemContext(query.as[Boolean].head)
+  }
+
+  /** HEL-1188 design.md D2/D5/D7 (task 1.2) — the cardinality-gate query behind `eq`/`in`
+   *  eligibility: how many distinct non-null values `column` takes across this node's rows,
+   *  capped at `capPlusOne` (only the OUTPUT of the count is bounded -- see D2's own correction:
+   *  with no index on `data ->> $col`, Postgres must still scan every matching row to build the
+   *  `HashAggregate`, so `capPlusOne` trims what comes BACK, never what gets SCANNED). Reuses
+   *  `nodeFilterFragment` (never a second, independently-written WHERE fragment) — the column name
+   *  is a bound parameter exactly like every other filter/sort column reference in this file (D6);
+   *  this method's own callers (`OutputFilterCapability`) are what make that safe, since they only
+   *  ever pass a column already drawn from the Output's own declared `schema`. */
+  def distinctValueCountCapped(
+      pipelineId: String,
+      nodeStepId: Option[String],
+      explicitRootId: Option[String],
+      column: String,
+      capPlusOne: Int
+  ): Future[Int] = {
+    val query: SQLActionBuilder =
+      sql"SELECT count(*) FROM (SELECT 1 FROM node_snapshots WHERE pipeline_id = $pipelineId"
+        .concat(nodeFilterFragment(nodeStepId, explicitRootId))
+        .concat(sql" AND (data ->> $column) IS NOT NULL GROUP BY (data ->> $column) LIMIT $capPlusOne) t")
+    ctx.withSystemContext(query.as[Int].head)
+  }
+
+  /** HEL-1188 design.md D4/D5 (task 1.2) — `GET /api/outputs/:id/distinct-values`'s own read: the
+   *  top `cap` values by frequency, descending, for `column`. Same node-scoping fragment, same
+   *  bound-parameter column reference, same "caller already validated this column" safety
+   *  argument as `distinctValueCountCapped` above (D8). */
+  def topDistinctValues(
+      pipelineId: String,
+      nodeStepId: Option[String],
+      explicitRootId: Option[String],
+      column: String,
+      cap: Int
+  ): Future[Vector[(String, Int)]] = {
+    // `GROUP BY value`/`ORDER BY freq` reference the SELECT list's own output aliases (a Postgres
+    // extension), NOT a second `(data ->> $column)` repeated with its own bind-parameter
+    // placeholder -- two syntactically-separate `$n` placeholders are never recognized by
+    // Postgres as "the same expression" for GROUP BY validity, even though they'd always receive
+    // an equal bound value at runtime (confirmed directly: repeating the raw expression here
+    // throws "column node_snapshots.data must appear in the GROUP BY clause"). Grouping/ordering
+    // by alias sidesteps the mismatch entirely -- exactly the form design.md D4's own SQL sketch
+    // used, rather than an expression this method's first draft (incorrectly) inlined a second time.
+    val query: SQLActionBuilder =
+      sql"SELECT (data ->> $column) AS value, count(*) AS freq FROM node_snapshots WHERE pipeline_id = $pipelineId"
+        .concat(nodeFilterFragment(nodeStepId, explicitRootId))
+        .concat(sql" AND (data ->> $column) IS NOT NULL GROUP BY value ORDER BY freq DESC LIMIT $cap")
+    ctx.withSystemContext(query.as[(String, Int)]).map(_.toVector)
   }
 }
