@@ -18,6 +18,23 @@ export interface OutputSchemaField {
   type: string;
 }
 
+/** HEL-1027 design.md D2/D3 — mirrors the backend's `DataFieldType.category` Structured/Content
+ *  split (`domain/model/model.scala`) so the client can gate a table column's server-side
+ *  sort/filter eligibility identically to the server, without inferring anything from row data.
+ *  Content-category types (`string-body`, `binary-ref`) and any type string the server doesn't
+ *  recognize are both "not eligible" here. */
+const STRUCTURED_FIELD_TYPES: ReadonlySet<string> = new Set([
+  "string",
+  "integer",
+  "float",
+  "boolean",
+  "timestamp",
+]);
+
+export function isStructuredFieldType(type: string | undefined): boolean {
+  return type !== undefined && STRUCTURED_FIELD_TYPES.has(type);
+}
+
 export interface Output {
   id: string;
   pipelineId: string;

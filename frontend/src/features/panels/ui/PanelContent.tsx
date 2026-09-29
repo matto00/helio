@@ -5,8 +5,11 @@ import { PanelBodySkeleton } from "./PanelBodySkeleton";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
+import type { Output } from "../../pipelines/types/output";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import type { ChartClickSelection } from "../../../utils/chartClickSelection";
+import type { SortDirection } from "../../../shared/ui/useSortedRows";
+import type { TableColumnFilters } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import {
   isDividerPanel,
   isFormPanel,
@@ -89,6 +92,28 @@ export interface PanelContentProps {
   /** HEL-572: forwarded to `ChartRenderer` (chart-kind output panels only)
    *  — see `ChartPanel`'s `onDataPointSelect` prop. */
   onDataPointSelect?: (selection: ChartClickSelection) => void;
+  /** HEL-1027 design.md D4 — forwarded to `TableRenderer` (table-kind output panels only), fired
+   *  from the UNCONDITIONAL first half of that component's own `handleSort`/`handleFilterChange`.
+   *  Absent for callers with no server-side round trip to drive (`PanelDetailModal`,
+   *  `PanelFullscreenOverlay`) — `TableRenderer` optional-chains both, so a missing callback is a
+   *  complete no-op there, identical to today's behavior. */
+  onSortChange?: (column: string, direction: SortDirection | null) => void;
+  onFilterChange?: (filters: TableColumnFilters) => void;
+  /** HEL-1027 design.md D5/D7 — the server's row count for the current sort/filter
+   *  (`PanelPaginationState.total`), forwarded to `TableRenderer`'s loaded-scope disclosure. */
+  totalRowCount?: number;
+  /** HEL-1027 skeptic-final-3.md CR1 (cycle 4) — the caller's ALREADY-resolved
+   *  `useOutputMeta(outputId)` result (e.g. `PanelCardBody`'s own, which `usePanelSortFilter`
+   *  also seeds from), reused here instead of `OutputPanelContent` performing its own
+   *  independent fetch. `undefined` (the default — distinct from `null`, which means "a caller
+   *  supplied one but it hasn't resolved yet") preserves this component's ORIGINAL behavior
+   *  exactly: `OutputPanelContent` falls back to its own `useOutputMeta(outputId)` call, as it
+   *  always has — `PanelFullscreenOverlay` and `PanelDetailModal` don't pass this prop, so they
+   *  are completely unaffected by this change. */
+  output?: Output | null;
+  /** Paired with `output` above — the caller's own `useOutputMeta(outputId)` `isLoading` flag.
+   *  Ignored when `output` is `undefined` (own-fetch mode). */
+  outputMetaLoading?: boolean;
 }
 
 /** Dispatches on an output-kind panel's fetched Output `kind`/`config`
@@ -108,6 +133,11 @@ function OutputPanelContent({
   compact,
   outputId,
   onDataPointSelect,
+  onSortChange,
+  onFilterChange,
+  totalRowCount,
+  output: outputProp,
+  isLoading: isLoadingProp,
 }: {
   panelId: string;
   rawRows?: string[][] | null;
@@ -121,11 +151,15 @@ function OutputPanelContent({
   compact?: boolean;
   outputId: string;
   onDataPointSelect?: (selection: ChartClickSelection) => void;
+  onSortChange?: (column: string, direction: SortDirection | null) => void;
+  onFilterChange?: (filters: TableColumnFilters) => void;
+  totalRowCount?: number;
+  output?: Output | null;
+  isLoading?: boolean;
 }) {
-  const { output, isLoading } = useOutputMeta(outputId);
   // evaluation-1.md CR1/CR2 (cycle 2) — applying the cross-filter HERE,
   // rather than upstream at PanelCard/MobileStackPanelBody, is what makes
-  // this genuinely a SINGLE call site: this `useOutputMeta` fetch is the
+  // this genuinely a SINGLE call site: this component's resolved `output` is the
   // SAME ONE this component already needs (unconditionally) to pick a
   // renderer for `output.kind` — no NEW fetch, and therefore no fetch-timing
   // race between two INDEPENDENT `useOutputMeta` instances resolving at
@@ -143,6 +177,20 @@ function OutputPanelContent({
   // the correct 2 filtered rows — the transient window closes as soon as the
   // slower of the two fetches resolves). Moving filtering to this ALREADY-
   // resolving-exactly-once fetch closes that window entirely.
+  //
+  // HEL-1027 skeptic-final-3.md CR1 (cycle 4) — this component's own fetch is now, in turn,
+  // SKIPPED entirely whenever a caller supplies `output` (`outputProp !== undefined`;
+  // `PanelCardBody` is the one caller that does, via its own single `useOutputMeta(outputId)`
+  // call, so the SAME fetch that seeds `usePanelSortFilter`'s persisted-default correction also
+  // drives this component's kind-dispatch/cross-filter render — the two can no longer disagree,
+  // by construction, exactly like the invariant this comment already describes above).
+  // `PanelFullscreenOverlay`/`PanelDetailModal` don't pass `output`, so they are unaffected:
+  // `outputProp` is `undefined` there, `hasExternalOutput` is `false`, and this falls through to
+  // exactly the own-fetch behavior this component has always had.
+  const hasExternalOutput = outputProp !== undefined;
+  const ownFetch = useOutputMeta(hasExternalOutput ? null : outputId);
+  const output = hasExternalOutput ? outputProp : ownFetch.output;
+  const isLoading = hasExternalOutput ? (isLoadingProp ?? false) : ownFetch.isLoading;
   const crossFilter = useAppSelector((state) => state.panels.crossFilter);
 
   if (isLoading || !output) {
@@ -214,6 +262,14 @@ function OutputPanelContent({
         columnFilters={cfg.columnFilters}
         columnFormats={cfg.columnFormats}
         pinnedColumns={cfg.pinnedColumns}
+        // HEL-1027 design.md D2/D3 (task 4.5) — this Output's OWN declared schema (already
+        // resolved by this component's existing `useOutputMeta` call above, no new fetch), so
+        // `TableRenderer` can gate each column's sort/filter control on its Structured/Content
+        // category without inferring anything from row data.
+        schema={output.schema}
+        onSortChange={onSortChange}
+        onFilterChange={onFilterChange}
+        totalRowCount={totalRowCount}
       />
     );
   } else if (kind === "metric") {
@@ -315,6 +371,11 @@ export function PanelContent({
   chartAggregate,
   compact,
   onDataPointSelect,
+  onSortChange,
+  onFilterChange,
+  totalRowCount,
+  output,
+  outputMetaLoading,
 }: PanelContentProps) {
   if (isLoading) {
     // HEL-528 design.md D6/D7 — a shape-matched skeleton, not the accent
@@ -393,6 +454,11 @@ export function PanelContent({
         compact={compact}
         outputId={panel.config.outputId}
         onDataPointSelect={onDataPointSelect}
+        onSortChange={onSortChange}
+        onFilterChange={onFilterChange}
+        totalRowCount={totalRowCount}
+        output={output}
+        isLoading={outputMetaLoading}
       />
     );
   }

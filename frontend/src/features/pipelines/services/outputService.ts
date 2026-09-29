@@ -107,13 +107,41 @@ export interface FetchOutputRowsResult {
   materialized: boolean;
 }
 
+/** HEL-1027 design.md D1 — `GET /api/outputs/:id/rows`'s `sort` query param shape. */
+export interface OutputRowsSort {
+  column: string;
+  direction: "asc" | "desc";
+}
+
+/** HEL-1027 design.md D1 — mirrors the client's OWN `TableColumnFilters` wire shape
+ *  (`outputConfigTypes.ts`) exactly, so the in-memory filter state serializes straight into the
+ *  `filter` query param with no translation layer. */
+export interface OutputRowsFilter {
+  quick?: string;
+  columns?: Record<string, string>;
+}
+
+/** HEL-1027 design.md D1 — an absent/blank `quick` term AND no non-blank `columns` entries is,
+ *  semantically, "no filter" — omitted from the request entirely rather than sent as `filter={}`,
+ *  matching the server's own "absent filter" behavior. */
+function isFilterActive(filter: OutputRowsFilter | undefined): filter is OutputRowsFilter {
+  if (!filter) return false;
+  if (filter.quick && filter.quick.trim() !== "") return true;
+  return Object.values(filter.columns ?? {}).some((term) => term.trim() !== "");
+}
+
 export async function getOutputRows(
   outputId: string,
   offset = 0,
   limit = 50,
+  sort?: OutputRowsSort,
+  filter?: OutputRowsFilter,
 ): Promise<FetchOutputRowsResult> {
+  const params: Record<string, string | number> = { offset, limit };
+  if (sort) params.sort = `${sort.column}:${sort.direction}`;
+  if (isFilterActive(filter)) params.filter = JSON.stringify(filter);
   const response = await httpClient.get<FetchOutputRowsResult>(`/api/outputs/${outputId}/rows`, {
-    params: { offset, limit },
+    params,
   });
   return response.data;
 }

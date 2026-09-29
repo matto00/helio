@@ -7,8 +7,10 @@ import com.helio.api.JsonProtocols
 import com.helio.api.ErrorResponse
 import com.helio.api.http.{AccessCheckerImpl, ResourceType => AclResourceType, ResourceTypeRegistry}
 import com.helio.api.protocols.pipelines.{AssertionStatusResponse, CreateOutputRequest, DeleteOutputResponse, OutputPanelPlacementResponse, OutputResponse, OutputsResponse, PipelinePreviewResponse, UpdateOutputRequest}
+import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.domain.steps.RenameConfig
+import com.helio.services.pipelines.OutputRowsQuery
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -749,6 +751,385 @@ class OutputRoutesSpec
         val paged = responseAs[JsObject]
         paged.fields("materialized") shouldBe JsBoolean(false)
         paged.fields("items").convertTo[Vector[JsValue]] shouldBe empty
+      }
+    }
+  }
+
+  // HEL-1027 task 1.1 -- V111's two cast functions, re-verified against THIS environment's own
+  // Postgres version (embedded-postgres 14.10.1, NOT design-time's live Postgres 18 probe --
+  // design.md D2's citation-correction round explicitly calls out this gap).
+  "safe_numeric / safe_timestamptz (V111, HEL-1027 task 1.1)" should {
+    "safe_numeric parses every well-formed numeric shape and returns NULL for a malformed one" in {
+      import PostgresProfile.api._
+      def numeric(v: String): Option[String] = await(db.run(sql"SELECT safe_numeric($v)::text".as[Option[String]].head))
+      BigDecimal(numeric("42").get) shouldBe BigDecimal(42)
+      BigDecimal(numeric("-3.14").get) shouldBe BigDecimal("-3.14")
+      BigDecimal(numeric("1e10").get) shouldBe BigDecimal("1e10")
+      numeric("not-a-number") shouldBe None
+      numeric("") shouldBe None
+    }
+
+    "safe_timestamptz parses every recognized format and returns NULL (never throws) for a malformed OR calendar-invalid shape" in {
+      import PostgresProfile.api._
+      def ts(v: String): Option[String] = await(db.run(sql"SELECT safe_timestamptz($v)::text".as[Option[String]].head))
+      // The six original round-1/round-2 cases -- all parse successfully.
+      ts("2024-01-01T10:15") shouldBe defined
+      ts("2024-01-01T10:15+01:00") shouldBe defined
+      ts("2024-01-01T10:15:30+01:00[Europe/Paris]") shouldBe defined
+      ts("01/31/2026").get should startWith("2026-01-31")
+      ts("2024-01-01") shouldBe defined
+      ts("garbage") shouldBe None
+      // The four round-3 calendar-invalid cases -- digit-shaped like a recognized format, but
+      // semantically invalid; the regex alone would let these through to the cast, which is
+      // exactly why `safe_timestamptz` reverted to `plpgsql`/`EXCEPTION` (D2 round 3).
+      ts("2024-02-30") shouldBe None
+      ts("2024-13-45") shouldBe None
+      ts("9999-99-99") shouldBe None
+      ts("13/45/2024") shouldBe None
+    }
+  }
+
+  "NodeSnapshotRepository.sortCastFor (HEL-1027 task 1.2)" should {
+    "maps every DataFieldType to its D2 cast category" in {
+      import NodeSnapshotRepository.SortCast._
+      NodeSnapshotRepository.sortCastFor(DataFieldType.IntegerType) shouldBe Some(AsNumeric)
+      NodeSnapshotRepository.sortCastFor(DataFieldType.FloatType) shouldBe Some(AsNumeric)
+      NodeSnapshotRepository.sortCastFor(DataFieldType.TimestampType) shouldBe Some(AsTimestamp)
+      NodeSnapshotRepository.sortCastFor(DataFieldType.StringType) shouldBe Some(AsText)
+      NodeSnapshotRepository.sortCastFor(DataFieldType.BooleanType) shouldBe Some(AsText)
+      NodeSnapshotRepository.sortCastFor(DataFieldType.StringBodyType) shouldBe None
+      NodeSnapshotRepository.sortCastFor(DataFieldType.BinaryRefType) shouldBe None
+    }
+  }
+
+  "NodeSnapshotRepository.listRowsPaged sort/filter (HEL-1027 tasks 2.1/2.2)" should {
+    "sorts the WHOLE node's rows (not just one page) and is stable across two offset calls (task 2.1)" in {
+      val pipelineId = newSharedPipeline()
+      val rows = (1 to 25).map(i => JsObject("amount" -> JsNumber(i)))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, rows, explicitRootId = None))
+      val sortSpec = NodeSnapshotRepository.SortSpec("amount", NodeSnapshotRepository.SortDirection.Desc, NodeSnapshotRepository.SortCast.AsNumeric)
+
+      val page0 = await(nodeSnapshotRepo.listRowsPaged(pipelineId.value, None, Page(0, 10), explicitRootId = None, sort = Some(sortSpec)))
+      val page1 = await(nodeSnapshotRepo.listRowsPaged(pipelineId.value, None, Page(10, 10), explicitRootId = None, sort = Some(sortSpec)))
+
+      page0.total shouldBe 25
+      page0.items.map(_.fields("amount").convertTo[Int]) shouldBe (25 to 16 by -1).toVector
+      page1.items.map(_.fields("amount").convertTo[Int]) shouldBe (15 to 6 by -1).toVector
+      // Stable pagination -- no row duplicated or dropped across the two offset calls.
+      (page0.items ++ page1.items).map(_.fields("amount").convertTo[Int]).toSet shouldBe (6 to 25).toSet
+    }
+
+    "a malformed numeric value sorts last rather than 500ing the request (D2)" in {
+      val pipelineId = newSharedPipeline()
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
+        JsObject("amount" -> JsNumber(5)),
+        JsObject("amount" -> JsString("not-a-number")),
+        JsObject("amount" -> JsNumber(1))
+      ), explicitRootId = None))
+      val sortSpec = NodeSnapshotRepository.SortSpec("amount", NodeSnapshotRepository.SortDirection.Asc, NodeSnapshotRepository.SortCast.AsNumeric)
+
+      val result = await(nodeSnapshotRepo.listRowsPaged(pipelineId.value, None, Page(0, 10), explicitRootId = None, sort = Some(sortSpec)))
+      result.items.map(_.fields("amount")) shouldBe Vector(JsNumber(1), JsNumber(5), JsString("not-a-number"))
+    }
+
+    "total reflects the FILTERED row count, not the raw count, when a filter narrows the set (D5, task 2.2)" in {
+      val pipelineId = newSharedPipeline()
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
+        JsObject("name" -> JsString("alice")),
+        JsObject("name" -> JsString("bob")),
+        JsObject("name" -> JsString("alicia"))
+      ), explicitRootId = None))
+      val filterSpec = NodeSnapshotRepository.FilterSpec(quickTerm = Some("ali"), quickColumns = Vector("name"), columnTerms = Map.empty)
+
+      val result = await(nodeSnapshotRepo.listRowsPaged(pipelineId.value, None, Page(0, 10), explicitRootId = None, filter = Some(filterSpec)))
+      result.total shouldBe 2
+      result.items.map(_.fields("name")) should contain theSameElementsAs Vector(JsString("alice"), JsString("alicia"))
+    }
+
+    "a filter term containing LIKE metacharacters (%, _) matches only the literal characters (D6 escaping)" in {
+      val pipelineId = newSharedPipeline()
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
+        JsObject("label" -> JsString("50% off")),
+        JsObject("label" -> JsString("full price"))
+      ), explicitRootId = None))
+      val filterSpec = NodeSnapshotRepository.FilterSpec(quickTerm = Some("50%"), quickColumns = Vector("label"), columnTerms = Map.empty)
+
+      val result = await(nodeSnapshotRepo.listRowsPaged(pipelineId.value, None, Page(0, 10), explicitRootId = None, filter = Some(filterSpec)))
+      result.total shouldBe 1
+      result.items.map(_.fields("label")) shouldBe Vector(JsString("50% off"))
+    }
+  }
+
+  // HEL-1027 task 2.3 -- the required RED-FIRST security probe (Iron Law: systematic-debugging.md).
+  "Hostile column name handling (HEL-1027 D6/task 2.3)" should {
+    // Independent of every production code path in this ticket -- exists ONLY to prove the
+    // vulnerability CLASS this ticket's design (D6: bound parameters, never string-interpolated
+    // SQL) defends against is real on THIS environment's live embedded Postgres, not
+    // hypothetical. A naive first draft might build its ORDER BY/WHERE text via raw string
+    // concatenation instead of a bind parameter -- this probe reproduces exactly that shape
+    // (a `java.sql.Statement.execute` call, the same "simple query protocol" mode the pgjdbc
+    // driver uses, which -- unlike a `PreparedStatement` -- executes multiple semicolon-separated
+    // statements from one string) and confirms it actually executes an injected `DROP TABLE`.
+    "RED: a naive string-interpolated SQL statement executes an injected DROP TABLE (probe, not the shipped code path)" in {
+      val probeTable = s"hel1027_probe_${UUID.randomUUID().toString.replace("-", "")}"
+      val conn = embeddedPostgres.getPostgresDatabase.getConnection
+      try {
+        val setup = conn.createStatement()
+        setup.execute(s"CREATE TABLE $probeTable (id int)")
+        setup.execute(s"INSERT INTO $probeTable VALUES (1)")
+
+        // Mirrors the shape of a naive `s"...'$hostileValue'..."` query builder -- the hostile
+        // value closes the string literal early, then appends a second statement.
+        val hostileValue = s"x'; DROP TABLE $probeTable; --"
+        val naiveSql = s"SELECT '$hostileValue'"
+        val naiveStmt = conn.createStatement()
+        try naiveStmt.execute(naiveSql) catch { case _: java.sql.SQLException => () }
+
+        val checkStmt = conn.createStatement()
+        val rs = checkStmt.executeQuery(
+          s"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '$probeTable')"
+        )
+        rs.next()
+        // RED: the naive statement executed the injected DROP -- the probe table is gone.
+        rs.getBoolean(1) shouldBe false
+      } finally conn.close()
+    }
+
+    "GREEN: NodeSnapshotRepository binds a hostile column name as a harmless literal, never executes it" in {
+      val pipelineId = newSharedPipeline()
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1))), explicitRootId = None))
+      val hostileColumn = "'; DROP TABLE node_snapshots; --"
+      val sortSpec = NodeSnapshotRepository.SortSpec(hostileColumn, NodeSnapshotRepository.SortDirection.Asc, NodeSnapshotRepository.SortCast.AsText)
+
+      // No exception -- the hostile string is just a JSON key that doesn't exist on any row, so
+      // every row's sort key is NULL and the rows come back in their tiebreaker (row_index) order.
+      val result = await(nodeSnapshotRepo.listRowsPaged(pipelineId.value, None, Page(0, 10), explicitRootId = None, sort = Some(sortSpec)))
+      result.total shouldBe 1
+
+      // `node_snapshots` itself -- the real table a naive implementation could have dropped --
+      // is untouched: a later, unrelated read against it still works.
+      val stillThere = await(nodeSnapshotRepo.listRows(pipelineId.value, None, explicitRootId = None))
+      stillThere should have size 1
+    }
+
+    "GREEN: a hostile sort column name is rejected as 400 at the route, before it ever reaches SQL (D3)" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "hostile-sort-out", OutputKind.Table,
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1))), explicitRootId = None))
+      val hostile = java.net.URLEncoder.encode("'; DROP TABLE node_snapshots; --", "UTF-8")
+
+      Get(s"/outputs/${output.id.value}/rows?sort=$hostile:asc") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+      val stillThere = await(nodeSnapshotRepo.listRows(pipelineId.value, None, explicitRootId = None))
+      stillThere should have size 1
+    }
+  }
+
+  "GET /outputs/:id/rows sort/filter query params (HEL-1027 tasks 3.1/3.2/3.3)" should {
+    val amountSchema = Vector(SchemaField("amount", "integer"), SchemaField("notes", "string-body"))
+
+    def seededOutput(): (PipelineId, OutputId) = {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "sort-filter-out", OutputKind.Table, schema = amountSchema, explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
+        JsObject("amount" -> JsNumber(3), "notes" -> JsString("c")),
+        JsObject("amount" -> JsNumber(1), "notes" -> JsString("a")),
+        JsObject("amount" -> JsNumber(2), "notes" -> JsString("b"))
+      ), explicitRootId = None))
+      (pipelineId, output.id)
+    }
+
+    "sorts by a declared Structured column, ranking the whole node (task 3.1/3.2)" in {
+      val (_, outputId) = seededOutput()
+      Get(s"/outputs/${outputId.value}/rows?sort=amount:desc") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
+        items.map(_.fields("amount")) shouldBe Vector(JsNumber(3), JsNumber(2), JsNumber(1))
+      }
+    }
+
+    "400s sort on a column absent from schema, naming it (task 3.1, D3)" in {
+      val (_, outputId) = seededOutput()
+      Get(s"/outputs/${outputId.value}/rows?sort=bogus:asc") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("bogus")
+      }
+    }
+
+    "400s sort on a Content-category column, naming it (task 3.1, D3)" in {
+      val (_, outputId) = seededOutput()
+      Get(s"/outputs/${outputId.value}/rows?sort=notes:asc") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("notes")
+      }
+    }
+
+    "400s a malformed sort shape (no direction) before ever resolving the Output (task 3.2)" in {
+      val (_, outputId) = seededOutput()
+      Get(s"/outputs/${outputId.value}/rows?sort=amount") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "400s an unrecognized sort direction (task 3.2)" in {
+      val (_, outputId) = seededOutput()
+      Get(s"/outputs/${outputId.value}/rows?sort=amount:sideways") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "400s malformed filter JSON (task 3.2)" in {
+      val (_, outputId) = seededOutput()
+      Get(s"/outputs/${outputId.value}/rows?filter=not-json") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "filters by a declared Structured column via quick term, narrowing the whole node (task 3.1)" in {
+      val (_, outputId) = seededOutput()
+      val filter = java.net.URLEncoder.encode("""{"quick":"2"}""", "UTF-8")
+      Get(s"/outputs/${outputId.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        paged.fields("total") shouldBe JsNumber(1)
+        paged.fields("items").convertTo[Vector[JsObject]].map(_.fields("amount")) shouldBe Vector(JsNumber(2))
+      }
+    }
+
+    "400s a filter.columns entry naming a Content-category column (task 3.1, D3)" in {
+      val (_, outputId) = seededOutput()
+      val filter = java.net.URLEncoder.encode("""{"columns":{"notes":"x"}}""", "UTF-8")
+      Get(s"/outputs/${outputId.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("notes")
+      }
+    }
+
+    "404s (not 400) for a caller with no ACL relationship, even with sort/filter present (task 3.3)" in {
+      val (_, outputId) = seededOutput()
+      Get(s"/outputs/${outputId.value}/rows?sort=amount:asc&filter=%7B%22quick%22%3A%221%22%7D") ~> routesFor(other) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
+  "OutputService.rows materialized derivation under a filter (HEL-1027 D5 amendment, task 3.4)" should {
+    "RED-FIRST: reports materialized=true for a zero-match filter on an Output with real data" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "zero-match-out", OutputKind.Table,
+        schema = Vector(SchemaField("name", "string")), explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
+        JsObject("name" -> JsString("alice")),
+        JsObject("name" -> JsString("bob"))
+      ), explicitRootId = None))
+
+      // Sanity: the naive `paged.total > 0` proxy this fix replaces WOULD have reported
+      // `materialized: false` here, since a zero-match filtered `total` is legitimately 0 --
+      // confirmed directly against the now-decoupled existence check below.
+      val naiveWouldReportFalse = await(nodeSnapshotRepo.listRowsPaged(
+        pipelineId.value, None, Page(0, 10), explicitRootId = None,
+        filter = Some(NodeSnapshotRepository.FilterSpec(Some("nonexistent-term"), Vector("name"), Map.empty))
+      )).total == 0
+      naiveWouldReportFalse shouldBe true
+
+      val filter = java.net.URLEncoder.encode("""{"quick":"nonexistent-term"}""", "UTF-8")
+      Get(s"/outputs/${output.id.value}/rows?filter=$filter") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        paged.fields("total") shouldBe JsNumber(0)
+        paged.fields("items").convertTo[Vector[JsValue]] shouldBe empty
+        // GREEN (post-fix): distinguishable from a genuinely never-materialized Output.
+        paged.fields("materialized") shouldBe JsBoolean(true)
+      }
+    }
+
+    "the genuinely-never-materialized case is unaffected (no rows, no filter)" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "never-materialized-out", OutputKind.Table, explicitRootId = None))
+      Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsObject].fields("materialized") shouldBe JsBoolean(false)
+      }
+    }
+  }
+
+  "GET /outputs/:id/rows sort/filter end-to-end (HEL-1027 tasks 7.1/7.2)" should {
+    "task 7.1: sort ranks the WHOLE Output across pages, not the fetched window -- RED-FIRST against current main's client-side-only sort" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "e2e-sort-out", OutputKind.Table,
+        schema = Vector(SchemaField("revenue", "integer")), explicitRootId = None
+      ))
+      // 60 rows, revenue ASCENDING by row_index (row_index 0 has revenue 0, ..., row_index 59
+      // has revenue 59) -- and one malformed value planted mid-set. Under current main (no
+      // `sort` param support at all -- an unrecognized query param is silently ignored by
+      // Pekko's `parameters` directive), the FIRST page (limit=20) is simply the first 20 rows
+      // BY row_index (revenue 0..19), which is NOT the 20 highest-revenue rows across the whole
+      // Output (40..59) -- exactly HEL-448's own "ranks only the fetched window" defect this
+      // ticket fixes. This same request, run against this worktree's OWN (fixed) code below,
+      // must return the TRUE top 20 by revenue.
+      val rows = (0 until 60).map { i =>
+        if (i == 30) JsObject("revenue" -> JsString("not-a-number")) else JsObject("revenue" -> JsNumber(i))
+      }
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, rows, explicitRootId = None))
+
+      Get(s"/outputs/${output.id.value}/rows?sort=revenue:desc&limit=20") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
+        items should have size 20
+        // The true top 20 by revenue across the WHOLE 60-row Output (40..59), not the top 20
+        // among the first-fetched window -- this is the assertion that would have FAILED against
+        // current main's row_index-only ordering (which would have returned 0..19, i.e. the
+        // LOWEST revenue values, since no `sort` param existed to rank by revenue at all).
+        items.map(_.fields("revenue").convertTo[Int]) shouldBe (59 to 40 by -1).toVector
+      }
+
+      // Pagination is stable across two page fetches at the same sort.
+      val page0 = await(nodeSnapshotRepo.listRowsPaged(
+        pipelineId.value, None, Page(0, 20), explicitRootId = None,
+        sort = Some(NodeSnapshotRepository.SortSpec("revenue", NodeSnapshotRepository.SortDirection.Desc, NodeSnapshotRepository.SortCast.AsNumeric))
+      ))
+      val page1 = await(nodeSnapshotRepo.listRowsPaged(
+        pipelineId.value, None, Page(20, 20), explicitRootId = None,
+        sort = Some(NodeSnapshotRepository.SortSpec("revenue", NodeSnapshotRepository.SortDirection.Desc, NodeSnapshotRepository.SortCast.AsNumeric))
+      ))
+      val seen = (page0.items ++ page1.items).flatMap(_.fields.get("revenue")).collect { case JsNumber(n) => n.toInt }
+      seen.distinct should have size seen.size // no duplicates across pages
+    }
+
+    "task 7.2: a filter matching fewer than one page's worth across the WHOLE Output drives total/hasMore -- RED-FIRST against current main's raw total" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "e2e-filter-out", OutputKind.Table,
+        schema = Vector(SchemaField("label", "string")), explicitRootId = None
+      ))
+      // 60 rows; only 3 (spread beyond the first page) match "target". Current main's
+      // `total` is always the RAW row count (60) regardless of any filter (no `filter` param
+      // support exists at all) -- so `hasMore` (`offset + limit < total`) would incorrectly stay
+      // `true` after the client received all 3 real matches, implying more matches remain when
+      // none do. This is the assertion that fails against current main's raw-total behavior.
+      val rows = (0 until 60).map { i =>
+        val label = if (i % 20 == 5) "target" else s"row-$i"
+        JsObject("label" -> JsString(label))
+      }
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, rows, explicitRootId = None))
+
+      val filter = java.net.URLEncoder.encode("""{"quick":"target"}""", "UTF-8")
+      Get(s"/outputs/${output.id.value}/rows?filter=$filter&limit=50") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val paged = responseAs[JsObject]
+        paged.fields("total") shouldBe JsNumber(3)
+        val hasMore = paged.fields("offset").convertTo[Int] + paged.fields("limit").convertTo[Int] < paged.fields("total").convertTo[Int]
+        hasMore shouldBe false
+        paged.fields("items").convertTo[Vector[JsObject]].map(_.fields("label")) shouldBe Vector.fill(3)(JsString("target"))
       }
     }
   }

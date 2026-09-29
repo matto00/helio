@@ -599,6 +599,19 @@ describe("PanelCardBody — HEL-579 prop reference stability across an unrelated
     // Let the mount-triggered fetch dispatch settle into pending state
     // before counting.
     await waitFor(() => expect(getOutputRowsMock).toHaveBeenCalledTimes(1));
+    // HEL-1027 skeptic-final-3.md CR1 (cycle 4) — `PanelCardBody` now owns its OWN internal
+    // `useOutputMeta(outputId)` call (previously an externally-supplied prop from `PanelCard`;
+    // see that hook's `PanelCard.tsx` doc comment). Its `isLoading` state is already `true` on
+    // initial mount, and the effect's `setIsLoading(true)` microtask (line ~37, a redundant
+    // same-value update) causes React to invoke `PanelCardBody`'s function body ONE extra time
+    // while bailing out of committing — react.dev's "Bailing out of state updates" behavior. This
+    // happens ONCE, during THIS component's own mount settling, regardless of any PARENT
+    // re-render — flush it here (unrelated to the title-edit re-render this test actually cares
+    // about) so `callsBeforeRerender` captures a genuinely SETTLED baseline, not a mid-settle one.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     const callsBeforeRerender = mockUsePanelPolling.mock.calls.length;
     expect(callsBeforeRerender).toBeGreaterThan(0);
 

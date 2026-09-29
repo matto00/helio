@@ -31,8 +31,12 @@ export function LoadedScopeDisclosure({
   loadedCount,
 }: LoadedScopeDisclosureProps) {
   if (!filtering) {
-    if (!rowsTruncated) return null;
-    return <p className="panel-content__loaded-scope-note">Sort covers only the loaded rows.</p>;
+    // HEL-1027 design.md D7 (task 5.1) — HEL-448's "Sort covers only the loaded rows." note is
+    // REMOVED outright, not restated: once sort ranks the whole Output (this ticket),
+    // `rowsTruncated` no longer implies a partial ranking, so this note would now be actively
+    // wrong. Never reached by the HEL-588 cross-filter call site below (`PanelContent.tsx`),
+    // which always passes `filtering` literally `true`.
+    return null;
   }
 
   if (!rowsTruncated) {

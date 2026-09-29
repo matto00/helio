@@ -81,6 +81,7 @@ function makeStore(panel: ReturnType<typeof makeOutputPanel>) {
         pendingPanelUpdates: {},
         lastSavedAt: null,
         paginationState: {},
+        latestFetchRequestId: {},
       },
     } as never,
   });
@@ -161,6 +162,7 @@ describe("PanelCardBody — fan-out refresh status region (HEL-1094 D5, task 2.3
           pendingPanelUpdates: {},
           lastSavedAt: null,
           paginationState: {},
+          latestFetchRequestId: {},
         },
       } as never,
     });

@@ -307,6 +307,142 @@ describe("TableRenderer — sort (HEL-448)", () => {
   });
 });
 
+// HEL-1027 design.md D4 (task 4.2) — the new `onSortChange`/`onFilterChange` callbacks fire from
+// the UNCONDITIONAL first half of `handleSort`/`handleFilterChange`, independent of the
+// `canWrite`-gated persist-as-default write — the exact split skeptic-design-2.md CR2 flagged as
+// possible under an under-specified design (a non-owner shared-dashboard viewer's sort/filter
+// silently no-oping the server refetch).
+describe("TableRenderer — onSortChange/onFilterChange (HEL-1027 D4, task 4.2)", () => {
+  const outputServiceModule = jest.requireMock<{
+    updateOutput: jest.Mock;
+  }>("../../../pipelines/services/outputService");
+
+  beforeEach(() => {
+    outputServiceModule.updateOutput.mockReset().mockResolvedValue(undefined);
+  });
+  afterEach(() => jest.useRealTimers());
+
+  function headerButtons(): HTMLElement[] {
+    return screen
+      .getAllByRole("columnheader")
+      .filter((th) => !th.closest(".ui-data-grid__filter-row, .ui-data-grid__filter-toggle-row"))
+      .map((th) => th.querySelector("button") as HTMLElement);
+  }
+
+  function cellTextByColumn(columnIndex: number): string[] {
+    const rows = screen.getAllByRole("row").filter((row) => row.closest("tbody") != null);
+    return rows.map((row) => {
+      const cells = row.querySelectorAll("td");
+      return cells[columnIndex]?.textContent ?? "";
+    });
+  }
+
+  // HEL-451 design D4d — both filter rows sit behind one collapsed-by-default toggle.
+  function quickFilterInput(): HTMLElement {
+    const toggle = screen.queryByRole("button", { name: /^Filters/ });
+    if (toggle && toggle.getAttribute("aria-expanded") === "false") {
+      fireEvent.click(toggle);
+    }
+    return screen.getByRole("textbox", { name: "Quick filter across all columns" });
+  }
+
+  it("an owner (canWrite: true) sorting fires BOTH onSortChange AND the debounced config PATCH", () => {
+    jest.useFakeTimers();
+    const onSortChange = jest.fn();
+    renderWithStore(
+      <TableRenderer
+        outputId="out-1"
+        ownerId="me"
+        paginationRows={[{ n: "b" }, { n: "a" }]}
+        onSortChange={onSortChange}
+      />,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    fireEvent.click(headerButtons()[0]);
+    expect(onSortChange).toHaveBeenCalledWith("n", "asc");
+    jest.advanceTimersByTime(500);
+    expect(outputServiceModule.updateOutput).toHaveBeenCalledWith("out-1", {
+      config: { columnSort: { key: "n", direction: "asc" } },
+    });
+  });
+
+  it("a non-owner shared-dashboard viewer (canWrite: false) sorting fires onSortChange but NEVER the config PATCH", () => {
+    jest.useFakeTimers();
+    const onSortChange = jest.fn();
+    renderWithStore(
+      <TableRenderer
+        outputId="out-1"
+        ownerId="owner-x"
+        paginationRows={[{ n: "b" }, { n: "a" }]}
+        onSortChange={onSortChange}
+      />,
+      { auth: { currentUser: { id: "someone-else" } as never } },
+    );
+    fireEvent.click(headerButtons()[0]);
+    expect(onSortChange).toHaveBeenCalledWith("n", "asc");
+    jest.advanceTimersByTime(5000);
+    expect(outputServiceModule.updateOutput).not.toHaveBeenCalled();
+  });
+
+  it("an owner (canWrite: true) filtering fires BOTH onFilterChange AND the debounced config PATCH", () => {
+    jest.useFakeTimers();
+    const onFilterChange = jest.fn();
+    renderWithStore(
+      <TableRenderer
+        outputId="out-1"
+        ownerId="me"
+        paginationRows={[{ a: "alice" }]}
+        onFilterChange={onFilterChange}
+      />,
+      { auth: { currentUser: { id: "me" } as never } },
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "ali" } });
+    expect(onFilterChange).toHaveBeenCalledWith({ quick: "ali", columns: {} });
+    jest.advanceTimersByTime(500);
+    expect(outputServiceModule.updateOutput).toHaveBeenCalledWith("out-1", {
+      config: { columnFilters: { quick: "ali" } },
+    });
+  });
+
+  it("a non-owner shared-dashboard viewer (canWrite: false) filtering fires onFilterChange but NEVER the config PATCH", () => {
+    jest.useFakeTimers();
+    const onFilterChange = jest.fn();
+    renderWithStore(
+      <TableRenderer
+        outputId="out-1"
+        ownerId="owner-x"
+        paginationRows={[{ a: "alice" }]}
+        onFilterChange={onFilterChange}
+      />,
+      { auth: { currentUser: { id: "someone-else" } as never } },
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "ali" } });
+    expect(onFilterChange).toHaveBeenCalledWith({ quick: "ali", columns: {} });
+    jest.advanceTimersByTime(5000);
+    expect(outputServiceModule.updateOutput).not.toHaveBeenCalled();
+  });
+
+  // HEL-1027 design.md D4 (task 4.4) — the row-count-preserving, order-changing regression guard:
+  // once a server round trip exists (`onSortChange` wired), clicking sort must NOT reorder the
+  // rows actually rendered — the server, not this component, is now the source of ranking. This
+  // is the opposite assertion of the pre-ticket "spans the whole loaded set..." test above, which
+  // deliberately omits `onSortChange` (no server round trip) and keeps the OLD client-resort
+  // behavior.
+  it("no client-side reordering occurs after a server-sorted response is received (task 4.4)", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="out-1"
+        paginationRows={[{ n: "5" }, { n: "1" }, { n: "3" }]}
+        onSortChange={jest.fn()}
+      />,
+    );
+    fireEvent.click(headerButtons()[0]);
+    // Clicking the header still updates the arrow-glyph UI state, but the RENDERED rows stay in
+    // their as-received (server) order — never re-sorted client-side.
+    expect(cellTextByColumn(0)).toEqual(["5", "1", "3"]);
+  });
+});
+
 // ── HEL-448 3b / HEL-451 task 4.0-4.0g: truncation qualifier, re-gated on
 // the branch-independent `rowsTruncated` prop ──────────────────────────────
 describe("TableRenderer — truncation qualifier (HEL-448 D9a, re-gated per HEL-451 design D4)", () => {
@@ -317,7 +453,11 @@ describe("TableRenderer — truncation qualifier (HEL-448 D9a, re-gated per HEL-
     expect(screen.queryByText(/loaded rows/)).not.toBeInTheDocument();
   });
 
-  it("is present when rowsTruncated is true, on the pagination branch", () => {
+  // HEL-1027 design.md D7 (task 5.1) — supersedes this test's former name/assertion ("is present
+  // when rowsTruncated is true, on the pagination branch"): HEL-448's sort note is REMOVED
+  // outright, not merely re-gated, once sort ranks the whole Output — a truncated-but-unfiltered
+  // table now shows NO loaded-scope text at all.
+  it("no loaded-scope text renders when rowsTruncated is true but not filtering, on the pagination branch", () => {
     renderWithStore(
       <TableRenderer
         outputId="p"
@@ -326,20 +466,22 @@ describe("TableRenderer — truncation qualifier (HEL-448 D9a, re-gated per HEL-
         onLoadMore={jest.fn()}
       />,
     );
-    expect(screen.getByText(/loaded rows/)).toBeInTheDocument();
+    expect(screen.queryByText(/loaded rows/)).not.toBeInTheDocument();
   });
 
   // Task 4.0d: this is the HEL-448 regression being fixed — a sorted
   // 200-row sample presenting as complete in the panel detail modal, which
   // renders `rawRows` only. Requires a DIRECT test, not inherited coverage.
+  // HEL-1027 design.md D7 (task 5.1) — supersedes the former "4.0d PROOF" (which asserted this
+  // note RENDERS on the rawRows/detail-modal branch): the note is removed outright.
   it(
-    "4.0d PROOF: the re-gated sort qualifier RENDERS on the rawRows branch when rowsTruncated is " +
-      "true (this never rendered before HEL-451 — the modal has no pagination props at all)",
+    "HEL-1027 D7: the rawRows branch (detail modal shape) shows NO loaded-scope text when " +
+      "rowsTruncated is true but not filtering",
     () => {
       renderWithStore(
         <TableRenderer outputId="p" rawRows={[["1", "2"]]} headers={["a", "b"]} rowsTruncated />,
       );
-      expect(screen.getByText(/loaded rows/)).toBeInTheDocument();
+      expect(screen.queryByText(/loaded rows/)).not.toBeInTheDocument();
     },
   );
 
@@ -352,14 +494,17 @@ describe("TableRenderer — truncation qualifier (HEL-448 D9a, re-gated per HEL-
   // with `rowsTruncated` true and no `onLoadMore`, the note renders and NO
   // Load-more button renders — re-gating both on one shared conditional
   // (reverting the note/button split) turns this red.
+  // HEL-1027 design.md D7 (task 5.1) — supersedes the former "4.0e REGRESSION GUARD" (which
+  // asserted the note RENDERS here): nothing renders in this scenario now — no note (removed
+  // outright), no Load-more button (no `onLoadMore` supplied, unchanged).
   it(
-    "4.0e REGRESSION GUARD: rawRows branch, rowsTruncated=true, no onLoadMore -- note renders, " +
-      "NO Load-more button renders",
+    "HEL-1027 D7: rawRows branch, rowsTruncated=true, no onLoadMore, not filtering -- nothing " +
+      "renders",
     () => {
       renderWithStore(
         <TableRenderer outputId="p" rawRows={[["1", "2"]]} headers={["a", "b"]} rowsTruncated />,
       );
-      expect(screen.getByText(/loaded rows/)).toBeInTheDocument();
+      expect(screen.queryByText(/loaded rows/)).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
     },
   );
@@ -380,16 +525,131 @@ describe("TableRenderer — truncation qualifier (HEL-448 D9a, re-gated per HEL-
   // the old `usingPagination && paginationHasMore` predicate would render an
   // unqualified count / the non-truncated empty state on this branch, even
   // though `rowsTruncated` says the set IS truncated.
+  // HEL-1027 design.md D7 (task 5.1) — supersedes the former "4.5a REGRESSION GUARD" (which
+  // asserted this exact text IS present): the string itself is removed from the codebase outright.
   it(
-    "4.5a REGRESSION GUARD: rawRows branch, rowsTruncated=true -- the loaded-scope note is present " +
-      "(never the bare no-truncation silence the old usingPagination-based predicate would produce)",
+    "HEL-1027 D7: rawRows branch, rowsTruncated=true, not filtering -- the removed HEL-448 sort " +
+      "note never renders",
     () => {
       renderWithStore(
         <TableRenderer outputId="p" rawRows={[["1", "2"]]} headers={["a", "b"]} rowsTruncated />,
       );
-      expect(screen.getByText("Sort covers only the loaded rows.")).toBeInTheDocument();
+      expect(screen.queryByText("Sort covers only the loaded rows.")).not.toBeInTheDocument();
     },
   );
+});
+
+// HEL-1027 design.md D2/D3 (task 4.5) — gates a column's sort control and per-column filter
+// input on the Output's OWN declared `schema` (Structured vs. Content category), never inferred
+// from row data.
+describe("TableRenderer — per-column sort/filter gating on declared schema (HEL-1027 D2/D3, task 4.5)", () => {
+  function expandFiltersIfCollapsed(): void {
+    const toggle = screen.queryByRole("button", { name: /^Filters/ });
+    if (toggle && toggle.getAttribute("aria-expanded") === "false") {
+      fireEvent.click(toggle);
+    }
+  }
+
+  function nonFilterRowHeaders(): HTMLElement[] {
+    return screen
+      .getAllByRole("columnheader")
+      .filter((th) => !th.closest(".ui-data-grid__filter-row, .ui-data-grid__filter-toggle-row"));
+  }
+
+  const contentReason = "This column's type doesn't support server-side sort or filter.";
+  const undeclaredReason =
+    "This column isn't part of the Output's declared schema, so it can't be sorted or filtered.";
+
+  it("a Content-category column (string-body) has no sort control and a disabled, titled filter input; an eligible sibling is unaffected", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ name: "alice", bio: "long text" }]}
+        schema={[
+          { name: "name", type: "string" },
+          { name: "bio", type: "string-body" },
+        ]}
+      />,
+    );
+    const headers = nonFilterRowHeaders();
+    const nameHeader = headers.find((th) => th.textContent?.includes("name"));
+    const bioHeader = headers.find((th) => th.textContent?.includes("bio"));
+
+    expect(nameHeader?.querySelector(".sortable-th__btn")).toBeInTheDocument();
+    expect(bioHeader?.querySelector(".sortable-th__btn")).not.toBeInTheDocument();
+    expect(bioHeader?.querySelector(".sortable-th__disabled-label")).toHaveAttribute(
+      "title",
+      contentReason,
+    );
+
+    expandFiltersIfCollapsed();
+    const bioFilterInput = screen.getByRole("textbox", { name: "Filter column bio" });
+    expect(bioFilterInput).toBeDisabled();
+    expect(bioFilterInput).toHaveAttribute("title", contentReason);
+
+    const nameFilterInput = screen.getByRole("textbox", { name: "Filter column name" });
+    expect(nameFilterInput).not.toBeDisabled();
+  });
+
+  it("a column absent from an explicit (non-empty) declared schema is disabled with its own reason", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ legacy_col: "x", name: "alice" }]}
+        schema={[{ name: "name", type: "string" }]}
+      />,
+    );
+    const legacyHeader = nonFilterRowHeaders().find((th) => th.textContent?.includes("legacy_col"));
+    expect(legacyHeader?.querySelector(".sortable-th__btn")).not.toBeInTheDocument();
+    expect(legacyHeader?.querySelector(".sortable-th__disabled-label")).toHaveAttribute(
+      "title",
+      undeclaredReason,
+    );
+  });
+
+  it("schema=undefined (no information at all) disables nothing — every pre-existing caller's behavior is unchanged", () => {
+    renderWithStore(<TableRenderer outputId="p" paginationRows={[{ n: "1" }]} />);
+    expect(nonFilterRowHeaders()[0].querySelector(".sortable-th__btn")).toBeInTheDocument();
+  });
+});
+
+// HEL-1027 design.md D5/D7 (task 5.2) — the loaded-scope disclosure's count reflects the
+// server's WHOLE-Output filtered total (`totalRowCount`), never the currently-loaded page's own
+// (possibly much smaller) row count.
+describe("TableRenderer — loaded-scope disclosure uses the server total (HEL-1027 D5/D7, task 5.2)", () => {
+  function quickFilterInput(): HTMLElement {
+    const toggle = screen.queryByRole("button", { name: /^Filters/ });
+    if (toggle && toggle.getAttribute("aria-expanded") === "false") {
+      fireEvent.click(toggle);
+    }
+    return screen.getByRole("textbox", { name: "Quick filter across all columns" });
+  }
+
+  it("shows the server's total match count, not the currently-loaded page's row count, and never the old 'N of M loaded rows match' wording", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ name: "alice" }, { name: "alicia" }]}
+        totalRowCount={350}
+        rowsTruncated
+      />,
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "ali" } });
+    expect(screen.getByText("350 results.")).toBeInTheDocument();
+    expect(screen.queryByText(/loaded rows match/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to the loaded/filtered row count (and the loaded-vs-matched wording) when totalRowCount is unavailable — D7's client-fallback path", () => {
+    renderWithStore(
+      <TableRenderer
+        outputId="p"
+        paginationRows={[{ name: "alice" }, { name: "bob" }]}
+        rowsTruncated
+      />,
+    );
+    fireEvent.change(quickFilterInput(), { target: { value: "ali" } });
+    expect(screen.getByText("1 of 2 loaded rows match.")).toBeInTheDocument();
+  });
 });
 
 // ── HEL-451 task 1/2/4: in-panel column filtering ───────────────────────
@@ -521,9 +781,10 @@ describe("TableRenderer — column filtering (HEL-451)", () => {
         <TableRenderer outputId="p" paginationRows={[{ a: "alice" }]} rowsTruncated />,
       );
       fireEvent.change(quickFilterInput(), { target: { value: "nobody" } });
-      expect(
-        screen.getByText(/No rows match your filter in the 1 rows loaded so far/),
-      ).toBeInTheDocument();
+      // HEL-1027 design.md D10 (task 4.8) — collapsed to the same simple message every other
+      // filtered-empty case uses; the "rows loaded so far... load more to widen the search"
+      // wording is now false once filtering is server-side (D5).
+      expect(screen.getByText("No rows match your filter.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
     },
@@ -618,11 +879,13 @@ describe("TableRenderer — column filtering (HEL-451)", () => {
 
   // ── HEL-451 evaluation-1.md CR4 / task 4.5 — REOPENED alongside 2.3: the
   // five-state disclosure matrix, on the `rawRows` branch. ─────────────────
-  it("4.5 rawRows: not filtering + truncated -> the sort qualifier only", () => {
+  // HEL-1027 design.md D7 (task 5.1) — supersedes the former "4.5 rawRows: not filtering +
+  // truncated -> the sort qualifier only" assertion: the qualifier is removed outright.
+  it("HEL-1027 D7: rawRows, not filtering + truncated -> no loaded-scope text at all", () => {
     renderWithStore(
       <TableRenderer outputId="p" rawRows={[["1"], ["2"]]} headers={["n"]} rowsTruncated />,
     );
-    expect(screen.getByText("Sort covers only the loaded rows.")).toBeInTheDocument();
+    expect(screen.queryByText("Sort covers only the loaded rows.")).not.toBeInTheDocument();
   });
 
   it("4.5 rawRows: filtering + not truncated + results -> an unqualified count", () => {
@@ -651,9 +914,8 @@ describe("TableRenderer — column filtering (HEL-451)", () => {
       <TableRenderer outputId="p" rawRows={[["1"], ["2"]]} headers={["n"]} rowsTruncated />,
     );
     fireEvent.change(columnFilterInput("n"), { target: { value: "nope" } });
-    expect(
-      screen.getByText(/No rows match your filter in the 2 rows loaded so far/),
-    ).toBeInTheDocument();
+    // HEL-1027 design.md D10 (task 4.8) — same collapse as the paginationRows case above.
+    expect(screen.getByText("No rows match your filter.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
   });

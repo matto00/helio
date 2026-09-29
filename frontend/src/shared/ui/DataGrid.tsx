@@ -37,6 +37,12 @@ export interface ColumnDef {
    *  AND `td` TOGETHER (owner-ruled; never one without the other). Absent
    *  keeps today's behavior (`th` left-aligned by CSS, `td` inherits). */
   align?: "left" | "right";
+  /** HEL-1027 design.md D3 (task 4.5) — when set, this column's sort control
+   *  and per-column filter input are both disabled (never silently absent),
+   *  showing this string as a `title` tooltip explaining why. Used by
+   *  `TableRenderer` for a Content-category or undeclared-in-schema column,
+   *  which the server rejects as `400` if requested anyway. */
+  disabledReason?: string;
 }
 
 type DataGridVariant = "full" | "preview";
@@ -985,9 +991,13 @@ export function DataGrid({
                 // component itself, because `SortableTh` renders `children`
                 // INSIDE that `<button>` (the resize `<span>` below cannot
                 // nest there) and exposes no `style` prop for `appliedWidth`.
+                // HEL-1027 design.md D3 (task 4.5) — a per-column override of the grid-wide
+                // `sortable` flag: a column with a `disabledReason` never renders a sort control
+                // at all, regardless of `sort`/`onSort` being wired for the grid as a whole.
+                const columnSortable = sortable && col.disabledReason == null;
                 const direction: SortDirection | null =
-                  sortable && sort?.key === col.key ? sort.direction : null;
-                const ariaSort = !sortable
+                  columnSortable && sort?.key === col.key ? sort.direction : null;
+                const ariaSort = !columnSortable
                   ? undefined
                   : direction === "asc"
                     ? "ascending"
@@ -1032,7 +1042,7 @@ export function DataGrid({
                     }}
                     aria-sort={ariaSort}
                   >
-                    {sortable ? (
+                    {columnSortable ? (
                       <button
                         type="button"
                         className="sortable-th__btn"
@@ -1059,6 +1069,13 @@ export function DataGrid({
                           />
                         )}
                       </button>
+                    ) : sortable && col.disabledReason != null ? (
+                      // HEL-1027 design.md D3 (task 4.5) — never silently absent: a `title`
+                      // tooltip states WHY this column, specifically, has no sort control while
+                      // its siblings do.
+                      <span className="sortable-th__disabled-label" title={col.disabledReason}>
+                        {col.header ?? col.key}
+                      </span>
                     ) : (
                       (col.header ?? col.key)
                     )}
@@ -1150,6 +1167,8 @@ export function DataGrid({
                         placeholder="Filter…"
                         value={columnTerms[col.key] ?? ""}
                         onChange={handleColumnFilterChange(col.key)}
+                        disabled={col.disabledReason != null}
+                        title={col.disabledReason}
                       />
                     </th>
                   );

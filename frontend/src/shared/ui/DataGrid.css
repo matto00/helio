@@ -661,6 +661,22 @@
   outline-offset: 1px;
 }
 
+/* HEL-1027 design.md D3 (task 4.5) — a non-server-sortable/filterable column's disabled filter
+   input: visibly inert (muted text, `not-allowed` cursor), never indistinguishable from an active
+   one. The `title` attribute (set alongside `disabled` in DataGrid.tsx) carries the reason. */
+.ui-data-grid__filter-input:disabled {
+  color: var(--app-text-muted);
+  cursor: not-allowed;
+}
+
+/* HEL-1027 design.md D3 (task 4.5) — the plain-text label a disabled column's header renders
+   instead of a sort button; muted so it reads as "unavailable" at a glance, matching the disabled
+   filter input's own treatment above. */
+.sortable-th__disabled-label {
+  color: var(--app-text-muted);
+  cursor: not-allowed;
+}
+
 .ui-data-grid__filter-input--quick {
   font-weight: var(--weight-medium);
 }

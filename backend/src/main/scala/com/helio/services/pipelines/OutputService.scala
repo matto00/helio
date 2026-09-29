@@ -355,33 +355,64 @@ final class OutputService(
    *  /api/outputs/:id` above) -- an Output's rows are exactly as visible as the Output itself,
    *  no separate check needed. A missing `nodeSnapshotRepo` (nullable-optional wiring) degrades
    *  to an empty page rather than an NPE, mirroring every other nullable dependency in this
-   *  service. */
-  def rows(id: OutputId, page: Page, user: AuthenticatedUser): Future[Either[ServiceError, OutputRowsResponse]] =
+   *  service.
+   *
+   *  HEL-1027 design.md D1-D6 — `sort`/`filter` are resolved against THIS Output's OWN `schema`
+   *  (`OutputRowsQuery`, task 3.1) BEFORE `listRowsPaged` is ever called, so a non-eligible column
+   *  is rejected as `400` (D3) without touching the ACL-bypassing repository call at all -- the
+   *  `outputRepo.findById` ACL gate above remains the only access check either way (task 3.3). */
+  def rows(
+      id: OutputId,
+      page: Page,
+      user: AuthenticatedUser,
+      sort: Option[OutputRowsQuery.SortParam] = None,
+      filter: Option[OutputRowsQuery.FilterParam] = None
+  ): Future[Either[ServiceError, OutputRowsResponse]] =
     outputRepo.findById(id, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
       case Some(_) if nodeSnapshotRepo == null =>
         Future.successful(Right(OutputRowsResponse(Vector.empty, 0, page.offset, page.limit, materialized = false)))
       case Some(output) =>
-        nodeSnapshotRepo
-          .listRowsPaged(output.node.pipelineId.value, output.node.stepId.map(_.value), page, explicitRootId = output.node.rootId.map(_.value))
-          .flatMap { paged =>
-            if (paged.total > 0)
-              // Non-empty snapshot -- unambiguously materialized, no need to
-              // consult run history.
-              Future.successful(Right(OutputRowsResponse(paged.items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, materialized = true)))
-            else if (pipelineRunRepo == null)
-              // No run-history dependency wired (nullable-optional, mirrors
-              // every other such fixture in this service) -- can't
-              // distinguish never-run from legitimately-empty, so default to
-              // the less alarming state (materialized = true, i.e. "this
-              // really is empty") rather than false-alarming every fixture
-              // that doesn't wire this repo.
-              Future.successful(Right(OutputRowsResponse(Vector.empty, paged.total, paged.offset, paged.limit, materialized = true)))
-            else
-              pipelineRunRepo.latestSuccessfulCompletedAtInternal(output.node.pipelineId).map { lastSuccess =>
-                val materialized = lastSuccess.exists(t => !t.isBefore(output.createdAt))
-                Right(OutputRowsResponse(Vector.empty, paged.total, paged.offset, paged.limit, materialized = materialized))
+        (OutputRowsQuery.resolveSort(output.schema, sort), OutputRowsQuery.resolveFilter(output.schema, filter)) match {
+          case (Left(err), _) => Future.successful(Left(err))
+          case (_, Left(err)) => Future.successful(Left(err))
+          case (Right(resolvedSort), Right(resolvedFilter)) =>
+            nodeSnapshotRepo
+              .listRowsPaged(
+                output.node.pipelineId.value,
+                output.node.stepId.map(_.value),
+                page,
+                explicitRootId = output.node.rootId.map(_.value),
+                sort = resolvedSort,
+                filter = resolvedFilter
+              )
+              .flatMap { paged =>
+                materializedFor(output, paged, filterActive = resolvedFilter.isDefined).map { materialized =>
+                  Right(OutputRowsResponse(paged.items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, materialized = materialized))
+                }
               }
-          }
+        }
     }
+
+  /** HEL-1027 design.md D5 amendment (task 3.4) — decouples the "does this node have ANY raw
+   *  data at all" signal from `paged.total`, which now can mean "count under the current filter"
+   *  (D5). Unfiltered requests keep TODAY'S exact `paged.total > 0` check (zero added cost, the
+   *  overwhelmingly common case); a filtered request that legitimately matches zero rows of an
+   *  Output that has real data must NOT fall into the "never materialized" branch just because
+   *  the filter happened to exclude every row (D5's own worked example: two Outputs sharing the
+   *  same `node_snapshots` data could otherwise report DIFFERENT `materialized` values purely as
+   *  an artifact of one having a filter and the other not). */
+  private def materializedFor(output: Output, paged: PagedResult[JsObject], filterActive: Boolean): Future[Boolean] = {
+    val rawExistsFuture: Future[Boolean] =
+      if (!filterActive) Future.successful(paged.total > 0)
+      else nodeSnapshotRepo.hasAnyRow(output.node.pipelineId.value, output.node.stepId.map(_.value), output.node.rootId.map(_.value))
+
+    rawExistsFuture.flatMap { rawExists =>
+      if (rawExists) Future.successful(true)
+      else if (pipelineRunRepo == null) Future.successful(true)
+      else pipelineRunRepo.latestSuccessfulCompletedAtInternal(output.node.pipelineId).map { lastSuccess =>
+        lastSuccess.exists(t => !t.isBefore(output.createdAt))
+      }
+    }
+  }
 }

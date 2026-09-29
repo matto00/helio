@@ -388,4 +388,10 @@ export interface PanelPaginationState {
    *  Defaults to `true` before the first fetch resolves, so nothing flashes
    *  a "run the pipeline" prompt while loading. */
   materialized: boolean;
+  /** HEL-1027 design.md D5/D7 — the server's row count for the CURRENT `sort`/`filter` (the
+   *  Output's raw row count when no filter is active, the filtered count otherwise) — the same
+   *  value `hasMore` is derived from. Distinct from `rows.length`, which is only how many rows
+   *  have been PAGED IN so far; `total` is the true Output-wide count even before every page has
+   *  been loaded. Defaults to `0` before the first fetch resolves. */
+  total: number;
 }
