@@ -62,6 +62,7 @@ function PanelCardBodyHarness({ panel }: { panel: Panel }) {
 }
 
 jest.mock("../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../pipelines/services/outputService"),
   getOutputById: jest.fn(() => new Promise(() => {})),
   getAssertionStatus: jest.fn(() => new Promise(() => {})),
 }));
@@ -86,9 +87,11 @@ function makeFrozenPaginationStore(panel: Panel) {
 function renderCardBody(panel: Panel) {
   const store = makeFrozenPaginationStore(panel);
   return render(
-    <Provider store={store}>
-      <PanelCardBodyHarness panel={panel} />
-    </Provider>,
+    <MemoryRouter>
+      <Provider store={store}>
+        <PanelCardBodyHarness panel={panel} />
+      </Provider>
+    </MemoryRouter>,
   );
 }
 

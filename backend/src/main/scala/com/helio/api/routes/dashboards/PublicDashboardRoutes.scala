@@ -5,12 +5,17 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.helio.api._
 import com.helio.api.http._
+import com.helio.api.protocols.pipelines.{OutputSchemaFieldResponse, PublicOutputMetaResponse}
+import com.helio.api.routes.ServiceResponse
+import com.helio.api.routes.pipelines.OutputRowsQueryParsing
 import com.helio.domain.model._
 import com.helio.domain.panels.OutputPanel
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository}
-import com.helio.services.panels.OutputControlsValidator
-import spray.json.JsValue
+import com.helio.services.ServiceError
+import com.helio.services.panels.{OutputControlsValidator, PublicOutputControlScope}
+import com.helio.services.pipelines.{OutputFilterCapability, OutputRowsQuery}
+import spray.json.{JsObject, JsValue}
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
@@ -113,27 +118,166 @@ final class PublicDashboardRoutes(
    *  `accessAlreadyGranted = true` is passed straight through to `findAllByDashboardId` -- see that
    *  method's own doc for why this is required (a share-token-authorized caller matches none of
    *  the repository's own owner/grantee/public-viewer-grant predicates). */
-  private def resolveRows(dashboardId: String, panelId: String, page: Page): Future[Either[String, PagedResult[JsValue]]] =
+  /** HEL-1190 design.md D6 (task 1.2/1.3) — `sort`/`filter` are `None` for every pre-existing
+   *  caller (the panel-list route's own zero-arg usage doesn't apply here; every call site below
+   *  passes them explicitly), resolved via the SAME `OutputRowsQuery.resolveSort/resolveFilter`
+   *  `OutputService.rows` already relies on (D6's "contract and rows endpoint can't drift"
+   *  guarantee). `filter`'s named columns are additionally gated to this panel's OWN configured
+   *  `output_controls` columns (D5/D6, owner ruling C11) BEFORE `resolveFilter` ever runs -- a
+   *  column that is otherwise Output-eligible but not one of this panel's controls is rejected as
+   *  `400`, never silently narrowed or served. */
+  private def resolveRows(
+      dashboardId: String,
+      panelId: String,
+      page: Page,
+      sort: Option[OutputRowsQuery.SortParam],
+      filter: Option[OutputRowsQuery.FilterParam]
+  ): Future[Either[ServiceError, PagedResult[JsValue]]] =
     panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, Page(offset = 0, limit = Page.MaxLimit), accessAlreadyGranted = true).flatMap { paged =>
       paged.items.find(_.id.value == panelId) match {
-        case None => Future.successful(Left("Panel not found"))
+        case None => Future.successful(Left(ServiceError.NotFound("Panel not found")))
         case Some(op: OutputPanel) =>
           (op.outputId, outputRepoOpt, nodeSnapshotRepoOpt) match {
             case (Some(outputId), Some(outputRepo), Some(nodeSnapshotRepo)) =>
               outputRepo.findByIdInternal(outputId).flatMap {
                 case None => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))
                 case Some(output) =>
-                  nodeSnapshotRepo
-                    // HEL-913 R12/5.8b-iv-a: scope a root-bound read (`stepId = None`) to THIS
-                    // Output's own root -- `output.node.rootId` is exactly that, already
-                    // resolved at write time.
-                    .listRowsPaged(output.node.pipelineId.value, output.node.stepId.map(_.value), page, explicitRootId = output.node.rootId.map(_.value))
-                    .map(paged => Right(paged.copy(items = paged.items.map(identity[JsValue]))))
+                  PublicOutputControlScope
+                    .validateFilterColumns(op.config.controls, filter)
+                    .flatMap(_ => PublicOutputControlScope.validateSortColumn(op.config.controls, sort)) match {
+                    case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
+                    case Right(()) =>
+                      OutputRowsQuery.resolveSort(output.schema, sort) match {
+                        case Left(err) => Future.successful(Left(err))
+                        case Right(resolvedSort) =>
+                          OutputRowsQuery.resolveFilter(output, filter, nodeSnapshotRepo).flatMap {
+                            case Left(err) => Future.successful(Left(err))
+                            case Right(resolvedFilter) =>
+                              nodeSnapshotRepo
+                                // HEL-913 R12/5.8b-iv-a: scope a root-bound read (`stepId = None`) to
+                                // THIS Output's own root -- `output.node.rootId` is exactly that,
+                                // already resolved at write time.
+                                .listRowsPaged(
+                                  output.node.pipelineId.value,
+                                  output.node.stepId.map(_.value),
+                                  page,
+                                  explicitRootId = output.node.rootId.map(_.value),
+                                  sort = resolvedSort,
+                                  filter = resolvedFilter
+                                )
+                                .map(paged => Right(paged.copy(items = paged.items.map(identity[JsValue]))))
+                          }
+                      }
+                  }
               }
             case _ => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))
           }
         case Some(_) => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))
       }
+    }
+
+  /** HEL-1190 design.md D5/D8 (tasks 2.1/2.2/2.4) — resolves `dashboardId + panelId ->
+   *  (OutputPanel, Output)` server-side, shared by the three new panel-scoped public routes below
+   *  (`filter-capabilities`/`distinct-values`/`output-meta`) so none of them ever accepts a
+   *  caller-supplied `outputId` (C11). Reuses `resolveRows`'s SAME `findAllByDashboardId` lookup --
+   *  the panel is proven to actually belong to THIS dashboard before anything about its bound
+   *  Output is resolved. Deliberately `ServiceError.NotFound` for every "can't resolve" case
+   *  (missing panel, wrong kind, no bound Output, unresolvable Output, or a fixture missing
+   *  `outputRepoOpt`) -- unlike `resolveRows`'s degrade-gracefully-to-empty-page contract, these
+   *  three routes have no "page" to degrade to, so a 404 is the correct, existence-not-leaked
+   *  response (the caller already passed the dashboard-level ACL gate to reach here). */
+  private def resolvePanelOutput(dashboardId: String, panelId: String): Future[Either[ServiceError, (OutputPanel, Output)]] =
+    panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, Page(offset = 0, limit = Page.MaxLimit), accessAlreadyGranted = true).flatMap { paged =>
+      paged.items.find(_.id.value == panelId) match {
+        case Some(op: OutputPanel) =>
+          (op.outputId, outputRepoOpt) match {
+            case (Some(outputId), Some(outputRepo)) =>
+              outputRepo.findByIdInternal(outputId).map {
+                case Some(output) => Right((op, output))
+                case None         => Left(ServiceError.NotFound("Output not found"))
+              }
+            case _ => Future.successful(Left(ServiceError.NotFound("Output not found")))
+          }
+        case _ => Future.successful(Left(ServiceError.NotFound("Panel not found")))
+      }
+    }
+
+  /** HEL-1190 design.md D5 (task 2.1) — the full-schema contract (same `OutputFilterCapability
+   *  .buildContract` the authenticated `filter-capabilities` route delegates to, computed
+   *  identically), then narrowed to only the columns this panel's OWN configured controls name
+   *  (`PublicOutputControlScope`) -- this route has no per-request `column` param to gate (mirrors
+   *  the authenticated route's own full-sweep shape), so every column NOT a control on this panel
+   *  is simply absent from the response, never returned as a contract entry. */
+  private def resolveFilterCapabilities(dashboardId: String, panelId: String): Future[Either[ServiceError, OutputFilterCapability.FilterCapabilityContract]] =
+    resolvePanelOutput(dashboardId, panelId).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right((panel, output)) =>
+        nodeSnapshotRepoOpt match {
+          case None => Future.successful(Right(OutputFilterCapability.FilterCapabilityContract(Vector.empty)))
+          case Some(nodeSnapshotRepo) =>
+            OutputFilterCapability.buildContract(output, nodeSnapshotRepo).map { contract =>
+              val allowed = PublicOutputControlScope.allowedColumns(panel.config.controls)
+              Right(contract.copy(columns = contract.columns.filter(c => allowed.contains(c.column))))
+            }
+        }
+    }
+
+  /** HEL-1190 design.md D5 (task 2.2) — same panel-scoped gate as `resolveFilterCapabilities`
+   *  above, but per-request (`column` IS a param here, mirroring the authenticated
+   *  `distinct-values` route): rejected `400` before `OutputFilterCapability.eqInEligibleColumn`
+   *  ever runs when `column` isn't one of THIS panel's own configured control columns, even when
+   *  it would otherwise be eq/in-eligible on the Output. */
+  private def resolveDistinctValues(dashboardId: String, panelId: String, column: String): Future[Either[ServiceError, Vector[(String, Int)]]] =
+    resolvePanelOutput(dashboardId, panelId).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right((panel, output)) =>
+        if (!PublicOutputControlScope.isAllowed(panel.config.controls, column))
+          Future.successful(Left(ServiceError.BadRequest(s"column not permitted for this panel: '$column'")))
+        else
+          nodeSnapshotRepoOpt match {
+            case None => Future.successful(Left(ServiceError.BadRequest(s"column not eq/in-eligible: '$column'")))
+            case Some(nodeSnapshotRepo) =>
+              OutputFilterCapability.eqInEligibleColumn(output, nodeSnapshotRepo, column).flatMap {
+                case Left(err) => Future.successful(Left(err))
+                case Right(()) =>
+                  nodeSnapshotRepo
+                    .topDistinctValues(
+                      output.node.pipelineId.value,
+                      output.node.stepId.map(_.value),
+                      output.node.rootId.map(_.value),
+                      column,
+                      OutputFilterCapability.MaxDropdownCardinality
+                    )
+                    .map(Right(_))
+              }
+          }
+    }
+
+  /** HEL-1190 design.md D8 (task 2.4) — `kind`/`config`/`schema`/`ownerId` only, never row data;
+   *  the ONE new metadata source `usePublicPanelData` needs to pick/configure a renderer, since
+   *  `PanelResponse.config` (the panel-list route above) is only the PANEL's own placement config,
+   *  never the bound Output's. `config` needs its own repository call (`Output` itself carries no
+   *  `config` field -- see `OutputRepository`'s own doc comment) — reuses the SAME
+   *  `findConfigsByIdsInternal` batch method `OutputService`'s own authenticated callers use,
+   *  singleton-Vector'd for this one Output. */
+  private def resolveOutputMeta(dashboardId: String, panelId: String): Future[Either[ServiceError, PublicOutputMetaResponse]] =
+    resolvePanelOutput(dashboardId, panelId).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right((_, output)) =>
+        outputRepoOpt match {
+          case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
+          case Some(outputRepo) =>
+            outputRepo.findConfigsByIdsInternal(Vector(output.id.value)).map { configs =>
+              Right(
+                PublicOutputMetaResponse(
+                  kind = OutputKind.asString(output.kind),
+                  config = configs.getOrElse(output.id.value, JsObject.empty),
+                  schema = output.schema.flatMap(sf => DataFieldType.fromString(sf.`type`).map(t => OutputSchemaFieldResponse(sf.name, DataFieldType.asString(t)))),
+                  ownerId = output.ownerId.value
+                )
+              )
+            }
+        }
     }
 
   val routes: Route =
@@ -144,26 +288,86 @@ final class PublicDashboardRoutes(
             parameters(
               "offset".as[Int].withDefault(Page.Default.offset),
               "limit".as[Int].withDefault(Page.Default.limit),
+              // HEL-1190 design.md D6 (task 1.2) — same `sort`/`filter` shape/parsing as the
+              // authenticated `GET /api/outputs/:id/rows` (`OutputRowsQueryParsing`, shared
+              // verbatim); `filter`'s named columns are additionally gated to this panel's own
+              // configured control columns inside `resolveRows` (D5/D6, owner ruling C11).
+              "sort".optional,
+              "filter".optional,
               // HEL-590: `?token=<share token>` -- the share URL itself must carry the credential
               // (design.md D1); part of the published contract per the sibling spec.md.
               "token".optional
-            ) { (offsetRaw, limitRaw, token) =>
+            ) { (offsetRaw, limitRaw, sortRaw, filterRaw, token) =>
               if (offsetRaw < 0)
                 complete(StatusCodes.BadRequest, ErrorResponse("offset must not be negative"))
-              else {
-                val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
-                aclDirective.authorizeResourceWithSharing(
-                  "dashboard",
-                  dashboardId,
-                  userOpt,
-                  "Dashboard not found",
-                  token
-                ) { _ =>
-                  onSuccess(resolveRows(dashboardId, panelId, page)) {
-                    case Left(err)     => complete(StatusCodes.NotFound, ErrorResponse(err))
-                    case Right(result) => complete(result)
-                  }
+              else
+                (OutputRowsQueryParsing.parseSortParam(sortRaw), OutputRowsQueryParsing.parseFilterParam(filterRaw)) match {
+                  case (Left(err), _) => complete(StatusCodes.BadRequest, ErrorResponse(err))
+                  case (_, Left(err)) => complete(StatusCodes.BadRequest, ErrorResponse(err))
+                  case (Right(sortParam), Right(filterParam)) =>
+                    val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
+                    aclDirective.authorizeResourceWithSharing(
+                      "dashboard",
+                      dashboardId,
+                      userOpt,
+                      "Dashboard not found",
+                      token
+                    ) { _ =>
+                      ServiceResponse.run(resolveRows(dashboardId, panelId, page, sortParam, filterParam))(identity)
+                    }
                 }
+            }
+          }
+        }
+      } ~
+      pathPrefix(Segment / "filter-capabilities") { panelId =>
+        pathEndOrSingleSlash {
+          get {
+            parameters("token".optional) { token =>
+              aclDirective.authorizeResourceWithSharing(
+                "dashboard",
+                dashboardId,
+                userOpt,
+                "Dashboard not found",
+                token
+              ) { _ =>
+                ServiceResponse.run(resolveFilterCapabilities(dashboardId, panelId))(outputFilterCapabilitiesResponseFrom)
+              }
+            }
+          }
+        }
+      } ~
+      pathPrefix(Segment / "distinct-values") { panelId =>
+        pathEndOrSingleSlash {
+          get {
+            parameters("column", "token".optional) { (column, token) =>
+              aclDirective.authorizeResourceWithSharing(
+                "dashboard",
+                dashboardId,
+                userOpt,
+                "Dashboard not found",
+                token
+              ) { _ =>
+                ServiceResponse.run(resolveDistinctValues(dashboardId, panelId, column))(values =>
+                  outputDistinctValuesResponseFrom(column, values)
+                )
+              }
+            }
+          }
+        }
+      } ~
+      pathPrefix(Segment / "output-meta") { panelId =>
+        pathEndOrSingleSlash {
+          get {
+            parameters("token".optional) { token =>
+              aclDirective.authorizeResourceWithSharing(
+                "dashboard",
+                dashboardId,
+                userOpt,
+                "Dashboard not found",
+                token
+              ) { _ =>
+                ServiceResponse.run(resolveOutputMeta(dashboardId, panelId))(identity)
               }
             }
           }

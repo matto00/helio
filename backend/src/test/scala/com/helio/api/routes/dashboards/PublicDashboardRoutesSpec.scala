@@ -24,6 +24,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json._
 
+import java.net.URLEncoder
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -164,6 +165,33 @@ class PublicDashboardRoutesSpec
 
   private def firstControlOrphaned(items: Vector[PanelResponse]): Boolean =
     items.head.config.asJsObject.fields("controls").convertTo[Vector[JsObject]].head.fields("orphaned").convertTo[Boolean]
+
+  /** HEL-1190 design.md D5/D6 (owner ruling C11) — a panel with exactly ONE configured control
+   *  (`dropdown` bound to `region`), on an Output whose schema ALSO declares `amount` (integer) —
+   *  eq/in AND gte/lte eligible on its own, low-cardinality, but deliberately NOT named by any
+   *  control on this panel. Every test below that asserts a non-control-column rejection uses
+   *  `amount` specifically so the rejection is proven against a column that would otherwise be
+   *  served by the authenticated Output-scoped route family — never a column that's rejected for some
+   *  OTHER reason (ineligible type, absent from schema). */
+  private def seedOutputPanelWithDropdownControl(dashId: String, pipelineId: PipelineId): (String, OutputId) = {
+    val output = await(outputRepo.insertInternal(
+      pipelineId, None, owner.id, "Dropdown Output", OutputKind.Table,
+      schema = Vector(SchemaField("region", "string"), SchemaField("amount", "integer")),
+      explicitRootId = None
+    ))
+    import PostgresProfile.api._
+    val panelId = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, output_id, output_controls, owner_id)
+               VALUES ($panelId, $dashId, 'Dropdown Panel', $ownerId, now(), now(),
+                       '{"background":"transparent","color":"inherit","transparency":0.0}',
+                       'output', ${output.id.value},
+                       '[{"id":"c1","kind":"dropdown","column":"region","label":"Region"}]'::jsonb, ${ownerId}::uuid)"""
+    ))
+    (panelId, output.id)
+  }
+
+  private def encodeFilter(json: String): String = URLEncoder.encode(json, "UTF-8")
 
   "GET /dashboards/:id/panels" should {
     "return dataAsOf = the bound pipeline's lastRunAt for an Output-backed placement" in {
@@ -393,6 +421,187 @@ class PublicDashboardRoutesSpec
         status shouldBe StatusCodes.OK
         val items = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
         items shouldBe empty
+      }
+    }
+
+    // HEL-1190 design.md D5/D6 (owner ruling C11, task 1.2/1.3) — the public rows route's NEW
+    // sort/filter support. Red-first: before this ticket, `sort`/`filter` were not accepted
+    // params on this route at all, so a `filter=` naming ANY column (control or not) was silently
+    // ignored and every row came back unfiltered — this test would have failed pre-fix both by
+    // returning the wrong (unfiltered) row count for the first case and by returning 200 (not
+    // 400) for the second.
+    "narrow the result via filter= on a column that IS one of the panel's own configured controls" in {
+      val dashId     = seedDashboardWithPublicGrant()
+      val pipelineId = newPipelineWithLastRunAt(Instant.now())
+      val (panelId, _) = seedOutputPanelWithDropdownControl(dashId, pipelineId)
+      await(nodeSnapshotRepo.overwriteRows(
+        pipelineId.value, None,
+        Seq(
+          JsObject("region" -> JsString("east"), "amount" -> JsNumber(10)),
+          JsObject("region" -> JsString("west"), "amount" -> JsNumber(20))
+        ),
+        explicitRootId = None
+      ))
+
+      val filter = encodeFilter("""{"ops":[{"column":"region","op":"eq","value":"east"}]}""")
+      Get(s"/dashboards/$dashId/panels/$panelId/rows?filter=$filter") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val items = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
+        items should have size 1
+        items.head.fields("region") shouldBe JsString("east")
+      }
+    }
+
+    "reject a filter= naming a column that is Output-eligible but NOT one of the panel's own configured controls" in {
+      val dashId     = seedDashboardWithPublicGrant()
+      val pipelineId = newPipelineWithLastRunAt(Instant.now())
+      val (panelId, _) = seedOutputPanelWithDropdownControl(dashId, pipelineId)
+      await(nodeSnapshotRepo.overwriteRows(
+        pipelineId.value, None,
+        Seq(JsObject("region" -> JsString("east"), "amount" -> JsNumber(10))),
+        explicitRootId = None
+      ))
+
+      // "amount" is a real, gte-eligible Output column -- just not a control on THIS panel.
+      val filter = encodeFilter("""{"ops":[{"column":"amount","op":"gte","value":"5"}]}""")
+      Get(s"/dashboards/$dashId/panels/$panelId/rows?filter=$filter") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("amount")
+      }
+    }
+
+    "reject a quick filter, which would match across non-control columns" in {
+      val dashId       = seedDashboardWithPublicGrant()
+      val pipelineId   = newPipelineWithLastRunAt(Instant.now())
+      val (panelId, _) = seedOutputPanelWithDropdownControl(dashId, pipelineId)
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("region" -> JsString("east"), "amount" -> JsNumber(10))), explicitRootId = None))
+      Get(s"/dashboards/$dashId/panels/$panelId/rows?filter=${encodeFilter("""{"quick":"10"}""")}") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "reject a sort on a column that is not one of the panel's control columns, and allow a control column" in {
+      val dashId       = seedDashboardWithPublicGrant()
+      val pipelineId   = newPipelineWithLastRunAt(Instant.now())
+      val (panelId, _) = seedOutputPanelWithDropdownControl(dashId, pipelineId)
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("region" -> JsString("east"), "amount" -> JsNumber(10))), explicitRootId = None))
+      Get(s"/dashboards/$dashId/panels/$panelId/rows?sort=amount:asc") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+      Get(s"/dashboards/$dashId/panels/$panelId/rows?sort=region:asc") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+      }
+    }
+  }
+
+  /** HEL-1190 design.md D5 (task 2.1) — panel-scoped `filter-capabilities`, mounted alongside
+   *  `.../rows` on the same optional-auth tree. */
+  "GET /dashboards/:dashboardId/panels/:panelId/filter-capabilities" should {
+    "report only the panel's own configured control columns, even when another Output column is independently eq/in-eligible" in {
+      val dashId       = seedDashboardWithPublicGrant()
+      val pipelineId   = newPipelineWithLastRunAt(Instant.now())
+      val (panelId, _) = seedOutputPanelWithDropdownControl(dashId, pipelineId)
+      await(nodeSnapshotRepo.overwriteRows(
+        pipelineId.value, None,
+        Seq(
+          JsObject("region" -> JsString("east"), "amount" -> JsNumber(10)),
+          JsObject("region" -> JsString("west"), "amount" -> JsNumber(20))
+        ),
+        explicitRootId = None
+      ))
+
+      Get(s"/dashboards/$dashId/panels/$panelId/filter-capabilities") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val columns = responseAs[JsObject].fields("columns").convertTo[Vector[JsObject]].map(_.fields("column").convertTo[String])
+        columns shouldBe Vector("region")
+      }
+    }
+
+    "return an authorization error for a non-shared dashboard, identically to rows" in {
+      import PostgresProfile.api._
+      val dashId = UUID.randomUUID().toString
+      await(db.run(
+        sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
+                 VALUES ($dashId, 'Private Dashboard 2', $ownerId, now(), now(),
+                         '{"background":"transparent","gridBackground":"transparent"}',
+                         '{"lg":[],"md":[],"sm":[],"xs":[]}', ${ownerId}::uuid)"""
+      ))
+      val pipelineId    = newPipelineWithLastRunAt(Instant.now())
+      val (panelId, _)  = seedOutputPanelWithDropdownControl(dashId, pipelineId)
+
+      Get(s"/dashboards/$dashId/panels/$panelId/filter-capabilities") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
+  /** HEL-1190 design.md D5 (task 2.2) — panel-scoped `distinct-values`, same gate as
+   *  filter-capabilities above but per-request (`column` IS a param here). */
+  "GET /dashboards/:dashboardId/panels/:panelId/distinct-values" should {
+    "return distinct values for a column that is one of the panel's own configured controls" in {
+      val dashId       = seedDashboardWithPublicGrant()
+      val pipelineId   = newPipelineWithLastRunAt(Instant.now())
+      val (panelId, _) = seedOutputPanelWithDropdownControl(dashId, pipelineId)
+      await(nodeSnapshotRepo.overwriteRows(
+        pipelineId.value, None,
+        Seq(JsObject("region" -> JsString("east"), "amount" -> JsNumber(10)), JsObject("region" -> JsString("west"), "amount" -> JsNumber(20))),
+        explicitRootId = None
+      ))
+
+      Get(s"/dashboards/$dashId/panels/$panelId/distinct-values?column=region") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val values = responseAs[JsObject].fields("values").convertTo[Vector[JsObject]].map(_.fields("value").convertTo[String])
+        values.toSet shouldBe Set("east", "west")
+      }
+    }
+
+    "reject a column that is Output-eligible but NOT configured as a control on this panel" in {
+      val dashId       = seedDashboardWithPublicGrant()
+      val pipelineId   = newPipelineWithLastRunAt(Instant.now())
+      val (panelId, _) = seedOutputPanelWithDropdownControl(dashId, pipelineId)
+      await(nodeSnapshotRepo.overwriteRows(
+        pipelineId.value, None,
+        Seq(JsObject("region" -> JsString("east"), "amount" -> JsNumber(10))),
+        explicitRootId = None
+      ))
+
+      Get(s"/dashboards/$dashId/panels/$panelId/distinct-values?column=amount") ~> routes() ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
+    }
+  }
+
+  /** HEL-1190 design.md D8 (task 2.4) — the public/anonymous-safe Output-metadata route
+   *  `usePublicPanelData` needs to pick/configure a renderer. */
+  "GET /dashboards/:dashboardId/panels/:panelId/output-meta" should {
+    "return kind/config/schema/ownerId, and nothing else, for a shared dashboard's output panel" in {
+      val dashId     = seedDashboardWithPublicGrant()
+      val pipelineId = newPipelineWithLastRunAt(Instant.now())
+      val panelId    = seedOutputPanel(dashId, pipelineId)
+
+      Get(s"/dashboards/$dashId/panels/$panelId/output-meta") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val body = responseAs[JsObject]
+        body.fields.keySet shouldBe Set("kind", "config", "schema", "ownerId")
+        body.fields("kind") shouldBe JsString("table")
+        body.fields("ownerId") shouldBe JsString(ownerId)
+      }
+    }
+
+    "return an authorization error for a non-shared dashboard, identically to rows" in {
+      import PostgresProfile.api._
+      val dashId = UUID.randomUUID().toString
+      await(db.run(
+        sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
+                 VALUES ($dashId, 'Private Dashboard 3', $ownerId, now(), now(),
+                         '{"background":"transparent","gridBackground":"transparent"}',
+                         '{"lg":[],"md":[],"sm":[],"xs":[]}', ${ownerId}::uuid)"""
+      ))
+      val pipelineId = newPipelineWithLastRunAt(Instant.now())
+      val panelId    = seedOutputPanel(dashId, pipelineId)
+
+      Get(s"/dashboards/$dashId/panels/$panelId/output-meta") ~> routes() ~> check {
+        status shouldBe StatusCodes.NotFound
       }
     }
   }

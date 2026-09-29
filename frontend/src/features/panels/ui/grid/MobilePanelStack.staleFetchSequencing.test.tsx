@@ -20,12 +20,18 @@ import { authReducer } from "../../../auth/state/authSlice";
 import { toastsReducer } from "../../../toasts/state/toastsSlice";
 import { ThemeProvider } from "../../../../theme/ThemeProvider";
 import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
 import * as outputService from "../../../pipelines/services/outputService";
 import type { Output } from "../../../pipelines/types/output";
 import { MobilePanelStack } from "./MobilePanelStack";
 import type { Panel } from "../../types/panel";
 
-jest.mock("../../../pipelines/services/outputService");
+jest.mock("../../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../../pipelines/services/outputService"),
+  getOutputRows: jest.fn(),
+  getOutputById: jest.fn(),
+  getAssertionStatus: jest.fn(),
+}));
 jest.mock("../../hooks/usePanelPolling", () => ({ usePanelPolling: jest.fn() }));
 jest.mock("../../hooks/usePanelRunRefresh", () => ({ usePanelRunRefresh: jest.fn() }));
 
@@ -103,11 +109,17 @@ describe("MobilePanelStack/MobileStackPanelBody — persisted-filter-default cor
     const store = makeStore(panel);
 
     render(
-      <Provider store={store}>
-        <ThemeProvider>
-          <MobilePanelStack panels={[panel]} layout={defaultDashboardLayout} containerWidth={375} />
-        </ThemeProvider>
-      </Provider>,
+      <MemoryRouter>
+        <Provider store={store}>
+          <ThemeProvider>
+            <MobilePanelStack
+              panels={[panel]}
+              layout={defaultDashboardLayout}
+              containerWidth={375}
+            />
+          </ThemeProvider>
+        </Provider>
+      </MemoryRouter>,
     );
 
     // Let every mount-effect fetch settle: `usePanelData`'s own unfiltered fetch, `useOutputMeta`,

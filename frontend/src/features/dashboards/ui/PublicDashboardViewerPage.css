@@ -2,7 +2,7 @@
    (DESIGN.md). No embed-specific chrome/sizing -- that is HEL-593. */
 
 .public-dashboard-viewer {
-  max-width: 720px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: var(--space-6) var(--space-4);
 }
@@ -18,9 +18,10 @@
 
 .public-dashboard-viewer__panel-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--space-3);
+  min-width: 0;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-md);

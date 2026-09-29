@@ -6,6 +6,7 @@
 import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
 
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { getOutputId } from "../state/panelNarrowing";
@@ -18,7 +19,12 @@ import type { Output } from "../../pipelines/types/output";
 import { PanelCardBody } from "./PanelCard";
 import type { Panel } from "../types/panel";
 
-jest.mock("../../pipelines/services/outputService");
+jest.mock("../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../pipelines/services/outputService"),
+  getOutputRows: jest.fn(),
+  getOutputById: jest.fn(),
+  getAssertionStatus: jest.fn(),
+}));
 jest.mock("../hooks/usePanelPolling", () => ({ usePanelPolling: jest.fn() }));
 jest.mock("../hooks/usePanelRunRefresh", () => ({ usePanelRunRefresh: jest.fn() }));
 
@@ -110,9 +116,11 @@ describe("PanelCard — 'Load more' carries the active sort/filter (HEL-1027 AC 
     });
     const panel = makeOutputPanel({ id: "panel-loadmore" });
     render(
-      <Provider store={makeStore(panel)}>
-        <Harness panel={panel} />
-      </Provider>,
+      <MemoryRouter>
+        <Provider store={makeStore(panel)}>
+          <Harness panel={panel} />
+        </Provider>
+      </MemoryRouter>,
     );
 
     await act(async () => {

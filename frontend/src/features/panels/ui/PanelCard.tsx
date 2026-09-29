@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
-import { getOutputId, isFullscreenEligible } from "../state/panelNarrowing";
+import { getOutputId, isFullscreenEligible, isOutputPanel } from "../state/panelNarrowing";
 import {
   clearSelection,
   deletePanel,
@@ -9,16 +9,23 @@ import {
   fetchPanelPage,
   selectDataPoint,
 } from "../state/panelsSlice";
-import { getAssertionStatus } from "../../pipelines/services/outputService";
+import {
+  composeOutputRowsFilter,
+  getAssertionStatus,
+  getDistinctValues,
+} from "../../pipelines/services/outputService";
 import { readChartConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import { useOutputMeta } from "../hooks/useOutputMeta";
 import { usePanelSortFilter } from "../hooks/usePanelSortFilter";
+import { useViewerControls } from "../hooks/useViewerControls";
+import { buildViewerControlFilterOps } from "../state/viewerControlValues";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { IconButton } from "../../../shared/ui/IconButton";
 import { TextField } from "../../../shared/ui/TextField";
+import { OutputViewerControlBar } from "./OutputViewerControlBar";
 import { PanelContent } from "./PanelContent";
 import { PanelFullscreenOverlay } from "./PanelFullscreenOverlay";
 import { PanelInspectView } from "./PanelInspectView";
@@ -27,7 +34,7 @@ import { usePanelData } from "../hooks/usePanelData";
 import { useCrossFilteredPanelData } from "../hooks/useCrossFilteredPanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
-import type { Panel } from "../types/panel";
+import type { OutputControlSpec, Panel } from "../types/panel";
 import { resolveChartType } from "../../../utils/chartAppearance";
 import type { ChartClickSelection, ChartInspectConfig } from "../../../utils/chartClickSelection";
 import { GripVertical, Maximize2, RotateCw } from "lucide-react";
@@ -88,6 +95,12 @@ interface PanelCardBodyProps extends Omit<PanelDataResult, "isRefreshing"> {
   onDataPointSelect?: (selection: ChartClickSelection) => void;
 }
 
+// HEL-1190 — a stable, module-level empty array for a non-output panel's "controls" so
+// `controls`'s identity never churns across renders for that branch (a fresh `[]` literal inline
+// in the ternary below would defeat every `useMemo`/`useCallback` that lists `controls` as a
+// dependency, on every single render of a non-output panel).
+const EMPTY_CONTROLS: OutputControlSpec[] = [];
+
 export const PanelCardBody = React.memo(function PanelCardBody({
   panel,
   frozen,
@@ -126,10 +139,37 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   // from exactly ONE fetch — is preserved here, since `OutputPanelContent` no longer performs its
   // own fetch AT ALL once this component supplies one (see its own doc comment).
   const { output, isLoading: isOutputMetaLoading } = useOutputMeta(outputId);
+
+  // HEL-1190 design.md D1-D4 (tasks 4.1-4.5, 5.1/5.2) — the viewer's own control selection,
+  // URL-held (`useViewerControls`) and shared by construction between the desktop grid and the
+  // phone stack, since `PanelCardBody` is their common ancestor (mirrors HEL-1027's own
+  // `usePanelSortFilter` precedent one line below). `controls` is `[]` for a non-output panel —
+  // `useViewerControls`/`buildViewerControlFilterOps` are then no-ops.
+  const controls: OutputControlSpec[] = isOutputPanel(panel)
+    ? panel.config.controls
+    : EMPTY_CONTROLS;
+  const {
+    values: controlValues,
+    setValue: setControlValue,
+    clearValue: clearControlValue,
+  } = useViewerControls(panel.id, controls);
+  const controlFilterOps = useMemo(
+    () => buildViewerControlFilterOps(controls, controlValues),
+    [controls, controlValues],
+  );
+  const hasVisibleControls = useMemo(() => controls.some((c) => !c.orphaned), [controls]);
+  const fetchDistinctValues = useCallback(
+    (column: string) =>
+      outputId ? getDistinctValues(outputId, column).then((r) => r.values) : Promise.resolve([]),
+    [outputId],
+  );
+
   // HEL-1027 design.md D4/D10 (tasks 4.1-4.3, 4.7) — the authoritative sort/filter state driving
   // this panel's server-side round trip; see the hook's own doc comment for the full contract.
+  // HEL-1190 design.md D3 (task 4.3) — `controlFilterOps` above composes into every dispatch this
+  // hook makes, ANDed with whatever in-panel sort/filter is also active.
   const { filterActive, activeSort, activeFilter, handleSortChange, handleFilterChange } =
-    usePanelSortFilter(panel.id, outputId, output);
+    usePanelSortFilter(panel.id, outputId, output, controlFilterOps);
   // HEL-1027 design.md D10 — suppresses `PanelContent`'s top-level `noData`/`neverMaterialized`
   // short-circuit whenever a table filter is genuinely active, so a filter matching zero rows
   // across the whole Output falls through to `TableRenderer`'s own correct
@@ -185,11 +225,29 @@ export const PanelCardBody = React.memo(function PanelCardBody({
           sort: activeSort
             ? { column: activeSort.key, direction: activeSort.direction }
             : undefined,
-          filter: activeFilter ?? undefined,
+          // HEL-1190 design.md D3/task 4.3 — an appended page must carry the SAME combined
+          // filter (in-panel + viewer-control) the current page-0 window was fetched under, for
+          // the same reason `activeSort`/`activeFilter` already had to be threaded here.
+          filter: composeOutputRowsFilter(activeFilter, controlFilterOps),
         }),
       );
     }
-  }, [dispatch, panel.id, outputId, paginationEntry, activeSort, activeFilter]);
+  }, [dispatch, panel.id, outputId, paginationEntry, activeSort, activeFilter, controlFilterOps]);
+
+  // HEL-1190 design.md D10 (task 5.5) — REUSES this panel's existing live region (below) rather
+  // than adding a second one: `PanelCardBody` is the shared ancestor of BOTH the desktop grid
+  // (`PanelCard`) and the phone stack (`MobilePanelStack` imports this same component) — grepping
+  // for the region by FILE name alone (`MobilePanelStack.tsx`) misses that it already renders
+  // this region transitively, which design.md's own D10 survey did not account for. A control-
+  // driven row-count change is therefore announced via the SAME region a fan-out refresh already
+  // uses, picking whichever is the more recent event; `hasVisibleControls` gates this text to
+  // panels that actually have a control bar; a control-free panel's announcement is unchanged.
+  const resultAnnouncementText =
+    refreshAnnouncement > 0
+      ? `${panel.title} updated (refresh ${refreshAnnouncement}).`
+      : hasVisibleControls && paginationEntry && !paginationEntry.isLoadingMore
+        ? `${paginationEntry.total} result${paginationEntry.total === 1 ? "" : "s"}.`
+        : "";
 
   // All hooks are called unconditionally above; the early return is safe here.
   // Body is hidden only during active drag — title and handle remain visible.
@@ -197,6 +255,15 @@ export const PanelCardBody = React.memo(function PanelCardBody({
 
   return (
     <>
+      {hasVisibleControls && (
+        <OutputViewerControlBar
+          controls={controls}
+          values={controlValues}
+          onChange={setControlValue}
+          onClear={clearControlValue}
+          fetchDistinctValues={fetchDistinctValues}
+        />
+      )}
       <PanelContent
         panel={panel}
         appearance={panel.appearance}
@@ -237,13 +304,16 @@ export const PanelCardBody = React.memo(function PanelCardBody({
       />
       {/* HEL-1094 (design.md D5) — visually-hidden per-panel announcement region for an
           output-bound panel, reusing theme.css's canonical `.sr-only` clip (same recipe as
-          Toast.tsx's live regions). `role="status"` carries an implicit `aria-live="polite"`;
-          the counter suffix makes the accessible text genuinely change on every fan-out-triggered
-          refresh, not merely re-render with identical text, per Standing Constraint C4 — verified
-          via a computed-ARIA check, never by grepping for this attribute's presence. */}
+          Toast.tsx's live regions). `role="status"` carries an implicit `aria-live="polite"`.
+          HEL-1190 design.md D10 (task 5.5) — this SAME region now ALSO carries a control-driven
+          result-count announcement (`resultAnnouncementText`, computed above), reused rather than
+          a second, redundant region — the panel's row count changing is exactly the kind of
+          "genuinely different text on every relevant event" this region already guarantees for a
+          fan-out refresh (Standing Constraint C4 — verified via a computed-ARIA check, never by
+          grepping for this attribute's presence). */}
       {outputId && (
         <div className="sr-only" role="status">
-          {refreshAnnouncement > 0 ? `${panel.title} updated (refresh ${refreshAnnouncement})` : ""}
+          {resultAnnouncementText}
         </div>
       )}
     </>

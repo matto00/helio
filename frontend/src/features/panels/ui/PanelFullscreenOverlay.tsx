@@ -1,14 +1,22 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import "./PanelFullscreenOverlay.css";
 import { Modal } from "../../../shared/ui/Modal";
+import { OutputViewerControlBar } from "./OutputViewerControlBar";
 import { PanelContent } from "./PanelContent";
 import { PanelInspectView } from "./PanelInspectView";
 import { clearSelection, selectDataPoint } from "../state/panelsSlice";
+import { getOutputId, isOutputPanel } from "../state/panelNarrowing";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { useViewerControls } from "../hooks/useViewerControls";
+import { getDistinctValues } from "../../pipelines/services/outputService";
 import type { PanelDataResult } from "../hooks/usePanelData";
-import type { Panel } from "../types/panel";
+import type { OutputControlSpec, Panel } from "../types/panel";
 import type { ChartClickSelection, ChartInspectConfig } from "../../../utils/chartClickSelection";
+
+// HEL-1190 — module-level stable empty array, same rationale as `PanelCard.tsx`'s
+// `EMPTY_CONTROLS`.
+const EMPTY_CONTROLS: OutputControlSpec[] = [];
 
 export interface PanelFullscreenOverlayProps extends Omit<PanelDataResult, "isRefreshing"> {
   panel: Panel;
@@ -100,6 +108,32 @@ export function PanelFullscreenOverlay({
 }: PanelFullscreenOverlayProps) {
   const dispatch = useAppDispatch();
 
+  // HEL-1190 design.md D1-D4/D10 (task 5.3) — the SAME URL-held control selection every other
+  // render path reads (`useViewerControls` is keyed by `panel.id`). This overlay STILL never
+  // calls the panel-data-fetching hook itself (design D2/this file's own guard test) — `rawRows`/
+  // `headers` above already reflect the current combined filter, since they're props sourced from
+  // `PanelCard`'s own top-level data-fetching hook call, which subscribes to the SAME
+  // `paginationState[panel.id]` Redux entry `PanelCardBody`'s `usePanelSortFilter` keeps
+  // corrected (a Redux-subscription read, not a per-hook-instance fetch, so which call site
+  // actually dispatched the winning request is irrelevant here). Rendering the bar here is purely
+  // so the viewer can SEE/ADJUST the same controls while fullscreen, per spec.md's "the same
+  // control value... persists when the panel is viewed fullscreen".
+  const controls: OutputControlSpec[] = isOutputPanel(panel)
+    ? panel.config.controls
+    : EMPTY_CONTROLS;
+  const outputId = getOutputId(panel);
+  const {
+    values: controlValues,
+    setValue: setControlValue,
+    clearValue: clearControlValue,
+  } = useViewerControls(panel.id, controls);
+  const hasVisibleControls = useMemo(() => controls.some((c) => !c.orphaned), [controls]);
+  const fetchDistinctValues = useCallback(
+    (column: string) =>
+      outputId ? getDistinctValues(outputId, column).then((r) => r.values) : Promise.resolve([]),
+    [outputId],
+  );
+
   // HEL-572 design.md D5 — this overlay's OWN "is the inspect view open"
   // local boolean, parallel to `PanelCard`'s grid-context one; the
   // SELECTION itself stays the single Redux-owned source of truth both
@@ -140,6 +174,15 @@ export function PanelFullscreenOverlay({
           actually open. */}
       {open && (
         <div className="panel-fullscreen-overlay__body">
+          {hasVisibleControls && (
+            <OutputViewerControlBar
+              controls={controls}
+              values={controlValues}
+              onChange={setControlValue}
+              onClear={clearControlValue}
+              fetchDistinctValues={fetchDistinctValues}
+            />
+          )}
           <PanelContent
             panel={panel}
             data={data}
@@ -156,6 +199,13 @@ export function PanelFullscreenOverlay({
             rowsTruncated={rowsTruncated}
             onDataPointSelect={handleDataPointSelect}
           />
+          {/* HEL-1190 design.md D10 (task 5.5) — this overlay had NO live region at all before
+              this ticket; a control-driven row-count change is announced here. */}
+          {hasVisibleControls && (
+            <div className="sr-only" role="status">
+              {`${rawRows?.length ?? 0} result${(rawRows?.length ?? 0) === 1 ? "" : "s"}.`}
+            </div>
+          )}
           {/* HEL-572 design.md D5 — nested inside the already-open
               Fullscreen dialog; both are native `<dialog>`s (Modal), so
               Escape while Inspect is open closes only the topmost (Inspect)

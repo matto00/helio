@@ -9,6 +9,7 @@ import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
 import { act, render, screen } from "@testing-library/react";
 import { StrictMode } from "react";
 import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
 
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { getOutputId } from "../state/panelNarrowing";
@@ -22,7 +23,12 @@ import type { Output } from "../../pipelines/types/output";
 import { PanelCardBody } from "./PanelCard";
 import type { Panel } from "../types/panel";
 
-jest.mock("../../pipelines/services/outputService");
+jest.mock("../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../pipelines/services/outputService"),
+  getOutputRows: jest.fn(),
+  getOutputById: jest.fn(),
+  getAssertionStatus: jest.fn(),
+}));
 jest.mock("../hooks/usePanelPolling", () => ({ usePanelPolling: jest.fn() }));
 jest.mock("../hooks/usePanelRunRefresh", () => ({ usePanelRunRefresh: jest.fn() }));
 
@@ -127,11 +133,13 @@ describe("PanelCard/panelsSlice — stale-response sequencing (HEL-1027 skeptic-
     const panel = makeOutputPanel({ id: "panel-stale" });
     const store = makeStore(panel);
     render(
-      <StrictMode>
-        <Provider store={store}>
-          <Harness panel={panel} />
-        </Provider>
-      </StrictMode>,
+      <MemoryRouter>
+        <StrictMode>
+          <Provider store={store}>
+            <Harness panel={panel} />
+          </Provider>
+        </StrictMode>
+      </MemoryRouter>,
     );
 
     // Let `useOutputMeta` resolve and every mount-effect dispatch (StrictMode's unfiltered
@@ -208,11 +216,13 @@ describe("PanelCard/panelsSlice — stale-response sequencing (HEL-1027 skeptic-
     const panel = makeOutputPanel({ id: "panel-stale-2" });
     const store = makeStore(panel);
     render(
-      <StrictMode>
-        <Provider store={store}>
-          <Harness panel={panel} />
-        </Provider>
-      </StrictMode>,
+      <MemoryRouter>
+        <StrictMode>
+          <Provider store={store}>
+            <Harness panel={panel} />
+          </Provider>
+        </StrictMode>
+      </MemoryRouter>,
     );
 
     await act(async () => {

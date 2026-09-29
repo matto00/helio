@@ -10,6 +10,7 @@
 import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
 
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { getOutputId } from "../state/panelNarrowing";
@@ -22,7 +23,12 @@ import type { Output } from "../../pipelines/types/output";
 import { PanelCardBody } from "./PanelCard";
 import type { Panel } from "../types/panel";
 
-jest.mock("../../pipelines/services/outputService");
+jest.mock("../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../pipelines/services/outputService"),
+  getOutputRows: jest.fn(),
+  getOutputById: jest.fn(),
+  getAssertionStatus: jest.fn(),
+}));
 jest.mock("../hooks/usePanelPolling", () => ({ usePanelPolling: jest.fn() }));
 jest.mock("../hooks/usePanelRunRefresh", () => ({ usePanelRunRefresh: jest.fn() }));
 
@@ -92,9 +98,11 @@ function makeStore(panel: Panel) {
 function renderHarness(panel: Panel) {
   const store = makeStore(panel);
   render(
-    <Provider store={store}>
-      <Harness panel={panel} />
-    </Provider>,
+    <MemoryRouter>
+      <Provider store={store}>
+        <Harness panel={panel} />
+      </Provider>
+    </MemoryRouter>,
   );
   return store;
 }
