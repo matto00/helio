@@ -194,7 +194,7 @@ lazy val root = (project in file("."))
       // GHSA-jhq6-gfmj-v8fx, GHSA-p47f-322f-whfh, GHSA-qqpg-mvqg-649v).
       "ch.qos.logback" % "logback-classic" % "1.5.38",
       // Structured JSON log encoder for Cloud Logging (HEL-115). 7.4 declares
-      // Jackson 2.15.2; the Jackson dependencyOverrides pin below forces 2.18.9.
+      // Jackson 2.15.2; the Jackson dependencyOverrides pin below forces 2.18.10.
       "net.logstash.logback" % "logstash-logback-encoder" % "7.4",
       // Enables logback <if>/<then>/<else> conditional config in logback.xml
       // (self-contained, no transitive deps).
@@ -256,13 +256,16 @@ lazy val root = (project in file("."))
     // GHSA-rmj7-2vxq-3g9f, GHSA-72hv-8253-57qq, GHSA-3pjw-73gf-8qr5, GHSA-hgj6-7826-r7m5)
     // are fixed by 2.18.8. jackson-datatype-jsr310 (pulled in transitively at 2.15.2 via
     // flyway-core) is included here so no Jackson artifact is left outside the pin.
+    // HEL-1185: bumped 2.18.9 -> 2.18.10, the lowest version fixing GHSA-q4xh-88c3-wmh7
+    // (jackson-databind Duration/XMLGregorianCalendar unbounded number parse DoS, affected
+    // [2.14.0, 2.18.10)); it also keeps every advisory above fixed.
     dependencyOverrides ++= Seq(
-      "com.fasterxml.jackson.core"     % "jackson-core"           % "2.18.9",
-      "com.fasterxml.jackson.core"     % "jackson-databind"       % "2.18.9",
-      "com.fasterxml.jackson.core"     % "jackson-annotations"    % "2.18.9",
-      "com.fasterxml.jackson.module"   %% "jackson-module-scala"  % "2.18.9",
-      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.18.9",
-      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-toml" % "2.18.9",
+      "com.fasterxml.jackson.core"     % "jackson-core"           % "2.18.10",
+      "com.fasterxml.jackson.core"     % "jackson-databind"       % "2.18.10",
+      "com.fasterxml.jackson.core"     % "jackson-annotations"    % "2.18.10",
+      "com.fasterxml.jackson.module"   %% "jackson-module-scala"  % "2.18.10",
+      "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.18.10",
+      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-toml" % "2.18.10",
       // HEL-452: netty family pinned to one consistent version (design D2 worked
       // example — 4.1.137.Final is required by GHSA-8c42-7qj2-3j46 on
       // netty-codec-http; it also clears every other netty advisory in the set).
