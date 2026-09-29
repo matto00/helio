@@ -135,7 +135,7 @@
 - [x] 6.2 Frontend: URL round-trip, filter-composition, request-sequencing, and chart-filtering unit
       tests (sections 3-4). (Chart-filtering is covered structurally, not via a dedicated
       chart-rendering test — see 4.5's note.)
-- [ ] 6.3 Live/E2E: every render path in section 5, red-first against the pre-fix worktree state,
+- [x] 6.3 Live/E2E: every render path in section 5, red-first against the pre-fix worktree state,
       screenshotted outside the repo root. **NOT performed this cycle** — see files-modified.md's
       "Outstanding live verification" note. Flagged plainly, not silently skipped.
 
