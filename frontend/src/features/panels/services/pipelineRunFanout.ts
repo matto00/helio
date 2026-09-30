@@ -20,6 +20,10 @@ type SucceededListener = () => void;
 
 interface FanoutEntry {
   listeners: Set<SucceededListener>;
+  /** HEL-1207 — notified on EVERY non-dry terminal outcome (succeeded or failed), for consumers
+   *  (the provenance cache) whose content changes on a failed run too. Shares this entry's single
+   *  SSE connection; refcounted together with `listeners`. */
+  terminalListeners: Set<SucceededListener>;
   controller: AbortController | null;
   retryTimeoutId: ReturnType<typeof setTimeout> | null;
   attempt: number;
@@ -54,6 +58,7 @@ export function subscribeToPipelineSucceeded(
   if (!entry) {
     entry = {
       listeners: new Set(),
+      terminalListeners: new Set(),
       controller: null,
       retryTimeoutId: null,
       attempt: 0,
@@ -70,10 +75,47 @@ export function subscribeToPipelineSucceeded(
     if (unsubscribed) return;
     unsubscribed = true;
     subscribedEntry.listeners.delete(onSucceeded);
-    if (subscribedEntry.listeners.size === 0 && entries.get(pipelineId) === subscribedEntry) {
+    if (watcherCount(subscribedEntry) === 0 && entries.get(pipelineId) === subscribedEntry) {
       closeEntry(pipelineId, subscribedEntry);
     }
   };
+}
+
+/** HEL-1207 — like `subscribeToPipelineSucceeded` but `onTerminal` fires for a `succeeded` OR
+ *  `failed` run (never a dry run). Same shared connection, same first-observation baseline rule. */
+export function subscribeToPipelineTerminal(
+  pipelineId: string,
+  onTerminal: SucceededListener,
+): () => void {
+  let entry = entries.get(pipelineId);
+  if (!entry) {
+    entry = {
+      listeners: new Set(),
+      terminalListeners: new Set(),
+      controller: null,
+      retryTimeoutId: null,
+      attempt: 0,
+      lastObservedRunId: undefined,
+    };
+    entries.set(pipelineId, entry);
+    void connect(pipelineId, entry);
+  }
+  entry.terminalListeners.add(onTerminal);
+
+  const subscribedEntry = entry;
+  let unsubscribed = false;
+  return () => {
+    if (unsubscribed) return;
+    unsubscribed = true;
+    subscribedEntry.terminalListeners.delete(onTerminal);
+    if (watcherCount(subscribedEntry) === 0 && entries.get(pipelineId) === subscribedEntry) {
+      closeEntry(pipelineId, subscribedEntry);
+    }
+  };
+}
+
+function watcherCount(entry: FanoutEntry): number {
+  return entry.listeners.size + entry.terminalListeners.size;
 }
 
 function closeEntry(pipelineId: string, entry: FanoutEntry): void {
@@ -88,7 +130,7 @@ function closeEntry(pipelineId: string, entry: FanoutEntry): void {
 function scheduleRetry(pipelineId: string, entry: FanoutEntry): void {
   // Only retry while at least one panel is still watching (design.md D6) — an entry with no
   // listeners has already been (or is being) closed via closeEntry, which aborts in flight.
-  if (entry.listeners.size === 0 || entries.get(pipelineId) !== entry) return;
+  if (watcherCount(entry) === 0 || entries.get(pipelineId) !== entry) return;
   const delay = computeRetryDelayMs(entry.attempt);
   entry.attempt += 1;
   entry.retryTimeoutId = setTimeout(() => {
@@ -162,6 +204,9 @@ async function reconcile(
     // Same "notify" path the live SSE succeeded-event handler below uses — a reconciled outcome
     // and a live one are indistinguishable to a listener.
     for (const listener of entry.listeners) listener();
+  }
+  if ((data.status === "succeeded" || data.status === "failed") && !isFirstObservation) {
+    for (const listener of entry.terminalListeners) listener();
   }
   // Set regardless of status (succeeded, failed, or dry_run) — a later failed/dry_run run must
   // also stop being treated as "new" on the next reconcile call (design.md Decision 3).
@@ -237,6 +282,9 @@ async function connect(pipelineId: string, entry: FanoutEntry): Promise<void> {
                 if (parsed.status === "succeeded" && isNewRun) {
                   for (const listener of entry.listeners) listener();
                 }
+                if ((parsed.status === "succeeded" || parsed.status === "failed") && isNewRun) {
+                  for (const listener of entry.terminalListeners) listener();
+                }
                 if (parsed.runId !== undefined) entry.lastObservedRunId = parsed.runId;
                 reader.cancel();
                 break readLoop;
@@ -262,7 +310,7 @@ async function connect(pipelineId: string, entry: FanoutEntry): Promise<void> {
   if (terminalReceived) {
     // design.md D3 — reconnect immediately after every terminal status (succeeded, failed, or
     // dry_run) so a later write is still caught, as long as a listener remains subscribed.
-    if (entry.listeners.size > 0) {
+    if (watcherCount(entry) > 0) {
       void connect(pipelineId, entry);
     }
   } else {

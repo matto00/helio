@@ -1,0 +1,30 @@
+- `frontend/src/features/panels/provenance/provenanceService.ts` — auth + public provenance fetchers and unified wire types
+- `frontend/src/features/panels/provenance/provenanceCache.ts` — module-level provenance cache (in-flight dedupe) and per-output shared assertion-status in-flight dedupe
+- `frontend/src/features/panels/provenance/provenanceLabels.ts` — step-kind labels via OP_TYPES with humanised fallback; last-run state classifier
+- `frontend/src/features/panels/provenance/provenanceTelemetry.ts` — single typed no-op `onProvenanceOpened` hook point for HEL-1208
+- `frontend/src/features/panels/provenance/useProvenance.ts` — lazy cached read hook
+- `frontend/src/features/panels/provenance/useDataInvalid.ts` — Invalid-data badge state (deduped status read, derived from provenance cache once loaded)
+- `frontend/src/features/panels/provenance/ProvenanceContent.tsx` — popover body and degraded states
+- `frontend/src/features/panels/provenance/ProvenancePopover.tsx` — portalled dialog: focus move/trap/return, capture-phase Escape, event isolation
+- `frontend/src/features/panels/provenance/ProvenanceTrigger.tsx` — shared trigger (+ optional Invalid-data badge opener) used by every render path
+- `frontend/src/features/panels/provenance/ProvenancePopover.css` — popover layout, tokens, touch-target floor
+- `frontend/src/features/panels/provenance/ProvenanceTrigger.css` — trigger/badge styling, 44px hit expander
+- `frontend/src/features/panels/provenance/provenanceLabels.test.ts` — label mapping incl. join fallback
+- `frontend/src/features/panels/provenance/ProvenanceTrigger.test.tsx` — lazy/cache, content, degraded states, public variant, a11y, isolation, badge
+- `frontend/src/features/panels/provenance/ProvenancePopover.css.test.ts` — touch-target CSS lock
+- `frontend/src/features/panels/ui/PanelCard.tsx` — footer trigger + badge replaced by trigger; status read via shared hook
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.tsx` — trigger beside title in the mobile stack header
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.css` — header row modifier for title + trigger
+- `frontend/src/features/panels/ui/PanelFullscreenOverlay.tsx` — trigger in Modal headerActions
+- `frontend/src/features/panels/ui/detailModal/PanelDetailModal.tsx` — trigger in view-mode header and beside the edit-mode Output link
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.tsx` — public-variant trigger row above PanelContent
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.css` — provenance row layout
+- `frontend/src/features/panels/ui/PanelCard.provenance.test.tsx` — desktop card: trigger, badge, dedupe, isolation
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.provenance.test.tsx` — mobile stack trigger/isolation
+- `frontend/src/features/panels/ui/PanelFullscreenOverlay.provenance.test.tsx` — fullscreen portal/Escape isolation
+- `frontend/src/features/panels/ui/detailModal/PanelDetailModal.provenance.test.tsx` — detail modal trigger/Escape isolation
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.provenance.test.tsx` — public viewer token/no-link
+- `frontend/src/theme/motionTokenGuard.css.test.ts` — CSS file count pin 122 -> 124 (two new css files, no motion)
+- `frontend/src/theme/elevationTokenGuard.css.test.ts` — CSS file count pin 122 -> 124 (two new css files, no elevation)
+- `frontend/src/features/panels/services/pipelineRunFanout.ts` — `subscribeToPipelineTerminal` (succeeded/failed, shares the single SSE connection, refcounted with existing listeners)
+- `frontend/src/features/panels/services/pipelineRunFanout.test.ts` — terminal-listener tests

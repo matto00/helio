@@ -38,3 +38,9 @@
   color: var(--app-text-muted);
   text-transform: capitalize;
 }
+
+/* HEL-1207 — the public viewer's provenance trigger row, above the panel content. */
+.public-dashboard-viewer__provenance-row {
+  display: flex;
+  justify-content: flex-end;
+}

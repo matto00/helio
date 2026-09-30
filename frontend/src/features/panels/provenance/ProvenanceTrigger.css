@@ -1,0 +1,39 @@
+/* HEL-1207 — provenance trigger + the badge that shares its popover. Sits inline in the card
+   footer / mobile header / public row, so it stays as quiet as the footer's type badge. */
+.provenance-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.provenance-trigger__btn {
+  color: var(--app-text-muted);
+}
+
+/* The badge is now a real <button>: strip the UA button chrome so it keeps the badge recipe. */
+.provenance-trigger__badge {
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  .provenance-trigger__badge {
+    position: relative;
+  }
+
+  .provenance-trigger__badge::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}

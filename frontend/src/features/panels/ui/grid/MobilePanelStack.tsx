@@ -25,6 +25,7 @@ import { usePanelData } from "../../hooks/usePanelData";
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import type { Panel } from "../../types/panel";
 import { getPanelCardStyle, PanelCardBody } from "../PanelCard";
+import { ProvenanceTrigger } from "../../provenance/ProvenanceTrigger";
 import { PanelDetailModal } from "../detailModal/PanelDetailModal";
 import { computeMobilePanelHeight, resolveStackContentWidth } from "./mobilePanelHeights";
 import { orderPanelsForMobileStack } from "./panelGridConfig";
@@ -163,8 +164,17 @@ export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanel
             style={style}
             onClick={(e) => handleItemClick(panel.id, e)}
           >
-            <div className="mobile-panel-stack__header">
+            <div className="mobile-panel-stack__header mobile-panel-stack__header--with-actions">
               <h3 className="panel-grid-card__title">{panel.title}</h3>
+              {/* HEL-1207 A1: the stack has no footer, so provenance sits beside the title. */}
+              {getOutputId(panel) ? (
+                <ProvenanceTrigger
+                  panelId={panel.id}
+                  panelTitle={panel.title}
+                  outputId={getOutputId(panel) as string}
+                  variant="authenticated"
+                />
+              ) : null}
             </div>
             <MobileStackPanelBody panel={panel} compact />
           </article>

@@ -1,0 +1,145 @@
+/* HEL-1207 — provenance popover content. Surface/elevation/animation come from the shared
+   `.popover__panel` (shared/chrome/Popover.css); only the inner layout lives here. */
+.provenance-popover {
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  color: var(--app-text);
+}
+
+.provenance-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.provenance-popover__title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.provenance-popover__close,
+.provenance-popover__link {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-pill);
+  background: transparent;
+  color: var(--app-text);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.provenance-popover__link {
+  align-self: flex-start;
+  color: var(--app-accent-text);
+}
+
+.provenance-popover__close:hover,
+.provenance-popover__link:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-soft);
+}
+
+.provenance-popover__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.provenance-popover__content section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.provenance-popover__heading {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.provenance-popover__heading:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+.provenance-popover__value,
+.provenance-popover__list,
+.provenance-popover__path,
+.provenance-popover__checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.provenance-popover__value--muted {
+  color: var(--app-text-muted);
+}
+
+.provenance-popover__value--failed,
+.provenance-popover__check--failed {
+  color: var(--app-error);
+}
+
+.provenance-popover__check--warned {
+  color: var(--app-warning);
+}
+
+.provenance-popover__kind {
+  margin-left: var(--space-1);
+  color: var(--app-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+}
+
+.provenance-popover__time {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.provenance-popover__path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+}
+
+.provenance-popover__path li + li::before {
+  content: "\2192";
+  margin-right: var(--space-2);
+  color: var(--app-text-muted);
+}
+
+.provenance-popover__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.provenance-popover__status {
+  margin: 0;
+  color: var(--app-text-muted);
+}
+
+/* Touch gate — see `shared/ui/tapTarget.css`. The popover's own buttons/links are the actionable
+   rows here, so they take the 44px floor directly (shared-popover-touch-targets). */
+@media (max-width: 768px), (pointer: coarse) {
+  .provenance-popover__close,
+  .provenance-popover__link {
+    min-height: 44px;
+    padding-inline: var(--space-3);
+  }
+}
