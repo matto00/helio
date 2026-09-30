@@ -1,0 +1,15 @@
+# Red evidence (main code, tests written first) - sbt testOnly PublicDashboardRoutesSpec
+[info] - should HEL-1197: omit ownerId from the anonymous panel list wire (raw JSON key absent) *** FAILED ***
+[info]   TreeSet("appearance", "config", "dashboardId", "dataAsOf", "id", "meta", "ownerId", "title", "type") contained element "ownerId" (PublicDashboardRoutesSpec.scala:206)
+[info] - should return kind/config/schema, and nothing else (no ownerId, HEL-1197), for a shared dashboard's output panel *** FAILED ***
+[info]   TreeSet("config", "kind", "ownerId", "schema") was not equal to Set("kind", "config", "schema") (PublicDashboardRoutesSpec.scala:599)
+[info] - should exist and return 200 for a shared dashboard's output panel *** FAILED ***
+[info]   Request was rejected (RouteTestResultComponent.scala:66)
+[info] Tests: succeeded 20, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+exit=1
+
+# D3 count(*) EXPLAIN ANALYZE evidence (embedded Postgres, synthetic: 200,000 step-bound rows + 50,000 root-bound rows, one pipeline)
+step-bound  SELECT count(*) ... WHERE pipeline_id='p1' AND node_step_id='s1'  -> Parallel Seq Scan (planner chose scan: one pipeline dominates the table), Execution Time: 14.4 ms for 200k rows
+root-bound  SELECT count(*) ... WHERE pipeline_id='p1' AND node_step_id IS NULL AND root_id='r1' -> Bitmap Index Scan on idx_node_snapshots_root_unique, Execution Time: 5.6 ms for 50k rows
+Indexes available (migrations): idx_node_snapshots_keyed_unique(pipeline_id,node_step_id,row_index), idx_node_snapshots_root_unique(pipeline_id,root_id,row_index) [V98], idx_node_snapshots_pipeline_id(pipeline_id) [V94]. Not slow enough to escalate (design D3 criterion).

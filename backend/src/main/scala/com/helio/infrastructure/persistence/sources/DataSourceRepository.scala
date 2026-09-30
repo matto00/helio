@@ -144,6 +144,18 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
 
+  /** HEL-1206 design.md D2/D6 -- batched `id -> (name, canonical kind)` lookup for provenance: ONE
+   *  query for any number of ids, projecting ONLY `id`/`name`/`source_type` so no `config`
+   *  (credentials, connector ids, paths) is ever read on this path. An id that no longer exists is
+   *  simply absent from the result. Privileged (system context): callers must already have
+   *  cleared access to the Output whose chain named these ids. */
+  def findNameKindsInternal(ids: Seq[String]): Future[Map[String, (String, String)]] =
+    if (ids.isEmpty) Future.successful(Map.empty)
+    else
+      ctx.withSystemContext(
+        table.filter(_.id.inSet(ids.toSet)).map(r => (r.id, r.name, r.sourceType)).result
+      ).map(_.map { case (id, name, kind) => id -> (name -> DataSourceKind.canonicalize(kind)) }.toMap)
+
   /** HEL-265 CS2 seed: owner-scoped read. Introduced here so
     * `PipelineRepository.create` can verify the caller owns the source they
     * bind the new pipeline to. CS3 will broaden adoption across the

@@ -4,7 +4,7 @@
   "title": "Panel",
   "description": "Discriminated panel response \u2014 `type` selects the shape of `config`.",
   "type": "object",
-  "required": ["id", "dashboardId", "title", "type", "meta", "appearance", "ownerId", "config"],
+  "required": ["id", "dashboardId", "title", "type", "meta", "appearance", "config"],
   "properties": {
     "id": {
       "type": "string",
@@ -31,7 +31,8 @@
     },
     "ownerId": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "The panel owner's user id. Omitted (HEL-1197) from the anonymous / share-token-only `GET /api/dashboards/:id/panels` wire; every authenticated producer still emits it."
     },
     "config": {
       "type": "object"

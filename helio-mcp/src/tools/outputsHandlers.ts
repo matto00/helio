@@ -17,6 +17,7 @@
 import type { HelioApi } from "../helioApi.js";
 import type {
   AssertionStatusResponse,
+  OutputProvenanceResponse,
   CreateOutputRequest,
   DeleteOutputResponse,
   NodeCapabilitiesResponse,
@@ -96,6 +97,13 @@ export function getOutputAssertionStatusHandler(
   outputId: string,
 ): Promise<AssertionStatusResponse> {
   return api.getOutputAssertionStatus(outputId);
+}
+
+export function getOutputProvenanceHandler(
+  api: HelioApi,
+  outputId: string,
+): Promise<OutputProvenanceResponse> {
+  return api.getOutputProvenance(outputId);
 }
 
 export function previewOutputsHandler(

@@ -27,7 +27,7 @@ class PatchSetUndoInverseSpec extends AnyWordSpec with Matchers with JsonProtoco
       `type`      = DividerPanel.Kind,
       meta        = ResourceMetaResponse("owner-1", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"),
       appearance  = PanelAppearanceResponse("#fff", "#000", 1.0, None),
-      ownerId     = "owner-1",
+      ownerId     = Some("owner-1"),
       config      = config,
       dataAsOf    = None
     )

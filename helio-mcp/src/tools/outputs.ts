@@ -2,7 +2,7 @@
  * Output tools (HEL-907 task 3.5/3.7): `add_output`, `update_output`,
  * `delete_output`, `list_outputs`, `get_output`, `get_output_rows`,
  * `get_output_panels`, `get_output_assertion_status`, `preview_outputs`,
- * `get_output_capabilities`.
+ * `get_output_capabilities`, `get_output_provenance`.
  *
  * This file is a thin shell (mirrors `pipelineProposal.ts`'s design.md D4b
  * split): zod `inputSchema` declarations + `guarded(() => xHandler(api,
@@ -22,6 +22,7 @@ import {
   deleteOutputHandler,
   getOutputAssertionStatusHandler,
   getOutputCapabilitiesHandler,
+  getOutputProvenanceHandler,
   getOutputHandler,
   getOutputPanelsHandler,
   getOutputRowsHandler,
@@ -184,6 +185,27 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
       inputSchema: { outputId: z.string().min(1) },
     },
     ({ outputId }) => guarded(() => getOutputAssertionStatusHandler(api, outputId)),
+  );
+
+  server.registerTool(
+    "get_output_provenance",
+    {
+      title: "Get where an Output's data came from",
+      description:
+        "Trace an Output back to its data: every source feeding it (name + kind), the pipeline " +
+        "(id + name), the step path from the trunk root to the Output's node, the last non-dry " +
+        "run (status, completedAt, row count of this Output's own node snapshot; null if the " +
+        "pipeline never ran) and assertion counts (defined/passed/failed/warned, rootBound) in " +
+        "one call (GET /api/outputs/:id/provenance). Never includes errorLog or assertion " +
+        "observed values. Not get_output_capabilities (that is the pipeline node's field " +
+        "mapping menu) and not get_output_assertion_status (that is just one invalid flag). " +
+        "Status codes (probed live against a running backend): 200 with the body above; 404 " +
+        '{message: "Output not found"} when the id does not exist, is malformed, or is an ' +
+        "Output you cannot read (existence is never distinguished from no access in production); " +
+        '401 {message: "Unauthorized"} when the API token is missing or invalid.',
+      inputSchema: { outputId: z.string().min(1) },
+    },
+    ({ outputId }) => guarded(() => getOutputProvenanceHandler(api, outputId)),
   );
 
   server.registerTool(

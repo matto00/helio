@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/public-output-meta-response.schema.json",
+  "title": "PublicOutputMetaResponse",
+  "description": "Response for GET /api/dashboards/:dashboardId/panels/:panelId/output-meta (HEL-1190). HEL-1197: carries NO ownerId -- the internal owner id never reaches the public wire.",
+  "type": "object",
+  "properties": {
+    "kind": { "type": "string" },
+    "config": { "type": "object" },
+    "schema": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": { "name": { "type": "string" }, "type": { "type": "string" } },
+        "required": ["name", "type"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["kind", "config", "schema"],
+  "additionalProperties": false
+}

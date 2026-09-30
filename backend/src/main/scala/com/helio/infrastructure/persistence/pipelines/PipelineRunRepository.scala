@@ -331,6 +331,19 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         .result
     ).map(_.headOption)
 
+  /** HEL-1206 design.md D4 -- the single most recent NON-DRY run (`status != 'dry_run'`, the same
+   *  load-bearing filter `OutputService.assertionStatus` applies in Scala), pushed down as a
+   *  `LIMIT 1` so provenance never loads the pipeline's whole retained run history. ACL-bypassing:
+   *  callers must already have cleared access (authenticated Output read / public dashboard gate). */
+  def latestNonDryRunInternal(pipelineId: PipelineId): Future[Option[PipelineRunRow]] =
+    ctx.withSystemContext(
+      runsTable
+        .filter(r => r.pipelineId === pipelineId.value && r.status =!= "dry_run")
+        .sortBy(_.startedAt.desc)
+        .take(1)
+        .result
+    ).map(_.headOption)
+
   /** ACL-bypassing lookup of the most recent SUCCESSFUL run's `completedAt`
    *  for a pipeline (HEL-946 Bug C(2)). Used to distinguish "this node was
    *  never materialized" from "this node ran and legitimately returned zero

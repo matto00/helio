@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/output-provenance-response.schema.json",
+  "title": "OutputProvenanceResponse",
+  "description": "Response for GET /api/outputs/:id/provenance (HEL-1206). One read joining output -> node -> pipeline -> source(s) with the last non-dry run and assertion counts. `lastRun` is null when the pipeline never ran a non-dry run; `completedAt`/`rowCount` are explicit nulls when unknown (`rowCount` is the exact row count of the Output's OWN node snapshot, null when that snapshot is empty/absent). Never contains `errorLog` or assertion `observed` values. An Output the caller cannot read is 404.",
+  "type": "object",
+  "properties": {
+    "outputId": { "type": "string" },
+    "pipeline": {
+      "type": "object",
+      "properties": { "id": { "type": "string" }, "name": { "type": "string" } },
+      "required": ["id", "name"],
+      "additionalProperties": false
+    },
+    "sources": {
+      "type": "array",
+      "description": "Every data source feeding the Output: trunk roots by root position, then direct join/union/lookup Source secondaries in discovery order. A source that no longer resolves is omitted.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "kind": { "type": "string" }
+        },
+        "required": ["id", "name", "kind"],
+        "additionalProperties": false
+      }
+    },
+    "nodePath": {
+      "type": "array",
+      "description": "Step kinds from the trunk root to the Output's node along the primary parent chain; empty for a root-bound Output.",
+      "items": { "type": "string" }
+    },
+    "lastRun": {
+      "type": ["object", "null"],
+      "properties": {
+        "status": { "type": "string" },
+        "completedAt": { "type": ["string", "null"], "format": "date-time" },
+        "rowCount": { "type": ["integer", "null"] }
+      },
+      "required": ["status", "completedAt", "rowCount"],
+      "additionalProperties": false
+    },
+    "assertions": {
+      "type": "object",
+      "properties": {
+        "defined": { "type": "boolean" },
+        "passed": { "type": "integer" },
+        "failed": { "type": "integer" },
+        "warned": { "type": "integer" },
+        "rootBound": { "type": "boolean" }
+      },
+      "required": ["defined", "passed", "failed", "warned", "rootBound"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["outputId", "pipeline", "sources", "nodePath", "lastRun", "assertions"],
+  "additionalProperties": false
+}

@@ -90,6 +90,15 @@ protocol stream.
 
 The Output/pipeline/placement tool families (`add_output`/`update_output`/`delete_output`/`list_outputs`/`get_output_rows`/`preview_outputs`/`get_output_capabilities`, `add_outputs_from_shape`, `place_outputs`/`create_content_panel`) added by HEL-906/HEL-907 are not yet documented in this catalog table — a known gap, flagged rather than silently left stale; see `src/tools/outputs.ts`/`src/tools/pipelines.ts`/`src/tools/placements.ts` for their descriptions in the meantime.
 
+### Output provenance (HEL-1206)
+
+`get_output_provenance(outputId)` reads `GET /api/outputs/:id/provenance`: the source(s) feeding an
+Output (name + kind), its pipeline, the step path to its node, the last non-dry run (status,
+completedAt, row count of the Output's own node snapshot) and assertion counts, in one call. It
+never carries `errorLog` or assertion `observed` values. Status codes, probed live: `200`; `404`
+for an unknown/malformed/unreadable Output id; `401` for a missing or invalid token. A separate
+tool rather than a field on `get_output`, so ordinary Output reads do not pay its query budget.
+
 ### Output-panel controls (HEL-1193)
 
 `get_output_filter_capabilities(outputId)` reads `GET /api/outputs/:id/filter-capabilities`

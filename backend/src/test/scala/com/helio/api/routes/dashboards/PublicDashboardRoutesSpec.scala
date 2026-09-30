@@ -194,6 +194,39 @@ class PublicDashboardRoutesSpec
   private def encodeFilter(json: String): String = URLEncoder.encode(json, "UTF-8")
 
   "GET /dashboards/:id/panels" should {
+    "HEL-1197: omit ownerId from the anonymous panel list wire (raw JSON key absent)" in {
+      val dashId     = seedDashboardWithPublicGrant()
+      val pipelineId = newPipelineWithLastRunAt(Instant.now())
+      seedOutputPanel(dashId, pipelineId)
+
+      Get(s"/dashboards/$dashId/panels") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val rawItems = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
+        rawItems should have size 1
+        rawItems.head.fields.keySet should not contain "ownerId"
+        // NOTE (spinoff candidate, reported in HEL-1206 handoff): `meta.createdBy` still carries the
+        // creator's user id on this wire -- outside HEL-1197's literal `ownerId` scope, so not
+        // changed here and deliberately not asserted either way.
+      }
+    }
+
+    "HEL-1197: an AUTHENTICATED non-owner viewer of a public dashboard still receives ownerId" in {
+      val dashId     = seedDashboardWithPublicGrant()
+      val pipelineId = newPipelineWithLastRunAt(Instant.now())
+      seedOutputPanel(dashId, pipelineId)
+      val viewer = AuthenticatedUser(UserId(UUID.randomUUID().toString))
+      import PostgresProfile.api._
+      await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES (${viewer.id.value}::uuid, ${s"viewer-${viewer.id.value}@helio.test"}, now())"""))
+      await(permissionRepo.insert(ResourcePermission("dashboard", dashId, Some(viewer.id), Role.Viewer, Instant.now())))
+      val authedRoutes =
+        new PublicDashboardRoutes(panelRepo, aclDirective, userOpt = Some(viewer), Some(outputRepo), Some(pipelineRepo), Some(nodeSnapshotRepo))(typedSystem).routes
+
+      Get(s"/dashboards/$dashId/panels") ~> authedRoutes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsObject].fields("items").convertTo[Vector[JsObject]].head.fields("ownerId") shouldBe JsString(ownerId)
+      }
+    }
+
     "return dataAsOf = the bound pipeline's lastRunAt for an Output-backed placement" in {
       val dashId       = seedDashboardWithPublicGrant()
       val lastRunAt    = Instant.parse("2026-08-30T12:00:00Z")
@@ -574,7 +607,7 @@ class PublicDashboardRoutesSpec
   /** HEL-1190 design.md D8 (task 2.4) — the public/anonymous-safe Output-metadata route
    *  `usePublicPanelData` needs to pick/configure a renderer. */
   "GET /dashboards/:dashboardId/panels/:panelId/output-meta" should {
-    "return kind/config/schema/ownerId, and nothing else, for a shared dashboard's output panel" in {
+    "return kind/config/schema, and nothing else (no ownerId, HEL-1197), for a shared dashboard's output panel" in {
       val dashId     = seedDashboardWithPublicGrant()
       val pipelineId = newPipelineWithLastRunAt(Instant.now())
       val panelId    = seedOutputPanel(dashId, pipelineId)
@@ -582,9 +615,9 @@ class PublicDashboardRoutesSpec
       Get(s"/dashboards/$dashId/panels/$panelId/output-meta") ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         val body = responseAs[JsObject]
-        body.fields.keySet shouldBe Set("kind", "config", "schema", "ownerId")
+        body.fields.keySet shouldBe Set("kind", "config", "schema")
         body.fields("kind") shouldBe JsString("table")
-        body.fields("ownerId") shouldBe JsString(ownerId)
+        body.toString should not include ownerId
       }
     }
 

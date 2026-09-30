@@ -90,6 +90,7 @@ const EXPECTED_TOOL_NAMES = [
   "get_output_capabilities",
   "get_output_filter_capabilities",
   "get_output_panels",
+  "get_output_provenance",
   "get_output_rows",
   "get_pipeline",
   "get_pipeline_schedule",

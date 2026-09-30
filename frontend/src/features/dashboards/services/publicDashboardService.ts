@@ -61,9 +61,9 @@ export async function fetchPublicPanelRows(
 
 /** HEL-1190 design.md D8 — `GET /api/dashboards/:dashboardId/panels/:panelId/output-meta`.
  *  Deliberately reconstructs `PublicOutputMeta` field-by-field (never spreads the wire response)
- *  so `ownerId` is always the literal `null` this narrower type declares (design.md D9's nuance)
- *  — the wire response DOES carry the Output's real `ownerId` (D8's stated shape), and this is the
- *  one place that value is intentionally discarded rather than forwarded into a renderer prop. */
+ *  so `ownerId` is always the literal `null` this narrower type declares (design.md D9's nuance).
+ *  HEL-1197: the wire response no longer carries `ownerId` at all; the reconstruction stays so a
+ *  renderer prop can never receive a real owner id even if a future wire shape re-added one. */
 export async function fetchPublicOutputMeta(
   dashboardId: string,
   panelId: string,
@@ -73,7 +73,6 @@ export async function fetchPublicOutputMeta(
     kind: string;
     config: Record<string, unknown>;
     schema: OutputSchemaField[];
-    ownerId: string;
   }>(`/api/dashboards/${dashboardId}/panels/${panelId}/output-meta`, { params: { token } });
   const { kind, config, schema } = response.data;
   return { kind, config, schema, ownerId: null };

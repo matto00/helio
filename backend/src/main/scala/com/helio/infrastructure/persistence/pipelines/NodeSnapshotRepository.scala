@@ -405,4 +405,15 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         .concat(sql" AND (data ->> $column) IS NOT NULL GROUP BY value ORDER BY freq DESC LIMIT $cap")
     ctx.withSystemContext(query.as[(String, Int)]).map(_.toVector)
   }
+
+  /** HEL-1206 design.md D3 -- exact row count of ONE node's snapshot (`count(*)`, O(rows in that
+   *  node), served by `idx_node_snapshots_pipeline_id`). Shares `nodeFilterFragment` with
+   *  `listRowsPaged`/`hasAnyRow` so the node predicate can never drift. `0` for a node with no
+   *  snapshot (callers needing "never materialized" vs "empty" must combine it with run state). */
+  def countRows(pipelineId: String, nodeStepId: Option[String], explicitRootId: Option[String]): Future[Long] = {
+    val query: SQLActionBuilder =
+      sql"SELECT count(*) FROM node_snapshots WHERE pipeline_id = $pipelineId"
+        .concat(nodeFilterFragment(nodeStepId, explicitRootId))
+    ctx.withSystemContext(query.as[Long].head)
+  }
 }

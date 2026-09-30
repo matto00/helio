@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/public-output-provenance-response.schema.json",
+  "title": "PublicOutputProvenanceResponse",
+  "description": "Response for GET /api/dashboards/:dashboardId/panels/:panelId/provenance (HEL-1206, public / optional-auth, same gate as output-meta). An EXPLICIT ALLOWLIST built field by field: source and pipeline NAMES, source kind, node path names, last-run status/completedAt/rowCount, assertion counts. It never contains any id, source config or credential, errorLog, assertion observed value, ownerId, or pipeline link.",
+  "type": "object",
+  "properties": {
+    "pipeline": {
+      "type": "object",
+      "properties": { "name": { "type": "string" } },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": { "name": { "type": "string" }, "kind": { "type": "string" } },
+        "required": ["name", "kind"],
+        "additionalProperties": false
+      }
+    },
+    "nodePath": { "type": "array", "items": { "type": "string" } },
+    "lastRun": {
+      "type": ["object", "null"],
+      "properties": {
+        "status": { "type": "string" },
+        "completedAt": { "type": ["string", "null"], "format": "date-time" },
+        "rowCount": { "type": ["integer", "null"] }
+      },
+      "required": ["status", "completedAt", "rowCount"],
+      "additionalProperties": false
+    },
+    "assertions": {
+      "type": "object",
+      "properties": {
+        "defined": { "type": "boolean" },
+        "passed": { "type": "integer" },
+        "failed": { "type": "integer" },
+        "warned": { "type": "integer" }
+      },
+      "required": ["defined", "passed", "failed", "warned"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["pipeline", "sources", "nodePath", "lastRun", "assertions"],
+  "additionalProperties": false
+}

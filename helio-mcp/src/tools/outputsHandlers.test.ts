@@ -15,6 +15,7 @@ import type {
   DeleteOutputResponse,
   NodeCapabilitiesResponse,
   OutputPanelPlacementResponse,
+  OutputProvenanceResponse,
   OutputResponse,
   OutputsResponse,
   Paged,
@@ -27,6 +28,7 @@ import {
   getOutputCapabilitiesHandler,
   getOutputHandler,
   getOutputPanelsHandler,
+  getOutputProvenanceHandler,
   getOutputRowsHandler,
   listOutputsHandler,
   previewOutputsHandler,
@@ -254,6 +256,37 @@ describe("getOutputAssertionStatusHandler", () => {
     const api = makeFakeApi({ getOutputAssertionStatus: async () => response });
     const result = await getOutputAssertionStatusHandler(api, "output-1");
     expect(result).toBe(response);
+  });
+});
+
+describe("getOutputProvenanceHandler", () => {
+  it("calls api.getOutputProvenance with the output id and returns its result verbatim", async () => {
+    const response: OutputProvenanceResponse = {
+      outputId: "output-1",
+      pipeline: { id: "p-1", name: "Pipe" },
+      sources: [{ id: "s-1", name: "Sales", kind: "dataset" }],
+      nodePath: ["filter"],
+      lastRun: null,
+      assertions: { defined: false, passed: 0, failed: 0, warned: 0, rootBound: false },
+    };
+    let calledWith: string | undefined;
+    const api = makeFakeApi({
+      getOutputProvenance: async (id: string) => {
+        calledWith = id;
+        return response;
+      },
+    });
+    expect(await getOutputProvenanceHandler(api, "output-1")).toBe(response);
+    expect(calledWith).toBe("output-1");
+  });
+
+  it("propagates a HelioApiError (e.g. the 404 for an unreadable Output)", async () => {
+    const api = makeFakeApi({
+      getOutputProvenance: async () => {
+        throw new HelioApiError(404, "/api/outputs/nope/provenance", "Output not found");
+      },
+    });
+    await expect(getOutputProvenanceHandler(api, "nope")).rejects.toBeInstanceOf(HelioApiError);
   });
 });
 
