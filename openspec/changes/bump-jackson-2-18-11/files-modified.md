@@ -1,0 +1,1 @@
+- `backend/build.sbt` — bump six Jackson dependencyOverrides pins 2.18.10 -> 2.18.11 (GHSA-cxp5-3px4-pw24, GHSA-wv8q-qhhj-9h54), extend pin comment, fix stale "forces" comment
