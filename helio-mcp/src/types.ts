@@ -655,6 +655,38 @@ export interface ChartAggregationSpec {
   yField: string;
 }
 
+/** The four output-panel control kinds (HEL-1189). */
+export type OutputControlKind = "date-range" | "dropdown" | "numeric-range" | "text";
+
+/** One control persisted on an output panel's `config.controls`. `id` is client-minted. */
+export interface OutputControl {
+  id: string;
+  kind: OutputControlKind;
+  column: string;
+  label: string;
+  defaultValue?: unknown;
+}
+
+/** A control as a proposal declares it (HEL-1193): `id` minted at apply when absent, `label`
+ *  defaults to the column. */
+export interface ProposalControl {
+  id?: string;
+  kind: OutputControlKind;
+  column: string;
+  label?: string;
+  defaultValue?: unknown;
+}
+
+/** `GET /api/outputs/:id/filter-capabilities` (HEL-1188 + HEL-1193's `controlKinds`). */
+export interface OutputFilterCapabilityColumn {
+  column: string;
+  operators: string[];
+  controlKinds: OutputControlKind[];
+}
+export interface OutputFilterCapabilitiesResponse {
+  columns: OutputFilterCapabilityColumn[];
+}
+
 export interface ProposalPanel {
   title: string;
   type: string;
@@ -674,6 +706,8 @@ export interface ProposalPanel {
   sort?: "asc" | "desc";
   layout?: ProposalPanelLayout;
   config?: Record<string, unknown>;
+  /** Output panels only (HEL-1193); rejected at propose time when the column/kind is ineligible. */
+  controls?: ProposalControl[];
 }
 
 /** A dashboard proposal — the shared Proposal → Review → Apply artifact. */

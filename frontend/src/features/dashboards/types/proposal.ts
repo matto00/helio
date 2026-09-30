@@ -34,6 +34,17 @@ export interface ProposalPanel {
   label?: string;
   unit?: string;
   layout?: ProposalPanelLayout;
+  /** Output panels only (HEL-1193). Validated by the same rule as the panel write path. */
+  controls?: ProposalControl[];
+}
+
+/** One control declared on an output panel in a proposal; `id` is minted at apply when absent. */
+export interface ProposalControl {
+  id?: string;
+  kind: "date-range" | "dropdown" | "numeric-range" | "text";
+  column: string;
+  label?: string;
+  defaultValue?: unknown;
 }
 
 /** A dashboard proposal — the shared Proposal → Review → Apply artifact. */

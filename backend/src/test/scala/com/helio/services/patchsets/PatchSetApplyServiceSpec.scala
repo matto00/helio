@@ -17,7 +17,7 @@ import com.helio.services.pipelines.{OutputService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
@@ -30,6 +30,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.JsonProtocols
 import com.helio.api.http.{ResourceType => AclResourceType}
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry}
+import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.domain.panels._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -1131,6 +1132,55 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       // edit never touched it, proving the two edits resolved against two genuinely independent
       // targets rather than one aliasing onto the other.
       await(panelRepo.findByIdInternal(PanelId(newPanelId))).map(_.title) shouldBe Some("Newly created panel")
+    }
+
+    // HEL-1193 C6: a patch set's panelPatch.config.controls is validated only when the edit is
+    // APPLIED (PanelService.update -> OutputControlsValidator); the preview stage adds no rule.
+    // Needs a PanelService wired with the output/snapshot repos, unlike the shared fixture's.
+    "surface the defined control-not-eligible error at apply and roll the earlier edit back (HEL-1193)" in {
+      import PostgresProfile.api._
+      val validatingPanelService = new PanelService(
+        panelRepo, new AccessCheckerImpl(permissionRepo, new ResourceTypeRegistry(
+          AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
+          AclResourceType("panel", id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value)))
+        )), dashboardRepo, null, outputRepo, null, null, null, new NodeSnapshotRepository(new DbContext(db, db))
+      )
+      val validatingService = new PatchSetApplyService(
+        validatingPanelService, dashboardService, dataSourceService, pipelineService,
+        panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
+        new AccessCheckerImpl(permissionRepo, new ResourceTypeRegistry(
+          AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
+          AclResourceType("panel", id => panelRepo.findByIdInternal(PanelId(id)).map(_.map(_.ownerId.value)))
+        )), applicationRepo, outputRepo, outputService
+      )
+      val dashboard = seedDashboard(userA, "Controls dashboard")
+      val pipeline  = seedPipeline(userA, seedDatasetSource(userA, "Controls source"), "Controls pipeline")
+      val output = await(outputRepo.insertInternal(
+        PipelineId(pipeline.id), None, userA.id, "Controls output", OutputKind.Table,
+        schema = Vector(SchemaField("region", "string")), explicitRootId = None
+      ))
+      val outputPanel = await(validatingPanelService.create(
+        CreatePanelRequest(Some(dashboard.id.value), Some("Out"), Some("output"), Some(JsObject("outputId" -> JsString(output.id.value)))), userA
+      )) match {
+        case Right((p, _)) => p
+        case Left(e)       => fail(s"output panel create failed: $e")
+      }
+      val plain = seedPanel(dashboard.id, userA, "Original title")
+      val badControls = JsObject("controls" -> JsArray(JsObject(
+        "id" -> JsString("c1"), "kind" -> JsString("date-range"), "column" -> JsString("region"), "label" -> JsString("R")
+      )))
+
+      val edits = Vector(
+        Edit(EditTarget("panel", Some(plain.id.value)), "update", Some(UpdatePanelRequest(Some("Changed title"), None, None, None)), None, None, None, None, None),
+        Edit(EditTarget("panel", Some(outputPanel.id.value)), "update", Some(UpdatePanelRequest(None, None, None, Some(badControls))), None, None, None, None, None)
+      )
+      val response = await(validatingService.apply(PatchSet(None, edits), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected a reported failure, got Left($err)")
+      }
+
+      response.failure.map(_.toString).getOrElse(fail("expected a failure")) should include("control not eligible: column 'region', kind 'date-range'")
+      await(panelRepo.findByIdInternal(plain.id)).map(_.title) shouldBe Some("Original title")
     }
   }
 }

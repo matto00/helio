@@ -15,7 +15,9 @@
  * aggregation if fan-out proves too chatty. Call budget: 2 list calls
  * (sources, dashboards) + 1 pipelines list + 1 analyze per pipeline + 1
  * run-history per pipeline + 1 pipeline-shapes catalog call + 1 (paginated)
- * outputs fetch = 4 + 2N(pipelines) — no longer 5 + N(pipelines) with an
+ * outputs fetch = 4 + 2N(pipelines), PLUS (HEL-1193) one placements call per Output and one
+ * dashboard export per DISTINCT dashboard hosting a placement (to list each output panel's
+ * controls) — no longer 5 + N(pipelines) with an
  * unbounded per-DataType row fetch layered on top, since there is no more
  * per-DataType sample-row/column-stats fan-out (design.md Decision 6: the
  * 220k-char overflow, HEL-857, was caused by that DataType/Metric
@@ -23,6 +25,11 @@
  * "Context serializer" for the measured cost and the escalation trigger.
  */
 
+import {
+  createPanelControlsLookup,
+  type ContextControl,
+  type PanelControlsLookup,
+} from "./contextControls.js";
 import type { HelioApi } from "./helioApi.js";
 import type {
   AgentMemoryEntryResponse,
@@ -151,7 +158,9 @@ export interface WorkspaceContextOutputSummary {
    *  R12/R15 ban; see `scripts/check-node-root-encoding.mjs` (Scala) and its TypeScript sibling. */
   rootId: string | null;
   schema: Array<{ name: string; type: string }>;
-  placements: Array<{ dashboardId: string; panelId: string }>;
+  /** `controls` (HEL-1193): that output panel's configured controls; `[]` when none or when the
+   *  hosting dashboard's export could not be read. */
+  placements: Array<{ dashboardId: string; panelId: string; controls: ContextControl[] }>;
 }
 
 /** Fetches every Output the caller owns, across every pipeline, in as few
@@ -179,10 +188,17 @@ async function fetchAllOutputs(api: HelioApi): Promise<OutputResponse[]> {
 async function fetchPlacements(
   api: HelioApi,
   outputId: string,
-): Promise<Array<{ dashboardId: string; panelId: string }>> {
+  controlsFor: PanelControlsLookup,
+): Promise<WorkspaceContextOutputSummary["placements"]> {
   try {
     const placements = await api.listOutputPanels(outputId);
-    return placements.map((p) => ({ dashboardId: p.dashboardId, panelId: p.panelId }));
+    return await Promise.all(
+      placements.map(async (p) => ({
+        dashboardId: p.dashboardId,
+        panelId: p.panelId,
+        controls: await controlsFor(p.dashboardId, p.panelId),
+      })),
+    );
   } catch {
     return [];
   }
@@ -195,6 +211,7 @@ async function buildOutputSummariesByPipeline(
   api: HelioApi,
   outputs: OutputResponse[],
 ): Promise<Map<string, WorkspaceContextOutputSummary[]>> {
+  const controlsFor = createPanelControlsLookup(api);
   const byId = await Promise.all(
     outputs.map(async (o) => ({
       pipelineId: o.pipelineId,
@@ -205,7 +222,7 @@ async function buildOutputSummariesByPipeline(
         nodeStepId: o.nodeStepId ?? null,
         rootId: o.rootId ?? null,
         schema: o.schema.map((f) => ({ name: f.name, type: f.type })),
-        placements: await fetchPlacements(api, o.id),
+        placements: await fetchPlacements(api, o.id, controlsFor),
       } satisfies WorkspaceContextOutputSummary,
     })),
   );

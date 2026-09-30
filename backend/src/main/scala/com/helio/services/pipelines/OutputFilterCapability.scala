@@ -83,7 +83,7 @@ object OutputFilterCapability {
       Set.empty
   }
 
-  final case class ColumnCapability(column: String, operators: Set[Operator])
+  final case class ColumnCapability(column: String, operators: Set[Operator], controlKinds: Set[String] = Set.empty)
   final case class FilterCapabilityContract(columns: Vector[ColumnCapability])
 
   /** D5/D7 — full-schema contract build for `GET /api/outputs/:id/filter-capabilities`: one
@@ -124,7 +124,7 @@ object OutputFilterCapability {
               val operators =
                 if (cardinalityEligible(distinctCount)) staticOps ++ Set(Operator.Eq, Operator.In)
                 else staticOps
-              acc :+ ColumnCapability(column, operators)
+              acc :+ ColumnCapability(column, operators, OutputControlEligibility.kindsFor(column, operators, fieldType))
             }
         }
       }

@@ -76,7 +76,7 @@ const KNOWN_ROOT_QUALIFIED_LINES = new Set([
   // next line) -- verified by eye, not merely assumed, since 8.1a's own lesson is that a gate's
   // green result is scoped to exactly what it can see, and a per-line regex genuinely cannot
   // see the next line.
-  "helio-mcp/src/context.ts:205",
+  "helio-mcp/src/context.ts:222",
 ]);
 
 function isRootQualifiedSameLine(line) {

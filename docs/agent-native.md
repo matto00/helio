@@ -135,32 +135,34 @@ Output on a dashboard.
 
 ## Endpoint → tool map
 
-| Primitive               | Endpoint(s)                                                         | MCP tool                         |
-| ----------------------- | ------------------------------------------------------------------- | -------------------------------- |
-| Create PAT              | `POST /api/tokens`                                                  | — (bootstrap)                    |
-| Workspace snapshot      | fan-out over the read endpoints                                     | `get_workspace_context`          |
-| List dashboards         | `GET /api/dashboards`                                               | `list_dashboards`                |
-| Get dashboard+panels    | `GET /api/dashboards` + `GET /api/dashboards/:id/export`            | `get_dashboard` (composed)       |
-| List data sources       | `GET /api/data-sources`                                             | `list_data_sources`              |
-| Inspect a source        | `GET /api/data-sources/:id/preview` \| `/api/sources/:id/preview`   | `list_source_objects` (composed) |
-| List pipelines          | `GET /api/pipelines`                                                | `list_pipelines`                 |
-| Get pipeline+steps      | `GET /api/pipelines/:id` + `/:id/steps`                             | `get_pipeline` (composed)        |
-| Analyze pipeline        | `GET /api/pipelines/:id/analyze`                                    | `analyze_pipeline`               |
-| List Outputs            | `GET /api/pipelines/:id/outputs` \| `GET /api/outputs`              | `list_outputs`                   |
-| Output rows             | `GET /api/outputs/:id/rows`                                         | `get_output_rows`                |
-| Preview Output(s)       | `POST /api/pipelines/:id/preview`                                   | `preview_outputs`                |
-| Node/Output capability  | `GET /api/pipelines/:id/capabilities`                               | `get_output_capabilities`        |
-| Create data source      | `POST /api/data-sources` (static)                                   | `create_data_source`             |
-| Create pipeline         | `POST /api/pipelines` (single call: roots/steps/outputs)            | `create_pipeline`                |
-| Add step                | `POST /api/pipelines/:id/steps`                                     | `add_pipeline_step`              |
-| Add Output(s) via shape | `POST /api/pipeline-shapes/:id/expand` + steps + `POST .../outputs` | `add_outputs_from_shape`         |
-| Add one Output          | `POST /api/pipelines/:id/outputs`                                   | `add_output`                     |
-| Run pipeline            | `POST /api/pipelines/:id/run` (synchronous)                         | `run_pipeline`                   |
-| External trigger        | `POST /api/hooks/run` (HEL-369; scoped-or-unscoped PAT)             | — (external scheduler, not MCP)  |
-| Create dashboard        | `POST /api/dashboards`                                              | `create_dashboard`               |
-| Place Output(s)         | `POST /api/panels/batch` (+ best-effort auto-layout follow-up)      | `place_outputs`                  |
-| Create content panel    | `POST /api/panels` (text/markdown/image/divider — no data binding)  | `create_content_panel`           |
-| Panel appearance        | `PATCH /api/panels/:id`                                             | `update_panel_appearance`        |
+| Primitive                   | Endpoint(s)                                                           | MCP tool                                                                 |
+| --------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Create PAT                  | `POST /api/tokens`                                                    | — (bootstrap)                                                            |
+| Workspace snapshot          | fan-out over the read endpoints                                       | `get_workspace_context`                                                  |
+| List dashboards             | `GET /api/dashboards`                                                 | `list_dashboards`                                                        |
+| Get dashboard+panels        | `GET /api/dashboards` + `GET /api/dashboards/:id/export`              | `get_dashboard` (composed)                                               |
+| List data sources           | `GET /api/data-sources`                                               | `list_data_sources`                                                      |
+| Inspect a source            | `GET /api/data-sources/:id/preview` \| `/api/sources/:id/preview`     | `list_source_objects` (composed)                                         |
+| List pipelines              | `GET /api/pipelines`                                                  | `list_pipelines`                                                         |
+| Get pipeline+steps          | `GET /api/pipelines/:id` + `/:id/steps`                               | `get_pipeline` (composed)                                                |
+| Analyze pipeline            | `GET /api/pipelines/:id/analyze`                                      | `analyze_pipeline`                                                       |
+| List Outputs                | `GET /api/pipelines/:id/outputs` \| `GET /api/outputs`                | `list_outputs`                                                           |
+| Output rows                 | `GET /api/outputs/:id/rows`                                           | `get_output_rows`                                                        |
+| Preview Output(s)           | `POST /api/pipelines/:id/preview`                                     | `preview_outputs`                                                        |
+| Node/Output capability      | `GET /api/pipelines/:id/capabilities`                                 | `get_output_capabilities`                                                |
+| Output filter/control kinds | `GET /api/outputs/:id/filter-capabilities` (HEL-1193: `controlKinds`) | `get_output_filter_capabilities`                                         |
+| Output panel controls       | `PATCH /api/panels/:id` (`config.controls`, read-modify-write)        | `add_output_control` / `update_output_control` / `remove_output_control` |
+| Create data source          | `POST /api/data-sources` (static)                                     | `create_data_source`                                                     |
+| Create pipeline             | `POST /api/pipelines` (single call: roots/steps/outputs)              | `create_pipeline`                                                        |
+| Add step                    | `POST /api/pipelines/:id/steps`                                       | `add_pipeline_step`                                                      |
+| Add Output(s) via shape     | `POST /api/pipeline-shapes/:id/expand` + steps + `POST .../outputs`   | `add_outputs_from_shape`                                                 |
+| Add one Output              | `POST /api/pipelines/:id/outputs`                                     | `add_output`                                                             |
+| Run pipeline                | `POST /api/pipelines/:id/run` (synchronous)                           | `run_pipeline`                                                           |
+| External trigger            | `POST /api/hooks/run` (HEL-369; scoped-or-unscoped PAT)               | — (external scheduler, not MCP)                                          |
+| Create dashboard            | `POST /api/dashboards`                                                | `create_dashboard`                                                       |
+| Place Output(s)             | `POST /api/panels/batch` (+ best-effort auto-layout follow-up)        | `place_outputs`                                                          |
+| Create content panel        | `POST /api/panels` (text/markdown/image/divider — no data binding)    | `create_content_panel`                                                   |
+| Panel appearance            | `PATCH /api/panels/:id`                                               | `update_panel_appearance`                                                |
 
 Three endpoints named in the original design do not exist on `main`; the tools
 compose real endpoints instead (documented in `helio-mcp/README.md` →

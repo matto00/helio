@@ -219,7 +219,9 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         "eligible for each slot (advisory, not a bind-time-enforced guarantee) — plus shape " +
         "signals (columns with their types). Use this before add_output/update_output to build an " +
         "offers menu instead of re-deriving Helio's binding rules, and to know which columns are " +
-        "actually available at a specific tail vs. the trunk.",
+        "actually available at a specific tail vs. the trunk. This is the pipeline NODE's field-mapping " +
+        "menu (takes a pipeline id); for an Output's filter operators and output-panel control " +
+        "kinds use get_output_filter_capabilities (takes an Output id).",
       inputSchema: {
         pipelineId: z.string().min(1),
         stepId: z.string().min(1).optional(),

@@ -11,6 +11,18 @@ import spray.json._
 
 final case class ProposalPanelLayout(x: Int, y: Int, w: Int, h: Int)
 
+/** HEL-1193: an output panel's control as a proposal declares it. Same fields as
+ *  `OutputControlSpec` except `id` is optional (a proposal carries no ids; `ProposalPanelSupport`
+ *  mints one when the panel is built) and `label` defaults to the column name. Eligibility is NOT
+ *  decided here — `ProposalPanelSupport` hands the built specs to `OutputControlsValidator`. */
+final case class ProposalControl(
+    id: Option[String],
+    kind: String,
+    column: String,
+    label: Option[String],
+    defaultValue: Option[JsValue]
+)
+
 final case class ProposalPanel(
     title: String,
     `type`: String,
@@ -37,7 +49,10 @@ final case class ProposalPanel(
     // surface (collection baseType/layout, chart chartOptions, table
     // density/columnOrder) expressible via a proposal without a new flat
     // field per surface. See openspec/changes/mcp-proposal-panel-parity.
-    config: Option[JsObject]
+    config: Option[JsObject],
+    // HEL-1193: first-class output-panel controls; merged into the built panel's
+    // `config.controls` by `ProposalPanelSupport.buildCreateRequest`.
+    controls: Option[Vector[ProposalControl]] = None
 )
 
 final case class DashboardProposal(dashboardName: String, panels: Vector[ProposalPanel])
@@ -51,6 +66,38 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
   implicit val proposalPanelLayoutFormat: RootJsonFormat[ProposalPanelLayout] = jsonFormat4(
     ProposalPanelLayout.apply
   )
+
+  private val ProposalControlKeys = Set("id", "kind", "column", "label", "defaultValue")
+
+  // Strict like OutputControlSpec's own reader: an unknown key is a decode failure, never a silent drop.
+  implicit val proposalControlFormat: RootJsonFormat[ProposalControl] = new RootJsonFormat[ProposalControl] {
+    def write(c: ProposalControl): JsValue = {
+      val fields = scala.collection.mutable.Map[String, JsValue]("kind" -> JsString(c.kind), "column" -> JsString(c.column))
+      c.id.foreach(v => fields("id") = JsString(v))
+      c.label.foreach(v => fields("label") = JsString(v))
+      c.defaultValue.foreach(v => fields("defaultValue") = v)
+      JsObject(fields.toMap)
+    }
+
+    def read(json: JsValue): ProposalControl = json match {
+      case JsObject(fields) =>
+        val unknown = fields.keySet -- ProposalControlKeys
+        if (unknown.nonEmpty)
+          deserializationError(s"Unrecognized control attribute(s): ${unknown.toSeq.sorted.mkString(", ")}")
+        def str(key: String): Option[String] = fields.get(key).map {
+          case JsString(s) => s
+          case other       => deserializationError(s"control '$key' must be a string, got $other")
+        }
+        ProposalControl(
+          id           = str("id"),
+          kind         = str("kind").getOrElse(deserializationError("control 'kind' is required")),
+          column       = str("column").getOrElse(deserializationError("control 'column' is required")),
+          label        = str("label"),
+          defaultValue = fields.get("defaultValue")
+        )
+      case other => deserializationError(s"control must be an object, got $other")
+    }
+  }
 
   // Custom reader tolerates absent optional fields (spray-json omits `None` on
   // the wire, and a proposal from an agent frequently omits outputId /
@@ -76,6 +123,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
       p.sort.foreach(v => fields("sort") = JsString(v))
       p.layout.foreach(v => fields("layout") = v.toJson)
       p.config.foreach(v => fields("config") = v)
+      p.controls.foreach(v => fields("controls") = JsArray(v.map(_.toJson)))
       JsObject(fields.toMap)
     }
 
@@ -98,7 +146,8 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
         unit         = obj.fields.get("unit").map(_.convertTo[String]),
         sort         = obj.fields.get("sort").map(_.convertTo[String]),
         layout       = obj.fields.get("layout").map(_.convertTo[ProposalPanelLayout]),
-        config       = obj.fields.get("config").map(_.asJsObject)
+        config       = obj.fields.get("config").map(_.asJsObject),
+        controls     = obj.fields.get("controls").map(_.convertTo[Vector[ProposalControl]])
       )
     }
   }

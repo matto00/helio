@@ -82,7 +82,7 @@ final case class DeleteOutputResponse(removedPanelIds: Vector[String])
  *  iteration order, which spray-json/Scala do not guarantee to be stable. A column absent from
  *  `columns` is not filterable at all (D5: "omitting any column left with an empty operator set" --
  *  never an empty-array entry). */
-final case class OutputFilterCapabilityColumnResponse(column: String, operators: Vector[String])
+final case class OutputFilterCapabilityColumnResponse(column: String, operators: Vector[String], controlKinds: Vector[String])
 final case class OutputFilterCapabilitiesResponse(columns: Vector[OutputFilterCapabilityColumnResponse])
 
 /** `GET /api/outputs/:id/distinct-values?column=` response (HEL-1188 design.md D4). `values` is
@@ -114,7 +114,7 @@ trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val outputRowsResponseFormat: RootJsonFormat[OutputRowsResponse]               = jsonFormat5(OutputRowsResponse)
   implicit val outputPanelPlacementResponseFormat: RootJsonFormat[OutputPanelPlacementResponse] = jsonFormat2(OutputPanelPlacementResponse)
   implicit val deleteOutputResponseFormat: RootJsonFormat[DeleteOutputResponse]           = jsonFormat1(DeleteOutputResponse)
-  implicit val outputFilterCapabilityColumnResponseFormat: RootJsonFormat[OutputFilterCapabilityColumnResponse] = jsonFormat2(OutputFilterCapabilityColumnResponse)
+  implicit val outputFilterCapabilityColumnResponseFormat: RootJsonFormat[OutputFilterCapabilityColumnResponse] = jsonFormat3(OutputFilterCapabilityColumnResponse)
   implicit val outputFilterCapabilitiesResponseFormat: RootJsonFormat[OutputFilterCapabilitiesResponse]         = jsonFormat1(OutputFilterCapabilitiesResponse)
   implicit val outputDistinctValueResponseFormat: RootJsonFormat[OutputDistinctValueResponse]   = jsonFormat2(OutputDistinctValueResponse)
   implicit val outputDistinctValuesResponseFormat: RootJsonFormat[OutputDistinctValuesResponse] = jsonFormat2(OutputDistinctValuesResponse)
@@ -127,7 +127,7 @@ trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
    *  operator set deterministically via `Operator.orderedWireStrings`. */
   def outputFilterCapabilitiesResponseFrom(contract: OutputFilterCapability.FilterCapabilityContract): OutputFilterCapabilitiesResponse =
     OutputFilterCapabilitiesResponse(
-      contract.columns.map(c => OutputFilterCapabilityColumnResponse(c.column, OutputFilterCapability.Operator.orderedWireStrings(c.operators)))
+      contract.columns.map(c => OutputFilterCapabilityColumnResponse(c.column, OutputFilterCapability.Operator.orderedWireStrings(c.operators), c.controlKinds.toVector.sorted))
     )
 
   def outputDistinctValuesResponseFrom(column: String, values: Vector[(String, Int)]): OutputDistinctValuesResponse =

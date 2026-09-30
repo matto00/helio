@@ -18,6 +18,7 @@ import { registerPipelineProposalTools } from "./tools/pipelineProposal.js";
 import { registerCombinedProposalTools } from "./tools/combinedProposal.js";
 import { registerRefinementTools } from "./tools/refinement.js";
 import { registerOutputTools } from "./tools/outputs.js";
+import { registerOutputControlTools } from "./tools/outputControls.js";
 import { registerPipelineTools } from "./tools/pipelines.js";
 import { registerPlacementTools } from "./tools/placements.js";
 import { buildWorkspaceContext } from "./context.js";
@@ -34,6 +35,7 @@ export function createServer(api: HelioApi): McpServer {
   registerCombinedProposalTools(server, api);
   registerRefinementTools(server, api);
   registerOutputTools(server, api);
+  registerOutputControlTools(server, api);
   registerPipelineTools(server, api);
   registerPlacementTools(server, api);
 

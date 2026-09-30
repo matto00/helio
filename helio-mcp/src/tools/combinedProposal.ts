@@ -29,7 +29,7 @@ import { HelioApiError } from "../httpClient.js";
 import type { CombinedProposal, PipelineProposalSource, ProposalPanel } from "../types.js";
 import { applyCombinedProposalHandler } from "./combinedProposalHandlers.js";
 import { pipelineProposalInputSchema } from "./pipelineProposal.js";
-import { panelSchema } from "./proposal.js";
+import { CONTROLS_COPY, panelSchema } from "./proposal.js";
 
 function jsonResult(value: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
@@ -86,7 +86,8 @@ export function registerCombinedProposalTools(server: McpServer, api: HelioApi):
         "apply_pipeline_proposal's own response (created source (if inline)/pipeline summary/the " +
         "created Outputs (zero, one, or many; exactly one is required if any dashboard panel uses " +
         "the sentinel)/run result); `dashboard` matches apply_proposal's own response (created " +
-        "dashboard + panels).",
+        "dashboard + panels).\n" +
+        CONTROLS_COPY,
       inputSchema: {
         pipeline: z.object(pipelineProposalInputSchema),
         dashboard: z.object({

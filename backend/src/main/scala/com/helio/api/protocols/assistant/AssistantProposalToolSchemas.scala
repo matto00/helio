@@ -73,7 +73,25 @@ private[protocols] trait AssistantProposalToolSchemas {
       "unit"         -> JsObject("type" -> JsString("string")),
       "sort"         -> enumSchema("asc", "desc"),
       "layout"       -> ProposalPanelLayoutSchema,
-      "config"       -> JsObject("type" -> JsString("object"))
+      "config"       -> JsObject("type" -> JsString("object")),
+      "controls" -> JsObject(
+        "type" -> JsString("array"),
+        "description" -> JsString(
+          "Output panels only: [{kind, column, label?, id?, defaultValue?}]. A control is eligible only for a " +
+            "kind its column's controlKinds lists in the Output's filter capabilities; an ineligible one is rejected."
+        ),
+        "items" -> JsObject(
+          "type" -> JsString("object"),
+          "properties" -> JsObject(
+            "id"           -> JsObject("type" -> JsString("string")),
+            "kind"         -> enumSchema("date-range", "dropdown", "numeric-range", "text"),
+            "column"       -> JsObject("type" -> JsString("string")),
+            "label"        -> JsObject("type" -> JsString("string")),
+            "defaultValue" -> JsObject()
+          ),
+          "required" -> JsArray(Vector(JsString("kind"), JsString("column")))
+        )
+      )
     ),
     "required" -> JsArray(Vector(JsString("title"), JsString("type")))
   )

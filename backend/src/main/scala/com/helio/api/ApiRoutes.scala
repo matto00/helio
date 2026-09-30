@@ -32,7 +32,7 @@ import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
 import com.helio.services.auth.{AiPipelineQuotaGate, ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserTierConfig}
 import com.helio.services.assistant.{AssistantConversationService, AssistantService}
-import com.helio.services.panels.{AutoLayoutService, PanelCapabilityService, PanelService}
+import com.helio.services.panels.{AutoLayoutService, OutputControlsValidator, PanelCapabilityService, PanelService}
 import com.helio.services.proposals.{CombinedProposalService, DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.{ConnectorCompletionService, ConnectorEntityService, ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
 import com.helio.infrastructure.persistence.sources.ConnectorCompletionTokenRepository
@@ -320,10 +320,13 @@ final class ApiRoutes(
   // `metricRepo` — Text/Markdown's data-bound "Source mode" and metrics are
   // both removed outright.
   private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepoOpt.orNull, dataSourceRepo, dataSourceService, fileSystem, nodeSnapshotRepoOpt.orNull)
-  private val proposalService   = new DashboardProposalService(dashboardService, panelService, outputRepoOpt.orNull)
+  // HEL-1193: one validator instance shared by the propose-time control checks below; the same
+  // class (and eligibility function) PanelService constructs internally for the write path.
+  private val outputControlsValidator = new OutputControlsValidator(outputRepoOpt.orNull, nodeSnapshotRepoOpt.orNull)
+  private val proposalService   = new DashboardProposalService(dashboardService, panelService, outputRepoOpt.orNull, outputControlsValidator)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // accessChecker instances the other dashboard/panel services use.
-  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, accessChecker, auditService, outputRepoOpt.orNull)
+  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, accessChecker, auditService, outputRepoOpt.orNull, outputControlsValidator)
   // HEL-367: reuses the same dashboardRepo/panelRepo/accessChecker instances
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.

@@ -16,9 +16,18 @@
             "type": "array",
             "items": { "type": "string", "enum": ["contains", "gte", "lte", "eq", "in"] },
             "minItems": 1
+          },
+          "controlKinds": {
+            "type": "array",
+            "description": "HEL-1193: every output-panel control kind (`text`, `dropdown`, `numeric-range`, `date-range`) this column is currently eligible for, computed by the same OutputControlEligibility.kindsFor the control-write validator uses (sorted, may be empty). A control whose `kind` is absent from its column's `controlKinds` is rejected on write with `control not eligible`.",
+            "items": {
+              "type": "string",
+              "enum": ["date-range", "dropdown", "numeric-range", "text"]
+            },
+            "uniqueItems": true
           }
         },
-        "required": ["column", "operators"],
+        "required": ["column", "operators", "controlKinds"],
         "additionalProperties": false
       }
     }

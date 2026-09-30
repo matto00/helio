@@ -2,7 +2,7 @@ package com.helio.services.dashboards
 
 import com.helio.services.proposals.ProposalPanelSupport
 import com.helio.services.auth.AccessChecker
-import com.helio.services.panels.{LayoutBreakpointScaling, PanelService}
+import com.helio.services.panels.{LayoutBreakpointScaling, OutputControlsValidator, PanelService}
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.proposals.{ProposalPanel, ReplaceDashboardContentsRequest}
@@ -40,7 +40,9 @@ final class DashboardContentsService(
     // HEL-904 task 3.2: the `metricRepo` param (HEL-549, unused since task
     // 3.9 dropped `validateMetricBinding`/`preValidateBindings`'s metricRepo
     // parameter -- metrics no longer exist) is REMOVED outright.
-    outputRepo: OutputRepository = null
+    outputRepo: OutputRepository = null,
+    // HEL-1193: same nullable-optional wiring; validates controls ahead of any write.
+    controlsValidator: OutputControlsValidator = null
 )(implicit ec: ExecutionContext) {
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
@@ -60,7 +62,11 @@ final class DashboardContentsService(
           case Right(_) =>
             ProposalPanelSupport.preValidateBindings(request.panels, user, outputRepo).flatMap {
               case Left(err) => Future.successful(Left(err))
-              case Right(_)  => buildAndReplace(dashboardId, request.panels, user)
+              case Right(_) =>
+                ProposalPanelSupport.preValidateControls(request.panels, user, controlsValidator).flatMap {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(_)  => buildAndReplace(dashboardId, request.panels, user)
+                }
             }
         }
     }

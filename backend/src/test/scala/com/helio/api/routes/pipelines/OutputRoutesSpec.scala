@@ -1324,6 +1324,29 @@ class OutputRoutesSpec
         status shouldBe StatusCodes.NotFound
       }
     }
+
+    "lists each column's controlKinds from OutputControlEligibility.kindsFor (date-range only on a timestamp column)" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "fc-kinds-out", OutputKind.Table,
+        schema = Vector(SchemaField("amount", "integer"), SchemaField("created_at", "timestamp"), SchemaField("region", "string")),
+        explicitRootId = None
+      ))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
+        JsObject("amount" -> JsNumber(1), "created_at" -> JsString("2026-01-01T00:00:00Z"), "region" -> JsString("US")),
+        JsObject("amount" -> JsNumber(2), "created_at" -> JsString("2026-01-02T00:00:00Z"), "region" -> JsString("EU"))
+      ), explicitRootId = None))
+
+      Get(s"/outputs/${output.id.value}/filter-capabilities") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val columns = responseAs[JsObject].fields("columns").convertTo[Vector[JsObject]]
+        val kinds = columns.map(c => c.fields("column").convertTo[String] -> c.fields("controlKinds").convertTo[Vector[String]]).toMap
+        kinds("created_at") should contain("date-range")
+        kinds("amount") should contain("numeric-range")
+        kinds("amount") should not contain "date-range"
+        kinds("region") shouldBe Vector("dropdown", "text")
+      }
+    }
   }
 
   "GET /outputs/:id/distinct-values (HEL-1188 tasks 3.2/7.3)" should {

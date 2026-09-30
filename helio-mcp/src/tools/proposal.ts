@@ -31,7 +31,8 @@ import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import type { DashboardProposal, OutputResponse, ProposalPanel } from "../types.js";
-import { computeProposalWarnings } from "./proposalValidation.js";
+import { proposalControlSchema } from "./controlSchemas.js";
+import { computeControlWarnings, computeProposalWarnings } from "./proposalValidation.js";
 
 // No `divider`: dropped from the proposal flow's type set for parity with
 // create_panel (HEL-249/HEL-315/HEL-316) — the backend wire still accepts it
@@ -81,6 +82,8 @@ export const panelSchema = z.object({
   // above, then decoded by the same panel-create path as create_panel's
   // `config`.
   config: z.record(z.string(), z.unknown()).optional(),
+  // HEL-1193: output panels only. Same shape/validation as add_output_control's controls.
+  controls: z.array(proposalControlSchema).optional(),
 });
 
 function jsonResult(value: unknown): CallToolResult {
@@ -119,6 +122,19 @@ async function fetchAllOutputs(api: HelioApi): Promise<OutputResponse[]> {
   return items;
 }
 
+/** Shared by every tool that takes proposal panels. The 400 wording was observed live against the
+ *  running backend (HEL-1193 evidence), not copied from a spec. */
+export const CONTROLS_COPY =
+  "An output panel may declare `controls: [{ kind: date-range|dropdown|numeric-range|text, " +
+  "column, label?, id? }]` (top-level `controls`, not inside `config`; do not also set " +
+  "`config.controls`): `id` is minted when absent, `label` defaults to the column, and a " +
+  "control is eligible only for kinds its column lists in `controlKinds` (get_output_filter_" +
+  "capabilities). At apply an ineligible control fails the WHOLE call with HTTP 400 " +
+  "`panel '<title>': control not eligible: column '<c>', kind '<k>'` and nothing is created; " +
+  "`controls` on a non-output panel is HTTP 400 too. With apply_combined_proposal, a panel " +
+  'bound to the "$pipelineOutput" sentinel is validated only once the pipeline exists, so its ' +
+  "ineligible control fails at apply time and the pipeline is rolled back.";
+
 export function registerProposalTools(server: McpServer, api: HelioApi): void {
   server.registerTool(
     "propose_dashboard",
@@ -147,7 +163,12 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         "• image — `url` seeds the initial imageUrl (imageFit defaults to contain; use " +
         "config.imageFit to override).\n" +
         "An output panel's `outputId` always stays authoritative over anything `config` " +
-        "supplies.",
+        "supplies.\n" +
+        CONTROLS_COPY +
+        " propose_dashboard checks each declared control against the bound Output's " +
+        "get_output_filter_capabilities `controlKinds` and reports a violation as a warning " +
+        "`control not eligible: column '<c>', kind '<k>'` (applyReady false) — the same wording " +
+        "the backend's HTTP 400 uses at apply.",
       inputSchema: {
         dashboardName: z.string().min(1),
         panels: z.array(panelSchema),
@@ -165,6 +186,7 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         const outputs = await fetchAllOutputs(api);
         const byId = new Map(outputs.map((o) => [o.id, o]));
         const warnings = computeProposalWarnings(typedPanels, byId);
+        warnings.push(...(await computeControlWarnings(typedPanels, api)));
 
         return { proposal, warnings, applyReady: warnings.length === 0 };
       }),
@@ -181,7 +203,9 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         "binding on ANY panel kind -- must resolve to a real, caller-owned Output; nothing is " +
         "created if any panel is invalid). Each panel's `config` (if any) is merged " +
         "over the config derived from its flat fields and decoded by the same panel-create path " +
-        "place_outputs/create_content_panel uses. Returns the created dashboard + panels.",
+        "place_outputs/create_content_panel uses. " +
+        CONTROLS_COPY +
+        " Returns the created dashboard + panels.",
       inputSchema: {
         dashboardName: z.string().min(1),
         panels: z.array(panelSchema),

@@ -5,8 +5,13 @@ import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.api.protocols.proposals.ProposalPanel
 import com.helio.domain.model.{AuthenticatedUser, DashboardId, OutputId, PanelType}
+import com.helio.domain.panels.OutputControlSpec
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
-import spray.json.{JsObject, JsString, JsValue}
+import com.helio.services.panels.OutputControlsValidator
+import spray.json.{JsArray, JsObject, JsString, JsValue}
+
+import java.util.UUID
+import scala.util.Try
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -35,6 +40,7 @@ object ProposalPanelSupport {
       _ <- if (DashboardProposalService.DataPanelKinds.contains(panel.`type`) && panel.outputId.isEmpty)
              Left(s"$where: an ${panel.`type`} panel requires an outputId")
            else Right(())
+      _ <- validateControlsShape(where, panel)
       _ <- if (panel.`type` == "divider")
              RequestValidation.validateDividerOrientation(panel.orientation).left.map(msg => s"$where: $msg")
            else Right(())
@@ -43,6 +49,61 @@ object ProposalPanelSupport {
       // are deleted outright, along with the code paths they guarded — those
       // panel kinds (and `ChartPanel.rejectsAggregation`) no longer exist.
     } yield ()
+
+  /** HEL-1193: `controls` is an output-panel-only first-class field, and supplying it alongside
+   *  `config.controls` would leave two competing sources for the same list — both rejected here,
+   *  structurally, before any read or write. Eligibility itself is never decided here. */
+  private def validateControlsShape(where: String, panel: ProposalPanel): Either[String, Unit] =
+    if (panel.controls.exists(_.nonEmpty) && panel.`type` != "output")
+      Left(s"$where: controls are only supported on an output panel")
+    else if (panel.controls.isDefined && panel.config.exists(_.fields.contains("controls")))
+      Left(s"$where: supply either controls or config.controls, not both")
+    else Right(())
+
+  /** The panel's declared controls as `OutputControlSpec`s, from the first-class `controls` field
+   *  (a missing `id` is minted here, `label` defaults to the column) or, when that is absent, a
+   *  well-formed `config.controls` passthrough. A malformed `config.controls` yields empty here —
+   *  the panel-create path that later decodes it owns that error, this is only the propose-time
+   *  eligibility input. */
+  private[proposals] def controlSpecsOf(panel: ProposalPanel): Vector[OutputControlSpec] =
+    panel.controls match {
+      case Some(cs) =>
+        cs.map(c => OutputControlSpec(c.id.getOrElse(UUID.randomUUID().toString), c.kind, c.column, c.label.getOrElse(c.column), c.defaultValue))
+      case None =>
+        panel.config.flatMap(_.fields.get("controls")).flatMap {
+          case JsArray(items) => Try(items.map(OutputControlSpec.decode)).toOption
+          case _              => None
+        }.getOrElse(Vector.empty)
+    }
+
+  /** HEL-1193: runs the SAME `OutputControlsValidator` the panel write path uses over every
+   *  output panel's declared controls (existing controls empty — a proposal panel is always new),
+   *  so an ineligible control fails at propose time with `panel '<title>': ` plus the validator's
+   *  own message. Panels whose `outputId` is `skipOutputId` (the combined proposal's not-yet-
+   *  created `"$pipelineOutput"` sentinel) are skipped: they can only be validated at apply time.
+   *  A `null` validator (unwired fixture) skips the whole check. */
+  def preValidateControls(
+      panels: Vector[ProposalPanel],
+      user: AuthenticatedUser,
+      controlsValidator: OutputControlsValidator,
+      skipOutputId: Option[String] = None
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
+    if (controlsValidator == null) Future.successful(Right(()))
+    else
+      panels.foldLeft[Future[Either[ServiceError, Unit]]](Future.successful(Right(()))) { (accF, panel) =>
+        accF.flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_) =>
+            val specs = controlSpecsOf(panel)
+            if (panel.`type` != "output" || specs.isEmpty || panel.outputId.isEmpty || panel.outputId == skipOutputId)
+              Future.successful(Right(()))
+            else
+              controlsValidator.reject(panel.outputId.map(OutputId(_)), specs, Vector.empty, user).map {
+                case Left(ServiceError.BadRequest(msg)) => Left(ServiceError.BadRequest(s"panel '${panel.title}': $msg"))
+                case other                              => other
+              }
+        }
+      }
 
   /** Verify every panel's actual binding target — the flat `outputId` for
    *  `DataPanelKinds`, OR (HEL-316) a non-`DataPanelKinds` panel's
@@ -116,7 +177,10 @@ object ProposalPanelSupport {
       case None     => buildNonDataConfig(panel).map(_.asJsObject)
     }
     val bindingKey = if (panel.`type` == "output") "outputId" else "outputId"
-    val configOpt: Option[JsValue] = mergeConfig(derived, panel.config, panel.outputId, bindingKey)
+    val withControls = panel.controls.filter(_.nonEmpty).fold(panel.config) { _ =>
+      Some(JsObject(panel.config.fold(Map.empty[String, JsValue])(_.fields) + ("controls" -> JsArray(controlSpecsOf(panel).map(OutputControlSpec.format.write)))))
+    }
+    val configOpt: Option[JsValue] = mergeConfig(derived, withControls, panel.outputId, bindingKey)
     CreatePanelRequest(
       dashboardId = Some(dashboardId.value),
       title       = Some(panel.title),
