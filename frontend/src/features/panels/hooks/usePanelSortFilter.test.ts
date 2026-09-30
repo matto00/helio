@@ -14,7 +14,14 @@ import * as outputService from "../../pipelines/services/outputService";
 import type { Output } from "../../pipelines/types/output";
 import { usePanelSortFilter } from "./usePanelSortFilter";
 
-jest.mock("../../pipelines/services/outputService");
+// HEL-1190 — `composeOutputRowsFilter`/`isFilterActive` are pure logic this hook now calls
+// unconditionally (even with the default `controlFilterOps = []`); preserved as REAL
+// implementations via `requireActual` so every pre-existing assertion on `getOutputRows`'s exact
+// `filter` argument stays correct — only `getOutputRows` itself is mocked, unchanged from before.
+jest.mock("../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../pipelines/services/outputService"),
+  getOutputRows: jest.fn(),
+}));
 
 const mockGetOutputRows = outputService.getOutputRows as jest.MockedFunction<
   typeof outputService.getOutputRows
@@ -295,5 +302,125 @@ describe("usePanelSortFilter", () => {
       message: "column not sortable: 'bogus'",
     });
     jest.useRealTimers();
+  });
+
+  // HEL-1190 design.md D3 (task 4.3) — the viewer-control composition this hook now performs.
+  describe("controlFilterOps composition (HEL-1190 design.md D3, task 4.3)", () => {
+    it("a control selection present at mount triggers the SAME one-time corrective fetch as a persisted in-panel default, carrying it as ops[]", async () => {
+      mockGetOutputRows.mockResolvedValue({
+        items: [],
+        total: 0,
+        offset: 0,
+        limit: 200,
+        materialized: true,
+      });
+      const store = makeStore();
+      renderHook(
+        () =>
+          usePanelSortFilter("panel-1", "output-1", makeOutput(), [
+            { column: "region", op: "eq", value: "east" },
+          ]),
+        { wrapper: wrapper(store) },
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockGetOutputRows).toHaveBeenCalledWith("output-1", 0, 200, undefined, {
+        ops: [{ column: "region", op: "eq", value: "east" }],
+      });
+    });
+
+    it("ANDs an active control selection with an active in-panel filter as separate ops[]/columns entries on the SAME request", async () => {
+      jest.useFakeTimers();
+      mockGetOutputRows.mockResolvedValue({
+        items: [],
+        total: 0,
+        offset: 0,
+        limit: 200,
+        materialized: true,
+      });
+      const store = makeStore();
+      const { result } = renderHook(
+        () =>
+          usePanelSortFilter("panel-1", "output-1", null, [
+            { column: "region", op: "eq", value: "east" },
+          ]),
+        { wrapper: wrapper(store) },
+      );
+
+      act(() => {
+        result.current.handleFilterChange({ quick: "acme" });
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(mockGetOutputRows).toHaveBeenCalledWith("output-1", 0, 200, undefined, {
+        quick: "acme",
+        ops: [{ column: "region", op: "eq", value: "east" }],
+      });
+      jest.useRealTimers();
+    });
+
+    it("a control change AFTER mount (not just at mount) independently re-triggers the combined-filter fetch, resetting to page 0", async () => {
+      mockGetOutputRows.mockResolvedValue({
+        items: [],
+        total: 0,
+        offset: 0,
+        limit: 200,
+        materialized: true,
+      });
+      const store = makeStore();
+      // Seed pagination at page 1, mirroring the existing "Load more already ran" precedent.
+      store.dispatch(
+        fetchPanelPage.pending("req-seed", {
+          panelId: "panel-1",
+          outputId: "output-1",
+          page: 1,
+          pageSize: 50,
+        }),
+      );
+      store.dispatch(
+        fetchPanelPage.fulfilled(
+          {
+            panelId: "panel-1",
+            page: 1,
+            rows: [{ a: 1 }],
+            hasMore: false,
+            materialized: true,
+            total: 1,
+          },
+          "req-seed",
+          { panelId: "panel-1", outputId: "output-1", page: 1, pageSize: 50 },
+        ),
+      );
+
+      const output = makeOutput();
+      type Ops = NonNullable<Parameters<typeof usePanelSortFilter>[3]>;
+      const { rerender } = renderHook(
+        ({ ops }: { ops: Ops }) => usePanelSortFilter("panel-1", "output-1", output, ops),
+        { wrapper: wrapper(store), initialProps: { ops: [] as Ops } },
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      mockGetOutputRows.mockClear();
+
+      rerender({ ops: [{ column: "region", op: "eq", value: "west" }] });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockGetOutputRows).toHaveBeenCalledWith("output-1", 0, 200, undefined, {
+        ops: [{ column: "region", op: "eq", value: "west" }],
+      });
+      expect(store.getState().panels.paginationState["panel-1"].currentPage).toBe(0);
+    });
   });
 });

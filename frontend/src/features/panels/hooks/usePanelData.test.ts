@@ -240,4 +240,62 @@ describe("usePanelData", () => {
       await waitFor(() => expect(result.current.isRefreshing).toBe(false));
     });
   });
+
+  // HEL-1190 design.md D3/D4 (task 5.3) — the optional `controlFilterOps` param `PanelDetailModal`
+  // threads through directly (no sibling `usePanelSortFilter` layer on that path).
+  describe("controlFilterOps (HEL-1190, task 5.3)", () => {
+    it("composes into the dispatched request's filter", async () => {
+      mockGetOutputRows.mockResolvedValue({
+        items: [{ region: "east" }],
+        total: 1,
+        offset: 0,
+        limit: 200,
+        materialized: true,
+      });
+      const panel = makeOutputPanel({ id: "p1", config: { outputId: "out-1" } });
+      const store = makeStore(panel);
+
+      renderHook(() => usePanelData(panel, [{ column: "region", op: "eq", value: "east" }]), {
+        wrapper: wrapper(store),
+      });
+
+      await waitFor(() =>
+        expect(mockGetOutputRows).toHaveBeenCalledWith("out-1", 0, 200, undefined, {
+          ops: [{ column: "region", op: "eq", value: "east" }],
+        }),
+      );
+    });
+
+    it("a control change re-dispatches a fresh fetch (treated as a new fetch key)", async () => {
+      mockGetOutputRows.mockResolvedValue({
+        items: [],
+        total: 0,
+        offset: 0,
+        limit: 200,
+        materialized: true,
+      });
+      const panel = makeOutputPanel({ id: "p1", config: { outputId: "out-1" } });
+      const store = makeStore(panel);
+
+      const { rerender } = renderHook(
+        ({ ops }: { ops: Parameters<typeof usePanelData>[1] }) => usePanelData(panel, ops),
+        {
+          wrapper: wrapper(store),
+          initialProps: {
+            ops: [{ column: "region", op: "eq", value: "east" }] as Parameters<
+              typeof usePanelData
+            >[1],
+          },
+        },
+      );
+      await waitFor(() => expect(mockGetOutputRows).toHaveBeenCalledTimes(1));
+
+      rerender({ ops: [{ column: "region", op: "eq", value: "west" }] });
+      await waitFor(() => expect(mockGetOutputRows).toHaveBeenCalledTimes(2));
+
+      expect(mockGetOutputRows).toHaveBeenLastCalledWith("out-1", 0, 200, undefined, {
+        ops: [{ column: "region", op: "eq", value: "west" }],
+      });
+    });
+  });
 });

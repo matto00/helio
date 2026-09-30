@@ -157,6 +157,16 @@ export interface OutputControlSpec {
   column: string;
   label: string;
   defaultValue?: OutputControlDefaultValue;
+  /** HEL-1189 design.md D5 — live-computed at READ time (`PanelResponse.fromDomain`'s
+   *  `orphanedControlIds`), present only on a panel fetched via `GET /api/dashboards/:id/panels`
+   *  (the app's one true panel-read path, authenticated AND public). Absent (`undefined`) on a
+   *  panel object built from a create/update echo, which never computes it — never treat
+   *  "absent" as "not orphaned" for a freshly-created control on such an object; it simply hasn't
+   *  been read back yet. HEL-1190 (task 4.1) is this field's first real CONSUMER: the viewer
+   *  control bar renders a control only when this is falsy — the author's own editor
+   *  (`OutputControlsEditor.tsx`) recomputes orphan status live instead of trusting this
+   *  potentially-stale snapshot, since it must react to an in-progress rebind. */
+  orphaned?: boolean;
 }
 
 export interface OutputPanelConfig {

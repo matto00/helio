@@ -92,6 +92,21 @@ export interface OutputFilterCapabilitiesResponse {
   columns: OutputFilterCapabilityColumn[];
 }
 
+/** `GET /api/dashboards/:dashboardId/panels/:panelId/output-meta` response (HEL-1190 design.md
+ *  D8/D9) — the public/anonymous-safe metadata equivalent of `Output`. Deliberately a NARROWER,
+ *  DISTINCT type from `Output` (never a cast) — `ownerId` is the literal type `null` here, always,
+ *  so the type system itself blocks a future silent widen-back to a real, non-null owner id on the
+ *  public render path (design.md D9's nuance): `usePublicPanelData` always reconstructs this shape
+ *  by hand from the wire response, discarding whatever `ownerId` string the backend actually sent,
+ *  rather than forwarding it through. Carries no `id`/`pipelineId`/`panelCount` — a public renderer
+ *  never needs them. */
+export interface PublicOutputMeta {
+  kind: string;
+  config: Record<string, unknown>;
+  schema: OutputSchemaField[];
+  ownerId: null;
+}
+
 export interface TruncatedRead {
   dataSourceName: string;
   rowsRead: number;

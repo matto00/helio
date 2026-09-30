@@ -33,8 +33,12 @@ interface TableRendererProps {
   outputId: string;
   /** The Output's owner — used for the HEL-448 D7 pre-check (a
    *  shared-dashboard grantee can sort on screen, but their sort never
-   *  writes back, since `updateOutput` is an RLS owner-only write). */
-  ownerId?: string;
+   *  writes back, since `updateOutput` is an RLS owner-only write).
+   *  HEL-1190 design.md D9 — `null` (never `undefined`) is what
+   *  `PublicOutputMeta.ownerId` always is on the public render path, which is
+   *  what makes `canWrite` below structurally false there regardless of the
+   *  viewing session's identity. */
+  ownerId?: string | null;
   rawRows?: string[][] | null;
   headers?: string[] | null;
   /** Rows from the paginated execute endpoint (keyed by column name). */

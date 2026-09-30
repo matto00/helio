@@ -8,6 +8,8 @@ import type { TableColumnFilters } from "../../pipelines/ui/outputEditor/outputC
 import { isFiltering } from "../ui/renderers/tableFilterPredicate";
 import type { SortDirection, SortState } from "../../../shared/ui/useSortedRows";
 import type { Output } from "../../pipelines/types/output";
+import { composeOutputRowsFilter } from "../../pipelines/services/outputService";
+import type { OutputRowsFilterOp } from "../../pipelines/services/outputService";
 
 /** HEL-1027 skeptic-final-1.md CR1 — debounces the SERVER refetch a sort/filter change triggers,
  *  separate from (and unrelated to) `TableRenderer`'s own `canWrite`-gated persist-as-default
@@ -81,6 +83,14 @@ export function usePanelSortFilter(
   panelId: string,
   outputId: string | null,
   output: Output | null,
+  // HEL-1190 design.md D3 (task 4.3) — the viewer's CURRENT control selection, already resolved
+  // into `ops[]` entries by the caller (`buildViewerControlFilterOps`); this hook composes them
+  // with its OWN in-panel `quick`/`columns` state on every dispatch (`composeOutputRowsFilter`)
+  // rather than merging/deduping against them — neither this hook nor `useViewerControls` knows
+  // about the other's existence beyond this one opaque parameter (design.md D3's own stated
+  // shape). Defaults to `[]` so every pre-existing call site (none of which passed a 4th arg)
+  // keeps compiling and behaving identically.
+  controlFilterOps: OutputRowsFilterOp[] = [],
 ): PanelSortFilterResult {
   const dispatch = useAppDispatch();
   const { push: pushToast } = useToast();
@@ -101,6 +111,14 @@ export function usePanelSortFilter(
     setActiveFilter(cfg.columnFilters ?? null);
   }
 
+  // HEL-1190 design.md D3 — read via a ref (not a `dispatchFetch` dependency) so a new
+  // `controlFilterOps` ARRAY identity every render (the caller's own `useMemo`, or a bare inline
+  // array) never invalidates `dispatchFetch`'s/`handleSortChange`'s/`handleFilterChange`'s own
+  // memoization — mirrors this codebase's established ref-for-latest-value-without-effect-re-run
+  // convention (e.g. `TableRenderer.tsx`'s `pinnedCountRef`).
+  const controlFilterOpsRef = useRef(controlFilterOps);
+  controlFilterOpsRef.current = controlFilterOps;
+
   const dispatchFetch = useCallback(
     (sort: SortState<string> | null, filter: TableColumnFilters | null) => {
       if (!outputId) return;
@@ -111,7 +129,9 @@ export function usePanelSortFilter(
           page: 0,
           pageSize: 200,
           sort: sort ? { column: sort.key, direction: sort.direction } : undefined,
-          filter: filter ?? undefined,
+          // HEL-1190 design.md D3 — ANDs the viewer's control selection in as separate `ops[]`
+          // entries alongside whichever in-panel `quick`/`columns` term is already active.
+          filter: composeOutputRowsFilter(filter, controlFilterOpsRef.current),
         }),
       )
         .unwrap()
@@ -188,10 +208,37 @@ export function usePanelSortFilter(
   useEffect(() => {
     if (seededOutputId === null || appliedPersistedDefaultRef.current) return;
     appliedPersistedDefaultRef.current = true;
-    if (activeSort || isFiltering(activeFilter ?? undefined)) {
+    // HEL-1190 design.md D3 — a control selection already active in the URL at first paint
+    // (a pasted link, or a reload) is exactly the same "known before the first render, corrected
+    // shortly after the initial unsorted/unfiltered mount fetch" case this effect already exists
+    // for; `controlFilterOps` is available synchronously (URL-derived), so this is folded into
+    // the SAME one-time correction rather than a second, independent mechanism.
+    if (activeSort || isFiltering(activeFilter ?? undefined) || controlFilterOps.length > 0) {
       dispatchFetch(activeSort, activeFilter);
     }
+    // controlFilterOps is read once here (mount-time value) — see the eslint-disable below for
+    // why it's intentionally excluded from deps; a LATER change is the separate effect below's job.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seededOutputId, activeSort, activeFilter, dispatchFetch]);
+
+  // HEL-1190 design.md D3/task 4.4 — a control change AFTER the initial mount/seed (the effect
+  // above already covers t=0) must independently re-trigger the SAME combined-filter fetch, since
+  // `useViewerControls`'s URL state is invisible to `activeSort`/`activeFilter` above. Keyed on a
+  // stable JSON string (not the `controlFilterOps` array's own identity, which the caller may
+  // recompute every render) so this doesn't re-fire on an equal-but-new-identity array. Skipped
+  // entirely until the mount-time correction above has already had its one chance to run, so the
+  // two effects can never both fire for the very first, at-mount value.
+  const controlFilterOpsKey = JSON.stringify(controlFilterOps);
+  const prevControlFilterOpsKeyRef = useRef(controlFilterOpsKey);
+  useEffect(() => {
+    if (!appliedPersistedDefaultRef.current) return;
+    if (prevControlFilterOpsKeyRef.current === controlFilterOpsKey) return;
+    prevControlFilterOpsKeyRef.current = controlFilterOpsKey;
+    dispatchFetch(activeSort, activeFilter);
+    // `activeSort`/`activeFilter` are read fresh from the closure on every re-run this key
+    // triggers, matching `debouncedRefetch`'s own convention below — not independent triggers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controlFilterOpsKey, dispatchFetch]);
 
   const handleSortChange = useCallback(
     (column: string, direction: SortDirection | null) => {

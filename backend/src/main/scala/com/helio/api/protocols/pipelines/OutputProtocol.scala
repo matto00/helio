@@ -91,6 +91,21 @@ final case class OutputFilterCapabilitiesResponse(columns: Vector[OutputFilterCa
 final case class OutputDistinctValueResponse(value: String, count: Int)
 final case class OutputDistinctValuesResponse(column: String, values: Vector[OutputDistinctValueResponse])
 
+/** `GET /api/dashboards/:dashboardId/panels/:panelId/output-meta` response (HEL-1190 design.md
+ *  D8) — the public/anonymous-safe metadata equivalent of `OutputResponse`: exactly enough for a
+ *  renderer to pick and configure itself (`kind`/`config`/`schema`), never row data, never an
+ *  `id`/`pipelineId`/`nodeStepId` a public caller has no route to use. `ownerId` IS included on
+ *  the wire (design.md D8's own stated shape) — it is the FRONTEND's job, not this response's, to
+ *  never forward it into a write-capable renderer prop; see the frontend's own `PublicOutputMeta`
+ *  type and design.md D9's nuance (the client always reconstructs `ownerId: null` from this wire
+ *  value, never passes it through). */
+final case class PublicOutputMetaResponse(
+    kind: String,
+    config: JsValue,
+    schema: Vector[OutputSchemaFieldResponse],
+    ownerId: String
+)
+
 trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val outputSchemaFieldResponseFormat: RootJsonFormat[OutputSchemaFieldResponse] = jsonFormat2(OutputSchemaFieldResponse)
   implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat12(OutputResponse)
@@ -103,6 +118,7 @@ trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val outputFilterCapabilitiesResponseFormat: RootJsonFormat[OutputFilterCapabilitiesResponse]         = jsonFormat1(OutputFilterCapabilitiesResponse)
   implicit val outputDistinctValueResponseFormat: RootJsonFormat[OutputDistinctValueResponse]   = jsonFormat2(OutputDistinctValueResponse)
   implicit val outputDistinctValuesResponseFormat: RootJsonFormat[OutputDistinctValuesResponse] = jsonFormat2(OutputDistinctValuesResponse)
+  implicit val publicOutputMetaResponseFormat: RootJsonFormat[PublicOutputMetaResponse] = jsonFormat4(PublicOutputMetaResponse)
 
   implicit val updateOutputRequestFormat: RootJsonFormat[UpdateOutputRequest] = jsonFormat2(UpdateOutputRequest)
 

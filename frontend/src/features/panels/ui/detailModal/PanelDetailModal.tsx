@@ -20,8 +20,11 @@ import {
 import { useAppDispatch } from "../../../../hooks/reduxHooks";
 import { usePanelData } from "../../hooks/usePanelData";
 import { useOutputMeta } from "../../hooks/useOutputMeta";
-import { listOutputPanels } from "../../../pipelines/services/outputService";
+import { useViewerControls } from "../../hooks/useViewerControls";
+import { buildViewerControlFilterOps } from "../../state/viewerControlValues";
+import { getDistinctValues, listOutputPanels } from "../../../pipelines/services/outputService";
 import { OutputPicker } from "../OutputPicker";
+import { OutputViewerControlBar } from "../OutputViewerControlBar";
 import { useTheme } from "../../../../theme/ThemeProvider";
 import {
   clampTransparency,
@@ -30,7 +33,7 @@ import {
   getPanelAppearanceEditorFallback,
   getPanelTextEditorFallback,
 } from "../../../../theme/appearance";
-import type { ChartAppearance, Panel, PanelAppearance } from "../../types/panel";
+import type { ChartAppearance, OutputControlSpec, Panel, PanelAppearance } from "../../types/panel";
 import { PanelContent } from "../PanelContent";
 import { AppearanceEditor } from "../editors/AppearanceEditor";
 import { DividerEditor } from "../editors/DividerEditor";
@@ -138,9 +141,42 @@ interface PanelDetailModalProps {
   initialMode?: "view" | "edit";
 }
 
+// HEL-1190 — module-level stable empty array, same rationale as `PanelCard.tsx`'s
+// `EMPTY_CONTROLS`: a fresh `[]` literal per-render for a non-output panel would defeat every
+// `useMemo` below that lists `controls` as a dependency.
+const EMPTY_CONTROLS: OutputControlSpec[] = [];
+
 export function PanelDetailModal({ panel, onClose, initialMode = "view" }: PanelDetailModalProps) {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
+
+  // HEL-1190 design.md D1-D4 (task 5.3) — the SAME URL-held control selection the desktop
+  // grid/mobile stack already read (`useViewerControls` is keyed by `panel.id`, so every render
+  // path sharing that id shares the same source of truth). No sibling `usePanelSortFilter` layer
+  // exists on this path (see `usePanelData`'s own doc comment for why composition happens
+  // directly here instead), so `controlFilterOps` is threaded straight into `usePanelData`.
+  const controls: OutputControlSpec[] = isOutputPanel(panel)
+    ? panel.config.controls
+    : EMPTY_CONTROLS;
+  const {
+    values: controlValues,
+    setValue: setControlValue,
+    clearValue: clearControlValue,
+  } = useViewerControls(panel.id, controls);
+  const controlFilterOps = useMemo(
+    () => buildViewerControlFilterOps(controls, controlValues),
+    [controls, controlValues],
+  );
+  const hasVisibleControls = useMemo(() => controls.some((c) => !c.orphaned), [controls]);
+  const outputIdForControls = isOutputPanel(panel) ? panel.config.outputId : null;
+  const fetchDistinctValues = useCallback(
+    (column: string) =>
+      outputIdForControls
+        ? getDistinctValues(outputIdForControls, column).then((r) => r.values)
+        : Promise.resolve([]),
+    [outputIdForControls],
+  );
+
   const {
     data,
     rawRows,
@@ -153,7 +189,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     chartAggregate,
     rowsTruncated,
     refresh,
-  } = usePanelData(panel);
+  } = usePanelData(panel, controlFilterOps);
   // HEL-946 Bug C(2) — the never-materialized empty state's "Run pipeline"
   // link needs the bound Output's pipelineId, which the panel itself
   // doesn't carry (only `config.outputId`) — same lookup `OutputPanelSection`
@@ -417,6 +453,15 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
       <div className="panel-detail-modal__inner">
         {modalMode === "view" ? (
           <div className="panel-detail-modal__view-body">
+            {hasVisibleControls && (
+              <OutputViewerControlBar
+                controls={controls}
+                values={controlValues}
+                onChange={setControlValue}
+                onClear={clearControlValue}
+                fetchDistinctValues={fetchDistinctValues}
+              />
+            )}
             <PanelContent
               panel={panel}
               data={data}
@@ -440,6 +485,14 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
               // `usePanelData`'s `rowsTruncated` doc comment.
               rowsTruncated={rowsTruncated}
             />
+            {/* HEL-1190 design.md D10 (task 5.5) — this modal had NO live region at all before this
+                ticket; a control-driven row-count change is announced here, mirroring
+                `PanelCard.tsx`'s own region (reused there; added fresh here since none existed). */}
+            {hasVisibleControls && (
+              <div className="sr-only" role="status">
+                {`${rawRows?.length ?? 0} result${(rawRows?.length ?? 0) === 1 ? "" : "s"}.`}
+              </div>
+            )}
           </div>
         ) : (
           <>

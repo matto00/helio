@@ -5,7 +5,7 @@ import { PanelBodySkeleton } from "./PanelBodySkeleton";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
-import type { Output } from "../../pipelines/types/output";
+import type { Output, PublicOutputMeta } from "../../pipelines/types/output";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import type { ChartClickSelection } from "../../../utils/chartClickSelection";
 import type { SortDirection } from "../../../shared/ui/useSortedRows";
@@ -110,7 +110,12 @@ export interface PanelContentProps {
    *  exactly: `OutputPanelContent` falls back to its own `useOutputMeta(outputId)` call, as it
    *  always has — `PanelFullscreenOverlay` and `PanelDetailModal` don't pass this prop, so they
    *  are completely unaffected by this change. */
-  output?: Output | null;
+  /** HEL-1190 design.md D9 — widened to also accept `PublicOutputMeta`, the public/anonymous-safe
+   *  metadata shape `usePublicPanelData` supplies on the public render path. Its `ownerId` is
+   *  always the literal `null` that type declares, which is what makes `TableRenderer`'s
+   *  `canWrite` structurally false there regardless of the viewing session's identity — a
+   *  prop-shape decision at the call site, never a cast. */
+  output?: Output | PublicOutputMeta | null;
   /** Paired with `output` above — the caller's own `useOutputMeta(outputId)` `isLoading` flag.
    *  Ignored when `output` is `undefined` (own-fetch mode). */
   outputMetaLoading?: boolean;
@@ -154,7 +159,7 @@ function OutputPanelContent({
   onSortChange?: (column: string, direction: SortDirection | null) => void;
   onFilterChange?: (filters: TableColumnFilters) => void;
   totalRowCount?: number;
-  output?: Output | null;
+  output?: Output | PublicOutputMeta | null;
   isLoading?: boolean;
 }) {
   // evaluation-1.md CR1/CR2 (cycle 2) — applying the cross-filter HERE,

@@ -5,6 +5,7 @@ import { getOutputId } from "../state/panelNarrowing";
 import type { MappedPanelData, Panel } from "../types/panel";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
+import type { OutputRowsFilterOp } from "../../pipelines/services/outputService";
 
 export interface PanelDataResult {
   data: MappedPanelData | null;
@@ -46,13 +47,25 @@ export interface PanelDataResult {
 }
 
 /** Fetches rows for an output-kind panel's bound Output
- *  (`GET /api/outputs/:id/rows`). Non-output panels never fetch. */
-export function usePanelData(panel: Panel): PanelDataResult {
+ *  (`GET /api/outputs/:id/rows`). Non-output panels never fetch.
+ *
+ *  HEL-1190 design.md D3/D4 (task 5.3) — `controlFilterOps`, when passed, composes into every
+ *  dispatch this hook makes and is folded into the fetch-DEDUPLICATION key itself, so a control
+ *  change (not just an output-id change) is treated as needing a fresh fetch. Used directly by
+ *  `PanelDetailModal` (which has no sibling `usePanelSortFilter` layering to piggyback on, unlike
+ *  `PanelCardBody`'s desktop-grid/mobile-stack path — see that hook's own doc comment for why
+ *  composition happens THERE instead for that path). Defaults to `[]` so every pre-existing call
+ *  site (none of which passed a 2nd arg) keeps compiling and behaving identically. */
+export function usePanelData(
+  panel: Panel,
+  controlFilterOps: OutputRowsFilterOp[] = [],
+): PanelDataResult {
   const dispatch = useAppDispatch();
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
 
   const outputId = getOutputId(panel);
-  const currentFetchKey = outputId ? panel.id + "|" + outputId : null;
+  const controlFilterOpsKey = controlFilterOps.length > 0 ? JSON.stringify(controlFilterOps) : "";
+  const currentFetchKey = outputId ? panel.id + "|" + outputId + "|" + controlFilterOpsKey : null;
 
   const prevFetchKey = useRef<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -98,7 +111,15 @@ export function usePanelData(panel: Panel): PanelDataResult {
     inFlightRef.current = true;
     const keyAtDispatch = currentFetchKey;
 
-    void dispatch(fetchPanelPage({ panelId: panel.id, outputId, page: 0, pageSize: 200 }))
+    void dispatch(
+      fetchPanelPage({
+        panelId: panel.id,
+        outputId,
+        page: 0,
+        pageSize: 200,
+        filter: controlFilterOpsKey ? { ops: controlFilterOps } : undefined,
+      }),
+    )
       .unwrap()
       .then(() => {
         setErrorForKey((prev) => (prev?.key === keyAtDispatch ? null : prev));
@@ -113,6 +134,10 @@ export function usePanelData(panel: Panel): PanelDataResult {
       .finally(() => {
         inFlightRef.current = false;
       });
+    // `controlFilterOps` itself is intentionally excluded — `controlFilterOpsKey` (already a
+    // dependency via `currentFetchKey`) is the stable proxy for it; the array is read fresh from
+    // the closure on every re-run `currentFetchKey`'s change triggers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFetchKey, outputId, panel.id, dispatch, refreshToken, paginationEntry]);
 
   const rows = useMemo(() => paginationEntry?.rows ?? [], [paginationEntry]);

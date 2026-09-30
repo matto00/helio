@@ -130,21 +130,74 @@ export interface OutputRowsSort {
   direction: "asc" | "desc";
 }
 
+/** HEL-1190 design.md D3 — one `filter.ops[]` entry, mirroring the backend's
+ *  `OutputRowsQuery.OpsTerm` wire shape exactly (`{column, op, value?, values?}`). Composed from
+ *  viewer-control selections (`buildViewerControlFilterOps`) ANDed with any in-panel `columns`/
+ *  `quick` term already active on `OutputRowsFilter`. */
+export interface OutputRowsFilterOp {
+  column: string;
+  op: "eq" | "gte" | "lte" | "in";
+  value?: string;
+  values?: string[];
+}
+
 /** HEL-1027 design.md D1 — mirrors the client's OWN `TableColumnFilters` wire shape
- *  (`outputConfigTypes.ts`) exactly, so the in-memory filter state serializes straight into the
- *  `filter` query param with no translation layer. */
+ *  (`outputConfigTypes.ts`), extended by HEL-1190 design.md D3 with `ops[]` for viewer-control
+ *  selections — the in-memory filter state serializes straight into the `filter` query param with
+ *  no translation layer. */
 export interface OutputRowsFilter {
   quick?: string;
   columns?: Record<string, string>;
+  ops?: OutputRowsFilterOp[];
 }
 
-/** HEL-1027 design.md D1 — an absent/blank `quick` term AND no non-blank `columns` entries is,
- *  semantically, "no filter" — omitted from the request entirely rather than sent as `filter={}`,
- *  matching the server's own "absent filter" behavior. */
-function isFilterActive(filter: OutputRowsFilter | undefined): filter is OutputRowsFilter {
+/** HEL-1027 design.md D1 — an absent/blank `quick` term, no non-blank `columns` entries, AND no
+ *  `ops[]` entries (HEL-1190) is, semantically, "no filter" — omitted from the request entirely
+ *  rather than sent as `filter={}`, matching the server's own "absent filter" behavior. Exported
+ *  (HEL-1190) so `usePublicPanelData`/the public rows service can reuse the SAME "is this filter
+ *  worth sending" rule rather than a second, independently-maintained copy. */
+export function isFilterActive(filter: OutputRowsFilter | undefined): filter is OutputRowsFilter {
   if (!filter) return false;
   if (filter.quick && filter.quick.trim() !== "") return true;
+  if ((filter.ops ?? []).length > 0) return true;
   return Object.values(filter.columns ?? {}).some((term) => term.trim() !== "");
+}
+
+/** HEL-1190 design.md D3 — composes a viewer's control selection (`ops[]`, already resolved by
+ *  `buildViewerControlFilterOps`) with the panel's own in-panel `quick`/`columns` filter (if any)
+ *  into ONE `OutputRowsFilter` request payload — ANDed, never merged/deduped against each other,
+ *  as SEPARATE `ops[]` entries alongside whichever `columns`/`quick` term is already active.
+ *  `undefined` when neither contributes anything (matches every other "absent filter" convention
+ *  in this file). */
+export function composeOutputRowsFilter(
+  base: { quick?: string; columns?: Record<string, string> } | null | undefined,
+  controlOps: OutputRowsFilterOp[] | undefined,
+): OutputRowsFilter | undefined {
+  const candidate: OutputRowsFilter = {
+    quick: base?.quick,
+    columns: base?.columns,
+    ops: controlOps && controlOps.length > 0 ? controlOps : undefined,
+  };
+  return isFilterActive(candidate) ? candidate : undefined;
+}
+
+/** HEL-1190 design.md D1 (task 4.1) — `GET /api/outputs/:id/distinct-values?column=` (HEL-1188),
+ *  the authenticated dropdown-control-options source. Mirrors `getFilterCapabilities`'s own
+ *  fetched-once-per-open cost model. */
+export interface OutputDistinctValue {
+  value: string;
+  count: number;
+}
+
+export async function getDistinctValues(
+  outputId: string,
+  column: string,
+): Promise<{ column: string; values: OutputDistinctValue[] }> {
+  const response = await httpClient.get<{ column: string; values: OutputDistinctValue[] }>(
+    `/api/outputs/${outputId}/distinct-values`,
+    { params: { column } },
+  );
+  return response.data;
 }
 
 export async function getOutputRows(

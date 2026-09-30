@@ -8,6 +8,7 @@
 
 import { configureStore } from "@reduxjs/toolkit";
 import { act, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { Provider } from "react-redux";
 
 import { makeOutputPanel } from "../../../test/panelFixtures";
@@ -60,6 +61,7 @@ jest.mock("../hooks/usePanelRunRefresh", () => ({
 // stays on its loading skeleton for the whole test, which is irrelevant to this test's concern
 // (the sr-only status region, driven by `getOutputRows`/`usePanelData`, not by the Output's kind).
 jest.mock("../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../pipelines/services/outputService"),
   getOutputById: jest.fn(() => new Promise(() => {})),
   getOutputRows: jest.fn(),
 }));
@@ -110,9 +112,11 @@ describe("PanelCardBody — fan-out refresh status region (HEL-1094 D5, task 2.3
     const panel = makeOutputPanel({ title: "Revenue", config: { outputId: "output-1" } });
     const store = makeStore(panel);
     render(
-      <Provider store={store}>
-        <PanelCardBodyHarness panel={panel} />
-      </Provider>,
+      <MemoryRouter>
+        <Provider store={store}>
+          <PanelCardBodyHarness panel={panel} />
+        </Provider>
+      </MemoryRouter>,
     );
 
     await waitFor(() => expect(mockGetOutputRows).toHaveBeenCalledTimes(1));
@@ -168,9 +172,11 @@ describe("PanelCardBody — fan-out refresh status region (HEL-1094 D5, task 2.3
     });
 
     render(
-      <Provider store={store}>
-        <PanelCardBodyHarness panel={panel} />
-      </Provider>,
+      <MemoryRouter>
+        <Provider store={store}>
+          <PanelCardBodyHarness panel={panel} />
+        </Provider>
+      </MemoryRouter>,
     );
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();

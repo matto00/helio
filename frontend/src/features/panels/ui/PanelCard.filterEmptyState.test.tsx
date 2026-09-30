@@ -20,6 +20,7 @@ jest.mock("../hooks/usePanelData", () => ({ usePanelData: jest.fn() }));
 jest.mock("../hooks/usePanelPolling", () => ({ usePanelPolling: jest.fn() }));
 jest.mock("../hooks/usePanelRunRefresh", () => ({ usePanelRunRefresh: jest.fn() }));
 jest.mock("../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../pipelines/services/outputService"),
   getAssertionStatus: jest.fn(() => new Promise(() => {})),
   getOutputById: jest.fn(),
 }));
