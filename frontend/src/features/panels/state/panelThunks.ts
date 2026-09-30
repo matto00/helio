@@ -24,7 +24,10 @@ import {
   updatePanelTextContent as updatePanelTextContentRequest,
   updatePanelTitle as updatePanelTitleRequest,
 } from "../services/panelService";
+import { isAxiosError } from "axios";
+
 import {
+  composeOutputRowsFilter,
   getOutputRows,
   type OutputRowsFilter,
   type OutputRowsSort,
@@ -34,7 +37,9 @@ import {
   type RequestErrorKind,
 } from "../../../services/classifyRequestError";
 import type { RootState } from "../../../store/store";
+import { invalidateCapabilities } from "./filterCapabilitiesStore";
 import type {
+  CrossFilterEq,
   DividerOrientation,
   FormPanelConfig,
   ImageFit,
@@ -331,6 +336,12 @@ export const updatePanelsBatch = createAsyncThunk<
   }
 });
 
+/** HEL-1191 design.md D3a — rejection code for a cross-filter `eq` the server refused (HTTP 400,
+ *  the eq/in cardinality cap grew past its limit). Callers ignore it (no toast, no error state):
+ *  the capabilities store has already flipped the Output to client-fallback, which re-derives the
+ *  panel's mode and refetches without the `eq`. */
+export const CROSS_FILTER_EQ_REJECTED = "cross-filter-eq-rejected" as const;
+
 // An output-kind panel reads rows from its bound Output
 // (`GET /api/outputs/:id/rows`); pagination is sliced on the client.
 //
@@ -357,14 +368,34 @@ export const fetchPanelPage = createAsyncThunk<
     pageSize: number;
     sort?: OutputRowsSort;
     filter?: OutputRowsFilter;
+    /** HEL-1191 design.md D9a-i — the dashboard cross-filter's `eq` term, folded into
+     *  `filter.ops` HERE (the single compose point, via `composeOutputRowsFilter`) and never
+     *  concatenated into a caller's control ops (C4). */
+    crossFilterEq?: CrossFilterEq | null;
   },
-  { state: RootState; rejectValue: { message: string; kind: RequestErrorKind } }
+  {
+    state: RootState;
+    rejectValue: {
+      message: string;
+      kind: RequestErrorKind;
+      code?: typeof CROSS_FILTER_EQ_REJECTED;
+    };
+  }
 >(
   "panels/fetchPanelPage",
-  async ({ panelId, outputId, page, pageSize, sort, filter }, { rejectWithValue }) => {
+  async (
+    { panelId, outputId, page, pageSize, sort, filter, crossFilterEq },
+    { rejectWithValue },
+  ) => {
     try {
       const offset = page * pageSize;
-      const result = await getOutputRows(outputId, offset, pageSize, sort, filter);
+      const effectiveFilter = crossFilterEq
+        ? composeOutputRowsFilter(filter, [
+            ...(filter?.ops ?? []),
+            { column: crossFilterEq.column, op: "eq", value: crossFilterEq.value },
+          ])
+        : filter;
+      const result = await getOutputRows(outputId, offset, pageSize, sort, effectiveFilter);
       const hasMore = offset + pageSize < result.total;
       return {
         panelId,
@@ -375,6 +406,17 @@ export const fetchPanelPage = createAsyncThunk<
         total: result.total,
       };
     } catch (err: unknown) {
+      // HEL-1191 design.md D3a — read the raw HTTP status BEFORE `classifyRequestError` (which
+      // maps only 403/404 and drops 400). The trigger is the explicit `crossFilterEq` arg, never
+      // an inference from `filter.ops`, so a same-column viewer-control `eq` that 400s is not
+      // misread as a cardinality-cap rejection.
+      if (crossFilterEq != null && isAxiosError(err) && err.response?.status === 400) {
+        invalidateCapabilities(outputId);
+        return rejectWithValue({
+          ...classifyRequestError(err, "Failed to load panel data."),
+          code: CROSS_FILTER_EQ_REJECTED,
+        });
+      }
       return rejectWithValue(classifyRequestError(err, "Failed to load panel data."));
     }
   },

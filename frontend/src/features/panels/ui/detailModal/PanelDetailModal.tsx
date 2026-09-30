@@ -20,6 +20,7 @@ import {
 import { useAppDispatch } from "../../../../hooks/reduxHooks";
 import { usePanelData } from "../../hooks/usePanelData";
 import { useOutputMeta } from "../../hooks/useOutputMeta";
+import { useCrossFilterServerOps } from "../../hooks/useCrossFilterServerOps";
 import { useViewerControls } from "../../hooks/useViewerControls";
 import { buildViewerControlFilterOps } from "../../state/viewerControlValues";
 import { getDistinctValues, listOutputPanels } from "../../../pipelines/services/outputService";
@@ -177,6 +178,16 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     [outputIdForControls],
   );
 
+  // HEL-946 Bug C(2) — the never-materialized empty state's "Run pipeline"
+  // link needs the bound Output's pipelineId, which the panel itself
+  // doesn't carry (only `config.outputId`) — same lookup `OutputPanelSection`
+  // below already makes for its own "Output" link.
+  const viewOutputId = isOutputPanel(panel) ? panel.config.outputId : null;
+  const { output: viewOutput } = useOutputMeta(viewOutputId);
+  // HEL-1191 design.md D9/D9b — this modal owns its own `usePanelData` AND resolves the Output, so
+  // it computes the cross-filter decision itself: `crossFilterEq` joins the fetch as its own
+  // argument (C4), `crossFilterMode` gates the client-side fallback in `PanelContent`.
+  const { crossFilterEq, mode: crossFilterMode } = useCrossFilterServerOps(panel, viewOutput);
   const {
     data,
     rawRows,
@@ -189,13 +200,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     chartAggregate,
     rowsTruncated,
     refresh,
-  } = usePanelData(panel, controlFilterOps);
-  // HEL-946 Bug C(2) — the never-materialized empty state's "Run pipeline"
-  // link needs the bound Output's pipelineId, which the panel itself
-  // doesn't carry (only `config.outputId`) — same lookup `OutputPanelSection`
-  // below already makes for its own "Output" link.
-  const viewOutputId = isOutputPanel(panel) ? panel.config.outputId : null;
-  const { output: viewOutput } = useOutputMeta(viewOutputId);
+  } = usePanelData(panel, controlFilterOps, crossFilterEq);
   const navigate = useNavigate();
 
   // Modal mode: "view" is the default on open; "edit" shows the unified settings form
@@ -484,6 +489,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
               // always false regardless of real truncation — see
               // `usePanelData`'s `rowsTruncated` doc comment.
               rowsTruncated={rowsTruncated}
+              crossFilterMode={crossFilterMode}
             />
             {/* HEL-1190 design.md D10 (task 5.5) — this modal had NO live region at all before this
                 ticket; a control-driven row-count change is announced here, mirroring

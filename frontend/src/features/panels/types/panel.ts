@@ -18,6 +18,7 @@
 // `panel.config`.
 
 import type { ResourceMeta } from "../../../types/models";
+import type { OutputRowsFilter, OutputRowsSort } from "../../pipelines/services/outputService";
 
 // Extracted from `types/models.ts` in CS4 cycle 1.
 
@@ -421,6 +422,25 @@ export interface SelectionDescriptor {
   series: string;
 }
 
+/** HEL-1191 design.md D9a-i — the cross-filter `eq` term a page-0 request carried, kept SEPARATE
+ *  from `filter.ops` (which holds only the viewer-control terms) so it can be reconciled against
+ *  the live `state.panels.crossFilter` before a replay. */
+export interface CrossFilterEq {
+  column: string;
+  value: string;
+}
+
+/** HEL-1191 design.md D9a-i — the most recent PAGE-0 request's query, recorded by
+ *  `fetchPanelPage.pending` so ops-less hosts (`usePanelData`'s mount dispatch and `refresh()`)
+ *  can replay it instead of silently dispatching an unfiltered read. `filter` excludes the
+ *  cross-filter term (that is `crossFilterEq`). */
+export interface PanelLastQuery {
+  outputId: string;
+  sort?: OutputRowsSort;
+  filter?: OutputRowsFilter;
+  crossFilterEq: CrossFilterEq | null;
+}
+
 export interface PanelPaginationState {
   currentPage: number;
   hasMore: boolean;
@@ -438,4 +458,6 @@ export interface PanelPaginationState {
    *  have been PAGED IN so far; `total` is the true Output-wide count even before every page has
    *  been loaded. Defaults to `0` before the first fetch resolves. */
   total: number;
+  /** HEL-1191 design.md D9a-i — see `PanelLastQuery`. Absent until the first page-0 request. */
+  lastQuery?: PanelLastQuery;
 }

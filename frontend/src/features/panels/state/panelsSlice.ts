@@ -287,7 +287,7 @@ const panelsSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchPanelPage.pending, (state, action) => {
-        const { panelId } = action.meta.arg;
+        const { panelId, outputId, page, sort, filter, crossFilterEq } = action.meta.arg;
         // HEL-1027 skeptic-final-1.md CR2 — records this dispatch as the latest for this panel,
         // UNCONDITIONALLY (never gated on the previous latest) -- a `.pending` is always the
         // newest thing dispatched at the moment it fires, by construction (dispatch order IS
@@ -308,6 +308,13 @@ const panelsSlice = createSlice({
           rows: existing?.rows ?? [],
           materialized: existing?.materialized ?? true,
           total: existing?.total ?? 0,
+          // HEL-1191 design.md D9a-i — ONLY a page-0 request (re)writes `lastQuery`; a load-more
+          // (page > 0) carries the existing one forward so a replay always describes the window's
+          // own query, never an appended page's.
+          lastQuery:
+            page === 0
+              ? { outputId, sort, filter, crossFilterEq: crossFilterEq ?? null }
+              : existing?.lastQuery,
         };
       })
       .addCase(fetchPanelPage.fulfilled, (state, action) => {
@@ -333,6 +340,7 @@ const panelsSlice = createSlice({
           rows: updatedRows,
           materialized,
           total,
+          lastQuery: existing?.lastQuery,
         };
       })
       .addCase(fetchPanelPage.rejected, (state, action) => {

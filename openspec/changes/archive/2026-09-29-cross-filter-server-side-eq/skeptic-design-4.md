@@ -1,0 +1,14 @@
+## Skeptic Report - design gate (round 4, skeptic-design-4.md)
+
+### What I verified (with evidence)
+- Round-3 CR1 (outputId scoping), CR2 (replay reconciled vs current crossFilter), CR3 (usePanelData ignores rejected code; status read pre-classifyRequestError), CR4 (fulfilled/rejected carry lastQuery; only page-0 pending writes; panelsSlice.test.ts shape update stated) are all now specified in D9a-i/D3a and are consistent with panelsSlice.ts:289-350, panelThunks.ts:344-386, usePanelData.ts:59-140.
+
+### Verdict: REFUTE
+
+### Change Requests
+1. **tasks.md 3.1 contradicts D9a-i / D1 on how the cross op travels.** D9a-i says `fetchPanelPage` gains a separate `crossFilterEq` arg and callers "pass the cross op separately instead of concatenating into `controlFilterOps`". tasks.md 3.1 still says "Concatenate cross-filter ops into `controlFilterOps` in PanelCardBody ...", and D1's text still says concatenation `[...controlFilterOps, ...crossFilterOps]`. If an implementer follows the task, the eq lands inside `arg.filter.ops`, so `lastQuery.filter` ("excluding the cross op") contains it and replay rule (2) (reconcile vs current crossFilter) is bypassed - the exact stale-eq defect round 3 CR2 closed. Reconcile D1/D9/tasks to one mechanism and rewrite 3.1 accordingly.
+2. **The separate-arg mechanism is not plumbed through the hooks that own the ops key.** `usePanelSortFilter(panelId, outputId, output, controlFilterOps)` has its corrective-mount condition (`controlFilterOps.length > 0`, usePanelSortFilter.ts ~205), its change-detection key (`controlFilterOpsKey`, ~225) and `dispatchFetch` all built around the single ops array; `usePanelData(panel, controlFilterOps)` builds `currentFetchKey` from it (usePanelData.ts:67-69) and the detail modal uses that argument. Design states neither a new parameter for these hooks nor that the key/mount-condition include `crossFilterEq`. Without it, a cross-filter change would not re-dispatch (the design's D5 clear/set behaviour and D9a-i "corrective mount fetch fires because current ops are non-empty" both depend on it). Specify the new parameter on both hooks, that it joins the key and the non-empty condition, and that `handleLoadMore` passes it.
+3. **D3a 400 attribution should key off the `crossFilterEq` arg, not "filter.ops contains an eq on the dimension".** With the arg separated, a same-column HEL-1190 control eq (D2 AND case) that yields a 400 would be misread as a cap rejection, silently flipping to fallback with no toast. State the trigger is `arg.crossFilterEq != null` (plus status 400).
+
+### Non-blocking notes
+- Replay of `lastQuery.sort/filter` after remount relies on the persisted-default corrective fetch to reconcile the re-seeded in-panel sort/filter; acceptable only if user sort/filter is always persisted to output config - executor should confirm in evidence.

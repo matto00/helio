@@ -424,3 +424,92 @@ describe("usePanelSortFilter", () => {
     });
   });
 });
+
+// HEL-1191 design.md D9a-ii, C4 — `crossFilterEq` is its own input: never concatenated into
+// `controlFilterOps`, but joining the corrective-mount condition and the change key.
+describe("usePanelSortFilter — crossFilterEq (HEL-1191 D9a-ii)", () => {
+  const EQ = { column: "quarter", value: "Q1" };
+  const emptyPage = { items: [], total: 0, offset: 0, limit: 200, materialized: true };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetOutputRows.mockResolvedValue(emptyPage);
+  });
+
+  it("an eq present at mount triggers the one-time corrective fetch, carrying it as a separate ops entry", async () => {
+    const store = makeStore();
+    renderHook(() => usePanelSortFilter("panel-1", "output-1", makeOutput(), [], EQ), {
+      wrapper: wrapper(store),
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockGetOutputRows).toHaveBeenCalledWith("output-1", 0, 200, undefined, {
+      ops: [{ column: "quarter", op: "eq", value: "Q1" }],
+    });
+    expect(store.getState().panels.paginationState["panel-1"].lastQuery).toMatchObject({
+      crossFilterEq: EQ,
+    });
+  });
+
+  it("set, change and clear each re-dispatch page 0 (clear drops the eq)", async () => {
+    const store = makeStore();
+    type Eq = typeof EQ | null;
+    const output = makeOutput();
+    const { rerender } = renderHook(
+      ({ eq }: { eq: Eq }) => usePanelSortFilter("panel-1", "output-1", output, [], eq),
+      { wrapper: wrapper(store), initialProps: { eq: null as Eq } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    mockGetOutputRows.mockClear();
+
+    rerender({ eq: EQ });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockGetOutputRows).toHaveBeenLastCalledWith("output-1", 0, 200, undefined, {
+      ops: [{ column: "quarter", op: "eq", value: "Q1" }],
+    });
+
+    rerender({ eq: { column: "quarter", value: "Q2" } });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockGetOutputRows).toHaveBeenLastCalledWith("output-1", 0, 200, undefined, {
+      ops: [{ column: "quarter", op: "eq", value: "Q2" }],
+    });
+
+    rerender({ eq: null });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockGetOutputRows).toHaveBeenLastCalledWith("output-1", 0, 200, undefined, undefined);
+    expect(mockGetOutputRows).toHaveBeenCalledTimes(3);
+  });
+
+  it("an eq is ANDed with a same-column control op on the SAME request (no override)", async () => {
+    const store = makeStore();
+    renderHook(
+      () =>
+        usePanelSortFilter(
+          "panel-1",
+          "output-1",
+          makeOutput(),
+          [{ column: "quarter", op: "eq", value: "Q2" }],
+          EQ,
+        ),
+      { wrapper: wrapper(store) },
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockGetOutputRows.mock.calls[0][4]?.ops).toEqual([
+      { column: "quarter", op: "eq", value: "Q2" },
+      { column: "quarter", op: "eq", value: "Q1" },
+    ]);
+  });
+});

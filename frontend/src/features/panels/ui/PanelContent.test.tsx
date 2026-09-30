@@ -72,7 +72,7 @@ describe("PanelContent — appearance forwarding", () => {
     };
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     const panel = makeOutputPanel({ appearance });
-    renderWithStore(<PanelContent panel={panel} appearance={appearance} />);
+    renderWithStore(<PanelContent crossFilterMode="none" panel={panel} appearance={appearance} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(appearance);
   });
@@ -80,7 +80,7 @@ describe("PanelContent — appearance forwarding", () => {
   it("forwards panel.appearance when no appearance prop is provided", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     const panel = makeOutputPanel();
-    renderWithStore(<PanelContent panel={panel} />);
+    renderWithStore(<PanelContent crossFilterMode="none" panel={panel} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(panel.appearance);
   });
@@ -89,27 +89,32 @@ describe("PanelContent — appearance forwarding", () => {
 describe("PanelContent — output kind dispatch", () => {
   it("renders the metric placeholder for output kind metric", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "metric" }));
-    renderWithStore(<PanelContent panel={makeOutputPanel()} />);
+    renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
     expect(await screen.findByText("--")).toBeInTheDocument();
   });
 
   it("renders an ECharts chart panel for output kind chart", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
-    renderWithStore(<PanelContent panel={makeOutputPanel()} />);
+    renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
     expect(await screen.findByTestId("chart-panel")).toBeInTheDocument();
   });
 
   it("renders a table element for output kind table", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "table" }));
     const { container } = renderWithStore(
-      <PanelContent panel={makeOutputPanel()} rawRows={[["1"]]} headers={["value"]} />,
+      <PanelContent
+        crossFilterMode="none"
+        panel={makeOutputPanel()}
+        rawRows={[["1"]]}
+        headers={["value"]}
+      />,
     );
     expect(await screen.findByRole("table")).toBeInTheDocument();
     expect(container.querySelector("table")).toBeInTheDocument();
   });
 
   it("renders placeholder lines for type text (dashboard-native, not an output fetch)", () => {
-    const { container } = render(<PanelContent panel={makeTextPanel()} />);
+    const { container } = render(<PanelContent crossFilterMode="none" panel={makeTextPanel()} />);
     const lines = container.querySelectorAll(".panel-content__text-line");
     expect(lines.length).toBeGreaterThan(0);
   });
@@ -117,7 +122,9 @@ describe("PanelContent — output kind dispatch", () => {
 
 describe("PanelContent — loading state", () => {
   it("shows a kind-agnostic body skeleton (HEL-528 design.md D6), not a spinner", () => {
-    const { container } = render(<PanelContent panel={makeOutputPanel()} isLoading={true} />);
+    const { container } = render(
+      <PanelContent crossFilterMode="none" panel={makeOutputPanel()} isLoading={true} />,
+    );
     expect(screen.getByLabelText("Loading data")).toBeInTheDocument();
     expect(container.querySelector(".panel-body-skeleton")).toBeInTheDocument();
     expect(container.querySelector(".ui-skeleton")).toBeInTheDocument();
@@ -125,19 +132,31 @@ describe("PanelContent — loading state", () => {
   });
 
   it("does not render metric content while loading", () => {
-    render(<PanelContent panel={makeOutputPanel()} isLoading={true} />);
+    render(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} isLoading={true} />);
     expect(screen.queryByText("--")).not.toBeInTheDocument();
   });
 });
 
 describe("PanelContent — error state", () => {
   it("shows the error message", () => {
-    render(<PanelContent panel={makeOutputPanel()} error="Failed to load data." />);
+    render(
+      <PanelContent
+        crossFilterMode="none"
+        panel={makeOutputPanel()}
+        error="Failed to load data."
+      />,
+    );
     expect(screen.getByText("Failed to load data.")).toBeInTheDocument();
   });
 
   it("does not render metric content when there is an error", () => {
-    render(<PanelContent panel={makeOutputPanel()} error="Failed to load data." />);
+    render(
+      <PanelContent
+        crossFilterMode="none"
+        panel={makeOutputPanel()}
+        error="Failed to load data."
+      />,
+    );
     expect(screen.queryByText("--")).not.toBeInTheDocument();
   });
 });
@@ -146,14 +165,25 @@ describe("PanelContent — error state", () => {
 // its own role="alert" (announced=false), Retry action, and kind-based icon.
 describe("PanelContent — error state retry wiring (HEL-539)", () => {
   it("carries a single role=alert (announced=false, not doubled by the wrapper's own role)", () => {
-    render(<PanelContent panel={makeOutputPanel()} error="Failed to load data." />);
+    render(
+      <PanelContent
+        crossFilterMode="none"
+        panel={makeOutputPanel()}
+        error="Failed to load data."
+      />,
+    );
     expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
   it("renders a Retry action invoking onRetry when errorKind is error (or unset)", () => {
     const onRetry = jest.fn();
     render(
-      <PanelContent panel={makeOutputPanel()} error="Failed to load data." onRetry={onRetry} />,
+      <PanelContent
+        crossFilterMode="none"
+        panel={makeOutputPanel()}
+        error="Failed to load data."
+        onRetry={onRetry}
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalledTimes(1);
@@ -163,6 +193,7 @@ describe("PanelContent — error state retry wiring (HEL-539)", () => {
     const onRetry = jest.fn();
     render(
       <PanelContent
+        crossFilterMode="none"
         panel={makeOutputPanel()}
         error="You don't have access to this panel's data."
         errorKind="forbidden"
@@ -176,6 +207,7 @@ describe("PanelContent — error state retry wiring (HEL-539)", () => {
     const onRetry = jest.fn();
     render(
       <PanelContent
+        crossFilterMode="none"
         panel={makeOutputPanel()}
         error="Failed to load data."
         onRetry={onRetry}
@@ -190,7 +222,7 @@ describe("PanelContent — error state retry wiring (HEL-539)", () => {
 
 describe("PanelContent — no-data state", () => {
   it("shows the no-data message", () => {
-    render(<PanelContent panel={makeOutputPanel()} noData={true} />);
+    render(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} noData={true} />);
     expect(screen.getByText("No data available")).toBeInTheDocument();
   });
 });
@@ -201,7 +233,14 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
     const rawRows = [["2024-01-01", "100"]];
     const headers = ["date", "price"];
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart", config: { fieldMapping } }));
-    renderWithStore(<PanelContent panel={makeOutputPanel()} rawRows={rawRows} headers={headers} />);
+    renderWithStore(
+      <PanelContent
+        crossFilterMode="none"
+        panel={makeOutputPanel()}
+        rawRows={rawRows}
+        headers={headers}
+      />,
+    );
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual(fieldMapping);
     expect(capturedChartProps?.rawRows).toEqual(rawRows);
@@ -210,7 +249,7 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
 
   it("forwards an empty fieldMapping object to ChartPanel when the Output config has none", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
-    renderWithStore(<PanelContent panel={makeOutputPanel()} />);
+    renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual({});
   });
@@ -219,14 +258,14 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
   // hide the legend / shrink axis labels (W5).
   it("forwards compact=true to ChartPanel", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
-    renderWithStore(<PanelContent panel={makeOutputPanel()} compact />);
+    renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} compact />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBe(true);
   });
 
   it("leaves compact undefined for the desktop grid (no compact prop passed)", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
-    renderWithStore(<PanelContent panel={makeOutputPanel()} />);
+    renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
     await screen.findByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBeUndefined();
   });
@@ -240,14 +279,18 @@ describe("PanelContent — chart annotation resolution (HEL-323)", () => {
     getOutputByIdMock.mockResolvedValue(
       makeOutput({ kind: "chart", config: { annotation: "Fixed note" } }),
     );
-    const { container } = renderWithStore(<PanelContent panel={makeOutputPanel()} />);
+    const { container } = renderWithStore(
+      <PanelContent crossFilterMode="none" panel={makeOutputPanel()} />,
+    );
     await screen.findByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent("Fixed note");
   });
 
   it("renders no annotation element when none is set", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
-    const { container } = renderWithStore(<PanelContent panel={makeOutputPanel()} />);
+    const { container } = renderWithStore(
+      <PanelContent crossFilterMode="none" panel={makeOutputPanel()} />,
+    );
     await screen.findByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).not.toBeInTheDocument();
   });
@@ -258,6 +301,7 @@ describe("PanelContent — live table data", () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "table" }));
     const { container } = renderWithStore(
       <PanelContent
+        crossFilterMode="none"
         panel={makeOutputPanel()}
         rawRows={[
           ["1000", "North"],
@@ -285,14 +329,22 @@ describe("PanelContent — live table data", () => {
 describe("PanelContent — live text data", () => {
   it("renders .panel-content__text-live element when text panel has live content", () => {
     const { container } = render(
-      <PanelContent panel={makeTextPanel()} data={{ content: "Hello world" }} />,
+      <PanelContent
+        crossFilterMode="none"
+        panel={makeTextPanel()}
+        data={{ content: "Hello world" }}
+      />,
     );
     expect(container.querySelector(".panel-content__text-live")).toBeInTheDocument();
   });
 
   it("text-live element displays the bound content", () => {
     const { container } = render(
-      <PanelContent panel={makeTextPanel()} data={{ content: "Sample text" }} />,
+      <PanelContent
+        crossFilterMode="none"
+        panel={makeTextPanel()}
+        data={{ content: "Sample text" }}
+      />,
     );
     const liveEl = container.querySelector(".panel-content__text-live");
     expect(liveEl).toBeInTheDocument();
@@ -301,7 +353,10 @@ describe("PanelContent — live text data", () => {
 
   it("renders literal config.content unchanged for a Text panel (no data prop)", () => {
     const { container } = render(
-      <PanelContent panel={makeTextPanel({ config: { content: "Static fallback text" } })} />,
+      <PanelContent
+        crossFilterMode="none"
+        panel={makeTextPanel({ config: { content: "Static fallback text" } })}
+      />,
     );
     const liveEl = container.querySelector(".panel-content__text-live");
     expect(liveEl).toBeInTheDocument();
@@ -311,6 +366,7 @@ describe("PanelContent — live text data", () => {
   it("bound data.content takes precedence over literal config.content when both are present", () => {
     const { container } = render(
       <PanelContent
+        crossFilterMode="none"
         panel={makeTextPanel({ config: { content: "Stale literal" } })}
         data={{ content: "Fresh bound value" }}
       />,
@@ -328,7 +384,7 @@ describe("PanelContent — live text data", () => {
 // added by task 3.4 must turn this test red (task 4.10's mutation).
 describe("PanelContent — form kind (HEL-1083)", () => {
   it("renders the unconfigured placeholder, never MetricRenderer, for a form panel", () => {
-    const { container } = render(<PanelContent panel={makeFormPanel()} />);
+    const { container } = render(<PanelContent crossFilterMode="none" panel={makeFormPanel()} />);
     expect(screen.getByRole("status")).toHaveTextContent("Form not configured");
     expect(container.querySelector(".panel-content--metric")).not.toBeInTheDocument();
   });
@@ -343,7 +399,7 @@ describe("PanelContent — form kind (HEL-1083)", () => {
     const panel = makeFormPanel({
       config: { fields: [{ sourceField: "note", control: "text", label: "Note" }] },
     });
-    const { container } = renderWithStore(<PanelContent panel={panel} />);
+    const { container } = renderWithStore(<PanelContent crossFilterMode="none" panel={panel} />);
 
     await screen.findByRole("form", { name: panel.title });
     expect(container.querySelector(".panel-content--metric")).not.toBeInTheDocument();

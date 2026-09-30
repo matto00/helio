@@ -106,7 +106,13 @@ describe("PanelFullscreenOverlay — HEL-584 task 1.1 (standalone render)", () =
   it("renders the panel title and its content", async () => {
     const panel = makeMarkdownPanel({ title: "Notes", config: { content: "hello world" } });
     renderWithStore(
-      <PanelFullscreenOverlay panel={panel} open onClose={jest.fn()} {...basePanelDataProps} />,
+      <PanelFullscreenOverlay
+        crossFilterMode="none"
+        panel={panel}
+        open
+        onClose={jest.fn()}
+        {...basePanelDataProps}
+      />,
     );
     expect(screen.getByRole("heading", { name: "Notes" })).toBeInTheDocument();
     expect(await screen.findByText("hello world")).toBeInTheDocument();
@@ -115,7 +121,13 @@ describe("PanelFullscreenOverlay — HEL-584 task 1.1 (standalone render)", () =
   it("renders a mono eyebrow naming the panel's content kind", () => {
     const panel = makeMarkdownPanel({ title: "Notes" });
     renderWithStore(
-      <PanelFullscreenOverlay panel={panel} open onClose={jest.fn()} {...basePanelDataProps} />,
+      <PanelFullscreenOverlay
+        crossFilterMode="none"
+        panel={panel}
+        open
+        onClose={jest.fn()}
+        {...basePanelDataProps}
+      />,
     );
     expect(screen.getByText("markdown")).toHaveClass("eyebrow");
   });
@@ -123,7 +135,13 @@ describe("PanelFullscreenOverlay — HEL-584 task 1.1 (standalone render)", () =
   it('applies the Modal size="full" preset via the definite-height overlay class', () => {
     const panel = makeMarkdownPanel({ title: "Notes" });
     renderWithStore(
-      <PanelFullscreenOverlay panel={panel} open onClose={jest.fn()} {...basePanelDataProps} />,
+      <PanelFullscreenOverlay
+        crossFilterMode="none"
+        panel={panel}
+        open
+        onClose={jest.fn()}
+        {...basePanelDataProps}
+      />,
     );
     const dialog = document.querySelector("dialog")!;
     expect(dialog).toHaveClass("ui-modal--full", "panel-fullscreen-overlay");
@@ -132,7 +150,13 @@ describe("PanelFullscreenOverlay — HEL-584 task 1.1 (standalone render)", () =
   it("renders no editing controls (view-only)", async () => {
     const panel = makeMarkdownPanel({ title: "Notes", config: { content: "hello world" } });
     renderWithStore(
-      <PanelFullscreenOverlay panel={panel} open onClose={jest.fn()} {...basePanelDataProps} />,
+      <PanelFullscreenOverlay
+        crossFilterMode="none"
+        panel={panel}
+        open
+        onClose={jest.fn()}
+        {...basePanelDataProps}
+      />,
     );
     await screen.findByText("hello world");
     expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
@@ -146,7 +170,13 @@ describe("PanelFullscreenOverlay — HEL-584 task 1.2 (Esc / close button / back
     return {
       onClose,
       ...renderWithStore(
-        <PanelFullscreenOverlay panel={panel} open onClose={onClose} {...basePanelDataProps} />,
+        <PanelFullscreenOverlay
+          crossFilterMode="none"
+          panel={panel}
+          open
+          onClose={onClose}
+          {...basePanelDataProps}
+        />,
       ),
     };
   }
@@ -197,9 +227,69 @@ describe("PanelFullscreenOverlay — HEL-584 task 3.1 (chart resize wiring, desi
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     const panel = makeOutputPanel({ title: "Revenue" });
     renderWithStore(
-      <PanelFullscreenOverlay panel={panel} open onClose={jest.fn()} {...basePanelDataProps} />,
+      <PanelFullscreenOverlay
+        crossFilterMode="none"
+        panel={panel}
+        open
+        onClose={jest.fn()}
+        {...basePanelDataProps}
+      />,
     );
     const chart = await screen.findByTestId("echarts");
     expect(chart).toHaveAttribute("data-autoresize", "true");
+  });
+});
+
+// HEL-1191 design.md D9b — the overlay never resolves an Output for the cross-filter decision;
+// it renders whichever `crossFilterMode` `PanelCard` threads to it.
+describe("PanelFullscreenOverlay — HEL-1191 threaded crossFilterMode", () => {
+  const rows = [
+    ["Q1", "100"],
+    ["Q2", "120"],
+  ];
+
+  function renderWithMode(mode: "server" | "client-fallback") {
+    getOutputByIdMock.mockResolvedValue(
+      makeOutput({
+        kind: "table",
+        config: { columnOrder: ["quarter", "revenue"] },
+        schema: [
+          { name: "quarter", type: "string" },
+          { name: "revenue", type: "integer" },
+        ],
+      }),
+    );
+    const panel = makeOutputPanel({ id: "sibling", title: "Revenue" });
+    return renderWithStore(
+      <PanelFullscreenOverlay
+        panel={panel}
+        open
+        onClose={jest.fn()}
+        {...basePanelDataProps}
+        rawRows={rows}
+        headers={["quarter", "revenue"]}
+        crossFilterMode={mode}
+      />,
+      {
+        panels: {
+          items: [panel],
+          crossFilter: { panelId: "origin", dimension: "quarter", value: "Q1", series: "" },
+        },
+      },
+    );
+  }
+
+  it("client-fallback narrows the loaded rows client-side", async () => {
+    renderWithMode("client-fallback");
+    await screen.findByRole("table");
+    expect(screen.getByText("100")).toBeInTheDocument();
+    expect(screen.queryByText("120")).not.toBeInTheDocument();
+  });
+
+  it("server renders the rows it was given untouched (they arrive server-narrowed; no second filter)", async () => {
+    renderWithMode("server");
+    await screen.findByRole("table");
+    expect(screen.getByText("100")).toBeInTheDocument();
+    expect(screen.getByText("120")).toBeInTheDocument();
   });
 });

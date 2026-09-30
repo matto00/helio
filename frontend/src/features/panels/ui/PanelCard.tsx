@@ -18,6 +18,9 @@ import { readChartConfig } from "../../pipelines/ui/outputEditor/outputConfigTyp
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import { useOutputMeta } from "../hooks/useOutputMeta";
+import { useCrossFilterServerOps, type CrossFilterMode } from "../hooks/useCrossFilterServerOps";
+import { filterRecordRowsByDimension } from "../../../utils/crossFilterRows";
+import { useCrossFilterAnnouncement } from "../hooks/useCrossFilterAnnouncement";
 import { usePanelSortFilter } from "../hooks/usePanelSortFilter";
 import { useViewerControls } from "../hooks/useViewerControls";
 import { buildViewerControlFilterOps } from "../state/viewerControlValues";
@@ -34,7 +37,12 @@ import { usePanelData } from "../hooks/usePanelData";
 import { useCrossFilteredPanelData } from "../hooks/useCrossFilteredPanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
-import type { OutputControlSpec, Panel } from "../types/panel";
+import type {
+  OutputControlSpec,
+  Panel,
+  PanelPaginationState,
+  SelectionDescriptor,
+} from "../types/panel";
 import { resolveChartType } from "../../../utils/chartAppearance";
 import type { ChartClickSelection, ChartInspectConfig } from "../../../utils/chartClickSelection";
 import { GripVertical, Maximize2, RotateCw } from "lucide-react";
@@ -93,6 +101,25 @@ interface PanelCardBodyProps extends Omit<PanelDataResult, "isRefreshing"> {
   /** HEL-572: forwarded to `PanelContent` — see `ChartPanel`'s
    *  `onDataPointSelect` prop. */
   onDataPointSelect?: (selection: ChartClickSelection) => void;
+}
+
+/** The result-count text for a panel with visible controls. HEL-1191 D2a: when the cross-filter
+ *  narrows this panel's loaded rows CLIENT-side (fallback), the count must be what is displayed
+ *  (the narrowed count, with the loaded-scope wording when truncated), never the server's
+ *  control-only total. */
+function controlResultCountText(
+  entry: PanelPaginationState,
+  mode: CrossFilterMode,
+  crossFilter: SelectionDescriptor | null,
+): string {
+  const plural = (n: number) => `${n} result${n === 1 ? "" : "s"}.`;
+  if (mode !== "client-fallback" || !crossFilter) return plural(entry.total);
+  const matched = filterRecordRowsByDimension(
+    entry.rows,
+    crossFilter.dimension,
+    crossFilter.value,
+  ).length;
+  return entry.hasMore ? `${matched} of ${entry.rows.length} loaded rows match.` : plural(matched);
 }
 
 // HEL-1190 — a stable, module-level empty array for a non-output panel's "controls" so
@@ -168,8 +195,12 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   // this panel's server-side round trip; see the hook's own doc comment for the full contract.
   // HEL-1190 design.md D3 (task 4.3) — `controlFilterOps` above composes into every dispatch this
   // hook makes, ANDed with whatever in-panel sort/filter is also active.
+  // HEL-1191 design.md D1/D3/D9b — the ONE cross-filter eligibility decision for this panel:
+  // `crossFilterEq` (server path) goes to every dispatch as its own argument, `crossFilterMode`
+  // goes down to `PanelContent` so the client-side loaded-rows filter runs ONLY on the fallback.
+  const { crossFilterEq, mode: crossFilterMode } = useCrossFilterServerOps(panel, output);
   const { filterActive, activeSort, activeFilter, handleSortChange, handleFilterChange } =
-    usePanelSortFilter(panel.id, outputId, output, controlFilterOps);
+    usePanelSortFilter(panel.id, outputId, output, controlFilterOps, crossFilterEq);
   // HEL-1027 design.md D10 — suppresses `PanelContent`'s top-level `noData`/`neverMaterialized`
   // short-circuit whenever a table filter is genuinely active, so a filter matching zero rows
   // across the whole Output falls through to `TableRenderer`'s own correct
@@ -229,10 +260,24 @@ export const PanelCardBody = React.memo(function PanelCardBody({
           // filter (in-panel + viewer-control) the current page-0 window was fetched under, for
           // the same reason `activeSort`/`activeFilter` already had to be threaded here.
           filter: composeOutputRowsFilter(activeFilter, controlFilterOps),
+          // HEL-1191 design.md D5 — the appended page belongs to the SAME filtered set.
+          crossFilterEq,
         }),
       );
     }
-  }, [dispatch, panel.id, outputId, paginationEntry, activeSort, activeFilter, controlFilterOps]);
+  }, [
+    dispatch,
+    panel.id,
+    outputId,
+    paginationEntry,
+    activeSort,
+    activeFilter,
+    controlFilterOps,
+    crossFilterEq,
+  ]);
+
+  const activeCrossFilter = useAppSelector((state) => state.panels.crossFilter ?? null);
+  const crossFilterAnnouncement = useCrossFilterAnnouncement(crossFilterEq, paginationEntry);
 
   // HEL-1190 design.md D10 (task 5.5) — REUSES this panel's existing live region (below) rather
   // than adding a second one: `PanelCardBody` is the shared ancestor of BOTH the desktop grid
@@ -243,11 +288,13 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   // uses, picking whichever is the more recent event; `hasVisibleControls` gates this text to
   // panels that actually have a control bar; a control-free panel's announcement is unchanged.
   const resultAnnouncementText =
-    refreshAnnouncement > 0
-      ? `${panel.title} updated (refresh ${refreshAnnouncement}).`
-      : hasVisibleControls && paginationEntry && !paginationEntry.isLoadingMore
-        ? `${paginationEntry.total} result${paginationEntry.total === 1 ? "" : "s"}.`
-        : "";
+    crossFilterAnnouncement !== ""
+      ? crossFilterAnnouncement
+      : refreshAnnouncement > 0
+        ? `${panel.title} updated (refresh ${refreshAnnouncement}).`
+        : hasVisibleControls && paginationEntry && !paginationEntry.isLoadingMore
+          ? controlResultCountText(paginationEntry, crossFilterMode, activeCrossFilter)
+          : "";
 
   // All hooks are called unconditionally above; the early return is safe here.
   // Body is hidden only during active drag — title and handle remain visible.
@@ -301,6 +348,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
         // copy. See `PanelContentProps.output`'s own doc comment for the full contract.
         output={output}
         outputMetaLoading={isOutputMetaLoading}
+        crossFilterMode={crossFilterMode}
       />
       {/* HEL-1094 (design.md D5) — visually-hidden per-panel announcement region for an
           output-bound panel, reusing theme.css's canonical `.sr-only` clip (same recipe as
@@ -447,8 +495,13 @@ export const PanelCard = React.memo(function PanelCard({
   // Fixed by giving `PanelFullscreenOverlay` a SECOND, separate prop pair
   // (`inspectRawRows`/`inspectHeaders`) so its two internal consumers can
   // each get what they need without one shared value serving both.
+  // HEL-1191 design.md D3/D9b — the SAME eligibility decision `PanelCardBody` computes (own call,
+  // same inputs, same module-cached capabilities), used here for the Inspect rows (client filter
+  // ONLY on the fallback: on the server path the shared paginationState is already narrowed) and
+  // threaded to the fullscreen overlay, which never resolves an Output itself.
+  const { mode: crossFilterMode } = useCrossFilterServerOps(panel, output);
   const { rawRows: crossFilteredRawRows, headers: crossFilteredHeaders } =
-    useCrossFilteredPanelData(panel, panelData.rawRows, panelData.headers, output);
+    useCrossFilteredPanelData(panel, panelData.rawRows, panelData.headers, output, crossFilterMode);
 
   const [isInspectOpen, setIsInspectOpen] = useState(false);
   const handleDataPointSelect = useCallback(
@@ -768,6 +821,7 @@ export const PanelCard = React.memo(function PanelCard({
           rowsTruncated={panelData.rowsTruncated}
           refresh={panelData.refresh}
           chartInspectConfig={chartInspectConfig}
+          crossFilterMode={crossFilterMode}
         />
       )}
       <div className="panel-grid-card__footer">

@@ -44,15 +44,7 @@ selection SHALL leave the active cross-filter unchanged (idempotent, not a toggl
 - **THEN** the filter action is reachable and operable without a pointer
 
 ### Requirement: An active cross-filter narrows sibling panels whose field mapping references the filtered column
-While a cross-filter is active, every Output-kind panel on the current dashboard, OTHER than the
-panel that originated the selection, whose field mapping references a column matching the
-cross-filter's `dimension` by exact name, SHALL render only the rows whose value in that column
-equals the cross-filter's `value` (comparing numerically when both values parse as numbers, so
-differing numeric string formatting still matches). For a table panel, "field mapping references
-a column" means the column is part of the table's effective displayed-column set. A panel whose
-field mapping does not reference a matching column SHALL render unaffected, with no visible
-change, even if its underlying data happens to contain a same-named column it does not map. The
-originating panel SHALL always render its own full, unfiltered data.
+An active cross-filter SHALL narrow every target panel (any panel other than the originating one) whose Output field mapping references the filter's dimension. When the column is not timestamp-typed and the Output's filter capabilities allow `eq` on that dimension, the narrowing SHALL be applied as a server-side `eq` filter on the panel's Output read, ANDed with that panel's viewer-control selections and its own table filters, so the panel's total count and `hasMore` describe the whole filtered Output. When the capabilities do not allow `eq` on the dimension, the panel SHALL keep the prior behaviour: narrowing the already-loaded rows client-side with the existing loaded-scope disclosure. A panel whose Output lacks the column or whose field mapping does not reference it SHALL be unaffected.
 
 #### Scenario: A sibling panel whose field mapping references the column narrows to the matching subset
 - **WHEN** a cross-filter `dimension: "quarter", value: "Q1"` is active
@@ -66,7 +58,7 @@ originating panel SHALL always render its own full, unfiltered data.
 - **THEN** that panel's rendered rows are unchanged
 
 #### Scenario: A numeric selection matches a differently-formatted sibling column
-- **WHEN** a cross-filter's value is a numeric string produced by a scatter-chart selection (e.g.
+- **WHEN** (scoped to numeric-typed columns and to the client fallback path; a string-typed column on the server path compares exact text) a cross-filter's value is a numeric string produced by a scatter-chart selection (e.g.
   `"3"`)
 - **AND** a sibling panel's matching column stores the equal value with different formatting
   (e.g. `"3.0"`)
@@ -81,6 +73,26 @@ originating panel SHALL always render its own full, unfiltered data.
 - **WHEN** a cross-filter narrows the rows reaching a metric panel
 - **THEN** the metric panel's displayed value is derived from the filtered subset, not the full
   loaded set
+
+#### Scenario: Cross-filtered table over an Output larger than one page
+- **WHEN** a cross-filter is active and a target table panel is bound to an Output with more rows than one page
+- **THEN** the panel's Output read carries an `eq` op for the dimension and the panel shows the whole-Output match count and a `hasMore` describing the filtered set
+
+#### Scenario: Cross-filter and a control target the same column
+- **WHEN** a viewer control and the cross-filter both constrain the same column on one panel
+- **THEN** both apply (intersection), with no override in either direction; when both are an `eq` on the column the cross-filter narrows the control-filtered loaded rows client-side (the backend rejects a duplicate `eq` op), otherwise both are server ops
+
+#### Scenario: Contract disallows eq on the dimension
+- **WHEN** the Output's filter capabilities do not list `eq` for the dimension
+- **THEN** the panel narrows its loaded rows client-side and shows the loaded-scope disclosure, as before
+
+#### Scenario: Clearing restores server state
+- **WHEN** the cross-filter is cleared while a filtered response is still in flight
+- **THEN** the panel returns to its prior (unfiltered by cross-filter) server state and the stale filtered response is discarded
+
+#### Scenario: Public dashboards
+- **WHEN** a dashboard is viewed publicly
+- **THEN** no cross-filter can be set and the public rows route's allowed columns are unchanged
 
 ### Requirement: The active cross-filter is shown via a dismissible dashboard-level indicator
 While a cross-filter is active, the system SHALL render exactly one dashboard-level indicator
@@ -132,3 +144,10 @@ and when the panel that originated it is deleted.
 #### Scenario: Reloading the page does not restore a cross-filter
 - **WHEN** a cross-filter is active and the page is reloaded
 - **THEN** no cross-filter is restored — it was never persisted
+
+### Requirement: Cross-filter application is announced
+When a server-applied cross-filter changes a panel's data, and when it is cleared, the panel's live region SHALL announce the filtered state (dimension, value, result count) and the clearing (result count), once the fetch has settled.
+
+#### Scenario: Announcement
+- **WHEN** a cross-filter is set and a target panel's filtered fetch settles
+- **THEN** the live region reads "N results match the dashboard filter, <dimension> = <value>."

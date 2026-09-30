@@ -109,6 +109,10 @@ function PublicOutputPanelBody({
         // `TableRenderer`'s `canWrite` false here regardless of the viewing session's identity.
         output={panelData.output}
         outputMetaLoading={panelData.outputMetaLoading}
+        // HEL-1191 design.md D6 — no cross-filter can be set on a public dashboard (no
+        // `PanelCard`/`PanelInspectView`/`CrossFilterIndicator` here), so the client-side
+        // cross-filter path must never engage.
+        crossFilterMode="none"
       />
       {/* HEL-1190 design.md D10 (task 5.5) — this page had NO live region at all before this
           ticket; a control-driven row-count change is announced here. */}
