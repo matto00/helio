@@ -1,0 +1,17 @@
+[info] - should get 403 TIER_FORBIDDEN on buffered authoring, with zero transport calls *** FAILED ***
+[info] - should get 403 on streaming authoring, with zero transport calls *** FAILED ***
+[info] - should get 403 on refinements, with zero transport calls *** FAILED ***
+[info] - should be counted on the shared counter and get 429 with limit on the (limit+1)th call, across both routes *** FAILED ***
+[info] - should have a refinement call counted (limit 1 then 429) *** FAILED ***
+[info] - should share the cap with assistant converse in both directions *** FAILED ***
+[info] - should not charge a replayed converse idempotency key
+[info] - should never be counted or capped on either route
+[info] - should 503 without charging a beta user when the service is unavailable
+[info] - should 400 without charging on a malformed body
+[info] - should not charge the outcome or conversation-read sub-routes
+[info] - should fail closed with 503 (zero transport calls) when the service exists but ChatAccessService is absent *** FAILED ***
+[info] Tests: succeeded 5, failed 7, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.api.routes.proposals.ClaudeRoutesChatGateSpec
+[error] (Test / testOnly) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 8 s, completed Sep 30, 2026, 9:53:19 AM

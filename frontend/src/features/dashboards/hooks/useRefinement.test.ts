@@ -95,6 +95,21 @@ describe("useRefinement", () => {
     });
   });
 
+  it("surfaces a tier-gate refusal's server message as the error (HEL-1205)", async () => {
+    mockedPostRefinement.mockRejectedValueOnce(
+      new RefinementRequestError("Daily chat message limit reached (50 messages).", null),
+    );
+
+    const { result } = renderHook(() =>
+      useRefinement({ target: { kind: "dashboard", id: "dash-1" }, message: "hi", active: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.error).toBe("Daily chat message limit reached (50 messages).");
+      expect(result.current.errorKind).toBeNull();
+    });
+  });
+
   it("sets a generic connection-failure error for a non-RefinementRequestError rejection", async () => {
     mockedPostRefinement.mockRejectedValueOnce(new Error("boom"));
 

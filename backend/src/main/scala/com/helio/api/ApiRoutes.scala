@@ -988,11 +988,11 @@ final class ApiRoutes(
                   // families above) — a missing ANTHROPIC_API_KEY must degrade this specific
                   // route to a clean 503, not a bare 404 that looks like the path doesn't exist
                   // (task 4.2). DashboardAuthoringRoutes itself handles the `None` case.
-                  new DashboardAuthoringRoutes(dashboardAuthoringServiceOpt, authenticatedUser).routes,
+                  new DashboardAuthoringRoutes(dashboardAuthoringServiceOpt, authenticatedUser, chatAccessServiceOpt).routes,
                   // HEL-411: mounted UNCONDITIONALLY, same reasoning as DashboardAuthoringRoutes
                   // above — a missing ANTHROPIC_API_KEY/DbContext must degrade this route to a
                   // clean 503, not a bare 404. RefinementRoutes itself handles the `None` case.
-                  new RefinementRoutes(refinementServiceOpt, authenticatedUser).routes,
+                  new RefinementRoutes(refinementServiceOpt, authenticatedUser, chatAccessServiceOpt).routes,
                   // HEL-472 (420-A): same `.fold(reject)`-gated optional-wiring pattern as
                   // metricServiceOpt above — fixtures that don't pass an
                   // AgentPreferencesRepository simply don't get the /api/preferences routes

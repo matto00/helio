@@ -1,0 +1,8 @@
+10:02:49.088 INFO  [pg_ctl:pid(700799)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+10:02:49.088 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 19848240-10b1-4958-ab54-69623be5dab5 shut down postmaster in 00:00:00.102
+[info] Run completed in 5 minutes, 31 seconds.
+[info] Total number of tests run: 4953
+[info] Suites: completed 337, aborted 0
+[info] Tests: succeeded 4953, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] Total time: 332 s (0:05:32.0), completed Sep 30, 2026, 10:02:49 AM

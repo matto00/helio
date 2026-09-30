@@ -20,6 +20,12 @@
  * request is refused by the directive *before* the route runs, so nothing was
  * created to duplicate.
  *
+ * One 429 is NOT retried (HEL-1205): `CHAT_LIMIT_REACHED`, the beta-tier daily
+ * chat/authoring cap. It is an answer from the route (after the rate limiter),
+ * carries no `Retry-After`, and will not clear for hours, so backing off 15s
+ * and re-sending only delays the same refusal. It is surfaced immediately.
+ * Denied attempts are never charged, so a retry would not double-count, only waste time.
+ *
  * Deliberately dependency-light: uses the Node built-in `fetch` (Node >= 18)
  * rather than axios, so the wrapper stays thin and the package has no runtime
  * HTTP dependency to pin.
@@ -58,6 +64,15 @@ const MAX_RATE_LIMIT_RETRIES = 5;
 const BASE_BACKOFF_MS = 1_000;
 /** Ceiling on any single wait, so a stray large `Retry-After` cannot stall a run. */
 const MAX_BACKOFF_MS = 60_000;
+
+/** `TierErrorResponse.code` values the tier gate (HEL-703/HEL-1205) answers with. */
+const CHAT_LIMIT_REACHED = "CHAT_LIMIT_REACHED";
+const TIER_FORBIDDEN = "TIER_FORBIDDEN";
+
+interface ErrorBody {
+  message?: unknown;
+  code?: unknown;
+}
 
 /** The request shape `dispatch` builds. Spelled structurally rather than as
  *  `RequestInit` for the same reason the `dispatch` doc gives: the DOM-only
@@ -186,6 +201,11 @@ export class HelioHttpClient {
       if (response.status === 401) {
         throw new HelioAuthError(url);
       }
+      // Read a non-2xx body exactly once (a real Response body is single-use).
+      const errorBody = response.ok ? undefined : await this.readErrorBody(response);
+      if (response.status === 429 && errorBody?.code === CHAT_LIMIT_REACHED) {
+        throw new HelioApiError(429, url, this.describeError(response, errorBody));
+      }
       // Throttled, and there are attempts left: wait out the window and re-send.
       // Only 429 is retried — every other non-2xx is a real answer about the
       // request itself and would fail identically a second time.
@@ -203,7 +223,7 @@ export class HelioHttpClient {
         continue;
       }
       if (!response.ok) {
-        throw new HelioApiError(response.status, url, await this.describeError(response));
+        throw new HelioApiError(response.status, url, this.describeError(response, errorBody));
       }
       // 204 No Content (e.g. some DELETEs) — return undefined as T.
       if (response.status === 204) return undefined as T;
@@ -235,16 +255,24 @@ export class HelioHttpClient {
     return url.toString();
   }
 
-  /** Extract the backend's `{ "message": ... }` error body when present. */
-  private async describeError(response: Response): Promise<string> {
-    const fallback = `${response.status} ${response.statusText}`;
+  /** Parse a non-2xx body as JSON; `undefined` when it isn't JSON. */
+  private async readErrorBody(response: Response): Promise<ErrorBody | undefined> {
     try {
-      const body = (await response.json()) as { message?: unknown };
-      if (body && typeof body.message === "string") {
-        return `${fallback}: ${body.message}`;
-      }
+      return (await response.json()) as ErrorBody;
     } catch {
-      // non-JSON body — fall through
+      return undefined; // non-JSON body
+    }
+  }
+
+  /** Extract the backend's `{ "message": ... }` error body when present. A tier-gate
+   *  `code` (`TIER_FORBIDDEN`/`CHAT_LIMIT_REACHED`, HEL-1205) is appended so an agent sees
+   *  which refusal it got, not just prose. */
+  private describeError(response: Response, body: ErrorBody | undefined): string {
+    const fallback = `${response.status} ${response.statusText}`;
+    if (body && typeof body.message === "string") {
+      const tierCode =
+        body.code === CHAT_LIMIT_REACHED || body.code === TIER_FORBIDDEN ? ` [${body.code}]` : "";
+      return `${fallback}${tierCode}: ${body.message}`;
     }
     return fallback;
   }

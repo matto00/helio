@@ -1,12 +1,13 @@
 package com.helio.api.routes.patchsets
 
-import com.helio.api.routes.ServiceResponse
+import com.helio.api.routes.{ServiceResponse, TierErrorCompletion}
 import org.apache.pekko.http.scaladsl.marshalling.ToResponseMarshallable
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.domain.model.AuthenticatedUser
+import com.helio.services.auth.ChatAccessService
 import com.helio.services.proposals.{AuthoringError, AuthoringErrorKind}
 import com.helio.services.patchsets.RefinementService
 
@@ -29,8 +30,16 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
  *  `DbContext` was configured (mirrors `dashboardAuthoringServiceOpt`'s identical gate in
  *  `ApiRoutes`) — `ApiRoutes` still mounts this route family unconditionally, and a request against
  *  it completes `503` explicitly (mirrors `DashboardAuthoringRoutes`'s own precedent) rather than
- *  `reject`-ing into a bare `404`, which would look like the path simply doesn't exist. */
-final class RefinementRoutes(serviceOpt: Option[RefinementService], user: AuthenticatedUser)(implicit ec: ExecutionContextExecutor)
+ *  `reject`-ing into a bare `404`, which would look like the path simply doesn't exist.
+ *
+ *  HEL-1205: gated through the assistant's [[ChatAccessService]] (`guardAndCount`) after the 503 and
+ *  body-parse checks, before the service; a `None` `chatAccessOpt` with a live service fails closed
+ *  (503), never ungated. */
+final class RefinementRoutes(
+    serviceOpt: Option[RefinementService],
+    user: AuthenticatedUser,
+    chatAccessOpt: Option[ChatAccessService]
+)(implicit ec: ExecutionContextExecutor)
     extends JsonProtocols {
 
   private def unavailable: Route =
@@ -55,7 +64,12 @@ final class RefinementRoutes(serviceOpt: Option[RefinementService], user: Authen
       post {
         serviceOpt.fold(unavailable) { service =>
           entity(as[RefinementRequest]) { request =>
-            completeRefinement(service.refine(request, user))(identity)
+            chatAccessOpt.fold(unavailable) { chatAccess =>
+              onSuccess(chatAccess.guardAndCount(user)) {
+                case Left(err) => TierErrorCompletion.completeTierError(err)
+                case Right(()) => completeRefinement(service.refine(request, user))(identity)
+              }
+            }
           }
         }
       }

@@ -89,6 +89,24 @@ describe("postRefinement", () => {
     });
   });
 
+  it.each([
+    [403, "TIER_FORBIDDEN", "Chat access is limited during this rollout."],
+    [429, "CHAT_LIMIT_REACHED", "Daily chat message limit reached (50 messages)."],
+  ])(
+    "surfaces the tier-gate %i %s server message (HEL-1205), not 'Connection failed'",
+    async (status, code, message) => {
+      const apiError = Object.assign(new Error(`Request failed with status code ${status}`), {
+        isAxiosError: true,
+        response: { status, data: { code, message, limit: status === 429 ? 50 : undefined } },
+      });
+      mockedHttpClient.post.mockRejectedValueOnce(apiError);
+
+      await expect(
+        postRefinement({ target: { kind: "dashboard" as const, id: "dash-1" }, message: "x" }),
+      ).rejects.toMatchObject({ message, kind: null });
+    },
+  );
+
   it("throws a generic RefinementRequestError('Connection failed') when the failure never reached the server", async () => {
     mockedHttpClient.post.mockRejectedValueOnce(new Error("Network Error"));
 

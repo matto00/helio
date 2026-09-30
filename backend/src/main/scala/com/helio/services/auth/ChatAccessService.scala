@@ -47,4 +47,14 @@ final class ChatAccessService(
         }
       case UserTier.Free => Future.successful(Left(ChatAccessError.TierForbidden()))
     }
+
+  /** One-call gate for the non-assistant Claude routes (HEL-1205): [[guard]] (free -> `TierForbidden`)
+   *  then [[checkConverseCap]] (beta atomically charges the shared `assistant_daily_usage` row, owner
+   *  is uncounted). Pure composition of the two primitives -- no logic of its own -- so these routes
+   *  and `AssistantConversationRoutes` can never drift. One call = one charged message. */
+  def guardAndCount(user: AuthenticatedUser): Future[Either[ChatAccessError, Unit]] =
+    guard(user).flatMap {
+      case Left(err)   => Future.successful(Left(err))
+      case Right(tier) => checkConverseCap(user, tier)
+    }
 }
