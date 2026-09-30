@@ -127,3 +127,14 @@ register any alias for them.
 #### Scenario: Tool list excludes every removed tool
 - **WHEN** the MCP server's tool list is enumerated
 - **THEN** none of the removed tool names, nor any alias for them, appears
+
+### Requirement: get_output_provenance MCP tool
+helio-mcp SHALL expose `get_output_provenance(outputId)` returning the authenticated provenance response unchanged, with tool copy that states the backend's actual status codes as probed against a running backend.
+
+#### Scenario: Agent reads provenance
+- **WHEN** an agent calls `get_output_provenance` with a readable Output id
+- **THEN** it receives sources, pipeline, node path, last run and assertion counts
+
+#### Scenario: Unreadable Output
+- **WHEN** the Output does not exist or is not readable
+- **THEN** the tool surfaces the backend's 404 as an error
