@@ -51,6 +51,8 @@ An active cross-filter SHALL narrow every target panel (any panel other than the
 - **WHEN** a dashboard is viewed publicly
 - **THEN** no cross-filter can be set and the public rows route's allowed columns are unchanged
 
+## ADDED Requirements
+
 ### Requirement: Cross-filter application is announced
 When a server-applied cross-filter changes a panel's data, and when it is cleared, the panel's live region SHALL announce the filtered state (dimension, value, result count) and the clearing (result count), once the fetch has settled.
 
