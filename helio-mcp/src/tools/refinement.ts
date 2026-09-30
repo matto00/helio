@@ -55,7 +55,13 @@ export function registerRefinementTools(server: McpServer, api: HelioApi): void 
         "target across turns — history is server-owned, never re-send it. Review the patch set " +
         "(in-app at /patch-sets/review, or by inspection), then apply it with apply_patch_set. " +
         "The preview check does NOT evaluate output-panel controls: a `config.controls` edit is " +
-        "validated only when applied.",
+        "validated only when applied. " +
+        "This calls the model, so it is tier-gated exactly like the workspace assistant " +
+        "(observed live): a `free`-tier account is refused with HTTP 403 and code " +
+        "TIER_FORBIDDEN; a `beta` account is capped per UTC day (shared with chat) and, once the " +
+        "cap is spent, is refused with HTTP 429 and code CHAT_LIMIT_REACHED (with `limit`), which " +
+        "is NOT retried and will not clear until the next UTC day — stop calling instead of " +
+        "retrying; `owner` is uncounted. Each call counts as one message.",
       inputSchema: {
         target: z.object({
           kind: z.enum(["dashboard", "pipeline"]),

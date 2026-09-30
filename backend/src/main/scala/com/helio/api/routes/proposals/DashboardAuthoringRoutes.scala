@@ -1,6 +1,6 @@
 package com.helio.api.routes.proposals
 
-import com.helio.api.routes.ServiceResponse
+import com.helio.api.routes.{ServiceResponse, TierErrorCompletion}
 import org.apache.pekko.http.scaladsl.marshalling.ToResponseMarshallable
 import org.apache.pekko.http.scaladsl.model.{ContentType, HttpCharsets, HttpEntity, HttpResponse, MediaType, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
@@ -8,6 +8,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.AuthoringConversationIdSegment
 import com.helio.domain.model.AuthenticatedUser
+import com.helio.services.auth.ChatAccessService
 import com.helio.services.proposals.{AuthoringError, AuthoringErrorKind, AuthoringTelemetry, DashboardAuthoringService}
 import org.slf4j.MDC
 
@@ -33,8 +34,19 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
  *  still mounts this route family unconditionally (task 4.2), and a request against either route
  *  completes `503` explicitly (mirrors [[PipelineRunStreamRoutes]]'s own `registry == null ->
  *  ServiceUnavailable` precedent) rather than `reject`-ing into a bare `404`, which would look like
- *  the path simply doesn't exist. */
-final class DashboardAuthoringRoutes(serviceOpt: Option[DashboardAuthoringService], user: AuthenticatedUser)(implicit ec: ExecutionContextExecutor)
+ *  the path simply doesn't exist.
+ *
+ *  HEL-1205: `POST /authoring/dashboard` (buffered AND `?stream=true`) is gated through the assistant's
+ *  own [[ChatAccessService]] (`guardAndCount`: free -> 403, beta -> counted on the shared daily row ->
+ *  429, owner unlimited) AFTER the 503/body-parse checks and BEFORE the service, so a missing key or a
+ *  malformed body never charges. A `None` `chatAccessOpt` alongside a live service FAILS CLOSED (503):
+ *  the route is never reachable ungated. The outcome/conversation-read sub-routes make no Claude call
+ *  and stay ungated. */
+final class DashboardAuthoringRoutes(
+    serviceOpt: Option[DashboardAuthoringService],
+    user: AuthenticatedUser,
+    chatAccessOpt: Option[ChatAccessService]
+)(implicit ec: ExecutionContextExecutor)
     extends JsonProtocols {
 
   private val sseContentType: ContentType =
@@ -44,6 +56,16 @@ final class DashboardAuthoringRoutes(serviceOpt: Option[DashboardAuthoringServic
 
   private def unavailable: Route =
     complete(StatusCodes.ServiceUnavailable, ErrorResponse("Dashboard authoring is not configured"))
+
+  /** HEL-1205: tier + daily-usage gate shared with the assistant; `inner` is by-name so nothing
+   *  (including the MDC-bound service call) runs for a denied request. */
+  private def gated(inner: => Route): Route =
+    chatAccessOpt.fold(unavailable) { chatAccess =>
+      onSuccess(chatAccess.guardAndCount(user)) {
+        case Left(err) => TierErrorCompletion.completeTierError(err)
+        case Right(()) => inner
+      }
+    }
 
   /** Bespoke completion helper for `AuthoringError`-carrying results (HEL-401 design.md D1) — NOT
    *  `ServiceResponse.run`, whose `completeError` is `private` and hardcodes the generic
@@ -78,11 +100,13 @@ final class DashboardAuthoringRoutes(serviceOpt: Option[DashboardAuthoringServic
                     // own `Future` chains run on a class-level `ec` captured once at `ApiRoutes`
                     // construction, never this per-request, trace-carrying one.
                     val mdcSnapshot = MDC.getCopyOfContextMap
-                    if (streamOpt.contains(true)) {
-                      val byteSource = service.authorStreaming(request, user, mdcSnapshot).map(AuthoringStreamEvent.toSseBytes)
-                      complete(HttpResponse(entity = HttpEntity.Chunked.fromData(sseContentType, byteSource)))
-                    } else {
-                      completeAuthoring(service.author(request, user, mdcSnapshot))(identity)
+                    gated {
+                      if (streamOpt.contains(true)) {
+                        val byteSource = service.authorStreaming(request, user, mdcSnapshot).map(AuthoringStreamEvent.toSseBytes)
+                        complete(HttpResponse(entity = HttpEntity.Chunked.fromData(sseContentType, byteSource)))
+                      } else {
+                        completeAuthoring(service.author(request, user, mdcSnapshot))(identity)
+                      }
                     }
                   }
                 }

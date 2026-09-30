@@ -1,0 +1,66 @@
+# RED proof (C2): run against UNMODIFIED main route code (no gate), stub transport only.
+# Command: cd backend && sbt "testOnly com.helio.api.routes.proposals.ClaudeRoutesRedProofSpec"
+# Each test asserts the POST-FIX behaviour (403, zero Claude calls); all three FAIL on main because a
+# free-tier session reaches the stub Claude transport (stubTransportCalls=1, HTTP 200).
+# (Earlier drafts reached 422/0 calls because the fixture workspace was empty; fixture fixed to seed a real Output.)
+
+09:50:59.485 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "81 - agent preferences"
+09:50:59.487 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "82 - agent memory"
+09:50:59.490 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "83 - add assert op"
+09:50:59.492 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "84 - pipeline run assertions"
+09:50:59.494 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "85 - pipeline last source schema"
+09:50:59.496 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "86 - pipeline steps enabled"
+09:50:59.497 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "87 - assistant conversation idempotency key"
+09:50:59.499 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "88 - user tier"
+09:50:59.501 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "89 - totp mfa"
+09:50:59.505 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "90 - invite codes"
+09:50:59.509 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "91 - audit events"
+09:50:59.512 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "92 - connector credentials"
+09:50:59.515 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "93 - connectors"
+09:50:59.523 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "94 - outputs model"
+09:50:59.545 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "95 - dashboard tag"
+09:50:59.548 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "96 - canonicalize inferred schema type"
+09:50:59.549 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "97 - discriminated secondary input"
+09:50:59.554 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "98 - pipeline roots"
+09:50:59.563 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "99 - prevent zero root pipelines"
+09:50:59.565 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "100 - zero root guard rls independent"
+09:50:59.567 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "101 - share tokens"
+09:50:59.570 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "102 - share tokens privileged grant"
+09:50:59.572 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "103 - pending connectors"
+09:50:59.575 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "104 - pipeline run truncation signal"
+09:50:59.576 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "105 - oauth states"
+09:50:59.579 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "106 - dataset rows"
+09:50:59.583 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "107 - add writeback ops"
+09:50:59.585 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "108 - add form panel kind"
+09:50:59.586 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "109 - pipeline run rate window"
+09:50:59.589 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "110 - pipeline auto run debounce"
+09:50:59.591 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "111 - safe cast functions"
+09:50:59.593 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "112 - add output panel controls"
+09:50:59.597 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Successfully applied 112 migrations to schema "public", now at version v112 (execution time 00:00.090s)
+[info] RED: free tier on unmodified main
+09:51:00.241 INFO  [com-helio-api-routes-proposals-ClaudeRoutesRedProofSpec-pekko.actor.default-dispatcher-5] c.h.s.proposals.AuthoringTelemetry$ - authoring_outcome
+[info] - should reach the stub transport on buffered authoring *** FAILED ***
+[info]   POST /authoring/dashboard: free-tier session reached the stub Claude transport (status 200); 1 was not equal to 0 (ClaudeRoutesRedProofSpec.scala:222)
+[info]   + RED-PROOF POST /authoring/dashboard: free-tier HTTP status=200 stubTransportCalls=1 
+09:51:00.403 INFO  [com-helio-api-routes-proposals-ClaudeRoutesRedProofSpec-pekko.actor.default-dispatcher-6] c.h.s.proposals.AuthoringTelemetry$ - authoring_outcome
+[info] - should reach the stub transport on streaming authoring *** FAILED ***
+[info]   POST /authoring/dashboard?stream=true: free-tier session reached the stub Claude transport (status 200); 1 was not equal to 0 (ClaudeRoutesRedProofSpec.scala:222)
+[info]   + RED-PROOF POST /authoring/dashboard?stream=true: free-tier HTTP status=200 stubTransportCalls=1 
+[info] - should reach the stub transport on refinements *** FAILED ***
+[info]   POST /refinements: free-tier session reached the stub Claude transport (status 200); 1 was not equal to 0 (ClaudeRoutesRedProofSpec.scala:222)
+[info]   + RED-PROOF POST /refinements: free-tier HTTP status=200 stubTransportCalls=1 
+09:51:00.566 INFO  [postgres:pid(647391)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-09-30 09:51:00.566 PDT [647394] LOG:  received fast shutdown request
+09:51:00.566 INFO  [postgres:pid(647391)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-09-30 09:51:00.566 PDT [647394] LOG:  aborting any active transactions
+09:51:00.667 INFO  [pg_ctl:pid(647518)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+09:51:00.667 INFO  [pg_ctl:pid(647518)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+09:51:00.667 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 189b2232-af9a-4b52-af49-e8a5e9d80b1e shut down postmaster in 00:00:00.102
+09:51:00.706 INFO  [com-helio-api-routes-proposals-ClaudeRoutesRedProofSpec-pekko.actor.default-dispatcher-5] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] Run completed in 3 seconds, 75 milliseconds.
+[info] Total number of tests run: 3
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 0, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.proposals.ClaudeRoutesRedProofSpec
+[error] (Test / testOnly) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 7 s, completed Sep 30, 2026, 9:51:00 AM

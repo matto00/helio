@@ -4,6 +4,9 @@ import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.routes.proposals.DashboardAuthoringRoutes
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.assistant.AssistantDailyUsageRepository
+import com.helio.infrastructure.persistence.auth.UserRepository
+import com.helio.services.auth.{ChatAccessService, UserTierConfig}
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
@@ -69,6 +72,7 @@ class AuthoringTelemetrySpec
 
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
+  private var chatAccess: ChatAccessService      = _
   private var outputRepo: OutputRepository       = _
   private var nodeSnapshotRepo: NodeSnapshotRepository = _
   private var pipelineRepo: PipelineRepository   = _
@@ -98,6 +102,8 @@ class AuthoringTelemetrySpec
 
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx = new DbContext(db, db)
+    // HEL-1205: these routes are tier-gated; every fixture user is owner-tier (uncounted) so the pre-existing HTTP-shell coverage is unchanged.
+    chatAccess = new ChatAccessService(new UserRepository(db)(routeEc), new AssistantDailyUsageRepository(ctx)(routeEc), UserTierConfig(Set.empty, 50))
 
     dataSourceRepo       = new DataSourceRepository(ctx)
     pipelineRepo         = new PipelineRepository(ctx, dataSourceRepo)
@@ -134,7 +140,7 @@ class AuthoringTelemetrySpec
   private def newUser(): AuthenticatedUser = {
     implicit val ec: ExecutionContext = routeEc
     val id = UUID.randomUUID().toString
-    await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($id::uuid, ${s"$id@test.local"}, now())"""))
+    await(db.run(sqlu"""INSERT INTO users (id, email, created_at, tier) VALUES ($id::uuid, ${s"$id@test.local"}, now(), 'owner')"""))
     AuthenticatedUser(UserId(id))
   }
 
@@ -203,7 +209,7 @@ class AuthoringTelemetrySpec
 
   private def tracedRoutesFor(serviceOpt: Option[DashboardAuthoringService], user: AuthenticatedUser): Route =
     traceDirective.withTraceContext {
-      new DashboardAuthoringRoutes(serviceOpt, user)(routeEc).routes
+      new DashboardAuthoringRoutes(serviceOpt, user, Some(chatAccess))(routeEc).routes
     }
 
   private def tracedPost(path: String, body: String) =

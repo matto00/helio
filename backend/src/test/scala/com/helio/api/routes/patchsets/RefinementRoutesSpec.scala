@@ -4,6 +4,9 @@ import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.routes.patchsets.RefinementRoutes
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.assistant.AssistantDailyUsageRepository
+import com.helio.infrastructure.persistence.auth.UserRepository
+import com.helio.services.auth.{ChatAccessService, UserTierConfig}
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -63,6 +66,7 @@ class RefinementRoutesSpec
 
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
+  private var chatAccess: ChatAccessService      = _
 
   private var refinementGrounding: RefinementGrounding             = _
   private var patchSetPreviewService: PatchSetPreviewService       = _
@@ -86,6 +90,8 @@ class RefinementRoutesSpec
 
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx = new DbContext(db, db)
+    // HEL-1205: these routes are tier-gated; every fixture user is owner-tier (uncounted) so the pre-existing HTTP-shell coverage is unchanged.
+    chatAccess = new ChatAccessService(new UserRepository(db)(routeEc), new AssistantDailyUsageRepository(ctx)(routeEc), UserTierConfig(Set.empty, 50))
 
     val dashboardRepo    = new DashboardRepository(ctx)
     val panelRepo         = new PanelRepository(ctx)
@@ -118,7 +124,7 @@ class RefinementRoutesSpec
     refinementGrounding = new RefinementGrounding(dashboardRepo, panelRepo, pipelineService, workspaceContextService, panelCapabilityService)
     conversationRepo    = new AuthoringConversationRepository(ctx)
 
-    await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, ${s"$userId@test.local"}, now())"""))
+    await(db.run(sqlu"""INSERT INTO users (id, email, created_at, tier) VALUES ($userId::uuid, ${s"$userId@test.local"}, now(), 'owner')"""))
     val dash  = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Dash")), user))._1
     val panel = await(panelService.create(CreatePanelRequest(Some(dash.id.value), Some("Panel"), Some("divider"), None), user)) match {
       case Right((p, _)) => p
@@ -159,7 +165,7 @@ class RefinementRoutesSpec
   }
 
   private def routesFor(serviceOpt: Option[RefinementService]): Route =
-    new RefinementRoutes(serviceOpt, user)(routeEc).routes
+    new RefinementRoutes(serviceOpt, user, Some(chatAccess))(routeEc).routes
 
   private def jsonEntity(body: String): HttpEntity.Strict = HttpEntity(ContentTypes.`application/json`, body)
 

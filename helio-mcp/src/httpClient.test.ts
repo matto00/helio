@@ -120,6 +120,45 @@ describe("HelioHttpClient 429 handling", () => {
     expect(calls).toHaveLength(6);
   });
 
+  it("does NOT retry a 429 whose body code is CHAT_LIMIT_REACHED (HEL-1205) and surfaces it with the code", async () => {
+    const { client, slept, calls } = harness([
+      reply(429, {
+        code: "CHAT_LIMIT_REACHED",
+        message: "Daily limit of 50 messages reached",
+        limit: 50,
+      }),
+    ]);
+
+    await expect(client.post("/api/refinements", { message: "x" })).rejects.toMatchObject({
+      name: "HelioApiError",
+      status: 429,
+      message: expect.stringContaining("[CHAT_LIMIT_REACHED]"),
+    });
+    expect(calls).toHaveLength(1);
+    expect(slept).toEqual([]);
+  });
+
+  it("surfaces a 403 TIER_FORBIDDEN with its code", async () => {
+    const { client } = harness([
+      reply(403, { code: "TIER_FORBIDDEN", message: "Not available on your plan" }),
+    ]);
+
+    await expect(client.post("/api/refinements", {})).rejects.toMatchObject({
+      status: 403,
+      message: expect.stringContaining("[TIER_FORBIDDEN]"),
+    });
+  });
+
+  it("still retries a generic rate-limit 429 that has a non-tier code", async () => {
+    const { client, slept } = harness([
+      reply(429, { code: "RATE_LIMITED", message: "Rate limit exceeded" }, { "retry-after": "1" }),
+      reply(200, { ok: true }),
+    ]);
+
+    await client.get("/api/dashboards");
+    expect(slept).toEqual([1000]);
+  });
+
   it("retries a write, since a rate-limited request was refused before it was processed", async () => {
     const { client, slept, calls } = harness([
       reply(429, { message: "Rate limit exceeded" }, { "retry-after": "2" }),

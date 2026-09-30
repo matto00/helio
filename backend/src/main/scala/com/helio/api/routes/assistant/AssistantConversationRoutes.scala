@@ -1,8 +1,8 @@
 package com.helio.api.routes.assistant
 
-import com.helio.api.routes.ServiceResponse
+import com.helio.api.routes.{ServiceResponse, TierErrorCompletion}
 import com.helio.api.protocols.assistant.{AppendAssistantConversationTurnRequest, ConverseRequest, UpdateAssistantConversationRequest}
-import com.helio.api.protocols.assistant.{AssistantConversationResponse, AssistantConversationSummaryResponse, CreateAssistantConversationRequest, TierErrorResponse}
+import com.helio.api.protocols.assistant.{AssistantConversationResponse, AssistantConversationSummaryResponse, CreateAssistantConversationRequest}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
@@ -65,16 +65,6 @@ final class AssistantConversationRoutes(
 
   private def unavailable: Route =
     complete(StatusCodes.ServiceUnavailable, ErrorResponse("Assistant conversation is not configured"))
-
-  /** Maps a tier-gate denial directly to its status + [[TierErrorResponse]] body (HEL-703,
-   *  design.md D7) — NOT `ServiceResponse.run`, which hardcodes the generic `ErrorResponse` and has
-   *  no `429` case to map onto (`CHAT_LIMIT_REACHED`'s status has no `ServiceError` counterpart). */
-  private def completeTierError(err: ChatAccessError): Route = err match {
-    case ChatAccessError.TierForbidden(message) =>
-      complete(StatusCodes.Forbidden, TierErrorResponse("TIER_FORBIDDEN", message, None))
-    case ChatAccessError.LimitReached(limit) =>
-      complete(StatusCodes.TooManyRequests, TierErrorResponse("CHAT_LIMIT_REACHED", err.message, Some(limit)))
-  }
 
   private def summaryOf(record: AssistantConversationRecord): AssistantConversationSummaryResponse =
     AssistantConversationSummaryResponse(
@@ -203,7 +193,7 @@ final class AssistantConversationRoutes(
       // `free` never reaches any inner route; `beta`/`owner` proceed with `tier` in scope for
       // `converse`'s own additional cap check below.
       onSuccess(chatAccessService.guard(user)) {
-        case Left(err) => completeTierError(err)
+        case Left(err) => TierErrorCompletion.completeTierError(err)
         case Right(tier) =>
           concat(
             pathEndOrSingleSlash {
@@ -267,7 +257,7 @@ final class AssistantConversationRoutes(
                             // checked/incremented here, after both the base tier gate above and the
                             // replay check just above have already passed.
                             onSuccess(chatAccessService.checkConverseCap(user, tier)) {
-                              case Left(err) => completeTierError(err)
+                              case Left(err) => TierErrorCompletion.completeTierError(err)
                               case Right(()) =>
                                 ServiceResponse.run(
                                   converseFlow(assistantService, id, request.message, idempotencyKey, existing)

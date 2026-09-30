@@ -280,6 +280,30 @@ describe("RefinementChatDrawer", () => {
     expect(screen.queryByTestId("review-route")).not.toBeInTheDocument();
   });
 
+  it.each([
+    [403, "TIER_FORBIDDEN", "Chat access is limited during this rollout."],
+    [429, "CHAT_LIMIT_REACHED", "Daily chat message limit reached (50 messages)."],
+  ])(
+    "renders the server's %i %s tier-gate message inline and does not navigate (HEL-1205)",
+    async (status, code, message) => {
+      const apiError = Object.assign(new Error(`Request failed with status code ${status}`), {
+        isAxiosError: true,
+        response: { status, data: { code, message } },
+      });
+      mockedHttpClient.post.mockRejectedValueOnce(apiError);
+
+      renderDrawer(jest.fn(), "dash-1");
+
+      fireEvent.change(screen.getByLabelText("Refinement message"), {
+        target: { value: "Change it" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Propose changes" }));
+
+      expect(await screen.findByText(message)).toBeInTheDocument();
+      expect(screen.queryByTestId("review-route")).not.toBeInTheDocument();
+    },
+  );
+
   it("closing the drawer calls onClose", () => {
     const onClose = jest.fn();
     renderDrawer(onClose, "dash-1");

@@ -4,6 +4,9 @@ import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.routes.proposals.DashboardAuthoringRoutes
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.assistant.AssistantDailyUsageRepository
+import com.helio.infrastructure.persistence.auth.UserRepository
+import com.helio.services.auth.{ChatAccessService, UserTierConfig}
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineStepRepository}
@@ -64,6 +67,7 @@ class DashboardAuthoringRoutesSpec
 
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
+  private var chatAccess: ChatAccessService      = _
   private var outputRepo: OutputRepository       = _
   private var nodeSnapshotRepo: NodeSnapshotRepository = _
   private var pipelineRepo: PipelineRepository   = _
@@ -93,6 +97,8 @@ class DashboardAuthoringRoutesSpec
 
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx = new DbContext(db, db)
+    // HEL-1205: these routes are tier-gated; every fixture user is owner-tier (uncounted) so the pre-existing HTTP-shell coverage is unchanged.
+    chatAccess = new ChatAccessService(new UserRepository(db)(routeEc), new AssistantDailyUsageRepository(ctx)(routeEc), UserTierConfig(Set.empty, 50))
 
     dataSourceRepo       = new DataSourceRepository(ctx)
     pipelineRepo         = new PipelineRepository(ctx, dataSourceRepo)
@@ -122,7 +128,7 @@ class DashboardAuthoringRoutesSpec
 
     // Seeded ONCE (not per-test) — `user` is a single shared fixture id for this whole spec, so a
     // per-test insert would violate the `users` primary key on the second test.
-    await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, ${s"$userId@test.local"}, now())"""))
+    await(db.run(sqlu"""INSERT INTO users (id, email, created_at, tier) VALUES ($userId::uuid, ${s"$userId@test.local"}, now(), 'owner')"""))
     // HEL-904 task 3.12: `DashboardAuthoringService.assembleGroundedContext`'s "empty workspace"
     // check now filters `WorkspaceContextService.assemble`'s Output-backed `dataTypes` -- a real
     // pipeline + Output is required for this fixture's workspace to read as non-empty.
@@ -175,7 +181,7 @@ class DashboardAuthoringRoutesSpec
   }
 
   private def routesFor(serviceOpt: Option[DashboardAuthoringService]): Route =
-    new DashboardAuthoringRoutes(serviceOpt, user)(routeEc).routes
+    new DashboardAuthoringRoutes(serviceOpt, user, Some(chatAccess))(routeEc).routes
 
   private def jsonEntity(body: String): HttpEntity.Strict = HttpEntity(ContentTypes.`application/json`, body)
 

@@ -1,0 +1,43 @@
+# Live probe vs local backend :9544 (fake ANTHROPIC_API_KEY, HELIO_BETA_DAILY_MESSAGE_LIMIT=0, free+beta users ONLY; no owner, no Anthropic call possible). Session cookie + CSRF header.
+--- free POST /api/authoring/dashboard
+HTTP/1.1 403 Forbidden
+Content-Type: application/json
+
+{"code":"TIER_FORBIDDEN","message":"Chat access is limited during this rollout. Contact the workspace owner to request access."}
+
+--- free POST /api/authoring/dashboard?stream=true
+HTTP/1.1 403 Forbidden
+Content-Type: application/json
+
+{"code":"TIER_FORBIDDEN","message":"Chat access is limited during this rollout. Contact the workspace owner to request access."}
+
+--- free POST /api/refinements
+HTTP/1.1 403 Forbidden
+Content-Type: application/json
+
+{"code":"TIER_FORBIDDEN","message":"Chat access is limited during this rollout. Contact the workspace owner to request access."}
+
+--- beta POST /api/authoring/dashboard
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/json
+
+{"code":"CHAT_LIMIT_REACHED","limit":0,"message":"Daily chat message limit reached (0 messages). The limit resets at the start of the next UTC day."}
+
+--- beta POST /api/authoring/dashboard?stream=true
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/json
+
+{"code":"CHAT_LIMIT_REACHED","limit":0,"message":"Daily chat message limit reached (0 messages). The limit resets at the start of the next UTC day."}
+
+--- beta POST /api/refinements
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/json
+
+{"code":"CHAT_LIMIT_REACHED","limit":0,"message":"Daily chat message limit reached (0 messages). The limit resets at the start of the next UTC day."}
+
+
+# MCP client (helio-mcp HelioApi.proposePatchSet over the real HelioHttpClient, PAT auth) -- what the agent sees:
+MCP propose_patch_set as free: elapsedMs=66 retryWarnings=0
+  HelioApiError (status 403) for http://localhost:9544/api/refinements: 403 Forbidden [TIER_FORBIDDEN]: Chat access is limited during this rollout. Contact the workspace owner to request access.
+MCP propose_patch_set as beta: elapsedMs=47 retryWarnings=0
+  HelioApiError (status 429) for http://localhost:9544/api/refinements: 429 Too Many Requests [CHAT_LIMIT_REACHED]: Daily chat message limit reached (0 messages). The limit resets at the start of the next UTC day.
