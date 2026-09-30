@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchPanelPage } from "../state/panelsSlice";
+import { CROSS_FILTER_EQ_REJECTED } from "../state/panelThunks";
+import type { CrossFilterEq } from "../types/panel";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { useToast } from "../../toasts/hooks/useToast";
 import { readTableConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
@@ -91,6 +93,11 @@ export function usePanelSortFilter(
   // shape). Defaults to `[]` so every pre-existing call site (none of which passed a 4th arg)
   // keeps compiling and behaving identically.
   controlFilterOps: OutputRowsFilterOp[] = [],
+  // HEL-1191 design.md D9a-i/D9a-ii, C4 — the dashboard cross-filter's server-side `eq` term. A
+  // SEPARATE input (never concatenated into `controlFilterOps`): it joins `dispatchFetch`'s args
+  // (via a ref, like `controlFilterOps`), the corrective-mount condition and the change key, so
+  // set / change / clear re-dispatches page 0 exactly like a control change does.
+  crossFilterEq: CrossFilterEq | null = null,
 ): PanelSortFilterResult {
   const dispatch = useAppDispatch();
   const { push: pushToast } = useToast();
@@ -118,6 +125,8 @@ export function usePanelSortFilter(
   // convention (e.g. `TableRenderer.tsx`'s `pinnedCountRef`).
   const controlFilterOpsRef = useRef(controlFilterOps);
   controlFilterOpsRef.current = controlFilterOps;
+  const crossFilterEqRef = useRef(crossFilterEq);
+  crossFilterEqRef.current = crossFilterEq;
 
   const dispatchFetch = useCallback(
     (sort: SortState<string> | null, filter: TableColumnFilters | null) => {
@@ -132,10 +141,14 @@ export function usePanelSortFilter(
           // HEL-1190 design.md D3 — ANDs the viewer's control selection in as separate `ops[]`
           // entries alongside whichever in-panel `quick`/`columns` term is already active.
           filter: composeOutputRowsFilter(filter, controlFilterOpsRef.current),
+          crossFilterEq: crossFilterEqRef.current,
         }),
       )
         .unwrap()
-        .catch((err: { message?: string } | undefined) => {
+        .catch((err: { message?: string; code?: string } | undefined) => {
+          // HEL-1191 design.md D3a — a rejected cross-filter `eq` is self-healing (the mode
+          // flips to client-fallback and the change key below refetches without it): no toast.
+          if (err?.code === CROSS_FILTER_EQ_REJECTED) return;
           // HEL-1027 design.md D3 (task 4.6) — defense-in-depth: the UI already gates the
           // control that could produce a non-eligible sort/filter request (task 4.5), so this
           // path fires only for a genuinely stale client (a schema change mid-session) or a
@@ -213,7 +226,12 @@ export function usePanelSortFilter(
     // shortly after the initial unsorted/unfiltered mount fetch" case this effect already exists
     // for; `controlFilterOps` is available synchronously (URL-derived), so this is folded into
     // the SAME one-time correction rather than a second, independent mechanism.
-    if (activeSort || isFiltering(activeFilter ?? undefined) || controlFilterOps.length > 0) {
+    if (
+      activeSort ||
+      isFiltering(activeFilter ?? undefined) ||
+      controlFilterOps.length > 0 ||
+      crossFilterEq !== null
+    ) {
       dispatchFetch(activeSort, activeFilter);
     }
     // controlFilterOps is read once here (mount-time value) — see the eslint-disable below for
@@ -228,7 +246,8 @@ export function usePanelSortFilter(
   // recompute every render) so this doesn't re-fire on an equal-but-new-identity array. Skipped
   // entirely until the mount-time correction above has already had its one chance to run, so the
   // two effects can never both fire for the very first, at-mount value.
-  const controlFilterOpsKey = JSON.stringify(controlFilterOps);
+  // HEL-1191 — `crossFilterEq` is part of the same change key (design.md D9a-ii).
+  const controlFilterOpsKey = JSON.stringify([controlFilterOps, crossFilterEq]);
   const prevControlFilterOpsKeyRef = useRef(controlFilterOpsKey);
   useEffect(() => {
     if (!appliedPersistedDefaultRef.current) return;

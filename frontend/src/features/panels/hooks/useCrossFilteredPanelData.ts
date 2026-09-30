@@ -7,6 +7,7 @@ import {
 } from "../../../utils/crossFilterRows";
 import type { Output } from "../../pipelines/types/output";
 import type { Panel } from "../types/panel";
+import type { CrossFilterMode } from "./useCrossFilterServerOps";
 
 export interface CrossFilteredPanelData {
   rawRows: string[][] | null;
@@ -45,6 +46,10 @@ export function useCrossFilteredPanelData(
   rawRows: string[][] | null,
   headers: string[] | null,
   output: Pick<Output, "kind" | "config"> | null,
+  // HEL-1191 design.md D3/D9b — the client-side narrowing below is now ONLY the fallback for a
+  // panel whose contract can't take the server `eq`; on `"server"` the shared paginationState the
+  // rows come from is already narrowed, and `"none"` means the filter doesn't touch this panel.
+  crossFilterMode: CrossFilterMode,
 ): CrossFilteredPanelData {
   const crossFilter = useAppSelector((state) => state.panels.crossFilter);
 
@@ -58,6 +63,7 @@ export function useCrossFilteredPanelData(
 
     // design.md D4 — "no-op ... if panel.id equals the filter's originating
     // panel id (origin always renders full data)".
+    if (crossFilterMode !== "client-fallback") return notFiltered;
     if (!crossFilter || crossFilter.panelId === panel.id) return notFiltered;
     if (!rawRows || !headers) return notFiltered;
     if (!output) return notFiltered;
@@ -82,5 +88,5 @@ export function useCrossFilteredPanelData(
       isCrossFiltered: filtered !== rawRows,
       loadedRowCount: rawRows.length,
     };
-  }, [panel.id, rawRows, headers, output, crossFilter]);
+  }, [panel.id, rawRows, headers, output, crossFilter, crossFilterMode]);
 }

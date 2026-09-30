@@ -13,6 +13,7 @@ import { getDistinctValues } from "../../pipelines/services/outputService";
 import type { PanelDataResult } from "../hooks/usePanelData";
 import type { OutputControlSpec, Panel } from "../types/panel";
 import type { ChartClickSelection, ChartInspectConfig } from "../../../utils/chartClickSelection";
+import type { CrossFilterMode } from "../hooks/useCrossFilterServerOps";
 
 // HEL-1190 — module-level stable empty array, same rationale as `PanelCard.tsx`'s
 // `EMPTY_CONTROLS`.
@@ -50,6 +51,10 @@ export interface PanelFullscreenOverlayProps extends Omit<PanelDataResult, "isRe
    *  this explicitly). */
   inspectRawRows?: string[][] | null;
   inspectHeaders?: string[] | null;
+  /** HEL-1191 design.md D9b — REQUIRED (an omitting caller is a type error): the cross-filter
+   *  mode `PanelCard` computed for this panel. This overlay never resolves an Output itself, so
+   *  it renders whatever the caller decided rather than deciding again. */
+  crossFilterMode: CrossFilterMode;
 }
 
 /**
@@ -105,6 +110,7 @@ export function PanelFullscreenOverlay({
   chartInspectConfig,
   inspectRawRows,
   inspectHeaders,
+  crossFilterMode,
 }: PanelFullscreenOverlayProps) {
   const dispatch = useAppDispatch();
 
@@ -198,6 +204,7 @@ export function PanelFullscreenOverlay({
             chartAggregate={chartAggregate}
             rowsTruncated={rowsTruncated}
             onDataPointSelect={handleDataPointSelect}
+            crossFilterMode={crossFilterMode}
           />
           {/* HEL-1190 design.md D10 (task 5.5) — this overlay had NO live region at all before
               this ticket; a control-driven row-count change is announced here. */}

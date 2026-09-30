@@ -32,7 +32,7 @@ describe("useCrossFilteredPanelData", () => {
   it("returns the original rawRows/headers (same reference) when no cross-filter is active", () => {
     const panel = makeOutputPanel({ id: "panel-1" });
     const { result } = renderHook(
-      () => useCrossFilteredPanelData(panel, rawRows, headers, chartOutput),
+      () => useCrossFilteredPanelData(panel, rawRows, headers, chartOutput, "client-fallback"),
       { wrapper: wrapper(makeStore(null)) },
     );
 
@@ -44,7 +44,7 @@ describe("useCrossFilteredPanelData", () => {
     const panel = makeOutputPanel({ id: "panel-sibling" });
     const crossFilter = { panelId: "panel-origin", dimension: "quarter", value: "Q1", series: "" };
     const { result } = renderHook(
-      () => useCrossFilteredPanelData(panel, rawRows, headers, chartOutput),
+      () => useCrossFilteredPanelData(panel, rawRows, headers, chartOutput, "client-fallback"),
       { wrapper: wrapper(makeStore(crossFilter)) },
     );
 
@@ -60,7 +60,7 @@ describe("useCrossFilteredPanelData", () => {
     const panel = makeOutputPanel({ id: "panel-origin" });
     const crossFilter = { panelId: "panel-origin", dimension: "quarter", value: "Q1", series: "" };
     const { result } = renderHook(
-      () => useCrossFilteredPanelData(panel, rawRows, headers, chartOutput),
+      () => useCrossFilteredPanelData(panel, rawRows, headers, chartOutput, "client-fallback"),
       { wrapper: wrapper(makeStore(crossFilter)) },
     );
 
@@ -73,7 +73,7 @@ describe("useCrossFilteredPanelData", () => {
     const crossFilter = { panelId: "panel-origin", dimension: "quarter", value: "Q1", series: "" };
     const unrelatedOutput = { kind: "chart", config: { fieldMapping: { xAxis: "revenue" } } };
     const { result } = renderHook(
-      () => useCrossFilteredPanelData(panel, rawRows, headers, unrelatedOutput),
+      () => useCrossFilteredPanelData(panel, rawRows, headers, unrelatedOutput, "client-fallback"),
       { wrapper: wrapper(makeStore(crossFilter)) },
     );
 
@@ -90,7 +90,7 @@ describe("useCrossFilteredPanelData", () => {
     const store = makeStore(crossFilter);
     const { result, rerender } = renderHook(
       ({ rows }: { rows: string[][] }) =>
-        useCrossFilteredPanelData(panel, rows, headers, chartOutput),
+        useCrossFilteredPanelData(panel, rows, headers, chartOutput, "client-fallback"),
       { wrapper: wrapper(store), initialProps: { rows: rawRows } },
     );
     expect(result.current.rawRows).toHaveLength(2);
@@ -109,11 +109,32 @@ describe("useCrossFilteredPanelData", () => {
   it("returns the original rawRows when the output metadata hasn't resolved yet (output: null)", () => {
     const panel = makeOutputPanel({ id: "panel-sibling" });
     const crossFilter = { panelId: "panel-origin", dimension: "quarter", value: "Q1", series: "" };
-    const { result } = renderHook(() => useCrossFilteredPanelData(panel, rawRows, headers, null), {
-      wrapper: wrapper(makeStore(crossFilter)),
-    });
+    const { result } = renderHook(
+      () => useCrossFilteredPanelData(panel, rawRows, headers, null, "client-fallback"),
+      {
+        wrapper: wrapper(makeStore(crossFilter)),
+      },
+    );
 
     expect(result.current.rawRows).toBe(rawRows);
     expect(result.current.isCrossFiltered).toBe(false);
   });
+});
+
+describe("useCrossFilteredPanelData — HEL-1191 mode gating", () => {
+  const crossFilter = { panelId: "origin", dimension: "quarter", value: "Q1", series: "" };
+
+  it.each(["server", "none"] as const)(
+    "never narrows client-side when the mode is %s (the rows are already server-narrowed, or the panel is unaffected)",
+    (mode) => {
+      const panel = makeOutputPanel({ id: "panel-1" });
+      const { result } = renderHook(
+        () => useCrossFilteredPanelData(panel, rawRows, headers, chartOutput, mode),
+        { wrapper: wrapper(makeStore(crossFilter)) },
+      );
+
+      expect(result.current.rawRows).toBe(rawRows);
+      expect(result.current.isCrossFiltered).toBe(false);
+    },
+  );
 });

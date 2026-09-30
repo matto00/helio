@@ -20,6 +20,7 @@ import {
 } from "../state/panelNarrowing";
 import { useOutputMeta } from "../hooks/useOutputMeta";
 import { useAppSelector } from "../../../hooks/reduxHooks";
+import type { CrossFilterMode } from "../hooks/useCrossFilterServerOps";
 import {
   readChartConfig,
   readCollectionConfig,
@@ -119,6 +120,12 @@ export interface PanelContentProps {
   /** Paired with `output` above — the caller's own `useOutputMeta(outputId)` `isLoading` flag.
    *  Ignored when `output` is `undefined` (own-fetch mode). */
   outputMetaLoading?: boolean;
+  /** HEL-1191 design.md D3/D9b — REQUIRED so an omitting caller is a type error: how the active
+   *  cross-filter applies to THIS panel, decided ONCE by the caller that owns the Output. The
+   *  client-side loaded-rows filter below runs only for `"client-fallback"`; on `"server"` the
+   *  rows already arrive narrowed, and on `"none"` the filter doesn't touch this panel (also the
+   *  public viewer, where no cross-filter can exist). */
+  crossFilterMode: CrossFilterMode;
 }
 
 /** Dispatches on an output-kind panel's fetched Output `kind`/`config`
@@ -143,6 +150,7 @@ function OutputPanelContent({
   totalRowCount,
   output: outputProp,
   isLoading: isLoadingProp,
+  crossFilterMode,
 }: {
   panelId: string;
   rawRows?: string[][] | null;
@@ -161,6 +169,7 @@ function OutputPanelContent({
   totalRowCount?: number;
   output?: Output | PublicOutputMeta | null;
   isLoading?: boolean;
+  crossFilterMode: CrossFilterMode;
 }) {
   // evaluation-1.md CR1/CR2 (cycle 2) — applying the cross-filter HERE,
   // rather than upstream at PanelCard/MobileStackPanelBody, is what makes
@@ -206,7 +215,10 @@ function OutputPanelContent({
     );
   }
 
+  // HEL-1191 design.md D3 — the client-side loaded-rows filter is now ONLY the fallback for a
+  // panel whose contract can't take the server `eq`; never applied on top of a server-narrowed set.
   const isEligibleTarget =
+    crossFilterMode === "client-fallback" &&
     crossFilter !== null &&
     crossFilter.panelId !== panelId &&
     isPanelFilterableByDimension(
@@ -381,6 +393,7 @@ export function PanelContent({
   totalRowCount,
   output,
   outputMetaLoading,
+  crossFilterMode,
 }: PanelContentProps) {
   if (isLoading) {
     // HEL-528 design.md D6/D7 — a shape-matched skeleton, not the accent
@@ -464,6 +477,7 @@ export function PanelContent({
         totalRowCount={totalRowCount}
         output={output}
         isLoading={outputMetaLoading}
+        crossFilterMode={crossFilterMode}
       />
     );
   }

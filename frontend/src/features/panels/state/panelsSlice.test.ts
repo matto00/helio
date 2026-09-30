@@ -257,6 +257,9 @@ describe("panelsSlice", () => {
         rows,
         materialized: true,
         total: 2,
+        // HEL-1191 design.md D9a-i — a legitimate shape change: the page-0 request's query is now
+        // recorded on the entry (`crossFilterEq` is `null` when none was sent).
+        lastQuery: { outputId: "output-1", crossFilterEq: null },
       });
     });
 

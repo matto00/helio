@@ -1,11 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchPanelPage } from "../state/panelsSlice";
+import { CROSS_FILTER_EQ_REJECTED } from "../state/panelThunks";
 import { getOutputId } from "../state/panelNarrowing";
-import type { MappedPanelData, Panel } from "../types/panel";
+import type {
+  CrossFilterEq,
+  MappedPanelData,
+  Panel,
+  PanelLastQuery,
+  SelectionDescriptor,
+} from "../types/panel";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
-import type { OutputRowsFilterOp } from "../../pipelines/services/outputService";
+import type {
+  OutputRowsFilter,
+  OutputRowsFilterOp,
+  OutputRowsSort,
+} from "../../pipelines/services/outputService";
 
 export interface PanelDataResult {
   data: MappedPanelData | null;
@@ -55,17 +66,29 @@ export interface PanelDataResult {
  *  `PanelDetailModal` (which has no sibling `usePanelSortFilter` layering to piggyback on, unlike
  *  `PanelCardBody`'s desktop-grid/mobile-stack path — see that hook's own doc comment for why
  *  composition happens THERE instead for that path). Defaults to `[]` so every pre-existing call
- *  site (none of which passed a 2nd arg) keeps compiling and behaving identically. */
+ *  site (none of which passed a 2nd arg) keeps compiling and behaving identically.
+ *
+ *  HEL-1191 design.md D9a-i/D9a-ii — `crossFilterEq` is the dashboard cross-filter's server-side
+ *  `eq` term, a SEPARATE parameter (never concatenated into `controlFilterOps`, C4) that joins the
+ *  fetch key and every dispatch. When NEITHER explicit argument is given (the ops-less hosts
+ *  `PanelCard`/`MobilePanelStack`, which own no Output), the mount dispatch and `refresh()` REPLAY
+ *  the panel's own `paginationState.lastQuery` instead of dispatching an unfiltered read that
+ *  would silently drop a server-applied filter/sort — see `replayableQuery` below for the rules. */
 export function usePanelData(
   panel: Panel,
   controlFilterOps: OutputRowsFilterOp[] = [],
+  crossFilterEq: CrossFilterEq | null = null,
 ): PanelDataResult {
   const dispatch = useAppDispatch();
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
+  const activeCrossFilter = useAppSelector((state) => state.panels.crossFilter);
 
   const outputId = getOutputId(panel);
   const controlFilterOpsKey = controlFilterOps.length > 0 ? JSON.stringify(controlFilterOps) : "";
-  const currentFetchKey = outputId ? panel.id + "|" + outputId + "|" + controlFilterOpsKey : null;
+  const crossFilterEqKey = crossFilterEq ? JSON.stringify(crossFilterEq) : "";
+  const currentFetchKey = outputId
+    ? panel.id + "|" + outputId + "|" + controlFilterOpsKey + "|" + crossFilterEqKey
+    : null;
 
   const prevFetchKey = useRef<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -84,11 +107,15 @@ export function usePanelData(
   // SSE fan-out) -- one `usePanelData` instance per panel, so one ref covers
   // all three uniformly.
   const inFlightRef = useRef(false);
+  const replayFullQueryRef = useRef(false);
 
   const refresh = useCallback(() => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     prevFetchKey.current = null;
+    // design.md D9a-i/C4 — a refresh (manual/poll/SSE) replays the FULL last query; a plain
+    // mount/remount replays only the URL/Redux-held terms (see `replayableQuery`).
+    replayFullQueryRef.current = true;
     setErrorForKey(null);
     setRefreshToken((t) => t + 1);
   }, []);
@@ -111,20 +138,61 @@ export function usePanelData(
     inFlightRef.current = true;
     const keyAtDispatch = currentFetchKey;
 
+    // An explicit argument (the detail modal's) takes precedence; otherwise replay the last query.
+    const explicit = controlFilterOpsKey !== "" || crossFilterEq !== null;
+    const fullReplay = replayFullQueryRef.current;
+    replayFullQueryRef.current = false;
+    const replay = explicit
+      ? null
+      : replayableQuery(
+          paginationEntry?.lastQuery,
+          outputId,
+          panel.id,
+          activeCrossFilter,
+          fullReplay,
+        );
+
     void dispatch(
       fetchPanelPage({
         panelId: panel.id,
         outputId,
         page: 0,
         pageSize: 200,
-        filter: controlFilterOpsKey ? { ops: controlFilterOps } : undefined,
+        sort: replay?.sort,
+        filter: explicit
+          ? controlFilterOpsKey
+            ? { ops: controlFilterOps }
+            : undefined
+          : replay?.filter,
+        crossFilterEq: explicit ? crossFilterEq : (replay?.crossFilterEq ?? null),
       }),
     )
       .unwrap()
       .then(() => {
         setErrorForKey((prev) => (prev?.key === keyAtDispatch ? null : prev));
       })
-      .catch((err: { message?: string; kind?: RequestErrorKind } | undefined) => {
+      .catch((err: { message?: string; kind?: RequestErrorKind; code?: string } | undefined) => {
+        // design.md D3a — a rejected cross-filter `eq` is self-healing, never an error state.
+        // An EXPLICIT `crossFilterEq` (the detail modal's) heals through its own fetch key (the
+        // mode flips, the key changes, the effect refetches). A REPLAYED one has no key change
+        // to ride on, so retry the same replay WITHOUT the `eq` right here — otherwise the panel
+        // would keep the stale server-narrowed window that was on screen.
+        if (err?.code === CROSS_FILTER_EQ_REJECTED) {
+          if (!explicit) {
+            void dispatch(
+              fetchPanelPage({
+                panelId: panel.id,
+                outputId,
+                page: 0,
+                pageSize: 200,
+                sort: replay?.sort,
+                filter: replay?.filter,
+                crossFilterEq: null,
+              }),
+            );
+          }
+          return;
+        }
         setErrorForKey({
           key: keyAtDispatch,
           message: err?.message ?? "Failed to load data.",
@@ -134,6 +202,8 @@ export function usePanelData(
       .finally(() => {
         inFlightRef.current = false;
       });
+    // `crossFilterEq`/`activeCrossFilter`/`paginationEntry.lastQuery` are read fresh from the
+    // closure on every run; `crossFilterEqKey` (via `currentFetchKey`) is the change trigger.
     // `controlFilterOps` itself is intentionally excluded — `controlFilterOpsKey` (already a
     // dependency via `currentFetchKey`) is the stable proxy for it; the array is read fresh from
     // the closure on every re-run `currentFetchKey`'s change triggers.
@@ -200,5 +270,48 @@ export function usePanelData(
     rowsTruncated: paginationEntry?.hasMore ?? false,
     refresh,
     isRefreshing,
+  };
+}
+
+/** design.md D9a-i — the query an ops-less host may replay from `paginationState.lastQuery`:
+ *  (0) a refresh replays the whole query, a mount only the terms that outlive the component;
+ *  (1) only when it was recorded for the panel's CURRENT Output (`paginationState` is keyed by
+ *  panel and is not reset on a rebind); (2) its `crossFilterEq` only while it still equals the
+ *  live `state.panels.crossFilter` (and this panel isn't the originating one) — a cross-filter
+ *  cleared or changed while the panel was unmounted must never replay a stale `eq`. */
+function replayableQuery(
+  lastQuery: PanelLastQuery | undefined,
+  outputId: string,
+  panelId: string,
+  activeCrossFilter: SelectionDescriptor | null,
+  full: boolean,
+): {
+  sort?: OutputRowsSort;
+  filter?: OutputRowsFilter;
+  crossFilterEq: CrossFilterEq | null;
+} | null {
+  if (!lastQuery || lastQuery.outputId !== outputId) return null;
+  const eq = lastQuery.crossFilterEq;
+  const stillActive =
+    eq !== null &&
+    activeCrossFilter !== null &&
+    activeCrossFilter.panelId !== panelId &&
+    activeCrossFilter.dimension === eq.column &&
+    activeCrossFilter.value === eq.value;
+  if (full) {
+    return {
+      sort: lastQuery.sort,
+      filter: lastQuery.filter,
+      crossFilterEq: stillActive ? eq : null,
+    };
+  }
+  // A mount/remount: the table's own sort/column-filter live in `usePanelSortFilter`'s local state,
+  // which does NOT survive a remount (it re-seeds from the Output's persisted defaults), so
+  // replaying them would desync the rows from the remounted table's controls. Only the terms held
+  // OUTSIDE component state (viewer-control ops in the URL, the Redux cross-filter) replay.
+  const controlOps = lastQuery.filter?.ops;
+  return {
+    filter: controlOps && controlOps.length > 0 ? { ops: controlOps } : undefined,
+    crossFilterEq: stillActive ? eq : null,
   };
 }

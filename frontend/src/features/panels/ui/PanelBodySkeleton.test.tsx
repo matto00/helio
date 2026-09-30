@@ -13,7 +13,7 @@ import { makeOutputPanel, makeTextPanel, makeMarkdownPanel } from "../../../test
 describe("PanelBodySkeleton — shared, kind-agnostic (design.md D6)", () => {
   it("PanelContent's loading state renders the exact same markup as PanelSuspenseFallback", () => {
     const { container: contentContainer } = render(
-      <PanelContent panel={makeOutputPanel()} isLoading />,
+      <PanelContent crossFilterMode="none" panel={makeOutputPanel()} isLoading />,
     );
     const { container: fallbackContainer } = render(<PanelSuspenseFallback />);
 
@@ -34,13 +34,13 @@ describe("PanelBodySkeleton — shared, kind-agnostic (design.md D6)", () => {
     // Sanity: PanelContent's loading branch (the actual call site) is also
     // identical across kinds — it never threads `panel` into the skeleton.
     const outputLoading = render(
-      <PanelContent panel={makeOutputPanel()} isLoading />,
+      <PanelContent crossFilterMode="none" panel={makeOutputPanel()} isLoading />,
     ).container.querySelector(".panel-body-skeleton")?.innerHTML;
     const textLoading = render(
-      <PanelContent panel={makeTextPanel()} isLoading />,
+      <PanelContent crossFilterMode="none" panel={makeTextPanel()} isLoading />,
     ).container.querySelector(".panel-body-skeleton")?.innerHTML;
     const markdownLoading = render(
-      <PanelContent panel={makeMarkdownPanel()} isLoading />,
+      <PanelContent crossFilterMode="none" panel={makeMarkdownPanel()} isLoading />,
     ).container.querySelector(".panel-body-skeleton")?.innerHTML;
     expect(outputLoading).toBe(textLoading);
     expect(textLoading).toBe(markdownLoading);
