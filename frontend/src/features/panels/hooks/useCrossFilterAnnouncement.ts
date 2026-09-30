@@ -5,6 +5,12 @@ import type { CrossFilterEq, PanelPaginationState } from "../types/panel";
 
 const resultCountText = (n: number) => `${n} result${n === 1 ? "" : "s"}.`;
 
+/** Deliberately NOT worded "Filtered by <dim> = <val>": the dashboard-level `CrossFilterIndicator`
+ *  is itself a status region with exactly that text, and repeating it per panel would announce the
+ *  same sentence twice (and make the two regions indistinguishable to assistive tech and tests). */
+const matchCountText = (n: number, eq: CrossFilterEq) =>
+  `${n} result${n === 1 ? "" : "s"} match${n === 1 ? "es" : ""} the dashboard filter, ${eq.column} = ${eq.value}.`;
+
 /** HEL-1191 design.md D7 — the live-region text announcing a SERVER-applied cross-filter and its
  *  clearing (`""` when there is nothing to announce). Only a panel the filter actually applies to
  *  (`crossFilterEq !== null`) announces the filtered state; the origin and unaffected panels stay
@@ -31,7 +37,7 @@ export function useCrossFilterAnnouncement(
   const settledEq = paginationEntry.lastQuery?.crossFilterEq ?? null;
   if (crossFilterEq !== null) {
     return settledEq?.column === crossFilterEq.column && settledEq.value === crossFilterEq.value
-      ? `Filtered by ${crossFilterEq.column} = ${crossFilterEq.value}: ${resultCountText(paginationEntry.total)}`
+      ? matchCountText(paginationEntry.total, crossFilterEq)
       : "";
   }
   return cleared && settledEq === null

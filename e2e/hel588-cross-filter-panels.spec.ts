@@ -541,23 +541,28 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     expect(filterButtonText).toContain("East");
     await filterButton.click();
 
-    // The grid's own rendered row count and the disclosure's stated
-    // `matchCount` must agree: 150 East rows are ALL within the loaded
-    // 200-row page (rows 0-149), so the grid shows all 150 and the
-    // disclosure reads "150 of 200 loaded rows match."
+    // HEL-1191: the cross-filter is now a SERVER-side `eq` on the Output read, so the panel
+    // reports the WHOLE-Output match (150 East rows of 210), not the loaded-window subset. The
+    // old assertion ("150 of 200 loaded rows match.") described the client-side loaded-rows
+    // narrowing, which no longer runs for this panel (the Output's `region` column has
+    // `eq` in its filter capabilities); the loaded-scope disclosure is now fallback-only.
+    // What must still agree: the rendered grid, the announced count, and "no partial-window
+    // claim" - all 150 rows are present, no West row, no loaded-rows disclosure, no Load more
+    // (hasMore describes the filtered set: 150 < one page).
     await expect(tableCard.getByRole("cell", { name: "East", exact: true })).toHaveCount(150);
     await expect(tableCard.getByRole("cell", { name: "West", exact: true })).toHaveCount(0);
-    await expect(tableCard).toContainText("150 of 200 loaded rows match.");
+    await expect(tableCard).toContainText("150 results match the dashboard filter, region = East.");
+    await expect(tableCard).not.toContainText("loaded rows match");
+    await expect(tableCard.getByRole("button", { name: /load more/i })).toHaveCount(0);
 
     await page.screenshot({
       path: ".concertino/runs/HEL-588/evidence/truncation-disclosure-matches-grid.png",
     });
 
-    // skeptic-final-1.md CR1/CR3 — the Fullscreen overlay's disclosure for
-    // the SAME panel/filter state must agree with the grid card's: "150 of
-    // 200 loaded rows match.", never "150 of 150" (the bug: `PanelCard` was
-    // passing the ALREADY cross-filtered rows into `PanelFullscreenOverlay`,
-    // corrupting the denominator down to the post-filter match count).
+    // skeptic-final-1.md CR1/CR3 — the Fullscreen overlay must agree with the grid card for the
+    // SAME panel/filter state. HEL-1191: on the server path that means the same 150 rows and NO
+    // loaded-rows disclosure at all (the old "150 of 200 loaded rows match." / never "150 of
+    // 150" pair guarded the client-side denominator, which no longer exists on this path).
     await tableCard.getByRole("button", { name: `Fullscreen ${tablePanelTitle}` }).click();
     const fullscreenDialog = page.getByRole("dialog", { name: `${tablePanelTitle} fullscreen` });
     await expect(fullscreenDialog).toBeVisible();
@@ -565,8 +570,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
       150,
     );
     await expect(fullscreenDialog.getByRole("cell", { name: "West", exact: true })).toHaveCount(0);
-    await expect(fullscreenDialog).toContainText("150 of 200 loaded rows match.");
-    await expect(fullscreenDialog).not.toContainText("150 of 150 loaded rows match.");
+    await expect(fullscreenDialog).not.toContainText("loaded rows match");
 
     await page.screenshot({
       path: ".concertino/runs/HEL-588/evidence/fullscreen-truncation-disclosure-matches-grid.png",

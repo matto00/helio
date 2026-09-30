@@ -58,4 +58,4 @@ When a server-applied cross-filter changes a panel's data, and when it is cleare
 
 #### Scenario: Announcement
 - **WHEN** a cross-filter is set and a target panel's filtered fetch settles
-- **THEN** the live region reads "Filtered by <dimension> = <value>: N results."
+- **THEN** the live region reads "N results match the dashboard filter, <dimension> = <value>."

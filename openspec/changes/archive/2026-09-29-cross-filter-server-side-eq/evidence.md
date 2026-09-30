@@ -70,3 +70,22 @@ After the fix all 17 tests in the file pass: (a) no duplicate-op 400 (counter 0)
 
 ## PR-body note: PanelCard.tsx split proposal (CR4)
 `frontend/src/features/panels/ui/PanelCard.tsx` is now ~830 lines (787 on main; it was already far over the ~250-line budget). Proposal for a follow-up, not done here to keep this change focused: (1) move `PanelCardBody` (+ its `controlResultCountText` helper and the sort/filter/cross-filter wiring) to `PanelCardBody.tsx`; (2) move the header/footer chrome of `PanelCard` to `PanelCardChrome.tsx`; (3) extract the "ops for this panel" bundle (`useViewerControls` + `buildViewerControlFilterOps` + `useCrossFilterServerOps` + announcement) into one `usePanelQueryOps` hook shared by `PanelCardBody`, `PanelDetailModal` and the overlay path. Also note in the PR body: high-cardinality dimensions (>50 distinct) always take the client fallback; the red-first test uses a low-cardinality dimension.
+
+# Cycle 3 (CI e2e failures on PR #712)
+
+Per-test account of the three `hel588-cross-filter-panels.spec.ts` failures:
+- `:239` and `:319` (strict-mode violation): NOT an obsolete assertion - a real duplicate-announcement smell. `getByRole('status').filter({hasText:'Filtered by region'})` matched both `CrossFilterIndicator` and my per-panel live region ("Filtered by region = East: 150 results."). Fix is in CODE: the per-panel text is now "N results match the dashboard filter, <dim> = <val>." (clear text unchanged), so the two regions are distinct. The e2e assertions are unchanged and pass.
+- `:399` truncation test: the assertions "150 of 200 loaded rows match." (grid card, line ~550) and in Fullscreen ("150 of 200" present, "150 of 150" absent) guarded the CLIENT-side loaded-window denominator. On the server path (region has `eq` in filter-capabilities) the panel returns the whole-Output result, so there is no loaded-window claim to be right or wrong about; that disclosure is now fallback-only. Replaced (not weakened) with: 150 East cells and 0 West cells in the grid, the announced "150 results match the dashboard filter, region = East.", NO "loaded rows match" text, no Load more button (hasMore describes the filtered set), and in Fullscreen the same rows with no loaded-rows disclosure. A real-data fallback e2e assertion was not added: it needs an Output whose dimension exceeds the 50-value eq cardinality cap; the fallback path stays covered by unit tests (PanelCard.crossFilterServer, PanelDetailModal.crossFilter, overlay).
+
+Local e2e (dev servers from THIS worktree, cwd verified via readlink /proc: frontend .../HEL-1191/frontend, backend .../HEL-1191/backend; ports 6623/9530; stopped afterwards), verbatim:
+```
+Running 4 tests using 1 worker
+  ✓  1 e2e/hel588-cross-filter-panels.spec.ts:239:7 ... (5.7s)
+  ✓  2 e2e/hel588-cross-filter-panels.spec.ts:319:7 ... (7.2s)
+  ✓  3 e2e/hel588-cross-filter-panels.spec.ts:399:7 ... (5.2s)
+  ✓  4 e2e/hel588-cross-filter-panels.spec.ts:587:7 ... (7.5s)
+  4 passed (26.2s)
+Running 6 tests using 3 workers   (hel572-chart-click-drilldown, hel1189-output-panel-controls-live, hel1094-sse-fan-out-panel-refresh)
+  6 passed (47.4s)
+```
+grep of e2e/ for 'Filtered by' / 'loaded rows match' / cross-filter: only hel588-cross-filter-panels.spec.ts.

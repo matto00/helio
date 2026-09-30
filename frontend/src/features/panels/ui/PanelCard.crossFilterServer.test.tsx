@@ -178,7 +178,9 @@ describe("PanelCard — HEL-1191 server-side cross-filter", () => {
     expect(entryOf(store).hasMore).toBe(false);
     expect(entryOf(store).rows).toHaveLength(50);
     expect(allRows.length).toBeGreaterThan(200);
-    expect(await screen.findByText("Filtered by quarter = Q1: 50 results.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("50 results match the dashboard filter, quarter = Q1."),
+    ).toBeInTheDocument();
     // The server path never renders the client-side loaded-scope disclosure.
     expect(screen.queryByText(/loaded rows match/)).not.toBeInTheDocument();
     // The eq op travelled on the Output read.
@@ -301,13 +303,15 @@ describe("PanelCard — HEL-1191 server-side cross-filter", () => {
     const { store } = renderCard();
     await waitFor(() => expect(resolveFiltered).toBeDefined());
     // Loading: nothing announced yet.
-    expect(screen.getByRole("status").textContent ?? "").not.toMatch(/Filtered by/);
+    expect(screen.getByRole("status").textContent ?? "").not.toMatch(/match the dashboard filter/);
 
     await act(async () => {
       resolveFiltered?.();
     });
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Filtered by quarter = Q1: 50 results."),
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "50 results match the dashboard filter, quarter = Q1.",
+      ),
     );
 
     act(() => {
