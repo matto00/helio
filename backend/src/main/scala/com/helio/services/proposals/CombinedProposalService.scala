@@ -53,7 +53,12 @@ final class CombinedProposalService(
       case Right(_) =>
         validateDashboardStructure(combined.dashboard) match {
           case Left(err) => Future.successful(Left(err))
-          case Right(_)  => pipelineProposalService.validate(combined.pipeline, user)
+          case Right(_) =>
+            pipelineProposalService.validate(combined.pipeline, user).flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(_) =>
+                dashboardProposalService.validateControlsExcludingSentinel(combined.dashboard.panels, OutputRefSentinel, user)
+            }
         }
     }
 

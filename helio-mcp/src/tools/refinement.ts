@@ -53,7 +53,9 @@ export function registerRefinementTools(server: McpServer, api: HelioApi): void 
         "before it is ever returned, so a follow-up apply_patch_set call should succeed as-is. " +
         "Pass the SAME conversationId back on a follow-up call to continue refining the same " +
         "target across turns — history is server-owned, never re-send it. Review the patch set " +
-        "(in-app at /patch-sets/review, or by inspection), then apply it with apply_patch_set.",
+        "(in-app at /patch-sets/review, or by inspection), then apply it with apply_patch_set. " +
+        "The preview check does NOT evaluate output-panel controls: a `config.controls` edit is " +
+        "validated only when applied.",
       inputSchema: {
         target: z.object({
           kind: z.enum(["dashboard", "pipeline"]),
@@ -87,7 +89,10 @@ export function registerRefinementTools(server: McpServer, api: HelioApi): void 
         "directly after patch.parentStepId, reparenting that step's existing children onto the " +
         "new step (a trunk insertion, not a new lane). Returns the PatchSetApplyResponse " +
         "verbatim (per-edit status/newId/priorState/resultingState, plus `failure` when a " +
-        "rollback happened).",
+        "rollback happened). An output-panel edit whose `patch.config.controls` holds a control the " +
+        "Output's contract disallows is NOT rejected at propose time; apply_patch_set answers HTTP " +
+        "200 with `edits: []` and `failure: \"control not eligible: column '<c>', kind '<k>'\"`, " +
+        "and every earlier edit in the set is rolled back (observed live).",
       inputSchema: {
         patchSet: patchSetSchema,
       },

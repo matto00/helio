@@ -34,6 +34,7 @@ import type {
   DashboardSnapshot,
   DataSourceResponse,
   InferredSchemaResponse,
+  OutputFilterCapabilitiesResponse,
   Paged,
   PanelResponse,
   PatchSet,
@@ -1123,6 +1124,21 @@ export class HelioApi {
     return this.http.get<NodeCapabilitiesResponse>(`/api/pipelines/${pipelineId}/capabilities`, {
       stepId,
     });
+  }
+
+  /** `GET /api/outputs/:id/filter-capabilities` (HEL-1188): per-column filter operators plus
+   *  (HEL-1193) the control kinds each column is eligible for. Distinct from
+   *  `getOutputCapabilities`, the pipeline-step binding menu. */
+  getOutputFilterCapabilities(outputId: string): Promise<OutputFilterCapabilitiesResponse> {
+    return this.http.get<OutputFilterCapabilitiesResponse>(
+      `/api/outputs/${outputId}/filter-capabilities`,
+    );
+  }
+
+  /** `GET /api/dashboards/:id/export` alone (no list call) — the panels' configs, used to read an
+   *  output panel's current `config.controls`. */
+  getDashboardSnapshot(dashboardId: string): Promise<DashboardSnapshot> {
+    return this.http.get<DashboardSnapshot>(`/api/dashboards/${dashboardId}/export`);
   }
 
   /** `PATCH /api/dashboards/:id`, name-only (design.md D7) — mirrors

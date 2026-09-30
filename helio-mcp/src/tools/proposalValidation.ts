@@ -24,7 +24,8 @@
  * set (server-side `findByIdOwned` is still the authority on ownership).
  */
 
-import type { OutputResponse, ProposalPanel } from "../types.js";
+import type { HelioApi } from "../helioApi.js";
+import type { OutputFilterCapabilitiesResponse, OutputResponse, ProposalPanel } from "../types.js";
 
 /** Panel types whose binding is a `outputId` (flat field, checked here) --
  *  really an Output id, kept under this field name for wire stability
@@ -54,5 +55,46 @@ export function computeProposalWarnings(
     }
   });
 
+  return warnings;
+}
+
+/** HEL-1193: propose-time control check. Eligibility is NOT decided here: each declared control
+ *  is looked up in the bound Output's own `filter-capabilities` contract (`controlKinds` comes
+ *  from the backend's `OutputControlEligibility.kindsFor`, the function the panel write path
+ *  validates with), and a miss is reported with the backend's exact message. A panel whose Output
+ *  cannot be fetched is skipped: the missing-Output warning above already covers it, and the
+ *  backend re-validates at apply regardless. */
+export async function computeControlWarnings(
+  panels: ProposalPanel[],
+  api: Pick<HelioApi, "getOutputFilterCapabilities">,
+): Promise<string[]> {
+  const contracts = new Map<string, Promise<OutputFilterCapabilitiesResponse | null>>();
+  const contractFor = (outputId: string) => {
+    if (!contracts.has(outputId)) {
+      contracts.set(
+        outputId,
+        api.getOutputFilterCapabilities(outputId).catch(() => null),
+      );
+    }
+    return contracts.get(outputId)!;
+  };
+
+  const warnings: string[] = [];
+  for (const [i, panel] of panels.entries()) {
+    const raw = panel.controls ?? (panel.config?.controls as ProposalPanel["controls"]);
+    if (panel.type !== "output" || !panel.outputId || !Array.isArray(raw) || raw.length === 0) {
+      continue;
+    }
+    const contract = await contractFor(panel.outputId);
+    if (!contract) continue;
+    for (const control of raw) {
+      const column = contract.columns.find((c) => c.column === control.column);
+      if (!column?.controlKinds.includes(control.kind)) {
+        warnings.push(
+          `panel ${i + 1} ('${panel.title}'): control not eligible: column '${control.column}', kind '${control.kind}'`,
+        );
+      }
+    }
+  }
   return warnings;
 }

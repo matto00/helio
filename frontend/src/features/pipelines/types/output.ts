@@ -86,6 +86,9 @@ export interface AssertionStatus {
 export interface OutputFilterCapabilityColumn {
   column: string;
   operators: Array<"contains" | "gte" | "lte" | "eq" | "in">;
+  /** HEL-1193: control kinds this column is eligible for (server-computed by the same function
+   *  the control-write validator uses). Optional so older fixtures/consumers stay valid. */
+  controlKinds?: Array<"date-range" | "dropdown" | "numeric-range" | "text">;
 }
 
 export interface OutputFilterCapabilitiesResponse {

@@ -98,6 +98,29 @@
         "config": {
           "type": "object",
           "description": "Optional generic passthrough merged over the config derived from the flat fields above, then decoded by the same panel-create path as POST /api/panels. Current surfaces: output {outputId}; text/markdown {content}; image {imageUrl}. On key conflict this wins over a derived flat field, EXCEPT an `output` panel's outputId (see the outputId description above), which always stays the flat-field value. text/markdown panels carry no outputId/fieldMapping of any kind (TextPanelConfig/MarkdownPanelConfig, pipelines-and-outputs remodel HEL-903/904) — a `config.outputId` on a text/markdown panel is silently inert, not a binding attempt. The collection/timeline/chart/table/metric config surfaces (baseType/layout, timelineOptions, chartOptions, density/columnOrder) were deleted by the pipelines-and-outputs remodel (HEL-903/904) along with the panel kinds that carried them."
+        },
+        "controls": {
+          "type": "array",
+          "description": "HEL-1193: controls (date-range/dropdown/numeric-range/text) to configure on an `output` panel, validated at propose time and at apply by the SAME rule the panel write path uses (a control is eligible only for the kinds its column's `controlKinds` lists in GET /api/outputs/:id/filter-capabilities). An ineligible control is rejected 400 with `control not eligible: column '<c>', kind '<k>'`. Only valid on an `output` panel, and not together with `config.controls`. On a combined proposal, a panel bound to the `$pipelineOutput` sentinel is validated only at apply.",
+          "items": { "$ref": "#/$defs/ProposalControl" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProposalControl": {
+      "type": "object",
+      "required": ["kind", "column"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional; minted at apply when absent."
+        },
+        "kind": { "type": "string", "enum": ["date-range", "dropdown", "numeric-range", "text"] },
+        "column": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "description": "Defaults to the column name." },
+        "defaultValue": {
+          "description": "Never server-validated; JSON string for text/dropdown, {min,max} for numeric-range, {from,to} for date-range."
         }
       },
       "additionalProperties": false

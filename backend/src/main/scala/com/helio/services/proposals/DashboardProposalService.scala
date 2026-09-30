@@ -1,7 +1,7 @@
 package com.helio.services.proposals
 
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.panels.{LayoutBreakpointScaling, PanelService}
+import com.helio.services.panels.{LayoutBreakpointScaling, OutputControlsValidator, PanelService}
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{DashboardLayoutItemPayload, DashboardLayoutPayload, UpdateDashboardRequest}
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel}
@@ -39,7 +39,10 @@ final class DashboardProposalService(
     // HEL-904 task 3.8/3.9: validates an "output"-kind panel's binding
     // against a real Output. Nullable-optional for the many test call sites
     // that never construct an output-kind panel.
-    outputRepo: OutputRepository = null
+    outputRepo: OutputRepository = null,
+    // HEL-1193: the same validator PanelService uses for a panel's controls, run at propose time
+    // too; nullable-optional like the other collaborators (null skips the control check).
+    controlsValidator: OutputControlsValidator = null
 )(implicit ec: ExecutionContext) {
 
   import DashboardProposalService._
@@ -52,8 +55,29 @@ final class DashboardProposalService(
   def validate(proposal: DashboardProposal, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     validateStructure(proposal) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(_)  => ProposalPanelSupport.preValidateBindings(proposal.panels, user, outputRepo)
+      case Right(_)  => validateBindingsAndControls(proposal.panels, user)
     }
+
+  /** Shared by `validate` and the combined-proposal path: bindings first (a missing Output is the
+   *  clearer error), then the same control validator `PanelService` runs on write. */
+  private[services] def validateBindingsAndControls(
+      panels: Vector[ProposalPanel],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] =
+    ProposalPanelSupport.preValidateBindings(panels, user, outputRepo).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(_)  => ProposalPanelSupport.preValidateControls(panels, user, controlsValidator)
+    }
+
+  /** Combined proposals: panels already bound to a real Output id get the same control check at
+   *  propose time; sentinel-bound panels only exist after the pipeline is applied, so they are
+   *  validated at apply by `PanelService.create` (combined rolls the pipeline back on failure). */
+  private[services] def validateControlsExcludingSentinel(
+      panels: Vector[ProposalPanel],
+      sentinel: String,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] =
+    ProposalPanelSupport.preValidateControls(panels, user, controlsValidator, Some(sentinel))
 
   def apply(
       proposal: DashboardProposal,

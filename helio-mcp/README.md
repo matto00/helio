@@ -90,6 +90,20 @@ protocol stream.
 
 The Output/pipeline/placement tool families (`add_output`/`update_output`/`delete_output`/`list_outputs`/`get_output_rows`/`preview_outputs`/`get_output_capabilities`, `add_outputs_from_shape`, `place_outputs`/`create_content_panel`) added by HEL-906/HEL-907 are not yet documented in this catalog table — a known gap, flagged rather than silently left stale; see `src/tools/outputs.ts`/`src/tools/pipelines.ts`/`src/tools/placements.ts` for their descriptions in the meantime.
 
+### Output-panel controls (HEL-1193)
+
+`get_output_filter_capabilities(outputId)` reads `GET /api/outputs/:id/filter-capabilities`
+(per column: `operators` and `controlKinds`; not to be confused with `get_output_capabilities`,
+the pipeline node's field-mapping menu). `add_output_control` / `update_output_control` /
+`remove_output_control` (`dashboardId` + `panelId`) read-modify-write the panel's
+`config.controls`; `add_output_control` mints the id and, when `column` is omitted, binds the
+first column in schema order whose `controlKinds` includes the kind. An ineligible control is
+the backend's HTTP 400 `control not eligible: column '<c>', kind '<k>'`, surfaced unchanged.
+Proposals (`propose_dashboard`, `apply_proposal`, `apply_combined_proposal`,
+`replace_dashboard_contents`) take a first-class `controls` array on output panels;
+`get_workspace_context` lists each output placement's `controls`. Patch sets are not checked
+at propose time: `apply_patch_set` answers HTTP 200 with `failure: "control not eligible: ..."`.
+
 ### Write / composition tools
 
 | Tool                      | Endpoint                                  | Purpose                                                                                                                                                                                                                                                    |
@@ -170,7 +184,7 @@ entirely):
 { generatedAt, counts,
   dataSources: [{id,name,type,tag,inferredSchema:[{name,type}]}],
   pipelines:   [{…summary, steps:[{position,type,outputColumns[],validationError}],
-                 lastRunAssertions, outputs:[{id,name,kind,nodeStepId,schema[],placements[]}]}],
+                 lastRunAssertions, outputs:[{id,name,kind,nodeStepId,schema[],placements[{dashboardId,panelId,controls[]}]}]}],
   dashboards:  [{id,name,panelCount}],
   pipelineShapes, truncation, agentContext, connectors }
 ```

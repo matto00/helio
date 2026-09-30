@@ -191,8 +191,73 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
         nodeStepId: "step-1",
         rootId: null,
         schema: [{ name: "orderId", type: "string" }],
-        placements: [{ dashboardId: "dash-1", panelId: "panel-1" }],
+        placements: [{ dashboardId: "dash-1", panelId: "panel-1", controls: [] }],
       },
+    ]);
+  });
+
+  // HEL-1193: each placement lists its output panel's controls, read from the dashboard export.
+  it("lists each placement's controls (id/kind/column/label, no defaultValue) from the hosting dashboard's export", async () => {
+    const context = await buildWorkspaceContext(
+      fakeApiWithPipeline({
+        getDashboardSnapshot: async () => ({
+          panels: [
+            {
+              id: "other-panel",
+              config: { controls: [{ id: "x", kind: "text", column: "c", label: "X" }] },
+            },
+            {
+              id: "panel-1",
+              config: {
+                outputId: "out-1",
+                controls: [
+                  {
+                    id: "c-1",
+                    kind: "date-range",
+                    column: "created_at",
+                    label: "Created",
+                    defaultValue: { from: "2026-01-01" },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      }) as unknown as HelioApi,
+    );
+
+    expect(context.pipelines[0]?.outputs[0]?.placements).toEqual([
+      {
+        dashboardId: "dash-1",
+        panelId: "panel-1",
+        controls: [{ id: "c-1", kind: "date-range", column: "created_at", label: "Created" }],
+      },
+    ]);
+  });
+
+  it("exports each distinct dashboard once even when several placements share it", async () => {
+    const getDashboardSnapshot = jest.fn(async () => ({ panels: [] }));
+    await buildWorkspaceContext(
+      fakeApiWithPipeline({
+        listAllOutputs: async () => page([output, { ...output, id: "out-9" }]),
+        getDashboardSnapshot,
+      }) as unknown as HelioApi,
+    );
+
+    expect(getDashboardSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("degrades a placement's controls to [] when the dashboard export fails, keeping the placement", async () => {
+    const context = await buildWorkspaceContext(
+      fakeApiWithPipeline({
+        getDashboardSnapshot: async () => {
+          throw new Error("export exploded");
+        },
+      }) as unknown as HelioApi,
+    );
+
+    expect(context.pipelines[0]?.outputs[0]?.placements).toEqual([
+      { dashboardId: "dash-1", panelId: "panel-1", controls: [] },
     ]);
   });
 
@@ -332,7 +397,7 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
         nodeStepId: "step-1",
         rootId: null,
         schema: [{ name: "orderId", type: "string" }],
-        placements: [{ dashboardId: "dash-1", panelId: "panel-1" }],
+        placements: [{ dashboardId: "dash-1", panelId: "panel-1", controls: [] }],
       },
     ]);
   });

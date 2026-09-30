@@ -20,7 +20,7 @@ import {
   createConnectorHandler,
 } from "./connectorHandlers.js";
 import { assertExactlyOneCsvInput } from "./csvDataSourceSchema.js";
-import { panelSchema } from "./proposal.js";
+import { CONTROLS_COPY, panelSchema } from "./proposal.js";
 import { createRestDataSourceSchema } from "./restDataSourceSchema.js";
 import { CANONICAL_COLUMN_TYPES_LIST } from "./canonicalColumnTypes.js";
 import {
@@ -627,7 +627,9 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "exact same shape as propose_dashboard/apply_proposal's `panels` array (see those tools' " +
         "descriptions for the full per-type config/binding rules) — no pre-existing panel id is " +
         "needed since every panel gets a freshly minted id; per-panel `layout` (if given) is applied " +
-        "on the rebuilt dashboard. Two overlapping calls for the SAME dashboard are last-writer-" +
+        "on the rebuilt dashboard. " +
+        CONTROLS_COPY +
+        " Two overlapping calls for the SAME dashboard are last-writer-" +
         "wins (each still returns 200 for the write it made, but the later commit's panel set is " +
         "what survives) — call this serially per dashboard, as a scheduled rebuild naturally would.",
       inputSchema: {

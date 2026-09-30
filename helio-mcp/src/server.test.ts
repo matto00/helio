@@ -54,6 +54,7 @@ const REMOVED_TOOLS = [
  *  is added, removed, or renamed without updating this list too. */
 const EXPECTED_TOOL_NAMES = [
   "add_output",
+  "add_output_control",
   "add_outputs_from_shape",
   "add_pipeline_step",
   "add_root",
@@ -87,6 +88,7 @@ const EXPECTED_TOOL_NAMES = [
   "get_output",
   "get_output_assertion_status",
   "get_output_capabilities",
+  "get_output_filter_capabilities",
   "get_output_panels",
   "get_output_rows",
   "get_pipeline",
@@ -105,6 +107,7 @@ const EXPECTED_TOOL_NAMES = [
   "propose_dashboard",
   "propose_patch_set",
   "propose_pipeline",
+  "remove_output_control",
   "remove_root",
   "replace_dashboard_contents",
   "replace_dataset_rows",
@@ -118,6 +121,7 @@ const EXPECTED_TOOL_NAMES = [
   "update_dataset_row",
   "update_dataset_schema",
   "update_output",
+  "update_output_control",
   "update_panel",
   "update_panel_appearance",
   "update_pipeline",
@@ -237,5 +241,60 @@ describe("create_connector's advertised input schema (HEL-886, skeptic-final-2.m
     for (const denylisted of ["auth", "apiKey", "token", "password", "credential"]) {
       expect(schema.properties).toHaveProperty(denylisted);
     }
+  });
+});
+
+// HEL-1193 D1: get_output_capabilities (pipeline step binding menu) and
+// get_output_filter_capabilities (an Output's filter operators/control kinds) are easy to confuse;
+// each description must name the other and say which id it takes.
+describe("filter-capabilities vs step-capabilities tool descriptions (HEL-1193 D1)", () => {
+  it("each description names the other tool and the id it takes", async () => {
+    const tools = await listRegisteredTools();
+    const stepMenu = tools.find((t) => t.name === "get_output_capabilities")?.description ?? "";
+    const filterMenu =
+      tools.find((t) => t.name === "get_output_filter_capabilities")?.description ?? "";
+
+    expect(stepMenu).toContain("get_output_filter_capabilities");
+    expect(stepMenu).toContain("takes a pipeline id");
+    expect(filterMenu).toContain("NOT get_output_capabilities");
+    expect(filterMenu).toContain("takes an OUTPUT id");
+  });
+});
+
+// HEL-1193 C2: status codes in tool copy are the ones observed from the running backend
+// (openspec/changes/mcp-output-panel-controls/evidence-status-codes.md), never spec/prior copy.
+describe("control tool copy states the observed status codes (HEL-1193 C2)", () => {
+  it.each(["add_output_control", "update_output_control"])(
+    "%s documents the 400 control-not-eligible message and the client-side refusals",
+    async (name) => {
+      const tools = await listRegisteredTools();
+      const description = tools.find((t) => t.name === name)?.description ?? "";
+
+      expect(description).toContain("HTTP 400");
+      expect(description).toContain("control not eligible: column '<c>', kind '<k>'");
+      expect(description).toContain("HTTP 404 `Dashboard not found`");
+      expect(description).not.toContain("422");
+    },
+  );
+
+  it("apply_patch_set documents the 200-with-failure shape, not an HTTP error", async () => {
+    const tools = await listRegisteredTools();
+    const description = tools.find((t) => t.name === "apply_patch_set")?.description ?? "";
+
+    expect(description).toContain("HTTP 200");
+    expect(description).toContain("control not eligible");
+  });
+
+  it.each([
+    "propose_dashboard",
+    "apply_proposal",
+    "apply_combined_proposal",
+    "replace_dashboard_contents",
+  ])("%s documents controls and the apply-time 400", async (name) => {
+    const tools = await listRegisteredTools();
+    const description = tools.find((t) => t.name === name)?.description ?? "";
+
+    expect(description).toContain("controls: [{ kind:");
+    expect(description).toContain("HTTP 400");
   });
 });
