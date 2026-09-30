@@ -9,11 +9,9 @@ import {
   fetchPanelPage,
   selectDataPoint,
 } from "../state/panelsSlice";
-import {
-  composeOutputRowsFilter,
-  getAssertionStatus,
-  getDistinctValues,
-} from "../../pipelines/services/outputService";
+import { composeOutputRowsFilter, getDistinctValues } from "../../pipelines/services/outputService";
+import { ProvenanceTrigger } from "../provenance/ProvenanceTrigger";
+import { useDataInvalid } from "../provenance/useDataInvalid";
 import { readChartConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
@@ -523,29 +521,9 @@ export const PanelCard = React.memo(function PanelCard({
   }, [dispatch, panel.id]);
   const handleOpenInspectFromMenu = useCallback(() => setIsInspectOpen(true), []);
 
-  const [isDataInvalid, setIsDataInvalid] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    if (outputId) {
-      void getAssertionStatus(outputId)
-        .then((status) => {
-          if (!cancelled) setIsDataInvalid(status.invalid);
-        })
-        .catch(() => {
-          if (!cancelled) setIsDataInvalid(false);
-        });
-    } else {
-      // No bound Output — resolve asynchronously (not a synchronous setState
-      // call inside the effect body) so switching a panel away from an
-      // Output still clears a previously-set invalid flag.
-      void Promise.resolve().then(() => {
-        if (!cancelled) setIsDataInvalid(false);
-      });
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [outputId]);
+  // HEL-1207 A4: the badge's status read is deduped across consumers and, once the provenance
+  // popover has loaded, derived from its cache.
+  const isDataInvalid = useDataInvalid(outputId);
 
   // 2.2 — Memoize style to avoid a new object identity on every render.
   const style = useMemo(
@@ -826,13 +804,14 @@ export const PanelCard = React.memo(function PanelCard({
       )}
       <div className="panel-grid-card__footer">
         <span className="panel-grid-card__type-badge">{panel.type}</span>
-        {isDataInvalid && (
-          <span
-            className="panel-grid-card__type-badge panel-grid-card__type-badge--invalid"
-            title="The latest pipeline run for this panel's data failed an assertion rule"
-          >
-            Invalid data
-          </span>
+        {outputId && (
+          <ProvenanceTrigger
+            panelId={panel.id}
+            panelTitle={panel.title}
+            outputId={outputId}
+            variant="authenticated"
+            invalidBadge={isDataInvalid}
+          />
         )}
         <span>Updated {new Date(panel.meta.lastUpdated).toLocaleDateString()}</span>
       </div>

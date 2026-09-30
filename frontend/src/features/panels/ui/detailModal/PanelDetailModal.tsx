@@ -25,6 +25,7 @@ import { useViewerControls } from "../../hooks/useViewerControls";
 import { buildViewerControlFilterOps } from "../../state/viewerControlValues";
 import { getDistinctValues, listOutputPanels } from "../../../pipelines/services/outputService";
 import { OutputPicker } from "../OutputPicker";
+import { ProvenanceTrigger } from "../../provenance/ProvenanceTrigger";
 import { OutputViewerControlBar } from "../OutputViewerControlBar";
 import { useTheme } from "../../../../theme/ThemeProvider";
 import {
@@ -108,6 +109,15 @@ function OutputPanelSection({ panel }: { panel: Panel }) {
       ) : (
         <span className="panel-detail-modal__output-link-loading">Loading…</span>
       )}
+      {/* HEL-1207 A1: provenance answers "where did this come from"; the link above names the output. */}
+      {outputId ? (
+        <ProvenanceTrigger
+          panelId={panel.id}
+          panelTitle={panel.title}
+          outputId={outputId}
+          variant="authenticated"
+        />
+      ) : null}
       <button
         type="button"
         className="panel-detail-modal__swap-output-btn"
@@ -418,6 +428,14 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
         <>
           {modalMode === "edit" && isAnyDirty && (
             <span className="panel-detail-modal__unsaved-badge">Unsaved changes</span>
+          )}
+          {modalMode === "view" && viewOutputId && (
+            <ProvenanceTrigger
+              panelId={panel.id}
+              panelTitle={panel.title}
+              outputId={viewOutputId}
+              variant="authenticated"
+            />
           )}
           {modalMode === "view" && (
             <button

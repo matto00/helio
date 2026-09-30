@@ -5,6 +5,7 @@ import { Modal } from "../../../shared/ui/Modal";
 import { OutputViewerControlBar } from "./OutputViewerControlBar";
 import { PanelContent } from "./PanelContent";
 import { PanelInspectView } from "./PanelInspectView";
+import { ProvenanceTrigger } from "../provenance/ProvenanceTrigger";
 import { clearSelection, selectDataPoint } from "../state/panelsSlice";
 import { getOutputId, isOutputPanel } from "../state/panelNarrowing";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
@@ -171,6 +172,17 @@ export function PanelFullscreenOverlay({
       title={panel.title}
       description={<span className="eyebrow">{panel.type}</span>}
       ariaLabel={`${panel.title} fullscreen`}
+      headerActions={
+        // HEL-1207 A1. Gated on `open` like the body: a closed overlay renders no second trigger.
+        open && outputId ? (
+          <ProvenanceTrigger
+            panelId={panel.id}
+            panelTitle={panel.title}
+            outputId={outputId}
+            variant="authenticated"
+          />
+        ) : undefined
+      }
     >
       {/* Gated on `open` — see this component's own doc comment for why:
           Modal renders `children` into the DOM regardless of its native

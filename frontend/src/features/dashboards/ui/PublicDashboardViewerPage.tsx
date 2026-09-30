@@ -30,6 +30,7 @@ import {
 import { isOutputPanel } from "../../panels/state/panelNarrowing";
 import { OutputViewerControlBar } from "../../panels/ui/OutputViewerControlBar";
 import { PanelContent } from "../../panels/ui/PanelContent";
+import { ProvenanceTrigger } from "../../panels/provenance/ProvenanceTrigger";
 import { usePublicPanelData } from "../../panels/hooks/usePublicPanelData";
 import { useViewerControls } from "../../panels/hooks/useViewerControls";
 import { buildViewerControlFilterOps } from "../../panels/state/viewerControlValues";
@@ -85,6 +86,18 @@ function PublicOutputPanelBody({
 
   return (
     <>
+      {/* HEL-1207 A1: no card/footer exists here, so provenance gets its own small row. The
+          public variant reads the token-authorized public endpoint and renders no link or ids. */}
+      <div className="public-dashboard-viewer__provenance-row">
+        <ProvenanceTrigger
+          panelId={panel.id}
+          panelTitle={panel.title}
+          outputId={panel.config.outputId}
+          variant="public"
+          dashboardId={dashboardId}
+          token={token}
+        />
+      </div>
       {hasVisibleControls && (
         <OutputViewerControlBar
           controls={controls}

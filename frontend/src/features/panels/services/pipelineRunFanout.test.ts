@@ -1,4 +1,8 @@
-import { computeRetryDelayMs, subscribeToPipelineSucceeded } from "./pipelineRunFanout";
+import {
+  computeRetryDelayMs,
+  subscribeToPipelineSucceeded,
+  subscribeToPipelineTerminal,
+} from "./pipelineRunFanout";
 
 interface MockConnection {
   push: (eventName: string, data: string) => void;
@@ -543,5 +547,42 @@ describe("subscribeToPipelineSucceeded — reconcile-on-connect (HEL-1174, desig
     expect(listener).not.toHaveBeenCalled();
 
     unsubscribe();
+  });
+});
+
+describe("subscribeToPipelineTerminal (HEL-1207)", () => {
+  it("fires on a failed run (which the succeeded-only listener ignores) and on succeeded, once per run", async () => {
+    const { fetchMock, connections } = createFetchMock();
+    global.fetch = fetchMock;
+    const onTerminal = jest.fn();
+    const onSucceeded = jest.fn();
+    const unsubTerminal = subscribeToPipelineTerminal("pipe-term-1", onTerminal);
+    const unsubSucceeded = subscribeToPipelineSucceeded("pipe-term-1", onSucceeded);
+    await flushMicrotasks();
+
+    connections[0].push("run-status", JSON.stringify({ status: "failed", runId: "r1" }));
+    await flushMicrotasks(20);
+    expect(onTerminal).toHaveBeenCalledTimes(1);
+    expect(onSucceeded).not.toHaveBeenCalled();
+
+    await flushMicrotasks(20);
+    connections[1].push("run-status", JSON.stringify({ status: "succeeded", runId: "r2" }));
+    await flushMicrotasks(20);
+    expect(onTerminal).toHaveBeenCalledTimes(2);
+    expect(onSucceeded).toHaveBeenCalledTimes(1);
+
+    unsubTerminal();
+    unsubSucceeded();
+  });
+
+  it("keeps the shared connection open for a terminal-only subscriber and closes on its unsubscribe", async () => {
+    const { fetchMock } = createFetchMock();
+    global.fetch = fetchMock;
+    const unsub = subscribeToPipelineTerminal("pipe-term-2", jest.fn());
+    await flushMicrotasks();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    unsub();
+    await flushMicrotasks();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
