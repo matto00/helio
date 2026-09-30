@@ -48,12 +48,12 @@ function check(name, actual, expected) {
 // is present on the VERY NEXT line, not this one).
 {
   const relPath = "helio-mcp/src/context.ts";
-  const lines = Array.from({ length: 206 }, () => "");
-  lines[204] = "        nodeStepId: o.nodeStepId ?? null,"; // line 205 (0-indexed 204)
-  lines[205] = "        rootId: o.rootId ?? null,"; // line 206
+  const lines = Array.from({ length: 223 }, () => "");
+  lines[221] = "        nodeStepId: o.nodeStepId ?? null,"; // line 222 (0-indexed 221)
+  lines[222] = "        rootId: o.rootId ?? null,"; // line 223
   const text = lines.join("\n");
   const violations = scanTextForViolations(relPath, text);
-  check("known-root-qualified line 205 of context.ts is exempted", violations.length, 0);
+  check("known-root-qualified line 222 of context.ts is exempted", violations.length, 0);
 }
 
 // (e) The SAME banned pattern at a DIFFERENT, non-exempted line in context.ts DOES fire --
