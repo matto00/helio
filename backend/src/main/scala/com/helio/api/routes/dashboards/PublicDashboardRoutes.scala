@@ -5,7 +5,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.helio.api._
 import com.helio.api.http._
-import com.helio.api.protocols.pipelines.{OutputSchemaFieldResponse, PublicOutputMetaResponse}
+import com.helio.api.protocols.pipelines.{OutputSchemaFieldResponse, ProvenanceResponses, PublicOutputMetaResponse, PublicOutputProvenanceResponse}
 import com.helio.api.routes.ServiceResponse
 import com.helio.api.routes.pipelines.OutputRowsQueryParsing
 import com.helio.domain.model._
@@ -14,7 +14,7 @@ import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository}
 import com.helio.services.ServiceError
 import com.helio.services.panels.{OutputControlsValidator, PublicOutputControlScope}
-import com.helio.services.pipelines.{OutputFilterCapability, OutputRowsQuery}
+import com.helio.services.pipelines.{OutputFilterCapability, OutputRowsQuery, ProvenanceService}
 import spray.json.{JsObject, JsValue}
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -43,7 +43,8 @@ final class PublicDashboardRoutes(
     userOpt: Option[AuthenticatedUser],
     outputRepoOpt: Option[OutputRepository] = None,
     pipelineRepoOpt: Option[PipelineRepository] = None,
-    nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = None
+    nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = None,
+    provenanceServiceOpt: Option[ProvenanceService] = None
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -253,7 +254,7 @@ final class PublicDashboardRoutes(
           }
     }
 
-  /** HEL-1190 design.md D8 (task 2.4) — `kind`/`config`/`schema`/`ownerId` only, never row data;
+  /** HEL-1190 design.md D8 (task 2.4) — `kind`/`config`/`schema` only (HEL-1197 dropped `ownerId`), never row data;
    *  the ONE new metadata source `usePublicPanelData` needs to pick/configure a renderer, since
    *  `PanelResponse.config` (the panel-list route above) is only the PANEL's own placement config,
    *  never the bound Output's. `config` needs its own repository call (`Output` itself carries no
@@ -272,11 +273,24 @@ final class PublicDashboardRoutes(
                 PublicOutputMetaResponse(
                   kind = OutputKind.asString(output.kind),
                   config = configs.getOrElse(output.id.value, JsObject.empty),
-                  schema = output.schema.flatMap(sf => DataFieldType.fromString(sf.`type`).map(t => OutputSchemaFieldResponse(sf.name, DataFieldType.asString(t)))),
-                  ownerId = output.ownerId.value
+                  schema = output.schema.flatMap(sf => DataFieldType.fromString(sf.`type`).map(t => OutputSchemaFieldResponse(sf.name, DataFieldType.asString(t))))
                 )
               )
             }
+        }
+    }
+
+  /** HEL-1206 design.md D7 -- public provenance: same `resolvePanelOutput` gate (panel proven to
+   *  belong to THIS dashboard, OutputPanel with a bound Output; every failure `404`) as
+   *  `output-meta`; the chain is then built by `ProvenanceService` (`*Internal` reads, cleared by
+   *  the dashboard gate in the route) and projected through the allowlist-only public type. */
+  private def resolveProvenance(dashboardId: String, panelId: String): Future[Either[ServiceError, PublicOutputProvenanceResponse]] =
+    resolvePanelOutput(dashboardId, panelId).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right((_, output)) =>
+        provenanceServiceOpt match {
+          case None      => Future.successful(Left(ServiceError.NotFound("Output not found")))
+          case Some(svc) => svc.forOutput(output).map(chain => Right(ProvenanceResponses.public(chain)))
         }
     }
 
@@ -373,6 +387,23 @@ final class PublicDashboardRoutes(
           }
         }
       } ~
+      pathPrefix(Segment / "provenance") { panelId =>
+        pathEndOrSingleSlash {
+          get {
+            parameters("token".optional) { token =>
+              aclDirective.authorizeResourceWithSharing(
+                "dashboard",
+                dashboardId,
+                userOpt,
+                "Dashboard not found",
+                token
+              ) { _ =>
+                ServiceResponse.run(resolveProvenance(dashboardId, panelId))(identity)
+              }
+            }
+          }
+        }
+      } ~
       pathEndOrSingleSlash {
         get {
           parameters(
@@ -411,7 +442,9 @@ final class PublicDashboardRoutes(
                     ))
                       .map { rows =>
                         val responses = rows.map { case (panel, dataAsOf, orphanedIds) =>
-                          PanelResponse.fromDomain(panel, dataAsOf, orphanedControlIds = Some(orphanedIds))
+                          // HEL-1197: an anonymous / share-token-only caller (`userOpt.isEmpty`) never sees the
+                          // internal `ownerId`; an authenticated viewer keeps it (as on every other route).
+                          PanelResponse.fromDomain(panel, dataAsOf, orphanedControlIds = Some(orphanedIds), includeOwnerId = userOpt.isDefined)
                         }
                         PagedResult(responses, paged.total, paged.offset, paged.limit)
                       }

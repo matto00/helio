@@ -53,7 +53,7 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
         `type`      = "table",
         meta        = ResourceMetaResponse("u-1", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
         appearance  = PanelAppearanceResponse("#fff", "#000", 0.5, None),
-        ownerId     = "u-1",
+        ownerId     = Some("u-1"),
         config      = JsObject("dataTypeId" -> JsString("dt-1"), "fieldMapping" -> JsObject("foo" -> JsString("bar"))),
         dataAsOf    = Some("2026-06-13T12:00:00Z")
       )
@@ -68,7 +68,7 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
         `type`      = "text",
         meta        = ResourceMetaResponse("u-1", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
         appearance  = PanelAppearanceResponse("#fff", "#000", 0.5, None),
-        ownerId     = "u-1",
+        ownerId     = Some("u-1"),
         config      = JsObject("content" -> JsString("hello")),
         dataAsOf    = None
       )

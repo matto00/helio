@@ -63,6 +63,7 @@ import type {
   UpdatePanelRequest,
   UpdatePipelineStepRequest,
   AssertionStatusResponse,
+  OutputProvenanceResponse,
   CreateOutputRequest,
   DeleteOutputResponse,
   NodeCapabilitiesResponse,
@@ -1091,6 +1092,11 @@ export class HelioApi {
   /** `GET /api/outputs/:id/assertion-status`. */
   getOutputAssertionStatus(outputId: string): Promise<AssertionStatusResponse> {
     return this.http.get<AssertionStatusResponse>(`/api/outputs/${outputId}/assertion-status`);
+  }
+
+  /** `GET /api/outputs/:id/provenance` (`get_output_provenance`, HEL-1206). */
+  getOutputProvenance(outputId: string): Promise<OutputProvenanceResponse> {
+    return this.http.get<OutputProvenanceResponse>(`/api/outputs/${outputId}/provenance`);
   }
 
   /** `GET /api/outputs/:id/rows?offset&limit` — paginated latest-run row snapshot

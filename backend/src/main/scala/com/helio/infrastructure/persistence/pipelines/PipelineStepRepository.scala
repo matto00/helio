@@ -348,6 +348,17 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       stepsTable.filter(_.pipelineId === pipelineId.value).result
     ).map(rows => executionOrder(rows.toVector.map(rowToDomain)))
 
+  /** HEL-1206 design.md D6 -- [[listByPipelineInternal]] plus [[rootIdsOf]]'s side-map from ONE
+    * query (the row already carries `root_id`), so provenance resolves steps + trunk roots in a
+    * single read. Privileged (`withSystemContext`), same basis as both methods it combines. */
+  def listWithRootIdsInternal(pipelineId: PipelineId): Future[(Vector[PipelineStep], Map[PipelineStepId, PipelineRootId])] =
+    ctx.withSystemContext(
+      stepsTable.filter(_.pipelineId === pipelineId.value).result
+    ).map { rows =>
+      val rootIds = rows.collect { case r if r.rootId.isDefined => PipelineStepId(r.id) -> PipelineRootId(r.rootId.get) }.toMap
+      (executionOrder(rows.toVector.map(rowToDomain)), rootIds)
+    }
+
   /** HEL-914 (production N+1 fix, HEL-865's field report -- 220,197-char response on a
     * 25-source/43-pipeline workspace): the multi-pipeline sibling of [[listByPipelineInternal]] --
     * one round trip for every id in `pipelineIds` instead of one per id.

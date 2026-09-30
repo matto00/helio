@@ -246,6 +246,27 @@ export interface AssertionStatusResponse {
   failedRuleCount: number;
 }
 
+/** `GET /api/outputs/:id/provenance` (HEL-1206): where an Output's numbers came from. `lastRun` is
+ *  `null` when the pipeline never ran a non-dry run; `completedAt`/`rowCount` are `null` when
+ *  unknown (`rowCount` is also `null` for an empty/unmaterialized node snapshot). `sources` holds
+ *  every data source feeding the Output (trunk roots, then direct join/union/lookup Source
+ *  secondaries); `nodePath` is the step-kind chain from the trunk root to the Output's node
+ *  (empty for a root-bound Output). No `errorLog` or assertion `observed` values. */
+export interface OutputProvenanceResponse {
+  outputId: string;
+  pipeline: { id: string; name: string };
+  sources: { id: string; name: string; kind: string }[];
+  nodePath: string[];
+  lastRun: { status: string; completedAt: string | null; rowCount: number | null } | null;
+  assertions: {
+    defined: boolean;
+    passed: number;
+    failed: number;
+    warned: number;
+    rootBound: boolean;
+  };
+}
+
 /** One entry of `POST /api/pipelines/:id/preview?outputId=`'s response (HEL-906 cycle 10) --
  *  present for every previewed Output, one arm (single-Output vs all-Outputs) selected by
  *  whether `outputId` was passed. `preview` reuses `RunResultResponse`'s shape verbatim. */

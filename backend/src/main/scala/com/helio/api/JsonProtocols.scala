@@ -127,4 +127,5 @@ trait JsonProtocols
     with AuditEventProtocol
     with ConnectorEntityProtocol
     with OutputProtocol
+    with ProvenanceProtocol
     with NodeCapabilitiesProtocol

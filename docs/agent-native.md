@@ -151,6 +151,7 @@ Output on a dashboard.
 | Preview Output(s)           | `POST /api/pipelines/:id/preview`                                     | `preview_outputs`                                                        |
 | Node/Output capability      | `GET /api/pipelines/:id/capabilities`                                 | `get_output_capabilities`                                                |
 | Output filter/control kinds | `GET /api/outputs/:id/filter-capabilities` (HEL-1193: `controlKinds`) | `get_output_filter_capabilities`                                         |
+| Output provenance           | `GET /api/outputs/:id/provenance` (HEL-1206)                          | `get_output_provenance`                                                  |
 | Output panel controls       | `PATCH /api/panels/:id` (`config.controls`, read-modify-write)        | `add_output_control` / `update_output_control` / `remove_output_control` |
 | Create data source          | `POST /api/data-sources` (static)                                     | `create_data_source`                                                     |
 | Create pipeline             | `POST /api/pipelines` (single call: roots/steps/outputs)              | `create_pipeline`                                                        |

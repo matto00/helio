@@ -33,10 +33,10 @@ final case class PanelLayoutResponse(x: Int, y: Int, w: Int, h: Int)
  *  the discriminator. Per-subtype flat nullable fields at the response root
  *  are gone — readers narrow on `type` and read fields from `config`.
  *
- *  `dataAsOf` (HEL-234): retained on the wire shape for backward
- *  compatibility, but HEL-904 task 4.1 removed its only producer
- *  (`PipelineRepository.findLastRunAtByOutputDataTypeId`'s caller) — every
- *  caller of `fromDomain` now passes `None` (→ JSON `null`). */
+ *  `dataAsOf` (HEL-234, HEL-1177 corrected): populated ONLY by the shared public panel-list
+ *  route (`PublicDashboardRoutes`, `GET /api/dashboards/:id/panels`, from the bound pipeline's
+ *  `lastRunAt` for an Output panel); every other `PanelResponse.fromDomain` caller
+ *  (create/update/dashboard-contents/snapshot/proposals/patchsets) passes `None`. */
 final case class PanelResponse(
     id: String,
     dashboardId: String,
@@ -44,7 +44,9 @@ final case class PanelResponse(
     `type`: String,
     meta: ResourceMetaResponse,
     appearance: PanelAppearanceResponse,
-    ownerId: String,
+    // HEL-1197: `None` (key omitted on the wire) ONLY for the anonymous/share-token-only public
+    // panel list (`PublicDashboardRoutes`); every other producer emits `Some(ownerId)`.
+    ownerId: Option[String],
     config: JsValue,
     dataAsOf: Option[String],
     layout: Option[PanelLayoutResponse] = None
@@ -136,8 +138,12 @@ object PanelResponse {
    *  carries a `RootJsonFormat`; this dispatcher selects it and emits the
    *  config payload as the `config` field.
    *
-   *  `dataAsOf` (HEL-234): every call site now passes `None` (see the class
-   *  doc comment above).
+   *  `dataAsOf` (HEL-234, HEL-1177 corrected): only the public panel-list route passes a value
+   *  (see the class doc comment above); every other call site passes `None`.
+   *
+   *  `includeOwnerId` (HEL-1197): defaults `true` so every non-public call site is byte-identical;
+   *  the public panel-list route passes `false` for an anonymous/share-token-only caller so the
+   *  internal owner id never reaches the public wire.
    *
    *  `orphanedControlIds` (HEL-1189 design.md D5): `None` (every existing call site, unchanged
    *  behavior) emits `config` via the plain `PanelConfigCodec.encodeConfig` — no `orphaned` key on
@@ -150,7 +156,8 @@ object PanelResponse {
       panel: Panel,
       dataAsOf: Option[String] = None,
       layout: Option[PanelLayoutResponse] = None,
-      orphanedControlIds: Option[Set[String]] = None
+      orphanedControlIds: Option[Set[String]] = None,
+      includeOwnerId: Boolean = true
   ): PanelResponse =
     PanelResponse(
       id          = panel.id.value,
@@ -159,7 +166,7 @@ object PanelResponse {
       `type`      = panel.kind,
       meta        = ResourceMetaResponse.fromDomain(panel.meta),
       appearance  = PanelAppearanceResponse.fromDomain(panel.appearance),
-      ownerId     = panel.ownerId.value,
+      ownerId     = if (includeOwnerId) Some(panel.ownerId.value) else None,
       config      = configJsonFor(panel, orphanedControlIds),
       dataAsOf    = dataAsOf,
       layout      = layout
