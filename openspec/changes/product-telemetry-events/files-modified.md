@@ -1,0 +1,37 @@
+- `backend/src/main/resources/db/migration/V113__product_events.sql` — product_events (CHECK, FK cascade, dedupe partial unique index, owner RLS), five rollup/state tables, explicit helio_privileged GRANTs
+- `backend/src/main/scala/com/helio/services/telemetry/ProductEventRegistry.scala` — event/property allow-list, typed validators, occurredAt clamp
+- `backend/src/main/scala/com/helio/services/telemetry/ProductEventService.scala` — batch ingest (whole-batch 400) and best-effort recordSignup
+- `backend/src/main/scala/com/helio/services/telemetry/ProductEventRollupService.scala` — tick: rollup to high-water mark + throttled purge
+- `backend/src/main/scala/com/helio/services/telemetry/ProductTelemetryConfig.scala` — PRODUCT_EVENTS_RATE_LIMIT_PER_WINDOW / PRODUCT_EVENTS_RETENTION_DAYS
+- `backend/src/main/scala/com/helio/infrastructure/persistence/telemetry/ProductEventRepository.scala` — user-context insert, system-context rollupDay/purge under advisory lock
+- `backend/src/main/scala/com/helio/api/routes/telemetry/ProductEventRoutes.scala` — POST /api/events with its own rate limiter
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — wires service, separate limiter, route, AuthService dependency
+- `backend/src/main/scala/com/helio/app/Main.scala` — constructs rollup service and passes it to the scheduler
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineSchedulerService.scala` — runs rollup/purge on the existing tick
+- `backend/src/main/scala/com/helio/services/auth/AuthService.scala` — records signup_completed after the users insert commits
+- `backend/src/test/scala/com/helio/testsupport/ProductTelemetryDbHarness.scala` — non-superuser/non-BYPASSRLS embedded-Postgres harness
+- `backend/src/test/scala/com/helio/infrastructure/persistence/telemetry/ProductEventRepositorySpec.scala` — RLS isolation, dedupe, CHECK==registry, cascade, rollup fixtures, purge
+- `backend/src/test/scala/com/helio/services/telemetry/ProductEventRegistrySpec.scala` — validator red-first cases
+- `backend/src/test/scala/com/helio/services/telemetry/ProductEventRollupServiceSpec.scala` — tick, final-rollup-before-advance, purge on tick
+- `backend/src/test/scala/com/helio/api/routes/telemetry/ProductEventRoutesSpec.scala` — 202/400/401/429 and dedupe over the real route
+- `backend/src/test/scala/com/helio/services/auth/AuthServiceSpec.scala` — signup event recorded; failure does not break registration
+- `backend/src/test/scala/com/helio/infrastructure/persistence/RlsPolicyGuardSpec.scala` — product_events added to the RLS table map
+- `CLAUDE.md` — two new env vars and POST /api/events documented
+- `frontend/src/features/telemetry/track.ts` — typed fire-and-forget track() with offline-tolerant batching
+- `frontend/src/features/telemetry/track.test.ts` — non-blocking, swallow+warn once, offline retry, drop on 4xx
+- `frontend/src/features/telemetry/useFirstDashboardRendered.ts` — once-per-user first_dashboard_rendered hook
+- `frontend/src/features/telemetry/useFirstDashboardRendered.test.tsx` — emit / no-emit / per-user flag tests
+- `frontend/src/features/panels/provenance/provenanceTelemetry.ts` — fills the HEL-1207 hook; skips the public view
+- `frontend/src/features/panels/provenance/provenanceTelemetry.test.ts` — authenticated tracked, public not
+- `frontend/src/features/panels/ui/PanelCard.tsx` — PanelCardBody calls useFirstDashboardRendered
+- `frontend/src/features/panels/ui/PanelCard.firstDashboardTelemetry.test.tsx` — wiring test incl. empty-panel negative
+- `frontend/src/features/panels/ui/PanelCardBody.fanoutStatus.test.tsx` — partial test store now includes the auth reducer the new hook reads
+- `frontend/src/features/panels/ui/PanelCardBody.predispatch.test.tsx` — same: auth reducer added to the partial store
+- `backend/src/main/scala/com/helio/services/auth/AuthService.scala` — (cycle 2) completeOAuth also records signup_completed for newly created Google users
+- `backend/src/test/scala/com/helio/services/auth/AuthServiceSpec.scala` — (cycle 2) Google signup recorded once, not on returning login; failure does not break it
+- `frontend/src/features/telemetry/firstDashboardFlag.ts` — (cycle 2) delivered flag set only on confirmed delivery, per-page-load claim
+- `frontend/src/features/telemetry/track.ts` — (cycle 2) user-scoped queue, identity hook, marks first_dashboard_rendered delivered on 2xx
+- `frontend/src/features/telemetry/track.test.ts` — (cycle 2) cross-user, no-identity, delivery-flag tests
+- `frontend/src/features/telemetry/useFirstDashboardRendered.ts` and `.test.tsx` — (cycle 2) use the claim/delivered flag
+- `frontend/src/main.tsx` — (cycle 2) wires setTelemetryIdentity to the store
+- `openspec/changes/product-telemetry-events/design.md`, `specs/product-telemetry/spec.md` — (cycle 2) behaviour statements updated

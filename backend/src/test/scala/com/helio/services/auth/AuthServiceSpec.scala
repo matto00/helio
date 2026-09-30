@@ -1,9 +1,13 @@
 package com.helio.services.auth
 
 import com.helio.services.auth.{AuthResult, AuthService, LoginOutcome, UserTierConfig}
-import com.helio.api.protocols.auth.{LoginRequest, RegisterRequest}
+import com.helio.api.protocols.auth.{GoogleProfile, LoginRequest, RegisterRequest}
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.domain.model.UserId
+import com.helio.domain.util.SystemClock
 import com.helio.infrastructure.persistence.auth.{OAuthStateRepository, UserRepository}
+import com.helio.infrastructure.persistence.telemetry.ProductEventRepository
+import com.helio.services.telemetry.{ProductEventService, ValidatedProductEvent}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -59,11 +63,12 @@ class AuthServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
     await(db.run(sqlu"TRUNCATE TABLE user_sessions, users RESTART IDENTITY CASCADE"))
   }
 
-  private def serviceWith(ownerEmails: Set[String]): AuthService =
+  private def serviceWith(ownerEmails: Set[String], productEvents: Option[ProductEventService] = None): AuthService =
     new AuthService(
       userRepo,
       UserTierConfig(ownerEmails, UserTierConfig.DefaultBetaDailyMessageLimit),
-      stateStore = oauthStateStore
+      stateStore = oauthStateStore,
+      productEventService = productEvents
     )
 
   private def register(service: AuthService, email: String, password: String = "password123"): AuthResult =
@@ -107,6 +112,49 @@ class AuthServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
       cleanDb()
       val result = register(serviceWith(Set("Owner@Example.com")), "owner@example.com")
       result.response.user.tier shouldBe "owner"
+    }
+
+    "records exactly one signup_completed event for the new user" in {
+      cleanDb()
+      val events = new ProductEventService(new ProductEventRepository(new DbContext(db, db)), SystemClock)
+      val result = register(serviceWith(Set.empty, Some(events)), "tracked@example.com")
+      import slick.jdbc.PostgresProfile.api._
+      val id = result.response.user.id
+      await(db.run(sql"SELECT COUNT(*) FROM product_events WHERE event = 'signup_completed' AND user_id = $id::uuid".as[Int].head)) shouldBe 1
+    }
+
+    "records signup_completed for a Google-created user, but not for a returning Google login" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+      val events  = new ProductEventService(new ProductEventRepository(new DbContext(db, db)), SystemClock)
+      val service = serviceWith(Set.empty, Some(events))
+      val profile = GoogleProfile("google-sub-1", Some("g@example.com"), Some("G"), None)
+      def signups() = await(db.run(sql"SELECT COUNT(*) FROM product_events WHERE event = 'signup_completed'".as[Int].head))
+      await(service.completeOAuth(profile))
+      signups() shouldBe 1
+      await(service.completeOAuth(profile))
+      signups() shouldBe 1
+    }
+
+    "still completes a Google signup when recording the event fails" in {
+      cleanDb()
+      val failing = new ProductEventRepository(new DbContext(db, db)) {
+        override def insertBatch(userId: UserId, events: Seq[ValidatedProductEvent]): Future[Int] =
+          Future.failed(new RuntimeException("telemetry store down"))
+      }
+      val service = serviceWith(Set.empty, Some(new ProductEventService(failing, SystemClock)))
+      await(service.completeOAuth(GoogleProfile("google-sub-2", Some("g2@example.com"), None, None))) should not be null
+    }
+
+    "still succeeds when recording the signup event fails" in {
+      cleanDb()
+      val failing = new ProductEventRepository(new DbContext(db, db)) {
+        override def insertBatch(userId: UserId, events: Seq[ValidatedProductEvent]): Future[Int] =
+          Future.failed(new RuntimeException("telemetry store down"))
+      }
+      val result = register(serviceWith(Set.empty, Some(new ProductEventService(failing, SystemClock))), "resilient@example.com")
+      result.response.user.email shouldBe "resilient@example.com"
+      storedTier("resilient@example.com") shouldBe "free"
     }
 
     "an unset (empty) allowlist never assigns owner" in {

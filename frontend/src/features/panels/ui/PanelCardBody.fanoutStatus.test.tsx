@@ -14,6 +14,7 @@ import { Provider } from "react-redux";
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import * as outputService from "../../pipelines/services/outputService";
 import { getOutputId } from "../state/panelNarrowing";
+import { authReducer } from "../../auth/state/authSlice";
 import { panelsReducer } from "../state/panelsSlice";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
@@ -73,7 +74,7 @@ const mockGetOutputRows = outputService.getOutputRows as jest.MockedFunction<
 
 function makeStore(panel: ReturnType<typeof makeOutputPanel>) {
   return configureStore({
-    reducer: { panels: panelsReducer } as never,
+    reducer: { panels: panelsReducer, auth: authReducer } as never,
     preloadedState: {
       panels: {
         items: [panel],
@@ -156,7 +157,7 @@ describe("PanelCardBody — fan-out refresh status region (HEL-1094 D5, task 2.3
 
     const panel = { ...makeOutputPanel(), type: "text", config: { content: "hi" } } as never;
     const store = configureStore({
-      reducer: { panels: panelsReducer } as never,
+      reducer: { panels: panelsReducer, auth: authReducer } as never,
       preloadedState: {
         panels: {
           items: [panel],

@@ -28,6 +28,7 @@ import { MemoryRouter } from "react-router-dom";
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { ThemeProvider } from "../../../theme/ThemeProvider";
 import { getOutputId } from "../state/panelNarrowing";
+import { authReducer } from "../../auth/state/authSlice";
 import { panelsReducer } from "../state/panelsSlice";
 import { usePanelData } from "../hooks/usePanelData";
 import { PanelCardBody } from "./PanelCard";
@@ -76,6 +77,7 @@ function makeFrozenPaginationStore(panel: Panel) {
   const frozen = { ...seed, items: [panel] };
   return configureStore({
     reducer: {
+      auth: authReducer,
       panels: (state = frozen, action: UnknownAction) => {
         const next = panelsReducer(state as never, action as never);
         return { ...next, paginationState: frozen.paginationState };

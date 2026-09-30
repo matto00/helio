@@ -7,6 +7,7 @@ import { App } from "./app/App";
 import { OverlayProvider } from "./shared/chrome/OverlayProvider";
 import { updateUserPreferences } from "./features/auth/state/authSlice";
 import { setupAuthInterceptor } from "./services/httpClient";
+import { setTelemetryIdentity } from "./features/telemetry/track";
 import { store, type RootState, type AppDispatch } from "./store/store";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import "./theme/theme.css";
@@ -21,6 +22,8 @@ setupAuthInterceptor(
     }
   },
 );
+
+setTelemetryIdentity(() => store.getState().auth.currentUser?.id ?? null);
 
 function ThemedApp() {
   const dispatch = useDispatch<AppDispatch>();

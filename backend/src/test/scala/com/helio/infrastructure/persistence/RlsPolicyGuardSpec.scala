@@ -147,7 +147,9 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     "pipeline_run_rate_window" -> None,
     // V110 — pipeline_auto_run_debounce, indirect owner via pipeline_id -> pipelines.owner_id,
     // V62 (pipeline_schedules) pattern (HEL-1093)
-    "pipeline_auto_run_debounce" -> None
+    "pipeline_auto_run_debounce" -> None,
+    // V113 — product_events, direct owner (user_id); its five rollup tables hold aggregates only and carry no RLS (HEL-1208)
+    "product_events" -> None
   )
 
   override def beforeAll(): Unit = {
