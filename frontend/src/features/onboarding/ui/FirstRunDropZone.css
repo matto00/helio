@@ -1,0 +1,202 @@
+/* HEL-1209 — the empty-workspace drop zone. An opaque bordered card (§0.2), one entrance
+ * animation (§3) mirroring `OnboardingChecklist.css`, buttons following the §5 Primary/Secondary/
+ * Ghost recipes. The accent appears only on the Primary button and the drag-over wash (a
+ * selection state), never on structure. */
+
+.first-run-drop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  padding: var(--space-6);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-card);
+  animation: first-run-drop-in var(--transition-slow) backwards;
+}
+
+@keyframes first-run-drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.first-run-drop__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-medium);
+  color: var(--app-text);
+  letter-spacing: -0.01em;
+}
+
+.first-run-drop__lede {
+  margin: 0;
+  max-width: 52ch;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+  line-height: 1.5;
+}
+
+.first-run-drop__target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-5);
+  border: 1px dashed var(--app-border-strong);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+  text-align: center;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.first-run-drop__target--active {
+  border-color: var(--app-accent);
+  background: var(--app-accent-dim);
+}
+
+.first-run-drop__icon {
+  width: 28px;
+  height: 28px;
+  color: var(--app-text-muted);
+}
+
+.first-run-drop__target-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text);
+}
+
+.first-run-drop__url {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.first-run-drop__url-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--app-text-muted);
+}
+
+.first-run-drop__url-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.first-run-drop__url-row .ui-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.first-run-drop__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-sm);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+/* ── Button recipes (DESIGN.md §5) ─────────────────────────────────── */
+
+/* Only the card's own direct-child button ("Set up step by step") is left-aligned; the primary
+ * button inside the centered drop target and the one in the URL row keep their parents' layout. */
+.first-run-drop > .first-run-drop__button {
+  align-self: flex-start;
+}
+
+.first-run-drop__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  height: var(--control-md);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.first-run-drop__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.first-run-drop__button--primary {
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+}
+
+.first-run-drop__button--primary:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.first-run-drop__button--secondary {
+  border-color: var(--app-border-subtle);
+  background: transparent;
+  color: var(--app-text-muted);
+}
+
+.first-run-drop__button--secondary:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+}
+
+.first-run-drop__button--ghost {
+  background: transparent;
+  color: var(--app-text-muted);
+}
+
+.first-run-drop__button--ghost:hover:not(:disabled) {
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+}
+
+/* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  .first-run-drop__button::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}
+
+@media (max-width: 430px) {
+  .first-run-drop {
+    padding: var(--space-4);
+  }
+
+  .first-run-drop__target {
+    padding: var(--space-5) var(--space-3);
+  }
+
+  .first-run-drop__url-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

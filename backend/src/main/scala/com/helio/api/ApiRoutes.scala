@@ -8,7 +8,7 @@ import org.apache.pekko.http.cors.scaladsl.CorsDirectives._
 import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
-import com.helio.infrastructure.ai.{ClaudeAiStepClient, ClaudeClient, ClaudeConfig, HttpClaudeTransport}
+import com.helio.infrastructure.ai.{ClaudeAiStepClient, ClaudeClient, ClaudeConfig, ClaudeTransport, HttpClaudeTransport}
 import com.helio.domain.ai.AiStepClient
 import com.helio.api.http._
 import com.helio.api.routes.HealthRoutes
@@ -22,6 +22,7 @@ import com.helio.api.routes.hooks._
 import com.helio.api.routes.panels._
 import com.helio.api.routes.patchsets._
 import com.helio.api.routes.pipelines._
+import com.helio.api.routes.firstrun.FirstRunRoutes
 import com.helio.api.routes.proposals._
 import com.helio.api.routes.sources._
 import com.helio.api.routes.workspace._
@@ -33,6 +34,7 @@ import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, Ale
 import com.helio.services.auth.{AiPipelineQuotaGate, ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserTierConfig}
 import com.helio.services.assistant.{AssistantConversationService, AssistantService}
 import com.helio.services.panels.{AutoLayoutService, OutputControlsValidator, PanelCapabilityService, PanelService}
+import com.helio.services.firstrun.FirstRunDashboardService
 import com.helio.services.proposals.{CombinedProposalService, DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.{ConnectorCompletionService, ConnectorEntityService, ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
 import com.helio.infrastructure.persistence.sources.ConnectorCompletionTokenRepository
@@ -205,7 +207,11 @@ final class ApiRoutes(
     pipelineRunNotifyBus: PipelineRunNotifyBus = null,
     // HEL-1208: read once from env like rateLimitConfig/pipelineRunGuardConfig; a spec passes its own
     // value (e.g. a tiny rate limit) rather than depending on the process environment.
-    productTelemetryConfig: ProductTelemetryConfig = ProductTelemetryConfig.fromEnv()
+    productTelemetryConfig: ProductTelemetryConfig = ProductTelemetryConfig.fromEnv(),
+    // HEL-1209: test seams so a spec can wire a counting Claude transport through EVERY Claude-bearing
+    // service and assert the first-run path never touches it; production passes neither (Main.scala).
+    claudeConfigProvider: () => Either[String, ClaudeConfig] = () => ClaudeConfig.fromEnv(),
+    claudeTransportFactory: Option[String => ClaudeTransport] = None
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -213,6 +219,8 @@ final class ApiRoutes(
   private val log = LoggerFactory.getLogger(getClass)
 
   private implicit val ec = system.executionContext
+  private def transportFor(apiKey: String): ClaudeTransport =
+    claudeTransportFactory.fold[ClaudeTransport](new HttpClaudeTransport(apiKey))(_(apiKey))
   private implicit val mat: Materializer = SystemMaterializer(system).materializer
 
   // HEL-477: constructed once, shared by every mutating service below —
@@ -409,7 +417,7 @@ final class ApiRoutes(
   // .Unavailable` below, exactly like the missing-`ANTHROPIC_API_KEY` branch -- an ungated
   // `ClaudeAiStepClient` is never constructible either way.
   private val aiStepClient: AiStepClient =
-    (ClaudeConfig.fromEnv(), Option(dbContext)) match {
+    (claudeConfigProvider(), Option(dbContext)) match {
       case (Left(reason), _) =>
         log.warn(s"pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): $reason")
         AiStepClient.Unavailable
@@ -418,7 +426,7 @@ final class ApiRoutes(
         AiStepClient.Unavailable
       case (Right(claudeConfig), Some(ctx)) =>
         val quotaGate = new AiPipelineQuotaGate.Live(userRepo, new AssistantDailyUsageRepository(ctx), userTierConfig)
-        new ClaudeAiStepClient(new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey)), quotaGate)
+        new ClaudeAiStepClient(new ClaudeClient(claudeConfig, transportFor(claudeConfig.apiKey)), quotaGate)
     }
 
   val pipelineRunService = new PipelineRunService(
@@ -488,6 +496,10 @@ final class ApiRoutes(
   // is DashboardProposalService, constructed above), no repository access of
   // its own.
   private val combinedProposalService = new CombinedProposalService(pipelineProposalService, proposalService)
+  // HEL-1209: deterministic first-run builder over the same already-constructed services; takes no
+  // Claude collaborator by construction and is mounted ungated by tier.
+  private val firstRunDashboardService =
+    new FirstRunDashboardService(dataSourceRepo, dataSourceService, pipelineProposalService, proposalService.apply)
   // HEL-413: owner-scoped journal repository `PatchSetApplyService`'s successful-apply write and
   // `PatchSetUndoService`'s read both share -- constructed unconditionally (mirrors
   // patchSetApplyService's own always-constructed pattern below) since `dbContext` being null only
@@ -705,7 +717,7 @@ final class ApiRoutes(
   // requirement"). Composes the already-constructed workspaceContextService/panelCapabilityService/
   // proposalService above, plus a fresh ClaudeClient over the production HttpClaudeTransport.
   private val dashboardAuthoringServiceOpt: Option[DashboardAuthoringService] =
-    (ClaudeConfig.fromEnv(), authoringConversationRepoOpt) match {
+    (claudeConfigProvider(), authoringConversationRepoOpt) match {
       case (Left(reason), _) =>
         log.warn(s"POST /api/authoring/dashboard disabled: $reason")
         None
@@ -713,7 +725,7 @@ final class ApiRoutes(
         log.warn("POST /api/authoring/dashboard disabled: no DbContext configured")
         None
       case (Right(claudeConfig), Some(conversationRepo)) =>
-        val claudeClient = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
+        val claudeClient = new ClaudeClient(claudeConfig, transportFor(claudeConfig.apiKey))
         Some(new DashboardAuthoringService(workspaceContextService, panelCapabilityService, proposalService, claudeClient, conversationRepo))
     }
   // HEL-411: unconditional (not Option-guarded) — every dependency (dashboardRepo/panelRepo/
@@ -729,7 +741,7 @@ final class ApiRoutes(
   // outside that match arm) — both are cheap, stateless wrappers over the same pooled Pekko HTTP
   // client, so this costs nothing beyond one extra object allocation per process.
   private val refinementServiceOpt: Option[RefinementService] =
-    (ClaudeConfig.fromEnv(), authoringConversationRepoOpt) match {
+    (claudeConfigProvider(), authoringConversationRepoOpt) match {
       case (Left(reason), _) =>
         log.warn(s"POST /api/refinements disabled: $reason")
         None
@@ -737,7 +749,7 @@ final class ApiRoutes(
         log.warn("POST /api/refinements disabled: no DbContext configured")
         None
       case (Right(claudeConfig), Some(conversationRepo)) =>
-        val claudeClient = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
+        val claudeClient = new ClaudeClient(claudeConfig, transportFor(claudeConfig.apiKey))
         Some(new RefinementService(refinementGrounding, patchSetPreviewService, claudeClient, conversationRepo))
     }
 
@@ -751,12 +763,12 @@ final class ApiRoutes(
   // Metric branch is removed outright (not retargeted), so metricService is no longer one of its
   // constructor dependencies.
   private val assistantServiceOpt: Option[AssistantService] =
-    ClaudeConfig.fromEnv() match {
+    claudeConfigProvider() match {
       case Left(reason) =>
         log.warn(s"POST /api/assistant-conversations/:id/converse disabled: $reason")
         None
       case Right(claudeConfig) =>
-        val claudeClient           = new ClaudeClient(claudeConfig, new HttpClaudeTransport(claudeConfig.apiKey))
+        val claudeClient           = new ClaudeClient(claudeConfig, transportFor(claudeConfig.apiKey))
         val workspaceSearchService = new WorkspaceSearchService(dashboardService, dataSourceService, outputRepoOpt.orNull, pipelineService, workspaceContextService)
         Some(new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, proposalService, pipelineProposalService, combinedProposalService, patchSetPreviewService, sourceService))
     }
@@ -963,6 +975,7 @@ final class ApiRoutes(
                   // D6) — shares no path space with any existing route, so
                   // mount order relative to the others is irrelevant.
                   new CombinedProposalRoutes(combinedProposalService, authenticatedUser).routes,
+                  new FirstRunRoutes(firstRunDashboardService, authenticatedUser).routes,
                   // HEL-406: brand-new top-level `patch-sets` prefix (mirrors
                   // `proposals` above) — shares no path space with any
                   // existing route, so mount order is irrelevant.

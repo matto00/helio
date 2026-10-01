@@ -128,6 +128,7 @@ Key endpoints:
 - `GET/DELETE /api/data-sources/:id`
 - `POST /api/authoring/dashboard` — NL goal → grounded, validated `DashboardProposal` (`?stream=true` for SSE progress). Never applies the proposal; reuses `DashboardProposalService.validate`. Degrades to `503` when `ANTHROPIC_API_KEY` is unset. See HEL-392.
 - `POST /api/events` — first-party product telemetry (HEL-1208): authenticated, write-only (no read endpoint), batch of 1..25 `{event, properties?, occurredAt?}`; any unknown event/property, wrong value type, or client-posted `signup_completed` rejects the whole request with `400`. Own rate limit (`PRODUCT_EVENTS_RATE_LIMIT_PER_WINDOW`).
+- `POST /api/first-run/dashboard` — deterministic zero-to-dashboard build (HEL-1209): `{sourceId}` of a caller-owned CSV source → rule-classified columns, a cast + shape-based pipeline (table always; time-series for date + numeric; top-n for category + numeric) applied and run, and a full-width dashboard. No Claude call, not tier-gated; rolls the pipeline back if the dashboard phase fails. The client then lands on the authenticated `/dashboards/:id` route.
 - `GET /health`
 
 ### Git conventions

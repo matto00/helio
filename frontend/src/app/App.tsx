@@ -30,6 +30,7 @@ import {
 import { setAddSourceModalOpen } from "../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { usePickerSelection } from "../shared/chrome/usePickerSelection";
+import { isDashboardViewPath } from "../shared/chrome/sections";
 import { resolveDashboardBackground } from "../theme/appearance";
 import type { DashboardAppearance } from "../features/dashboards/types/dashboard";
 import { DashboardAppearancePreviewContext } from "../features/dashboards/hooks/dashboardAppearancePreviewContext";
@@ -66,7 +67,7 @@ export function AppShell() {
   const [isRefinementOpen, setIsRefinementOpen] = useState(false);
   const [isQuickLauncherOpen, setIsQuickLauncherOpen] = useState(false);
   const location = useLocation();
-  const onDashboardView = location.pathname === "/";
+  const onDashboardView = isDashboardViewPath(location.pathname);
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";

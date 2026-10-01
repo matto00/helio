@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/first-run/first-run-dashboard-response.schema.json",
+  "title": "FirstRunDashboardResponse",
+  "description": "201 body of POST /api/first-run/dashboard (HEL-1209): the new dashboard to land on, plus the names of what was built so the client can prefill an assistant draft.",
+  "type": "object",
+  "properties": {
+    "dashboardId": { "type": "string" },
+    "dashboardName": { "type": "string" },
+    "panelCount": { "type": "integer", "minimum": 1 },
+    "pipelineId": { "type": "string" },
+    "pipelineName": { "type": "string" },
+    "sourceId": { "type": "string" },
+    "sourceName": { "type": "string" }
+  },
+  "required": [
+    "dashboardId",
+    "dashboardName",
+    "panelCount",
+    "pipelineId",
+    "pipelineName",
+    "sourceId",
+    "sourceName"
+  ],
+  "additionalProperties": false
+}

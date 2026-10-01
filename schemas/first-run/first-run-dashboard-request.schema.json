@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/first-run/first-run-dashboard-request.schema.json",
+  "title": "FirstRunDashboardRequest",
+  "description": "Body of POST /api/first-run/dashboard (HEL-1209). `sourceId` names a caller-owned CSV data source (already created via the ordinary CSV source routes). The server classifies its columns by rule, builds and runs a pipeline, and creates a dashboard — no model call, for every tier.",
+  "type": "object",
+  "properties": {
+    "sourceId": { "type": "string", "minLength": 1 }
+  },
+  "required": ["sourceId"],
+  "additionalProperties": false
+}

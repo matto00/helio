@@ -11,7 +11,6 @@ import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { useToast } from "../../toasts/hooks/useToast";
 import type { InferredField, StaticColumn } from "../types/dataSource";
 import {
-  createCsvSource,
   createImageSourceUpload,
   createImageSourceUrl,
   createRestSource,
@@ -37,6 +36,7 @@ import { InlineError } from "../../../shared/chrome/InlineError";
 import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";
 import { useRestSourceForm } from "../hooks/useRestSourceForm";
+import { createCsvFromFields } from "../utils/csvSourceCreate";
 
 type SourceType = "rest_api" | "csv" | "dataset" | "sql" | "text" | "pdf" | "image";
 type Step = "configure" | "preview";
@@ -170,11 +170,9 @@ export function AddSourceModal({ onClose, onCreated }: AddSourceModalProps) {
         );
         finishCreate(source);
       } else {
-        // HEL-893 design D3/tasks.md 4.2: every CSV field materializes as `string`, always —
-        // send `string` for every override regardless of `fields` state, so the UI can never
+        // HEL-893: `createCsvFromFields` forces every field to `string`, so the UI can never
         // submit a non-string CSV type override even if the disabled Select is bypassed.
-        const csvFields = fields.map((f) => ({ ...f, dataType: "string" }));
-        const created = await createCsvSource(name.trim(), csvFile!, csvFields);
+        const created = await createCsvFromFields(name.trim(), csvFile!, fields);
         finishCreate(created);
       }
     } catch {

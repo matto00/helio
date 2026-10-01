@@ -7,6 +7,7 @@ import com.helio.api.protocols.assistant._
 import com.helio.api.protocols.audit._
 import com.helio.api.protocols.auth._
 import com.helio.api.protocols.dashboards._
+import com.helio.api.protocols.firstrun._
 import com.helio.api.protocols.hooks._
 import com.helio.api.protocols.panels._
 import com.helio.api.protocols.patchsets._
@@ -95,6 +96,7 @@ trait JsonProtocols
     with DashboardProposalProtocol
     with PipelineProposalProtocol
     with CombinedProposalProtocol
+    with FirstRunProtocol
     with PipelineAnalyzeProposalProtocol
     with PatchSetProtocol
     with PatchSetApplyProtocol

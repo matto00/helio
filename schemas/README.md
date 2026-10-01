@@ -3,7 +3,7 @@
 JSON Schema (2020-12) contracts that are the source of truth for
 request/response wire shapes shared between frontend and backend, grouped
 into one subdirectory per domain capability: `agent-memory`, `alerts`,
-`assistant`, `auth`, `authoring`, `dashboards`, `data-types`, `hooks`,
+`assistant`, `auth`, `authoring`, `dashboards`, `data-types`, `first-run`, `hooks`,
 `metrics`, `panels`, `patch-sets`, `pipelines`, `shared`, `workspace`.
 
 Each domain subdirectory holds that domain's schema files directly — they

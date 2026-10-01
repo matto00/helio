@@ -16,6 +16,7 @@ import { SettingsPage } from "../features/settings/ui/SettingsPage";
 import { SourceDetailPage } from "../features/sources/ui/SourceDetailPage";
 import { SourcesPage } from "../features/sources/ui/SourcesPage";
 import { PatchSetReviewPage } from "../features/patchSets/ui/PatchSetReviewPage";
+import { DashboardRoute } from "../features/dashboards/ui/DashboardRoute";
 import { PublicDashboardViewerPage } from "../features/dashboards/ui/PublicDashboardViewerPage";
 import { PanelList } from "../features/panels/ui/PanelList";
 import { EmptyState } from "../shared/ui/EmptyState";
@@ -98,6 +99,9 @@ export function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/" element={<PanelList />} />
+          {/* HEL-1209: the first-run landing URL; the public viewer is the longer
+              `/dashboards/:id/panels`, registered above outside ProtectedRoute. */}
+          <Route path="/dashboards/:id" element={<DashboardRoute />} />
           <Route path="/sources" element={<SourcesPage />} />
           <Route path="/sources/:id" element={<SourceDetailPage />} />
           <Route path="/pipelines" element={<PipelinesPage />} />

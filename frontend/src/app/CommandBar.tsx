@@ -20,7 +20,7 @@ import { useCreatePanelAction } from "../features/panels/hooks/useCreatePanelAct
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { OrbitMark } from "../shared/chrome/OrbitMark";
 import { SaveStateIndicator } from "../shared/chrome/SaveStateIndicator";
-import { pickerIdForPathname } from "../shared/chrome/sections";
+import { isDashboardViewPath, pickerIdForPathname } from "../shared/chrome/sections";
 import { formatCombo, isMacPlatform, shortcuts } from "../shared/chrome/shortcuts";
 import { usePickerSelection } from "../shared/chrome/usePickerSelection";
 import { ActionsMenu, type ActionsMenuItem } from "../shared/chrome/ActionsMenu";
@@ -72,7 +72,7 @@ export function CommandBar({
     : "";
   const currentUser = useAppSelector((state) => state.auth.currentUser);
 
-  const onDashboardView = location.pathname === "/";
+  const onDashboardView = isDashboardViewPath(location.pathname);
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
 

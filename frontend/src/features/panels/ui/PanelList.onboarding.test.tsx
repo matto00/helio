@@ -81,11 +81,26 @@ describe("PanelList <-> OnboardingChecklist integration (HEL-554)", () => {
   // async transient — whether a real browser ever paints an intermediate
   // frame — is not observable through RTL's `act()`-batched renders; that
   // is verified live in section 5 of tasks.md, not here.)
-  it("shows the checklist on the very first render for an empty, un-dismissed account, and the superseded empty state never renders", () => {
+  //
+  // HEL-1209: the zero-dashboard landing is now the first-run drop zone; the checklist is the
+  // "Set up step by step" path, so it is hidden until that is chosen.
+  it("shows the first-run drop zone, not the checklist or the superseded empty state, on the very first render for an empty account", () => {
     renderWithStore(<PanelList />, emptyAccount);
 
-    expect(screen.getByRole("region", { name: "Getting started" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Build your first dashboard" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Getting started" })).not.toBeInTheDocument();
     expect(screen.queryByText("No dashboards yet")).not.toBeInTheDocument();
+  });
+
+  it("reveals the three-step checklist, and hides the drop zone, when 'Set up step by step' is chosen", () => {
+    renderWithStore(<PanelList />, emptyAccount);
+
+    fireEvent.click(screen.getByRole("button", { name: "Set up step by step" }));
+
+    expect(screen.getByRole("region", { name: "Getting started" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Build your first dashboard" }),
+    ).not.toBeInTheDocument();
   });
 
   // Mirror scenario — a returning user with a dashboard is not auto-activated
@@ -132,7 +147,8 @@ describe("PanelList <-> OnboardingChecklist integration (HEL-554)", () => {
       panels: emptyAccount.panels,
     });
     expect(screen.queryByRole("region", { name: "Getting started" })).not.toBeInTheDocument();
-    expect(screen.getByText("No dashboards yet")).toBeInTheDocument();
+    // A previously-dismissed user with zero dashboards still lands on the drop zone.
+    expect(screen.getByRole("region", { name: "Build your first dashboard" })).toBeInTheDocument();
   });
 
   // 6.9 — supersede: neither zero-content EmptyState renders while the
@@ -233,6 +249,7 @@ describe("PanelList <-> OnboardingChecklist integration (HEL-554)", () => {
       response: { data: { error: "Name already taken." } },
     });
     renderWithStore(<PanelList />, emptyAccount);
+    fireEvent.click(screen.getByRole("button", { name: "Set up step by step" }));
 
     fireEvent.click(screen.getByRole("button", { name: "New dashboard" }));
 
@@ -249,6 +266,7 @@ describe("PanelList <-> OnboardingChecklist integration (HEL-554)", () => {
   describe("emphasis placement (D6)", () => {
     it("uses Primary on the first incomplete step's action in the superseding (zero-content) placement", () => {
       renderWithStore(<PanelList />, emptyAccount);
+      fireEvent.click(screen.getByRole("button", { name: "Set up step by step" }));
       // Step 1 (source) is the first incomplete step here — it carries the
       // emphasis, not "New dashboard" (step 3), which is Ghost instead.
       expect(screen.getByRole("button", { name: "Go to Data Sources" })).toHaveClass(

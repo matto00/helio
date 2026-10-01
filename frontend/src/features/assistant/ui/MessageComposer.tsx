@@ -42,6 +42,8 @@ interface MessageComposerProps {
    *  user with zero conversations, design.md D5) -- in that case the send handler creates one
    *  first, rather than being blocked behind a separate, unreachable "create conversation" step. */
   conversationId: string | null;
+  /** Seeds the draft once at mount (HEL-1209's "Refine with the assistant" hand-off). */
+  initialDraft?: string;
 }
 
 /** Real message composer (HEL-665, reopened composer ticket, design.md D5/D6) -- a text input +
@@ -80,9 +82,9 @@ interface MessageComposerProps {
  *  (regressing HEL-695's continuous-sending-indication fix). `selfCreatedIdRef` marks that one-shot
  *  exception; `prevConversationIdRef` lets the effect distinguish a genuine id change from a
  *  same-id re-render. */
-export function MessageComposer({ conversationId }: MessageComposerProps) {
+export function MessageComposer({ conversationId, initialDraft }: MessageComposerProps) {
   const dispatch = useAppDispatch();
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialDraft ?? "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingSend, setPendingSend] = useState<{ key: string; text: string } | null>(null);

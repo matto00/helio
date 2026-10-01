@@ -56,7 +56,7 @@ function buildToolResultsById(
  * load *failure* are unrelated to that race (a stale/broken GET for an already-selected
  * conversation, not a fresh send) and keep their own separate early returns, composer-less exactly
  * as before. */
-export function ActiveConversationPanel() {
+export function ActiveConversationPanel({ initialDraft }: { initialDraft?: string }) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const currentUser = useAppSelector((state) => state.auth.currentUser);
@@ -249,7 +249,7 @@ export function ActiveConversationPanel() {
   return (
     <div className={rootClass}>
       {panelContent}
-      <MessageComposer conversationId={effectiveId} />
+      <MessageComposer conversationId={effectiveId} initialDraft={initialDraft} />
       <div ref={scrollAnchorRef} aria-hidden="true" />
     </div>
   );

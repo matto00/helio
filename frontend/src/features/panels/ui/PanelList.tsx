@@ -8,6 +8,8 @@ import { defaultDashboardLayout } from "../../dashboards/state/dashboardLayout";
 import { updateUserPreferences } from "../../auth/state/authSlice";
 import { useCreateDashboardAction } from "../../dashboards/hooks/useCreateDashboardAction";
 import { useOnboardingHost } from "../../onboarding/hooks/useOnboardingHost";
+import { reopenOnboarding } from "../../onboarding/state/onboardingSlice";
+import { FirstRunDropZone } from "../../onboarding/ui/FirstRunDropZone";
 import { OnboardingChecklist } from "../../onboarding/ui/OnboardingChecklist";
 import { CrossFilterIndicator } from "./CrossFilterIndicator";
 import { PanelGrid } from "./grid/PanelGrid";
@@ -51,6 +53,9 @@ export function PanelList() {
   // the sources/pipelines fetch trigger) and reports whether the checklist
   // should be visible on this render.
   const { visible: onboardingVisible } = useOnboardingHost();
+  // HEL-1209 — "Set up step by step" opts out of the first-run drop zone for the rest of this
+  // mount; the checklist then shows exactly as before.
+  const [stepByStep, setStepByStep] = useState(false);
   // HEL-539 — local in-flight flag for the panels-list Retry action (status
   // itself flips straight to "loading" on retry, which swaps StatusMessage
   // out of its "failed" branch entirely; this only matters for the brief
@@ -152,6 +157,10 @@ export function PanelList() {
     selectedDashboardId !== null &&
     items.length === 0 &&
     (status === "succeeded" || staleDashboardId === selectedDashboardId);
+  // HEL-1209 — a settled-empty workspace lands on the drop zone, which supersedes both the
+  // checklist and the plain "No dashboards yet" empty state.
+  const showFirstRunDropZone =
+    wouldShowZeroDashboardEmptyState && dashboardsStatus === "succeeded" && !stepByStep;
   const onboardingSupersedesEmptyState =
     onboardingVisible && (wouldShowZeroDashboardEmptyState || wouldShowZeroPanelEmptyState);
 
@@ -343,7 +352,15 @@ export function PanelList() {
           (D6's "above the grid" placement, e.g. the all-four-complete state,
           where real panels render beneath the still-visible completed
           chain). */}
-      {onboardingVisible ? (
+      {showFirstRunDropZone ? (
+        <FirstRunDropZone
+          onStepByStep={() => {
+            setStepByStep(true);
+            dispatch(reopenOnboarding());
+          }}
+        />
+      ) : null}
+      {onboardingVisible && !showFirstRunDropZone ? (
         <OnboardingChecklist
           createDashboardAction={createDashboardAction}
           emphasisVariant={onboardingSupersedesEmptyState ? "primary" : "secondary"}
@@ -403,7 +420,7 @@ export function PanelList() {
       </div>
       {contentGateOpen ? (
         <>
-          {wouldShowZeroDashboardEmptyState && !onboardingVisible
+          {wouldShowZeroDashboardEmptyState && !onboardingVisible && !showFirstRunDropZone
             ? // HEL-548 D6/D6a/task 3.3 (HEL-770 absorbed) — conditional
               // error intent, applied within this ONE branch: a failed
               // create renders the error-title/-icon/role="alert" treatment
