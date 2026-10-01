@@ -1,3 +1,6 @@
+import sbt.librarymanagement.LibraryManagementCodec.given
+import sjsonnew.support.scalajson.unsafe.{Converter, Parser}
+
 ThisBuild / scalaVersion := "2.13.15"
 
 def loadDotEnv(baseDir: File): Map[String, String] = {
@@ -29,11 +32,12 @@ def loadDotEnv(baseDir: File): Map[String, String] = {
 // the classpath. `osv-scanner` (backend/osv-scanner.toml) consumes this file's output.
 val generateSbom = taskKey[File]("Generate a CycloneDX 1.4 SBOM from the resolved compile-scope classpath")
 
-generateSbom := {
+generateSbom := Def.uncached {
   val log = streams.value.log
   val classpath = (Compile / externalDependencyClasspath).value
   val modules = classpath
-    .flatMap(_.get(moduleID.key))
+    .flatMap(_.get(moduleIDStr))
+    .map(json => Converter.fromJsonUnsafe[ModuleID](Parser.parseUnsafe(json)))
     .distinct
     .sortBy(m => (m.organization, m.name, m.revision))
 
@@ -62,7 +66,8 @@ generateSbom := {
        |}
        |""".stripMargin
 
-  val outFile = target.value / "sbom.cdx.json"
+  // sbt 2 moved `target` to target/out/jvm/...; pin the SBOM to backend/target/ where CI reads it.
+  val outFile = baseDirectory.value / "target" / "sbom.cdx.json"
   IO.write(outFile, json)
   log.info(s"HEL-459: wrote SBOM with ${modules.size} components to $outFile")
   outFile
@@ -80,6 +85,9 @@ lazy val root = (project in file("."))
     Compile / run / mainClass := Some("com.helio.app.Main"),
     assembly / mainClass := Some("com.helio.app.Main"),
     assembly / assemblyJarName := "helio-backend.jar",
+    // HEL-1018: sbt 2 relocated `target` to target/out/jvm/...; keep the jar at the path the
+    // Dockerfile's `COPY --from=builder` documents.
+    assembly / assemblyOutputPath := baseDirectory.value / "target" / "scala-2.13" / "helio-backend.jar",
     assembly / assemblyMergeStrategy := {
       case "reference.conf"                        => MergeStrategy.concat
       case "application.conf"                      => MergeStrategy.concat
@@ -91,6 +99,12 @@ lazy val root = (project in file("."))
     },
     Compile / run / fork := true,
     Test / fork := true,
+    // HEL-1018: sbt 2 flipped the default of `Test / testForkedParallel` from false (sbt 1) to true, which
+    // runs the suites *inside* each forked group concurrently -- ~3x faster wall-clock, but it re-creates the
+    // exact HEL-924 failure (dozens of EmbeddedPostgres instances at once -> RouteTestTimeout / 50ms-expiry
+    // races, e.g. ConnectorCompletionServiceSpec; a concurrent env-map mutation can also poison
+    // ConfigImpl$EnvVariablesHolder). Pin the sbt 1 behaviour so suites in a group stay sequential.
+    Test / testForkedParallel := false,
     // Spark 3.5.x on Java 17+ requires these JVM flags to access restricted sun.* APIs
     javaOptions ++= Seq(
       "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
@@ -153,7 +167,16 @@ lazy val root = (project in file("."))
       Tags.ForkedTestGroup,
       sys.env.get("HEL924_TEST_GROUP_CONCURRENCY").flatMap(s => scala.util.Try(s.toInt).toOption).getOrElse(4)
     ),
-    Test / testGrouping := {
+    // HEL-1018 (sbt 2 task caching): sbt 2 caches task results and needs a `JsonFormat` for the result
+    // type; `Seq[Tests.Group]` has none, so the build failed to load. Remedy chosen: `Def.uncached(...)`
+    // around the (unchanged) body below, so this task is never cached. Declined: (1) `@transient` --
+    // that annotates a key *definition*, and `testGrouping` is sbt's own built-in key, so there is
+    // nothing of ours to annotate (the error text offers it only for keys we declare); (3) a
+    // `given JsonFormat[Seq[Tests.Group]]` -- `Group` wraps a `RunPolicy` holding `ForkOptions`
+    // (a type we do not own), and a cached grouping could go stale against `definedTests`, the
+    // isolation-critical input of the HEL-924 grouping. The task only builds closures over
+    // `definedTests` and is cheap to recompute, so caching buys nothing.
+    Test / testGrouping := Def.uncached {
       val groupCount =
         sys.env.get("HEL924_TEST_GROUP_COUNT").flatMap(s => scala.util.Try(s.toInt).toOption).getOrElse(8)
       val baseForkOptions = ForkOptions(
@@ -302,6 +325,11 @@ lazy val root = (project in file("."))
       // HEL-452: clears GHSA-vqf4-7m7x-wgfc (out-of-bounds memory / DoS). The other two
       // lz4-java advisories on this artifact (GHSA-cmp6-m4wj-q63q, GHSA-xx22-p4ch-683r) have
       // no published fix anywhere and are deferred — see design.md D5.
-      "org.lz4" % "lz4-java" % "1.8.1"
+      "org.lz4" % "lz4-java" % "1.8.1",
+      // HEL-1018: under sbt 1 the Test-scope embedded-postgres dependency lifted commons-compress to
+      // 1.26.2 on every classpath (sbt 1 unified versions across configurations); sbt 2 resolves
+      // Compile on its own and falls back to Spark's 1.23.0 (< 1.26.0, which carries
+      // CVE-2024-25710 / CVE-2024-26308). Pin the version the app has been shipping.
+      "org.apache.commons" % "commons-compress" % "1.26.2"
     )
   )
