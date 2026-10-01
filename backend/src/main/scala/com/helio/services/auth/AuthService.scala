@@ -2,6 +2,7 @@ package com.helio.services.auth
 
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
+import com.helio.services.telemetry.ProductEventService
 import com.github.t3hnar.bcrypt._
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.auth.{AuthResponse, GoogleProfile, LoginRequest, RegisterRequest, UserResponse}
@@ -84,7 +85,10 @@ final class AuthService(
     // Cloud Run processes production actually runs. Callers must pass a real
     // `com.helio.infrastructure.persistence.auth.OAuthStateRepository` (Postgres-backed,
     // cross-process) so two independently constructed `AuthService`s never share state.
-    stateStore: OAuthStateStore
+    stateStore: OAuthStateStore,
+    // HEL-1208: best-effort signup telemetry; `None` (default) keeps every existing positional
+    // call site compiling and simply records no event.
+    productEventService: Option[ProductEventService] = None
 )(implicit ec: ExecutionContext) {
 
   import AuthService._
@@ -121,6 +125,9 @@ final class AuthService(
             for {
               createdUser    <- userRepo.insert(user, Some(passwordHash))
               createdSession <- userRepo.createSession(session)
+              // HEL-1208: after the users row has committed (product_events.user_id is an FK to
+              // it); recordSignup swallows its own failures so it can never fail registration.
+              _              <- productEventService.fold(Future.successful(()))(_.recordSignup(createdUser.id))
             } yield {
               audit(Some(createdUser.id), "auth.register")
               Right(authResultOf(createdSession, createdUser))
@@ -199,6 +206,9 @@ final class AuthService(
     for {
       (user, wasCreated) <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture, tierConfig)
       outcome            <- finishLogin(user)
+      // HEL-1208: a Google-created user is a signup too; without this event they would be
+      // permanently absent from signups/day and TTFD. Best-effort like `register`.
+      _                  <- if (wasCreated) productEventService.fold(Future.successful(()))(_.recordSignup(user.id)) else Future.successful(())
     } yield {
       if (wasCreated) audit(Some(user.id), "auth.register")
       auditLoginOutcome(user.id, outcome)

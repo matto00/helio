@@ -9,6 +9,7 @@ import {
   fetchPanelPage,
   selectDataPoint,
 } from "../state/panelsSlice";
+import { useFirstDashboardRendered } from "../../telemetry/useFirstDashboardRendered";
 import { composeOutputRowsFilter, getDistinctValues } from "../../pipelines/services/outputService";
 import { ProvenanceTrigger } from "../provenance/ProvenanceTrigger";
 import { useDataInvalid } from "../provenance/useDataInvalid";
@@ -145,6 +146,8 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   onDataPointSelect,
 }: PanelCardBodyProps) {
   const dispatch = useAppDispatch();
+  // HEL-1208: an output panel with at least one loaded row is what counts as a rendered dashboard.
+  useFirstDashboardRendered(outputId != null && !isLoading && !error && (rawRows?.length ?? 0) > 0);
   // HEL-1027 skeptic-final-3.md CR1 (cycle 4) — `PanelCardBody` is the actual shared ancestor of
   // BOTH top-level callers (`PanelCard`'s desktop grid AND `MobilePanelStack`'s phone stack), so
   // resolving the Output HERE — once — and threading it both to `usePanelSortFilter` (below) and

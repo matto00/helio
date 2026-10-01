@@ -51,6 +51,10 @@ import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, Agent
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.services.audit.AuditService
+import com.helio.domain.util.SystemClock
+import com.helio.infrastructure.persistence.telemetry.ProductEventRepository
+import com.helio.services.telemetry.{ProductEventService, ProductTelemetryConfig}
+import com.helio.api.routes.telemetry.ProductEventRoutes
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, OAuthStateRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
@@ -198,7 +202,10 @@ final class ApiRoutes(
     // `eventBus = null`, which keeps today's pure local-only broadcast (PipelineRunRegistrySpec's
     // existing tests are unaffected). `Main.scala` constructs the real one from `helio.db.*`
     // once per process and passes it here. Appended last for the same purely-additive reason.
-    pipelineRunNotifyBus: PipelineRunNotifyBus = null
+    pipelineRunNotifyBus: PipelineRunNotifyBus = null,
+    // HEL-1208: read once from env like rateLimitConfig/pipelineRunGuardConfig; a spec passes its own
+    // value (e.g. a tiny rate limit) rather than depending on the process environment.
+    productTelemetryConfig: ProductTelemetryConfig = ProductTelemetryConfig.fromEnv()
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -287,6 +294,16 @@ final class ApiRoutes(
     pipelineRunGuardConfig.sourceFetchRateLimitPerWindow,
     rateLimitConfig.windowSeconds
   )
+  // HEL-1208: SEPARATE limiter instance (own bucket map), same reasoning as
+  // `sourceFetchRateLimitDirective` above: `POST /api/events` is nested inside the general `/api`
+  // wrap, so sharing that instance would count one request twice against one bucket.
+  private val productEventsRateLimitDirective = new RateLimitDirective(
+    new InMemoryRateLimiter(),
+    userSessionRepo,
+    Option(apiTokenRepo),
+    productTelemetryConfig.rateLimitPerWindow,
+    rateLimitConfig.windowSeconds
+  )
   private val runRegistry    = new PipelineRunRegistry(eventBus = pipelineRunNotifyBus)
   private val health         = new HealthRoutes()
   // HEL-116: propagates the Cloud Run trace id (X-Cloud-Trace-Context) into the
@@ -310,7 +327,11 @@ final class ApiRoutes(
   // GET /api/auth/google[/callback], since OAuthStateRepository doesn't touch the DB at
   // construction time.
   private val oauthStateStore   = new OAuthStateRepository(dbContext)
-  private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore)
+  // HEL-1208: nullable-dbContext gated like every other dbContext-derived service; AuthService
+  // takes it as an Option so a fixture without a DbContext simply records no signup event.
+  private val productEventServiceOpt: Option[ProductEventService] =
+    Option(dbContext).map(ctx => new ProductEventService(new ProductEventRepository(ctx), SystemClock))
+  private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore, productEventServiceOpt)
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService, outputRepoOpt.orNull)
   // HEL-1087: constructed ahead of `panelService` (moved up from its former position below
   // `autoLayoutService`) so `panelService` can wire it in for `submitForm` — no behavior change
@@ -1020,7 +1041,11 @@ final class ApiRoutes(
                   // HEL-488: same `.fold(reject)`-gated optional-wiring pattern as the repos
                   // above — fixtures that don't pass an AuditEventRepository simply don't get
                   // the GET /api/audit-events route mounted.
-                  auditEventRepoOpt.fold(reject: Route)(repo => new AuditEventRoutes(repo, authenticatedUser).routes)
+                  auditEventRepoOpt.fold(reject: Route)(repo => new AuditEventRoutes(repo, authenticatedUser).routes),
+                  // HEL-1208: write-only product-telemetry ingestion, own rate limiter.
+                  productEventServiceOpt.fold(reject: Route)(svc =>
+                    new ProductEventRoutes(svc, authenticatedUser, productEventsRateLimitDirective, productTelemetryConfig.rateLimitPerWindow).routes
+                  )
                 )
               }
             )

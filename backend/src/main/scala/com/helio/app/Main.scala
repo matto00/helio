@@ -1,5 +1,7 @@
 package com.helio.app
 
+import com.helio.infrastructure.persistence.telemetry.ProductEventRepository
+import com.helio.services.telemetry.{ProductEventRollupService, ProductTelemetryConfig}
 import org.apache.pekko.actor.CoordinatedShutdown
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.Behavior
@@ -272,6 +274,9 @@ object Main {
       // scheduled runs share the manual-run path's PipelineRunCache/
       // PipelineRunRegistry (design.md Decision 5).
       val schedulerTickInterval = config.getInt("helio.scheduler.tick-interval-seconds").seconds
+      // HEL-1208: same ProductTelemetryConfig.fromEnv() values ApiRoutes reads for its own limiter.
+      val productEventRollupService =
+        new ProductEventRollupService(new ProductEventRepository(ctx), ProductTelemetryConfig.fromEnv(), SystemClock)
       val pipelineSchedulerService = new PipelineSchedulerService(
         pipelineScheduleRepo,
         pipelineRepo,
@@ -279,7 +284,8 @@ object Main {
         apiRoutes.pipelineRunService,
         SystemClock,
         pipelineRunGuardRepo = pipelineRunGuardRepo,
-        autoRunDebounceRepo = autoRunDebounceRepo
+        autoRunDebounceRepo = autoRunDebounceRepo,
+        productEventRollupService = productEventRollupService
       )
       context.spawn(PipelineSchedulerActor(pipelineSchedulerService, schedulerTickInterval), "pipeline-scheduler")
 

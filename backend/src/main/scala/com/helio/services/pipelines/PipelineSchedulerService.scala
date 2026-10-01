@@ -4,6 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, PipelineId, PipelineSchedule}
 import com.helio.domain.util.{Clock, CronSchedule}
 import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository}
+import com.helio.services.telemetry.ProductEventRollupService
 import org.slf4j.LoggerFactory
 
 import java.time.Instant
@@ -39,7 +40,11 @@ final class PipelineSchedulerService(
     // owning process crashed before reaching `releaseClaim` -- chosen well above any realistic
     // `submit()` duration. Overridable so a test doesn't need to wait 5 real minutes to exercise
     // the stale-reclaim path.
-    staleClaimAfterSeconds: Long = 300L
+    staleClaimAfterSeconds: Long = 300L,
+    // HEL-1208: nullable-optional wiring like pipelineRunGuardRepo above -- a fixture that doesn't
+    // pass one simply skips the product-event rollup + retention-purge pass. Piggybacked on this
+    // tick rather than a second timer.
+    productEventRollupService: ProductEventRollupService = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -85,7 +90,10 @@ final class PipelineSchedulerService(
       log.error("PipelineSchedulerService: auto-run debounce claim-and-fire pass failed", ex)
       ()
     }
-    candidatesWork.zip(cleanupWork).zip(autoRunWork).map(_ => ())
+    // HEL-1208: product-event rollup + purge; tickAt/tick already swallow and log their own failures.
+    val telemetryWork =
+      if (productEventRollupService != null) productEventRollupService.tickAt(now) else Future.successful(())
+    candidatesWork.zip(cleanupWork).zip(autoRunWork).zip(telemetryWork).map(_ => ())
   }
 
   /** HEL-1093 (design.md Decision 3): claims every due `pipeline_auto_run_debounce` row and fires
