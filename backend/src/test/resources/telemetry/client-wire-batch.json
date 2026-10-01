@@ -1,0 +1,37 @@
+{
+  "events": [
+    {
+      "event": "first_dashboard_rendered",
+      "properties": {
+        "panelCount": 3
+      },
+      "occurredAt": "2026-09-30T12:00:00.000Z"
+    },
+    {
+      "event": "provenance_opened",
+      "properties": {},
+      "occurredAt": "2026-09-30T12:00:00.000Z"
+    },
+    {
+      "event": "firstrun_file_dropped",
+      "properties": {
+        "source": "drop"
+      },
+      "occurredAt": "2026-09-30T12:00:00.000Z"
+    },
+    {
+      "event": "firstrun_dashboard_created",
+      "properties": {
+        "panelCount": 2
+      },
+      "occurredAt": "2026-09-30T12:00:00.000Z"
+    },
+    {
+      "event": "firstrun_template_chosen",
+      "properties": {
+        "template": "sales-overview"
+      },
+      "occurredAt": "2026-09-30T12:00:00.000Z"
+    }
+  ]
+}

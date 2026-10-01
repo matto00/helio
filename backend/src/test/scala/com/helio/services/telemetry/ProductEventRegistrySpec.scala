@@ -4,6 +4,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
+import java.nio.file.{Files, Paths}
 import java.time.Instant
 
 class ProductEventRegistrySpec extends AnyWordSpec with Matchers {
@@ -50,6 +51,37 @@ class ProductEventRegistrySpec extends AnyWordSpec with Matchers {
       v.event shouldBe "firstrun_file_dropped"
       v.properties shouldBe JsObject("source" -> JsString("drop"))
       v.occurredAt shouldBe now
+    }
+  }
+
+  // HEL-1220 seam: the fixture is the exact batch the frontend serializes (generated and compared by
+  // frontend/src/features/telemetry/track.wireContract.test.ts), run through the real validator.
+  "the client wire fixture" should {
+    val fixture: JsObject = {
+      val path = Paths.get("src/test/resources/telemetry/client-wire-batch.json")
+      new String(Files.readAllBytes(path), "UTF-8").parseJson.asJsObject
+    }
+    val events: Vector[JsValue] = fixture.fields("events").asInstanceOf[JsArray].elements
+
+    "contain one event per allow-listed client event name" in {
+      val names = events.map(_.asJsObject.fields("event").asInstanceOf[JsString].value).toSet
+      names should have size events.size.toLong
+      names shouldBe (ProductEventRegistry.AllEventNames - "signup_completed")
+    }
+
+    "be accepted event-by-event by validateClientEvent" in {
+      events.foreach { e =>
+        withClue(s"event ${e.compactPrint}: ") {
+          ProductEventRegistry.validateClientEvent(e, now).isRight shouldBe true
+        }
+      }
+    }
+
+    "be rejected for the same event carrying the old client-only userId field" in {
+      events.foreach { e =>
+        val withUserId = JsObject(e.asJsObject.fields + ("userId" -> JsString("someone")))
+        ProductEventRegistry.validateClientEvent(withUserId, now) shouldBe Left("unknown field(s): userId")
+      }
     }
   }
 
