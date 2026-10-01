@@ -28,6 +28,7 @@ let queue: QueuedEvent[] | null = null;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let flushing = false;
 let warned = false;
+let rejectionLogged = false;
 let listenersInstalled = false;
 let currentUserId: () => string | null = () => null;
 
@@ -41,6 +42,32 @@ function warnOnce(reason: unknown): void {
   if (warned) return;
   warned = true;
   console.warn("[telemetry] event delivery failed; events are best-effort", reason);
+}
+
+/** The server's `ProductEventRegistry.validateClientEvent` accepts only these top-level fields.
+ *  An explicit pick (not "omit userId") so a future queue-only field can never leak onto the wire. */
+export interface WireEvent {
+  event: TelemetryEvent["event"];
+  properties: Record<string, unknown>;
+  occurredAt: string;
+}
+
+export function toWireEvent(e: QueuedEvent): WireEvent {
+  return { event: e.event, properties: e.properties, occurredAt: e.occurredAt };
+}
+
+/** A 400 means the client and server contract drifted: resending identical bytes can never
+ *  succeed, so the batch is dropped, but loudly and once per page-load. */
+async function logRejectionOnce(response: Response): Promise<void> {
+  if (rejectionLogged) return;
+  rejectionLogged = true;
+  let message = "";
+  try {
+    message = String(((await response.json()) as { message?: unknown }).message ?? "");
+  } catch {
+    // Body absent or not JSON: log the status alone.
+  }
+  console.error(`[telemetry] server rejected an event batch (HTTP ${response.status}): ${message}`);
 }
 
 function loadQueue(): QueuedEvent[] {
@@ -69,9 +96,10 @@ async function send(batch: QueuedEvent[]): Promise<"sent" | "drop" | "retry"> {
     credentials: "include",
     keepalive: true,
     headers: { "Content-Type": "application/json", "X-Helio-Requested-With": "1" },
-    body: JSON.stringify({ events: batch }),
+    body: JSON.stringify({ events: batch.map(toWireEvent) }),
   });
   if (response.ok) return "sent";
+  if (response.status === 400) await logRejectionOnce(response);
   // 429 and 5xx are transient; any other 4xx (400 invalid, 401 logged out) will never succeed.
   return response.status === 429 || response.status >= 500 ? "retry" : "drop";
 }
@@ -158,6 +186,7 @@ export function resetTelemetryForTests(): void {
   queue = null;
   flushing = false;
   warned = false;
+  rejectionLogged = false;
   if (flushTimer) clearTimeout(flushTimer);
   flushTimer = null;
   try {
