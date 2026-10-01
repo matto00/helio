@@ -1,7 +1,7 @@
 # first-run-onboarding Specification
 
 ## Purpose
-The guided first-run checklist that teaches the source -> pipeline -> type -> panel model: when it appears,
+The guided first-run checklist that teaches the source -> pipeline -> place model, and the drop-zone landing that precedes it for an empty workspace: when it appears,
 how each step's completion is derived and actioned, how dismissal persists per user, and how it re-opens.
 
 ## Requirements
@@ -19,7 +19,7 @@ of its own steps cannot function as a checklist, and would leave the remaining s
 Completing every step SHALL record the dismissal, so the checklist does not return automatically, but SHALL
 NOT itself remove the checklist from the screen. Removing it at that moment would mean the completion is
 never seen, and would leave the re-open affordance presenting nothing at all for any user whose account
-already has all four resources.
+already has all three resources.
 
 Automatic activation SHALL occur when the dashboard collection has completed a fetch and returned nothing
 and no dismissal is stored for that user. An unstarted collection SHALL NOT be treated as an empty one; the
@@ -61,13 +61,13 @@ would otherwise have first rendered on, rather than one frame later.
 - **THEN** the checklist is not activated automatically
 
 #### Scenario: Completing every step records the dismissal but keeps the checklist on screen
-- **WHEN** the checklist is active and all four steps have become complete
+- **WHEN** the checklist is active and all three steps have become complete
 - **THEN** the checklist remains presented, showing every step complete, and is not presented again
   automatically on a later load
 
 #### Scenario: A user who re-opens with everything already complete sees the same completed chain
-- **WHEN** a user whose account already has all four resources re-opens the checklist
-- **THEN** the same four-step chain is presented with every step shown complete
+- **WHEN** a user whose account already has all three resources re-opens the checklist
+- **THEN** the same three-step chain is presented with every step shown complete
 
 ### Requirement: Reported collections are fetched and no gate depends on its own fetch
 
@@ -211,3 +211,14 @@ The onboarding checklist's Done button SHALL be styled per DESIGN.md, and SHALL 
 - **WHEN** the Done button's governing CSS rule is deliberately removed (test setup)
 - **THEN** the regression test fails
 - **AND** restoring the rule makes it pass again
+
+### Requirement: A zero-dashboard workspace lands on the drop zone, with the checklist as the step-by-step path
+When the dashboard collection has settled empty, the empty-workspace surface SHALL present the first-run drop zone (see `first-run-dashboard-build`) instead of the checklist. A "Set up step by step" control SHALL reveal the three-step checklist (source, pipeline, place), which remains the path for users who want to build manually and for the re-open affordance. The checklist model has three steps (source, pipeline, placement); earlier references to four steps or a "type" step are obsolete.
+
+#### Scenario: Empty workspace
+- **WHEN** a user with zero dashboards opens `/`
+- **THEN** the drop zone is shown and the checklist is hidden until "Set up step by step" is chosen
+
+#### Scenario: Step-by-step path
+- **WHEN** the user chooses "Set up step by step"
+- **THEN** the existing three-step checklist is shown

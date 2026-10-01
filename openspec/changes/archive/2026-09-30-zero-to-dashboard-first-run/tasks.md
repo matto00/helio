@@ -13,7 +13,7 @@
 - [x] 2.7 Component tests: keyboard path, announced progress/errors, tier visibility, failure states.
 ## 3. Spec and verification
 - [x] 3.1 Update `first-run-onboarding` spec via this change's delta; fix stale wording at archive.
-- [ ] 3.2 Live timing on a fresh FREE account (empty workspace -> rendered dashboard): record seconds and interaction count; phone width; light and dark; screenshots outside repo root. Delete test accounts and their sources/pipelines/dashboards by exact id before Phase 4.
+- [x] 3.2 Live timing (evaluator cycles 1-2 and final skeptic, this worktree, fresh FREE accounts, scripted drop of a 60-120 row CSV): ~0.3-0.6 s drop-to-rendered dashboard at /dashboards/<id> with 3 panels, 1 interaction (2 by keyboard/touch: activate Choose a file, pick file) vs the 60 s / 5 interaction budget; phone width 390 and desktop 1440, light and dark verified. Test users deleted by exact id; residue: CSV upload files under ~/.helio/uploads/csv (deletion needs owner approval). Not exercised live: OS file chooser (jest only).
 - [x] 3.3 Maintain `files-modified.md`.
 
 ## Standing Constraints
