@@ -29,7 +29,7 @@ npm test -- --testPathPatterns=dashboardsSlice
 
 ```bash
 sbt run    # Start Pekko HTTP server on port 8080
-sbt test   # Run ScalaTest suite
+sbt testFull   # Run ScalaTest suite (not bare `sbt test`: sbt 2 caches it, so a repeat run can execute zero tests)
 ```
 
 The backend loads a `.env` file for environment variables (e.g. `DATABASE_URL`).

@@ -165,7 +165,7 @@ When changed files match `frontend/**`:
   - `npm --prefix frontend run build`
 
 When changed files match `backend/**`:
-  - `cd backend && sbt test`
+  - `cd backend && sbt testFull`
 
 If a gate failure tempts starting a dev/backend server ad hoc to debug it, use
 the canonical `scripts/concertino/start-servers.sh` — never invoke
