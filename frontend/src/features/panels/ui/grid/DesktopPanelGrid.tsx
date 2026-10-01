@@ -40,7 +40,11 @@ import { createScaledStrategy, noCompactor } from "react-grid-layout/core";
 
 const noCompactorPreventCollision = { ...noCompactor, preventCollision: true };
 
-import { resolveDashboardLayout } from "../../../dashboards/state/dashboardLayout";
+import {
+  areDashboardLayoutsEqual,
+  resolveDashboardLayout,
+} from "../../../dashboards/state/dashboardLayout";
+import { setDashboardLayoutLocally } from "../../../dashboards/state/dashboardsSlice";
 import { pushLayoutSnapshot } from "../../../layout/state/layoutHistorySlice";
 import { accumulatePanelUpdate } from "../../state/panelsSlice";
 import { useTheme } from "../../../../theme/ThemeProvider";
@@ -150,7 +154,27 @@ export function DesktopPanelGrid({
   const layouts = useMemo(() => createLayouts(resolvedLayout), [resolvedLayout]);
   const preInteractionLayoutRef = useRef<DashboardLayout | null>(null);
 
-  const { latestLayoutRef, markLayoutChanged } = useLayoutSave({
+  // HEL-1028: RGL fires onDragStop/onResizeStop BEFORE the onLayoutChange that
+  // carries the final layout, so the stop handlers only arm this flag and
+  // handleLayoutChange performs the store commit. A zero-delay timer (and the
+  // next interaction start) disarms it when the interaction moved nothing.
+  const commitOnNextLayoutChangeRef = useRef(false);
+  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearCommitFlag = useCallback(() => {
+    commitOnNextLayoutChangeRef.current = false;
+    if (commitTimerRef.current !== null) {
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+    }
+  }, []);
+  const armCommitFlag = useCallback(() => {
+    clearCommitFlag();
+    commitOnNextLayoutChangeRef.current = true;
+    commitTimerRef.current = setTimeout(clearCommitFlag, 0);
+  }, [clearCommitFlag]);
+  useEffect(() => clearCommitFlag, [clearCommitFlag]);
+
+  const { latestLayoutRef, markLayoutChanged, commitInteractionLayout } = useLayoutSave({
     dashboardId,
     resolvedLayout,
     registerLayoutFlush,
@@ -237,9 +261,10 @@ export function DesktopPanelGrid({
   }, []);
 
   const handleDragStart = useCallback(() => {
+    clearCommitFlag();
     setIsDragging(true);
     preInteractionLayoutRef.current = latestLayoutRef.current;
-  }, [latestLayoutRef]);
+  }, [latestLayoutRef, clearCommitFlag]);
 
   const handleDragStop = useCallback(() => {
     setIsDragging(false);
@@ -252,11 +277,13 @@ export function DesktopPanelGrid({
       );
       preInteractionLayoutRef.current = null;
     }
-  }, [dashboardId, dispatch]);
+    armCommitFlag();
+  }, [dashboardId, dispatch, armCommitFlag]);
 
   const handleResizeStart = useCallback(() => {
+    clearCommitFlag();
     preInteractionLayoutRef.current = latestLayoutRef.current;
-  }, [latestLayoutRef]);
+  }, [latestLayoutRef, clearCommitFlag]);
 
   const handleResizeStop = useCallback(() => {
     if (preInteractionLayoutRef.current !== null) {
@@ -268,15 +295,33 @@ export function DesktopPanelGrid({
       );
       preInteractionLayoutRef.current = null;
     }
-  }, [dashboardId, dispatch]);
+    armCommitFlag();
+  }, [dashboardId, dispatch, armCommitFlag]);
 
   type LayoutChangeHandler = NonNullable<React.ComponentProps<typeof Responsive>["onLayoutChange"]>;
   const handleLayoutChange = useCallback<LayoutChangeHandler>(
     (_, nextLayouts) => {
       if (nextLayouts === undefined) return;
-      markLayoutChanged(fromResponsiveLayouts(panels, nextLayouts));
+      const next = fromResponsiveLayouts(panels, nextLayouts);
+      markLayoutChanged(next);
+      if (commitOnNextLayoutChangeRef.current) {
+        clearCommitFlag();
+        if (!areDashboardLayoutsEqual(next, resolvedLayout)) {
+          dispatch(
+            setDashboardLayoutLocally({ dashboardId, layout: commitInteractionLayout(next) }),
+          );
+        }
+      }
     },
-    [markLayoutChanged, panels],
+    [
+      markLayoutChanged,
+      panels,
+      clearCommitFlag,
+      resolvedLayout,
+      dispatch,
+      dashboardId,
+      commitInteractionLayout,
+    ],
   );
 
   return (

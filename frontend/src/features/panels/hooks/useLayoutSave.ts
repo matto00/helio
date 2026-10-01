@@ -26,7 +26,8 @@ import { areDashboardLayoutsEqual } from "../../dashboards/state/dashboardLayout
 import { setLayoutPending, updateDashboardLayout } from "../../dashboards/state/dashboardsSlice";
 import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import type { LayoutFlush } from "./usePanelUpdatesFlush";
-import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { selectLayoutRevision } from "../../layout/state/layoutHistorySlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 
 export interface UseLayoutSaveResult {
   /** Latest layout ref — the grid's RGL `onDragStart` / `onResizeStart`
@@ -34,6 +35,10 @@ export interface UseLayoutSaveResult {
   latestLayoutRef: MutableRefObject<DashboardLayout>;
   /** Push a layout change into the auto-save pipeline (no immediate POST). */
   markLayoutChanged: (next: DashboardLayout) => void;
+  /** HEL-1028: record `next` as a local interaction commit about to be written
+   *  to the store, so the store echo stays "dirty" (unpersisted) instead of
+   *  being re-baselined as persisted. Returns `next` for the caller to dispatch. */
+  commitInteractionLayout: (next: DashboardLayout) => DashboardLayout;
 }
 
 interface UseLayoutSaveOptions {
@@ -56,20 +61,47 @@ export function useLayoutSave({
   // dispatches once on the false→true transition instead of every frame.
   // Reset when the layout syncs back to persisted (see resolvedLayout effect).
   const layoutPendingDispatchedRef = useRef(false);
+  // HEL-1028: the interaction layout committed to the store at drag/resize stop,
+  // and the undo/redo revision last seen — the two local edits whose store echo
+  // must NOT be re-baselined as persisted.
+  const localCommitRef = useRef<DashboardLayout | null>(null);
+  const revision = useAppSelector(selectLayoutRevision(dashboardId));
+  const revisionRef = useRef(revision);
+  const seenRevisionRef = useRef(revision);
+  useEffect(() => {
+    revisionRef.current = revision;
+  });
 
   useEffect(() => {
     latestLayoutRef.current = resolvedLayout;
-    persistedLayoutRef.current = resolvedLayout;
-    // Layout is now in sync with what's persisted, so the pending cycle is
-    // over — allow the next real change to re-dispatch setLayoutPending(true).
-    layoutPendingDispatchedRef.current = false;
+    const isInteractionCommit =
+      localCommitRef.current !== null &&
+      areDashboardLayoutsEqual(resolvedLayout, localCommitRef.current);
+    const isHistoryTraversal = revisionRef.current !== seenRevisionRef.current;
+    seenRevisionRef.current = revisionRef.current;
+    if (isInteractionCommit || isHistoryTraversal) {
+      // Keep persistedLayoutRef (last server-acknowledged layout); pending is
+      // simply whether the displayed layout still differs from it.
+      localCommitRef.current = null;
+      const pending = !areDashboardLayoutsEqual(resolvedLayout, persistedLayoutRef.current);
+      layoutPendingDispatchedRef.current = pending;
+      dispatch(setLayoutPending(pending));
+    } else {
+      persistedLayoutRef.current = resolvedLayout;
+      // A staged drag that this re-baseline discards (e.g. a panel create landing
+      // before the flush) must not leave the pending flag stuck with nothing to save.
+      if (layoutPendingDispatchedRef.current) dispatch(setLayoutPending(false));
+      // Layout is now in sync with what's persisted, so the pending cycle is
+      // over — allow the next real change to re-dispatch setLayoutPending(true).
+      layoutPendingDispatchedRef.current = false;
+    }
     if (
       inFlightLayoutRef.current !== null &&
       areDashboardLayoutsEqual(inFlightLayoutRef.current, resolvedLayout)
     ) {
       inFlightLayoutRef.current = null;
     }
-  }, [resolvedLayout]);
+  }, [resolvedLayout, dispatch]);
 
   const persistLayout = useCallback(() => {
     const nextLayout = latestLayoutRef.current;
@@ -86,6 +118,9 @@ export function useLayoutSave({
     inFlightLayoutRef.current = nextLayout;
     void dispatch(updateDashboardLayout({ dashboardId, layout: nextLayout }))
       .unwrap()
+      .then(() => {
+        persistedLayoutRef.current = nextLayout;
+      })
       .catch(() => {
         // Keep local drag UX responsive; retry happens on the next layout change.
       })
@@ -135,5 +170,10 @@ export function useLayoutSave({
     [dispatch],
   );
 
-  return { latestLayoutRef, markLayoutChanged };
+  const commitInteractionLayout = useCallback((next: DashboardLayout) => {
+    localCommitRef.current = next;
+    return next;
+  }, []);
+
+  return { latestLayoutRef, markLayoutChanged, commitInteractionLayout };
 }

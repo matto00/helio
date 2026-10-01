@@ -1,0 +1,151 @@
+# RED: e2e/hel1028 spec on the UNFIXED grid sync (DesktopPanelGrid.tsx/useLayoutSave.ts reverted to main), DEV_PORT=6460, backend 9367, both serving this worktree
+Running 13 tests using 1 worker
+[HEL-1028 e2e] throwaway users registered: ["hel1028-lg-light-keyboard-1790889351295-74774@example.test"]
+  ✘   1 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg light: drag, immediate undo, redo via keyboard (9.3s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-lg-light-button-1790889361031-88926@example.test"]
+  ✘   2 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg light: drag, immediate undo, redo via button (9.6s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-lg-dark-keyboard-1790889371025-40117@example.test"]
+  ✘   3 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg dark: drag, immediate undo, redo via keyboard (8.5s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-lg-dark-button-1790889379924-30833@example.test"]
+  ✘   4 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg dark: drag, immediate undo, redo via button (8.5s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-lg-noop-1790889388786-99380@example.test"]
+  ✘   5 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:216:9 › HEL-1028 layout undo/redo visually reverts the grid › lg: drag, undo, flush sends no layout PATCH (8.2s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-lg-resize-1790889397405-51107@example.test"]
+  ✘   6 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:242:9 › HEL-1028 layout undo/redo visually reverts the grid › lg: resize, immediate undo, redo (keyboard) (8.3s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-sm-light-keyboard-1790889406154-78389@example.test"]
+  ✘   7 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm light: drag, immediate undo, redo via keyboard (9.9s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-sm-light-button-1790889416470-84659@example.test"]
+  ✘   8 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm light: drag, immediate undo, redo via button (9.6s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-sm-dark-keyboard-1790889426456-57809@example.test"]
+  ✘   9 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm dark: drag, immediate undo, redo via keyboard (9.5s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-sm-dark-button-1790889436404-73240@example.test"]
+  ✘  10 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm dark: drag, immediate undo, redo via button (9.6s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-sm-noop-1790889446394-17219@example.test"]
+  ✘  11 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:216:9 › HEL-1028 layout undo/redo visually reverts the grid › sm: drag, undo, flush sends no layout PATCH (9.1s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-sm-resize-1790889455950-78202@example.test"]
+  ✘  12 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:242:9 › HEL-1028 layout undo/redo visually reverts the grid › sm: resize, immediate undo, redo (keyboard) (9.8s)
+[HEL-1028 e2e] throwaway users registered: ["hel1028-xs-1790889466220-97962@example.test"]
+  ✓  13 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:262:7 › HEL-1028 layout undo/redo visually reverts the grid › xs: a container under 768px renders the mobile stack with no RGL grid to revert (4.7s)
+  1) e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg light: drag, immediate undo, redo via keyboard › Expect "poll toBe" 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "1364,72,532,262"
+    Received: "1364,282,532,262"
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+      108 |
+      109 | async function expectBox(page: Page, expected: Box, index = 0) {
+    > 110 |   await expect
+          |   ^
+      111 |     .poll(async () => {
+      112 |       const b = await boxOf(page, index);
+      113 |       return [b.x, b.y, b.width, b.height].map(Math.round).join(",");
+  2) e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg light: drag, immediate undo, redo via button › Expect "poll toBe" 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "1364,72,532,262"
+    Received: "1364,282,532,262"
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+      108 |
+      109 | async function expectBox(page: Page, expected: Box, index = 0) {
+    > 110 |   await expect
+          |   ^
+      111 |     .poll(async () => {
+      112 |       const b = await boxOf(page, index);
+      113 |       return [b.x, b.y, b.width, b.height].map(Math.round).join(",");
+  3) e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg dark: drag, immediate undo, redo via keyboard › Expect "poll toBe" 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "1364,72,532,262"
+    Received: "1364,282,532,262"
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+      108 |
+      109 | async function expectBox(page: Page, expected: Box, index = 0) {
+    > 110 |   await expect
+          |   ^
+      111 |     .poll(async () => {
+      112 |       const b = await boxOf(page, index);
+      113 |       return [b.x, b.y, b.width, b.height].map(Math.round).join(",");
+  4) e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg dark: drag, immediate undo, redo via button › Expect "poll toBe" 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "1364,72,532,262"
+    Received: "1364,282,532,262"
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+      108 |
+      109 | async function expectBox(page: Page, expected: Box, index = 0) {
+    > 110 |   await expect
+          |   ^
+      111 |     .poll(async () => {
+      112 |       const b = await boxOf(page, index);
+      113 |       return [b.x, b.y, b.width, b.height].map(Math.round).join(",");
+  5) e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:216:9 › HEL-1028 layout undo/redo visually reverts the grid › lg: drag, undo, flush sends no layout PATCH › Expect "poll toBe" 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "1364,72,532,262"
+    Received: "1364,282,532,262"
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+      108 |
+      109 | async function expectBox(page: Page, expected: Box, index = 0) {
+    > 110 |   await expect
+          |   ^
+      111 |     .poll(async () => {
+      112 |       const b = await boxOf(page, index);
+      113 |       return [b.x, b.y, b.width, b.height].map(Math.round).join(",");
+  6) e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:242:9 › HEL-1028 layout undo/redo visually reverts the grid › lg: resize, immediate undo, redo (keyboard) › Expect "poll toBe" 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "1364,72,532,262"
+    Received: "1364,72,532,402"
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+      108 |
+      109 | async function expectBox(page: Page, expected: Box, index = 0) {
+    > 110 |   await expect
+          |   ^
+      111 |     .poll(async () => {
+      112 |       const b = await boxOf(page, index);
+      113 |       return [b.x, b.y, b.width, b.height].map(Math.round).join(",");
+  7) e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm light: drag, immediate undo, redo via keyboard › Expect "poll toBe" 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "754,72,472,262"
+    Received: "754,282,472,262"
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+      108 |
+      109 | async function expectBox(page: Page, expected: Box, index = 0) {
+    > 110 |   await expect
+          |   ^
+      111 |     .poll(async () => {
+      112 |       const b = await boxOf(page, index);
+      113 |       return [b.x, b.y, b.width, b.height].map(Math.round).join(",");
+  8) e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm light: drag, immediate undo, redo via button › Expect "poll toBe" 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "754,72,472,262"
+    Received: "754,282,472,262"
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+      108 |
+      109 | async function expectBox(page: Page, expected: Box, index = 0) {
+    > 110 |   await expect
+          |   ^
+      111 |     .poll(async () => {
+      112 |       const b = await boxOf(page, index);
+      113 |       return [b.x, b.y, b.width, b.height].map(Math.round).join(",");
+  9) e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm dark: drag, immediate undo, redo via keyboard › Expect "poll toBe" 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "754,72,472,262"
+    Received: "754,282,472,262"
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+      108 |
+      109 | async function expectBox(page: Page, expected: Box, index = 0) {
+    > 110 |   await expect
+          |   ^
+      111 |     .poll(async () => {
+      112 |       const b = await boxOf(page, index);
+      113 |       return [b.x, b.y, b.width, b.height].map(Math.round).join(",");
+  10) e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm dark: drag, immediate undo, redo via button › Expect "poll toBe" 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "754,72,472,262"
+    Received: "754,282,472,262"
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate

@@ -1,0 +1,16 @@
+# GREEN: same spec with the fix, DEV_PORT=6460
+  ✓   1 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg light: drag, immediate undo, redo via keyboard (5.6s)
+  ✓   2 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg light: drag, immediate undo, redo via button (6.0s)
+  ✓   3 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg dark: drag, immediate undo, redo via keyboard (6.7s)
+  ✓   4 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › lg dark: drag, immediate undo, redo via button (5.2s)
+  ✓   5 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:216:9 › HEL-1028 layout undo/redo visually reverts the grid › lg: drag, undo, flush sends no layout PATCH (5.5s)
+  ✓   6 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:242:9 › HEL-1028 layout undo/redo visually reverts the grid › lg: resize, immediate undo, redo (keyboard) (5.1s)
+  ✓   7 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm light: drag, immediate undo, redo via keyboard (5.1s)
+  ✓   8 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm light: drag, immediate undo, redo via button (6.2s)
+  ✓   9 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm dark: drag, immediate undo, redo via keyboard (6.5s)
+  ✓  10 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:164:13 › HEL-1028 layout undo/redo visually reverts the grid › sm dark: drag, immediate undo, redo via button (6.3s)
+  ✓  11 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:216:9 › HEL-1028 layout undo/redo visually reverts the grid › sm: drag, undo, flush sends no layout PATCH (4.0s)
+  ✓  12 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:242:9 › HEL-1028 layout undo/redo visually reverts the grid › sm: resize, immediate undo, redo (keyboard) (3.8s)
+[HEL-1028 e2e] throwaway users registered: [<13 emails, see report>]
+  ✓  13 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:262:7 › HEL-1028 layout undo/redo visually reverts the grid › xs: a container under 768px renders the mobile stack with no RGL grid to revert (2.0s)
+  13 passed (1.1m)
