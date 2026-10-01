@@ -105,9 +105,10 @@ class ProductEventRepositorySpec extends AnyWordSpec with Matchers with ProductT
     rawInsert(u2, "provenance_opened", at(D, "13:10:00"))
     rawInsert(u8, "provenance_opened", at(D.minusDays(3), "09:00:00"))
     rawInsert(u9, "provenance_opened", at(D.minusDays(7), "09:00:00"))
-    rawInsert(u1, "firstrun_template_chosen", at(D, "09:00:00"), """{"template":"blank"}""")
-    rawInsert(u2, "firstrun_template_chosen", at(D, "09:01:00"), """{"template":"blank"}""")
-    rawInsert(u3, "firstrun_template_chosen", at(D, "09:02:00"), """{"template":"not-on-the-list"}""")
+    Seq(u1 -> "streamer", u2 -> "streamer", u3 -> "founder", u4 -> "ops", u5 -> "finance", u6 -> "not-on-the-list", u7 -> "sales-overview")
+      .zipWithIndex.foreach { case ((u, slug), i) =>
+        rawInsert(u, "firstrun_template_chosen", at(D, f"09:0$i%d:00"), s"""{"template":"$slug"}""")
+      }
   }
 
   private def dailyCount(day: LocalDate, event: String): Option[(Long, Long)] =
@@ -136,7 +137,7 @@ class ProductEventRepositorySpec extends AnyWordSpec with Matchers with ProductT
       priv(sql"SELECT daily_active_users, weekly_active_users FROM product_active_users_daily WHERE day = CAST(${D.toString} AS date)".as[(Long, Long)].head) shouldBe ((7L, 8L))
 
       val templates = priv(sql"SELECT property_value, event_count FROM product_event_property_daily WHERE day = CAST(${D.toString} AS date) AND event = 'firstrun_template_chosen'".as[(String, Long)])
-      templates.toMap shouldBe Map("blank" -> 2L, "other" -> 1L)
+      templates.toMap shouldBe Map("streamer" -> 2L, "founder" -> 1L, "ops" -> 1L, "finance" -> 1L, "other" -> 2L)
     }
 
     "leave rollup rows unchanged when run twice over the same data" in {

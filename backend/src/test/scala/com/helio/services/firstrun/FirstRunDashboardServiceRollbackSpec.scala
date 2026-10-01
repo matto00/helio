@@ -63,6 +63,8 @@ class FirstRunDashboardServiceRollbackSpec extends AnyWordSpec with Matchers wit
 
   override def afterAll(): Unit = { db.close(); embeddedPostgres.close(); actorSystem.terminate(); super.afterAll() }
 
+  private val noChartType: FirstRunDashboardService.SetChartType = (_, _, _) => Future.successful(Left(ServiceError.BadRequest("unused")))
+
   private def await[T](f: Future[T]): T = Await.result(f, 30.seconds)
 
   private def newUser(): AuthenticatedUser = {
@@ -86,7 +88,7 @@ class FirstRunDashboardServiceRollbackSpec extends AnyWordSpec with Matchers wit
       val service = new FirstRunDashboardService(dataSourceRepo, dataSourceService, proposalService, (_, _) => {
         dashboardCalls.incrementAndGet()
         Future.successful(Left(ServiceError.BadRequest("dashboard phase failed")))
-      })
+      }, noChartType)
 
       val result = await(service.build(DataSourceId(source.id.value), owner))
 
@@ -95,6 +97,42 @@ class FirstRunDashboardServiceRollbackSpec extends AnyWordSpec with Matchers wit
       count("pipelines", owner) shouldBe 0
       count("outputs", owner) shouldBe 0
       count("data_sources", owner) shouldBe 1
+    }
+
+    "delete the sample source and roll the pipeline back when a template's dashboard phase fails" in {
+      val owner = newUser()
+      val service = new FirstRunDashboardService(dataSourceRepo, dataSourceService, proposalService, (_, _) =>
+        Future.successful(Left(ServiceError.BadRequest("dashboard phase failed"))), noChartType)
+
+      await(service.buildTemplate("streamer", owner)) shouldBe Left(ServiceError.BadRequest("dashboard phase failed"))
+
+      count("data_sources", owner) shouldBe 0
+      count("pipelines", owner) shouldBe 0
+      count("outputs", owner) shouldBe 0
+    }
+
+    "delete the sample source when the template's pipeline cannot be planned after the source exists" in {
+      val owner  = newUser()
+      val broken = PersonaTemplates.Ops.copy(series = PersonaTemplates.Ops.series.copy(granularity = "fortnight"))
+      val service = new FirstRunDashboardService(dataSourceRepo, dataSourceService, proposalService, (_, _) =>
+        Future.successful(Left(ServiceError.BadRequest("unreachable"))), noChartType)
+
+      await(service.instantiate(broken, owner)).isLeft shouldBe true
+
+      count("data_sources", owner) shouldBe 0
+      count("pipelines", owner) shouldBe 0
+    }
+
+    "delete the sample source when the pipeline apply itself rejects the plan" in {
+      val owner  = newUser()
+      val blankOutputName = PersonaTemplates.Finance.copy(tableTitle = "  ")
+      val service = new FirstRunDashboardService(dataSourceRepo, dataSourceService, proposalService, (_, _) =>
+        Future.successful(Left(ServiceError.BadRequest("unreachable"))), noChartType)
+
+      await(service.instantiate(blankOutputName, owner)) shouldBe Left(ServiceError.BadRequest("output 1: name is required"))
+
+      count("data_sources", owner) shouldBe 0
+      count("pipelines", owner) shouldBe 0
     }
   }
 }

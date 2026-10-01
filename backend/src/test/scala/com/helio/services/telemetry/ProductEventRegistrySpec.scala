@@ -69,6 +69,12 @@ class ProductEventRegistrySpec extends AnyWordSpec with Matchers {
       names shouldBe (ProductEventRegistry.AllEventNames - "signup_completed")
     }
 
+    "carry a real persona template slug, never an unrolled one" in {
+      val chosen = events.map(_.asJsObject).find(_.fields("event") == JsString("firstrun_template_chosen")).get
+      val slug   = chosen.fields("properties").asJsObject.fields("template").asInstanceOf[JsString].value
+      ProductEventRegistry.RolledUpTemplateSlugs should contain(slug)
+    }
+
     "be accepted event-by-event by validateClientEvent" in {
       events.foreach { e =>
         withClue(s"event ${e.compactPrint}: ") {

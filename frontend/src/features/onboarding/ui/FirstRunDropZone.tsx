@@ -6,6 +6,8 @@ import { InlineError } from "../../../shared/chrome/InlineError";
 import { Spinner } from "../../../shared/ui/Spinner";
 import { TextField } from "../../../shared/ui/TextField";
 import { FIRST_RUN_STAGE_LABEL, useFirstRunBuild } from "../hooks/useFirstRunBuild";
+import { TEMPLATE_STAGE_LABEL, useFirstRunTemplate } from "../hooks/useFirstRunTemplate";
+import { FirstRunTemplateChips } from "./FirstRunTemplateChips";
 
 interface FirstRunDropZoneProps {
   /** Reveals the three-step checklist instead (the manual path). */
@@ -17,12 +19,32 @@ interface FirstRunDropZoneProps {
  *  and touch equivalent (a real "Choose a file" button and a labelled link field); progress is
  *  announced through a polite live region and failures through `role="alert"`. */
 export function FirstRunDropZone({ onStepByStep }: FirstRunDropZoneProps) {
-  const { state, submitFile, submitUrl, retry, canRetry } = useFirstRunBuild();
+  const build = useFirstRunBuild();
+  const template = useFirstRunTemplate();
+  const [templateActive, setTemplateActive] = useState(false);
+  const state = templateActive ? template.state : build.state;
+  const retry = templateActive ? template.retry : build.retry;
+  const canRetry = templateActive ? template.canRetry : build.canRetry;
   const [dragging, setDragging] = useState(false);
   const [url, setUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const urlInputId = useId();
   const working = state.status === "working";
+
+  function submitFile(file: File) {
+    setTemplateActive(false);
+    build.submitFile(file);
+  }
+
+  function submitUrl(value: string) {
+    setTemplateActive(false);
+    build.submitUrl(value);
+  }
+
+  function chooseTemplate(slug: string) {
+    setTemplateActive(true);
+    template.choose(slug);
+  }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -103,11 +125,12 @@ export function FirstRunDropZone({ onStepByStep }: FirstRunDropZoneProps) {
           </button>
         </div>
       </form>
+      <FirstRunTemplateChips disabled={working} onChoose={chooseTemplate} />
       <p className="first-run-drop__status" role="status" aria-live="polite">
         {state.status === "working" ? (
           <>
             <Spinner />
-            {FIRST_RUN_STAGE_LABEL[state.stage]}
+            {templateActive ? TEMPLATE_STAGE_LABEL : FIRST_RUN_STAGE_LABEL[state.stage]}
           </>
         ) : null}
       </p>

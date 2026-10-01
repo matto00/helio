@@ -1,0 +1,41 @@
+- `CLAUDE.md` — DemoData reference replaced by persona-template note (C3)
+- `backend/README.md` — DemoData/SystemUser note replaced by sample-data note (C3)
+- `backend/src/main/resources/templates/streamer.csv` — synthetic bundled dataset
+- `backend/src/main/resources/templates/founder.csv` — synthetic bundled dataset
+- `backend/src/main/resources/templates/ops.csv` — synthetic bundled dataset
+- `backend/src/main/resources/templates/finance.csv` — synthetic bundled dataset
+- `backend/src/main/resources/templates/README.md` — dataset provenance and rules
+- `backend/src/main/scala/com/helio/app/DemoData.scala` — deleted (retired, Decision 7)
+- `backend/src/main/scala/com/helio/app/Main.scala` — remove DemoData.seedIfEmpty call
+- `backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/DashboardRepository.scala` — remove dead count()
+- `backend/src/main/scala/com/helio/services/firstrun/PersonaTemplates.scala` — template registry (pipeline, explicit chart types, column order)
+- `backend/src/main/scala/com/helio/services/firstrun/FirstRunPlanner.scala` — shared chain builders, explicit chart type on panel, pinned table column order
+- `backend/src/main/scala/com/helio/services/firstrun/FirstRunDashboardService.scala` — buildTemplate/instantiate on the one applyPlan path, source cleanup, chart-type follow-up
+- `backend/src/main/scala/com/helio/services/firstrun/README.md` — document persona templates
+- `backend/src/main/scala/com/helio/api/protocols/firstrun/FirstRunProtocol.scala` — template request format
+- `backend/src/main/scala/com/helio/api/routes/firstrun/FirstRunRoutes.scala` — POST /api/first-run/template
+- `backend/src/main/scala/com/helio/api/routes/firstrun/README.md` — document the template route
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — wire chart-type setter into FirstRunDashboardService
+- `backend/src/main/scala/com/helio/services/telemetry/ProductEventRegistry.scala` — RolledUpTemplateSlugs populated (HEL-1218)
+- `backend/src/test/resources/telemetry/client-wire-batch.json` — template event uses real slug (C1)
+- `backend/src/test/scala/com/helio/api/routes/firstrun/FirstRunRoutesFixture.scala` — shared route-spec fixture extracted, second session
+- `backend/src/test/scala/com/helio/api/routes/firstrun/FirstRunRoutesSpec.scala` — uses the shared fixture
+- `backend/src/test/scala/com/helio/api/routes/firstrun/PersonaTemplateRoutesSpec.scala` — per-persona typed rows, ownership, edit/delete, 400, auth
+- `backend/src/test/scala/com/helio/services/firstrun/PersonaTemplatesSpec.scala` — CI dataset validation and plan/layout checks
+- `backend/src/test/scala/com/helio/services/firstrun/FirstRunDashboardServiceRollbackSpec.scala` — source cleanup on dashboard-fail, plan-fail, pipeline-apply-fail (C4)
+- `backend/src/test/scala/com/helio/services/telemetry/ProductEventRegistrySpec.scala` — fixture slug must be rolled up
+- `backend/src/test/scala/com/helio/infrastructure/persistence/telemetry/ProductEventRepositorySpec.scala` — each slug and `other` bucketed
+- `backend/src/test/scala/com/helio/testsupport/ProductTelemetryDbHarness.scala` — repo uses the real RolledUpTemplateSlugs
+- `frontend/src/features/onboarding/services/firstRunService.ts` — buildTemplateDashboard
+- `frontend/src/features/onboarding/state/personaTemplates.ts` — persona chip list
+- `frontend/src/features/onboarding/hooks/useFirstRunTemplate.ts` — chip flow hook, emits firstrun_template_chosen
+- `frontend/src/features/onboarding/ui/FirstRunTemplateChips.tsx` — keyboard-operable labelled chips
+- `frontend/src/features/onboarding/ui/FirstRunTemplateChips.css` — chip styles per DESIGN.md
+- `frontend/src/features/onboarding/ui/FirstRunTemplateChips.test.tsx` — a11y, telemetry, retry tests
+- `frontend/src/features/onboarding/ui/FirstRunDropZone.tsx` — mounts chips, shares working/error state
+- `frontend/src/features/onboarding/README.md` — document the additions
+- `frontend/src/features/telemetry/track.wireContract.test.ts` — template sample uses real slug (C1)
+- `frontend/src/theme/elevationTokenGuard.css.test.ts` — CSS file count 126 -> 127
+- `frontend/src/theme/motionTokenGuard.css.test.ts` — CSS file count 126 -> 127
+- `backend/src/main/scala/com/helio/infrastructure/persistence/DbContext.scala` — drop stale DemoData comment mentions
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputRepository.scala` — drop DemoData from the caller enumeration comment

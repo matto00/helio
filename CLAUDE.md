@@ -96,7 +96,7 @@ React Component → Redux Thunk (createAsyncThunk) → Service Layer (axios)
 - **`ApiRoutes.scala`** defines all REST routes and composes the sub-routers. Inputs are normalized by `RequestValidation` before reaching repositories.
 - **`JsonProtocols.scala`** provides Spray JSON implicit formatters for all request/response types.
 - Domain models use value-class ID wrappers (`DashboardId`, `PanelId`, `OutputId`, `DataSourceId`) and immutable case classes with `ResourceMeta` for timestamps.
-- **`DemoData`** seeds initial data on startup for development convenience; production data persists across restarts.
+- **Persona sample-data templates** (`PersonaTemplates`, HEL-1210) are the only bundled sample data: per-user, instantiated on demand via `POST /api/first-run/template` from classpath CSVs in `backend/src/main/resources/templates/`. The boot-time `DemoData` system-user seed was retired (HEL-1210) -- nothing is seeded at startup.
 
 ### Frontend (React/Redux/TypeScript)
 

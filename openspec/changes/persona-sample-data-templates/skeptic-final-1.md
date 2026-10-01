@@ -1,0 +1,21 @@
+## Skeptic Report — final gate (round 1, skeptic-final-1.md), head cfb822079f5e0c7bfada38e28cbbfed47e2e9e14
+
+### What I verified (with evidence)
+- Live API (fresh free-tier users, own cookie jar): POST /api/first-run/template streamer -> 201, 3 panels, ~70ms; bogus slug -> 400; ownership of source/pipeline/outputs/dashboard is the caller (tests + live list). Output rows are materialized and typed (finance top-N returns numeric amount_usd_sum; table rows ordered date/category/merchant/amount_usd).
+- Dashboard export: panel appearance carries chartType bar/line as templated; table has columnOrder (UI shows date,service,incidents,avg_resolution_min,uptime_pct, not alphabetical).
+- UI (Playwright): chips render under the drop zone, tokenized CSS (FirstRunTemplateChips.css uses --space/--text/--app-* only); one chip click lands on a rendered dashboard (table + line + bar). Double-click produced exactly 1 source/1 dashboard/1 template event (in-flight guard works). Phone width 390px: panels stack full-width, readable. Dark theme: renders with real data, parity OK.
+- Telemetry live: product_events has firstrun_template_chosen {"template":"ops"} for the test user, followed by firstrun_dashboard_created and first_dashboard_rendered; product_event_property_daily has (2026-10-01, ops, 1) via the rollup. RolledUpTemplateSlugs = four slugs, with a spec equating it to PersonaTemplates.All.
+- Gates re-run by me: jest (onboarding|telemetry|theme) 31 suites/319 tests pass; tsc exit 0; eslint onboarding exit 0 max-warnings 0. sbt targeted (firstrun, routes.firstrun, telemetry, repo telemetry): 102/103 pass; the 1 failure is DatasetWriteAutoRunEndToEndSpec.
+- Flake: that spec asserts `elapsed.toMillis should be >= 1000L` (debounce latency, line 278), touches nothing this change modified (only OutputRepository comment text changed in that area); it passed 4/4 in isolation on two further runs. Unrelated to HEL-1210 - verified.
+- Failure cleanup: the repo spec covers (a) dashboard-phase failure, (b) planning failure after source exists, (c) pipeline-apply rejection - all assert 0 sources/pipelines/outputs. The "real post-pipeline-create failure" branch is empirically exercised: my 14-call burst hit the pipeline-run rate limit (10/min) -> 429 on calls 11-14, and afterwards the user had exactly 10 sources, 10 pipelines, 10 dashboards, 30 outputs (no residue from the 429s).
+- Abuse: the endpoint is bounded by the existing per-user pipeline-run rate guard (10/min, 429 + clean rollback) and the general /api rate limit; request body is a slug only; data is a bundled classpath resource (2.6-5.8KB, 60-180 rows, size/row-count enforced by PersonaTemplatesSpec in CI). 
+- DemoData: retired, stated in backend/README.md and CLAUDE.md; compiles, no remaining references except historical comments/docs. No migration added (V114 untouched).
+- Test users I created were deleted by exact id (dashboards/pipelines/sources/rate-window rows, then users).
+
+### Verdict: CONFIRM
+
+### Non-blocking notes
+1. Chart-type patch is silently best-effort (FirstRunDashboardService.applyChartTypes discards each Either; no log, no test). If a patch returns Left, a bar chart ships as the default line chart and the response still says success. A thrown Future failure would be worse: applyTemplate's recoverWith deletes only the source, leaving dashboard/pipeline. Both are low probability (same PanelService a user edit goes through, immediately after create) but untested; recommend a warn-log on Left and a follow-up test.
+2. No dedupe: repeated chip clicks across minutes create unlimited sample sources/pipelines/dashboards (bounded only by 10/min). Also if fetchDashboards fails client-side after server success, "retry" creates a duplicate. Acceptable for sample data, worth a follow-up ticket (per-user cap or reuse).
+3. During a dark-theme reload on a freshly built dashboard I saw transient 429 "Rate limit exceeded" on output rows (17 console errors) after rapid navigation/reload in one minute; a clean reload an instant later rendered fine. Not attributable to this diff (general per-user limiter vs. dashboard fan-out), but a 3-panel dashboard burning the budget is worth watching.
+4. A rolled-up row for my test user's `ops` event remains in product_event_property_daily (aggregate, no user id).

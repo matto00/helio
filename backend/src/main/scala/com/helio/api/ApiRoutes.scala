@@ -499,7 +499,10 @@ final class ApiRoutes(
   // HEL-1209: deterministic first-run builder over the same already-constructed services; takes no
   // Claude collaborator by construction and is mounted ungated by tier.
   private val firstRunDashboardService =
-    new FirstRunDashboardService(dataSourceRepo, dataSourceService, pipelineProposalService, proposalService.apply)
+    new FirstRunDashboardService(
+      dataSourceRepo, dataSourceService, pipelineProposalService, proposalService.apply,
+      FirstRunDashboardService.chartTypeVia(panelService)
+    )
   // HEL-413: owner-scoped journal repository `PatchSetApplyService`'s successful-apply write and
   // `PatchSetUndoService`'s read both share -- constructed unconditionally (mirrors
   // patchSetApplyService's own always-constructed pattern below) since `dbContext` being null only

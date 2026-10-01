@@ -78,7 +78,7 @@ trait ProductTelemetryDbHarness extends BeforeAndAfterAll with BeforeAndAfterEac
     appDb  = pool(None)
     privDb = pool(Some("SET ROLE helio_privileged"))
     ctx    = new DbContext(appDb, privDb)
-    repo   = new ProductEventRepository(ctx, rolledUpTemplateSlugs = Set("blank"))
+    repo   = new ProductEventRepository(ctx)
 
     priv(DBIO.seq(
       sqlu"INSERT INTO users (id, email, created_at) VALUES (${userA.value}::uuid, ${userA.value + "@t.local"}, now())",
