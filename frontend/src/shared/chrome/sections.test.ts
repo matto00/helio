@@ -1,5 +1,11 @@
 import { navDestinations } from "./navDestinations";
-import { pickerIdForPathname, sectionForPathname, sectionLabel, sections } from "./sections";
+import {
+  isDashboardViewPath,
+  pickerIdForPathname,
+  sectionForPathname,
+  sectionLabel,
+  sections,
+} from "./sections";
 
 // HEL-724 — the single source of truth every chrome surface (breadcrumb,
 // document.title, phone title/sheet, sidebar nav rail, BottomNav) derives
@@ -17,6 +23,7 @@ describe("sections registry", () => {
     showInNav: boolean;
   }> = [
     { path: "/", label: "Dashboards", pickerId: "dashboards", showInNav: true },
+    { path: "/dashboards/", label: "Dashboards", pickerId: "dashboards", showInNav: false },
     { path: "/sources", label: "Data Sources", pickerId: "sources", showInNav: true },
     { path: "/pipelines", label: "Data Pipelines", pickerId: "pipelines", showInNav: true },
     { path: "/connectors", label: "Connectors", pickerId: "other", showInNav: true },
@@ -38,7 +45,7 @@ describe("sections registry", () => {
     },
   ];
 
-  it("lists all 9 routes with their expected {label, pickerId, showInNav}", () => {
+  it("lists every route with their expected {label, pickerId, showInNav}", () => {
     expect(
       sections.map((section) => ({
         path: section.path,
@@ -112,5 +119,21 @@ describe("sections registry", () => {
     expect(sections.some((section) => section.path === "/metrics")).toBe(false);
     expect(pickerIdForPathname("/registry")).toBe("other");
     expect(pickerIdForPathname("/metrics")).toBe("other");
+  });
+});
+
+// HEL-1209 — the authenticated `/dashboards/:id` landing route renders a dashboard grid, so it
+// gets the dashboards picker and the dashboard-view command-bar controls.
+describe("/dashboards/:id landing route", () => {
+  it("resolves to the dashboards picker and label", () => {
+    expect(pickerIdForPathname("/dashboards/abc-123")).toBe("dashboards");
+    expect(sectionLabel("/dashboards/abc-123")).toBe("Dashboards");
+  });
+
+  it("counts as a dashboard view, alongside '/' and nothing else", () => {
+    expect(isDashboardViewPath("/")).toBe(true);
+    expect(isDashboardViewPath("/dashboards/abc-123")).toBe(true);
+    expect(isDashboardViewPath("/sources")).toBe(false);
+    expect(isDashboardViewPath("/dashboard")).toBe(false);
   });
 });

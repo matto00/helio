@@ -160,7 +160,7 @@ function findHits(absPath: string, relPath: string, rawText: string): Hit[] {
 describe("motion token guard (HEL-441)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 124)", () => {
+  it("walks every CSS file in frontend/src (currently 126)", () => {
     // HEL-584 added `PanelFullscreenOverlay.css` (117 -> 118); it declares
     // no motion/transition/animation, so no new pin was needed.
     // HEL-572 added `PanelInspectView.css` (118 -> 119); it declares no
@@ -173,7 +173,9 @@ describe("motion token guard (HEL-441)", () => {
     // no motion/transition/animation either, so no new pin was needed here.
     // HEL-1207 added `ProvenancePopover.css` + `ProvenanceTrigger.css` (122 -> 124); neither
     // declares motion/elevation of its own (the panel surface comes from shared `Popover.css`).
-    expect(files.length).toBe(124);
+    // HEL-1209 added `FirstRunDropZone.css` + `FirstRunRefineBar.css` (124 -> 126); every
+    // transition/animation uses a motion token, so no new pin was needed.
+    expect(files.length).toBe(126);
   });
 
   it("has zero declarations in a file with no motion declarations at all", () => {

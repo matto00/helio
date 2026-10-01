@@ -1,0 +1,24 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+### What I verified (with evidence, against live tree)
+- CombinedProposalService sentinel: CONFIRMED. `resolveSentinelOutputId` (CombinedProposalService.scala) resolves only on exactly one output, else 422; design correctly avoids it.
+- Inline csv rejection: CONFIRMED (PipelineProposalService.scala ~L326-330, 422 "inline csv sources are not supported by apply-proposal yet").
+- `cast` step real: CONFIRMED (CastStep.Kind="cast"); no shape emits it (Passthrough/TimeSeries/TopN expand to datebucket/aggregate/sort/limit only).
+- Zero-Claude dependency of PipelineProposalService/DashboardProposalService/CombinedProposalService: CONFIRMED (no ClaudeClient in imports/ctor).
+- PipelineProposalService.apply creates + runs (`pipelineRunService.submit(isDry=false)`), run failure/blocked -> rollback/422: CONFIRMED. `rollback(pipelineResp,user)` exists and is public.
+- Tier: `state.auth.currentUser.tier` (features/auth/types/user.ts:21; ChatPage.tsx:21 uses `=== "free"`): CONFIRMED. track() events firstrun_file_dropped/firstrun_dashboard_created already declared in telemetry/track.ts L9-10: CONFIRMED. No authenticated /dashboards/:id route (AppRoutes.tsx only public `/dashboards/:dashboardId/panels`): CONFIRMED.
+- URL-created CSV sources store a file (`createCsvUrl` writes csv/<id>.csv), so server-side sampling works for both paths.
+- DashboardProposalService.apply with no panel layout: applyLayout is skipped; `PanelService.create` -> `placeDefaultLayout` appends per-breakpoint, scaled via LayoutBreakpointScaling: CONFIRMED mechanism, but see CR1.
+
+### Verdict: REFUTE
+
+### Change Requests
+1. **Layout claim is false (design D5, D4, spec "lays out safely").** `placeDefaultLayout` uses `OutputPanelDefaultSize` (PanelPacker.scala L139+): Table w=6,h=6; Chart w=6,h=4 at x=0, NOT full width. Scaled: lg 6/12, md 5/10, sm 3/6, xs round(6*2/12)=1 of 2 cols. So every panel is half width on every breakpoint including phone, leaving a blank half-column. Overlap-free, yes, but "stack full width" / "the table panel is first, full width" (design D4/D5, spec requirement text) is wrong, and half-width on a phone does not meet the ticket's "auto-layout including mobile layout" / phone-width AC. Revise: either (a) state honestly that default sizes are used and justify half-width at xs as acceptable (and fix the spec wording, drop "full width"), or (b) specify an explicit full-width-per-breakpoint layout the builder sets (note this re-enters the partial-layout-drops-panels/xs-scaling hazard the design cites; must then give all panels all four breakpoints with x=0,w=cols, distinct y, and not use scaled mixed x/w), or (c) use AutoLayoutService/PanelPacker. Pick one, make the task and overlap test match, and make the phone-width AC check explicit.
+2. **Internal contradiction on date-like formats (D3 vs Risks).** D3 declares `MM/dd/yyyy` date-like, but DateBucketStep.parseToUtcDate (L158-171) parses only epoch, ISO instant/offset, ISO local datetime, space-separated datetime and yyyy-MM-dd; `MM/dd/yyyy` would bucket to null. Risks says "non-ISO formats are not date-like". Remove MM/dd/yyyy (and decide explicitly on epoch-numeric: a pure-epoch column would classify numeric AND parse as date; state precedence), and delegate the "executor verifies" hand-wave to a concrete rule: date-like is exactly the set DateBucketStep parses, with a test using that parser.
+3. **Unspecified sampling reader (D3, task 1.2).** "reuse the existing CSV reader" names nothing. Name the concrete reader (fileSystem.read of `CsvSourceConfig.path` + the parser used by SchemaInferenceEngine/pipeline engine), confirm ownership check path (`findByIdOwned`), and say what happens for non-CSV sourceId (reject 400).
+4. **Missing acceptance for top-n/aggregate details.** D4 says time-series chart "sum of first numeric" with measure alias `<col>_sum`, but the top-n expansion is sort+limit with `measure` param; the aggregate pre-step is hand-built outside the shape registry, so "using the pipeline-shapes registry" is only partly true. State which step configs come from `PipelineShape.Registry(...).expand` vs hand-built, and that steps branch from cast (parentStepId) while shape expansions chain internally; give the parentStepId/clientId wiring so the implementer cannot read it two ways (also granularity threshold computed from "distinct dates" requires a second pass; say distinct over the 200-row sample or whole file).
+5. (minor, fold in) Spec scenario "Dashboard phase fails" is untestable as written without a failure injection point; tasks 1.4 should name the injection (e.g. stub DashboardProposalService returning Left) so the rollback test is red-first.
+
+### Non-blocking notes
+- Decisions 1, 2, 7, 8, 10, 11, 12 are sound and match the tree; ticket ACs all map to a task (timing 3.2, zero-Claude 1.4, tier visibility 2.5/2.7, a11y 2.2/2.7).
+- V114 untouched: fine.

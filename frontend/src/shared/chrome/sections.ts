@@ -50,6 +50,14 @@ export const sections: SectionEntry[] = [
     icon: LayoutDashboard,
     showInNav: true,
   },
+  // HEL-1209: the authenticated `/dashboards/:id` landing route belongs to the dashboards picker
+  // (sidebar list) and reads "Dashboards" in the breadcrumb/title; not a separate nav destination.
+  {
+    path: "/dashboards/",
+    pickerId: "dashboards",
+    label: "Dashboards",
+    showInNav: false,
+  },
   {
     path: "/sources",
     pickerId: "sources",
@@ -132,6 +140,13 @@ export function isNavSection(
   section: SectionEntry,
 ): section is Extract<SectionEntry, { showInNav: true }> {
   return section.showInNav;
+}
+
+/** True on the routes that render a dashboard's panel grid: `/` (the Redux-selected dashboard)
+ *  and the authenticated `/dashboards/:id` landing route (HEL-1209). Gates the dashboard-only
+ *  command-bar controls (rename, zoom, appearance, share) so they appear on both. */
+export function isDashboardViewPath(pathname: string): boolean {
+  return pathname === "/" || pathname.startsWith("/dashboards/");
 }
 
 function findSection(pathname: string): SectionEntry | undefined {

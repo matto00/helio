@@ -147,7 +147,7 @@ describe("PanelList", () => {
     createDashboardMock.mockReset();
   });
 
-  it("renders a 'no dashboards yet' empty state once the dashboards fetch resolves to zero (F-201)", () => {
+  it("renders the first-run drop zone once the dashboards fetch resolves to zero (F-201, HEL-1209)", () => {
     renderWithStore(<PanelList />, {
       dashboards: {
         items: [],
@@ -164,10 +164,21 @@ describe("PanelList", () => {
       },
     });
 
+    expect(screen.getByRole("region", { name: "Build your first dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose a file" })).toBeInTheDocument();
+    expect(screen.queryByText("No dashboards yet")).not.toBeInTheDocument();
+  });
+
+  it("keeps the plain 'No dashboards yet' empty state when the dashboards fetch FAILED, since an empty list is then not a settled zero (HEL-1209)", () => {
+    renderWithStore(<PanelList />, {
+      dashboards: { items: [], selectedDashboardId: null, status: "failed" },
+      panels: { items: [], status: "idle" },
+    });
+
     expect(screen.getByText("No dashboards yet")).toBeInTheDocument();
     expect(
-      screen.getByText("Create your first dashboard to start adding panels."),
-    ).toBeInTheDocument();
+      screen.queryByRole("region", { name: "Build your first dashboard" }),
+    ).not.toBeInTheDocument();
   });
 
   it("does not render the 'No dashboards yet' CTA while the dashboards fetch is in flight (idle), and shows a skeleton instead (HEL-528 evaluation-1.md CR3)", () => {
@@ -211,7 +222,7 @@ describe("PanelList", () => {
     expect(container.querySelector('[aria-label="Loading panels"]')).toBeInTheDocument();
   });
 
-  it("the 'no dashboards yet' empty state's CTA creates a dashboard (F-003)", async () => {
+  it("the step-by-step checklist's 'New dashboard' action creates a dashboard (F-003, HEL-1209)", async () => {
     createDashboardMock.mockResolvedValueOnce({
       id: "dashboard-new",
       name: "Untitled dashboard",
@@ -232,6 +243,7 @@ describe("PanelList", () => {
       },
     });
 
+    fireEvent.click(screen.getByRole("button", { name: "Set up step by step" }));
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "New dashboard" }));
       await waitFor(() => expect(createDashboardMock).toHaveBeenCalledWith("Untitled dashboard"));
@@ -250,11 +262,14 @@ describe("PanelList", () => {
       response: { data: { error: "Workspace dashboard limit reached." } },
     });
 
+    // HEL-1209: a settled-empty workspace now lands on the drop zone, so this plain empty state is
+    // reachable only when the dashboards fetch failed (the checklist path is covered in
+    // PanelList.onboarding.test.tsx).
     renderWithStore(<PanelList />, {
       dashboards: {
         items: [],
         selectedDashboardId: null,
-        status: "succeeded",
+        status: "failed",
       },
       panels: {
         items: [],
@@ -277,7 +292,7 @@ describe("PanelList", () => {
       dashboards: {
         items: [],
         selectedDashboardId: null,
-        status: "succeeded",
+        status: "failed",
       },
       panels: {
         items: [],

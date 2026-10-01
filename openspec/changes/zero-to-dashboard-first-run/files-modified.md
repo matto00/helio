@@ -1,0 +1,56 @@
+- `CLAUDE.md` — document `POST /api/first-run/dashboard` in the key-endpoints list
+- `schemas/README.md` — list the new `first-run` schema domain
+- `schemas/first-run/first-run-dashboard-request.schema.json` — request schema (drift-checked against `FirstRunDashboardRequest`)
+- `schemas/first-run/first-run-dashboard-response.schema.json` — response schema (drift-checked against `FirstRunDashboardResponse`)
+- `backend/src/main/scala/com/helio/domain/steps/DateBucketStep.scala` — extract `parseNonEpochDate` so the first-run date-like test shares datebucket's own parser (behavior-preserving)
+- `backend/src/main/scala/com/helio/services/firstrun/ColumnClassifier.scala` — rule-based numeric/date-like/categorical/text typing over a 200-row sample
+- `backend/src/main/scala/com/helio/services/firstrun/FirstRunPlanner.scala` — pure planner: cast + shape steps, outputs, full-width layouts
+- `backend/src/main/scala/com/helio/services/firstrun/FirstRunDashboardService.scala` — orchestrates sample -> plan -> apply pipeline (runs it) -> apply dashboard, rolling the pipeline back on dashboard failure; no Claude collaborator
+- `backend/src/main/scala/com/helio/services/firstrun/README.md` — directory README
+- `backend/src/main/scala/com/helio/api/protocols/firstrun/FirstRunProtocol.scala` — request/response case classes + formats
+- `backend/src/main/scala/com/helio/api/protocols/firstrun/README.md` — directory README
+- `backend/src/main/scala/com/helio/api/routes/firstrun/FirstRunRoutes.scala` — `POST /api/first-run/dashboard` (ungated by tier)
+- `backend/src/main/scala/com/helio/api/routes/firstrun/README.md` — directory README
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — mix in `FirstRunProtocol`
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — wire the service/route; add default-preserving `claudeConfigProvider`/`claudeTransportFactory` test seams
+- `backend/src/test/scala/com/helio/services/firstrun/FirstRunPlannerSpec.scala` — classifier + planner rules (MM/dd/yyyy not date-like, epoch numeric, no-numeric table-only, wiring, layout)
+- `backend/src/test/scala/com/helio/services/firstrun/FirstRunDashboardServiceRollbackSpec.scala` — pipeline rolled back (source kept) when the dashboard phase fails
+- `backend/src/test/scala/com/helio/api/routes/firstrun/FirstRunRoutesSpec.scala` — full-ApiRoutes free-tier build: zero Claude calls (with positive control), rendered rows, persisted layout at all breakpoints, 404/400 cases
+- `frontend/src/features/sources/utils/csvSourceCreate.ts` — shared infer -> force-string -> create (+ URL create) extracted from AddSourceModal; cycle 2: `CSV_UPLOAD_MAX_BYTES`
+- `frontend/src/features/sources/utils/csvSourceCreate.test.ts` — tests for the shared CSV create
+- `frontend/src/features/sources/services/dataSourceService.ts` — `createCsvSourceFromUrl`
+- `frontend/src/features/sources/ui/AddSourceModal.tsx` — use the shared `createCsvFromFields` (behavior unchanged)
+- `frontend/src/features/onboarding/services/firstRunService.ts` — `buildFirstRunDashboard`
+- `frontend/src/features/onboarding/hooks/useFirstRunBuild.ts` — drop-zone flow (cycle 2: client-side 8 MiB check, no Retry for size errors): create source, build, refresh dashboards, land on `/dashboards/:id`, telemetry
+- `frontend/src/features/onboarding/state/firstRunErrors.ts` — per-failure human messages; cycle 2: size message, `isPayloadTooLarge`
+- `frontend/src/features/onboarding/state/firstRunErrors.test.ts` — error + naming tests
+- `frontend/src/features/onboarding/state/firstRunNaming.ts` — source naming and file/URL validation
+- `frontend/src/features/onboarding/state/firstRunDraft.ts` — refine draft text and the beta/owner tier check
+- `frontend/src/features/onboarding/state/firstRunDraft.test.ts` — draft + tier tests
+- `frontend/src/features/onboarding/ui/FirstRunDropZone.tsx` — drop zone, file picker, URL field, live-region progress, alert errors
+- `frontend/src/features/onboarding/ui/FirstRunDropZone.css` — drop zone styling (tokens only, both themes, phone width); cycle 2: `align-self` scoped to the card's direct-child button
+- `frontend/src/features/onboarding/ui/FirstRunDropZone.test.tsx` — drop/pick/paste, keyboard, announced progress/errors, retry, telemetry
+- `frontend/src/features/onboarding/ui/FirstRunRefineBar.tsx` — "Refine with the assistant" (beta/owner only; not rendered for free)
+- `frontend/src/features/onboarding/ui/FirstRunRefineBar.css` — refine strip styling
+- `frontend/src/features/onboarding/README.md` — describe the first-run additions
+- `frontend/src/features/dashboards/ui/DashboardRoute.tsx` — authenticated `/dashboards/:id` route wrapper
+- `frontend/src/features/dashboards/ui/DashboardRoute.test.tsx` — selection, not-found, tier visibility of the refine action
+- `frontend/src/app/AppRoutes.tsx` — register `/dashboards/:id`
+- `frontend/src/app/App.tsx` — dashboard-view controls also on `/dashboards/:id`
+- `frontend/src/app/CommandBar.tsx` — dashboard-view controls also on `/dashboards/:id`
+- `frontend/src/shared/chrome/sections.ts` — `/dashboards/` section entry and `isDashboardViewPath`
+- `frontend/src/shared/chrome/sections.test.ts` — registry + `isDashboardViewPath` tests
+- `frontend/src/features/panels/ui/PanelList.tsx` — drop zone supersedes the checklist for a settled-empty workspace; "Set up step by step" reveals the checklist
+- `frontend/src/features/panels/ui/PanelList.test.tsx` — retargeted zero-dashboard tests to the drop zone / step-by-step path
+- `frontend/src/features/panels/ui/PanelList.onboarding.test.tsx` — checklist now reached via "Set up step by step"
+- `frontend/src/features/assistant/ui/ChatPage.tsx` — one-time draft hand-off from router state (starts a new conversation)
+- `frontend/src/features/assistant/ui/ChatPage.test.tsx` — draft prefill tests
+- `frontend/src/features/assistant/ui/ActiveConversationPanel.tsx` — pass `initialDraft` to the composer
+- `frontend/src/features/assistant/ui/MessageComposer.tsx` — seed the draft once from `initialDraft`
+- `frontend/src/theme/elevationTokenGuard.css.test.ts` — CSS file count 124 -> 126
+- `frontend/src/theme/motionTokenGuard.css.test.ts` — CSS file count 124 -> 126
+- `openspec/changes/zero-to-dashboard-first-run/design.md` — implementation amendments (numeric rule, shared utils, injected dashboard apply, test seams, sections)
+- `openspec/changes/zero-to-dashboard-first-run/tasks.md` — tasks ticked
+- `openspec/changes/zero-to-dashboard-first-run/files-modified.md` — this handoff
+- `frontend/src/features/onboarding/ui/FirstRunDropZone.css.test.ts` — guards the button-alignment cascade (cycle 2)
+- `openspec/changes/zero-to-dashboard-first-run/evaluation-1.md` — evaluator report (cycle 1)

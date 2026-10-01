@@ -109,6 +109,17 @@ export async function createCsvSource(
   return response.data;
 }
 
+/** URL path: the server fetches the CSV (https-only, SSRF-guarded, size-limited) and stores it
+ *  exactly like an upload. */
+export async function createCsvSourceFromUrl(name: string, url: string): Promise<DataSource> {
+  const response = await httpClient.post<DataSource>("/api/data-sources", {
+    name,
+    type: "csv",
+    config: { url },
+  });
+  return response.data;
+}
+
 export async function createStaticSource(
   name: string,
   columns: StaticColumn[],

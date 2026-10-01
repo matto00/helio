@@ -166,13 +166,18 @@ object DateBucketStep {
       instant.atZone(ZoneOffset.UTC).toLocalDate
     }
 
-    epochDate
-      .orElse(Try(Instant.parse(str).atZone(ZoneOffset.UTC).toLocalDate).toOption)
+    epochDate.orElse(parseNonEpochDate(str))
+  }
+
+  /** Every accepted input shape except a bare epoch number. Shared with the first-run builder's
+   *  date-like column test (HEL-1209) so "looks like a date" can never drift from what
+   *  `datebucket` would actually bucket. */
+  def parseNonEpochDate(str: String): Option[LocalDate] =
+    Try(Instant.parse(str).atZone(ZoneOffset.UTC).toLocalDate).toOption
       .orElse(Try(OffsetDateTime.parse(str).atZoneSameInstant(ZoneOffset.UTC).toLocalDate).toOption)
       .orElse(Try(LocalDateTime.parse(str, DateTimeFormatter.ISO_LOCAL_DATE_TIME).atZone(ZoneOffset.UTC).toLocalDate).toOption)
       .orElse(Try(LocalDateTime.parse(str, SpaceSeparatedFormatter).atZone(ZoneOffset.UTC).toLocalDate).toOption)
       .orElse(Try(LocalDate.parse(str)).toOption)
-  }
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
