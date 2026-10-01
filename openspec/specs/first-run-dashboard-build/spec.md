@@ -1,7 +1,7 @@
 # first-run-dashboard-build Specification
 
 ## Purpose
-The deterministic, no-AI first-run build: a CSV dropped or linked on an empty workspace becomes a source, a rule-built pipeline and a full-width dashboard, with beta-only assistant refinement.. Update Purpose after archive.
+The deterministic, no-AI first-run build: a CSV dropped or linked on an empty workspace becomes a source, a rule-built pipeline and a full-width dashboard, with beta-only assistant refinement.
 
 ## Requirements
 
