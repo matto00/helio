@@ -1,5 +1,0 @@
-- `frontend/src/features/telemetry/track.ts` — toWireEvent allow-list pick used in send(); 400 drops batch and logs once per page-load
-- `frontend/src/features/telemetry/track.test.ts` — wire shape, legacy queue, 400 log-once, 401/5xx, first-dashboard flag not poisoned
-- `frontend/src/features/telemetry/track.wireContract.test.ts` — seam test: real track() payload for every variant vs shared fixture
-- `backend/src/test/resources/telemetry/client-wire-batch.json` — shared fixture of the client's real wire batch
-- `backend/src/test/scala/com/helio/services/telemetry/ProductEventRegistrySpec.scala` — fixture accepted by real validateClientEvent; +userId rejected
