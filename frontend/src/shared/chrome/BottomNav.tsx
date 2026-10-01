@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 
 import "./BottomNav.css";
-import { navDestinations } from "./navDestinations";
+import { useNavDestinations } from "./useNavDestinations";
 import { ICON_SIZE } from "../ui/iconSize";
 
 /**
@@ -15,6 +15,7 @@ import { ICON_SIZE } from "../ui/iconSize";
  * not belt-and-braces alongside a visible short label (former F-080).
  */
 export function BottomNav() {
+  const navDestinations = useNavDestinations();
   return (
     <nav className="bottom-nav" aria-label="Primary">
       {navDestinations.map((destination) => {

@@ -29,6 +29,7 @@ describe("sections registry", () => {
     { path: "/connectors", label: "Connectors", pickerId: "other", showInNav: true },
     { path: "/chat", label: "Assistant", pickerId: "chat", showInNav: true },
     { path: "/settings", label: "Settings", pickerId: "other", showInNav: false },
+    { path: "/admin/usage", label: "Usage", pickerId: "other", showInNav: false },
     { path: "/proposals/review", label: "Review Proposal", pickerId: "other", showInNav: false },
     { path: "/patch-sets/review", label: "Review Changes", pickerId: "other", showInNav: false },
     {

@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 
 import { isNavSection, sections } from "./sections";
 
@@ -21,3 +22,12 @@ export const navDestinations: NavDestination[] = sections.filter(isNavSection).m
   label: section.label,
   icon: section.icon,
 }));
+
+/** HEL-1211: owner-only. Never part of `navDestinations` — appended by `useNavDestinations` only
+ * when the signed-in user's tier is `owner`. Hiding it is a convenience; the server's 403 on
+ * `GET /api/admin/usage` is the real gate. */
+export const adminUsageDestination: NavDestination = {
+  to: "/admin/usage",
+  label: "Usage",
+  icon: BarChart3,
+};

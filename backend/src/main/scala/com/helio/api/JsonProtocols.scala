@@ -1,6 +1,7 @@
 package com.helio.api
 
 import com.helio.api.protocols._
+import com.helio.api.protocols.admin._
 import com.helio.api.protocols.agents._
 import com.helio.api.protocols.alerts._
 import com.helio.api.protocols.assistant._
@@ -97,6 +98,7 @@ trait JsonProtocols
     with PipelineProposalProtocol
     with CombinedProposalProtocol
     with FirstRunProtocol
+    with AdminUsageProtocol
     with PipelineAnalyzeProposalProtocol
     with PatchSetProtocol
     with PatchSetApplyProtocol

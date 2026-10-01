@@ -104,6 +104,16 @@ export const sections: SectionEntry[] = [
     label: "Settings",
     showInNav: false,
   },
+  // HEL-1211: the owner-only usage page. `showInNav: false` here is deliberate — the static
+  // `navDestinations` list is shared by every user, so the entry is appended only for owners by
+  // `useNavDestinations` (a non-owner's nav never contains it). This entry exists so the
+  // breadcrumb / document.title read "Usage" instead of the "Dashboards" default.
+  {
+    path: "/admin/usage",
+    pickerId: "other",
+    label: "Usage",
+    showInNav: false,
+  },
   {
     path: "/proposals/review",
     pickerId: "other",
