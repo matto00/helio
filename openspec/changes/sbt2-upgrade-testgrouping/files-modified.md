@@ -1,4 +1,0 @@
-- `backend/project/build.properties` — sbt 1.10.10 -> 2.0.9
-- `backend/project/plugins.sbt` — sbt-assembly 2.3.1 -> 2.5.0 (sbt 2 release)
-- `backend/build.sbt` — sbt 2 load fixes: `Test / testGrouping := Def.uncached {...}` (body unchanged; remedy + two declines recorded at the definition); `generateSbom` Def.uncached + moduleIDStr JSON decode + SBOM pinned to backend/target/ (CI path); `assembly / assemblyOutputPath` pinned to target/scala-2.13/helio-backend.jar (Dockerfile path); `Test / testForkedParallel := false` (sbt 2 flipped the default to true; restores sbt 1 sequential suites per group); commons-compress 1.26.2 override (restores the version sbt 1 shipped)
-- `openspec/changes/sbt2-upgrade-testgrouping/evidence/grouping-count{8,3}.txt` — group -> sorted test classes dump from sbt 1.10.10 (byte-identical to the sbt 2.0.9 dump)
