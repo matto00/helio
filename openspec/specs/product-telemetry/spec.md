@@ -133,3 +133,10 @@ When the server rejects a batch with 400 the client SHALL drop that batch and lo
 #### Scenario: 400 is logged once
 - **WHEN** the server answers 400 to a batch
 - **THEN** the batch is removed from the queue and a single error log with the server message is emitted
+
+### Requirement: Template slugs roll up under their own slug
+The rollup of `firstrun_template_chosen` SHALL bucket each of `streamer`, `founder`, `ops`, `finance` under its own slug, and any other value under `other`.
+
+#### Scenario: Known slug
+- **WHEN** a `firstrun_template_chosen` event with template `streamer` is stored and rolled up
+- **THEN** the rollup row's property value is `streamer`, not `other`
