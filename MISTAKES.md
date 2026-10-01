@@ -243,6 +243,15 @@ worktree's range, so the run measures someone else's server. The same class has
 stranded uncommitted work in the **main checkout** instead of a worktree.
 (CON-165.)
 
+### sbt 2: `sbt test` can be a cached no-op, and `sbt a b` is not two commands
+
+sbt 2 caches task results. A repeat `sbt test` with no source change prints
+"No tests to run for Test / testQuick" and exits green having run nothing -- use
+`sbt testFull` when you need a real full run (a fresh CI checkout has no cache, so
+there it is a full run). Separately, sbt 2's thin client joins unquoted arguments
+into ONE command (`sbt compile test` fails with "Expected whitespace character"):
+pass a single quoted command, `sbt "compile; testFull"`. (HEL-1018.)
+
 ### Parallel Playwright sessions share one browser
 
 A peer session can steal the tab mid-run. Re-check `location.href` before every
