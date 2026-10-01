@@ -57,6 +57,10 @@ import com.helio.domain.util.SystemClock
 import com.helio.infrastructure.persistence.telemetry.ProductEventRepository
 import com.helio.services.telemetry.{ProductEventService, ProductTelemetryConfig}
 import com.helio.api.routes.telemetry.ProductEventRoutes
+import com.helio.api.routes.admin.AdminUsageRoutes
+import com.helio.infrastructure.persistence.telemetry.ProductUsageRepository
+import com.helio.services.auth.AdminAccessService
+import com.helio.services.telemetry.AdminUsageService
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, OAuthStateRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
@@ -337,6 +341,11 @@ final class ApiRoutes(
   private val oauthStateStore   = new OAuthStateRepository(dbContext)
   // HEL-1208: nullable-dbContext gated like every other dbContext-derived service; AuthService
   // takes it as an Option so a fixture without a DbContext simply records no signup event.
+  // HEL-1211: owner-only usage view; reads the rollup tables only via ProductUsageRepository.
+  private val adminUsageServiceOpt: Option[AdminUsageService] =
+    Option(dbContext).map(ctx => new AdminUsageService(new ProductUsageRepository(ctx), SystemClock))
+  private val adminAccessService = new AdminAccessService(userRepo)
+
   private val productEventServiceOpt: Option[ProductEventService] =
     Option(dbContext).map(ctx => new ProductEventService(new ProductEventRepository(ctx), SystemClock))
   private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore, productEventServiceOpt)
@@ -1061,7 +1070,9 @@ final class ApiRoutes(
                   // HEL-1208: write-only product-telemetry ingestion, own rate limiter.
                   productEventServiceOpt.fold(reject: Route)(svc =>
                     new ProductEventRoutes(svc, authenticatedUser, productEventsRateLimitDirective, productTelemetryConfig.rateLimitPerWindow).routes
-                  )
+                  ),
+                  // HEL-1211: owner-only aggregate usage view; the gate is server-side (AdminAccessService).
+                  adminUsageServiceOpt.fold(reject: Route)(svc => new AdminUsageRoutes(adminAccessService, svc, authenticatedUser).routes)
                 )
               }
             )

@@ -21,6 +21,7 @@ import { PublicDashboardViewerPage } from "../features/dashboards/ui/PublicDashb
 import { PanelList } from "../features/panels/ui/PanelList";
 import { EmptyState } from "../shared/ui/EmptyState";
 import { PageSuspenseFallback } from "../shared/ui/SuspenseFallback";
+import { OwnerOnly } from "../features/adminUsage/ui/OwnerOnly";
 import { AppShell } from "./App";
 import { Compass } from "lucide-react";
 
@@ -46,6 +47,12 @@ const CombinedProposalReviewPage = lazy(() =>
   import("../features/proposals/ui/CombinedProposalReviewPage").then((m) => ({
     default: m.CombinedProposalReviewPage,
   })),
+);
+
+// HEL-1211 — owner-only, reached from one nav entry only owners see; lazy so the page (and its
+// chart wiring) isn't on any other route's critical path.
+const AdminUsagePage = lazy(() =>
+  import("../features/adminUsage/ui/AdminUsagePage").then((m) => ({ default: m.AdminUsagePage })),
 );
 
 /** Rendered for any route that doesn't match a real page — including while
@@ -109,6 +116,17 @@ export function AppRoutes() {
           <Route path="/connectors" element={<ConnectorsPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          {/* HEL-1211: non-owners get the not-found page (the server's 403 is the real gate). */}
+          <Route
+            path="/admin/usage"
+            element={
+              <OwnerOnly fallback={<NotFoundPage />}>
+                <Suspense fallback={<PageSuspenseFallback />}>
+                  <AdminUsagePage />
+                </Suspense>
+              </OwnerOnly>
+            }
+          />
           <Route
             path="/proposals/review"
             element={

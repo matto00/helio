@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/admin/admin-usage-response.schema.json",
+  "title": "AdminUsageResponse",
+  "description": "200 body of GET /api/admin/usage?days=N (HEL-1211), owner-tier only (403 TIER_FORBIDDEN otherwise; 400 for days that is not an integer in 1..90). Aggregates read from the product-telemetry rollups only; no user identifier. The window is the last `days` UTC days ending at `rolledThrough`, or ending today when `rolledThrough` is null (nothing rolled up yet). Count series are zero-filled; weeklyActiveUsers and TTFD percentiles are null (a gap, never 0) for a day without data.",
+  "type": "object",
+  "properties": {
+    "days": { "type": "integer", "minimum": 1, "maximum": 90 },
+    "from": { "type": "string", "format": "date" },
+    "to": { "type": "string", "format": "date" },
+    "rolledThrough": { "type": ["string", "null"], "format": "date" },
+    "signupsPerDay": { "type": "array", "items": { "$ref": "#/$defs/dayCount" } },
+    "ttfd": {
+      "type": "object",
+      "description": "Time-to-first-dashboard, NEW users only (users who signed up after telemetry shipped; no backfill). `latest` is the most recent day with samples; percentiles are not averageable so there is no window-level summary.",
+      "properties": {
+        "newUsersOnly": { "type": "boolean", "const": true },
+        "perDay": { "type": "array", "items": { "$ref": "#/$defs/ttfdDay" } },
+        "latest": { "oneOf": [{ "$ref": "#/$defs/ttfdDay" }, { "type": "null" }] }
+      },
+      "required": ["newUsersOnly", "perDay", "latest"],
+      "additionalProperties": false
+    },
+    "funnel": {
+      "type": "array",
+      "description": "First-run funnel by event day (window sums of per-day distinct users), not a strict cohort: file dropped, dashboard created, first dashboard rendered.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "firstrun_file_dropped",
+              "firstrun_dashboard_created",
+              "first_dashboard_rendered"
+            ]
+          },
+          "users": { "type": "integer", "minimum": 0 },
+          "conversionFromPrevious": { "type": ["number", "null"], "minimum": 0 }
+        },
+        "required": ["stage", "users", "conversionFromPrevious"],
+        "additionalProperties": false
+      }
+    },
+    "templateChoices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "template": { "type": "string" },
+          "count": { "type": "integer", "minimum": 0 }
+        },
+        "required": ["template", "count"],
+        "additionalProperties": false
+      }
+    },
+    "provenanceOpensPerDay": { "type": "array", "items": { "$ref": "#/$defs/dayCount" } },
+    "activeUsers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "day": { "type": "string", "format": "date" },
+          "dailyActiveUsers": { "type": "integer", "minimum": 0 },
+          "weeklyActiveUsers": { "type": ["integer", "null"], "minimum": 0 }
+        },
+        "required": ["day", "dailyActiveUsers", "weeklyActiveUsers"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "days",
+    "from",
+    "to",
+    "rolledThrough",
+    "signupsPerDay",
+    "ttfd",
+    "funnel",
+    "templateChoices",
+    "provenanceOpensPerDay",
+    "activeUsers"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "dayCount": {
+      "type": "object",
+      "properties": {
+        "day": { "type": "string", "format": "date" },
+        "count": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["day", "count"],
+      "additionalProperties": false
+    },
+    "ttfdDay": {
+      "type": "object",
+      "properties": {
+        "day": { "type": "string", "format": "date" },
+        "sampleCount": { "type": "integer", "minimum": 0 },
+        "medianSeconds": { "type": ["number", "null"] },
+        "p90Seconds": { "type": ["number", "null"] }
+      },
+      "required": ["day", "sampleCount", "medianSeconds", "p90Seconds"],
+      "additionalProperties": false
+    }
+  }
+}

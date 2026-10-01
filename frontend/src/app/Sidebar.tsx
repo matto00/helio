@@ -2,7 +2,7 @@ import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { SidebarBody } from "../shared/chrome/SidebarBody";
-import { navDestinations } from "../shared/chrome/navDestinations";
+import { useNavDestinations } from "../shared/chrome/useNavDestinations";
 import { IconButton } from "../shared/ui/IconButton";
 import { ICON_SIZE } from "../shared/ui/iconSize";
 
@@ -15,6 +15,7 @@ interface SidebarProps {
  * the shared `sections.ts` registry), the collapse toggle, and
  * `SidebarBody`'s per-section list. */
 export function Sidebar({ isDashboardListCollapsed, onToggleCollapse }: SidebarProps) {
+  const navDestinations = useNavDestinations();
   return (
     // F-018: collapsing used to remove primary navigation entirely,
     // leaving only an unlabeled 20x48px strip as the way back, and the
