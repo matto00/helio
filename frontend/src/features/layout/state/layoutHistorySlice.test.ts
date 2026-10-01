@@ -5,6 +5,7 @@ import {
   redoLayout,
   selectCanRedo,
   selectCanUndo,
+  selectLayoutRevision,
   selectRedoLayout,
   selectUndoLayout,
   undoLayout,
@@ -47,6 +48,7 @@ describe("layoutHistorySlice", () => {
           [dashboardId]: {
             past: [layoutA],
             future: [layoutB],
+            revision: 0,
           },
         },
       };
@@ -161,5 +163,22 @@ describe("layoutHistorySlice", () => {
     it("selectRedoLayout returns undefined when future is empty", () => {
       expect(selectRedoLayout(dashboardId)(makeRootState([], []))).toBeUndefined();
     });
+  });
+});
+
+describe("layout revision (HEL-1028)", () => {
+  it("bumps on an effective undo and redo, not on push or a no-op", () => {
+    let state = layoutHistoryReducer(undefined, { type: "@@INIT" });
+    const root = (s: typeof state) => ({ layoutHistory: s }) as never;
+    expect(selectLayoutRevision(dashboardId)(root(state))).toBe(0);
+    state = layoutHistoryReducer(state, undoLayout({ dashboardId, currentLayout: layoutB }));
+    expect(selectLayoutRevision(dashboardId)(root(state))).toBe(0);
+    state = layoutHistoryReducer(state, pushLayoutSnapshot({ dashboardId, layout: layoutA }));
+    expect(selectLayoutRevision(dashboardId)(root(state))).toBe(0);
+    state = layoutHistoryReducer(state, undoLayout({ dashboardId, currentLayout: layoutB }));
+    expect(selectLayoutRevision(dashboardId)(root(state))).toBe(1);
+    state = layoutHistoryReducer(state, redoLayout({ dashboardId, currentLayout: layoutA }));
+    expect(selectLayoutRevision(dashboardId)(root(state))).toBe(2);
+    expect(selectLayoutRevision(null)(root(state))).toBe(0);
   });
 });

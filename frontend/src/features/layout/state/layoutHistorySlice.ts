@@ -8,6 +8,9 @@ const MAX_HISTORY_DEPTH = 50;
 interface DashboardLayoutHistory {
   past: DashboardLayout[];
   future: DashboardLayout[];
+  /** Bumped by every effective undo/redo so a consumer can tell a history
+   *  traversal apart from any other store layout change (HEL-1028). */
+  revision: number;
 }
 
 interface LayoutHistoryState {
@@ -20,7 +23,7 @@ const initialState: LayoutHistoryState = {
 
 function getOrInit(state: LayoutHistoryState, dashboardId: string): DashboardLayoutHistory {
   if (!state.byDashboard[dashboardId]) {
-    state.byDashboard[dashboardId] = { past: [], future: [] };
+    state.byDashboard[dashboardId] = { past: [], future: [], revision: 0 };
   }
   return state.byDashboard[dashboardId];
 }
@@ -59,6 +62,7 @@ const layoutHistorySlice = createSlice({
       if (history.past.length === 0) return;
       history.past.pop();
       history.future.unshift(currentLayout);
+      history.revision += 1;
     },
     /**
      * Pops the redo stack and pushes `currentLayout` onto the undo stack.
@@ -77,6 +81,7 @@ const layoutHistorySlice = createSlice({
       if (history.past.length > MAX_HISTORY_DEPTH) {
         history.past.shift();
       }
+      history.revision += 1;
     },
   },
 });
@@ -95,6 +100,14 @@ export function selectCanRedo(dashboardId: string | null) {
   return (state: RootState): boolean => {
     if (!dashboardId) return false;
     return (state.layoutHistory.byDashboard[dashboardId]?.future.length ?? 0) > 0;
+  };
+}
+
+/** Monotonic per-dashboard undo/redo counter (0 when no history exists). */
+export function selectLayoutRevision(dashboardId: string | null) {
+  return (state: RootState): number => {
+    if (!dashboardId) return 0;
+    return state.layoutHistory.byDashboard[dashboardId]?.revision ?? 0;
   };
 }
 

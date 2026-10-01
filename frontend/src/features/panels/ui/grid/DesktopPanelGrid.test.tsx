@@ -18,6 +18,7 @@ import { Provider } from "react-redux";
 
 import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { ThemeProvider } from "../../../../theme/ThemeProvider";
+import { layoutHistoryReducer } from "../../../layout/state/layoutHistorySlice";
 import { panelsReducer } from "../../state/panelsSlice";
 import { DesktopPanelGrid } from "./DesktopPanelGrid";
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
@@ -64,6 +65,8 @@ function makeStore(panels: Panel[], status: PanelsStatus = "succeeded") {
   const initial = { ...seed, items: panels, status };
   return configureStore({
     reducer: {
+      // HEL-1028: `useLayoutSave` now reads the undo/redo revision from this slice.
+      layoutHistory: layoutHistoryReducer,
       panels: (state = initial, action: UnknownAction) =>
         panelsReducer(state as never, action as never),
     } as never,
