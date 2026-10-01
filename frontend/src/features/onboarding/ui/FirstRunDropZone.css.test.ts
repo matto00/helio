@@ -3,11 +3,14 @@ import path from "node:path";
 
 const css = fs.readFileSync(path.join(__dirname, "FirstRunDropZone.css"), "utf-8");
 
+/** The declaration block of the rule whose selector starts a line. Plain string search, so no
+ *  selector text is ever interpreted as a pattern. */
 function ruleBody(selector: string): string {
-  const escaped = selector.replace(/[.>]/g, "\\$&");
-  const match = new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`).exec(css);
-  if (!match) throw new Error(`no rule for ${selector}`);
-  return match[1];
+  const start = css.split("\n").findIndex((line) => line.startsWith(`${selector} {`));
+  if (start === -1) throw new Error(`no rule for ${selector}`);
+  const rest = css.split("\n").slice(start + 1);
+  const end = rest.findIndex((line) => line.startsWith("}"));
+  return rest.slice(0, end).join("\n");
 }
 
 describe("FirstRunDropZone.css", () => {
