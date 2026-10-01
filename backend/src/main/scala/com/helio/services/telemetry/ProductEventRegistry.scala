@@ -67,8 +67,8 @@ object ProductEventRegistry {
   val OncePerUserEvents: Set[String] = Set(SignupCompleted, FirstDashboardRendered)
 
   /** Template slugs rolled up as-is; anything else buckets to `other` so rollup cardinality stays
-   *  bounded. Empty until the first-run leaf declares real template slugs. */
-  val RolledUpTemplateSlugs: Set[String] = Set.empty
+   *  bounded. Must list every slug in `PersonaTemplates.All` (a spec enforces it). */
+  val RolledUpTemplateSlugs: Set[String] = Set("streamer", "founder", "ops", "finance")
 
   val MaxBatchSize: Int = 25
 

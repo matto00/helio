@@ -66,7 +66,7 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  Reached (via `insertInternal`/`insertInternalAction`'s `(nodeStepId, explicitRootId)` match,
    *  the `(None, None)` arm) ONLY when a caller passes `explicitRootId = None` for a root-bound
    *  Output. This is checkable as an ENUMERATION of every caller, not a trust-me claim
-   *  (evaluation-2.md, Rule B): there are exactly three, and each is safe by a DIFFERENT
+   *  (evaluation-2.md, Rule B): there are exactly two, and each is safe by a DIFFERENT
    *  mechanism --
    *    1. `OutputService.create` -- `requireUnambiguousRootWhenNeither` refuses a multi-root
    *       pipeline with a named 400 BEFORE `resolveExplicitRootId` can return `None`, so this arm
@@ -77,12 +77,8 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *       carries a non-`None` `nodeStepId`, which takes the `(Some(_), _) => None` root arm
    *       regardless of `explicitRootId`. Either way this method is unreached with more than one
    *       root live.
-   *    3. `DemoData` (`:59`) -- passes `explicitRootId = Some(demoRootId)` explicitly, a NAMED-root
-   *       caller that never reaches this arm at all; also structurally single-root regardless
-   *       (`pipelineRepo.create("Demo Pipeline", Vector(source.id), ...)`, a hard-coded
-   *       one-element vector at boot).
    *  The claim "the set of callers that can reach this with more than one root is empty" is what
-   *  is asserted here, not "the caller is responsible" -- if a FOURTH caller is ever added, it
+   *  is asserted here, not "the caller is responsible" -- if a THIRD caller is ever added, it
    *  must be added to this enumeration or this comment goes stale the same way the deleted
    *  `OutputService` precondition did. */
   private def firstRootIdAction(pipelineId: String): DBIO[String] =

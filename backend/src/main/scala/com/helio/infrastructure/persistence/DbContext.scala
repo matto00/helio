@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  - [[withUserContext]] — for user-owned reads and writes; passes the
  *    caller's user ID so RLS policies can evaluate it. Uses the app pool.
  *  - [[withSystemContext]] — for privileged callers (background jobs,
- *    `ResourceTypeRegistry` resolvers, DemoData seeding, and any path
+ *    `ResourceTypeRegistry` resolvers, and any path
  *    where no authenticated user is available). Uses the privileged pool.
  *
  *  Raw `db.run` calls on ACL'd tables are forbidden; see CONTRIBUTING.md.
@@ -57,8 +57,8 @@ class DbContext(db: JdbcBackend.Database, privilegedDb: JdbcBackend.Database)(im
    *  the action. This pool is the sole RLS-bypass mechanism; no session
    *  variable or application-level flag can replicate its effect on the app pool.
    *
-   *  Reserved for background jobs, `ResourceTypeRegistry` resolvers, DemoData
-   *  seeding, and any path that executes without a request-bound user.
+   *  Reserved for background jobs, `ResourceTypeRegistry` resolvers, and any
+   *  path that executes without a request-bound user.
    *  Every callsite MUST carry an inline comment explaining why bypass is correct. */
   def withSystemContext[R](action: DBIO[R]): Future[R] =
     privilegedDb.run(action.transactionally)

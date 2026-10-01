@@ -79,14 +79,9 @@ curl -s -o /dev/null -w "%{http_code}" \
   -H "Authorization: Bearer <token>"
 ```
 
-### Note on DemoData and SystemUser ownership
+### Note on sample data
 
-`DemoData.scala` seeds dashboards and panels under `SystemUserId`
-(`00000000-0000-0000-0000-000000000001`). This is pre-existing behavior and not a
-blocker for normal dev workflows (dashboards/panels are fetched via RLS-bypassing
-privileged context where appropriate).
-
-**Any future addition of DataTypes, DataSources, or Pipelines to `DemoData`
-must assign `owner_id` to a real user UUID** (e.g. the first registered user or
-a fixed seed UUID), never to `SystemUserId` or left as NULL. Using `SystemUserId`
-for data resources causes the same invisible-row drift described above.
+The boot-time `DemoData` seed (system-user-owned rows) was retired in HEL-1210; nothing is seeded at
+startup. Sample data comes from the per-user persona templates (`PersonaTemplates`,
+`src/main/resources/templates/`), instantiated under the caller's own user id. Never create
+DataSources or Pipelines under `SystemUserId`: RLS makes such rows invisible to every real user.

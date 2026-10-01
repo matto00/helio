@@ -184,8 +184,6 @@ object Main {
       // Eagerly initialise SparkSession to absorb cold-start penalty
       Future(sparkJobSubmitter.initialize())(ec)
 
-      DemoData.seedIfEmpty(dashboardRepo, panelRepo, dataSourceRepo, pipelineRepo, outputRepo)
-
       // HEL-904 task 2.10: `SourceSchemaHealthCheck` (HEL-256) is retired
       // outright, not rewired -- its entire purpose was flagging a
       // `data_sources` row with no linked `data_types` companion row, and

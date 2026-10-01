@@ -1,0 +1,67 @@
+/* HEL-1210 — persona sample-data chips on the first-run card. Opaque surface chips (DESIGN.md §0.2),
+ * accent only on hover/focus affordance, a 2x2 grid that collapses to one column on phones. */
+
+.first-run-templates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.first-run-templates__label {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--app-text-muted);
+}
+
+.first-run-templates__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-2);
+}
+
+.first-run-templates__chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  position: relative;
+  min-height: var(--control-lg);
+  padding: var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.first-run-templates__chip:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface);
+}
+
+.first-run-templates__chip:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+.first-run-templates__chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.first-run-templates__name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.first-run-templates__desc {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  line-height: 1.4;
+}

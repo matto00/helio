@@ -193,11 +193,6 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
    *  but withSystemContext avoids the extra policy predicate evaluation. */
   def delete(id: DashboardId): Future[Boolean] =
     ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
-
-  /** Boot-time empty check for DemoData seeding — no user context available.
-   *  Correctly privileged: this is a system-startup path. */
-  def count(): Future[Int] =
-    ctx.withSystemContext(table.length.result)
 }
 
 object DashboardRepository {

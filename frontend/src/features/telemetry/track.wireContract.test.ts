@@ -22,7 +22,7 @@ const SAMPLE_PROPS: {
   provenance_opened: {},
   firstrun_file_dropped: { source: "drop" },
   firstrun_dashboard_created: { panelCount: 2 },
-  firstrun_template_chosen: { template: "sales-overview" },
+  firstrun_template_chosen: { template: "streamer" },
 };
 
 /** `track`'s props are correlated to the event name; the exhaustive map above already carries

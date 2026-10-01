@@ -1,0 +1,121 @@
+date,category,merchant,amount_usd
+2026-01-03,Payroll,Northwind Payroll,3570.0
+2026-01-04,Legal,Hale & Co,1029.17
+2026-01-06,Office,Desk Depot,157.33
+2026-01-07,Travel,StayInn,477.0
+2026-01-09,Marketing,AdReach,915.67
+2026-01-10,Software,Analytics Co,315.17
+2026-01-12,Software,CloudHost,284.17
+2026-01-13,Payroll,Northwind Payroll,4830.0
+2026-01-15,Legal,Hale & Co,997.5
+2026-01-16,Office,Desk Depot,152.0
+2026-01-18,Travel,SkyJet,459.0
+2026-01-19,Marketing,Print Shop,888.33
+2026-01-21,Marketing,AdReach,806.33
+2026-01-22,Software,DesignSuite,273.83
+2026-01-24,Payroll,Northwind Payroll,4690.0
+2026-01-25,Legal,Hale & Co,965.83
+2026-01-27,Office,Desk Depot,146.67
+2026-01-28,Travel,StayInn,621.0
+2026-01-30,Travel,SkyJet,567.0
+2026-01-31,Marketing,Print Shop,779.0
+2026-02-02,Software,Analytics Co,263.5
+2026-02-03,Payroll,Northwind Payroll,4550.0
+2026-02-05,Legal,Hale & Co,934.17
+2026-02-06,Office,Desk Depot,141.33
+2026-02-08,Office,Desk Depot,178.67
+2026-02-09,Travel,StayInn,549.0
+2026-02-11,Marketing,AdReach,751.67
+2026-02-12,Software,CloudHost,356.5
+2026-02-14,Payroll,Northwind Payroll,4410.0
+2026-02-15,Legal,Hale & Co,902.5
+2026-02-17,Legal,Hale & Co,807.5
+2026-02-18,Office,Desk Depot,173.33
+2026-02-20,Travel,SkyJet,531.0
+2026-02-21,Marketing,Print Shop,724.33
+2026-02-23,Software,DesignSuite,346.17
+2026-02-24,Payroll,Northwind Payroll,4270.0
+2026-02-26,Payroll,Northwind Payroll,3850.0
+2026-02-27,Legal,Hale & Co,1092.5
+2026-03-01,Office,Desk Depot,168.0
+2026-03-02,Travel,StayInn,513.0
+2026-03-04,Marketing,AdReach,697.0
+2026-03-05,Software,Analytics Co,335.83
+2026-03-07,Software,CloudHost,304.83
+2026-03-08,Payroll,Northwind Payroll,3710.0
+2026-03-10,Legal,Hale & Co,1060.83
+2026-03-11,Office,Desk Depot,162.67
+2026-03-13,Travel,SkyJet,495.0
+2026-03-14,Marketing,Print Shop,943.0
+2026-03-16,Marketing,AdReach,861.0
+2026-03-17,Software,DesignSuite,294.5
+2026-03-19,Payroll,Northwind Payroll,3570.0
+2026-03-20,Legal,Hale & Co,1029.17
+2026-03-22,Office,Desk Depot,157.33
+2026-03-23,Travel,StayInn,477.0
+2026-03-25,Travel,SkyJet,603.0
+2026-03-26,Marketing,Print Shop,833.67
+2026-03-28,Software,Analytics Co,284.17
+2026-03-29,Payroll,Northwind Payroll,4830.0
+2026-03-31,Legal,Hale & Co,997.5
+2026-04-01,Office,Desk Depot,152.0
+2026-04-03,Office,Desk Depot,136.0
+2026-04-04,Travel,StayInn,585.0
+2026-04-06,Marketing,AdReach,806.33
+2026-04-07,Software,CloudHost,273.83
+2026-04-09,Payroll,Northwind Payroll,4690.0
+2026-04-10,Legal,Hale & Co,965.83
+2026-04-12,Legal,Hale & Co,870.83
+2026-04-13,Office,Desk Depot,184.0
+2026-04-15,Travel,SkyJet,567.0
+2026-04-16,Marketing,Print Shop,779.0
+2026-04-18,Software,DesignSuite,263.5
+2026-04-19,Payroll,Northwind Payroll,4550.0
+2026-04-21,Payroll,Northwind Payroll,4130.0
+2026-04-22,Legal,Hale & Co,839.17
+2026-04-24,Office,Desk Depot,178.67
+2026-04-25,Travel,StayInn,549.0
+2026-04-27,Marketing,AdReach,751.67
+2026-04-28,Software,Analytics Co,356.5
+2026-04-30,Software,CloudHost,325.5
+2026-05-01,Payroll,Northwind Payroll,3990.0
+2026-05-03,Legal,Hale & Co,807.5
+2026-05-04,Office,Desk Depot,173.33
+2026-05-06,Travel,SkyJet,531.0
+2026-05-07,Marketing,Print Shop,724.33
+2026-05-09,Marketing,AdReach,915.67
+2026-05-10,Software,DesignSuite,315.17
+2026-05-12,Payroll,Northwind Payroll,3850.0
+2026-05-13,Legal,Hale & Co,1092.5
+2026-05-15,Office,Desk Depot,168.0
+2026-05-16,Travel,StayInn,513.0
+2026-05-18,Travel,SkyJet,459.0
+2026-05-19,Marketing,Print Shop,888.33
+2026-05-21,Software,Analytics Co,304.83
+2026-05-22,Payroll,Northwind Payroll,3710.0
+2026-05-24,Legal,Hale & Co,1060.83
+2026-05-25,Office,Desk Depot,162.67
+2026-05-27,Office,Desk Depot,146.67
+2026-05-28,Travel,StayInn,621.0
+2026-05-30,Marketing,AdReach,861.0
+2026-05-31,Software,CloudHost,294.5
+2026-06-02,Payroll,Northwind Payroll,3570.0
+2026-06-03,Legal,Hale & Co,1029.17
+2026-06-05,Legal,Hale & Co,934.17
+2026-06-06,Office,Desk Depot,141.33
+2026-06-08,Travel,SkyJet,603.0
+2026-06-09,Marketing,Print Shop,833.67
+2026-06-11,Software,DesignSuite,284.17
+2026-06-12,Payroll,Northwind Payroll,4830.0
+2026-06-14,Payroll,Northwind Payroll,4410.0
+2026-06-15,Legal,Hale & Co,902.5
+2026-06-17,Office,Desk Depot,136.0
+2026-06-18,Travel,StayInn,585.0
+2026-06-20,Marketing,AdReach,806.33
+2026-06-21,Software,Analytics Co,273.83
+2026-06-23,Software,CloudHost,346.17
+2026-06-24,Payroll,Northwind Payroll,4270.0
+2026-06-26,Legal,Hale & Co,870.83
+2026-06-27,Office,Desk Depot,184.0
+2026-06-29,Travel,SkyJet,567.0
+2026-06-30,Marketing,Print Shop,779.0

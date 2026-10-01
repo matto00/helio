@@ -1,6 +1,8 @@
 # Routes — First run
 
-`POST /api/first-run/dashboard`, the empty-workspace drop-zone build.
+`POST /api/first-run/dashboard`, the empty-workspace drop-zone build, and
+`POST /api/first-run/template`, the persona sample-data build (HEL-1210; `{"template": "<slug>"}`,
+`400` on an unknown slug).
 
 Holds: `FirstRunRoutes`.
 

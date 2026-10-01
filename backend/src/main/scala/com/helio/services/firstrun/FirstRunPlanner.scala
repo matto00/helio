@@ -22,7 +22,7 @@ object FirstRunPlanner {
   private val FullWidth  = 12
   private val IdLike     = """^(?i:id)$|^.*_(?i:id)$|^.*[a-z]Id$""".r
 
-  private final case class Chain(steps: Vector[CreatePipelineTransactionalStepRequest], output: CreatePipelineTransactionalOutputRequest)
+  private[firstrun] final case class Chain(steps: Vector[CreatePipelineTransactionalStepRequest], output: CreatePipelineTransactionalOutputRequest)
 
   /** The measure all aggregating shapes use: the leftmost numeric column that is not
    *  identifier-shaped (`id`, `user_id`, `orderId`), else the leftmost numeric column. */
@@ -33,73 +33,100 @@ object FirstRunPlanner {
 
   def pipelineProposal(sourceId: String, sourceName: String, columns: Vector[ClassifiedColumn]): Either[String, PipelineProposal] = {
     val numeric = columns.filter(_.kind == ColumnKind.Numeric)
-    val cast =
-      if (numeric.isEmpty) None
-      else Some(step(CastId, CastStep.Kind, CastConfig(numeric.map(_.name -> "double").toMap).toJson.asJsObject, None))
+    val cast = if (numeric.isEmpty) None else Some(castStep(numeric.map(_.name -> "double").toMap))
     val parent = cast.map(_.clientId)
     for {
-      table  <- tableChain(sourceName, columns, parent)
+      table  <- tableChain(s"$sourceName table", columns.map(_.name), parent)
       series <- timeSeriesChain(sourceName, columns, parent)
       topN   <- topNChain(sourceName, columns, parent)
     } yield {
       val chains = Vector(Some(table), series, topN).flatten
-      PipelineProposal(
-        pipelineName = s"$sourceName pipeline",
-        roots        = Vector(PipelineProposalSource(
-          sourceId = Some(sourceId), `type` = None, name = None, csvConfig = None,
-          restConfig = None, sqlConfig = None, staticConfig = None
-        )),
-        steps   = cast.toVector ++ chains.flatMap(_.steps),
-        outputs = chains.map(_.output)
-      )
+      pipelineOf(sourceId, s"$sourceName pipeline", cast.toVector ++ chains.flatMap(_.steps), chains.map(_.output))
     }
   }
-
-  private def tableChain(sourceName: String, columns: Vector[ClassifiedColumn], parent: Option[String]): Either[String, Chain] =
-    expand(PassthroughShape.id, JsObject("fields" -> JsArray(columns.map(c => JsString(c.name))))).map { exps =>
-      val steps = chain(PassthroughShape.id, exps, parent)
-      Chain(steps, CreatePipelineTransactionalOutputRequest(Some(steps.last.clientId), "table", s"$sourceName table"))
-    }
 
   private def timeSeriesChain(sourceName: String, columns: Vector[ClassifiedColumn], parent: Option[String]): Either[String, Option[Chain]] =
     (columns.find(_.kind == ColumnKind.DateLike), measureOf(columns)) match {
       case (Some(date), Some(measure)) =>
         val granularity = if (date.distinctDates <= DayLimit) "day" else "month"
-        val alias       = s"${measure.name}_sum"
-        val params = JsObject(
-          "timeField"   -> JsString(date.name),
-          "granularity" -> JsString(granularity),
-          "measures"    -> JsArray(Aggregation(alias, "sum", measure.name).toJson)
-        )
-        expand(TimeSeriesShape.id, params).map { exps =>
-          val steps  = chain(TimeSeriesShape.id, exps, parent)
-          val config = chartConfig("line", date.name, alias)
-          Some(Chain(steps, CreatePipelineTransactionalOutputRequest(Some(steps.last.clientId), "chart", s"$sourceName over time", Some(config))))
-        }
+        timeSeriesChain(s"$sourceName over time", date.name, granularity, measure.name, "sum", "line", parent).map(Some(_))
       case _ => Right(None)
     }
 
-  /** `top-n` takes no group-by, so an `aggregate` pre-step collapses the category first. */
   private def topNChain(sourceName: String, columns: Vector[ClassifiedColumn], parent: Option[String]): Either[String, Option[Chain]] =
     (columns.find(_.kind == ColumnKind.Categorical), measureOf(columns)) match {
       case (Some(category), Some(measure)) =>
-        val alias = s"${measure.name}_sum"
-        val agg = step(
-          AggTopNId, AggregateStep.Kind,
-          AggregateConfig(Vector(AggregateField(category.name, "string")), Vector(Aggregation(alias, "sum", measure.name))).toJson.asJsObject,
-          parent
-        )
-        val params = JsObject("measure" -> JsString(alias), "direction" -> JsString("desc"), "n" -> JsNumber(TopN))
-        expand(TopNShape.id, params).map { exps =>
-          val steps = agg +: chain(TopNShape.id, exps, Some(AggTopNId))
-          Some(Chain(steps, CreatePipelineTransactionalOutputRequest(
-            Some(steps.last.clientId), "chart", s"$sourceName top ${category.name}", Some(chartConfig("bar", category.name, alias))
-          )))
-        }
+        topNChain(s"$sourceName top ${category.name}", category.name, measure.name, "sum", TopN, "bar", parent).map(Some(_))
       case _ => Right(None)
     }
 
-  private def chartConfig(chartType: String, x: String, y: String): JsObject =
+  /** A table output over exactly `fields`, in that order. Shared with `PersonaTemplates`. */
+  private[firstrun] def tableChain(
+      outputName: String, fields: Vector[String], parent: Option[String], pinColumnOrder: Boolean = false
+  ): Either[String, Chain] =
+    expand(PassthroughShape.id, JsObject("fields" -> JsArray(fields.map(JsString(_))))).map { exps =>
+      val steps = chain(PassthroughShape.id, exps, parent)
+      // Row JSON objects carry no key order, so without an explicit `columnOrder` the renderer lists
+      // columns alphabetically.
+      val config = if (pinColumnOrder) Some(JsObject("columnOrder" -> JsArray(fields.map(JsString(_))))) else None
+      Chain(steps, CreatePipelineTransactionalOutputRequest(Some(steps.last.clientId), "table", outputName, config))
+    }
+
+  /** Buckets `timeField` to `granularity`, aggregates `measure` with `fn` into `<measure>_<fn>`, and
+   *  charts it with an explicit `chartType`. Shared with `PersonaTemplates`. */
+  private[firstrun] def timeSeriesChain(
+      outputName: String, timeField: String, granularity: String, measure: String, fn: String,
+      chartType: String, parent: Option[String]
+  ): Either[String, Chain] = {
+    val alias = s"${measure}_$fn"
+    val params = JsObject(
+      "timeField"   -> JsString(timeField),
+      "granularity" -> JsString(granularity),
+      "measures"    -> JsArray(Aggregation(alias, fn, measure).toJson)
+    )
+    expand(TimeSeriesShape.id, params).map { exps =>
+      val steps = chain(TimeSeriesShape.id, exps, parent)
+      Chain(steps, CreatePipelineTransactionalOutputRequest(
+        Some(steps.last.clientId), "chart", outputName, Some(chartConfig(chartType, timeField, alias))
+      ))
+    }
+  }
+
+  /** `top-n` takes no group-by, so an `aggregate` pre-step collapses the category first. */
+  private[firstrun] def topNChain(
+      outputName: String, category: String, measure: String, fn: String, n: Int,
+      chartType: String, parent: Option[String]
+  ): Either[String, Chain] = {
+    val alias = s"${measure}_$fn"
+    val agg = step(
+      AggTopNId, AggregateStep.Kind,
+      AggregateConfig(Vector(AggregateField(category, "string")), Vector(Aggregation(alias, fn, measure))).toJson.asJsObject,
+      parent
+    )
+    val params = JsObject("measure" -> JsString(alias), "direction" -> JsString("desc"), "n" -> JsNumber(n))
+    expand(TopNShape.id, params).map { exps =>
+      val steps = agg +: chain(TopNShape.id, exps, Some(AggTopNId))
+      Chain(steps, CreatePipelineTransactionalOutputRequest(
+        Some(steps.last.clientId), "chart", outputName, Some(chartConfig(chartType, category, alias))
+      ))
+    }
+  }
+
+  private[firstrun] def castStep(casts: Map[String, String]): CreatePipelineTransactionalStepRequest =
+    step(CastId, CastStep.Kind, CastConfig(casts).toJson.asJsObject, None)
+
+  private[firstrun] def pipelineOf(sourceId: String, name: String, steps: Vector[CreatePipelineTransactionalStepRequest], outputs: Vector[CreatePipelineTransactionalOutputRequest]): PipelineProposal =
+    PipelineProposal(
+      pipelineName = name,
+      roots = Vector(PipelineProposalSource(
+        sourceId = Some(sourceId), `type` = None, name = None, csvConfig = None,
+        restConfig = None, sqlConfig = None, staticConfig = None
+      )),
+      steps   = steps,
+      outputs = outputs
+    )
+
+  private[firstrun] def chartConfig(chartType: String, x: String, y: String): JsObject =
     JsObject("chartType" -> JsString(chartType), "fieldMapping" -> JsObject("xAxis" -> JsString(x), "yAxis" -> JsString(y)))
 
   private def expand(shapeId: String, params: JsObject): Either[String, Vector[ShapeStepExpansion]] =
@@ -121,23 +148,27 @@ object FirstRunPlanner {
   def dashboardProposal(
       dashboardName: String,
       planned: PipelineProposal,
-      created: Vector[ProposalOutputSummary]
+      created: Vector[ProposalOutputSummary],
+      explicitChartTypes: Boolean = false
   ): Either[String, DashboardProposal] = {
     val ordered = planned.outputs.map(o => created.find(_.name == o.name).map(c => (o, c)))
     if (ordered.exists(_.isEmpty)) Left("applied pipeline is missing a planned output")
     else {
       val (panels, _) = ordered.flatten.foldLeft((Vector.empty[ProposalPanel], 0)) { case ((acc, y), (planned, created)) =>
         val h = if (planned.kind == "table") TableH else ChartH
-        (acc :+ outputPanel(created, ProposalPanelLayout(0, y, FullWidth, h)), y + h)
+        val chartType = if (explicitChartTypes) planned.config.flatMap(_.fields.get("chartType")).collect { case JsString(t) => t } else None
+        (acc :+ outputPanel(created, ProposalPanelLayout(0, y, FullWidth, h), chartType), y + h)
       }
       Right(DashboardProposal(dashboardName, panels))
     }
   }
 
-  private def outputPanel(output: ProposalOutputSummary, layout: ProposalPanelLayout) =
+  /** A chart panel's rendered type comes from the PANEL's appearance, not the output config, so
+   *  `chartType` is stated on the panel when a template asks for explicit types. */
+  private def outputPanel(output: ProposalOutputSummary, layout: ProposalPanelLayout, chartType: Option[String]) =
     ProposalPanel(
       title = output.name, `type` = "output", outputId = Some(output.id), fieldMapping = None, aggregation = None,
-      content = None, url = None, orientation = None, chartType = None, xAxisLabel = None, yAxisLabel = None,
+      content = None, url = None, orientation = None, chartType = chartType, xAxisLabel = None, yAxisLabel = None,
       seriesColors = None, label = None, unit = None, sort = None, layout = Some(layout), config = None
     )
 }
