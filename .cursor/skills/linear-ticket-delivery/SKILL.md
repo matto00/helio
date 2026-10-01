@@ -126,7 +126,7 @@ Run the required project gates for impacted areas.
 
 #### Backend changes
 
-- `sbt test` in `backend/`
+- `sbt testFull` in `backend/`
 
 #### UI changes
 

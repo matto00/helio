@@ -152,7 +152,7 @@ When changed files match `frontend/**`:
   - `npm --prefix frontend run build`
 
 When changed files match `backend/**`:
-  - `cd backend && sbt test`
+  - `cd backend && sbt testFull`
 
 Run them against changed files (`git diff --name-only "$BASE_SHA"...HEAD`,
 the same LIVE-resolved base as above — re-resolve it fresh here too rather
