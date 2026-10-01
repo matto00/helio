@@ -146,7 +146,9 @@ jobs:
           key: sbt-${{ hashFiles('**/build.sbt') }}
           restore-keys: sbt-
       - name: Compile and test
-        run: sbt compile test
+        # HEL-1018: one quoted command -- sbt 2's thin client joins unquoted args into a single
+        # (unparseable) command; testFull never serves a cached result.
+        run: sbt "compile; testFull"
         working-directory: backend
 
   # HEL-459: fails the build on a new high/critical CVE. Backend: a small sbt task
