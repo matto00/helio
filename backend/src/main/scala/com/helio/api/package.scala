@@ -54,6 +54,8 @@ package object api {
   val DashboardAppearancePayload: protocols.dashboards.DashboardAppearancePayload.type = protocols.dashboards.DashboardAppearancePayload
   type DashboardLayoutItemPayload = protocols.dashboards.DashboardLayoutItemPayload
   val DashboardLayoutItemPayload: protocols.dashboards.DashboardLayoutItemPayload.type = protocols.dashboards.DashboardLayoutItemPayload
+  type DashboardLayoutPatchPayload = protocols.dashboards.DashboardLayoutPatchPayload
+  val DashboardLayoutPatchPayload: protocols.dashboards.DashboardLayoutPatchPayload.type = protocols.dashboards.DashboardLayoutPatchPayload
   type DashboardLayoutPayload = protocols.dashboards.DashboardLayoutPayload
   val DashboardLayoutPayload: protocols.dashboards.DashboardLayoutPayload.type = protocols.dashboards.DashboardLayoutPayload
   type DashboardAppearanceResponse = protocols.dashboards.DashboardAppearanceResponse
@@ -103,6 +105,8 @@ package object api {
   val PanelAppearanceResponse: protocols.panels.PanelAppearanceResponse.type = protocols.panels.PanelAppearanceResponse
   type PanelResponse = protocols.panels.PanelResponse
   val PanelResponse: protocols.panels.PanelResponse.type = protocols.panels.PanelResponse
+  type PanelLayoutsResponse = protocols.panels.PanelLayoutsResponse
+  val PanelLayoutsResponse: protocols.panels.PanelLayoutsResponse.type = protocols.panels.PanelLayoutsResponse
   type PanelLayoutResponse = protocols.panels.PanelLayoutResponse
   val PanelLayoutResponse: protocols.panels.PanelLayoutResponse.type = protocols.panels.PanelLayoutResponse
   type PanelsResponse = protocols.panels.PanelsResponse

@@ -1,0 +1,593 @@
+{
+  "description": "Shared client/server layout-validity fixture (HEL-1071). Read by frontend jest (breakpointLayout.fixture.test.ts) and backend ScalaTest (LayoutValidatorSpec). violations are listed out_of_bounds first (input order) then overlapping pairs (input order, [earlier, later]).",
+  "cols": {
+    "lg": 12,
+    "md": 10,
+    "sm": 6,
+    "xs": 2
+  },
+  "cases": [
+    {
+      "name": "empty layout is valid",
+      "breakpoint": "lg",
+      "items": [],
+      "valid": true,
+      "violations": []
+    },
+    {
+      "name": "touching edges horizontally do not overlap",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 2
+        },
+        {
+          "panelId": "b",
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 2
+        }
+      ],
+      "valid": true,
+      "violations": []
+    },
+    {
+      "name": "touching edges vertically do not overlap",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 2
+        },
+        {
+          "panelId": "b",
+          "x": 0,
+          "y": 2,
+          "w": 6,
+          "h": 2
+        }
+      ],
+      "valid": true,
+      "violations": []
+    },
+    {
+      "name": "touching edges horizontally, earlier item on the right",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 2
+        },
+        {
+          "panelId": "b",
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 2
+        }
+      ],
+      "valid": true,
+      "violations": []
+    },
+    {
+      "name": "touching edges vertically, earlier item below",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 0,
+          "y": 2,
+          "w": 6,
+          "h": 2
+        },
+        {
+          "panelId": "b",
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 2
+        }
+      ],
+      "valid": true,
+      "violations": []
+    },
+    {
+      "name": "same cell overlaps",
+      "breakpoint": "xs",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 2
+        },
+        {
+          "panelId": "b",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 2
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "overlap",
+          "panelIds": ["a", "b"]
+        }
+      ]
+    },
+    {
+      "name": "partial overlap",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        {
+          "panelId": "b",
+          "x": 5,
+          "y": 3,
+          "w": 4,
+          "h": 4
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "overlap",
+          "panelIds": ["a", "b"]
+        }
+      ]
+    },
+    {
+      "name": "containment overlaps",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "outer",
+          "x": 0,
+          "y": 0,
+          "w": 12,
+          "h": 8
+        },
+        {
+          "panelId": "inner",
+          "x": 2,
+          "y": 2,
+          "w": 2,
+          "h": 2
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "overlap",
+          "panelIds": ["outer", "inner"]
+        }
+      ]
+    },
+    {
+      "name": "overlap order follows input order",
+      "breakpoint": "md",
+      "items": [
+        {
+          "panelId": "late",
+          "x": 0,
+          "y": 0,
+          "w": 5,
+          "h": 2
+        },
+        {
+          "panelId": "early",
+          "x": 2,
+          "y": 1,
+          "w": 5,
+          "h": 2
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "overlap",
+          "panelIds": ["late", "early"]
+        }
+      ]
+    },
+    {
+      "name": "three items, one overlapping both neighbours",
+      "breakpoint": "sm",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 0,
+          "y": 0,
+          "w": 3,
+          "h": 2
+        },
+        {
+          "panelId": "b",
+          "x": 3,
+          "y": 0,
+          "w": 3,
+          "h": 2
+        },
+        {
+          "panelId": "c",
+          "x": 2,
+          "y": 1,
+          "w": 2,
+          "h": 2
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "overlap",
+          "panelIds": ["a", "c"]
+        },
+        {
+          "kind": "overlap",
+          "panelIds": ["b", "c"]
+        }
+      ]
+    },
+    {
+      "name": "x+w equals cols is in bounds (lg)",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 1
+        }
+      ],
+      "valid": true,
+      "violations": []
+    },
+    {
+      "name": "x+w equals cols+1 is out of bounds (lg)",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 7,
+          "y": 0,
+          "w": 6,
+          "h": 1
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "out_of_bounds",
+          "panelIds": ["a"]
+        }
+      ]
+    },
+    {
+      "name": "x+w equals cols is in bounds (md)",
+      "breakpoint": "md",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 5,
+          "y": 0,
+          "w": 5,
+          "h": 1
+        }
+      ],
+      "valid": true,
+      "violations": []
+    },
+    {
+      "name": "x+w equals cols+1 is out of bounds (md)",
+      "breakpoint": "md",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 6,
+          "y": 0,
+          "w": 5,
+          "h": 1
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "out_of_bounds",
+          "panelIds": ["a"]
+        }
+      ]
+    },
+    {
+      "name": "x+w equals cols is in bounds (sm)",
+      "breakpoint": "sm",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 3,
+          "y": 0,
+          "w": 3,
+          "h": 1
+        }
+      ],
+      "valid": true,
+      "violations": []
+    },
+    {
+      "name": "x+w equals cols+1 is out of bounds (sm)",
+      "breakpoint": "sm",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 4,
+          "y": 0,
+          "w": 3,
+          "h": 1
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "out_of_bounds",
+          "panelIds": ["a"]
+        }
+      ]
+    },
+    {
+      "name": "x+w equals cols is in bounds (xs)",
+      "breakpoint": "xs",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 1,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ],
+      "valid": true,
+      "violations": []
+    },
+    {
+      "name": "x+w equals cols+1 is out of bounds (xs)",
+      "breakpoint": "xs",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 1,
+          "y": 0,
+          "w": 2,
+          "h": 1
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "out_of_bounds",
+          "panelIds": ["a"]
+        }
+      ]
+    },
+    {
+      "name": "width above cols is out of bounds (xs, 4-wide tile)",
+      "breakpoint": "xs",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 2
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "out_of_bounds",
+          "panelIds": ["a"]
+        }
+      ]
+    },
+    {
+      "name": "negative x is out of bounds",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "a",
+          "x": -1,
+          "y": 0,
+          "w": 2,
+          "h": 1
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "out_of_bounds",
+          "panelIds": ["a"]
+        }
+      ]
+    },
+    {
+      "name": "negative y is out of bounds",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 0,
+          "y": -1,
+          "w": 2,
+          "h": 1
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "out_of_bounds",
+          "panelIds": ["a"]
+        }
+      ]
+    },
+    {
+      "name": "zero width is out of bounds",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 1
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "out_of_bounds",
+          "panelIds": ["a"]
+        }
+      ]
+    },
+    {
+      "name": "zero height is out of bounds",
+      "breakpoint": "lg",
+      "items": [
+        {
+          "panelId": "a",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 0
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "out_of_bounds",
+          "panelIds": ["a"]
+        }
+      ]
+    },
+    {
+      "name": "roadmap xs: two tiles at the same cell and a third overflowing",
+      "breakpoint": "xs",
+      "items": [
+        {
+          "panelId": "m1",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 2
+        },
+        {
+          "panelId": "m2",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 2
+        },
+        {
+          "panelId": "m3",
+          "x": 1,
+          "y": 0,
+          "w": 2,
+          "h": 2
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "out_of_bounds",
+          "panelIds": ["m3"]
+        },
+        {
+          "kind": "overlap",
+          "panelIds": ["m1", "m2"]
+        }
+      ]
+    },
+    {
+      "name": "roadmap xs: three tiles laid out across a 2-column grid",
+      "breakpoint": "xs",
+      "items": [
+        {
+          "panelId": "m1",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 2
+        },
+        {
+          "panelId": "m2",
+          "x": 1,
+          "y": 0,
+          "w": 1,
+          "h": 2
+        },
+        {
+          "panelId": "m3",
+          "x": 2,
+          "y": 0,
+          "w": 1,
+          "h": 2
+        }
+      ],
+      "valid": false,
+      "violations": [
+        {
+          "kind": "out_of_bounds",
+          "panelIds": ["m3"]
+        }
+      ]
+    },
+    {
+      "name": "xs repaired: pair per row",
+      "breakpoint": "xs",
+      "items": [
+        {
+          "panelId": "m1",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 2
+        },
+        {
+          "panelId": "m2",
+          "x": 1,
+          "y": 0,
+          "w": 1,
+          "h": 2
+        },
+        {
+          "panelId": "m3",
+          "x": 0,
+          "y": 2,
+          "w": 2,
+          "h": 2
+        }
+      ],
+      "valid": true,
+      "violations": []
+    }
+  ]
+}

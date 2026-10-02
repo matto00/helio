@@ -25,7 +25,7 @@
           "$ref": "dashboard-appearance.schema.json"
         },
         "layout": {
-          "$ref": "dashboard-layout.schema.json"
+          "$ref": "dashboard-layout-patch.schema.json"
         }
       }
     }

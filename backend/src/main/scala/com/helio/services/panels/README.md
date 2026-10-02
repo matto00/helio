@@ -6,7 +6,14 @@ data binding/aggregation is gone; `PanelCapabilityService` was retargeted
 onto `OutputId` (was `DataTypeId`).
 
 Holds: `AutoLayoutService`, `PanelCapabilityService`, `PanelPacker`,
-`PanelPatchApplier`, `PanelServiceHelpers`, `PanelService`.
+`PanelPatchApplier`, `PanelServiceHelpers`, `PanelService`, plus the layout
+rules (HEL-1071): `LayoutValidator` (pure bounds/overlap geometry, mirrors the
+frontend `breakpointLayout.ts` and is tested against the shared fixture
+`shared-test-fixtures/layout-validity.json`), `LayoutPolicy` (the one write
+policy: identical-to-stored passes, absent is preserved, a changed breakpoint
+must be valid or the whole write is a 400 — never clamped), `LayoutReflow`
+(valid-by-construction md/sm/xs for system-generated layouts) and
+`LayoutBreakpointScaling` (the column counts).
 
 Does NOT hold: business logic for other domains, or persistence
 (`infrastructure/persistence/panels/`) — this directory's files call

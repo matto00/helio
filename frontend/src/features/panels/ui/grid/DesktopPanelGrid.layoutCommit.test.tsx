@@ -132,7 +132,10 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
     jest.useFakeTimers();
     MockResponsive.mockClear();
     updateDashboardLayoutMock.mockReset();
-    updateDashboardLayoutMock.mockImplementation(async (_id, layout) => ({ layout }) as never);
+    // The server answers a (partial) PATCH with the full stored layout.
+    updateDashboardLayoutMock.mockImplementation(
+      async (_id, layout) => ({ layout: { ...layoutAt(0), ...layout } }) as never,
+    );
   });
   afterEach(() => jest.useRealTimers());
 
@@ -156,7 +159,7 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
     expect(store.getState().dashboards.hasPendingLayout).toBe(true);
     await flush();
     expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
-    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", layoutAt(4));
+    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: layoutAt(4).lg });
     await flush();
     expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
   });
@@ -186,7 +189,7 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
     redo();
     await flush();
     expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
-    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", layoutAt(4));
+    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: layoutAt(4).lg });
   });
 
   it("drag, undo, flush sends nothing and clears the pending flag", async () => {

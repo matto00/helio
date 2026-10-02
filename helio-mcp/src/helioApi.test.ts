@@ -394,3 +394,29 @@ describe("HelioApi.createDataSource default forwarding (absent vs explicit null,
     expect(body.columns[0]).toEqual({ name: "a", type: "string", required: true, default: null });
   });
 });
+
+describe("HelioApi layout methods (HEL-1071)", () => {
+  it("updateDashboardLayout PATCHes /api/dashboards/:id with ONLY the breakpoints passed (no copy-to-all)", async () => {
+    const { api, calls } = harness();
+    const xs = [{ panelId: "a", x: 0, y: 0, w: 2, h: 3 }];
+    await api.updateDashboardLayout("dash-1", { xs });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.init.method).toBe("PATCH");
+    expect(calls[0]?.url).toBe("https://helio.test/api/dashboards/dash-1");
+    const body = JSON.parse(calls[0]?.init.body as string);
+    expect(body).toEqual({ layout: { xs } });
+    expect(Object.keys(body.layout)).toEqual(["xs"]);
+  });
+
+  it("autoLayoutDashboard forwards `breakpoint` (and omits it from the body when not given)", async () => {
+    const { api, calls } = harness();
+    const items = [{ panelId: "a", w: 1, h: 2 }];
+    await api.autoLayoutDashboard("dash-1", items, undefined, "xs");
+    await api.autoLayoutDashboard("dash-1", items);
+
+    expect(calls[0]?.url).toBe("https://helio.test/api/dashboards/dash-1/auto-layout");
+    expect(JSON.parse(calls[0]?.init.body as string)).toEqual({ items, breakpoint: "xs" });
+    expect("breakpoint" in JSON.parse(calls[1]?.init.body as string)).toBe(false);
+  });
+});

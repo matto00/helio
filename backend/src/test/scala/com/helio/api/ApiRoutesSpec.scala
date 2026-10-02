@@ -441,12 +441,12 @@ class ApiRoutesSpec
         UpdateDashboardRequest(
           name       = None,
           appearance = None,
-          layout = Some(DashboardLayoutPayload(
+          layout = Some(DashboardLayoutPatchPayload.full(DashboardLayoutPayload(
             lg = Vector(DashboardLayoutItemPayload("panel-a", x = 1, y = 2, w = 5, h = 6)),
             md = Vector(DashboardLayoutItemPayload("panel-a", x = 0, y = 1, w = 4, h = 5)),
             sm = Vector(DashboardLayoutItemPayload("panel-a", x = 0, y = 0, w = 3, h = 5)),
             xs = Vector(DashboardLayoutItemPayload("panel-a", x = 0, y = 0, w = 2, h = 5))
-          ))
+          )))
         )
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
@@ -1174,12 +1174,12 @@ class ApiRoutesSpec
         UpdateDashboardRequest(
           name       = None,
           appearance = None,
-          layout     = Some(DashboardLayoutPayload(
+          layout     = Some(DashboardLayoutPatchPayload.full(DashboardLayoutPayload(
             lg = Vector(DashboardLayoutItemPayload(panelId, 0, 0, 4, 4)),
             md = Vector.empty,
             sm = Vector.empty,
             xs = Vector.empty
-          ))
+          )))
         )
       ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
 
@@ -1264,12 +1264,12 @@ class ApiRoutesSpec
         UpdateDashboardRequest(
           name       = None,
           appearance = None,
-          layout = Some(DashboardLayoutPayload(
+          layout = Some(DashboardLayoutPatchPayload.full(DashboardLayoutPayload(
             lg = Vector(DashboardLayoutItemPayload(panelId, 0, 0, 4, 4)),
             md = Vector.empty,
             sm = Vector.empty,
             xs = Vector.empty
-          ))
+          )))
         )
       ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
 
@@ -1370,12 +1370,12 @@ class ApiRoutesSpec
         UpdateDashboardRequest(
           name       = None,
           appearance = None,
-          layout = Some(DashboardLayoutPayload(
+          layout = Some(DashboardLayoutPatchPayload.full(DashboardLayoutPayload(
             lg = Vector(DashboardLayoutItemPayload(panelId, 0, 0, 4, 4)),
             md = Vector.empty,
             sm = Vector.empty,
             xs = Vector.empty
-          ))
+          )))
         )
       ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
 
@@ -1583,12 +1583,12 @@ class ApiRoutesSpec
         UpdateDashboardRequest(
           name       = None,
           appearance = None,
-          layout = Some(DashboardLayoutPayload(
+          layout = Some(DashboardLayoutPatchPayload.full(DashboardLayoutPayload(
             lg = Vector(DashboardLayoutItemPayload(panelId, 1, 2, 5, 3)),
             md = Vector.empty,
             sm = Vector.empty,
             xs = Vector.empty
-          ))
+          )))
         )
       ) ~> routes() ~> check { status shouldBe StatusCodes.OK }
 
@@ -1671,12 +1671,12 @@ class ApiRoutesSpec
         dashboard = UpdateDashboardRequest(
           name       = None,
           appearance = None,
-          layout     = Some(DashboardLayoutPayload(
+          layout     = Some(DashboardLayoutPatchPayload.full(DashboardLayoutPayload(
             lg = Vector(DashboardLayoutItemPayload(panelId, 0, 0, 6, 4)),
             md = Vector.empty,
             sm = Vector.empty,
             xs = Vector.empty
-          ))
+          )))
         )
       )
 

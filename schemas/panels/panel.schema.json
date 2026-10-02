@@ -51,6 +51,17 @@
         "w": { "type": "integer", "minimum": 1 },
         "h": { "type": "integer", "minimum": 1 }
       }
+    },
+    "layouts": {
+      "type": ["object", "null"],
+      "description": "Authoritative per-breakpoint placement (HEL-1071) — the item the server stored in EACH of lg/md/sm/xs when it placed a new `output` panel; present only on the `POST /api/panels` response. Each is placed at x=0 below that breakpoint's own existing items with `w` scaled to its column count, so it can never overlap. `layout` above is the lg item, retained for compatibility; clients adopt `layouts`.",
+      "additionalProperties": false,
+      "properties": {
+        "lg": { "$ref": "#/$defs/PanelPlacement" },
+        "md": { "$ref": "#/$defs/PanelPlacement" },
+        "sm": { "$ref": "#/$defs/PanelPlacement" },
+        "xs": { "$ref": "#/$defs/PanelPlacement" }
+      }
     }
   },
   "additionalProperties": false,
@@ -118,6 +129,17 @@
     }
   ],
   "$defs": {
+    "PanelPlacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    },
     "OutputConfig": {
       "type": "object",
       "additionalProperties": false,

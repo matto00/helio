@@ -152,15 +152,28 @@ export const renameDashboard = createAsyncThunk<
 
 export const updateDashboardLayout = createAsyncThunk<
   Dashboard,
-  { dashboardId: string; layout: DashboardLayout },
+  { dashboardId: string; layout: Partial<DashboardLayout> },
   { rejectValue: string }
->("dashboards/updateDashboardLayout", async ({ dashboardId, layout }, { rejectWithValue }) => {
-  try {
-    return await updateDashboardLayoutRequest(dashboardId, layout);
-  } catch {
-    return rejectWithValue("Failed to save dashboard layout.");
-  }
-});
+>(
+  "dashboards/updateDashboardLayout",
+  async ({ dashboardId, layout }, { dispatch, rejectWithValue }) => {
+    try {
+      return await updateDashboardLayoutRequest(dashboardId, layout);
+    } catch (err) {
+      // HEL-1071: a rejected layout save is no longer silent — the server's message (the offending
+      // breakpoint and panel ids) reaches the toast, and the dashboard is re-read so the store's authored
+      // layout converges on what the server holds. Upserted by id, so a concurrent list fetch that
+      // already placed this dashboard is replaced rather than duplicated.
+      try {
+        const fresh = (await fetchDashboardsRequest()).find((d) => d.id === dashboardId);
+        if (fresh) dispatch(dashboardsSlice.actions.dashboardUpserted(fresh));
+      } catch {
+        // The failed save is still reported below; the next successful fetch re-syncs.
+      }
+      return rejectWithValue(extractErrorMessage(err, "Failed to save dashboard layout."));
+    }
+  },
+);
 
 export const duplicateDashboard = createAsyncThunk<
   DuplicateDashboardResponse,

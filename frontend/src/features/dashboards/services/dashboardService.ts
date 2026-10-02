@@ -47,9 +47,10 @@ export async function deleteDashboard(dashboardId: string): Promise<void> {
   await httpClient.delete(`/api/dashboards/${dashboardId}`);
 }
 
+/** PATCHes only the breakpoints present in `layout`; the server preserves the rest (HEL-1071). */
 export async function updateDashboardLayout(
   dashboardId: string,
-  layout: DashboardLayout,
+  layout: Partial<DashboardLayout>,
 ): Promise<Dashboard> {
   const response = await httpClient.patch<Dashboard>(`/api/dashboards/${dashboardId}/update`, {
     fields: ["layout"],

@@ -22,9 +22,14 @@
 
 import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 
-import { areDashboardLayoutsEqual } from "../../dashboards/state/dashboardLayout";
+import {
+  areDashboardLayoutsEqual,
+  resolveDashboardLayout,
+} from "../../dashboards/state/dashboardLayout";
+import { buildLayoutPatch } from "../../dashboards/state/layoutPatch";
 import { setLayoutPending, updateDashboardLayout } from "../../dashboards/state/dashboardsSlice";
 import type { DashboardLayout } from "../../dashboards/types/dashboard";
+import type { Panel } from "../types/panel";
 import type { LayoutFlush } from "./usePanelUpdatesFlush";
 import { selectLayoutRevision } from "../../layout/state/layoutHistorySlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
@@ -47,15 +52,25 @@ interface UseLayoutSaveOptions {
    *  persisted baseline, undo snapshots and the interaction-commit equality all live in this shape,
    *  so a derived or repaired breakpoint is never mistaken for an edit and never written on view. */
   layout: DashboardLayout;
+  /** The dashboard's panels and whether that list is loaded: a changed-and-invalid breakpoint is
+   *  replaced by its render-time resolution only when they are (HEL-1071, see `buildLayoutPatch`). */
+  panels: Panel[];
+  panelsLoaded: boolean;
   registerLayoutFlush: (fn: LayoutFlush) => void;
 }
 
 export function useLayoutSave({
   dashboardId,
   layout,
+  panels,
+  panelsLoaded,
   registerLayoutFlush,
 }: UseLayoutSaveOptions): UseLayoutSaveResult {
   const dispatch = useAppDispatch();
+  const panelsRef = useRef({ panels, panelsLoaded });
+  useEffect(() => {
+    panelsRef.current = { panels, panelsLoaded };
+  });
   const latestLayoutRef = useRef<DashboardLayout>(layout);
   const persistedLayoutRef = useRef<DashboardLayout>(layout);
   const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
@@ -117,11 +132,21 @@ export function useLayoutSave({
       return;
     }
 
+    // HEL-1071: PATCH only the breakpoints that changed, each valid (a changed-and-invalid one is
+    // replaced by what the user sees). The baseline then follows what the SERVER stored, not the
+    // authored `nextLayout`, so a substituted breakpoint is not mistaken for unchanged next time.
+    const { panels: livePanels, panelsLoaded: loaded } = panelsRef.current;
+    const patch = buildLayoutPatch(
+      nextLayout,
+      persistedLayoutRef.current,
+      loaded ? resolveDashboardLayout(livePanels, nextLayout) : null,
+    );
+
     inFlightLayoutRef.current = nextLayout;
-    void dispatch(updateDashboardLayout({ dashboardId, layout: nextLayout }))
+    void dispatch(updateDashboardLayout({ dashboardId, layout: patch }))
       .unwrap()
-      .then(() => {
-        persistedLayoutRef.current = nextLayout;
+      .then((dashboard) => {
+        persistedLayoutRef.current = dashboard.layout;
       })
       .catch(() => {
         // Keep local drag UX responsive; retry happens on the next layout change.

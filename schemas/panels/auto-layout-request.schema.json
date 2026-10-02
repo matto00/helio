@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/panels/auto-layout-request.schema.json",
   "title": "AutoLayoutRequest",
-  "description": "Body of POST /api/dashboards/:id/auto-layout (HEL-367) — packs the supplied panel sizes into non-overlapping {x,y,w,h} positions (left-to-right shelf-flow, input order = visual order) and persists them identically to all four responsive breakpoints. `cols` is optional and defaults to 12. Panels on the dashboard but omitted from `items` keep their current saved position; a `panelId` not belonging to the target dashboard rejects the whole request with 400.",
+  "description": "Body of POST /api/dashboards/:id/auto-layout (HEL-367, breakpoint-aware since HEL-1071) \u2014 packs the supplied panel sizes into non-overlapping {x,y,w,h} positions (left-to-right shelf-flow, input order = visual order) and persists them. Without `breakpoint`, EVERY breakpoint is packed independently at its own column count (lg 12, md 10, sm 6, xs 2): `items[].w` is in `cols` units (default 12) and is scaled to each breakpoint, so no item can overflow xs. With `breakpoint`, only that breakpoint is packed (`w` in its own units, `cols` if supplied must equal its column count) and the others are untouched. Panels on the dashboard but omitted from `items` keep their current saved position in each packed breakpoint and the packed items are placed below them. A `panelId` not belonging to the target dashboard, or a result that is out of bounds/overlapping (e.g. omitted panels already overlap), rejects the whole request with 400 and saves nothing.",
   "type": "object",
   "required": ["items"],
   "properties": {
@@ -15,7 +15,12 @@
     "cols": {
       "type": "integer",
       "minimum": 1,
-      "description": "Grid column count to pack against. Defaults to 12 (the desktop lg breakpoint's column count) when omitted."
+      "description": "Column count `items[].w` is expressed in. Defaults to 12 (lg) when omitted; at most 12. With `breakpoint`, must equal that breakpoint's column count."
+    },
+    "breakpoint": {
+      "type": "string",
+      "enum": ["lg", "md", "sm", "xs"],
+      "description": "Pack only this breakpoint and leave the others untouched. Omit to pack every breakpoint at its own column count."
     }
   },
   "additionalProperties": false

@@ -183,6 +183,8 @@ export function DesktopPanelGrid({
   const { latestLayoutRef, markLayoutChanged, commitInteractionLayout } = useLayoutSave({
     dashboardId,
     layout,
+    panels,
+    panelsLoaded: panelsStatus === "succeeded",
     registerLayoutFlush,
   });
 

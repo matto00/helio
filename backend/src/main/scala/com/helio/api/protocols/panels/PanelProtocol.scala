@@ -28,6 +28,11 @@ final case class PanelAppearanceResponse(
  *  (`dashboards.layout`), not re-echoed per panel. */
 final case class PanelLayoutResponse(x: Int, y: Int, w: Int, h: Int)
 
+/** HEL-1071: the item the server stored in EACH breakpoint when it placed a new Output panel
+ *  (`POST /api/panels` only). Authoritative: the client adopts these instead of projecting `layout`
+ *  (the lg item, kept for compatibility) into md/sm/xs itself. */
+final case class PanelLayoutsResponse(lg: PanelLayoutResponse, md: PanelLayoutResponse, sm: PanelLayoutResponse, xs: PanelLayoutResponse)
+
 /** CS2c-3c discriminated wire shape: every panel response carries a `type`
  *  discriminator and a typed `config` payload whose shape is determined by
  *  the discriminator. Per-subtype flat nullable fields at the response root
@@ -49,7 +54,8 @@ final case class PanelResponse(
     ownerId: Option[String],
     config: JsValue,
     dataAsOf: Option[String],
-    layout: Option[PanelLayoutResponse] = None
+    layout: Option[PanelLayoutResponse] = None,
+    layouts: Option[PanelLayoutsResponse] = None
 )
 final case class PanelsResponse(items: Vector[PanelResponse])
 
@@ -156,6 +162,7 @@ object PanelResponse {
       panel: Panel,
       dataAsOf: Option[String] = None,
       layout: Option[PanelLayoutResponse] = None,
+      layouts: Option[PanelLayoutsResponse] = None,
       orphanedControlIds: Option[Set[String]] = None,
       includeOwnerId: Boolean = true
   ): PanelResponse =
@@ -169,7 +176,8 @@ object PanelResponse {
       ownerId     = if (includeOwnerId) Some(panel.ownerId.value) else None,
       config      = configJsonFor(panel, orphanedControlIds),
       dataAsOf    = dataAsOf,
-      layout      = layout
+      layout      = layout,
+      layouts     = layouts
     )
 
   private def configJsonFor(panel: Panel, orphanedControlIds: Option[Set[String]]): JsValue =
@@ -221,7 +229,8 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
   implicit val panelAppearancePayloadFormat: RootJsonFormat[PanelAppearancePayload]   = jsonFormat4(PanelAppearancePayload.apply)
   implicit val panelAppearanceResponseFormat: RootJsonFormat[PanelAppearanceResponse] = jsonFormat4(PanelAppearanceResponse.apply)
   implicit val panelLayoutResponseFormat: RootJsonFormat[PanelLayoutResponse]         = jsonFormat4(PanelLayoutResponse.apply)
-  implicit val panelResponseFormat: RootJsonFormat[PanelResponse]                     = jsonFormat10(PanelResponse.apply)
+  implicit val panelLayoutsResponseFormat: RootJsonFormat[PanelLayoutsResponse]       = jsonFormat4(PanelLayoutsResponse.apply)
+  implicit val panelResponseFormat: RootJsonFormat[PanelResponse]                     = jsonFormat11(PanelResponse.apply)
   implicit val panelsResponseFormat: RootJsonFormat[PanelsResponse]                   = jsonFormat1(PanelsResponse.apply)
 
   /** Create request — typed `config` raw `JsValue` field is resolved by

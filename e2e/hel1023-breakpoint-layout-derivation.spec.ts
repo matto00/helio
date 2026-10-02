@@ -290,6 +290,41 @@ function expectedRect(item: Item, container: Rect, cols: number): Rect {
   };
 }
 
+function rectsCollide(a: Item, b: Item): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+/** Same validity contract as the app (in bounds, no overlap), for asserting a fixture is really bad. */
+function isLayoutValid(items: Item[], cols: number): boolean {
+  const inBounds = items.every(
+    (i) => i.x >= 0 && i.y >= 0 && i.w >= 1 && i.h >= 1 && i.x + i.w <= cols,
+  );
+  for (let a = 0; a < items.length; a++)
+    for (let b = a + 1; b < items.length; b++) if (rectsCollide(items[a], items[b])) return false;
+  return inBounds;
+}
+
+/** The API refuses to store an overlapping/out-of-bounds layout, so a stored-bad one is injected into
+ * the dashboards list response the browser receives. Register BEFORE navigating. */
+async function injectStoredLayout(page: Page, dashboardId: string, layout: Layout) {
+  const injections = { count: 0 };
+  await page.route(
+    (url) => url.pathname === "/api/dashboards",
+    async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as { items: { id: string; layout: Layout }[] };
+      for (const d of body.items) {
+        if (d.id === dashboardId) {
+          d.layout = layout;
+          injections.count++;
+        }
+      }
+      await route.fulfill({ response, json: body });
+    },
+  );
+  return injections;
+}
+
 // Request volume matters: the default backend rate-limits one user to 120 /api requests per 60s and a
 // 429 on /api/auth/me logs the page out. So a state is loaded ONCE per theme and the window is then
 // resized with setViewportSize (the grid re-measures and re-layouts live) instead of a goto per width.
@@ -332,18 +367,39 @@ test.describe("HEL-1023 derive/repair the breakpoint layout at render", () => {
     console.log(`[HEL-1023 e2e] throwaway users registered: ${JSON.stringify(seededUsers)}`);
   });
 
+  // A and B are valid layouts (unauthored/partial breakpoints), so they are saved through the API.
+  // C and D are STORED-BAD (out-of-bounds / overlapping): the server now rejects writing them
+  // (HEL-1071), so they are injected at the HTTP boundary instead (see injectStoredLayout).
   const invalidStates = ["A_lg_only", "B_partial", "C_lg_coords_everywhere", "D_md_overlap"];
+  const injectedStates = new Set(["C_lg_coords_everywhere", "D_md_overlap"]);
 
   for (const state of invalidStates) {
     test(`${state}: no overlap, inside the container, no PATCH on view, at every width`, async ({
       page,
       request,
     }) => {
-      const patch = await request.patch(`/api/dashboards/${seeded.dashboardId}/update`, {
-        data: { fields: ["layout"], dashboard: { layout: layouts[state] } },
-        headers: CSRF_HEADER,
-      });
-      expect(patch.status()).toBe(200);
+      let injections: { count: number } | null = null;
+      if (injectedStates.has(state)) {
+        // Save a VALID lg through the API, then substitute the stored-bad layout in the dashboards
+        // response the browser receives.
+        const seed = await request.patch(`/api/dashboards/${seeded.dashboardId}/update`, {
+          data: { fields: ["layout"], dashboard: { layout: { lg: layouts[state].lg } } },
+          headers: CSRF_HEADER,
+        });
+        expect(seed.status()).toBe(200);
+        // The intercept must bite: the injected layout is genuinely invalid at some breakpoint.
+        expect(
+          (Object.keys(COLS) as Bp[]).some((bp) => !isLayoutValid(layouts[state][bp], COLS[bp])),
+          `${state} fixture must be stored-bad`,
+        ).toBe(true);
+        injections = await injectStoredLayout(page, seeded.dashboardId, layouts[state]);
+      } else {
+        const patch = await request.patch(`/api/dashboards/${seeded.dashboardId}/update`, {
+          data: { fields: ["layout"], dashboard: { layout: layouts[state] } },
+          headers: CSRF_HEADER,
+        });
+        expect(patch.status()).toBe(200);
+      }
       const layoutPatches: string[] = [];
       page.on("request", (r) => {
         if (r.method() === "PATCH" && r.url().includes(`/api/dashboards/${seeded.dashboardId}/`))
@@ -401,6 +457,8 @@ test.describe("HEL-1023 derive/repair the breakpoint layout at render", () => {
         }
       }
       expect(layoutPatches).toHaveLength(0);
+      if (injections)
+        expect(injections.count, `${state} injected layout was served`).toBeGreaterThan(0);
     });
   }
 

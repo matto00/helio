@@ -98,7 +98,10 @@ describe("DesktopPanelGrid — derived layouts are view-only (HEL-1023)", () => 
     jest.useFakeTimers();
     MockResponsive.mockClear();
     updateDashboardLayoutMock.mockReset();
-    updateDashboardLayoutMock.mockImplementation(async (_id, layout) => ({ layout }) as never);
+    // The server answers a (partial) PATCH with the full stored layout.
+    updateDashboardLayoutMock.mockImplementation(
+      async (_id, layout) => ({ layout: { ...storeLayout, ...layout } }) as never,
+    );
   });
   afterEach(() => jest.useRealTimers());
 
@@ -135,7 +138,7 @@ describe("DesktopPanelGrid — derived layouts are view-only (HEL-1023)", () => 
     expect(props().layouts).toBe(first);
   });
 
-  it("an edit at md persists md only: lg stays as saved and sm/xs stay unwritten", async () => {
+  it("an edit at md PATCHes md only: lg stays as saved and sm/xs stay unwritten", async () => {
     const { store, flush, storeLayoutNow } = setup();
     const moved = fed("md").map((item) => (item.i === "a" ? { ...item, y: 8 } : item));
     act(() => props().onDragStart());
@@ -149,11 +152,10 @@ describe("DesktopPanelGrid — derived layouts are view-only (HEL-1023)", () => 
     expect(store.getState().dashboards.hasPendingLayout).toBe(true);
     await flush();
     expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
+    // HEL-1071: only the changed breakpoint goes on the wire; the server preserves the others.
     const sent = updateDashboardLayoutMock.mock.calls[0][1];
-    expect(sent.lg).toEqual(lgItems);
-    expect(sent.sm).toEqual([]);
-    expect(sent.xs).toEqual([]);
-    expect(sent.md.find((item) => item.panelId === "a")).toMatchObject({ y: 8 });
+    expect(Object.keys(sent)).toEqual(["md"]);
+    expect(sent.md?.find((item) => item.panelId === "a")).toMatchObject({ y: 8 });
   });
 
   it("dragging away and back to the original cell sends no PATCH", async () => {

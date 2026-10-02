@@ -4,7 +4,9 @@
 Give agents and callers a server-side geometry helper that packs `{panelId, w, h}` sizes into
 non-overlapping `{x,y,w,h}` grid positions, so building a dashboard no longer requires re-implementing
 shelf-flow packing, ragged-edge fill, and per-kind size clamping client-side.
+
 ## Requirements
+
 ### Requirement: Auto-pack endpoint packs sizes into non-overlapping positions
 
 `POST /api/dashboards/:id/auto-layout` SHALL accept a JSON body `{ items: [{panelId, w, h}], cols? }`
@@ -64,13 +66,18 @@ dashboard SHALL cause the entire request to be rejected with `400 Bad Request` a
 - **WHEN** the request `items` includes a `panelId` that does not belong to the target dashboard
 - **THEN** the endpoint returns `400 Bad Request` and the dashboard's stored layout is unchanged
 
-### Requirement: Auto-layout persists identically across all four responsive breakpoints
+### Requirement: Auto-layout packs each breakpoint at its own column count
 
-The endpoint SHALL persist the single packed placement to all four layout breakpoints (`lg`, `md`, `sm`,
-`xs`) identically, matching the existing convention used by other bulk (non-interactive) layout writers.
+The endpoint SHALL accept an optional `breakpoint` (`lg|md|sm|xs`). When omitted, it SHALL pack every breakpoint independently at that breakpoint's own column count (`lg` at `cols`, default 12; request `w` is expressed in `cols` units and scaled to each other breakpoint, then clamped to `[1, breakpoint cols]`) and persist all four. When given, it SHALL pack only that breakpoint (request `w` in that breakpoint's units; `cols`, if supplied, must equal the breakpoint's column count else `400`) and leave the other breakpoints untouched. No packed item SHALL exceed its breakpoint's column count, per-kind minimum widths notwithstanding. Panels omitted from the request SHALL keep their stored position in each packed breakpoint and packed items SHALL be placed below them, never overlapping them. The result is subject to the layout-validation rules (`400`, nothing saved, if a packed breakpoint is invalid, e.g. omitted stored panels already overlap).
 
-#### Scenario: All breakpoints receive the same packed items
-- **WHEN** an auto-layout request succeeds
-- **THEN** the dashboard's stored `layout.lg`, `layout.md`, `layout.sm`, and `layout.xs` each contain the
-  same packed `{panelId,x,y,w,h}` items
+#### Scenario: xs never overflows
+- **WHEN** an auto-layout request packs three Output panels of width 4 with no `breakpoint`
+- **THEN** every stored `xs` item has `x + w <= 2` and no two `xs` items overlap
 
+#### Scenario: Single breakpoint leaves the others alone
+- **WHEN** a request with `breakpoint: "xs"` succeeds
+- **THEN** `lg`, `md`, `sm` are byte-identical to before
+
+#### Scenario: Packed items do not overlap kept panels
+- **WHEN** a dashboard has an omitted panel at the top of `lg` and a request packs two others
+- **THEN** the packed items sit below the kept panel in every packed breakpoint

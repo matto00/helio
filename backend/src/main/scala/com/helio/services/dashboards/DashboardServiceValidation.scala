@@ -1,9 +1,10 @@
 package com.helio.services.dashboards
 
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPayload, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, UpdateDashboardRequest}
+import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPatchPayload, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, UpdateDashboardRequest}
 import com.helio.domain.model._
 import com.helio.domain.panels.PanelConfigCodec
+import com.helio.services.panels.{LayoutBreakpointScaling, LayoutPolicy, LayoutValidator}
 
 /** Static validators and normalizers extracted from [[DashboardService]]
  *  to keep that file within the 300-line budget. Methods retain their
@@ -19,6 +20,7 @@ object DashboardServiceValidation {
       _ <- validateName(payload.dashboard.name)
       _ <- validatePanelEntries(payload.panels)
       _ <- validateLayoutReferences(payload)
+      _ <- validateImportedLayoutGeometry(payload)
     } yield ()
 
   /** CS2c-3c: prior versions are rejected (design.md D3) because the prior
@@ -85,12 +87,25 @@ object DashboardServiceValidation {
     }
   }
 
+  /** HEL-1071 (D7): an imported dashboard has no stored layout, so every supplied breakpoint is
+   *  "changed" and must be in bounds and non-overlapping, else `400` naming the breakpoint and the
+   *  snapshot panel ids. A dashboard exported while holding a bad breakpoint cannot be imported
+   *  until that breakpoint is fixed (accepted trade-off, see design.md D7). */
+  private[services] def validateImportedLayoutGeometry(payload: DashboardSnapshotPayload): Either[String, Unit] = {
+    val l = payload.dashboard.layout
+    def items(ps: Vector[DashboardLayoutItemPayload]): Vector[DashboardLayoutItem] =
+      ps.map(DashboardLayoutItemPayload.toDomain)
+    val patch = LayoutPolicy.Patch(Some(items(l.lg)), Some(items(l.md)), Some(items(l.sm)), Some(items(l.xs)))
+    val vs    = LayoutPolicy.violations(DashboardLayout.Default, patch)
+    if (vs.isEmpty) Right(()) else Left(LayoutPolicy.message(vs))
+  }
+
   /** Validate + normalize a dashboard PATCH payload. Returns the trimmed
    *  name (if any), normalized appearance (if any), and validated layout
    *  (if any). */
   private[services] def validateDashboardUpdateRequest(
       request: UpdateDashboardRequest
-  ): Either[String, (Option[String], Option[DashboardAppearance], Option[DashboardLayout])] = {
+  ): Either[String, (Option[String], Option[DashboardAppearance], Option[LayoutPolicy.Patch])] = {
     if (request.name.isEmpty && request.appearance.isEmpty && request.layout.isEmpty) {
       Left("name, appearance, or layout is required")
     } else {
@@ -114,18 +129,27 @@ object DashboardServiceValidation {
       gridBackground = RequestValidation.normalizeDashboardGridBackground(p.gridBackground)
     )
 
+  /** Trims panelIds only: geometry is NOT normalized here (HEL-1071 owner ruling: reject, never
+   *  clamp) — [[LayoutPolicy]] validates it against the stored layout. An empty object is a `400`. */
   private[services] def validateDashboardLayoutPayload(
-      layout: Option[DashboardLayoutPayload]
-  ): Either[String, Option[DashboardLayout]] =
+      layout: Option[DashboardLayoutPatchPayload]
+  ): Either[String, Option[LayoutPolicy.Patch]] =
     layout match {
       case None => Right(None)
       case Some(p) =>
+        def one(items: Option[Vector[DashboardLayoutItemPayload]]): Either[String, Option[Vector[DashboardLayoutItem]]] =
+          items match {
+            case None     => Right(None)
+            case Some(is) => validateDashboardLayoutItems(is).map(Some(_))
+          }
         for {
-          lg <- validateDashboardLayoutItems(p.lg)
-          md <- validateDashboardLayoutItems(p.md)
-          sm <- validateDashboardLayoutItems(p.sm)
-          xs <- validateDashboardLayoutItems(p.xs)
-        } yield Some(DashboardLayout(lg, md, sm, xs))
+          lg <- one(p.lg)
+          md <- one(p.md)
+          sm <- one(p.sm)
+          xs <- one(p.xs)
+          patch = LayoutPolicy.Patch(lg, md, sm, xs)
+          _ <- Either.cond(!patch.isEmpty, (), "layout must include at least one of lg, md, sm, xs")
+        } yield Some(patch)
     }
 
   private[services] def validateDashboardLayoutItems(
@@ -138,10 +162,10 @@ object DashboardServiceValidation {
         if (panelId.isEmpty) Left("layout panelId is required")
         else Right(acc :+ DashboardLayoutItem(
           panelId = PanelId(panelId),
-          x       = RequestValidation.normalizeLayoutCoordinate(item.x),
-          y       = RequestValidation.normalizeLayoutCoordinate(item.y),
-          w       = RequestValidation.normalizeLayoutSpan(item.w),
-          h       = RequestValidation.normalizeLayoutSpan(item.h)
+          x       = item.x,
+          y       = item.y,
+          w       = item.w,
+          h       = item.h
         ))
     }
 }

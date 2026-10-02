@@ -11,7 +11,7 @@ import com.helio.domain.panels.PanelConfigCodec
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.services.dashboards.DashboardServiceValidation._
-import com.helio.services.panels.PanelServiceHelpers
+import com.helio.services.panels.{LayoutPolicy, LayoutWritePolicy, PanelServiceHelpers}
 import spray.json._
 
 import java.time.Instant
@@ -200,7 +200,8 @@ final class DashboardService(
   def update(
       dashboardId: DashboardId,
       request: UpdateDashboardRequest,
-      user: AuthenticatedUser
+      user: AuthenticatedUser,
+      layoutPolicy: LayoutWritePolicy = LayoutWritePolicy.Validate
   ): Future[Either[ServiceError, Dashboard]] = {
     val resultF: Future[Either[ServiceError, Dashboard]] = validateDashboardUpdateRequest(request) match {
       case Left(error) =>
@@ -210,13 +211,13 @@ final class DashboardService(
           case None =>
             Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
           case Some(existing) if existing.ownerId == user.id =>
-            applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt)
+            applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt, layoutPolicy)
           case Some(existing) =>
             // Non-owner grantee: check role before allowing mutation.
             accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").flatMap {
               case Left(err)                        => Future.successful(Left(err))
               case Right(ResourceAccess.Viewer)     => Future.successful(Left(ServiceError.Forbidden()))
-              case Right(_)                         => applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt)
+              case Right(_)                         => applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt, layoutPolicy)
             }
         }
     }
@@ -229,6 +230,30 @@ final class DashboardService(
   }
 
   private def applyUpdate(
+      dashboardId: DashboardId,
+      existing: Dashboard,
+      nameOpt: Option[String],
+      appearanceOpt: Option[DashboardAppearance],
+      layoutPatchOpt: Option[LayoutPolicy.Patch],
+      layoutPolicy: LayoutWritePolicy
+  ): Future[Either[ServiceError, Dashboard]] = {
+    // HEL-1071: resolve (and, under `Validate`, validate) the layout BEFORE any write — including
+    // the rename below — so a rejected layout saves nothing.
+    val layoutResolved: Either[String, Option[DashboardLayout]] = layoutPatchOpt match {
+      case None => Right(None)
+      case Some(patch) =>
+        layoutPolicy match {
+          case LayoutWritePolicy.Validate           => LayoutPolicy(existing.layout, patch).map(Some(_))
+          case LayoutWritePolicy.RestorePriorStored => Right(Some(LayoutPolicy.applyUnvalidated(existing.layout, patch)))
+        }
+    }
+    layoutResolved match {
+      case Left(msg)        => Future.successful(Left(ServiceError.BadRequest(msg)))
+      case Right(layoutOpt) => writeUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt)
+    }
+  }
+
+  private def writeUpdate(
       dashboardId: DashboardId,
       existing: Dashboard,
       nameOpt: Option[String],
