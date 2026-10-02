@@ -35,3 +35,13 @@
 - Strict-key decoding elsewhere may reject the new field (check every schema's `additionalProperties:false` and every Scala strict reader).
 - Dev DB is shared across worktrees: record exact ids of any rows created; clean exact ids only.
 - Rejecting `config.dataSourceId`-only form proposals changes behavior for anyone relying on passthrough; acceptable (it was undocumented), noted in the PR.
+
+## Gate-Chain Implications Checklist
+
+`scripts/check-schema-drift.mjs` (run by `.husky/pre-commit` via `npm run check:schemas`) changed in this ticket; it now also imports the new pure helper `scripts/lib/agentFacingPanelTypes.mjs`.
+
+- **What does it execute?** `node scripts/check-schema-drift.mjs`: it reads `schemas/**`, the backend protocol/model Scala sources, `helio-mcp/src/tools/proposal.ts` and `proposalValidation.ts`, and `ProposalReview.tsx` with `readFileSync`, compares them, and exits non-zero on drift. It spawns no subprocess and runs no git command.
+- **What environment does it inherit, and from where?** Only the hook's process environment and cwd, but it reads neither: it reads no `process.env` variable and resolves every path from `import.meta.url` (the script's own location), so it does not depend on `GIT_DIR`, `GIT_WORK_TREE` or the cwd.
+- **Does it write anything outside its own sandbox?** No. It only reads files and writes to stdout/stderr; it creates no files, directories, or git state.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. Paths resolve relative to the script file, which sits in the same place in either checkout, and it touches no git metadata. The isolation test ran it under a hook-shaped environment (inherited `GIT_DIR`, as from a linked worktree) and passed (evidence: `.concertino/gate-chain-isolation-evidence/scripts__check-schema-drift.mjs.md`).
+- **What happens on its first run?** It behaves like every later run: it parses the sources and exits 0 when they agree. The new `SourceBoundKinds` declaration it now requires already exists in `DashboardProposalService.scala` in the same commit, so the first run in any worktree passes. If that declaration were missing or empty the script would exit non-zero with a message naming it, rather than pass vacuously.
