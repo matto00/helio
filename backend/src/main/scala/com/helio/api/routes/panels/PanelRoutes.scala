@@ -79,10 +79,12 @@ final class PanelRoutes(
         pathEndOrSingleSlash {
           post {
             entity(as[CreatePanelRequest]) { request =>
-              ServiceResponse.run(panelService.create(request, user)) { case (created, layout) =>
+              ServiceResponse.run(panelService.create(request, user)) { case (created, placed) =>
+                def wire(item: DashboardLayoutItem) = PanelLayoutResponse(x = item.x, y = item.y, w = item.w, h = item.h)
                 StatusCodes.Created -> PanelResponse.fromDomain(
                   created,
-                  layout = layout.map(item => PanelLayoutResponse(x = item.x, y = item.y, w = item.w, h = item.h))
+                  layout  = placed.map(p => wire(p.lg)),
+                  layouts = placed.map(p => PanelLayoutsResponse(wire(p.lg), wire(p.md), wire(p.sm), wire(p.xs)))
                 )
               }
             }

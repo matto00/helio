@@ -224,7 +224,7 @@ final class PanelService(
   def create(
       request: CreatePanelRequest,
       user: AuthenticatedUser
-  ): Future[Either[ServiceError, (Panel, Option[DashboardLayoutItem])]] =
+  ): Future[Either[ServiceError, (Panel, Option[PlacedLayouts])]] =
     validateCreatePanelRequest(request) match {
       case Left(error) =>
         Future.successful(Left(ServiceError.BadRequest(error)))
@@ -245,21 +245,14 @@ final class PanelService(
     }
 
   /** Decision-15: compute the placed Output's kind-driven default size
-   *  (`OutputPanelDefaultSize`), append it below the dashboard's current
-   *  lowest occupied `lg` row (no collision-avoidance against kept items —
-   *  a single-item append onto an existing layout has nothing in common
-   *  with `AutoLayoutService`'s D6 whole-board re-pack, which is a distinct,
-   *  explicit, user-invoked operation over every panel on the board; this
-   *  method does not lean on that as precedent), and persist it on
-   *  `dashboards.layout`. HEL-909 CR1 cycle-2 fix: each breakpoint's
-   *  EXISTING array is preserved and appended to independently — never
-   *  replaced with `lg`'s array — and the appended item is scaled to that
-   *  breakpoint's column count via `LayoutBreakpointScaling.scaleItemToBreakpoint`
-   *  (mirroring the frontend's `projectLayout`), not the raw `lg`
-   *  dimensions. A `null` `outputRepo` (unwired fixture, mirrors this
-   *  file's other nullable-optional DI) or a non-Output panel both no-op to
+   *  (`OutputPanelDefaultSize`) and append it to EACH breakpoint at x=0 below THAT breakpoint's
+   *  own lowest occupied row (HEL-1071), with `w` scaled to the breakpoint's column count. Because
+   *  the new item starts below everything already in its breakpoint, it can never overlap an
+   *  existing item (and a stored-bad breakpoint never blocks creating a panel). Persists on
+   *  `dashboards.layout` and returns the item stored in each breakpoint so the client adopts the
+   *  server's placement. A `null` `outputRepo` (unwired fixture) or a non-Output panel no-op to
    *  `None` without touching the dashboard. */
-  private def placeDefaultLayout(dashboardId: DashboardId, panel: Panel): Future[Option[DashboardLayoutItem]] =
+  private def placeDefaultLayout(dashboardId: DashboardId, panel: Panel): Future[Option[PlacedLayouts]] =
     panel match {
       case outputPanel: OutputPanel if outputRepo != null =>
         outputPanel.outputId match {
@@ -272,18 +265,24 @@ final class PanelService(
                 dashboardRepo.findByIdInternal(dashboardId).flatMap {
                   case None => Future.successful(None)
                   case Some(dashboard) =>
-                    val y       = (dashboard.layout.lg.map(i => i.y + i.h) :+ 0).max
-                    val lgItem  = DashboardLayoutItem(panel.id, x = 0, y = y, w = size.w, h = size.h)
-                    val lgCols  = LayoutBreakpointScaling.breakpointCols("lg")
-                    val nextLg  = dashboard.layout.lg :+ lgItem
-                    val nextMd  = dashboard.layout.md :+ LayoutBreakpointScaling.scaleItemToBreakpoint(lgItem, lgCols, LayoutBreakpointScaling.breakpointCols("md"))
-                    val nextSm  = dashboard.layout.sm :+ LayoutBreakpointScaling.scaleItemToBreakpoint(lgItem, lgCols, LayoutBreakpointScaling.breakpointCols("sm"))
-                    val nextXs  = dashboard.layout.xs :+ LayoutBreakpointScaling.scaleItemToBreakpoint(lgItem, lgCols, LayoutBreakpointScaling.breakpointCols("xs"))
+                    val lgCols = LayoutBreakpointScaling.breakpointCols("lg")
+                    def placeIn(bp: String): DashboardLayoutItem = {
+                      val cols   = LayoutBreakpointScaling.breakpointCols(bp)
+                      val w      = math.max(1, math.min(cols, math.round(size.w.toDouble * cols / lgCols).toInt))
+                      val bottom = (LayoutPolicy.stored(dashboard.layout, bp).map(i => i.y + i.h) :+ 0).max
+                      DashboardLayoutItem(panel.id, x = 0, y = bottom, w = w, h = size.h)
+                    }
+                    val placed = PlacedLayouts(placeIn("lg"), placeIn("md"), placeIn("sm"), placeIn("xs"))
                     val updatedDashboard = dashboard.copy(
-                      layout = DashboardLayout(lg = nextLg, md = nextMd, sm = nextSm, xs = nextXs),
-                      meta   = dashboard.meta.copy(lastUpdated = Instant.now())
+                      layout = DashboardLayout(
+                        lg = dashboard.layout.lg :+ placed.lg,
+                        md = dashboard.layout.md :+ placed.md,
+                        sm = dashboard.layout.sm :+ placed.sm,
+                        xs = dashboard.layout.xs :+ placed.xs
+                      ),
+                      meta = dashboard.meta.copy(lastUpdated = Instant.now())
                     )
-                    dashboardRepo.update(updatedDashboard).map(_ => Some(lgItem))
+                    dashboardRepo.update(updatedDashboard).map(_ => Some(placed))
                 }
             }
         }

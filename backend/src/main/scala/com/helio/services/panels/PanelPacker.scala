@@ -22,7 +22,8 @@ object PanelPacker {
   final case class PackInput(panelId: PanelId, kind: String, w: Int, h: Int)
 
   /** Per-kind floor/ceiling. `maxW` is implicitly `cols`, applied in
-   *  [[clamp]] exactly like `_clamp`'s `min(GRID_COLS, w)`. */
+   *  [[clamp]] AFTER the per-kind floor (HEL-1071: a floor wider than the grid, e.g. 4 at 2 cols,
+   *  must never produce an item wider than `cols`). */
   private final case class ClampBounds(minW: Int, minH: Int, maxH: Int)
 
   /** `_BOUNDS.get(kind, (1, 2, 24))`'s fallback — used for any kind not in
@@ -58,7 +59,7 @@ object PanelPacker {
    *  testing — mirrors `_clamp`. */
   def clamp(kind: String, w: Int, h: Int, cols: Int): (Int, Int) = {
     val bounds   = Bounds.getOrElse(kind, DefaultBounds)
-    val clampedW = math.max(bounds.minW, math.min(cols, w))
+    val clampedW = math.min(cols, math.max(bounds.minW, w))
     val clampedH = math.max(bounds.minH, math.min(bounds.maxH, h))
     (clampedW, clampedH)
   }

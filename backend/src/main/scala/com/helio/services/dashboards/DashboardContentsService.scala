@@ -1,12 +1,12 @@
 package com.helio.services.dashboards
 
-import com.helio.services.proposals.ProposalPanelSupport
+import com.helio.services.proposals.{ProposalLayoutSupport, ProposalPanelSupport}
 import com.helio.services.auth.AccessChecker
-import com.helio.services.panels.{LayoutBreakpointScaling, OutputControlsValidator, PanelService}
+import com.helio.services.panels.{OutputControlsValidator, PanelService}
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.proposals.{ProposalPanel, ReplaceDashboardContentsRequest}
-import com.helio.domain.model.{AuditSource, AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, DashboardLayoutItem, Panel, ResourceAccess}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, Dashboard, DashboardId, Panel, ResourceAccess}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import spray.json._
@@ -57,7 +57,7 @@ final class DashboardContentsService(
     authorizeEditor(dashboardId, user).flatMap {
       case Left(err) => Future.successful(Left(err))
       case Right(_) =>
-        validatePanels(request.panels) match {
+        validatePanels(request.panels).flatMap(_ => ProposalLayoutSupport.validate(request.panels)) match {
           case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
           case Right(_) =>
             ProposalPanelSupport.preValidateBindings(request.panels, user, outputRepo).flatMap {
@@ -92,7 +92,7 @@ final class DashboardContentsService(
     buildPanels(dashboardId, panels, user).flatMap {
       case Left(err) => Future.successful(Left(err))
       case Right(built) =>
-        val layout = remapLayout(panels, built)
+        val layout = ProposalLayoutSupport.buildLayout(panels, built.map(_.id))
         dashboardRepo.replaceContents(dashboardId, built, Some(layout)).map {
           case None         => Left(ServiceError.NotFound("Dashboard not found"))
           case Some(result @ (_, newPanels)) =>
@@ -122,27 +122,6 @@ final class DashboardContentsService(
   ): Future[Either[ServiceError, Vector[Panel]]] = {
     val requests = panels.map(panel => ProposalPanelSupport.buildCreateRequest(dashboardId, panel))
     panelService.buildAllForCreate(dashboardId, requests, user)
-  }
-
-  /** Remap each proposal panel's optional layout item onto its freshly minted
-   *  panel id (design.md D2 — mirrors `DashboardProposalService.applyLayout`'s
-   *  id-remap, done pre-transaction here instead of via a follow-up PATCH).
-   *  Panels with no layout are simply omitted — the frontend auto-places
-   *  them, same convention as apply-proposal. The resulting `DashboardLayout`
-   *  (possibly empty) is ALWAYS passed to `replaceContents`, wholesale
-   *  replacing the dashboard's stored layout — any prior layout entries
-   *  referenced the now-deleted old panel ids, so leaving them would dangle. */
-  private def remapLayout(proposalPanels: Vector[ProposalPanel], builtPanels: Vector[Panel]): DashboardLayout = {
-    val lgItems = proposalPanels.zip(builtPanels).flatMap { case (proposal, built) =>
-      proposal.layout.map(l => DashboardLayoutItem(built.id, l.x, l.y, l.w, l.h))
-    }
-    val lgCols = LayoutBreakpointScaling.breakpointCols("lg")
-    DashboardLayout(
-      lg = lgItems,
-      md = LayoutBreakpointScaling.scaleItemsToBreakpoint(lgItems, lgCols, LayoutBreakpointScaling.breakpointCols("md")),
-      sm = LayoutBreakpointScaling.scaleItemsToBreakpoint(lgItems, lgCols, LayoutBreakpointScaling.breakpointCols("sm")),
-      xs = LayoutBreakpointScaling.scaleItemsToBreakpoint(lgItems, lgCols, LayoutBreakpointScaling.breakpointCols("xs"))
-    )
   }
 
   /** Owner or editor grantee may replace contents — mirrors

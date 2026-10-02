@@ -279,6 +279,9 @@ interface PanelBase {
    *  panel; absent everywhere else (layout otherwise lives on the
    *  dashboard's own `layout` field, not re-echoed per panel). */
   layout?: { x: number; y: number; w: number; h: number };
+  /** Authoritative per-breakpoint placement of a newly created Output panel (HEL-1071), the item the
+   *  server stored in each breakpoint. `layout` above is the lg item, kept for compatibility. */
+  layouts?: Record<"lg" | "md" | "sm" | "xs", { x: number; y: number; w: number; h: number }>;
 }
 
 export interface OutputPanel extends PanelBase {

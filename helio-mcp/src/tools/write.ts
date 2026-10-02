@@ -14,6 +14,11 @@ import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import type { ProposalPanel } from "../types.js";
 import { addPipelineStepHandler } from "./assertSchemas.js";
+import {
+  LAYOUT_BREAKPOINTS,
+  updateDashboardLayoutHandler,
+  type LayoutBreakpoint,
+} from "./layoutHandlers.js";
 import { createConnectorSchema } from "./connectorSchema.js";
 import {
   augmentFetchErrorWithConnectorsHint,
@@ -995,32 +1000,48 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
 
   // ── Layout ────────────────────────────────────────────────────────────────
 
+  const layoutItemSchema = z.object({
+    panelId: z.string().min(1),
+    x: z.number().int().min(0),
+    y: z.number().int().min(0),
+    w: z.number().int().positive(),
+    h: z.number().int().positive(),
+  });
+  const breakpointSchema = z.enum(LAYOUT_BREAKPOINTS as [LayoutBreakpoint, ...LayoutBreakpoint[]]);
+
   server.registerTool(
     "update_dashboard_layout",
     {
-      title: "Update dashboard grid layout",
+      title: "Update dashboard grid layout (per breakpoint)",
       description:
         "Position/size a dashboard's panels on its responsive grid (PATCH /api/dashboards/:id). " +
-        "Pass `items` as [{panelId,x,y,w,h}] on a 12-column grid: x 0-11, w 1-12, and y/h in row " +
-        "units (row height is fixed by the frontend). The same placement is applied to all " +
-        "breakpoints. Panels not listed keep their current/auto position. Returns the updated " +
-        "dashboard. Create + bind panels first, then call this with their ids.",
+        "Each breakpoint has its own column count: lg 12, md 10, sm 6, xs 2 (x + w must fit within " +
+        "it; y/h are row units). Pass `items` [{panelId,x,y,w,h}] with an optional `breakpoint` " +
+        "(default `lg`) to set ONE breakpoint, or `layouts` {lg?,md?,sm?,xs?} to set several in one " +
+        "call. Only the breakpoint(s) you name are written; every other breakpoint is left exactly " +
+        "as stored (so you can repair `xs` without touching `lg`). The listed items become that " +
+        "breakpoint's COMPLETE layout — a panel you leave out of a breakpoint you set loses its " +
+        "position there. The server REJECTS (400, nothing saved, no clamping) a breakpoint whose " +
+        "items overlap or exceed its columns, and the error names the breakpoint and the panel " +
+        "ids. BREAKING vs. earlier versions: without `breakpoint` only `lg` is set (it no longer " +
+        "copies the same placement to all four breakpoints). Returns the updated dashboard. " +
+        "Create + bind panels first, then call this with their ids.",
       inputSchema: {
         dashboardId: z.string().min(1),
-        items: z
-          .array(
-            z.object({
-              panelId: z.string().min(1),
-              x: z.number().int().min(0),
-              y: z.number().int().min(0),
-              w: z.number().int().positive(),
-              h: z.number().int().positive(),
-            }),
-          )
-          .min(1),
+        items: z.array(layoutItemSchema).min(1).optional(),
+        breakpoint: breakpointSchema.optional(),
+        layouts: z
+          .object({
+            lg: z.array(layoutItemSchema).optional(),
+            md: z.array(layoutItemSchema).optional(),
+            sm: z.array(layoutItemSchema).optional(),
+            xs: z.array(layoutItemSchema).optional(),
+          })
+          .optional(),
       },
     },
-    ({ dashboardId, items }) => guarded(() => api.updateDashboardLayout(dashboardId, items)),
+    ({ dashboardId, items, breakpoint, layouts }) =>
+      guarded(() => updateDashboardLayoutHandler(api, { dashboardId, items, breakpoint, layouts })),
   );
 
   server.registerTool(
@@ -1034,8 +1055,12 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "when one fills, widening a nearly-full row to close a ragged right edge, and clamping any " +
         "out-of-bounds size to its panel kind's readable min/max (e.g. a chart too short to show its " +
         "axis labels). Input order IS visual order. Panels omitted from `items` keep their current " +
-        "saved position; a `panelId` not on the target dashboard is rejected with 400 (surfaced " +
-        "verbatim, nothing persisted). Same placement is applied to all four responsive breakpoints. " +
+        "saved position and packed items are placed below them; a `panelId` not on the target " +
+        "dashboard is rejected with 400 (surfaced verbatim, nothing persisted). Breakpoint-aware: " +
+        "without `breakpoint`, EVERY breakpoint (lg 12 / md 10 / sm 6 / xs 2 columns) is packed " +
+        "independently at its own column count, with `w` given in `cols` units (default 12) and " +
+        "scaled per breakpoint, so no item can overflow xs; with `breakpoint` only that breakpoint " +
+        "is packed (`w` in its own column units) and the others are untouched. " +
         "Create/place panels first (create_pipeline + place_outputs / create_content_panel), then " +
         "call this with their ids and your chosen sizes — no need to reimplement " +
         "shelf-packing/clamping client-side.",
@@ -1051,9 +1076,10 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
           )
           .min(1),
         cols: z.number().int().positive().optional(),
+        breakpoint: breakpointSchema.optional(),
       },
     },
-    ({ dashboardId, items, cols }) =>
-      guarded(() => api.autoLayoutDashboard(dashboardId, items, cols)),
+    ({ dashboardId, items, cols, breakpoint }) =>
+      guarded(() => api.autoLayoutDashboard(dashboardId, items, cols, breakpoint)),
   );
 }

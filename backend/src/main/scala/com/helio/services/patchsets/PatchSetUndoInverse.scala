@@ -2,7 +2,7 @@ package com.helio.services.patchsets
 
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelAppearancePayload, PanelAppearanceResponse, PanelResponse, UpdatePanelRequest}
 import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, UpdatePipelineStepRequest}
-import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutItemResponse, DashboardLayoutPayload, DashboardResponse, UpdateDashboardRequest}
+import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutItemResponse, DashboardLayoutPatchPayload, DashboardResponse, UpdateDashboardRequest}
 import com.helio.domain.panels._
 import PatchSetApplyServiceJson._
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
@@ -96,11 +96,11 @@ private[services] object PatchSetUndoInverse {
     UpdateDashboardRequest(
       name       = Some(response.name),
       appearance = Some(DashboardAppearancePayload(Some(response.appearance.background), Some(response.appearance.gridBackground))),
-      layout = Some(DashboardLayoutPayload(
-        lg = layoutItems(response.layout.lg),
-        md = layoutItems(response.layout.md),
-        sm = layoutItems(response.layout.sm),
-        xs = layoutItems(response.layout.xs)
+      layout = Some(DashboardLayoutPatchPayload(
+        lg = Some(layoutItems(response.layout.lg)),
+        md = Some(layoutItems(response.layout.md)),
+        sm = Some(layoutItems(response.layout.sm)),
+        xs = Some(layoutItems(response.layout.xs))
       ))
     )
   }

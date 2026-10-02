@@ -256,6 +256,33 @@ abstract class ApplyProposalSpecBase
     id
   }
 
+  /** Seed a dashboard row owned by `ownerId` with an arbitrary raw layout JSON, bypassing the HTTP
+   *  layer and therefore layout validation — used to build a stored-bad layout (HEL-1071), which the
+   *  API can no longer produce. */
+  protected def seedDashboardWithLayout(name: String, ownerId: String, layoutJson: String): String = {
+    val id = UUID.randomUUID().toString
+    await(ctx.withSystemContext(
+      sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
+             VALUES ($id, $name, $ownerId, now(), now(),
+                     '{"background":"transparent","gridBackground":"transparent"}',
+                     $layoutJson,
+                     $ownerId::uuid)"""
+    ))
+    id
+  }
+
+  /** Overwrite an existing dashboard's stored layout with raw JSON, bypassing layout validation. */
+  protected def overwriteStoredLayout(dashboardId: String, layoutJson: String): Unit =
+    await(ctx.withSystemContext(
+      sqlu"""UPDATE dashboards SET layout = $layoutJson WHERE id = $dashboardId"""
+    ))
+
+  /** The dashboard's stored layout JSON, read straight from the table (ACL-free). */
+  protected def storedLayoutJson(dashboardId: String): JsObject =
+    await(ctx.withSystemContext(
+      sql"""SELECT layout::text FROM dashboards WHERE id = $dashboardId""".as[String]
+    )).head.parseJson.asJsObject
+
   /** Grant `granteeId` a role (`"editor"` / `"viewer"`) on `dashboardId` —
    *  used by HEL-370 batch-create cross-tenant/grantee specs. Mirrors
    *  `DashboardPanelAclSpec.grantRole`'s raw-SQL insert. */

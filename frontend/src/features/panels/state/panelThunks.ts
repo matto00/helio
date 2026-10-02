@@ -58,7 +58,6 @@ import type {
 // re-exported by the slice once it is constructed.
 import { markDashboardPanelsStale } from "./panelActions";
 import { setDashboardLayoutLocally } from "../../dashboards/state/dashboardsSlice";
-import { dashboardGridCols, scaleLayoutItem } from "../../dashboards/state/dashboardLayout";
 
 export const fetchPanels = createAsyncThunk<
   Panel[],
@@ -105,38 +104,27 @@ export const createPanel = createAsyncThunk<
   ) => {
     try {
       const createdPanel = await createPanelRequest(dashboardId, type, title, outputId, config);
-      // Decision-15 (HEL-909 CR6/spec `output-picker/spec.md`): the server
-      // computes and returns the placed layout on `createdPanel.layout` —
-      // merge it into the dashboard's own layout locally so the grid
-      // renders it at its real size immediately, without waiting on a full
-      // dashboard refetch. HEL-909 CR1 cycle-2 fix: append the new item to
-      // EACH breakpoint's own existing array (never replace md/sm/xs with
-      // lg's array — that destroyed independently-customized arrangements),
-      // scaling w/x to that breakpoint's column count via `scaleLayoutItem`
-      // (mirroring the backend's identical `scaleItemToBreakpoint`) instead
-      // of copying lg's dimensions verbatim.
-      if (createdPanel.layout) {
+      // Decision-15 (HEL-909 CR6/spec `output-picker/spec.md`): the server computes the placement and
+      // returns, in `layouts`, the item it stored in EACH breakpoint. HEL-1071: adopt those verbatim
+      // (appended to each breakpoint's own existing array) instead of projecting the lg item into
+      // md/sm/xs here — a client-side projection collapses columns into the same cell and would ride
+      // the next layout PATCH as a "changed" invalid breakpoint the server rejects.
+      if (createdPanel.layouts) {
+        const placed = createdPanel.layouts;
         const dashboard = getState().dashboards.items.find((d) => d.id === dashboardId);
         if (dashboard) {
-          const lgItem = { panelId: createdPanel.id, ...createdPanel.layout };
-          const lgCols = dashboardGridCols.lg ?? 12;
+          const withPanel = (bp: keyof typeof placed) => [
+            ...dashboard.layout[bp],
+            { panelId: createdPanel.id, ...placed[bp] },
+          ];
           dispatch(
             setDashboardLayoutLocally({
               dashboardId,
               layout: {
-                lg: [...dashboard.layout.lg, lgItem],
-                md: [
-                  ...dashboard.layout.md,
-                  scaleLayoutItem(lgItem, lgCols, dashboardGridCols.md ?? lgCols),
-                ],
-                sm: [
-                  ...dashboard.layout.sm,
-                  scaleLayoutItem(lgItem, lgCols, dashboardGridCols.sm ?? lgCols),
-                ],
-                xs: [
-                  ...dashboard.layout.xs,
-                  scaleLayoutItem(lgItem, lgCols, dashboardGridCols.xs ?? lgCols),
-                ],
+                lg: withPanel("lg"),
+                md: withPanel("md"),
+                sm: withPanel("sm"),
+                xs: withPanel("xs"),
               },
             }),
           );

@@ -16,6 +16,14 @@ final case class DashboardLayoutPayload(
     sm: Vector[DashboardLayoutItemPayload],
     xs: Vector[DashboardLayoutItemPayload]
 )
+/** HEL-1071: a layout PATCH may carry any non-empty subset of breakpoints; an absent one is
+ *  preserved as stored. (The snapshot import/export wire keeps the all-four [[DashboardLayoutPayload]].) */
+final case class DashboardLayoutPatchPayload(
+    lg: Option[Vector[DashboardLayoutItemPayload]] = None,
+    md: Option[Vector[DashboardLayoutItemPayload]] = None,
+    sm: Option[Vector[DashboardLayoutItemPayload]] = None,
+    xs: Option[Vector[DashboardLayoutItemPayload]] = None
+)
 final case class DashboardAppearanceResponse(background: String, gridBackground: String)
 final case class DashboardLayoutItemResponse(panelId: String, x: Int, y: Int, w: Int, h: Int)
 final case class DashboardLayoutResponse(
@@ -51,7 +59,7 @@ final case class CreateDashboardRequest(
 final case class UpdateDashboardRequest(
     name: Option[String],
     appearance: Option[DashboardAppearancePayload],
-    layout: Option[DashboardLayoutPayload]
+    layout: Option[DashboardLayoutPatchPayload]
 )
 final case class UpdateDashboardBatchRequest(fields: Vector[String], dashboard: UpdateDashboardRequest)
 
@@ -61,10 +69,12 @@ final case class UpdateDashboardBatchRequest(fields: Vector[String], dashboard: 
  *  from the dashboard's actual panels (design.md D4). */
 final case class AutoLayoutItemPayload(panelId: String, w: Int, h: Int)
 
-/** Body of `POST /api/dashboards/:id/auto-layout` (HEL-367). `cols` is
+/** Body of `POST /api/dashboards/:id/auto-layout` (HEL-367). HEL-1071: `breakpoint` absent packs every
+ *  breakpoint at its own column count; present (`lg|md|sm|xs`) packs only that breakpoint (`w` in its
+ *  units) and leaves the others untouched. `cols` is
  *  optional and defaults to 12 (matches `DesktopPanelGrid`'s `lg` breakpoint
  *  column count) — see design.md D1. */
-final case class AutoLayoutRequest(items: Vector[AutoLayoutItemPayload], cols: Option[Int])
+final case class AutoLayoutRequest(items: Vector[AutoLayoutItemPayload], cols: Option[Int], breakpoint: Option[String] = None)
 
 
 /** Snapshot panel entry (CS2c-3c discriminated wire shape).
@@ -131,6 +141,11 @@ object DashboardLayoutItemPayload {
       w       = item.w,
       h       = item.h
     )
+}
+
+object DashboardLayoutPatchPayload {
+  def full(layout: DashboardLayoutPayload): DashboardLayoutPatchPayload =
+    DashboardLayoutPatchPayload(Some(layout.lg), Some(layout.md), Some(layout.sm), Some(layout.xs))
 }
 
 object DashboardLayoutPayload {
@@ -210,6 +225,7 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val dashboardAppearancePayloadFormat: RootJsonFormat[DashboardAppearancePayload]   = jsonFormat2(DashboardAppearancePayload.apply)
   implicit val dashboardLayoutItemPayloadFormat: RootJsonFormat[DashboardLayoutItemPayload]   = jsonFormat5(DashboardLayoutItemPayload.apply)
   implicit val dashboardLayoutPayloadFormat: RootJsonFormat[DashboardLayoutPayload]           = jsonFormat4(DashboardLayoutPayload.apply)
+  implicit val dashboardLayoutPatchPayloadFormat: RootJsonFormat[DashboardLayoutPatchPayload] = jsonFormat4(DashboardLayoutPatchPayload.apply)
   implicit val dashboardAppearanceResponseFormat: RootJsonFormat[DashboardAppearanceResponse] = jsonFormat2(DashboardAppearanceResponse.apply)
   implicit val dashboardLayoutItemResponseFormat: RootJsonFormat[DashboardLayoutItemResponse] = jsonFormat5(DashboardLayoutItemResponse.apply)
   implicit val dashboardLayoutResponseFormat: RootJsonFormat[DashboardLayoutResponse]         = jsonFormat4(DashboardLayoutResponse.apply)
@@ -221,7 +237,7 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)
 
   implicit val autoLayoutItemPayloadFormat: RootJsonFormat[AutoLayoutItemPayload] = jsonFormat3(AutoLayoutItemPayload.apply)
-  implicit val autoLayoutRequestFormat: RootJsonFormat[AutoLayoutRequest]         = jsonFormat2(AutoLayoutRequest.apply)
+  implicit val autoLayoutRequestFormat: RootJsonFormat[AutoLayoutRequest]         = jsonFormat3(AutoLayoutRequest.apply)
 
   implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat6(DashboardSnapshotPanelEntry.apply)
   implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)

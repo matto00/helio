@@ -137,8 +137,8 @@ class PanelServiceDefaultLayoutSpec extends AnyWordSpec with Matchers {
       val (service, captor) = buildService(output)
       val (_, layout) = await(service.create(createRequest(output), user)).getOrElse(fail("create failed"))
       layout shouldBe defined
-      layout.get.w shouldBe 3
-      layout.get.h shouldBe 2
+      layout.get.lg.w shouldBe 3
+      layout.get.lg.h shouldBe 2
       captor.getValue.layout.lg should have size 1
       captor.getValue.layout.lg.head.w shouldBe 3
       captor.getValue.layout.lg.head.h shouldBe 2
@@ -148,35 +148,35 @@ class PanelServiceDefaultLayoutSpec extends AnyWordSpec with Matchers {
       val output = outputOf(OutputKind.Chart)
       val (service, _) = buildService(output)
       val (_, layout) = await(service.create(createRequest(output), user)).getOrElse(fail("create failed"))
-      layout.map(l => (l.w, l.h)) shouldBe Some((6, 4))
+      layout.map(l => (l.lg.w, l.lg.h)) shouldBe Some((6, 4))
     }
 
     "place a table Output at the decision-15 default 6x6" in {
       val output = outputOf(OutputKind.Table)
       val (service, _) = buildService(output)
       val (_, layout) = await(service.create(createRequest(output), user)).getOrElse(fail("create failed"))
-      layout.map(l => (l.w, l.h)) shouldBe Some((6, 6))
+      layout.map(l => (l.lg.w, l.lg.h)) shouldBe Some((6, 6))
     }
 
     "place a collection Output at the decision-15 default 6x4" in {
       val output = outputOf(OutputKind.Collection)
       val (service, _) = buildService(output)
       val (_, layout) = await(service.create(createRequest(output), user)).getOrElse(fail("create failed"))
-      layout.map(l => (l.w, l.h)) shouldBe Some((6, 4))
+      layout.map(l => (l.lg.w, l.lg.h)) shouldBe Some((6, 4))
     }
 
     "place a timeline Output at the decision-15 default 4x6" in {
       val output = outputOf(OutputKind.Timeline)
       val (service, _) = buildService(output)
       val (_, layout) = await(service.create(createRequest(output), user)).getOrElse(fail("create failed"))
-      layout.map(l => (l.w, l.h)) shouldBe Some((4, 6))
+      layout.map(l => (l.lg.w, l.lg.h)) shouldBe Some((4, 6))
     }
 
     "place a markdown Output at the decision-15 default 4x4" in {
       val output = outputOf(OutputKind.Markdown)
       val (service, _) = buildService(output)
       val (_, layout) = await(service.create(createRequest(output), user)).getOrElse(fail("create failed"))
-      layout.map(l => (l.w, l.h)) shouldBe Some((4, 4))
+      layout.map(l => (l.lg.w, l.lg.h)) shouldBe Some((4, 4))
     }
 
     "preserve each breakpoint's existing layout and append a correctly-scaled item (HEL-909 CR1 cycle-2)" in {
@@ -184,7 +184,7 @@ class PanelServiceDefaultLayoutSpec extends AnyWordSpec with Matchers {
       val seededDashboard       = dashboardWithDistinctLayouts()
       val (service, captor)     = buildServiceWithDashboard(output, seededDashboard)
       val (_, layout)           = await(service.create(createRequest(output), user)).getOrElse(fail("create failed"))
-      layout.map(l => (l.w, l.h)) shouldBe Some((6, 4))
+      layout.map(l => (l.lg.w, l.lg.h)) shouldBe Some((6, 4))
 
       val persisted = captor.getValue.layout
 
@@ -223,6 +223,33 @@ class PanelServiceDefaultLayoutSpec extends AnyWordSpec with Matchers {
       xsItem.w should be <= 2
       xsItem.x shouldBe 0
       xsItem.w should not be lgItem.w
+    }
+
+    "start each breakpoint below THAT breakpoint's own bottom, so md extending below lg and a stored-bad xs never overlap or block (HEL-1071)" in {
+      val output = outputOf(OutputKind.Chart)
+      val a      = PanelId(UUID.randomUUID().toString)
+      val b      = PanelId(UUID.randomUUID().toString)
+      val seeded = emptyDashboard().copy(
+        layout = DashboardLayout(
+          lg = Vector(DashboardLayoutItem(a, 0, 0, 6, 2)),
+          md = Vector(DashboardLayoutItem(a, 0, 0, 5, 9)), // md reaches y=9, lg only y=2
+          sm = Vector.empty,
+          xs = Vector(DashboardLayoutItem(a, 0, 0, 2, 3), DashboardLayoutItem(b, 0, 0, 2, 3)) // stored-bad (same cell)
+        )
+      )
+      val (service, captor) = buildServiceWithDashboard(output, seeded)
+      val (_, placed)       = await(service.create(createRequest(output), user)).getOrElse(fail("create failed"))
+
+      val persisted = captor.getValue.layout
+      persisted.lg.last.y shouldBe 2
+      persisted.md.last.y shouldBe 9
+      persisted.sm.last.y shouldBe 0
+      persisted.xs.last.y shouldBe 3
+      placed.map(p => (p.lg.y, p.md.y, p.sm.y, p.xs.y)) shouldBe Some((2, 9, 0, 3))
+      // The appended item never overlaps anything already in its own breakpoint.
+      def newItemClear(items: Vector[DashboardLayoutItem]): Boolean =
+        items.init.forall(o => !LayoutValidator.rectsOverlap(LayoutValidator.toRect(o), LayoutValidator.toRect(items.last)))
+      List(persisted.lg, persisted.md, persisted.sm, persisted.xs).foreach(items => newItemClear(items) shouldBe true)
     }
 
     "return None for a non-Output panel and never write the dashboard layout" in {

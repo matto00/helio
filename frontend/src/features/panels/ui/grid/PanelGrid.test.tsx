@@ -747,7 +747,7 @@ describe("PanelGrid", () => {
       });
 
       expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
-      expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", stagedLayout);
+      expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { md: stagedLayout.md });
     });
 
     // 3.2 — browse-only crossing: no staged change → the unmount path dispatches

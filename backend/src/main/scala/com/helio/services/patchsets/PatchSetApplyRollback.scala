@@ -2,7 +2,8 @@ package com.helio.services.patchsets
 
 import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelAppearancePayload, PanelResponse, UpdatePanelRequest}
-import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPayload, DashboardResponse, UpdateDashboardRequest}
+import com.helio.services.panels.LayoutWritePolicy
+import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPatchPayload, DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, UpdateDataSourceRequest}
 import com.helio.api.protocols.patchsets.EditOutcome
 import com.helio.domain.model._
@@ -99,7 +100,7 @@ private[services] object PatchSetApplyRollback {
             }
         }
       case ResolvedAction.DashboardUpdate(id, _, prior) =>
-        services.dashboardService.update(id, fullDashboardInverse(prior), user).map {
+        services.dashboardService.update(id, fullDashboardInverse(prior), user, LayoutWritePolicy.RestorePriorStored).map {
           case Right(dashboard) => edit.toOutcome("rolledBack", resultingState = Some(dashboardResponseFormat.write(DashboardResponse.fromDomain(dashboard))))
           case Left(err)        => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
         }
@@ -302,11 +303,11 @@ private[services] object PatchSetApplyRollback {
     UpdateDashboardRequest(
       name       = Some(prior.name),
       appearance = Some(DashboardAppearancePayload(Some(prior.appearance.background), Some(prior.appearance.gridBackground))),
-      layout = Some(DashboardLayoutPayload(
-        lg = layoutItems(prior.layout.lg),
-        md = layoutItems(prior.layout.md),
-        sm = layoutItems(prior.layout.sm),
-        xs = layoutItems(prior.layout.xs)
+      layout = Some(DashboardLayoutPatchPayload(
+        lg = Some(layoutItems(prior.layout.lg)),
+        md = Some(layoutItems(prior.layout.md)),
+        sm = Some(layoutItems(prior.layout.sm)),
+        xs = Some(layoutItems(prior.layout.xs))
       ))
     )
   }

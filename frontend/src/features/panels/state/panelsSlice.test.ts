@@ -731,10 +731,17 @@ describe("panelsSlice", () => {
     // to overwrite md/sm/xs with a bare copy of the lg array (verbatim
     // `w`/`x`, not scaled to each breakpoint's own column count), destroying
     // any pre-existing, independently-customized per-breakpoint layout.
-    it("appends the new panel to each breakpoint's own existing layout, scaled to its column count", async () => {
+    it("adopts the server's per-breakpoint placement, appended to each breakpoint's own layout (HEL-1071)", async () => {
+      // Distinct per-breakpoint y: the server places below EACH breakpoint's own bottom.
       const mockCreatedPanel = {
         ...makeOutputPanel({ id: "panel-new", dashboardId: "dashboard-1" }),
         layout: { x: 0, y: 5, w: 6, h: 4 },
+        layouts: {
+          lg: { x: 0, y: 5, w: 6, h: 4 },
+          md: { x: 0, y: 10, w: 5, h: 4 },
+          sm: { x: 0, y: 5, w: 3, h: 4 },
+          xs: { x: 0, y: 7, w: 1, h: 4 },
+        },
       };
       jest.spyOn(panelService, "createPanel").mockResolvedValue(mockCreatedPanel);
       jest.spyOn(panelService, "fetchPanels").mockResolvedValue([mockCreatedPanel]);
@@ -801,13 +808,11 @@ describe("panelsSlice", () => {
       expect(dashboard.layout.sm).toHaveLength(2);
       expect(dashboard.layout.xs).toHaveLength(2);
 
-      // And scaled per breakpoint's column count (lg 12 / md 10 / sm 6 / xs 2),
-      // not the raw lg w/x copied verbatim.
-      expect(dashboard.layout.lg[1]).toMatchObject({ w: 6, x: 0 });
-      expect(dashboard.layout.md[1]).toMatchObject({ w: 5, x: 0 }); // round(6 * 10/12)
-      expect(dashboard.layout.sm[1]).toMatchObject({ w: 3, x: 0 }); // round(6 * 6/12)
-      expect(dashboard.layout.xs[1].w).toBeLessThanOrEqual(2);
-      expect(dashboard.layout.xs[1].w).not.toBe(dashboard.layout.lg[1].w);
+      // Each appended item IS the server's stored item for that breakpoint — no client projection.
+      expect(dashboard.layout.lg[1]).toEqual({ panelId: "panel-new", x: 0, y: 5, w: 6, h: 4 });
+      expect(dashboard.layout.md[1]).toEqual({ panelId: "panel-new", x: 0, y: 10, w: 5, h: 4 });
+      expect(dashboard.layout.sm[1]).toEqual({ panelId: "panel-new", x: 0, y: 5, w: 3, h: 4 });
+      expect(dashboard.layout.xs[1]).toEqual({ panelId: "panel-new", x: 0, y: 7, w: 1, h: 4 });
     });
   });
 

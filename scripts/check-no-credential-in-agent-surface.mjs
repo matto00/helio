@@ -110,7 +110,7 @@
 //                 entry naming the scanned subtree and why the rest isn't
 //                 (today: `frontend`, `backend`).
 //   - UNSCANNED — requires an `ACKNOWLEDGED_UNSCANNED` entry with a one-line
-//                 reason (today: `e2e`, `infra`, `schemas`, `scripts`).
+//                 reason (today: `e2e`, `infra`, `schemas`, `scripts`, `shared-test-fixtures`).
 // A directory in none of the three fails the gate loudly. This is what
 // keeps a newly-added top-level directory from silently escaping coverage.
 //
@@ -790,6 +790,8 @@ const ACKNOWLEDGED_UNSCANNED = {
   infra:
     "deployment scripts read secrets from the environment/Secret Manager; none are committed here",
   schemas: "JSON Schema contract definitions; no credential-shaped values are ever declared there",
+  "shared-test-fixtures":
+    "client/server parity fixtures (HEL-1071: layout geometry cases); plain data, no credential-shaped values",
   scripts:
     "build/CI tooling scripts; a code tree where the named-literal shape is common and widening " +
     "the scan there is a deliberate, tracked follow-up, not this ticket's scope " +

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/dashboard-layout-patch.schema.json",
+  "title": "DashboardLayoutPatchPayload",
+  "description": "The `layout` of a dashboard PATCH (HEL-1071): any non-empty subset of the four breakpoints (lg 12 columns, md 10, sm 6, xs 2). A breakpoint that is absent is preserved as stored; one that is identical to the stored breakpoint (same multiset of panelId/x/y/w/h, any order) passes untouched; one that differs MUST be valid (x>=0, y>=0, w>=1, h>=1, x+w<=columns, no two items overlapping) or the whole write is rejected with 400 naming the breakpoint and panel ids and nothing is saved. The server never clamps or reflows a supplied breakpoint.",
+  "type": "object",
+  "minProperties": 1,
+  "properties": {
+    "lg": {
+      "type": "array",
+      "items": {
+        "$ref": "https://helio.local/schemas/dashboards/dashboard-layout-item.schema.json"
+      }
+    },
+    "md": {
+      "type": "array",
+      "items": {
+        "$ref": "https://helio.local/schemas/dashboards/dashboard-layout-item.schema.json"
+      }
+    },
+    "sm": {
+      "type": "array",
+      "items": {
+        "$ref": "https://helio.local/schemas/dashboards/dashboard-layout-item.schema.json"
+      }
+    },
+    "xs": {
+      "type": "array",
+      "items": {
+        "$ref": "https://helio.local/schemas/dashboards/dashboard-layout-item.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false
+}

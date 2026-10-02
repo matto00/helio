@@ -144,7 +144,7 @@ object FirstRunPlanner {
   /** Every panel gets an explicit lg layout (all-or-none: a partial layout would drop the rest) at
    *  x=0, full width, cumulative y. The default placement is half width at every breakpoint, which
    *  leaves a blank half-column on phones. md/sm/xs are derived from lg by
-   *  `LayoutBreakpointScaling`, which keeps x=0 and full width, so panels stack without overlap. */
+   *  `LayoutReflow`, which keeps each panel full width on its own row, so panels stack without overlap. */
   def dashboardProposal(
       dashboardName: String,
       planned: PipelineProposal,

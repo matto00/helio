@@ -105,8 +105,10 @@ class AutoLayoutRouteSpec extends ApplyProposalSpecBase {
         byId(kept).fields("w").convertTo[Int] shouldBe 2
         byId(kept).fields("h").convertTo[Int] shouldBe 2
 
+        // HEL-1071: the packed item is placed BELOW the kept panel (it used to be appended with no
+        // collision avoidance, landing on the kept panel's cell).
         byId(packed).fields("x").convertTo[Int] shouldBe 0
-        byId(packed).fields("y").convertTo[Int] shouldBe 0
+        byId(packed).fields("y").convertTo[Int] shouldBe 2
       }
     }
 
@@ -146,6 +148,103 @@ class AutoLayoutRouteSpec extends ApplyProposalSpecBase {
       Post(s"/api/dashboards/${UUID.randomUUID()}/auto-layout", json("""{"items":[]}""")) ~> routes ~> check {
         status shouldBe StatusCodes.Unauthorized
       }
+    }
+  }
+
+  // ── HEL-1071: breakpoint-aware packing ────────────────────────────────────
+
+  private def createOutputPanel(dashboardId: String, title: String): String =
+    Post("/api/panels", json(s"""{"dashboardId":"$dashboardId","title":"$title","type":"output","config":{"outputId":"$pipelineOutputId"}}"""))
+      .addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+      status shouldBe StatusCodes.Created
+      responseAs[String].parseJson.asJsObject.fields("id").convertTo[String]
+    }
+
+  private def cols = Map("lg" -> 12, "md" -> 10, "sm" -> 6, "xs" -> 2)
+  private def rects(layout: JsObject, bp: String): Vector[(String, Int, Int, Int, Int)] =
+    layout.fields(bp).convertTo[Vector[JsValue]].map(_.asJsObject).map { o =>
+      (o.fields("panelId").convertTo[String], o.fields("x").convertTo[Int], o.fields("y").convertTo[Int], o.fields("w").convertTo[Int], o.fields("h").convertTo[Int])
+    }
+  private def assertValid(layout: JsObject, only: Set[String] = Set("lg", "md", "sm", "xs")): Unit =
+    cols.filter { case (bp, _) => only.contains(bp) }.foreach { case (bp, c) =>
+      val items = rects(layout, bp)
+      items.foreach { case (id, x, _, w, _) => withClue(s"$bp $id: ") { (x + w) should be <= c } }
+      for (i <- items.indices; j <- (i + 1) until items.size) {
+        val (_, ax, ay, aw, ah) = items(i)
+        val (_, bx, by, bw, bh) = items(j)
+        withClue(s"$bp items $i/$j overlap: ") { (ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by) shouldBe false }
+      }
+    }
+  private def layoutOf(dashboardId: String): JsObject = storedLayoutJson(dashboardId)
+
+  "POST /api/dashboards/:id/auto-layout (breakpoint-aware, HEL-1071)" should {
+
+    "pack three 4-wide Outputs without overflow or overlap at every breakpoint, xs included" in {
+      val dashboardId = createDashboard("Three Outputs")
+      val ids = Vector("A", "B", "C").map(createOutputPanel(dashboardId, _))
+      autoLayout(dashboardId, s"""{"items":[${ids.map(i => s"""{"panelId":"$i","w":4,"h":4}""").mkString(",")}]}""") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      val layout = layoutOf(dashboardId)
+      assertValid(layout)
+      rects(layout, "xs").foreach { case (_, _, _, w, _) => w should be <= 2 }
+      rects(layout, "xs") should have size 3
+    }
+
+    "pack only the named breakpoint and leave the other three byte-identical" in {
+      val dashboardId = createDashboard("Single Breakpoint")
+      val ids = Vector("A", "B").map(createOutputPanel(dashboardId, _))
+      val before = layoutOf(dashboardId)
+      autoLayout(dashboardId, s"""{"breakpoint":"xs","items":[{"panelId":"${ids(0)}","w":2,"h":4},{"panelId":"${ids(1)}","w":2,"h":4}]}""") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      val after = layoutOf(dashboardId)
+      List("lg", "md", "sm").foreach(bp => after.fields(bp) shouldBe before.fields(bp))
+      rects(after, "xs").map(_._5) shouldBe Vector(6, 6) // an Output is clamped to its kind minimum height
+      assertValid(after, only = Set("xs"))
+    }
+
+    "reject cols that disagree with the named breakpoint, and an unknown breakpoint, and cols above 12" in {
+      val dashboardId = createDashboard("Bad Params")
+      val p = createOutputPanel(dashboardId, "A")
+      val item = s"""{"panelId":"$p","w":1,"h":2}"""
+      autoLayout(dashboardId, s"""{"breakpoint":"xs","cols":12,"items":[$item]}""") ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
+      autoLayout(dashboardId, s"""{"breakpoint":"huge","items":[$item]}""") ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
+      autoLayout(dashboardId, s"""{"cols":24,"items":[$item]}""") ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
+    }
+
+    "place packed items below kept panels in every breakpoint" in {
+      val dashboardId = createDashboard("Below Kept")
+      val kept   = createOutputPanel(dashboardId, "Kept")
+      val packed = createOutputPanel(dashboardId, "Packed")
+      val before = layoutOf(dashboardId)
+      autoLayout(dashboardId, s"""{"items":[{"panelId":"$packed","w":4,"h":4}]}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      val after = layoutOf(dashboardId)
+      assertValid(after)
+      cols.keys.foreach { bp =>
+        val keptItem   = rects(after, bp).find(_._1 == kept).get
+        val packedItem = rects(after, bp).find(_._1 == packed).get
+        keptItem shouldBe rects(before, bp).find(_._1 == kept).get // kept panel did not move
+        packedItem._3 should be >= (keptItem._3 + keptItem._5)
+      }
+    }
+
+    "reject with 400 naming the breakpoint when a kept panel pair already overlaps there, saving nothing" in {
+      val dashboardId = createDashboard("Kept Stored Bad")
+      val k1 = createOutputPanel(dashboardId, "K1")
+      val k2 = createOutputPanel(dashboardId, "K2")
+      val p  = createOutputPanel(dashboardId, "P")
+      def it(id: String, x: Int, y: Int, w: Int) = s"""{"panelId":"$id","x":$x,"y":$y,"w":$w,"h":2}"""
+      overwriteStoredLayout(dashboardId, s"""{"lg":[],"md":[],"sm":[],"xs":[${it(k1, 0, 0, 1)},${it(k2, 0, 0, 1)}]}""")
+      val before = layoutOf(dashboardId)
+      autoLayout(dashboardId, s"""{"items":[{"panelId":"$p","w":4,"h":4}]}""") ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        val msg = responseAs[String].parseJson.asJsObject.fields("message").convertTo[String]
+        msg should include("breakpoint 'xs'")
+        msg should include(k1)
+        msg should include(k2)
+      }
+      layoutOf(dashboardId) shouldBe before
     }
   }
 }

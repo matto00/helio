@@ -206,7 +206,10 @@ export function areDashboardLayoutsEqual(a: DashboardLayout, b: DashboardLayout)
   );
 }
 
-function areBreakpointLayoutsEqual(a: DashboardLayoutItem[], b: DashboardLayoutItem[]): boolean {
+export function areBreakpointLayoutsEqual(
+  a: DashboardLayoutItem[],
+  b: DashboardLayoutItem[],
+): boolean {
   if (a.length !== b.length) {
     return false;
   }

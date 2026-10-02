@@ -1,7 +1,7 @@
 package com.helio.api.protocols.patchsets
 
 import com.helio.api.protocols.dashboards.DashboardLayoutItemPayload
-import com.helio.api.protocols.dashboards.{DashboardLayoutPayload, UpdateDashboardRequest}
+import com.helio.api.protocols.dashboards.{DashboardLayoutPatchPayload, DashboardLayoutPayload, UpdateDashboardRequest}
 import com.helio.api.protocols.patchsets.{EditTarget, PatchSet}
 import com.helio.api.protocols.panels.UpdatePanelRequest
 import com.helio.api.protocols.pipelines.UpdateOutputRequest
@@ -58,7 +58,7 @@ class PatchSetProtocolSpec extends AnyWordSpec with Matchers with PatchSetProtoc
   private val dashboardUpdatePatch = UpdateDashboardRequest(
     name       = None,
     appearance = None,
-    layout     = Some(dashboardLayout)
+    layout     = Some(DashboardLayoutPatchPayload.full(dashboardLayout))
   )
 
   private val dashboardUpdateEdit = Edit(

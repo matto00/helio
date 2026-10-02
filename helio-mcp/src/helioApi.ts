@@ -1272,15 +1272,19 @@ export class HelioApi {
     return { deleted: true, id: stepId, removedTailStepCount: response.removedTailStepCount };
   }
 
-  /** Set a dashboard's responsive grid layout. PATCHes /api/dashboards/:id with
-   *  a DashboardLayoutPayload. Takes flat `{panelId,x,y,w,h}` items and applies
-   *  them to all four breakpoints (lg/md/sm/xs) — a desktop-first placement that
-   *  the backend requires be fully specified. */
+  /** Set one or more breakpoints of a dashboard's responsive grid layout. PATCHes
+   *  /api/dashboards/:id with ONLY the breakpoints named (HEL-1071): the backend keeps every other
+   *  breakpoint as stored, and rejects with 400 (naming the breakpoint and panel ids, saving nothing)
+   *  a named breakpoint that overlaps or leaves its column grid (lg 12, md 10, sm 6, xs 2). */
   updateDashboardLayout(
     dashboardId: string,
-    items: { panelId: string; x: number; y: number; w: number; h: number }[],
+    layout: Partial<
+      Record<
+        "lg" | "md" | "sm" | "xs",
+        { panelId: string; x: number; y: number; w: number; h: number }[]
+      >
+    >,
   ): Promise<DashboardResponse> {
-    const layout = { lg: items, md: items, sm: items, xs: items };
     return this.http.patch<DashboardResponse>(`/api/dashboards/${dashboardId}`, { layout });
   }
 
@@ -1292,16 +1296,19 @@ export class HelioApi {
    *  is visual order; `cols` defaults to 12. Panels omitted from `items` keep
    *  their current saved position; a `panelId` not on the dashboard causes
    *  the backend to reject the whole request with 400 (surfaced verbatim by
-   *  the tool's guarded handler, not swallowed here). Same "apply to all four
-   *  breakpoints" convention as `updateDashboardLayout`. */
+   *  the tool's guarded handler, not swallowed here). HEL-1071: without
+   *  `breakpoint` every breakpoint is packed at its own column count; with it
+   *  only that breakpoint is packed (`w` in its units) and the rest are untouched. */
   autoLayoutDashboard(
     dashboardId: string,
     items: { panelId: string; w: number; h: number }[],
     cols?: number,
+    breakpoint?: "lg" | "md" | "sm" | "xs",
   ): Promise<DashboardResponse> {
     return this.http.post<DashboardResponse>(`/api/dashboards/${dashboardId}/auto-layout`, {
       items,
       cols,
+      breakpoint,
     });
   }
 }

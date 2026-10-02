@@ -1,7 +1,7 @@
 package com.helio.services.patchsets
 
 import com.helio.services.dashboards.DashboardServiceValidation
-import com.helio.services.panels.PanelServiceHelpers
+import com.helio.services.panels.{LayoutPolicy, PanelServiceHelpers}
 import com.helio.services.ServiceError
 import com.helio.domain.engine.ExpressionEvaluator
 import com.helio.api.http.RequestValidation
@@ -189,16 +189,26 @@ private[services] object PatchSetPreviewProjection {
   private def dashboardUpdateAfter(request: UpdateDashboardRequest, prior: Dashboard): Either[ServiceError, Option[JsValue]] =
     DashboardServiceValidation.validateDashboardUpdateRequest(request) match {
       case Left(err) => Left(ServiceError.BadRequest(err))
-      case Right((nameOpt, appearanceOpt, layoutOpt)) =>
-        // design.md D3's corrected three-field mirror of DashboardService.applyUpdate
-        // (DashboardService.scala:147-184) -- name/appearance/layout only,
-        // `meta` deliberately left at `prior`'s value (D3's timestamp exclusion).
-        val updated = prior.copy(
-          name       = nameOpt.getOrElse(prior.name),
-          appearance = appearanceOpt.getOrElse(prior.appearance),
-          layout     = layoutOpt.getOrElse(prior.layout)
-        )
-        Right(Some(dashboardResponseFormat.write(DashboardResponse.fromDomain(updated))))
+      case Right((nameOpt, appearanceOpt, layoutPatchOpt)) =>
+        // HEL-1071: the same layout policy `DashboardService.update` applies, so a preview of an
+        // invalid layout 400s exactly like the apply would.
+        val layoutResolved = layoutPatchOpt match {
+          case None        => Right(prior.layout)
+          case Some(patch) => LayoutPolicy(prior.layout, patch)
+        }
+        layoutResolved match {
+          case Left(msg) => Left(ServiceError.BadRequest(msg))
+          case Right(layout) =>
+            // design.md D3's corrected three-field mirror of DashboardService.applyUpdate --
+            // name/appearance/layout only, `meta` deliberately left at `prior`'s value (D3's
+            // timestamp exclusion).
+            val updated = prior.copy(
+              name       = nameOpt.getOrElse(prior.name),
+              appearance = appearanceOpt.getOrElse(prior.appearance),
+              layout     = layout
+            )
+            Right(Some(dashboardResponseFormat.write(DashboardResponse.fromDomain(updated))))
+        }
     }
 
   private def dashboardCreateAfter(request: CreateDashboardRequest, user: AuthenticatedUser): JsValue = {

@@ -2,7 +2,7 @@ package com.helio.services.patchsets
 
 import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.panels.PanelService
+import com.helio.services.panels.{LayoutWritePolicy, PanelService}
 import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.dashboards.DashboardResponse
@@ -188,7 +188,7 @@ final class PatchSetUndoService(
       case None => Future.successful(Left(missingPriorState(edit)))
       case Some(json) =>
         val prior = json.convertTo[DashboardResponse]
-        dashboardService.update(DashboardId(prior.id), PatchSetUndoInverse.fullDashboardInverse(prior), user).map {
+        dashboardService.update(DashboardId(prior.id), PatchSetUndoInverse.fullDashboardInverse(prior), user, LayoutWritePolicy.RestorePriorStored).map {
           case Right(dashboard) =>
             Right(EditUndoOutcome(edit.index, "restored", None, Some(dashboardResponseFormat.write(DashboardResponse.fromDomain(dashboard)))))
           case Left(err) => Left(restoreFailed(edit, err.message))
