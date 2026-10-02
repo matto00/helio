@@ -41,7 +41,7 @@ export interface BuildOutputConfigParams {
   // HEL-876 — numeric display style, shared by metric and collection (metric baseType).
   metricFormat: string;
   // Markdown
-  markdownContentState: BoundOrLiteralState;
+  markdownContent: string;
   // Collection / Timeline
   collectionFieldMapping: Record<string, string>;
   collectionFormat: string;
@@ -105,16 +105,8 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
         format: readFormatOrNull(params.metricFormat),
       };
     case "markdown":
-      return {
-        content:
-          params.markdownContentState.mode === "literal"
-            ? params.markdownContentState.literalValue
-            : "",
-        fieldMapping:
-          params.markdownContentState.mode === "field" && params.markdownContentState.fieldValue
-            ? { content: params.markdownContentState.fieldValue }
-            : {},
-      };
+      // Literal-only: `OutputBindingSpec.Markdown` has no fieldMapping slots (HEL-1139).
+      return { content: params.markdownContent, fieldMapping: {} };
     case "collection":
       return {
         fieldMapping: params.collectionFieldMapping,

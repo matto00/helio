@@ -1,0 +1,21 @@
+## Skeptic Report — final gate (round 1, skeptic-final-1.md)
+Head reviewed: 266f1207cafa7c8d1a78857f0c92973c017ea267, base 8b0e9e05 (live-resolved).
+
+### What I verified (with evidence)
+- Diff read in full for backend OutputBindingSpec, OutputEditorSheet/OutputKindFields/buildOutputConfig, helio-mcp outputs.ts. Small, behavior-scoped, matches the owner ruling (affordance removed, no real binding).
+- Browser repro on MAIN (vite 6580, cwd confirmed via /proc to scratchpad mainrepro/frontend; proxy to worktree backend 9478): New output -> Kind Markdown shows "Bind to field / Fixed text" toggle; Bind to field + column "region" + Save -> POST /api/pipelines/fc63432d-.../outputs => 400 Bad Request, sheet shows "Failed to save output." Screenshot persisted: /home/matt/Development/helio/.concertino/runs/HEL-1139/evidence/.tmp-sk/skeptic-main-400.png.
+  Setup note: the backend's CORS allowlist 403'd origin localhost:6580 (first attempt, 403 not 400); I added a proxyReq Origin rewrite (to 6571) to the SCRATCHPAD copy's vite.config.ts only (not the repo), after which the real 400 appeared. Response body text not captured (a re-fetch hit the CSRF header check); the status plus UI error is the evidence.
+- Renderer ignores fieldMapping: PanelContent.tsx:311-313 renders MarkdownRenderer content={cfg.content} for markdown; other fieldMapping reads (257-329) belong to other kinds.
+- Fixed app (6571): same flow, Kind Markdown shows only a "Content" Textarea (rows=12, same as the old literal half), no toggle. Both themes screenshotted and inspected: dark and light render cleanly, consistent with sibling sheet rows (reused panel-detail-modal__mapping-row classes, Textarea shared component, aria-label). Screenshots in /home/matt/Development/helio/.playwright-mcp/skeptic-fixed-{dark,light}.png. I restored 6571 theme to dark.
+- Red-on-main/mutation, reproduced by me: restored main's OutputEditorSheet.tsx/OutputKindFields.tsx/buildOutputConfig.ts over the new tests: OutputEditorSheet tests "offers only a literal Content editor..." and "opens a legacy ... literal mode" FAIL; buildOutputConfig.test.ts suite fails to compile. Restored via git checkout HEAD; tree has only the orchestrator's tasks.md/evaluation-1.md changes.
+- No remaining markdown field-mode surface: BoundOrLiteralField users are ChartDisplayFields, OutputEditorSheet/OutputKindFields (other kinds), not markdown. Panel-level MarkdownEditor.tsx is literal-only (header comment: HEL-909 stripped bound mode); it offers no bound mode.
+- Agent surfaces: the only writers of output config are OutputService (create :141, merged PATCH :252) and PipelineService (insertInternalAction :639, guarded by the mirror validation :676); both funnel through OutputBindingSpec.validateFieldMapping, which now says "'markdown' has no fieldMapping slots ... send an empty fieldMapping". MCP/proposal/assistant schemas carry config free-form (no markdown content slot enumerated); grep of helio-mcp/src, schemas/, AssistantProposalToolSchemas, DashboardAuthoringPrompt finds no markdown fieldMapping/content-mapping advertisement; outputs.ts add_output now states table/markdown take no fieldMapping. I did not drive an MCP/proposal request per surface (reading of the single funnel only), same limit as the evaluator.
+- Evaluator's gate output (lint/format/jest 4253 pass/build/mcp typecheck) taken as pasted; I did not re-run the full suite or sbt testFull (instructed not to run sbt shutdown; did not re-run backend tests).
+- Rows I created: none (the only create attempts returned 403/400). Nothing to clean. No cleanup.sh/sbt shutdown run. A stray screenshot I wrote into the worktree was deleted (exact path).
+
+### Verdict: CONFIRM
+
+### Non-blocking notes
+- OutputBindingSpec.scala ~lines 94-99 comment on `Markdown` still says "the binding is a free-form template string against the row shape" -- stale after HEL-909/this ticket; consider a one-line fix.
+- Backend red/green and per-surface request-level proof of AC2 not independently executed by me; rests on single-funnel reading and the evaluator's live curl 400s.
+- Tick tasks.md 4.1 (already modified in tree); PR should note Task 1.1 repro on main was done at gate time (400 confirmed above).

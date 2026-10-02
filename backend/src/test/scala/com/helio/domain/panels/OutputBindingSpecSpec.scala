@@ -55,6 +55,15 @@ class OutputBindingSpecSpec extends AnyWordSpec with Matchers {
       message should include("bogus2")
     }
 
+    "say a slotless kind has no fieldMapping slots rather than listing an empty slot set (HEL-1139)" in {
+      val markdown = OutputBindingSpec.validateFieldMapping(OutputBindingSpec.Markdown, Map("content" -> "notes"))
+      markdown.left.getOrElse("") should include("'markdown' has no fieldMapping slots")
+      markdown.left.getOrElse("") should include("content")
+      markdown.left.getOrElse("") should not include "Valid slots:"
+      val table = OutputBindingSpec.validateFieldMapping(OutputBindingSpec.Table, Map("x" -> "a"))
+      table.left.getOrElse("") should include("'table' has no fieldMapping slots")
+    }
+
     "accept an empty fieldMapping against a no-slot kind (table/markdown)" in {
       OutputBindingSpec.validateFieldMapping(OutputBindingSpec.Table, Map.empty) shouldBe Right(())
       OutputBindingSpec.validateFieldMapping(OutputBindingSpec.Markdown, Map.empty) shouldBe Right(())

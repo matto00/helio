@@ -150,16 +150,23 @@ object OutputBindingSpec {
    *  `Left` naming every unknown key and the full valid-slot list for this
    *  kind (never just the first bad key, so a caller sees the whole problem
    *  in one round trip) -- the ticket's "400 naming the valid slots for that
-   *  kind" contract. Pure domain logic; not yet wired to a live HTTP route
-   *  (no endpoint accepts an Output `fieldMapping` payload in this cycle —
-   *  see execution-progress.md's CR8 deferral) but exercised directly by
+   *  kind" contract. A kind with NO slots (`table`, `markdown`) gets a distinct
+   *  message saying so, rather than an empty "Valid slots: " list (HEL-1139).
+   *  Pure domain logic; called by `OutputService` (create and merged PATCH) and
+   *  `PipelineService`'s single-call mirror, and exercised directly by
    *  `OutputBindingSpecSpec`. */
   def validateFieldMapping(spec: OutputBindingSpec, fieldMapping: Map[String, String]): Either[String, Unit] = {
     val validSlots  = spec.allSlots
     val unknownKeys = fieldMapping.keySet.diff(validSlots.toSet)
+    val kindName    = OutputKind.asString(spec.outputKind)
     if (unknownKeys.isEmpty) Right(())
+    else if (validSlots.isEmpty) Left(
+      s"'$kindName' has no fieldMapping slots (got: ${unknownKeys.toVector.sorted.mkString(", ")}); " +
+        "send an empty fieldMapping" +
+        (if (spec.outputKind == OutputKind.Markdown) " (a markdown Output's text is the literal config.content)" else "")
+    )
     else Left(
-      s"Unknown fieldMapping slot(s) for '${OutputKind.asString(spec.outputKind)}': " +
+      s"Unknown fieldMapping slot(s) for '$kindName': " +
         s"${unknownKeys.toVector.sorted.mkString(", ")}. Valid slots: ${validSlots.mkString(", ")}"
     )
   }

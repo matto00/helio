@@ -245,11 +245,9 @@ export function OutputEditorSheet({
   const [metricFormat, setMetricFormat] = useState<string>(metricConfig.format ?? "number");
 
   // Markdown
-  const markdownContentState = useBoundOrLiteralState(
-    defaultBoundOrLiteralMode(markdownConfig.fieldMapping.content === undefined),
-    markdownConfig.fieldMapping.content ?? "",
-    markdownConfig.content ?? "",
-  );
+  // Literal-only (HEL-1139): a legacy `fieldMapping.content` is ignored on open
+  // and dropped on the next save.
+  const [markdownContent, setMarkdownContent] = useState(markdownConfig.content ?? "");
 
   // Collection / Timeline (lighter-weight slots -- task 5.1)
   const [collectionFieldMapping, setCollectionFieldMapping] = useState(
@@ -299,7 +297,7 @@ export function OutputEditorSheet({
       metricLabelState,
       metricUnitState,
       metricFormat,
-      markdownContentState,
+      markdownContent,
       collectionFieldMapping,
       collectionFormat,
       timelineFieldMapping,
@@ -554,7 +552,7 @@ export function OutputEditorSheet({
           />
         )}
         {kind === "markdown" && (
-          <MarkdownKindFields fieldOptions={fieldOptions} contentState={markdownContentState} />
+          <MarkdownKindFields content={markdownContent} onContentChange={setMarkdownContent} />
         )}
         {kind === "collection" && (
           <>
@@ -644,9 +642,7 @@ export function OutputEditorSheet({
           }
           metricUnit={metricUnitState.mode === "literal" ? metricUnitState.literalValue : undefined}
           metricFormat={metricFormat}
-          markdownContent={
-            markdownContentState.mode === "literal" ? markdownContentState.literalValue : undefined
-          }
+          markdownContent={markdownContent}
         />
       </div>
 
