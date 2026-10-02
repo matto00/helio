@@ -196,4 +196,18 @@ class DashboardProposalProtocolSpec extends AnyWordSpec with Matchers with Dashb
       p.toJson.convertTo[ProposalPanel] shouldBe p
     }
   }
+
+  // HEL-1148: the flat source binding is a first-class optional field, absent-tolerant like outputId.
+  "ProposalPanel.dataSourceId" should {
+    "be omitted on write when absent and tolerated as absent on read" in {
+      panel().toJson.asJsObject.fields.keySet should not contain "dataSourceId"
+      JsObject("title" -> JsString("X"), "type" -> JsString("form")).convertTo[ProposalPanel].dataSourceId shouldBe None
+    }
+
+    "round-trip when present" in {
+      val written = panel().copy(`type` = "form", dataSourceId = Some("ds-1")).toJson.asJsObject
+      written.fields("dataSourceId") shouldBe JsString("ds-1")
+      written.convertTo[ProposalPanel].dataSourceId shouldBe Some("ds-1")
+    }
+  }
 }

@@ -32,11 +32,15 @@
         "type": {
           "type": "string",
           "enum": ["text", "markdown", "image", "output", "form"],
-          "description": "No `divider`: dropped from the proposal flow's agent-facing type set for parity with create_panel (HEL-249/HEL-315/HEL-316). The backend wire (PanelType.fromString) still accepts it on other paths. `form` joins this set (HEL-1083 design.md D7) with no carve-out beside `divider`: the proposal wire has no typed data-source field, so a proposal supplying no config is rejected with a 400 naming `dataSourceId`; a proposal supplying `config.dataSourceId` through the generic config passthrough is created successfully."
+          "description": "No `divider`: excluded from the agent-facing set by an explicit, stated product-scope reason (purely presentational layout chrome, nothing an agent can author), mirrored by create_panel's enum (see scripts/lib/agentFacingPanelTypes.mjs). Every other canonical kind is on this wire because the wire can express its required binding: `output` binds `outputId`, `form` binds `dataSourceId` (HEL-1148)."
         },
         "outputId": {
           "type": "string",
           "description": "Required for `output` panels — the id of the pipeline-owned Output the panel binds to (renamed HEL-910 task 3.2 from the legacy `dataTypeId` name). Omitted for text/markdown/image panels — TextPanelConfig/MarkdownPanelConfig no longer carry a data binding of any kind (pipelines-and-outputs remodel, HEL-903/904)."
+        },
+        "dataSourceId": {
+          "type": "string",
+          "description": "Required for `form` panels, and only `form` panels (HEL-1148) — the id of a caller-owned `dataset` source the form appends submitted rows to. A `form` with no `dataSourceId`, one that is not a caller-owned `dataset` source, or one whose fields do not fit that dataset's declared schema is rejected with a 400 naming the panel, before anything is created. Authoritative over `config.dataSourceId`; a `config.dataSourceId` alone is NOT a binding. A `form` may not also carry `outputId`, and `dataSourceId` on any other panel type is rejected."
         },
         "fieldMapping": {
           "type": "object",

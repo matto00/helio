@@ -99,3 +99,50 @@ describe("computeProposalWarnings — outputId (Output id) (HEL-223/HEL-907)", (
     expect(applyReadyFor(warnings)).toBe(false);
   });
 });
+
+describe("computeProposalWarnings: form dataSourceId (HEL-1148)", () => {
+  const datasetSources = new Map([["ds-1", { id: "ds-1", name: "orders", type: "dataset" }]]);
+
+  it("warns when a form panel has no dataSourceId", () => {
+    const warnings = computeProposalWarnings(
+      [{ title: "Order form", type: "form" }],
+      outputsById,
+      datasetSources,
+    );
+    expect(warnings).toEqual([
+      "panel 1 ('Order form'): a form panel needs a dataSourceId (a dataset source id)",
+    ]);
+  });
+
+  it("warns when the dataSourceId is not a dataset source in this workspace", () => {
+    const warnings = computeProposalWarnings(
+      [{ title: "Order form", type: "form", dataSourceId: "nope" }],
+      outputsById,
+      datasetSources,
+    );
+    expect(warnings).toEqual([
+      "panel 1 ('Order form'): dataSourceId nope is not a dataset source in this workspace",
+    ]);
+  });
+
+  it("does not warn for a form bound to a known dataset source", () => {
+    expect(
+      computeProposalWarnings(
+        [{ title: "Order form", type: "form", dataSourceId: "ds-1" }],
+        outputsById,
+        datasetSources,
+      ),
+    ).toEqual([]);
+  });
+
+  it("warns when dataSourceId is set on a non-form panel", () => {
+    const warnings = computeProposalWarnings(
+      [panelFixture({ dataSourceId: "ds-1" })],
+      outputsById,
+      datasetSources,
+    );
+    expect(warnings).toEqual([
+      "panel 1 ('Revenue'): dataSourceId is only supported on a form panel",
+    ]);
+  });
+});

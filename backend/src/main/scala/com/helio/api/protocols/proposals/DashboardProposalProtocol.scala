@@ -52,7 +52,11 @@ final case class ProposalPanel(
     config: Option[JsObject],
     // HEL-1193: first-class output-panel controls; merged into the built panel's
     // `config.controls` by `ProposalPanelSupport.buildCreateRequest`.
-    controls: Option[Vector[ProposalControl]] = None
+    controls: Option[Vector[ProposalControl]] = None,
+    // HEL-1148: a source-bound panel kind's (today: `form`) dataset-source binding, the source twin
+    // of `outputId`. Authoritative over `config.dataSourceId` (re-applied after the config merge by
+    // `ProposalPanelSupport.buildCreateRequest`); required on a `form`, rejected on any other kind.
+    dataSourceId: Option[String] = None
 )
 
 final case class DashboardProposal(dashboardName: String, panels: Vector[ProposalPanel])
@@ -124,6 +128,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
       p.layout.foreach(v => fields("layout") = v.toJson)
       p.config.foreach(v => fields("config") = v)
       p.controls.foreach(v => fields("controls") = JsArray(v.map(_.toJson)))
+      p.dataSourceId.foreach(v => fields("dataSourceId") = JsString(v))
       JsObject(fields.toMap)
     }
 
@@ -147,7 +152,8 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
         sort         = obj.fields.get("sort").map(_.convertTo[String]),
         layout       = obj.fields.get("layout").map(_.convertTo[ProposalPanelLayout]),
         config       = obj.fields.get("config").map(_.asJsObject),
-        controls     = obj.fields.get("controls").map(_.convertTo[Vector[ProposalControl]])
+        controls     = obj.fields.get("controls").map(_.convertTo[Vector[ProposalControl]]),
+        dataSourceId = obj.fields.get("dataSourceId").map(_.convertTo[String])
       )
     }
   }

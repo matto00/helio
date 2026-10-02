@@ -68,6 +68,9 @@ abstract class CombinedApplyProposalSpecBase
   // HEL-904 task 3.9: a real, bindable Output row — see ApplyProposalSpecBase's
   // identically-named/documented fixture.
   protected var pipelineOutputId = ""
+  // HEL-1148: a `dataset`-kind source owned by `userId`, declaring `quantity` (integer) and `note`
+  // (string) — the bindable source a combined proposal's `form` panel must point at.
+  protected var ownDatasetSourceId = ""
 
   private val stubConnector = new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP"))))
 
@@ -154,6 +157,10 @@ abstract class CombinedApplyProposalSpecBase
     pipelineOutputTypeId = UUID.randomUUID().toString
     val pipelineForOutputId = UUID.randomUUID().toString
     pipelineOutputId = UUID.randomUUID().toString
+    ownDatasetSourceId = UUID.randomUUID().toString
+    val ownDatasetId = ownDatasetSourceId
+    val ownDatasetSchema =
+      """[{"name":"quantity","type":"integer","required":true},{"name":"note","type":"string","required":false}]"""
     val staticPayload = """{"columns":[{"name":"name","type":"string"}],"rows":[["seed"]]}"""
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, 'd1@helio.test', now())""",
@@ -161,6 +168,8 @@ abstract class CombinedApplyProposalSpecBase
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($otherSrcId::uuid, 'other-static', 'dataset', $staticPayload::jsonb, $otherId::uuid, now(), now())""",
       
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at, dataset_schema)
+             VALUES ($ownDatasetId::uuid, 'own-dataset', 'dataset', '{}'::jsonb, $userId::uuid, now(), now(), $ownDatasetSchema::jsonb)""",
       // Pre-existing pipeline-output type (source_id NULL), owned by userId —
       // bindable, for the mixed-binding scenario (task 7.3).
       

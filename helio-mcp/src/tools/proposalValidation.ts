@@ -25,7 +25,12 @@
  */
 
 import type { HelioApi } from "../helioApi.js";
-import type { OutputFilterCapabilitiesResponse, OutputResponse, ProposalPanel } from "../types.js";
+import type {
+  DataSourceResponse,
+  OutputFilterCapabilitiesResponse,
+  OutputResponse,
+  ProposalPanel,
+} from "../types.js";
 
 /** Panel types whose binding is a `outputId` (flat field, checked here) --
  *  really an Output id, kept under this field name for wire stability
@@ -33,13 +38,22 @@ import type { OutputFilterCapabilitiesResponse, OutputResponse, ProposalPanel } 
  *  the backend's `DashboardProposalService.DataPanelKinds`. */
 export const DATA_PANEL_TYPES = new Set(["output"]);
 
+/** HEL-1148: panel types whose binding is a flat `dataSourceId` (a dataset source), the source twin
+ *  of `DATA_PANEL_TYPES`. Mirrors the backend's `DashboardProposalService.SourceBoundKinds`
+ *  (scripts/check-schema-drift.mjs asserts the two sets are equal). */
+export const SOURCE_BOUND_PANEL_TYPES = new Set(["form"]);
+
 /** Read-only validation against an already-fetched workspace snapshot: flags
  *  a data panel whose `outputId` (Output id) binding is missing or does
- *  not resolve to a real, caller-owned Output. Pure -- no I/O; the caller
- *  (`propose_dashboard`) owns the Output fetch and the `Map` construction. */
+ *  not resolve to a real, caller-owned Output, and (HEL-1148) a `form` panel whose flat
+ *  `dataSourceId` is missing or is not one of the caller's `dataset` sources, plus a
+ *  `dataSourceId` on a panel that is not source-bound. Pure -- no I/O; the caller
+ *  (`propose_dashboard`) owns the fetches and the `Map` construction. `datasetSourcesById` omitted
+ *  skips only the existence check (a missing/misplaced `dataSourceId` is still flagged). */
 export function computeProposalWarnings(
   panels: ProposalPanel[],
   outputsById: Map<string, OutputResponse>,
+  datasetSourcesById?: Map<string, Pick<DataSourceResponse, "id" | "name" | "type">>,
 ): string[] {
   const warnings: string[] = [];
 
@@ -52,6 +66,18 @@ export function computeProposalWarnings(
       } else if (!outputsById.has(panel.outputId)) {
         warnings.push(`${where}: output ${panel.outputId} not found in this workspace`);
       }
+    }
+
+    if (SOURCE_BOUND_PANEL_TYPES.has(panel.type)) {
+      if (!panel.dataSourceId) {
+        warnings.push(`${where}: a ${panel.type} panel needs a dataSourceId (a dataset source id)`);
+      } else if (datasetSourcesById && !datasetSourcesById.has(panel.dataSourceId)) {
+        warnings.push(
+          `${where}: dataSourceId ${panel.dataSourceId} is not a dataset source in this workspace`,
+        );
+      }
+    } else if (panel.dataSourceId !== undefined) {
+      warnings.push(`${where}: dataSourceId is only supported on a form panel`);
     }
   });
 

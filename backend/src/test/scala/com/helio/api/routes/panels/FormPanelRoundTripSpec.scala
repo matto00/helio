@@ -339,12 +339,14 @@ class FormPanelRoundTripSpec extends ApplyProposalSpecBase {
       dashboardCount() shouldBe before
     }
 
-    // 4.6b — the generic `config` passthrough DOES bind a source successfully.
-    "create an agent-proposed form panel whose config.dataSourceId is owned by the caller" in {
+    // 4.6b (HEL-1148: deliberately updated, NOT weakened) — the binding is now the first-class flat
+    // `dataSourceId`; the generic `config` passthrough alone is no longer a binding (it was an
+    // undocumented path no schema/tool told an agent about) and is rejected, naming the flat field.
+    "create an agent-proposed form panel whose flat dataSourceId is owned by the caller" in {
       val before = dashboardCount()
       val body =
         s"""{"dashboardName":"Agent Form (bound)","panels":[
-           |  {"title":"Log Entry","type":"form","config":{"dataSourceId":"$datasetSourceId","fields":$formFieldsJson,"submit":{"writeMode":"append"}}}
+           |  {"title":"Log Entry","type":"form","dataSourceId":"$datasetSourceId","config":{"fields":$formFieldsJson,"submit":{"writeMode":"append"}}}
            |]}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
@@ -356,16 +358,31 @@ class FormPanelRoundTripSpec extends ApplyProposalSpecBase {
       dashboardCount() shouldBe (before + 1)
     }
 
-    // 4.6b — the security-relevant assertion: a cross-owner dataSourceId
-    // supplied through the same passthrough is still rejected.
-    "reject an agent-proposed form panel whose config.dataSourceId is owned by another user — not-found, nothing created" in {
+    "reject an agent-proposed form panel bound only through config.dataSourceId — 400 naming the flat dataSourceId" in {
+      val before = dashboardCount()
+      val body =
+        s"""{"dashboardName":"Agent Form (config-only)","panels":[
+           |  {"title":"Log Entry","type":"form","config":{"dataSourceId":"$datasetSourceId","fields":$formFieldsJson,"submit":{"writeMode":"append"}}}
+           |]}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("a form panel requires a dataSourceId")
+      }
+      dashboardCount() shouldBe before
+    }
+
+    // 4.6b — the security-relevant assertion, retained: a cross-owner dataSourceId is still rejected
+    // and nothing is created. HEL-1148: now a 400 (the proposal path reports every binding failure
+    // as a 400, like an Output binding), with the same message a nonexistent id gets (no oracle).
+    "reject an agent-proposed form panel whose flat dataSourceId is owned by another user — nothing created" in {
       val before = dashboardCount()
       val body =
         s"""{"dashboardName":"Agent Form (cross-owner)","panels":[
-           |  {"title":"Log Entry","type":"form","config":{"dataSourceId":"$otherDatasetSourceId","fields":$formFieldsJson,"submit":{"writeMode":"append"}}}
+           |  {"title":"Log Entry","type":"form","dataSourceId":"$otherDatasetSourceId","config":{"fields":$formFieldsJson,"submit":{"writeMode":"append"}}}
            |]}""".stripMargin
       apply(body) ~> routes ~> check {
-        status shouldBe StatusCodes.NotFound
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("Data source not found")
       }
       dashboardCount() shouldBe before
     }

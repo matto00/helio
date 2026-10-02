@@ -7,7 +7,8 @@ import com.helio.api.protocols.proposals.ProposalPanel
 import com.helio.domain.model.{AuthenticatedUser, DashboardId, OutputId, PanelType}
 import com.helio.domain.panels.OutputControlSpec
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
-import com.helio.services.panels.OutputControlsValidator
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.services.panels.{FormBindingValidator, OutputControlsValidator}
 import spray.json.{JsArray, JsObject, JsString, JsValue}
 
 import java.util.UUID
@@ -40,6 +41,7 @@ object ProposalPanelSupport {
       _ <- if (DashboardProposalService.DataPanelKinds.contains(panel.`type`) && panel.outputId.isEmpty)
              Left(s"$where: an ${panel.`type`} panel requires an outputId")
            else Right(())
+      _ <- validateSourceBinding(where, panel)
       _ <- validateControlsShape(where, panel)
       _ <- if (panel.`type` == "divider")
              RequestValidation.validateDividerOrientation(panel.orientation).left.map(msg => s"$where: $msg")
@@ -49,6 +51,23 @@ object ProposalPanelSupport {
       // are deleted outright, along with the code paths they guarded — those
       // panel kinds (and `ChartPanel.rejectsAggregation`) no longer exist.
     } yield ()
+
+  /** HEL-1148: the source-binding shape rules, structural and read-free. A source-bound kind
+   *  (`SourceBoundKinds`, today `form`) needs the FLAT `dataSourceId` (a `config.dataSourceId`
+   *  passthrough is deliberately not a binding: one source of truth), may not also carry an
+   *  `outputId`, and no other kind may carry a `dataSourceId` at all (silently ignoring it would be
+   *  the exact unbound-panel failure this change exists to prevent). Existence/ownership/dataset
+   *  kind are the DB-backed `preValidateSourceBindings` below. */
+  private def validateSourceBinding(where: String, panel: ProposalPanel): Either[String, Unit] = {
+    val sourceBound = DashboardProposalService.SourceBoundKinds.contains(panel.`type`)
+    if (sourceBound && panel.dataSourceId.forall(_.trim.isEmpty))
+      Left(s"$where: a ${panel.`type`} panel requires a dataSourceId (the id of a dataset source; config.dataSourceId is not a binding)")
+    else if (sourceBound && panel.outputId.isDefined)
+      Left(s"$where: a ${panel.`type`} panel binds a dataSourceId, not an outputId")
+    else if (!sourceBound && panel.dataSourceId.isDefined)
+      Left(s"$where: dataSourceId is only supported on a ${DashboardProposalService.SourceBoundKinds.toSeq.sorted.mkString("/")} panel")
+    else Right(())
+  }
 
   /** HEL-1193: `controls` is an output-panel-only first-class field, and supplying it alongside
    *  `config.controls` would leave two competing sources for the same list — both rejected here,
@@ -114,15 +133,53 @@ object ProposalPanelSupport {
   def preValidateBindings(
       panels: Vector[ProposalPanel],
       user: AuthenticatedUser,
-      outputRepo: OutputRepository = null
+      outputRepo: OutputRepository = null,
+      dataSourceRepo: DataSourceRepository = null
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
     panels.foldLeft[Future[Either[ServiceError, Unit]]](Future.successful(Right(()))) {
       (accF, panel) =>
         accF.flatMap {
           case Left(err) => Future.successful(Left(err))
-          case Right(_)  => validateDataTypeBinding(panel, user, outputRepo)
+          case Right(_)  =>
+            validateDataTypeBinding(panel, user, outputRepo).flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(_)  => validateSourceBinding(panel, user, dataSourceRepo)
+            }
         }
     }
+
+  /** HEL-1148: only the source-bound panels' `dataSourceId` check, over every panel — read-only,
+   *  run before any write (the combined-proposal path calls it before the pipeline phase). */
+  def preValidateSourceBindings(
+      panels: Vector[ProposalPanel],
+      user: AuthenticatedUser,
+      dataSourceRepo: DataSourceRepository
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
+    panels.foldLeft[Future[Either[ServiceError, Unit]]](Future.successful(Right(()))) { (accF, panel) =>
+      accF.flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(_)  => validateSourceBinding(panel, user, dataSourceRepo)
+      }
+    }
+
+  /** Runs the SAME `FormBindingValidator` checks a direct `form` panel create runs (ownership,
+   *  dataset kind, declared-schema consistency — never weaker), over the create-request this
+   *  panel will actually be built with. A `ServiceError.NotFound` is reported as a 400 here (like
+   *  the Output binding check above); the message is identical for a foreign and a nonexistent id,
+   *  so no existence oracle. A `null` repository (unwired fixture) skips the check. */
+  private def validateSourceBinding(
+      panel: ProposalPanel,
+      user: AuthenticatedUser,
+      dataSourceRepo: DataSourceRepository
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
+    if (!DashboardProposalService.SourceBoundKinds.contains(panel.`type`) || dataSourceRepo == null)
+      Future.successful(Right(()))
+    else
+      FormBindingValidator.rejectForCreate(dataSourceRepo, buildCreateRequest(DashboardId(""), panel), user).map {
+        case Left(ServiceError.NotFound(msg))   => Left(ServiceError.BadRequest(s"panel '${panel.title}': $msg"))
+        case Left(ServiceError.BadRequest(msg)) => Left(ServiceError.BadRequest(s"panel '${panel.title}': $msg"))
+        case other                              => other
+      }
 
   /** HEL-904 task 3.8/3.9: an `"output"`-kind panel's binding candidate is a
    *  real Output id, validated against [[OutputRepository.findByIdOwned]].
@@ -180,7 +237,8 @@ object ProposalPanelSupport {
     val withControls = panel.controls.filter(_.nonEmpty).fold(panel.config) { _ =>
       Some(JsObject(panel.config.fold(Map.empty[String, JsValue])(_.fields) + ("controls" -> JsArray(controlSpecsOf(panel).map(OutputControlSpec.format.write)))))
     }
-    val configOpt: Option[JsValue] = mergeConfig(derived, withControls, panel.outputId, bindingKey)
+    val configOpt: Option[JsValue] =
+      withSourceBinding(mergeConfig(derived, withControls, panel.outputId, bindingKey), panel.dataSourceId)
     CreatePanelRequest(
       dashboardId = Some(dashboardId.value),
       title       = Some(panel.title),
@@ -188,6 +246,11 @@ object ProposalPanelSupport {
       config      = configOpt
     )
   }
+
+  /** HEL-1148: re-applies the flat `dataSourceId` after the config merge, so it stays authoritative
+   *  over any `config.dataSourceId` (same rule as `outputId` in `mergeConfig`). */
+  private def withSourceBinding(config: Option[JsObject], dataSourceId: Option[String]): Option[JsObject] =
+    dataSourceId.fold(config)(id => Some(JsObject(config.fold(Map.empty[String, JsValue])(_.fields) + ("dataSourceId" -> JsString(id)))))
 
   /** Merge the passthrough `config` over the derived flat-field config: on
    *  key conflict the explicit `config` wins — EXCEPT the panel's flat

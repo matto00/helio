@@ -1,6 +1,7 @@
 package com.helio.services.patchsets
 
-import com.helio.services.panels.PanelServiceHelpers
+import com.helio.domain.panels.PanelConfigCodec
+import com.helio.services.panels.{FormBindingValidator, PanelServiceHelpers}
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
@@ -283,13 +284,43 @@ private[services] object PatchSetApplyResolvers {
               case Right(_) =>
                 PanelServiceHelpers.resolveCreateConfig(request) match {
                   case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"edit $index: $msg")))
-                  case Right(_) =>
-                    Future.successful(Right(ResolvedEdit(index, "panel", "create", None, ResolvedAction.PanelCreate(request))))
+                  case Right(createConfig) =>
+                    rejectUnboundOrBadlyBoundForm(request, createConfig, index, user, ctx).map {
+                      case Left(err) => Left(err)
+                      case Right(_)  => Right(ResolvedEdit(index, "panel", "create", None, ResolvedAction.PanelCreate(request)))
+                    }
                 }
             }
         }
     }
 
+
+  /** HEL-1148 design.md D4 "Patch-set create": a `form` panel created by a patch-set must carry a
+   *  non-empty `config.dataSourceId` and pass the shared `FormBindingValidator` (caller-owned,
+   *  `dataset` kind, fields fit the declared schema), each rejection naming the edit. This is
+   *  deliberately patch-set-specific, NOT part of `PanelService.create`, which stays as strict as
+   *  it already was; without it an unbound/foreign-sourced form only failed (or, with an unwired
+   *  repo, silently passed) at the forward write instead of being rejected up front. */
+  private def rejectUnboundOrBadlyBoundForm(
+      request: CreatePanelRequest,
+      createConfig: PanelConfigCodec.CreateConfig,
+      index: Int,
+      user: AuthenticatedUser,
+      ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
+    createConfig match {
+      case PanelConfigCodec.FormCreate(config) if config.dataSourceId.value.trim.isEmpty =>
+        Future.successful(Left(ServiceError.BadRequest(
+          s"edit $index: a form panel requires config.dataSourceId (the id of a dataset source)"
+        )))
+      case PanelConfigCodec.FormCreate(_) =>
+        FormBindingValidator.rejectForCreate(ctx.dataSourceRepo, request, user).map {
+          case Left(ServiceError.NotFound(msg))   => Left(ServiceError.NotFound(s"edit $index: $msg"))
+          case Left(ServiceError.BadRequest(msg)) => Left(ServiceError.BadRequest(s"edit $index: $msg"))
+          case other                              => other
+        }
+      case _ => Future.successful(Right(()))
+    }
 
   private def resolveDashboardUpdate(
       edit: Edit,

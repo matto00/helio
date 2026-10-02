@@ -9,6 +9,7 @@ import com.helio.api.protocols.proposals.{ProposalPanel, ReplaceDashboardContent
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, Dashboard, DashboardId, Panel, ResourceAccess}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -42,7 +43,9 @@ final class DashboardContentsService(
     // parameter -- metrics no longer exist) is REMOVED outright.
     outputRepo: OutputRepository = null,
     // HEL-1193: same nullable-optional wiring; validates controls ahead of any write.
-    controlsValidator: OutputControlsValidator = null
+    controlsValidator: OutputControlsValidator = null,
+    // HEL-1148: validates a `form` panel's `dataSourceId` before any write; nullable-optional.
+    dataSourceRepo: DataSourceRepository = null
 )(implicit ec: ExecutionContext) {
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
@@ -60,7 +63,7 @@ final class DashboardContentsService(
         validatePanels(request.panels).flatMap(_ => ProposalLayoutSupport.validate(request.panels)) match {
           case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
           case Right(_) =>
-            ProposalPanelSupport.preValidateBindings(request.panels, user, outputRepo).flatMap {
+            ProposalPanelSupport.preValidateBindings(request.panels, user, outputRepo, dataSourceRepo).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_) =>
                 ProposalPanelSupport.preValidateControls(request.panels, user, controlsValidator).flatMap {

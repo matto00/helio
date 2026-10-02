@@ -30,16 +30,15 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
-import type { DashboardProposal, OutputResponse, ProposalPanel } from "../types.js";
+import type { ProposalPanel } from "../types.js";
 import { proposalControlSchema } from "./controlSchemas.js";
-import { computeControlWarnings, computeProposalWarnings } from "./proposalValidation.js";
+import { proposeDashboardHandler } from "./proposalHandlers.js";
 
-// No `divider`: dropped from the proposal flow's type set for parity with
-// create_panel (HEL-249/HEL-315/HEL-316) — the backend wire still accepts it
-// on other paths, this tool just no longer offers it. No `metric`/`chart`/
-// `table`/`collection`/`timeline` either — those panel kinds were deleted
-// outright by HEL-904; `dashboard-proposal.schema.json`'s enum is
-// text/markdown/image/output only.
+// No `divider`: excluded for a stated product-scope reason (purely presentational layout chrome),
+// mirroring create_panel (scripts/lib/agentFacingPanelTypes.mjs holds the reasoned exclusion table
+// check:schemas enforces). No `metric`/`chart`/`table`/`collection`/`timeline` either — those panel
+// kinds were deleted outright by HEL-904. `form` (HEL-1083) is here because this wire can express its
+// required binding, the flat `dataSourceId` (HEL-1148).
 // Exported so `replace_dashboard_contents` (write.ts, HEL-363) can reuse the
 // exact same agent-facing panel-type set instead of redefining it.
 export const PANEL_TYPES = ["text", "markdown", "image", "output", "form"] as const;
@@ -64,6 +63,8 @@ export const panelSchema = z.object({
   title: z.string().min(1),
   type: z.enum(PANEL_TYPES),
   outputId: z.string().optional(),
+  // HEL-1148: a `form` panel's dataset-source binding (the source twin of `outputId`).
+  dataSourceId: z.string().optional(),
   fieldMapping: z.record(z.string(), z.string()).optional(),
   aggregation: z.record(z.string(), z.unknown()).optional(),
   // Initial config for non-data panels, applied at create time.
@@ -102,26 +103,6 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
   }
 }
 
-/** Fetches every Output the caller owns, across every page (`limit=200` per
- *  page, mirroring `context.ts`'s `fetchAllOutputs` -- duplicated locally
- *  rather than shared/exported, per this codebase's established convention
- *  for a small file-local concern, design.md D10). Bounded to a sane max
- *  page count so a pagination bug elsewhere can never spin this into an
- *  unbounded loop. */
-async function fetchAllOutputs(api: HelioApi): Promise<OutputResponse[]> {
-  const items: OutputResponse[] = [];
-  let offset = 0;
-  const limit = 200;
-  const maxPages = 50; // 10,000 Outputs — far beyond any real workspace
-  for (let page = 0; page < maxPages; page++) {
-    const result = await api.listAllOutputs(limit, offset);
-    items.push(...result.items);
-    if (items.length >= result.total || result.items.length === 0) break;
-    offset += limit;
-  }
-  return items;
-}
-
 /** Shared by every tool that takes proposal panels. The 400 wording was observed live against the
  *  running backend (HEL-1193 evidence), not copied from a spec. */
 export const CONTROLS_COPY =
@@ -145,7 +126,7 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         "anything. Validates the shape and read-only-checks that each `output`-kind panel binds " +
         "to a real, caller-owned Output, returning { proposal, warnings }. Review the proposal " +
         "(in-app or by inspection), then apply it with apply_proposal.\n" +
-        "`type` ∈ text/markdown/image/output (there is no `divider`: dropped for agent/UI parity, " +
+        "`type` ∈ text/markdown/image/output/form (there is no `divider`: dropped for agent/UI parity, " +
         "mirroring create_content_panel/place_outputs — the backend wire still accepts it on other " +
         "paths; there is no " +
         "metric/chart/table/collection/timeline either — those panel kinds were retired). Each " +
@@ -157,13 +138,20 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         "this is an Output id, kept under that name for wire stability. `fieldMapping` is NOT " +
         "meaningful for an output panel (an Output's own `schema` is already the grounding " +
         "source) — do not set it.\n" +
+        "• form — bind with the top-level `dataSourceId` set to the id of a caller-owned DATASET " +
+        "source (obtained from list_data_sources / get_workspace_context, `type: dataset`); put the " +
+        "form's `fields`/`submit` in `config`. NEVER put the binding in `config.dataSourceId` — " +
+        "only the top-level field counts. A form with no `dataSourceId`, a non-dataset or " +
+        "another tenant's source, a field the dataset does not declare, or an `outputId` as well " +
+        "is rejected (HTTP 400, nothing created); `dataSourceId` on any other panel type is " +
+        "rejected too. propose_dashboard reports each of these as a warning (applyReady false).\n" +
         "• text/markdown — `content` (literal/static text) seeds the initial body. There is no " +
         'data-bound "Source mode" anymore — a `config.outputId`/`outputId` on a text/markdown ' +
         "panel is silently inert, never a real binding.\n" +
         "• image — `url` seeds the initial imageUrl (imageFit defaults to contain; use " +
         "config.imageFit to override).\n" +
-        "An output panel's `outputId` always stays authoritative over anything `config` " +
-        "supplies.\n" +
+        "An output panel's `outputId` (and a form panel's `dataSourceId`) always stays " +
+        "authoritative over anything `config` supplies.\n" +
         CONTROLS_COPY +
         " propose_dashboard checks each declared control against the bound Output's " +
         "get_output_filter_capabilities `controlKinds` and reports a violation as a warning " +
@@ -175,21 +163,7 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
       },
     },
     ({ dashboardName, panels }) =>
-      guarded(async () => {
-        const typedPanels = panels as ProposalPanel[];
-        const proposal: DashboardProposal = { dashboardName, panels: typedPanels };
-
-        // Read-only validation against the workspace: resolve the caller's
-        // Outputs once and flag panels whose binding is missing/invalid.
-        // Extracted to `proposalValidation.ts` (HEL-223) — see that module's
-        // docstring for why.
-        const outputs = await fetchAllOutputs(api);
-        const byId = new Map(outputs.map((o) => [o.id, o]));
-        const warnings = computeProposalWarnings(typedPanels, byId);
-        warnings.push(...(await computeControlWarnings(typedPanels, api)));
-
-        return { proposal, warnings, applyReady: warnings.length === 0 };
-      }),
+      guarded(() => proposeDashboardHandler(api, dashboardName, panels as ProposalPanel[])),
   );
 
   server.registerTool(
@@ -201,7 +175,8 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         "and creates the dashboard + panels atomically through the existing services (an output " +
         "panel's FLAT `outputId` -- never `config.outputId`, which is not consulted for " +
         "binding on ANY panel kind -- must resolve to a real, caller-owned Output; nothing is " +
-        "created if any panel is invalid). Each panel's `config` (if any) is merged " +
+        "created if any panel is invalid; a form panel's FLAT `dataSourceId` must be a caller-owned " +
+        "dataset source, never `config.dataSourceId`). Each panel's `config` (if any) is merged " +
         "over the config derived from its flat fields and decoded by the same panel-create path " +
         "place_outputs/create_content_panel uses. " +
         CONTROLS_COPY +
