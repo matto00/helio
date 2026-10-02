@@ -64,7 +64,9 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         "timeline/markdown); `config.fieldMapping`, when the kind requires one, MUST use slot " +
         "names get_output_capabilities marks bindable for this node, and each mapped value MUST " +
         "be a column that actually exists at THIS node (not the trunk's schema, not a sibling " +
-        "tail's) — check get_output_capabilities first. `rootId` (HEL-913, multi-root only) " +
+        "tail's) — check get_output_capabilities first. `table` and `markdown` take NO " +
+        "fieldMapping (a markdown Output's text is the literal `config.content`; sending a " +
+        "fieldMapping key for either kind is a 400). `rootId` (HEL-913, multi-root only) " +
         "names WHICH root a root-bound Output attaches to — mutually exclusive with " +
         "`nodeStepId`; omit it on a single-root pipeline (the backend auto-resolves the one " +
         "root). Requires editor or owner access on the pipeline. Returns the created Output.",

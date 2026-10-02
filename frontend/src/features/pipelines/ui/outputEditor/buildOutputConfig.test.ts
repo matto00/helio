@@ -34,7 +34,7 @@ function baseParams(overrides: Partial<BuildOutputConfigParams> = {}): BuildOutp
     metricLabelState: boundOrLiteral(),
     metricUnitState: boundOrLiteral(),
     metricFormat: "number",
-    markdownContentState: boundOrLiteral(),
+    markdownContent: "",
     collectionFieldMapping: {},
     collectionFormat: "number",
     timelineFieldMapping: {},
@@ -97,26 +97,15 @@ describe("buildOutputConfig", () => {
     expect(config.format).toBe("percent");
   });
 
-  it("markdown config writes literal content when mode is literal", () => {
+  it("markdown config writes the literal content with an empty fieldMapping", () => {
     const config = buildOutputConfig(
       baseParams({
         kind: "markdown",
-        markdownContentState: boundOrLiteral({ mode: "literal", literalValue: "# Hi" }),
+        markdownContent: "# Hi",
       }),
     );
     expect(config.content).toBe("# Hi");
     expect(config.fieldMapping).toEqual({});
-  });
-
-  it("markdown config binds fieldMapping.content when mode is field", () => {
-    const config = buildOutputConfig(
-      baseParams({
-        kind: "markdown",
-        markdownContentState: boundOrLiteral({ mode: "field", fieldValue: "notes" }),
-      }),
-    );
-    expect(config.content).toBe("");
-    expect(config.fieldMapping).toEqual({ content: "notes" });
   });
 
   it("table config carries the resolved column order", () => {

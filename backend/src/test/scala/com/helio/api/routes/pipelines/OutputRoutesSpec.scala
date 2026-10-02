@@ -237,6 +237,39 @@ class OutputRoutesSpec
       }
     }
 
+    // HEL-1139: a slotless kind's rejection must say so, not "Valid slots: " followed by nothing.
+    "400 a markdown create carrying fieldMapping.content, saying markdown has no fieldMapping slots (HEL-1139)" in {
+      val pipelineId = newSharedPipeline()
+      val config = JsObject("content" -> JsString(""), "fieldMapping" -> JsObject("content" -> JsString("notes")))
+      Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "markdown", "Bad Markdown", Some(config))) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        val message = responseAs[ErrorResponse].message
+        message should include("'markdown' has no fieldMapping slots")
+        message should include("config.content")
+        message should not include "Valid slots:"
+      }
+    }
+
+    "400 a table create carrying a fieldMapping key gets the same kind-parametrised slotless message (HEL-1139)" in {
+      val pipelineId = newSharedPipeline()
+      val config = JsObject("fieldMapping" -> JsObject("anything" -> JsString("notes")))
+      Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "table", "Bad Table", Some(config))) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("'table' has no fieldMapping slots")
+      }
+    }
+
+    "400 a markdown PATCH carrying fieldMapping.content, saying markdown has no fieldMapping slots, and writes nothing (HEL-1139)" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "md-out", OutputKind.Markdown, explicitRootId = None))
+      val patch = JsObject("fieldMapping" -> JsObject("content" -> JsString("notes")))
+      Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, Some(patch))) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("'markdown' has no fieldMapping slots")
+      }
+      await(outputRepo.findConfigById(output.id, owner)).map(_.fields.keySet) shouldBe Some(Set.empty)
+    }
+
     "200/201 a create whose fieldMapping uses only valid slots for the kind (HEL-892)" in {
       val pipelineId = newSharedPipeline()
       val config = JsObject("fieldMapping" -> JsObject("value" -> JsString("amount"), "label" -> JsString("category")))

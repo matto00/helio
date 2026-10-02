@@ -9,7 +9,7 @@
 // value control plus label/unit, matching design.md decision 3's "collapse
 // into the sheet's metric-kind slot".
 
-import { Select, type SelectOption } from "../../../../shared/ui/index";
+import { Select, Textarea, type SelectOption } from "../../../../shared/ui/index";
 import type { ChartType } from "../../../../utils/chartAppearance";
 import { ChartAggregationFields } from "../../../panels/ui/editors/ChartAggregationFields";
 import { ChartDisplayFields } from "../../../panels/ui/editors/ChartDisplayFields";
@@ -250,28 +250,27 @@ export function MetricKindFields({
 }
 
 interface MarkdownKindFieldsProps {
-  fieldOptions: SelectOption[];
-  contentState: BoundOrLiteralState;
+  content: string;
+  onContentChange: (value: string) => void;
 }
 
-/** Reuses `MarkdownEditor.tsx`'s template-editing UI shape (design.md
- *  decision 4/14): field-or-literal Content slot, fed by capabilities-at-node
- *  columns as interpolation targets instead of a bound DataType's fields. */
-export function MarkdownKindFields({ fieldOptions, contentState }: MarkdownKindFieldsProps) {
+/** A markdown Output's Content is the literal `config.content` only
+ *  (HEL-1139): `OutputBindingSpec.Markdown` declares no fieldMapping slots
+ *  (the backend 400s `fieldMapping.content`) and the renderer never reads a
+ *  binding. Data-bound narrative text is HEL-921's planned `insight` kind. */
+export function MarkdownKindFields({ content, onContentChange }: MarkdownKindFieldsProps) {
   return (
     <div className="output-editor-sheet__data-section">
-      <BoundOrLiteralField
-        label="Content"
-        mode={contentState.mode}
-        onModeChange={contentState.setMode}
-        fieldOptions={fieldOptions}
-        fieldValue={contentState.fieldValue}
-        onFieldChange={contentState.setFieldValue}
-        literalValue={contentState.literalValue}
-        onLiteralChange={contentState.setLiteralValue}
-        literalPlaceholder="# Hello&#10;Write your markdown here…"
-        literalMultiline
-      />
+      <div className="panel-detail-modal__mapping-row panel-detail-modal__mapping-row--align-top">
+        <span className="panel-detail-modal__mapping-label">Content</span>
+        <Textarea
+          value={content}
+          onChange={(e) => onContentChange(e.target.value)}
+          placeholder="# Hello&#10;Write your markdown here…"
+          aria-label="Content text"
+          rows={12}
+        />
+      </div>
     </div>
   );
 }
