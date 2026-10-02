@@ -35,33 +35,38 @@ requires three prerequisites before it can run.
 
 ### Prerequisites
 
-#### 1. Private networking (Serverless VPC Access + Cloud SQL Private IP)
+#### 1. Private networking (Direct VPC egress + Cloud SQL Private IP)
 
-The backend connects to Cloud SQL over a **Serverless VPC Access connector +
-Cloud SQL Private IP** — Google's recommended production setup for Cloud
-Run → Cloud SQL traffic (HEL-749). This replaces the older
-`postgres-socket-factory` connector library (`cloudSqlInstance` +
-`socketFactory` JDBC params, `--add-cloudsql-instances`): that path paid for
-a TLS handshake plus an ephemeral-cert fetch through the Cloud SQL Admin API
-on every new physical connection, which was the confirmed failure point
-behind repeated production connection-storm incidents.
+The backend connects to Cloud SQL over **Cloud Run Direct VPC egress + Cloud
+SQL Private IP** (HEL-1231). Cloud Run instances take their IPs from a
+dedicated subnet and reach `helio-db`'s private IP through the `default` VPC;
+no Serverless VPC Access connector VMs are involved. This sits on top of the
+HEL-749 move away from the `postgres-socket-factory` connector library
+(`cloudSqlInstance` + `socketFactory` JDBC params, `--add-cloudsql-instances`),
+whose per-connection TLS handshake plus ephemeral-cert fetch was the confirmed
+failure point behind repeated production connection-storm incidents.
 
 Before running `deploy-backend.sh`, the following must already exist in the
 `helio-493120` project (`us-west1`):
 
-- A Serverless VPC Access connector named `helio-vpc-connector`, in `READY`
-  state, on the `default` VPC network.
+- A subnet named `helio-run-egress` (range `10.10.0.0/26`) on the `default`
+  VPC network. Create it per the cutover runbook in
+  [`docs/deployment.md`](../docs/deployment.md). Until it exists, a manual
+  `deploy-backend.sh` run fails at `gcloud`.
 - Private IP enabled on the `helio-db` Cloud SQL instance, peered to the
   same VPC via a Private Services Access connection.
 
-`deploy-backend.sh` passes `--vpc-connector=helio-vpc-connector
+`deploy-backend.sh` passes `--network=default --subnet=helio-run-egress
 --vpc-egress=private-ranges-only` to `gcloud run deploy`, and sets
 `DATABASE_URL` to `helio-db`'s private IP directly (e.g.
 `jdbc:postgresql://<private-ip>:5432/helio?sslmode=require` — the
 `sslmode=require` param is required because `helio-db`'s `sslMode` is
 `ENCRYPTED_ONLY` and pgjdbc does not negotiate SSL by default). If either
 prerequisite is missing, the deploy will fail or the resulting revision
-will be unable to reach the database.
+will be unable to reach the database. The automated `cd-backend.yml` pipeline
+does not use this script. History: the earlier Serverless VPC Access connector
+`helio-vpc-connector` is retired by the same runbook once the cutover is
+validated; its rollback and re-provisioning are documented there.
 
 #### 2. Secret Manager secrets
 

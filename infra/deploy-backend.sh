@@ -59,6 +59,20 @@ HELIO_BETA_DAILY_MESSAGE_LIMIT="${HELIO_BETA_DAILY_MESSAGE_LIMIT:-50}"
 # (10.8.0.3) requires ?sslmode=require: helio-db's sslMode is ENCRYPTED_ONLY, and pgjdbc
 # does not enable SSL by default (design.md Decision 4a).
 #
+# HEL-1231: Cloud Run -> Cloud SQL egress now uses Direct VPC egress (--network=default
+# --subnet=helio-run-egress --vpc-egress=private-ranges-only), replacing the Serverless VPC
+# Access connector `helio-vpc-connector` (always-on VMs, billed continuously) that HEL-749
+# introduced. Cloud Run takes instance IPs straight from the dedicated subnet `helio-run-egress`
+# (us-west1, network `default`, 10.10.0.0/26 — outside 10.128.0.0/9, 10.8.0.0/20 private services
+# and the connector's 10.9.0.0/28). private-ranges-only keeps Anthropic/GCS traffic on the
+# default public path; only RFC1918 destinations (the Cloud SQL private IP 10.8.0.3, which is
+# still DATABASE_URL below) go through the VPC. A manual run of this script FAILS LOUDLY at
+# gcloud until that subnet exists, and it does NOT touch the CD path: cd-backend.yml deploys via
+# deploy-cloudrun and carries the live template's network settings forward. Subnet creation,
+# the no-traffic cutover and rollback are in docs/deployment.md. The HEL-749 paragraph below is
+# kept for its still-valid rationale (private IP, sslmode, "$@", rollback by prior revision),
+# where it says "VPC-connector" read "Direct VPC egress".
+#
 # "$@" (HEL-749 design.md Decision 4c): forwards any extra flags to `gcloud run deploy`,
 # e.g. `./infra/deploy-backend.sh --no-traffic` for a zero-traffic cutover deploy. Empty
 # by default, so ordinary invocations behave exactly as before.
@@ -89,7 +103,8 @@ fi
 gcloud run deploy helio-backend \
   --region=us-west1 \
   --platform=managed \
-  --vpc-connector=helio-vpc-connector \
+  --network=default \
+  --subnet=helio-run-egress \
   --vpc-egress=private-ranges-only \
   --service-account=helio-backend-sa@helio-493120.iam.gserviceaccount.com \
   --set-env-vars="^|^DATABASE_URL=jdbc:postgresql://10.8.0.3:5432/helio?sslmode=require|DB_USER=helio|GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}|GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}|CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}|COOKIE_SECURE=true|LOG_FORMAT=json|HELIO_OWNER_EMAILS=${HELIO_OWNER_EMAILS}|HELIO_BETA_DAILY_MESSAGE_LIMIT=${HELIO_BETA_DAILY_MESSAGE_LIMIT}|HELIO_UPLOADS_BACKEND=gcs|HELIO_UPLOADS_BUCKET=helio-uploads-prod|CLAUDE_MODEL=claude-haiku-4-5-20251001|CONNECTOR_MASTER_KEY_ID=env-2026-08" \

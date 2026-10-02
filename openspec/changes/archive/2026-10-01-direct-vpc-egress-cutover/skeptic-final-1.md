@@ -1,0 +1,21 @@
+## Skeptic Report — final gate (round 1, skeptic-final-1.md)
+Head reviewed: e9bddc584a15c74d6d3f4e87b37dc0d895dc1859. Scope: repo-side only (owner ruling 2026-10-01). Only read-only gcloud used.
+
+### What I verified (with evidence)
+- Diff base resolved live via resolve-review-base.sh (8022ff73); diff touches infra/deploy-backend.sh, infra/README.md, docs/deployment.md, openspec change only.
+- Live service (read-only describe): rev helio-backend-00083-7cz, image release-v0.8.6-e690399e, traffic latestRevision 100% + stale cutover-verify tag -> 00055; template carries vpc-access-connector + private-ranges-only + stale cloudsql-instances annotation; no minScale (so min=0 cold start claim holds); maxScale 2. All match the doc's stated live facts.
+- Subnet non-overlap re-derived by me: 89 routes+subnets+10.8.0.0/20+10.9.0.0/28 vs 10.10.0.0/26 -> only 0.0.0.0/0 overlaps; not inside 10.128.0.0/9; helio-run-egress currently NOT_FOUND (pre-check valid); network is AUTO; peering route 10.8.0.0/24 and connector 10.9.0.0/28 route present; Cloud SQL private IP 10.8.0.3 on default network; connector READY e2-micro 2/10 10.9.0.0/28 (re-provision command matches live).
+- Flags checked against gcloud 565.0.0 --help (ANSI stripped): services update accepts --network, --subnet (/26 min), --vpc-egress, --clear-vpc-connector, --clear-network (mutually exclusive with --network, not with --vpc-connector), --no-traffic (pins LATEST to its current revision; help says restore with update-traffic --to-latest -- exactly the runbook's step d), --tag; update-traffic has --to-latest/--to-revisions/--remove-tags; deploy has --network/--subnet/--vpc-egress; connectors create has --range/--machine-type/--min/--max-instances; subnets create has --network/--range.
+- Runbook order/logic: (a) create subnet w/ NOT_FOUND pre-check, VERIFY+ROLLBACK ok; (b) update (not deploy) with no image flag -> same image/env, no new code; VERIFY/ROLLBACK present; (c) tag URL host pattern matches the live existing tag URL pattern (cutover-verify---helio-backend-s5psdhr47q-uw.a.run.app); (d) --to-latest rather than by-name pin avoids leaving CD revisions trafficless -- correct; (e) rollback pin is explicitly called out as pinning, with fix-forward (--vpc-connector + --clear-network, --no-traffic, --to-latest) that is flag-valid; (f) delete connector gated on validation window with re-provision rollback.
+- CD trace: cd-backend.yml uses deploy-cloudrun with image + --update-env-vars/--update-secrets/--max-instances only, no network flags; live 00083 (created via CD by helio-github-sa) still carries the connector annotations, empirically confirming carry-forward. Conclusion sound; post-cutover describe check is the residual.
+- deploy-backend.sh: bash -n OK; rendered invocation has --network=default --subnet=helio-run-egress --vpc-egress=private-ranges-only and no --vpc-connector; unchanged otherwise (image guard, --set-env-vars identical to live env).
+- API claims: converse route exists under the tier-gated assistant-conversations tree; uploads/image multipart field "file" and 10 MiB cap match UploadRoutes; PAT scoped tokens confined to hooks per AuthDirectives; backend logback json, severity rename, INFO root level so Flyway (org.flywaydb...) logger lines match =~"flyway".
+- Spec delta and README consistent with the script; AC "script, header comment, docs describe direct egress incl subnet name/range and rollback criteria" is met (THIS PR AC). Prod ACs are driver-owned per ruling.
+
+### Verdict: CONFIRM
+
+### Non-blocking notes
+- Step (c)4 sets CONV but then uses a literal `<id>` placeholder in the second curl; copy-paste needs manual substitution (documented "note the returned id"). Same for `<id>` in step 5. Consider using `$CONV`/jq.
+- A manual deploy-backend.sh run on the still-connector-attached service (after subnet exists, before cutover) is untested against the connector+network conflict; docs say manual runs fail loudly until the subnet exists but do not warn about this window. Low risk since CD is the real path.
+- Billing claim (E2 Instance Core drops to $0) is unverified here; it is stated only as a VERIFY expectation, acceptable.
+- Evaluator evidence not relied upon; no mtime-ordering claims used.
