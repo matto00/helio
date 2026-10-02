@@ -254,17 +254,17 @@ describe("PipelineRiverView Move up/down (HEL-407 design.md Decision 6)", () => 
     render(<PipelineRiverView {...baseProps()} />);
 
     expect(
-      within(sectionFor("Filter rows")).getByRole("button", { name: "Move step up" }),
+      within(sectionFor("Filter rows")).getByRole("button", { name: /^Move step up/ }),
     ).toBeDisabled();
     expect(
-      within(sectionFor("Filter rows")).getByRole("button", { name: "Move step down" }),
+      within(sectionFor("Filter rows")).getByRole("button", { name: /^Move step down/ }),
     ).toBeEnabled();
 
     expect(
-      within(sectionFor("Sort rows")).getByRole("button", { name: "Move step down" }),
+      within(sectionFor("Sort rows")).getByRole("button", { name: /^Move step down/ }),
     ).toBeDisabled();
     expect(
-      within(sectionFor("Sort rows")).getByRole("button", { name: "Move step up" }),
+      within(sectionFor("Sort rows")).getByRole("button", { name: /^Move step up/ }),
     ).toBeEnabled();
   });
 
@@ -272,10 +272,10 @@ describe("PipelineRiverView Move up/down (HEL-407 design.md Decision 6)", () => 
     render(<PipelineRiverView {...baseProps()} />);
 
     expect(
-      within(sectionFor("Limit rows")).getByRole("button", { name: "Move step up" }),
+      within(sectionFor("Limit rows")).getByRole("button", { name: /^Move step up/ }),
     ).toBeEnabled();
     expect(
-      within(sectionFor("Limit rows")).getByRole("button", { name: "Move step down" }),
+      within(sectionFor("Limit rows")).getByRole("button", { name: /^Move step down/ }),
     ).toBeEnabled();
   });
 
@@ -283,7 +283,9 @@ describe("PipelineRiverView Move up/down (HEL-407 design.md Decision 6)", () => 
     const onReorderSteps = jest.fn();
     render(<PipelineRiverView {...baseProps({ onReorderSteps })} />);
 
-    fireEvent.click(within(sectionFor("Limit rows")).getByRole("button", { name: "Move step up" }));
+    fireEvent.click(
+      within(sectionFor("Limit rows")).getByRole("button", { name: /^Move step up/ }),
+    );
 
     expect(onReorderSteps).toHaveBeenCalledTimes(1);
     const newOrder = onReorderSteps.mock.calls[0][0] as Step[];
@@ -295,7 +297,7 @@ describe("PipelineRiverView Move up/down (HEL-407 design.md Decision 6)", () => 
     render(<PipelineRiverView {...baseProps({ onReorderSteps })} />);
 
     fireEvent.click(
-      within(sectionFor("Limit rows")).getByRole("button", { name: "Move step down" }),
+      within(sectionFor("Limit rows")).getByRole("button", { name: /^Move step down/ }),
     );
 
     expect(onReorderSteps).toHaveBeenCalledTimes(1);

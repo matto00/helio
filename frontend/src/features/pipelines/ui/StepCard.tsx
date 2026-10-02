@@ -62,7 +62,7 @@ interface StepCardProps {
   rowCount: number | null;
   /** HEL-407 — the drag handle is the SOLE draggable element (design.md
    *  Decision 5); RiverView owns drop targeting on its own card wrapper. */
-  onStepDragStart: (index: number) => void;
+  onStepDragStart: (index: number, stepId: string) => void;
   onStepDragEnd: () => void;
   /** Undefined disables the button — RiverView omits the handler at the
    *  first/last position rather than StepCard reasoning about bounds.
@@ -73,6 +73,14 @@ interface StepCardProps {
    *  its own `step.id` at the call site below. */
   onMoveUp?: (stepId: string) => void;
   onMoveDown?: (stepId: string) => void;
+  /** HEL-1007 — the lane this card sits in (a root trunk lane's source name). Appended to the Move
+   *  buttons' accessible name/title ("Move step up in <lane>") so the controls of different roots'
+   *  lanes are distinguishable. Absent keeps the bare "Move step up" name. */
+  laneLabel?: string;
+  /** HEL-1007 — `false` renders NO drag handle and NO Move buttons (a branch lane: the reorder
+   *  endpoint permutes trunk ids only, so a permanently-disabled control there would only mislead).
+   *  Defaults to `true`. Independent of `isTail`, which also hides them. */
+  reorderable?: boolean;
   /** HEL-412 — persists the disable/enable toggle; the page owns the
    *  optimistic flip + revert-on-failure convention. */
   onToggleEnabled: (stepId: string, enabled: boolean) => void;
@@ -143,6 +151,8 @@ export const StepCard = React.memo(function StepCard({
   onStepDragEnd,
   onMoveUp,
   onMoveDown,
+  laneLabel,
+  reorderable = true,
   onToggleEnabled,
   onDuplicate,
   isDuplicating,
@@ -202,6 +212,8 @@ export const StepCard = React.memo(function StepCard({
   }
 
   const stepCardState = useStepCardState(step, onConfigChange);
+  const moveUpLabel = laneLabel ? `Move step up in ${laneLabel}` : "Move step up";
+  const moveDownLabel = laneLabel ? `Move step down in ${laneLabel}` : "Move step down";
 
   return (
     <div
@@ -262,7 +274,7 @@ export const StepCard = React.memo(function StepCard({
            * trunk-only (see `isTail` prop doc): tail-internal reorder shares
            * the same sibling-scoped `PUT /steps/order` primitive trunk
            * reorder already relies on, unmodified by this ticket. */}
-          {!isTail && (
+          {!isTail && reorderable && (
             <>
               {/* design.md Decision 5 — the drag handle is an `aria-hidden`
                * mouse/touch-only drag surface, not a focusable control: the
@@ -274,7 +286,7 @@ export const StepCard = React.memo(function StepCard({
                 className="pipeline-detail-page__step-card-drag-handle"
                 aria-hidden="true"
                 draggable
-                onDragStart={() => onStepDragStart(stepIndex)}
+                onDragStart={() => onStepDragStart(stepIndex, step.id)}
                 onDragEnd={onStepDragEnd}
               >
                 <GripVertical aria-hidden="true" size={ICON_SIZE.sm} />
@@ -282,8 +294,10 @@ export const StepCard = React.memo(function StepCard({
               <button
                 type="button"
                 className="pipeline-detail-page__step-card-move-btn"
-                aria-label="Move step up"
-                title="Move step up"
+                aria-label={moveUpLabel}
+                title={moveUpLabel}
+                data-step-id={step.id}
+                data-move-dir="up"
                 disabled={onMoveUp === undefined}
                 onClick={() => onMoveUp?.(step.id)}
               >
@@ -292,8 +306,10 @@ export const StepCard = React.memo(function StepCard({
               <button
                 type="button"
                 className="pipeline-detail-page__step-card-move-btn"
-                aria-label="Move step down"
-                title="Move step down"
+                aria-label={moveDownLabel}
+                title={moveDownLabel}
+                data-step-id={step.id}
+                data-move-dir="down"
                 disabled={onMoveDown === undefined}
                 onClick={() => onMoveDown?.(step.id)}
               >

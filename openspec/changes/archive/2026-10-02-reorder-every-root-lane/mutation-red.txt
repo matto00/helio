@@ -1,0 +1,26 @@
+MUTATION: guard condition replaced with 'false && ...' in handleReorderSteps
+FAIL frontend/src/features/pipelines/ui/PipelineDetailPage.reorderGuard.test.tsx
+  handleReorderSteps CR2 guard (DEFENSE-IN-DEPTH branch, no live path)
+    ✕ a root that had steps but whose trunk lane comes back empty is refused: error toast naming the root, no PUT, no optimistic state change (132 ms)
+  ● handleReorderSteps CR2 guard (DEFENSE-IN-DEPTH branch, no live path) › a root that had steps but whose trunk lane comes back empty is refused: error toast naming the root, no PUT, no optimistic state change
+    expect(jest.fn()).not.toHaveBeenCalled()
+    Expected number of calls: 0
+    Received number of calls: 1
+    1: "pipe-1", ["x1", "a1", "b1"]
+      156 |     });
+      157 |
+    > 158 |     expect(reorderPipelineSteps).not.toHaveBeenCalled();
+          |                                      ^
+      159 |     const toasts = store.getState().toasts.items;
+      160 |     expect(toasts).toHaveLength(1);
+      161 |     expect(toasts[0].variant).toBe("error");
+      at Object.<anonymous> (src/features/pipelines/ui/PipelineDetailPage.reorderGuard.test.tsx:158:38)
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        3.216 s, estimated 4 s
+Ran all test suites matching reorderGuard.
+
+RESTORED:
+    ✓ a root that had steps but whose trunk lane comes back empty is refused: error toast naming the root, no PUT, no optimistic state change (133 ms)
+Tests:       1 passed, 1 total

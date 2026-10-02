@@ -1,0 +1,8 @@
+Running 4 tests using 1 worker
+HEL1007-IDS {"email":"hel1007-1790965060866-8612@example.com","pipeline":"24921699-9525-4a88-a082-12cb79759bb7","sources":["0cee8e77-ffd2-4f17-af48-549f9f279e1c","a1a1c8fa-2ed4-40f7-b645-c7a0d238873d"],"rootA":"ed3231c7-e35c-4fad-a997-416ac0e00eb4","rootB":"3931440c-8465-4ae4-bfcf-2bfd89768d56"}
+HEL1007-STEPS ["d4661004-8292-43df-b192-4a3b1b5576d0","27407786-a632-4842-8108-ca87a6abe499","c14dc421-0f69-4e8a-8d73-b55e7f687335","bda48e57-fcd8-473c-b2d7-f8c1824e1da2","47060847-360e-4b8f-a832-37f1ea3651c4","52dbaf71-1ae1-4564-96dc-28753c74873e"]
+  ✓  1 e2e/hel1007-multi-root-reorder.spec.ts:44:7 › HEL-1007 reorder every root's lane › keyboard reorder in root 1's lane persists across reload; root 0 untouched; names and focus (7.8s)
+  ✓  2 e2e/hel908-step-card-split.spec.ts:23:7 › HEL-908 PipelineDetailPage/StepCard split live verification › initial load fires /analyze once; reorder/duplicate/toggle/run all work (9.0s)
+  ✓  3 e2e/hel908-trunk-reorder-drag.spec.ts:22:7 › HEL-908 trunk-to-trunk reorder — real drag gesture › dragging a tailed trunk node to a new position carries its tail with it (2.5s)
+  ✓  4 e2e/hel908-trunk-reorder-order.spec.ts:28:7 › HEL-908 trunk-to-trunk reorder — real order assertion › reordering 3 distinct trunk steps via the UI actually changes their visible order (1.6s)
+  4 passed (21.2s)

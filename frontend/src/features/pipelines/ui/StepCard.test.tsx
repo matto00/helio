@@ -759,7 +759,27 @@ describe("StepCard header restructure — sibling controls (HEL-407)", () => {
     expect(screen.queryByRole("button", { name: /Drag to reorder/i })).not.toBeInTheDocument();
   });
 
-  it("the drag handle fires onStepDragStart(stepIndex) / onStepDragEnd() from its own drag events", () => {
+  // HEL-1007 — lane-identifying accessible names; branch lanes get no reorder controls at all.
+  it("a laneLabel names the Move buttons (aria-label and title) after their lane", () => {
+    render(<StepCard {...baseProps({ laneLabel: "Orders CSV", onMoveUp: jest.fn() })} />);
+
+    const up = screen.getByRole("button", { name: "Move step up in Orders CSV" });
+    expect(up).toHaveAttribute("title", "Move step up in Orders CSV");
+    expect(screen.getByRole("button", { name: "Move step down in Orders CSV" })).toBeDisabled();
+    expect(up).toHaveAttribute("data-step-id", makeStep().id);
+    expect(up).toHaveAttribute("data-move-dir", "up");
+  });
+
+  it("reorderable={false} renders no Move buttons and no drag handle (a branch lane)", () => {
+    const { container } = render(<StepCard {...baseProps({ reorderable: false })} />);
+
+    expect(screen.queryByRole("button", { name: /^Move step/ })).not.toBeInTheDocument();
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card-drag-handle"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("the drag handle fires onStepDragStart(stepIndex, stepId) / onStepDragEnd() from its own drag events", () => {
     const onStepDragStart = jest.fn();
     const onStepDragEnd = jest.fn();
     const { container } = render(
@@ -769,7 +789,9 @@ describe("StepCard header restructure — sibling controls (HEL-407)", () => {
     const dragHandle = container.querySelector(".pipeline-detail-page__step-card-drag-handle");
     expect(dragHandle).not.toBeNull();
     fireEvent.dragStart(dragHandle as Element);
-    expect(onStepDragStart).toHaveBeenCalledWith(2);
+    // HEL-1007: the step id rides along so a lane owner can locate the step's own lane (an index
+    // alone is ambiguous once every root's lane is reorderable).
+    expect(onStepDragStart).toHaveBeenCalledWith(2, makeStep().id);
 
     fireEvent.dragEnd(dragHandle as Element);
     expect(onStepDragEnd).toHaveBeenCalledTimes(1);

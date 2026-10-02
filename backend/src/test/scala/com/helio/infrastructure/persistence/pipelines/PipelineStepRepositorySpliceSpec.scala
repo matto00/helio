@@ -731,6 +731,32 @@ class PipelineStepRepositorySpliceSpec extends AnyWordSpec with Matchers with Be
       headsAfter.keySet shouldBe Set(root1, root2)
     }
 
+    "HEL-1007: a permutation that reorders ONLY the non-first root's trunk leaves the first root's chain and head untouched" in {
+      val pid   = seedPipeline()
+      val root1 = PipelineRootId(pid.value)
+      val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = Some(root1)))
+      val b = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(a.id), explicitRootId = None))
+      val root2 = addSecondRoot(pid)
+      val x = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = Some(root2)))
+      val y = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(x.id), explicitRootId = None))
+      val z = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = Some(y.id), explicitRootId = None))
+
+      val before          = await(stepRepo.listByPipelineInternal(pid))
+      val ownershipBefore = owningRootMap(pid, before)
+
+      // Root 1 (a, b) is requested in its CURRENT order; only root 2's trunk (x, y, z) is permuted.
+      val Right(_) = await(stepRepo.reorderTrunkInternal(pid, Seq(a.id, b.id, z.id, x.id, y.id))): @unchecked
+
+      val after        = await(stepRepo.listByPipelineInternal(pid))
+      val ownershipMap = owningRootMap(pid, after).map { case (k, v) => k -> v }
+      stepRepo.trunkOfRoot(after, ownershipMap, root1).map(_.id) shouldBe Vector(a.id, b.id)
+      stepRepo.trunkOfRoot(after, ownershipMap, root2).map(_.id) shouldBe Vector(z.id, x.id, y.id)
+      owningRootMap(pid, after) shouldBe ownershipBefore
+      val heads = headMarkerMap(pid, after)
+      heads(root1) shouldBe a.id
+      heads(root2) shouldBe z.id
+    }
+
     "single-root pipeline is unaffected by the widened union contract (regression)" in {
       val pid = seedPipeline()
       val a = await(stepRepo.insertInternal(pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = None))

@@ -10,10 +10,11 @@
 // additional children inside it, so the byte-identity claim is exact, not
 // approximate.
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import { BranchAffordance } from "./BranchAffordance";
 import { StepCard } from "./StepCard";
+import type { LaneReorder } from "../hooks/useLaneReorder";
 import type { OpType, Step } from "../types/step";
 import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Output } from "../types/output";
@@ -21,7 +22,9 @@ import type { Lane, LaneGraph } from "../state/stepTree";
 import { childLanesOf } from "../state/stepTree";
 
 const EMPTY_OUTPUTS: Output[] = [];
-const NOOP_MOVE = undefined;
+// Stable no-op for the drag callbacks of a card that renders no drag handle (a stable reference keeps
+// the React.memo'd StepCard from re-rendering).
+const NOOP = () => {};
 
 interface LaneColumnProps {
   lane: Lane;
@@ -79,6 +82,11 @@ interface LaneColumnProps {
   /** HEL-1109 (pipeline-ai-step-authoring spec) — passed straight through to
    *  each `StepCard`'s own `draftError` lookup. */
   draftCreateErrors?: Record<string, string>;
+  /** HEL-1007 — reorder wiring for a root's TRUNK lane (Move up/down + drag, scoped to this lane).
+   *  Absent for every branch lane: the reorder endpoint permutes trunk ids only (a tail travels
+   *  with its trunk step), so those lanes render no Move buttons and no drag handle at all rather
+   *  than permanently-disabled ones. */
+  reorder?: LaneReorder;
 }
 
 export function LaneColumn({
@@ -108,6 +116,7 @@ export function LaneColumn({
   nodePathByStepId,
   estimatedRows,
   draftCreateErrors = {},
+  reorder,
 }: LaneColumnProps) {
   const [laneDropdownForStepId, setLaneDropdownForStepId] = useState<string | null>(null);
 
@@ -204,10 +213,8 @@ export function LaneColumn({
                 validationError={getAnalyzeValidationError(step.id)}
                 onConfigChange={onConfigChange}
                 rowCount={runStepRowCounts?.[step.id] ?? null}
-                onStepDragStart={() => {}}
-                onStepDragEnd={() => {}}
-                onMoveUp={NOOP_MOVE}
-                onMoveDown={NOOP_MOVE}
+                onStepDragStart={NOOP}
+                onStepDragEnd={NOOP}
                 onToggleEnabled={onToggleStepEnabled}
                 onDuplicate={onDuplicateStep}
                 isDuplicating={duplicatingStepIds.has(step.id)}
@@ -232,43 +239,51 @@ export function LaneColumn({
   return (
     <div className="pipeline-detail-page__lane-column" aria-label="Lane">
       {laneHeader}
-      {lane.steps.map((step) => (
-        <div
-          className="pipeline-detail-page__step-section"
-          key={step.id}
-          title={nodePathByStepId[step.id]}
-        >
-          <StepCard
-            step={step}
-            allSteps={allSteps}
-            isOwner={isOwner}
-            stepIndex={-1}
-            pipelineId={pipelineId}
-            onRemove={onRemove}
-            analyzeColumns={getAnalyzeColumns(step.id)}
-            analyzeSchema={getAnalyzeSchema(step.id)}
-            analyzeOutputSchema={getAnalyzeOutputSchema(step.id)}
-            validationError={getAnalyzeValidationError(step.id)}
-            onConfigChange={onConfigChange}
-            rowCount={runStepRowCounts?.[step.id] ?? null}
-            onStepDragStart={() => {}}
-            onStepDragEnd={() => {}}
-            onMoveUp={NOOP_MOVE}
-            onMoveDown={NOOP_MOVE}
-            onToggleEnabled={onToggleStepEnabled}
-            onDuplicate={onDuplicateStep}
-            isDuplicating={duplicatingStepIds.has(step.id)}
-            enabledBits={enabledBits}
-            outputs={outputsByStepId[step.id] ?? EMPTY_OUTPUTS}
-            previewRowCountByOutputId={previewRowCountByOutputId}
-            onOpenOutput={onOpenOutput}
-            onAddOutput={onAddOutput}
-            estimatedRows={estimatedRows}
-            draftError={draftCreateErrors[step.id]}
-          />
-          {renderAddLaneAffordance(step)}
-          {renderChildLanes(step)}
-        </div>
+      {lane.steps.map((step, idx) => (
+        <Fragment key={step.id}>
+          {reorder && reorder.dragLaneId === lane.id && reorder.overIndex === idx && (
+            <div className="pipeline-detail-page__drop-indicator" aria-hidden="true" />
+          )}
+          <div
+            className="pipeline-detail-page__step-section"
+            title={nodePathByStepId[step.id]}
+            onDragOver={reorder ? (e) => reorder.onCardDragOver(e, lane.id, idx) : undefined}
+            onDrop={reorder ? (e) => reorder.onCardDrop(e, lane.id) : undefined}
+          >
+            <StepCard
+              step={step}
+              allSteps={allSteps}
+              isOwner={isOwner}
+              stepIndex={idx}
+              pipelineId={pipelineId}
+              onRemove={onRemove}
+              analyzeColumns={getAnalyzeColumns(step.id)}
+              analyzeSchema={getAnalyzeSchema(step.id)}
+              analyzeOutputSchema={getAnalyzeOutputSchema(step.id)}
+              validationError={getAnalyzeValidationError(step.id)}
+              onConfigChange={onConfigChange}
+              rowCount={runStepRowCounts?.[step.id] ?? null}
+              onStepDragStart={reorder ? reorder.onStepDragStart : NOOP}
+              onStepDragEnd={reorder ? reorder.onStepDragEnd : NOOP}
+              onMoveUp={reorder && idx > 0 ? reorder.onMoveUp : undefined}
+              onMoveDown={reorder && idx < lane.steps.length - 1 ? reorder.onMoveDown : undefined}
+              laneLabel={reorder?.laneLabel}
+              reorderable={reorder !== undefined}
+              onToggleEnabled={onToggleStepEnabled}
+              onDuplicate={onDuplicateStep}
+              isDuplicating={duplicatingStepIds.has(step.id)}
+              enabledBits={enabledBits}
+              outputs={outputsByStepId[step.id] ?? EMPTY_OUTPUTS}
+              previewRowCountByOutputId={previewRowCountByOutputId}
+              onOpenOutput={onOpenOutput}
+              onAddOutput={onAddOutput}
+              estimatedRows={estimatedRows}
+              draftError={draftCreateErrors[step.id]}
+            />
+            {renderAddLaneAffordance(step)}
+            {renderChildLanes(step)}
+          </div>
+        </Fragment>
       ))}
     </div>
   );

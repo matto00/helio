@@ -10,8 +10,7 @@
 // reorder, Move up/down); every OTHER lane rooted off a primary-lane step
 // renders via `LaneColumn`, side by side when a step roots more than one.
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DragEvent } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 
 import { BranchAffordance } from "./BranchAffordance";
 import { RibbonSegment } from "./RibbonSegment";
@@ -26,7 +25,9 @@ import type { PipelineRoot, PipelineStepConfig, SchemaField } from "../types/pip
 import type { ExpandPipelineShapeResponse } from "../types/pipelineShape";
 import type { Output } from "../types/output";
 import type { LaneGraph } from "../state/stepTree";
-import { childLanesOf, reorderLane } from "../state/stepTree";
+import { childLanesOf } from "../state/stepTree";
+import { useLaneReorder } from "../hooks/useLaneReorder";
+import type { LaneReorder } from "../hooks/useLaneReorder";
 import { nodePath } from "../state/nodePath";
 import { GitBranch, Plus } from "lucide-react";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
@@ -92,7 +93,7 @@ interface PipelineRiverViewProps {
   /** HEL-407 — invoked with the full reordered `Step[]` on drop or a Move
    *  up/down click; `PipelineDetailPage.handleReorderSteps` owns persistence
    *  + reconciliation (design.md Decision 7). */
-  onReorderSteps: (newOrder: Step[]) => void;
+  onReorderSteps: (newOrder: Step[]) => void | Promise<void>;
   /** HEL-412 — persists the disable/enable toggle for one step;
    *  `PipelineDetailPage.handleToggleStepEnabled` owns the optimistic flip +
    *  revert-on-failure convention. */
@@ -175,19 +176,6 @@ export function PipelineRiverView({
   );
   const primarySteps = primaryLane?.steps ?? [];
 
-  // F-146/HEL-912 — lets `handleMoveUp`/`handleMoveDown`/`handleCardDrop`
-  // below read the current `laneGraph` without closing over the prop
-  // directly, so they stay stable (`useCallback` identity unchanged) across
-  // the renders that change `steps`/`laneGraph` most often — editing one
-  // step's config re-renders this component with new arrays on every
-  // keystroke.
-  const laneGraphRef = useRef(laneGraph);
-  // eslint-plugin-react-hooks@7's react-hooks/refs rule forbids writing a ref
-  // during render — commit it in an effect instead.
-  useEffect(() => {
-    laneGraphRef.current = laneGraph;
-  }, [laneGraph]);
-
   // HEL-410 — gap "insert step here" affordance (design.md Decision 5): one
   // compact "+" button per gap (before the first card + between each pair;
   // after-last stays the existing add row).
@@ -216,73 +204,34 @@ export function PipelineRiverView({
     setInsertDropdownAt(index);
   }
 
-  // HEL-407 — drag-reorder state (design.md Decision 5): `draggedIndex` is
-  // set by the StepCard drag handle (the sole `draggable` element) via
-  // `onStepDragStart`; `overIndex` is the index of the card currently
-  // dragged over, i.e. the slot the dragged step would land in on drop. The
-  // drop-indicator line renders above the card at `overIndex`. Both are
-  // PRIMARY-lane-relative indices.
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [overIndex, setOverIndex] = useState<number | null>(null);
+  // HEL-407/HEL-1007 — Move up/down + drag-reorder for EVERY root's trunk lane, lane-scoped (see
+  // `useLaneReorder`). Root 0 renders inline below; roots 1.. get the same handlers via `RootColumn`.
+  const riverRef = useRef<HTMLDivElement>(null);
+  const reorderHandlers = useLaneReorder(laneGraph, onReorderSteps, riverRef);
+  const {
+    onMoveUp: handleMoveUp,
+    onMoveDown: handleMoveDown,
+    onStepDragStart: handleStepDragStart,
+    onStepDragEnd: handleStepDragEnd,
+    onCardDragOver,
+    onCardDrop,
+    dragLaneId,
+    overIndex,
+  } = reorderHandlers;
 
-  const handleStepDragStart = useCallback((index: number) => {
-    setDraggedIndex(index);
-  }, []);
-
-  const handleStepDragEnd = useCallback(() => {
-    setDraggedIndex(null);
-    setOverIndex(null);
-  }, []);
-
-  function handleCardDragOver(e: DragEvent<HTMLDivElement>, index: number) {
-    if (draggedIndex === null) return;
-    e.preventDefault();
-    setOverIndex(index);
+  function reorderFor(root: PipelineRoot): LaneReorder {
+    return {
+      laneLabel: root.dataSourceName,
+      onMoveUp: handleMoveUp,
+      onMoveDown: handleMoveDown,
+      onStepDragStart: handleStepDragStart,
+      onStepDragEnd: handleStepDragEnd,
+      onCardDragOver,
+      onCardDrop,
+      dragLaneId,
+      overIndex,
+    };
   }
-
-  function handleCardDrop(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    if (draggedIndex !== null && overIndex !== null && overIndex !== draggedIndex) {
-      const targetIndex = draggedIndex < overIndex ? overIndex - 1 : overIndex;
-      const currentGraph = laneGraphRef.current;
-      const primaryId = currentGraph.lanes.find(
-        (l) => l.parentStepId === undefined && l.rootId === firstRootId,
-      )?.id;
-      if (primaryId) {
-        onReorderSteps(reorderLane(currentGraph, primaryId, draggedIndex, targetIndex));
-      }
-    }
-    setDraggedIndex(null);
-    setOverIndex(null);
-  }
-
-  const handleMoveUp = useCallback(
-    (stepId: string) => {
-      const currentGraph = laneGraphRef.current;
-      const lane = currentGraph.lanes.find(
-        (l) => l.parentStepId === undefined && l.rootId === firstRootId,
-      );
-      if (!lane) return;
-      const index = lane.steps.findIndex((s) => s.id === stepId);
-      if (index <= 0) return;
-      onReorderSteps(reorderLane(currentGraph, lane.id, index, index - 1));
-    },
-    [onReorderSteps, firstRootId],
-  );
-
-  const handleMoveDown = useCallback(
-    (stepId: string) => {
-      const currentGraph = laneGraphRef.current;
-      const lane = currentGraph.lanes.find(
-        (l) => l.parentStepId === undefined && l.rootId === firstRootId,
-      );
-      if (!lane) return;
-      const index = lane.steps.findIndex((s) => s.id === stepId);
-      if (index === -1 || index >= lane.steps.length - 1) return;
-      onReorderSteps(reorderLane(currentGraph, lane.id, index, index + 1));
-    },
-    [onReorderSteps, firstRootId],
-  );
 
   // HEL-412 (design.md Decision 8) — one bit per step, same string passed to
   // every StepCard's preview fingerprint: any toggle anywhere refreshes
@@ -336,7 +285,7 @@ export function PipelineRiverView({
   const firstRoot = roots[0];
 
   return (
-    <div className="pipeline-detail-page__river">
+    <div className="pipeline-detail-page__river" ref={riverRef}>
       <div className="pipeline-detail-page__root-columns">
         <div className="pipeline-detail-page__river-inner">
           {/* HEL-1022 — with a single root, root 0's river renders exactly
@@ -399,13 +348,13 @@ export function PipelineRiverView({
                 const childLanes = childLanesOf(laneGraph, step.id);
                 return (
                   <Fragment key={step.id}>
-                    {draggedIndex !== null && overIndex === idx && (
+                    {primaryLane && dragLaneId === primaryLane.id && overIndex === idx && (
                       <div className="pipeline-detail-page__drop-indicator" aria-hidden="true" />
                     )}
                     <div
                       className="pipeline-detail-page__step-section"
-                      onDragOver={(e) => handleCardDragOver(e, idx)}
-                      onDrop={handleCardDrop}
+                      onDragOver={(e) => primaryLane && onCardDragOver(e, primaryLane.id, idx)}
+                      onDrop={(e) => primaryLane && onCardDrop(e, primaryLane.id)}
                       title={nodePathByStepId[step.id]}
                     >
                       <StepCard
@@ -425,6 +374,7 @@ export function PipelineRiverView({
                         onStepDragEnd={handleStepDragEnd}
                         onMoveUp={idx > 0 ? handleMoveUp : undefined}
                         onMoveDown={idx < primarySteps.length - 1 ? handleMoveDown : undefined}
+                        laneLabel={firstRoot?.dataSourceName}
                         onToggleEnabled={onToggleStepEnabled}
                         onDuplicate={onDuplicateStep}
                         isDuplicating={duplicatingStepIds.has(step.id)}
@@ -571,6 +521,7 @@ export function PipelineRiverView({
               onRemoveRoot={onRemoveRoot}
               canRemove={roots.length > 1}
               nodePathByStepId={nodePathByStepId}
+              reorder={reorderFor(root)}
             />
           );
         })}

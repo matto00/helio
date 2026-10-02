@@ -1,0 +1,35 @@
+user hel1007-contract-22263@example.com
+sources 950d311a-21f3-4dd8-a43f-a8c04e2adcde 3fa015e0-5140-4b18-8dcf-8de8898599bb
+pipeline c569951b-a1fd-4f5e-9176-e24917dc7913 rootA cef0a7a1-d89f-4e97-83c8-97ac6979a357 rootB 9735a447-3749-44bf-9a43-f427d5f96a1f
+A: limit=cc9d3cbd-bd49-4d87-a2ad-6627990fb443 sort=327d7bab-bf06-4bc8-af93-b6ecc161567d select=1083cbd3-0ca0-4644-aeeb-2a9e903e9284
+B: select=e708de9d-5cf7-4870-8fd4-e50305d7ee3b limit=2f9c6ce0-c735-42b5-8964-939a746afef7 sort=72cd6408-1cdc-476d-8749-72ac62bf962a
+--- GET steps BEFORE
+   limit cc9d3cbd root=cef0a7a1 parent=None
+   sort 327d7bab root=None parent=cc9d3cbd
+   select 1083cbd3 root=None parent=327d7bab
+   select e708de9d root=9735a447 parent=None
+   limit 2f9c6ce0 root=None parent=e708de9d
+   sort 72cd6408 root=None parent=2f9c6ce0
+--- PUT /steps/order (root A untouched; ONLY root B's trunk permuted: sort above limit)
+{"stepIds":["cc9d3cbd-bd49-4d87-a2ad-6627990fb443","327d7bab-bf06-4bc8-af93-b6ecc161567d","1083cbd3-0ca0-4644-aeeb-2a9e903e9284","e708de9d-5cf7-4870-8fd4-e50305d7ee3b","72cd6408-1cdc-476d-8749-72ac62bf962a","2f9c6ce0-c735-42b5-8964-939a746afef7"]}
+HTTP 200
+   limit cc9d3cbd root=cef0a7a1 parent=None
+   sort 327d7bab root=None parent=cc9d3cbd
+   select 1083cbd3 root=None parent=327d7bab
+   select e708de9d root=9735a447 parent=None
+   sort 72cd6408 root=None parent=e708de9d
+   limit 2f9c6ce0 root=None parent=72cd6408
+--- GET steps AFTER
+   limit cc9d3cbd root=cef0a7a1 parent=None
+   sort 327d7bab root=None parent=cc9d3cbd
+   select 1083cbd3 root=None parent=327d7bab
+   select e708de9d root=9735a447 parent=None
+   sort 72cd6408 root=None parent=e708de9d
+   limit 2f9c6ce0 root=None parent=72cd6408
+--- negative: payload missing a root's ids (truncated) is refused
+{"message":"orderedTrunkIds must be exactly the permutation of the union of every root's current trunk step ids: missing trunk step ids (union of every root's trunk): 72cd6408-1cdc-476d-8749-72ac62bf962a, 2f9c6ce0-c735-42b5-8964-939a746afef7, e708de9d-5cf7-4870-8fd4-e50305d7ee3b"}
+HTTP 422
+--- cleanup
+pipeline c569951b-a1fd-4f5e-9176-e24917dc7913 204
+source 950d311a-21f3-4dd8-a43f-a8c04e2adcde 204
+source 3fa015e0-5140-4b18-8dcf-8de8898599bb 204
