@@ -1,0 +1,23 @@
+{
+  "description": "Shared client/server wire fixture for an agent-proposed form panel (HEL-1148). Read by helio-mcp jest (formProposalSeam.test.ts: the MCP schema/handler must accept and serialize it byte-for-byte) and backend ScalaTest (DashboardApplyProposalFormSeamSpec: the real apply route must accept it, bind the form to the substituted source, and accept a submit). `__DATASET_SOURCE_ID__` is replaced by each side with a real dataset source id.",
+  "datasetSourcePlaceholder": "__DATASET_SOURCE_ID__",
+  "proposal": {
+    "dashboardName": "Order intake",
+    "panels": [
+      {
+        "title": "Order form",
+        "type": "form",
+        "dataSourceId": "__DATASET_SOURCE_ID__",
+        "layout": { "x": 0, "y": 0, "w": 6, "h": 4 },
+        "config": {
+          "fields": [
+            { "sourceField": "quantity", "control": "number", "step": 1, "required": true },
+            { "sourceField": "note", "control": "text" }
+          ],
+          "submit": { "writeMode": "append" }
+        }
+      }
+    ]
+  },
+  "submit": { "values": { "quantity": 2, "note": "seam" } }
+}

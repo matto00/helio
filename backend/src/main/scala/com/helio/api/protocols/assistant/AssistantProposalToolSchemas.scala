@@ -60,6 +60,15 @@ private[protocols] trait AssistantProposalToolSchemas {
             "\"$pipelineOutput\"). Omitted for text/markdown/image."
         )
       ),
+      // HEL-1148: the source-binding twin of `outputId`. Matches dashboard-proposal.schema.json.
+      "dataSourceId" -> JsObject(
+        "type" -> JsString("string"),
+        "description" -> JsString(
+          "Required for form panels (and only form panels): the id of a caller-owned DATASET source the form " +
+            "appends rows to, returned by find/get_resource. Set it as this top-level field, never as " +
+            "config.dataSourceId. A form with none, a non-dataset source, or another tenant's source is rejected."
+        )
+      ),
       "fieldMapping" -> JsObject("type" -> JsString("object")),
       "aggregation"  -> JsObject("type" -> JsString("object")),
       "content"      -> JsObject("type" -> JsString("string")),
@@ -115,6 +124,24 @@ private[protocols] trait AssistantProposalToolSchemas {
       ]
     }""".parseJson
 
+  // HEL-1148: a worked form example (the flat `dataSourceId` binding), decode-pinned alongside the
+  // output example above. "ds_example_from_find" is an obviously-synthetic placeholder id.
+  private val DashboardProposalFormExample: JsValue =
+    """{
+      "dashboardName": "Order intake",
+      "panels": [
+        {
+          "title": "Order form",
+          "type": "form",
+          "dataSourceId": "ds_example_from_find",
+          "config": {
+            "fields": [ { "sourceField": "quantity", "control": "number" } ],
+            "submit": { "writeMode": "append" }
+          }
+        }
+      ]
+    }""".parseJson
+
   private val DashboardProposalSchema: JsObject = JsObject(
     "type" -> JsString("object"),
     "properties" -> JsObject(
@@ -122,7 +149,7 @@ private[protocols] trait AssistantProposalToolSchemas {
       "panels"        -> JsObject("type" -> JsString("array"), "items" -> ProposalPanelSchema)
     ),
     "required" -> JsArray(Vector(JsString("dashboardName"), JsString("panels"))),
-    "examples" -> JsArray(Vector(DashboardProposalExample))
+    "examples" -> JsArray(Vector(DashboardProposalExample, DashboardProposalFormExample))
   )
 
   // ── PipelineProposal (schemas/pipelines/pipeline-proposal.schema.json) ───────────────────────────────────

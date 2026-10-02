@@ -651,24 +651,13 @@ final class PanelService(
         }
     }
 
-  /** 404 when `dataSourceIdOpt` is provided but does not resolve to a real,
-   *  owned data source (design.md D6). Mirrors `rejectMissingOutput`
-   *  verbatim, including its nullable-optional repository wiring so no
-   *  existing fixture changes behaviour, and its `findByIdOwned` →
-   *  not-found mapping so existence is never leaked (never 403, never 500). */
+  /** 404 when `dataSourceIdOpt` is provided but does not resolve to a real, owned data source
+   *  (design.md D6) — delegates to the shared [[FormBindingValidator]] the proposal paths also use. */
   private def rejectMissingDataSource(
       dataSourceIdOpt: Option[DataSourceId],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, Unit]] =
-    dataSourceIdOpt match {
-      case None => Future.successful(Right(()))
-      case Some(_) if dataSourceRepo == null => Future.successful(Right(()))
-      case Some(dataSourceId) =>
-        dataSourceRepo.findByIdOwned(dataSourceId, user).map {
-          case Some(_) => Right(())
-          case None    => Left(ServiceError.NotFound("Data source not found"))
-        }
-    }
+    FormBindingValidator.rejectMissingDataSource(dataSourceRepo, dataSourceIdOpt, user)
 
   /** Extracts an `output` panel's `outputId`/`controls`, `None`/empty for every other kind. Feeds
    *  `outputControlsValidator.reject` with the newly-built panel on `create`. */
@@ -713,38 +702,14 @@ final class PanelService(
       case _ => None
     }
 
-  /** HEL-1084 design.md D1: schema-consistency check for a `form` panel's config, evaluated on
-   *  the EFFECTIVE config (C2) — the caller passes the post-patch config on update, never the
-   *  incoming patch alone, so a `dataSourceId`-only PATCH still re-validates the existing fields
-   *  against the new dataset. `None` (not a form panel, or a form config with an empty
-   *  `dataSourceId` — `rejectMissingDataSource` already 400s/404s that case) and a `null`
-   *  `dataSourceRepo` (unwired fixture, mirrors this file's other nullable-optional dependencies)
-   *  both skip the check. Rule (a) — bound source must be `dataset`-kind — is checked here since
-   *  it needs the resolved `DataSource`, not just its declaration; (b)-(e) delegate to
-   *  `FormSchemaConsistency.check`. */
+  /** HEL-1084 design.md D1: schema-consistency check for a `form` panel's EFFECTIVE (post-patch on
+   *  `update`) config — delegates to the shared [[FormBindingValidator]] so the proposal paths
+   *  (HEL-1148) run the identical checks. */
   private def rejectInconsistentForm(
       configOpt: Option[FormPanelConfig],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, Unit]] =
-    configOpt.filter(_.dataSourceId.value.nonEmpty) match {
-      case None => Future.successful(Right(()))
-      case Some(_) if dataSourceRepo == null => Future.successful(Right(()))
-      case Some(config) =>
-        dataSourceRepo.findByIdOwned(config.dataSourceId, user).flatMap {
-          case None => Future.successful(Left(ServiceError.NotFound("Data source not found")))
-          case Some(_: DatasetSource) =>
-            dataSourceRepo.getDeclaredSchema(config.dataSourceId, user).map {
-              case None => Left(ServiceError.NotFound("Data source not found"))
-              case Some(declaration) =>
-                FormSchemaConsistency.check(config, declaration) match {
-                  case Left(msg) => Left(ServiceError.BadRequest(msg))
-                  case Right(()) => Right(())
-                }
-            }
-          case Some(ds) =>
-            Future.successful(Left(ServiceError.BadRequest(s"form panels must be bound to a dataset source (this source is '${ds.kind}')")))
-        }
-    }
+    FormBindingValidator.rejectInconsistentForm(dataSourceRepo, configOpt, user)
 
   // HEL-904 task 3.9/4.1: `rejectUnresolvableMetric` (HEL-500) and
   // `metricRepo` (the constructor's legacy unused parameter) both removed —

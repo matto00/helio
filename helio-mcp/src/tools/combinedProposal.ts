@@ -73,6 +73,10 @@ export function registerCombinedProposalTools(server: McpServer, api: HelioApi):
         "panels are only ever blessed via the flat field); `config.outputId` shadowed by an " +
         "already-set flat `outputId` on the same panel; the sentinel anywhere else entirely " +
         "(e.g. `fieldMapping`); or a duplicate occurrence alongside a legitimate blessed one.\n" +
+        "A `form` panel binds a caller-owned DATASET source through its flat `dataSourceId` (never " +
+        "the sentinel, never `config.dataSourceId`): a form with no/foreign/non-dataset/nonexistent " +
+        "`dataSourceId` is rejected with HTTP 400 BEFORE the pipeline phase, so no pipeline is " +
+        "created.\n" +
         "A panel may instead bind to any pre-existing Output id exactly as apply_proposal already " +
         "accepts, and a dashboard may mix multiple kinds of panel in the same call.\n" +
         "Each `pipeline.roots[]` element is EITHER an existing caller-owned `sourceId` OR an inline " +

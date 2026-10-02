@@ -361,10 +361,10 @@ final class ApiRoutes(
   // HEL-1193: one validator instance shared by the propose-time control checks below; the same
   // class (and eligibility function) PanelService constructs internally for the write path.
   private val outputControlsValidator = new OutputControlsValidator(outputRepoOpt.orNull, nodeSnapshotRepoOpt.orNull)
-  private val proposalService   = new DashboardProposalService(dashboardService, panelService, outputRepoOpt.orNull, outputControlsValidator)
+  private val proposalService   = new DashboardProposalService(dashboardService, panelService, outputRepoOpt.orNull, outputControlsValidator, dataSourceRepo)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // accessChecker instances the other dashboard/panel services use.
-  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, accessChecker, auditService, outputRepoOpt.orNull, outputControlsValidator)
+  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, accessChecker, auditService, outputRepoOpt.orNull, outputControlsValidator, dataSourceRepo)
   // HEL-367: reuses the same dashboardRepo/panelRepo/accessChecker instances
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.

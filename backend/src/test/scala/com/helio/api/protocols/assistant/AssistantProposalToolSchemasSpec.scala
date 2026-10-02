@@ -70,6 +70,25 @@ class AssistantProposalToolSchemasSpec
       examples should not be empty
       examples.foreach(_.convertTo[DashboardProposal])
     }
+
+    // HEL-1148: the worked form example carries the flat `dataSourceId`, decodes onto
+    // `ProposalPanel.dataSourceId`, and passes the same structural rule the apply route enforces.
+    "include a form example whose flat dataSourceId survives the decode and passes validatePanel" in {
+      val formPanel = examplesOf("propose_dashboard")
+        .map(_.convertTo[DashboardProposal])
+        .flatMap(_.panels)
+        .find(_.`type` == "form")
+        .getOrElse(fail("no form example in propose_dashboard's schema"))
+      formPanel.dataSourceId shouldBe Some("ds_example_from_find")
+      ProposalPanelSupport.validatePanel("panel 1", formPanel) shouldBe a[Right[_, _]]
+    }
+
+    "advertise dataSourceId on the panel schema" in {
+      val panelProps = AssistantProtocol.assistantTools.find(_.name == "propose_dashboard").get.inputSchema.asJsObject
+        .fields("properties").asJsObject.fields("panels").asJsObject
+        .fields("items").asJsObject.fields("properties").asJsObject
+      panelProps.fields should contain key "dataSourceId"
+    }
   }
 
   "propose_pipeline's schema examples" should {

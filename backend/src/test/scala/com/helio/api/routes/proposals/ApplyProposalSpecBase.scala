@@ -297,6 +297,16 @@ abstract class ApplyProposalSpecBase
   // dropped, and its only caller was already retired in task 4.1 (see
   // `AuditMutationInstrumentationSpec`'s own comment).
 
+  /** HEL-1148: ACL-free count of rows appended to a dataset source (proves a form submit landed). */
+  protected def datasetRowCount(dataSourceId: String): Int =
+    await(ctx.withSystemContext(
+      sql"""SELECT count(*) FROM dataset_rows WHERE data_source_id = $dataSourceId""".as[Int].head
+    ))
+
+  /** HEL-1148: ACL-free total panel count, to prove a rejected proposal created nothing. */
+  protected def totalPanelCount(): Int =
+    await(ctx.withSystemContext(sql"""SELECT count(*) FROM panels""".as[Int].head))
+
   /** ACL-free read of a dashboard's panel titles, via the privileged pool —
    *  used by HEL-370 cross-tenant/no-grant specs to prove "nothing created"
    *  on a dashboard the test's own session user cannot GET (the HTTP export

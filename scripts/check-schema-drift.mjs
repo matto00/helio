@@ -7,6 +7,14 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  AGENT_SURFACE_EXCLUSIONS,
+  deriveAgentFacingPanelTypes,
+  parseKindSet,
+  validateExclusions,
+  validateWireExpressibility,
+} from "./lib/agentFacingPanelTypes.mjs";
+
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const schemasDir = join(repoRoot, "schemas");
 const protocolsAggregator = join(
@@ -230,23 +238,31 @@ if (canonicalPanelTypes.length < 5) {
   process.exit(1);
 }
 
-// Agent-facing surfaces (HEL-249/HEL-315/HEL-316) intentionally narrow the
-// wire-tolerant backend set by dropping `divider` — mirroring create_panel's
-// type enum in helio-mcp/src/tools/write.ts (not schema-checked). These
-// surfaces are compared against this carve-out set instead of the full
-// backend-canonical set.
-const agentFacingPanelTypes = canonicalPanelTypes.filter((t) => t !== "divider");
-
+// Agent-facing surfaces (HEL-249/HEL-315/HEL-316/HEL-1148) are compared against a set DERIVED from
+// "can the proposal wire express the kind's required binding" (scripts/lib/agentFacingPanelTypes.mjs):
+// every canonical kind except those in the explicit, reasoned exclusion table. There is no
+// kind-specific carve-out here; the validations that keep that table honest run below.
 const proposalServiceSrc = readFileSync(proposalServiceScala, "utf8");
-const dataPanelKindsMatch = proposalServiceSrc.match(
-  /DataPanelKinds:\s*Set\[String\]\s*=\s*Set\(([^)]*)\)/,
+const canonicalDataPanelKinds = parseKindSet(
+  proposalServiceSrc,
+  "DataPanelKinds",
+  proposalServiceScala,
 );
-if (!dataPanelKindsMatch) {
-  throw new Error(
-    `${proposalServiceScala}: could not find "DataPanelKinds: Set[String] = Set(...)"`,
-  );
-}
-const canonicalDataPanelKinds = extractQuoted(dataPanelKindsMatch[1]);
+// HEL-1148: kinds that bind to a dataset SOURCE (flat dataSourceId) instead of an Output.
+const canonicalSourceBoundKinds = parseKindSet(
+  proposalServiceSrc,
+  "SourceBoundKinds",
+  proposalServiceScala,
+);
+const agentFacingPanelTypes = deriveAgentFacingPanelTypes(
+  canonicalPanelTypes,
+  AGENT_SURFACE_EXCLUSIONS,
+);
+// kind -> the wire field its binding needs.
+const bindingFieldByKind = {
+  ...Object.fromEntries(canonicalDataPanelKinds.map((k) => [k, "outputId"])),
+  ...Object.fromEntries(canonicalSourceBoundKinds.map((k) => [k, "dataSourceId"])),
+};
 
 const panelTypeSurfaces = [
   {
@@ -319,6 +335,18 @@ const dataPanelTypeSurfaces = [
     ),
   },
   {
+    label: "helio-mcp/src/tools/proposalValidation.ts SOURCE_BOUND_PANEL_TYPES",
+    canonical: canonicalSourceBoundKinds,
+    actual: extractQuoted(
+      extractBetween(
+        readFileSync(helioMcpProposalValidationTs, "utf8"),
+        "const SOURCE_BOUND_PANEL_TYPES = new Set([",
+        "])",
+        helioMcpProposalValidationTs,
+      ),
+    ),
+  },
+  {
     label: "frontend/.../ProposalReview.tsx DATA_PANEL_TYPES",
     canonical: canonicalDataPanelKinds,
     actual: extractQuoted(
@@ -331,6 +359,45 @@ const dataPanelTypeSurfaces = [
     ),
   },
 ];
+
+// HEL-1148: the exclusion table must be sound, and every bound agent-facing kind's required binding
+// field must exist on the proposal JSON schema's ProposalPanel and on the MCP zod panelSchema.
+errors.push(
+  ...validateExclusions({
+    canonicalKinds: canonicalPanelTypes,
+    exclusions: AGENT_SURFACE_EXCLUSIONS,
+    bindings: bindingFieldByKind,
+  }),
+);
+const proposalSchemaProps = new Set(
+  Object.keys(
+    JSON.parse(readFileSync(join(schemasDir, "dashboards/dashboard-proposal.schema.json"), "utf8"))
+      .$defs.ProposalPanel.properties,
+  ),
+);
+const mcpPanelSchemaBody = extractBetween(
+  helioMcpProposalSrc,
+  "export const panelSchema = z.object({",
+  "\n});",
+  helioMcpProposalTs,
+);
+const mcpPanelSchemaProps = new Set(
+  [...mcpPanelSchemaBody.matchAll(/^ {2}(\w+):/gm)].map((m) => m[1]),
+);
+errors.push(
+  ...validateWireExpressibility({
+    bindings: Object.fromEntries(
+      Object.entries(bindingFieldByKind).filter(([kind]) => agentFacingPanelTypes.includes(kind)),
+    ),
+    surfaces: [
+      {
+        label: "schemas/dashboards/dashboard-proposal.schema.json ProposalPanel.properties",
+        fields: proposalSchemaProps,
+      },
+      { label: "helio-mcp/src/tools/proposal.ts panelSchema", fields: mcpPanelSchemaProps },
+    ],
+  }),
+);
 
 let panelTypeChecked = 0;
 for (const { label, canonical, actual } of [...panelTypeSurfaces, ...dataPanelTypeSurfaces]) {

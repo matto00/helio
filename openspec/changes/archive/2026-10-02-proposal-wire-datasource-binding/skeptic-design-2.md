@@ -1,0 +1,4 @@
+## Skeptic Report - design gate (round 2)
+Verified against artifacts: all 5 round-1 CRs addressed. D6 decides divider (explicit exclusion table, SourceBoundKinds parse contract, fail-loud, pinned tests); D3 names extraction + preValidateBindings signature + all callers, schema-consistency at propose time; combined validate+apply before pipeline write with test; patch-set resolver check specified, failing-first; intentional behavior change + schema line-35 + HEL-1083 tests listed in 3.1; flat dataSourceId named in error; form dataSourceId+outputId rejected.
+Verdict: CONFIRM
+Non-blocking: D7 says a real-MCP-handler-vs-real-backend test is required while task 4.1 says "where feasible" (node vs Scala; executor should satisfy via fixture consumed by both sides plus backend route spec, and state any infeasibility explicitly). Spec delta lacks scenarios for dataSourceId+outputId and dataSourceId-on-non-form rejection; add if cheap.

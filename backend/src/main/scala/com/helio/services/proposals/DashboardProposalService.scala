@@ -7,6 +7,7 @@ import com.helio.api.protocols.dashboards.{DashboardLayoutItemPayload, Dashboard
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel}
 import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DashboardLayoutItem, Panel}
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -42,7 +43,12 @@ final class DashboardProposalService(
     outputRepo: OutputRepository = null,
     // HEL-1193: the same validator PanelService uses for a panel's controls, run at propose time
     // too; nullable-optional like the other collaborators (null skips the control check).
-    controlsValidator: OutputControlsValidator = null
+    controlsValidator: OutputControlsValidator = null,
+    // HEL-1148: validates a source-bound (`form`) panel's `dataSourceId` through the shared
+    // `FormBindingValidator`; nullable-optional like the other collaborators (null skips the
+    // ownership/dataset/schema check — the structural "a form requires a dataSourceId" rule in
+    // `ProposalPanelSupport.validatePanel` never depends on it).
+    dataSourceRepo: DataSourceRepository = null
 )(implicit ec: ExecutionContext) {
 
   import DashboardProposalService._
@@ -64,7 +70,7 @@ final class DashboardProposalService(
       panels: Vector[ProposalPanel],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, Unit]] =
-    ProposalPanelSupport.preValidateBindings(panels, user, outputRepo).flatMap {
+    ProposalPanelSupport.preValidateBindings(panels, user, outputRepo, dataSourceRepo).flatMap {
       case Left(err) => Future.successful(Left(err))
       case Right(_)  => ProposalPanelSupport.preValidateControls(panels, user, controlsValidator)
     }
@@ -78,6 +84,16 @@ final class DashboardProposalService(
       user: AuthenticatedUser
   ): Future[Either[ServiceError, Unit]] =
     ProposalPanelSupport.preValidateControls(panels, user, controlsValidator, Some(sentinel))
+
+  /** HEL-1148: only the source-bound (`form`) panels' `dataSourceId` check (existence, ownership,
+   *  dataset kind, schema consistency), read-only. The combined-proposal path runs it BEFORE the
+   *  pipeline phase writes anything, since a form's source does not depend on the pipeline's
+   *  not-yet-created Output. */
+  private[services] def validateSourceBindings(
+      panels: Vector[ProposalPanel],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] =
+    ProposalPanelSupport.preValidateSourceBindings(panels, user, dataSourceRepo)
 
   def apply(
       proposal: DashboardProposal,
@@ -181,4 +197,10 @@ object DashboardProposalService {
   // were deleted outright along with the code paths they guarded — metrics,
   // and the bound panel kinds that could carry a `metricId`, no longer exist.
   private[services] val DataPanelKinds: Set[String] = Set("output")
+
+  // HEL-1148: the panel kinds that bind to a dataset SOURCE (flat `dataSourceId`) rather than an
+  // Output, declared beside `DataPanelKinds` so the two binding tables live in one place;
+  // scripts/check-schema-drift.mjs parses this by name (and fails loudly if it cannot) to assert
+  // every agent-facing kind's required binding field is expressible on the proposal wire.
+  private[services] val SourceBoundKinds: Set[String] = Set("form")
 }

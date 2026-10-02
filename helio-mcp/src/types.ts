@@ -716,6 +716,9 @@ export interface ProposalPanel {
   title: string;
   type: string;
   outputId?: string;
+  /** `form` panels only (HEL-1148): the caller-owned `dataset` source the form appends rows to.
+   *  Authoritative over `config.dataSourceId`; required on a `form`, rejected on any other kind. */
+  dataSourceId?: string;
   fieldMapping?: Record<string, string>;
   aggregation?: MetricAggregationSpec | ChartAggregationSpec;
   content?: string;

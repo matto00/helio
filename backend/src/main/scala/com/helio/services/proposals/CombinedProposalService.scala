@@ -57,7 +57,11 @@ final class CombinedProposalService(
             pipelineProposalService.validate(combined.pipeline, user).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_) =>
-                dashboardProposalService.validateControlsExcludingSentinel(combined.dashboard.panels, OutputRefSentinel, user)
+                dashboardProposalService.validateSourceBindings(combined.dashboard.panels, user).flatMap {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(_) =>
+                    dashboardProposalService.validateControlsExcludingSentinel(combined.dashboard.panels, OutputRefSentinel, user)
+                }
             }
         }
     }
@@ -81,9 +85,20 @@ final class CombinedProposalService(
     validateOutputRefPositions(combined.dashboard.panels) match {
       case Left(err) => Future.successful(Left(err))
       case Right(_) =>
-        pipelineProposalService.apply(combined.pipeline, user).flatMap {
+        // HEL-1148: a form's source binding does not depend on the pipeline this call creates, so a
+        // structurally invalid or badly-sourced form is rejected BEFORE the pipeline phase writes
+        // anything (design.md D4 "Combined proposal atomicity"), never rolled back after the fact.
+        validateDashboardStructure(combined.dashboard) match {
           case Left(err) => Future.successful(Left(err))
-          case Right(pipelineResp) => applyDashboardPhase(combined, pipelineResp, user)
+          case Right(_) =>
+            dashboardProposalService.validateSourceBindings(combined.dashboard.panels, user).flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(_) =>
+                pipelineProposalService.apply(combined.pipeline, user).flatMap {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(pipelineResp) => applyDashboardPhase(combined, pipelineResp, user)
+                }
+            }
         }
     }
 
