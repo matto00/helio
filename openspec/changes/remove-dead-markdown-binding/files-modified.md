@@ -1,9 +1,0 @@
-- `backend/src/main/scala/com/helio/domain/panels/OutputBindingSpec.scala` — slotless-kind message in validateFieldMapping; fixed stale "not wired to a route" doc comment
-- `backend/src/test/scala/com/helio/domain/panels/OutputBindingSpecSpec.scala` — spec for slotless-kind wording (markdown, table)
-- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputRoutesSpec.scala` — route tests: 400 on markdown create/PATCH fieldMapping.content, table create
-- `frontend/src/features/pipelines/ui/outputEditor/OutputKindFields.tsx` — MarkdownKindFields is a literal-only Textarea (no mode toggle/field picker)
-- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx` — markdown content is plain string state; legacy fieldMapping.content ignored on open
-- `frontend/src/features/pipelines/ui/outputEditor/buildOutputConfig.ts` — markdown emits `{content, fieldMapping: {}}`; param narrowed to string
-- `frontend/src/features/pipelines/ui/outputEditor/buildOutputConfig.test.ts` — updated for narrowed param; removed field-mode test (contract changed by owner ruling)
-- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.test.tsx` — new tests: no toggle, literal save sends empty fieldMapping, legacy config
-- `helio-mcp/src/tools/outputs.ts` — add_output description: table/markdown take no fieldMapping
