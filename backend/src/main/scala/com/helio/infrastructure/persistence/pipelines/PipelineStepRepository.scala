@@ -672,7 +672,24 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // acting caller's own visibility, never unfiltered, even though this whole DBIO runs on
       // the BYPASSRLS privileged connection (design.md Decision 2/4).
       actingUserId: String
-  ): Future[PipelineStep] = {
+  ): Future[PipelineStep] =
+    spliceInsertReportingInternal(pipelineId, kind, config, parentStepId, enabled, explicitRootId, actingUserId)
+      .map(_._1)
+
+  /** HEL-1069: [[spliceInsertAtInternal]] plus the ids of the existing steps the splice moved
+    * (re-parented), in a single transaction. With `rejectIfReparents = true`, the DBIO fails with
+    * [[ReparentRejected]] naming those ids BEFORE any write when the splice would move one or more
+    * steps, so nothing is persisted (absent/`false` = unchanged behaviour). */
+  def spliceInsertReportingInternal(
+      pipelineId:   PipelineId,
+      kind:         String,
+      config:       Any,
+      parentStepId: Option[PipelineStepId],
+      enabled:      Boolean,
+      explicitRootId: Option[PipelineRootId],
+      actingUserId: String,
+      rejectIfReparents: Boolean = false
+  ): Future[(PipelineStep, Seq[String])] = {
     val now        = Instant.now()
     val configJson = encodeConfig(kind, config)
     val newId      = UUID.randomUUID().toString
@@ -705,6 +722,9 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           stepsTable.filter(s => s.pipelineId === pipelineId.value && s.parentStepId.isEmpty && s.rootId === rid.value).result
         case _ => siblingsQuery(pipelineId, parentStepId).result
       }
+      _                 <- if (rejectIfReparents && existingChildren.nonEmpty)
+                             DBIO.failed(ReparentRejected(existingChildren.map(_.id)))
+                           else DBIO.successful(())
       _                 <- stepsTable += newRow
       // HEL-913: a reparented child that used to be a trunk root (parent_step_id IS NULL,
       // root_id IS NOT NULL) MUST have its root_id cleared in the SAME update -- it is no longer
@@ -717,7 +737,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
                              })
                            else DBIO.successful(Seq.empty[Int])
       persisted         <- stepsTable.filter(_.id === newId).result.head
-    } yield rowToDomain(persisted)
+    } yield (rowToDomain(persisted), existingChildren.map(_.id))
     ctx.withSystemContext(action.transactionally)
   }
 
@@ -1400,3 +1420,11 @@ object PipelineStepRepository {
     def * = (id, pipelineId, position, op, config, enabled, createdAt, updatedAt, parentStepId, rootId).mapTo[PipelineStepRow]
   }
 }
+
+/** HEL-1069: raised by [[PipelineStepRepository.spliceInsertReportingInternal]] when a caller opted in
+  * to `rejectIfReparents` and the splice would have re-parented existing steps. Nothing was written. */
+final case class ReparentRejected(movedStepIds: Seq[String]) extends Exception(
+  s"This insert would re-parent existing step(s): ${movedStepIds.mkString(", ")}. " +
+    "Nothing was changed. To add a sibling lane, anchor with parentStepId and attachAsTail=true; " +
+    "to insert in the middle of the chain deliberately, omit rejectIfReparents (attachAsTail=false)."
+)

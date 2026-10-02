@@ -27,8 +27,8 @@ class PipelineStepRoutes(pipelineService: PipelineService, user: AuthenticatedUs
             },
             post {
               entity(as[CreatePipelineStepRequest]) { req =>
-                ServiceResponse.run(pipelineService.addStep(pipelineId, req, user)) { resp =>
-                  StatusCodes.Created -> resp
+                ServiceResponse.run(pipelineService.addStepReporting(pipelineId, req, user)) { case (resp, moved) =>
+                  StatusCodes.Created -> createdStepJson(resp, moved)
                 }
               }
             }

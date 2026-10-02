@@ -214,7 +214,8 @@ final case class CreatePipelineStepRequest(
     enabled: Option[Boolean] = None,
     parentStepId: Option[String] = None,
     attachAsTail: Option[Boolean] = None,
-    rootId: Option[String] = None
+    rootId: Option[String] = None,
+    rejectIfReparents: Option[Boolean] = None
 )
 
 /** PATCH request — `type` is optional. If present and different from the
@@ -432,7 +433,15 @@ trait PipelineStepProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       }
   }
 
-  implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat7(CreatePipelineStepRequest.apply)
+  /** HEL-1069: the `POST /pipelines/:id/steps` create response only -- the serialized step plus
+    * `reparentedStepIds` (existing steps whose parent the insert changed; `[]` when none). Merged
+    * into the JSON object here rather than added to every `PipelineStepResponse` subtype, so
+    * GET/PATCH/duplicate responses never carry the field. */
+  def createdStepJson(step: PipelineStepResponse, reparentedStepIds: Seq[String]): JsObject =
+    JsObject(pipelineStepResponseFormat.write(step).asJsObject.fields +
+      ("reparentedStepIds" -> JsArray(reparentedStepIds.map(JsString(_)).toVector)))
+
+  implicit val createPipelineStepRequestFormat: RootJsonFormat[CreatePipelineStepRequest] = jsonFormat8(CreatePipelineStepRequest.apply)
   implicit val updatePipelineStepRequestFormat: RootJsonFormat[UpdatePipelineStepRequest] = jsonFormat4(UpdatePipelineStepRequest.apply)
   implicit val reorderPipelineStepsRequestFormat: RootJsonFormat[ReorderPipelineStepsRequest] = jsonFormat1(ReorderPipelineStepsRequest.apply)
   implicit val deletePipelineStepResponseFormat: RootJsonFormat[DeletePipelineStepResponse] = jsonFormat1(DeletePipelineStepResponse.apply)

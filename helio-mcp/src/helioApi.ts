@@ -18,6 +18,7 @@
  */
 
 import { HelioApiError, type HelioHttpClient } from "./httpClient.js";
+import { computeRunWarnings, type RunWarning } from "./runWarnings.js";
 import type {
   AgentMemoryEntryResponse,
   AgentPreferencesResponse,
@@ -148,6 +149,17 @@ export interface RunOutcome {
    *  Always present, defaulted to `[]` when nothing was truncated -- never `undefined`, for the
    *  same reason `truncated` is never `undefined` (HEL-861). */
   truncatedReads: TruncatedRead[];
+  /** HEL-1069: the persisted run id, when the backend reports one. */
+  runId?: string;
+  /** HEL-1069: step id -> rows that step produced (disabled steps have no entry). Empty when the
+   *  backend reported no per-step counts (e.g. Spark-executed runs). */
+  stepRowCounts: Record<string, number>;
+  /** HEL-1069: `false` when `stepRowCounts` is empty, so an absent `warnings` is never mistaken
+   *  for a healthy run; `true` otherwise. */
+  stepCountsAvailable: boolean;
+  /** HEL-1069: counted steps that produced 0 rows from a non-empty input. Present (possibly `[]`)
+   *  only when `stepCountsAvailable`; prompts to check, not proof of a defect. */
+  warnings?: RunWarning[];
 }
 
 /** Composed dashboard view: the list record plus its panels from the snapshot. */
@@ -744,7 +756,10 @@ export class HelioApi {
        *  PARENTLESS step attaches to (extending THAT root's trunk). Mutually exclusive with
        *  `parentStepId` (both -> 400); unnecessary on a single-root pipeline. */
       rootId?: string;
+      /** `true` = new sibling lane (needs `parentStepId`), nothing re-parented. */
       attachAsTail?: boolean;
+      /** HEL-1069: opt-in backend guard -- 422 naming the steps instead of splicing over them. */
+      rejectIfReparents?: boolean;
     },
   ): Promise<PipelineStepResponse> {
     return this.http.post<PipelineStepResponse>(`/api/pipelines/${pipelineId}/steps`, step);
@@ -802,7 +817,41 @@ export class HelioApi {
       truncationNotice: result.truncationNotice,
       // HEL-890 (design.md D2): default to `[]`, never `undefined` — same reasoning as `truncated`.
       truncatedReads: result.truncatedReads ?? [],
+      runId: result.runId,
+      ...(await this.stepCountFields(pipelineId, summary, result)),
     };
+  }
+
+  /** HEL-1069: `stepRowCounts`/`stepCountsAvailable`/`warnings` for a run result. Reads the step
+   *  graph only when counts exist; a step-graph read that does not return an array (never the case
+   *  against the real backend) degrades to no warnings rather than failing the run. */
+  private async stepCountFields(
+    pipelineId: string,
+    summary: PipelineSummaryResponse,
+    result: RunResultResponse,
+  ): Promise<Pick<RunOutcome, "stepRowCounts" | "stepCountsAvailable" | "warnings">> {
+    const stepRowCounts = result.stepRowCounts ?? {};
+    if (Object.keys(stepRowCounts).length === 0) {
+      return { stepRowCounts, stepCountsAvailable: false };
+    }
+    const steps = await this.listPipelineSteps(pipelineId);
+    return {
+      stepRowCounts,
+      stepCountsAvailable: true,
+      warnings: Array.isArray(steps)
+        ? computeRunWarnings({
+            steps,
+            stepRowCounts,
+            sourceRowCount: result.sourceRowCount ?? 0,
+            primaryRootId: summary.roots?.[0]?.id,
+          })
+        : [],
+    };
+  }
+
+  /** `GET /api/pipelines/:id/steps` -- the pipeline's steps (each with `parentStepId`/`rootId`). */
+  listPipelineSteps(pipelineId: string): Promise<PipelineStepResponse[]> {
+    return this.http.get<PipelineStepResponse[]>(`/api/pipelines/${pipelineId}/steps`);
   }
 
   /** Create a dashboard, or — when `ifExists: "return"` (HEL-363) — return an

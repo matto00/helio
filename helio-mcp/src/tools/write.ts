@@ -540,18 +540,36 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "names WHICH root's trunk to extend -- mutually exclusive with parentStepId (both -> " +
         "400); on a single-root pipeline neither is needed (unambiguous by construction). With " +
         "MORE than one root and neither parentStepId nor rootId given, the backend refuses with " +
-        "a named 400 rather than silently picking a root.",
+        "a named 400 rather than silently picking a root. PLACEMENT (HEL-1069): the default " +
+        "placement SPLICES -- the new step becomes the anchor's only child and every existing " +
+        "child of the anchor is re-parented under it. Choose explicitly via attachAsTail: " +
+        "true = add a new SIBLING lane off parentStepId, nothing moves (requires parentStepId; " +
+        "rejected with rootId or no anchor); false = deliberately splice-insert in the middle of a " +
+        "chain (existing children move under the new step; the result's reparentedStepIds lists " +
+        "them); omitted = safe default -- if the insert would re-parent any existing step it " +
+        "fails with an error naming those steps and NOTHING is written, so a second branch off " +
+        "the same node can never silently demote the first. An anchor with no children (e.g. the " +
+        "last step of a chain) simply appends. To append to the end of a trunk use parentStepId = " +
+        "its last step; rootId on a root that already has steps trips the guard.",
       inputSchema: {
         pipelineId: z.string().min(1),
         type: z.string().min(1),
         config: z.record(z.string(), z.unknown()).default({}),
         parentStepId: z.string().min(1).optional(),
         rootId: z.string().min(1).optional(),
+        attachAsTail: z.boolean().optional(),
       },
     },
-    ({ pipelineId, type, config, parentStepId, rootId }) =>
+    ({ pipelineId, type, config, parentStepId, rootId, attachAsTail }) =>
       guarded(() =>
-        addPipelineStepHandler(api, { pipelineId, type, config, parentStepId, rootId }),
+        addPipelineStepHandler(api, {
+          pipelineId,
+          type,
+          config,
+          parentStepId,
+          rootId,
+          attachAsTail,
+        }),
       ),
   );
 
@@ -568,8 +586,15 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "Run a pipeline to completion and write rows to its Output(s). The run is " +
         "SYNCHRONOUS: this returns only once rows exist, so it is safe to bind a panel immediately " +
         "after. Returns { pipelineId, status, rowCount, primarySourceRowCount, truncated, " +
-        "primaryAvailableRowCount, truncationNotice, truncatedReads } -- call list_outputs(pipelineId) " +
-        "afterward for the produced Output id(s). rowCount is NOT guaranteed to be the source's " +
+        "primaryAvailableRowCount, truncationNotice, truncatedReads, runId, stepRowCounts, " +
+        "stepCountsAvailable, warnings } -- call list_outputs(pipelineId) " +
+        "afterward for the produced Output id(s). stepRowCounts maps each step id to the rows it " +
+        "produced (disabled steps have no entry); warnings (HEL-1069) flags every counted step that " +
+        "produced 0 rows from a non-empty input (e.g. a join whose key types mismatch) -- a prompt " +
+        "to check that step, not proof of a bug (a filter that matches nothing also warns), and " +
+        "counts cannot reveal wrong VALUES, only emptiness. When the backend reports no per-step " +
+        "counts, stepCountsAvailable is false and warnings is absent -- absence is NOT a clean bill. " +
+        "rowCount is NOT guaranteed to be the source's " +
         "complete row count: every run caps EACH source read (primary and any join/union/lookup " +
         "secondary) at 1000 rows. truncated is RUN-WIDE: true if ANY source was capped, primary or " +
         "secondary. primarySourceRowCount/primaryAvailableRowCount describe the PRIMARY source ONLY " +

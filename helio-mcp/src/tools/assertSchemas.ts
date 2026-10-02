@@ -113,8 +113,22 @@ export async function addPipelineStepHandler(
      *  names WHICH root a PARENTLESS step extends the trunk of. Mutually exclusive with
      *  `parentStepId` (both -> 400 from the backend); unnecessary on a single-root pipeline. */
     rootId?: string;
+    /** HEL-1069 -- tri-state placement choice. `true` = new sibling lane off `parentStepId`
+     *  (nothing re-parented); `false` = deliberate splice-insert; omitted = send the backend's
+     *  `rejectIfReparents` guard so an insert that would silently re-parent existing steps fails
+     *  loudly (nothing written) instead. */
+    attachAsTail?: boolean;
   },
 ): Promise<PipelineStepResponse> {
+  // The backend honours attachAsTail ONLY with parentStepId; with rootId or no anchor it would be
+  // ignored and the step silently spliced, so refuse before any request.
+  if (input.attachAsTail === true && !input.parentStepId) {
+    throw new Error(
+      "add_pipeline_step: attachAsTail=true needs parentStepId (the EXISTING step whose sibling " +
+        "lane this starts); it is not supported with rootId or with no anchor. Pass " +
+        "parentStepId of an existing step (e.g. the root's last step).",
+    );
+  }
   if (input.type === "assert") {
     const parsed = assertConfigSchema.safeParse(input.config);
     if (!parsed.success) {
@@ -128,5 +142,10 @@ export async function addPipelineStepHandler(
     position: input.position,
     enabled: input.enabled,
     rootId: input.rootId,
+    ...(input.attachAsTail === true
+      ? { attachAsTail: true }
+      : input.attachAsTail === undefined
+        ? { rejectIfReparents: true }
+        : {}),
   });
 }

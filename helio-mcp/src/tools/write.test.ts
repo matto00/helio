@@ -53,7 +53,9 @@ describe("addPipelineStepHandler (assert config validation, HEL-581)", () => {
 
     const result = await addPipelineStepHandler(api, { pipelineId: "p1", type: "assert", config });
 
-    expect(calls).toEqual([{ pipelineId: "p1", step: { type: "assert", config } }]);
+    expect(calls).toEqual([
+      { pipelineId: "p1", step: { type: "assert", config, rejectIfReparents: true } },
+    ]);
     expect(result).toEqual({ id: "step-1", type: "assert", position: 0, config });
   });
 
@@ -196,6 +198,8 @@ describe("addPipelineStepHandler (assert config validation, HEL-581)", () => {
 
     await addPipelineStepHandler(api, { pipelineId: "p1", type: "limit", config });
 
-    expect(calls).toEqual([{ pipelineId: "p1", step: { type: "limit", config } }]);
+    expect(calls).toEqual([
+      { pipelineId: "p1", step: { type: "limit", config, rejectIfReparents: true } },
+    ]);
   });
 });

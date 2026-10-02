@@ -17,7 +17,7 @@ import com.helio.domain.{AggregateConfig, AnalyzeWithAiConfig, AssertConfig, Cas
 import com.helio.domain.steps.SecondaryInput
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineCycleGuard, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineCycleGuard, PipelineRepository, PipelineRootRepository, PipelineStepRepository, ReparentRejected}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import org.postgresql.util.PSQLException
 import org.slf4j.LoggerFactory
@@ -1780,7 +1780,13 @@ final class PipelineService(
     }
 
   /** Step creation — requires Editor or Owner. Viewer grantees get 403. */
-  def addStep(pipelineId: PipelineId, req: CreatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] = {
+  def addStep(pipelineId: PipelineId, req: CreatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] =
+    addStepReporting(pipelineId, req, user).map(_.map(_._1))
+
+  /** HEL-1069: [[addStep]] plus the ids of existing steps the insert re-parented (empty for a tail
+    * attach or a childless anchor). Only the create route consumes the ids; every other caller
+    * (patch-set apply/rollback) goes through [[addStep]], which discards them. */
+  def addStepReporting(pipelineId: PipelineId, req: CreatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, (PipelineStepResponse, Seq[String])]] = {
     // HEL-860: strict write-path check runs before the tolerant decode below,
     // so a mistyped `cast`/`rename` config is rejected instead of silently
     // persisted as a no-op. `None` (unregistered kind, or a kind that hasn't
@@ -1917,7 +1923,9 @@ final class PipelineService(
       // participate in always runs as the owner (D5), so the graph it must not close a cycle in
       // is the owner's graph, not the (possibly-grantee) caller's.
       pipelineOwnerId: UserId
-  ): Future[Either[ServiceError, PipelineStepResponse]] = {
+  ): Future[Either[ServiceError, (PipelineStepResponse, Seq[String])]] = {
+    // HEL-1069: opt-in guard -- see `CreatePipelineStepRequest.rejectIfReparents`.
+    val reject = req.rejectIfReparents.getOrElse(false)
     // HEL-412: absent `enabled` creates an enabled step (the pre-existing
     // implicit behavior, made explicit).
     val enabled = req.enabled.getOrElse(true)
@@ -1939,10 +1947,10 @@ final class PipelineService(
             case None =>
               Future.successful(Left(ServiceError.UnprocessableEntity(s"rootId '$rootIdRaw' is not a root of this pipeline")))
             case Some((rootId, _)) =>
-              pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, None, enabled, explicitRootId = Some(rootId), actingUserId = pipelineOwnerId.value)
-                .flatMap { step =>
+              pipelineStepRepo.spliceInsertReportingInternal(pipelineId, req.`type`, typedConfig, None, enabled, explicitRootId = Some(rootId), actingUserId = pipelineOwnerId.value, rejectIfReparents = reject)
+                .flatMap { case (step, moved) =>
                   audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
-                  stepResponseWithRoot(pipelineId, step).map(resp => Right(resp))
+                  stepResponseWithRoot(pipelineId, step).map(resp => Right((resp, moved)))
                 }
                 .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
           }
@@ -1961,19 +1969,20 @@ final class PipelineService(
             // HEL-908: `attachAsTail = true` uses the branch-attach primitive (new sibling,
             // no reparenting) instead of the default splice (insert-directly-after, reparenting
             // the anchor's existing children) -- see CreatePipelineStepRequest's doc comment.
-            val persistF =
+            val persistF: Future[(PipelineStep, Seq[String])] =
               if (req.attachAsTail.getOrElse(false))
-                pipelineStepRepo.attachTailInternal(pipelineId, req.`type`, typedConfig, PipelineStepId(parentStepIdRaw), enabled, actingUserId = pipelineOwnerId.value)
+                // A tail attach never re-parents, so it is never rejected by `rejectIfReparents`.
+                pipelineStepRepo.attachTailInternal(pipelineId, req.`type`, typedConfig, PipelineStepId(parentStepIdRaw), enabled, actingUserId = pipelineOwnerId.value).map(_ -> Seq.empty[String])
               else
                 // A parentStepId anchor makes `explicitRootId` irrelevant to the repo (root is
                 // derived from the parent) -- see `spliceInsertAtInternal`'s own
                 // `(Some(_), _) => None` branch. `None` here is exactly correct, not a
                 // reintroduced silent default (task 7.3e).
-                pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, Some(PipelineStepId(parentStepIdRaw)), enabled, explicitRootId = None, actingUserId = pipelineOwnerId.value)
+                pipelineStepRepo.spliceInsertReportingInternal(pipelineId, req.`type`, typedConfig, Some(PipelineStepId(parentStepIdRaw)), enabled, explicitRootId = None, actingUserId = pipelineOwnerId.value, rejectIfReparents = reject)
             persistF
-              .flatMap { step =>
+              .flatMap { case (step, moved) =>
                 audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
-                stepResponseWithRoot(pipelineId, step).map(resp => Right(resp))
+                stepResponseWithRoot(pipelineId, step).map(resp => Right((resp, moved)))
               }
               .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
           }
@@ -2013,10 +2022,10 @@ final class PipelineService(
         // no-`position` default here always anchors on trunk-last.
         pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { current =>
           val anchorParentId = pipelineStepRepo.trunkOf(current).lastOption.map(_.id)
-          pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None, actingUserId = pipelineOwnerId.value)
-            .flatMap { step =>
+          pipelineStepRepo.spliceInsertReportingInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None, actingUserId = pipelineOwnerId.value, rejectIfReparents = reject)
+            .flatMap { case (step, moved) =>
               audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
-              stepResponseWithRoot(pipelineId, step).map(resp => Right(resp))
+              stepResponseWithRoot(pipelineId, step).map(resp => Right((resp, moved)))
             }
             .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
         }
@@ -2041,10 +2050,10 @@ final class PipelineService(
             // sibling group that `insertAtInternal` would silently no-op
             // on for migrated (parent-chained) pipelines.
             val anchorParentId = if (index == 0) None else Some(current(index - 1).id)
-            pipelineStepRepo.spliceInsertAtInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None, actingUserId = pipelineOwnerId.value)
-              .flatMap { step =>
+            pipelineStepRepo.spliceInsertReportingInternal(pipelineId, req.`type`, typedConfig, anchorParentId, enabled, explicitRootId = None, actingUserId = pipelineOwnerId.value, rejectIfReparents = reject)
+              .flatMap { case (step, moved) =>
                 audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
-                stepResponseWithRoot(pipelineId, step).map(resp => Right(resp))
+                stepResponseWithRoot(pipelineId, step).map(resp => Right((resp, moved)))
               }
               .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
           }
@@ -2401,6 +2410,9 @@ object PipelineService {
     case invalid: LaneReferenceError =>
       log.warn(s"Pipeline lane reference is invalid: ${invalid.message}")
       ServiceError.UnprocessableEntity(invalid.message)
+    // HEL-1069: an opted-in `rejectIfReparents` insert that would have moved existing steps.
+    case rejected: ReparentRejected =>
+      ServiceError.UnprocessableEntity(rejected.getMessage)
     case invalid: InvalidGraph =>
       log.warn(s"Pipeline step graph is invalid: ${invalid.message}")
       ServiceError.UnprocessableEntity(invalid.message)

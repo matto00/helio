@@ -230,6 +230,19 @@ export async function addOutputsFromShapeHandler(
 ): Promise<{ steps: PipelineStepResponse[]; output: OutputResponse }> {
   const expansions = await api.expandPipelineShape(input.shapeId, input.params);
 
+  // HEL-1069: the first expanded step must never re-parent existing steps. A `stepId` that already
+  // has children branches a sibling lane (attachAsTail); a childless one (or no stepId) appends
+  // with the backend's rejectIfReparents guard, which also covers a race. Later expanded steps
+  // chain off the step just created, which is childless by construction.
+  let firstPlacement: { attachAsTail: true } | { rejectIfReparents: true } = {
+    rejectIfReparents: true,
+  };
+  if (input.stepId !== undefined) {
+    const existing = await api.listPipelineSteps(input.pipelineId);
+    if (existing.some((s) => s.parentStepId === input.stepId))
+      firstPlacement = { attachAsTail: true };
+  }
+
   const steps: PipelineStepResponse[] = [];
   let parentStepId = input.stepId;
   for (const expansion of expansions) {
@@ -237,6 +250,7 @@ export async function addOutputsFromShapeHandler(
       type: expansion.kind,
       config: expansion.config,
       parentStepId,
+      ...(steps.length === 0 ? firstPlacement : {}),
     });
     steps.push(step);
     parentStepId = step.id;

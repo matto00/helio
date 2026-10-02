@@ -426,6 +426,9 @@ export interface PipelineStepResponse {
   /** HEL-913 task 5.9/5.4/7.6a: WHICH pipeline root this step belongs to. Widened alongside
    *  `parentStepId` for the same HEL-914 task 6.6 reason. */
   rootId?: string;
+  /** HEL-1069: present ONLY on the `POST /api/pipelines/:id/steps` create response -- the
+   *  existing step ids whose parent that insert changed (`[]` when none). */
+  reparentedStepIds?: string[];
 }
 
 /** One failing assertion rule's detail (HEL-576/HEL-581) — mirrors the
@@ -622,6 +625,7 @@ export interface RunResultResponse {
   rowCount: number;
   stepRowCounts?: Record<string, number>;
   sourceRowCount?: number;
+  runId?: string;
   sourceTruncated?: boolean;
   sourceAvailableRowCount?: number;
   truncationNotice?: string;
