@@ -1,0 +1,3 @@
+[info] Run completed in 6 minutes, 14 seconds.
+[info] Tests: succeeded 5233, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.

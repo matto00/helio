@@ -1,0 +1,93 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] e2e/hel1007-multi-root-reorder.spec.ts:43:7 › HEL-1007 reorder every root's lane › keyboard reorder in root 1's lane persists across reload; root 0 untouched; names and focus
+[1A[2Ke2e/hel1007-multi-root-reorder.spec.ts:43:7 › HEL-1007 reorder every root's lane › keyboard reorder in root 1's lane persists across reload; root 0 untouched; names and focus
+HEL1007-IDS {"email":"hel1007-1790964517977-78437@example.com","pipeline":"d6691190-9072-4fd0-b46c-ffb2c4c618b5","sources":["70790c57-a715-425b-a9a6-f86cb492d841","da2b3a4f-17dd-4557-b881-3d61b5fa6c1d"],"rootA":"f7d7b449-11b2-4f62-9f97-419bd031c45d","rootB":"45df8403-8d87-4ae0-8b3f-825b961db92a"}
+
+[1A[2KHEL1007-STEPS ["849ef30c-9689-4486-88ef-cca32e4f7718","172ce8a9-59db-4912-9df5-9a0a9c2e5958","483267e5-61ce-4c45-ab9a-aaaf8701d73a","211d1074-3241-4301-85e0-47df4e196f01","689da18e-ece2-4291-88ca-0d5c12015e02","52520271-1861-4656-b2b0-b8437e66b947"]
+
+[1A[2K  1) e2e/hel1007-multi-root-reorder.spec.ts:43:7 › HEL-1007 reorder every root's lane › keyboard reorder in root 1's lane persists across reload; root 0 untouched; names and focus 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('.pipeline-detail-page__root-column[aria-label="Source: HEL-1007 Beta 1790964517977-78437"]').getByRole('button', { name: 'Move step up in HEL-1007 Beta 1790964517977-78437' })
+    Expected: [32m3[39m
+    Received: [31m0[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "soft toHaveCount" with timeout 5000ms[22m
+    [2m  - waiting for locator('.pipeline-detail-page__root-column[aria-label="Source: HEL-1007 Beta 1790964517977-78437"]').getByRole('button', { name: 'Move step up in HEL-1007 Beta 1790964517977-78437' })[22m
+    [2m    9 × locator resolved to 0 elements[22m
+    [2m      - unexpected value "0"[22m
+
+
+      104 |       // Move controls name their lane (the root's source name).
+      105 |       // Soft, so the behavioural assertions below still run (and fail) independently of naming.
+    > 106 |       await expect.soft(laneB.getByRole("button", { name: `Move step up in ${nameB}` })).toHaveCount(3);
+          |                                                                                          ^
+      107 |       await expect.soft(laneA.getByRole("button", { name: `Move step up in ${nameA}` })).toHaveCount(3);
+      108 |
+      109 |       // Keyboard: focus root 1's last card's Move up, activate with Enter.
+        at /home/matt/Development/helio/.claude/worktrees/bug/reorder-every-root-lane/HEL-1007/e2e/hel1007-multi-root-reorder.spec.ts:106:90
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('.pipeline-detail-page__river-inner').getByRole('button', { name: 'Move step up in HEL-1007 Alpha 1790964517977-78437' })
+    Expected: [32m3[39m
+    Received: [31m0[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "soft toHaveCount" with timeout 5000ms[22m
+    [2m  - waiting for locator('.pipeline-detail-page__river-inner').getByRole('button', { name: 'Move step up in HEL-1007 Alpha 1790964517977-78437' })[22m
+    [2m    9 × locator resolved to 0 elements[22m
+    [2m      - unexpected value "0"[22m
+
+
+      105 |       // Soft, so the behavioural assertions below still run (and fail) independently of naming.
+      106 |       await expect.soft(laneB.getByRole("button", { name: `Move step up in ${nameB}` })).toHaveCount(3);
+    > 107 |       await expect.soft(laneA.getByRole("button", { name: `Move step up in ${nameA}` })).toHaveCount(3);
+          |                                                                                          ^
+      108 |
+      109 |       // Keyboard: focus root 1's last card's Move up, activate with Enter.
+      110 |       const sortUp = stepCard(laneB, "Sort rows").getByRole("button", { name: /^Move step up/ });
+        at /home/matt/Development/helio/.claude/worktrees/bug/reorder-every-root-lane/HEL-1007/e2e/hel1007-multi-root-reorder.spec.ts:107:90
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeEnabled[2m()[22m failed
+
+    Locator:  locator('.pipeline-detail-page__root-column[aria-label="Source: HEL-1007 Beta 1790964517977-78437"]').locator('.pipeline-detail-page__step-card').filter({ has: locator('.pipeline-detail-page__step-card-label').filter({ hasText: 'Sort rows' }) }).getByRole('button', { name: /^Move step up/ })
+    Expected: enabled
+    Received: disabled
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeEnabled" with timeout 5000ms[22m
+    [2m  - waiting for locator('.pipeline-detail-page__root-column[aria-label="Source: HEL-1007 Beta 1790964517977-78437"]').locator('.pipeline-detail-page__step-card').filter({ has: locator('.pipeline-detail-page__step-card-label').filter({ hasText: 'Sort rows' }) }).getByRole('button', { name: /^Move step up/ })[22m
+    [2m    9 × locator resolved to <button disabled type="button" title="Move step up" aria-label="Move step up" class="pipeline-detail-page__step-card-move-btn">…</button>[22m
+    [2m      - unexpected value "disabled"[22m
+
+
+      109 |       // Keyboard: focus root 1's last card's Move up, activate with Enter.
+      110 |       const sortUp = stepCard(laneB, "Sort rows").getByRole("button", { name: /^Move step up/ });
+    > 111 |       await expect(sortUp).toBeEnabled();
+          |                            ^
+      112 |       const put = page.waitForRequest(
+      113 |         (r) => r.url().includes("/steps/order") && r.method() === "PUT",
+      114 |       );
+        at /home/matt/Development/helio/.claude/worktrees/bug/reorder-every-root-lane/HEL-1007/e2e/hel1007-multi-root-reorder.spec.ts:111:28
+
+    Error Context: test-results/hel1007-multi-root-reorder-0bb84-0-untouched-names-and-focus/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1007-multi-root-reorder-0bb84-0-untouched-names-and-focus/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1007-multi-root-reorder-0bb84-0-untouched-names-and-focus/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K  1 failed
+    e2e/hel1007-multi-root-reorder.spec.ts:43:7 › HEL-1007 reorder every root's lane › keyboard reorder in root 1's lane persists across reload; root 0 untouched; names and focus 

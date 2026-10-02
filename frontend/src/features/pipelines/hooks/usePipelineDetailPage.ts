@@ -1174,14 +1174,15 @@ export function usePipelineDetailPage() {
       // steps beforehand, and refuse (toast, no optimistic mutation applied) rather than send
       // a partial payload that would silently omit that root's ids.
       //
-      // DELIBERATELY UNTESTED, because it is currently UNREACHABLE. No live path can produce
-      // "this root had steps, and its trunk lane came back empty": non-first roots have no
-      // reorder affordance at all today (`PipelineRiverView` wires move handlers only for
-      // root 0; `LaneColumn` uses `NOOP_MOVE`), which is pre-existing HEL-968 behaviour
-      // tracked as HEL-1007. A test for this branch would have to fabricate a
-      // state no live path can reach, which is how vacuous coverage gets written -- an honest
-      // "not covered, and here is why" is worth more than a green test asserting a fiction.
-      // HEL-1007, which restores reorder to every root, is also what makes this testable.
+      // DEFENSE-IN-DEPTH, with no live path to it (HEL-1007 measured this once reorder was wired for
+      // EVERY root's trunk lane). Every UI caller -- Move up/down and drag, in any root's lane -- goes
+      // through `reorderLane`, which carries `rootId` with a lane's head, so a UI move can never empty
+      // a trunk (`stepTree.test.ts` asserts this over every (from, to) pair of a two-root graph). The
+      // only imaginable skew is `stepsRef` (assigned in render) vs the lane owner's graph ref (assigned
+      // in a passive effect), and React flushes passive effects before the next discrete event, so no
+      // click can observe them out of step. Directly unit-tested as a defensive branch with a
+      // hand-built `newOrder` (`PipelineDetailPage.reorderGuard.test.tsx`) -- that pins the refusal
+      // behaviour, it does NOT show the state is reachable: there is still no live path to it.
       const previousGraph = buildLaneGraph(previousOrder, roots);
       const persistedIds: string[] = [];
       for (const r of roots) {

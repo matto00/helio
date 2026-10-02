@@ -260,6 +260,48 @@ describe("reorderLane", () => {
     expect(t1LaneAfter.steps.map((s) => s.id)).toEqual(["t1"]);
   });
 
+  // HEL-1007 — the invariant that keeps `handleReorderSteps`' "root lost its trunk lane" guard
+  // (HEL-973 evaluation-1 CR2) unreachable through the UI: every Move/drag goes through
+  // `reorderLane`, and no single move in any root's trunk may empty or orphan a root. Exhaustive over
+  // a two-root graph (one root 3 steps with a branch lane, the other 2), every (from, to) pair.
+  it("no move in any root's trunk lane ever empties or orphans a root (every from/to, two roots)", () => {
+    const TWO_ROOTS: LaneGraphRoot[] = [{ id: "root-1" }, { id: "root-2" }];
+    // Persisted trunk steps all carry position 0 (the trunk continuation); a branch is position >= 1.
+    const a = step("a", undefined, 0, "root-1");
+    const b = step("b", "a", 0);
+    const c = step("c", "b", 0);
+    const t1 = step("t1", "a", 1); // branch lane off a
+    const x = step("x", undefined, 0, "root-2");
+    const y = step("y", "x", 0);
+    const steps = [a, b, c, t1, x, y];
+    const graph = buildLaneGraph(steps, TWO_ROOTS);
+    const trunk = (g: LaneGraph, rootId: string) =>
+      g.lanes.find((l) => l.parentStepId === undefined && l.rootId === rootId)!;
+
+    let moves = 0;
+    for (const rootId of ["root-1", "root-2"]) {
+      const lane = trunk(graph, rootId);
+      for (let from = 0; from < lane.steps.length; from++) {
+        for (let to = 0; to < lane.steps.length; to++) {
+          if (from === to) continue;
+          moves++;
+          const rebuilt = buildLaneGraph(reorderLane(graph, lane.id, from, to), TWO_ROOTS);
+          // Same step count in each root's trunk, and the other root's trunk is untouched.
+          expect(trunk(rebuilt, "root-1").steps).toHaveLength(trunk(graph, "root-1").steps.length);
+          expect(trunk(rebuilt, "root-2").steps).toHaveLength(trunk(graph, "root-2").steps.length);
+          const other = rootId === "root-1" ? "root-2" : "root-1";
+          expect(trunk(rebuilt, other).steps.map((s) => s.id)).toEqual(
+            trunk(graph, other).steps.map((s) => s.id),
+          );
+          // Exactly one head carries each root's id, and it is the lane's new first step.
+          const heads = reorderLane(graph, lane.id, from, to).filter((s) => s.rootId);
+          expect(heads.map((s) => s.rootId).sort()).toEqual(["root-1", "root-2"]);
+        }
+      }
+    }
+    expect(moves).toBe(3 * 2 + 2 * 1); // 6 + 2 ordered (from, to) pairs
+  });
+
   it("MUTATION PROOF: a naive flat moveStep on the same shape would misclassify the lane", () => {
     const a = step("a");
     const b = step("b", "a");

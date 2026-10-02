@@ -1,0 +1,6 @@
+Running 1 test using 1 worker
+[1/1] e2e/hel1007-multi-root-reorder.spec.ts:44:7 › HEL-1007 reorder every root's lane › keyboard reorder in root 1's lane persists across reload; root 0 untouched; names and focus
+e2e/hel1007-multi-root-reorder.spec.ts:44:7 › HEL-1007 reorder every root's lane › keyboard reorder in root 1's lane persists across reload; root 0 untouched; names and focus
+HEL1007-IDS {"email":"hel1007-1790964726906-79888@example.com","pipeline":"dda71c9a-92f9-4ccb-8fd3-ed88ba01f247","sources":["a16a2d61-0e3c-43ba-abaa-afe7cb3bf8eb","9f54c82d-7272-4764-b0c8-b97ebba834f5"],"rootA":"b0fd8e9e-7bce-41a4-94ba-76037c7d4bb4","rootB":"6d056ad2-d298-471c-be67-69579e9c3a05"}
+HEL1007-STEPS ["24c6d75b-9dca-4c17-aedc-a31fd5a5ff89","dd319ffb-8a65-4b62-901f-7f92cb5507dc","a9838456-7de6-4db2-9379-6fa9989c6f35","161fb2e9-6cc9-48f1-b5f1-6acc3a8f1b5b","1c9c3fea-f35f-476d-80b6-e708761b60f2","1adc4636-7b8a-4f6f-a27f-c3341f0735e6"]
+  1 passed (4.5s)

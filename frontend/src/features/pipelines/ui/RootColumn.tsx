@@ -7,6 +7,7 @@
 // `lane.steps.length === 0` early-return-null, so the column never vanishes.
 
 import { LaneColumn } from "./LaneColumn";
+import type { LaneReorder } from "../hooks/useLaneReorder";
 import type { OpType, Step } from "../types/step";
 import type { PipelineRoot, PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Output } from "../types/output";
@@ -55,6 +56,8 @@ interface RootColumnProps {
   estimatedRows?: number;
   /** HEL-1109 (pipeline-ai-step-authoring spec) — passed straight through to `LaneColumn`. */
   draftCreateErrors?: Record<string, string>;
+  /** HEL-1007 — reorder wiring for this root's trunk lane, passed straight through to `LaneColumn`. */
+  reorder?: LaneReorder;
 }
 
 export function RootColumn({
@@ -85,6 +88,7 @@ export function RootColumn({
   nodePathByStepId,
   estimatedRows,
   draftCreateErrors,
+  reorder,
 }: RootColumnProps) {
   const hasSteps = (lane?.steps.length ?? 0) > 0;
 
@@ -133,6 +137,7 @@ export function RootColumn({
           nodePathByStepId={nodePathByStepId}
           estimatedRows={estimatedRows}
           draftCreateErrors={draftCreateErrors}
+          reorder={reorder}
         />
       ) : (
         // task 6.2 — an empty root renders an affordance rather than

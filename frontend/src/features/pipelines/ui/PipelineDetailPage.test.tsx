@@ -1029,7 +1029,7 @@ describe("PipelineDetailPage", () => {
         .closest(".pipeline-detail-page__step-section");
       expect(filterSection).not.toBeNull();
       fireEvent.click(
-        within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+        within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
       );
 
       // Optimistic — order updates immediately, before the PUT resolves. The
@@ -1064,7 +1064,7 @@ describe("PipelineDetailPage", () => {
 
       await act(async () => {
         fireEvent.click(
-          within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+          within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
         );
       });
 
@@ -1157,7 +1157,7 @@ describe("PipelineDetailPage", () => {
         .closest(".pipeline-detail-page__step-section");
       expect(limitSection).not.toBeNull();
       fireEvent.click(
-        within(limitSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+        within(limitSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
       );
 
       expect(reorderPipelineStepsMock).toHaveBeenCalledTimes(1);
@@ -1237,7 +1237,7 @@ describe("PipelineDetailPage", () => {
         .closest(".pipeline-detail-page__step-section");
       expect(filterSection).not.toBeNull();
       fireEvent.click(
-        within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+        within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
       );
 
       expect(reorderPipelineStepsMock).toHaveBeenCalledTimes(1);
@@ -1290,7 +1290,7 @@ describe("PipelineDetailPage", () => {
       .closest(".pipeline-detail-page__step-section");
     expect(filterSection).not.toBeNull();
     fireEvent.click(
-      within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+      within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
     );
 
     await waitFor(() =>
@@ -1364,7 +1364,7 @@ describe("PipelineDetailPage", () => {
       .closest(".pipeline-detail-page__step-section");
     expect(filterSection).not.toBeNull();
     fireEvent.click(
-      within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+      within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
     );
 
     // Well past the 300ms debounce window, with the run STILL in flight --
@@ -1439,7 +1439,7 @@ describe("PipelineDetailPage", () => {
 
     // First edit: its debounce fires and dispatches -- now in flight/"loading".
     fireEvent.click(
-      within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+      within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
     );
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 350));
@@ -1449,7 +1449,7 @@ describe("PipelineDetailPage", () => {
     // Second edit while the first's analyze is still loading: its own
     // debounce must be DEFERRED, not dispatched -- no second concurrent call.
     fireEvent.click(
-      within(filterSection as HTMLElement).getByRole("button", { name: "Move step down" }),
+      within(filterSection as HTMLElement).getByRole("button", { name: /^Move step down/ }),
     );
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 350));
@@ -1528,7 +1528,7 @@ describe("PipelineDetailPage", () => {
 
     // ONE edit, then go completely idle -- no further edits at all.
     fireEvent.click(
-      within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+      within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
     );
 
     // Past the 300ms debounce, past the 600ms analyze, and then 5s of pure
@@ -1606,7 +1606,7 @@ describe("PipelineDetailPage", () => {
         .closest(".pipeline-detail-page__step-section");
       expect(filterSection).not.toBeNull();
       fireEvent.click(
-        within(filterSection as HTMLElement).getByRole("button", { name: "Move step up" }),
+        within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
       );
 
       // Past the 300ms debounce -- the edit is deferred (run "in flight"

@@ -1,0 +1,45 @@
+IDS {"email":"hel1007-repro-1790964567999@example.com","sources":["0ff86f27-1366-4d8d-bce7-cf6537f1bfd9","5f23de59-ab1e-42f8-84b5-eab93475884c"],"pipeline":"6631a954-f672-41f0-b4a1-76bb4d63f75a","roots":["cf1511ef-8d23-4848-83f5-37cb176144c1","1851f180-0551-4ba3-9ac5-349602595a7c"],"steps":["2d73b421-1616-452c-b677-b3c4d531498d","d98f3329-d6f8-4c93-bc3c-02330aab8c42","c49d8b78-22c0-46e4-a4d1-0a280bce715e","d993f00b-db47-483f-84d4-26aded29c3b7","8b48d6c1-7e58-4bde-a565-2e89ecbf1081","872d2cbd-cfd1-46cb-b7ea-31f111446352"]}
+light dataset.theme = light
+light root0 labels [ 'Limit rows', 'Sort rows', 'Select fields' ] root1 labels [ 'Select fields', 'Limit rows', 'Sort rows' ]
+light root0 move buttons [
+  'Move step up [disabled]',
+  'Move step down',
+  'Move step up',
+  'Move step down',
+  'Move step up',
+  'Move step down [disabled]'
+]
+light root1 move buttons [
+  'Move step up [disabled]',
+  'Move step down [disabled]',
+  'Move step up [disabled]',
+  'Move step down [disabled]',
+  'Move step up [disabled]',
+  'Move step down [disabled]'
+]
+light root1 drag handle draggable attrs [ true, true, true ]
+root0 after click Move up on Select: [ 'Limit rows', 'Select fields', 'Sort rows' ]
+root1 click Move up on Sort -> TimeoutError: locator.click: Timeout 1500ms exceeded.
+root1 labels after drag attempt: [ 'Select fields', 'Limit rows', 'Sort rows' ]
+dark dataset.theme = dark
+dark root0 labels [ 'Limit rows', 'Select fields', 'Sort rows' ] root1 labels [ 'Select fields', 'Limit rows', 'Sort rows' ]
+dark root0 move buttons [
+  'Move step up [disabled]',
+  'Move step down',
+  'Move step up',
+  'Move step down',
+  'Move step up',
+  'Move step down [disabled]'
+]
+dark root1 move buttons [
+  'Move step up [disabled]',
+  'Move step down [disabled]',
+  'Move step up [disabled]',
+  'Move step down [disabled]',
+  'Move step up [disabled]',
+  'Move step down [disabled]'
+]
+dark root1 drag handle draggable attrs [ true, true, true ]
+DELETE /api/pipelines/6631a954-f672-41f0-b4a1-76bb4d63f75a 204
+DELETE /api/data-sources/0ff86f27-1366-4d8d-bce7-cf6537f1bfd9 204
+DELETE /api/data-sources/5f23de59-ab1e-42f8-84b5-eab93475884c 204

@@ -1,0 +1,55 @@
+IDS {"email":"hel1007-repro-1790965092537@example.com","sources":["47c4b645-bf48-43c3-9c94-e3ac3f47e74d","4ec20869-f0e2-4b73-bd34-4f92669c4803"],"pipeline":"d567a028-7807-484e-aaeb-fe9119b2a016","roots":["4f35379f-9777-4b93-87f0-e2910e331118","ad581ada-e86d-4865-9881-6292fc2cf914"],"steps":["2064deda-4e3d-4831-a0ac-93c259925777","59575a04-7c79-4e37-ad4d-ba16ae700428","d6e5a690-4aeb-4575-83c0-a086af25b33b","1cbb237c-9a1d-4291-944b-4f489bf8cdff","377a2be3-ed05-499b-b51e-80db010c3577","862704d1-c6ea-47ee-be6b-3da7cb530d24"]}
+light dataset.theme = light
+light root0 labels [ 'Limit rows', 'Sort rows', 'Select fields' ] root1 labels [ 'Select fields', 'Limit rows', 'Sort rows' ]
+light root0 move buttons [
+  'Move step up in Repro Alpha 1790965092537 [disabled]',
+  'Move step down in Repro Alpha 1790965092537',
+  'Move step up in Repro Alpha 1790965092537',
+  'Move step down in Repro Alpha 1790965092537',
+  'Move step up in Repro Alpha 1790965092537',
+  'Move step down in Repro Alpha 1790965092537 [disabled]'
+]
+light root1 move buttons [
+  'Move step up in Repro Beta 1790965092537 [disabled]',
+  'Move step down in Repro Beta 1790965092537',
+  'Move step up in Repro Beta 1790965092537',
+  'Move step down in Repro Beta 1790965092537',
+  'Move step up in Repro Beta 1790965092537',
+  'Move step down in Repro Beta 1790965092537 [disabled]'
+]
+light root1 drag handle draggable attrs [ true, true, true ]
+root1 labels after Move up on Sort: [ 'Select fields', 'Sort rows', 'Limit rows' ] root0: [ 'Limit rows', 'Sort rows', 'Select fields' ]
+focused: Move step up in Repro Beta 1790965092537 | data-step-id=862704d1-c6ea-47ee-be6b-3da7cb530d24
+root1 labels after DRAG last->first: [ 'Limit rows', 'Select fields', 'Sort rows' ] root0: [ 'Limit rows', 'Sort rows', 'Select fields' ]
+root1 labels after reload (persisted): [ 'Limit rows', 'Select fields', 'Sort rows' ] root0: [ 'Limit rows', 'Sort rows', 'Select fields' ]
+root1 buttons now: [
+  'Move step up in Repro Beta 1790965092537 [disabled]',
+  'Move step down in Repro Beta 1790965092537',
+  'Move step up in Repro Beta 1790965092537',
+  'Move step down in Repro Beta 1790965092537',
+  'Move step up in Repro Beta 1790965092537',
+  'Move step down in Repro Beta 1790965092537 [disabled]'
+]
+dark dataset.theme = dark
+dark root0 labels [ 'Limit rows', 'Sort rows', 'Select fields' ] root1 labels [ 'Limit rows', 'Select fields', 'Sort rows' ]
+dark root0 move buttons [
+  'Move step up in Repro Alpha 1790965092537 [disabled]',
+  'Move step down in Repro Alpha 1790965092537',
+  'Move step up in Repro Alpha 1790965092537',
+  'Move step down in Repro Alpha 1790965092537',
+  'Move step up in Repro Alpha 1790965092537',
+  'Move step down in Repro Alpha 1790965092537 [disabled]'
+]
+dark root1 move buttons [
+  'Move step up in Repro Beta 1790965092537 [disabled]',
+  'Move step down in Repro Beta 1790965092537',
+  'Move step up in Repro Beta 1790965092537',
+  'Move step down in Repro Beta 1790965092537',
+  'Move step up in Repro Beta 1790965092537',
+  'Move step down in Repro Beta 1790965092537 [disabled]'
+]
+dark root1 drag handle draggable attrs [ true, true, true ]
+dark: reloaded persisted state shown in screenshot
+DELETE /api/pipelines/d567a028-7807-484e-aaeb-fe9119b2a016 204
+DELETE /api/data-sources/47c4b645-bf48-43c3-9c94-e3ac3f47e74d 204
+DELETE /api/data-sources/4ec20869-f0e2-4b73-bd34-4f92669c4803 204
