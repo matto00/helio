@@ -67,3 +67,13 @@ The lockout class: the client's local authored layout can diverge from what the 
 
 ## Migration
 None.
+
+## Gate-Chain Implications Checklist
+
+The only gate-chain file touched is `scripts/check-no-credential-in-agent-surface.mjs` (invoked by `.husky/pre-commit` via `npm run check:no-credential-in-agent-surface`); the change is one comment line and one new entry in its `ACKNOWLEDGED_UNSCANNED` map classifying the new data-only top-level directory `shared-test-fixtures`. No `.husky/**` file changed.
+
+- **What does it execute?** Nothing new. The script statically reads the repo tree and checks every top-level directory is scanned, acknowledged-unscanned or explicitly excluded; the edit only adds `shared-test-fixtures` to the acknowledged-unscanned map (a plain data object).
+- **What environment does it inherit, and from where?** The same Husky pre-commit environment as before (git hook env, repo working directory, node from PATH). The edit adds no env reads.
+- **Does it write anything outside its own sandbox?** No. It only reads files and prints a verdict; the edit adds no writes. Isolation transcript: `.concertino/gate-chain-isolation-evidence/scripts__check-no-credential-in-agent-surface.mjs.md` (PASS).
+- **Does it behave differently from a linked worktree than from a main checkout?** No: it resolves paths from the repo root and the isolation helper ran it under a linked-worktree-shaped hook environment with the real repo's bareness/HEAD/worktree list unchanged before and after.
+- **What happens on its first run?** Without the entry, the gate fails loudly on the new unclassified directory `shared-test-fixtures` (this is how it was discovered during the executor's commit); with the entry it passes, and the husky pre-commit passed on every commit of this branch.
