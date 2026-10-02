@@ -31,6 +31,7 @@ jest.mock("react-grid-layout", () => {
 });
 
 jest.mock("react-grid-layout/core", () => ({
+  ...jest.requireActual("react-grid-layout/core"),
   noCompactor: {},
   createScaledStrategy: jest.fn((scale: number) => ({ __scale: scale })),
 }));
@@ -698,19 +699,13 @@ describe("PanelGrid", () => {
       return MockResponsive.mock.calls[MockResponsive.mock.calls.length - 1][0];
     }
 
-    // A layout that moves panel-1 away from its resolved default position (x:0)
-    // at the lg breakpoint, so markLayoutChanged stages a real change.
-    const movedLayouts = {
-      lg: [{ i: "panel-1", x: 4, y: 0, w: 4, h: 5 }],
-      md: [{ i: "panel-1", x: 0, y: 0, w: 4, h: 5 }],
-      sm: [{ i: "panel-1", x: 0, y: 0, w: 3, h: 5 }],
-      xs: [{ i: "panel-1", x: 0, y: 0, w: 2, h: 5 }],
-    };
+    // RGL's active-breakpoint layout (DESKTOP_WIDTH = 1280 is `md`) moving panel-1 away from its
+    // resolved default position (x:0), so markLayoutChanged stages a real change. HEL-1023: an edit
+    // rewrites the ACTIVE breakpoint only; the other breakpoints stay as saved.
+    const movedMd = [{ i: "panel-1", x: 4, y: 0, w: 4, h: 5 }];
     const stagedLayout = {
-      lg: [{ panelId: "panel-1", x: 4, y: 0, w: 4, h: 5 }],
-      md: [{ panelId: "panel-1", x: 0, y: 0, w: 4, h: 5 }],
-      sm: [{ panelId: "panel-1", x: 0, y: 0, w: 3, h: 5 }],
-      xs: [{ panelId: "panel-1", x: 0, y: 0, w: 2, h: 5 }],
+      ...emptyLayout,
+      md: [{ panelId: "panel-1", x: 4, y: 0, w: 4, h: 5 }],
     };
 
     // 3.1 — shrink-mid-edit: a staged layout change flushes exactly one PATCH
@@ -730,10 +725,10 @@ describe("PanelGrid", () => {
       act(() => {
         (
           latestResponsiveProps().onLayoutChange as unknown as (
-            current: unknown,
-            all: typeof movedLayouts,
+            current: typeof movedMd,
+            all: unknown,
           ) => void
-        )(undefined, movedLayouts);
+        )(movedMd, undefined);
       });
 
       // Still staged — nothing has flushed yet.
@@ -800,10 +795,10 @@ describe("PanelGrid", () => {
       act(() => {
         (
           latestResponsiveProps().onLayoutChange as unknown as (
-            current: unknown,
-            all: typeof movedLayouts,
+            current: typeof movedMd,
+            all: unknown,
           ) => void
-        )(undefined, movedLayouts);
+        )(movedMd, undefined);
       });
 
       // Down (unmount → flush), up (remount, re-seeds from resolvedLayout), down

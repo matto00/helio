@@ -8,7 +8,7 @@ import {
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import { PanelCardSkeleton } from "../PanelCardSkeleton";
 import { buildSkeletonStubPanels } from "./panelGridSkeletonStubs";
-import { createLayouts, panelGridConfig } from "./panelGridConfig";
+import { createLayouts, panelGridConfig, rglBreakpoints } from "./panelGridConfig";
 
 interface DesktopPanelGridSkeletonProps {
   layout: DashboardLayout;
@@ -35,7 +35,7 @@ export function DesktopPanelGridSkeleton({ layout, width }: DesktopPanelGridSkel
   // literal), so this narrows back a known-safe shape rather than an
   // arbitrary assertion.
   const activeBreakpoint = getBreakpointFromWidth(
-    panelGridConfig.breakpoints,
+    rglBreakpoints,
     width,
   ) as DashboardLayoutBreakpoint;
   const stubs = buildSkeletonStubPanels(layout, activeBreakpoint);
@@ -47,7 +47,7 @@ export function DesktopPanelGridSkeleton({ layout, width }: DesktopPanelGridSkel
       className="panel-grid"
       width={width}
       layouts={layouts}
-      breakpoints={panelGridConfig.breakpoints}
+      breakpoints={rglBreakpoints}
       cols={panelGridConfig.cols}
       rowHeight={panelGridConfig.rowHeight}
       margin={panelGridConfig.margin}

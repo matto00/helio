@@ -13,17 +13,19 @@
 // owns, in three tiers:
 //
 // 1. The active breakpoint's own saved layout has entries — reuse THOSE
-//    panelIds as stubs. `resolveBreakpointLayout`'s exact-match shortcut then
-//    returns those saved positions verbatim: one placeholder per layout
-//    entry, at that entry's own position and size (D10 scenario 1).
+//    panelIds as stubs. A valid, fully-covered saved layout is treated as
+//    authored by `resolveDashboardLayout`, which returns those saved
+//    positions verbatim: one placeholder per layout entry, at that entry's
+//    own position and size (D10 scenario 1). An invalid saved layout is
+//    repaired/derived at render (HEL-1023), exactly as the real grid will.
 // 2. The active breakpoint is empty, but another breakpoint's saved layout
 //    is not — reuse (up to FALLBACK_STUB_COUNT of) THAT breakpoint's real
-//    panelIds. `resolveDashboardLayout`'s projection machinery
-//    (`effectiveSaved`/`projectLayout`) keys its projected positions by the
+//    panelIds. `resolveDashboardLayout`'s derivation (nearest authored
+//    breakpoint, scaled and compacted) keys its derived positions by the
 //    SOURCE breakpoint's real panelIds, so only a stub whose id matches one
-//    of those projected entries receives the projected position — an
+//    of those source entries receives the derived position — an
 //    unrelated made-up id would silently fall through to the resolver's
-//    generic default-packed fallback instead, which is not what "projected"
+//    generic default-packed fallback instead, which is not what "derived"
 //    means (D10 scenario 3, dominant at `xs` since users drag at desktop
 //    widths and leave the phone breakpoint's saved layout empty).
 // 3. Every breakpoint's saved layout is empty — there is no real id data to

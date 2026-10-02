@@ -1,0 +1,12 @@
+HEL-1023 mutation checks (jest unless noted); each mutant applied to the working tree, suite run, then restored byte-identical (cmp).
+M1 no-compaction (compactLayout returns clamped items only)      -> 5 breakpointLayout tests + 4 resolver tests FAIL (e.g. "removes overlaps", "lg only ... derive valid", "idempotent")
+M2 always-compact (valid authored anchors run through compactLayout) -> FAIL: resolver "is value-identical at EVERY breakpoint", "returns entries in panel order", createPanel-anchored test, dashboardLayout.test "merges saved layout items"; e2e V_valid_with_gaps FAIL ("V light @1900 (lg) P3 Chart y: Expected < 2, Received 280")
+M3 no-bounds-check (isItemInBounds ignores x+w<=cols)             -> FAIL: "requires bounds as well as no overlap", "a bounds-violating breakpoint is never a source"
+M4 a view treated as an edit (next = {...layout,[bp]:items} always) -> FAIL: "viewing: RGL's mount/breakpoint onLayoutChange arms no pending...", "dragging away and back ... sends no PATCH"
+M4b an edit persists every resolved breakpoint                    -> FAIL: "an edit at md persists md only", PanelGrid HEL-306 flush test
+M5 raw/strict RGL breakpoints (no 0.001 shift)                    -> FAIL: 4 panelGridConfig boundary tests (1440, 1100, 768, phone boundary)
+
+Cycle 2 (evaluation-1 CR1): e2e on a backend/frontend started by start-servers.sh with NO RATE_LIMIT_* env (default 120 req/60s per user; spec now loads each state once per theme and uses setViewportSize per width, retries cleanup on 429):
+  green, run 1: 5 passed (48.3s); run 2: 5 passed (40.8s); with hel1028 spec in the same worker: 18 passed (1.8m)
+  red on main logic (git checkout 543bd04a -- frontend/src, same low-volume spec, default limits): 5 failed (A/B reading order @1200, C overlap @1500, D dead band @1500, V width @1056); tree restored to HEAD.
+Cycle 2: deriveLayout removed (no production caller); firstFreeY no longer exported; useLayoutSave comment fixed.

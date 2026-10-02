@@ -22,6 +22,7 @@ jest.mock("react-grid-layout", () => {
   };
 });
 jest.mock("react-grid-layout/core", () => ({
+  ...jest.requireActual("react-grid-layout/core"),
   noCompactor: {},
   createScaledStrategy: jest.fn((scale: number) => ({ __scale: scale })),
 }));
@@ -47,6 +48,9 @@ jest.mock("../../../dashboards/services/dashboardService", () => ({
   updateDashboardLayout: jest.fn(),
 }));
 
+// A container >= 1440 is the `lg` breakpoint, the one these interactions edit (HEL-1023: an edit
+// rewrites the active breakpoint only).
+const LG_WIDTH = 1600;
 const MockResponsive = jest.mocked(Responsive);
 const updateDashboardLayoutMock = jest.mocked(updateDashboardLayoutRequest);
 
@@ -69,7 +73,7 @@ const rglAt = (x: number) => ({
 
 function Connected() {
   const layout = useAppSelector((s) => s.dashboards.items[0].layout);
-  return <PanelGrid dashboardId="d1" layout={layout} panels={panels} width={1280} />;
+  return <PanelGrid dashboardId="d1" layout={layout} panels={panels} width={LG_WIDTH} />;
 }
 
 type Handlers = {
@@ -77,7 +81,7 @@ type Handlers = {
   onDragStop: () => void;
   onResizeStart: () => void;
   onResizeStop: () => void;
-  onLayoutChange: (current: unknown, all: ReturnType<typeof rglAt>) => void;
+  onLayoutChange: (current: ReturnType<typeof rglAt>["lg"] | undefined, all: unknown) => void;
   layouts: ReturnType<typeof rglAt>;
 };
 const props = () =>
@@ -98,7 +102,7 @@ function setup() {
     act(() => {
       if (via === "drag") props().onDragStop();
       else props().onResizeStop();
-      props().onLayoutChange(undefined, rglAt(x));
+      props().onLayoutChange(rglAt(x).lg, undefined);
     });
   };
   const undo = () => {
@@ -204,7 +208,7 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
       jest.advanceTimersByTime(1); // zero-delay timer disarms the flag
     });
     // a later, unrelated layout change must not be committed by a leaked flag
-    act(() => props().onLayoutChange(undefined, rglAt(4)));
+    act(() => props().onLayoutChange(rglAt(4).lg, undefined));
     // The live layout is still staged for auto-save exactly as before; only the store write
     // must not leak.
     expect(storeLg()).toBe(0);
@@ -216,7 +220,7 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
     act(() => props().onDragStart());
     act(() => {
       props().onDragStop();
-      props().onLayoutChange(undefined, rglAt(0));
+      props().onLayoutChange(rglAt(0).lg, undefined);
     });
     expect(storeLg()).toBe(0);
   });
@@ -224,7 +228,7 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
   it("the flag does not leak: a layout change after the commit does not write the store", () => {
     const { storeLg, drag } = setup();
     drag(4);
-    act(() => props().onLayoutChange(undefined, rglAt(6)));
+    act(() => props().onLayoutChange(rglAt(6).lg, undefined));
     expect(storeLg()).toBe(4);
   });
 

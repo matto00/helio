@@ -1,0 +1,21 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+### What I verified (with evidence)
+- Read ticket.md (owner ruling), proposal, design, tasks, both spec deltas.
+- Read current dashboardLayout.ts (cleanupOverlaps/projectLayout/pickProjectionSource, trust-if-count-enough happy path), useLayoutSave.ts, DesktopPanelGrid.tsx, panelGridConfig.ts, panelThunks.createPanel, skeleton stubs.
+- RGL 2.2.4 source (node_modules/react-grid-layout/dist): getBreakpointFromWidth uses strict `width > bpWidth` (design Decision 4's 0.001 shift is sound; xs shift to -0.001 harmless as sorted[0] is unconditional). useResponsiveLayout only calls onLayoutChange(layout, layouts) when the internal layouts state deep-differs, re-syncs only when propsLayouts deep-differs; findOrGenerateResponsiveLayout returns existing layouts[bp] cloned, so feeding all four resolved bps means RGL never generates. Design's premise that RGL echoes what we feed (hence "edit only if differs from resolved") is plausible.
+- Ruling honoured on its face: valid authored byte-identical (2a), derive/repair at render (2b-d), baseline store-shaped so view never dispatches pending/snapshot/PATCH (D3), md-only persistence, HEL-1028 flag machinery kept.
+- Did not run the dev servers; the scratch repro was not needed to judge the design.
+
+### Verdict: REFUTE
+
+### Change Requests
+1. Decision 3 has a stale-state defect. "Treat the call as an edit ONLY when currentLayout differs from resolved[activeBp]" means that if a user drags a panel and returns it to its original cell (or an undo-by-drag lands on the resolved layout), the handler skips markLayoutChanged, so latestLayoutRef keeps the earlier intermediate candidate and persistLayout PATCHes a layout the user visibly reverted. Old code always called markLayoutChanged(next). Required: specify that every non-mount call computes candidate = differs ? {...layout,[bp]:items} : layout (the store layout) and always calls markLayoutChanged(candidate) (a no-op for pure views because it equals persistedLayoutRef). Add a test: drag away then back -> latestLayoutRef/persist yields no PATCH and pending false.
+2. The design never accounts for the other resolveDashboardLayout consumers: DesktopPanelGridSkeleton.tsx, MobilePanelStackSkeleton.tsx and panelGridSkeletonStubs.ts (whose comments and tier logic are written against the removed effectiveSaved/projectLayout machinery and the exact-match shortcut). Resolver semantics change (2b treats any out-of-bounds saved item as unauthored; stubs reuse real ids from other breakpoints). Add a task to re-verify/adjust these and their tests (panelGridSkeletonStubs.test.ts, PanelGridSkeleton tests) and update the stale comments.
+3. Decision 2 leaves cases ambiguous: (a) saved layout both overlapping (in bounds) AND partial: 2c says compact saved entries in place, 2d says anchors are untouched; state precedence (suggest: 2c compact first, then 2d for missing panels). (b) "Nearest valid source" excludes an overlapping-but-in-bounds layout, so a dashboard whose only authored breakpoint (e.g. lg) overlaps derives md/sm/xs from DEFAULT placement, losing reading order and contradicting the AC "authored at one breakpoint renders sensibly". Decide explicitly: use the repaired (compacted) form of such a layout as a source candidate, or justify the default fallback and cover it with a test and spec scenario.
+4. tasks.md has no acceptance signal for the owner-required "test failing under always-on compaction" at the resolver/grid level beyond 2.2's module mutants; add an explicit resolver-level test (valid layout with gaps returned value-equal for every bp) and name it in 2.2 as the always-compact mutant check. Also add a task covering panelThunks.createPanel interaction (it appends one scaled item to an empty md/sm/xs array, producing a valid-but-partial authored array under 2d); add a test that such a layout still derives the other panels sensibly.
+
+### Non-blocking notes
+- Heuristic 2b (any x+w>cols discards even in-bounds sibling entries) is acknowledged in Risks; fine.
+- Undo traversal over store-shaped snapshots is deterministic (resolve is a pure function of the store layout), which is an improvement for HEL-1028.
+- Confirm in implementation that the active-bp computation uses the shifted breakpoints with the same width RGL gets.

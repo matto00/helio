@@ -1,0 +1,111 @@
+# Task 1 red evidence: e2e/hel1023-breakpoint-layout-derivation.spec.ts run against UNMODIFIED main logic (5 failed, 0 passed on the invalid/valid states shown)
+
+Running 5 tests using 1 worker
+[1/5] e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › A_lg_only: no overlap, inside the container, no PATCH on view, at every width
+e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › A_lg_only: no overlap, inside the container, no PATCH on view, at every width
+[HEL-1023 e2e] throwaway users registered: ["hel1023-1790897167508-25754@example.test"]
+  1) e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › A_lg_only: no overlap, inside the container, no PATCH on view, at every width 
+    Error: A_lg_only light @1200 (sm) reading order
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 1
+      Array [
+        "P1 Image",
+        "P2 Markdown",
+        "P3 Chart",
+        "P4 Markdown",
+    -   "P5 Image",
+        "P6 Markdown",
+        "P7 Text",
+        "P8 Divider",
+    +   "P5 Image",
+      ]
+      375 |                 .sort((a, b) => Math.round(a.y) - Math.round(b.y) || a.x - b.x)
+      376 |                 .map((r) => r.title);
+    > 377 |               expect(order, `${label} reading order`).toEqual(readingOrder);
+          |                                                       ^
+      378 |             }
+      379 |           }
+      380 |           // Viewing (and resizing across breakpoints) never persists and never raises the dirty UI.
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-grid-breakpoint-layout-derive/HEL-1023/e2e/hel1023-breakpoint-layout-derivation.spec.ts:377:55
+[2/5] e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › B_partial: no overlap, inside the container, no PATCH on view, at every width
+e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › B_partial: no overlap, inside the container, no PATCH on view, at every width
+[HEL-1023 e2e] throwaway users registered: ["hel1023-1790897175508-72987@example.test"]
+  2) e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › B_partial: no overlap, inside the container, no PATCH on view, at every width 
+    Error: B_partial light @1200 (sm) reading order
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 1
+      Array [
+        "P1 Image",
+        "P2 Markdown",
+        "P3 Chart",
+        "P4 Markdown",
+    -   "P5 Image",
+        "P6 Markdown",
+        "P7 Text",
+        "P8 Divider",
+    +   "P5 Image",
+      ]
+      375 |                 .sort((a, b) => Math.round(a.y) - Math.round(b.y) || a.x - b.x)
+      376 |                 .map((r) => r.title);
+    > 377 |               expect(order, `${label} reading order`).toEqual(readingOrder);
+          |                                                       ^
+      378 |             }
+      379 |           }
+      380 |           // Viewing (and resizing across breakpoints) never persists and never raises the dirty UI.
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-grid-breakpoint-layout-derive/HEL-1023/e2e/hel1023-breakpoint-layout-derivation.spec.ts:377:55
+[3/5] e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › C_lg_coords_everywhere: no overlap, inside the container, no PATCH on view, at every width
+e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › C_lg_coords_everywhere: no overlap, inside the container, no PATCH on view, at every width
+[HEL-1023 e2e] throwaway users registered: ["hel1023-1790897182814-37695@example.test"]
+  3) e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › C_lg_coords_everywhere: no overlap, inside the container, no PATCH on view, at every width 
+    Error: C_lg_coords_everywhere light @1500 (md) P8 Divider/P7 Text
+    expect(received).toBe(expected) // Object.is equality
+    Expected: false
+    Received: true
+      362 |                   overlaps(rects[a], rects[b]),
+      363 |                   `${label} ${rects[a].title}/${rects[b].title}`,
+    > 364 |                 ).toBe(false);
+          |                   ^
+      365 |             // No dead vertical band: a derived/repaired layout is compacted, so consecutive rows
+      366 |             // are separated by at most the grid margin, never a cascade-bumped hole.
+      367 |             let bottom = Math.min(...rects.map((r) => r.y));
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-grid-breakpoint-layout-derive/HEL-1023/e2e/hel1023-breakpoint-layout-derivation.spec.ts:364:19
+[4/5] e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › D_md_overlap: no overlap, inside the container, no PATCH on view, at every width
+e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › D_md_overlap: no overlap, inside the container, no PATCH on view, at every width
+[HEL-1023 e2e] throwaway users registered: ["hel1023-1790897187618-2646@example.test"]
+  4) e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › D_md_overlap: no overlap, inside the container, no PATCH on view, at every width 
+    Error: D_md_overlap light @1500 (md) dead band above P6 Markdown
+    expect(received).toBeLessThanOrEqual(expected)
+    Expected: <= 40
+    Received:    88
+      367 |             let bottom = Math.min(...rects.map((r) => r.y));
+      368 |             for (const r of [...rects].sort((a, b) => a.y - b.y)) {
+    > 369 |               expect(r.y - bottom, `${label} dead band above ${r.title}`).toBeLessThanOrEqual(40);
+          |                                                                           ^
+      370 |               bottom = Math.max(bottom, r.y + r.h);
+      371 |             }
+      372 |             // Reading order (y, then x) of the lg source is preserved when it is the source.
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-grid-breakpoint-layout-derive/HEL-1023/e2e/hel1023-breakpoint-layout-derivation.spec.ts:369:75
+[5/5] e2e/hel1023-breakpoint-layout-derivation.spec.ts:389:7 › HEL-1023 derive/repair the breakpoint layout at render › V_valid_with_gaps: a valid authored layout renders exactly as saved at every breakpoint
+e2e/hel1023-breakpoint-layout-derivation.spec.ts:389:7 › HEL-1023 derive/repair the breakpoint layout at render › V_valid_with_gaps: a valid authored layout renders exactly as saved at every breakpoint
+[HEL-1023 e2e] throwaway users registered: ["hel1023-1790897194200-21910@example.test"]
+  5) e2e/hel1023-breakpoint-layout-derivation.spec.ts:389:7 › HEL-1023 derive/repair the breakpoint layout at render › V_valid_with_gaps: a valid authored layout renders exactly as saved at every breakpoint 
+    Error: V light @1056 (sm) P1 Image w
+    expect(received).toBeLessThan(expected)
+    Expected: < 2
+    Received:   524
+      416 |           expect(Math.abs(got.x - want.x), `${label} x`).toBeLessThan(2);
+      417 |           expect(Math.abs(got.y - want.y), `${label} y`).toBeLessThan(2);
+    > 418 |           expect(Math.abs(got.w - want.w), `${label} w`).toBeLessThan(2);
+          |                                                          ^
+      419 |           expect(Math.abs(got.h - want.h), `${label} h`).toBeLessThan(2);
+      420 |         }
+      421 |       }
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-grid-breakpoint-layout-derive/HEL-1023/e2e/hel1023-breakpoint-layout-derivation.spec.ts:418:58
+  5 failed
+    e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › A_lg_only: no overlap, inside the container, no PATCH on view, at every width 
+    e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › B_partial: no overlap, inside the container, no PATCH on view, at every width 
+    e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › C_lg_coords_everywhere: no overlap, inside the container, no PATCH on view, at every width 
+    e2e/hel1023-breakpoint-layout-derivation.spec.ts:320:9 › HEL-1023 derive/repair the breakpoint layout at render › D_md_overlap: no overlap, inside the container, no PATCH on view, at every width 
+    e2e/hel1023-breakpoint-layout-derivation.spec.ts:389:7 › HEL-1023 derive/repair the breakpoint layout at render › V_valid_with_gaps: a valid authored layout renders exactly as saved at every breakpoint 
