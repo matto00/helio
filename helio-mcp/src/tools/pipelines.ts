@@ -121,7 +121,10 @@ export function registerPipelineTools(server: McpServer, api: HelioApi): void {
         "an error whose message is the backend's 404/422 message verbatim (an unknown shapeId's " +
         "message lists every registered id). Only once expand succeeds does it chain each " +
         "expanded step onto the pipeline in order (the first branching off `stepId` — absent " +
-        "means the pipeline's raw source — each subsequent one off the previous), then create " +
+        "means the pipeline's raw source — each subsequent one off the previous). HEL-1069: " +
+        "branching never re-parents existing steps: if `stepId` already has children the first " +
+        "step is added as a NEW SIBLING lane; with no `stepId` it uses the safe placement and " +
+        "errors (nothing written) rather than splicing over existing steps, then create " +
         "ONE Output on the shape's terminal step named `outputName`, `outputKind` defaulting to " +
         "`table` when omitted. Does NOT run the pipeline — call run_pipeline/preview_outputs " +
         "afterward. Call list_pipeline_shapes first to see every registered shapeId + its params " +

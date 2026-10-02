@@ -333,6 +333,7 @@ describe("addOutputsFromShapeHandler", () => {
     const fake = {
       expandPipelineShape: async () => [{ kind: "select", config: {} }],
       addPipelineStep: async () => stepA,
+      listPipelineSteps: async () => [],
       createOutput: async () => output,
       ...overrides,
     };
@@ -368,7 +369,12 @@ describe("addOutputsFromShapeHandler", () => {
     expect(addPipelineStepCalls).toEqual([
       [
         "pipeline-1",
-        { type: "select", config: { fields: ["region"] }, parentStepId: "anchor-step" },
+        {
+          type: "select",
+          config: { fields: ["region"] },
+          parentStepId: "anchor-step",
+          rejectIfReparents: true,
+        },
       ],
       [
         "pipeline-1",
@@ -402,7 +408,61 @@ describe("addOutputsFromShapeHandler", () => {
       outputName: "Region",
     });
 
-    expect(firstStepCalledWith).toEqual({ type: "select", config: {}, parentStepId: undefined });
+    expect(firstStepCalledWith).toEqual({
+      type: "select",
+      config: {},
+      parentStepId: undefined,
+      rejectIfReparents: true,
+    });
+  });
+
+  // HEL-1069: a stepId that already has children branches a SIBLING lane and re-parents nothing.
+  it("sends attachAsTail:true (and no guard) for the first step when stepId already has children; later steps chain plainly", async () => {
+    const calls: unknown[] = [];
+    const api = makePipelinesApi({
+      listPipelineSteps: async () => [
+        { id: "anchor-step", type: "filter", position: 0, config: {} },
+        {
+          id: "existing-child",
+          type: "aggregate",
+          position: 0,
+          config: {},
+          parentStepId: "anchor-step",
+        },
+      ],
+      expandPipelineShape: async () => [
+        { kind: "select", config: {} },
+        { kind: "sort", config: {} },
+      ],
+      addPipelineStep: async (_p: string, step: unknown) => {
+        calls.push(step);
+        return calls.length === 1 ? stepA : stepB;
+      },
+    });
+
+    await addOutputsFromShapeHandler(api, {
+      pipelineId: "pipeline-1",
+      stepId: "anchor-step",
+      shapeId: "top-n",
+      params: {},
+      outputName: "X",
+    });
+
+    expect(calls[0]).toMatchObject({ parentStepId: "anchor-step", attachAsTail: true });
+    expect(calls[0]).not.toHaveProperty("rejectIfReparents");
+    expect(calls[1]).toEqual({ type: "sort", config: {}, parentStepId: "step-a" });
+  });
+
+  it("does not read the step list when stepId is absent", async () => {
+    const listPipelineSteps = jest.fn().mockResolvedValue([]);
+    const api = makePipelinesApi({ listPipelineSteps });
+    await addOutputsFromShapeHandler(api, {
+      pipelineId: "pipeline-1",
+      shapeId: "passthrough",
+      params: {},
+      outputName: "X",
+    });
+    expect(listPipelineSteps).not.toHaveBeenCalled();
   });
 
   it("defaults outputKind to 'table' when omitted", async () => {

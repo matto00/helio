@@ -202,6 +202,21 @@ optional `outputs[]`, replacing the old create-then-add-steps-one-at-a-time
 flow; `add_pipeline_step` gained `parentStepId` and `rootId`; `add_root`/
 `remove_root` manage roots on an existing pipeline.
 
+**Step placement never silently re-parents (HEL-1069).** The backend's default
+placement for a `parentStepId`/`rootId` add is a _splice_: the new step becomes
+the anchor's only child and every existing child of the anchor moves under it.
+`add_pipeline_step` therefore takes an explicit `attachAsTail`: `true` adds a
+new **sibling lane** off `parentStepId` (nothing moves; not allowed with
+`rootId`/no anchor), `false` is a deliberate splice-insert, and **omitted**
+sends the backend's opt-in `rejectIfReparents: true` guard, so an add that would
+re-parent existing steps fails with an error naming them and writes nothing. The
+create response (`POST /api/pipelines/:id/steps` only) carries
+`reparentedStepIds` (`[]` when nothing moved). `add_outputs_from_shape` branches
+a sibling lane when its `stepId` already has children. `run_pipeline` returns
+`runId`, `stepRowCounts` and `warnings[]` flagging any counted step that produced
+0 rows from a non-empty input (a prompt to check, not proof of a bug);
+`stepCountsAvailable: false` means the backend reported no per-step counts.
+
 > **`scripts/agent/*.sh` are STALE, not yet updated for this remodel** —
 > `create-panel.sh`/`bind-panel.sh`/`compose-demo.sh`/`workspace.sh` all still
 > call the retired DataType-era endpoints/panel shape (`dataTypeId`/

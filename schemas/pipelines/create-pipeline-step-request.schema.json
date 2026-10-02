@@ -24,7 +24,11 @@
     },
     "attachAsTail": {
       "type": "boolean",
-      "description": "HEL-908: only meaningful alongside `parentStepId`. `true` attaches the new step as a genuine NEW sibling of `parentStepId`'s existing children (a `position >= 1` tail root) WITHOUT reparenting any of them, via the `attachTailInternal` primitive. Absent/`false` preserves the pre-existing splice-insert default (insert directly after the anchor, reparenting the anchor's existing children onto the new step)."
+      "description": "HEL-908: only meaningful alongside `parentStepId`. `true` attaches the new step as a genuine NEW sibling of `parentStepId`'s existing children (a `position >= 1` tail root) WITHOUT reparenting any of them, via the `attachTailInternal` primitive. Absent/`false` preserves the pre-existing splice-insert default (insert directly after the anchor, reparenting the anchor's existing children onto the new step). Honoured ONLY together with `parentStepId`; with `rootId` or no anchor it is ignored and the step is spliced (see `rejectIfReparents`)."
+    },
+    "rejectIfReparents": {
+      "type": "boolean",
+      "description": "HEL-1069, opt-in guard. When `true` and the insert, on the placement path actually taken (explicit `parentStepId`, `rootId`, or the no-anchor trunk-last default), would re-parent one or more existing steps, the request fails 422 naming the step ids that would be moved and NOTHING is written. A tail attach (`attachAsTail: true` with `parentStepId`) never re-parents and is never rejected. Absent/`false` keeps the splice behaviour unchanged (the editor and patch-sets never send it). The create response (POST only) always carries `reparentedStepIds`: the existing step ids whose parent the insert changed, `[]` when none."
     },
     "rootId": {
       "type": ["string", "null"],
