@@ -2,7 +2,9 @@
 
 ## Purpose
 Render dashboards below the 768px grid boundary as a read-only single-column panel stack, ordered by the stored xs layout, on a code path structurally incapable of persisting layout changes.
+
 ## Requirements
+
 ### Requirement: Phone-width dashboards render a read-only single-column stack
 `PanelGrid` SHALL render a plain single-column stack of `PanelCard`s — and SHALL NOT mount the React Grid
 Layout `<Responsive>` component — whenever the panel grid's container width is below the `sm` grid boundary
@@ -25,12 +27,17 @@ title-edit affordance, and no delete affordance. Tapping a panel SHALL still ope
 
 ### Requirement: Stack order follows the stored xs layout
 The stack SHALL order panels by the resolved `xs` layout's `y` coordinate ascending, breaking ties by `x`
-ascending. Panels missing from the `xs` layout SHALL follow the existing `resolveDashboardLayout` fallback
-resolution before ordering.
+ascending, where the resolved `xs` layout is the saved `xs` layout when valid and otherwise the layout derived
+from the nearest authored breakpoint per `breakpoint-layout-resolution`. Deriving SHALL preserve the source
+layout's reading order, so the stack order matches the source reading order.
 
 #### Scenario: Panels ordered by y then x
 - **WHEN** the `xs` layout places panel A at (x:0, y:2), panel B at (x:0, y:0), and panel C at (x:1, y:0)
 - **THEN** the stack renders B, then C, then A
+
+#### Scenario: No xs layout
+- **WHEN** only the lg layout is authored, with image above markdown above text in reading order
+- **THEN** the stack renders image, markdown, text in that order
 
 ### Requirement: The stack path is structurally incapable of persisting layout
 The phone stack rendering path SHALL NOT invoke `markLayoutChanged`, dispatch `updateDashboardLayout`, or
@@ -97,4 +104,3 @@ width MUST NOT be rendered there.
 - **WHEN** any button or control presented below 768px is activated
 - **THEN** it performs its full action at that width — no control leads to a flow that silently
   fails or requires a wider viewport to complete
-

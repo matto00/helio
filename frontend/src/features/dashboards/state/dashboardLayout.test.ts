@@ -183,10 +183,10 @@ describe("smart panel placement", () => {
       sm: [],
       xs: [],
     });
-    // All three panels should retain y=5 (row preserved) and be horizontally distributed,
-    // not all collapsed at (0,0).
+    // HEL-1023: a derived breakpoint is compacted (the owner ruling), so the shared row rises to
+    // y=0 as one row; the panels stay side by side (not stacked, not all collapsed at x=0).
     const ys = resolved.md.map((i) => i.y);
-    expect(ys).toEqual([5, 5, 5]);
+    expect(ys).toEqual([0, 0, 0]);
     const xs = resolved.md.map((i) => i.x).sort((a, b) => a - b);
     expect(xs[0]).toBe(0);
     expect(xs[2]).toBeGreaterThan(0);

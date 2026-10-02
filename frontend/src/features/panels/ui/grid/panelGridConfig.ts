@@ -40,6 +40,19 @@ export const panelGridConfig: PanelGridConfig = {
   },
 };
 
+/** RGL's `getBreakpointFromWidth` is strict (`width > breakpoint`), while `PanelGrid`'s phone-stack
+ *  boundary and the documented breakpoints are inclusive (`>=`): a container of exactly 1440, 1100 or
+ *  768px would resolve one breakpoint low (768px mounted RGL at 2 columns). Shifting each boundary
+ *  down by 0.001px makes strict equal inclusive for every real (pixel-rounded) width. Pass THESE to
+ *  `Responsive` and to any `getBreakpointFromWidth` call, never `panelGridConfig.breakpoints`. */
+const BOUNDARY_EPSILON = 0.001;
+export const rglBreakpoints: PanelGridConfig["breakpoints"] = Object.fromEntries(
+  Object.entries(panelGridConfig.breakpoints).map(([bp, min]) => [
+    bp,
+    min > 0 ? min - BOUNDARY_EPSILON : min,
+  ]),
+);
+
 export function createLayouts(
   layout: DashboardLayout,
 ): NonNullable<ResponsiveGridLayoutProps["layouts"]> {
@@ -83,33 +96,20 @@ export function createLayouts(
   };
 }
 
-export function fromResponsiveLayouts(
+/** Reads one breakpoint's items out of an RGL layout, in panel order, dropping ids that are not live
+ *  panels. Called by RGL's onLayoutChange on every drag tick, so it must stay cheap. RGL already
+ *  produces a non-overlapping layout (preventCollision: true), so no resolving happens here. */
+export function itemsFromRglLayout(
   panels: Panel[],
-  layouts: NonNullable<ResponsiveGridLayoutProps["layouts"]>,
-): DashboardLayout {
-  // Called by RGL's onLayoutChange on every drag tick. Must stay cheap.
-  // RGL already produces a non-overlapping layout (preventCollision:true), so
-  // we just read items out — no need to re-run the full resolveDashboardLayout
-  // (which rebuilds fallback layouts for all 4 breakpoints and is too heavy
-  // for the drag hot path).
-  const panelIds = new Set(panels.map((panel) => panel.id));
-  const toItems = (items: NonNullable<ResponsiveGridLayoutProps["layouts"]>[string] = []) =>
-    items
-      .filter((item) => panelIds.has(item.i))
-      .map((item) => ({
-        panelId: item.i,
-        x: item.x,
-        y: item.y,
-        w: item.w,
-        h: item.h,
-      }));
-
-  return {
-    lg: toItems(layouts.lg),
-    md: toItems(layouts.md),
-    sm: toItems(layouts.sm),
-    xs: toItems(layouts.xs),
-  };
+  layout: readonly { i: string; x: number; y: number; w: number; h: number }[],
+): DashboardLayoutItem[] {
+  const byId = new Map(layout.map((item) => [item.i, item]));
+  const items: DashboardLayoutItem[] = [];
+  for (const panel of panels) {
+    const item = byId.get(panel.id);
+    if (item) items.push({ panelId: item.i, x: item.x, y: item.y, w: item.w, h: item.h });
+  }
+  return items;
 }
 
 /** Orders panels for the phone read-only stack (HEL-301, mobile-viewer-stack

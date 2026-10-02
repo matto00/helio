@@ -2,6 +2,18 @@ import type { ResponsiveGridLayoutProps } from "react-grid-layout";
 
 import type { DashboardLayout, DashboardLayoutItem } from "../types/dashboard";
 import type { Panel } from "../../panels/types/panel";
+import {
+  breakpointOrder,
+  compactLayout,
+  findOverlaps,
+  isItemInBounds,
+  nearestAuthoredBreakpoint,
+  placeAround,
+  scaleLayoutItem,
+  type BreakpointKey,
+} from "./breakpointLayout";
+
+export { scaleLayoutItem };
 
 export const dashboardLayoutBreakpoints = ["lg", "md", "sm", "xs"] as const;
 
@@ -91,178 +103,101 @@ function sanitizeLayoutItem(item: DashboardLayoutItem): DashboardLayoutItem {
   };
 }
 
-function rectsOverlap(a: DashboardLayoutItem, b: DashboardLayoutItem): boolean {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
-
-function hasAnyOverlap(items: DashboardLayoutItem[]): boolean {
-  for (let i = 0; i < items.length; i++) {
-    for (let j = i + 1; j < items.length; j++) {
-      if (rectsOverlap(items[i], items[j])) return true;
-    }
-  }
-  return false;
-}
-
-/** Final pass: shift any overlapping items down until they're collision-free.
- * Items are processed in their incoming order, so earlier items (typically saved
- * positions) anchor; later items are bumped down. Defensive against corrupted
- * saved state and against projection-produced collisions when scaling between
- * column counts. Short-circuits when the input already has no overlaps so the
- * common (clean) case stays O(N²) check and avoids any allocation. */
-function cleanupOverlaps(items: DashboardLayoutItem[]): DashboardLayoutItem[] {
-  if (!hasAnyOverlap(items)) return items;
+/** One breakpoint's saved entries restricted to live panel ids (first entry per id wins, blank ids
+ * dropped), sanitized. Stale ids (panels of another board or since deleted) never count. */
+function liveEntries(saved: DashboardLayoutItem[], liveIds: Set<string>): DashboardLayoutItem[] {
+  const seen = new Set<string>();
   const out: DashboardLayoutItem[] = [];
-  for (const item of items) {
-    let { x, y, w, h } = item;
-    let bumped = true;
-    while (bumped) {
-      bumped = false;
-      for (const placed of out) {
-        if (rectsOverlap({ panelId: item.panelId, x, y, w, h }, placed)) {
-          y = placed.y + placed.h;
-          bumped = true;
-          break;
-        }
-      }
-    }
-    out.push({ panelId: item.panelId, x, y, w, h });
+  for (const item of saved) {
+    if (item.panelId.trim().length === 0 || !liveIds.has(item.panelId) || seen.has(item.panelId))
+      continue;
+    seen.add(item.panelId);
+    out.push(sanitizeLayoutItem(item));
   }
   return out;
 }
 
-/** Projects a saved layout from one breakpoint to another by proportionally scaling
- * each item's x and w against the column count. Heights are preserved (column-based
- * grid; rows are unitless). If a panel has no entry in the source layout, it's omitted
- * and resolveBreakpointLayout fills it via the normal non-overlapping placement path.
- */
-/** Scales a single item's `w`/`x` from `sourceCols` to `targetCols`,
- * proportionally, clamping `w` to `[1, targetCols]` and `x` to
- * `[0, targetCols - w]`. `y`/`h` are row-based (unitless across
- * breakpoints) and carry over unchanged. Exported (HEL-909 CR1 cycle-2 fix)
- * so callers that need to scale one newly-placed item per breakpoint (e.g.
- * `panelThunks.ts`'s `createPanel`) can reuse the exact same formula
- * `projectLayout` uses for a whole saved layout, instead of re-deriving it
- * and risking the two sides disagreeing. */
-export function scaleLayoutItem(
-  item: DashboardLayoutItem,
-  sourceCols: number,
-  targetCols: number,
-): DashboardLayoutItem {
-  const scale = targetCols / sourceCols;
-  const w = Math.max(1, Math.min(targetCols, Math.round(item.w * scale)));
-  const x = Math.max(0, Math.min(targetCols - w, Math.round(item.x * scale)));
-  return { panelId: item.panelId, x, y: item.y, w, h: item.h };
+/** Step a/b of the per-breakpoint resolution (see `resolveDashboardLayout`): the anchors a breakpoint
+ * keeps. Any entry outside the column bounds is evidence the data was authored at another column
+ * count, so the breakpoint is unauthored (no anchors). Otherwise the entries are anchors, made
+ * overlap-free in place when they collide. */
+function anchorsFor(entries: DashboardLayoutItem[], cols: number): DashboardLayoutItem[] {
+  if (!entries.every((item) => isItemInBounds(item, cols))) return [];
+  return findOverlaps(entries).length === 0 ? entries : compactLayout(entries, cols);
 }
 
-function projectLayout(
-  sourceItems: DashboardLayoutItem[],
-  sourceCols: number,
-  targetCols: number,
-): DashboardLayoutItem[] {
-  return sourceItems.map((item) => scaleLayoutItem(item, sourceCols, targetCols));
-}
-
-/** Pick the breakpoint with the most saved entries (preferring larger breakpoints on ties),
- * so we project from the user's primary layout when other breakpoints are empty. */
-function pickProjectionSource(
-  savedLayout: DashboardLayout,
-): { breakpoint: DashboardLayoutBreakpoint; items: DashboardLayoutItem[] } | null {
-  let best: { breakpoint: DashboardLayoutBreakpoint; items: DashboardLayoutItem[] } | null = null;
-  for (const bp of dashboardLayoutBreakpoints) {
-    const items = savedLayout[bp];
-    if (items.length === 0) continue;
-    if (best === null || items.length > best.items.length) {
-      best = { breakpoint: bp, items };
-    }
-  }
-  return best;
-}
-
+/** Resolves the layout every breakpoint renders, as a pure function of `(panels, savedLayout)`.
+ *
+ * Per breakpoint, with fixed precedence (HEL-1023):
+ *  a. a saved entry outside the column bounds makes the breakpoint unauthored: every panel is derived;
+ *  b. otherwise the saved entries are anchors, compacted in place if they overlap each other;
+ *  c. when every live panel has an anchor and they never overlapped, the saved layout is returned
+ *     unchanged (gaps kept, never compacted);
+ *  d. each panel without an anchor is scaled from the nearest other breakpoint that holds it (default
+ *     size when none does) and placed in free space without moving an anchor.
+ * Nothing here is ever persisted: callers persist a breakpoint only on a user edit at it. */
 export function resolveDashboardLayout(
   panels: Panel[],
   savedLayout: DashboardLayout,
 ): DashboardLayout {
-  const projectionSource = pickProjectionSource(savedLayout);
-
-  // For each breakpoint, if the saved layout is empty (or smaller than the panel set),
-  // augment it with projections from the chosen source breakpoint so panels keep their
-  // relative positions across breakpoint changes instead of replacing to top-left.
-  function effectiveSaved(bp: DashboardLayoutBreakpoint): DashboardLayoutItem[] {
-    const saved = savedLayout[bp];
-    if (saved.length >= panels.length) return saved;
-    if (projectionSource === null || projectionSource.breakpoint === bp) return saved;
-
-    const haveIds = new Set(saved.map((item) => item.panelId));
-    const projected = projectLayout(
-      projectionSource.items.filter((item) => !haveIds.has(item.panelId)),
-      dashboardGridCols[projectionSource.breakpoint],
-      dashboardGridCols[bp],
-    );
-    return [...saved, ...projected];
+  const liveIds = new Set(panels.map((panel) => panel.id));
+  const anchors = {} as Record<BreakpointKey, DashboardLayoutItem[]>;
+  for (const bp of breakpointOrder) {
+    anchors[bp] = anchorsFor(liveEntries(savedLayout[bp], liveIds), dashboardGridCols[bp]);
   }
 
+  const resolveFor = (bp: BreakpointKey): DashboardLayoutItem[] => {
+    const cols = dashboardGridCols[bp];
+    const own = new Map(anchors[bp].map((item) => [item.panelId, item]));
+    if (panels.every((panel) => own.has(panel.id))) return panels.map((p) => own.get(p.id)!);
+
+    const sources = nearestAuthoredBreakpoint(
+      bp,
+      breakpointOrder.filter((other) => anchors[other].length > 0),
+    );
+    const derived: DashboardLayoutItem[] = [];
+    const undefaulted: Panel[] = [];
+    for (const panel of panels) {
+      if (own.has(panel.id)) continue;
+      const from = sources.find((other) => anchors[other].some((i) => i.panelId === panel.id));
+      const item = from && anchors[from].find((i) => i.panelId === panel.id);
+      if (from && item) derived.push(scaleLayoutItem(item, dashboardGridCols[from], cols));
+      else undefaulted.push(panel);
+    }
+    // Source reading order (y, then x); a stable sort keeps panel order for ties.
+    derived.sort((a, b) => a.y - b.y || a.x - b.x);
+    const placed =
+      own.size === 0 ? compactLayout(derived, cols) : placeAround(anchors[bp], derived, cols);
+    const fixed = [...anchors[bp], ...placed];
+    const defaults = createBaseLayoutAround(undefaulted, fixed, cols);
+    const byId = new Map([...fixed, ...defaults].map((item) => [item.panelId, item]));
+    return panels.map((panel) => byId.get(panel.id)!);
+  };
+
   return {
-    lg: cleanupOverlaps(
-      resolveBreakpointLayout(panels, effectiveSaved("lg"), dashboardGridCols.lg),
-    ),
-    md: cleanupOverlaps(
-      resolveBreakpointLayout(panels, effectiveSaved("md"), dashboardGridCols.md),
-    ),
-    sm: cleanupOverlaps(
-      resolveBreakpointLayout(panels, effectiveSaved("sm"), dashboardGridCols.sm),
-    ),
-    xs: cleanupOverlaps(
-      resolveBreakpointLayout(panels, effectiveSaved("xs"), dashboardGridCols.xs),
-    ),
+    lg: resolveFor("lg"),
+    md: resolveFor("md"),
+    sm: resolveFor("sm"),
+    xs: resolveFor("xs"),
   };
 }
 
-function resolveBreakpointLayout(
-  panels: Panel[],
-  savedItems: DashboardLayoutItem[],
-  colCount: number,
+/** Default-size items for panels no breakpoint holds, in the first free cell of the grid. */
+function createBaseLayoutAround(
+  missing: Panel[],
+  fixed: DashboardLayoutItem[],
+  cols: number,
 ): DashboardLayoutItem[] {
-  const savedByPanelId = new Map(
-    savedItems
-      .filter((item) => item.panelId.trim().length > 0)
-      .map((item) => [item.panelId, sanitizeLayoutItem(item)]),
-  );
-
-  // Happy path: every panel has a saved entry — skip the placement loop and return
-  // the saved positions directly in panel order. This is the case for every render
-  // after the first save, which is most renders. The id check is required, not just
-  // the count: while switching dashboards the incoming `panels` (previous board) can
-  // briefly pair with the next board's `savedItems`. Equal counts but disjoint ids
-  // would otherwise make `.get(p.id)!` yield `undefined`, crashing the overlap pass.
-  if (savedByPanelId.size === panels.length && panels.every((p) => savedByPanelId.has(p.id))) {
-    return panels.map((p) => savedByPanelId.get(p.id)!);
+  const itemWidth = defaultItemWidth(cols);
+  const placed = [...fixed];
+  const out: DashboardLayoutItem[] = [];
+  for (const panel of missing) {
+    const { x, y } = findNextAvailablePosition(placed, cols, itemWidth, defaultItemHeight);
+    const item = { panelId: panel.id, x, y, w: itemWidth, h: defaultItemHeight };
+    placed.push(item);
+    out.push(item);
   }
-
-  // Collect resolved positions of panels that have saved layout entries first, so we can
-  // place any missing-from-saved panels into a non-overlapping slot.
-  const resolved: DashboardLayoutItem[] = [];
-  const placed: DashboardLayoutItem[] = [];
-  const itemWidth = defaultItemWidth(colCount);
-  const itemHeight = defaultItemHeight;
-
-  for (const panel of panels) {
-    const saved = savedByPanelId.get(panel.id);
-    if (saved) {
-      resolved.push(saved);
-      placed.push(saved);
-    } else {
-      // No saved entry — likely a newly-created panel, or a panel visiting a breakpoint
-      // for the first time. Compute a position that does not overlap with the actual
-      // saved positions of the other panels.
-      const { x, y } = findNextAvailablePosition(placed, colCount, itemWidth, itemHeight);
-      const item: DashboardLayoutItem = { panelId: panel.id, x, y, w: itemWidth, h: itemHeight };
-      resolved.push(item);
-      placed.push(item);
-    }
-  }
-
-  return resolved;
+  return out;
 }
 
 export function areDashboardLayoutsEqual(a: DashboardLayout, b: DashboardLayout): boolean {

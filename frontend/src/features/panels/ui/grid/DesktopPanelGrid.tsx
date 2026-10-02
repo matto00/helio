@@ -36,13 +36,14 @@ import React, {
 } from "react";
 import { Responsive } from "react-grid-layout";
 
-import { createScaledStrategy, noCompactor } from "react-grid-layout/core";
+import { createScaledStrategy, getBreakpointFromWidth, noCompactor } from "react-grid-layout/core";
 
 const noCompactorPreventCollision = { ...noCompactor, preventCollision: true };
 
 import {
   areDashboardLayoutsEqual,
   resolveDashboardLayout,
+  type DashboardLayoutBreakpoint,
 } from "../../../dashboards/state/dashboardLayout";
 import { setDashboardLayoutLocally } from "../../../dashboards/state/dashboardsSlice";
 import { pushLayoutSnapshot } from "../../../layout/state/layoutHistorySlice";
@@ -55,7 +56,12 @@ import { useLayoutSave } from "../../hooks/useLayoutSave";
 import type { LayoutFlush } from "../../hooks/usePanelUpdatesFlush";
 import { PanelDetailModal } from "../detailModal/PanelDetailModal";
 import { PanelCard } from "../PanelCard";
-import { createLayouts, fromResponsiveLayouts, panelGridConfig } from "./panelGridConfig";
+import {
+  createLayouts,
+  itemsFromRglLayout,
+  panelGridConfig,
+  rglBreakpoints,
+} from "./panelGridConfig";
 import "./PanelGrid.css";
 
 interface DesktopPanelGridProps {
@@ -176,7 +182,7 @@ export function DesktopPanelGrid({
 
   const { latestLayoutRef, markLayoutChanged, commitInteractionLayout } = useLayoutSave({
     dashboardId,
-    resolvedLayout,
+    layout,
     registerLayoutFlush,
   });
 
@@ -300,13 +306,22 @@ export function DesktopPanelGrid({
 
   type LayoutChangeHandler = NonNullable<React.ComponentProps<typeof Responsive>["onLayoutChange"]>;
   const handleLayoutChange = useCallback<LayoutChangeHandler>(
-    (_, nextLayouts) => {
-      if (nextLayouts === undefined) return;
-      const next = fromResponsiveLayouts(panels, nextLayouts);
+    (currentLayout) => {
+      if (currentLayout === undefined) return;
+      // HEL-1023: RGL also calls this on mount and on every breakpoint change with exactly the layout
+      // it was fed, and that layout may be derived/repaired at render. Only a layout that DIFFERS
+      // from what we resolved is a user edit, and an edit rewrites the active breakpoint alone; a
+      // view hands the store layout straight back, so it never arms pending, history or a PATCH.
+      const bp = getBreakpointFromWidth(rglBreakpoints, width) as DashboardLayoutBreakpoint;
+      const items = itemsFromRglLayout(panels, currentLayout);
+      const edited = { ...resolvedLayout, [bp]: items };
+      const next = areDashboardLayoutsEqual(edited, resolvedLayout)
+        ? layout
+        : { ...layout, [bp]: items };
       markLayoutChanged(next);
       if (commitOnNextLayoutChangeRef.current) {
         clearCommitFlag();
-        if (!areDashboardLayoutsEqual(next, resolvedLayout)) {
+        if (!areDashboardLayoutsEqual(next, layout)) {
           dispatch(
             setDashboardLayoutLocally({ dashboardId, layout: commitInteractionLayout(next) }),
           );
@@ -316,6 +331,8 @@ export function DesktopPanelGrid({
     [
       markLayoutChanged,
       panels,
+      width,
+      layout,
       clearCommitFlag,
       resolvedLayout,
       dispatch,
@@ -330,7 +347,7 @@ export function DesktopPanelGrid({
         className="panel-grid"
         width={width}
         layouts={layouts}
-        breakpoints={panelGridConfig.breakpoints}
+        breakpoints={rglBreakpoints}
         cols={panelGridConfig.cols}
         rowHeight={panelGridConfig.rowHeight}
         margin={panelGridConfig.margin}

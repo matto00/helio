@@ -20,7 +20,7 @@ describe("buildSkeletonStubPanels + resolveDashboardLayout (design.md D10)", () 
 
     const resolved = resolveDashboardLayout(stubs, saved).lg;
     expect(resolved).toHaveLength(3);
-    // Verbatim, in saved order — the resolver's exact-match shortcut.
+    // Verbatim, in saved order — a valid saved layout is rendered as authored.
     expect(resolved).toEqual(saved.lg);
   });
 

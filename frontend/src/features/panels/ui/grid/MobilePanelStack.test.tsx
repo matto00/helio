@@ -84,12 +84,10 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
 
   // Task 5.3 — order follows the resolved xs layout: y ascending, then x ascending.
   //
-  // The xs layout must be geometrically valid (respects dashboardGridCols.xs
-  // = 2, no overlaps) — resolveDashboardLayout's cleanupOverlaps pass
-  // defensively repositions items it detects as colliding or column-
-  // overflowing, which would silently rewrite the y/x values this test
-  // exercises. B and C share y=0 at x=0/x=1 (2-col row) to test the x
-  // tie-break; A sits in a separate row below both.
+  // The xs layout here is geometrically valid (respects dashboardGridCols.xs
+  // = 2, no overlaps), so it is rendered as saved; an invalid one is repaired
+  // (see the derive/repair tests below). B and C share y=0 at x=0/x=1 (2-col
+  // row) to test the x tie-break; A sits in a separate row below both.
   it("orders panels by the xs layout's y then x, not declaration order", () => {
     const panelA = makeOutputPanel({ id: "a", title: "Panel A" });
     const panelB = makeOutputPanel({ id: "b", title: "Panel B" });
@@ -109,6 +107,48 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
       (el) => el.textContent,
     );
     expect(titles).toEqual(["Panel B", "Panel C", "Panel A"]);
+  });
+
+  const titlesOf = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll(".panel-grid-card__title")).map((el) => el.textContent);
+
+  // HEL-1023 — no xs layout at all: the stack follows the reading order of the nearest authored
+  // breakpoint (lg), derived to xs, instead of declaration order.
+  it("orders an lg-only dashboard by the lg reading order (derived xs)", () => {
+    const image = makeOutputPanel({ id: "img", title: "Image" });
+    const markdown = makeOutputPanel({ id: "md", title: "Markdown" });
+    const text = makeOutputPanel({ id: "txt", title: "Text" });
+    const layout: DashboardLayout = {
+      ...defaultDashboardLayout,
+      lg: [
+        { panelId: "txt", x: 0, y: 12, w: 12, h: 3 },
+        { panelId: "md", x: 6, y: 0, w: 6, h: 6 },
+        { panelId: "img", x: 0, y: 0, w: 6, h: 6 },
+      ],
+    };
+    const { container } = renderWithStore(
+      <MobilePanelStack panels={[text, markdown, image]} layout={layout} containerWidth={390} />,
+      { panels: { items: [text, markdown, image] } },
+    );
+    expect(titlesOf(container)).toEqual(["Image", "Markdown", "Text"]);
+  });
+
+  // HEL-1023 — an overlapping saved xs layout is repaired in place, so the bumped panel keeps its
+  // place in reading order rather than being thrown to the end of a cascade.
+  it("keeps reading order when the saved xs layout overlaps", () => {
+    const [a, b, c] = ["A", "B", "C"].map((t) =>
+      makeOutputPanel({ id: t.toLowerCase(), title: t }),
+    );
+    const layout = layoutWithXs([
+      { panelId: "a", x: 0, y: 0, w: 2, h: 4 },
+      { panelId: "b", x: 0, y: 2, w: 2, h: 4 },
+      { panelId: "c", x: 0, y: 8, w: 2, h: 4 },
+    ]);
+    const { container } = renderWithStore(
+      <MobilePanelStack panels={[c, b, a]} layout={layout} containerWidth={390} />,
+      { panels: { items: [c, b, a] } },
+    );
+    expect(titlesOf(container)).toEqual(["A", "B", "C"]);
   });
 
   it("falls back to resolveDashboardLayout placement for a panel missing from the saved xs layout", () => {

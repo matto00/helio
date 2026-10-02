@@ -43,23 +43,26 @@ export interface UseLayoutSaveResult {
 
 interface UseLayoutSaveOptions {
   dashboardId: string;
-  resolvedLayout: DashboardLayout;
+  /** The AUTHORED (store-shaped) layout, never the render-time resolved one (HEL-1023): the
+   *  persisted baseline, undo snapshots and the interaction-commit equality all live in this shape,
+   *  so a derived or repaired breakpoint is never mistaken for an edit and never written on view. */
+  layout: DashboardLayout;
   registerLayoutFlush: (fn: LayoutFlush) => void;
 }
 
 export function useLayoutSave({
   dashboardId,
-  resolvedLayout,
+  layout,
   registerLayoutFlush,
 }: UseLayoutSaveOptions): UseLayoutSaveResult {
   const dispatch = useAppDispatch();
-  const latestLayoutRef = useRef<DashboardLayout>(resolvedLayout);
-  const persistedLayoutRef = useRef<DashboardLayout>(resolvedLayout);
+  const latestLayoutRef = useRef<DashboardLayout>(layout);
+  const persistedLayoutRef = useRef<DashboardLayout>(layout);
   const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
   // Tracks whether we've already dispatched setLayoutPending(true) for the
   // current pending cycle, so a drag (which fires onLayoutChange every tick)
   // dispatches once on the false→true transition instead of every frame.
-  // Reset when the layout syncs back to persisted (see resolvedLayout effect).
+  // Reset when the layout syncs back to the persisted layout.
   const layoutPendingDispatchedRef = useRef(false);
   // HEL-1028: the interaction layout committed to the store at drag/resize stop,
   // and the undo/redo revision last seen — the two local edits whose store echo
@@ -73,21 +76,20 @@ export function useLayoutSave({
   });
 
   useEffect(() => {
-    latestLayoutRef.current = resolvedLayout;
+    latestLayoutRef.current = layout;
     const isInteractionCommit =
-      localCommitRef.current !== null &&
-      areDashboardLayoutsEqual(resolvedLayout, localCommitRef.current);
+      localCommitRef.current !== null && areDashboardLayoutsEqual(layout, localCommitRef.current);
     const isHistoryTraversal = revisionRef.current !== seenRevisionRef.current;
     seenRevisionRef.current = revisionRef.current;
     if (isInteractionCommit || isHistoryTraversal) {
       // Keep persistedLayoutRef (last server-acknowledged layout); pending is
       // simply whether the displayed layout still differs from it.
       localCommitRef.current = null;
-      const pending = !areDashboardLayoutsEqual(resolvedLayout, persistedLayoutRef.current);
+      const pending = !areDashboardLayoutsEqual(layout, persistedLayoutRef.current);
       layoutPendingDispatchedRef.current = pending;
       dispatch(setLayoutPending(pending));
     } else {
-      persistedLayoutRef.current = resolvedLayout;
+      persistedLayoutRef.current = layout;
       // A staged drag that this re-baseline discards (e.g. a panel create landing
       // before the flush) must not leave the pending flag stuck with nothing to save.
       if (layoutPendingDispatchedRef.current) dispatch(setLayoutPending(false));
@@ -97,11 +99,11 @@ export function useLayoutSave({
     }
     if (
       inFlightLayoutRef.current !== null &&
-      areDashboardLayoutsEqual(inFlightLayoutRef.current, resolvedLayout)
+      areDashboardLayoutsEqual(inFlightLayoutRef.current, layout)
     ) {
       inFlightLayoutRef.current = null;
     }
-  }, [resolvedLayout, dispatch]);
+  }, [layout, dispatch]);
 
   const persistLayout = useCallback(() => {
     const nextLayout = latestLayoutRef.current;
