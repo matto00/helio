@@ -210,6 +210,33 @@ class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTes
   }
 
 
+  "SourceService SQL config shape (HEL-998)" should {
+
+    Seq(
+      "an unsupported dialect"              -> ((c: SqlSourceConfigPayload) => c.copy(dialect = "oracle")),
+      "a database carrying a URL parameter" -> ((c: SqlSourceConfigPayload) => c.copy(database = "postgres?socketFactory=javax.net.DefaultSocketFactory"))
+    ).foreach { case (label, mutate) =>
+      s"reject createSql for $label with BadRequest, persisting nothing" in {
+        cleanDb()
+        val svc    = service(restConnector(Right(JsArray())))
+        val before = sourceCount()
+        val result = await(svc.createSql(SqlCreateSourceRequest("Bad", DataSourceKind.Sql, mutate(sqlConfig("SELECT 1"))), user))
+        result.left.toOption.get shouldBe a[ServiceError.BadRequest]
+        sourceCount() shouldBe before
+      }
+
+      s"reject inferSql for $label with BadRequest" in {
+        val svc = service(restConnector(Right(JsArray())))
+        await(svc.inferSql(SqlInferRequest(DataSourceKind.Sql, mutate(sqlConfig("SELECT 1"))))).left.toOption.get shouldBe a[ServiceError.BadRequest]
+      }
+
+      s"reject testSql for $label with BadRequest" in {
+        val svc = service(restConnector(Right(JsArray())))
+        await(svc.testSql(SqlInferRequest(DataSourceKind.Sql, mutate(sqlConfig("SELECT 1"))))).left.toOption.get shouldBe a[ServiceError.BadRequest]
+      }
+    }
+  }
+
   "SourceService.createRest" should {
 
     "create the DataType with override-aware fields when the fetch succeeds" in {

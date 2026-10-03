@@ -146,13 +146,11 @@ class SqlConnectorEgressGuardSpec extends AnyWordSpec with Matchers with BeforeA
     }
 
     "actually connect end-to-end and return rows when isBlocked admits the known test host" in {
-      // Uses the REAL hostname "localhost" (real, unmodified DNS — no injected resolver
-      // override) rather than a fake `.test` name: the actual JDBC driver does its OWN
-      // independent DNS resolution inside `DriverManager.getConnection` (design.md Decision 4 —
-      // the JDBC connection is not pinned, unlike REST), so a resolver override alone cannot make
-      // a non-existent hostname actually connect. Only `isBlocked` is overridden here, admitting
-      // this one known-safe hostname past the denylist — exactly the pattern
-      // `ContentSourceSupportSpec`'s `admitLocalhost` and `DataSourceRoutesSpec` already use.
+      // Uses the REAL hostname "localhost" (real, unmodified DNS, no injected resolver): the JDBC
+      // driver resolves it itself, and since HEL-998 its connect-time socket factory validates
+      // that address through the same `isBlocked` seam. Only `isBlocked` is overridden, admitting
+      // this one known-safe hostname past the denylist — the pattern `ContentSourceSupportSpec`'s
+      // `admitLocalhost` and `DataSourceRoutesSpec` already use.
       val cfg = loopbackConfig(host = "localhost")
       val result = await(
         SqlConnectorDriver.execute(

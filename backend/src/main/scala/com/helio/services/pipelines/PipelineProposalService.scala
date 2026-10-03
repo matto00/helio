@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.services.sources.{DataSourceService, SourceService}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalOutputSummary, ProposalRestApiConfig}
-import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, StaticDataSourceRequest}
+import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticDataSourceRequest}
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, OutputKind, PipelineId, PipelineStep, PipelineStepKind}
 import com.helio.domain.connectors.SqlConnectorDriver
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -211,7 +211,8 @@ final class PipelineProposalService(
         case DataSourceKind.Sql =>
           source.sqlConfig match {
             case None      => Left(ServiceError.BadRequest(s"$address.config is required for an inline source"))
-            case Some(cfg) => SqlConnectorDriver.checkQuery(cfg.query).left.map(ServiceError.BadRequest(_))
+            case Some(cfg) =>
+              SqlConnectorDriver.checkQuery(cfg.query).flatMap(_ => SqlConnectorDriver.validateConfigShape(SqlSourceConfigPayload.toDomain(cfg))).left.map(ServiceError.BadRequest(_))
           }
       }
   }

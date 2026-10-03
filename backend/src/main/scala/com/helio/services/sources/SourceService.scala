@@ -57,7 +57,7 @@ final class SourceService(
 
   def createSql(request: SqlCreateSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] = {
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
-    SqlConnectorDriver.checkQuery(sqlConfig.query) match {
+    SqlConnectorDriver.checkQuery(sqlConfig.query).flatMap(_ => SqlConnectorDriver.validateConfigShape(sqlConfig)) match {
       case Left(err) =>
         Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(_) =>
@@ -231,7 +231,7 @@ final class SourceService(
 
   def inferSql(request: SqlInferRequest): Future[Either[ServiceError, InferredSchemaResponse]] = {
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
-    SqlConnectorDriver.checkQuery(sqlConfig.query) match {
+    SqlConnectorDriver.checkQuery(sqlConfig.query).flatMap(_ => SqlConnectorDriver.validateConfigShape(sqlConfig)) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(_) =>
         SqlConnectorDriver.inferSchema(sqlConfig, ConnectorResolveContext.Internal, sqlResolveHost, sqlIsBlocked).map {
@@ -275,7 +275,7 @@ final class SourceService(
 
   def testSql(request: SqlInferRequest): Future[Either[ServiceError, TestConnectionResponse]] = {
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
-    SqlConnectorDriver.checkQuery(sqlConfig.query) match {
+    SqlConnectorDriver.checkQuery(sqlConfig.query).flatMap(_ => SqlConnectorDriver.validateConfigShape(sqlConfig)) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right(_)  => ConnectionTest.run(SqlConnectorDriver, sqlConfig, ConnectorResolveContext.Internal, sqlResolveHost, sqlIsBlocked).map(Right(_))
     }

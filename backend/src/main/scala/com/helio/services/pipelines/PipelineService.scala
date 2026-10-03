@@ -1618,7 +1618,7 @@ final class PipelineService(
             Future.successful(Left(ServiceError.BadRequest("inline 'sql' source requires a 'config' object")))
           case Some(payload) =>
             val domainConfig = SqlSourceConfigPayload.toDomain(payload)
-            SqlConnectorDriver.checkQuery(domainConfig.query) match {
+            SqlConnectorDriver.checkQuery(domainConfig.query).flatMap(_ => SqlConnectorDriver.validateConfigShape(domainConfig)) match {
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(_) =>
