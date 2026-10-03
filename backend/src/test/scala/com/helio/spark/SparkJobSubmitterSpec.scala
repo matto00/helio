@@ -3,6 +3,7 @@ package com.helio.spark
 import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.domain._
 import com.helio.domain.engine.{SchemaInferenceEngine, SourceReadStats}
+import com.helio.domain.steps.SecondaryInput
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
@@ -29,7 +30,10 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
   // payload via `readDatasetRows` (rather than off the ADT itself, which is
   // identity-only for DatasetSource).
   private val staticPayloads = scala.collection.mutable.Map.empty[String, JsObject]
+  private val joinRightSources = scala.collection.mutable.Map.empty[String, DataSource]
   private val mockDsRepo = new DataSourceRepository(null) {
+    override def findByIdInternal(id: DataSourceId): Future[Option[DataSource]] =
+      Future.successful(joinRightSources.get(id.value))
     override def readDatasetRows(id: DataSourceId): Future[Option[JsObject]] =
       Future.successful(staticPayloads.get(id.value))
   }
@@ -250,6 +254,32 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
         val result = submitter.applyStep(df, castStep(Map("age" -> "integer")))
         result.schema("age").dataType.typeName shouldBe "integer"
         result.collect().head.getAs[Int]("age") shouldBe 30
+      }
+    }
+
+    // HEL-1236: a join's colliding right column is renamed `right_<name>` BEFORE the Spark join,
+    // so the output columns match the in-process engine (JoinColumnNaming) and no value is lost.
+    "op is join with a column-name collision" should {
+      "keep the left column, surface the right as right_<name>, and keep the key once" in {
+        val left  = staticDs(Seq("id" -> "string", "cnt" -> "integer"), Seq(Seq(JsString("1"), JsNumber(10))))
+        val right = staticDs(Seq("id" -> "string", "cnt" -> "integer", "extra" -> "string"), Seq(Seq(JsString("1"), JsNumber(99), JsString("e"))))
+        joinRightSources(right.id.value) = right
+        val joinStep: PipelineStep = JoinStep(
+          stepId(0), pipeId, 0,
+          JoinConfig(SecondaryInput.Source(right.id.value), "id", "inner"),
+          now, now
+        )
+        val result = submitter.applyStep(submitter.loadDataFrame(left), joinStep)
+        result.columns.toSet shouldBe Set("id", "cnt", "right_cnt", "extra")
+        val row = result.collect().head
+        row.getAs[Any]("cnt").toString shouldBe "10"
+        row.getAs[Any]("right_cnt").toString shouldBe "99"
+      }
+
+      "name the renamed columns exactly as JoinColumnNaming does for the in-process engine" in {
+        val right = staticDs(Seq("id" -> "string", "x" -> "string", "right_x" -> "string"), Seq(Seq(JsString("1"), JsString("a"), JsString("b"))))
+        val renamed = SparkJobSubmitter.renameCollidingRightColumns(Seq("id", "x"), submitter.loadDataFrame(right), "id")
+        renamed.columns.toSet shouldBe Set("id", "right_x_2", "right_x")
       }
     }
 

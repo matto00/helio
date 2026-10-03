@@ -1,7 +1,7 @@
 package com.helio.spark
 
 import com.helio.domain.{AggregateStep, CastStep, ComputeStep, FilterStep, GroupByStep, JoinStep, LimitStep, RenameStep, SelectStep, SortStep}
-import com.helio.domain.steps.SecondaryInput
+import com.helio.domain.steps.{JoinColumnNaming, SecondaryInput}
 import com.helio.domain.engine.{NodeKey, PipelineExecutionBackend, PipelineExecutionOutcome, SourceReadStats}
 import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DataSourceId, DatasetSource, Pipeline, PipelineRunId, PipelineStep, TruncationSink, WriteBackSink}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -280,7 +280,11 @@ class SparkJobSubmitter(
             .result(dataSourceRepo.findByIdInternal(DataSourceId(rightDsId)), 30.seconds)
             .getOrElse(throw new IllegalArgumentException(s"DataSource not found for join: $rightDsId"))
           val rightDf = loadDataFrame(rightDs)
-          df.join(rightDf, Seq(s.config.joinKey), if (s.config.joinType.toLowerCase == "left") "left" else "inner")
+          // HEL-1236: same collision rule as the in-process engine -- a right column whose name
+          // collides with a left column is renamed `right_<name>` BEFORE the join, so the
+          // output columns match `JoinStep`/analyze and no value is ambiguous or dropped.
+          val renamedRight = SparkJobSubmitter.renameCollidingRightColumns(df.columns.toSeq, rightDf, s.config.joinKey)
+          df.join(renamedRight, Seq(s.config.joinKey), if (s.config.joinType.toLowerCase == "left") "left" else "inner")
         case SecondaryInput.Lane(stepId) =>
           throw new IllegalArgumentException(
             s"join step '${s.id.value}': lane-kind secondaryInput (referencing '$stepId') is not " +
@@ -321,5 +325,23 @@ class SparkJobSubmitter(
     case (JsNumber(n), _)           => n.toDouble
     case (JsString(s), _)           => s
     case _                          => v.toString
+  }
+}
+
+object SparkJobSubmitter {
+
+  /** HEL-1236: renames `rightDf`'s columns per `JoinColumnNaming` (the single join collision
+   *  rule shared with the in-process engine and analyze) so that a USING-style
+   *  `df.join(renamed, Seq(joinKey), ...)` yields exactly the in-process engine's column names.
+   *  The duplicate join key is left for Spark's USING join to coalesce; every other colliding
+   *  right column is renamed `right_<name>` BEFORE the join. */
+  private[spark] def renameCollidingRightColumns(leftCols: Seq[String], rightDf: DataFrame, joinKey: String): DataFrame = {
+    val mapping = JoinColumnNaming.resolve(leftCols, rightDf.columns.toSeq, joinKey)
+    rightDf.columns.foldLeft(rightDf) { (d, col) =>
+      mapping.get(col) match {
+        case Some(out) if out != col => d.withColumnRenamed(col, out)
+        case _                       => d
+      }
+    }
   }
 }

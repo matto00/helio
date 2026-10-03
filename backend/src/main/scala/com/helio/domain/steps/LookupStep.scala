@@ -55,8 +55,9 @@ object LookupConfig {
  *      reference-row load order, since `Seq.groupBy` preserves each group's
  *      original element order).
  *    - Column collision: the brought-in reference value overwrites an
- *      existing left-row field of the same name (matching `JoinStep`'s
- *      `leftRow ++ rightRow` right-hand-wins rule). Only the requested
+ *      existing left-row field of the same name (the right-hand-wins rule
+ *      `JoinStep` USED to share; HEL-1236 changed `join` to prefix the right
+ *      column instead, `lookup` is deliberately unchanged -- follow-up). Only the requested
  *      `columns` are brought in — every other reference-row field is
  *      dropped. */
 final case class LookupStep(

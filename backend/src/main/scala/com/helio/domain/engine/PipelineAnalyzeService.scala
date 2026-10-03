@@ -3,7 +3,7 @@ package com.helio.domain.engine
 import com.helio.domain.model.{DataFieldType, PipelineStep}
 import com.helio.domain.steps.{
   AggregateConfig, AggregateStep, AnalyzeWithAiConfig, ConvertFormatStep, FillNullConfig, FillNullStep, GenerateTextConfig, GroupByConfig, GroupByStep,
-  JoinConfig, JoinStep, LookupConfig, PivotConfig, PivotStep, SecondaryInput, StringOpsConfig, StringOpsStep,
+  JoinColumnNaming, JoinConfig, JoinStep, LookupConfig, PivotConfig, PivotStep, SecondaryInput, StringOpsConfig, StringOpsStep,
   UnionConfig, UnionStep, WindowConfig, WindowStep
 }
 import org.slf4j.LoggerFactory
@@ -225,6 +225,16 @@ object PipelineAnalyzeService {
     }).getOrElse(None)
   }
 
+  /** HEL-1236: the data-source id a `join` step's `source`-kind secondary input names, if any --
+   *  the counterpart of [[laneDependencyOf]]. Only `join` is covered (the only op whose analyzed
+   *  schema consumes a source-kind secondary schema today). Same tolerant decode: a malformed
+   *  config degrades to `None`. Public so callers can pre-resolve those sources' schemas. */
+  def sourceDependencyOf(op: String, config: String): Option[String] =
+    if (op != "join") None
+    else scala.util.Try(JoinConfig.decode(config).secondaryInput).toOption.collect {
+      case SecondaryInput.Source(dsId) if dsId.nonEmpty => dsId
+    }
+
   /** Per-node (trunk + every tail) schema projection -- see the class doc above.
    *
    *  HEL-911 (design.md Engine contract item 12, evaluation-1.md CR3, cycle 2): generalized
@@ -252,7 +262,11 @@ object PipelineAnalyzeService {
    *  from `sourceSchemasByRoot` resolves to an empty schema (matching this function's existing
    *  tolerant-degradation contract for any other unresolvable reference) rather than silently
    *  falling back to a different root's schema. */
-  def analyzeNodes(steps: Vector[NodeStepInput], sourceSchemasByRoot: Map[String, Vector[SchemaField]]): Map[String, AnalyzedStep] = {
+  def analyzeNodes(
+      steps:                   Vector[NodeStepInput],
+      sourceSchemasByRoot:     Map[String, Vector[SchemaField]],
+      secondarySourceSchemas:  Map[String, Vector[SchemaField]] = Map.empty
+  ): Map[String, AnalyzedStep] = {
     val results = scala.collection.mutable.LinkedHashMap.empty[String, AnalyzedStep]
 
     def schemaAt(step: NodeStepInput): Vector[SchemaField] =
@@ -265,7 +279,11 @@ object PipelineAnalyzeService {
 
     def processNode(step: NodeStepInput): Unit = {
       val inputSchema     = schemaAt(step)
+      // HEL-1236: a `join`'s `source`-kind secondary input resolves from the caller-supplied
+      // `secondarySourceSchemas` (keyed by data source id) -- this layer has no repo access of its
+      // own. Absent from the map -> `None`, the documented left-schema passthrough.
       val secondarySchema = laneDependencyOf(step.op, step.config).flatMap(results.get).map(_.outputSchema)
+        .orElse(sourceDependencyOf(step.op, step.config).flatMap(secondarySourceSchemas.get))
       // HEL-913 task 7.2c fold-in: a disabled node is transparent -- never validated, never
       // inferred, its incoming schema passes through unchanged (mirrors the engine's own
       // disabled-node handling, design.md Decision 7 / HEL-905).
@@ -467,7 +485,7 @@ object PipelineAnalyzeService {
       // item, since design.md's Engine contract item 12 names `join` alongside `union`/
       // `lookup` explicitly).
       case "union"                      => inferUnion(inputSchema, secondarySchema)
-      case "join"                       => inferJoin(inputSchema, secondarySchema)
+      case "join"                       => inferJoin(config, inputSchema, secondarySchema)
       case "select"                     => inferSelect(config, inputSchema)
       case "rename"                     => inferRename(config, inputSchema)
       case "cast"                       => inferCast(config, inputSchema)
@@ -1019,22 +1037,25 @@ object PipelineAnalyzeService {
     }
 
   /** join — HEL-911 (design.md Engine contract item 12, evaluation-1.md CR3): `join` had NO
-   *  dispatch case at all before this ticket (every analyze call for a `join` step fell to
-   *  the `unknown`-op arm below, reporting a spurious "Unknown op: 'join'"). When the
-   *  secondary input is `lane`-kind and its schema was resolved, the projected schema
-   *  mirrors `JoinStep.evaluate`'s own runtime row shape (`leftRow ++ rightRow`): the union
-   *  of both sides' fields, with the SECONDARY (right-hand) side's type winning on a name
-   *  collision -- the same "right-hand wins" rule the runtime row merge uses. For a
-   *  `source`-kind secondary input (unresolved), this is the same documented best-effort
-   *  passthrough every other op in this file uses when it cannot see the second input. */
+   *  dispatch case at all before this ticket. When the secondary input's schema is resolved
+   *  (`lane`-kind via the walk, or `source`-kind via `secondarySourceSchemas`, HEL-1236), the
+   *  projected schema mirrors `JoinStep.evaluate`'s runtime row shape: every left field, then
+   *  every surviving right field renamed per [[JoinColumnNaming]] (HEL-1236: a colliding right
+   *  column becomes `right_<name>`, the duplicate join key is dropped -- the SAME rule the
+   *  runtime applies, so analyze and run agree). When the secondary schema is unresolvable
+   *  (e.g. a source with no inferred schema), this is the documented best-effort passthrough
+   *  every other op in this file uses when it cannot see the second input. */
   private def inferJoin(
+      config:          String,
       inputSchema:     Vector[SchemaField],
       secondarySchema: Option[Vector[SchemaField]]
   ): (Vector[SchemaField], Option[String]) =
     secondarySchema match {
       case Some(secondary) =>
-        val secondaryNames = secondary.map(_.name).toSet
-        (inputSchema.filterNot(f => secondaryNames.contains(f.name)) ++ secondary, None)
+        val joinKey = scala.util.Try(JoinConfig.decode(config).joinKey).getOrElse("")
+        val mapping = JoinColumnNaming.resolve(inputSchema.map(_.name), secondary.map(_.name), joinKey)
+        val right   = secondary.flatMap(f => mapping.get(f.name).map(n => f.copy(name = n)))
+        (inputSchema ++ right, None)
       case None => (inputSchema, None)
     }
 
