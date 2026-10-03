@@ -989,10 +989,10 @@ object PipelineAnalyzeService {
    *  identity-passthrough group `join`/`union` belong to. The reference
    *  source's schema isn't resolvable at this layer (no repo access, same
    *  limitation `union` already documents), so each name in `config.columns`
-   *  is appended typed `string`, replacing any existing same-named field in
-   *  place (`filterNot` + `:+` per column, generalizing the single-output-
-   *  column collision-safe shape `inferStringOps`/`inferWindow` use to a
-   *  `Vector[String]` of output columns). No field-existence validation is
+   *  is appended typed `string` (or the lane secondary's real type). A column
+   *  colliding with an input field is appended as `right_<name>` (HEL-1250,
+   *  shared `JoinColumnNaming` rule, same as the runtime), never replacing the
+   *  input field; the duplicate key is dropped when sourceKey == lookupKey. No field-existence validation is
    *  performed on `sourceKey` — like `stringops`/`datebucket`, `lookup`
    *  accepts any field name and null-coerces at execute time — so this
    *  dedicated dispatch case never emits a false `validationError`. */
@@ -1011,9 +1011,15 @@ object PipelineAnalyzeService {
       // pre-existing documented "string" placeholder, unchanged.
       val secondaryTypes: Map[String, String] =
         secondarySchema.map(_.map(f => f.name -> f.`type`).toMap).getOrElse(Map.empty)
-      columns.foldLeft(inputSchema) { (schema, col) =>
-        val fieldType = secondaryTypes.getOrElse(col, "string")
-        schema.filterNot(_.name == col) :+ SchemaField(name = col, `type` = fieldType)
+      // HEL-1250: same collision rule as the runtime `LookupStep` (shared `JoinColumnNaming`).
+      // Types stay keyed by the ORIGINAL requested name, not the renamed one.
+      val sourceKey = json.fields.get("sourceKey").collect { case JsString(v) => v }.getOrElse("")
+      val lookupKey = json.fields.get("lookupKey").collect { case JsString(v) => v }.getOrElse("")
+      val keyOpt    = if (sourceKey == lookupKey) Some(lookupKey) else None
+      val requested = columns.distinct
+      val mapping   = JoinColumnNaming.resolveWithKey(inputSchema.map(_.name), requested, keyOpt)
+      inputSchema ++ requested.flatMap { col =>
+        mapping.get(col).map(out => SchemaField(name = out, `type` = secondaryTypes.getOrElse(col, "string")))
       }
     } (inputSchema)
 

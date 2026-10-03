@@ -58,3 +58,13 @@ you are about to mark required is.
 (23 step kinds, 21 `pipeline-*-op` specs). For those, requiredness currently
 rests on no governing statement; see HEL-900. Prefer the conservative
 (optional) reading there until a spec exists, and record that you did so.
+
+## Column collisions in `join` and `lookup`
+
+Both steps use the one shared rule in `JoinColumnNaming` (HEL-1236, HEL-1250): a
+left column is never renamed, overwritten or dropped; a colliding right/brought
+column becomes `right_<name>` (then `right_<name>_2`, ...), in sorted-name
+order. For `lookup` the "right" names are the requested `columns`, and the
+brought copy of the key is dropped only when `sourceKey == lookupKey`. Runtime
+(`LookupStep.evaluate`) and analyze (`PipelineAnalyzeService.inferLookup`) must
+call `JoinColumnNaming.resolveWithKey` so their column names agree.

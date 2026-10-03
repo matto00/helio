@@ -166,12 +166,12 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).validationError shouldBe None
     }
 
-    "lookup — replaces an existing same-named field in place rather than duplicating it" in {
+    "lookup — a same-named field is kept and the looked-up column is appended as right_<name> (HEL-1250)" in {
       val cfg = """{"secondaryInput":{"kind":"source","dataSourceId":"ds-2"},"sourceKey":"order_id","lookupKey":"code","columns":["amount"]}"""
       val steps  = Vector(step("lookup", cfg))
       val result = analyze(steps, baseSchema)
       result(0).outputSchema shouldBe Vector(
-        field("order_id", "string"), field("created_at", "string"), field("amount", "string")
+        field("order_id", "string"), field("amount", "float"), field("created_at", "string"), field("right_amount", "string")
       )
       result(0).validationError shouldBe None
     }
