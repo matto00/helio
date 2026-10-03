@@ -785,9 +785,8 @@ final class PipelineRunService(
   /** `GET /api/pipelines/:id/runs/latest` (HEL-1174, design.md Decision 2): sharing-aware --
    *  owner, editor, and viewer grantees all resolve; a never-run pipeline (or a pipeline the
    *  caller cannot access) both come back `NotFound`, matching `history`'s no-grant behavior --
-   *  existence is not leaked. Deliberately NOT modeled on `status(runId)` above: that is a bare
-   *  in-memory-cache lookup with no ownership/sharing check at all, safe only because it is keyed
-   *  by an opaque, unguessable run id -- copying it for THIS pipeline-id-keyed endpoint would leak
+   *  existence is not leaked. Deliberately NOT a bare cache lookup keyed only by an opaque run id
+   *  (the pre-HEL-1249 `status(runId)`, removed): copying that for THIS pipeline-id-keyed endpoint would leak
    *  any pipeline's latest run status/error detail to any authenticated user who guesses or
    *  enumerates pipeline ids. Reads through the durable `pipeline_runs` table (`latestRunInternal`),
    *  never the ephemeral `PipelineRunRegistry`/cache -- correct across backend instances (HEL-1168)
@@ -815,17 +814,29 @@ final class PipelineRunService(
           }
       }
 
-  /** Fetch the cached status of a run (queued/running/succeeded/failed). */
-  def status(runId: String): Option[CachedRunStatus] =
-    cache.get(runId).map { entry =>
-      val rowsJson: Option[JsValue] = entry.rows.map { rows =>
-        JsArray(rows.map { rowMap =>
-          JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
-        }.toVector)
-      }
-      val rowCount: Option[Int] = entry.rows.map(_.size)
-      CachedRunStatus(entry.runId, entry.status, rowsJson, entry.error, rowCount)
+  /** `GET /api/pipelines/:id/runs/:runId` (HEL-1249): the cached status of a run, served only
+   *  through the pipeline that owns it and only to a caller who can see that pipeline
+   *  (`findByIdShared`: owner or any grantee). Every failure arm -- pipeline absent or not
+   *  visible, run absent, run recorded against a different pipeline -- is the SAME
+   *  `ServiceError.NotFound` with one fixed message (no caller-supplied id echoed), so the
+   *  serialized 404 is byte-identical and nothing about existence is leaked (HEL-1002). */
+  def runStatus(pipelineId: PipelineId, runId: String, user: AuthenticatedUser): Future[Either[ServiceError, CachedRunStatus]] =
+    pipelineRepo.findByIdShared(pipelineId, Some(user)).map {
+      case None => Left(RunStatusNotFound)
+      case Some(_) =>
+        cache.get(runId).filter(_.pipelineId == pipelineId.value) match {
+          case None => Left(RunStatusNotFound)
+          case Some(entry) =>
+            val rowsJson: Option[JsValue] = entry.rows.map { rows =>
+              JsArray(rows.map { rowMap =>
+                JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
+              }.toVector)
+            }
+            Right(CachedRunStatus(entry.runId, entry.status, rowsJson, entry.error, entry.rows.map(_.size)))
+        }
     }
+
+  private val RunStatusNotFound = ServiceError.NotFound("Run not found")
 
   /** Persisted run history for a pipeline.
    *  HEL-279: sharing-aware — owner, editor, and viewer grantees can read history.

@@ -1,10 +1,9 @@
 package com.helio.api.routes.pipelines
 
 import com.helio.api.routes.ServiceResponse
-import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.api.{ErrorResponse, JsonProtocols}
+import com.helio.api.JsonProtocols
 import com.helio.api.protocols.pipelines.RunStatusResponse
 import com.helio.api.protocols.IdParsing
 import com.helio.domain.model.{AuthenticatedUser, OutputId}
@@ -31,17 +30,8 @@ final class PipelineRunStatusRoutes(runService: PipelineRunService, user: Authen
       concat(
         path("runs" / Segment) { runId =>
           get {
-            // pipelineId is unused for cache lookup (cache key is the run id);
-            // we keep it in the path for client-facing consistency.
-            val _ = pipelineId
-            runService.status(runId) match {
-              case None =>
-                complete(StatusCodes.NotFound, ErrorResponse("Run not found: " + runId))
-              case Some(cached) =>
-                complete(
-                  StatusCodes.OK,
-                  RunStatusResponse(cached.runId, cached.status, cached.rows, cached.error, cached.rowCount)
-                )
+            ServiceResponse.run(runService.runStatus(pipelineId, runId, user)) { cached =>
+              RunStatusResponse(cached.runId, cached.status, cached.rows, cached.error, cached.rowCount)
             }
           }
         },

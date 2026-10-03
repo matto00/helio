@@ -31,7 +31,7 @@ import scala.concurrent.ExecutionContext
  *  mount point there, and `PipelineRunRoutesSpec`'s `makeRoutes` test helper). Pekko HTTP tries a
  *  `concat`'s branches in declaration order; `Segment` matches the literal string `"latest"` just
  *  as readily as a real run id, so if `runs/:runId` is composed first, a GET to `runs/latest`
- *  binds `runId = "latest"`, falls into `runService.status("latest")` → `None` → a *different*
+ *  binds `runId = "latest"`, falls into `runService.runStatus(..., "latest", ...)` → a *different*
  *  `404`, and this route becomes permanently unreachable — compiles fine, never fires (design-gate
  *  round 1, change request 2). */
 final class PipelineRunLatestRoutes(runService: PipelineRunService, user: AuthenticatedUser)(implicit ec: ExecutionContext)

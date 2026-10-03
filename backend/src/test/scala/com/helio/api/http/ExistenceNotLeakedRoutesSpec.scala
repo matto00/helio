@@ -10,7 +10,7 @@ import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
-import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
+import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
 import com.helio.testkit.TempDirectorySupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
@@ -155,7 +155,7 @@ class ExistenceNotLeakedRoutesSpec
 
   // ---- routes ----
 
-  private def buildApi(): ApiRoutes = {
+  private def buildApi(cache: PipelineRunCache = new PipelineRunCache()): ApiRoutes = {
     val pipelineRepo = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     new ApiRoutes(
       dashboardRepo, panelRepo, dataSourceRepo, permissionRepo,
@@ -163,7 +163,7 @@ class ExistenceNotLeakedRoutesSpec
       new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP in tests")))),
       userRepo, stubSessionRepo, userPrefRepo,
       pipelineRepo, new PipelineStepRepository(ctx)(routeEc),
-      new PipelineRunCache(),
+      cache,
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(routeEc),
       pipelineRunRepo = new PipelineRunRepository(ctx)(routeEc),
       dbContext       = ctx
@@ -209,7 +209,9 @@ class ExistenceNotLeakedRoutesSpec
         val seeded      = seedOwned()
         val realId      = targetIdOf(row, seeded)
         val missingId   = UUID.randomUUID().toString
-        val api         = buildApi()
+        val cache       = new PipelineRunCache()
+        if (row.seedRun) seedRun(cache, seeded.pipelineId)
+        val api         = buildApi(cache)
         val asStranger  = asUser(api, "tok-stranger")
 
         val foreign     = run(asStranger, request(row, realId, seeded), realId)
@@ -231,6 +233,58 @@ class ExistenceNotLeakedRoutesSpec
           }
         }
       }
+    }
+  }
+
+  // HEL-1249: GET /pipelines/:id/runs/:runId reaches the cache arms (absent run, wrong pipeline)
+  // that the foreign-vs-nonexistent PIPELINE row above never gets to.
+  private def seedRun(cache: PipelineRunCache, pipelineId: String): Unit = {
+    cache.put(SeededRunId, pipelineId, RunStatus.Queued)
+    cache.update(SeededRunId, RunStatus.Succeeded, rows = Some(Seq(Map[String, Any]("secret" -> "owner-row"))))
+  }
+
+  private def runStatusRequest(pipelineId: String, runId: String): HttpRequest =
+    HttpRequest(HttpMethods.GET, s"/api/pipelines/$pipelineId/runs/$runId")
+
+  "GET /api/pipelines/:id/runs/:runId" should {
+    "return a byte-identical 404 for foreign pipeline, absent pipeline, absent run, and a run of another pipeline" in {
+      val a     = seedOwned()
+      val b     = seedOwned()
+      val cache = new PipelineRunCache()
+      seedRun(cache, a.pipelineId)
+      val api = buildApi(cache)
+      val asStranger = asUser(api, "tok-stranger")
+      val asOwner    = asUser(api, "tok-owner")
+      val missing    = UUID.randomUUID().toString
+      val missingRun = UUID.randomUUID().toString
+
+      // run() normalises the probed segment; the run id is normalised too via a second pass.
+      def norm(o: Outcome) = o.copy(body = o.body.replace(SeededRunId, "<RUN>").replace(missingRun, "<RUN>"))
+      val foreignPipeline = norm(run(asStranger, runStatusRequest(a.pipelineId, SeededRunId), a.pipelineId))
+      val absentPipeline  = norm(run(asStranger, runStatusRequest(missing, SeededRunId), missing))
+      val absentRun       = norm(run(asOwner, runStatusRequest(a.pipelineId, missingRun), a.pipelineId))
+      val wrongPipeline   = norm(run(asOwner, runStatusRequest(b.pipelineId, SeededRunId), b.pipelineId))
+
+      withClue(s"foreign=$foreignPipeline absentPipeline=$absentPipeline absentRun=$absentRun wrongPipeline=$wrongPipeline: ") {
+        foreignPipeline.status shouldBe StatusCodes.NotFound.intValue
+        absentPipeline  shouldBe foreignPipeline
+        absentRun       shouldBe foreignPipeline
+        wrongPipeline   shouldBe foreignPipeline
+      }
+    }
+
+    "still serve the run to the owner and to a pipeline grantee" in {
+      val a     = seedOwned()
+      val cache = new PipelineRunCache()
+      seedRun(cache, a.pipelineId)
+      val api = buildApi(cache)
+      import PostgresProfile.api._
+      await(db.run(
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+                 VALUES ('pipeline', ${a.pipelineId}, ${viewerId}::uuid, 'viewer', now())"""
+      ))
+      run(asUser(api, "tok-owner"), runStatusRequest(a.pipelineId, SeededRunId), a.pipelineId).status shouldBe 200
+      run(asUser(api, "tok-viewer"), runStatusRequest(a.pipelineId, SeededRunId), a.pipelineId).status shouldBe 200
     }
   }
 
@@ -297,9 +351,14 @@ object ExistenceNotLeakedRoutesSpec {
       sites: Set[String],
       body: Option[String] = None,
       ownerControl: Boolean = true,
+      // HEL-1249: seed [[SeededRunId]] into the PipelineRunCache, bound to the seeded pipeline
+      seedRun: Boolean = false,
       // "kind:op" pairs of POST /patch-sets/{apply,preview} this row exercises (per-kind guard)
       patchKinds: Set[String] = Set.empty
   )
+
+  /** HEL-1249: fixed run id seeded into the PipelineRunCache for `seedRun` rows. */
+  val SeededRunId = "run-hel1249-seeded"
 
   private val AnyUuid   = "00000000-0000-0000-0000-000000000001"
   private val Json      = (s: String) => Some(s)
@@ -377,6 +436,7 @@ object ExistenceNotLeakedRoutesSpec {
     Row("DELETE pipeline", HttpMethods.DELETE, "/api/pipelines/{id}", Pipeline, Set("PipelineService.scala")),
     Row("GET pipeline analyze", HttpMethods.GET, "/api/pipelines/{id}/analyze", Pipeline, Set("PipelineService.scala"), ownerControl = false),
     Row("POST pipeline run", HttpMethods.POST, "/api/pipelines/{id}/run", Pipeline, Set("PipelineRunService.scala"), ownerControl = false),
+    Row("GET pipeline run status", HttpMethods.GET, s"/api/pipelines/{id}/runs/$SeededRunId", Pipeline, Set("PipelineRunService.scala"), seedRun = true),
     Row("POST pipeline dry run", HttpMethods.POST, "/api/pipelines/{id}/run?dry=true", Pipeline, Set("PipelineRunService.scala"), ownerControl = false)
   )
 

@@ -1,0 +1,8 @@
+- `backend/src/main/scala/com/helio/spark/PipelineRunCache.scala` — RunEntry.pipelineId; put(runId, pipelineId, status); update preserves id, no-op on unknown key
+- `backend/src/main/scala/com/helio/spark/SparkJobSubmitter.scala` — pass pipeline.id to cache.put
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — runStatus(pipelineId, runId, user) replaces user-free status(runId); one uniform NotFound
+- `backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunStatusRoutes.scala` — route through ServiceResponse.run
+- `backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunLatestRoutes.scala` — stale comment refresh
+- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala` — seedRun row, 4-arm byte-identity test, owner/grantee 200 test
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineRunRoutesSpec.scala` — rewrite status tests to real pipeline-bound runs
+- `backend/src/test/scala/com/helio/spark/PipelineRunCacheSpec.scala` — 3-arg put, update-preserve and no-fabricate tests

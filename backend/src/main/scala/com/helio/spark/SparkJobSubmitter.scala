@@ -53,7 +53,7 @@ class SparkJobSubmitter(
     val runIdStr  = UUID.randomUUID().toString
     val runId     = PipelineRunId(runIdStr)
     val startedAt = Instant.now()
-    cache.put(runIdStr, RunStatus.Queued)
+    cache.put(runIdStr, pipeline.id.value, RunStatus.Queued)
 
     // HEL-265 CS2: the background Spark driver runs outside the request-bound
     // user context. The pipeline ACL was already checked at submit time by

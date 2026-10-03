@@ -327,9 +327,10 @@ class PipelineRunRoutesSpec
 
     "GET /pipelines/:id/runs/:runId returns 200 with queued status" in {
       val cache = new PipelineRunCache()
+      val pid   = seedPipeline(seedDs("dataset"))
       val runId = "test-run-123"
-      cache.put(runId, RunStatus.Queued)
-      Get(s"/pipelines/any/runs/$runId") ~> makeRoutes(cache) ~> check {
+      cache.put(runId, pid.value, RunStatus.Queued)
+      Get(s"/pipelines/${pid.value}/runs/$runId") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunStatusResponse]
         resp.runId  shouldBe runId
@@ -341,9 +342,11 @@ class PipelineRunRoutesSpec
 
     "GET /pipelines/:id/runs/:runId returns 200 with rows when succeeded" in {
       val cache = new PipelineRunCache()
+      val pid   = seedPipeline(seedDs("dataset"))
       val runId = "test-run-456"
+      cache.put(runId, pid.value, RunStatus.Queued)
       cache.update(runId, RunStatus.Succeeded, rows = Some(Seq(Map("x" -> 1.asInstanceOf[Any]))))
-      Get(s"/pipelines/any/runs/$runId") ~> makeRoutes(cache) ~> check {
+      Get(s"/pipelines/${pid.value}/runs/$runId") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.OK
         val resp = responseAs[RunStatusResponse]
         resp.status shouldBe RunStatus.Succeeded
@@ -353,7 +356,8 @@ class PipelineRunRoutesSpec
 
     "GET /pipelines/:id/runs/:runId returns 404 for unknown runId" in {
       val cache = new PipelineRunCache()
-      Get("/pipelines/any/runs/nonexistent") ~> makeRoutes(cache) ~> check {
+      val pid = seedPipeline(seedDs("dataset"))
+      Get(s"/pipelines/${pid.value}/runs/nonexistent") ~> makeRoutes(cache) ~> check {
         status shouldBe StatusCodes.NotFound
       }
     }
@@ -482,7 +486,7 @@ class PipelineRunRoutesSpec
     // HTTP-request level -- proves the literal "latest" segment is NOT swallowed by
     // PipelineRunStatusRoutes' `path("runs" / Segment)` wildcard mounted immediately after it in
     // `makeRoutes`'s own `concat(...)` above. If mount order regressed, this would come back 404
-    // with body "Run not found: latest" (runService.status("latest")'s message) instead of 200.
+    // with body "Run not found" (the status route's message) instead of 200.
     "GET /pipelines/:id/runs/latest is not shadowed by the runs/:runId wildcard route" in {
       val cache = new PipelineRunCache()
       val dsId  = seedDs("dataset")
