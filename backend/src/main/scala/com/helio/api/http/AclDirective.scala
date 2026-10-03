@@ -19,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *
  *  - Unknown resource type key    → 500 Internal Server Error
  *  - Resource not found           → 404 Not Found
- *  - Resource found, wrong owner  → 403 Forbidden
+ *  - Resource found, wrong owner  → 404 Not Found, byte-identical to the absent case (HEL-1002)
  *  - Resource found, correct owner → inner route executes
  *
  *  Registering a new resource type only requires adding a [[ResourceType]] entry to the
@@ -52,7 +52,7 @@ class AclDirective(
             complete(StatusCodes.NotFound, ErrorResponse(notFoundMessage))
 
           case scala.util.Success(Some(ownerId)) if ownerId != user.id.value =>
-            complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+            complete(StatusCodes.NotFound, ErrorResponse(notFoundMessage))
 
           case scala.util.Success(Some(_)) =>
             pass
@@ -73,7 +73,8 @@ class AclDirective(
    *  - User has grant → provide ResourceAccess.Editor or ResourceAccess.Viewer based on role
    *  - No user but public viewer grant exists → provide ResourceAccess.Viewer
    *  - No user and no public grant → 404 Not Found (hide private resources from unauthenticated users)
-   *  - User exists but no access → 403 Forbidden
+   *  - User exists but no grant (and no valid share token) → 404 Not Found with the same body as
+   *    the absent case (HEL-1002: existence not leaked)
    */
   def authorizeResourceWithSharing(
       resourceType: String,
@@ -81,7 +82,7 @@ class AclDirective(
       userOpt: Option[AuthenticatedUser],
       notFoundMessage: String = "Not found",
       // HEL-590 (design.md D5): a share-link token, consulted only as a fallback when
-      // grant-based resolution below DENIES -- both the authenticated-no-grant 403 arm and the
+      // grant-based resolution below DENIES -- both the authenticated-no-grant 404 arm and the
       // anonymous-no-public-grant 404 arm, never confined to just the anonymous branch (a
       // logged-in caller who happens to hold a valid share link must not 403). Never consulted
       // when grant-based resolution already granted Owner/Editor/Viewer -- a token never
@@ -122,7 +123,7 @@ class AclDirective(
                       case scala.util.Success(true) =>
                         provide(ResourceAccess.Viewer)
                       case scala.util.Success(false) =>
-                        complete(StatusCodes.Forbidden, ErrorResponse("Forbidden"))
+                        complete(StatusCodes.NotFound, ErrorResponse(notFoundMessage))
                       case scala.util.Failure(_) =>
                         complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
                     }

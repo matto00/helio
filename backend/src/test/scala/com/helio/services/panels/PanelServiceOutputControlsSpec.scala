@@ -88,6 +88,7 @@ class PanelServiceOutputControlsSpec extends AnyWordSpec with Matchers {
     when(dashboardRepo.update(any())).thenAnswer(inv => Future.successful(Some(inv.getArgument[Dashboard](0))))
     existingPanel.foreach { p =>
       when(panelRepo.findByIdInternal(p.id)).thenReturn(Future.successful(Some(p)))
+      when(panelRepo.findById(p.id, Some(user))).thenReturn(Future.successful(Some(p)))
       when(panelRepo.replace(any(), any())).thenAnswer { inv =>
         Future.successful(Some(inv.getArgument[Panel](0)))
       }

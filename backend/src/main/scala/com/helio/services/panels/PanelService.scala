@@ -46,11 +46,11 @@ final case class ResolvedPanelPatch(
  *  - `findById` uses `panelRepo.findById(id, Some(user))` — sharing-aware via
  *    the parent dashboard. This closes the `/api/panels/:id/query` hole where
  *    any authenticated user could query any panel regardless of dashboard ACL.
- *  - `batchUpdate` uses `panelRepo.findByIdInternal` — the parent dashboard
- *    ACL (via `accessChecker.requireAccess`) is the authoritative gate there;
- *    per-panel owner checks are collapsed.
- *  - `delete` / `duplicate` / `update` delegate to the dashboard-level ACL
- *    via `authorizeEditorOnDashboard`.
+ *  - `batchUpdate`, `delete`, `duplicate` and `update` resolve panels with the
+ *    sharing-aware `panelRepo.findById(id, Some(user))` (HEL-1002): a panel the
+ *    caller cannot see is `NotFound("Panel not found")`, indistinguishable from
+ *    an absent one. Only for a visible panel does the dashboard-level role check
+ *    (`authorizeEditorOnDashboard` / `requireAccess`: Viewer -> 403) run.
  *  - `batchCreate` (HEL-370) uses its own two-step `authorizeEditor`
  *    (sharing-aware `dashboardRepo.findById` first, role check only for
  *    known grantees) rather than `authorizeEditorOnDashboard` — design.md D4:
@@ -384,7 +384,7 @@ final class PanelService(
 
 
   def delete(panelId: PanelId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
-    panelRepo.findByIdInternal(panelId).flatMap {
+    panelRepo.findById(panelId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Panel not found")))
       case Some(panel) =>
@@ -401,7 +401,7 @@ final class PanelService(
     }
 
   def duplicate(panelId: PanelId, user: AuthenticatedUser): Future[Either[ServiceError, Panel]] =
-    panelRepo.findByIdInternal(panelId).flatMap {
+    panelRepo.findById(panelId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Panel not found")))
       case Some(panel) =>
@@ -430,7 +430,7 @@ final class PanelService(
     if (items.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("panels must not be empty")))
     else
-      Future.traverse(items)(item => panelRepo.findByIdInternal(PanelId(item.id))).flatMap { panelOpts =>
+      Future.traverse(items)(item => panelRepo.findById(PanelId(item.id), Some(user))).flatMap { panelOpts =>
         items.zip(panelOpts).collectFirst { case (item, None) => item.id } match {
           case Some(id) =>
             Future.successful(Left(ServiceError.NotFound(s"Panel '$id' not found")))
@@ -569,7 +569,7 @@ final class PanelService(
       request: UpdatePanelRequest,
       user: AuthenticatedUser
   ): Future[Either[ServiceError, Panel]] =
-    panelRepo.findByIdInternal(panelId).flatMap {
+    panelRepo.findById(panelId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Panel not found")))
       case Some(existing) =>

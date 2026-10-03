@@ -2542,19 +2542,19 @@ class ApiRoutesSpec
       }
     }
 
-    "GET /api/dashboards/:id/panels returns 403 when caller does not own the dashboard" in {
+    "GET /api/dashboards/:id/panels returns 404 (existence not leaked) when caller does not own the dashboard" in {
       cleanDb()
       import slick.jdbc.PostgresProfile.api._
 
       await(db.run(sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id) VALUES ('other-dash-4', 'Other Dashboard', 'other-user', now(), now(), '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', '00000000-0000-0000-0000-000000000098')"""))
 
       Get("/api/dashboards/other-dash-4/panels") ~> routes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse].message shouldBe "Forbidden"
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse].message shouldBe "Dashboard not found"
       }
     }
 
-    "PATCH /api/panels/:id returns 403 when caller does not own the panel" in {
+    "PATCH /api/panels/:id returns 404 (existence not leaked) when caller does not own the panel" in {
       cleanDb()
       import slick.jdbc.PostgresProfile.api._
 
@@ -2562,12 +2562,12 @@ class ApiRoutesSpec
       await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id) VALUES ('other-panel-1', 'other-dash-5', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'text', '00000000-0000-0000-0000-000000000098')"""))
 
       Patch("/api/panels/other-panel-1", UpdatePanelRequest(title = Some("Hacked"), appearance = None, `type` = None, config = None)) ~> routes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse].message shouldBe "Forbidden"
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse].message shouldBe "Panel not found"
       }
     }
 
-    "DELETE /api/panels/:id returns 403 when caller does not own the panel" in {
+    "DELETE /api/panels/:id returns 404 (existence not leaked) when caller does not own the panel" in {
       cleanDb()
       import slick.jdbc.PostgresProfile.api._
 
@@ -2575,8 +2575,8 @@ class ApiRoutesSpec
       await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id) VALUES ('other-panel-2', 'other-dash-6', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'text', '00000000-0000-0000-0000-000000000098')"""))
 
       Delete("/api/panels/other-panel-2") ~> routes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse].message shouldBe "Forbidden"
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse].message shouldBe "Panel not found"
       }
     }
 
@@ -2603,7 +2603,7 @@ class ApiRoutesSpec
       dupPanel.get.ownerId shouldBe UserId(testUserId)
     }
 
-    "POST /api/panels/:id/duplicate returns 403 when caller does not own the source panel" in {
+    "POST /api/panels/:id/duplicate returns 404 (existence not leaked) when caller does not own the source panel" in {
       cleanDb()
       import slick.jdbc.PostgresProfile.api._
 
@@ -2611,8 +2611,8 @@ class ApiRoutesSpec
       await(db.run(sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id) VALUES ('other-panel-3', 'other-dash-7', 'Other Panel', 'other-user', now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}', 'text', '00000000-0000-0000-0000-000000000098')"""))
 
       Post("/api/panels/other-panel-3/duplicate") ~> routes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse].message shouldBe "Forbidden"
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse].message shouldBe "Panel not found"
       }
     }
   }
@@ -2833,7 +2833,7 @@ class ApiRoutesSpec
       }
     }
 
-    "return 403 when non-owner attempts GET on dashboard panels" in {
+    "return 404 when non-owner attempts GET on dashboard panels" in {
       cleanDb()
       var dashboardId = ""
       Post("/api/dashboards", CreateDashboardRequest(Some("Panels Dash"))) ~> routes() ~> check {
@@ -2841,8 +2841,8 @@ class ApiRoutesSpec
         dashboardId = responseAs[DashboardResponse].id
       }
       Get(s"/api/dashboards/$dashboardId/panels") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
       }
     }
 
@@ -2892,7 +2892,7 @@ class ApiRoutesSpec
       }
     }
 
-    "return 403 when non-owner attempts PATCH on panel" in {
+    "return 404 when non-owner attempts PATCH on panel" in {
       cleanDb()
       var dashboardId = ""
       var panelId = ""
@@ -2904,8 +2904,8 @@ class ApiRoutesSpec
         panelId = responseAs[PanelResponse].id
       }
       Patch(s"/api/panels/$panelId", UpdatePanelRequest(Some("Hacked"), None, None, None)) ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Panel not found")
       }
     }
 
@@ -2925,7 +2925,7 @@ class ApiRoutesSpec
       }
     }
 
-    "return 403 when non-owner attempts DELETE on panel" in {
+    "return 404 when non-owner attempts DELETE on panel" in {
       cleanDb()
       var dashboardId = ""
       var panelId = ""
@@ -2937,12 +2937,12 @@ class ApiRoutesSpec
         panelId = responseAs[PanelResponse].id
       }
       Delete(s"/api/panels/$panelId") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Panel not found")
       }
     }
 
-    "return 403 when non-owner attempts duplicate on panel" in {
+    "return 404 when non-owner attempts duplicate on panel" in {
       cleanDb()
       var dashboardId = ""
       var panelId = ""
@@ -2954,8 +2954,8 @@ class ApiRoutesSpec
         panelId = responseAs[PanelResponse].id
       }
       Post(s"/api/panels/$panelId/duplicate") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Panel not found")
       }
     }
   }
@@ -3080,7 +3080,7 @@ class ApiRoutesSpec
       }
     }
 
-    "return 403 when a non-owner tries to manage permissions" in {
+    "return 404 when a non-owner with no grant tries to manage permissions" in {
       cleanDb()
       var dashboardId = ""
       Post("/api/dashboards", CreateDashboardRequest(Some("Protected"))) ~> routes() ~> check {
@@ -3089,12 +3089,12 @@ class ApiRoutesSpec
       }
       val body = s"""{"granteeId":"$testUserId","role":"viewer"}"""
       Post(s"/api/dashboards/$dashboardId/permissions", HttpEntity(ContentTypes.`application/json`, body)) ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
       }
       Get(s"/api/dashboards/$dashboardId/permissions") ~> otherUserRoutes() ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
       }
     }
   }

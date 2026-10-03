@@ -17,12 +17,13 @@ import scala.concurrent.Future
  *
  *  Methods:
  *  - `requireOwnerOnly` — only the owner of the resource is permitted. Returns
- *    `ResourceAccess.Owner` on success, `NotFound` if the resource doesn't exist
- *    or no user is provided for a private resource, `Forbidden` otherwise.
- *  - `requireAccess`    — any tier of access (owner / editor / viewer). Mirrors
- *    `AclDirective.authorizeResourceWithSharing` exactly: public-viewer grants
- *    let an unauthenticated request through with `Viewer`, missing/private
- *    resources return `NotFound` to avoid leaking existence.
+ *    `ResourceAccess.Owner` on success; `NotFound(notFoundMessage)` if the resource
+ *    doesn't exist OR the caller has no grant on it (the two are indistinguishable,
+ *    HEL-1002); `Forbidden` only for a grantee, who already sees the resource.
+ *  - `requireAccess`    — any tier of access (owner / editor / viewer). Public-viewer
+ *    grants let an unauthenticated request through with `Viewer`; a missing resource,
+ *    or one the caller has no grant on, returns the same `NotFound(notFoundMessage)`
+ *    so existence is never leaked.
  */
 trait AccessChecker {
 

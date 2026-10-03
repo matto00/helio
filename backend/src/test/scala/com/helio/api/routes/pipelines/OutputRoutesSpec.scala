@@ -215,14 +215,12 @@ class OutputRoutesSpec
       }
     }
 
-    // AccessChecker.requireAccess's existing, pre-existing-codebase-wide rule (identical to
-    // PanelService.create's dashboard ACL check): an AUTHENTICATED caller with no grant on a
-    // resource that DOES exist gets 403, not 404 -- 404 (existence-not-leaked) is reserved for an
-    // ANONYMOUS caller with no public-viewer grant. This is not a new rule invented for Outputs.
-    "403 an unrelated authenticated caller with no pipeline grant" in {
+    // HEL-1002: AccessChecker.requireAccess answers an AUTHENTICATED caller with no grant on a real
+    // resource exactly like an absent one (404, existence not leaked); only a viewer grantee is 403.
+    "404 an unrelated authenticated caller with no pipeline grant" in {
       val pipelineId = newSharedPipeline()
       Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "table", "Other Output", None)) ~> routesFor(other) ~> check {
-        status shouldBe StatusCodes.Forbidden
+        status shouldBe StatusCodes.NotFound
       }
     }
 
@@ -325,7 +323,7 @@ class OutputRoutesSpec
   }
 
   "GET /pipelines/:id/outputs" should {
-    "list for the owner and the editor grantee, but 403 for an unrelated authenticated caller" in {
+    "list for the owner and the editor grantee, but 404 for an unrelated authenticated caller" in {
       val pipelineId = newSharedPipeline()
       await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-1", OutputKind.Table, explicitRootId = None))
 
@@ -338,7 +336,7 @@ class OutputRoutesSpec
         responseAs[OutputsResponse].items should have size 1
       }
       Get(s"/pipelines/${pipelineId.value}/outputs") ~> routesFor(other) ~> check {
-        status shouldBe StatusCodes.Forbidden
+        status shouldBe StatusCodes.NotFound
       }
     }
 

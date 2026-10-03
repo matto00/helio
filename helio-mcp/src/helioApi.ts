@@ -1267,7 +1267,7 @@ export class HelioApi {
   // "the request succeeded"), so the change is not observed here, but the
   // stale "every delete endpoint answers 204" claim would have been wrong to
   // leave in place. Deletion is permanent — the backend is owner-scoped (a
-  // non-owner gets 403, an unknown id 404, surfaced verbatim by the tool's
+  // non-owner and an unknown id both get 404 (HEL-1002), surfaced verbatim by the tool's
   // guarded handler). Cascades are FK-enforced in PostgreSQL.
 
   /** `DELETE /api/dashboards/:id`. Owner-only. Cascades to the dashboard's

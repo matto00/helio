@@ -56,14 +56,14 @@ class ShareTokenAuthenticatedAccessSpec extends AnyWordSpec with Matchers with S
       }
     }
 
-    "still receives 403 when the presented token is invalid" in {
+    "still receives 404 (existence not leaked) when the presented token is invalid" in {
       val directive = new AclDirective(permRepo(Map.empty), registry, Some(alwaysAuthorizesValidToken))
       val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(strangerUser), "Not found", Some("garbage")) {
         _ => complete(StatusCodes.OK, "should not reach here")
       }
       Get("/") ~> route ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Not found")
       }
     }
   }

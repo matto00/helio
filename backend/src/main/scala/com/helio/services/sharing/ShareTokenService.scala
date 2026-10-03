@@ -17,15 +17,9 @@ import scala.concurrent.{ExecutionContext, Future}
  *  `accessChecker.requireOwnerOnly` first, matching the `PermissionService` template exactly --
  *  only the dashboard's owner may mint, list, or revoke its share tokens.
  *
- *  Evaluation-1.md CR7 / Adjudication: `requireOwnerOnly` itself returns `Forbidden` for a
- *  real-but-unowned dashboard and `NotFound` for an absent one -- a pre-existing, cross-cutting
- *  leak shared by every owner-only resource in this codebase (`AccessChecker`), out of scope to
- *  fix here. But `ShareTokenService` is brand-new surface with no back-compat obligation, and the
- *  ticket's own theme ("no resource leak and no existence oracle") is incoherent if the anonymous
- *  read path goes to structural lengths to be non-distinguishing while the management path on the
- *  SAME resource answers the same question with a 403. `mapForbiddenToNotFound` closes that gap
- *  locally, in the three call sites below, without touching the shared `AccessChecker` (a separate
- *  spinoff tracks the cross-cutting fix for every other owner-only route). */
+ *  A non-owner with no grant gets the same `NotFound("Dashboard not found")` an absent dashboard
+ *  produces, straight from the shared `requireOwnerOnly` (HEL-1002); there is no service-local
+ *  Forbidden mapping. A grantee (who can already see the dashboard) gets `Forbidden`. */
 final class ShareTokenService(
     shareTokenRepo: ShareTokenRepository,
     accessChecker:  AccessChecker
@@ -35,17 +29,8 @@ final class ShareTokenService(
 
   private val ResourceType = "dashboard"
 
-  /** `requireOwnerOnly`'s `Forbidden` (real-but-unowned) collapses onto its own `NotFound`
-   *  (absent) message so the two are indistinguishable to a non-owner caller -- see the class doc
-   *  above. Every other `ServiceError` variant passes through unchanged. */
-  private def mapForbiddenToNotFound(result: Either[ServiceError, ResourceAccess]): Either[ServiceError, ResourceAccess] =
-    result match {
-      case Left(ServiceError.Forbidden(_)) => Left(ServiceError.NotFound("Dashboard not found"))
-      case other                           => other
-    }
-
   private def requireOwner(dashboardId: String, user: AuthenticatedUser): Future[Either[ServiceError, ResourceAccess]] =
-    accessChecker.requireOwnerOnly(ResourceType, dashboardId, user, "Dashboard not found").map(mapForbiddenToNotFound)
+    accessChecker.requireOwnerOnly(ResourceType, dashboardId, user, "Dashboard not found")
 
   def create(
       dashboardId: String,

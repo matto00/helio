@@ -950,7 +950,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
 
   // ── Delete tools ──────────────────────────────────────────────────────────
   // Each wraps a backend DELETE (204 No Content). Deletion is PERMANENT and
-  // owner-scoped; the backend's 403 (not owner) / 404 (unknown id) is surfaced
+  // owner-scoped; the backend's 404 (not owner or unknown id, indistinguishable; a grantee without owner rights gets 403) is surfaced
   // verbatim by `guarded`. On success the tool returns `{ deleted: true, id }`.
 
   server.registerTool(
@@ -960,7 +960,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       description:
         "Permanently delete a dashboard (DELETE /api/dashboards/:id). This CASCADES: all of the " +
         "dashboard's panels are deleted with it. Data sources, pipelines, and Outputs are NOT " +
-        "affected. Owner-only — a non-owner gets 403, an unknown id 404. Irreversible.",
+        "affected. Owner-only — a non-owner and an unknown id both get 404 (a grantee without owner rights gets 403). Irreversible.",
       inputSchema: { dashboardId: z.string().min(1) },
     },
     ({ dashboardId }) => guarded(() => api.deleteDashboard(dashboardId)),
