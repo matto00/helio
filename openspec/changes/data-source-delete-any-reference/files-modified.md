@@ -1,0 +1,26 @@
+- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala` — replace sole-root pre-checks with `rootReferences` (privileged distinct total + visible named subset), add `RootReferences`
+- `backend/src/main/scala/com/helio/services/sources/DataSourceService.scala` — any-reference guard before `deleteFileF`; new conflict reason with `pipelines`; docs updated
+- `backend/src/main/scala/com/helio/services/sources/DataSourceDeleteError.scala` — additive `pipelines` on `DataSourceDeleteConflict`
+- `backend/src/main/scala/com/helio/api/protocols/sources/DataSourceProtocol.scala` — `pipelines` field + formats on the 409 response (pipeline format declared first: init order)
+- `backend/src/main/scala/com/helio/api/routes/sources/DataSourceRoutes.scala` — render `pipelines` in the 409
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineProposalService.scala` — log (not discard) refused cleanup source deletes
+- `backend/src/main/scala/com/helio/services/firstrun/FirstRunDashboardService.scala` — same logged cleanup
+- `backend/src/test/scala/com/helio/api/routes/sources/DataSourceRoutesSpec.scala` — multi-root + placed-panel regression (409, nothing destroyed), sole-root `pipelines` body
+- `backend/src/test/scala/com/helio/infrastructure/persistence/V100ZeroRootGuardNonSuperuserSpec.scala` — 3.7c/d liveness via `rootReferences`; 3.7f flipped to 409/no leak/file survives
+- `frontend/src/features/sources/state/sourcesSlice.ts` — `deleteSource` preserves 409 as structured `SourceDeleteConflict`
+- `frontend/src/features/sources/state/sourcesSlice.test.ts` — thunk 409 / generic tests
+- `frontend/src/features/sources/ui/SourceDeleteConflictNotice.tsx` — new inline notice with pipeline links (tokens only)
+- `frontend/src/features/sources/ui/SourceDeleteConflictNotice.css` — notice styles
+- `frontend/src/features/sources/ui/SourceDeleteConflictNotice.test.tsx` — notice test
+- `frontend/src/features/sources/ui/EmptySchemaAffordance.tsx` — show conflict notice; warning copy updated
+- `frontend/src/shared/chrome/SidebarBody.tsx` — show conflict notice, stay on source on refusal, warning copy updated
+- `frontend/src/shared/chrome/SidebarItemList.tsx` — optional `notice` slot
+- `frontend/src/shared/chrome/SidebarBody.test.tsx` — warning copy assertion
+- `frontend/src/features/toasts/state/toastListeners.ts` — suppress generic toast for the structured 409
+- `frontend/src/features/toasts/state/toastListeners.test.ts` — suppression test
+- `helio-mcp/src/tools/write.ts` — `delete_data_source` description rewritten (409, remove_root path)
+- `helio-mcp/src/helioApi.ts` — `deleteDataSource` comment
+- `helio-mcp/src/tools/datasetTools.test.ts` — 409 text behavioural test
+- `frontend/src/theme/elevationTokenGuard.css.test.ts` — CSS file-count pin 129 -> 130
+- `frontend/src/theme/motionTokenGuard.css.test.ts` — CSS file-count pin 129 -> 130
+- `openspec/changes/data-source-delete-any-reference/tasks.md` — tasks ticked

@@ -43,6 +43,7 @@ import {
   createStaticSource,
   deleteSource,
   inferSqlSource,
+  isSourceDeleteConflict,
 } from "../../sources/state/sourcesSlice";
 
 import {
@@ -78,6 +79,9 @@ interface SuccessToastEntry {
 interface ErrorToastEntry {
   type: string;
   fallback: string;
+  /** When true for the rejected action's payload, no toast is pushed (the surface that dispatched
+   *  the thunk reports the failure itself, inline). */
+  suppress?: (payload: unknown) => boolean;
 }
 
 /** Builds a `SUCCESS_TOASTS` row. `message`'s parameter type is checked here,
@@ -147,7 +151,13 @@ const ERROR_TOASTS: ErrorToastEntry[] = [
   error(fetchPanels.rejected, "Failed to load panels."),
   error(createSqlSource.rejected, "Failed to create SQL source."),
   error(createStaticSource.rejected, "Failed to create static source."),
-  error(deleteSource.rejected, "Failed to delete source."),
+  // HEL-989: a 409 conflict is reported inline (naming the pipelines, with links) by both dispatching
+  // surfaces (SidebarBody, EmptySchemaAffordance); only the generic failure still toasts.
+  {
+    type: deleteSource.rejected.type,
+    fallback: "Failed to delete source.",
+    suppress: isSourceDeleteConflict,
+  },
   error(inferSqlSource.rejected, "Failed to connect to database."),
   error(createPipeline.rejected, "Failed to create pipeline."),
   error(deletePipeline.rejected, "Failed to delete pipeline."),
@@ -186,12 +196,18 @@ export function addToastListeners(startListening: AppStartListening) {
     });
   }
 
-  for (const { type, fallback } of ERROR_TOASTS) {
+  for (const { type, fallback, suppress } of ERROR_TOASTS) {
     startListening({
       type,
       effect: (action, { dispatch }) => {
-        const payload = (action as UnknownAction & { payload?: string }).payload;
-        dispatch(pushToast({ variant: "error", message: payload ?? fallback }));
+        const payload = (action as UnknownAction & { payload?: unknown }).payload;
+        if (suppress?.(payload)) return;
+        dispatch(
+          pushToast({
+            variant: "error",
+            message: typeof payload === "string" ? payload : fallback,
+          }),
+        );
       },
     });
   }

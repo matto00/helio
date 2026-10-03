@@ -18,11 +18,15 @@ object DataSourceDeleteError {
     DataSourceDeleteError(Some(c), ServiceError.Conflict(c.reason))
 }
 
-/** The four teardown-compatible fields (matching `TeardownConflictResponse`'s shape) naming the
- *  pipeline that blocks this delete (design.md Decision 1: sole-root-only). */
+/** The four teardown-compatible fields (matching `TeardownConflictResponse`'s shape) plus the
+ *  referencing pipelines the caller may see (HEL-989 `any-reference`: ANY pipeline rooted on the
+ *  source blocks the delete). `pipelines` omits pipelines the caller cannot access. */
 final case class DataSourceDeleteConflict(
     resourceKind: String,
     resourceId: String,
     resourceName: String,
-    reason: String
+    reason: String,
+    pipelines: Vector[DataSourceDeleteConflictPipeline] = Vector.empty
 )
+
+final case class DataSourceDeleteConflictPipeline(id: String, name: String)

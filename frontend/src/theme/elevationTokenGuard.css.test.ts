@@ -348,7 +348,7 @@ function scanAll(files: string[]) {
 describe("elevation token guard (HEL-442)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 129)", () => {
+  it("walks every CSS file in frontend/src (currently 130)", () => {
     // HEL-584 added `PanelFullscreenOverlay.css` (117 -> 118); it declares
     // no box-shadow/border-radius, so no new pin was needed.
     // HEL-572 added `PanelInspectView.css` (118 -> 119); its one
@@ -366,7 +366,9 @@ describe("elevation token guard (HEL-442)", () => {
     // declares motion/elevation of its own (the panel surface comes from shared `Popover.css`).
     // HEL-1209 added `FirstRunDropZone.css` + `FirstRunRefineBar.css` (124 -> 126); every shadow,
     // radius is a token (`var(--app-shadow-card)`, `var(--app-radius-*)`), so no new pin was needed.
-    expect(files.length).toBe(129);
+    // HEL-989 added `SourceDeleteConflictNotice.css` (129 -> 130); it declares no shadow/radius/motion
+    // literals (tokens only), so no new pin was needed.
+    expect(files.length).toBe(130);
   });
 
   it("has zero hits in a file with no box-shadow/border-radius declarations at all", () => {

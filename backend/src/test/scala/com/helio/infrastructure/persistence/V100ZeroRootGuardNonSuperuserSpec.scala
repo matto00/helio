@@ -437,7 +437,7 @@ class V100ZeroRootGuardNonSuperuserSpec
   /** Inserts a real CSV source owned by `sourceOwnerId`, with a real backing file, then binds it
    *  as a root of a pipeline owned by `pipelineOwnerId` (raw SQL, privileged connection -- ACL is
    *  not the thing under test here). When `pipelineOwnerId != sourceOwnerId` the resulting
-   *  pipeline is INVISIBLE to `sourceOwnerId`'s own RLS-scoped `soleRootDependentPipelines`,
+   *  pipeline is INVISIBLE to `sourceOwnerId`'s own RLS-scoped view of its referencing pipelines,
    *  which is exactly the D9 fixture shape. Returns (dataSourceId, pipelineId, filePath). */
   private def seedRootedSource(sourceOwnerId: String, pipelineOwnerId: String, extraRootDsIds: Vector[String] = Vector.empty): (DataSourceId, String, String) = {
     seedUserRaw(sourceOwnerId)
@@ -494,9 +494,10 @@ class V100ZeroRootGuardNonSuperuserSpec
 
       // Fixture liveness (mandatory, design D10): without this, a fixture that drifts back into
       // visibility would silently downgrade this gate into a re-test of the visible path.
-      val rlsScoped = await(dataSourceRepo.soleRootDependentPipelines(dsId, authUser(callerId)))
-      withClue("fixture liveness -- the RLS-scoped pre-check must see NOTHING for this fixture: ") {
-        rlsScoped shouldBe empty
+      val refs = await(dataSourceRepo.rootReferences(dsId, authUser(callerId)))
+      withClue("fixture liveness -- the caller must be able to SEE nothing yet the pipeline must be counted: ") {
+        refs.visible shouldBe empty
+        refs.hiddenCount shouldBe 1
       }
 
       val result = await(service.delete(dsId, authUser(callerId)))
@@ -511,8 +512,9 @@ class V100ZeroRootGuardNonSuperuserSpec
       val strangerId = UUID.randomUUID().toString
       val (dsId, pid, _) = seedRootedSource(sourceOwnerId = callerId, pipelineOwnerId = strangerId)
 
-      val rlsScoped = await(dataSourceRepo.soleRootDependentPipelines(dsId, authUser(callerId)))
-      rlsScoped shouldBe empty // fixture liveness, mandatory
+      val refs = await(dataSourceRepo.rootReferences(dsId, authUser(callerId)))
+      refs.visible shouldBe empty // fixture liveness, mandatory
+      refs.hiddenCount shouldBe 1
 
       val result = await(service.delete(dsId, authUser(callerId)))
       val conflict = result.left.toOption.get.conflict.get
@@ -526,7 +528,7 @@ class V100ZeroRootGuardNonSuperuserSpec
       // does `log.warn`) -- stated plainly rather than asserted against silence, per task 3.7d.
     }
 
-    "3.7e regression gate: a VISIBLE blocking pipeline still produces HEL-987's existing named 409, unchanged" in {
+    "3.7e regression gate: a VISIBLE blocking pipeline still produces the named 409" in {
       val ownerId = UUID.randomUUID().toString
       val (dsId, pid, _) = seedRootedSource(sourceOwnerId = ownerId, pipelineOwnerId = ownerId)
 
@@ -539,19 +541,23 @@ class V100ZeroRootGuardNonSuperuserSpec
       conflict.resourceId shouldBe dsId.value
     }
 
-    "3.7f service-level false-positive gate: a source that is one of SEVERAL roots of an INVISIBLE pipeline still deletes, file removed" in {
+    "3.7f HEL-989 any-reference: a source that is one of SEVERAL roots of an INVISIBLE pipeline is refused with no identity leaked, file survives" in {
       val callerId   = UUID.randomUUID().toString
       val strangerId = UUID.randomUUID().toString
       val secondRootDs = seedBareSource(strangerId)
-      val (dsId, _, filePath) = seedRootedSource(sourceOwnerId = callerId, pipelineOwnerId = strangerId, extraRootDsIds = Vector(secondRootDs.value))
+      val (dsId, pid, filePath) = seedRootedSource(sourceOwnerId = callerId, pipelineOwnerId = strangerId, extraRootDsIds = Vector(secondRootDs.value))
 
-      val rlsScoped = await(dataSourceRepo.soleRootDependentPipelines(dsId, authUser(callerId)))
-      rlsScoped shouldBe empty // fixture liveness
+      val refs = await(dataSourceRepo.rootReferences(dsId, authUser(callerId)))
+      refs.visible shouldBe empty // fixture liveness
+      refs.hiddenCount shouldBe 1
 
       val result = await(service.delete(dsId, authUser(callerId)))
-      result shouldBe Right(())
+      val conflict = result.left.toOption.get.conflict.get
+      conflict.pipelines shouldBe empty
+      conflict.reason should not include pid
+      conflict.reason should not include "v100-d9-pipeline"
 
-      await(fileSystem.exists(filePath)) shouldBe false
+      await(fileSystem.exists(filePath)) shouldBe true
     }
   }
 }

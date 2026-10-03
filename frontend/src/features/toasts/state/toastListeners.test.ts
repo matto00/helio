@@ -193,6 +193,13 @@ describe("toastListeners — regression guard (every pre-existing entry still fi
       "error",
       "Failed to delete source.",
     );
+    // HEL-989: a structured 409 conflict is reported inline by the dispatching surface -- no toast.
+    const before = store.getState().toasts.items.length;
+    store.dispatch({
+      type: deleteSource.rejected.type,
+      payload: { kind: "conflict", message: "in use", pipelines: [] },
+    });
+    expect(store.getState().toasts.items).toHaveLength(before);
     expectToast(
       { type: inferSqlSource.rejected.type, payload: undefined },
       "error",

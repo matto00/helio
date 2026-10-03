@@ -971,10 +971,13 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
     {
       title: "Delete data source",
       description:
-        "Permanently delete a data source (DELETE /api/data-sources/:id). This CASCADES to any " +
-        "pipeline built on this source — and transitively that pipeline's steps, run history, and " +
-        "Outputs. Irreversible — prefer deleting dependent pipelines/dashboards first if you want " +
-        "to control the blast radius.",
+        "Permanently delete a data source (DELETE /api/data-sources/:id). Refused with a 409 " +
+        "whenever ANY pipeline has this source as a root (sole root or one of several) -- the " +
+        "error names the referencing pipelines you can see (and says how many you cannot). Nothing " +
+        "is deleted in that case. To proceed, call remove_root for the source's root in each " +
+        "referencing pipeline (a pipeline's last root cannot be removed -- delete that pipeline " +
+        "with delete_pipeline instead), then retry. An unreferenced source deletes immediately. " +
+        "Irreversible.",
       inputSchema: { dataSourceId: z.string().min(1) },
     },
     ({ dataSourceId }) => guarded(() => api.deleteDataSource(dataSourceId)),

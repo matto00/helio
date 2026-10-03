@@ -1,7 +1,10 @@
+import { AxiosError, type AxiosResponse } from "axios";
+import { configureStore } from "@reduxjs/toolkit";
 import {
   createStaticSource,
   deleteSource,
   fetchSources,
+  isSourceDeleteConflict,
   sourcesReducer,
   updateSource,
 } from "./sourcesSlice";
@@ -179,5 +182,45 @@ describe("updateSource", () => {
     );
     expect(nextState.items[0].name).toBe("Renamed Sales");
     expect(nextState.items[1].name).toBe("Other");
+  });
+});
+
+describe("deleteSource thunk (HEL-989 any-reference 409)", () => {
+  const deleteSourceMock = jest.mocked(dataSourceService.deleteSource);
+
+  function axios409(data: unknown): AxiosError {
+    const err = new AxiosError("Conflict", "ERR_BAD_REQUEST");
+    err.response = { status: 409, data } as AxiosResponse;
+    return err;
+  }
+
+  function makeStore() {
+    return configureStore({ reducer: { sources: sourcesReducer } });
+  }
+
+  beforeEach(() => deleteSourceMock.mockReset());
+
+  it("preserves the 409 reason and the named pipelines as a structured rejection", async () => {
+    deleteSourceMock.mockRejectedValue(
+      axios409({
+        message: "this source is a root of pipeline(s) 'Sales' (p-1); remove it first",
+        pipelines: [{ id: "p-1", name: "Sales" }, { id: 7 }],
+      }),
+    );
+    const result = await makeStore().dispatch(deleteSource("s-1"));
+    expect(deleteSource.rejected.match(result)).toBe(true);
+    const payload = (result as { payload: unknown }).payload;
+    expect(isSourceDeleteConflict(payload)).toBe(true);
+    expect(payload).toEqual({
+      kind: "conflict",
+      message: "this source is a root of pipeline(s) 'Sales' (p-1); remove it first",
+      pipelines: [{ id: "p-1", name: "Sales" }],
+    });
+  });
+
+  it("keeps the generic string rejection for any non-409 failure", async () => {
+    deleteSourceMock.mockRejectedValue(new Error("boom"));
+    const result = await makeStore().dispatch(deleteSource("s-1"));
+    expect((result as { payload: unknown }).payload).toBe("Failed to delete source.");
   });
 });

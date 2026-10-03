@@ -84,17 +84,54 @@ export const createSqlSource = createAsyncThunk<
   }
 });
 
-export const deleteSource = createAsyncThunk<string, string, { rejectValue: string }>(
-  "sources/deleteSource",
-  async (sourceId, { rejectWithValue }) => {
-    try {
-      await deleteSourceRequest(sourceId);
-      return sourceId;
-    } catch {
-      return rejectWithValue("Failed to delete source.");
-    }
-  },
-);
+/** HEL-989: `DELETE /api/data-sources/:id` answers 409 when ANY pipeline roots on the source.
+ *  Kept as a structured rejection (not the generic string) so the UI can name the pipelines and
+ *  link to them; `pipelines` lists only those the caller may see (possibly empty). */
+export interface SourceDeleteConflict {
+  kind: "conflict";
+  message: string;
+  pipelines: { id: string; name: string }[];
+}
+
+export function isSourceDeleteConflict(value: unknown): value is SourceDeleteConflict {
+  return (
+    typeof value === "object" && value !== null && (value as { kind?: unknown }).kind === "conflict"
+  );
+}
+
+function parseDeleteConflict(err: unknown): SourceDeleteConflict | null {
+  if (!isAxiosError(err) || err.response?.status !== 409) return null;
+  const data = err.response.data as { message?: unknown; pipelines?: unknown } | undefined;
+  const pipelines = Array.isArray(data?.pipelines)
+    ? (data.pipelines as unknown[]).flatMap((p) => {
+        const entry = p as { id?: unknown; name?: unknown };
+        return typeof entry?.id === "string" && typeof entry?.name === "string"
+          ? [{ id: entry.id, name: entry.name }]
+          : [];
+      })
+    : [];
+  return {
+    kind: "conflict",
+    message:
+      typeof data?.message === "string" && data.message
+        ? data.message
+        : "This source is still used by a pipeline.",
+    pipelines,
+  };
+}
+
+export const deleteSource = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string | SourceDeleteConflict }
+>("sources/deleteSource", async (sourceId, { rejectWithValue }) => {
+  try {
+    await deleteSourceRequest(sourceId);
+    return sourceId;
+  } catch (err) {
+    return rejectWithValue(parseDeleteConflict(err) ?? "Failed to delete source.");
+  }
+});
 
 export const updateSource = createAsyncThunk<
   DataSource,

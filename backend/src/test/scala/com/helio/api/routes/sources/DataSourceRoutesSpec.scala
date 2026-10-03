@@ -196,6 +196,34 @@ class DataSourceRoutesSpec
     pipelineId
   }
 
+  private def countRows(sql: String): Int = {
+    import slick.jdbc.PostgresProfile.api._
+    await(db.run(sql"#$sql".as[Int].head))
+  }
+
+  /** HEL-989: places a panel on the Output of `sourceId`'s root in `pipelineId` (looked up by
+   *  data_source_id) -- the row the outputs -> panels cascade used to silently destroy. */
+  private def seedPanelOnRootOutput(pipelineId: String, sourceId: String): String = {
+    import slick.jdbc.PostgresProfile.api._
+    val rootId      = await(db.run(sql"SELECT id FROM pipeline_roots WHERE pipeline_id = $pipelineId AND data_source_id = $sourceId".as[String].head))
+    val outputId    = UUID.randomUUID().toString
+    val dashboardId = UUID.randomUUID().toString
+    val panelId     = UUID.randomUUID().toString
+    await(db.run(
+      sqlu"""INSERT INTO outputs (id, pipeline_id, root_id, owner_id, name, kind)
+             VALUES ($outputId, $pipelineId, $rootId, $testUserId::uuid, 'root-output', 'table')"""
+    ))
+    await(db.run(
+      sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
+             VALUES ($dashboardId, 'd', 'test', now(), now(), '{}', '{}', $testUserId::uuid)"""
+    ))
+    await(db.run(
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, output_id, owner_id)
+             VALUES ($panelId, $dashboardId, 'p', 'test', now(), now(), '{}', 'text', $outputId, $testUserId::uuid)"""
+    ))
+    panelId
+  }
+
   /** A bare, owned `data_sources` row (never fetched, only FK'd from `pipeline_roots`) for
    *  the multi-root control fixture's second root. */
   private def seedExtraRootDataSource(): String = {
@@ -884,7 +912,10 @@ class DataSourceRoutesSpec
       }
     }
 
-    "return 204 when the source is one of SEVERAL roots -- the pipeline survives with the remaining root(s)" in {
+    // HEL-989 (owner ruling any-reference): a source that is one of SEVERAL roots used to delete
+    // with 204, silently cascading pipeline_roots -> outputs -> panels and destroying every panel
+    // placed on that root's Output. It now 409s naming the pipeline, destroying nothing.
+    "return 409 naming the pipeline when the source is one of SEVERAL roots, leaving source/root/Output/panel intact" in {
       cleanDb()
       var sourceId = ""
       Post("/api/data-sources", multipartUpload("Multi Root Source", validCsv)) ~> routes() ~> check {
@@ -892,10 +923,38 @@ class DataSourceRoutesSpec
         sourceId = responseAs[DataSourceResponse].id
       }
       val otherRootId = seedExtraRootDataSource()
-      seedSoleRootPipeline(sourceId, name = "Multi Root Pipeline", extraRootSourceIds = Seq(otherRootId))
+      val pipelineId  = seedSoleRootPipeline(sourceId, name = "Multi Root Pipeline", extraRootSourceIds = Seq(otherRootId))
+      val panelId     = seedPanelOnRootOutput(pipelineId, sourceId)
 
       Delete(s"/api/data-sources/$sourceId") ~> routes() ~> check {
-        status shouldBe StatusCodes.NoContent
+        status shouldBe StatusCodes.Conflict
+        val body = responseAs[JsValue].asJsObject
+        body.fields("resourceKind").convertTo[String] shouldBe "data_source"
+        body.fields("resourceId").convertTo[String]   shouldBe sourceId
+        body.fields("reason").convertTo[String]       should include("Multi Root Pipeline")
+        body.fields("message").convertTo[String]      shouldBe body.fields("reason").convertTo[String]
+        val pipelines = body.fields("pipelines").convertTo[Vector[JsValue]].map(_.asJsObject)
+        pipelines.map(_.fields("id").convertTo[String])   shouldBe Vector(pipelineId)
+        pipelines.map(_.fields("name").convertTo[String]) shouldBe Vector("Multi Root Pipeline")
+      }
+
+      countRows(s"SELECT count(*) FROM data_sources WHERE id = '$sourceId'")             shouldBe 1
+      countRows(s"SELECT count(*) FROM pipeline_roots WHERE data_source_id = '$sourceId'") shouldBe 1
+      countRows(s"SELECT count(*) FROM panels WHERE id = '$panelId'")                    shouldBe 1
+    }
+
+    "include a pipelines array naming the sole-root pipeline in the 409" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Sole Root Source 2", validCsv)) ~> routes() ~> check {
+        sourceId = responseAs[DataSourceResponse].id
+      }
+      val pipelineId = seedSoleRootPipeline(sourceId, name = "Sole Pipeline 2")
+
+      Delete(s"/api/data-sources/$sourceId") ~> routes() ~> check {
+        status shouldBe StatusCodes.Conflict
+        val pipelines = responseAs[JsValue].asJsObject.fields("pipelines").convertTo[Vector[JsValue]].map(_.asJsObject)
+        pipelines.map(_.fields("id").convertTo[String]) shouldBe Vector(pipelineId)
       }
     }
 

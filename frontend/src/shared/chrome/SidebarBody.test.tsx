@@ -230,7 +230,7 @@ describe("SidebarBody pipelines section — delete-dependency warning (F-144)", 
     openDeleteConfirm("Warehouse");
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "1 pipeline reads from this source and will stop working.",
+      "1 pipeline reads from this source, so deleting it will be refused until you remove it from that pipeline.",
     );
   });
 });

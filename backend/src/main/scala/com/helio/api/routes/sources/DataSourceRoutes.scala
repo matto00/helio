@@ -9,7 +9,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
-import com.helio.api.protocols.sources.{DatasetSchemaResponse, DatasetSchemaUpdateResponse, RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse, SchemaUpdateConflictResponse, UpdateDatasetSchemaRequest}
+import com.helio.api.protocols.sources.{DataSourceDeleteConflictPipelineResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse, SchemaUpdateConflictResponse, UpdateDatasetSchemaRequest}
 import com.helio.domain.model._
 import com.helio.services.sources.{CsvUrlFetch, DataSourceDeleteError, DataSourceSchemaUpdateError, DataSourceService}
 import spray.json._
@@ -66,7 +66,10 @@ final class DataSourceRoutes(
       case Left(DataSourceDeleteError(Some(c), err)) =>
         complete(
           ServiceResponse.statusCodeFor(err),
-          DataSourceDeleteConflictResponse(c.resourceKind, c.resourceId, c.resourceName, c.reason, c.reason)
+          DataSourceDeleteConflictResponse(
+            c.resourceKind, c.resourceId, c.resourceName, c.reason, c.reason,
+            c.pipelines.map(p => DataSourceDeleteConflictPipelineResponse(p.id, p.name))
+          )
         )
       case Left(DataSourceDeleteError(None, err)) =>
         complete(ServiceResponse.statusCodeFor(err), ErrorResponse(err.message))

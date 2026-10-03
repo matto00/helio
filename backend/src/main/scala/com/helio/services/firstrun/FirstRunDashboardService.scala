@@ -13,6 +13,8 @@ import com.helio.services.sources.DataSourceService
 
 import spray.json.{JsObject, JsString}
 
+import org.slf4j.LoggerFactory
+
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Deterministic zero-to-dashboard build for the first-run drop zone (HEL-1209): reads an
@@ -35,6 +37,16 @@ final class FirstRunDashboardService(
     applyDashboard: FirstRunDashboardService.ApplyDashboard,
     setChartType: FirstRunDashboardService.SetChartType
 )(implicit ec: ExecutionContext) {
+
+  private val log = LoggerFactory.getLogger(getClass)
+
+  /** HEL-989: `DataSourceService.delete` refuses (409) while any pipeline roots on the source; the
+   *  pipeline is rolled back before these cleanups run, so a refusal means a leftover -- log it. */
+  private def cleanupSource(id: DataSourceId, user: AuthenticatedUser): Future[Unit] =
+    dataSourceService.delete(id, user).map {
+      case Left(e)  => log.warn(s"first-run cleanup could not delete source ${id.value}: ${e.err.message}")
+      case Right(_) => ()
+    }
 
   def build(sourceId: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, FirstRunDashboardResponse]] =
     dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
@@ -79,7 +91,7 @@ final class FirstRunDashboardService(
           case Left(err)                 => Future.successful(Left(err))
           case Right(created: CsvSource) => applyTemplate(template, created, user)
           case Right(other) =>
-            dataSourceService.delete(other.id, user).map(_ => Left(ServiceError.InternalError("Template source was not a CSV")))
+            cleanupSource(other.id, user).map(_ => Left(ServiceError.InternalError("Template source was not a CSV")))
         }
     }
 
@@ -94,10 +106,10 @@ final class FirstRunDashboardService(
     }
     applied
       .flatMap {
-        case Left(err) => dataSourceService.delete(created.id, user).map(_ => Left(err))
+        case Left(err) => cleanupSource(created.id, user).map(_ => Left(err))
         case right     => Future.successful(right)
       }
-      .recoverWith { case ex => dataSourceService.delete(created.id, user).flatMap(_ => Future.failed(ex)) }
+      .recoverWith { case ex => cleanupSource(created.id, user).flatMap(_ => Future.failed(ex)) }
   }
 
   /** A chart panel renders the type on its own appearance, not the output's config, and a proposal
