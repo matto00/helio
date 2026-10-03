@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Database, GitBranch, Lock, MessagesSquare, Pencil, Pin, PinOff } from "lucide-react";
 
@@ -18,8 +18,11 @@ import {
 import {
   deleteSource,
   fetchSources,
+  isSourceDeleteConflict,
   setAddSourceModalOpen,
+  type SourceDeleteConflict,
 } from "../../features/sources/state/sourcesSlice";
+import { SourceDeleteConflictNotice } from "../../features/sources/ui/SourceDeleteConflictNotice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { DashboardList } from "../../features/dashboards/ui/DashboardList";
 import "./SidebarBody.css";
@@ -41,6 +44,11 @@ export function SidebarBody() {
   const pipelines = useAppSelector((state) => state.pipelines);
   const conversations = useAppSelector((state) => state.assistantConversations);
   const currentUser = useAppSelector((state) => state.auth.currentUser);
+  // HEL-989: a refused source delete (409) is reported inline, naming the referencing pipelines.
+  const [deleteConflict, setDeleteConflict] = useState<{
+    sourceName: string;
+    conflict: SourceDeleteConflict;
+  } | null>(null);
 
   const section = pickerIdForPathname(pathname);
   // HEL-703 design.md D9 (cycle-2 evaluator CR1) — mirrors `ChatPage.tsx`/`QuickLauncherOverlay.tsx`'s
@@ -91,10 +99,27 @@ export function SidebarBody() {
             p.roots.some((r) => r.dataSourceId === item.id),
           ).length;
           if (dependents === 0) return null;
-          return `${dependents} pipeline${dependents === 1 ? "" : "s"} read${dependents === 1 ? "s" : ""} from this source and will stop working.`;
+          return `${dependents} pipeline${dependents === 1 ? "" : "s"} read${dependents === 1 ? "s" : ""} from this source, so deleting it will be refused until you remove it from ${dependents === 1 ? "that pipeline" : "them"}.`;
         }}
+        notice={
+          deleteConflict !== null ? (
+            <SourceDeleteConflictNotice
+              sourceName={deleteConflict.sourceName}
+              conflict={deleteConflict.conflict}
+              onDismiss={() => setDeleteConflict(null)}
+            />
+          ) : null
+        }
         onDelete={async (item) => {
-          await dispatch(deleteSource(item.id));
+          setDeleteConflict(null);
+          const result = await dispatch(deleteSource(item.id));
+          if (deleteSource.rejected.match(result)) {
+            // A refused delete leaves the source in place -- stay on it rather than navigating away.
+            if (isSourceDeleteConflict(result.payload)) {
+              setDeleteConflict({ sourceName: item.name, conflict: result.payload });
+            }
+            return;
+          }
           if (routeId === item.id) navigate("/sources");
         }}
       />

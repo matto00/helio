@@ -5,7 +5,13 @@ import { InlineError } from "../../../shared/chrome/InlineError";
 import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { refreshSource } from "../services/dataSourceService";
-import { deleteSource, fetchSources } from "../state/sourcesSlice";
+import {
+  deleteSource,
+  fetchSources,
+  isSourceDeleteConflict,
+  type SourceDeleteConflict,
+} from "../state/sourcesSlice";
+import { SourceDeleteConflictNotice } from "./SourceDeleteConflictNotice";
 import type { DataSource } from "../types/dataSource";
 
 interface EmptySchemaAffordanceProps {
@@ -20,6 +26,7 @@ export function EmptySchemaAffordance({ source }: EmptySchemaAffordanceProps) {
   const pipelines = useAppSelector((state) => state.pipelines.items);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConflict, setDeleteConflict] = useState<SourceDeleteConflict | null>(null);
   // F-012: this was a single-click, zero-confirmation delete — every other
   // destructive action in the app (the sidebar's own source delete included,
   // see SidebarBody.tsx's `deleteWarning`) routes through the shared inline
@@ -34,7 +41,7 @@ export function EmptySchemaAffordance({ source }: EmptySchemaAffordanceProps) {
   ).length;
   const deleteWarning =
     dependentCount > 0
-      ? `${dependentCount} pipeline${dependentCount === 1 ? "" : "s"} read${dependentCount === 1 ? "s" : ""} from this source and will stop working.`
+      ? `${dependentCount} pipeline${dependentCount === 1 ? "" : "s"} read${dependentCount === 1 ? "s" : ""} from this source, so deleting it will be refused until you remove it from ${dependentCount === 1 ? "that pipeline" : "them"}.`
       : null;
 
   async function handleRefresh() {
@@ -54,9 +61,14 @@ export function EmptySchemaAffordance({ source }: EmptySchemaAffordanceProps) {
     }
   }
 
-  function handleDelete() {
-    void dispatch(deleteSource(source.id));
+  async function handleDelete() {
     setConfirmDelete(false);
+    setDeleteConflict(null);
+    // HEL-989: a 409 (pipelines still root on this source) is reported inline, naming them.
+    const result = await dispatch(deleteSource(source.id));
+    if (deleteSource.rejected.match(result) && isSourceDeleteConflict(result.payload)) {
+      setDeleteConflict(result.payload);
+    }
   }
 
   return (
@@ -72,6 +84,13 @@ export function EmptySchemaAffordance({ source }: EmptySchemaAffordanceProps) {
           message — so this maps to InlineError's "banner" variant, not the
           plain-text default. */}
       <InlineError error={error} variant="banner" />
+      {deleteConflict !== null ? (
+        <SourceDeleteConflictNotice
+          sourceName={source.name}
+          conflict={deleteConflict}
+          onDismiss={() => setDeleteConflict(null)}
+        />
+      ) : null}
       <div className="source-detail-panel__empty-schema-actions">
         <button
           type="button"
@@ -90,7 +109,7 @@ export function EmptySchemaAffordance({ source }: EmptySchemaAffordanceProps) {
             }
             confirmAriaLabel={`Confirm delete ${source.name}`}
             cancelAriaLabel={`Cancel delete ${source.name}`}
-            onConfirm={handleDelete}
+            onConfirm={() => void handleDelete()}
             onCancel={() => setConfirmDelete(false)}
           />
         ) : (

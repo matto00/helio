@@ -7,7 +7,7 @@ import com.helio.domain.engine.DatasetSchemaMigration.{FieldEditSpec, MigrationR
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
 import com.helio.domain.steps.{UpsertMode, UpsertSourceConfig, UpsertTarget}
-import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
+import com.helio.infrastructure.persistence.pipelines.{PipelineRootRepository, PipelineStepRepository}
 import org.slf4j.LoggerFactory
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -241,66 +241,35 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def delete(id: DataSourceId, user: AuthenticatedUser): Future[Boolean] =
     ctx.withUserContext(user.id.value)(table.filter(_.id === id.value).delete).map(_ > 0)
 
-  /** HEL-987 design.md Decision 1 (sole-root-only scope): pipelines for which `id` is the
-   *  ONLY root -- deliberately NOT `WorkspaceTeardownRepository.sourceDependentPipelineConflict`,
-   *  which matches ANY referencing pipeline and would silently implement the rejected
-   *  `any-reference` scope. A pipeline with 2+ roots, one of which is `id`, is excluded by the
-   *  `HAVING count(*) = 1` (over ALL of that pipeline's roots, not just the ones matching `id`),
-   *  matching exactly the case V99's `hel913_prevent_zero_root_pipelines` trigger raises for:
-   *  deleting `id` would cascade `pipeline_roots.data_source_id ON DELETE CASCADE` and leave the
-   *  pipeline with zero roots. Run under `ctx.withUserContext`, consistent with `delete` above --
-   *  RLS scopes the join to the caller's own pipelines (see design.md Risks). */
-  def soleRootDependentPipelines(id: DataSourceId, user: AuthenticatedUser): Future[Vector[BlockingPipeline]] = {
-    val action = sql"""SELECT p.id, p.name
-                        FROM pipelines p
-                        JOIN pipeline_roots r ON r.pipeline_id = p.id
-                        WHERE p.id IN (
-                          SELECT pipeline_id FROM pipeline_roots WHERE data_source_id = ${id.value}
-                        )
-                        GROUP BY p.id, p.name
-                        HAVING count(*) = 1 AND bool_and(r.data_source_id = ${id.value})"""
-      .as[(String, String)]
-    ctx.withUserContext(user.id.value)(action).map(_.toVector.map { case (pid, name) => BlockingPipeline(pid, name) })
-  }
-
-  /** HEL-974 design.md D9 ("widen-precheck-privileged-count", owner ruling this run): a
-   *  privileged, COUNT-ONLY companion to `soleRootDependentPipelines`, run on the BYPASSRLS pool.
+  /** HEL-989 (owner ruling `any-reference`, supersedes HEL-987's sole-root-only scope and
+   *  HEL-974's count-only companion): every pipeline that has `id` as a root, split into the
+   *  pipelines the caller may see (named) and a count of those they may not.
    *
-   *  Why this exists: after HEL-974's V100 makes `hel913_prevent_zero_root_pipelines` read with
-   *  BYPASSRLS, the trigger can see (and refuse-on) a `pipeline_roots` row whose `pipelines` row
-   *  is INVISIBLE to the caller's own RLS-scoped `soleRootDependentPipelines` (e.g. an editor
-   *  bound their own source to another user's pipeline via `addRoot`'s `findByIdOwned` check,
-   *  then lost the grant). Pre-HEL-974 that case silently created the orphan; post-HEL-974 the
-   *  trigger correctly refuses it -- but `DataSourceService.delete` runs `deleteFileF` BETWEEN the
-   *  RLS-scoped pre-check and the DB delete (HEL-987's own load-bearing ordering), so without this
-   *  companion check the RLS-scoped pre-check sees nothing, the file is destroyed, and ONLY THEN
-   *  does the trigger raise -- an irreversible file loss on a delete that should have been
-   *  refused up front. This check must run BEFORE `deleteFileF`, immediately after the existing
-   *  pre-check, so a refusal never destroys the file (see `DataSourceService.delete`).
+   *  `total` is read on the privileged (BYPASSRLS) pool -- RLS can hide a referencing pipeline from
+   *  the caller (e.g. an editor bound their own source to another user's pipeline, then lost the
+   *  grant) yet the delete would still cascade into it, so the guard must count it. The NAMED
+   *  subset comes from `PipelineRootRepository.findReadEdgesVisibleToFuture`, whose owner-or-any-
+   *  grant predicate is explicit (never RLS-dependent) and mirrors HEL-1002's visibility rule, so
+   *  an invisible pipeline contributes only to `hiddenCount` -- never an id or a name.
    *
-   *  The predicate is PINNED, not merely similar, to `soleRootDependentPipelines`'s own
-   *  (`HAVING count(*) = 1 AND bool_and(r.data_source_id = <id>)`) -- differing in exactly two
-   *  ways: it runs on the privileged pool, and it projects `count(*)` instead of `(id, name)`.
-   *  Deliberately NOT `WorkspaceTeardownRepository`'s any-referencing predicate
-   *  (`sourceDependentPipelineConflict`) -- that scope was already rejected for this feature
-   *  (see `soleRootDependentPipelines`'s own doc) and would 409 every multi-root delete this
-   *  trigger would never raise on, a new false positive this check must not introduce.
-   *
-   *  Returns a COUNT AND NOTHING ELSE -- no pipeline id, no name -- so the invisible-pipeline
-   *  branch can never leak a cross-tenant identifier through a 409 body, an error message, or a
-   *  log line (design.md D9). */
-  def soleRootDependentPipelineCountPrivileged(id: DataSourceId): Future[Int] = {
-    val action = sql"""SELECT count(*) FROM (
-                          SELECT p.id
-                          FROM pipelines p
-                          JOIN pipeline_roots r ON r.pipeline_id = p.id
-                          WHERE p.id IN (
-                            SELECT pipeline_id FROM pipeline_roots WHERE data_source_id = ${id.value}
-                          )
-                          GROUP BY p.id
-                          HAVING count(*) = 1 AND bool_and(r.data_source_id = ${id.value})
-                        ) AS blocking""".as[Int].head
-    ctx.withSystemContext(action)
+   *  Only `pipeline_roots` counts as a reference; secondary join/lookup inputs live in step JSON
+   *  config (no FK, no cascade, no panel loss) and are out of scope (HEL-989 design.md D2). */
+  def rootReferences(id: DataSourceId, user: AuthenticatedUser): Future[RootReferences] = {
+    val totalF =
+      ctx.withSystemContext(
+        sql"SELECT DISTINCT pipeline_id FROM pipeline_roots WHERE data_source_id = ${id.value}".as[String]
+      ).map(_.toSet)
+    for {
+      total <- totalF
+      visible <-
+        if (total.isEmpty) Future.successful(Vector.empty[BlockingPipeline])
+        else
+          new PipelineRootRepository(ctx).findReadEdgesVisibleToFuture(user.id.value).map { edges =>
+            edges.filter(e => e.dataSourceId == id && total.contains(e.pipelineId.value))
+              .map(e => BlockingPipeline(e.pipelineId.value, e.pipelineName))
+              .distinct
+          }
+    } yield RootReferences(visible, total.size - visible.size)
   }
 
   /** HEL-822 design.md Decision 5 (revised, skeptic round 4 CR2): the `dependentCount` seam's
@@ -1133,10 +1102,16 @@ object DataSourceRepository {
     final case class RowLimitExceeded(message: String) extends FormRowBuildFailure
   }
 
-  /** HEL-987: one pipeline `soleRootDependentPipelines` found blocking a delete -- named fields
+  /** HEL-987: one pipeline `rootReferences` found blocking a delete -- named fields
    *  instead of a positional `(String, String)` tuple so `id`/`name` can't be swapped by
    *  accident at a call site. */
   final case class BlockingPipeline(id: String, name: String)
+
+  /** HEL-989: the result of `rootReferences` -- `visible` pipelines the caller may be told about,
+   *  and the `hiddenCount` of referencing pipelines they may not (count only, no identity). */
+  final case class RootReferences(visible: Vector[BlockingPipeline], hiddenCount: Int) {
+    def isEmpty: Boolean = visible.isEmpty && hiddenCount <= 0
+  }
 
   implicit val instantColumnType: BaseColumnType[Instant] =
     MappedColumnType.base[Instant, java.sql.Timestamp](

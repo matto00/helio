@@ -263,3 +263,25 @@ describe("update_dataset_schema (HEL-1081)", () => {
     expect((calls[0] as { confirmDrop: boolean }).confirmDrop).toBe(true);
   });
 });
+
+describe("delete_data_source any-reference conflict (HEL-989)", () => {
+  it("surfaces the 409 message naming the referencing pipelines verbatim, never retried", async () => {
+    let callCount = 0;
+    const reason =
+      "this source is a root of pipeline(s) 'Sales' (p-1); remove it from those pipelines in the pipeline editor first";
+    const fakeApi = {
+      deleteDataSource: async () => {
+        callCount += 1;
+        throw new HelioApiError(409, "https://helio.test/api/data-sources/ds-1", reason);
+      },
+    } as unknown as HelioApi;
+
+    const { text, isError } = await callTool(fakeApi, "delete_data_source", {
+      dataSourceId: "ds-1",
+    });
+
+    expect(isError).toBe(true);
+    expect(text).toContain("'Sales' (p-1)");
+    expect(callCount).toBe(1);
+  });
+});

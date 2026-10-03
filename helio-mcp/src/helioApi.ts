@@ -1277,9 +1277,9 @@ export class HelioApi {
     return { deleted: true, id: dashboardId };
   }
 
-  /** `DELETE /api/data-sources/:id`. Cascades to any pipeline built on this
-   *  source (and, transitively, that pipeline's steps/runs/output DataType);
-   *  the source's companion DataType has its `sourceId` set null, not deleted. */
+  /** `DELETE /api/data-sources/:id`. HEL-989: a 409 (nothing deleted) whenever ANY pipeline roots
+   *  on the source; the body's `message` names the visible referencing pipelines, which the
+   *  tool's `guarded` handler surfaces verbatim. Only an unreferenced source deletes. */
   async deleteDataSource(dataSourceId: string): Promise<{ deleted: true; id: string }> {
     await this.http.delete(`/api/data-sources/${dataSourceId}`);
     return { deleted: true, id: dataSourceId };

@@ -10,6 +10,8 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.api.protocols.pipelines.PipelineSummaryResponse
 
+import org.slf4j.LoggerFactory
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -60,6 +62,17 @@ final class PipelineProposalService(
 )(implicit ec: ExecutionContext) {
 
   import PipelineProposalService._
+
+  private val log = LoggerFactory.getLogger(getClass)
+
+  /** HEL-989: `DataSourceService.delete` now refuses (409) while ANY pipeline roots on the source.
+   *  Every cleanup caller here deletes the pipeline FIRST (or runs before one exists), so a refusal
+   *  means a source was left behind -- log it rather than discard the `Left`. */
+  private def cleanupSource(id: DataSourceId, user: AuthenticatedUser): Future[Unit] =
+    dataSourceService.delete(id, user).map {
+      case Left(e) => log.warn(s"proposal cleanup could not delete source ${id.value}: ${e.err.message}")
+      case Right(_) => ()
+    }
 
   /** Non-mutating structural + reference validation (HEL-662 design.md D3), required by that
    *  ticket's Hard Boundary — a `propose_pipeline` tool must never call [[apply]]. Runs the SAME
@@ -429,7 +442,7 @@ final class PipelineProposalService(
    *  raw repository call. */
   def rollback(response: PipelineProposalApplyResponse, user: AuthenticatedUser): Future[Unit] =
     pipelineService.delete(PipelineId(response.pipeline.id), user).flatMap { _ =>
-      Future.sequence(response.sources.map(source => dataSourceService.delete(DataSourceId(source.id), user))).map(_ => ())
+      Future.sequence(response.sources.map(source => cleanupSource(DataSourceId(source.id), user))).map(_ => ())
     }
 
   // ── Pipeline + steps + outputs (ONE transactional call) + run, then rollback on any failure ──
@@ -552,7 +565,7 @@ final class PipelineProposalService(
    *  clean up. No-op for the `sourceId` branch (nothing was created). */
   private def rollbackSourceOnly(resolved: ResolvedSource, user: AuthenticatedUser): Future[Unit] =
     if (!resolved.createdByThisCall) Future.successful(())
-    else dataSourceService.delete(resolved.id, user).map(_ => ())
+    else cleanupSource(resolved.id, user)
 }
 
 object PipelineProposalService {

@@ -60,6 +60,9 @@ interface SidebarItemListProps {
   /** Optional dependency warning shown (as an alert) above the Confirm/Cancel
    * pair while a delete is pending confirmation. Return `null` for no warning. */
   deleteWarning?: (item: SidebarItem) => string | null;
+  /** Optional caller-owned notice (e.g. a refused-delete conflict, HEL-989) rendered between the
+   *  filter and the list, so it stays visible whatever the filter shows. */
+  notice?: ReactNode;
   /** Optional per-item badge rendered inline next to the item's name (e.g. the
    * Type Registry's unstructured-type indicator). Registry-specific — other
    * sections that reuse this component should leave it unset. */
@@ -128,6 +131,7 @@ export function SidebarItemList({
   addLabel,
   onDelete,
   deleteWarning,
+  notice,
   renderBadge,
   renderRowAction,
   onRename,
@@ -331,6 +335,7 @@ export function SidebarItemList({
           ) : null}
         </div>
       </div>
+      {notice}
       {initialLoad ? (
         // HEL-528 design.md D3/D4/D9/D11 — shape-matched skeleton rows in place
         // of a bare loading text line; gated on the call site's own initial-load

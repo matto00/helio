@@ -25,8 +25,12 @@ final case class DataSourceDeleteConflictResponse(
     resourceId: String,
     resourceName: String,
     reason: String,
-    message: String
+    message: String,
+    pipelines: Vector[DataSourceDeleteConflictPipelineResponse] = Vector.empty
 )
+
+/** HEL-989: one referencing pipeline the caller may see, named in the delete-conflict body. */
+final case class DataSourceDeleteConflictPipelineResponse(id: String, name: String)
 
 sealed trait DataSourceResponse {
   def id: String
@@ -598,8 +602,12 @@ object RestApiConfigPayload {
 // DataSourceProtocol`'s existing cross-package reuse precedent, just in the other direction.
 trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with PipelineAnalyzeProtocol {
 
+  // Declared BEFORE the conflict format: trait `val`s initialise in order, and the macro-derived
+  // format captures this one at construction (a later declaration would capture null).
+  implicit val dataSourceDeleteConflictPipelineResponseFormat: RootJsonFormat[DataSourceDeleteConflictPipelineResponse] =
+    jsonFormat2(DataSourceDeleteConflictPipelineResponse.apply)
   implicit val dataSourceDeleteConflictResponseFormat: RootJsonFormat[DataSourceDeleteConflictResponse] =
-    jsonFormat5(DataSourceDeleteConflictResponse.apply)
+    jsonFormat6(DataSourceDeleteConflictResponse.apply)
 
   implicit val inferredFieldResponseFormat: RootJsonFormat[InferredFieldResponse]   = jsonFormat4(InferredFieldResponse.apply)
   implicit val inferredSchemaResponseFormat: RootJsonFormat[InferredSchemaResponse] = jsonFormat1(InferredSchemaResponse.apply)
