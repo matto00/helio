@@ -1,7 +1,0 @@
-- `.github/workflows/cd-backend.yml` — add --no-cpu-throttling to deploy flags + rationale comment
-- `infra/deploy-backend.sh` — add --no-cpu-throttling to gcloud run deploy
-- `docs/deployment.md` — HEL-1245 section (why, billing, prod verification) + CD trace flag list
-- `scripts/check-cloud-run-cpu.mjs` — static guard for both deploy paths
-- `scripts/check-cloud-run-cpu.selftest.mjs` — mutation selftest per file
-- `package.json` — check:cloud-run-cpu[:selftest]
-- `.github/workflows/ci.yml`, `.husky/pre-commit` — wire guard
