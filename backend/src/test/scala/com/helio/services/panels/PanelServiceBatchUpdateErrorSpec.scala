@@ -56,7 +56,7 @@ class PanelServiceBatchUpdateErrorSpec extends AnyWordSpec with Matchers {
       val dashboardRepo = mock(classOf[DashboardRepository])
       val item          = PanelBatchItem(id = "p-1", title = None, appearance = None, `type` = None, config = None)
 
-      when(panelRepo.findByIdInternal(PanelId("p-1"))).thenReturn(Future.successful(Some(existingPanel("p-1"))))
+      when(panelRepo.findById(PanelId("p-1"), Some(user))).thenReturn(Future.successful(Some(existingPanel("p-1"))))
 
       val secret = "leaky-internal-detail-should-not-surface-hel311"
       when(panelRepo.batchUpdate(any[Vector[PanelBatchItem]], any[Instant]))

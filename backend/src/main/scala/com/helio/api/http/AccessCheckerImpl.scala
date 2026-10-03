@@ -10,11 +10,13 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Concrete `AccessChecker` backed by the same `ResourceTypeRegistry` and
  *  `ResourcePermissionRepository` that the HTTP-layer `AclDirective` uses.
  *
- *  Logic is intentionally identical to `AclDirective.authorizeResource` /
- *  `authorizeResourceWithSharing` — only the return type differs. Each branch
- *  there maps to the corresponding `Right` / `Left[ServiceError]` here so the
- *  observable behaviour is unchanged when services are called instead of
- *  directives. */
+ *  Existence-not-leaked (HEL-1002): a caller with NO grant at all on a real resource is denied with
+ *  exactly the `NotFound(notFoundMessage)` an absent resource produces, so the two are
+ *  indistinguishable. `Forbidden` is reserved for a caller who already holds a grant (and so
+ *  already knows the resource exists) but lacks the privilege for the operation.
+ *
+ *  Differs from `AclDirective` in one deliberate place: for `requireOwnerOnly` the directive layer
+ *  has no grant lookup, so a grantee there gets 404; here a grantee gets 403. */
 final class AccessCheckerImpl(
     permissionRepo: ResourcePermissionRepository,
     registry: ResourceTypeRegistry
@@ -31,13 +33,18 @@ final class AccessCheckerImpl(
       case None =>
         Future.successful(Left(ServiceError.InternalError(s"Unknown resource type: $resourceType")))
       case Some(rt) =>
-        rt.ownerResolver(resourceId).map {
+        rt.ownerResolver(resourceId).flatMap {
           case None =>
-            Left(ServiceError.NotFound(notFoundMessage))
+            Future.successful(Left(ServiceError.NotFound(notFoundMessage)))
           case Some(ownerId) if ownerId != user.id.value =>
-            Left(ServiceError.Forbidden())
+            // A grantee can already see the resource (403 reveals nothing new); anyone else gets the
+            // absent-resource response. One extra indexed query, only on this foreign path.
+            permissionRepo.findGrant(resourceType, resourceId, user.id).map {
+              case Some(_) => Left(ServiceError.Forbidden())
+              case None    => Left(ServiceError.NotFound(notFoundMessage))
+            }
           case Some(_) =>
-            Right(ResourceAccess.Owner)
+            Future.successful(Right(ResourceAccess.Owner))
         }
     }
 
@@ -68,7 +75,7 @@ final class AccessCheckerImpl(
                       case Role.Viewer => Right(ResourceAccess.Viewer)
                     }
                   case None =>
-                    Left(ServiceError.Forbidden())
+                    Left(ServiceError.NotFound(notFoundMessage))
                 }
 
               case None =>

@@ -29,15 +29,10 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 /** HEL-590 task 6.5: only the dashboard owner may create/list/revoke its share tokens -- an
  *  editor grantee, a viewer grantee, and an unrelated user are all refused.
  *
- *  Evaluation-1.md CR7 / Adjudication: `AccessChecker.requireOwnerOnly` itself returns `Forbidden`
- *  for a real-but-unowned dashboard and `NotFound` for an absent one -- a PRE-EXISTING,
- *  cross-cutting property shared by every owner-only resource in this codebase, out of scope to
- *  fix in the shared helper here (tracked as a separate spinoff). `ShareTokenService` closes the
- *  gap LOCALLY instead: it maps `Forbidden` onto the same `NotFound("Dashboard not found")` body
- *  `requireOwnerOnly` already produces for an absent dashboard, so every non-owner caller --
- *  editor grantee, viewer grantee, or a stranger with no grant at all -- gets the identical `404`
- *  regardless of whether the dashboard exists. This spec asserts that mapped behaviour, not the
- *  raw `403` the shared helper would otherwise produce. */
+ *  HEL-1002: `AccessChecker.requireOwnerOnly` itself collapses "real but no grant" onto the absent
+ *  dashboard's `404` body (no service-local mapping any more); an editor/viewer grantee, who can
+ *  already see the dashboard, is refused with `403` instead. A stranger with no grant at all stays
+ *  indistinguishable from a nonexistent dashboard. */
 class ShareTokenOwnershipSpec
     extends AnyWordSpec
     with Matchers
@@ -121,34 +116,34 @@ class ShareTokenOwnershipSpec
   }
 
   "an editor grantee" should {
-    "is refused create/list/revoke, as NotFound (CR7 mapping)" in {
+    "is refused create/list/revoke with 403 (grantee already sees the dashboard)" in {
       val dashId = seedDashboardWithGrants()
       Post(s"/dashboards/$dashId/share-tokens", CreateShareTokenRequest(None)) ~> routesAs(editor) ~> check {
-        status shouldBe StatusCodes.NotFound
+        status shouldBe StatusCodes.Forbidden
       }
       Get(s"/dashboards/$dashId/share-tokens") ~> routesAs(editor) ~> check {
-        status shouldBe StatusCodes.NotFound
+        status shouldBe StatusCodes.Forbidden
       }
       Delete(s"/dashboards/$dashId/share-tokens/${UUID.randomUUID()}") ~> routesAs(editor) ~> check {
-        status shouldBe StatusCodes.NotFound
+        status shouldBe StatusCodes.Forbidden
       }
     }
   }
 
   "a viewer grantee" should {
-    "is refused create/list/revoke, as NotFound (CR7 mapping)" in {
+    "is refused create/list/revoke with 403 (grantee already sees the dashboard)" in {
       val dashId = seedDashboardWithGrants()
       Post(s"/dashboards/$dashId/share-tokens", CreateShareTokenRequest(None)) ~> routesAs(viewer) ~> check {
-        status shouldBe StatusCodes.NotFound
+        status shouldBe StatusCodes.Forbidden
       }
       Get(s"/dashboards/$dashId/share-tokens") ~> routesAs(viewer) ~> check {
-        status shouldBe StatusCodes.NotFound
+        status shouldBe StatusCodes.Forbidden
       }
     }
   }
 
   "an unrelated user with no grant at all" should {
-    "is refused create/list/revoke, as NotFound (CR7 mapping)" in {
+    "is refused create/list/revoke, as NotFound" in {
       val dashId = seedDashboardWithGrants()
       Post(s"/dashboards/$dashId/share-tokens", CreateShareTokenRequest(None)) ~> routesAs(stranger) ~> check {
         status shouldBe StatusCodes.NotFound
@@ -169,7 +164,7 @@ class ShareTokenOwnershipSpec
       }
     }
 
-    "cannot distinguish a real-but-unowned dashboard from a nonexistent one (CR7)" in {
+    "cannot distinguish a real-but-unowned dashboard from a nonexistent one (HEL-1002)" in {
       val dashId          = seedDashboardWithGrants()
       val nonexistentId   = UUID.randomUUID().toString
 

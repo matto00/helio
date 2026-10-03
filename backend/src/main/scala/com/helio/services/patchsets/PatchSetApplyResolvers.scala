@@ -126,6 +126,20 @@ private[services] object PatchSetApplyResolvers {
         }
     }
 
+  /** HEL-1002: a step is found with the ACL-bypassing `findByIdInternal`, so a caller who cannot see
+   *  its pipeline must get exactly the absent-step message (not `authorizeEditorOrOwnerOnPipeline`'s
+   *  `Pipeline not found`, which would reveal that the step exists). Visible-but-viewer stays 403. */
+  private def requireVisibleStep(
+      pipelineId: PipelineId,
+      index: Int,
+      user: AuthenticatedUser,
+      ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
+    ctx.pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+      case None    => Future.successful(Left(ServiceError.NotFound(s"edit $index: pipeline step not found")))
+      case Some(_) => authorizeEditorOrOwnerOnPipeline(pipelineId, user, ctx)
+    }
+
   private def decodeCreatePatch[T](edit: Edit, index: Int)(implicit reader: JsonReader[T]): Either[ServiceError, T] =
     edit.createPatch match {
       case None => Left(ServiceError.BadRequest(s"edit $index: patch is required for a create edit"))
@@ -223,7 +237,7 @@ private[services] object PatchSetApplyResolvers {
       case Left(err) => Future.successful(Left(err))
       case Right(idStr) =>
         val panelId = PanelId(idStr)
-        ctx.panelRepo.findByIdInternal(panelId).flatMap {
+        ctx.panelRepo.findById(panelId, Some(user)).flatMap {
           case None => Future.successful(Left(ServiceError.NotFound(s"edit $index: panel not found")))
           case Some(panel) =>
             authorizeEditorOnDashboard(panel.dashboardId, user, ctx).flatMap {
@@ -252,7 +266,7 @@ private[services] object PatchSetApplyResolvers {
       case Left(err) => Future.successful(Left(err))
       case Right(idStr) =>
         val panelId = PanelId(idStr)
-        ctx.panelRepo.findByIdInternal(panelId).flatMap {
+        ctx.panelRepo.findById(panelId, Some(user)).flatMap {
           case None => Future.successful(Left(ServiceError.NotFound(s"edit $index: panel not found")))
           case Some(panel) =>
             authorizeEditorOnDashboard(panel.dashboardId, user, ctx).map {
@@ -577,7 +591,7 @@ private[services] object PatchSetApplyResolvers {
         ctx.pipelineStepRepo.findByIdInternal(stepId).flatMap {
           case None => Future.successful(Left(ServiceError.NotFound(s"edit $index: pipeline step not found")))
           case Some(existing) =>
-            authorizeEditorOrOwnerOnPipeline(existing.pipelineId, user, ctx).flatMap {
+            requireVisibleStep(existing.pipelineId, index, user, ctx).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_) =>
                 edit.pipelineStepPatch match {
@@ -618,7 +632,7 @@ private[services] object PatchSetApplyResolvers {
         ctx.pipelineStepRepo.findByIdInternal(stepId).flatMap {
           case None => Future.successful(Left(ServiceError.NotFound(s"edit $index: pipeline step not found")))
           case Some(existing) =>
-            authorizeEditorOrOwnerOnPipeline(existing.pipelineId, user, ctx).flatMap {
+            requireVisibleStep(existing.pipelineId, index, user, ctx).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_) =>
                 // HEL-913 task 7.6a-i: same `priorState`-must-carry-its-real-root rationale as

@@ -83,15 +83,18 @@ class AclDirectiveSpec
       }
     }
 
-    "return 403 Forbidden when caller does not own the resource" in {
-      val directive = new AclDirective(noGrantsRepo, ownerRegistry)
-      val route = directive.authorizeResource(resourceId, nonOwnerUser, resourceType, "Not found") {
-        complete(StatusCodes.OK, "should not reach here")
+    "return 404 byte-identical to the absent case when caller does not own the resource (HEL-1002)" in {
+      def bodyFor(registry: ResourceTypeRegistry): (Int, String) = {
+        val route = new AclDirective(noGrantsRepo, registry).authorizeResource(resourceId, nonOwnerUser, resourceType, "Dashboard not found") {
+          complete(StatusCodes.OK, "should not reach here")
+        }
+        var out: (Int, String) = null
+        Get("/") ~> route ~> check { out = (status.intValue, responseAs[String]) }
+        out
       }
-      Get("/") ~> route ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
-      }
+      val foreign = bodyFor(ownerRegistry)
+      foreign._1 shouldBe 404
+      foreign shouldBe bodyFor(missingRegistry)
     }
 
     "return 404 Not Found when resource does not exist" in {
@@ -116,15 +119,15 @@ class AclDirectiveSpec
       }
     }
 
-    "return 403 when resolver returns a different owner than any user ID" in {
+    "return 404 when resolver returns a different owner than any user ID" in {
       val otherOwnerRegistry = makeRegistry(_ => Future.successful(Some(otherUserId)))
       val directive = new AclDirective(noGrantsRepo, otherOwnerRegistry)
       val route = directive.authorizeResource(resourceId, ownerUser, resourceType, "Not found") {
         complete(StatusCodes.OK, "should not reach here")
       }
       Get("/") ~> route ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Not found")
       }
     }
 
@@ -188,15 +191,18 @@ class AclDirectiveSpec
       }
     }
 
-    "return 403 when the authenticated user has no grant" in {
-      val directive = new AclDirective(noGrantsRepo, ownerRegistry)
-      val route = directive.authorizeResourceWithSharing(resourceType, resourceId, Some(guestUser)) {
-        _ => complete(StatusCodes.OK, "should not reach here")
+    "return 404 byte-identical to the absent case when the authenticated user has no grant (HEL-1002)" in {
+      def bodyFor(registry: ResourceTypeRegistry): (Int, String) = {
+        val route = new AclDirective(noGrantsRepo, registry).authorizeResourceWithSharing(resourceType, resourceId, Some(guestUser), "Dashboard not found") {
+          _ => complete(StatusCodes.OK, "should not reach here")
+        }
+        var out: (Int, String) = null
+        Get("/") ~> route ~> check { out = (status.intValue, responseAs[String]) }
+        out
       }
-      Get("/") ~> route ~> check {
-        status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
-      }
+      val foreign = bodyFor(ownerRegistry)
+      foreign._1 shouldBe 404
+      foreign shouldBe bodyFor(missingRegistry)
     }
 
     "provide Viewer access for unauthenticated request on a public resource" in {

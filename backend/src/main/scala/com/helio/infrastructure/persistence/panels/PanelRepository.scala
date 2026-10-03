@@ -110,7 +110,6 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
 
   /** No-ACL read. Documented callers:
    *  - `ResourceTypeRegistry` owner-resolver (privileged; resolves ownership for ACL check)
-   *  - `PanelService.batchUpdate` (parent dashboard ACL is the authoritative gate there)
    *  Do NOT call from routes or services that own the ACL decision. */
   def findByIdInternal(id: PanelId): Future[Option[Panel]] =
     ctx.withSystemContext(table.filter(_.id === id.value).result.headOption)

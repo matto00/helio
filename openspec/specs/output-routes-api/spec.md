@@ -12,10 +12,10 @@ The backend SHALL expose `GET/POST /api/pipelines/:id/outputs` and `GET/PATCH/DE
 /api/outputs/:id`. Every route SHALL apply the same owner/grantee/other ACL evaluation as the
 parent pipeline: owner or a grantee with pipeline-sharing access gets 200; an UNAUTHENTICATED
 caller (or one with no ACL relationship at all, on the sharing-aware GET routes) gets 404
-(existence not leaked); an AUTHENTICATED caller with no pipeline grant on `POST
-/api/pipelines/:id/outputs` gets **403** (`AccessChecker.requireAccess`'s standard rule,
-identical to `PanelService.create`'s own dashboard-ACL check — this is a pre-existing,
-codebase-wide convention, not a new rule invented for Outputs). `PATCH`/`DELETE
+(existence not leaked); an AUTHENTICATED caller with no pipeline grant on `POST`/`GET
+/api/pipelines/:id/outputs` gets **404** with the same body as an absent pipeline
+(`AccessChecker.requireAccess`'s existence-not-leaked rule, HEL-1002; a viewer grantee still gets
+**403** on `POST`). `PATCH`/`DELETE
 /api/outputs/:id` are owner-only (RLS `outputs_update`/`outputs_delete`) — a non-owner grantee
 gets **404** there (RLS makes the row invisible to the update/delete statement, not a 403). `POST`
 SHALL accept `{ nodeStepId?, kind, name, config }`; `nodeStepId` absent or null SHALL bind the
@@ -35,8 +35,7 @@ literal `null`** (same class of wire-shape imprecision as the `pipeline-shape-re
 #### Scenario: Authenticated caller with no pipeline grant gets 403 on create
 - **WHEN** an authenticated user with no ACL relationship to the pipeline calls
   `POST /api/pipelines/:id/outputs`
-- **THEN** the response is `403 Forbidden` (the pipeline's existence is not hidden from an
-  authenticated caller — matches `PanelService.create`'s dashboard-ACL convention)
+- **THEN** the response is `404 Not Found` (HEL-1002: this scenario formerly asserted 403), identical in status and body to a nonexistent pipeline id
 
 #### Scenario: Non-owner grantee gets 404 on PATCH/DELETE
 - **WHEN** an editor grantee (not the owner) calls `PATCH` or `DELETE /api/outputs/:id`

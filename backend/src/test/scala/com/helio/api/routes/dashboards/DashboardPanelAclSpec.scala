@@ -44,7 +44,7 @@ import scala.concurrent.duration.DurationInt
  *
  *  403 vs 404 decision:
  *  - `GET /dashboards/:id/panels` uses AclDirective.authorizeResourceWithSharing:
- *    authenticated user with no grant → 403; anonymous with no public grant → 404
+ *    authenticated user with no grant → 404 (HEL-1002), same as anonymous with no public grant
  *  - Dashboard CRUD (delete/duplicate/update/export) goes through DashboardService:
  *    no-grant caller → 404 (no existence leak); grantee trying owner-only → 403
  *  - Viewer trying to mutate → 403 (resource visible, mutation blocked)
@@ -394,16 +394,16 @@ class DashboardPanelAclSpec
     }
   }
 
-  // Note: GET /dashboards/:id/panels goes through AclDirective.authorizeResourceWithSharing
-  // which returns 403 for authenticated users with no grant (not 404). The dashboard
-  // CRUD paths (delete/duplicate/update/export) use DashboardService.findById(sharing-aware)
-  // and return 404 for no-grant callers (no existence leak at service layer).
+  // Note (HEL-1002): GET /dashboards/:id/panels goes through AclDirective.authorizeResourceWithSharing,
+  // which now returns the same 404 as an absent dashboard for authenticated no-grant callers. The
+  // dashboard CRUD paths (delete/duplicate/update/export) use DashboardService.findById(sharing-aware)
+  // and also return 404 for no-grant callers.
 
   "GET /api/dashboards/:id/panels (cross-user, no grant)" should {
-    "return 403 (AclDirective hides existence for authenticated user, not service layer)" in {
+    "return 404 (HEL-1002: the directive no longer distinguishes a foreign dashboard from an absent one)" in {
       val dashId = seedDashboard(userAId)
       Get(s"/api/dashboards/$dashId/panels") ~> routesB() ~> check {
-        status shouldBe StatusCodes.Forbidden
+        status shouldBe StatusCodes.NotFound
       }
     }
   }
