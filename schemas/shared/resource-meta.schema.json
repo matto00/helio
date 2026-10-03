@@ -3,11 +3,12 @@
   "$id": "https://helio.local/schemas/shared/resource-meta.schema.json",
   "title": "ResourceMeta",
   "type": "object",
-  "required": ["createdBy", "createdAt", "lastUpdated"],
+  "required": ["createdAt", "lastUpdated"],
   "properties": {
     "createdBy": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "The creating user's id. Omitted (key absent, never null) for any caller who is neither the dashboard's owner nor the panel's creator on the public panel-list route (GET /api/dashboards/:id/panels). Always present on authenticated non-public routes."
     },
     "createdAt": {
       "type": "string",

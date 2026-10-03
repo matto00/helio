@@ -421,8 +421,8 @@ final class PublicDashboardRoutes(
                 userOpt,
                 "Dashboard not found",
                 token
-              ) { _ =>
-                // HEL-590 evaluation-2.md CR-A: `_` here is the directive's resolved `ResourceAccess`
+              ) { access =>
+                // HEL-590 evaluation-2.md CR-A: `access` here is the directive's resolved `ResourceAccess`
                 // (Owner/Editor/Viewer, however it was granted -- including via a share token, which
                 // matches none of `findAllByDashboardId`'s own owner/grantee/public-grant predicates).
                 // Reaching this block at all means the caller is authorized; `accessAlreadyGranted =
@@ -442,9 +442,11 @@ final class PublicDashboardRoutes(
                     ))
                       .map { rows =>
                         val responses = rows.map { case (panel, dataAsOf, orphanedIds) =>
-                          // HEL-1197: an anonymous / share-token-only caller (`userOpt.isEmpty`) never sees the
-                          // internal `ownerId`; an authenticated viewer keeps it (as on every other route).
-                          PanelResponse.fromDomain(panel, dataAsOf, orphanedControlIds = Some(orphanedIds), includeOwnerId = userOpt.isDefined)
+                          // HEL-1197/HEL-1216: `ownerId` and `meta.createdBy` (the creator's id) go only
+                          // to the dashboard's owner or that panel's own creator -- never to an
+                          // anonymous, share-token-only, or authenticated non-owner grantee/stranger.
+                          val ownerView = access == ResourceAccess.Owner || userOpt.exists(_.id.value == panel.ownerId.value)
+                          PanelResponse.fromDomain(panel, dataAsOf, orphanedControlIds = Some(orphanedIds), includeOwnerId = ownerView)
                         }
                         PagedResult(responses, paged.total, paged.offset, paged.limit)
                       }

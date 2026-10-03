@@ -18,7 +18,8 @@ export interface Paged<T> {
 }
 
 export interface ResourceMeta {
-  createdBy: string;
+  /** Omitted (HEL-1216) for any caller who is neither the dashboard owner nor the panel creator on the public panel-list route. */
+  createdBy?: string;
   createdAt: string;
   lastUpdated: string;
 }

@@ -204,13 +204,12 @@ class PublicDashboardRoutesSpec
         val rawItems = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]]
         rawItems should have size 1
         rawItems.head.fields.keySet should not contain "ownerId"
-        // NOTE (spinoff candidate, reported in HEL-1206 handoff): `meta.createdBy` still carries the
-        // creator's user id on this wire -- outside HEL-1197's literal `ownerId` scope, so not
-        // changed here and deliberately not asserted either way.
+        // HEL-1216: `meta.createdBy` (the creator's user id) is omitted too.
+        rawItems.head.fields("meta").asJsObject.fields.keySet should not contain "createdBy"
       }
     }
 
-    "HEL-1197: an AUTHENTICATED non-owner viewer of a public dashboard still receives ownerId" in {
+    "HEL-1216: an AUTHENTICATED non-owner Viewer grantee does NOT receive ownerId or meta.createdBy (superseding HEL-1197)" in {
       val dashId     = seedDashboardWithPublicGrant()
       val pipelineId = newPipelineWithLastRunAt(Instant.now())
       seedOutputPanel(dashId, pipelineId)
@@ -223,7 +222,9 @@ class PublicDashboardRoutesSpec
 
       Get(s"/dashboards/$dashId/panels") ~> authedRoutes ~> check {
         status shouldBe StatusCodes.OK
-        responseAs[JsObject].fields("items").convertTo[Vector[JsObject]].head.fields("ownerId") shouldBe JsString(ownerId)
+        val item = responseAs[JsObject].fields("items").convertTo[Vector[JsObject]].head
+        item.fields.keySet should not contain "ownerId"
+        item.fields("meta").asJsObject.fields.keySet should not contain "createdBy"
       }
     }
 

@@ -102,7 +102,7 @@ class ProvenanceRoutesSpec extends AnyWordSpec with Matchers with ScalatestRoute
   // HEL-1197 regression: making PanelResponse.ownerId optional must leave every authenticated
   // producer's serialization byte-identical (the patch-set undo conflict check compares it).
   "PanelResponse authenticated serialization" should {
-    "be exactly the pre-change JSON (default includeOwnerId), and drop ONLY ownerId when asked" in {
+    "be exactly the pre-change JSON (default includeOwnerId), and drop ONLY ownerId and meta.createdBy (HEL-1216) when asked" in {
       val now = Instant.parse("2026-01-01T00:00:00Z")
       val panel = DividerPanel(
         PanelId("p1"), DashboardId("d1"), "Title", ResourceMeta("u1", now, now),
@@ -116,7 +116,9 @@ class ProvenanceRoutesSpec extends AnyWordSpec with Matchers with ScalatestRoute
         "config" -> JsObject("orientation" -> JsString("horizontal"))
       )
       PanelResponse.fromDomain(panel).toJson.asJsObject shouldBe expected
-      PanelResponse.fromDomain(panel, includeOwnerId = false).toJson.asJsObject shouldBe JsObject(expected.fields - "ownerId")
+      PanelResponse.fromDomain(panel, includeOwnerId = false).toJson.asJsObject shouldBe JsObject(
+        (expected.fields - "ownerId") + ("meta" -> JsObject(expected.fields("meta").asJsObject.fields - "createdBy"))
+      )
     }
   }
 }

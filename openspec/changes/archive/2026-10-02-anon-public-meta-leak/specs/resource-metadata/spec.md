@@ -1,7 +1,4 @@
-## Purpose
-Defines the shared `meta` object exposed on dashboard and panel resources, including its required fields and how `createdBy` reflects the authenticated user at resource-creation time.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Shared dashboard and panel metadata
 The system SHALL expose a shared `meta` object on dashboard and panel resources containing `createdAt`, `lastUpdated`, and `createdBy`. The `createdBy` field SHALL be set to the authenticated user's ID at resource creation time. On the public panel-list route (`GET /api/dashboards/:id/panels`), `meta.createdBy` SHALL be omitted for any caller who is neither the dashboard's owner nor the panel's creator; `createdAt` and `lastUpdated` are always present.

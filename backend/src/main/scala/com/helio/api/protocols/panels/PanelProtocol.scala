@@ -147,9 +147,11 @@ object PanelResponse {
    *  `dataAsOf` (HEL-234, HEL-1177 corrected): only the public panel-list route passes a value
    *  (see the class doc comment above); every other call site passes `None`.
    *
-   *  `includeOwnerId` (HEL-1197): defaults `true` so every non-public call site is byte-identical;
-   *  the public panel-list route passes `false` for an anonymous/share-token-only caller so the
-   *  internal owner id never reaches the public wire.
+   *  `includeOwnerId` (HEL-1197, widened by HEL-1216 to ALL owner-identifying fields: `ownerId` AND
+   *  `meta.createdBy`, which equals the creator's id): defaults `true` so every non-public call site
+   *  is byte-identical; the public panel-list route passes `false` for any caller who is neither the
+   *  dashboard's owner nor the panel's creator, so the internal owner id never reaches the public
+   *  wire. One flag drives both fields so they cannot drift apart.
    *
    *  `orphanedControlIds` (HEL-1189 design.md D5): `None` (every existing call site, unchanged
    *  behavior) emits `config` via the plain `PanelConfigCodec.encodeConfig` — no `orphaned` key on
@@ -171,7 +173,7 @@ object PanelResponse {
       dashboardId = panel.dashboardId.value,
       title       = panel.title,
       `type`      = panel.kind,
-      meta        = ResourceMetaResponse.fromDomain(panel.meta),
+      meta        = ResourceMetaResponse.fromDomain(panel.meta, includeCreatedBy = includeOwnerId),
       appearance  = PanelAppearanceResponse.fromDomain(panel.appearance),
       ownerId     = if (includeOwnerId) Some(panel.ownerId.value) else None,
       config      = configJsonFor(panel, orphanedControlIds),

@@ -1,0 +1,21 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+### What I verified (with evidence)
+- Frontend: grep of frontend/src for `createdBy` hits only `types/models.ts:16` and test fixtures; no reader. Panel `ownerId` has only a type decl (`panel.ts:274`); no consumer. Claim holds.
+- Public route enumeration from `ApiRoutes.scala` ~855-863: `optionalAuthenticate` mounts PublicDashboardRoutes, PublicUploadRoutes, ConnectorCompletionRoutes; plus `health.routes` and `/api/auth`. Plan's list matches. Output-meta (`PublicOutputMetaResponse`: kind/config/schema) and provenance (`ProvenanceResponses.public`: names/kind/nodePath/lastRun/assertion counts) carry no ids. ConnectorCompletion responses (`CompletionTokenResponse` etc.) are on authenticated routes; public ones return auth shape only.
+- Dashboard/Output ResourceMeta: `DashboardResponse` (DashboardProtocol:38,119) only emitted from authenticated DashboardRoutes; no public dashboard-by-id route. Claim holds.
+- `PanelResponse.fromDomain` (PanelProtocol ~160-180): `meta = ResourceMetaResponse.fromDomain(panel.meta)` unconditional, `ownerId` gated by `includeOwnerId`; PublicDashboardRoutes:447 uses `userOpt.isDefined`. Plan's description of current state is accurate.
+- Grantee impact: panel.ownerId is the creating user (PanelService:329), so a dashboard owner viewing a grantee-created panel is also a "non-owner of the panel" under Decision 1; acceptable since nothing reads it, but see CR 3.
+
+### Verdict: REFUTE
+
+### Change Requests
+1. Missing contract update (JSON Schema). `schemas/shared/resource-meta.schema.json` has `"required": ["createdBy", ...]` and is referenced by `schemas/panels/panel.schema.json` and `schemas/dashboards/dashboard.schema.json`. Making `ResourceMetaResponse.createdBy` `Option[String]` changes the wire contract; the design's "Impact" says "No migration" and lists no schema work, while repo rule is "schema updates in the same change as client/server code" and `npm run check:schemas` (scripts/check-schema-drift.mjs, a pre-commit gate) compares schemas to case classes. Add a task + design decision: how to express it (e.g. drop `createdBy` from `required`, document "omitted for non-owner callers of the public panel list"), and add `npm run check:schemas` to task 3.2.
+2. Missing spec delta for the existing capability. `openspec/specs/resource-metadata/spec.md` states panel responses "include `meta.createdBy`" (lines ~7-17). The change only adds a delta to `public-dashboards`; add a MODIFIED delta for `resource-metadata` carving out the public non-owner case, otherwise specs contradict each other.
+3. helio-mcp: `helio-mcp/src/types.ts:21` declares `ResourceMeta.createdBy: string` (required). Either list it in tasks (make optional, type-check helio-mcp) or state with evidence why it is not a consumer of the public panel-list route. Proposal/design say "frontend only" and are silent on this second client.
+4. Decision 1 consequence is understated and arguably contradicts the AC "owner's authenticated view still gets its meta": a dashboard owner (or Editor) viewing a panel created by a grantee loses `ownerId`/`createdBy` on that panel. Either state this explicitly in the design and spec scenario, or define owner as "panel owner OR dashboard owner" (the route has the ACL facts). Add a test for a grantee-created panel viewed by the dashboard owner so behavior is pinned, not accidental.
+5. Task 1.3 is vague on the guard fixture ("as applicable"): specify that the guard fixture uses one distinctive owner id for panel.ownerId, dashboard owner, output owner, pipeline owner, and share-token creator, and that image-upload fetch / connector-completion are exercised with real fixtures or explicitly recorded as "no owner-bearing data, not exercised" in the audit table. Also specify the mutation proof as a recorded red/green output in evidence, not just stated.
+
+### Non-blocking notes
+- Guard "string containing the owner id" (design D5) vs spec "string equal to" — pick one; "contains" is the stronger and better choice, align the spec scenario.
+- Consider also walking JSON object keys (design says so) and asserting on error-response bodies (404/403) for public routes.
