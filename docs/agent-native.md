@@ -345,6 +345,12 @@ default to `roots[0]` — required whenever more than one root is present). `s3`
 (`parentStepId: "s1"`) and rejoins `s2`'s lane via `secondaryInput: {kind: "lane", stepId: "s2"}`,
 so its own projected schema carries columns from BOTH lanes.
 
+**Column collisions (HEL-1236).** When both lanes carry a column of the same name, the join keeps
+the LEFT column under its own name and renames the RIGHT one `right_<name>` (then `right_<name>_2`,
+`_3`, ... if that name is taken); the join key is kept once, from the left. It never errors and
+never drops a value. `analyze_pipeline` reports the renamed column, so ground Output field
+bindings on the analyzed schema, not on the source schemas.
+
 **Response** (`PipelineSummaryResponse`, ids redacted to the real run's shape):
 
 ```json

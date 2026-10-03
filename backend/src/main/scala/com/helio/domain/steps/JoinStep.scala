@@ -33,7 +33,10 @@ object JoinConfig {
  *  input's rows -- either a `DataSource` (`kind: "source"`) or another lane's
  *  already-evaluated frame (`kind: "lane"`, HEL-911, via `ctx.resolveLane`, no
  *  re-evaluation) -- then joins with the left-side rows on `joinKey`. Supports `inner`
- *  and `left` join types; any other value raises at execute time. */
+ *  and `left` join types; any other value raises at execute time.
+ *
+ *  HEL-1236: a right-side column whose name collides with a left column is renamed
+ *  `right_<name>` (see [[JoinColumnNaming]]) -- the left value is never overwritten. */
 final case class JoinStep(
     id: PipelineStepId,
     pipelineId: PipelineId,
@@ -57,6 +60,12 @@ final case class JoinStep(
     def apply(rightRows: Seq[Map[String, Any]]): Seq[Map[String, Any]] = {
       val rightIndex: Map[Any, Seq[PipelineRowJson.Row]] =
         rightRows.groupBy(_.getOrElse(joinKey, null))
+      // HEL-1236: ONE mapping for the whole evaluation (never per row), from the union of the
+      // column names the left and right rows actually carry, so every merged row is renamed
+      // identically and no right value overwrites a left value.
+      val mapping = JoinColumnNaming.resolve(rows.flatMap(_.keys), rightRows.flatMap(_.keys), joinKey)
+      def merge(leftRow: Map[String, Any], rightRow: Map[String, Any]): Map[String, Any] =
+        leftRow ++ JoinColumnNaming.renameRightRow(rightRow, mapping)
       val normalizedType = joinType.toLowerCase
       if (!JoinStep.SupportedJoinTypes.contains(normalizedType))
         throw new IllegalArgumentException(
@@ -67,14 +76,14 @@ final case class JoinStep(
           rows.flatMap { leftRow =>
             val key     = leftRow.getOrElse(joinKey, null)
             val matches = rightIndex.getOrElse(key, Seq.empty)
-            matches.map(rightRow => leftRow ++ rightRow)
+            matches.map(rightRow => merge(leftRow, rightRow))
           }
         case "left" =>
           rows.flatMap { leftRow =>
             val key     = leftRow.getOrElse(joinKey, null)
             val matches = rightIndex.getOrElse(key, Seq.empty)
             if (matches.isEmpty) Seq(leftRow)
-            else matches.map(rightRow => leftRow ++ rightRow)
+            else matches.map(rightRow => merge(leftRow, rightRow))
           }
       }
     }

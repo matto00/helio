@@ -351,7 +351,7 @@ final class PipelineService(
               // persisted id at this point in the call.
               val sourceSchemasByRoot: Map[String, Vector[SchemaField]] =
                 dataSources.zipWithIndex.map { case ((_, ds), idx) => idx.toString -> ds.inferredSchema }.toMap
-              val analyzedNodes = PipelineAnalyzeService.analyzeNodes(
+              val nodeInputsForAnalyze =
                 req.steps.zip(stepRootIdxs).zipWithIndex.map { case ((s, rootIdxOpt), idx) =>
                   PipelineAnalyzeService.NodeStepInput(
                     id           = s.clientId,
@@ -361,9 +361,10 @@ final class PipelineService(
                     config       = s.config.compactPrint,
                     rootId       = rootIdxOpt.map(_.toString)
                   )
-                },
-                sourceSchemasByRoot
-              )
+                }
+              // HEL-1236: cross-referenced sources already passed `validateStepCrossOwnerRefs` above.
+              resolveSecondarySourceSchemas(nodeInputsForAnalyze.map(n => n.op -> n.config), dataSourceRepo.findByIdInternal).flatMap { secondarySchemas =>
+              val analyzedNodes = PipelineAnalyzeService.analyzeNodes(nodeInputsForAnalyze, sourceSchemasByRoot, secondarySchemas)
               val action: DBIO[PipelineSummary] = for {
                 createResult      <- pipelineRepo.createAction(req.name.trim, dataSources, user, tag)
                 (summary, rootIds) = createResult
@@ -378,6 +379,7 @@ final class PipelineService(
                 case PipelineCreateValidationFailure(err)         => Left(err)
                 case PipelineCycleGuard.PipelineCycleRejected(msg) => Left(ServiceError.BadRequest(msg))
                 case ex                                            => Left(PipelineService.classifyDbError(ex))
+              }
               }
           }
       }
@@ -959,9 +961,11 @@ final class PipelineService(
             rootDsOpts        <- Future.traverse(rootDataSourceIds) { case (rootId, dsId) =>
                                     dataSourceRepo.findByIdOwned(dsId, user).map(dsOpt => (rootId.value, dsOpt))
                                   }
-          } yield (rootIdOfStep, rootDsOpts)
+            // HEL-1236: source-kind join secondaries' schemas, so a join's renamed columns project.
+            secondarySchemas  <- resolveSecondarySourceSchemas(allSteps.map(s => s.kind -> PipelineStepConfigCodec.encode(s)), dataSourceRepo.findByIdInternal)
+          } yield (rootIdOfStep, rootDsOpts, secondarySchemas)
 
-          rootFetch.flatMap { case (rootIdOfStep, rootDsOpts) =>
+          rootFetch.flatMap { case (rootIdOfStep, rootDsOpts, secondarySchemas) =>
             val rootSchemas = rootDsOpts.map { case (rid, dsOpt) =>
               (rid, dsOpt.map(_.name).getOrElse(""), dsOpt.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField]))
             }
@@ -992,7 +996,7 @@ final class PipelineService(
                 enabled      = s.enabled
               )
             )
-            val projections = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot)
+            val projections = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas)
             val enabledSteps = allSteps.filter(_.enabled)
             // Reassemble in the SAME order `enabledSteps` lists them; a node that never resolved
             // (unknown parentStepId, dangling lane reference) is simply absent, mirroring
@@ -1062,6 +1066,24 @@ final class PipelineService(
       canRun        = canRun
     )
 
+  /** HEL-1236: pre-resolves the inferred schema of every `join` step's `source`-kind secondary
+   *  input so `PipelineAnalyzeService.analyzeNodes` can project the join's renamed columns
+   *  (`right_<name>`) instead of its left-schema passthrough. EVERY `analyzeNodes` call site in
+   *  this file funnels through here (no site keeps the passthrough). `resolve` is the caller's
+   *  access policy: persisted-pipeline paths pass `findByIdInternal` (the pipeline ACL is the
+   *  gate, exactly as `JoinStep.evaluate` resolves it); the un-applied-proposal path passes the
+   *  caller-scoped `findByIdOwned` so an unvalidated proposal can never read another tenant's
+   *  schema. A source that is missing or has no inferred schema is simply absent from the map
+   *  (analyze falls back to the documented passthrough; the runtime still fails loudly). */
+  private def resolveSecondarySourceSchemas(
+      steps:   Iterable[(String, String)],
+      resolve: DataSourceId => Future[Option[DataSource]]
+  ): Future[Map[String, Vector[SchemaField]]] = {
+    val ids = steps.flatMap { case (op, config) => PipelineAnalyzeService.sourceDependencyOf(op, config) }.toVector.distinct
+    Future.traverse(ids)(id => resolve(DataSourceId(id)).map(id -> _.map(_.inferredSchema).filter(_.nonEmpty)))
+      .map(_.collect { case (id, Some(schema)) => id -> schema }.toMap)
+  }
+
   /** HEL-914 task 6.4 (design.md D5/D6): `GET /pipelines/:id/analyze?concise=true`'s opt-in
    *  per-node `{path, op, validationError}` projection — a wholly separate response from
    *  `analyze` above, under a byte budget `analyze`'s full response is never asked to meet.
@@ -1081,9 +1103,10 @@ final class PipelineService(
                                       rootId.value -> dsOpt.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField])
                                     }
                                   }
-          } yield (rootDataSourceIds.map(_._1.value), rootIdOfStep, rootSchemas.toMap)
+            secondarySchemas  <- resolveSecondarySourceSchemas(allSteps.map(s => s.kind -> PipelineStepConfigCodec.encode(s)), dataSourceRepo.findByIdInternal)
+          } yield (rootDataSourceIds.map(_._1.value), rootIdOfStep, rootSchemas.toMap, secondarySchemas)
 
-          rootFetch.map { case (rootIds, rootIdOfStep, schemasByRoot) =>
+          rootFetch.map { case (rootIds, rootIdOfStep, schemasByRoot, secondarySchemas) =>
             val rootIdOfStepStr = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
             val nodeInputs = allSteps.map(s =>
               PipelineAnalyzeService.NodeStepInput(
@@ -1096,7 +1119,7 @@ final class PipelineService(
                 enabled      = s.enabled
               )
             )
-            val projections = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot)
+            val projections = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas)
             val graphPath    = RuntimeGraphPath.build(allSteps, rootIds, rootIdOfStepStr)
             val nodes = allSteps.filter(_.enabled).flatMap { s =>
               projections.get(s.id.value).map { analyzed =>
@@ -1293,6 +1316,7 @@ final class PipelineService(
         schemasByRoot     <- Future.traverse(rootDataSourceIds) { case (rootId, dsId) =>
                                dataSourceRepo.findByIdOwned(dsId, user).map(ds => rootId.value -> ds.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField]))
                              }.map(_.toMap)
+        secondarySchemas  <- resolveSecondarySourceSchemas(allSteps.filter(_.enabled).map(s => s.kind -> PipelineStepConfigCodec.encode(s)), dataSourceRepo.findByIdInternal)
       } yield {
         val primarySchema = rootDataSourceIds.headOption.map(_._1.value).flatMap(schemasByRoot.get).getOrElse(Vector.empty[SchemaField])
         val steps = allSteps.filter(_.enabled)
@@ -1306,7 +1330,7 @@ final class PipelineService(
             rootId       = rootIdOfStep.get(s.id).map(_.value)
           )
         )
-        val projections = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot)
+        val projections = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas)
         stepId match {
           case None      => Some(primarySchema)
           case Some(sid) => projections.get(sid.value).map(_.outputSchema)
@@ -1384,9 +1408,12 @@ final class PipelineService(
     validateStepKinds(proposal.steps) match {
       case Left(err) => Future.successful(Left(err))
       case Right(_) =>
-        resolveAllProposalRootSchemas(proposal, user).map {
-          case Left(err) => Left(err)
+        // HEL-1236: caller-scoped (`findByIdOwned`) -- an un-applied proposal's join secondary has
+        // not passed `validateStepCrossOwnerRefs`, so it must never resolve another tenant's schema.
+        resolveAllProposalRootSchemas(proposal, user).flatMap {
+          case Left(err) => Future.successful(Left(err))
           case Right(rootSchemas) =>
+          resolveSecondarySourceSchemas(proposal.steps.map(r => r.`type` -> r.config.compactPrint), dsId => dataSourceRepo.findByIdOwned(dsId, user)).map { secondarySchemas =>
             val rootKeys = proposal.roots.zipWithIndex.map { case (root, idx) => root.clientId.getOrElse(idx.toString) }
             val schemasByRoot: Map[String, Vector[SchemaField]] =
               rootKeys.zip(rootSchemas.map(_._2)).toMap
@@ -1406,7 +1433,7 @@ final class PipelineService(
                 enabled      = req.enabled.getOrElse(true)
               )
             }
-            val projections  = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot)
+            val projections  = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas)
             val enabledSteps = proposal.steps.filter(_.enabled.getOrElse(true))
             val analyzed     = enabledSteps.flatMap(s => projections.get(s.clientId))
 
@@ -1421,6 +1448,7 @@ final class PipelineService(
                   outputs = outputAnalyses
                 ))
             }
+          }
         }
     }
 

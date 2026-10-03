@@ -1157,11 +1157,10 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result("rejoin").outputSchema should not equal result("laneA").outputSchema
     }
 
-    "join rejoin: schema is the union of both inputs, secondary side wins on a name collision (mirrors runtime right-hand-wins)" in {
+    "join rejoin: schema is both inputs; a colliding secondary column is projected as right_<name>, the left column untouched (HEL-1236)" in {
       val laneA = nodeStep("laneA", None, "rename", """{"mapping":{"order_id":"order_id"}}""", position = 0)
       // laneB redeclares "amount" (present on laneA too, as float) as a string-typed field
-      // via a cast step -- proves the SECONDARY side's type wins on the collision, not the
-      // parent's.
+      // via a cast step -- the LEFT column keeps its name and type, the right one is renamed.
       val laneB = nodeStep(
         "laneB", None, "cast", """{"casts":{"amount":"string"}}""", position = 1
       )
@@ -1176,7 +1175,9 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val rejoinFields = result("rejoin").outputSchema.map(f => f.name -> f.`type`).toMap
       rejoinFields("order_id") shouldBe "string"
       rejoinFields("created_at") shouldBe "string" // carried through from laneA, untouched
-      rejoinFields("amount") shouldBe "string" // secondary (laneB) wins the collision
+      rejoinFields("amount") shouldBe "float" // left (laneA) keeps the name and type
+      rejoinFields("right_amount") shouldBe "string" // the secondary (laneB) column, prefixed
+      rejoinFields("right_created_at") shouldBe "string"
     }
 
     "join with no dispatch case before this ticket now projects a schema instead of 'Unknown op' (evaluation-1.md CR3)" in {
