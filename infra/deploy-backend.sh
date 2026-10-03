@@ -111,6 +111,7 @@ gcloud run deploy helio-backend \
   --set-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest \
   --memory=1Gi \
   --cpu=1 \
+  --no-cpu-throttling \
   --concurrency=80 \
   --max-instances=2 \
   --min-instances=0 \

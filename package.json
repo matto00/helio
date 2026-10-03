@@ -12,6 +12,8 @@
     "format:check": "prettier . --check",
     "check:schemas": "node scripts/check-schema-drift.mjs",
     "check:schemas:selftest": "node scripts/check-schema-drift.selftest.mjs",
+    "check:cloud-run-cpu": "node scripts/check-cloud-run-cpu.mjs",
+    "check:cloud-run-cpu:selftest": "node scripts/check-cloud-run-cpu.selftest.mjs",
     "check:repo-integrity": "node scripts/check-repo-integrity.mjs",
     "check:dependabot": "node scripts/check-dependabot-groups.mjs",
     "check:dependabot:selftest": "node scripts/check-dependabot-groups.selftest.mjs",
