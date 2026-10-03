@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-/** HEL-1236: the ONE column-collision rule for `join`, shared by the in-process runtime
+/** HEL-1236 / HEL-1250: the ONE column-collision rule for `join` and `lookup`, shared by the in-process runtime
  *  ([[JoinStep]]), the analyze-time schema projection (`PipelineAnalyzeService.inferJoin`) and
  *  the Spark path (`SparkJobSubmitter`), so every surface produces the same column names.
  *
@@ -25,11 +25,17 @@ object JoinColumnNaming {
 
   /** Right column name -> output column name, for every right column that SURVIVES the join.
    *  A right column absent from the result is the dropped duplicate join key (rule 2). */
-  def resolve(leftCols: Iterable[String], rightCols: Iterable[String], joinKey: String): Map[String, String] = {
+  def resolve(leftCols: Iterable[String], rightCols: Iterable[String], joinKey: String): Map[String, String] =
+    resolveWithKey(leftCols, rightCols, Some(joinKey))
+
+  /** The single core behind [[resolve]] and `lookup` (HEL-1250). `droppedKey` names the right
+   *  column that is a pure duplicate of a left column when the left carries it (a join's key, or
+   *  a lookup's key when `sourceKey == lookupKey`); `None` drops nothing (every right column is
+   *  an ordinary one, so a lookup whose `sourceKey != lookupKey` never loses a value). */
+  def resolveWithKey(leftCols: Iterable[String], rightCols: Iterable[String], droppedKey: Option[String]): Map[String, String] = {
     val left        = leftCols.toSet
     val right       = rightCols.toVector.distinct
-    val keyDropped  = left.contains(joinKey)
-    val kept        = right.filterNot(c => keyDropped && c == joinKey)
+    val kept        = right.filterNot(c => droppedKey.contains(c) && left.contains(c))
     val untouched   = kept.filterNot(left.contains)
     val colliding   = kept.filter(left.contains).sorted
     val initialTaken: Set[String] = left ++ untouched

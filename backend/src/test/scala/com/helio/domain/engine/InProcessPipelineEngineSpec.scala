@@ -1177,7 +1177,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       result shouldBe Seq(Map[String, Any]("code" -> "A", "label" -> "First"))
     }
 
-    "lookup op: column collision — reference value overwrites the left row's value" in {
+    "lookup op: column collision — left value kept, reference value exposed as right_<name> (HEL-1250)" in {
       val currentRows = Seq(Map[String, Any]("code" -> "A", "qty" -> 5))
       val refConfig = buildStaticConfig(
         Seq("code", "qty"),
@@ -1201,7 +1201,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
         """{ "secondaryInput": { "kind": "source", "dataSourceId": "ds-lookup-collision" }, "sourceKey": "code", "lookupKey": "code", "columns": ["qty"] }""")
       val result = Await.result(engine.execute(currentRows, Seq(step), mockRepo), 5.seconds)
 
-      result shouldBe Seq(Map[String, Any]("code" -> "A", "qty" -> 99))
+      result shouldBe Seq(Map[String, Any]("code" -> "A", "qty" -> 5, "right_qty" -> 99))
     }
 
     "lookup op: only named columns are brought in, other reference fields dropped" in {

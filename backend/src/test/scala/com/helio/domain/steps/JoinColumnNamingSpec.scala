@@ -67,5 +67,13 @@ class JoinColumnNamingSpec extends AnyWordSpec with Matchers {
       out.values.toSet.intersect(left.toSet) shouldBe empty
       out.values.toSet should have size out.size
     }
+
+    "resolveWithKey(None) drops nothing: a colliding key-named right column is renamed (HEL-1250)" in {
+      JoinColumnNaming.resolveWithKey(Seq("id", "a"), Seq("id", "a"), None) shouldBe Map("id" -> "right_id", "a" -> "right_a")
+    }
+
+    "resolveWithKey(Some(key)) is exactly resolve" in {
+      JoinColumnNaming.resolveWithKey(Seq("id", "a"), Seq("id", "a"), Some("id")) shouldBe resolve(Seq("id", "a"), Seq("id", "a"), "id")
+    }
   }
 }

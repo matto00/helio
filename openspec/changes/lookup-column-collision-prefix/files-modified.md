@@ -1,0 +1,9 @@
+- `backend/src/main/scala/com/helio/domain/engine/PipelineAnalyzeService.scala` — inferLookup uses shared collision rule
+- `backend/src/main/scala/com/helio/domain/steps/JoinColumnNaming.scala` — add resolveWithKey core; resolve delegates
+- `backend/src/main/scala/com/helio/domain/steps/LookupStep.scala` — use shared collision rule (resolveWithKey), doc comment
+- `backend/src/main/scala/com/helio/domain/steps/README.md` — document join/lookup collision rule
+- `backend/src/test/scala/com/helio/domain/engine/InProcessPipelineEngineSpec.scala` — update overwrite assertion to new behavior
+- `backend/src/test/scala/com/helio/domain/engine/PipelineAnalyzeServiceSpec.scala` — update overwrite assertion to new behavior
+- `backend/src/test/scala/com/helio/domain/steps/JoinColumnNamingSpec.scala` — resolveWithKey tests
+- `backend/src/test/scala/com/helio/domain/steps/LookupColumnCollisionSpec.scala` — new red-first runtime/analyze/parity spec
+- `openspec/changes/lookup-column-collision-prefix/` — change artifact

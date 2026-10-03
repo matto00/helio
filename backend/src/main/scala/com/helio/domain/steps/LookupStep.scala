@@ -49,16 +49,19 @@ object LookupConfig {
  *    - Match: index reference rows by `lookupKey`; for each left row, look
  *      up its `sourceKey` value in that index.
  *    - No match: the left row is preserved unchanged except `columns` are
- *      added with `null` values (true left-join cardinality).
+ *      added with `null` values (true left-join cardinality), under their
+ *      collision-resolved names.
  *    - Multiple matches: only the first matching reference row's `columns`
  *      values are used — no row multiplication (deterministic "first" =
  *      reference-row load order, since `Seq.groupBy` preserves each group's
  *      original element order).
- *    - Column collision: the brought-in reference value overwrites an
- *      existing left-row field of the same name (the right-hand-wins rule
- *      `JoinStep` USED to share; HEL-1236 changed `join` to prefix the right
- *      column instead, `lookup` is deliberately unchanged -- follow-up). Only the requested
- *      `columns` are brought in — every other reference-row field is
+ *    - Column collision (HEL-1250, same rule as `join`, HEL-1236): a requested
+ *      column whose name is already a left column is brought in as
+ *      `right_<name>` (then `right_<name>_2`, ...; colliding names in ascending
+ *      order, see [[JoinColumnNaming]]); the left column keeps its name and value
+ *      and is never overwritten. When `sourceKey == lookupKey` and that key is
+ *      requested, the brought copy is a pure duplicate and is dropped. Only the
+ *      requested `columns` are brought in — every other reference-row field is
  *      dropped. */
 final case class LookupStep(
     id: PipelineStepId,
@@ -81,17 +84,24 @@ final case class LookupStep(
     val lookupKey = config.lookupKey
     val columns   = config.columns
 
+    // HEL-1250: the "right" names are the requested `columns` (config-declared, so identical at
+    // analyze time); the left names are the union of left row keys, computed once so every row is
+    // renamed identically. The brought copy of the key is dropped only when sourceKey == lookupKey.
+    val leftNames = rows.flatMap(_.keys).toSet
+    val keyOpt    = if (sourceKey == lookupKey) Some(lookupKey) else None
+    val mapping   = JoinColumnNaming.resolveWithKey(leftNames, columns.distinct, keyOpt)
+    val outputs   = columns.distinct.filter(mapping.contains)
+    val nulls: Map[String, Any] = outputs.map(c => mapping(c) -> (null: Any)).toMap
+
     def apply(refRows: Seq[Map[String, Any]]): Seq[Map[String, Any]] = {
       val refIndex: Map[Any, Seq[Map[String, Any]]] =
         refRows.groupBy(_.getOrElse(lookupKey, null))
       rows.map { leftRow =>
-        val key   = leftRow.getOrElse(sourceKey, null)
-        val nulls = columns.map(c => c -> (null: Any)).toMap
+        val key = leftRow.getOrElse(sourceKey, null)
         refIndex.get(key) match {
           case Some(matches) if matches.nonEmpty =>
             val firstMatch = matches.head
-            val brought    = columns.map(c => c -> firstMatch.getOrElse(c, null)).toMap
-            leftRow ++ brought
+            leftRow ++ outputs.map(c => mapping(c) -> firstMatch.getOrElse(c, null)).toMap
           case _ =>
             leftRow ++ nulls
         }
