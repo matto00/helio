@@ -1,8 +1,13 @@
 {
   // HEL-459: fails CI on any high/critical npm advisory in the root lockfile. Accepted,
   // un-fixable advisories go in `allowlist` below with an inline comment carrying the ticket
-  // and a review-by date — never a silent/blanket suppression. Empty today: `npm audit` is
-  // 0/0/0/0 for the root tree (confirmed live at Setup, see ticket.md Dependencies).
+  // and a review-by date — never a silent/blanket suppression.
   "high": true,
-  "allowlist": [],
+  "allowlist": [
+    // HEL-1246: GHSA-vfj7-8cjw-p6xm (braces) — dev-only (jest->micromatch->braces), no patched
+    // version (braces 3.0.3 and micromatch 4.0.8 are both latest). Path-scoped so the same
+    // advisory via any non-micromatch path still fails. Review-by 2026-11-02; remove once a
+    // patched braces/micromatch ships.
+    "GHSA-vfj7-8cjw-p6xm|*micromatch>braces*",
+  ],
 }
