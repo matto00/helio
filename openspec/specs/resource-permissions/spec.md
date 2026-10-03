@@ -2,7 +2,9 @@
 
 ## Purpose
 Database table and API endpoints for sharing dashboards with other users. Supports viewer and editor grants, public (unauthenticated) viewer access, and permission management restricted to the resource owner.
+
 ## Requirements
+
 ### Requirement: resource_permissions table persists per-resource grants
 The system SHALL maintain a `resource_permissions` table with columns `resource_type` VARCHAR,
 `resource_id` UUID, `grantee_id` UUID nullable (foreign key to users, NULL means public), and
@@ -45,23 +47,27 @@ No anonymous/public grants SHALL be permitted for `resource_type = 'pipeline'`.
 The permission management endpoints SHALL be restricted to the dashboard owner. Specifically,
 `POST /api/dashboards/:id/permissions`, `DELETE /api/dashboards/:id/permissions/:granteeId`,
 and `GET /api/dashboards/:id/permissions` SHALL require the authenticated user to be the
-dashboard owner. Non-owners SHALL receive `403 Forbidden`.
+dashboard owner. A non-owner with no grant on the dashboard SHALL receive `404 Not Found`, byte-identical to the response for a nonexistent dashboard (HEL-1002, existence not leaked); a grantee (who already sees the dashboard) SHALL receive `403 Forbidden`.
 
 #### Scenario: Owner can list grants
 - **WHEN** the owner calls `GET /api/dashboards/:id/permissions`
 - **THEN** the response is `200 OK` with all grants for the dashboard
 
 #### Scenario: Non-owner cannot list grants
-- **WHEN** a non-owner authenticated user calls `GET /api/dashboards/:id/permissions`
+- **WHEN** an authenticated user with no grant calls `GET /api/dashboards/:id/permissions`
+- **THEN** the response is `404 Not Found`, identical in status and body to a nonexistent dashboard id
+
+#### Scenario: Grantee cannot list grants
+- **WHEN** a user with a viewer or editor grant calls `GET /api/dashboards/:id/permissions`
 - **THEN** the response is `403 Forbidden`
 
 #### Scenario: Non-owner cannot grant access
-- **WHEN** a non-owner calls `POST /api/dashboards/:id/permissions`
-- **THEN** the response is `403 Forbidden`
+- **WHEN** a non-owner with no grant calls `POST /api/dashboards/:id/permissions`
+- **THEN** the response is `404 Not Found` (a grantee receives `403 Forbidden`)
 
 #### Scenario: Non-owner cannot revoke access
-- **WHEN** a non-owner calls `DELETE /api/dashboards/:id/permissions/:granteeId`
-- **THEN** the response is `403 Forbidden`
+- **WHEN** a non-owner with no grant calls `DELETE /api/dashboards/:id/permissions/:granteeId`
+- **THEN** the response is `404 Not Found` (a grantee receives `403 Forbidden`)
 
 ### Requirement: Editors may modify panels but not the dashboard or its permissions
 An authenticated user with an `editor` grant on a dashboard SHALL be allowed to call panel
@@ -119,4 +125,3 @@ remain auth-required even for public dashboards.
 #### Scenario: Unauthenticated request on non-public dashboard returns 404
 - **WHEN** an unauthenticated request calls `GET /api/dashboards/:id/panels` on a non-public dashboard
 - **THEN** the response is `404 Not Found` (resource not revealed to unauthenticated callers)
-

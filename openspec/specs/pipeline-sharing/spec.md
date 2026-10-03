@@ -2,11 +2,13 @@
 
 ## Purpose
 Sharing-grant layer for pipelines: viewer/editor/owner roles, permission management REST endpoints, RLS-enforced access policies, and a frontend share dialog — allowing collaborators to read or mutate a shared pipeline without being its owner.
+
 ## Requirements
+
 ### Requirement: Pipeline owner can manage sharing grants via permission endpoints
 The system SHALL expose `/api/pipelines/:id/permissions` with GET, POST, and DELETE sub-routes.
-Only the pipeline owner MAY call these endpoints. Non-owners SHALL receive `403 Forbidden`. Unknown
-pipeline IDs SHALL receive `404 Not Found`. No public-viewer (anonymous) grants SHALL be supported
+Only the pipeline owner MAY call these endpoints. A non-owner with no grant SHALL receive `404 Not Found`, byte-identical to the
+response for an unknown pipeline ID (HEL-1002, existence not leaked); a grantee SHALL receive `403 Forbidden`. No public-viewer (anonymous) grants SHALL be supported
 for pipelines.
 
 #### Scenario: Owner can list grants
@@ -14,7 +16,11 @@ for pipelines.
 - **THEN** the response is `200 OK` with the list of grant objects
 
 #### Scenario: Non-owner cannot list grants
-- **WHEN** an authenticated user who does not own the pipeline calls `GET /api/pipelines/:id/permissions`
+- **WHEN** an authenticated user with no grant on the pipeline calls `GET /api/pipelines/:id/permissions`
+- **THEN** the response is `404 Not Found`, identical in status and body to an unknown pipeline id
+
+#### Scenario: Grantee cannot list grants
+- **WHEN** an authenticated user with a viewer or editor grant calls `GET /api/pipelines/:id/permissions`
 - **THEN** the response is `403 Forbidden`
 
 #### Scenario: Owner can grant viewer role
@@ -150,4 +156,3 @@ by searching/entering user email with a role selector (viewer or editor), and re
 #### Scenario: Owner can revoke a grant via the share dialog
 - **WHEN** the owner clicks "Revoke" next to a grantee in the share dialog
 - **THEN** the backend is called with `DELETE /api/pipelines/:id/permissions/:granteeId` and the row is removed
-
