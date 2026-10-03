@@ -1,4 +1,10 @@
-## MODIFIED Requirements
+## REMOVED Requirements
+
+### Requirement: Backend DELETE /api/data-sources/:id returns a structured 409 when the delete would orphan a pipeline
+
+**Reason**: HEL-989 owner ruling widens the 409 from sole-root to any-reference; replaced by the requirement below.
+
+## ADDED Requirements
 
 ### Requirement: Backend DELETE /api/data-sources/:id returns a structured 409 when any pipeline references the source
 
@@ -31,6 +37,7 @@ The body SHALL NOT leak database internals.
 #### Scenario: The 409 body does not leak database internals
 - **WHEN** a delete is rejected with 409
 - **THEN** the body contains no SQLSTATE, driver text or raw trigger message
+
 
 ### Requirement: The data-source delete UI surfaces the conflict
 
