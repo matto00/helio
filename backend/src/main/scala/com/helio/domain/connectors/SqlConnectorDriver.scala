@@ -8,6 +8,7 @@ import spray.json._
 
 import java.net.InetAddress
 import java.sql.{Connection, DriverManager, Types}
+import java.util.Properties
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.Try
 
@@ -22,6 +23,11 @@ import scala.util.Try
  *  the task-7 mutation check) tell "the guard refused this" apart from "the driver/network
  *  failed" without message-substring-matching a raw JDBC exception. */
 final case class SqlEgressRefusedException(refusalMessage: String) extends RuntimeException(refusalMessage)
+
+/** HEL-998: a SQL config this connector will not open a connection for (unsupported dialect, or a
+ *  database name that could smuggle a JDBC URL parameter). Typed, like [[SqlEgressRefusedException]],
+ *  so `execute`/`testConnection` surface its non-sensitive message verbatim. */
+final case class SqlConfigRefusedException(refusalMessage: String) extends RuntimeException(refusalMessage)
 
 object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
 
@@ -58,13 +64,48 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
       Right(())
 
 
+  val supportedDialects: Vector[String] = Vector("postgresql", "mysql")
+
+  /** `matches` is a whole-string match, so a trailing newline or any `?&;/#%=` / whitespace fails. */
+  private val databasePattern = "[A-Za-z0-9_.$-]+"
+
+  /** HEL-998: the single shape validator every path that accepts a SQL config calls (create,
+   *  infer, test-connection, inline pipeline sources) and `connect` re-applies. The dialect must
+   *  be one with a connect-time socket-factory hook, and the database name is interpolated into
+   *  the JDBC URL where query parameters outrank Properties, so it must not be able to carry
+   *  `?socketFactory=...`. */
+  def validateConfigShape(config: SqlSourceConfig): Either[String, Unit] =
+    if (!supportedDialects.contains(config.dialect))
+      Left(s"Unsupported SQL dialect '${config.dialect}': supported dialects are ${supportedDialects.mkString(", ")}")
+    else if (!config.database.matches(databasePattern))
+      Left("Invalid database name: only letters, digits, '_', '.', '$' and '-' are allowed")
+    else Right(())
+
   def buildJdbcUrl(config: SqlSourceConfig): String = config.dialect match {
     case "postgresql" =>
       s"jdbc:postgresql://${config.host}:${config.port}/${config.database}"
     case "mysql" =>
       s"jdbc:mysql://${config.host}:${config.port}/${config.database}?useSSL=false&allowPublicKeyRetrieval=true"
     case other =>
-      s"jdbc:${other}://${config.host}:${config.port}/${config.database}"
+      throw SqlConfigRefusedException(s"Unsupported SQL dialect '$other': supported dialects are ${supportedDialects.mkString(", ")}")
+  }
+
+  /** Driver Properties (never URL text) attaching the connect-time hook. `loginTimeout=0` pins
+   *  pgjdbc to connect on the calling thread: a non-zero value moves the connect onto a driver
+   *  thread where the [[EgressConnectGuard]] thread-local is unset and the production denylist
+   *  would apply instead of an injected one. */
+  private[connectors] def connectionProperties(config: SqlSourceConfig): Properties = {
+    val props = new Properties()
+    props.setProperty("user", config.user)
+    props.setProperty("password", config.password)
+    config.dialect match {
+      case "postgresql" =>
+        props.setProperty("socketFactory", classOf[PgEgressSocketFactory].getName)
+        props.setProperty("loginTimeout", "0")
+      case _ =>
+        props.setProperty("socketFactory", classOf[MysqlEgressSocketFactory].getName)
+    }
+    props
   }
 
   /** HEL-952 design.md Decision 1/2: validates `config.host` — the EXACT string [[buildJdbcUrl]]
@@ -90,29 +131,41 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
       case EgressCheck.Disallowed(msg)                       => Left(s"Egress refused: $msg")
     }
 
-  /** Opens a JDBC connection for the given config. Throws [[SqlEgressRefusedException]] if
-   *  `checkConfigEgress` refuses the host (HEL-952 design.md Decision 2 — the security boundary:
-   *  every SQL operation reaches this one chokepoint), or a driver exception on any other
-   *  connection failure. `resolveHost`/`isBlocked` default to real DNS / the real production
-   *  denylist; tests inject overrides via the task-2a seam.
+  /** Opens a JDBC connection for the given config. Throws [[SqlConfigRefusedException]] for a
+   *  config [[validateConfigShape]] refuses, [[SqlEgressRefusedException]] if `checkConfigEgress`
+   *  refuses the host (HEL-952 design.md Decision 2 — every SQL operation reaches this one
+   *  chokepoint) or the driver's own connect-time hook refuses the address it is about to connect
+   *  to, or a driver exception on any other connection failure.
    *
-   *  Residual risk (design.md Decision 4, stated in full there): the connection below is NOT
-   *  pinned to the address `checkConfigEgress` just validated — the JDBC driver re-resolves the
-   *  hostname independently inside `DriverManager.getConnection`, leaving a DNS-rebinding TOCTOU
-   *  window this ticket ships unpinned-and-documented rather than closed. HEL-998 tracks the
-   *  per-dialect socket-factory pin that would close it. */
+   *  HEL-998: `checkConfigEgress` resolves the host once for a clear refusal message; the driver
+   *  then resolves it again. That second lookup is authoritative: the driver's socket factory
+   *  validates the `InetAddress` it actually connects to, so a DNS rebind between the two lookups
+   *  cannot reach an internal address. `connectIsBlocked` defaults to the same `isBlocked` seam
+   *  (keyed by `config.host`) so production uses the real denylist and tests that admit a known
+   *  host through the guard admit it at connect too; pass it explicitly to make only the
+   *  connect-time hook stricter or looser than the guard. */
   def connect(
       config: SqlSourceConfig,
       resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
-      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
-  ): Connection =
+      isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr),
+      connectIsBlocked: Option[InetAddress => Boolean] = None
+  ): Connection = {
+    validateConfigShape(config).left.foreach(msg => throw SqlConfigRefusedException(msg))
     checkConfigEgress(config, resolveHost, isBlocked, failOnUnresolvable = true) match {
       case Left(msg) => throw SqlEgressRefusedException(msg)
       case Right(()) =>
-        val url = buildJdbcUrl(config)
-        DriverManager.getConnection(url, config.user, config.password)
+        val predicate = connectIsBlocked.getOrElse((addr: InetAddress) => isBlocked(config.host, addr))
+        try EgressConnectGuard.withPredicate(predicate)(DriverManager.getConnection(buildJdbcUrl(config), connectionProperties(config)))
+        catch {
+          case e: Exception =>
+            refusalInCauseChain(e).foreach(r => throw r)
+            throw e
+        }
     }
+  }
 
+  private def refusalInCauseChain(e: Throwable): Option[SqlEgressRefusedException] =
+    Iterator.iterate(e)(_.getCause).takeWhile(_ != null).take(20).collectFirst { case r: SqlEgressRefusedException => r }
 
   /** Executes the query and returns rows as a sequence of column-name → JsValue maps.
    *  Uses `scala.concurrent.blocking` to avoid starving the Pekko dispatcher.
@@ -171,6 +224,9 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
           case SqlEgressRefusedException(msg) =>
             log.warn(s"SQL execution refused by egress guard: $msg")
             msg
+          case SqlConfigRefusedException(msg) =>
+            log.warn(s"SQL execution refused: $msg")
+            msg
           case e =>
             // HEL-311: keep the "SQL execution failed" category prefix (not
             // sensitive), drop the raw JDBC/driver message tail, log the cause.
@@ -206,6 +262,9 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
         }.toEither.left.map {
           case SqlEgressRefusedException(msg) =>
             log.warn(s"SQL connection refused by egress guard: $msg")
+            msg
+          case SqlConfigRefusedException(msg) =>
+            log.warn(s"SQL connection refused: $msg")
             msg
           case e =>
             // Distinct category prefix from `execute`'s "SQL execution failed" so
