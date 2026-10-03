@@ -44,6 +44,8 @@ jobs:
       - run: npm run format:check
       - run: npm run check:dependabot
       - run: npm run check:dependabot:selftest
+      - run: npm run check:cloud-run-cpu
+      - run: npm run check:cloud-run-cpu:selftest
       # HEL-846: check:no-credential-leak[:selftest] existed as runnable npm scripts, wired only
       # into .husky/pre-commit -- bypassable with `git commit -n` (as happened once already, per
       # the HEL-913 precedent comment above), and `npm test` inside the hook is vacuous in the

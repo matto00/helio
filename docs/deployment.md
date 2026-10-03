@@ -262,7 +262,7 @@ gcloud compute networks vpc-access connectors delete helio-vpc-connector --regio
 ### CD trace (design Decision 6)
 
 `cd-backend.yml` calls `google-github-actions/deploy-cloudrun@v3` with `image` and `flags`
-(`--update-env-vars`, `--update-secrets`, `--max-instances=2`; no network flags), which the action passes to
+(`--update-env-vars`, `--update-secrets`, `--max-instances=2`, `--no-cpu-throttling`; no network flags), which the action passes to
 `gcloud run deploy`. `gcloud run deploy` carries forward template settings it is not told to change. Empirical evidence:
 live revision 00083 was created by `helio-github-sa` via CD and still carries the `vpc-access-connector` and egress
 annotations. Conclusion: a CD deploy preserves direct egress and cannot reintroduce the connector. No CD change;
@@ -272,6 +272,29 @@ the post-cutover describe check above is the residual verification.
 
 - A stale `cutover-verify` tag points at revision 00055.
 - The template still carries a stale `run.googleapis.com/cloudsql-instances` annotation from the pre-HEL-749 path.
+
+## Always-allocated CPU: `--no-cpu-throttling` (HEL-1245)
+
+Both deploy paths (`.github/workflows/cd-backend.yml` `flags`, and `infra/deploy-backend.sh`) pass
+`--no-cpu-throttling`, so Cloud Run allocates CPU for the instance's whole lifetime rather than only while a
+request is in flight.
+
+**Why.** The backend does real work between requests: the pipeline scheduler tick, the dataset-write auto-run
+debounce, and the product-event rollups all run in-process on timers. With request-based CPU allocation
+(throttling on, the default) the container is frozen between requests, so those timers stall and then fire
+together on thaw. REST-source scheduled runs were intermittently failing with
+`Response entity was not subscribed after 1 second` because Pekko's 1s subscription timer fired on thaw before
+the driver's continuation ran. See HEL-1245 for the evidence.
+
+**Billing trade-off.** Always-allocated CPU is billed for the full instance lifetime, not just request time, so
+cost rises. The owner accepted this. Note `--min-instances=0` is unchanged: with no instance alive nothing runs, so
+scheduled runs still depend on an instance existing (for example kept warm by traffic).
+
+**Prod verification.** The flag only takes effect once deployed. Confirm with
+`gcloud run services describe helio-backend --region=us-west1 --project=helio-493120` and check the template shows
+`cpu-throttling: false` (annotation `run.googleapis.com/cpu-throttling: 'false'`).
+
+**Guard.** `npm run check:cloud-run-cpu` (CI and pre-commit) fails if either file loses the flag.
 
 ## Rolling back a bad Firebase Hosting deploy
 

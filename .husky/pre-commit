@@ -13,6 +13,8 @@ npm run check:openspec
 npm run check:openspec:selftest
 npm run check:dependabot
 npm run check:dependabot:selftest
+npm run check:cloud-run-cpu
+npm run check:cloud-run-cpu:selftest
 npm run check:scala-quality
 npm run check:test-temp-dir-hygiene
 npm run check:test-temp-dir-hygiene:selftest

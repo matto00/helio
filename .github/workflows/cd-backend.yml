@@ -77,10 +77,15 @@ jobs:
           # fan-out, HEL-1168 — see application.conf's helio.db comment — = 11/instance, 2 × 11 =
           # 22 total) within db-g1-small's connection budget — 3+ instances previously exhausted
           # it under load.
+          # --no-cpu-throttling (HEL-1245): always-allocated CPU. With request-based
+          # billing the container is frozen between requests, so the in-process scheduler
+          # tick / auto-run debounce / rollups stall and Pekko's 1s response-entity
+          # subscription timer fires on thaw before the driver continuation runs.
+          # Guarded by scripts/check-cloud-run-cpu.mjs; see docs/deployment.md.
           # CONNECTOR_MASTER_KEY / _KEY_ID wrap connector credentials at rest
           # (HEL-536). Both are required together: EnvMasterKeyProvider fails
           # CLOSED without them, so every connector credential write errors
           # rather than silently storing plaintext. NOTE this workflow — not
           # infra/deploy-backend.sh — is what actually deploys; the script is
           # for manual/local deploys and its wiring does NOT reach Cloud Run.
-          flags: "--update-env-vars=COOKIE_SECURE=true,CLAUDE_MODEL=claude-haiku-4-5-20251001,HELIO_OWNER_EMAILS=mattheworr018@gmail.com,CONNECTOR_MASTER_KEY_ID=env-2026-08,LOG_FORMAT=json --update-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest --max-instances=2"
+          flags: "--update-env-vars=COOKIE_SECURE=true,CLAUDE_MODEL=claude-haiku-4-5-20251001,HELIO_OWNER_EMAILS=mattheworr018@gmail.com,CONNECTOR_MASTER_KEY_ID=env-2026-08,LOG_FORMAT=json --update-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest --max-instances=2 --no-cpu-throttling"
