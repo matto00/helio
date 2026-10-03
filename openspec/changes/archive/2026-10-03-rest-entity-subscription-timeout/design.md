@@ -19,3 +19,11 @@ Root cause and evidence: see proposal.md Why. CD uses `google-github-actions/dep
 - [Higher Cloud Run cost: billed for instance time] -> owner accepted.
 - [CD flag could be dropped later] -> static guard.
 - [Fix unproven until the driver applies it in prod] -> ticket stays In Progress after merge; driver verifies and closes.
+
+## Gate-Chain Implications Checklist
+
+- **What does it execute?** `scripts/check-cloud-run-cpu.mjs` and its selftest run under `node` via `npm run check:cloud-run-cpu[:selftest]` from `.husky/pre-commit` (and CI). They only read two tracked files (`.github/workflows/cd-backend.yml`, `infra/deploy-backend.sh`) and string-match; no subprocess, no git calls, no network.
+- **What environment does it inherit, and from where?** The hook's environment from git/husky, including `GIT_DIR`/`GIT_INDEX_FILE` when run from a linked worktree. The scripts never read those variables; the repo root is derived from the script's own `import.meta.url` (or an explicit argv path), not from cwd or git.
+- **Does it write anything outside its own sandbox?** No. It reads two files and writes only to stdout/stderr; it creates, modifies and deletes nothing, and the selftest works on in-memory string mutations only.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. Paths resolve relative to the script file location, so a linked worktree reads its own checked-out copies of the two files identically to a main checkout; no git plumbing is involved.
+- **What happens on its first run?** It passes on the current tree (flag present in both files) and exits 0 with `check-cloud-run-cpu OK`; the isolation test of both scripts under a hook-shaped environment passed (evidence persisted under `.concertino/runs/HEL-1245/evidence/.concertino/gate-chain-isolation-evidence/`).
