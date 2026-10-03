@@ -46,7 +46,8 @@ object PanelConfigCodec {
    *  yields the subtype's `Empty` config (codec read-path tolerance rule). */
   def decodeCreateConfig(kind: String, json: Option[JsValue]): Either[String, CreateConfig] = {
     val payload = json.getOrElse(JsObject.empty)
-    kind match {
+    if (kind != OutputPanel.Kind && hasControlsKey(payload)) Left(OutputControlSpec.OnlyOnOutputPanel)
+    else kind match {
       case TextPanel.Kind     => safe(TextCreate(TextPanelConfig.decodeCreate(payload)))
       case MarkdownPanel.Kind => safe(MarkdownCreate(MarkdownPanelConfig.decodeCreate(payload)))
       case ImagePanel.Kind    => safe(ImageCreate(ImagePanelConfig.decodeCreate(payload)))
@@ -65,14 +66,33 @@ object PanelConfigCodec {
   def applyConfigPatch(existing: Panel, json: JsValue): Either[String, Panel] =
     safe(applyConfigPatchUnsafe(existing, json))
 
-  private def applyConfigPatchUnsafe(existing: Panel, json: JsValue): Panel = existing match {
-    case t:  TextPanel     => t.applyPatch(TextPanelConfig.Patch.decode(json))
-    case m:  MarkdownPanel => m.applyPatch(MarkdownPanelConfig.Patch.decode(json))
-    case i:  ImagePanel      => i.applyPatch(ImagePanelConfig.Patch.decode(json))
-    case d:  DividerPanel    => d.applyPatch(DividerPanelConfig.Patch.decode(json))
-    case op: OutputPanel     => op.applyPatch(OutputPanelConfig.Patch.decode(json))
-    case f:  FormPanel       => f.applyPatch(FormPanelConfig.Patch.decode(json))
-    case other               => deserializationError(s"Unknown panel kind for patch: '${other.kind}'")
+  /** HEL-1203: `controls` belongs to an output panel only. Rejecting any PRESENCE of the key
+   *  (including `[]`/`null`) elsewhere keeps a caller's controls from being silently dropped. */
+  private def hasControlsKey(json: JsValue): Boolean = json match {
+    case JsObject(fields) => fields.contains("controls")
+    case _                => false
+  }
+
+  private def applyConfigPatchUnsafe(existing: Panel, json: JsValue): Panel = {
+    if (!existing.isInstanceOf[OutputPanel] && hasControlsKey(json))
+      deserializationError(OutputControlSpec.OnlyOnOutputPanel)
+    existing match {
+      case t:  TextPanel     => t.applyPatch(TextPanelConfig.Patch.decode(json))
+      case m:  MarkdownPanel => m.applyPatch(MarkdownPanelConfig.Patch.decode(json))
+      case i:  ImagePanel      => i.applyPatch(ImagePanelConfig.Patch.decode(json))
+      case d:  DividerPanel    => d.applyPatch(DividerPanelConfig.Patch.decode(json))
+      case op: OutputPanel     => applyOutputPatch(op, json)
+      case f:  FormPanel       => f.applyPatch(FormPanelConfig.Patch.decode(json))
+      case other               => deserializationError(s"Unknown panel kind for patch: '${other.kind}'")
+    }
+  }
+
+  /** Only the patch-SUPPLIED controls are checked: a legacy persisted duplicate must not lock an
+   *  unrelated edit that omits `controls` (HEL-1189 D4). */
+  private def applyOutputPatch(op: OutputPanel, json: JsValue): Panel = {
+    val patch = OutputPanelConfig.Patch.decode(json)
+    patch.controls.foreach(cs => OutputControlSpec.validateList(cs).left.foreach(deserializationError(_)))
+    op.applyPatch(patch)
   }
 
 

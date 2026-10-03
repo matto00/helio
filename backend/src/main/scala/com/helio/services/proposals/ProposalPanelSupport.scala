@@ -9,10 +9,10 @@ import com.helio.domain.panels.OutputControlSpec
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.services.panels.{FormBindingValidator, OutputControlsValidator}
-import spray.json.{JsArray, JsObject, JsString, JsValue}
+import spray.json.{DeserializationException, JsArray, JsObject, JsString, JsValue}
 
 import java.util.UUID
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -74,10 +74,32 @@ object ProposalPanelSupport {
    *  structurally, before any read or write. Eligibility itself is never decided here. */
   private def validateControlsShape(where: String, panel: ProposalPanel): Either[String, Unit] =
     if (panel.controls.exists(_.nonEmpty) && panel.`type` != "output")
-      Left(s"$where: controls are only supported on an output panel")
+      Left(s"$where: ${OutputControlSpec.OnlyOnOutputPanel}")
     else if (panel.controls.isDefined && panel.config.exists(_.fields.contains("controls")))
       Left(s"$where: supply either controls or config.controls, not both")
-    else Right(())
+    else if (panel.`type` != "output" && panel.config.exists(_.fields.contains("controls")))
+      Left(s"$where: ${OutputControlSpec.OnlyOnOutputPanel}")
+    else validateControlList(panel).left.map(msg => s"$where: $msg")
+
+  /** HEL-1203: a malformed `config.controls` (non-array, non-object element, missing/mistyped
+   *  attribute) and a duplicate EXPLICIT id are rejected at propose time, read-free. Without this a
+   *  malformed list was silently treated as empty by [[controlSpecsOf]] here and only failed later,
+   *  at create. Minted ids can never collide, so only supplied ids are compared. */
+  private def validateControlList(panel: ProposalPanel): Either[String, Unit] =
+    panel.controls match {
+      case Some(cs) => OutputControlSpec.duplicateIdCheck(cs.flatMap(_.id))
+      case None =>
+        panel.config.flatMap(_.fields.get("controls")) match {
+          case None                 => Right(())
+          case Some(JsArray(items)) =>
+            Try(items.map(OutputControlSpec.decode)) match {
+              case Success(specs)                    => OutputControlSpec.duplicateIdCheck(specs.map(_.id))
+              case Failure(e: DeserializationException) => Left(e.getMessage)
+              case Failure(e)                        => throw e
+            }
+          case Some(x) => Left(s"controls must be an array, got $x")
+        }
+    }
 
   /** The panel's declared controls as `OutputControlSpec`s, from the first-class `controls` field
    *  (a missing `id` is minted here, `label` defaults to the column) or, when that is absent, a
