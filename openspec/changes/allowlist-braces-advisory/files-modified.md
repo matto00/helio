@@ -1,1 +1,0 @@
-- `.audit-ci.jsonc` — path-scoped GHSA-vfj7-8cjw-p6xm allowlist with HEL-1246 justification; header fixed
