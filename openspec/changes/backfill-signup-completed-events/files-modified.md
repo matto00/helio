@@ -1,4 +1,0 @@
-- `backend/src/main/resources/db/migration/V114__backfill_signup_completed_events.sql` — per-user set_config DO-block backfill of signup_completed (RLS-safe), lowers non-NULL rolled_through
-- `backend/src/test/scala/com/helio/infrastructure/persistence/V114BackfillSignupEventsSpec.scala` — red-first + green proof under NOSUPERUSER NOBYPASSRLS role, idempotency, no-leak, rolled_through and empty-users cases
-- `backend/src/test/scala/com/helio/services/telemetry/ProductEventRollupServiceSpec.scala` — 400-day one-tick rollup, non-NULL rolled_through re-roll, WAU, purge exemption, partly-purged limitation
-- `openspec/changes/backfill-signup-completed-events/tasks.md` — tasks ticked
