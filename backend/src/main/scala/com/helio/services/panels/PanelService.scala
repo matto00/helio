@@ -96,6 +96,7 @@ final class PanelService(
 
   private val patchApplier = new PanelPatchApplier(panelRepo)
   private val outputControlsValidator = new OutputControlsValidator(outputRepo, nodeSnapshotRepo)
+  private val batchControlsCheck      = new BatchControlsCheck(outputControlsValidator)
 
   /** Fire-and-forget audit call, a no-op when `auditService` is `null`.
    *  HEL-483: `source`/`actor_token_id` come from the caller's resolved
@@ -460,7 +461,9 @@ final class PanelService(
                     case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
                     case Right(_) =>
                       val now = Instant.now()
-                      panelRepo.batchUpdate(items, now)
+                      batchControlsCheck(items.zip(panels), user).flatMap {
+                        case Left(err) => Future.successful(Left(err))
+                        case Right(_)  => panelRepo.batchUpdate(items, now)
                         .map { updated =>
                           // HEL-477 design.md Decision 9: one panel.batch_update
                           // row per call, not one per panel.
@@ -478,6 +481,7 @@ final class PanelService(
                           log.error(s"batchUpdate failed for dashboard ${dashboardId.value}", ex)
                           Left(ServiceError.BadRequest("Batch update failed"))
                         }
+                      }
                   }
               }
             }
@@ -576,10 +580,14 @@ final class PanelService(
         authorizeEditorOnDashboard(existing.dashboardId, user).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
-            resolvePatch(request, existing) match {
+            // HEL-1203: the config patch is decoded + structurally validated here, AFTER the
+            // 404/403 lookups above (an absent/foreign panel never reaches this, so nothing about
+            // its existence leaks) and BEFORE any further read or write — a malformed/duplicate/
+            // misplaced `controls` is a 400, not the 500 a bare decode exception used to become.
+            resolvePatch(request, existing).flatMap(spec => patchedConfigOf(existing, spec).map(spec -> _)) match {
               case Left(err) =>
                 Future.successful(Left(ServiceError.BadRequest(err)))
-              case Right(spec) =>
+              case Right((spec, patchedPanel)) =>
                 val incomingOutputId     = spec.configPatch.flatMap(outputIdFromConfigPatch)
                 val incomingDataSourceId = spec.configPatch.flatMap(dataSourceIdFromConfigPatch)
                 rejectMissingOutput(incomingOutputId, user).flatMap {
@@ -594,7 +602,7 @@ final class PanelService(
                     // omits `config`/`controls` entirely carries the unchanged persisted list
                     // through untouched (nothing to validate, per D4's "an update omitting
                     // controls is unaffected" rule).
-                    val effectiveOutput = effectiveOutputConfig(existing, spec)
+                    val effectiveOutput = patchedPanel.collect { case op: OutputPanel => op.config }
                     val existingControls = existing match {
                       case op: OutputPanel => op.config.controls
                       case _               => Vector.empty
@@ -671,16 +679,14 @@ final class PanelService(
     case _              => Vector.empty
   }
 
-  /** The EFFECTIVE post-patch output config for `update` (C2, mirrors `effectiveFormConfig`):
-   *  `existing` as an `OutputPanel`, `applyPatch`ed with the decoded patch — never the incoming
-   *  patch alone, so a `controls`-only PATCH still carries the CURRENT `outputId` through (and vice
-   *  versa). `None` when `existing` is not an output panel, or the patch carries no `configPatch`
-   *  at all (nothing config-related changed on this update). */
-  private def effectiveOutputConfig(existing: Panel, spec: ResolvedPanelPatch): Option[OutputPanelConfig] =
-    (existing, spec.configPatch) match {
-      case (op: OutputPanel, Some(patchJson)) =>
-        Some(op.applyPatch(OutputPanelConfig.Patch.decode(patchJson)).config)
-      case _ => None
+  /** The post-patch panel for `update` (C2, mirrors `effectiveFormConfig`): the stored panel with
+   *  the decoded config patch applied — never the incoming patch alone, so a `controls`-only PATCH
+   *  still carries the CURRENT `outputId` through (and vice versa). `None` when the request carries
+   *  no `config` (nothing config-related changes). `Left` is the codec's curated 400 message. */
+  private def patchedConfigOf(existing: Panel, spec: ResolvedPanelPatch): Either[String, Option[Panel]] =
+    spec.configPatch match {
+      case None         => Right(None)
+      case Some(config) => PanelConfigCodec.applyConfigPatch(existing, config).map(Some(_))
     }
 
   /** Extracts a `form` panel's config from a domain `Panel`, `None` for every other kind. Feeds

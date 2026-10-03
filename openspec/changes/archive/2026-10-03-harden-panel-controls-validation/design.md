@@ -1,0 +1,33 @@
+## Context
+
+`PanelService.update` calls `effectiveOutputConfig`, which runs `OutputPanelConfig.Patch.decode` -> `convertTo[OutputControlSpec]` synchronously; the spray `DeserializationException` it throws is not caught on the PATCH path (create catches element decode errors in `resolveCreateConfig`, but `OutputPanelConfig.decode` maps a non-array `controls` to `Vector.empty` and a non-object config to `Empty` (silent drop)), so it surfaces as 500. `OutputPanel.validateConfig` (structural: blank id/kind/column/label) is not extended with uniqueness, and `OutputControlsValidator.reject` diffs by id so a duplicate id collapses in `existingById`/passes. For a non-output existing panel `effectiveOutputConfig` returns None, so `config.controls` is silently dropped. `DashboardProposalService`/`DashboardContentsService` take `controlsValidator: OutputControlsValidator = null` and a null skips validation (`ProposalPanelSupport.preValidateControls`).
+
+## Goals / Non-Goals
+
+**Goals:** 4xx (400) for the three defects on every controls write path, one error shape (`ServiceError.BadRequest(message)`); wiring test with mutation proof.
+**Non-Goals:** no schema/migration, no frontend change expected, no change to eligibility semantics, no change to HEL-1002 404 behaviour (a missing/foreign panel still 404s BEFORE any controls validation).
+
+## Decisions
+
+**D1 Decode failure -> BadRequest.** In `PanelService.update`, decode the controls patch inside a `Try` (catch `DeserializationException`) and return `ServiceError.BadRequest(msg)`; ordering: after the panel lookup/authorization (so absent/foreign stays 404, no existence leak), before any repository call. Prefer fixing at the shared decode seam used by every path rather than per-route handlers. The executor must locate every call site of `OutputPanelConfig.decode/Patch.decode/OutputControlSpec.decode` that runs on a request path and confirm each maps to 400.
+
+**D2 Duplicate ids.** Add a uniqueness check on the incoming controls list (compare ids exactly, AFTER any id minting: `ProposalPanelSupport.controlSpecsOf` mints a UUID for a missing id, so a collision is only possible between explicitly supplied ids; the check runs on final ids) to `OutputPanel.validateConfig` (covers create/batch/contents/duplicate which already call it) and apply the same helper to the PATCH effective config and to proposal/patch-set/import paths wherever they build controls. Only the incoming (patch-supplied) list is checked; a legacy persisted duplicate does not lock unrelated edits (an edit that omits controls is unaffected, as in HEL-1189 D4). Message: `duplicate control id: '<id>'`.
+
+**D3 Non-output panel: REJECT (400), not strip-with-warning.** Reason: the repo's consistent stance is "never silently drop"; `ProposalPanelSupport.validateControlsShape` already rejects `controls` on a non-output proposal panel with "controls are only supported on an output panel"; a warning has no channel on a JSON PATCH response; and an agent/MCP caller that sends controls to the wrong panel has a bug it should learn about. Same message on PATCH. RULE (single, final): reject any PRESENCE of a `controls` key in `config` on a non-output panel, including `[]` and `null` - the spec scenario and the red test match this. An executor check of frontend callers (grep for PATCH payloads that echo `config.controls` for non-output panels) must confirm none send it; if one does, escalate to the orchestrator rather than silently weakening the rule. No escalation: the code shows no reason to accept.
+
+**D4 Enumerate write paths from code.** Executor produces a table (path, entry point, file:line, defect 1/2/3 status red-or-already-ok) covering at least: PATCH panel, POST panel create, batch create, duplicate, dashboard import, proposal apply, patch-set apply, PUT contents replace, MCP control tools (helio-mcp, HEL-1193), plus any others found by grepping `controls`/`output_controls`/`OutputPanelConfig`. Each defect is reproduced red on main first (a failing test per defect per path that is actually red), then fixed; paths already correct get a pinning test only if cheap.
+
+
+**D1b Strict decode on every path (not only PATCH).** `OutputPanelConfig.decode` currently maps a non-array `controls` to `Vector.empty` and a non-object config to `Empty`; make `controls` present-but-not-an-array a decode failure (-> 400) for create, batch create, import, contents replace and duplicate, while keeping `PanelRowMapper`'s read-time tolerance (persisted rows must still load: the row-mapper arm falls back to empty and must not use the new strict path). Each path gets its own red test.
+
+**D1c Shared structural helper.** One helper (in `OutputPanel`/`OutputControlSpec` domain) does structural checks (blank id/label/column, unknown kind, duplicate ids) and is applied on PATCH, batch PATCH, create/import (already via validateConfig), proposal and patch-set apply, so "same error shape everywhere" holds; PATCH/batch PATCH currently skip validateConfig's structural checks.
+
+**D4 addendum (paths the first draft omitted).** Batch PATCH (`PanelMutationRepository` ~line 105, `applyConfigPatch`, no validator/non-output/dup checks) and dashboard snapshot restore (`DashboardSnapshotRepository` ~174) are in the enumeration table. Batch PATCH MUST reject duplicates, non-output controls, malformed controls and run the eligibility validator (or the executor documents with evidence why a path is unreachable for controls, e.g. restore replays previously-valid data and must not reject legacy rows). The table is persisted in the change dir (`write-paths.md`) as well as the PR.
+
+**D5 (revised) Wiring test must not be vacuous.** `ApiRoutes` builds `outputRepoOpt` from `dbContext`; with no real DbContext the validator has a null outputRepo and `reject` returns Right - indistinguishable from the null-validator case. The test MUST construct `ApiRoutes` with a real `DbContext` (as `ApiRoutesSpec` / `ApiRoutesPipelineRunGuardSpec` do), seed a real Output with a schema, and drive BOTH the propose route and PUT dashboard contents with an ineligible control, asserting 400 with the validator's message. Mutation evidence: paste the green run, then a red run with ONLY the proposal-service argument removed, then a red run with ONLY the contents-service argument removed (each service needs its own red), then restore and green.
+
+## Risks
+
+Existing tests that rely on silent acceptance (e.g. echoing `controls: []` on text panels) may need updates — each fixture change is a symptom to be justified. Run `ExistenceNotLeakedRoutesSpec`. 
+## Gate-Chain Implications Checklist
+Not applicable: no `.husky/**` or hook-invoked script is touched.

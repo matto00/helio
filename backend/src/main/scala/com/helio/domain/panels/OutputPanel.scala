@@ -86,6 +86,31 @@ object OutputControlSpec {
   }
 
   def decode(json: JsValue): OutputControlSpec = json.convertTo[OutputControlSpec]
+
+  /** HEL-1203: the single structural check every write path shares (blank id/column/label, unknown
+   *  kind, duplicate id), so one error shape holds everywhere. Eligibility against the bound
+   *  Output is `OutputControlsValidator`'s separate, async job. Ids are compared exactly, on the
+   *  FINAL ids (after any id minting by a caller). */
+  def validateList(controls: Vector[OutputControlSpec]): Either[String, Unit] =
+    controls.collectFirst {
+      case c if c.id.trim.isEmpty =>
+        "control id must not be blank"
+      case c if !ValidKinds.contains(c.kind) =>
+        s"unknown control kind: '${c.kind}'. Valid values: ${ValidKinds.toSeq.sorted.mkString(", ")}"
+      case c if c.column.trim.isEmpty =>
+        s"control column must not be blank (control '${c.id}')"
+      case c if c.label.trim.isEmpty =>
+        s"control label must not be blank (control '${c.id}')"
+    }.toLeft(()).flatMap(_ => duplicateIdCheck(controls.map(_.id)))
+
+  def duplicateIdCheck(ids: Vector[String]): Either[String, Unit] =
+    ids.groupBy(identity).collectFirst { case (id, occurrences) if occurrences.size > 1 => id } match {
+      case Some(id) => Left(s"duplicate control id: '$id'")
+      case None     => Right(())
+    }
+
+  /** Message shared by every path that rejects a `controls` key on a non-output panel. */
+  val OnlyOnOutputPanel: String = "controls are only supported on an output panel"
 }
 
 /** Typed config for an [[OutputPanel]] — a placement of one [[com.helio.
@@ -137,9 +162,12 @@ object OutputPanelConfig {
         case Some(JsString(s)) => OutputId(s)
         case _                 => OutputId("")
       }
+      // HEL-1203: a present-but-non-array `controls` is a decode failure, never a silent empty list.
+      // Read-time tolerance for persisted rows lives in `PanelRowMapper`, which does not use this.
       val controls = fields.get("controls") match {
+        case None                 => Vector.empty
         case Some(JsArray(items)) => items.map(_.convertTo[OutputControlSpec])
-        case _                    => Vector.empty
+        case Some(x)              => deserializationError(s"controls must be an array, got $x")
       }
       OutputPanelConfig(outputId, controls)
     case _ => Empty
@@ -190,25 +218,11 @@ final case class OutputPanel(
     if (config.outputId.value.isEmpty) None else Some(config.outputId)
 
   /** Structural validation only — a control's `column`/`kind` eligibility against the bound
-   *  Output's current filter-capability contract is `PanelService.rejectInvalidControls`'s job
+   *  Output's current filter-capability contract is `OutputControlsValidator`'s job
    *  (design.md D4), which needs an async repository call this synchronous method can't make. */
-  def validateConfig: Either[String, Unit] = {
+  def validateConfig: Either[String, Unit] =
     if (config.outputId.value.isEmpty) Left("outputId is required")
-    else
-      config.controls.collectFirst {
-        case c if c.id.trim.isEmpty =>
-          "control id must not be blank"
-        case c if !OutputControlSpec.ValidKinds.contains(c.kind) =>
-          s"unknown control kind: '${c.kind}'. Valid values: ${OutputControlSpec.ValidKinds.toSeq.sorted.mkString(", ")}"
-        case c if c.column.trim.isEmpty =>
-          s"control column must not be blank (control '${c.id}')"
-        case c if c.label.trim.isEmpty =>
-          s"control label must not be blank (control '${c.id}')"
-      } match {
-        case Some(err) => Left(err)
-        case None      => Right(())
-      }
-  }
+    else OutputControlSpec.validateList(config.controls)
 
   def applyPatch(patch: OutputPanelConfig.Patch): OutputPanel =
     copy(
