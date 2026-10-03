@@ -37,7 +37,7 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
       val original = DashboardResponse(
         id         = "dash-1",
         name       = "Dashboard 1",
-        meta       = ResourceMetaResponse("u-1", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
+        meta       = ResourceMetaResponse(Some("u-1"), "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
         appearance = DashboardAppearanceResponse("#fff", "#000"),
         layout     = DashboardLayoutResponse(Vector.empty, Vector.empty, Vector.empty, Vector.empty),
         ownerId    = "u-1"
@@ -51,7 +51,7 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
         dashboardId = "dash-1",
         title       = "Panel A",
         `type`      = "table",
-        meta        = ResourceMetaResponse("u-1", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
+        meta        = ResourceMetaResponse(Some("u-1"), "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
         appearance  = PanelAppearanceResponse("#fff", "#000", 0.5, None),
         ownerId     = Some("u-1"),
         config      = JsObject("dataTypeId" -> JsString("dt-1"), "fieldMapping" -> JsObject("foo" -> JsString("bar"))),
@@ -66,7 +66,7 @@ class AggregatorRegressionSpec extends AnyWordSpec with Matchers with JsonProtoc
         dashboardId = "dash-1",
         title       = "Panel B",
         `type`      = "text",
-        meta        = ResourceMetaResponse("u-1", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
+        meta        = ResourceMetaResponse(Some("u-1"), "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"),
         appearance  = PanelAppearanceResponse("#fff", "#000", 0.5, None),
         ownerId     = Some("u-1"),
         config      = JsObject("content" -> JsString("hello")),

@@ -2257,7 +2257,7 @@ class ApiRoutesSpec
       Post("/api/dashboards", CreateDashboardRequest(Some("Auth Dashboard"))) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         val response = responseAs[DashboardResponse]
-        response.meta.createdBy shouldBe testUserId
+        response.meta.createdBy shouldBe Some(testUserId)
       }
     }
 
@@ -2270,7 +2270,7 @@ class ApiRoutesSpec
       Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Auth Panel"), None, None)) ~> routes() ~> check {
         status shouldBe StatusCodes.Created
         val response = responseAs[PanelResponse]
-        response.meta.createdBy shouldBe testUserId
+        response.meta.createdBy shouldBe Some(testUserId)
       }
     }
   }
