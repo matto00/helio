@@ -1,0 +1,61 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] compiling 399 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/src/test/scala/com/helio/infrastructure/persistence/V114BackfillSignupEventsSpec.scala:100:9: A try without a catch or finally is equivalent to putting its body in a block; no exceptions are handled.
+[warn]         try {
+[warn]         ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/src/test/scala/com/helio/api/routes/telemetry/ProductEventRoutesSpec.scala:45:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Repos(
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/src/test/scala/com/helio/services/auth/SecretFieldSpec.scala:10:20: The outer reference in this type test cannot be checked at run time.
+[warn]   final case class FakeConfig(secret: String, other: String)
+[warn]                    ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewOutputContextSpec.scala:142:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Seeded(
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceSpec.scala:232:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class SeededPipeline(id: String, outputId: String)
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/src/test/scala/com/helio/services/workspace/WorkspaceSearchServiceSpec.scala:145:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class SeededPipeline(
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/src/test/scala/com/helio/services/workspace/WorkspaceTeardownServiceSpec.scala:198:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class SeededPipeline(id: String)
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/src/test/scala/com/helio/testsupport/ProvenanceFixtures.scala:29:20: The outer reference in this type test cannot be checked at run time.
+[warn]   final case class Built(pipelineId: PipelineId, sources: Vector[DataSource], roots: Vector[PipelineRoot])
+[warn]                    ^
+[warn] 43 deprecations (since 1.1.0)
+[warn] 10 deprecations (since Akka HTTP 10.1.11)
+[warn] 53 deprecations in total; re-run with -deprecation for details
+[warn] 11 warnings found
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+
+13:38:56.111 INFO  [com-helio-services-sources-PinnedPoolReuseSpec-pekko.actor.default-dispatcher-5] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] PinnedPoolReuseSpec:
+[info] fetchUrl
+[info] - should reuse connections across 10 sequential requests to one address *** FAILED ***
+[info]   10 was not less than 10 (PinnedPoolReuseSpec.scala:88)
+[info] - should complete 40 parallel requests to one host through the shared pool
+[info] - should route A, B, A, B to the server each request was validated against
+[info] - should keep one connection per validated address while the resolver alternates *** FAILED ***
+[info]   (3, 3) was not equal to (1, 1) (PinnedPoolReuseSpec.scala:113)
+[info] - should refuse a host now resolving to a blocked address before connecting, even with a warm pool
+[info] RestApiConnectorDriver
+[info] - should reuse connections across 10 sequential requests to one address *** FAILED ***
+[info]   10 was not less than 10 (PinnedPoolReuseSpec.scala:137)
+[info] - should route A, B, A, B to the server each request was validated against
+13:38:56.724 INFO  [com-helio-services-sources-PinnedPoolReuseSpec-pekko.actor.default-dispatcher-10] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] Run completed in 1 second, 419 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 4, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.sources.PinnedPoolReuseSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 2 s, cache 90%, 27 disk cache hits, 3 onsite tasks

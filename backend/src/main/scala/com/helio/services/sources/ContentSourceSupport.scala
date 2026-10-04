@@ -3,7 +3,7 @@ package com.helio.services.sources
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.{ClientTransport, Http}
 import org.apache.pekko.http.scaladsl.model.HttpRequest
-import org.apache.pekko.http.scaladsl.settings.{ClientConnectionSettings, ConnectionPoolSettings}
+import org.apache.pekko.http.scaladsl.settings.ConnectionPoolSettings
 import org.apache.pekko.stream.Materializer
 import com.helio.domain.model.{DataField, DataFieldType}
 import org.slf4j.LoggerFactory
@@ -298,21 +298,18 @@ object ContentSourceSupport {
       Future.successful(new InetSocketAddress(pinnedAddress, port))
     }
 
-  /** Task 1.2: pinned-connection accessor for a caller (e.g.
-   *  `RestApiConnectorDriver`) that builds its own request/method/headers/
-   *  body/auth and cannot reuse [[fetchUrl]] wholesale — takes the validated
-   *  [[InetAddress]] from [[validateAndResolve]] and returns
-   *  `ConnectionPoolSettings` carrying [[pinnedTransport]], with the same
-   *  connect/idle timeouts [[fetchUrl]] uses, so the caller's own
-   *  `singleRequest` call connects to exactly the validated address. */
+  /** Pinned-connection accessor for a caller (e.g. `RestApiConnectorDriver`) that builds its own
+   *  request/method/headers/body/auth and cannot reuse [[fetchUrl]] wholesale. Takes the validated
+   *  [[InetAddress]] from [[validateAndResolve]] and returns `ConnectionPoolSettings` carrying
+   *  [[pinnedTransport]], so the caller's own `singleRequest` connects to exactly the validated
+   *  address.
+   *
+   *  HEL-1254: the same settings instance is returned for the same address (see
+   *  [[PinnedPoolSettingsCache]]) so Pekko reuses one pool and its connections instead of building
+   *  a pool per request. Only the address-keyed lookup is cached; callers must still run
+   *  [[validateAndResolve]] on every request. */
   def pinnedPoolSettings(pinnedAddress: InetAddress)(implicit system: ActorSystem[_]): ConnectionPoolSettings =
-    ConnectionPoolSettings(system.classicSystem)
-      .withConnectionSettings(
-        ClientConnectionSettings(system.classicSystem)
-          .withConnectingTimeout(10.seconds)
-          .withIdleTimeout(30.seconds)
-      )
-      .withTransport(pinnedTransport(pinnedAddress))
+    PinnedPoolSettingsCache(system.classicSystem).settingsFor(pinnedAddress)
 
   /** Raw-bytes HTTP GET for URL-based content ingestion. Mirrors
    *  `RestApiConnectorDriver.doFetch`'s pooled-connection settings pattern, but
@@ -325,7 +322,7 @@ object ContentSourceSupport {
    *  disallowed schemes/hosts/addresses (see `design.md`'s "Reusable seam #2"
    *  for the full rationale) — and its resolved [[InetAddress]] is threaded
    *  into [[pinnedTransport]] so the *actual* TCP connection is forced to
-   *  that exact address rather than letting Pekko HTTP re-resolve the
+   *  that exact address (via an address-keyed, reused pool — HEL-1254) rather than letting Pekko HTTP re-resolve the
    *  hostname independently when it opens the connection (the DNS-rebinding
    *  bypass a cold-skeptic final-gate review found in cycle 2 — see
    *  `pinnedTransport`'s doc comment for the full mechanism). Redirects are

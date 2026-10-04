@@ -1,0 +1,6 @@
+- `backend/src/main/scala/com/helio/services/sources/PinnedPoolSettingsCache.scala` — new per-ActorSystem, address-keyed, bounded cache of pinned pool settings (explicit pool limits, 4s keep-alive)
+- `backend/src/main/scala/com/helio/services/sources/ContentSourceSupport.scala` — `pinnedPoolSettings` now returns the cached per-address settings; doc comments updated
+- `backend/src/test/scala/com/helio/services/sources/ConnectionCountingServer.scala` — loopback server counting TCP connections
+- `backend/src/test/scala/com/helio/services/sources/PinnedPoolReuseSpec.scala` — reuse, pinning A/B/A, concurrency, blocked-after-warm-pool tests
+- `openspec/changes/reuse-pinned-connection-pools/evidence/*` — red-before-fix, green, and mutation transcripts
+- `openspec/changes/reuse-pinned-connection-pools/tasks.md` — tasks ticked
