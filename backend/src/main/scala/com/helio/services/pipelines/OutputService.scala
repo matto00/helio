@@ -103,28 +103,6 @@ final class OutputService(
         }
     }
 
-  /** Extracts `config.fieldMapping` (a `{slot: columnName}` object, when present) and
-   *  validates its KEYS against `kind`'s own `requiredSlots ++ optionalSlots` (HEL-892,
-   *  `OutputBindingSpec.validateFieldMapping`) -- column-TYPE eligibility (`evaluate`) is a
-   *  capabilities-time concern (`GET /api/pipelines/:id/capabilities`), not a create/update-time
-   *  one, since validating it here would require re-resolving the node's projected schema on
-   *  every write. Absent `fieldMapping` is not an error -- not every Output kind requires one
-   *  (`table`/`markdown` have no slots at all). */
-  private def validateFieldMapping(kind: OutputKind, config: JsObject): Either[ServiceError, Unit] = {
-    val spec = OutputBindingSpec.All.find(_.outputKind == kind).getOrElse(
-      throw new IllegalStateException(s"OutputService: no OutputBindingSpec for kind $kind -- OutputBindingSpec.All is missing a case")
-    )
-    config.fields.get("fieldMapping").collect { case o: JsObject => o } match {
-      case None => Right(())
-      case Some(mappingObj) =>
-        val mapping = mappingObj.fields.collect { case (k, JsString(v)) => k -> v }
-        OutputBindingSpec.validateFieldMapping(spec, mapping) match {
-          case Left(msg) => Left(ServiceError.BadRequest(msg))
-          case Right(())  => Right(())
-        }
-    }
-  }
-
   /** Create an Output on a pipeline node. Requires Editor or Owner access on
    *  the parent pipeline — a Viewer grantee cannot add Outputs. */
   def create(pipelineId: PipelineId, req: CreateOutputRequest, user: AuthenticatedUser): Future[Either[ServiceError, (Output, JsObject)]] =
@@ -138,7 +116,7 @@ final class OutputService(
       case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
       case Right(kind) =>
         val config = req.config.getOrElse(JsObject.empty)
-        validateFieldMapping(kind, config) match {
+        OutputService.validateFieldMapping(kind, config) match {
           case Left(err) => Future.successful(Left(err))
           case Right(()) =>
             accessChecker.requireAccess("pipeline", pipelineId.value, Some(user), "Pipeline not found").flatMap {
@@ -244,12 +222,12 @@ final class OutputService(
         outputRepo.findConfigById(id, user).flatMap {
           case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
           case Some(existingConfig) =>
-            val mergedConfig = req.config.map(patch => mergeConfig(existingConfig, patch))
+            val mergedConfig = req.config.map(patch => OutputService.mergeConfig(existingConfig, patch))
             // HEL-892: validate the MERGED config's fieldMapping (the shape the write will
             // actually persist), not the raw patch -- a patch that only touches an unrelated
             // sub-object must not bypass validation of an already-invalid stored fieldMapping,
             // and a patch that legitimately fixes fieldMapping must be judged on its result.
-            mergedConfig.map(cfg => validateFieldMapping(output.kind, cfg)).getOrElse(Right(())) match {
+            mergedConfig.map(cfg => OutputService.validateFieldMapping(output.kind, cfg)).getOrElse(Right(())) match {
               case Left(err) => Future.successful(Left(err))
               case Right(()) =>
                 outputRepo.updateOwned(id, user, req.name, mergedConfig).flatMap {
@@ -268,18 +246,6 @@ final class OutputService(
             }
         }
     }
-
-  private val mergeableSubObjects = Set("legend", "tooltip", "seriesColors", "axisLabels")
-
-  private def mergeConfig(existing: JsObject, patch: JsObject): JsObject = {
-    val mergedFields = existing.fields ++ patch.fields.map {
-      case (key, patchValue: JsObject) if mergeableSubObjects.contains(key) =>
-        val existingSub = existing.fields.get(key).collect { case o: JsObject => o }.getOrElse(JsObject.empty)
-        key -> JsObject(existingSub.fields ++ patchValue.fields)
-      case other => other
-    }
-    JsObject(mergedFields)
-  }
 
   /** Deletes the Output and every panel placement bound to it (V94's
    *  `panels.output_id ON DELETE CASCADE` would do this at the DB level too,
@@ -460,5 +426,44 @@ final class OutputService(
         lastSuccess.exists(t => !t.isBefore(output.createdAt))
       }
     }
+  }
+}
+
+object OutputService {
+
+  /** Extracts `config.fieldMapping` (a `{slot: columnName}` object, when present) and
+   *  validates its KEYS against `kind`'s own `requiredSlots ++ optionalSlots` (HEL-892,
+   *  `OutputBindingSpec.validateFieldMapping`) -- column-TYPE eligibility (`evaluate`) is a
+   *  capabilities-time concern (`GET /api/pipelines/:id/capabilities`), not a create/update-time
+   *  one, since validating it here would require re-resolving the node's projected schema on
+   *  every write. Absent `fieldMapping` is not an error -- not every Output kind requires one
+   *  (`table`/`markdown` have no slots at all). */
+  def validateFieldMapping(kind: OutputKind, config: JsObject): Either[ServiceError, Unit] = {
+    val spec = OutputBindingSpec.All.find(_.outputKind == kind).getOrElse(
+      throw new IllegalStateException(s"OutputService: no OutputBindingSpec for kind $kind -- OutputBindingSpec.All is missing a case")
+    )
+    config.fields.get("fieldMapping").collect { case o: JsObject => o } match {
+      case None => Right(())
+      case Some(mappingObj) =>
+        val mapping = mappingObj.fields.collect { case (k, JsString(v)) => k -> v }
+        OutputBindingSpec.validateFieldMapping(spec, mapping) match {
+          case Left(msg) => Left(ServiceError.BadRequest(msg))
+          case Right(())  => Right(())
+        }
+    }
+  }
+
+  private val mergeableSubObjects = Set("legend", "tooltip", "seriesColors", "axisLabels")
+
+  /** HEL-1239: shared with `PatchSetPreviewProjection` so an output-update preview merges exactly
+   *  as `update` does. */
+  def mergeConfig(existing: JsObject, patch: JsObject): JsObject = {
+    val mergedFields = existing.fields ++ patch.fields.map {
+      case (key, patchValue: JsObject) if mergeableSubObjects.contains(key) =>
+        val existingSub = existing.fields.get(key).collect { case o: JsObject => o }.getOrElse(JsObject.empty)
+        key -> JsObject(existingSub.fields ++ patchValue.fields)
+      case other => other
+    }
+    JsObject(mergedFields)
   }
 }

@@ -634,6 +634,8 @@ private[services] object PatchSetApplyResolvers {
           case Some(existing) =>
             requireVisibleStep(existing.pipelineId, index, user, ctx).flatMap {
               case Left(err) => Future.successful(Left(err))
+              case Right(_) if ctx.outputRepo == null =>
+                Future.successful(Left(PatchSetApplyContext.outputRepoUnavailable))
               case Right(_) =>
                 // HEL-913 task 7.6a-i: same `priorState`-must-carry-its-real-root rationale as
                 // the update resolver above -- a delete's `priorState` is what a later undo
@@ -659,9 +661,10 @@ private[services] object PatchSetApplyResolvers {
   /** HEL-914 task 5.8: `{"step": <PipelineStepResponse>, "boundOutputs": [{"output":
    *  <OutputResponse>, "placements": [<PanelResponse>, ...]}, ...]}` -- everything
    *  `PatchSetUndoService.restorePipelineStepDelete`'s undo needs to recreate the step AND every
-   *  Output bound to it AND every one of those Outputs' panel placements. `ctx.outputRepo ==
-   *  null` (a fixture that never wires one) degrades to `boundOutputs: []`, matching this file's
-   *  other nullable-optional `outputRepo` conventions. */
+   *  Output bound to it AND every one of those Outputs' panel placements. HEL-1239: a null
+   *  `ctx.outputRepo` NO LONGER silently degrades to `boundOutputs: []` (that under-reported the
+   *  prior state a later undo restores from, and made preview disagree with apply) --
+   *  `resolvePipelineStepDelete` rejects it with a typed ServiceError before reaching here. */
   private def buildPipelineStepDeletePriorState(
       existing: PipelineStep,
       rootIdOpt: Option[PipelineRootId],
@@ -670,22 +673,20 @@ private[services] object PatchSetApplyResolvers {
     val stepJson = pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(
       existing, rootIdOpt.map(rid => existing.id.value -> rid.value).toMap
     ))
-    if (ctx.outputRepo == null) Future.successful(JsObject("step" -> stepJson, "boundOutputs" -> JsArray()))
-    else
-      ctx.outputRepo.listByPipelineInternal(existing.pipelineId).flatMap { allOutputs =>
-        val bound = allOutputs.filter(_.node.stepId.contains(existing.id))
-        if (bound.isEmpty) Future.successful(JsObject("step" -> stepJson, "boundOutputs" -> JsArray()))
-        else
-          ctx.outputRepo.findConfigsByIdsInternal(bound.map(_.id.value)).flatMap { configs =>
-            Future.traverse(bound) { o =>
-              ctx.panelRepo.findByOutputIdInternal(o.id.value).map { panels =>
-                JsObject(
-                  "output"     -> outputResponseFormat.write(outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty))),
-                  "placements" -> JsArray(panels.map(p => panelResponseFormat.write(PanelResponse.fromDomain(p))))
-                )
-              }
-            }.map(boundJsons => JsObject("step" -> stepJson, "boundOutputs" -> JsArray(boundJsons)))
-          }
+    ctx.outputRepo.listByPipelineInternal(existing.pipelineId).flatMap { allOutputs =>
+      val bound = allOutputs.filter(_.node.stepId.contains(existing.id))
+      if (bound.isEmpty) Future.successful(JsObject("step" -> stepJson, "boundOutputs" -> JsArray()))
+      else
+        ctx.outputRepo.findConfigsByIdsInternal(bound.map(_.id.value)).flatMap { configs =>
+          Future.traverse(bound) { o =>
+            ctx.panelRepo.findByOutputIdInternal(o.id.value).map { panels =>
+              JsObject(
+                "output"     -> outputResponseFormat.write(outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty))),
+                "placements" -> JsArray(panels.map(p => panelResponseFormat.write(PanelResponse.fromDomain(p))))
+              )
+            }
+          }.map(boundJsons => JsObject("step" -> stepJson, "boundOutputs" -> JsArray(boundJsons)))
+        }
       }
   }
 
@@ -770,7 +771,8 @@ private[services] object PatchSetApplyResolvers {
       user: AuthenticatedUser,
       ctx: PatchSetApplyContext
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Output]] =
-    ctx.outputRepo.findById(id, user).map {
+    if (ctx.outputRepo == null) Future.successful(Left(PatchSetApplyContext.outputRepoUnavailable))
+    else ctx.outputRepo.findById(id, user).map {
       case None                                     => Left(ServiceError.NotFound("Output not found"))
       case Some(output) if output.ownerId != user.id => Left(ServiceError.NotFound("Output not found"))
       case Some(output)                              => Right(output)

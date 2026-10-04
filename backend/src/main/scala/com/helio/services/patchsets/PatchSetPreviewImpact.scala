@@ -60,6 +60,12 @@ private[services] object PatchSetPreviewImpact {
       // hint is REMOVED outright -- no panel carries a `dataTypeId` binding
       // anymore.
 
+      // HEL-1239: `output` update/delete deliberately carry no hint (decision recorded in the
+      // audit table) -- a cascade-to-panels hint would need a panel lookup this preview does not
+      // otherwise make; listed explicitly so the omission is a decision, not a wildcard accident.
+      case ResolvedAction.OutputUpdate(_, _, _, _) | ResolvedAction.OutputDelete(_, _) =>
+        Future.successful(Vector.empty)
+
       // Every other (kind, op): an ordinary rename/content edit has no
       // cascade/staleness consequence beyond the diff itself.
       case _ => Future.successful(Vector.empty)

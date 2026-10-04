@@ -14,7 +14,7 @@ import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
@@ -96,7 +96,7 @@ class PatchSetApplyFormCreateSpec
     service = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker, applicationRepo
+      accessChecker, applicationRepo, new OutputRepository(ctx)
     )
 
     import PostgresProfile.api._

@@ -537,7 +537,10 @@ final class ApiRoutes(
   // *Service instances apply's forward path writes through.
   private val patchSetPreviewService = new PatchSetPreviewService(
     panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-    accessChecker
+    accessChecker,
+    // HEL-1239: same nullable-optional `.orNull` as the apply service above -- a null here (no
+    // DbContext) surfaces as a typed ServiceError from the output resolvers, never an NPE.
+    outputRepoOpt.orNull
   )
   // HEL-413: restores a successfully-journaled apply's edits (design.md D4/D5) -- composes the
   // same per-resource services/repos patchSetApplyService does (minus metricRepo/accessChecker,

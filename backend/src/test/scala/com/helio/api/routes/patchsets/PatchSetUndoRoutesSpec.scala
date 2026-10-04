@@ -16,7 +16,7 @@ import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import org.apache.pekko.actor.typed.ActorSystem
@@ -105,7 +105,7 @@ class PatchSetUndoRoutesSpec
     patchSetApplyService = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker, applicationRepo
+      accessChecker, applicationRepo, new OutputRepository(ctx)
     )
     patchSetUndoService = new PatchSetUndoService(
       panelService, dashboardService, dataSourceService, pipelineService,

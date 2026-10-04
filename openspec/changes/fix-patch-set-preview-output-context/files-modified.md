@@ -1,0 +1,13 @@
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyTypes.scala` — remove `outputRepo = null` default; add `PatchSetApplyContext.build` shared factory + typed `outputRepoUnavailable` error
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyService.scala` — required `outputRepo`; context built via `build`; context exposed `private[services]`
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewService.scala` — take `outputRepo`, build context via `build` (the actual 500 fix); context exposed `private[services]`
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyResolvers.scala` — typed error instead of NPE / silent `boundOutputs` degradation when `outputRepo` is null
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewProjection.scala` — `OutputUpdate`/`OutputDelete` after-state (second root cause: MatchError)
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewImpact.scala` — explicit empty-impact case for outputs
+- `backend/src/main/scala/com/helio/services/pipelines/OutputService.scala` — `mergeConfig`/`validateFieldMapping` moved to companion so preview shares update's logic
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — pass `outputRepoOpt.orNull` to the preview service
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewOutputContextSpec.scala` — new: structural parity, null-repo typed error, every-ResolvedAction + full-schema write-free matrix, output:create 400, step-delete boundOutputs parity
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetPreviewRoutesSpec.scala` — red-first route tests (200 + Output diff for output update/delete); fixture wiring
+- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala` — Output target + apply/preview output:update/delete rows; exemptions removed
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetRoutesSpec.scala`, `PatchSetUndoRoutesSpec.scala`, `RefinementRoutesSpec.scala`, `backend/src/test/scala/com/helio/api/routes/proposals/ClaudeRoutesChatGateSpec.scala`, `backend/src/test/scala/com/helio/services/patchsets/PatchSetApplyFormCreateSpec.scala`, `PatchSetPreviewServiceSpec.scala`, `RefinementServiceSpec.scala` — constructor fixture updates (outputRepo now required)
+- `openspec/changes/fix-patch-set-preview-output-context/design.md` — audit table appended; `tasks.md` ticked

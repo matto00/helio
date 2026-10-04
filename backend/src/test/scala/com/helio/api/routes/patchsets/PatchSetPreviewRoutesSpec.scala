@@ -14,13 +14,15 @@ import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService}
 import com.helio.services.pipelines.PipelineService
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, OutputResponse, UpdateOutputRequest}
+import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.services.sources.DataSourceService
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import org.apache.pekko.actor.typed.ActorSystem
@@ -69,6 +71,9 @@ class PatchSetPreviewRoutesSpec
   private var permissionRepo: ResourcePermissionRepository = _
   private var pipelineRepo: PipelineRepository             = _
   private var pipelineStepRepo: PipelineStepRepository     = _
+  private var outputRepo: OutputRepository                 = _
+  private var dataSourceService: DataSourceService         = _
+  private var pipelineService: PipelineService             = _
 
   private var dashboardService: DashboardService     = _
   private var panelService: PanelService             = _
@@ -93,6 +98,7 @@ class PatchSetPreviewRoutesSpec
     permissionRepo     = new ResourcePermissionRepository(ctx)(routeEc)
     pipelineRepo       = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo   = new PipelineStepRepository(ctx)(routeEc)
+    outputRepo         = new OutputRepository(ctx)
 
     val registry = new ResourceTypeRegistry(
       AclResourceType("dashboard",   id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))),
@@ -105,18 +111,18 @@ class PatchSetPreviewRoutesSpec
 
     dashboardService = new DashboardService(dashboardRepo, accessChecker)
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)
-    val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
+    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     patchSetApplyService = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker, applicationRepo
+      accessChecker, applicationRepo, outputRepo
     )
     patchSetPreviewService = new PatchSetPreviewService(
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker
+      accessChecker, outputRepo
     )
 
     seedUsers()
@@ -138,7 +144,57 @@ class PatchSetPreviewRoutesSpec
   private def routesFor(user: AuthenticatedUser): Route =
     new PatchSetRoutes(patchSetApplyService, patchSetPreviewService, user)(typedSystem).routes
 
+  private def seedOutput(name: String): Output = {
+    val ds = await(dataSourceService.createStatic(
+      StaticDataSourceRequest("Src " + UUID.randomUUID(), "static", Vector(StaticColumnPayload("value", "integer")), Vector(Vector(JsNumber(1)))),
+      userA
+    )) match {
+      case Right(d) => d
+      case Left(e)  => fail(s"source seed failed: $e")
+    }
+    val pipeline = await(pipelineService.create(CreatePipelineRequest("Pipe " + UUID.randomUUID(), Vector(CreatePipelineRootRequest(Some(ds.id.value)))), userA)) match {
+      case Right(p) => p
+      case Left(e)  => fail(s"pipeline seed failed: $e")
+    }
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, name, OutputKind.Table, explicitRootId = None))
+  }
+
   "POST /patch-sets/preview" should {
+
+    // HEL-1239: an `output` update/delete used to 500 here (NPE on the unwired `outputRepo`,
+    // then a MatchError in the projection). Asserts 200 + an Output-level diff.
+    "return 200 and an Output-level diff for an output update, writing nothing (HEL-1239)" in {
+      val output = seedOutput("Original name")
+      val body = PatchSet(None, Vector(Edit(
+        EditTarget("output", Some(output.id.value)), "update", None, None, None, None, None, None,
+        Some(UpdateOutputRequest(name = Some("Previewed name"), config = None))
+      )))
+      Post("/patch-sets/preview", body) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        val edit = responseAs[PatchSetPreviewResponse].edits.head
+        edit.kind shouldBe "output"
+        edit.op shouldBe "update"
+        edit.before.getOrElse(fail("expected before")).convertTo[OutputResponse].name shouldBe "Original name"
+        edit.after.getOrElse(fail("expected after")).convertTo[OutputResponse].name shouldBe "Previewed name"
+      }
+      await(outputRepo.findById(output.id, userA)).map(_.name) shouldBe Some("Original name")
+    }
+
+    "return 200 and an Output-level diff (after = null) for an output delete, deleting nothing (HEL-1239)" in {
+      val output = seedOutput("To delete")
+      val body = PatchSet(None, Vector(Edit(
+        EditTarget("output", Some(output.id.value)), "delete", None, None, None, None, None, None
+      )))
+      Post("/patch-sets/preview", body) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        val edit = responseAs[PatchSetPreviewResponse].edits.head
+        edit.kind shouldBe "output"
+        edit.op shouldBe "delete"
+        edit.before.getOrElse(fail("expected before")).convertTo[OutputResponse].name shouldBe "To delete"
+        edit.after shouldBe None
+      }
+      await(outputRepo.findById(output.id, userA)).map(_.name) shouldBe Some("To delete")
+    }
 
     "return the computed diff, and a subsequent read of every named resource shows it unchanged (6.6)" in {
       val dashboard = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Preview dashboard")), userA))._1

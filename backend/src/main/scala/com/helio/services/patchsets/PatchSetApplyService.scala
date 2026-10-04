@@ -61,14 +61,13 @@ final class PatchSetApplyService(
     // inside this class's own terminal success branch — never fire-and-forget,
     // since the response's `applicationId` field depends on it.
     applicationRepo: PatchSetApplicationRepository,
-    // HEL-907 task 1.2: nullable-optional, mirrors this file's other legacy-optional wiring —
-    // a caller that never constructs an `output`-kind edit is unaffected either way.
-    outputRepo: OutputRepository = null,
+    // HEL-1239: required (no `= null` default) -- see `PatchSetApplyContext.outputRepo`.
+    outputRepo: OutputRepository,
     outputService: OutputService = null
 )(implicit ec: ExecutionContext) {
 
-  private val context: PatchSetApplyContext =
-    PatchSetApplyContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo)
+  private[services] val context: PatchSetApplyContext =
+    PatchSetApplyContext.build(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo)
 
   private val services: PatchSetApplyServices =
     PatchSetApplyServices(panelService, dashboardService, dataSourceService, pipelineService, outputService)

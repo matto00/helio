@@ -17,7 +17,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -82,6 +82,7 @@ class PatchSetRoutesSpec
       .load().migrate()
     db  = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx = new DbContext(db, db)(routeEc)
+    val outputRepo = new OutputRepository(ctx)
 
     dashboardRepo    = new DashboardRepository(ctx)(routeEc)
     panelRepo         = new PanelRepository(ctx)(routeEc)
@@ -108,11 +109,11 @@ class PatchSetRoutesSpec
     patchSetApplyService = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker, applicationRepo
+      accessChecker, applicationRepo, outputRepo
     )
     patchSetPreviewService = new PatchSetPreviewService(
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker
+      accessChecker, outputRepo
     )
 
     seedUsers()
