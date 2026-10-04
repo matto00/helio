@@ -9,7 +9,8 @@ const http = (status: number | undefined, message?: string) => ({
 
 describe("describeFirstRunError (HEL-1209)", () => {
   it.each([
-    [http(413), "reading", "upload limit"],
+    [http(413), "reading", "too large"],
+    [http(413, "CSV is too large: files are limited to 15 MiB"), "uploading", "limited to 15 MiB"],
     [http(502), "uploading", "couldn't fetch that link"],
     [http(429), "building", "Too many requests"],
     [http(undefined), "uploading", "Couldn't reach Helio"],

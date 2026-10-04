@@ -5,8 +5,8 @@ import { fetchDashboards } from "../../dashboards/services/dashboardService";
 import { dashboardUpserted, setSelectedDashboardId } from "../../dashboards/state/dashboardsSlice";
 import { fetchSources } from "../../sources/state/sourcesSlice";
 import {
-  CSV_UPLOAD_MAX_BYTES,
   createCsvFromUrl,
+  getCsvLimits,
   inferAndCreateCsv,
 } from "../../sources/utils/csvSourceCreate";
 import { track } from "../../telemetry/track";
@@ -15,7 +15,7 @@ import { buildFirstRunDashboard } from "../services/firstRunService";
 import {
   describeFirstRunError,
   isPayloadTooLarge,
-  tooLargeMessage,
+  overLimitMessage,
   type FirstRunStage,
 } from "../state/firstRunErrors";
 import {
@@ -123,12 +123,14 @@ export function useFirstRunBuild(): FirstRunBuild {
         });
         return;
       }
-      if (file.size > CSV_UPLOAD_MAX_BYTES) {
-        lastAttempt.current = null;
-        setState({ status: "error", message: tooLargeMessage });
-        return;
-      }
-      start({ kind: "file", file });
+      void getCsvLimits().then((limits) => {
+        if (limits !== null && file.size > limits.maxBytes) {
+          lastAttempt.current = null;
+          setState({ status: "error", message: overLimitMessage(limits.maxBytes) });
+          return;
+        }
+        start({ kind: "file", file });
+      });
     },
     [start],
   );

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/csv-limits-response.schema.json",
+  "title": "CsvLimitsResponse",
+  "description": "Response body for GET /api/data-sources/csv-limits (HEL-1221) -- the backend's CSV upload caps, the single source of truth clients derive their pre-checks from. `maxBytes` is the file size cap (the multipart entity limit is this plus a fixed overhead margin the client does not need to know); `maxRows` counts data rows excluding the header; `maxCells` is rows x columns. A CSV breaching any of the three is rejected with 413.",
+  "type": "object",
+  "required": ["maxBytes", "maxRows", "maxCells"],
+  "properties": {
+    "maxBytes": { "type": "integer", "minimum": 1 },
+    "maxRows": { "type": "integer", "minimum": 1 },
+    "maxCells": { "type": "integer", "minimum": 1 }
+  },
+  "additionalProperties": false
+}

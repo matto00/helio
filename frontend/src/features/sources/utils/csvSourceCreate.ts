@@ -1,7 +1,11 @@
+import { isAxiosError } from "axios";
+
 import {
   createCsvSource,
   createCsvSourceFromUrl,
+  fetchCsvLimits,
   inferFromCsv,
+  type CsvLimits,
 } from "../services/dataSourceService";
 import type { DataSource, InferredField } from "../types/dataSource";
 
@@ -12,11 +16,39 @@ export function forceStringFields<T extends { dataType: string }>(fields: T[]): 
   return fields.map((f) => ({ ...f, dataType: "string" }));
 }
 
-/** The largest CSV a browser upload can carry. Pekko HTTP's default `max-content-length` (8m; the
- *  backend sets no override in `application.conf`) bounds the whole multipart entity on both
- *  `/api/data-sources/infer` and `/api/data-sources`, so it sits below the 50 MiB
- *  `CsvUrlFetch.maxFileSizeBytes` that link ingestion allows. */
-export const CSV_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
+let csvLimitsPromise: Promise<CsvLimits | null> | null = null;
+
+/** The backend's CSV caps, fetched once and cached. Resolves `null` when the fetch fails (and
+ *  forgets the failure so a later call retries): callers then skip the client-side pre-check and
+ *  let the server's 413 be the authority, rather than guessing a number that could drift from it. */
+export function getCsvLimits(): Promise<CsvLimits | null> {
+  if (csvLimitsPromise === null) {
+    csvLimitsPromise = (async () => {
+      try {
+        return await fetchCsvLimits();
+      } catch {
+        csvLimitsPromise = null;
+        return null;
+      }
+    })();
+  }
+  return csvLimitsPromise;
+}
+
+export function resetCsvLimitsCache(): void {
+  csvLimitsPromise = null;
+}
+
+/** The user-facing sentence for a CSV upload the server refused as too large (413), which a repeat
+ *  cannot fix; `null` for any other failure so callers keep their own copy. Prefers the server's own
+ *  message, which names the byte, row and cell caps. */
+export function describeCsvTooLarge(err: unknown): string | null {
+  if (!isAxiosError(err) || err.response?.status !== 413) return null;
+  const data = err.response.data as { message?: unknown } | undefined;
+  return typeof data?.message === "string" && data.message
+    ? data.message
+    : "That CSV is too large to upload. Try a smaller file.";
+}
 
 export class CsvUnreadableError extends Error {
   constructor() {

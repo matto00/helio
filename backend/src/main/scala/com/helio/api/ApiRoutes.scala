@@ -227,6 +227,9 @@ final class ApiRoutes(
     claudeTransportFactory.fold[ClaudeTransport](new HttpClaudeTransport(apiKey))(_(apiKey))
   private implicit val mat: Materializer = SystemMaterializer(system).materializer
 
+  // One per-instance permit pool shared by the infer and multipart-create CSV routes.
+  private val csvUploadGate = new CsvUploadGate(CsvUploadGate.maxConcurrentFromEnv())
+
   // HEL-477: constructed once, shared by every mutating service below —
   // `null` when no AuditEventRepository was passed (fixtures), matching the
   // rest of this file's nullable-optional convention.
@@ -945,7 +948,7 @@ final class ApiRoutes(
                   new PanelRoutes(panelService, authenticatedUser).routes,
                   new PermissionRoutes(permissionService, authenticatedUser).routes,
                   shareTokenServiceOpt.fold(reject: Route)(svc => new ShareTokenRoutes(svc, authenticatedUser).routes),
-                  new DataSourceRoutes(dataSourceService, authenticatedUser).routes,
+                  new DataSourceRoutes(dataSourceService, authenticatedUser, Some(csvUploadGate)).routes,
                   // HEL-505 (design.md Decision 6): the tighter per-user rate limit is threaded
                   // IN to each route class and applied AFTER its own internal path match, never
                   // wrapped externally around the whole `.routes` value -- an external wrap here
@@ -956,7 +959,7 @@ final class ApiRoutes(
                   // run before the inner route's own match/reject is known. Found via this
                   // ticket's own route-level test (`ApiRoutesPipelineRunGuardSpec`): an external
                   // wrap here made `analyze` -- never intentionally wrapped -- start 429ing too.
-                  new DataSourcePreviewRoutes(dataSourceService, authenticatedUser, sourceFetchRateLimitDirective, pipelineRunGuardConfig.sourceFetchRateLimitPerWindow).routes,
+                  new DataSourcePreviewRoutes(dataSourceService, authenticatedUser, sourceFetchRateLimitDirective, pipelineRunGuardConfig.sourceFetchRateLimitPerWindow, Some(csvUploadGate)).routes,
                   new SourceRoutes(sourceService, authenticatedUser).routes,
                   new SourcePreviewRoutes(sourceService, authenticatedUser, sourceFetchRateLimitDirective, pipelineRunGuardConfig.sourceFetchRateLimitPerWindow).routes,
                   new ConnectorRoutes(authenticatedUser).routes,

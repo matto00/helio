@@ -1,5 +1,6 @@
 package com.helio.api.routes.sources
 
+import com.helio.api.http.CsvUploadGate
 import com.helio.api.routes.ServiceResponse
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.{Multipart, StatusCodes}
@@ -9,9 +10,9 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
-import com.helio.api.protocols.sources.{DataSourceDeleteConflictPipelineResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse, SchemaUpdateConflictResponse, UpdateDatasetSchemaRequest}
+import com.helio.api.protocols.sources.{CsvLimitsResponse, DataSourceDeleteConflictPipelineResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse, SchemaUpdateConflictResponse, UpdateDatasetSchemaRequest}
 import com.helio.domain.model._
-import com.helio.services.sources.{CsvUrlFetch, DataSourceDeleteError, DataSourceSchemaUpdateError, DataSourceService}
+import com.helio.services.sources.{CsvLimits, DataSourceDeleteError, DataSourceSchemaUpdateError, DataSourceService}
 import spray.json._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -23,7 +24,8 @@ import scala.util.{Failure, Success, Try}
  *  lives in [[DataSourceService]]. */
 final class DataSourceRoutes(
     dataSourceService: DataSourceService,
-    user: AuthenticatedUser
+    user: AuthenticatedUser,
+    uploadGate: Option[CsvUploadGate] = None
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -33,7 +35,18 @@ final class DataSourceRoutes(
 
   // HEL-862 design.md Decision 7: read the same value CsvUrlFetch.fetch enforces on every
   // URL path, so the multipart route check and the URL paths cannot silently diverge.
-  private val csvMaxBytes: Long = CsvUrlFetch.maxFileSizeBytes
+  private val csvMaxBytes: Long = CsvLimits.maxBytes
+
+  /** The create route also carries text/pdf/image uploads, so its entity limit is the largest of the
+   *  per-type caps (plus the multipart margin), never an unconditional CSV-sized limit: a
+   *  non-CSV upload can buffer at most its largest sibling cap, and its own cap still rejects it
+   *  with 413 afterwards. */
+  private lazy val multipartEntityLimit: Long =
+    math.max(CsvLimits.maxBytes, math.max(textMaxBytes, math.max(pdfMaxBytes, imageMaxBytes))) + CsvLimits.multipartMarginBytes
+
+  private val MetadataPartMaxBytes: Long = 1048576L
+
+  private val csvGate: CsvUploadGate = uploadGate.getOrElse(new CsvUploadGate(Int.MaxValue))
 
   /** Early route-layer rejection, mirroring CSV's `csvMaxBytes` check. The
    *  service-layer check in `DataSourceService.ingestText` (via
@@ -91,6 +104,11 @@ final class DataSourceRoutes(
   val routes: Route =
     pathPrefix("data-sources") {
       concat(
+        path("csv-limits") {
+          get {
+            complete(CsvLimitsResponse(CsvLimits.maxBytes, CsvLimits.maxRows, CsvLimits.maxCells))
+          }
+        },
         pathEndOrSingleSlash {
           concat(
             get {
@@ -270,10 +288,19 @@ final class DataSourceRoutes(
    *  materialized once, so this must stay one route rather than two sibling
    *  `entity(as[Multipart.FormData])` directives. */
   private def createMultipartUploadRoute: Route =
+    csvGate.csvUpload(multipartEntityLimit) {
     entity(as[Multipart.FormData]) { formData =>
+      // Hazard: `BodyPart.toStrict(timeout)` caps each part at Pekko's global 8 MiB
+      // `max-content-length` and fails with a 500 `EntityStreamException`, ignoring `withSizeLimit`;
+      // an explicit `maxBytes` is what lets the `file` part reach the entity limit. Every other part
+      // (name, type, tag, fields) is tiny, so it is bounded tightly: part order is client-chosen
+      // (`type` may follow `file`), so the type cannot be consulted before the file is read.
       val collectedF =
         formData.parts
-          .mapAsync(1)(p => p.toStrict(60.seconds).map(s => (p.name, s.entity.data, p.filename)))
+          .mapAsync(1) { p =>
+            val partLimit = if (p.name == "file") multipartEntityLimit else MetadataPartMaxBytes
+            p.entity.toStrict(60.seconds, partLimit).map(e => (p.name, e.data, p.filename))
+          }
           .runWith(Sink.seq)
       onSuccess(collectedF) { parts =>
         val partsMap     = parts.map { case (name, data, _) => name -> data }.toMap
@@ -345,6 +372,7 @@ final class DataSourceRoutes(
             }
         }
       }
+    }
     }
 
 }

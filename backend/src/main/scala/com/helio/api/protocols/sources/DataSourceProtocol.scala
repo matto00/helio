@@ -135,6 +135,10 @@ final case class ImageSourceResponse(
 final case class DataSourcesResponse(items: Vector[DataSourceResponse])
 final case class UpdateDataSourceRequest(name: Option[String])
 final case class CsvPreviewResponse(headers: Vector[String], rows: Vector[Vector[String]])
+
+/** `GET /api/data-sources/csv-limits`: the backend's CSV caps, so clients derive their pre-checks from the
+ *  one source of truth ([[com.helio.services.sources.CsvLimits]]) instead of hard-coding a copy. */
+final case class CsvLimitsResponse(maxBytes: Long, maxRows: Long, maxCells: Long)
 final case class PreviewSourceResponse(
     rows: Vector[JsValue],
     evaluationErrors: Vector[String] = Vector.empty
@@ -674,6 +678,7 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   implicit val dataSourcesResponseFormat: RootJsonFormat[DataSourcesResponse]         = jsonFormat1(DataSourcesResponse.apply)
   implicit val updateDataSourceRequestFormat: RootJsonFormat[UpdateDataSourceRequest] = jsonFormat1(UpdateDataSourceRequest.apply)
   implicit val csvPreviewResponseFormat: RootJsonFormat[CsvPreviewResponse]           = jsonFormat2(CsvPreviewResponse.apply)
+  implicit val csvLimitsResponseFormat: RootJsonFormat[CsvLimitsResponse]             = jsonFormat3(CsvLimitsResponse.apply)
   implicit val previewSourceResponseFormat: RootJsonFormat[PreviewSourceResponse]     = jsonFormat2(PreviewSourceResponse.apply)
 
   implicit val sqlCreateSourceRequestFormat: RootJsonFormat[SqlCreateSourceRequest] = jsonFormat3(SqlCreateSourceRequest.apply)

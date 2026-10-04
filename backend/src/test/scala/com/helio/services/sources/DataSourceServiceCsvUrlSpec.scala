@@ -65,6 +65,7 @@ class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with Scalate
   private val csvV1 = "name,age\nalice,30"
   private val csvV2 = "name,age\nalice,31\nbob,40"
   @volatile private var refreshableBody = csvV1
+  private lazy val tallCsv: Array[Byte] = ("a\n" + "1\n" * (CsvLimits.maxRows.toInt + 1)).getBytes(StandardCharsets.UTF_8)
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -114,6 +115,9 @@ class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with Scalate
       path("refreshable.csv") {
         get { complete(HttpEntity(ContentTypes.`text/csv(UTF-8)`, refreshableBody)) }
       },
+      path("many-rows.csv") {
+        get { complete(HttpEntity(ContentTypes.`text/csv(UTF-8)`, tallCsv)) }
+      },
       path("missing.csv") {
         get { complete(StatusCodes.NotFound) }
       },
@@ -122,7 +126,7 @@ class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with Scalate
       },
       path("huge.csv") {
         get {
-          // One byte over CsvUrlFetch.maxFileSizeBytes's default (52428800L) —
+          // One byte over CsvUrlFetch.maxFileSizeBytes's default (15728640L) —
           // the header row alone stays representative CSV shape.
           val bytes = ("a,b\n" + "1,2\n" * 20).getBytes(StandardCharsets.UTF_8) ++
             Array.fill[Byte]((CsvUrlFetch.maxFileSizeBytes - 80 + 1).toInt)(0x2c.toByte)
@@ -235,6 +239,35 @@ class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with Scalate
       val refreshed = await(service.refresh(src.id, None, user))
       refreshed shouldBe a[Right[_, _]]
       refreshed.toOption.get.asInstanceOf[CsvSource].config.sourceUrl shouldBe None
+    }
+  }
+
+  "CSV row/cell limits (HEL-1221)" should {
+
+    "reject a URL-imported CSV over the row cap with 413 and leave no data source row" in {
+      val before = await(dataSourceRepo.findAll(owner, Page(0, 100), None)).total
+      val result = await(service.createCsvUrl("Tall CSV", urlFor("many-rows.csv"), user))
+      result.swap.toOption.get shouldBe a[ServiceError.PayloadTooLarge]
+      result.swap.toOption.get.message should include (CsvLimits.maxRows.toString)
+      await(dataSourceRepo.findAll(owner, Page(0, 100), None)).total shouldBe before
+    }
+
+    "reject a URL-backed refresh whose upstream grew past the row cap, keeping the stored snapshot" in {
+      refreshableBody = csvV1
+      val src = await(service.createCsvUrl("Growing CSV", urlFor("refreshable.csv"), user)).toOption.get.asInstanceOf[CsvSource]
+      refreshableBody = new String(tallCsv, StandardCharsets.UTF_8)
+      val refreshed = await(service.refresh(src.id, None, user))
+      refreshed.swap.toOption.get shouldBe a[ServiceError.PayloadTooLarge]
+      new String(await(fileSystem.read(src.config.path)), StandardCharsets.UTF_8) shouldBe csvV1
+      refreshableBody = csvV1
+    }
+
+    "fail preview and refresh of a stored CSV that is over the caps with 413, not an OOM" in {
+      val src = await(service.createCsv("Shrunk later", csvV1.getBytes(StandardCharsets.UTF_8), Vector.empty, user)).toOption.get.asInstanceOf[CsvSource]
+      await(fileSystem.write(src.config.path, tallCsv))
+
+      await(service.preview(src.id, 10, user)).swap.toOption.get shouldBe a[ServiceError.PayloadTooLarge]
+      await(service.refresh(src.id, None, user)).swap.toOption.get shouldBe a[ServiceError.PayloadTooLarge]
     }
   }
 }

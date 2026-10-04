@@ -711,6 +711,25 @@ describe("AddSourceModal — CSV source data-type lock (HEL-893)", () => {
   });
 });
 
+describe("AddSourceModal — CSV size rejection (HEL-1221)", () => {
+  it("shows the server's 413 message instead of the generic infer failure", async () => {
+    inferFromCsvMock.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 413, data: { message: "CSV is too large: files are limited to 15 MiB" } },
+    });
+    renderWithStore(<AddSourceModal onClose={jest.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /csv file/i }));
+
+    fireEvent.change(screen.getByLabelText("Source name"), { target: { value: "Issues" } });
+    const file = new File(["id\n1\n"], "issues.csv", { type: "text/csv" });
+    fireEvent.change(screen.getByLabelText("CSV file"), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: /preview schema/i }));
+
+    expect(await screen.findByText(/files are limited to 15 MiB/)).toBeInTheDocument();
+    expect(screen.queryByText(/Failed to infer schema/)).not.toBeInTheDocument();
+  });
+});
+
 describe("AddSourceModal — static source (thunk-dispatched create path, F-008)", () => {
   beforeEach(() => {
     jest.clearAllMocks();

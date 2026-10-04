@@ -1,0 +1,27 @@
+- `backend/src/main/scala/com/helio/services/sources/CsvLimits.scala` — new single owner of byte/row/cell caps, entity limit = bytes + 1 MiB, allocation-free scan
+- `backend/src/main/scala/com/helio/services/sources/CsvUrlFetch.scala` — byte cap now aliases CsvLimits.maxBytes
+- `backend/src/main/scala/com/helio/services/sources/DataSourceCsvSupport.scala` — streaming UTF-8 validation (no file-sized CharBuffer)
+- `backend/src/main/scala/com/helio/services/sources/DataSourceService.scala` — limits enforced in createCsv/infer/createCsvUrl/refresh/preview; byte-based inference and preview
+- `backend/src/main/scala/com/helio/domain/engine/SchemaInferenceEngine.scala` — lazy head-only line reading, byte-input variants
+- `backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala` — run-time limits check on stored/fetched CSV
+- `backend/src/main/scala/com/helio/api/http/CsvUploadDirectives.scala` — upload gate (429 + Retry-After), route-scoped size limit, 413 mapping
+- `backend/src/main/scala/com/helio/api/routes/sources/DataSourceRoutes.scala` — gate on multipart create, csv-limits endpoint, per-part toStrict limit
+- `backend/src/main/scala/com/helio/api/routes/sources/DataSourcePreviewRoutes.scala` — gate on infer, per-part toStrict limit, 413 mapping
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — one shared gate instance for both routes
+- `backend/src/main/scala/com/helio/api/protocols/sources/DataSourceProtocol.scala` — CsvLimitsResponse
+- `schemas/sources/csv-limits-response.schema.json` — contract for GET /api/data-sources/csv-limits
+- `backend/src/test/scala/com/helio/api/routes/sources/CsvUploadLimitsRoutesSpec.scala` — real-server and route tests for limits, 413, 429, endpoint
+- `backend/src/test/scala/com/helio/services/sources/CsvLimitsSpec.scala` — scan/violation/entity-limit unit tests incl. bare CR
+- `backend/src/test/scala/com/helio/services/sources/DataSourceCsvSupportSpec.scala` — UTF-8 validation parity
+- `backend/src/test/scala/com/helio/services/sources/DataSourceServiceCsvUrlSpec.scala` — URL import, URL refresh, stored-file preview/refresh over caps
+- `backend/src/test/scala/com/helio/domain/engine/SchemaInferenceEngineSpec.scala` — head-only/bytes equivalence
+- `backend/src/test/scala/com/helio/domain/engine/InProcessPipelineEngineSpec.scala` — run-time over/at-cap CSV load
+- `frontend/src/features/sources/services/dataSourceService.ts` — fetchCsvLimits
+- `frontend/src/features/sources/utils/csvSourceCreate.ts` — cached getCsvLimits, describeCsvTooLarge; hard-coded 8 MiB constant removed
+- `frontend/src/features/onboarding/hooks/useFirstRunBuild.ts` — pre-check from fetched limit, skipped on fetch failure
+- `frontend/src/features/onboarding/state/firstRunErrors.ts` — 413 shows server message, no Retry
+- `frontend/src/features/sources/ui/AddSourceModal.tsx` — shows 413 message
+- `frontend/src/features/onboarding/ui/FirstRunDropZone.test.tsx`, `frontend/src/features/onboarding/state/firstRunErrors.test.ts`, `frontend/src/features/sources/utils/csvSourceCreate.test.ts`, `frontend/src/features/sources/ui/AddSourceModal.test.tsx` — new boundary, 413/429, fetch-failure tests
+- `openspec/changes/csv-upload-entity-limit/measurements.md` — post-fix memory evidence
+- `openspec/changes/csv-upload-entity-limit/design.md`, `proposal.md`, `tasks.md`, `specs/csv-upload-connector/spec.md` — final caps (15 MiB / 50,000 rows / 300,000 cells), AC narrowing and rationale, cap-selection tables
+- `backend/src/test/scala/com/helio/services/sources/CsvUrlFetchSpec.scala` — default byte cap now 15 MiB (CsvLimits.maxBytes alias)

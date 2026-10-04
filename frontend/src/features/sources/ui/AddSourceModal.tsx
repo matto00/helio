@@ -36,7 +36,7 @@ import { InlineError } from "../../../shared/chrome/InlineError";
 import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";
 import { useRestSourceForm } from "../hooks/useRestSourceForm";
-import { createCsvFromFields } from "../utils/csvSourceCreate";
+import { createCsvFromFields, describeCsvTooLarge } from "../utils/csvSourceCreate";
 
 type SourceType = "rest_api" | "csv" | "dataset" | "sql" | "text" | "pdf" | "image";
 type Step = "configure" | "preview";
@@ -149,8 +149,11 @@ export function AddSourceModal({ onClose, onCreated }: AddSourceModalProps) {
 
       setFields(inferred.map((f) => ({ ...f })));
       setStep("preview");
-    } catch {
-      setError("Failed to infer schema. Check the source configuration and try again.");
+    } catch (err: unknown) {
+      setError(
+        describeCsvTooLarge(err) ??
+          "Failed to infer schema. Check the source configuration and try again.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -175,8 +178,8 @@ export function AddSourceModal({ onClose, onCreated }: AddSourceModalProps) {
         const created = await createCsvFromFields(name.trim(), csvFile!, fields);
         finishCreate(created);
       }
-    } catch {
-      setError("Failed to create source.");
+    } catch (err: unknown) {
+      setError(describeCsvTooLarge(err) ?? "Failed to create source.");
     } finally {
       setIsLoading(false);
     }

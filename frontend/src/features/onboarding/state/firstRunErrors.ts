@@ -1,11 +1,14 @@
 import { isAxiosError } from "axios";
 
-import { CsvUnreadableError } from "../../sources/utils/csvSourceCreate";
+import { CsvUnreadableError, describeCsvTooLarge } from "../../sources/utils/csvSourceCreate";
 
 export type FirstRunStage = "reading" | "uploading" | "building";
 
-export const tooLargeMessage =
-  "That file is over the 8 MB upload limit. Try a smaller CSV, or paste a link to it instead (links allow up to 50 MB).";
+/** Copy for a file the client pre-check rejects, naming the limit the backend reported. */
+export function overLimitMessage(maxBytes: number): string {
+  const mib = Math.floor(maxBytes / (1024 * 1024));
+  return `That file is over the ${mib} MB upload limit. Try a smaller CSV.`;
+}
 
 /** A size rejection can never succeed on repeat, so callers show it without a Retry. */
 export function isPayloadTooLarge(err: unknown): boolean {
@@ -27,7 +30,7 @@ export function describeFirstRunError(err: unknown, stage: FirstRunStage): strin
   if (isAxiosError(err)) {
     const status = err.response?.status;
     if (status === undefined) return "Couldn't reach Helio. Check your connection and try again.";
-    if (status === 413) return tooLargeMessage;
+    if (status === 413) return describeCsvTooLarge(err) ?? "That CSV is too large.";
     if (status === 502) {
       return "Helio couldn't fetch that link. Check that it is reachable and try again.";
     }

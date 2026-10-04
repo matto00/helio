@@ -3,6 +3,8 @@ package com.helio.domain.engine
 import com.helio.domain.model.{DataFieldType, InferredField, InferredSchema}
 import spray.json._
 
+import java.nio.charset.StandardCharsets
+
 object SchemaInferenceEngine {
 
   // Public API
@@ -28,14 +30,24 @@ object SchemaInferenceEngine {
    *  `fromJson(JsArray(rows))` for any input. */
   def inferSchemaFromRows(rows: Vector[JsValue]): InferredSchema = fromJson(JsArray(rows))
 
-  def fromCsv(csv: String): InferredSchema = {
-    val lines = splitCsvLines(csv)
-    if (lines.isEmpty || lines.head.trim.isEmpty) return InferredSchema(Seq.empty)
+  /** Sampled data rows after the header; inference needs only this head, never the whole file. */
+  private val InferSampleRows = 100
 
-    val headers = parseRfc4180Row(lines.head)
+  def fromCsv(csv: String): InferredSchema = fromCsvLines(csvLines(csv))
+
+  /** [[fromCsv]] over raw UTF-8 bytes: decodes one line at a time and stops after the sampled head,
+   *  so an upload never becomes a file-sized (or, as UTF-16, double-sized) `String`. */
+  def fromCsvBytes(bytes: Array[Byte]): InferredSchema = fromCsvLines(csvLines(bytes))
+
+  private def fromCsvLines(lines: Iterator[String]): InferredSchema = {
+    if (!lines.hasNext) return InferredSchema(Seq.empty)
+    val headerLine = lines.next()
+    if (headerLine.trim.isEmpty) return InferredSchema(Seq.empty)
+
+    val headers = parseRfc4180Row(headerLine)
     if (headers.isEmpty) return InferredSchema(Seq.empty)
 
-    val dataRows = lines.drop(1).take(100)
+    val dataRows = lines.take(InferSampleRows).toVector
     if (dataRows.isEmpty)
       return InferredSchema(headers.map(h => InferredField(h, displayName(h), DataFieldType.StringType, nullable = false)))
 
@@ -64,11 +76,20 @@ object SchemaInferenceEngine {
     InferredSchema(fields)
   }
 
-  def parseCsvRows(csv: String, maxRows: Int = 10): (Vector[String], Vector[Vector[String]]) = {
-    val lines = splitCsvLines(csv)
-    if (lines.isEmpty || lines.head.trim.isEmpty) return (Vector.empty, Vector.empty)
-    val headers = parseRfc4180Row(lines.head)
-    val rows = lines.drop(1).filter(_.nonEmpty).take(maxRows).map(parseRfc4180Row).toVector
+  def parseCsvRows(csv: String, maxRows: Int = 10): (Vector[String], Vector[Vector[String]]) =
+    parseCsvRowsLines(csvLines(csv), maxRows)
+
+  /** [[parseCsvRows]] over raw UTF-8 bytes, decoding only the lines it returns (plus any blank ones
+   *  it skips). */
+  def parseCsvRowsBytes(bytes: Array[Byte], maxRows: Int = 10): (Vector[String], Vector[Vector[String]]) =
+    parseCsvRowsLines(csvLines(bytes), maxRows)
+
+  private def parseCsvRowsLines(lines: Iterator[String], maxRows: Int): (Vector[String], Vector[Vector[String]]) = {
+    if (!lines.hasNext) return (Vector.empty, Vector.empty)
+    val headerLine = lines.next()
+    if (headerLine.trim.isEmpty) return (Vector.empty, Vector.empty)
+    val headers = parseRfc4180Row(headerLine)
+    val rows = lines.filter(_.nonEmpty).take(maxRows).map(parseRfc4180Row).toVector
     (headers, rows)
   }
 
@@ -213,8 +234,48 @@ object SchemaInferenceEngine {
 
   // CSV helpers
 
-  private def splitCsvLines(csv: String): Array[String] =
-    csv.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1).map(_.stripTrailing())
+  /** Lazily yields what `csv.split("\n", -1)` would after normalizing CRLF/CR to LF (so a trailing
+   *  line break yields a final empty line, and an empty string yields one empty line), each
+   *  `stripTrailing`'d. Lazy so a caller that needs only a head prefix never materializes a
+   *  `String` per line of a file that can be tens of MiB. */
+  private def csvLines(csv: String): Iterator[String] = new Iterator[String] {
+    private var pos  = 0
+    private var done = false
+
+    def hasNext: Boolean = !done
+
+    def next(): String = {
+      val len = csv.length
+      var end = pos
+      while (end < len && csv.charAt(end) != '\n' && csv.charAt(end) != '\r') end += 1
+      val line = csv.substring(pos, end).stripTrailing()
+      if (end >= len) done = true
+      else {
+        pos = if (csv.charAt(end) == '\r' && end + 1 < len && csv.charAt(end + 1) == '\n') end + 2 else end + 1
+      }
+      line
+    }
+  }
+
+  /** Byte-level twin of the `String` overload: same line breaks (LF, CR, CRLF are ASCII and never
+   *  occur inside a multi-byte UTF-8 sequence, so splitting bytes is safe), same trailing empty
+   *  line, but each line is decoded only when asked for. */
+  private def csvLines(bytes: Array[Byte]): Iterator[String] = new Iterator[String] {
+    private var pos  = 0
+    private var done = false
+
+    def hasNext: Boolean = !done
+
+    def next(): String = {
+      val len = bytes.length
+      var end = pos
+      while (end < len && bytes(end) != '\n' && bytes(end) != '\r') end += 1
+      val line = new String(bytes, pos, end - pos, StandardCharsets.UTF_8).stripTrailing()
+      if (end >= len) done = true
+      else pos = if (bytes(end) == '\r' && end + 1 < len && bytes(end + 1) == '\n') end + 2 else end + 1
+      line
+    }
+  }
 
   private def parseRfc4180Row(line: String): Vector[String] = {
     val fields = scala.collection.mutable.ArrayBuffer.empty[String]

@@ -38,10 +38,9 @@ object CsvUrlFetch {
   /** The CSV size limit, defined exactly once (design.md Decision 7) so the
    *  route-layer multipart check and every URL path read the same value
    *  rather than each keeping its own literal default that could silently
-   *  diverge. Unchanged in value from the pre-existing route default:
-   *  50 MiB. */
-  val maxFileSizeBytes: Long =
-    sys.env.get("CSV_MAX_FILE_SIZE_BYTES").flatMap(_.toLongOption).getOrElse(52428800L)
+   *  diverge. Now defined by [[CsvLimits]]; was the pre-existing route default:
+   *  15 MiB (see [[CsvLimits.maxBytes]]). */
+  val maxFileSizeBytes: Long = CsvLimits.maxBytes
 
   /** `fetch` performs, in order: (1) an https-only scheme pre-check on the
    *  parsed URI — never a `startsWith("https://")` string test, which would
