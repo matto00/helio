@@ -3,7 +3,9 @@
 Defines how the frontend loads, persists, and reconciles dashboard panel layouts. Covers hydration
 from saved backend state, deferred (auto-save, Save now, unmount) persistence of drag/resize changes, undo/redo persistence, and
 fallback position computation for panels missing from saved layouts.
+
 ## Requirements
+
 ### Requirement: The frontend hydrates the grid from saved dashboard layouts
 The frontend MUST load saved dashboard layout state into the panel grid when a dashboard is selected.
 
@@ -16,25 +18,26 @@ The frontend MUST load saved dashboard layout state into the panel grid when a d
 ### Requirement: The frontend persists completed layout changes
 The frontend MUST persist drag and resize changes back to the backend when the user completes a layout
 update. Undo and redo traversal MUST also persist the settled layout to the backend using the same
-debounced path. Layout persistence MUST use `PATCH /api/dashboards/:id/update` with
-`{ fields: ["layout"], dashboard: { layout: ... } }` — layout is a dashboard-level attribute stored
-as a 4-breakpoint JSON blob, not a per-panel field.
+deferred flush. A completed change is staged locally and persisted by the next auto-save tick (every 30 seconds),
+a manual Save now, or the desktop grid's unmount flush; there is no per-change debounce timer. Layout persistence
+MUST use `PATCH /api/dashboards/:id/update` with `{ fields: ["layout"], dashboard: { layout: ... } }` — layout is a
+dashboard-level attribute stored as a 4-breakpoint JSON blob, not a per-panel field.
 
 #### Scenario: Panel layout changes are saved
 - **GIVEN** a dashboard with rendered panels
-- **WHEN** the user drags or resizes panels in the grid
+- **WHEN** the user drags or resizes panels in the grid and the layout is flushed
 - **THEN** the frontend submits the updated dashboard `layout` via `PATCH /api/dashboards/:id/update`
 - **AND** a later reload of the same dashboard restores the saved arrangement
 
 #### Scenario: Undone layout is persisted
 - **GIVEN** the user has undone a layout change
-- **WHEN** the layout debounce settles
+- **WHEN** the next auto-save tick, Save now, or grid unmount flushes the layout
 - **THEN** the frontend submits the undone layout to the backend via `PATCH /api/dashboards/:id/update`
 - **AND** a later reload restores the undone arrangement
 
 #### Scenario: Redone layout is persisted
 - **GIVEN** the user has redone a layout change
-- **WHEN** the layout debounce settles
+- **WHEN** the next auto-save tick, Save now, or grid unmount flushes the layout
 - **THEN** the frontend submits the redone layout to the backend via `PATCH /api/dashboards/:id/update`
 - **AND** a later reload restores the redone arrangement
 
@@ -53,18 +56,6 @@ The frontend MUST safely reconcile saved layouts with the currently loaded panel
 - **WHEN** a new panel is created and the panel list is refreshed
 - **THEN** the new panel receives a fallback position in the first available horizontal slot adjacent to existing panels
 - **AND** it does not stack at x=0, y=0 on top of or below an existing panel at that position
-
-### Requirement: Panel flush debounce runs alongside layout flush debounce
-The frontend MUST run an independent 250 ms panel-flush debounce timer in addition to the
-existing layout debounce, both co-located in PanelGrid. The two timers are independent — a
-layout change does not reset the panel flush timer, and vice versa.
-
-#### Scenario: Layout and panel flushes are independent
-- **GIVEN** a panel title has been accumulated and a layout drag has also occurred
-- **WHEN** each respective 250 ms debounce settles
-- **THEN** the layout flush sends `PATCH /api/dashboards/:id/update` as before
-- **AND** the panel flush sends `POST /api/panels/updateBatch` independently
-- **AND** neither flush waits for or is blocked by the other
 
 ### Requirement: Staged layout changes survive desktop grid unmount
 
@@ -95,3 +86,13 @@ mobile browsing never PATCHes dashboard layout MUST continue to hold.
 - **THEN** the staged layout is persisted exactly once
 - **AND** no layout PATCH originates while the mobile stack is mounted
 
+### Requirement: Panel and layout changes share one deferred flush
+Pending panel updates and a pending layout change MUST be flushed together by the same auto-save interval and by
+Save now; each write MUST be sent independently, so a failure or delay of one MUST NOT block the other.
+
+#### Scenario: Layout and panel flushes are independent
+- **GIVEN** a panel title has been accumulated and a layout drag has also occurred
+- **WHEN** the auto-save interval elapses or the user clicks Save now
+- **THEN** the layout flush sends `PATCH /api/dashboards/:id/update`
+- **AND** the panel flush sends `POST /api/panels/updateBatch` independently
+- **AND** neither flush waits for or is blocked by the other
