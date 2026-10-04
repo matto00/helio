@@ -1,0 +1,6 @@
+- `helio-mcp/package-lock.json` — lockfile-only `npm audit fix`: hono 4.13.13, ip-address 10.7.3, fast-uri 3.1.8
+- `helio-mcp/.audit-ci.jsonc` — new audit-ci config, moderate threshold, empty allowlist
+- `.github/workflows/ci.yml` — security job: helio-mcp audit step (root-pinned audit-ci --directory), cache path, header comment
+- `MISTAKES.md` — security-gate entry updated: three trees, helio-mcp at moderate
+- `openspec/changes/helio-mcp-dependency-audit/audit-evidence.md` — all transcripts (red-first, control, post-bump, red-gate, reachability, regression, smoke)
+- `openspec/changes/helio-mcp-dependency-audit/tasks.md` — tasks ticked

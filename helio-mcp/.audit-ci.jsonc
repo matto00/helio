@@ -1,0 +1,12 @@
+{
+  // HEL-1204: fails CI on any moderate-or-higher npm advisory in the helio-mcp/ lockfile.
+  // Deliberately stricter than the root and frontend/ configs (`"high": true`): helio-mcp is a
+  // small, runtime-only dependency tree shipped to agent hosts, and every advisory that
+  // motivated this gate (hono, ip-address, fast-uri) was MODERATE, so a `"high": true` config
+  // would be green on a vulnerable lockfile. Accepted, un-fixable advisories go in `allowlist`
+  // below as `"<GHSA>|<path-scope>*"` with an inline comment carrying the ticket, reason,
+  // dependency path and a review-by date (HEL-1246 pattern) — never a bare GHSA id or a
+  // package-wide wildcard. Empty today: `npm audit` is 0 for the helio-mcp/ tree.
+  "moderate": true,
+  "allowlist": [],
+}
