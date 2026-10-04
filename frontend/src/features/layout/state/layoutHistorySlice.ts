@@ -11,6 +11,10 @@ interface DashboardLayoutHistory {
   /** Bumped by every effective undo/redo so a consumer can tell a history
    *  traversal apart from any other store layout change (HEL-1028). */
   revision: number;
+  /** The layout the most recent effective undo/redo restored (HEL-1230). `useLayoutSave`
+   *  recognises a traversal's store write by revision change AND equality with this, so a no-op
+   *  traversal's stale revision cannot capture a later, unrelated store write. */
+  applied: DashboardLayout | null;
 }
 
 interface LayoutHistoryState {
@@ -23,7 +27,7 @@ const initialState: LayoutHistoryState = {
 
 function getOrInit(state: LayoutHistoryState, dashboardId: string): DashboardLayoutHistory {
   if (!state.byDashboard[dashboardId]) {
-    state.byDashboard[dashboardId] = { past: [], future: [], revision: 0 };
+    state.byDashboard[dashboardId] = { past: [], future: [], revision: 0, applied: null };
   }
   return state.byDashboard[dashboardId];
 }
@@ -60,7 +64,7 @@ const layoutHistorySlice = createSlice({
       const { dashboardId, currentLayout } = action.payload;
       const history = getOrInit(state, dashboardId);
       if (history.past.length === 0) return;
-      history.past.pop();
+      history.applied = history.past.pop() ?? null;
       history.future.unshift(currentLayout);
       history.revision += 1;
     },
@@ -76,7 +80,7 @@ const layoutHistorySlice = createSlice({
       const { dashboardId, currentLayout } = action.payload;
       const history = getOrInit(state, dashboardId);
       if (history.future.length === 0) return;
-      history.future.shift();
+      history.applied = history.future.shift() ?? null;
       history.past.push(currentLayout);
       if (history.past.length > MAX_HISTORY_DEPTH) {
         history.past.shift();
@@ -128,5 +132,13 @@ export function selectRedoLayout(dashboardId: string | null) {
     const history = state.layoutHistory.byDashboard[dashboardId];
     if (!history || history.future.length === 0) return undefined;
     return history.future[0];
+  };
+}
+
+/** The layout the latest effective undo/redo restored, or null (HEL-1230). */
+export function selectAppliedLayout(dashboardId: string | null) {
+  return (state: RootState): DashboardLayout | null => {
+    if (!dashboardId) return null;
+    return state.layoutHistory.byDashboard[dashboardId]?.applied ?? null;
   };
 }

@@ -59,7 +59,7 @@ resulting in a single PATCH call per drag-stop or resize-stop interaction, not o
 
 | # | Endpoint | Method | Trigger | Payload Fields | Calls per Interaction |
 |---|----------|--------|---------|----------------|-----------------------|
-| 1 | `PATCH /api/dashboards/:id/update` | PATCH | Panel drag or resize stop | `{ fields: ["layout"], dashboard: { layout: DashboardLayout } }` | 1 per stop (debounced 250 ms) |
+| 1 | `PATCH /api/dashboards/:id/update` | PATCH | Panel drag/resize/undo/redo, flushed by auto-save, Save now or grid unmount | `{ fields: ["layout"], dashboard: { layout: DashboardLayout } }` | at most 1 per flush (no debounce) |
 | 2 | `PATCH /api/dashboards/:id` | PATCH | Dashboard appearance save | `{ appearance: { background, gridBackground } }` | 1 per save |
 | 3 | `PATCH /api/dashboards/:id` | PATCH | Dashboard rename commit | `{ name }` | 1 per rename |
 | 4 | `POST /api/dashboards` | POST | Dashboard create | `{ name }` | 1 per create |
@@ -76,7 +76,9 @@ resulting in a single PATCH call per drag-stop or resize-stop interaction, not o
 **1. Layout update** — `PATCH /api/dashboards/:id/update`
 
 Sends the full 4-breakpoint layout covering all N panels in the dashboard (4N items total).
-Debounced 250 ms in `PanelGrid.tsx`; fires once per drag/resize-stop. An in-flight
+Not debounced: a drag/resize stop or an undo/redo is staged locally and sent by the 30 s auto-save tick,
+Save now, or the desktop grid's unmount flush (`features/panels/hooks/useLayoutSave.ts`,
+`usePanelUpdatesFlush.ts`), at most once per flush. An in-flight
 deduplication guard (`inFlightLayoutRef`) suppresses a duplicate concurrent call.
 
 ```json
@@ -181,7 +183,8 @@ update endpoint.
 | `frontend/src/services/panelService.ts` | Panel HTTP calls |
 | `frontend/src/features/dashboards/dashboardsSlice.ts` | Dashboard thunks and triggers |
 | `frontend/src/features/panels/panelsSlice.ts` | Panel thunks and triggers |
-| `frontend/src/components/PanelGrid.tsx` | Layout drag/resize; 250 ms debounce; panel rename |
+| `frontend/src/features/panels/hooks/useLayoutSave.ts` | Layout drag/resize/undo/redo staging and flush (no debounce) |
+| `frontend/src/features/panels/hooks/usePanelUpdatesFlush.ts` | 30 s auto-save tick and Save now |
 | `frontend/src/components/PanelDetailModal.tsx` | Panel appearance and data binding saves |
 | `frontend/src/components/DashboardAppearanceEditor.tsx` | Dashboard appearance save |
 | `frontend/src/components/DashboardList.tsx` | Dashboard create, rename, duplicate, import |

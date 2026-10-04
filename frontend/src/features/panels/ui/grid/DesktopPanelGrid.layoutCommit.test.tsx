@@ -6,7 +6,8 @@ import { Responsive } from "react-grid-layout";
 
 import { updateDashboardLayout as updateDashboardLayoutRequest } from "../../../dashboards/services/dashboardService";
 import { setDashboardLayoutLocally } from "../../../dashboards/state/dashboardsSlice";
-import { redoLayout, undoLayout } from "../../../layout/state/layoutHistorySlice";
+import { pushLayoutSnapshot } from "../../../layout/state/layoutHistorySlice";
+import { applyLayoutRedo, applyLayoutUndo } from "../../../layout/state/layoutHistoryThunks";
 import { useAppSelector } from "../../../../hooks/reduxHooks";
 import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { renderWithStore } from "../../../../test/renderWithStore";
@@ -55,7 +56,8 @@ const MockResponsive = jest.mocked(Responsive);
 const updateDashboardLayoutMock = jest.mocked(updateDashboardLayoutRequest);
 
 const panel = makeOutputPanel({ id: "panel-1", dashboardId: "d1", title: "Revenue" });
-const panels = [panel];
+const otherPanel = makeOutputPanel({ id: "other", dashboardId: "d1", title: "Created" });
+let panels = [panel];
 
 const item = (x: number, w = 4) => ({ panelId: "panel-1", x, y: 0, w, h: 5 });
 const layoutAt = (x: number) => ({
@@ -87,10 +89,11 @@ type Handlers = {
 const props = () =>
   MockResponsive.mock.calls[MockResponsive.mock.calls.length - 1][0] as unknown as Handlers;
 
-function setup() {
+function setup(withOther = false) {
+  panels = withOther ? [panel, otherPanel] : [panel];
   const ctx = renderWithStore(<Connected />, {
     dashboards: { items: [{ id: "d1", name: "D", layout: layoutAt(0) }] },
-    panels: { items: [panel] },
+    panels: { items: panels, status: "succeeded" },
   });
   const store = ctx.store;
   const storeLg = () => store.getState().dashboards.items[0].layout.lg[0].x;
@@ -105,20 +108,8 @@ function setup() {
       props().onLayoutChange(rglAt(x).lg, undefined);
     });
   };
-  const undo = () => {
-    const s = store.getState();
-    const past = s.layoutHistory.byDashboard.d1.past;
-    const current = s.dashboards.items[0].layout;
-    dispatchAct(undoLayout({ dashboardId: "d1", currentLayout: current }));
-    dispatchAct(setDashboardLayoutLocally({ dashboardId: "d1", layout: past[past.length - 1] }));
-  };
-  const redo = () => {
-    const s = store.getState();
-    const target = s.layoutHistory.byDashboard.d1.future[0];
-    const current = s.dashboards.items[0].layout;
-    dispatchAct(redoLayout({ dashboardId: "d1", currentLayout: current }));
-    dispatchAct(setDashboardLayoutLocally({ dashboardId: "d1", layout: target }));
-  };
+  const undo = () => act(() => void store.dispatch(applyLayoutUndo("d1") as never));
+  const redo = () => act(() => void store.dispatch(applyLayoutRedo("d1") as never));
   const flush = async () => {
     await act(async () => {
       jest.advanceTimersByTime(AUTO_SAVE_INTERVAL_MS + 100);
@@ -248,19 +239,94 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
     expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
   });
 
-  it("drag then a non-interaction store change before flush: drag stays visible but is re-baselined (documented choice, HEL-1028 task 1.4)", async () => {
+  // HEL-1230 (D4): what a panel create writes — the store layout plus the server's placement in EVERY
+  // breakpoint (`createPanel`), never a replacement of the pending edit.
+  const placed = (base: ReturnType<typeof layoutAt>, x = 8) => {
+    const other = { panelId: "other", x, y: 0, w: 4, h: 5 };
+    return {
+      lg: [...base.lg, other],
+      md: [...base.md, other],
+      sm: [...base.sm, other],
+      xs: [...base.xs, other],
+    };
+  };
+  const created = (base: ReturnType<typeof layoutAt>, x?: number) =>
+    setDashboardLayoutLocally({ dashboardId: "d1", layout: placed(base, x) });
+
+  it("drag then a panel create before flush: the drag stays pending and the flush PATCHes it with the placement", async () => {
     const { store, storeLg, drag, dispatchAct, flush } = setup();
     drag(4);
-    // panel create: layout written on top of the dragged store layout
-    dispatchAct(
-      setDashboardLayoutLocally({
-        dashboardId: "d1",
-        layout: { ...layoutAt(4), lg: [item(4), { panelId: "other", x: 8, y: 0, w: 4, h: 5 }] },
-      }),
-    );
+    dispatchAct(created(layoutAt(4)));
     expect(storeLg()).toBe(4); // still visible
+    expect(store.getState().dashboards.hasPendingLayout).toBe(true);
     await flush();
-    // the create re-baselines exactly like any non-interaction change today: no PATCH
+    // exactly one PATCH, and only the breakpoint that differs from the (placement-extended) baseline
+    expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
+    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: placed(layoutAt(4)).lg });
+  });
+
+  it("resize then a panel create before flush stays pending and is flushed", async () => {
+    const { store, drag, dispatchAct, flush } = setup();
+    drag(2, "resize");
+    dispatchAct(created(layoutAt(2)));
+    expect(store.getState().dashboards.hasPendingLayout).toBe(true);
+    await flush();
+    expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
+    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: placed(layoutAt(2)).lg });
+  });
+
+  it("an undo/redo then a panel create stays pending and is flushed", async () => {
+    const { store, drag, undo, redo, dispatchAct, flush } = setup();
+    drag(4);
+    undo();
+    redo(); // the redone drag is the pending local edit
+    dispatchAct(created(layoutAt(4)));
+    expect(store.getState().dashboards.hasPendingLayout).toBe(true);
+    await flush();
+    expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
+    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: placed(layoutAt(4)).lg });
+  });
+
+  it("a panel create with no pending edit sends no PATCH and does not mark pending", async () => {
+    const { store, dispatchAct, flush } = setup();
+    dispatchAct(created(layoutAt(0)));
+    expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
+    await flush();
+    expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
+  });
+
+  it("drag onto the cell the server then places the new panel in: the flushed PATCH is valid, never overlapping", async () => {
+    const { drag, dispatchAct, flush } = setup(true);
+    drag(8); // panel-1 now occupies lg x 8..12
+    dispatchAct(created(layoutAt(8), 8)); // the server placed "other" at the same cell (its pre-drag view)
+    await flush();
+    expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
+    const sent = updateDashboardLayoutMock.mock.calls[0][1].lg ?? [];
+    expect(sent).toHaveLength(2);
+    for (const a of sent) {
+      expect(a.x).toBeGreaterThanOrEqual(0);
+      expect(a.x + a.w).toBeLessThanOrEqual(12);
+      for (const b of sent) {
+        if (a === b) continue;
+        const overlap = a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+        expect(overlap).toBe(false);
+      }
+    }
+  });
+
+  it("a no-op undo (target is the reference-identical current layout) cannot capture a later server layout (HEL-1230, D2)", async () => {
+    const { store, undo, dispatchAct, flush } = setup();
+    // A zero-move drag pushes a snapshot of the very layout object the store holds: the undo's
+    // `setDashboardLayoutLocally` then writes the same reference, so the store layout never changes
+    // but the history revision is bumped and left stale.
+    const current = store.getState().dashboards.items[0].layout;
+    dispatchAct(pushLayoutSnapshot({ dashboardId: "d1", layout: current }));
+    undo();
+    expect(store.getState().dashboards.items[0].layout).toBe(current);
+    expect(store.getState().layoutHistory.byDashboard.d1.revision).toBe(1);
+    // A server/external layout then lands: it must re-baseline, not be read as the undo's write.
+    dispatchAct(setDashboardLayoutLocally({ dashboardId: "d1", layout: layoutAt(8) }));
+    await flush();
     expect(updateDashboardLayoutMock).not.toHaveBeenCalled();
     expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
   });

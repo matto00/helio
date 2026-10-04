@@ -14,6 +14,7 @@ import {
 } from "../services/dashboardService";
 import { applyDashboardProposal as applyDashboardProposalRequest } from "../services/proposalService";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
+import { areDashboardLayoutsEqual } from "./dashboardLayout";
 import type { RootState } from "../../../store/store";
 import type {
   Dashboard,
@@ -150,9 +151,14 @@ export const renameDashboard = createAsyncThunk<
   }
 });
 
+/**
+ * `layout` is the PATCH body (changed breakpoints only). `sentLayout` (HEL-1230) is the full authored
+ * layout that PATCH represents; it never goes on the wire. The fulfilled reducer compares it with the
+ * layout in the store at response time to tell whether the user edited while the request was in flight.
+ */
 export const updateDashboardLayout = createAsyncThunk<
   Dashboard,
-  { dashboardId: string; layout: Partial<DashboardLayout> },
+  { dashboardId: string; layout: Partial<DashboardLayout>; sentLayout: DashboardLayout },
   { rejectValue: string }
 >(
   "dashboards/updateDashboardLayout",
@@ -308,10 +314,20 @@ const dashboardsSlice = createSlice({
         );
       })
       .addCase(updateDashboardLayout.fulfilled, (state, action) => {
-        state.hasPendingLayout = false;
-        state.items = state.items.map((dashboard) =>
-          dashboard.id === action.payload.id ? action.payload : dashboard,
-        );
+        // HEL-1230 (D5): a response never overwrites a NEWER local layout. If the store's layout still
+        // equals what was sent, adopt the server's layout and clear pending (the PATCH covered it).
+        // Otherwise keep the local layout object BY REFERENCE (so RGL and `useLayoutSave`'s effect do
+        // not re-run on it), update every other field, and leave `hasPendingLayout` for `useLayoutSave`
+        // to recompute against the server baseline: the newer edit stays pending for the next flush.
+        const { sentLayout } = action.meta.arg;
+        state.items = state.items.map((dashboard) => {
+          if (dashboard.id !== action.payload.id) return dashboard;
+          if (areDashboardLayoutsEqual(dashboard.layout, sentLayout)) {
+            state.hasPendingLayout = false;
+            return action.payload;
+          }
+          return { ...action.payload, layout: dashboard.layout };
+        });
       })
       .addCase(createDashboard.fulfilled, (state, action) => {
         upsertDashboardById(state.items, action.payload);

@@ -3,6 +3,7 @@ import {
   layoutHistoryReducer,
   pushLayoutSnapshot,
   redoLayout,
+  selectAppliedLayout,
   selectCanRedo,
   selectCanUndo,
   selectLayoutRevision,
@@ -49,6 +50,7 @@ describe("layoutHistorySlice", () => {
             past: [layoutA],
             future: [layoutB],
             revision: 0,
+            applied: null,
           },
         },
       };
@@ -180,5 +182,26 @@ describe("layout revision (HEL-1028)", () => {
     state = layoutHistoryReducer(state, redoLayout({ dashboardId, currentLayout: layoutA }));
     expect(selectLayoutRevision(dashboardId)(root(state))).toBe(2);
     expect(selectLayoutRevision(null)(root(state))).toBe(0);
+  });
+});
+
+describe("applied layout (HEL-1230)", () => {
+  const root = (s: ReturnType<typeof layoutHistoryReducer>) => ({ layoutHistory: s }) as never;
+
+  it("is the layout an effective undo/redo restored; push and no-ops leave it untouched", () => {
+    let state = layoutHistoryReducer(undefined, { type: "@@INIT" });
+    expect(selectAppliedLayout(dashboardId)(root(state))).toBeNull();
+    state = layoutHistoryReducer(state, undoLayout({ dashboardId, currentLayout: layoutB }));
+    expect(selectAppliedLayout(dashboardId)(root(state))).toBeNull();
+    state = layoutHistoryReducer(state, pushLayoutSnapshot({ dashboardId, layout: layoutA }));
+    expect(selectAppliedLayout(dashboardId)(root(state))).toBeNull();
+    state = layoutHistoryReducer(state, undoLayout({ dashboardId, currentLayout: layoutB }));
+    expect(selectAppliedLayout(dashboardId)(root(state))).toEqual(layoutA);
+    state = layoutHistoryReducer(state, pushLayoutSnapshot({ dashboardId, layout: layoutC }));
+    expect(selectAppliedLayout(dashboardId)(root(state))).toEqual(layoutA);
+    state = layoutHistoryReducer(state, undoLayout({ dashboardId, currentLayout: layoutB }));
+    state = layoutHistoryReducer(state, redoLayout({ dashboardId, currentLayout: layoutC }));
+    expect(selectAppliedLayout(dashboardId)(root(state))).toEqual(layoutB);
+    expect(selectAppliedLayout(null)(root(state))).toBeNull();
   });
 });

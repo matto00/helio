@@ -7,6 +7,9 @@
 // interval, the dashboard-switch flush + reset, the Save-now registration
 // (`SaveStateContext`), and the imperative flush handle.
 //
+// HEL-1230: this tick/Save-now slot is the ONLY thing that persists a drag/resize/undo/redo layout
+// edit (no debounce); how the store layout is classified is the contract in `useLayoutSave.ts`.
+//
 // Layout persistence is deliberately NOT owned here: it stays structurally
 // desktop-only in `useLayoutSave` (mounted only by `DesktopPanelGrid`). This
 // hook holds a layout-flush *slot* (`layoutFlushRef`) that `useLayoutSave`

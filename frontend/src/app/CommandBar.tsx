@@ -5,16 +5,9 @@ import { UserMenu } from "../features/auth/ui/UserMenu";
 import { logout } from "../features/auth/state/authSlice";
 import { startNewConversation } from "../features/assistant/state/assistantConversationsSlice";
 import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
-import { setDashboardLayoutLocally } from "../features/dashboards/state/dashboardsSlice";
 import type { DashboardAppearance } from "../features/dashboards/types/dashboard";
-import {
-  redoLayout,
-  selectCanRedo,
-  selectCanUndo,
-  selectRedoLayout,
-  selectUndoLayout,
-  undoLayout,
-} from "../features/layout/state/layoutHistorySlice";
+import { selectCanRedo, selectCanUndo } from "../features/layout/state/layoutHistorySlice";
+import { applyLayoutRedo, applyLayoutUndo } from "../features/layout/state/layoutHistoryThunks";
 import { useLayoutUndoRedo } from "../features/layout/hooks/useLayoutUndoRedo";
 import { useCreatePanelAction } from "../features/panels/hooks/useCreatePanelAction";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
@@ -109,25 +102,16 @@ export function CommandBar({
 
   const canUndo = useAppSelector(selectCanUndo(selectedDashboardId));
   const canRedo = useAppSelector(selectCanRedo(selectedDashboardId));
-  const undoTarget = useAppSelector(selectUndoLayout(selectedDashboardId));
-  const redoTarget = useAppSelector(selectRedoLayout(selectedDashboardId));
 
   useLayoutUndoRedo(selectedDashboardId);
 
+  // HEL-1230: the buttons and the keyboard shortcuts share one traversal implementation.
   function handleUndo() {
-    if (!selectedDashboardId || !undoTarget || !selectedDashboard) return;
-    dispatch(
-      undoLayout({ dashboardId: selectedDashboardId, currentLayout: selectedDashboard.layout }),
-    );
-    dispatch(setDashboardLayoutLocally({ dashboardId: selectedDashboardId, layout: undoTarget }));
+    if (selectedDashboardId) dispatch(applyLayoutUndo(selectedDashboardId));
   }
 
   function handleRedo() {
-    if (!selectedDashboardId || !redoTarget || !selectedDashboard) return;
-    dispatch(
-      redoLayout({ dashboardId: selectedDashboardId, currentLayout: selectedDashboard.layout }),
-    );
-    dispatch(setDashboardLayoutLocally({ dashboardId: selectedDashboardId, layout: redoTarget }));
+    if (selectedDashboardId) dispatch(applyLayoutRedo(selectedDashboardId));
   }
 
   async function handleLogout() {

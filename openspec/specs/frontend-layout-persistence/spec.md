@@ -1,7 +1,7 @@
 ## Purpose
 
 Defines how the frontend loads, persists, and reconciles dashboard panel layouts. Covers hydration
-from saved backend state, debounced persistence of drag/resize changes, undo/redo persistence, and
+from saved backend state, deferred (auto-save, Save now, unmount) persistence of drag/resize changes, undo/redo persistence, and
 fallback position computation for panels missing from saved layouts.
 ## Requirements
 ### Requirement: The frontend hydrates the grid from saved dashboard layouts
