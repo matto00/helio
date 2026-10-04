@@ -972,12 +972,17 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       title: "Delete data source",
       description:
         "Permanently delete a data source (DELETE /api/data-sources/:id). Refused with a 409 " +
-        "whenever ANY pipeline has this source as a root (sole root or one of several) -- the " +
-        "error names the referencing pipelines you can see (and says how many you cannot). Nothing " +
-        "is deleted in that case. To proceed, call remove_root for the source's root in each " +
-        "referencing pipeline (a pipeline's last root cannot be removed -- delete that pipeline " +
-        "with delete_pipeline instead), then retry. An unreferenced source deletes immediately. " +
-        "Irreversible.",
+        "whenever the source is still referenced by ANY configuration: a pipeline ROOT (sole or one of " +
+        "several), a join / lookup / union step whose secondary input is this source, an upsert step " +
+        "whose target is this existing source, or a FORM panel bound to it. Nothing is deleted in " +
+        "that case. The 409 names the referencing pipelines (with the reference kinds each holds: " +
+        "root, join, lookup, union, upsertTarget) and form panels you can see, and says how many " +
+        "references you cannot see (those still block, unnamed). To proceed, clear each reference " +
+        "and retry: a root via remove_root (a pipeline's last root cannot be removed -- delete that " +
+        "pipeline with delete_pipeline instead); a join/lookup/union secondary input or an upsert " +
+        "target via update_pipeline_step (point it at another source or a lane) or " +
+        "delete_pipeline_step; a form panel via update_panel (bind it elsewhere) or delete_panel. " +
+        "An unreferenced source deletes immediately. Irreversible.",
       inputSchema: { dataSourceId: z.string().min(1) },
     },
     ({ dataSourceId }) => guarded(() => api.deleteDataSource(dataSourceId)),

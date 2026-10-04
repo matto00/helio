@@ -494,10 +494,10 @@ class V100ZeroRootGuardNonSuperuserSpec
 
       // Fixture liveness (mandatory, design D10): without this, a fixture that drifts back into
       // visibility would silently downgrade this gate into a re-test of the visible path.
-      val refs = await(dataSourceRepo.rootReferences(dsId, authUser(callerId)))
+      val refs = await(dataSourceRepo.findReferences(dsId, authUser(callerId)))
       withClue("fixture liveness -- the caller must be able to SEE nothing yet the pipeline must be counted: ") {
-        refs.visible shouldBe empty
-        refs.hiddenCount shouldBe 1
+        refs.pipelines shouldBe empty
+        refs.hiddenPipelineCount shouldBe 1
       }
 
       val result = await(service.delete(dsId, authUser(callerId)))
@@ -512,9 +512,9 @@ class V100ZeroRootGuardNonSuperuserSpec
       val strangerId = UUID.randomUUID().toString
       val (dsId, pid, _) = seedRootedSource(sourceOwnerId = callerId, pipelineOwnerId = strangerId)
 
-      val refs = await(dataSourceRepo.rootReferences(dsId, authUser(callerId)))
-      refs.visible shouldBe empty // fixture liveness, mandatory
-      refs.hiddenCount shouldBe 1
+      val refs = await(dataSourceRepo.findReferences(dsId, authUser(callerId)))
+      refs.pipelines shouldBe empty // fixture liveness, mandatory
+      refs.hiddenPipelineCount shouldBe 1
 
       val result = await(service.delete(dsId, authUser(callerId)))
       val conflict = result.left.toOption.get.conflict.get
@@ -547,9 +547,9 @@ class V100ZeroRootGuardNonSuperuserSpec
       val secondRootDs = seedBareSource(strangerId)
       val (dsId, pid, filePath) = seedRootedSource(sourceOwnerId = callerId, pipelineOwnerId = strangerId, extraRootDsIds = Vector(secondRootDs.value))
 
-      val refs = await(dataSourceRepo.rootReferences(dsId, authUser(callerId)))
-      refs.visible shouldBe empty // fixture liveness
-      refs.hiddenCount shouldBe 1
+      val refs = await(dataSourceRepo.findReferences(dsId, authUser(callerId)))
+      refs.pipelines shouldBe empty // fixture liveness
+      refs.hiddenPipelineCount shouldBe 1
 
       val result = await(service.delete(dsId, authUser(callerId)))
       val conflict = result.left.toOption.get.conflict.get

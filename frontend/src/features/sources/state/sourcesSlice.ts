@@ -84,13 +84,23 @@ export const createSqlSource = createAsyncThunk<
   }
 });
 
-/** HEL-989: `DELETE /api/data-sources/:id` answers 409 when ANY pipeline roots on the source.
- *  Kept as a structured rejection (not the generic string) so the UI can name the pipelines and
- *  link to them; `pipelines` lists only those the caller may see (possibly empty). */
+/** HEL-989 / HEL-1252: `DELETE /api/data-sources/:id` answers 409 when ANY persisted config still references the
+ *  source (pipeline root, join/lookup/union input, upsert target, form-panel binding). Kept as a structured
+ *  rejection (not the generic string) so the UI can name the referencing resources and link to them;
+ *  `pipelines`/`panels` list only those the caller may see (possibly empty); references the caller cannot see
+ *  arrive only as the counts `hiddenPipelineCount`/`hiddenPanelCount`. Older servers omit `panels`/`references`
+ *  (parse as empty) and the counts (parse as `undefined`). The notice falls back to `message` only when the body
+ *  has no named references AND no structured counts; with absent counts plus a named reference the hidden mention
+ *  is dropped (a deploy-skew limitation). */
 export interface SourceDeleteConflict {
   kind: "conflict";
   message: string;
-  pipelines: { id: string; name: string }[];
+  pipelines: { id: string; name: string; references: string[] }[];
+  panels: { id: string; title: string; dashboardId: string; dashboardName: string }[];
+  /** Referencing resources the caller cannot see -- COUNTS only, never an identity. `undefined` = an older server
+   *  that sends no structured counts (the notice falls back to `message` only if nothing is named either). */
+  hiddenPipelineCount?: number;
+  hiddenPanelCount?: number;
 }
 
 export function isSourceDeleteConflict(value: unknown): value is SourceDeleteConflict {
@@ -99,14 +109,51 @@ export function isSourceDeleteConflict(value: unknown): value is SourceDeleteCon
   );
 }
 
+function count(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
 function parseDeleteConflict(err: unknown): SourceDeleteConflict | null {
   if (!isAxiosError(err) || err.response?.status !== 409) return null;
-  const data = err.response.data as { message?: unknown; pipelines?: unknown } | undefined;
+  const data = err.response.data as
+    | {
+        message?: unknown;
+        pipelines?: unknown;
+        panels?: unknown;
+        hiddenPipelineCount?: unknown;
+        hiddenPanelCount?: unknown;
+      }
+    | undefined;
   const pipelines = Array.isArray(data?.pipelines)
     ? (data.pipelines as unknown[]).flatMap((p) => {
-        const entry = p as { id?: unknown; name?: unknown };
-        return typeof entry?.id === "string" && typeof entry?.name === "string"
-          ? [{ id: entry.id, name: entry.name }]
+        const entry = p as { id?: unknown; name?: unknown; references?: unknown };
+        if (typeof entry?.id !== "string" || typeof entry?.name !== "string") return [];
+        const references = Array.isArray(entry.references)
+          ? entry.references.filter((r): r is string => typeof r === "string")
+          : [];
+        return [{ id: entry.id, name: entry.name, references }];
+      })
+    : [];
+  const panels = Array.isArray(data?.panels)
+    ? (data.panels as unknown[]).flatMap((p) => {
+        const entry = p as {
+          id?: unknown;
+          title?: unknown;
+          dashboardId?: unknown;
+          dashboardName?: unknown;
+        };
+        return typeof entry?.id === "string" &&
+          typeof entry?.title === "string" &&
+          typeof entry?.dashboardId === "string" &&
+          typeof entry?.dashboardName === "string"
+          ? [
+              {
+                id: entry.id,
+                title: entry.title,
+                dashboardId: entry.dashboardId,
+                dashboardName: entry.dashboardName,
+              },
+            ]
           : [];
       })
     : [];
@@ -115,8 +162,11 @@ function parseDeleteConflict(err: unknown): SourceDeleteConflict | null {
     message:
       typeof data?.message === "string" && data.message
         ? data.message
-        : "This source is still used by a pipeline.",
+        : "This source is still referenced by a pipeline or panel.",
     pipelines,
+    panels,
+    hiddenPipelineCount: count(data?.hiddenPipelineCount),
+    hiddenPanelCount: count(data?.hiddenPanelCount),
   };
 }
 

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/data-source-delete-conflict-panel-response.schema.json",
+  "title": "DataSourceDeleteConflictPanelResponse",
+  "description": "One form panel bound to the source whose dashboard the caller may see, named in the DELETE /api/data-sources/:id 409 body (HEL-1252). Panels on dashboards the caller cannot see are never listed.",
+  "type": "object",
+  "required": ["id", "title", "dashboardId", "dashboardName"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "dashboardId": { "type": "string", "minLength": 1 },
+    "dashboardName": { "type": "string" }
+  },
+  "additionalProperties": false
+}

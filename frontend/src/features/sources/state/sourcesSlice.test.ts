@@ -200,11 +200,17 @@ describe("deleteSource thunk (HEL-989 any-reference 409)", () => {
 
   beforeEach(() => deleteSourceMock.mockReset());
 
-  it("preserves the 409 reason and the named pipelines as a structured rejection", async () => {
+  it("preserves the 409 message, the named pipelines and panels, and the hidden counts as a structured rejection", async () => {
     deleteSourceMock.mockRejectedValue(
       axios409({
-        message: "this source is a root of pipeline(s) 'Sales' (p-1); remove it first",
-        pipelines: [{ id: "p-1", name: "Sales" }, { id: 7 }],
+        message: "this source is still referenced by pipeline(s) 'Sales' (p-1); remove it first",
+        pipelines: [{ id: "p-1", name: "Sales", references: ["root", "join", 3] }, { id: 7 }],
+        panels: [
+          { id: "pn-1", title: "Entry", dashboardId: "d-1", dashboardName: "Ops" },
+          { id: "pn-2", title: "no dashboard" },
+        ],
+        hiddenPipelineCount: 2,
+        hiddenPanelCount: "x",
       }),
     );
     const result = await makeStore().dispatch(deleteSource("s-1"));
@@ -213,8 +219,24 @@ describe("deleteSource thunk (HEL-989 any-reference 409)", () => {
     expect(isSourceDeleteConflict(payload)).toBe(true);
     expect(payload).toEqual({
       kind: "conflict",
-      message: "this source is a root of pipeline(s) 'Sales' (p-1); remove it first",
-      pipelines: [{ id: "p-1", name: "Sales" }],
+      message: "this source is still referenced by pipeline(s) 'Sales' (p-1); remove it first",
+      pipelines: [{ id: "p-1", name: "Sales", references: ["root", "join"] }],
+      panels: [{ id: "pn-1", title: "Entry", dashboardId: "d-1", dashboardName: "Ops" }],
+      hiddenPipelineCount: 2,
+      hiddenPanelCount: undefined,
+    });
+  });
+
+  it("parses a pre-HEL-1252 body (no panels, no references) tolerantly as empty", async () => {
+    deleteSourceMock.mockRejectedValue(
+      axios409({ message: "old server", pipelines: [{ id: "p-1", name: "Sales" }] }),
+    );
+    const result = await makeStore().dispatch(deleteSource("s-1"));
+    expect((result as { payload: unknown }).payload).toEqual({
+      kind: "conflict",
+      message: "old server",
+      pipelines: [{ id: "p-1", name: "Sales", references: [] }],
+      panels: [],
     });
   });
 

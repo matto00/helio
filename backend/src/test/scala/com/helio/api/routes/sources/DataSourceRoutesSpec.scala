@@ -26,6 +26,7 @@ import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.services.sources.ContentSourceSupport
 import com.helio.testsupport.PdfFixtures
 import scala.concurrent.Future
+import com.helio.testsupport.JsonSchemaValidation
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -196,6 +197,19 @@ class DataSourceRoutesSpec
     pipelineId
   }
 
+  /** HEL-1252: the 409 body against the `schemas/sources/data-source-delete-conflict-*` contracts. The top-level
+   *  schema `$ref`s its entry schemas by `$id` (an unresolvable host offline), so each entry is validated against its
+   *  own schema and the top-level key set is pinned to the schema's `required` list. */
+  private def assertConflictMatchesSchemas(body: JsObject): Unit = {
+    body.fields.keySet shouldBe Set("resourceKind", "resourceId", "resourceName", "reason", "message", "pipelines", "panels", "hiddenPipelineCount", "hiddenPanelCount")
+    body.fields("hiddenPipelineCount").convertTo[Int] shouldBe 0
+    body.fields("hiddenPanelCount").convertTo[Int] shouldBe 0
+    val pipelineSchema = JsonSchemaValidation.compile("sources/data-source-delete-conflict-pipeline-response.schema.json")
+    val panelSchema    = JsonSchemaValidation.compile("sources/data-source-delete-conflict-panel-response.schema.json")
+    body.fields("pipelines").convertTo[Vector[JsValue]].foreach(p => JsonSchemaValidation.validationErrors(pipelineSchema, p.compactPrint) shouldBe empty)
+    body.fields("panels").convertTo[Vector[JsValue]].foreach(p => JsonSchemaValidation.validationErrors(panelSchema, p.compactPrint) shouldBe empty)
+  }
+
   private def countRows(sql: String): Int = {
     import slick.jdbc.PostgresProfile.api._
     await(db.run(sql"#$sql".as[Int].head))
@@ -222,6 +236,33 @@ class DataSourceRoutesSpec
              VALUES ($panelId, $dashboardId, 'p', 'test', now(), now(), '{}', 'text', $outputId, $testUserId::uuid)"""
     ))
     panelId
+  }
+
+  /** HEL-1252: adds a step carrying `config` to the pipeline's first root (privileged-free: this spec's pools are one superuser). */
+  private def seedStep(pipelineId: String, op: String, config: String): Unit = {
+    import slick.jdbc.PostgresProfile.api._
+    val rootId = await(db.run(sql"SELECT id FROM pipeline_roots WHERE pipeline_id = $pipelineId ORDER BY position LIMIT 1".as[String].head))
+    await(db.run(
+      sqlu"""INSERT INTO pipeline_steps (id, pipeline_id, position, op, config, root_id, enabled)
+             VALUES (${UUID.randomUUID().toString}, $pipelineId, 0, $op, $config, $rootId, true)"""
+    ))
+  }
+
+  /** HEL-1252: a form panel (and its dashboard) bound to `sourceId`, owned by the test user. */
+  private def seedFormPanel(sourceId: String, dashboardName: String, panelTitle: String): (String, String) = {
+    import slick.jdbc.PostgresProfile.api._
+    val dashboardId = UUID.randomUUID().toString
+    val panelId     = UUID.randomUUID().toString
+    val formConfig  = s"""{"dataSourceId":"$sourceId","fields":[],"submit":{}}"""
+    await(db.run(
+      sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
+             VALUES ($dashboardId, $dashboardName, 'test', now(), now(), '{}', '{}', $testUserId::uuid)"""
+    ))
+    await(db.run(
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id, form_config)
+             VALUES ($panelId, $dashboardId, $panelTitle, 'test', now(), now(), '{}', 'form', $testUserId::uuid, $formConfig::jsonb)"""
+    ))
+    (dashboardId, panelId)
   }
 
   /** A bare, owned `data_sources` row (never fetched, only FK'd from `pipeline_roots`) for
@@ -956,6 +997,88 @@ class DataSourceRoutesSpec
         val pipelines = responseAs[JsValue].asJsObject.fields("pipelines").convertTo[Vector[JsValue]].map(_.asJsObject)
         pipelines.map(_.fields("id").convertTo[String]) shouldBe Vector(pipelineId)
       }
+    }
+
+    // HEL-1252: every persisted config reference blocks the delete -- not only roots.
+    for ((op, kind, config) <- Seq(
+      ("join", "join", (id: String) => s"""{"secondaryInput":{"kind":"source","dataSourceId":"$id"}}"""),
+      ("lookup", "lookup", (id: String) => s"""{"secondaryInput":{"kind":"source","dataSourceId":"$id"}}"""),
+      ("union", "union", (id: String) => s"""{"secondaryInput":{"kind":"source","dataSourceId":"$id"}}"""),
+      ("upsertsource", "upsertTarget", (id: String) => s"""{"target":{"kind":"existingSource","dataSourceId":"$id"},"mode":"append"}""")
+    ).map { case (a, b, c) => (a, b, c) }) {
+      s"return 409 naming the pipeline with reference kind $kind when a $op step references the source" in {
+        cleanDb()
+        var sourceId = ""
+        Post("/api/data-sources", multipartUpload(s"Ref $kind Source", validCsv)) ~> routes() ~> check {
+          sourceId = responseAs[DataSourceResponse].id
+        }
+        val baseId     = seedExtraRootDataSource()
+        val pipelineId = seedSoleRootPipeline(baseId, name = s"Pipeline $kind")
+        seedStep(pipelineId, op, config(sourceId))
+
+        Delete(s"/api/data-sources/$sourceId") ~> routes() ~> check {
+          status shouldBe StatusCodes.Conflict
+          val body      = responseAs[JsValue].asJsObject
+          val pipelines = body.fields("pipelines").convertTo[Vector[JsValue]].map(_.asJsObject)
+          pipelines.map(_.fields("id").convertTo[String]) shouldBe Vector(pipelineId)
+          pipelines.head.fields("references").convertTo[Vector[String]] shouldBe Vector(kind)
+          body.fields("panels").convertTo[Vector[JsValue]] shouldBe empty
+          body.fields("message").convertTo[String] shouldBe body.fields("reason").convertTo[String]
+          body.compactPrint should not include "SQLSTATE"
+          assertConflictMatchesSchemas(body)
+        }
+        countRows(s"SELECT count(*) FROM data_sources WHERE id = '$sourceId'") shouldBe 1
+      }
+    }
+
+    "return 409 naming the form panel, its dashboard id and name, when a form panel is bound to the source" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Form Bound Source", validCsv)) ~> routes() ~> check {
+        sourceId = responseAs[DataSourceResponse].id
+      }
+      val (dashboardId, panelId) = seedFormPanel(sourceId, "Ops board", "Entry form")
+
+      Delete(s"/api/data-sources/$sourceId") ~> routes() ~> check {
+        status shouldBe StatusCodes.Conflict
+        val body   = responseAs[JsValue].asJsObject
+        val panels = body.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
+        panels.map(_.fields("id").convertTo[String])            shouldBe Vector(panelId)
+        panels.map(_.fields("title").convertTo[String])         shouldBe Vector("Entry form")
+        panels.map(_.fields("dashboardId").convertTo[String])   shouldBe Vector(dashboardId)
+        panels.map(_.fields("dashboardName").convertTo[String]) shouldBe Vector("Ops board")
+        body.fields("pipelines").convertTo[Vector[JsValue]] shouldBe empty
+        assertConflictMatchesSchemas(body)
+      }
+      countRows(s"SELECT count(*) FROM panels WHERE id = '$panelId'") shouldBe 1
+    }
+
+    "still return 409 when the only referencing step is DISABLED" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Disabled Ref Source", validCsv)) ~> routes() ~> check {
+        sourceId = responseAs[DataSourceResponse].id
+      }
+      val pipelineId = seedSoleRootPipeline(seedExtraRootDataSource(), name = "Disabled Step Pipeline")
+      seedStep(pipelineId, "join", s"""{"secondaryInput":{"kind":"source","dataSourceId":"$sourceId"}}""")
+      import slick.jdbc.PostgresProfile.api._
+      await(db.run(sqlu"UPDATE pipeline_steps SET enabled = false WHERE pipeline_id = $pipelineId"))
+
+      Delete(s"/api/data-sources/$sourceId") ~> routes() ~> check { status shouldBe StatusCodes.Conflict }
+    }
+
+    "return 204 when the only 'references' are a lane input, a new-source upsert and an empty draft input" in {
+      cleanDb()
+      var sourceId = ""
+      Post("/api/data-sources", multipartUpload("Non Ref Source", validCsv)) ~> routes() ~> check {
+        sourceId = responseAs[DataSourceResponse].id
+      }
+      val pipelineId = seedSoleRootPipeline(seedExtraRootDataSource(), name = "Non Ref Pipeline")
+      seedStep(pipelineId, "join", """{"secondaryInput":{"kind":"lane","stepId":"x"}}""")
+      seedStep(pipelineId, "union", """{"secondaryInput":{"kind":"source","dataSourceId":""}}""")
+      seedStep(pipelineId, "upsertsource", """{"target":{"kind":"newSource","name":"n"},"mode":"append"}""")
+
+      Delete(s"/api/data-sources/$sourceId") ~> routes() ~> check { status shouldBe StatusCodes.NoContent }
     }
 
     "return 204 for an unreferenced source (control)" in {

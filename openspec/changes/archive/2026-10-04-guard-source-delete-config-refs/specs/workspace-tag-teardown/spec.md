@@ -1,38 +1,4 @@
-# workspace-tag-teardown Specification
-
-## Purpose
-Lets an agentic workflow tear down every data source, pipeline, and DataType carrying a given
-tag in one owner-scoped, all-or-nothing call, refusing entirely rather than reaching resources
-outside that tag's batch, with a dry-run preview of exactly what the call would delete.
-
-## Requirements
-
-### Requirement: Bulk teardown deletes exactly the resources carrying a given tag
-Teardown SHALL delete every tagged resource across dashboards, panels, pipelines, and data
-sources. The prior `resourceKind = "data_type"` branch no longer exists — Outputs are torn down
-transitively via `ON DELETE CASCADE` from their owning pipeline, not as an independently tagged
-resource kind.
-
-#### Scenario: Tagged dashboards, panels, pipelines, and sources are deleted
-- **WHEN** teardown runs for a tag present on at least one resource of each surviving kind
-- **THEN** every resource carrying that tag is deleted
-
-#### Scenario: Deleting a tagged pipeline cascades its Outputs
-- **WHEN** a tagged pipeline with Outputs attached is torn down
-- **THEN** its Outputs (and any panels placing them) are deleted via cascade, with no separate
-  `data_type` teardown branch invoked
-
-#### Scenario: Teardown deletes only the tagged set
-- **WHEN** a caller has data sources/pipelines tagged `T` and other resources tagged
-  differently or untagged, and calls `POST /api/workspace/teardown {tag: "T"}`
-- **THEN** every resource tagged `T` is deleted (Outputs on a torn-down pipeline cascade with it),
-  every other resource (regardless of tag) is untouched, and the response counts match exactly the
-  number of resources tagged `T` per surviving kind
-
-#### Scenario: Teardown with no matching tag deletes nothing
-- **WHEN** `POST /api/workspace/teardown {tag: "nonexistent"}` is called and no owned resource
-  carries that tag
-- **THEN** the call succeeds with zero deletions for every kind and nothing is deleted
+## MODIFIED Requirements
 
 ### Requirement: Teardown refuses when a tagged resource has a dependent outside this batch
 The teardown call SHALL be refused in its entirety — no resource deleted — when a tagged data source is referenced
@@ -90,41 +56,6 @@ out-of-batch dependents causing the block, named only when visible to the caller
 - **THEN** the source-link guard does not block on this pairing — both the data source and its
   companion DataType are deleted in the same call
 
-### Requirement: Teardown is all-or-nothing
-Validation (computing the tagged set and any blocking conflicts) and deletion SHALL run inside a
-single database transaction. Either every resource in the tagged set is deleted, or none are.
-
-#### Scenario: A blocked teardown deletes nothing, even for the unblocked portion of the tagged set
-- **WHEN** a tagged set contains some resources with no conflicts and one resource that is
-  blocked
-- **THEN** none of the tagged set is deleted — not even the unblocked resources
-
-### Requirement: Teardown supports a dry-run preview
-`POST /api/workspace/teardown` SHALL accept an optional `dryRun: true` flag. When set, the same
-validation and plan computation SHALL run, and the response SHALL report the same shape
-(counts and/or conflicts) that a non-dry-run call would produce, but no resource SHALL be
-deleted.
-
-#### Scenario: Dry run reports would-be counts without deleting
-- **WHEN** `POST /api/workspace/teardown {tag: "T", dryRun: true}` is called against a clean
-  (unblocked) tagged set
-- **THEN** the response reports the counts that would be deleted, `dryRun: true`, and no
-  resource is actually deleted
-
-#### Scenario: Dry run surfaces the same conflicts a real call would hit
-- **WHEN** `POST /api/workspace/teardown {tag: "T", dryRun: true}` is called against a tagged set
-  that has a blocking untagged dependent
-- **THEN** the response reports the same conflict that a non-dry-run call would report
-
-### Requirement: Teardown is idempotent
-Calling teardown a second time with the same tag, after a successful first call, SHALL delete
-nothing and report zero counts.
-
-#### Scenario: Repeat teardown call is a no-op
-- **WHEN** `POST /api/workspace/teardown {tag: "T"}` succeeds and is called again with the same
-  tag
-- **THEN** the second call returns `sourcesDeleted: 0, pipelinesDeleted: 0, typesDeleted: 0` and
-  deletes nothing
 
 ### Requirement: Teardown is owner-scoped
 Teardown SHALL only ever delete and count resources owned by the calling user. A foreign-owned resource carrying the

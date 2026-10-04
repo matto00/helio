@@ -92,6 +92,21 @@ async function deleteSource(request: APIRequestContext, id: string): Promise<voi
   await request.delete(`/api/data-sources/${id}`, { headers: { [CSRF_HEADER]: "1" } });
 }
 
+/** Replaces the dataset's schema without `delta` -- the field the compact counter panel submits. */
+async function dropDeltaField(request: APIRequestContext, sourceId: string): Promise<void> {
+  const res = await request.patch(`/api/data-sources/${sourceId}/schema`, {
+    data: {
+      fields: [
+        { name: "occurred_at", type: "timestamp" },
+        { name: "value", type: "integer" },
+      ],
+      confirmDrop: true,
+    },
+    headers: { [CSRF_HEADER]: "1" },
+  });
+  expect(res.status()).toBe(200);
+}
+
 async function deleteDashboard(request: APIRequestContext, id: string): Promise<void> {
   await request.delete(`/api/dashboards/${id}`, { headers: { [CSRF_HEADER]: "1" } });
 }
@@ -149,14 +164,18 @@ test.describe("HEL-1088 compact single-counter-field layout (real backend)", () 
 
       const afterSuccess = await rowCount(request, source.id);
 
-      // Rejection: delete the bound source's field shape out from under the panel by deleting the
-      // source entirely, forcing the next submit to fail server-side — the optimistic tally must
-      // revert and no row is written anywhere.
-      await deleteSource(request, source.id);
+      // Rejection: drop the bound `delta` field from the dataset's schema (PATCH .../schema, a full
+      // replacement; `confirmDrop` because the earlier submits wrote rows). The panel still binds
+      // `delta`, so the next submit is refused BY THE SERVER (HEL-1087 field validation, 400) -- a real
+      // server-side rejection, not client-blocked and not network-faked. (HEL-1252: deleting the
+      // bound source is no longer an option: that now 409s while a form panel is bound to it.)
+      await dropDeltaField(request, source.id);
       const increaseButton = page.getByRole("button", { name: /increase widgets/i });
       await increaseButton.click();
       await expect(control).toHaveAttribute("aria-valuenow", "0", { timeout: 5000 });
       await expect(page.locator(".form-panel-view__alert")).not.toHaveText("");
+      // The rejected submit wrote nothing (the source still exists now, so this is directly measurable).
+      expect(await rowCount(request, source.id)).toBe(afterSuccess);
 
       for (const theme of ["dark", "light"] as const) {
         if (theme === "light") {
@@ -176,7 +195,9 @@ test.describe("HEL-1088 compact single-counter-field layout (real backend)", () 
       // refactor that drops the intermediate assertions doesn't leave it unused-and-silently-stale.
       expect(afterSuccess).toBe(before + 2);
     } finally {
+      // Dashboard (and its form panel) first: the source delete 409s while a panel still binds it.
       if (dashboard) await deleteDashboard(request, dashboard.id);
+      await deleteSource(request, source.id);
     }
   });
 });

@@ -18,19 +18,28 @@ import spray.json._
 /** HEL-987 design.md Decision 3/3a: `DELETE /api/data-sources/:id`'s structured 409 body --
  *  the four teardown-compatible fields (`resourceKind`/`resourceId`/`resourceName`/`reason`,
  *  matching `TeardownConflictResponse`'s shape) plus `message`, set to the same text as `reason`
- *  so a generic client reading `error.response.data.message` (the frontend axios error path, the
- *  MCP tool whose failure filed this ticket) still gets something useful. */
+ *  so a generic client reading `error.response.data.message` (the MCP tool whose failure filed this
+ *  ticket; the frontend notice composes its own copy from the structured fields and uses `message` only as
+ *  an older-server fallback) still gets something useful. */
+// HEL-1252: `panels` is additive -- the visible form panels bound to the source; the hidden counts are counts only.
 final case class DataSourceDeleteConflictResponse(
     resourceKind: String,
     resourceId: String,
     resourceName: String,
     reason: String,
     message: String,
-    pipelines: Vector[DataSourceDeleteConflictPipelineResponse] = Vector.empty
+    pipelines: Vector[DataSourceDeleteConflictPipelineResponse] = Vector.empty,
+    panels: Vector[DataSourceDeleteConflictPanelResponse] = Vector.empty,
+    hiddenPipelineCount: Int = 0,
+    hiddenPanelCount: Int = 0
 )
 
-/** HEL-989: one referencing pipeline the caller may see, named in the delete-conflict body. */
-final case class DataSourceDeleteConflictPipelineResponse(id: String, name: String)
+/** HEL-989: one referencing pipeline the caller may see, named in the delete-conflict body. HEL-1252 adds
+ *  `references` (the kinds it holds: root, join, lookup, union, upsertTarget). */
+final case class DataSourceDeleteConflictPipelineResponse(id: String, name: String, references: Vector[String])
+
+/** HEL-1252: one form panel bound to the source whose dashboard the caller may see. */
+final case class DataSourceDeleteConflictPanelResponse(id: String, title: String, dashboardId: String, dashboardName: String)
 
 sealed trait DataSourceResponse {
   def id: String
@@ -609,9 +618,11 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
   // Declared BEFORE the conflict format: trait `val`s initialise in order, and the macro-derived
   // format captures this one at construction (a later declaration would capture null).
   implicit val dataSourceDeleteConflictPipelineResponseFormat: RootJsonFormat[DataSourceDeleteConflictPipelineResponse] =
-    jsonFormat2(DataSourceDeleteConflictPipelineResponse.apply)
+    jsonFormat3(DataSourceDeleteConflictPipelineResponse.apply)
+  implicit val dataSourceDeleteConflictPanelResponseFormat: RootJsonFormat[DataSourceDeleteConflictPanelResponse] =
+    jsonFormat4(DataSourceDeleteConflictPanelResponse.apply)
   implicit val dataSourceDeleteConflictResponseFormat: RootJsonFormat[DataSourceDeleteConflictResponse] =
-    jsonFormat6(DataSourceDeleteConflictResponse.apply)
+    jsonFormat9(DataSourceDeleteConflictResponse.apply)
 
   implicit val inferredFieldResponseFormat: RootJsonFormat[InferredFieldResponse]   = jsonFormat4(InferredFieldResponse.apply)
   implicit val inferredSchemaResponseFormat: RootJsonFormat[InferredSchemaResponse] = jsonFormat1(InferredSchemaResponse.apply)

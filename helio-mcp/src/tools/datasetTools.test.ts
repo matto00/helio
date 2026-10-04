@@ -264,11 +264,11 @@ describe("update_dataset_schema (HEL-1081)", () => {
   });
 });
 
-describe("delete_data_source any-reference conflict (HEL-989)", () => {
+describe("delete_data_source any-reference conflict (HEL-989, HEL-1252)", () => {
   it("surfaces the 409 message naming the referencing pipelines verbatim, never retried", async () => {
     let callCount = 0;
     const reason =
-      "this source is a root of pipeline(s) 'Sales' (p-1); remove it from those pipelines in the pipeline editor first";
+      "this source is still referenced by pipeline(s) 'Sales' (p-1; as join input); form panel(s) 'Entry' (pn-1) on dashboard 'Ops' (d-1); remove each reference first";
     const fakeApi = {
       deleteDataSource: async () => {
         callCount += 1;
@@ -281,7 +281,28 @@ describe("delete_data_source any-reference conflict (HEL-989)", () => {
     });
 
     expect(isError).toBe(true);
-    expect(text).toContain("'Sales' (p-1)");
+    expect(text).toContain("'Sales' (p-1");
+    expect(text).toContain("'Entry' (pn-1)");
     expect(callCount).toBe(1);
+  });
+
+  it("documents every reference kind and how to clear each in the tool description", async () => {
+    const server = createServer({} as unknown as HelioApi);
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    let description = "";
+    try {
+      const { tools } = await client.listTools();
+      description = tools.find((t) => t.name === "delete_data_source")?.description ?? "";
+    } finally {
+      await client.close();
+      await server.close();
+    }
+    for (const kind of ["root", "join", "lookup", "union", "upsert", "FORM panel"]) {
+      expect(description).toContain(kind);
+    }
+    expect(description).toContain("update_pipeline_step");
+    expect(description).toContain("update_panel");
   });
 });

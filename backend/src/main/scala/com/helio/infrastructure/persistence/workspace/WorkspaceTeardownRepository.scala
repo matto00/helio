@@ -3,8 +3,11 @@ package com.helio.infrastructure.persistence.workspace
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.sources.{DataSourceReferenceRepository, DataSourceRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceReferenceRepository.SourceReferences
 import com.helio.domain.model.AuthenticatedUser
+import org.postgresql.util.PSQLException
+import org.slf4j.LoggerFactory
 import slick.jdbc.PostgresProfile.api._
 
 import java.util.UUID
@@ -13,9 +16,15 @@ import scala.concurrent.{ExecutionContext, Future}
 /** HEL-366: tag-scoped bulk teardown — plan computation AND execution inside
  *  a single app-pool DB transaction (design.md Decision 3's hard constraint).
  *
- *  **Every read and write in [[teardown]]'s composed `DBIO` runs via
+ *  **Every read and write of the plan/delete transaction in [[teardown]] runs via
  *  `ctx.withUserContext` — never `ctx.withSystemContext`.** RLS is the
  *  owner-scoping backbone this whole feature leans on.
+ *
+ *  HEL-1252 -- the ONE deliberate exception: the out-of-batch dependent check ([[dependentConflicts]]) runs
+ *  BEFORE that transaction on the privileged pool via [[DataSourceReferenceRepository]], because an RLS
+ *  read cannot see a referencing pipeline the caller has no grant on yet the delete would still cascade into
+ *  it (or leave it dangling). Its visibility predicates are explicit (owner / named grantee), never RLS, and
+ *  a hidden referencing resource only ever contributes an unnamed count to a conflict.
  *
  *  Delete order is Pipelines → DataSources so the *reported* counts are
  *  precise (a pipeline deleted first means its later source-DataSource
@@ -36,6 +45,7 @@ class WorkspaceTeardownRepository(
 
   import WorkspaceTeardownRepository._
 
+  private val referenceRepo   = new DataSourceReferenceRepository(ctx)
   private val dataSourcesTable = TableQuery[DataSourceRepository.DataSourceTable]
   private val pipelinesTable   = TableQuery[PipelineRepository.PipelineTable]
   // HEL-907 evaluator-1 CR3: extends tag-scoped teardown to dashboards --
@@ -55,10 +65,72 @@ class WorkspaceTeardownRepository(
    *  (not a separate earlier call) — design.md Decision 3's residual-TOCTOU
    *  mitigation; there is no other read between it and the deletes in this
    *  composition. */
-  def teardown(tag: String, dryRun: Boolean, user: AuthenticatedUser): Future[TeardownOutcome] = {
-    val ownerUuid = UUID.fromString(user.id.value)
+  def teardown(tag: String, dryRun: Boolean, user: AuthenticatedUser): Future[TeardownOutcome] =
+    dependentConflicts(tag, user).flatMap { case (taggedSourceRows, preConflicts) =>
+      if (preConflicts.nonEmpty) Future.successful(blockedOutcome(preConflicts))
+      else
+        ctx.withUserContext(user.id.value)(planAndExecute(tag, dryRun, user).transactionally).recover {
+          // A dependent appeared between the pre-check and the delete and V99/V100's zero-root trigger fired.
+          // The trigger text names orphaned pipeline ids (possibly hidden from this caller), so it reaches
+          // neither the response nor a warn+ log: SQLSTATE only.
+          case ex: PSQLException if ex.getSQLState == "P0001" =>
+            log.warn(s"WorkspaceTeardownRepository.teardown: zero-root guard fired during delete (SQLSTATE ${ex.getSQLState}); nothing deleted")
+            blockedOutcome(taggedSourceRows.map(s => raceConflict(s.id, s.name)).toVector)
+        }
+    }
 
-    val action: DBIO[TeardownOutcome] = for {
+  private val log = LoggerFactory.getLogger(getClass)
+
+  private def blockedOutcome(conflicts: Vector[TeardownConflict]): TeardownOutcome =
+    TeardownOutcome(
+      blocked = true, conflicts = conflicts, committed = false, sourcesDeleted = 0, pipelinesDeleted = 0,
+      deletedSources = Vector.empty, dashboardsDeleted = 0
+    )
+
+  private def raceConflict(id: String, name: String): TeardownConflict =
+    TeardownConflict(
+      resourceKind = "data_source", resourceId = id, resourceName = name,
+      reason = "A dependent pipeline outside this tag batch appeared during teardown, so nothing was deleted."
+    )
+
+  /** HEL-1252 (design.md D4): the authoritative out-of-batch dependent check. Runs on the PRIVILEGED pool
+   *  (never RLS) via the shared reference finder, over the caller's tagged sources (explicit
+   *  `owner_id = caller AND tag = T`, never RLS). Exempt: only what THIS call deletes -- a referencing pipeline
+   *  owned by the caller and tagged T, or a form panel whose dashboard is owned by the caller and tagged T.
+   *  Everything else blocks, including another user's identically tagged pipeline (not deleted by this call)
+   *  and every hidden resource (counted, never named). Runs for dry runs too. */
+  protected def dependentConflicts(tag: String, user: AuthenticatedUser): Future[(Seq[DataSourceRepository.DataSourceRow], Vector[TeardownConflict])] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    val caller    = user.id.value.toLowerCase
+    // Privileged pool on purpose: the explicit owner + tag filter replaces RLS for this read (HEL-1252 D4).
+    ctx.withSystemContext(dataSourcesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result).flatMap { sources =>
+      referenceRepo.find(sources.map(_.id).toSet, user.id.value).map { byId =>
+        val conflicts = sources.toVector.flatMap { src =>
+          byId.get(src.id).flatMap { refs =>
+            val remaining = SourceReferences(
+              pipelines = refs.pipelines.filterNot(p => p.ownerId.toLowerCase == caller && p.tag.contains(tag)),
+              hiddenPipelineCount = refs.hiddenPipelineCount,
+              panels = refs.panels.filterNot(p => p.dashboardOwnerId.toLowerCase == caller && p.dashboardTag.contains(tag)),
+              hiddenPanelCount = refs.hiddenPanelCount
+            )
+            if (remaining.isEmpty) None
+            else Some(TeardownConflict(
+              resourceKind = "data_source", resourceId = src.id, resourceName = src.name,
+              reason = s"This data source is still referenced from outside this tag batch by ${remaining.describe}. Tag those into the batch or remove the references first."
+            ))
+          }
+        }
+        (sources, conflicts)
+      }
+    }
+  }
+
+  /** The user-context transaction: plan, in-tx narrowing re-check, then (when clean and not a dry run) the
+   *  deletes. The re-check is the last read before the DELETEs (design.md Decision 3's residual-TOCTOU
+   *  mitigation; no other read sits between). */
+  private def planAndExecute(tag: String, dryRun: Boolean, user: AuthenticatedUser): DBIO[TeardownOutcome] = {
+    val ownerUuid = UUID.fromString(user.id.value)
+    for {
       taggedSources    <- dataSourcesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
       taggedPipelines  <- pipelinesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
       taggedDashboards <- dashboardsTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
@@ -102,30 +174,29 @@ class WorkspaceTeardownRepository(
       deletedSources =
         if (committed) taggedSources.map(s => DeletedSource(s.id, s.sourceType, s.config)).toVector else Vector.empty
     )
-
-    ctx.withUserContext(user.id.value)(action.transactionally)
   }
 
-  /** design.md Decision 2 / tasks.md 3.3, DataSource→Pipeline direction:
-   *  blocks when a Pipeline exists with a root bound to this tagged DataSource's id (HEL-913:
-   *  `pipelines.source_data_source_id` is dropped -- the binding now lives on `pipeline_roots`,
-   *  joined here rather than read off `pipelines` directly) AND that Pipeline's
-   *  `tag IS DISTINCT FROM` the tag being torn down (covers both an untagged dependent and one
-   *  tagged into a different, live batch — never narrowed to a bare `tag IS NULL` check). */
+  /** In-transaction NARROWING re-check (HEL-1252: not the authoritative exemption -- [[dependentConflicts]] is).
+   *  Blocks when a pipeline VISIBLE under RLS roots on this tagged source and its `tag IS DISTINCT FROM` the tag
+   *  being torn down (covers an untagged dependent and one in a different live batch; compares tag ONLY, so
+   *  it neither exempts nor catches owner/other reference kinds). It is the last read before the deletes,
+   *  narrowing the pre-check-to-delete window for visible roots. Its conflict is IDENTITY-FREE on purpose:
+   *  on a BYPASSRLS connection this query also sees hidden pipelines, and naming them would make
+   *  non-leakage depend on RLS. (HEL-913: the binding lives on `pipeline_roots`.) */
   private def sourceDependentPipelineConflict(
       source: DataSourceRepository.DataSourceRow,
       tag: String
   ): DBIO[Option[TeardownConflict]] =
-    sql"""SELECT DISTINCT p.id, p.name FROM pipelines p
+    sql"""SELECT 1 FROM pipelines p
           JOIN pipeline_roots r ON r.pipeline_id = p.id
           WHERE r.data_source_id = ${source.id} AND p.tag IS DISTINCT FROM $tag
           LIMIT 1"""
-      .as[(String, String)].headOption.map(_.map { case (pipelineId, pipelineName) =>
+      .as[Int].headOption.map(_.map { _ =>
         TeardownConflict(
           resourceKind = "data_source",
           resourceId   = source.id,
           resourceName = source.name,
-          reason       = s"has a dependent pipeline '$pipelineName' ($pipelineId) that is not in this tag batch"
+          reason       = "This data source has a dependent pipeline outside this tag batch."
         )
       })
 }

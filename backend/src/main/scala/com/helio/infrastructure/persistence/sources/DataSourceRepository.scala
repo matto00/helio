@@ -7,7 +7,7 @@ import com.helio.domain.engine.DatasetSchemaMigration.{FieldEditSpec, MigrationR
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
 import com.helio.domain.steps.{UpsertMode, UpsertSourceConfig, UpsertTarget}
-import com.helio.infrastructure.persistence.pipelines.{PipelineRootRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import org.slf4j.LoggerFactory
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -26,6 +26,8 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   private val log = LoggerFactory.getLogger(getClass)
 
   private val table = TableQuery[DataSourceTable]
+
+  private val referenceRepo = new DataSourceReferenceRepository(ctx)
 
   // HEL-822 design.md Decision 6 revised (CR5): once-per-process `warn` logging for a
   // sentinel-decoded row, keyed by source id, to avoid log-spamming every list call.
@@ -241,36 +243,12 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def delete(id: DataSourceId, user: AuthenticatedUser): Future[Boolean] =
     ctx.withUserContext(user.id.value)(table.filter(_.id === id.value).delete).map(_ > 0)
 
-  /** HEL-989 (owner ruling `any-reference`, supersedes HEL-987's sole-root-only scope and
-   *  HEL-974's count-only companion): every pipeline that has `id` as a root, split into the
-   *  pipelines the caller may see (named) and a count of those they may not.
-   *
-   *  `total` is read on the privileged (BYPASSRLS) pool -- RLS can hide a referencing pipeline from
-   *  the caller (e.g. an editor bound their own source to another user's pipeline, then lost the
-   *  grant) yet the delete would still cascade into it, so the guard must count it. The NAMED
-   *  subset comes from `PipelineRootRepository.findReadEdgesVisibleToFuture`, whose owner-or-any-
-   *  grant predicate is explicit (never RLS-dependent) and mirrors HEL-1002's visibility rule, so
-   *  an invisible pipeline contributes only to `hiddenCount` -- never an id or a name.
-   *
-   *  Only `pipeline_roots` counts as a reference; secondary join/lookup inputs live in step JSON
-   *  config (no FK, no cascade, no panel loss) and are out of scope (HEL-989 design.md D2). */
-  def rootReferences(id: DataSourceId, user: AuthenticatedUser): Future[RootReferences] = {
-    val totalF =
-      ctx.withSystemContext(
-        sql"SELECT DISTINCT pipeline_id FROM pipeline_roots WHERE data_source_id = ${id.value}".as[String]
-      ).map(_.toSet)
-    for {
-      total <- totalF
-      visible <-
-        if (total.isEmpty) Future.successful(Vector.empty[BlockingPipeline])
-        else
-          new PipelineRootRepository(ctx).findReadEdgesVisibleToFuture(user.id.value).map { edges =>
-            edges.filter(e => e.dataSourceId == id && total.contains(e.pipelineId.value))
-              .map(e => BlockingPipeline(e.pipelineId.value, e.pipelineName))
-              .distinct
-          }
-    } yield RootReferences(visible, total.size - visible.size)
-  }
+  /** HEL-1252: every persisted reference to `id` (pipeline roots, join/lookup/union secondary inputs,
+   *  upsert targets, form-panel bindings) as seen by `user`: visible referencing resources by identity, hidden
+   *  ones as unnamed counts. Supersedes HEL-989's roots-only `rootReferences`; see
+   *  [[DataSourceReferenceRepository]] for the privileged-read / explicit-visibility contract. */
+  def findReferences(id: DataSourceId, user: AuthenticatedUser): Future[DataSourceReferenceRepository.SourceReferences] =
+    referenceRepo.find(Set(id.value), user.id.value).map(_.getOrElse(id.value, DataSourceReferenceRepository.SourceReferences(Vector.empty, 0, Vector.empty, 0)))
 
   /** HEL-822 design.md Decision 5 (revised, skeptic round 4 CR2): the `dependentCount` seam's
    *  real implementation — no `user` parameter, since by the time it runs inside
@@ -1100,17 +1078,6 @@ object DataSourceRepository {
   object FormRowBuildFailure {
     final case class FieldErrors(errors: Vector[DatasetRowValidator.FieldError]) extends FormRowBuildFailure
     final case class RowLimitExceeded(message: String) extends FormRowBuildFailure
-  }
-
-  /** HEL-987: one pipeline `rootReferences` found blocking a delete -- named fields
-   *  instead of a positional `(String, String)` tuple so `id`/`name` can't be swapped by
-   *  accident at a call site. */
-  final case class BlockingPipeline(id: String, name: String)
-
-  /** HEL-989: the result of `rootReferences` -- `visible` pipelines the caller may be told about,
-   *  and the `hiddenCount` of referencing pipelines they may not (count only, no identity). */
-  final case class RootReferences(visible: Vector[BlockingPipeline], hiddenCount: Int) {
-    def isEmpty: Boolean = visible.isEmpty && hiddenCount <= 0
   }
 
   implicit val instantColumnType: BaseColumnType[Instant] =

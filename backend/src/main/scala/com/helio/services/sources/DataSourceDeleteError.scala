@@ -18,15 +18,24 @@ object DataSourceDeleteError {
     DataSourceDeleteError(Some(c), ServiceError.Conflict(c.reason))
 }
 
-/** The four teardown-compatible fields (matching `TeardownConflictResponse`'s shape) plus the
- *  referencing pipelines the caller may see (HEL-989 `any-reference`: ANY pipeline rooted on the
- *  source blocks the delete). `pipelines` omits pipelines the caller cannot access. */
+/** The four teardown-compatible fields (matching `TeardownConflictResponse`'s shape) plus the referencing
+ *  pipelines and form panels the caller may see (HEL-989 `any-reference`, widened by HEL-1252 from roots
+ *  to every persisted reference kind). `pipelines`/`panels` omit anything the caller cannot access; those
+ *  contribute only the counts `hiddenPipelineCount`/`hiddenPanelCount` (counts only, never an identity) and an
+ *  unnamed mention in `reason`. */
 final case class DataSourceDeleteConflict(
     resourceKind: String,
     resourceId: String,
     resourceName: String,
     reason: String,
-    pipelines: Vector[DataSourceDeleteConflictPipeline] = Vector.empty
+    pipelines: Vector[DataSourceDeleteConflictPipeline] = Vector.empty,
+    panels: Vector[DataSourceDeleteConflictPanel] = Vector.empty,
+    // HEL-1252: counts of referencing resources the caller cannot see -- COUNTS ONLY, never an identity (C2).
+    hiddenPipelineCount: Int = 0,
+    hiddenPanelCount: Int = 0
 )
 
-final case class DataSourceDeleteConflictPipeline(id: String, name: String)
+/** `references` lists the kinds this pipeline holds on the source: root, join, lookup, union, upsertTarget. */
+final case class DataSourceDeleteConflictPipeline(id: String, name: String, references: Vector[String] = Vector.empty)
+
+final case class DataSourceDeleteConflictPanel(id: String, title: String, dashboardId: String, dashboardName: String)
