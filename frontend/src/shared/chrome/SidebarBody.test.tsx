@@ -12,11 +12,18 @@ import { pipelinesReducer } from "../../features/pipelines/state/pipelinesSlice"
 import * as pipelineService from "../../features/pipelines/services/pipelineService";
 import type { PipelineSummary } from "../../features/pipelines/types/pipelineStep";
 import { sourcesReducer } from "../../features/sources/state/sourcesSlice";
-import type { DataSource } from "../../features/sources/types/dataSource";
+import * as dataSourceService from "../../features/sources/services/dataSourceService";
+import type { DataSource, SourceReferenceSummary } from "../../features/sources/types/dataSource";
 import { SidebarBody } from "./SidebarBody";
 
 jest.mock("../../features/pipelines/services/pipelineService", () => ({
   getPipelines: jest.fn(),
+}));
+
+jest.mock("../../features/sources/services/dataSourceService", () => ({
+  fetchSources: jest.fn(),
+  fetchSourceReferences: jest.fn(),
+  deleteSource: jest.fn(),
 }));
 
 jest.mock("../../features/assistant/services/assistantConversationsService", () => ({
@@ -26,12 +33,17 @@ jest.mock("../../features/assistant/services/assistantConversationsService", () 
 }));
 
 const getPipelinesMock = jest.mocked(pipelineService.getPipelines);
+const fetchSourceReferencesMock = jest.mocked(dataSourceService.fetchSourceReferences);
 const listConversationsMock = jest.mocked(assistantConversationsService.listConversations);
 const updateConversationMock = jest.mocked(assistantConversationsService.updateConversation);
 
 beforeEach(() => {
   getPipelinesMock.mockReset();
   getPipelinesMock.mockResolvedValue([]);
+  jest.mocked(dataSourceService.fetchSources).mockReset();
+  jest.mocked(dataSourceService.fetchSources).mockResolvedValue([]);
+  fetchSourceReferencesMock.mockReset();
+  fetchSourceReferencesMock.mockResolvedValue([]);
   listConversationsMock.mockReset();
   listConversationsMock.mockResolvedValue([]);
   updateConversationMock.mockReset();
@@ -66,6 +78,8 @@ interface StoreOptions {
   pipelineStatus?: "idle" | "loading" | "succeeded" | "failed";
   sourceItems?: DataSource[];
   sourceStatus?: "idle" | "loading" | "succeeded" | "failed";
+  /** HEL-1258: the preloaded server reference summary, keyed by source id. */
+  sourceReferences?: Record<string, SourceReferenceSummary>;
   conversationItems?: AssistantConversationSummary[];
   conversationStatus?: "idle" | "loading" | "succeeded" | "failed";
   /** HEL-703 cycle 2 — defaults to `null` (unauthenticated-shaped state), which behaves
@@ -91,6 +105,7 @@ function makeStore(options: StoreOptions = {}) {
     pipelineStatus = "idle",
     sourceItems = [],
     sourceStatus = "idle",
+    sourceReferences = {},
     conversationItems = [],
     conversationStatus = "idle",
     currentUser = null,
@@ -114,6 +129,8 @@ function makeStore(options: StoreOptions = {}) {
         errorKind: null,
         selectedSourceId: null,
         addModalOpen: false,
+        references: sourceReferences,
+        referencesStatus: "succeeded" as const,
       },
       pipelines: {
         items: pipelineItems,
@@ -207,31 +224,69 @@ describe("SidebarBody pipelines section — delete-dependency warning (F-144)", 
     );
   });
 
-  // HEL-969 (D2/task 6.3): a pipeline whose SECOND root reads from the
-  // source being deleted must still count as a dependent -- a `roots[0]`
-  // implementation would find zero matches here and under-warn.
-  it("counts a pipeline as a dependent when the matching root is not the first one", () => {
+  // HEL-1258: the warning is the SERVER's reference summary (every kind the 409 guard enforces), never a
+  // client count over the pipelines list -- so these tests preload NO pipelines at all.
+  function summary(overrides: Partial<SourceReferenceSummary>): SourceReferenceSummary {
+    return {
+      sourceId: "src-2",
+      pipelines: [],
+      panels: [],
+      hiddenPipelineCount: 0,
+      hiddenPanelCount: 0,
+      ...overrides,
+    };
+  }
+
+  function renderSourcesWith(references: Record<string, SourceReferenceSummary>) {
     renderAt("/sources", {
       sourceItems: [buildSource({ id: "src-2", name: "Warehouse" })],
       sourceStatus: "succeeded",
-      pipelineItems: [
-        buildPipeline({
-          id: "pipe-1",
-          name: "Joined Pipeline",
-          roots: [
-            { id: "root-1", dataSourceId: "src-1", dataSourceName: "Profit" },
-            { id: "root-2", dataSourceId: "src-2", dataSourceName: "Warehouse" },
-          ],
-        }),
-      ],
-      pipelineStatus: "succeeded",
+      sourceReferences: references,
     });
-
     openDeleteConfirm("Warehouse");
+  }
 
+  it("warns for a source referenced only by a join secondary input (not a root)", () => {
+    renderSourcesWith({
+      "src-2": summary({ pipelines: [{ id: "p-1", name: "Joined", references: ["join"] }] }),
+    });
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "1 pipeline reads from this source, so deleting it will be refused until you remove it from that pipeline.",
+      "1 pipeline references this source, so deleting it will be refused until you remove that reference.",
     );
+  });
+
+  it("warns for a source referenced only by a form panel and by an upsert target together", () => {
+    renderSourcesWith({
+      "src-2": summary({
+        pipelines: [{ id: "p-1", name: "Upserter", references: ["upsertTarget"] }],
+        panels: [{ id: "pn-1", title: "Entry", dashboardId: "d-1", dashboardName: "Ops" }],
+      }),
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "1 pipeline and 1 form panel reference this source, so deleting it will be refused until you remove those references.",
+    );
+  });
+
+  it("counts hidden references without naming anything", () => {
+    renderSourcesWith({
+      "src-2": summary({ hiddenPipelineCount: 2, hiddenPanelCount: 1 }),
+    });
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(
+      "2 pipelines and 1 form panel reference this source, so deleting it will be refused until you remove those references.",
+    );
+  });
+
+  it("shows no dependency warning for a source the summary lists nothing for", () => {
+    renderSourcesWith({});
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Confirm delete Warehouse/ })).toBeInTheDocument();
+  });
+
+  it("never fetches pipelines for the sources section, and fetches the reference summary on activation", async () => {
+    renderAt("/sources", { sourceItems: [], sourceStatus: "succeeded", pipelineStatus: "idle" });
+    await waitFor(() => expect(fetchSourceReferencesMock).toHaveBeenCalledTimes(1));
+    expect(getPipelinesMock).not.toHaveBeenCalled();
   });
 });
 

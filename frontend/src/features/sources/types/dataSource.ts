@@ -342,3 +342,13 @@ export interface SchemaUpdateConflictResponse {
   rejectedFields: SchemaFieldRejection[];
   message: string;
 }
+
+/** HEL-1258: one source's entry in `GET /api/data-sources/references` -- the same visible-named /
+ *  hidden-counted vocabulary as the delete 409 body. Hidden references are COUNTS only. */
+export interface SourceReferenceSummary {
+  sourceId: string;
+  pipelines: { id: string; name: string; references: string[] }[];
+  panels: { id: string; title: string; dashboardId: string; dashboardName: string }[];
+  hiddenPipelineCount: number;
+  hiddenPanelCount: number;
+}

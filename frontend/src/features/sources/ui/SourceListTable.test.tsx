@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
 import { SourceListTable } from "./SourceListTable";
-import type { DataSource } from "../types/dataSource";
+import type { DataSource, SourceReferenceSummary } from "../types/dataSource";
 
 function staticSource(overrides: Partial<DataSource>): DataSource {
   return {
@@ -17,13 +17,23 @@ function staticSource(overrides: Partial<DataSource>): DataSource {
   } as DataSource;
 }
 
-function renderTable(sources: DataSource[]) {
+function renderTable(
+  sources: DataSource[],
+  references: Record<string, SourceReferenceSummary> = {},
+  referencesLoaded = true,
+) {
   render(
     <MemoryRouter initialEntries={["/sources"]}>
       <Routes>
         <Route
           path="/sources"
-          element={<SourceListTable sources={sources} pipelineNamesBySourceId={new Map()} />}
+          element={
+            <SourceListTable
+              sources={sources}
+              references={references}
+              referencesLoaded={referencesLoaded}
+            />
+          }
         />
         <Route path="/sources/:id" element={<div>Source detail page</div>} />
       </Routes>
@@ -78,5 +88,51 @@ describe("SourceListTable — HEL-1022 default ordering and column sorting", () 
         "none",
       );
     }
+  });
+});
+
+describe("SourceListTable — Used by reflects every reference kind (HEL-1258)", () => {
+  const src = staticSource({ id: "s-ref", name: "Referenced" });
+  const ref = (o: Partial<SourceReferenceSummary>): Record<string, SourceReferenceSummary> => ({
+    "s-ref": {
+      sourceId: "s-ref",
+      pipelines: [],
+      panels: [],
+      hiddenPipelineCount: 0,
+      hiddenPanelCount: 0,
+      ...o,
+    },
+  });
+
+  it("shows a join-only source as used, not Unused", () => {
+    renderTable([src], ref({ pipelines: [{ id: "p", name: "Joiner", references: ["join"] }] }));
+    expect(screen.getByText("1 pipeline")).toHaveAttribute("title", "Joiner (join input)");
+    expect(screen.queryByText("Unused")).not.toBeInTheDocument();
+  });
+
+  it("shows a form-panel-only source as used", () => {
+    renderTable(
+      [src],
+      ref({ panels: [{ id: "pn", title: "Entry", dashboardId: "d", dashboardName: "Ops" }] }),
+    );
+    expect(screen.getByText("1 form panel")).toBeInTheDocument();
+  });
+
+  it("counts hidden references and names nothing for them", () => {
+    renderTable([src], ref({ hiddenPipelineCount: 2 }));
+    expect(screen.getByText("2 pipelines")).toHaveAttribute("title", "2 you cannot access");
+  });
+
+  it("reads Unused only once loaded and absent; never Unused before the summary loads", () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <SourceListTable sources={[src]} references={{}} referencesLoaded={false} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText("Unused")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("cell")[3]).toHaveTextContent("—");
+    unmount();
+    renderTable([src], {}, true);
+    expect(screen.getByText("Unused")).toBeInTheDocument();
   });
 });

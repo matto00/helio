@@ -41,6 +41,19 @@ final case class DataSourceDeleteConflictPipelineResponse(id: String, name: Stri
 /** HEL-1252: one form panel bound to the source whose dashboard the caller may see. */
 final case class DataSourceDeleteConflictPanelResponse(id: String, title: String, dashboardId: String, dashboardName: String)
 
+/** HEL-1258: one source's entry in `GET /api/data-sources/references` -- the same visible-named / hidden-counted
+ *  vocabulary as the delete 409 body. Only sources with at least one reference are listed. */
+final case class DataSourceReferenceSummaryResponse(
+    sourceId: String,
+    pipelines: Vector[DataSourceDeleteConflictPipelineResponse],
+    panels: Vector[DataSourceDeleteConflictPanelResponse],
+    hiddenPipelineCount: Int,
+    hiddenPanelCount: Int
+)
+
+/** HEL-1258: `GET /api/data-sources/references` body. */
+final case class DataSourceReferencesResponse(items: Vector[DataSourceReferenceSummaryResponse])
+
 sealed trait DataSourceResponse {
   def id: String
   def name: String
@@ -623,6 +636,11 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
     jsonFormat4(DataSourceDeleteConflictPanelResponse.apply)
   implicit val dataSourceDeleteConflictResponseFormat: RootJsonFormat[DataSourceDeleteConflictResponse] =
     jsonFormat9(DataSourceDeleteConflictResponse.apply)
+
+  implicit val dataSourceReferenceSummaryResponseFormat: RootJsonFormat[DataSourceReferenceSummaryResponse] =
+    jsonFormat5(DataSourceReferenceSummaryResponse.apply)
+  implicit val dataSourceReferencesResponseFormat: RootJsonFormat[DataSourceReferencesResponse] =
+    jsonFormat1(DataSourceReferencesResponse.apply)
 
   implicit val inferredFieldResponseFormat: RootJsonFormat[InferredFieldResponse]   = jsonFormat4(InferredFieldResponse.apply)
   implicit val inferredSchemaResponseFormat: RootJsonFormat[InferredSchemaResponse] = jsonFormat1(InferredSchemaResponse.apply)

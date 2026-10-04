@@ -2,10 +2,8 @@ import { useEffect } from "react";
 import { Database } from "lucide-react";
 
 import "./SourcesPage.css";
-import { fetchPipelines } from "../../pipelines/state/pipelinesSlice";
-import { selectPipelineNamesBySourceId } from "../../pipelines/state/pipelinesSlice";
 import { useAddSourceAction } from "../hooks/useAddSourceAction";
-import { fetchSources, setAddSourceModalOpen } from "../state/sourcesSlice";
+import { fetchSourceReferences, fetchSources, setAddSourceModalOpen } from "../state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";
 import { SourceListTable } from "./SourceListTable";
@@ -24,13 +22,13 @@ export function SourcesPage() {
     error: sourcesError,
     errorKind: sourcesErrorKind,
     addModalOpen,
+    references,
+    referencesStatus,
   } = useAppSelector((state) => state.sources);
-  const pipelinesStatus = useAppSelector((state) => state.pipelines.status);
-  const pipelineNamesBySourceId = useAppSelector(selectPipelineNamesBySourceId);
   const addSourceAction = useAddSourceAction();
 
   useEffect(() => {
-    // F-072: guard both dispatches on `idle` (mirroring SidebarBody's fetch
+    // F-072: guard the dispatch on `idle` (mirroring SidebarBody's fetch
     // pattern). The sidebar's "sources" section mounts alongside this page
     // and already dispatches `fetchSources()` itself, so an unconditional
     // dispatch here raced it into a genuine duplicate GET /api/data-sources
@@ -39,13 +37,14 @@ export function SourcesPage() {
     if (sourcesStatus === "idle") {
       void dispatch(fetchSources());
     }
-    // The overview's "Used by" column resolves each source's reading
-    // pipelines. Same `idle` guard — the sidebar's sources section already
-    // fetches pipelines for its delete-confirm warning.
-    if (pipelinesStatus === "idle") {
-      void dispatch(fetchPipelines());
-    }
-  }, [dispatch, sourcesStatus, pipelinesStatus]);
+  }, [dispatch, sourcesStatus]);
+
+  // HEL-1258: the "Used by" column reads the server's reference summary. Refetched on every mount (not
+  // `idle`-guarded): references change outside this page, and it is cheap. The thunk's own `condition`
+  // collapses it with the sidebar's trigger on a cold load, so there is one GET, not two.
+  useEffect(() => {
+    void dispatch(fetchSourceReferences());
+  }, [dispatch]);
 
   // HEL-554 D4/task 3.4 — mirrors `PanelList.tsx:193-197`'s identical
   // cleanup for `panelCreationModalOpen`. `addModalOpen` is a Redux flag, so
@@ -119,7 +118,8 @@ export function SourcesPage() {
               <>
                 <SourceListTable
                   sources={sources}
-                  pipelineNamesBySourceId={pipelineNamesBySourceId}
+                  references={references}
+                  referencesLoaded={referencesStatus === "succeeded"}
                 />
                 {/* Below the list, matching Pipelines/Metrics/Connectors. */}
                 <div className="sources-page__toolbar">

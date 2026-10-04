@@ -1560,6 +1560,55 @@ class DataSourceRoutesSpec
     id
   }
 
+  "GET /api/data-sources/references (HEL-1258)" should {
+    def refsBody(): JsObject = Get("/api/data-sources/references") ~> routes() ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[JsValue].asJsObject
+    }
+    def items(body: JsObject): Map[String, JsObject] =
+      body.fields("items").convertTo[Vector[JsValue]].map(_.asJsObject).map(o => o.fields("sourceId").convertTo[String] -> o).toMap
+
+    "report every reference kind, omit unreferenced and foreign sources, and not be shadowed by the id segment" in {
+      cleanDb()
+      def create(name: String): String = Post("/api/data-sources", multipartUpload(name, validCsv)) ~> routes() ~> check { responseAs[DataSourceResponse].id }
+      val root = create("R root"); val join = create("R join"); val upsert = create("R upsert"); val form = create("R form"); val unused = create("R unused")
+      val base = seedExtraRootDataSource()
+      seedSoleRootPipeline(root, name = "Root pipeline")
+      val jp = seedSoleRootPipeline(base, name = "Join pipeline")
+      seedStep(jp, "join", s"""{"secondaryInput":{"kind":"source","dataSourceId":"$join"}}""")
+      val up = seedSoleRootPipeline(base, name = "Upsert pipeline")
+      seedStep(up, "upsertsource", s"""{"target":{"kind":"existingSource","dataSourceId":"$upsert"},"mode":"append"}""")
+      val (dashId, panelId) = seedFormPanel(form, "Ops board", "Entry form")
+      val foreign = seedOtherOwnerDatasetSource()
+      seedSoleRootPipeline(foreign, name = "Foreign pipeline")
+
+      val body = refsBody()
+      val byId = items(body)
+      byId.keySet shouldBe Set(root, join, upsert, form, base) // `base` is the root of the join/upsert pipelines
+      byId.keySet should not contain unused
+      byId.keySet should not contain foreign
+      def kinds(o: JsObject) = o.fields("pipelines").convertTo[Vector[JsValue]].flatMap(_.asJsObject.fields("references").convertTo[Vector[String]])
+      kinds(byId(root)) shouldBe Vector("root")
+      kinds(byId(join)) shouldBe Vector("join")
+      kinds(byId(upsert)) shouldBe Vector("upsertTarget")
+      val panel = byId(form).fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject).head
+      panel.fields("id").convertTo[String] shouldBe panelId
+      panel.fields("dashboardId").convertTo[String] shouldBe dashId
+      panel.fields("dashboardName").convertTo[String] shouldBe "Ops board"
+      byId.values.foreach { o =>
+        o.fields.keySet shouldBe Set("sourceId", "pipelines", "panels", "hiddenPipelineCount", "hiddenPanelCount")
+        o.fields("hiddenPipelineCount").convertTo[Int] shouldBe 0
+        o.fields("hiddenPanelCount").convertTo[Int] shouldBe 0
+      }
+      body.compactPrint should not include "Foreign pipeline"
+    }
+
+    "return an empty items array when nothing is referenced" in {
+      cleanDb()
+      refsBody().fields("items").convertTo[Vector[JsValue]] shouldBe empty
+    }
+  }
+
   "POST /api/data-sources/:id/rows" should {
 
     "append rows, preserving existing rows, with 0-based increasing seq" in {

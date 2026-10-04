@@ -45,6 +45,8 @@ function makeStore() {
         errorKind: null,
         selectedSourceId: null,
         addModalOpen: false,
+        references: {},
+        referencesStatus: "idle" as const,
       },
       pipelines: { items: [], status: "succeeded", error: null, createModalOpen: false },
       assistantConversations: {

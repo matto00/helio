@@ -17,12 +17,14 @@ import {
 } from "../../features/pipelines/state/pipelinesSlice";
 import {
   deleteSource,
+  fetchSourceReferences,
   fetchSources,
   isSourceDeleteConflict,
   setAddSourceModalOpen,
   type SourceDeleteConflict,
 } from "../../features/sources/state/sourcesSlice";
 import { SourceDeleteConflictNotice } from "../../features/sources/ui/SourceDeleteConflictNotice";
+import { sourceDeleteWarning } from "../../features/sources/utils/sourceReferences";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { DashboardList } from "../../features/dashboards/ui/DashboardList";
 import "./SidebarBody.css";
@@ -64,12 +66,14 @@ export function SidebarBody() {
     } else if (section === "chat" && !isFreeTier && conversations.status === "idle") {
       void dispatch(fetchConversations());
     }
-    // The sources section also needs pipelines loaded: the delete-confirm
-    // warning counts pipelines that read from the source being deleted.
-    if (section === "sources" && pipelines.status === "idle") {
-      void dispatch(fetchPipelines());
-    }
   }, [section, dispatch, sources.status, pipelines.status, conversations.status, isFreeTier]);
+
+  // HEL-1258: the delete-confirm warning comes from the server's reference summary (every reference kind the
+  // delete guard enforces), refreshed whenever the sources section becomes active. The thunk's `condition`
+  // collapses this with SourcesPage's mount trigger into one GET.
+  useEffect(() => {
+    if (section === "sources") void dispatch(fetchSourceReferences());
+  }, [section, dispatch]);
 
   if (section === "sources") {
     // Route-driven, like the pipelines and metrics branches below: `/sources`
@@ -92,15 +96,7 @@ export function SidebarBody() {
         emptyDescription="Pull in data from PostgreSQL, MySQL, CSV, or static input."
         onAdd={() => dispatch(setAddSourceModalOpen(true))}
         addLabel="Add source"
-        deleteWarning={(item) => {
-          // HEL-969 (D2): a pipeline depends on this source if ANY of its
-          // roots reads from it, not just the first -- roots.some(...).
-          const dependents = pipelines.items.filter((p) =>
-            p.roots.some((r) => r.dataSourceId === item.id),
-          ).length;
-          if (dependents === 0) return null;
-          return `${dependents} pipeline${dependents === 1 ? "" : "s"} read${dependents === 1 ? "s" : ""} from this source, so deleting it will be refused until you remove it from ${dependents === 1 ? "that pipeline" : "them"}.`;
-        }}
+        deleteWarning={(item) => sourceDeleteWarning(sources.references[item.id])}
         notice={
           deleteConflict !== null ? (
             <SourceDeleteConflictNotice

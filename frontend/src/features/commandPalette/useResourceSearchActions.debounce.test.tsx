@@ -30,6 +30,8 @@ function buildStore() {
         errorKind: null,
         selectedSourceId: null,
         addModalOpen: false,
+        references: {},
+        referencesStatus: "idle" as const,
       },
     },
   });
