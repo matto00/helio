@@ -1,0 +1,438 @@
+FAIL src/features/panels/ui/ChartPanel.defaultAppearance.test.tsx (5.2 s)
+  ● chart panel with no stored appearance.chart (HEL-1178) › carries the themed tooltip on a single-series chart
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: undefined
+
+      42 |     };
+      43 |     const theme = resolveChartTheme();
+    > 44 |     expect(option.tooltip?.show).toBe(true);
+         |                                  ^
+      45 |     expect(option.tooltip?.backgroundColor).toBe(theme.surfaceStrong);
+      46 |     expect(option.tooltip?.extraCssText).toContain(theme.shadowSoft);
+      47 |     expect(option.tooltip?.extraCssText).toContain(theme.radiusMd);
+
+      at Object.<anonymous> (src/features/panels/ui/ChartPanel.defaultAppearance.test.tsx:44:34)
+
+  ● buildChartOption chart-less vs explicitly-defaulted (HEL-1178) › matches the explicit default option under dark tokens
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 65
+    + Received  +  0
+
+    @@ -1,30 +1,15 @@
+      Object {
+        "backgroundColor": "transparent",
+    -   "color": Array [
+    -     "#5470c6",
+    -     "#91cc75",
+    -     "#fac858",
+    -     "#ee6666",
+    -     "#73c0de",
+    -     "#3ba272",
+    -     "#fc8452",
+    -     "#9a60b4",
+    -   ],
+        "legend": Object {
+          "data": Array [
+            "A",
+            "B",
+          ],
+    -     "left": "center",
+    -     "orient": "horizontal",
+    -     "show": true,
+          "textStyle": Object {
+            "color": "inherit",
+    -       "fontFamily": "Inter, sans-serif",
+          },
+    -     "top": 0,
+        },
+        "series": Array [
+          Object {
+            "cursor": "pointer",
+            "data": Array [
+    @@ -66,85 +51,35 @@
+            "type": "line",
+          },
+        ],
+        "textStyle": Object {
+          "color": "inherit",
+    -     "fontFamily": "Inter, sans-serif",
+        },
+        "tooltip": Object {
+          "axisPointer": Object {
+            "type": "line",
+    -     },
+    -     "backgroundColor": "#1a1d24",
+    -     "borderColor": "#d0d5dd",
+    -     "borderWidth": 1,
+    -     "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+    -     "show": true,
+    -     "textStyle": Object {
+    -       "color": "#f2f4f7",
+    -       "fontFamily": "ui-monospace, monospace",
+          },
+          "trigger": "axis",
+    -     "valueFormatter": [Function formatChartNumber],
+        },
+        "xAxis": Object {
+          "axisLabel": Object {
+            "color": "inherit",
+    -       "fontFamily": "ui-monospace, monospace",
+    -       "show": true,
+    -     },
+    -     "axisLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+          },
+    -     },
+    -     "axisTick": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+    -     },
+          "data": Array [
+            "2020",
+            "2021",
+          ],
+    -     "name": undefined,
+          "nameTextStyle": Object {
+            "color": "inherit",
+    -       "fontFamily": "Inter, sans-serif",
+    -     },
+    -     "splitLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+          },
+          "type": "category",
+        },
+        "yAxis": Object {
+          "axisLabel": Object {
+            "color": "inherit",
+    -       "fontFamily": "ui-monospace, monospace",
+    -       "formatter": [Function formatChartNumber],
+    -       "show": true,
+    -     },
+    -     "axisLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+    -     },
+    -     "axisTick": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+          },
+    -     },
+    -     "name": undefined,
+          "nameTextStyle": Object {
+            "color": "inherit",
+    -       "fontFamily": "Inter, sans-serif",
+    -     },
+    -     "splitLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+          },
+          "type": "value",
+        },
+      }
+
+      89 |       themeTokens,
+      90 |     });
+    > 91 |     expect(absent).toEqual(explicit);
+         |                    ^
+      92 |     expect((absent.tooltip as { backgroundColor?: string }).backgroundColor).toBe(
+      93 |       themeTokens.surfaceStrong,
+      94 |     );
+
+      at src/features/panels/ui/ChartPanel.defaultAppearance.test.tsx:91:20
+
+  ● buildChartOption chart-less vs explicitly-defaulted (HEL-1178) › matches the explicit default option under light tokens
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 65
+    + Received  +  0
+
+    @@ -1,30 +1,15 @@
+      Object {
+        "backgroundColor": "transparent",
+    -   "color": Array [
+    -     "#5470c6",
+    -     "#91cc75",
+    -     "#fac858",
+    -     "#ee6666",
+    -     "#73c0de",
+    -     "#3ba272",
+    -     "#fc8452",
+    -     "#9a60b4",
+    -   ],
+        "legend": Object {
+          "data": Array [
+            "A",
+            "B",
+          ],
+    -     "left": "center",
+    -     "orient": "horizontal",
+    -     "show": true,
+          "textStyle": Object {
+            "color": "inherit",
+    -       "fontFamily": "Inter, sans-serif",
+          },
+    -     "top": 0,
+        },
+        "series": Array [
+          Object {
+            "cursor": "pointer",
+            "data": Array [
+    @@ -66,85 +51,35 @@
+            "type": "line",
+          },
+        ],
+        "textStyle": Object {
+          "color": "inherit",
+    -     "fontFamily": "Inter, sans-serif",
+        },
+        "tooltip": Object {
+          "axisPointer": Object {
+            "type": "line",
+    -     },
+    -     "backgroundColor": "#ffffff",
+    -     "borderColor": "#d0d5dd",
+    -     "borderWidth": 1,
+    -     "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+    -     "show": true,
+    -     "textStyle": Object {
+    -       "color": "#101828",
+    -       "fontFamily": "ui-monospace, monospace",
+          },
+          "trigger": "axis",
+    -     "valueFormatter": [Function formatChartNumber],
+        },
+        "xAxis": Object {
+          "axisLabel": Object {
+            "color": "inherit",
+    -       "fontFamily": "ui-monospace, monospace",
+    -       "show": true,
+    -     },
+    -     "axisLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+          },
+    -     },
+    -     "axisTick": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+    -     },
+          "data": Array [
+            "2020",
+            "2021",
+          ],
+    -     "name": undefined,
+          "nameTextStyle": Object {
+            "color": "inherit",
+    -       "fontFamily": "Inter, sans-serif",
+    -     },
+    -     "splitLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+          },
+          "type": "category",
+        },
+        "yAxis": Object {
+          "axisLabel": Object {
+            "color": "inherit",
+    -       "fontFamily": "ui-monospace, monospace",
+    -       "formatter": [Function formatChartNumber],
+    -       "show": true,
+    -     },
+    -     "axisLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+    -     },
+    -     "axisTick": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+          },
+    -     },
+    -     "name": undefined,
+          "nameTextStyle": Object {
+            "color": "inherit",
+    -       "fontFamily": "Inter, sans-serif",
+    -     },
+    -     "splitLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+          },
+          "type": "value",
+        },
+      }
+
+      89 |       themeTokens,
+      90 |     });
+    > 91 |     expect(absent).toEqual(explicit);
+         |                    ^
+      92 |     expect((absent.tooltip as { backgroundColor?: string }).backgroundColor).toBe(
+      93 |       themeTokens.surfaceStrong,
+      94 |     );
+
+      at src/features/panels/ui/ChartPanel.defaultAppearance.test.tsx:91:20
+
+  ● buildChartOption chart-less vs explicitly-defaulted (HEL-1178) › matches when appearance itself is undefined
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 79
+    + Received  +  6
+
+    @@ -1,31 +1,14 @@
+      Object {
+        "backgroundColor": "transparent",
+    -   "color": Array [
+    -     "#5470c6",
+    -     "#91cc75",
+    -     "#fac858",
+    -     "#ee6666",
+    -     "#73c0de",
+    -     "#3ba272",
+    -     "#fc8452",
+    -     "#9a60b4",
+    -   ],
+        "legend": Object {
+          "data": Array [
+            "A",
+            "B",
+          ],
+    -     "left": "center",
+    -     "orient": "horizontal",
+    -     "show": true,
+    -     "textStyle": Object {
+    -       "color": "inherit",
+    -       "fontFamily": "Inter, sans-serif",
+    +     "textStyle": Object {},
+        },
+    -     "top": 0,
+    -   },
+        "series": Array [
+          Object {
+            "cursor": "pointer",
+            "data": Array [
+              10,
+    @@ -64,87 +47,31 @@
+            },
+            "name": "B",
+            "type": "line",
+          },
+        ],
+    -   "textStyle": Object {
+    -     "color": "inherit",
+    -     "fontFamily": "Inter, sans-serif",
+    -   },
+    +   "textStyle": Object {},
+        "tooltip": Object {
+          "axisPointer": Object {
+            "type": "line",
+    -     },
+    -     "backgroundColor": "#1a1d24",
+    -     "borderColor": "#d0d5dd",
+    -     "borderWidth": 1,
+    -     "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+    -     "show": true,
+    -     "textStyle": Object {
+    -       "color": "#f2f4f7",
+    -       "fontFamily": "ui-monospace, monospace",
+          },
+          "trigger": "axis",
+    -     "valueFormatter": [Function formatChartNumber],
+        },
+        "xAxis": Object {
+          "axisLabel": Object {
+    -       "color": "inherit",
+    -       "fontFamily": "ui-monospace, monospace",
+    -       "show": true,
+    -     },
+    -     "axisLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+    -     },
+    -     "axisTick": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+    +       "color": undefined,
+          },
+          "data": Array [
+            "2020",
+            "2021",
+          ],
+    -     "name": undefined,
+    -     "nameTextStyle": Object {
+    -       "color": "inherit",
+    -       "fontFamily": "Inter, sans-serif",
+    -     },
+    -     "splitLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+    -     },
+    +     "nameTextStyle": Object {},
+          "type": "category",
+        },
+        "yAxis": Object {
+          "axisLabel": Object {
+    -       "color": "inherit",
+    -       "fontFamily": "ui-monospace, monospace",
+    -       "formatter": [Function formatChartNumber],
+    -       "show": true,
+    -     },
+    -     "axisLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    +       "color": undefined,
+          },
+    -     },
+    -     "axisTick": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+    -     },
+    -     "name": undefined,
+    -     "nameTextStyle": Object {
+    -       "color": "inherit",
+    -       "fontFamily": "Inter, sans-serif",
+    -     },
+    -     "splitLine": Object {
+    -       "lineStyle": Object {
+    -         "color": "#d0d5dd",
+    -       },
+    -     },
+    +     "nameTextStyle": Object {},
+          "type": "value",
+        },
+      }
+
+      102 |       themeTokens: darkTokens,
+      103 |     });
+    > 104 |     expect(absent).toEqual(explicit);
+          |                    ^
+      105 |   });
+      106 |
+      107 |   it("still hides the tooltip when a stored chart sets tooltip.enabled false", () => {
+
+      at Object.<anonymous> (src/features/panels/ui/ChartPanel.defaultAppearance.test.tsx:104:20)
+
+Test Suites: 1 failed, 1 total
+Tests:       4 failed, 1 passed, 5 total
+Snapshots:   0 total
+Time:        5.728 s
+Ran all test suites matching src/features/panels/ui/ChartPanel.defaultAppearance.test.tsx.
+exit 1

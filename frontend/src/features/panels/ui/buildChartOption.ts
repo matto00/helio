@@ -7,7 +7,8 @@ import {
   applyHoverEmphasis,
   prefersReducedMotion,
 } from "../../../utils/chartAppearance";
-import type { ChartThemeTokens, ChartType } from "../../../utils/chartAppearance";
+import type { ChartThemeTokens } from "../../../utils/chartAppearance";
+import { defaultChartAppearance } from "../../../theme/appearance";
 import { applyChartTypeOptions } from "../../../utils/chartTypeOptions";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import { buildAggregateDataOption, buildDataOption } from "./chartDataOptions";
@@ -77,10 +78,13 @@ export function buildChartOption({
   measuredPieLegendOverlap,
   themeTokens,
 }: BuildChartOptionParams): EChartsOption {
-  const { option: appearanceOption, chartType } =
-    appearance?.chart != null
-      ? appearanceToEChartsOption(appearance.chart, themeTokens)
-      : { option: {} as EChartsOption, chartType: "line" as ChartType };
+  // HEL-1178: an absent `appearance.chart` renders with the default chart
+  // appearance (what the appearance editor pre-fills) so tooltip/axes/fonts
+  // are themed. Render-time only — the stored appearance is never written.
+  const { option: appearanceOption, chartType } = appearanceToEChartsOption(
+    appearance?.chart ?? defaultChartAppearance,
+    themeTokens,
+  );
 
   const useAggregate =
     chartAggregate != null && (chartType === "bar" || chartType === "line" || chartType === "pie");
