@@ -1,0 +1,20 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/)
+[info] compiling 2 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/pinned-pool-per-request-churn/HEL-1254/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[info] PinnedPoolReuseSpec:
+[info] fetchUrl
+[info] - should reuse connections across 10 sequential requests to one address
+[info] - should complete 40 parallel requests to one host through the shared pool
+[info] - should route A, B, A, B to the server each request was validated against
+[info] - should keep one connection per validated address while the resolver alternates
+[info] - should refuse a host now resolving to a blocked address before connecting, even with a warm pool
+[info] RestApiConnectorDriver
+[info] - should reuse connections across 10 sequential requests to one address
+[info] - should route A, B, A, B to the server each request was validated against
+[info] Run completed in 1 second, 245 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 7, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
