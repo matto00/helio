@@ -61,7 +61,7 @@
 ## 5. Docs and gates
 
 - [x] 5.1 Document the endpoint in `CLAUDE.md` Key endpoints and the relevant backend/frontend READMEs
-- [ ] 5.2 Gates: `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm test`; backend `nice -n 19 sbt testFull`
+- [x] 5.2 Gates: `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm test`; backend `nice -n 19 sbt testFull`
       (Bash timeout 600000; known flakes rerun, not fixed); `sbt --client shutdown` as its own call
-- [ ] 5.3 Live UI check (light + dark) on this worktree's own ports: seeded bad-breakpoint dashboard opened as owner (one
+- [x] 5.3 Live UI check (light + dark) on this worktree's own ports: seeded bad-breakpoint dashboard opened as owner (one
       repair write, reopen none) and as a non-owner (no write); residue deleted by exact id
