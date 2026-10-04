@@ -21,6 +21,7 @@ import { ExtractHeadingsConfig } from "./stepConfigs/ExtractHeadingsConfig";
 import { FillNullConfig } from "./stepConfigs/FillNullConfig";
 import { FilterConfig } from "./stepConfigs/FilterConfig";
 import { GenerateTextConfig } from "./stepConfigs/GenerateTextConfig";
+import { JoinConfig } from "./stepConfigs/JoinConfig";
 import { LimitConfig } from "./stepConfigs/LimitConfig";
 import { LookupConfig } from "./stepConfigs/LookupConfig";
 import { PivotConfig } from "./stepConfigs/PivotConfig";
@@ -84,6 +85,7 @@ export function StepOpEditor({
     stringOpsConfig,
     unionConfig,
     lookupConfig,
+    joinConfig,
     assertConfig,
     upsertSourceConfig,
     convertFormatConfig,
@@ -110,6 +112,7 @@ export function StepOpEditor({
     onStringOpsChange,
     onUnionChange,
     onLookupChange,
+    onJoinChange,
     onAssertChange,
     onUpsertSourceChange,
     onConvertFormatChange,
@@ -289,6 +292,17 @@ export function StepOpEditor({
         allSteps={allSteps}
         currentStepId={step.id}
         onChange={onLookupChange}
+      />
+    );
+  }
+  if (step.opType.id === "join") {
+    return (
+      <JoinConfig
+        config={joinConfig}
+        analyzeSchema={analyzeSchema}
+        allSteps={allSteps}
+        currentStepId={step.id}
+        onChange={onJoinChange}
       />
     );
   }

@@ -6,8 +6,8 @@ describe("provenanceLabels", () => {
     expect(stepKindLabel("aggregate")).toBe("Group & aggregate");
   });
 
-  it("falls back to a humanised string for a kind absent from OP_TYPES (join)", () => {
-    expect(stepKindLabel("join")).toBe("Join");
+  it("falls back to a humanised string for a kind absent from OP_TYPES (groupby)", () => {
+    expect(stepKindLabel("groupby")).toBe("Groupby");
     expect(humanise("some_new-kind")).toBe("Some new kind");
   });
 

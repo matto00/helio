@@ -9,7 +9,7 @@ export function humanise(kind: string): string {
   return spaced.length === 0 ? kind : spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
-/** HEL-1207 A5 — step kind -> the pipeline UI's own op label; kinds not in `OP_TYPES` (e.g. `join`,
+/** HEL-1207 A5 — step kind -> the pipeline UI's own op label; kinds not in `OP_TYPES` (e.g. `groupby`,
  *  deliberately excluded from the picker) fall back to a humanised string. Never a raw op id. */
 export function stepKindLabel(kind: string): string {
   return OP_LABELS.get(kind) ?? humanise(kind);

@@ -461,6 +461,14 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "output schema, appended typed string as a documented best-effort. A missing/unresolvable " +
         "`secondaryInput` fails at execute time naming the problem. There is NO legacy flat " +
         "`referenceDataSourceId` field — a config carrying it is rejected outright; " +
+        "join → {secondaryInput: {kind:'source',dataSourceId} | {kind:'lane',stepId}, joinKey, " +
+        "joinType: 'inner'|'left'} — a key-based join of the current rows (left) with the resolved " +
+        "second input (right; same `secondaryInput` semantics as union above). `joinKey` is matched " +
+        "on BOTH sides, so it must exist as a field on each. `inner` keeps only rows whose key " +
+        "matches on both sides; `left` keeps every current row, and an unmatched row carries no " +
+        "right-side columns. Right-side columns that collide with a current-row column arrive as " +
+        "`right_<name>`. Any other `joinType` fails at execute time. There is NO legacy flat " +
+        "`rightDataSourceId` field — a config carrying it is rejected outright; " +
         "assert → {rules: [{kind, field?, params, severity}]} — evaluates data-trustworthiness " +
         "rules against the rows at this step's position and records one pass/fail result per rule " +
         "(row data itself passes through unchanged; results surface later via " +

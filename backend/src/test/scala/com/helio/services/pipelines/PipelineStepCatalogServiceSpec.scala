@@ -32,9 +32,9 @@ class PipelineStepCatalogServiceSpec extends AnyWordSpec with Matchers {
       entry.group shouldBe Some(StepGroup.FilterShape)
     }
 
-    "carry authorable = false for join and groupby, and true for every other kind" in {
+    "carry authorable = false for groupby, and true for every other kind" in {
       val catalog = service.catalog()
-      catalog.steps.filter(!_.authorable).map(_.kind).toSet shouldBe Set("join", "groupby")
+      catalog.steps.filter(!_.authorable).map(_.kind).toSet shouldBe Set("groupby")
     }
 
     "carry every entry's companion-declared description" in {

@@ -20,11 +20,11 @@ class PipelineStepRegistryCatalogSpec extends AnyWordSpec with Matchers {
       blank shouldBe empty
     }
 
-    "declare authorable = false for exactly join and groupby" in {
+    "declare authorable = false for exactly groupby" in {
       val unauthorable = PipelineStep.Registry.collect {
         case (kind, companion) if !companion.authorable => kind
       }.toSet
-      unauthorable shouldBe Set("join", "groupby")
+      unauthorable shouldBe Set("groupby")
     }
 
     "declare a group that is one of StepGroup.All, when declared at all" in {

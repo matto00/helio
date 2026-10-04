@@ -98,11 +98,11 @@ describe("ProvenanceTrigger (HEL-1207)", () => {
     expect(time?.getAttribute("tabindex")).toBe("0");
   });
 
-  it("falls back to a humanised label for a join kind in the node path", async () => {
-    fetchAuth.mockResolvedValue(chain({ nodePath: ["join"] }));
+  it("falls back to a humanised label for an unregistered kind in the node path", async () => {
+    fetchAuth.mockResolvedValue(chain({ nodePath: ["groupby"] }));
     renderTrigger();
     await openPopover();
-    expect(await screen.findByText("Join")).toBeInTheDocument();
+    expect(await screen.findByText("Groupby")).toBeInTheDocument();
   });
 
   it("renders a root-bound output as Direct from source, no path list", async () => {
