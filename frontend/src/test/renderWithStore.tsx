@@ -57,6 +57,7 @@ interface TestState {
       meta?: ResourceMeta;
       appearance?: DashboardAppearance;
       layout?: DashboardLayout;
+      ownerId?: string;
     }>;
     selectedDashboardId?: string | null;
     status?: "idle" | "loading" | "succeeded" | "failed";

@@ -1,0 +1,326 @@
+{
+  "description": "Shared client/server stored-layout repair seam fixture (HEL-1233). Jest (repairPatch.seam.test.ts) asserts buildRepairPatch(panels, layout) deep-equals expectedRepair and that each repaired breakpoint is valid; ScalaTest (DashboardLayoutRepairSeamSpec) seeds layout as stored (panels created in order, layout written by SQL) and POSTs expectedRepair to /api/dashboards/:id/layout/repair, asserting 200, stored == expectedRepair, and LayoutValidator validity. Panel ids in this file are placeholders: the Scala side maps them to the created panels' real ids by position.",
+  "cases": [
+    {
+      "name": "overlapping xs is repaired, valid breakpoints left out",
+      "panels": ["a", "b"],
+      "layout": {
+        "lg": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 6,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          }
+        ],
+        "md": [],
+        "sm": [],
+        "xs": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 2
+          },
+          {
+            "panelId": "b",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 2
+          }
+        ]
+      },
+      "expectedRepair": {
+        "xs": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 2
+          },
+          {
+            "panelId": "b",
+            "x": 0,
+            "y": 2,
+            "w": 2,
+            "h": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "out-of-bounds md is re-derived",
+      "panels": ["a", "b"],
+      "layout": {
+        "lg": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 6,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          }
+        ],
+        "md": [
+          {
+            "panelId": "a",
+            "x": 8,
+            "y": 0,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 0,
+            "y": 0,
+            "w": 4,
+            "h": 4
+          }
+        ],
+        "sm": [],
+        "xs": []
+      },
+      "expectedRepair": {
+        "md": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 5,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 5,
+            "y": 0,
+            "w": 5,
+            "h": 4
+          }
+        ]
+      }
+    },
+    {
+      "name": "stale entry for a deleted panel is dropped",
+      "panels": ["a"],
+      "layout": {
+        "lg": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          }
+        ],
+        "md": [],
+        "sm": [],
+        "xs": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 2
+          },
+          {
+            "panelId": "gone",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 2
+          }
+        ]
+      },
+      "expectedRepair": {
+        "xs": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "panel with no stored item is placed",
+      "panels": ["a", "b", "c"],
+      "layout": {
+        "lg": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 4,
+            "y": 0,
+            "w": 4,
+            "h": 4
+          },
+          {
+            "panelId": "c",
+            "x": 8,
+            "y": 0,
+            "w": 4,
+            "h": 4
+          }
+        ],
+        "md": [],
+        "sm": [],
+        "xs": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 2
+          },
+          {
+            "panelId": "b",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 2
+          }
+        ]
+      },
+      "expectedRepair": {
+        "xs": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 2
+          },
+          {
+            "panelId": "b",
+            "x": 0,
+            "y": 2,
+            "w": 2,
+            "h": 2
+          },
+          {
+            "panelId": "c",
+            "x": 1,
+            "y": 4,
+            "w": 1,
+            "h": 4
+          }
+        ]
+      }
+    },
+    {
+      "name": "two bad breakpoints are both repaired",
+      "panels": ["a", "b"],
+      "layout": {
+        "lg": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 6,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          }
+        ],
+        "md": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 5,
+            "h": 3
+          },
+          {
+            "panelId": "b",
+            "x": 2,
+            "y": 1,
+            "w": 5,
+            "h": 3
+          }
+        ],
+        "sm": [],
+        "xs": [
+          {
+            "panelId": "a",
+            "x": 1,
+            "y": 0,
+            "w": 2,
+            "h": 2
+          },
+          {
+            "panelId": "b",
+            "x": 0,
+            "y": 2,
+            "w": 2,
+            "h": 2
+          }
+        ]
+      },
+      "expectedRepair": {
+        "md": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 5,
+            "h": 3
+          },
+          {
+            "panelId": "b",
+            "x": 2,
+            "y": 3,
+            "w": 5,
+            "h": 3
+          }
+        ],
+        "xs": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 3
+          },
+          {
+            "panelId": "b",
+            "x": 0,
+            "y": 3,
+            "w": 1,
+            "h": 3
+          }
+        ]
+      }
+    }
+  ]
+}

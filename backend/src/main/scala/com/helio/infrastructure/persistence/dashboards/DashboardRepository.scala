@@ -173,6 +173,32 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
         ))
     ).map(count => if (count > 0) Some(dashboard) else None)
 
+  /** Every panel id of the dashboard, unpaged (HEL-1233). The system context is load-bearing:
+   *  the repair's "no live panel dropped" check needs the full set, and the app pool's RLS would
+   *  hide panels the caller does not own. Call only after the caller's ownership of `dashboardId`
+   *  has been confirmed. */
+  def panelIdsInternal(dashboardId: DashboardId): Future[Set[PanelId]] =
+    ctx.withSystemContext(
+      TableQuery[PanelRepository.PanelTable].filter(_.dashboardId === dashboardId.value).map(_.id).result
+    ).map(_.map(PanelId(_)).toSet)
+
+  /** Layout-only compare-and-set (HEL-1233): writes `next` only while the stored layout still
+   *  equals `expected`, and touches neither name, appearance nor `last_updated` (a repair is not
+   *  an edit, and must not clobber a concurrent rename). Runs under the owner's user context so
+   *  the V36 `dashboards_update` policy applies. `false` = nothing matched (layout moved). */
+  def updateLayoutIfUnchanged(
+      id: DashboardId,
+      ownerId: UserId,
+      expected: DashboardLayout,
+      next: DashboardLayout
+  ): Future[Boolean] =
+    ctx.withUserContext(ownerId.value)(
+      table
+        .filter(d => d.id === id.value && d.layout === expected)
+        .map(_.layout)
+        .update(next)
+    ).map(_ > 0)
+
   /** Privileged update: uses withSystemContext because the caller (DashboardService)
    *  has already validated ownership before reaching this method. The V36 RLS
    *  UPDATE policy (owner OR editor grantee) would also permit this, but the

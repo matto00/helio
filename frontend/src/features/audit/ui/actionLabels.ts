@@ -13,6 +13,7 @@ const ACTION_LABELS: Record<string, string> = {
   "dashboard.delete": "Deleted dashboard",
   "dashboard.contents.replace": "Replaced dashboard contents",
   "dashboard.import": "Imported dashboard",
+  "dashboard.layout.repair": "Repaired dashboard layout",
   "panel.create": "Created panel",
   "panel.duplicate": "Duplicated panel",
   "panel.update": "Updated panel",

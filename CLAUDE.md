@@ -117,6 +117,7 @@ Key endpoints:
 - `GET /api/dashboards/:id/export` / `POST /api/dashboards/import` — export carries the dashboard's panels (there is no authenticated `GET /api/dashboards/:id`)
 - `GET /api/dashboards/:id/panels` — **public/shared dashboards only** (`PublicDashboardRoutes`, optional-auth); not available on the authenticated route tree
 - `GET /api/dashboards/:dashboardId/panels/:panelId/rows` — **public/shared dashboards only** (`PublicDashboardRoutes`, optional-auth), resolves `panel → output → node_snapshot`; see HEL-910
+- `POST /api/dashboards/:id/layout/repair` — owner-only one-time repair of stored-bad (overlapping/out-of-bounds) layout breakpoints (HEL-1233): body is a bare `{lg?, md?, sm?, xs?}` layout patch, response the dashboard. `404` no access, `403` any non-owner (editors included), `400` if a replacement is invalid or would drop a live panel, `409` if the layout changed mid-request; a supplied breakpoint that is not stored-bad is ignored, and the write touches only `layout` (not `lastUpdated`). The web client sends it once when the owner opens a stored-bad dashboard. `POST /api/dashboards/import` now stores a bad breakpoint repaired instead of `400`
 - `POST /api/panels` — requires `dashboardId` in body
 - `PATCH /api/panels/:id` — updates appearance
 - `POST /api/panels/:id/duplicate`

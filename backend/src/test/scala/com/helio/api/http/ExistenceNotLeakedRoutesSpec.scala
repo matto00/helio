@@ -394,6 +394,8 @@ object ExistenceNotLeakedRoutesSpec {
     // dashboard service paths (sharing-aware read first, then requireAccess for grantees)
     Row("GET dashboard export", HttpMethods.GET, "/api/dashboards/{id}/export", Dashboard, Set("DashboardService.scala")),
     Row("POST dashboard duplicate", HttpMethods.POST, "/api/dashboards/{id}/duplicate", Dashboard, Set("DashboardService.scala")),
+    Row("POST dashboard layout repair", HttpMethods.POST, "/api/dashboards/{id}/layout/repair", Dashboard, Set("DashboardService.scala"),
+      Json("""{"xs":[]}""")),
     Row("PATCH dashboard update", HttpMethods.PATCH, "/api/dashboards/{id}/update", Dashboard, Set("DashboardService.scala"),
       Json("""{"fields":["name"],"dashboard":{"name":"renamed"}}""")),
     Row("PATCH dashboard", HttpMethods.PATCH, "/api/dashboards/{id}", Dashboard, Set("DashboardService.scala"), Json("""{"name":"renamed"}""")),
@@ -518,7 +520,7 @@ object ExistenceNotLeakedRoutesSpec {
     "AccessCheckerImpl.scala"        -> 1,
     "AutoLayoutService.scala"        -> 1,
     "DashboardContentsService.scala" -> 1,
-    "DashboardService.scala"         -> 4,
+    "DashboardService.scala"         -> 5,
     "HookTriggerService.scala"       -> 1,
     "OutputService.scala"            -> 1,
     "PanelService.scala"             -> 5,

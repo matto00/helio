@@ -7,6 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DashboardIdSegment
+import com.helio.api.protocols.dashboards.DashboardLayoutPatchPayload
 import com.helio.domain.model._
 import com.helio.services.dashboards.DashboardService
 import com.helio.api.http.RequestValidation
@@ -74,6 +75,13 @@ final class DashboardRoutes(
                 dashboard = DashboardResponse.fromDomain(dashboard),
                 panels    = panels.map(p => PanelResponse.fromDomain(p))
               )
+            }
+          }
+        },
+        path(DashboardIdSegment / "layout" / "repair") { dashboardId =>
+          post {
+            entity(as[DashboardLayoutPatchPayload]) { request =>
+              ServiceResponse.run(dashboardService.repairLayout(dashboardId, request, user))(DashboardResponse.fromDomain)
             }
           }
         },

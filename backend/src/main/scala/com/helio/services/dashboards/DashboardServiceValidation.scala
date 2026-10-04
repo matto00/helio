@@ -1,10 +1,10 @@
 package com.helio.services.dashboards
 
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPatchPayload, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, UpdateDashboardRequest}
+import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPatchPayload, DashboardLayoutPayload, DashboardSnapshotPanelEntry, DashboardSnapshotPayload, UpdateDashboardRequest}
 import com.helio.domain.model._
 import com.helio.domain.panels.PanelConfigCodec
-import com.helio.services.panels.{LayoutBreakpointScaling, LayoutPolicy, LayoutValidator}
+import com.helio.services.panels.{LayoutBreakpointScaling, LayoutPolicy, LayoutReflow, LayoutValidator}
 
 /** Static validators and normalizers extracted from [[DashboardService]]
  *  to keep that file within the 300-line budget. Methods retain their
@@ -20,7 +20,6 @@ object DashboardServiceValidation {
       _ <- validateName(payload.dashboard.name)
       _ <- validatePanelEntries(payload.panels)
       _ <- validateLayoutReferences(payload)
-      _ <- validateImportedLayoutGeometry(payload)
     } yield ()
 
   /** CS2c-3c: prior versions are rejected (design.md D3) because the prior
@@ -87,17 +86,23 @@ object DashboardServiceValidation {
     }
   }
 
-  /** HEL-1071 (D7): an imported dashboard has no stored layout, so every supplied breakpoint is
-   *  "changed" and must be in bounds and non-overlapping, else `400` naming the breakpoint and the
-   *  snapshot panel ids. A dashboard exported while holding a bad breakpoint cannot be imported
-   *  until that breakpoint is fixed (accepted trade-off, see design.md D7). */
-  private[services] def validateImportedLayoutGeometry(payload: DashboardSnapshotPayload): Either[String, Unit] = {
+  /** HEL-1233: an imported breakpoint that is out of bounds or overlapping is stored repaired
+   *  rather than rejected (a dashboard exported while holding a grandfathered bad breakpoint must
+   *  re-import). The repair is [[LayoutReflow]] over the breakpoint's own items at its own column
+   *  count, so it is valid by construction and keeps exactly the same panels; valid breakpoints
+   *  are returned untouched. Layout-to-panel references are checked earlier and still 400. */
+  private[services] def repairImportedLayoutGeometry(payload: DashboardSnapshotPayload): DashboardSnapshotPayload = {
     val l = payload.dashboard.layout
-    def items(ps: Vector[DashboardLayoutItemPayload]): Vector[DashboardLayoutItem] =
-      ps.map(DashboardLayoutItemPayload.toDomain)
-    val patch = LayoutPolicy.Patch(Some(items(l.lg)), Some(items(l.md)), Some(items(l.sm)), Some(items(l.xs)))
-    val vs    = LayoutPolicy.violations(DashboardLayout.Default, patch)
-    if (vs.isEmpty) Right(()) else Left(LayoutPolicy.message(vs))
+    def repair(bp: String, ps: Vector[DashboardLayoutItemPayload]): Vector[DashboardLayoutItemPayload] = {
+      val items = ps.map(DashboardLayoutItemPayload.toDomain)
+      val cols  = LayoutBreakpointScaling.breakpointCols(bp)
+      if (LayoutValidator.isValid(items.map(LayoutValidator.toRect), cols)) ps
+      else
+        LayoutReflow.reflow(LayoutReflow.fromItems(items), cols, cols)
+          .map(i => DashboardLayoutItemPayload(i.panelId.value, i.x, i.y, i.w, i.h))
+    }
+    val repaired = DashboardLayoutPayload(repair("lg", l.lg), repair("md", l.md), repair("sm", l.sm), repair("xs", l.xs))
+    payload.copy(dashboard = payload.dashboard.copy(layout = repaired))
   }
 
   /** Validate + normalize a dashboard PATCH payload. Returns the trimmed

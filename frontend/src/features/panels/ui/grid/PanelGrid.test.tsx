@@ -426,6 +426,11 @@ describe("PanelGrid", () => {
   // updateDashboardLayout dispatch (network PATCH) and no setLayoutPending
   // (hasPendingLayout) transition, on mount, on a width change that stays below
   // the boundary, or across the 30s auto-save tick.
+  // HEL-1233: the one deliberate exception is the owner's one-time stored-layout repair POST
+  // (`useStoredLayoutRepair`, mounted by PanelGrid at every width). It is not `updateDashboardLayout`
+  // and never sets pending; these fixtures have no owner/stored-bad layout, so none fires here, and
+  // `PanelGrid.storedLayoutRepair.test.tsx` pins that POST as the only write, owner-only,
+  // stored-bad-only at phone width.
   describe("phone width — mobile stack (hazard §4.1)", () => {
     it("renders the read-only stack, not the RGL <Responsive> grid", () => {
       const { container } = renderWithStore(
