@@ -87,6 +87,21 @@ async function deleteSource(request: APIRequestContext, id: string): Promise<voi
   await request.delete(`/api/data-sources/${id}`, { headers: { [CSRF_HEADER]: "1" } });
 }
 
+/** Replaces the dataset's schema without `delta` -- the field the compact counter panel submits. */
+async function dropDeltaField(request: APIRequestContext, sourceId: string): Promise<void> {
+  const res = await request.patch(`/api/data-sources/${sourceId}/schema`, {
+    data: {
+      fields: [
+        { name: "occurred_at", type: "timestamp" },
+        { name: "value", type: "integer" },
+      ],
+      confirmDrop: true,
+    },
+    headers: { [CSRF_HEADER]: "1" },
+  });
+  expect(res.status()).toBe(200);
+}
+
 async function deleteDashboard(request: APIRequestContext, id: string): Promise<void> {
   await request.delete(`/api/dashboards/${id}`, { headers: { [CSRF_HEADER]: "1" } });
 }
@@ -212,9 +227,11 @@ test.describe("HEL-1095 optimistic pending/rollback ARIA state (real backend)", 
         const alert = page.locator(".form-panel-view__alert");
         await expect(alert).toHaveText("");
 
-        // Force a genuine server-side rejection (not client-blocked): delete the bound source out
-        // from under the panel — mirrors hel1088's own rejection technique.
-        await deleteSource(request, source.id);
+        // Force a genuine server-side rejection (not client-blocked, not network-faked): drop the
+        // bound `delta` field from the dataset's schema, so the server refuses the next submit's
+        // field validation (400) -- mirrors hel1088's own rejection technique. (HEL-1252: deleting
+        // the bound source is no longer an option: that now 409s while a form panel binds it.)
+        await dropDeltaField(request, source.id);
         const increaseButton = page.getByRole("button", { name: /increase widgets/i });
         await increaseButton.click();
 
@@ -230,8 +247,9 @@ test.describe("HEL-1095 optimistic pending/rollback ARIA state (real backend)", 
           path: `.concertino/runs/HEL-1095/evidence/rollback-${theme}.png`,
         });
       } finally {
+        // Dashboard (and its form panel) first: the source delete 409s while a panel still binds it.
         if (dashboard) await deleteDashboard(request, dashboard.id);
-        // source was already deleted mid-test to force the rejection.
+        await deleteSource(request, source.id);
       }
     });
   }

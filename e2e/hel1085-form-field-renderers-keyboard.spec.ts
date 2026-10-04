@@ -108,6 +108,10 @@ async function seedFormPanel(
   return res.json();
 }
 
+async function deleteDashboard(request: APIRequestContext, id: string): Promise<void> {
+  await request.delete(`/api/dashboards/${id}`, { headers: { [CSRF_HEADER]: "1" } });
+}
+
 async function deleteSource(request: APIRequestContext, id: string): Promise<void> {
   await request.delete(`/api/data-sources/${id}`, { headers: { [CSRF_HEADER]: "1" } });
 }
@@ -121,8 +125,9 @@ test.describe("HEL-1085 form field renderers — keyboard completion (real backe
   }) => {
     await registerAndLogin(page, request, "keyboard");
     const source = await seedDataset(request);
+    let dashboard: Created | undefined;
     try {
-      const dashboard = await seedDashboard(request);
+      dashboard = await seedDashboard(request);
       const panel = await seedFormPanel(request, dashboard.id, source.id);
 
       // Placed via `/auto-layout` deliberately undersized (w:1,h:1) — also exercises the D8
@@ -222,6 +227,8 @@ test.describe("HEL-1085 form field renderers — keyboard completion (real backe
         });
       }
     } finally {
+      // Dashboard (and its form panel) first: the source delete 409s while a panel still binds it.
+      if (dashboard) await deleteDashboard(request, dashboard.id);
       await deleteSource(request, source.id);
     }
   });
