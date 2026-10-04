@@ -66,7 +66,11 @@ describe("updateDashboardLayout rejection", () => {
     const store = makeStore(authored);
 
     const result = await store.dispatch(
-      updateDashboardLayout({ dashboardId: "d1", layout: { xs: authored.xs } }),
+      updateDashboardLayout({
+        dashboardId: "d1",
+        layout: { xs: authored.xs },
+        sentLayout: authored,
+      }),
     );
 
     expect(updateDashboardLayout.rejected.match(result)).toBe(true);
@@ -81,7 +85,11 @@ describe("updateDashboardLayout rejection", () => {
     const store = makeStore({ lg: [], md: [], sm: [], xs: [] });
 
     const result = await store.dispatch(
-      updateDashboardLayout({ dashboardId: "d1", layout: { xs: [] } }),
+      updateDashboardLayout({
+        dashboardId: "d1",
+        layout: { xs: [] },
+        sentLayout: { lg: [], md: [], sm: [], xs: [] },
+      }),
     );
 
     expect(result.payload).toBe("Failed to save dashboard layout.");

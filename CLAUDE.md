@@ -102,7 +102,7 @@ React Component → Redux Thunk (createAsyncThunk) → Service Layer (axios)
 
 - Feature state lives in Redux slices (`dashboardsSlice`, `panelsSlice`) with `createAsyncThunk` for all API calls.
 - `markDashboardPanelsStale` invalidates the panel cache when a new panel is created so the next dashboard switch refetches.
-- `PanelGrid` uses React Grid Layout with four responsive breakpoints (lg/md/sm/xs). Layout changes are debounced 250ms before persisting to the backend. `noCompactor` is set to prevent automatic layout compression.
+- `PanelGrid` uses React Grid Layout with four responsive breakpoints (lg/md/sm/xs). A drag/resize stop or undo/redo is staged locally and persisted by the 30s auto-save, Save now, or the desktop grid's unmount flush (`usePanelUpdatesFlush.ts`/`useLayoutSave.ts`); there is no per-change debounce. `noCompactor` is set to prevent automatic layout compression.
 - Theme (light/dark) is managed via React Context (`ThemeProvider`), not Redux.
 
 ### API Contract

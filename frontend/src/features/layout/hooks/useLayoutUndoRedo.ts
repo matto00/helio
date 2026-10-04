@@ -1,12 +1,6 @@
-import { setDashboardLayoutLocally } from "../../dashboards/state/dashboardsSlice";
-import {
-  redoLayout,
-  selectRedoLayout,
-  selectUndoLayout,
-  undoLayout,
-} from "../state/layoutHistorySlice";
-import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { useShortcut } from "../../../shared/chrome/useShortcut";
+import { applyLayoutRedo, applyLayoutUndo } from "../state/layoutHistoryThunks";
 
 /**
  * HEL-510 — migrated onto `useShortcut` (design.md Decision 3): this hook is now a pure consumer,
@@ -19,21 +13,12 @@ import { useShortcut } from "../../../shared/chrome/useShortcut";
 export function useLayoutUndoRedo(dashboardId: string | null): void {
   const dispatch = useAppDispatch();
 
-  const currentLayout = useAppSelector((state) => {
-    if (!dashboardId) return undefined;
-    return state.dashboards.items.find((d) => d.id === dashboardId)?.layout;
-  });
-
-  const undoTarget = useAppSelector(selectUndoLayout(dashboardId));
-  const redoTarget = useAppSelector(selectRedoLayout(dashboardId));
-
+  // HEL-1230: traversal lives in one place (`layoutHistoryThunks`); the thunk reads live state, so
+  // `preventDefault` is called only when it actually applied something.
   useShortcut(
     "layout-undo",
     (event) => {
-      if (!dashboardId || !undoTarget || !currentLayout) return;
-      event.preventDefault();
-      dispatch(undoLayout({ dashboardId, currentLayout }));
-      dispatch(setDashboardLayoutLocally({ dashboardId, layout: undoTarget }));
+      if (dashboardId && dispatch(applyLayoutUndo(dashboardId))) event.preventDefault();
     },
     { when: dashboardId !== null },
   );
@@ -41,10 +26,7 @@ export function useLayoutUndoRedo(dashboardId: string | null): void {
   useShortcut(
     "layout-redo",
     (event) => {
-      if (!dashboardId || !redoTarget || !currentLayout) return;
-      event.preventDefault();
-      dispatch(redoLayout({ dashboardId, currentLayout }));
-      dispatch(setDashboardLayoutLocally({ dashboardId, layout: redoTarget }));
+      if (dashboardId && dispatch(applyLayoutRedo(dashboardId))) event.preventDefault();
     },
     { when: dashboardId !== null },
   );

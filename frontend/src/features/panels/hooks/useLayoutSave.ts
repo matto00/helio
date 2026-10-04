@@ -19,6 +19,27 @@
 // desktop-staged data only, and `persistLayout`'s equality guard makes a
 // browse-only crossing (no staged change) a no-op — the mobile stack still
 // mounts no layout-write path.
+//
+// HEL-1230 — STORE-LAYOUT CLASSIFICATION CONTRACT (HEL-1233 builds on this; keep it accurate).
+// Persistence is DEFERRED, never per-edit: nothing below PATCHes by itself. A pending layout is
+// flushed by the 30s auto-save tick, Save now, or this hook's unmount flush (`usePanelUpdatesFlush.ts`
+// owns the tick/Save-now slot). There is no 250ms layout debounce anywhere.
+// Every change of the store's authored `layout` is classified in this order:
+//   1. interaction commit  — a drag/resize stop wrote it (`commitInteractionLayout`):  keep baseline
+//   2. history traversal   — an undo/redo wrote it (revision changed AND layout equals the history
+//      slice's `applied` layout, so a no-op traversal's stale revision can never match): keep baseline
+//   3. placement extension — a panel create appended items to every breakpoint with the previous store
+//      layout as an exact prefix (`layoutPlacement.ts`): extend the baseline by the same items, so a
+//      pending edit survives the create and a create alone is not pending
+//   4. anything else       — server/external truth (fetch, upsert, PATCH response): re-baseline
+// Cases 1-3 then set pending = (layout differs from the baseline); case 4 clears it. An undo/redo is
+// therefore "a local edit like a drag", persisted by the same flush.
+// D5: a PATCH response never overwrites a newer local layout (see `dashboardsSlice`'s fulfilled
+// reducer); `persistLayout`'s `.then` then recomputes pending against the server baseline. Known,
+// accepted race: if a panel create lands while a PATCH is in flight and the server handled the PATCH
+// BEFORE the create, the response baseline lacks the placement, so this pure create is marked pending
+// and the next flush sends one redundant (idempotent) PATCH. Pinned by a test in
+// `DesktopPanelGrid.inflightResponse.test.tsx`.
 
 import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 
@@ -31,7 +52,8 @@ import { setLayoutPending, updateDashboardLayout } from "../../dashboards/state/
 import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import type { Panel } from "../types/panel";
 import type { LayoutFlush } from "./usePanelUpdatesFlush";
-import { selectLayoutRevision } from "../../layout/state/layoutHistorySlice";
+import { selectAppliedLayout, selectLayoutRevision } from "../../layout/state/layoutHistorySlice";
+import { detectPlacementExtension, extendBaseline } from "./layoutPlacement";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 
 export interface UseLayoutSaveResult {
@@ -86,26 +108,47 @@ export function useLayoutSave({
   const revision = useAppSelector(selectLayoutRevision(dashboardId));
   const revisionRef = useRef(revision);
   const seenRevisionRef = useRef(revision);
+  // HEL-1230: the layout the latest effective undo/redo restored; a traversal's store write is
+  // recognised by revision change AND equality with it (class 2 in the header contract).
+  const applied = useAppSelector(selectAppliedLayout(dashboardId));
+  const appliedRef = useRef(applied);
   useEffect(() => {
     revisionRef.current = revision;
+    appliedRef.current = applied;
   });
+  // The store layout this effect last saw, for placement-extension detection (class 3).
+  const prevLayoutRef = useRef<DashboardLayout>(layout);
 
   useEffect(() => {
+    const prevLayout = prevLayoutRef.current;
+    prevLayoutRef.current = layout;
     latestLayoutRef.current = layout;
     const isInteractionCommit =
       localCommitRef.current !== null && areDashboardLayoutsEqual(layout, localCommitRef.current);
-    const isHistoryTraversal = revisionRef.current !== seenRevisionRef.current;
+    const revisionChanged = revisionRef.current !== seenRevisionRef.current;
     seenRevisionRef.current = revisionRef.current;
-    if (isInteractionCommit || isHistoryTraversal) {
+    const isHistoryTraversal =
+      revisionChanged &&
+      appliedRef.current !== null &&
+      areDashboardLayoutsEqual(layout, appliedRef.current);
+    const placement =
+      isInteractionCommit || isHistoryTraversal
+        ? null
+        : detectPlacementExtension(prevLayout, layout);
+    if (isInteractionCommit || isHistoryTraversal || placement) {
       // Keep persistedLayoutRef (last server-acknowledged layout); pending is
-      // simply whether the displayed layout still differs from it.
+      // simply whether the displayed layout still differs from it. A placement
+      // extends it by the created panel's items first (HEL-1230, D4).
       localCommitRef.current = null;
+      if (placement) {
+        persistedLayoutRef.current = extendBaseline(persistedLayoutRef.current, placement);
+      }
       const pending = !areDashboardLayoutsEqual(layout, persistedLayoutRef.current);
       layoutPendingDispatchedRef.current = pending;
       dispatch(setLayoutPending(pending));
     } else {
       persistedLayoutRef.current = layout;
-      // A staged drag that this re-baseline discards (e.g. a panel create landing
+      // A staged drag that this re-baseline discards (e.g. a server layout landing
       // before the flush) must not leave the pending flag stuck with nothing to save.
       if (layoutPendingDispatchedRef.current) dispatch(setLayoutPending(false));
       // Layout is now in sync with what's persisted, so the pending cycle is
@@ -143,10 +186,17 @@ export function useLayoutSave({
     );
 
     inFlightLayoutRef.current = nextLayout;
-    void dispatch(updateDashboardLayout({ dashboardId, layout: patch }))
+    void dispatch(updateDashboardLayout({ dashboardId, layout: patch, sentLayout: nextLayout }))
       .unwrap()
       .then((dashboard) => {
         persistedLayoutRef.current = dashboard.layout;
+        // HEL-1230 (D5): the store keeps a newer local layout over this response, so recompute pending
+        // against the new baseline in BOTH directions — a local edit made while the PATCH was in flight
+        // stays pending, and one that already equals the server's layout clears it (never stuck dirty,
+        // never blocking the next edit's pending dispatch).
+        const pending = !areDashboardLayoutsEqual(latestLayoutRef.current, dashboard.layout);
+        layoutPendingDispatchedRef.current = pending;
+        dispatch(setLayoutPending(pending));
       })
       .catch(() => {
         // Keep local drag UX responsive; retry happens on the next layout change.

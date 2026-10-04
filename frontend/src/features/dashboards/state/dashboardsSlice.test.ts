@@ -7,6 +7,7 @@ import {
   fetchDashboards,
   importDashboard,
   setDashboardLayoutLocally,
+  setLayoutPending,
   updateDashboardAppearance,
   updateDashboardLayout,
 } from "./dashboardsSlice";
@@ -243,6 +244,8 @@ describe("dashboardsSlice", () => {
             sm: [{ panelId: "panel-1", x: 0, y: 0, w: 3, h: 5 }],
             xs: [{ panelId: "panel-1", x: 0, y: 0, w: 2, h: 5 }],
           },
+          // The store still holds what was sent, so the response is adopted (HEL-1230).
+          sentLayout: defaultLayout,
         },
       ),
     );
@@ -512,7 +515,7 @@ describe("dashboardsSlice", () => {
           layout: updatedLayout,
         },
         "request-layout",
-        { dashboardId: "dashboard-1", layout: updatedLayout },
+        { dashboardId: "dashboard-1", layout: updatedLayout, sentLayout: defaultLayout },
       ),
     );
 
@@ -525,6 +528,59 @@ describe("dashboardsSlice", () => {
       h: 5,
     });
     expect(nextState.items[0].meta.lastUpdated).toBe("2026-04-30T10:00:00Z");
+  });
+
+  describe("updateDashboardLayout.fulfilled vs a newer local layout (HEL-1230)", () => {
+    const sent = { ...defaultLayout, lg: [{ panelId: "panel-1", x: 2, y: 0, w: 4, h: 5 }] };
+    const newer = { ...defaultLayout, lg: [{ panelId: "panel-1", x: 6, y: 0, w: 4, h: 5 }] };
+    const response = {
+      id: "dashboard-1",
+      name: "Renamed by server",
+      meta: { ...defaultMeta, lastUpdated: "2026-05-01T10:00:00Z" },
+      appearance: defaultAppearance,
+      layout: sent,
+    };
+    const seed = (local: typeof sent) => {
+      let state = dashboardsReducer(
+        undefined,
+        fetchDashboards.fulfilled(
+          [
+            {
+              id: "dashboard-1",
+              name: "Operations",
+              meta: defaultMeta,
+              appearance: defaultAppearance,
+              layout: local,
+            },
+          ],
+          "r",
+          undefined,
+        ),
+      );
+      state = dashboardsReducer(state, setLayoutPending(true));
+      return state;
+    };
+    const arg = { dashboardId: "dashboard-1", layout: { lg: sent.lg }, sentLayout: sent };
+
+    it("adopts the response and clears pending when the local layout still equals what was sent", () => {
+      const next = dashboardsReducer(
+        seed({ ...sent, lg: [...sent.lg] }),
+        updateDashboardLayout.fulfilled(response, "q", arg),
+      );
+      expect(next.items[0]).toBe(response);
+      expect(next.hasPendingLayout).toBe(false);
+    });
+
+    it("keeps the newer local layout by reference, updates other fields, leaves pending set", () => {
+      const state = seed(newer);
+      const localRef = state.items[0].layout;
+      const next = dashboardsReducer(state, updateDashboardLayout.fulfilled(response, "q", arg));
+      expect(next.items[0].layout).toBe(localRef);
+      expect(next.items[0].layout.lg[0].x).toBe(6);
+      expect(next.items[0].name).toBe("Renamed by server");
+      expect(next.items[0].meta.lastUpdated).toBe("2026-05-01T10:00:00Z");
+      expect(next.hasPendingLayout).toBe(true);
+    });
   });
 
   // ── HEL-1119: createDashboard/fetchDashboards race ──────────────────────
