@@ -22,6 +22,7 @@ import type {
   FilterConfig as FilterConfigType,
   GenerateTextConfig as GenerateTextConfigType,
   LimitConfig as LimitConfigType,
+  JoinConfig as JoinConfigType,
   LookupConfig as LookupConfigType,
   OutputSchemaField,
   OutputSchemaFieldType,
@@ -54,6 +55,7 @@ import type { DedupeConfigValue } from "../ui/stepConfigs/DedupeConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/stepConfigs/ExtractHeadingsConfig";
 import { FILL_NULL_STRATEGIES, type FillNullConfigValue } from "../ui/stepConfigs/FillNullConfig";
 import type { FilterConfigValue } from "../ui/stepConfigs/FilterConfig";
+import type { JoinConfigValue } from "../ui/stepConfigs/JoinConfig";
 import type { LookupConfigValue } from "../ui/stepConfigs/LookupConfig";
 import { PIVOT_AGG_FNS, type PivotConfigValue } from "../ui/stepConfigs/PivotConfig";
 import type { SortKey } from "../ui/stepConfigs/SortConfig";
@@ -97,20 +99,11 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-// OP_TYPES drives the picker dropdown — join is intentionally excluded: no
-// `JoinConfig.tsx` editor exists (HEL-264's original rationale — showing an
-// unconfigurable op led to confusion), not the now-resolved HEL-278 ACL gap.
-// `union` (HEL-384) is the async/repo-touching sibling of join, but ships
-// both a full editor (UnionConfig.tsx) and its own ACL check (design.md
-// Decision 9), so it does NOT mirror join's exclusion — see design.md
-// Decision 7.
-// `lookup` (HEL-386) is the third async/repo-touching op — like `union`, it
-// ships both a full editor (LookupConfig.tsx) and its own ACL check
-// (design.md Decision 9 there / Decision 9 here), so it also does NOT
-// mirror join's exclusion.
-// `assert` (HEL-454 / 419-A) is purely local (no second-DataSource reference,
-// no ACL pre-flight) — a pass-through step like `filter`/`limit`/`sort`, so
-// it ships a full editor (AssertConfig.tsx) with no ACL-check counterpart.
+// OP_TYPES drives the picker dropdown and resolves every loaded step's op type. Every op with a
+// registered editor is listed. `join` (HEL-958) ships JoinConfig.tsx and, like `union`/`lookup`
+// (HEL-384/HEL-386), an ACL pre-flight on its second source. `assert` (HEL-454 / 419-A) is purely
+// local (no second-DataSource reference, no ACL pre-flight) -- a pass-through step like
+// `filter`/`limit`/`sort`, with a full editor (AssertConfig.tsx).
 export const OP_TYPES: OpType[] = [
   { id: "select", label: "Select fields", icon: SquareCheckBig },
   { id: "rename", label: "Rename column", icon: Pencil },
@@ -132,11 +125,12 @@ export const OP_TYPES: OpType[] = [
   { id: "stringops", label: "String operation", icon: Type },
   { id: "union", label: "Union / append rows", icon: Group },
   { id: "lookup", label: "Lookup / enrich", icon: Tags },
+  { id: "join", label: "Join tables", icon: Link2 },
   { id: "assert", label: "Assert / validate", icon: ClipboardCheck },
   // `upsertsource` (HEL-1102) is the fourth async/repo-touching op -- like
   // `union`/`lookup`, it ships a full editor (UpsertSourceConfig.tsx) and
-  // its own ownership check (design.md Decision 2), so it also does NOT
-  // mirror join's exclusion.
+  // its own ownership check (design.md Decision 2), so it ships a real
+  // editor as well.
   { id: "upsertsource", label: "Write to source", icon: Save },
   // HEL-1109 (design.md D1) — three ops, three OP_TYPES entries, no group
   // field: HEL-1136 moves grouping to a backend-owned field.
@@ -241,11 +235,6 @@ export function isCompleteAiStepConfig(kind: string, config: PipelineStepConfig)
   }
   return true;
 }
-
-// Internal lookup entry for join — kept out of OP_TYPES (picker) but needed
-// so pipelineStepToStep can resolve existing backend-loaded join steps without
-// falling back to the wrong op type.
-const JOIN_OP_TYPE: OpType = { id: "join", label: "Join tables", icon: Link2 };
 
 // HEL-1100 (design.md Decision 9): a step kind the frontend does not (yet) recognize -- e.g. a
 // persisted `upsertsource` step before HEL-1102's real step card ships. `pipelineStepToStep`
@@ -481,12 +470,7 @@ export function resolveDraftFallbackSchema(
 }
 
 export function pipelineStepToStep(ps: PipelineStep): Step {
-  // Join is excluded from the picker (OP_TYPES) but must still resolve
-  // correctly when a backend-loaded step has type "join".
-  const opType =
-    ps.type === "join"
-      ? JOIN_OP_TYPE
-      : (OP_TYPES.find((op) => op.id === ps.type) ?? unsupportedOpType(ps.type));
+  const opType = OP_TYPES.find((op) => op.id === ps.type) ?? unsupportedOpType(ps.type);
   return {
     id: ps.id,
     opType,
@@ -766,6 +750,23 @@ export function lookupConfigOf(step: Step): LookupConfigValue {
     sourceKey: cfg.sourceKey ?? "",
     lookupKey: cfg.lookupKey ?? "",
     columns: Array.isArray(cfg.columns) ? cfg.columns : [],
+  };
+}
+
+export function joinConfigOf(step: Step): JoinConfigValue {
+  const empty: JoinConfigValue = {
+    secondary: DEFAULT_SECONDARY_INPUT,
+    joinKey: "",
+    joinType: "inner",
+  };
+  if (step.opType.id !== "join") return empty;
+  const cfg = step.config as JoinConfigType;
+  // Full passthrough (HEL-958): a stored lane reference, an unknown joinType or a joinKey absent
+  // from the input schema must survive narrowing so the editor can show it and never rewrite it.
+  return {
+    secondary: cfg.secondaryInput ?? DEFAULT_SECONDARY_INPUT,
+    joinKey: cfg.joinKey ?? "",
+    joinType: cfg.joinType ?? "inner",
   };
 }
 

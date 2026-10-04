@@ -121,7 +121,6 @@ object JoinStep {
     val kind: String                      = Kind
     override def group: Option[StepGroup]     = Some(StepGroup.Combine)
     override def catalogDescription: String   = "Join rows with a second data source or lane on a matching key."
-    override def authorable: Boolean          = false
     def decodeConfig(raw: String): Any    = JoinConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[JoinConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[JoinConfig]

@@ -214,9 +214,9 @@ class PipelineStepRoutesSpec
     )
   )
 
-  // HEL-950: `defaultConfigFor("join")` seed shape (join is picker-excluded per
-  // ticket.md CORRECTION, but the seed shape is still what agent/MCP and patch-set
-  // callers reach the addStep/updateStep path with).
+  // HEL-950: `defaultConfigFor("join")` seed shape (the palette seeds this shape on
+  // "Join tables" since HEL-958, and agent/MCP and patch-set callers reach the
+  // addStep/updateStep path with it too).
   private def joinDefaultReq(): JsObject = JsObject(
     "type" -> JsString("join"),
     "config" -> JsObject(
@@ -627,7 +627,7 @@ class PipelineStepRoutesSpec
     }
 
     // HEL-950 (design.md Decision 6, ticket.md AC4/AC6a): the empty-id join body reaches
-    // addStep from the agent/MCP surface, not the picker (join is picker-excluded). This
+    // addStep from the palette (HEL-958) and the agent/MCP surface. This
     // MUST succeed (201) with the right source left unset -- an empty/unselected id is an
     // incomplete draft, not a security violation. Before the fix, joinCheckF unconditionally
     // called findByIdOwned(DataSourceId(""), user) => None => 404 for EVERY join create,

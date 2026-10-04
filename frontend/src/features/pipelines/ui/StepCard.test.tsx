@@ -30,9 +30,9 @@ const updatePipelineStepMock = jest.mocked(updatePipelineStep);
 const LIMIT_OP_TYPE = OP_TYPES.find((op) => op.id === "limit")!;
 const SELECT_OP_TYPE = OP_TYPES.find((op) => op.id === "select")!;
 const RENAME_OP_TYPE = OP_TYPES.find((op) => op.id === "rename")!;
-// Mirrors stepNarrowing.ts's internal (unexported) JOIN_OP_TYPE — join has no
-// dedicated editor, so it exercises StepCard's no-editor fallback branch.
-const JOIN_OP_TYPE: OpType = { id: "join", label: "Join tables", icon: Link2 };
+// A synthetic op with no editor branch (every real OP_TYPES entry has one since HEL-958 gave
+// join its editor), so it exercises StepCard's no-editor fallback branch.
+const NO_EDITOR_OP_TYPE: OpType = { id: "noeditor", label: "No editor op", icon: Link2 };
 
 // HEL-1109: "persisted-step-N" (not "step-N") deliberately -- `StepCard`'s
 // new draft-chip check and `useStepCardState.persist`'s new not-yet-real-id
@@ -567,27 +567,27 @@ describe("StepCard — real schema diff chips (HEL-405)", () => {
 
   it("renders no diff chips (and no empty container) when the schemas are identical", async () => {
     const schema: SchemaField[] = [{ name: "a", type: "string" }];
-    const step = makeStep({ opType: JOIN_OP_TYPE, label: "Join tables" });
+    const step = makeStep({ opType: NO_EDITOR_OP_TYPE, label: "No editor op" });
 
     const { container } = render(
       <StepCard {...baseProps({ step, analyzeSchema: schema, analyzeOutputSchema: schema })} />,
     );
-    await click("Join tables");
+    await click("No editor op");
 
     expect(
       container.querySelector(".pipeline-detail-page__step-card-diff"),
     ).not.toBeInTheDocument();
     // Fallback branch's desc text still renders — only the placeholder chips were removed.
-    expect(screen.getByText("Configure this join tables step.")).toBeInTheDocument();
+    expect(screen.getByText("Configure this no editor op step.")).toBeInTheDocument();
   });
 
   it("renders no diff chips when analyze data is unavailable for the step", async () => {
-    const step = makeStep({ opType: JOIN_OP_TYPE, label: "Join tables" });
+    const step = makeStep({ opType: NO_EDITOR_OP_TYPE, label: "No editor op" });
 
     const { container } = render(
       <StepCard {...baseProps({ step, analyzeSchema: [], analyzeOutputSchema: [] })} />,
     );
-    await click("Join tables");
+    await click("No editor op");
 
     expect(
       container.querySelector(".pipeline-detail-page__step-card-diff"),
@@ -595,12 +595,12 @@ describe("StepCard — real schema diff chips (HEL-405)", () => {
   });
 
   it("never renders the hardcoded col_a/col_b/col_c placeholder", async () => {
-    const step = makeStep({ opType: JOIN_OP_TYPE, label: "Join tables" });
+    const step = makeStep({ opType: NO_EDITOR_OP_TYPE, label: "No editor op" });
     const analyzeSchema: SchemaField[] = [{ name: "col_a", type: "string" }];
     const analyzeOutputSchema: SchemaField[] = [{ name: "col_x", type: "string" }];
 
     render(<StepCard {...baseProps({ step, analyzeSchema, analyzeOutputSchema })} />);
-    await click("Join tables");
+    await click("No editor op");
 
     expect(screen.queryByText("+ col_a")).not.toBeInTheDocument();
     expect(screen.queryByText(/col_b/)).not.toBeInTheDocument();

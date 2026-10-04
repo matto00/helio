@@ -28,6 +28,7 @@ import {
   filterConfigOf,
   generateTextConfigOf,
   limitCountOf,
+  joinConfigOf,
   lookupConfigOf,
   pivotConfigOf,
   renamesOf,
@@ -56,6 +57,7 @@ import type { DedupeConfigValue } from "../ui/stepConfigs/DedupeConfig";
 import type { ExtractHeadingsConfigValue } from "../ui/stepConfigs/ExtractHeadingsConfig";
 import type { FillNullConfigValue } from "../ui/stepConfigs/FillNullConfig";
 import type { FilterConfigValue } from "../ui/stepConfigs/FilterConfig";
+import type { JoinConfigValue } from "../ui/stepConfigs/JoinConfig";
 import type { LookupConfigValue } from "../ui/stepConfigs/LookupConfig";
 import type { PivotConfigValue } from "../ui/stepConfigs/PivotConfig";
 import type { SortKey } from "../ui/stepConfigs/SortConfig";
@@ -96,6 +98,7 @@ export interface StepCardStateHandlers {
   stringOpsConfig: StringOpsConfigValue;
   unionConfig: UnionConfigValue;
   lookupConfig: LookupConfigValue;
+  joinConfig: JoinConfigValue;
   assertConfig: AssertConfigValue;
   upsertSourceConfig: UpsertSourceConfigValue;
   convertFormatConfig: ConvertFormatConfigValue;
@@ -128,6 +131,7 @@ export interface StepCardStateHandlers {
   onStringOpsChange: (config: StringOpsConfigValue) => void;
   onUnionChange: (config: UnionConfigValue) => void;
   onLookupChange: (config: LookupConfigValue) => void;
+  onJoinChange: (config: JoinConfigValue) => void;
   onAssertChange: (config: AssertConfigValue) => void;
   onUpsertSourceChange: (config: UpsertSourceConfigValue) => void;
   onConvertFormatChange: (config: ConvertFormatConfigValue) => void;
@@ -183,6 +187,7 @@ export function useStepCardState(
   );
   const [unionConfig, setUnionConfig] = useState<UnionConfigValue>(() => unionConfigOf(step));
   const [lookupConfig, setLookupConfig] = useState<LookupConfigValue>(() => lookupConfigOf(step));
+  const [joinConfig, setJoinConfig] = useState<JoinConfigValue>(() => joinConfigOf(step));
   const [assertConfig, setAssertConfig] = useState<AssertConfigValue>(() => assertConfigOf(step));
   const [upsertSourceConfig, setUpsertSourceConfig] = useState<UpsertSourceConfigValue>(() =>
     upsertSourceConfigOf(step),
@@ -222,6 +227,7 @@ export function useStepCardState(
     setStringOpsConfig(stringOpsConfigOf(step));
     setUnionConfig(unionConfigOf(step));
     setLookupConfig(lookupConfigOf(step));
+    setJoinConfig(joinConfigOf(step));
     setAssertConfig(assertConfigOf(step));
     setUpsertSourceConfig(upsertSourceConfigOf(step));
     setConvertFormatConfig(convertFormatConfigOf(step));
@@ -469,6 +475,16 @@ export function useStepCardState(
     });
   }
 
+  function onJoinChange(newConfig: JoinConfigValue) {
+    setJoinConfig(newConfig);
+    // Exactly the wire key set {secondaryInput, joinKey, joinType} (HEL-958 D4).
+    persist({
+      secondaryInput: newConfig.secondary,
+      joinKey: newConfig.joinKey,
+      joinType: newConfig.joinType,
+    });
+  }
+
   function onAssertChange(newConfig: AssertConfigValue) {
     setAssertConfig(newConfig);
     persist(newConfig);
@@ -534,6 +550,7 @@ export function useStepCardState(
     stringOpsConfig,
     unionConfig,
     lookupConfig,
+    joinConfig,
     assertConfig,
     upsertSourceConfig,
     convertFormatConfig,
@@ -560,6 +577,7 @@ export function useStepCardState(
     onStringOpsChange,
     onUnionChange,
     onLookupChange,
+    onJoinChange,
     onAssertChange,
     onUpsertSourceChange,
     onConvertFormatChange,

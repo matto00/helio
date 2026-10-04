@@ -13,6 +13,7 @@ import {
   generateTextConfigOf,
   isCompleteAiStepConfig,
   isUnsupportedOpType,
+  joinConfigOf,
   lookupConfigOf,
   makeStep,
   pipelineStepToStep,
@@ -183,6 +184,63 @@ describe("stepNarrowing — lookup", () => {
       lookupKey: "",
       columns: [],
     });
+  });
+});
+
+describe("stepNarrowing — join (HEL-958)", () => {
+  function joinStep(config: Record<string, unknown>): Step {
+    const opType = OP_TYPES.find((op) => op.id === "join");
+    if (!opType) throw new Error("join missing from OP_TYPES");
+    return { id: "j1", opType, label: opType.label, config: config as never, enabled: true };
+  }
+
+  it("OP_TYPES carries join as 'Join tables'", () => {
+    expect(OP_TYPES.find((op) => op.id === "join")?.label).toBe("Join tables");
+  });
+
+  it("pipelineStepToStep resolves a persisted join step through OP_TYPES", () => {
+    const ps = {
+      id: "j1",
+      pipelineId: "p1",
+      position: 0,
+      type: "join",
+      config: {
+        secondaryInput: { kind: "source", dataSourceId: "ds" },
+        joinKey: "id",
+        joinType: "left",
+      },
+      createdAt: "",
+      updatedAt: "",
+      enabled: true,
+    } as unknown as PipelineStep;
+    const step = pipelineStepToStep(ps);
+    expect(isUnsupportedOpType(step.opType)).toBe(false);
+    expect(step.opType).toBe(OP_TYPES.find((op) => op.id === "join"));
+  });
+
+  it("joinConfigOf passes a stored lane reference, unknown joinType and absent-key through untouched", () => {
+    expect(
+      joinConfigOf(
+        joinStep({
+          secondaryInput: { kind: "lane", stepId: "s9" },
+          joinKey: "ghost",
+          joinType: "outer",
+        }),
+      ),
+    ).toEqual({ secondary: { kind: "lane", stepId: "s9" }, joinKey: "ghost", joinType: "outer" });
+  });
+
+  it("joinConfigOf defaults absent fields and non-join steps to the seed shape", () => {
+    const seed = {
+      secondary: { kind: "source", dataSourceId: "" },
+      joinKey: "",
+      joinType: "inner",
+    };
+    expect(joinConfigOf(joinStep({}))).toEqual(seed);
+    const select = OP_TYPES.find((op) => op.id === "select")!;
+    expect(
+      joinConfigOf({ id: "x", opType: select, label: "s", config: { fields: [] }, enabled: true }),
+    ).toEqual(seed);
   });
 });
 
@@ -642,9 +700,9 @@ describe("stepNarrowing — HEL-1136 drift guard: STEP_ICONS vs. backend registr
     const registryKinds = parseRegistryKinds(repoRoot, source);
     expect(registryKinds.length).toBe(27);
     const unauthorableKinds = parseUnauthorableKinds(repoRoot, registryKinds);
-    // The two currently-declared unauthorable kinds (join, groupby) — asserted here so a future
+    // The one currently-declared unauthorable kind (groupby) — asserted here so a future
     // backend declaration change is visible in this test's failure, not silently absorbed.
-    expect(unauthorableKinds).toEqual(new Set(["join", "groupby"]));
+    expect(unauthorableKinds).toEqual(new Set(["groupby"]));
     const { missing } = iconsCoverAuthorableKinds(registryKinds, unauthorableKinds);
     expect(missing).toEqual([]);
   });
