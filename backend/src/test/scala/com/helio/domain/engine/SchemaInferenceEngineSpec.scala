@@ -690,4 +690,54 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
       DataFieldType.asString(TimestampType) shouldBe "timestamp"
     }
   }
+
+  // HEL-1221: fromCsv/parseCsvRows read a lazy head instead of splitting the whole file; these pin
+  // that the observable results match the previous eager `split("\n", -1)` implementation.
+  "SchemaInferenceEngine CSV head reading" should {
+
+    // The previous eager implementation, kept here only as the equivalence oracle.
+    def eagerLines(csv: String): Array[String] =
+      csv.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1).map(_.stripTrailing())
+
+    "parse the same header and rows as the eager split for LF, CRLF and bare-CR files" in {
+      val bodies = Seq("a,b\n1,2\n3,4", "a,b\r\n1,2\r\n3,4\r\n", "a,b\r1,2\r3,4", "a,b\n\n1,2\n\n\n3,4\n", "a,b\n1,2\n  \n3,4   ")
+      bodies.foreach { csv =>
+        val lines = eagerLines(csv)
+        val (headers, rows) = parseCsvRows(csv, maxRows = 10)
+        headers shouldBe Vector("a", "b")
+        rows shouldBe lines.drop(1).filter(_.nonEmpty).take(10).map(l => l.split(",", -1).map(_.trim).toVector).toVector
+      }
+    }
+
+    "stop reading after maxRows non-empty rows" in {
+      val csv = "a\n" + (1 to 1000).mkString("\n")
+      parseCsvRows(csv, maxRows = 3)._2 shouldBe Vector(Vector("1"), Vector("2"), Vector("3"))
+    }
+
+    "return empty headers and rows for an empty file and a blank header line" in {
+      parseCsvRows("") shouldBe ((Vector.empty, Vector.empty))
+      parseCsvRows("\n1,2") shouldBe ((Vector.empty, Vector.empty))
+      fromCsv("").fields shouldBe empty
+      fromCsv("   \n1,2").fields shouldBe empty
+    }
+
+    "still treat the trailing empty line after a final newline as a sampled empty row" in {
+      fromCsv("a,b\n1,2\n").fields.map(_.nullable) shouldBe Seq(true, true)
+    }
+
+    "give byte-input inference and preview identical results to the String input, including multi-byte text" in {
+      val bodies = Seq(
+        "a,b\n1,2\n3,4",
+        "nom,ville\r\nRenée,Zürich\r\n,\r\n東京,大阪\r\n",
+        "a\r\n\r\n \r\nx",
+        "id\n" + (1 to 300).map(i => if (i == 150) "" else i.toString).mkString("\n")
+      )
+      bodies.foreach { csv =>
+        val bytes = csv.getBytes("UTF-8")
+        fromCsvBytes(bytes) shouldBe fromCsv(csv)
+        parseCsvRowsBytes(bytes, maxRows = 5) shouldBe parseCsvRows(csv, maxRows = 5)
+        parseCsvRowsBytes(bytes, maxRows = 1000) shouldBe parseCsvRows(csv, maxRows = 1000)
+      }
+    }
+  }
 }

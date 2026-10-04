@@ -6,7 +6,7 @@ import com.helio.domain.model.{AssertionSink, CsvSourceConfig, ImageSourceConfig
 import com.helio.domain.model.{CsvSource, ImageSource, PdfSource, RestSource, SqlSource, TextSource, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.engine.InProcessPipelineEngine
-import com.helio.services.sources.ContentSourceSupport
+import com.helio.services.sources.{ContentSourceSupport, CsvLimits}
 import com.helio.domain.steps._
 import com.helio.domain.model.{DataFieldType, DataSource, DataSourceId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, DatasetSource}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -1990,6 +1990,36 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with Scalate
       rows should have size 2
       rows.head("name") shouldBe "alice"
       rows.head("age")  shouldBe "30"
+    }
+
+    "loadRows: a stored CSV over the row cap fails with the limits message instead of materializing" in {
+      val tmp = newTempFile("helio-csv-over-cap-", ".csv").toFile
+      java.nio.file.Files.write(tmp.toPath, ("a\n" + "1\n" * (CsvLimits.maxRows.toInt + 1)).getBytes(StandardCharsets.UTF_8))
+      val ds = CsvSource(
+        id        = DataSourceId("ds-csv-over-cap"),
+        name      = "tall-csv",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = CsvSourceConfig(tmp.getAbsolutePath)
+      )
+      val ex = intercept[IllegalArgumentException](Await.result(engine.loadRows(ds, null), 10.seconds))
+      ex.getMessage should include ("tall-csv")
+      ex.getMessage should include (CsvLimits.maxRows.toString)
+    }
+
+    "loadRows: a stored CSV exactly at the row cap still loads" in {
+      val tmp = newTempFile("helio-csv-at-cap-", ".csv").toFile
+      java.nio.file.Files.write(tmp.toPath, ("a\n" + "1\n" * CsvLimits.maxRows.toInt).getBytes(StandardCharsets.UTF_8))
+      val ds = CsvSource(
+        id        = DataSourceId("ds-csv-at-cap"),
+        name      = "at-cap-csv",
+        ownerId   = UserId("00000000-0000-0000-0000-000000000001"),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
+        config    = CsvSourceConfig(tmp.getAbsolutePath)
+      )
+      Await.result(engine.loadRows(ds, null), 10.seconds) should have size CsvLimits.maxRows.toInt
     }
 
     // Legacy 'filePath' tolerance lives at the row→domain boundary in

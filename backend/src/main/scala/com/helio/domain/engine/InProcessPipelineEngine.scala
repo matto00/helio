@@ -7,7 +7,7 @@ import com.helio.domain.steps.{JoinStep, LookupStep, SecondaryInput, UnionStep}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
-import com.helio.services.sources.{ContentSourceSupport, ImageSourceSupport, PdfTextSupport}
+import com.helio.services.sources.{ContentSourceSupport, CsvLimits, ImageSourceSupport, PdfTextSupport}
 import PipelineRowJson.{Row, parseStaticRows}
 import spray.json.JsObject
 
@@ -536,7 +536,7 @@ class InProcessPipelineEngine(
                 )
               )
             case Right(bytes) =>
-              Future.successful((loadCsvRowsFromBytes(bytes), SourceReadStats(truncated = false, availableRowCount = None)))
+              csvRowsWithinLimits(c, bytes)
           }
         case None =>
           if (c.config.path.isEmpty)
@@ -546,7 +546,7 @@ class InProcessPipelineEngine(
                   ") is missing required config key 'path'"
               )
             )
-          else fileSystem.read(c.config.path).map(bytes => (loadCsvRowsFromBytes(bytes), SourceReadStats(truncated = false, availableRowCount = None)))
+          else fileSystem.read(c.config.path).flatMap(bytes => csvRowsWithinLimits(c, bytes))
       }
     case t: TextSource =>
       t.config.sourceUrl match {
@@ -779,6 +779,17 @@ class InProcessPipelineEngine(
   }
 
   // ── CSV loader (inline minimal parser to avoid an extra dep) ─────────────
+
+  /** Every CSV consumer materializes the whole file as rows, so a stored file over the row/cell/byte
+   *  caps (uploaded before the caps existed) fails here with the limits message instead of
+   *  exhausting the heap. */
+  private def csvRowsWithinLimits(c: CsvSource, bytes: Array[Byte]): Future[(Seq[Row], SourceReadStats)] =
+    CsvLimits.violation(bytes) match {
+      case Some(msg) =>
+        Future.failed(new IllegalArgumentException("CSV data source '" + c.name + "' (id=" + c.id.value + "): " + msg))
+      case None =>
+        Future.successful((loadCsvRowsFromBytes(bytes), SourceReadStats(truncated = false, availableRowCount = None)))
+    }
 
   private def loadCsvRowsFromBytes(bytes: Array[Byte]): Seq[Row] = {
     val content = new String(bytes, StandardCharsets.UTF_8)

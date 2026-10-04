@@ -1,6 +1,6 @@
 package com.helio.api.routes.sources
 
-import com.helio.api.http.RateLimitDirective
+import com.helio.api.http.{CsvUploadGate, RateLimitDirective}
 import com.helio.api.routes.ServiceResponse
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.{Multipart, StatusCodes}
@@ -11,7 +11,7 @@ import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
 import com.helio.domain.model._
-import com.helio.services.sources.DataSourceService
+import com.helio.services.sources.{CsvLimits, DataSourceService}
 import com.helio.services.ServiceError
 
 import scala.concurrent.ExecutionContextExecutor
@@ -29,13 +29,16 @@ final class DataSourcePreviewRoutes(
     dataSourceService: DataSourceService,
     user: AuthenticatedUser,
     rateLimitDirective: RateLimitDirective = null,
-    rateLimitPerWindow: Int = 0
+    rateLimitPerWindow: Int = 0,
+    uploadGate: Option[CsvUploadGate] = None
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
   private implicit val mat: Materializer                         = SystemMaterializer(system).materializer
+
+  private val csvGate: CsvUploadGate = uploadGate.getOrElse(new CsvUploadGate(Int.MaxValue))
 
   private def rateLimited: Directive0 =
     if (rateLimitDirective != null) rateLimitDirective.rateLimit(rateLimitPerWindow) else pass
@@ -67,10 +70,11 @@ final class DataSourcePreviewRoutes(
         },
         path("infer") {
           post {
+            csvGate.csvUpload() {
             entity(as[Multipart.FormData]) { formData =>
               val collectedF =
                 formData.parts
-                  .mapAsync(1)(p => p.toStrict(60.seconds).map(s => p.name -> s.entity.data))
+                  .mapAsync(1)(p => p.entity.toStrict(60.seconds, CsvLimits.entityLimitBytes).map(e => p.name -> e.data))
                   .runWith(Sink.seq)
               onSuccess(collectedF) { parts =>
                 val partsMap = parts.toMap
@@ -81,10 +85,12 @@ final class DataSourcePreviewRoutes(
                     dataSourceService.infer(bytes) match {
                       case Right(resp)                              => complete(resp)
                       case Left(ServiceError.BadRequest(m))         => complete(StatusCodes.BadRequest, ErrorResponse(m))
+                      case Left(ServiceError.PayloadTooLarge(m))    => complete(StatusCodes.RequestEntityTooLarge, ErrorResponse(m))
                       case Left(other)                              => complete(StatusCodes.InternalServerError, ErrorResponse(other.message))
                     }
                 }
               }
+            }
             }
           }
         }

@@ -210,13 +210,24 @@ final class DataSourceService(
       user: AuthenticatedUser,
       tag: Option[String] = None
   ): Future[Either[ServiceError, DataSource]] =
+    CsvLimits.violation(bytes) match {
+      case Some(msg) => Future.successful(Left(ServiceError.PayloadTooLarge(msg)))
+      case None      => createCsvWithinLimits(name, bytes, overrides, user, tag)
+    }
+
+  private def createCsvWithinLimits(
+      name: String,
+      bytes: Array[Byte],
+      overrides: Vector[FieldOverridePayload],
+      user: AuthenticatedUser,
+      tag: Option[String]
+  ): Future[Either[ServiceError, DataSource]] =
     RequestValidation.validateTag(tag) match {
       case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
       case Right(validTag) =>
-    DataSourceCsvSupport.decodeUtf8(bytes) match {
-      case None =>
+    if (!DataSourceCsvSupport.isValidUtf8(bytes))
         Future.successful(Left(ServiceError.BadRequest("File must be UTF-8 encoded")))
-      case Some(csvContent) =>
+    else {
         // HEL-893 design D3/tasks.md 3.1: a CSV column materializes as `String`, always -- a
         // field override asking for anything else would re-create the exact declared-vs-runtime
         // defect this change removes, in one click. Reject loudly (naming the `cast` step) rather
@@ -234,7 +245,7 @@ final class DataSourceService(
           )))
         } else {
         val overridesMap = overrides.map(o => o.name -> o).toMap
-        val schema       = SchemaInferenceEngine.fromCsv(csvContent)
+        val schema       = SchemaInferenceEngine.fromCsvBytes(bytes)
         val now          = Instant.now()
         val sourceId     = DataSourceId(UUID.randomUUID().toString)
         val filePath     = s"csv/${sourceId.value}.csv"
@@ -295,12 +306,13 @@ final class DataSourceService(
         CsvUrlFetch.fetch(url, CsvUrlFetch.maxFileSizeBytes, resolveHost, isBlocked).flatMap {
           case Left(err) =>
             Future.successful(Left(csvUrlErrorToServiceError(err)))
+          case Right(bytes) if CsvLimits.violation(bytes).isDefined =>
+            Future.successful(Left(ServiceError.PayloadTooLarge(CsvLimits.message)))
           case Right(bytes) =>
-            DataSourceCsvSupport.decodeUtf8(bytes) match {
-              case None =>
+            if (!DataSourceCsvSupport.isValidUtf8(bytes))
                 Future.successful(Left(ServiceError.BadRequest("File must be UTF-8 encoded")))
-              case Some(csvContent) =>
-                val schema   = SchemaInferenceEngine.fromCsv(csvContent)
+            else {
+                val schema   = SchemaInferenceEngine.fromCsvBytes(bytes)
                 val now      = Instant.now()
                 val sourceId = DataSourceId(UUID.randomUUID().toString)
                 val filePath = s"csv/${sourceId.value}.csv"
@@ -1071,14 +1083,21 @@ final class DataSourceService(
         CsvUrlFetch.fetch(url, CsvUrlFetch.maxFileSizeBytes, resolveHost, isBlocked).flatMap {
           case Left(err) =>
             Future.successful(Left(csvUrlErrorToServiceError(err)))
+          case Right(bytes) if CsvLimits.violation(bytes).isDefined =>
+            Future.successful(Left(ServiceError.PayloadTooLarge(CsvLimits.message)))
           case Right(bytes) =>
             fileSystem.write(source.config.path, bytes).flatMap(_ => finishCsvRefresh(source, bytes, user))
         }
     }
 
-  private def finishCsvRefresh(source: CsvSource, bytes: Array[Byte], user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
-    val csv    = new String(bytes, StandardCharsets.UTF_8)
-    val schema = SchemaInferenceEngine.fromCsv(csv)
+  private def finishCsvRefresh(source: CsvSource, bytes: Array[Byte], user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
+    CsvLimits.violation(bytes) match {
+      case Some(msg) => Future.successful(Left(ServiceError.PayloadTooLarge(msg)))
+      case None      => inferAndStoreRefreshedSchema(source, bytes, user)
+    }
+
+  private def inferAndStoreRefreshedSchema(source: CsvSource, bytes: Array[Byte], user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] = {
+    val schema = SchemaInferenceEngine.fromCsvBytes(bytes)
     val now    = Instant.now()
     val fields = schema.fields.map(f =>
       DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
@@ -1273,9 +1292,12 @@ final class DataSourceService(
       Future.successful(Left(ServiceError.InternalError("Source config is missing path")))
     else
       fileSystem.read(source.config.path).map { bytes =>
-        val csv             = new String(bytes, StandardCharsets.UTF_8)
-        val (headers, rows) = SchemaInferenceEngine.parseCsvRows(csv, maxRows = limit)
-        Right(CsvPreviewResponse(headers, rows)): Either[ServiceError, CsvPreviewResponse]
+        CsvLimits.violation(bytes) match {
+          case Some(msg) => Left(ServiceError.PayloadTooLarge(msg)): Either[ServiceError, CsvPreviewResponse]
+          case None =>
+            val (headers, rows) = SchemaInferenceEngine.parseCsvRowsBytes(bytes, maxRows = limit)
+            Right(CsvPreviewResponse(headers, rows))
+        }
       }.recover {
         case _: java.nio.file.NoSuchFileException =>
           Left(ServiceError.NotFound("Data file not found; the source may need to be re-uploaded"))
@@ -1287,15 +1309,20 @@ final class DataSourceService(
   /** Schema inference from a raw CSV byte array. The route layer is
    *  responsible for unmarshalling the multipart form. */
   def infer(bytes: Array[Byte]): Either[ServiceError, InferredSchemaResponse] =
-    DataSourceCsvSupport.decodeUtf8(bytes) match {
-      case None =>
-        Left(ServiceError.BadRequest("File must be UTF-8 encoded"))
-      case Some(csvContent) =>
-        val schema = SchemaInferenceEngine.fromCsv(csvContent)
-        val fields = schema.fields.map(f =>
-          InferredFieldResponse(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
-        ).toVector
-        Right(InferredSchemaResponse(fields))
+    CsvLimits.violation(bytes) match {
+      case Some(msg) => Left(ServiceError.PayloadTooLarge(msg))
+      case None      => inferWithinLimits(bytes)
+    }
+
+  private def inferWithinLimits(bytes: Array[Byte]): Either[ServiceError, InferredSchemaResponse] =
+    if (!DataSourceCsvSupport.isValidUtf8(bytes))
+      Left(ServiceError.BadRequest("File must be UTF-8 encoded"))
+    else {
+      val schema = SchemaInferenceEngine.fromCsvBytes(bytes)
+      val fields = schema.fields.map(f =>
+        InferredFieldResponse(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
+      ).toVector
+      Right(InferredSchemaResponse(fields))
     }
 }
 

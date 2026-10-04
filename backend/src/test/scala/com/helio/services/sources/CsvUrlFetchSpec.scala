@@ -257,11 +257,11 @@ class CsvUrlFetchSpec extends AnyWordSpec with Matchers with ScalatestRouteTest 
   }
 
   "CsvUrlFetch.maxFileSizeBytes" should {
-    "default to 50 MiB (52428800 bytes) when CSV_MAX_FILE_SIZE_BYTES is unset" in {
+    "default to 15 MiB (15728640 bytes) when CSV_MAX_FILE_SIZE_BYTES is unset" in {
       // This assertion only holds when the env var truly is unset in the
       // test environment, matching the pre-existing route-layer default.
       if (sys.env.get("CSV_MAX_FILE_SIZE_BYTES").isEmpty)
-        CsvUrlFetch.maxFileSizeBytes shouldBe 52428800L
+        CsvUrlFetch.maxFileSizeBytes shouldBe 15728640L
     }
   }
 }

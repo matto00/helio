@@ -73,6 +73,19 @@ interface InferredSchemaResponse {
   fields: InferredField[];
 }
 
+/** The backend's CSV caps (`GET /api/data-sources/csv-limits`), the one source of truth for the
+ *  client-side size pre-check. */
+export interface CsvLimits {
+  maxBytes: number;
+  maxRows: number;
+  maxCells: number;
+}
+
+export async function fetchCsvLimits(): Promise<CsvLimits> {
+  const response = await httpClient.get<CsvLimits>("/api/data-sources/csv-limits");
+  return response.data;
+}
+
 export async function fetchSources(): Promise<DataSource[]> {
   const response = await httpClient.get<PagedResult<DataSource>>("/api/data-sources");
   return response.data.items;
