@@ -1,5 +1,6 @@
 package com.helio.services.patchsets
 
+import com.helio.services.ServiceError
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
@@ -102,12 +103,35 @@ private[services] final case class PatchSetApplyContext(
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
     accessChecker: AccessChecker,
-    // HEL-907 task 1.2: nullable-optional, mirrors this file's other legacy-optional wiring
-    // conventions (see e.g. OutputService's own auditService/pipelineRunRepo params) -- a fixture
-    // that never constructs an `output`-kind edit gets a null-deref only if it actually reaches
-    // `resolveOutputUpdate`/`resolveOutputDelete`, never before.
-    outputRepo: OutputRepository = null
+    // HEL-1239: NO `= null` default -- a construction site that omits a collaborator must fail to
+    // compile instead of silently reaching a resolver NPE. A caller with no DbContext still passes
+    // `null` explicitly (ApiRoutes' `outputRepoOpt.orNull`); the output resolvers turn that into a
+    // typed `ServiceError` (`PatchSetApplyContext.outputRepoUnavailable`), never an NPE.
+    outputRepo: OutputRepository
 )
+
+private[services] object PatchSetApplyContext {
+
+  /** Returned by every output resolver (and the pipelineStep-delete `boundOutputs` capture) when
+   *  `ctx.outputRepo` is null (ApiRoutes with no DbContext). */
+  val OutputRepoUnavailableMessage: String = "Output repository is not configured"
+
+  def outputRepoUnavailable: ServiceError = ServiceError.InternalError(OutputRepoUnavailableMessage)
+
+  /** The ONE construction path for the context -- both [[PatchSetApplyService]] and
+   *  [[PatchSetPreviewService]] build through here, so a collaborator one of them omits is a
+   *  compile error (every parameter is required) and the structural parity test can exercise it. */
+  def build(
+      panelRepo: PanelRepository,
+      dashboardRepo: DashboardRepository,
+      dataSourceRepo: DataSourceRepository,
+      pipelineRepo: PipelineRepository,
+      pipelineStepRepo: PipelineStepRepository,
+      accessChecker: AccessChecker,
+      outputRepo: OutputRepository
+  ): PatchSetApplyContext =
+    PatchSetApplyContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo)
+}
 
 /** The existing per-resource services [[PatchSetApplyService]]'s forward-
  *  apply (design.md D1) and [[PatchSetApplyRollback]]'s compensation

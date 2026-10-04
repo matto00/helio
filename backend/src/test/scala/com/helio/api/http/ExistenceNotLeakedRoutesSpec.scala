@@ -7,7 +7,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
@@ -113,7 +113,7 @@ class ExistenceNotLeakedRoutesSpec
 
   // ---- seeding (fresh resources per row so a destructive row cannot affect another) ----
 
-  private case class Seeded(dashboardId: String, panelId: String, pipelineId: String, stepId: String)
+  private case class Seeded(dashboardId: String, panelId: String, pipelineId: String, stepId: String, outputId: String)
 
   private def seedOwned(): Seeded = {
     import PostgresProfile.api._
@@ -142,7 +142,11 @@ class ExistenceNotLeakedRoutesSpec
                        ${s"""{"target":{"kind":"existingSource","dataSourceId":"$ds"},"mode":"append"}"""}::text,
                        now(), now(), $pip)"""
     )))
-    Seeded(dash, pnl, pip, stp)
+    // HEL-1239: an owner-scoped Output on the seeded pipeline (source-attached, so no step needed).
+    val out = await(new OutputRepository(ctx).insertInternal(
+      PipelineId(pip), None, UserId(ownerId), "Leak Output", OutputKind.Table, explicitRootId = None
+    ))
+    Seeded(dash, pnl, pip, stp, out.id.value)
   }
 
   private def grantViewer(dashId: String): Unit = {
@@ -201,6 +205,7 @@ class ExistenceNotLeakedRoutesSpec
     case Panel     => seeded.panelId
     case Pipeline  => seeded.pipelineId
     case Step      => seeded.stepId
+    case OutputT   => seeded.outputId
   }
 
   "a stranger probing an owner-only route" should {
@@ -341,6 +346,7 @@ object ExistenceNotLeakedRoutesSpec {
   case object Panel     extends Target
   case object Pipeline  extends Target
   case object Step      extends Target
+  case object OutputT   extends Target
 
   /** `{id}` is the probed resource id (real vs random); `{dash}` is the seeded dashboard id. */
   final case class Row(
@@ -427,6 +433,15 @@ object ExistenceNotLeakedRoutesSpec {
       Json("""{"edits":[{"target":{"kind":"pipelineStep","id":"{id}"},"op":"delete"}]}"""), ownerControl = false),
     Row("POST patch-set apply: pipelineStep create", HttpMethods.POST, "/api/patch-sets/apply", Pipeline, Set("PatchSetApplyResolvers.scala"),
       Json("""{"edits":[{"target":{"kind":"pipelineStep","parentId":"{id}"},"op":"create","patch":{"type":"cast","config":{}}}]}"""), ownerControl = false, patchKinds = Set("pipelineStep:create")),
+    // outputs (HEL-1239): id is an OUTPUT id; owner-only, single `Output not found` for foreign AND absent
+    Row("POST patch-set apply: output update", HttpMethods.POST, "/api/patch-sets/apply", OutputT, Set("PatchSetApplyResolvers.scala"),
+      Json("""{"edits":[{"target":{"kind":"output","id":"{id}"},"op":"update","patch":{"name":"renamed"}}]}"""), patchKinds = Set("output:update")),
+    Row("POST patch-set apply: output delete", HttpMethods.POST, "/api/patch-sets/apply", OutputT, Set("PatchSetApplyResolvers.scala"),
+      Json("""{"edits":[{"target":{"kind":"output","id":"{id}"},"op":"delete"}]}"""), patchKinds = Set("output:delete")),
+    Row("POST patch-set preview: output update", HttpMethods.POST, "/api/patch-sets/preview", OutputT, Set("PatchSetApplyResolvers.scala"),
+      Json("""{"edits":[{"target":{"kind":"output","id":"{id}"},"op":"update","patch":{"name":"renamed"}}]}"""), patchKinds = Set("output:update")),
+    Row("POST patch-set preview: output delete", HttpMethods.POST, "/api/patch-sets/preview", OutputT, Set("PatchSetApplyResolvers.scala"),
+      Json("""{"edits":[{"target":{"kind":"output","id":"{id}"},"op":"delete"}]}"""), patchKinds = Set("output:delete")),
     // pipeline-scoped
     Row("GET pipeline outputs", HttpMethods.GET, "/api/pipelines/{id}/outputs", Pipeline, Set("OutputService.scala")),
     Row("POST pipeline outputs", HttpMethods.POST, "/api/pipelines/{id}/outputs", Pipeline, Set("OutputService.scala"),
@@ -493,8 +508,6 @@ object ExistenceNotLeakedRoutesSpec {
     "pipeline:update"   -> "findByIdShared(Some(user)) -> same `edit N: pipeline not found`",
     "pipeline:delete"   -> "findByIdShared(Some(user)) -> same message",
     "pipeline:create"   -> "no target id to probe",
-    "output:update"     -> "owner-scoped, single `Output not found` / `edit N: output not found`",
-    "output:delete"     -> "owner-scoped, single message",
     "output:create"     -> "rejected unsupported (400) for every caller"
   )
 

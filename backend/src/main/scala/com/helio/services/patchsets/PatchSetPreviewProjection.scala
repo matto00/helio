@@ -3,11 +3,12 @@ package com.helio.services.patchsets
 import com.helio.services.dashboards.DashboardServiceValidation
 import com.helio.services.panels.{LayoutPolicy, PanelServiceHelpers}
 import com.helio.services.ServiceError
+import com.helio.services.pipelines.OutputService
 import com.helio.domain.engine.ExpressionEvaluator
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest, UpdateDataSourceRequest}
 import com.helio.api.protocols.patchsets.EditPreview
 import com.helio.domain.model._
@@ -113,7 +114,30 @@ private[services] object PatchSetPreviewProjection {
         // honest "what you asked for" echo (pending id, type, config, and the tree-shape fields
         // that decide which lane this becomes) rather than a fabricated full typed response.
         Future.successful(Right(Some(pipelineStepCreateAfter(request))))
+
+      // ── output (HEL-1239) ────────────────────────────────────────────────
+      case ResolvedAction.OutputUpdate(_, request, prior, priorConfig) =>
+        Future.successful(outputUpdateAfter(request, prior, priorConfig))
+      case ResolvedAction.OutputDelete(_, _) =>
+        Future.successful(Right(None))
     }
+
+  /** HEL-1239: after-state of an Output update -- `name` replaced, `config` shallow-merged (with
+   *  the sub-object merge) and its `fieldMapping` validated EXACTLY as `OutputService.update`
+   *  does (shared `OutputService.mergeConfig`/`validateFieldMapping`), so a preview of an invalid
+   *  patch 400s like the apply would. `updatedAt` stays at `prior`'s value (design.md D3's
+   *  timestamp exclusion, same as every other update projection). */
+  private def outputUpdateAfter(
+      request: UpdateOutputRequest,
+      prior: Output,
+      priorConfig: JsObject
+  ): Either[ServiceError, Option[JsValue]] = {
+    val merged = request.config.map(patch => OutputService.mergeConfig(priorConfig, patch))
+    merged.map(cfg => OutputService.validateFieldMapping(prior.kind, cfg)).getOrElse(Right(())).map { _ =>
+      val updated = prior.copy(name = request.name.getOrElse(prior.name))
+      Some(outputResponseFormat.write(outputResponseFrom(updated, merged.getOrElse(priorConfig))))
+    }
+  }
 
   private def pipelineStepCreateAfter(request: CreatePipelineStepRequest): JsValue =
     JsObject(

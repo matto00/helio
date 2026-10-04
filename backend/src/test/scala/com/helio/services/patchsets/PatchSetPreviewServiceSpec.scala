@@ -21,7 +21,7 @@ import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import org.apache.pekko.actor.typed.ActorSystem
@@ -79,6 +79,7 @@ class PatchSetPreviewServiceSpec
   private var appDb: JdbcBackend.Database        = _
   private var privilegedDb: JdbcBackend.Database = _
   private var ctx: DbContext                     = _
+  private var outputRepo: OutputRepository       = _
 
   private var dashboardRepo: DashboardRepository             = _
   private var panelRepo: PanelRepository                     = _
@@ -168,15 +169,16 @@ class PatchSetPreviewServiceSpec
     dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
     pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
 
+    outputRepo = new OutputRepository(ctx)
     service = new PatchSetPreviewService(
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker
+      accessChecker, outputRepo
     )
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     applyService = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker, applicationRepo
+      accessChecker, applicationRepo, outputRepo
     )
 
     seedUsers()
