@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/data-source-delete-conflict-response.schema.json",
+  "title": "DataSourceDeleteConflictResponse",
+  "description": "409 response body for DELETE /api/data-sources/:id when any persisted configuration still references the source (HEL-987/HEL-989, widened by HEL-1252 from pipeline roots to every reference kind: pipeline root, join/lookup/union secondary input, upsert target, form-panel binding). `resourceKind`/`resourceId`/`resourceName` identify the SOURCE. `pipelines` and `panels` list ONLY referencing resources the caller can see; any hidden reference still blocks the delete but contributes only the counts `hiddenPipelineCount`/`hiddenPanelCount` (and an unnamed mention in `reason`).",
+  "type": "object",
+  "required": [
+    "resourceKind",
+    "resourceId",
+    "resourceName",
+    "reason",
+    "message",
+    "pipelines",
+    "panels"
+  ],
+  "properties": {
+    "resourceKind": { "const": "data_source" },
+    "resourceId": { "type": "string", "minLength": 1 },
+    "resourceName": { "type": "string" },
+    "reason": { "type": "string", "minLength": 1 },
+    "message": { "type": "string", "minLength": 1 },
+    "pipelines": {
+      "type": "array",
+      "items": { "$ref": "./data-source-delete-conflict-pipeline-response.schema.json" }
+    },
+    "hiddenPipelineCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Referencing pipelines the caller cannot see: a COUNT only, never an identity."
+    },
+    "hiddenPanelCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Referencing form panels the caller cannot see: a COUNT only, never an identity."
+    },
+    "panels": {
+      "type": "array",
+      "items": { "$ref": "./data-source-delete-conflict-panel-response.schema.json" }
+    }
+  },
+  "additionalProperties": false
+}

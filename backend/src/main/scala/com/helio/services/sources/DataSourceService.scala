@@ -9,7 +9,8 @@ import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.sources.{CsvPreviewResponse, DatasetFieldResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, FieldAggregateResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, SchemaFieldRejection, SchemaUpdateConflictResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest, UpdateDatasetSchemaRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.sources.DataSourceRepository.{BlockingPipeline, DatasetRowRow, RowListPage, RowMutationFailure}
+import com.helio.infrastructure.persistence.sources.DataSourceReferenceRepository.SourceReferences
+import com.helio.infrastructure.persistence.sources.DataSourceRepository.{DatasetRowRow, RowListPage, RowMutationFailure}
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.services.pipelines.{AutoRunTriggerService, EvaluatedPipeline}
 import SourceConfigParsing._
@@ -623,25 +624,26 @@ final class DataSourceService(
         }
     }
 
-  /** HEL-989 (owner ruling `any-reference`, superseding HEL-987's sole-root-only scope): 409s
-   *  (naming the referencing pipelines the caller can see) whenever ANY pipeline has `sourceId`
-   *  as a root. Deleting a multi-root source used to succeed and silently cascade
-   *  `pipeline_roots -> outputs -> panels`, destroying placed panels; deleting a sole root made
-   *  V99's `hel913_prevent_zero_root_pipelines` trigger raise (P0001). The user removes the root
-   *  in the pipeline editor first (`PipelineService.removeRoot`'s guards apply there).
+  /** HEL-989 (owner ruling `any-reference`) widened by HEL-1252: 409s whenever ANY persisted config
+   *  references `sourceId` -- a pipeline root, a join/lookup/union secondary input, an upsert target, or a
+   *  form-panel binding (`DataSourceReferenceRepository`, design.md D1). Visible referencing resources are
+   *  named; ones the caller cannot see are counted, never named.
    *
-   *  The check runs BEFORE `deleteFileF` so a refused delete never destroys the backing file.
-   *  The P0001 recover in `deleteAfterPrecheck` covers only the TOCTOU window for a
-   *  sole root added between check and delete; a multi-root added in that window has no DB
-   *  backstop (accepted, documented in the design). */
+   *  Deleting a multi-root source used to succeed and silently cascade `pipeline_roots -> outputs -> panels`;
+   *  a sole root made V99's `hel913_prevent_zero_root_pipelines` trigger raise (P0001); the config references
+   *  have no FK and would dangle until run/analyze/submit time. The user removes the reference first.
+   *
+   *  The check runs BEFORE `deleteFileF` so a refused delete never destroys the backing file. The P0001
+   *  recover in `deleteAfterPrecheck` covers only the TOCTOU window for a sole root added between check and
+   *  delete; any other reference added in that window has no DB backstop (accepted, documented in the design). */
   def delete(sourceId: DataSourceId, user: AuthenticatedUser): Future[Either[DataSourceDeleteError, Unit]] =
     dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
       case None =>
         Future.successful(Left(DataSourceDeleteError.plain(ServiceError.NotFound("Data source not found"))))
       case Some(source) =>
-        dataSourceRepo.rootReferences(sourceId, user).flatMap { refs =>
+        dataSourceRepo.findReferences(sourceId, user).flatMap { refs =>
           if (!refs.isEmpty)
-            Future.successful(Left(DataSourceDeleteError.conflict(rootReferenceConflict(source, refs.visible, refs.hiddenCount))))
+            Future.successful(Left(DataSourceDeleteError.conflict(referenceConflict(source, refs))))
           else
             deleteAfterPrecheck(sourceId, user, source)
         }
@@ -665,8 +667,10 @@ final class DataSourceService(
       Right(())
     }.recover {
       case ex: PSQLException if isZeroRootViolation(ex) =>
-        log.warn(s"DataSourceService.delete: race-path P0001 for source ${sourceId.value}, mapping to conflict", ex)
-        Left(DataSourceDeleteError.conflict(rootReferenceConflict(source, Vector.empty, 1)))
+        // HEL-1252 C2: the trigger text embeds the orphaned pipeline ids, which may be hidden from this caller --
+        // log the source id and SQLSTATE only, never `ex` or its message.
+        log.warn(s"DataSourceService.delete: race-path P0001 for source ${sourceId.value} (SQLSTATE ${ex.getSQLState}), mapping to conflict")
+        Left(DataSourceDeleteError.conflict(referenceConflict(source, SourceReferences(Vector.empty, 1, Vector.empty, 0))))
     }
   }
 
@@ -679,23 +683,27 @@ final class DataSourceService(
       Option(ex.getMessage).exists(_.contains("HEL-913")) &&
       Option(ex.getMessage).exists(_.contains("zero roots"))
 
-  /** HEL-987 evaluation-1.md CR1 / HEL-989: `resourceKind`/`resourceId`/`resourceName` identify the
-   *  SOURCE being deleted (matching the teardown precedent), never a pipeline. `reason` names each
-   *  VISIBLE referencing pipeline by name and id; `hiddenCount` pipelines the caller cannot see are
-   *  mentioned only as an unnamed count -- no id or name ever reaches the body. The race-path
-   *  mapping (no lookup result in hand) passes `hiddenCount = 1` and no pipelines, so its reason
-   *  stays accurate and non-leaky. */
-  private def rootReferenceConflict(source: DataSource, visible: Vector[BlockingPipeline], hiddenCount: Int): DataSourceDeleteConflict = {
-    val named  = visible.map(p => s"'${p.name}' (${p.id})").mkString(", ")
-    val unseen = if (hiddenCount <= 0) None else Some(
-      if (hiddenCount == 1) "a pipeline you cannot access" else s"$hiddenCount pipelines you cannot access"
-    )
-    val subject = (if (visible.isEmpty) Vector.empty[String] else Vector(s"pipeline(s) $named")) ++ unseen
-    val reason  =
-      s"this source is a root of ${subject.mkString(" and ")}; remove it from those pipelines in the pipeline editor first"
+  /** HEL-987 evaluation-1.md CR1 / HEL-989 / HEL-1252: `resourceKind`/`resourceId`/`resourceName` identify the
+   *  SOURCE being deleted (matching the teardown precedent), never a pipeline or panel. `reason` names each
+   *  VISIBLE referencing pipeline and form panel by name and id; resources the caller cannot see are mentioned
+   *  only as unnamed counts of RESOURCES (not reference edges) -- no hidden id or name can reach the body,
+   *  because `SourceReferences` carries none. The race-path mapping (no lookup result in hand) passes one
+   *  hidden pipeline, so its reason stays accurate and non-leaky. */
+  private def referenceConflict(source: DataSource, refs: SourceReferences): DataSourceDeleteConflict = {
+    // Remediation is tailored to the kinds present (hidden counts included), and the reason is a proper sentence.
+    val fixes = Vector(
+      if (refs.pipelines.nonEmpty || refs.hiddenPipelineCount > 0) Some("detach it in the pipeline editor") else None,
+      if (refs.panels.nonEmpty || refs.hiddenPanelCount > 0) Some("unbind it from the form panel or delete the panel") else None
+    ).flatten
+    val reason =
+      s"This source is still referenced by ${refs.describe}. Remove each reference first (${fixes.mkString(", or ")})."
     DataSourceDeleteConflict(
       resourceKind = "data_source", resourceId = source.id.value, resourceName = source.name,
-      reason = reason, pipelines = visible.map(p => DataSourceDeleteConflictPipeline(p.id, p.name))
+      reason = reason,
+      pipelines = refs.pipelines.map(p => DataSourceDeleteConflictPipeline(p.id, p.name, p.references)),
+      panels = refs.panels.map(p => DataSourceDeleteConflictPanel(p.id, p.title, p.dashboardId, p.dashboardName)),
+      hiddenPipelineCount = refs.hiddenPipelineCount,
+      hiddenPanelCount = refs.hiddenPanelCount
     )
   }
 

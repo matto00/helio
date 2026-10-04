@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/data-source-delete-conflict-pipeline-response.schema.json",
+  "title": "DataSourceDeleteConflictPipelineResponse",
+  "description": "One referencing pipeline the caller may see, named in the DELETE /api/data-sources/:id 409 body (HEL-989). `references` lists the kinds this pipeline holds on the source (HEL-1252): root, join, lookup, union, upsertTarget.",
+  "type": "object",
+  "required": ["id", "name", "references"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string" },
+    "references": {
+      "type": "array",
+      "items": { "enum": ["root", "join", "lookup", "union", "upsertTarget"] }
+    }
+  },
+  "additionalProperties": false
+}

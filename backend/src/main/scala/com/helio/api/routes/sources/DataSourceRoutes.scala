@@ -10,7 +10,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
-import com.helio.api.protocols.sources.{CsvLimitsResponse, DataSourceDeleteConflictPipelineResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse, SchemaUpdateConflictResponse, UpdateDatasetSchemaRequest}
+import com.helio.api.protocols.sources.{CsvLimitsResponse, DataSourceDeleteConflictPanelResponse, DataSourceDeleteConflictPipelineResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse, SchemaUpdateConflictResponse, UpdateDatasetSchemaRequest}
 import com.helio.domain.model._
 import com.helio.services.sources.{CsvLimits, DataSourceDeleteError, DataSourceSchemaUpdateError, DataSourceService}
 import spray.json._
@@ -81,7 +81,9 @@ final class DataSourceRoutes(
           ServiceResponse.statusCodeFor(err),
           DataSourceDeleteConflictResponse(
             c.resourceKind, c.resourceId, c.resourceName, c.reason, c.reason,
-            c.pipelines.map(p => DataSourceDeleteConflictPipelineResponse(p.id, p.name))
+            c.pipelines.map(p => DataSourceDeleteConflictPipelineResponse(p.id, p.name, p.references)),
+            c.panels.map(p => DataSourceDeleteConflictPanelResponse(p.id, p.title, p.dashboardId, p.dashboardName)),
+            c.hiddenPipelineCount, c.hiddenPanelCount
           )
         )
       case Left(DataSourceDeleteError(None, err)) =>

@@ -197,7 +197,7 @@ describe("toastListeners — regression guard (every pre-existing entry still fi
     const before = store.getState().toasts.items.length;
     store.dispatch({
       type: deleteSource.rejected.type,
-      payload: { kind: "conflict", message: "in use", pipelines: [] },
+      payload: { kind: "conflict", message: "in use", pipelines: [], panels: [] },
     });
     expect(store.getState().toasts.items).toHaveLength(before);
     expectToast(
