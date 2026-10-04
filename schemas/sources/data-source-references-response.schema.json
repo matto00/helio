@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/data-source-references-response.schema.json",
+  "title": "DataSourceReferencesResponse",
+  "description": "Response body for GET /api/data-sources/references (HEL-1258): the reference summary of every data source the caller OWNS that has at least one reference, using the same reference kinds and visibility as the DELETE /api/data-sources/:id 409 body (HEL-1252). `pipelines` and `panels` list ONLY referencing resources the caller can see; hidden ones contribute only the counts, never an id or name. A source with no reference, or one the caller does not own, is absent.",
+  "type": "object",
+  "required": ["items"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sourceId", "pipelines", "panels", "hiddenPipelineCount", "hiddenPanelCount"],
+        "properties": {
+          "sourceId": { "type": "string", "minLength": 1 },
+          "pipelines": {
+            "type": "array",
+            "items": { "$ref": "./data-source-delete-conflict-pipeline-response.schema.json" }
+          },
+          "panels": {
+            "type": "array",
+            "items": { "$ref": "./data-source-delete-conflict-panel-response.schema.json" }
+          },
+          "hiddenPipelineCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Referencing pipelines the caller cannot see: a COUNT only, never an identity."
+          },
+          "hiddenPanelCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Referencing form panels the caller cannot see: a COUNT only, never an identity."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

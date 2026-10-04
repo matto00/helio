@@ -271,6 +271,8 @@ describe("CommandPalette — Recent section (HEL-519)", () => {
           errorKind: null,
           selectedSourceId: null,
           addModalOpen: false,
+          references: {},
+          referencesStatus: "idle" as const,
         },
       },
     });
@@ -351,6 +353,8 @@ describe("CommandPalette — Recent section (HEL-519)", () => {
           errorKind: null,
           selectedSourceId: null,
           addModalOpen: false,
+          references: {},
+          referencesStatus: "idle" as const,
         },
       },
     });
@@ -471,6 +475,8 @@ describe("CommandPalette — search-result overflow row is non-interactive (skep
           errorKind: null,
           selectedSourceId: null,
           addModalOpen: false,
+          references: {},
+          referencesStatus: "idle" as const,
         },
       },
     });

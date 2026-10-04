@@ -1,11 +1,15 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 
-import { fetchSources as fetchSourcesRequest } from "../services/dataSourceService";
+import {
+  fetchSourceReferences as fetchSourceReferencesRequest,
+  fetchSources as fetchSourcesRequest,
+} from "../services/dataSourceService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { SourcesPage } from "./SourcesPage";
 
 jest.mock("../services/dataSourceService", () => ({
   fetchSources: jest.fn().mockResolvedValue([]),
+  fetchSourceReferences: jest.fn().mockResolvedValue([]),
   deleteSource: jest.fn(),
   refreshSource: jest.fn(),
   createRestSource: jest.fn(),
@@ -16,6 +20,7 @@ jest.mock("../services/dataSourceService", () => ({
 }));
 
 const fetchSourcesMock = jest.mocked(fetchSourcesRequest);
+const fetchSourceReferencesMock = jest.mocked(fetchSourceReferencesRequest);
 
 // AddSourceModal uses <dialog> showModal/close, which jsdom doesn't
 // implement — mirrors PanelList.test.tsx's identical stub.
@@ -88,6 +93,45 @@ describe("SourcesPage", () => {
       sources: { items: [], status: "idle" },
     });
     expect(fetchSourcesMock).toHaveBeenCalled();
+  });
+
+  it("HEL-1258: fetches the reference summary on every mount, even once sources are loaded", () => {
+    fetchSourceReferencesMock.mockClear();
+    renderWithStore(<SourcesPage />, {
+      sources: { items: [], status: "succeeded", referencesStatus: "succeeded" },
+    });
+    expect(fetchSourceReferencesMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("HEL-1258: a join-only source renders as used once the summary is preloaded", () => {
+    renderWithStore(<SourcesPage />, {
+      sources: {
+        items: [
+          {
+            id: "src-1",
+            name: "Sales CSV",
+            type: "csv" as const,
+            createdAt: "2026-05-01T00:00:00Z",
+            updatedAt: "2026-05-01T00:00:00Z",
+            inferredSchema: [],
+            config: { path: "csv/src-1.csv" },
+          },
+        ],
+        status: "succeeded",
+        referencesStatus: "succeeded",
+        references: {
+          "src-1": {
+            sourceId: "src-1",
+            pipelines: [{ id: "p", name: "Joiner", references: ["join"] }],
+            panels: [],
+            hiddenPipelineCount: 0,
+            hiddenPanelCount: 0,
+          },
+        },
+      },
+    });
+    expect(screen.getByText("1 pipeline")).toBeInTheDocument();
+    expect(screen.queryByText("Unused")).not.toBeInTheDocument();
   });
 
   it("F-072: does not re-dispatch fetchSources once already loaded", () => {

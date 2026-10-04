@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence.sources
 
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, CsvSource, CsvSourceConfig, DataSourceId, UserId}
+import com.helio.api.routes.sources.DataSourceRoutes
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -10,6 +11,7 @@ import com.typesafe.config.ConfigFactory
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -21,6 +23,7 @@ import ch.qos.logback.core.read.ListAppender
 import org.postgresql.util.PSQLException
 import org.slf4j.{Logger, LoggerFactory}
 import slick.jdbc.JdbcBackend
+import spray.json.{JsArray, JsNumber, JsObject, JsString, JsonParser}
 
 import java.sql.{Connection, DriverManager}
 import java.time.Instant
@@ -596,6 +599,82 @@ class DataSourceReferenceGuardNonSuperuserSpec
       seedStep(pid, roots.head, "lookup", "not json at all", position = 3)
       await(service.delete(DataSourceId(src), authUser(caller))) shouldBe Right(())
       sourceExists(src) shouldBe false
+    }
+  }
+
+  // ── HEL-1258: GET /api/data-sources/references over the non-BYPASSRLS app pool ────────────────
+
+  /** The route's SERIALISED body (not just the service result), so a hidden name can only fail here if it
+   *  actually reaches the wire. */
+  private def referencesBody(caller: String): JsObject = {
+    val routes = new DataSourceRoutes(service, authUser(caller)).routes
+    Get("/data-sources/references") ~> routes ~> check {
+      status shouldBe StatusCodes.OK
+      JsonParser(responseAs[String]).asJsObject
+    }
+  }
+  private def itemFor(body: JsObject, src: String): Option[JsObject] =
+    body.fields("items").asInstanceOf[JsArray].elements
+      .map(_.asJsObject).find(_.fields("sourceId") == JsString(src))
+
+  "GET /api/data-sources/references over a non-BYPASSRLS app pool (HEL-1258)" should {
+
+    "7.1 owned-id read returns the caller's sources under RLS and never a stranger's" in {
+      val caller = seedUser(uuid()); val stranger = seedUser(uuid())
+      val mine1 = seedSource(caller, "mine-1"); val mine2 = seedSource(caller, "mine-2")
+      val theirs = seedSource(stranger, "theirs")
+      val ids = await(dataSourceRepo.findOwnedIds(UserId(caller)))
+      ids shouldBe Set(mine1, mine2)
+      ids should not contain theirs
+    }
+
+    "7.2 hidden join + upsert pipelines and a hidden form panel are COUNTS ONLY, no hidden id/name on the wire" in {
+      val caller = seedUser(uuid()); val stranger = seedUser(uuid())
+      val joinTarget = seedSource(caller, "join-target"); val upsertTarget = seedSource(caller, "upsert-target")
+      val formTarget = seedSource(caller, "form-target")
+      val base = seedSource(stranger, "ref-base")
+      val (jp, jr) = seedPipeline(stranger, "HIDDEN-JOIN-PIPELINE", Vector(base)); seedStep(jp, jr.head, "join", secondaryJson(joinTarget))
+      val (up, ur) = seedPipeline(stranger, "HIDDEN-UPSERT-PIPELINE", Vector(base)); seedStep(up, ur.head, "upsertsource", upsertJson(upsertTarget))
+      val dash = seedDashboard(stranger, "HIDDEN-DASH"); val panel = seedFormPanel(dash, stranger, "HIDDEN-PANEL", formTarget)
+      appRoleSeesPipeline(caller, jp) shouldBe false // liveness: RLS really hides it from the app role
+
+      val bodyJson = referencesBody(caller)
+      val raw = bodyJson.compactPrint
+      Seq(jp, up, panel, dash, "HIDDEN-JOIN-PIPELINE", "HIDDEN-UPSERT-PIPELINE", "HIDDEN-PANEL", "HIDDEN-DASH").foreach(h => raw should not include h)
+      def counts(src: String) = {
+        val it = itemFor(bodyJson, src).getOrElse(fail(s"source $src missing from items: $raw"))
+        (it.fields("pipelines").asInstanceOf[JsArray].elements.size, it.fields("panels").asInstanceOf[JsArray].elements.size,
+         it.fields("hiddenPipelineCount"), it.fields("hiddenPanelCount"))
+      }
+      counts(joinTarget)   shouldBe ((0, 0, JsNumber(1), JsNumber(0)))
+      counts(upsertTarget) shouldBe ((0, 0, JsNumber(1), JsNumber(0)))
+      counts(formTarget)   shouldBe ((0, 0, JsNumber(0), JsNumber(1)))
+    }
+
+    "7.3 granted pipeline and dashboard are NAMED; an unreferenced owned source is absent" in {
+      val caller = seedUser(uuid()); val stranger = seedUser(uuid())
+      val src = seedSource(caller, "granted-target"); val unused = seedSource(caller, "unused")
+      val base = seedSource(stranger, "ref-base")
+      val (pid, roots) = seedPipeline(stranger, "GRANTED-PIPELINE", Vector(base)); seedStep(pid, roots.head, "lookup", secondaryJson(src))
+      grant("pipeline", pid, Some(caller))
+      val dash = seedDashboard(stranger, "GRANTED-DASH"); grant("dashboard", dash, Some(caller))
+      val panel = seedFormPanel(dash, stranger, "GRANTED-PANEL", src)
+
+      val bodyJson = referencesBody(caller)
+      val it = itemFor(bodyJson, src).getOrElse(fail(s"missing: ${bodyJson.compactPrint}"))
+      it.fields("pipelines").toString should (include(pid) and include("GRANTED-PIPELINE") and include("lookup"))
+      it.fields("panels").toString should (include(panel) and include("GRANTED-DASH") and include(dash))
+      (it.fields("hiddenPipelineCount"), it.fields("hiddenPanelCount")) shouldBe ((JsNumber(0), JsNumber(0)))
+      itemFor(bodyJson, unused) shouldBe None
+    }
+
+    "7.4 another user's referenced source never appears in the caller's items" in {
+      val caller = seedUser(uuid()); val stranger = seedUser(uuid())
+      val theirs = seedSource(stranger, "stranger-source")
+      val (_, _) = seedPipeline(stranger, "STRANGER-OWN-PIPELINE", Vector(theirs))
+      val bodyJson = referencesBody(caller)
+      itemFor(bodyJson, theirs) shouldBe None
+      bodyJson.compactPrint should not include "STRANGER-OWN-PIPELINE"
     }
   }
 

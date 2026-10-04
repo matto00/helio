@@ -10,7 +10,7 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
-import com.helio.api.protocols.sources.{CsvLimitsResponse, DataSourceDeleteConflictPanelResponse, DataSourceDeleteConflictPipelineResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse, SchemaUpdateConflictResponse, UpdateDatasetSchemaRequest}
+import com.helio.api.protocols.sources.{CsvLimitsResponse, DataSourceReferenceSummaryResponse, DataSourceReferencesResponse, DataSourceDeleteConflictPanelResponse, DataSourceDeleteConflictPipelineResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, RowListResponse, RowPatchRequest, RowResponse, RowWriteRequest, RowWriteResponse, SchemaUpdateConflictResponse, UpdateDatasetSchemaRequest}
 import com.helio.domain.model._
 import com.helio.services.sources.{CsvLimits, DataSourceDeleteError, DataSourceSchemaUpdateError, DataSourceService}
 import spray.json._
@@ -109,6 +109,20 @@ final class DataSourceRoutes(
         path("csv-limits") {
           get {
             complete(CsvLimitsResponse(CsvLimits.maxBytes, CsvLimits.maxRows, CsvLimits.maxCells))
+          }
+        },
+        path("references") {
+          get {
+            onSuccess(dataSourceService.findReferenceSummaries(user)) { summaries =>
+              complete(DataSourceReferencesResponse(summaries.map { case (sourceId, r) =>
+                DataSourceReferenceSummaryResponse(
+                  sourceId,
+                  r.pipelines.map(p => DataSourceDeleteConflictPipelineResponse(p.id, p.name, p.references)),
+                  r.panels.map(p => DataSourceDeleteConflictPanelResponse(p.id, p.title, p.dashboardId, p.dashboardName)),
+                  r.hiddenPipelineCount, r.hiddenPanelCount
+                )
+              }))
+            }
           }
         },
         pathEndOrSingleSlash {

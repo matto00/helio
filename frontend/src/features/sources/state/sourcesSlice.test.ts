@@ -3,6 +3,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import {
   createStaticSource,
   deleteSource,
+  fetchSourceReferences,
   fetchSources,
   isSourceDeleteConflict,
   sourcesReducer,
@@ -13,6 +14,7 @@ import * as dataSourceService from "../services/dataSourceService";
 
 jest.mock("../services/dataSourceService", () => ({
   fetchSources: jest.fn(),
+  fetchSourceReferences: jest.fn().mockResolvedValue([]),
   deleteSource: jest.fn(),
   createStaticSource: jest.fn(),
   updateSource: jest.fn(),
@@ -65,6 +67,8 @@ describe("sourcesSlice", () => {
       errorKind: null,
       selectedSourceId: null,
       addModalOpen: false,
+      references: {},
+      referencesStatus: "idle" as const,
     };
     const nextState = sourcesReducer(initialState, deleteSource.fulfilled("s-1", "req-1", "s-1"));
     expect(nextState.items).toHaveLength(0);
@@ -156,6 +160,8 @@ describe("updateSource", () => {
       errorKind: null,
       selectedSourceId: null,
       addModalOpen: false,
+      references: {},
+      referencesStatus: "idle" as const,
     };
     const updatedSource = { ...testSource, name: "Renamed API" };
     const nextState = sourcesReducer(
@@ -174,6 +180,8 @@ describe("updateSource", () => {
       errorKind: null,
       selectedSourceId: null,
       addModalOpen: false,
+      references: {},
+      referencesStatus: "idle" as const,
     };
     const updatedSource = { ...testSource, name: "Renamed Sales" };
     const nextState = sourcesReducer(
@@ -244,5 +252,66 @@ describe("deleteSource thunk (HEL-989 any-reference 409)", () => {
     deleteSourceMock.mockRejectedValue(new Error("boom"));
     const result = await makeStore().dispatch(deleteSource("s-1"));
     expect((result as { payload: unknown }).payload).toBe("Failed to delete source.");
+  });
+});
+
+describe("sourcesSlice — reference summary (HEL-1258)", () => {
+  const fetchRefsMock = jest.mocked(dataSourceService.fetchSourceReferences);
+  const deleteMock = jest.mocked(dataSourceService.deleteSource);
+  const summary = {
+    sourceId: "s-1",
+    pipelines: [{ id: "p-1", name: "Joined", references: ["join"] }],
+    panels: [],
+    hiddenPipelineCount: 0,
+    hiddenPanelCount: 1,
+  };
+
+  beforeEach(() => {
+    fetchRefsMock.mockReset();
+    deleteMock.mockReset();
+  });
+
+  it("stores the summary keyed by source id and marks it loaded", async () => {
+    fetchRefsMock.mockResolvedValue([summary]);
+    const store = configureStore({ reducer: { sources: sourcesReducer } });
+    expect(store.getState().sources.referencesStatus).toBe("idle");
+    await store.dispatch(fetchSourceReferences());
+    expect(store.getState().sources.references).toEqual({ "s-1": summary });
+    expect(store.getState().sources.referencesStatus).toBe("succeeded");
+  });
+
+  it("issues ONE request when dispatched twice while loading (cold /sources: page + sidebar)", async () => {
+    fetchRefsMock.mockResolvedValue([summary]);
+    const store = configureStore({ reducer: { sources: sourcesReducer } });
+    await Promise.all([
+      store.dispatch(fetchSourceReferences()),
+      store.dispatch(fetchSourceReferences()),
+    ]);
+    expect(fetchRefsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks failed (never loaded) on a fetch error, so 'Unused' is never claimed", async () => {
+    fetchRefsMock.mockRejectedValue(new Error("boom"));
+    const store = configureStore({ reducer: { sources: sourcesReducer } });
+    await store.dispatch(fetchSourceReferences());
+    expect(store.getState().sources.referencesStatus).toBe("failed");
+  });
+
+  it("drops the deleted source's entry when deleteSource fulfills", async () => {
+    fetchRefsMock.mockResolvedValue([summary]);
+    deleteMock.mockResolvedValue(undefined);
+    const store = configureStore({ reducer: { sources: sourcesReducer } });
+    await store.dispatch(fetchSourceReferences());
+    await store.dispatch(deleteSource("s-1"));
+    expect(store.getState().sources.references).toEqual({});
+  });
+
+  it("refetches the summary when a delete is refused", async () => {
+    fetchRefsMock.mockResolvedValue([]);
+    deleteMock.mockRejectedValue(new Error("409"));
+    const store = configureStore({ reducer: { sources: sourcesReducer } });
+    await store.dispatch(deleteSource("s-1"));
+    await Promise.resolve();
+    expect(fetchRefsMock).toHaveBeenCalledTimes(1);
   });
 });

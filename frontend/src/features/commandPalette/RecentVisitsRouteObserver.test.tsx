@@ -25,6 +25,8 @@ function buildStore(preloadedSources: { id: string; name: string }[] = []) {
         errorKind: null,
         selectedSourceId: null,
         addModalOpen: false,
+        references: {},
+        referencesStatus: "idle" as const,
       },
     },
   });

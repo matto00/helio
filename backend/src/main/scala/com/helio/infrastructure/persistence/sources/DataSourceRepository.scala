@@ -135,6 +135,14 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     )
   }
 
+  /** HEL-1258: ids of every data source the caller owns, no paging -- the id set the "Used by" reference
+   *  summary is computed for. User context (RLS-honouring) PLUS the explicit `owner_id` predicate, the same
+   *  scoping as [[findAll]], so it can never name a source the caller does not own. Projects only `id`. */
+  def findOwnedIds(ownerId: UserId): Future[Set[String]] = {
+    val ownerUuid = UUID.fromString(ownerId.value)
+    ctx.withUserContext(ownerId.value)(table.filter(_.ownerId === ownerUuid).map(_.id).result).map(_.toSet)
+  }
+
   /** Privileged unscoped read — no ACL check.
    *
    *  Permitted callers:
@@ -249,6 +257,10 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  [[DataSourceReferenceRepository]] for the privileged-read / explicit-visibility contract. */
   def findReferences(id: DataSourceId, user: AuthenticatedUser): Future[DataSourceReferenceRepository.SourceReferences] =
     referenceRepo.find(Set(id.value), user.id.value).map(_.getOrElse(id.value, DataSourceReferenceRepository.SourceReferences(Vector.empty, 0, Vector.empty, 0)))
+
+  /** HEL-1258: [[findReferences]] for a set of ids in ONE finder call (3 queries for any N). */
+  def findReferencesFor(ids: Set[String], user: AuthenticatedUser): Future[Map[String, DataSourceReferenceRepository.SourceReferences]] =
+    referenceRepo.find(ids, user.id.value)
 
   /** HEL-822 design.md Decision 5 (revised, skeptic round 4 CR2): the `dependentCount` seam's
    *  real implementation — no `user` parameter, since by the time it runs inside

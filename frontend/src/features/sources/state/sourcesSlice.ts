@@ -3,6 +3,7 @@ import { isAxiosError } from "axios";
 
 import {
   fetchSources as fetchSourcesRequest,
+  fetchSourceReferences as fetchSourceReferencesRequest,
   deleteSource as deleteSourceRequest,
   createStaticSource as createStaticSourceRequest,
   inferSqlSource as inferSqlSourceRequest,
@@ -13,7 +14,13 @@ import {
   classifyRequestError,
   type RequestErrorKind,
 } from "../../../services/classifyRequestError";
-import type { DataSource, InferredField, SqlSourceConfig, StaticColumn } from "../types/dataSource";
+import type {
+  DataSource,
+  InferredField,
+  SourceReferenceSummary,
+  SqlSourceConfig,
+  StaticColumn,
+} from "../types/dataSource";
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (isAxiosError(err)) {
@@ -36,6 +43,10 @@ interface SourcesState {
   /** Open/closed state for the AddSourceModal, dispatched from the sidebar so
    * the + button there can open the modal without prop-drilling. */
   addModalOpen: boolean;
+  /** HEL-1258: server-computed reference summary keyed by source id; a source with no entry is
+   *  unreferenced ONLY once `referencesStatus` is `succeeded`. */
+  references: Record<string, SourceReferenceSummary>;
+  referencesStatus: "idle" | "loading" | "succeeded" | "failed";
 }
 
 const initialState: SourcesState = {
@@ -45,6 +56,8 @@ const initialState: SourcesState = {
   errorKind: null,
   selectedSourceId: null,
   addModalOpen: false,
+  references: {},
+  referencesStatus: "idle" as const,
 };
 
 export const fetchSources = createAsyncThunk<
@@ -58,6 +71,17 @@ export const fetchSources = createAsyncThunk<
     return rejectWithValue(classifyRequestError(err, "Failed to load sources."));
   }
 });
+
+/** HEL-1258: `condition` skips a dispatch while one is in flight, so the page and the sidebar both
+ *  triggering on a cold `/sources` load issue one GET, not two. */
+export const fetchSourceReferences = createAsyncThunk<SourceReferenceSummary[], void>(
+  "sources/fetchSourceReferences",
+  async () => fetchSourceReferencesRequest(),
+  {
+    condition: (_, { getState }) =>
+      (getState() as { sources: SourcesState }).sources.referencesStatus !== "loading",
+  },
+);
 
 export const inferSqlSource = createAsyncThunk<
   InferredField[],
@@ -174,11 +198,14 @@ export const deleteSource = createAsyncThunk<
   string,
   string,
   { rejectValue: string | SourceDeleteConflict }
->("sources/deleteSource", async (sourceId, { rejectWithValue }) => {
+>("sources/deleteSource", async (sourceId, { rejectWithValue, dispatch }) => {
   try {
     await deleteSourceRequest(sourceId);
     return sourceId;
   } catch (err) {
+    // HEL-1258: a refused delete usually means the summary was stale (a reference added elsewhere);
+    // refresh it so the warning and "Used by" catch up.
+    void dispatch(fetchSourceReferences());
     return rejectWithValue(parseDeleteConflict(err) ?? "Failed to delete source.");
   }
 });
@@ -242,8 +269,19 @@ const sourcesSlice = createSlice({
         state.error = action.payload?.message ?? "Failed to load sources.";
         state.errorKind = action.payload?.kind ?? "error";
       })
+      .addCase(fetchSourceReferences.pending, (state) => {
+        state.referencesStatus = "loading";
+      })
+      .addCase(fetchSourceReferences.fulfilled, (state, action) => {
+        state.references = Object.fromEntries(action.payload.map((r) => [r.sourceId, r]));
+        state.referencesStatus = "succeeded";
+      })
+      .addCase(fetchSourceReferences.rejected, (state) => {
+        state.referencesStatus = "failed";
+      })
       .addCase(deleteSource.fulfilled, (state, action) => {
         state.items = state.items.filter((s) => s.id !== action.payload);
+        delete state.references[action.payload];
       })
       .addCase(createStaticSource.fulfilled, (state, action) => {
         state.items = [...state.items, action.payload];

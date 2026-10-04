@@ -37,7 +37,7 @@ import type {
   PanelPaginationState,
   SelectionDescriptor,
 } from "../features/panels/types/panel";
-import type { DataSource } from "../features/sources/types/dataSource";
+import type { DataSource, SourceReferenceSummary } from "../features/sources/types/dataSource";
 import type { ResourceMeta } from "../types/models";
 const defaultMeta: ResourceMeta = {
   createdBy: "system",
@@ -99,6 +99,9 @@ interface TestState {
      *  pre-cleanup build: a freshly-mounted `SourcesPage` with this `true`
      *  must NOT show the modal once the cleanup exists. */
     addModalOpen?: boolean;
+    /** HEL-1258: preloads the server reference summary behind "Used by" and the delete warnings. */
+    references?: Record<string, SourceReferenceSummary>;
+    referencesStatus?: "idle" | "loading" | "succeeded" | "failed";
   };
   pipelines?: {
     items?: PipelineSummary[];
@@ -234,6 +237,8 @@ export function renderWithStore(
           status: preloadedState.sources?.status ?? "idle",
           error: preloadedState.sources?.error ?? null,
           addModalOpen: preloadedState.sources?.addModalOpen ?? false,
+          references: preloadedState.sources?.references ?? {},
+          referencesStatus: preloadedState.sources?.referencesStatus ?? "idle",
         },
         pipelines: {
           items: preloadedState.pipelines?.items ?? [],

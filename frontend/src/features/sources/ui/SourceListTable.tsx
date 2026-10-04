@@ -7,15 +7,17 @@ import { StatusChip } from "../../../shared/ui/StatusChip";
 import { useSortedRows, type SortColumn } from "../../../shared/ui/useSortedRows";
 import { SortableTable, type SortableTableColumn } from "../../../shared/ui/SortableTable";
 import { labelForKind } from "../utils/labelForKind";
-import type { DataSource } from "../types/dataSource";
+import type { DataSource, SourceReferenceSummary } from "../types/dataSource";
+import { summarizeSourceUsage } from "../utils/sourceReferences";
 import "./SourceListTable.css";
 
 interface Props {
   sources: DataSource[];
-  /** Names of the pipelines reading each source, keyed by source id. Drives
-   *  the "Used by" column — the question a detail-only view could never
-   *  answer without opening every source in turn. */
-  pipelineNamesBySourceId: Map<string, string[]>;
+  /** The server's reference summary keyed by source id (HEL-1258). Drives the "Used by" column —
+   *  the question a detail-only view could never answer without opening every source in turn. */
+  references: Record<string, SourceReferenceSummary>;
+  /** False until the summary has loaded: an absent entry then means "unknown", never "Unused". */
+  referencesLoaded: boolean;
 }
 
 /**
@@ -60,12 +62,12 @@ const HEADER_COLUMNS: readonly SortableTableColumn<SortKey>[] = [
   { key: "updatedAt", header: "Updated", className: "eyebrow" },
 ];
 
-export function SourceListTable({ sources, pipelineNamesBySourceId }: Props) {
+export function SourceListTable({ sources, references, referencesLoaded }: Props) {
   const navigate = useNavigate();
 
-  // Columns depend on `pipelineNamesBySourceId` (a prop, not a static
-  // module-level constant like the other three tables) -- the "Used by"
-  // column sorts on pipeline count, so it can't be hoisted like theirs.
+  // Columns depend on `references` (a prop, not a static module-level
+  // constant like the other three tables) -- the "Used by" column sorts on
+  // the total reference count, so it can't be hoisted like theirs.
   // Memoized (HEL-1022 adversarial review finding 4): `useSortedRows`
   // depends on this array's IDENTITY (`useMemo([rows, columns, sortState])`
   // internally) -- an inline array literal here got a fresh identity every
@@ -76,10 +78,13 @@ export function SourceListTable({ sources, pipelineNamesBySourceId }: Props) {
       { key: "name", getValue: (s) => s.name },
       { key: "kind", getValue: (s) => labelForKind(s.type) },
       { key: "location", getValue: (s) => locationFor(s) },
-      { key: "usedBy", getValue: (s) => (pipelineNamesBySourceId.get(s.id) ?? []).length },
+      {
+        key: "usedBy",
+        getValue: (s) => summarizeSourceUsage(references[s.id], referencesLoaded).total,
+      },
       { key: "updatedAt", getValue: (s) => s.updatedAt },
     ],
-    [pipelineNamesBySourceId],
+    [references, referencesLoaded],
   );
 
   // HEL-1022: defaults to most-recently-updated first, matching the
@@ -118,7 +123,7 @@ export function SourceListTable({ sources, pipelineNamesBySourceId }: Props) {
       <tbody>
         {sortedSources.map((source) => {
           const location = locationFor(source);
-          const usedBy = pipelineNamesBySourceId.get(source.id) ?? [];
+          const usage = summarizeSourceUsage(references[source.id], referencesLoaded);
           return (
             <tr
               key={source.id}
@@ -146,12 +151,10 @@ export function SourceListTable({ sources, pipelineNamesBySourceId }: Props) {
                 )}
               </td>
               <td>
-                {usedBy.length === 0 ? (
-                  <span className="source-list-table__muted">Unused</span>
+                {usage.total === 0 ? (
+                  <span className="source-list-table__muted">{usage.label}</span>
                 ) : (
-                  <span title={usedBy.join(", ")}>
-                    {usedBy.length} pipeline{usedBy.length === 1 ? "" : "s"}
-                  </span>
+                  <span title={usage.title}>{usage.label}</span>
                 )}
               </td>
               <td className="source-list-table__muted">{formatRelativeTime(source.updatedAt)}</td>

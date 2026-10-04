@@ -7,6 +7,7 @@ import type {
   RowListResponse,
   RowResponse,
   RowWriteResponse,
+  SourceReferenceSummary,
   SqlSourceConfig,
   StaticColumn,
   UpdateDatasetSchemaRequest,
@@ -84,6 +85,15 @@ export interface CsvLimits {
 export async function fetchCsvLimits(): Promise<CsvLimits> {
   const response = await httpClient.get<CsvLimits>("/api/data-sources/csv-limits");
   return response.data;
+}
+
+/** HEL-1258: the server-computed reference summary for every source the caller owns (only referenced
+ *  sources are listed) -- the one truth behind "Used by" and the delete warnings. */
+export async function fetchSourceReferences(): Promise<SourceReferenceSummary[]> {
+  const response = await httpClient.get<{ items: SourceReferenceSummary[] }>(
+    "/api/data-sources/references",
+  );
+  return response.data.items;
 }
 
 export async function fetchSources(): Promise<DataSource[]> {

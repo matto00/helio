@@ -117,6 +117,16 @@ final class DataSourceService(
   def findAll(user: AuthenticatedUser, page: Page, tag: Option[String] = None): Future[PagedResult[DataSource]] =
     dataSourceRepo.findAll(user.id, page, tag)
 
+  /** HEL-1258: the reference summary of EVERY data source the caller owns that has at least one reference --
+   *  the same finder, kinds and visibility as the delete guard (`delete`), in a constant number of queries
+   *  (one owned-id read + the finder's three), never one per source. A source the caller does not own is never
+   *  in the id set, so no hidden reference count can be probed for someone else's source. Ordered by source id
+   *  for a stable wire order. */
+  def findReferenceSummaries(user: AuthenticatedUser): Future[Vector[(String, SourceReferences)]] =
+    dataSourceRepo.findOwnedIds(user.id).flatMap { ids =>
+      dataSourceRepo.findReferencesFor(ids, user).map(_.toVector.filter(!_._2.isEmpty).sortBy(_._1))
+    }
+
   /** Owner-scoped single-resource read (HEL-661 design.md D3), added when `WorkspaceSearchService.
    *  getResource` needed a single-owned-resource fetch over `DataSourceRepository.findByIdOwned`
    *  and only `DataTypeService`/`MetricService` (both since retired by HEL-904) and `PipelineService`

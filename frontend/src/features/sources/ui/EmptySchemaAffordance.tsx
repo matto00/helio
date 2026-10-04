@@ -1,5 +1,5 @@
 import { isAxiosError } from "axios";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
@@ -7,10 +7,12 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { refreshSource } from "../services/dataSourceService";
 import {
   deleteSource,
+  fetchSourceReferences,
   fetchSources,
   isSourceDeleteConflict,
   type SourceDeleteConflict,
 } from "../state/sourcesSlice";
+import { sourceDeleteWarning } from "../utils/sourceReferences";
 import { SourceDeleteConflictNotice } from "./SourceDeleteConflictNotice";
 import type { DataSource } from "../types/dataSource";
 
@@ -23,7 +25,7 @@ interface EmptySchemaAffordanceProps {
  *  back to delete + re-upload when the underlying file is missing. */
 export function EmptySchemaAffordance({ source }: EmptySchemaAffordanceProps) {
   const dispatch = useAppDispatch();
-  const pipelines = useAppSelector((state) => state.pipelines.items);
+  const summary = useAppSelector((state) => state.sources.references[source.id]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConflict, setDeleteConflict] = useState<SourceDeleteConflict | null>(null);
@@ -34,15 +36,13 @@ export function EmptySchemaAffordance({ source }: EmptySchemaAffordanceProps) {
   // copy so a source with live pipeline dependents warns identically whether
   // it's deleted from here or from the sidebar.
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // HEL-969 (D2): a pipeline depends on this source if ANY of its roots
-  // reads from it, not just the first -- roots.some(...), never roots[0].
-  const dependentCount = pipelines.filter((p) =>
-    p.roots.some((r) => r.dataSourceId === source.id),
-  ).length;
-  const deleteWarning =
-    dependentCount > 0
-      ? `${dependentCount} pipeline${dependentCount === 1 ? "" : "s"} read${dependentCount === 1 ? "s" : ""} from this source, so deleting it will be refused until you remove it from ${dependentCount === 1 ? "that pipeline" : "them"}.`
-      : null;
+  // HEL-1258: the warning is the server's reference summary (every kind the delete guard refuses on),
+  // refreshed on mount -- never a client-side count over the pipelines list.
+  const deleteWarning = sourceDeleteWarning(summary);
+
+  useEffect(() => {
+    void dispatch(fetchSourceReferences());
+  }, [dispatch]);
 
   async function handleRefresh() {
     setIsRefreshing(true);
