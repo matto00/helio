@@ -5,8 +5,20 @@
   "description": "Body of `PATCH /api/outputs/:id`. Both fields are optional — absent means unchanged. `config`, when present, is merged into the stored config one level deep for `legend`/`tooltip`/`seriesColors`/`axisLabels` (HEL-877) rather than replacing it wholesale.",
   "type": "object",
   "properties": {
-    "name": { "type": "string", "minLength": 1 },
-    "config": { "type": "object" }
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config": {
+      "type": "object",
+      "description": "Output config. `compare` (HEL-1273) selects the history comparison: absent/null (none), `previous_run`, `1d`, `7d`, `30d`, or `custom:<d>` where <d> is a positive ISO-8601 duration in days/hours/minutes/seconds (PnDTnHnMnS, at most 365 days; week/month/year and lowercase/signed forms are rejected). Anything else is a 400.",
+      "properties": {
+        "compare": {
+          "type": ["string", "null"],
+          "pattern": "^(previous_run|1d|7d|30d|custom:P(\\d+D)?(T(\\d+H)?(\\d+M)?(\\d+(\\.\\d+)?S)?)?)$"
+        }
+      }
+    }
   },
   "additionalProperties": false
 }

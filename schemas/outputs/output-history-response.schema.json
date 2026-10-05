@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/output-history-response.schema.json",
+  "title": "OutputHistoryResponse",
+  "description": "Response for GET /api/outputs/:id/history?limit=&since= (HEL-1273). Readable by the Output's owner and pipeline grantees; a non-grantee and an unknown id both get an identical 404. `limit` is an integer 1..100 (default 30, never clamped); `since` an ISO-8601 instant. `compare`, `current`, `baseline`, `delta`, `pct` and `availableFrom` are resolved over the Output's whole retained history, independent of limit/since; only `sparkline` and `points` honour them. Every nullable field is present as an explicit null.",
+  "type": "object",
+  "properties": {
+    "outputId": {
+      "type": "string"
+    },
+    "compare": {
+      "type": ["string", "null"],
+      "description": "The Output's stored config.compare (previous_run | 1d | 7d | 30d | custom:<ISO-8601 duration>), or null when unset."
+    },
+    "current": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/resolvedPoint"
+        }
+      ],
+      "description": "The newest history point, or null when the Output has no history."
+    },
+    "baseline": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/resolvedPoint"
+        }
+      ],
+      "description": "previous_run: the second-newest RETAINED point (history is thinned with age, so this is not necessarily the immediately previous run). Window: the newest point captured at or before (current.capturedAt minus the window). Null when there is none or no compare is configured."
+    },
+    "delta": {
+      "type": ["number", "null"],
+      "description": "current.value minus baseline.value; null when either is null or the result is not finite."
+    },
+    "pct": {
+      "type": ["number", "null"],
+      "description": "delta / |baseline.value| * 100 (percent units); null when delta is null or the baseline value is 0."
+    },
+    "availableFrom": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Window compare with no baseline yet: the earliest point's capturedAt plus the window. Null otherwise (always null for previous_run)."
+    },
+    "sparkline": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sparklinePoint"
+      },
+      "description": "Exactly the returned points (after limit/since), oldest first."
+    },
+    "points": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/historyPoint"
+      },
+      "description": "Newest first, after limit/since."
+    }
+  },
+  "required": [
+    "outputId",
+    "compare",
+    "current",
+    "baseline",
+    "delta",
+    "pct",
+    "availableFrom",
+    "sparkline",
+    "points"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "summaryV1": {
+      "description": "Stored per-run summary, version 1 (HEL-1271). `columns[c].count` is the number of cells coercible to a finite number (not the non-null count); `metric.value` is the server-computed headline over ALL rows (never a viewer-filtered subset).",
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "rowCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "columns": {
+          "type": "object",
+          "description": "Per-numeric-column stats, capped at 20 columns.",
+          "additionalProperties": {
+            "$ref": "#/$defs/columnStats"
+          }
+        },
+        "columnsTruncated": {
+          "type": "boolean"
+        },
+        "metric": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/metricSummary"
+            }
+          ]
+        },
+        "series": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/seriesSummary"
+            }
+          ]
+        }
+      },
+      "required": ["v", "rowCount", "columns", "columnsTruncated", "metric", "series"],
+      "additionalProperties": false
+    },
+    "columnStats": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sum": {
+          "type": ["number", "null"]
+        },
+        "min": {
+          "type": ["number", "null"]
+        },
+        "max": {
+          "type": ["number", "null"]
+        }
+      },
+      "required": ["count", "sum", "min", "max"],
+      "additionalProperties": false
+    },
+    "metricSummary": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "agg": {
+          "type": ["string", "null"]
+        },
+        "value": {
+          "type": ["number", "null"]
+        }
+      },
+      "required": ["field", "agg", "value"],
+      "additionalProperties": false
+    },
+    "seriesSummary": {
+      "type": "object",
+      "description": "Reduced chart x->y series, capped at 200 points.",
+      "properties": {
+        "mode": {
+          "enum": ["grouped", "rows"]
+        },
+        "x": {
+          "type": "string"
+        },
+        "y": {
+          "type": "string"
+        },
+        "agg": {
+          "type": ["string", "null"]
+        },
+        "points": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": ["string", "number", "boolean", "null"]
+              },
+              {
+                "type": ["number", "null"]
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "totalPoints": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "downsampled": {
+          "type": "boolean"
+        }
+      },
+      "required": ["mode", "x", "y", "agg", "points", "totalPoints", "downsampled"],
+      "additionalProperties": false
+    },
+    "resolvedPoint": {
+      "type": "object",
+      "description": "A point reduced to what a comparison needs; `value` is the stored server-computed headline metric value over all rows, or null when the summary has none.",
+      "properties": {
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "rowCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "value": {
+          "type": ["number", "null"]
+        }
+      },
+      "required": ["capturedAt", "rowCount", "value"],
+      "additionalProperties": false
+    },
+    "sparklinePoint": {
+      "type": "object",
+      "properties": {
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "value": {
+          "type": ["number", "null"]
+        }
+      },
+      "required": ["capturedAt", "value"],
+      "additionalProperties": false
+    },
+    "historyPoint": {
+      "type": "object",
+      "properties": {
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "runId": {
+          "type": ["string", "null"]
+        },
+        "triggerSource": {
+          "type": "string"
+        },
+        "rowCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "summary": {
+          "$ref": "#/$defs/summaryV1"
+        }
+      },
+      "required": ["capturedAt", "runId", "triggerSource", "rowCount", "summary"],
+      "additionalProperties": false
+    }
+  }
+}

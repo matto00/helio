@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.domain.history.OutputCompare
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.services.auth.AccessChecker
@@ -116,7 +117,7 @@ final class OutputService(
       case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
       case Right(kind) =>
         val config = req.config.getOrElse(JsObject.empty)
-        OutputService.validateFieldMapping(kind, config) match {
+        OutputService.validateConfig(kind, config) match {
           case Left(err) => Future.successful(Left(err))
           case Right(()) =>
             accessChecker.requireAccess("pipeline", pipelineId.value, Some(user), "Pipeline not found").flatMap {
@@ -227,7 +228,7 @@ final class OutputService(
             // actually persist), not the raw patch -- a patch that only touches an unrelated
             // sub-object must not bypass validation of an already-invalid stored fieldMapping,
             // and a patch that legitimately fixes fieldMapping must be judged on its result.
-            mergedConfig.map(cfg => OutputService.validateFieldMapping(output.kind, cfg)).getOrElse(Right(())) match {
+            mergedConfig.map(cfg => OutputService.validateConfig(output.kind, cfg)).getOrElse(Right(())) match {
               case Left(err) => Future.successful(Left(err))
               case Right(()) =>
                 outputRepo.updateOwned(id, user, req.name, mergedConfig).flatMap {
@@ -452,6 +453,11 @@ object OutputService {
         }
     }
   }
+
+  /** Every Output config write path's validation: `fieldMapping` slots (HEL-892), then
+   *  `config.compare` (HEL-1273). */
+  def validateConfig(kind: OutputKind, config: JsObject): Either[ServiceError, Unit] =
+    validateFieldMapping(kind, config).flatMap(_ => OutputCompare.validateConfig(config).left.map(ServiceError.BadRequest(_)))
 
   private val mergeableSubObjects = Set("legend", "tooltip", "seriesColors", "axisLabels")
 

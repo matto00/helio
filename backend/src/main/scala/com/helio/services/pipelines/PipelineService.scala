@@ -9,6 +9,7 @@ import com.helio.api.protocols.sources.{CreateSourceRequest, RestApiConfigPayloa
 import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse}
 import com.helio.api.protocols.pipelines.{ConciseAnalyzeNode, CostReasonResponse, CostVerdictResponse, PipelineAnalyzeConciseResponse, PipelineLaneTreeNode}
 import com.helio.api.protocols.panels.{PanelCapabilityColumnResponse, PanelCapabilityResponse}
+import com.helio.domain.history.OutputCompare
 import com.helio.domain.panels.OutputBindingSpec
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSource, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, Output, OutputKind, Pipeline, PipelineId, PipelineRootId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift, UserId}
 import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, LaneReferenceError, PipelineAnalyzeService, PipelineCostEstimator, RuntimeGraphPath, SchemaField}
@@ -678,6 +679,9 @@ final class PipelineService(
     val spec = OutputBindingSpec.All.find(_.outputKind == kind).getOrElse(
       throw new IllegalStateException(s"PipelineService: no OutputBindingSpec for kind $kind -- OutputBindingSpec.All is missing a case")
     )
+    // HEL-1273: `config.compare` is checked first and unconditionally (before the no-fieldMapping
+    // early return), so single-call create and proposal grounding both reject a bad compare.
+    OutputCompare.validateConfig(config).left.map(ServiceError.BadRequest(_)).flatMap { _ =>
     config.fields.get("fieldMapping").collect { case o: JsObject => o } match {
       case None => Right(())
       case Some(mappingObj) =>
@@ -690,6 +694,7 @@ final class PipelineService(
               case Right(()) => Right(())
             }
         }
+    }
     }
   }
 

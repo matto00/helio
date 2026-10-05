@@ -132,4 +132,5 @@ trait JsonProtocols
     with ConnectorEntityProtocol
     with OutputProtocol
     with ProvenanceProtocol
+    with OutputHistoryProtocol
     with NodeCapabilitiesProtocol
