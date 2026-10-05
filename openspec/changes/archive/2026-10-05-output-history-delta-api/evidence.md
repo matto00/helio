@@ -52,3 +52,20 @@ Authenticated = findById 2 + findConfigById 2 (app pool) + 3 history reads (priv
 ACL owner resolution 1 + `hasPublicViewerGrant` 1 + `findAllByDashboardId` 2 + `findByIdInternal` 1 +
 `findConfigsByIdsInternal` 1 + 3 history = 9 (all privileged pool). Measurement equals the derivation
 exactly; no bound was changed.
+
+## CI heap probe (cycle 2)
+
+CI backend job OOM'd (`Java heap space`, sbt server `max 1.00GB`). Probed locally in `backend/`, reading the
+server JVM's `Runtime.getRuntime.maxMemory` via `sbt '<form>' 'eval java.lang.Runtime.getRuntime.maxMemory'`
+(local default heap is 16651386880):
+
+- `SBT_OPTS=-Xmx3g` -> 16651386880 (NOT applied to the server)
+- `JAVA_OPTS=-Xmx3g` -> 16651386880 (NOT applied)
+- `sbt -J-Xmx3g ...` -> **3221225472** (applied)
+
+`sbt -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile"` also prints `ans: Long = 3221225472`
+inside one quoted command. ci.yml's "Compile and test" step now runs
+`sbt -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile; testFull"`; `backend/.sbtopts` untouched.
+The `-J` form only takes effect when it starts the server (fresh CI runner); servers shut down after each probe
+with `sbt --client shutdown`. The owner-ruling event log was not present in this worktree to check; the change
+follows the instruction as relayed.

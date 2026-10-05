@@ -154,7 +154,11 @@ jobs:
       - name: Compile and test
         # HEL-1018: one quoted command -- sbt 2's thin client joins unquoted args into a single
         # (unparseable) command; testFull never serves a cached result.
-        run: sbt "compile; testFull"
+        # HEL-1273: the sbt server defaulted to a 1.00GB heap here; main's base ran at ~97% of it
+        # (85-97% GC) and PR #769's test compile hit `java.lang.OutOfMemoryError: Java heap space`.
+        # `-J-Xmx3g` is the form that reaches the server JVM (SBT_OPTS/JAVA_OPTS did not when probed
+        # locally); the leading `eval` prints the server's real max heap (~3221225472) into this log.
+        run: sbt -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile; testFull"
         working-directory: backend
 
   # HEL-459: fails the build on a new high/critical CVE. Backend: a small sbt task
