@@ -1,0 +1,58 @@
+== canRun/costVerdict grep, non-test sources ==
+backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala:234: *  `canRun` (HEL-1096 design.md D1, HEL-1266 D1-D3): true iff the REQUESTING u
+backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala:239: *  only renders the "Run to update" control when BOTH `autoRunnable` is false 
+backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala:246:    canRun:        Boolean
+backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala:257: *  `costVerdict` (HEL-1092) is always present on this response -- unlike every
+backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala:267:    costVerdict:       CostVerdictResponse
+backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala:426:  implicit val costVerdictResponseFormat: RootJsonFormat[CostVerdictResponse] =
+backend/src/main/scala/com/helio/api/protocols/sources/DataSourceProtocol.scala:295: *  SAME `CostReasonResponse` wire shape `costVerdict.reasons` already carries on the 
+backend/src/main/scala/com/helio/api/protocols/sources/DataSourceProtocol.scala:297: *  shape to key off regardless of which surface it's rendering. `canRun` mirrors
+backend/src/main/scala/com/helio/api/protocols/sources/DataSourceProtocol.scala:303:    canRun: Boolean
+backend/src/main/scala/com/helio/api/protocols/sources/DataSourceProtocol.scala:312:      canRun     = d.canRun
+backend/src/main/scala/com/helio/api/protocols/sources/DataSourceProtocol.scala:623:// shape `costVerdict.reasons` already carries on the analyze response) -- extending
+backend/src/main/scala/com/helio/services/pipelines/AutoRunTriggerService.scala:31: *  the RESPONSE-facing `visible`/`canRun` gates on a denied entry -- evaluation and de
+backend/src/main/scala/com/helio/services/pipelines/AutoRunTriggerService.scala:56:   *  pipeline's `visible`/`canRun` gates for the RESPONSE -- it plays no role in evalu
+backend/src/main/scala/com/helio/services/pipelines/AutoRunTriggerService.scala:83:      // the `user`-gated visibility/canRun computation below, which only ever affects 
+backend/src/main/scala/com/helio/services/pipelines/AutoRunTriggerService.scala:101:   *   - `canRun` (owner OR editor grant, mirroring `PipelineRunService.submit`'s own 
+backend/src/main/scala/com/helio/services/pipelines/AutoRunTriggerService.scala:120:        Future.successful(Some(EvaluatedPipeline.Denied(pipelineId, pipeline.name, ver
+backend/src/main/scala/com/helio/services/pipelines/AutoRunTriggerService.scala:123:          case Some("editor") => Some(EvaluatedPipeline.Denied(pipelineId, pipeline.na
+backend/src/main/scala/com/helio/services/pipelines/AutoRunTriggerService.scala:124:          case Some(_)        => Some(EvaluatedPipeline.Denied(pipelineId, pipeline.na
+backend/src/main/scala/com/helio/services/pipelines/AutoRunTriggerService.scala:142:      canRun: Boolean
+backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala:1027:            val costVerdict = PipelineCostEstimator.estimate(costInput)
+backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala:1029:            // HEL-1096 design.md D1: `canRun` mirrors `PipelineRunService.submit`'s own
+backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala:1032:            val canRunF: Future[Boolean] =
+backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala:1039:              canRun       <- canRunF
+backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala:1053:                costVerdict       = toCostVerdictResponse(costVerdict, canRun, analyzed)
+backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala:1070:   *  clears both `autoRunnable` and `canRun`. Permission stays inside `canRun` with no rea
+backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala:1073:      canRun:   Boolean,
+backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala:1082:      canRun        = canRun && configReasons.isEmpty
+e2e/hel1096-run-to-update-affordance.spec.ts:176:    // action present (owner, single denied pipeline, canRun=true), and it must NOT auto-dismiss
+frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts:1400:  // `costVerdict.autoRunnable` is false and `costVerdict.canRun` is true (see the returned
+frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts:1401:  // `costVerdict` below). Reuses the SAME shared handler the denial toast's action uses
+frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts:1480:    estimatedRows: analyzeResult?.costVerdict.estimatedRows,
+frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts:1482:    // `reasons`/`canRun` itself; `null` while analyze hasn't returned yet (renders nothing).
+frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts:1483:    costVerdict: analyzeResult?.costVerdict ?? null,
+frontend/src/features/pipelines/services/deniedPipelinesToast.ts:12: *  `canRun` is true — a toast `action` is a single `{label, onClick}`, so N>1 denied pipelines
+frontend/src/features/pipelines/services/deniedPipelinesToast.ts:34:  if (single !== undefined && single.canRun) {
+frontend/src/features/pipelines/types/pipelineStep.ts:619:  canRun: boolean;
+frontend/src/features/pipelines/types/pipelineStep.ts:627:  costVerdict: CostVerdict;
+frontend/src/features/pipelines/ui/PipelineDetailFooter.tsx:80:  costVerdict: CostVerdict | null;
+frontend/src/features/pipelines/ui/PipelineDetailFooter.tsx:111:  costVerdict,
+frontend/src/features/pipelines/ui/PipelineDetailFooter.tsx:138:      {/* HEL-1096 design.md D5: additive over already-fetched `costVerdict` data — renders only
+frontend/src/features/pipelines/ui/PipelineDetailFooter.tsx:143:      {costVerdict !== null && !costVerdict.autoRunnable && (
+frontend/src/features/pipelines/ui/PipelineDetailFooter.tsx:146:            {[...new Set(costVerdict.reasons.map(denyReasonCopy))].join(" ")}
+frontend/src/features/pipelines/ui/PipelineDetailFooter.tsx:148:          {costVerdict.canRun && (
+frontend/src/features/pipelines/ui/PipelineDetailPage.css:1930:   pipeline's costVerdict denies auto-run -- same --app-warning tokens/shape as the truncation
+frontend/src/features/pipelines/ui/PipelineDetailPage.tsx:66:    costVerdict,
+frontend/src/features/pipelines/ui/PipelineDetailPage.tsx:351:        costVerdict={costVerdict}
+frontend/src/features/sources/types/dataSource.ts:205: *  shape `costVerdict.reasons` already carries on the analyze response -- so the deny-copy
+frontend/src/features/sources/types/dataSource.ts:207: *  `canRun` mirrors `POST /api/pipelines/:id/run`'s own owner-or-editor-grantee check. */
+frontend/src/features/sources/types/dataSource.ts:212:  canRun: boolean;
+helio-mcp/src/tools/read.ts:173:        "before running it. costVerdict.canRun is false when the caller may not run the pipeline " +
+helio-mcp/src/tools/read.ts:174:        "or a step has a validationError (reason code step-config-invalid in costVerdict.reasons) — " +
+helio-mcp/src/types.ts:551:  canRun: boolean;
+helio-mcp/src/types.ts:568:  costVerdict: CostVerdictResponse;
+
+== e2e hel1096 fixture ==
+206:    await page.route(`**/api/pipelines/${pipeline.id}/run`, async (route) => {
+ls: cannot access 'frontend/e2e': No such file or directory

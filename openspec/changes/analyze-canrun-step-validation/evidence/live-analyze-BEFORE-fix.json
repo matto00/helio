@@ -1,0 +1,82 @@
+{
+    "costVerdict": {
+        "autoRunnable": true,
+        "canRun": true,
+        "estimatedRows": 250,
+        "reasons": [],
+        "stepCount": 1
+    },
+    "id": "b58b3714-d51a-4160-9f5a-e77c1bc67bb4",
+    "name": "HEL-1266 repro",
+    "sourceSchemas": [
+        {
+            "dataSourceName": "HEL-1189 Skeptic Orders",
+            "rootId": "a202299d-2cc4-4193-b712-c4be47cea58b",
+            "sourceSchema": [
+                {
+                    "name": "created_at",
+                    "type": "string"
+                },
+                {
+                    "name": "amount",
+                    "type": "float"
+                },
+                {
+                    "name": "region",
+                    "type": "string"
+                }
+            ]
+        }
+    ],
+    "steps": [
+        {
+            "config": {
+                "aggregations": [
+                    {
+                        "alias": "total",
+                        "field": "amount",
+                        "fn": "bogus_fn"
+                    }
+                ],
+                "groupBy": [
+                    {
+                        "name": "region",
+                        "type": "string"
+                    }
+                ]
+            },
+            "id": "41e89177-e249-4bc4-a68d-10e0e16b25ff",
+            "inputSchema": [
+                {
+                    "name": "created_at",
+                    "type": "string"
+                },
+                {
+                    "name": "amount",
+                    "type": "float"
+                },
+                {
+                    "name": "region",
+                    "type": "string"
+                }
+            ],
+            "outputSchema": [
+                {
+                    "name": "created_at",
+                    "type": "string"
+                },
+                {
+                    "name": "amount",
+                    "type": "float"
+                },
+                {
+                    "name": "region",
+                    "type": "string"
+                }
+            ],
+            "position": 0,
+            "type": "aggregate",
+            "validationError": "Unsupported aggregation function: 'bogus_fn'. Supported: sum, avg, min, max, count"
+        }
+    ]
+}

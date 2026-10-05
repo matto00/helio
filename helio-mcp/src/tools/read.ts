@@ -170,7 +170,9 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "Analyze a pipeline: returns the source schema and, per step, its input/output schema and any " +
         "validation error. This is how you learn the exact columns an Output attached to a given " +
         "step (or the source, for nodeStepId: null) will have " +
-        "before running it. Optional concise: true (HEL-865) returns a bounded, per-node " +
+        "before running it. costVerdict.canRun is false when the caller may not run the pipeline " +
+        "or a step has a validationError (reason code step-config-invalid in costVerdict.reasons) — " +
+        "do not submit a run when it is false. Optional concise: true (HEL-865) returns a bounded, per-node " +
         "projection instead — a DIFFERENT shape ({ nodes: [{path, op, validationError?}] }, no " +
         "column lists) — for a large/deep pipeline where the full response is unwieldy. Full " +
         "response is the default and is unchanged.",

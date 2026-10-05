@@ -1,0 +1,13 @@
+{
+  "autoRunnable": false,
+  "canRun": false,
+  "estimatedRows": 5,
+  "reasons": [
+    {
+      "code": "step-config-invalid",
+      "detail": "Unsupported aggregation function: 'bogus_fn'. Supported: sum, avg, min, max, count",
+      "stepId": "STEP_ID"
+    }
+  ],
+  "stepCount": 1
+}

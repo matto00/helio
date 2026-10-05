@@ -1,0 +1,80 @@
+      at Object.<anonymous> (src/features/pipelines/services/denyReasonCopy.test.ts:17:27)
+
+  ● denyReasonCopy step-config-invalid (HEL-1266) › says a step is misconfigured and the pipeline cannot run until it is fixed
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "A step in this pipeline is misconfigured, so it can't run until that step is fixed."
+    Received: "This pipeline wasn't updated automatically."
+
+      55 | describe("denyReasonCopy step-config-invalid (HEL-1266)", () => {
+      56 |   it("says a step is misconfigured and the pipeline cannot run until it is fixed", () => {
+    > 57 |     expect(denyReasonCopy({ code: "step-config-invalid", detail: "x", stepId: "s1" })).toBe(
+         |                                                                                        ^
+      58 |       "A step in this pipeline is misconfigured, so it can't run until that step is fixed.",
+      59 |     );
+      60 |   });
+
+      at Object.<anonymous> (src/features/pipelines/services/denyReasonCopy.test.ts:57:88)
+
+FAIL src/features/pipelines/ui/PipelineDetailFooter.stepConfigInvalid.test.tsx
+  ● PipelineDetailFooter with the shared step-config-invalid analyze verdict (HEL-1266) › shows the misconfigured-step wording and no 'Run to update' control (light theme)
+
+    expect(element).toHaveTextContent()
+
+    Expected element to have text content:
+      A step in this pipeline is misconfigured, so it can't run until that step is fixed.
+    Received:
+      This pipeline wasn't updated automatically.
+
+      67 |       render(<PipelineDetailFooter {...baseProps} costVerdict={fixtureVerdict} />);
+      68 |
+    > 69 |       expect(screen.getByRole("status")).toHaveTextContent(MISCONFIGURED_COPY);
+         |                                          ^
+      70 |       expect(screen.queryByRole("button", { name: "Run to update" })).not.toBeInTheDocument();
+      71 |       expect(screen.queryByText(/Run to update/)).not.toBeInTheDocument();
+      72 |     },
+
+      at src/features/pipelines/ui/PipelineDetailFooter.stepConfigInvalid.test.tsx:69:42
+
+  ● PipelineDetailFooter with the shared step-config-invalid analyze verdict (HEL-1266) › shows the misconfigured-step wording and no 'Run to update' control (dark theme)
+
+    expect(element).toHaveTextContent()
+
+    Expected element to have text content:
+      A step in this pipeline is misconfigured, so it can't run until that step is fixed.
+    Received:
+      This pipeline wasn't updated automatically.
+
+      67 |       render(<PipelineDetailFooter {...baseProps} costVerdict={fixtureVerdict} />);
+      68 |
+    > 69 |       expect(screen.getByRole("status")).toHaveTextContent(MISCONFIGURED_COPY);
+         |                                          ^
+      70 |       expect(screen.queryByRole("button", { name: "Run to update" })).not.toBeInTheDocument();
+      71 |       expect(screen.queryByText(/Run to update/)).not.toBeInTheDocument();
+      72 |     },
+
+      at src/features/pipelines/ui/PipelineDetailFooter.stepConfigInvalid.test.tsx:69:42
+
+  ● PipelineDetailFooter with the shared step-config-invalid analyze verdict (HEL-1266) › says the sentence once when two steps are misconfigured
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "A step in this pipeline is misconfigured, so it can't run until that step is fixed."
+    Received: "This pipeline wasn't updated automatically."
+
+      83 |     render(<PipelineDetailFooter {...baseProps} costVerdict={two} />);
+      84 |
+    > 85 |     expect(screen.getByRole("status").textContent).toBe(MISCONFIGURED_COPY);
+         |                                                    ^
+      86 |   });
+      87 | });
+      88 |
+
+      at Object.<anonymous> (src/features/pipelines/ui/PipelineDetailFooter.stepConfigInvalid.test.tsx:85:52)
+
+Test Suites: 2 failed, 2 total
+Tests:       5 failed, 20 passed, 25 total
+Snapshots:   0 total
+Time:        3.304 s, estimated 4 s
+Ran all test suites matching stepConfigInvalid|denyReasonCopy.

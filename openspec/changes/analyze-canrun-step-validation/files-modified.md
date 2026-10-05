@@ -1,0 +1,14 @@
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — analyze derives `step-config-invalid` reasons from enabled steps' validationError and gates `autoRunnable`/`canRun`
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala` — `CostVerdictResponse` doc names both `canRun` conditions
+- `schemas/pipelines/pipeline-analyze-response.schema.json` — `step-config-invalid` code, canRun description, and the stale AnalyzeStep shape (op/string config -> type/object config) that the real-response seam test exposed
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineServiceCanRunSpec.scala` — scenario cases (owner, two steps, disabled step, clean, viewer)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineAnalyzeCanRunRoutesSpec.scala` — new HelioRouteTest spec: schema-validated real response, normalized equality with the shared fixture
+- `backend/src/test/resources/analyze/step-config-invalid-cost-verdict.json` — shared seam fixture read by the backend spec and the jest test
+- `frontend/src/features/pipelines/services/denyReasonCopy.ts` — `step-config-invalid` code + copy; doc says the list is the union of both schema enums
+- `frontend/src/features/pipelines/services/denyReasonCopy.test.ts` — exact-wording case
+- `frontend/src/features/pipelines/ui/PipelineDetailFooter.tsx` — dedupe identical reason sentences
+- `frontend/src/features/pipelines/ui/PipelineDetailFooter.stepConfigInvalid.test.tsx` — seam test rendering the shared fixture (both themes, dedupe)
+- `helio-mcp/src/types.ts` — `canRun` on `CostVerdictResponse`
+- `helio-mcp/src/tools/read.ts` — `analyze_pipeline` description sentence
+- `helio-mcp/src/context.test.ts` — fixtures carry `canRun`
+- `openspec/changes/analyze-canrun-step-validation/` — tasks ticked, evidence/ (repro, red/green, mutations, live check, ids)

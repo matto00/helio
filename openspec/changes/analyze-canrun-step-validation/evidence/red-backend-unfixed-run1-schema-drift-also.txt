@@ -1,0 +1,105 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] PipelineServiceCanRunSpec:
+20:32:51,006 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+20:32:51,006 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4c0a0b22 - No custom configurators were discovered as a service.
+20:32:51,006 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4c0a0b22 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:32:51,007 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4c0a0b22 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:32:51,009 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+20:32:51,010 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+20:32:51,045 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+20:32:51,047 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@307d1cbe - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+20:32:51,047 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+20:32:51,053 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+20:32:51,054 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@307d1cbe - value "plain" substituted for "${LOG_APPENDER}"
+20:32:51,054 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+20:32:51,054 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+20:32:51,054 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+20:32:51,057 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+20:32:51,073 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+20:32:51,073 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+20:32:51,073 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+20:32:51,074 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@307d1cbe - value "INFO" substituted for "${LOG_LEVEL}"
+20:32:51,074 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+20:32:51,074 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@307d1cbe - value "plain" substituted for "${LOG_APPENDER}"
+20:32:51,074 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+20:32:51,074 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@4fea833e - End of configuration.
+20:32:51,074 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@ad9329f - Registering current configuration as safe fallback point
+20:32:51,077 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4c0a0b22 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 67 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+20:32:51.097 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+20:32:51.098 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+20:32:51.734 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:42837/postgres?user=postgres (PostgreSQL 14.10)
+20:32:51.783 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+20:32:51.787 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 114 migrations (execution time 00:00.033s)
+20:32:51.795 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+20:32:51.966 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+[info] PipelineService.analyze's costVerdict.canRun (HEL-1096 design.md D1)
+[info] - should is true for the pipeline OWNER
+[info] - should is true for an EDITOR grantee (not the owner)
+[info] - should is false for a VIEWER grantee
+[info] PipelineService.analyze's costVerdict with step validationErrors (HEL-1266 design.md D1-D3)
+[info] - should report canRun=false and a step-config-invalid reason naming the step for the owner *** FAILED ***
+[info]   true was not equal to false (PipelineServiceCanRunSpec.scala:142)
+[info] - should name every misconfigured enabled step with its own reason *** FAILED ***
+[info]   Set() was not equal to Set("d6cdb32d-0347-402a-beaa-8badda5bfa8c", "f202c380-fad5-4085-b668-7d1a857be167") (PipelineServiceCanRunSpec.scala:154)
+[info] - should ignore a disabled misconfigured step
+[info] - should keep canRun=true and add no config reason for an owner with a valid step
+[info] - should give a viewer canRun=false without a step-config-invalid reason when no step is misconfigured
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+20:32:54,082 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+20:32:54,083 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5bee4b3f - No custom configurators were discovered as a service.
+20:32:54,083 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5bee4b3f - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:32:54,083 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5bee4b3f - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:32:54,091 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+20:32:54,098 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+20:32:54,155 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+20:32:54,158 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@2e7f7dbf - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+20:32:54,158 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+20:32:54,162 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+20:32:54,163 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@2e7f7dbf - value "plain" substituted for "${LOG_APPENDER}"
+20:32:54,163 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+20:32:54,163 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+20:32:54,163 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+20:32:54,167 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+20:32:54,181 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+20:32:54,181 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+20:32:54,181 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+20:32:54,181 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@2e7f7dbf - value "INFO" substituted for "${LOG_LEVEL}"
+20:32:54,181 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+20:32:54,181 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@2e7f7dbf - value "plain" substituted for "${LOG_APPENDER}"
+20:32:54,181 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+20:32:54,182 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@60537857 - End of configuration.
+20:32:54,182 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@7f703f16 - Registering current configuration as safe fallback point
+20:32:54,185 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5bee4b3f - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 99 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+20:32:54.188 INFO  [com-helio-api-routes-pipelines-PipelineAnalyzeCanRunRoutesSpec-pekko.actor.default-dispatcher-4] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] PipelineAnalyzeCanRunRoutesSpec:
+20:32:54.828 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+20:32:54.830 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+20:32:55.412 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:39413/postgres?user=postgres (PostgreSQL 14.10)
+20:32:55.448 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+20:32:55.451 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 114 migrations (execution time 00:00.022s)
+20:32:55.457 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+20:32:55.612 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+[info] GET /pipelines/:id/analyze costVerdict with a misconfigured step (HEL-1266)
+[info] - should match the shared seam fixture and validate against the response schema *** FAILED ***
+[info]   Vector("$.steps[0].op: is missing but it is required", "$.steps[0].type: is not defined in the schema and the schema does not allow additional properties", "$.steps[0].config: object found, string expected") was not empty (PipelineAnalyzeCanRunRoutesSpec.scala:102)
+[info] - should name every enabled misconfigured step, once each, and ignore a disabled one *** FAILED ***
+[info]   Set() was not equal to Set("2178c53d-4fd8-4e19-b4ff-3c7cf9929e6f", "6fa13946-c8ab-4f27-99ba-c104dc8809b6") (PipelineAnalyzeCanRunRoutesSpec.scala:121)
+[info] - should leave canRun true for a clean owner pipeline and for a pipeline whose only misconfigured step is disabled
+20:32:56.572 INFO  [com-helio-api-routes-pipelines-PipelineAnalyzeCanRunRoutesSpec-pekko.actor.default-dispatcher-4] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] Run completed in 6 seconds, 141 milliseconds.
+[info] Total number of tests run: 11
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 7, failed 4, canceled 0, ignored 0, pending 0
+[info] *** 4 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.PipelineServiceCanRunSpec
+[error] 	com.helio.api.routes.pipelines.PipelineAnalyzeCanRunRoutesSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 7 s, cache 100%, 30 disk cache hits

@@ -143,7 +143,7 @@ export function PipelineDetailFooter({
       {costVerdict !== null && !costVerdict.autoRunnable && (
         <div className="pipeline-detail-page__denial-block" role="status" aria-live="polite">
           <span id={DENIAL_REASON_ID} className="pipeline-detail-page__denial-text">
-            {costVerdict.reasons.map(denyReasonCopy).join(" ")}
+            {[...new Set(costVerdict.reasons.map(denyReasonCopy))].join(" ")}
           </span>
           {costVerdict.canRun && (
             <button

@@ -1,0 +1,16 @@
+{
+  "costVerdict": {
+    "autoRunnable": false,
+    "canRun": false,
+    "estimatedRows": 250,
+    "reasons": [
+      {
+        "code": "step-config-invalid",
+        "detail": "Unsupported aggregation function: 'bogus_fn'. Supported: sum, avg, min, max, count",
+        "stepId": "41e89177-e249-4bc4-a68d-10e0e16b25ff"
+      }
+    ],
+    "stepCount": 1
+  },
+  "validationError": "Unsupported aggregation function: 'bogus_fn'. Supported: sum, avg, min, max, count"
+}
