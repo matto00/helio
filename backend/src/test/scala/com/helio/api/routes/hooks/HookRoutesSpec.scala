@@ -5,7 +5,7 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import com.helio.testkit.HelioRouteTest
 import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.api.http.{AuthDirectives, SessionCookies}
 import com.helio.api.{ApiRoutes, JsonProtocols, PipelineRunRecord}
@@ -46,7 +46,7 @@ import scala.concurrent.duration.DurationInt
 class HookRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 

@@ -8,13 +8,13 @@ import com.helio.services.sources.SourceService
 import com.helio.domain.connectors.{ConnectorAuthShape, RestApiConnectorDriver}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.{ConnectorCompletionTokenRepository, ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
+import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -36,7 +36,7 @@ import scala.util.{Success, Try}
  *  early-return path and field-override handling — is unchanged after that routing swap
  *  (design.md Decision 3). `previewSql`/`previewRest` are untouched by this ticket and are not
  *  covered here. */
-class SourceServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
+class SourceServiceSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer

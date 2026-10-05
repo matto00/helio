@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.testsupport.DatasetRowsTestSupport
@@ -12,7 +13,6 @@ import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.concat
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols, LatestRunResponse, PipelineRunRecord, RunResultResponse, RunStatusResponse}
 import com.helio.domain._
 import com.helio.domain.model._
@@ -48,7 +48,7 @@ import com.helio.domain.steps.SecondaryInput
 class PipelineRunRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll with TempDirectorySupport {
 

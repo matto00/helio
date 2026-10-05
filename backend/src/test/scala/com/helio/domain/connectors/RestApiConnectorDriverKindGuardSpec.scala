@@ -6,13 +6,13 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
+import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity}
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.flywaydb.core.Flyway
 import spray.json._
@@ -34,7 +34,7 @@ import scala.concurrent.{Await, Future}
  *  real embedded-Postgres `ConnectorRepository` (mirrors
  *  `RestApiConnectorDriverConnectorResolutionSpec`) since the mismatched row must be written
  *  directly, bypassing `SourceService.createRest`'s own (now-guarding) create path entirely. */
-class RestApiConnectorDriverKindGuardSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
+class RestApiConnectorDriverKindGuardSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer

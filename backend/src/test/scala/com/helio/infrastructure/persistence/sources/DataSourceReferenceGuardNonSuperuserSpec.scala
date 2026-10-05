@@ -6,13 +6,13 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.sources.DataSourceService
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 import com.typesafe.config.ConfigFactory
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -43,7 +43,7 @@ import scala.jdk.CollectionConverters._
 class DataSourceReferenceGuardNonSuperuserSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with BeforeAndAfterAll
     with TempDirectorySupport {
 

@@ -1,5 +1,6 @@
 package com.helio.services.sources
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
@@ -8,7 +9,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.{ConnectionContext, Http}
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -40,7 +40,7 @@ import scala.util.Try
  *  rejects any non-`https` scheme before issuing a request — the plain-HTTP
  *  test server `DataSourceServiceSpec` uses for text/pdf/image cannot
  *  exercise this path at all. */
-class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with TempDirectorySupport {
+class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer

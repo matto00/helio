@@ -4,7 +4,7 @@ import ch.qos.logback.classic.{Logger => LogbackLogger}
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.matchers.should.Matchers
@@ -23,7 +23,7 @@ import scala.jdk.CollectionConverters._
  *  (zero transport invocations, for both `send` and `stream`), the output-token clamp, successful
  *  `usage` passthrough, API-error mapping, and that the configured API key never appears in
  *  captured log output. */
-class ClaudeClientSpec extends AnyWordSpec with Matchers with ScalatestRouteTest {
+class ClaudeClientSpec extends AnyWordSpec with Matchers with HelioRouteTest {
 
   private implicit val mat: Materializer = Materializer(system)
 

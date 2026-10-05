@@ -1,10 +1,10 @@
 package com.helio.api.routes.pipelines
 
 import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{JsonProtocols, PipelineStepCatalogResponse}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.services.pipelines.PipelineStepCatalogService
+import com.helio.testkit.HelioRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -14,7 +14,7 @@ import java.util.UUID
  *  `PipelineShapeRoutesSpec`). No DB dependency, since `PipelineStepCatalogRoutes` wraps only the
  *  static `PipelineStep.Registry` via `PipelineStepCatalogService`. Composed-route-tree / 401
  *  coverage lives in `ApiRoutesSpec` (task 2.4). */
-class PipelineStepCatalogRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with JsonProtocols {
+class PipelineStepCatalogRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTest with JsonProtocols {
 
   private val user    = AuthenticatedUser(UserId(UUID.randomUUID().toString))
   private val service = new PipelineStepCatalogService()

@@ -1,5 +1,6 @@
 package com.helio.services.patchsets
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
@@ -26,7 +27,6 @@ import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -44,7 +44,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class PatchSetPreviewOutputContextSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll
     with TempDirectorySupport {

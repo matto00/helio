@@ -1,10 +1,10 @@
 package com.helio.api.http
 
 import com.helio.api.http.{CookieConfig, SessionCookies}
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{HttpCookie, SameSite, `Set-Cookie`}
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -19,7 +19,7 @@ import org.scalatest.wordspec.AnyWordSpec
  *  every route spec's `ApiRoutes` wiring. Renders the cookie through a real
  *  route (rather than probing pekko-http's internal rendering API) so the
  *  assertion matches exactly what a browser receives on the wire. */
-class CookieConfigSpec extends AnyWordSpec with Matchers with ScalatestRouteTest {
+class CookieConfigSpec extends AnyWordSpec with Matchers with HelioRouteTest {
 
   "CookieConfig" should {
 

@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.protocols.pipelines.{ConciseAnalyzeNode, CreatePipelineRootRequest, CreatePipelineRequest, CreatePipelineStepRequest, PipelineAnalyzeConciseResponse}
@@ -13,7 +14,6 @@ import com.helio.services.sources.DataSourceService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -31,7 +31,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  actually distinguishes the two modes on the SAME graph -- a 12-node, 2-root pipeline whose
  *  roots carry 40 columns combined. Both directions are required (design.md D6): a budget
  *  generous enough for both modes to pass would be decorative. */
-class PipelineAnalyzeConciseByteBudgetSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with JsonProtocols with TempDirectorySupport {
+class PipelineAnalyzeConciseByteBudgetSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll with JsonProtocols with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 

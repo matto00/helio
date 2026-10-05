@@ -1,6 +1,7 @@
 package com.helio.api.http
 
 import com.helio.api.http.TraceContextDirective
+import com.helio.testkit.HelioRouteTest
 import ch.qos.logback.classic.{Logger => LogbackLogger, LoggerContext}
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.OutputStreamAppender
@@ -10,7 +11,6 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.RawHeader
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.{Logger, MDC}
@@ -31,7 +31,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  but no EC swap) confirms the trace is LOST on that async line (root cause);
  *  the real directive confirms it is PRESENT (fix), verified against an actual
  *  `LogstashEncoder` JSON line per verification-before-completion. */
-class TraceContextDirectiveSpec extends AnyWordSpec with Matchers with ScalatestRouteTest {
+class TraceContextDirectiveSpec extends AnyWordSpec with Matchers with HelioRouteTest {
 
   private val TraceKey    = TraceContextDirective.TraceMdcKey
   private val TraceHeader = TraceContextDirective.TraceHeaderName

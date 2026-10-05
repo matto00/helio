@@ -2,9 +2,9 @@ package com.helio.api.routes.sources
 
 import com.helio.api.routes.sources.ConnectorRoutes
 import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ConnectorMetadataResponse, JsonProtocols}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
+import com.helio.testkit.HelioRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -15,7 +15,7 @@ import java.util.UUID
  *  specs) since `ConnectorRoutes` wraps only the static `ConnectorRegistry`; the 401-unauthenticated
  *  case is covered separately in `ApiRoutesSpec`'s "Protected routes" suite, which exercises the
  *  full auth-directive stack this spec deliberately bypasses. */
-class ConnectorRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with JsonProtocols {
+class ConnectorRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTest with JsonProtocols {
 
   private val user  = AuthenticatedUser(UserId(UUID.randomUUID().toString))
   private val routes = new ConnectorRoutes(user).routes

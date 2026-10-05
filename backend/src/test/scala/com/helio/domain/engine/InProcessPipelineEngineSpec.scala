@@ -1,5 +1,6 @@
 package com.helio.domain.engine
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.domain.model.{AssertionSink, CsvSourceConfig, ImageSourceConfig, PdfSourceConfig, RestApiConfig, TextSourceConfig, TruncationSink}
@@ -11,7 +12,6 @@ import com.helio.domain.steps._
 import com.helio.domain.model.{DataFieldType, DataSource, DataSourceId, Pipeline, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, SqlSourceConfig, DatasetSource}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -30,7 +30,7 @@ import java.time.Instant
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with TempDirectorySupport {
+class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll with TempDirectorySupport {
 
   // Not `implicit` (HEL-758): ScalatestRouteTest's own `RouteTest.executor`
   // implicit would otherwise collide with this one, ambiguous-implicit at

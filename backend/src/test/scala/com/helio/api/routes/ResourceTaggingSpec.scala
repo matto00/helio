@@ -1,5 +1,6 @@
 package com.helio.api.routes
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.routes.pipelines.PipelineRoutes
@@ -20,7 +21,6 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry}
 import com.helio.api.{DataSourceResponse, JsonProtocols, PipelineSummaryResponse, TeardownResponse}
 import com.helio.domain.model._
@@ -52,7 +52,7 @@ import scala.concurrent.duration.DurationInt
 class ResourceTaggingSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll with TempDirectorySupport {
 

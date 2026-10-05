@@ -1,5 +1,6 @@
 package com.helio.services.workspace
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
@@ -20,7 +21,6 @@ import com.helio.api.protocols.workspace.WorkspaceResourceDetail
 import com.helio.domain.model._
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -44,7 +44,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class WorkspaceSearchServiceSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped

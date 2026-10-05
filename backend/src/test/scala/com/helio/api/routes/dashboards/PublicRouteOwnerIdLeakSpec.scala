@@ -14,12 +14,12 @@ import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.services.pipelines.ProvenanceService
 import com.helio.services.sharing.ShareTokenValidatorImpl
+import com.helio.testkit.HelioRouteTest
 import com.helio.testsupport.{OwnerIdGuard, ProvenanceFixtures}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -41,11 +41,10 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class PublicRouteOwnerIdLeakSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 
-  private implicit val routeTimeout: RouteTestTimeout     = RouteTestTimeout(15.seconds)
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
 

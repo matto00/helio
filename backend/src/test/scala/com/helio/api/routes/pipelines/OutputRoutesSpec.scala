@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.testsupport.DatasetRowsTestSupport
@@ -30,7 +31,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.concat
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -52,7 +52,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class OutputRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll
     with Eventually with TempDirectorySupport {

@@ -251,6 +251,8 @@ HEL924_TEST_GROUP_COUNT=8 HEL924_TEST_GROUP_CONCURRENCY=4 sbt testFull   # defau
 
 If `sbt testFull` still produces a failure that a second, immediate, unchanged re-run does not reproduce, that is environmental flakiness, not a regression — re-run before trusting a red result, and consider lowering `HEL924_TEST_GROUP_CONCURRENCY` on a busier machine (e.g. several concurrent delivery worktrees).
 
+**Route-test request timeout (HEL-1228).** Pekko's route testkit fails any request slower than its 1-second default `RouteTestTimeout` ("Request was neither completed nor rejected within 1 second"), which a cold JVM or a loaded runner reaches on correct code. Every backend spec therefore obtains the testkit by mixing in `com.helio.testkit.HelioRouteTest` (never `ScalatestRouteTest`/`RouteTest` directly), which supplies one explicit 15-second `RouteTestTimeout`; `RouteTestBaseGuardSpec` fails `sbt testFull` naming any spec that bypasses it. The 15s bounds _harness_ latency only. It is not a performance check, so a spec that asserts latency must measure it itself (`System.nanoTime`) with its own bound, and a spec that needs a different harness bound overrides `routeTestTimeout`.
+
 `git commit -n` (skip hooks) is available for emergencies only. Any bypassed checks must be fixed in the next commit.
 
 ## Pull Request Expectations

@@ -2,9 +2,9 @@ package com.helio.services.sources
 
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.model.EphemeralRestConfig
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -21,7 +21,7 @@ import scala.util.{Success, Try}
 /** HEL-1254: the pinned path must reuse a pool (and its TCP connections) across requests to the
  *  same validated address, without ever letting one address's pool serve a request validated to
  *  another. */
-class PinnedPoolReuseSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
+class PinnedPoolReuseSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer

@@ -7,7 +7,6 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, Multipart}
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.http.{AuthDirectives, SessionCookies}
 import com.helio.api.{ApiRoutes, JsonProtocols}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
@@ -19,6 +18,7 @@ import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
+import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -42,7 +42,7 @@ import scala.concurrent.duration.DurationInt
 class FormSubmitRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 

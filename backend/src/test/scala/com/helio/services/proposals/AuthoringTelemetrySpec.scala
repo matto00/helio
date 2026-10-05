@@ -1,5 +1,6 @@
 package com.helio.services.proposals
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.routes.proposals.DashboardAuthoringRoutes
@@ -32,7 +33,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.headers.RawHeader
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.scaladsl.Source
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -60,7 +60,7 @@ import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Futu
 class AuthoringTelemetrySpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with Eventually
     with BeforeAndAfterAll with TempDirectorySupport {

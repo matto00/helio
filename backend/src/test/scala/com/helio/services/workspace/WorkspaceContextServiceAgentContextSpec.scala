@@ -1,5 +1,6 @@
 package com.helio.services.workspace
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
@@ -21,7 +22,6 @@ import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -49,7 +49,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class WorkspaceContextServiceAgentContextSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with BeforeAndAfterAll with TempDirectorySupport {
 
   // DataSourceService (a WorkspaceContextService collaborator) needs an implicit Materializer +

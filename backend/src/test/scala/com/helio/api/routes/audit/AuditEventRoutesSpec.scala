@@ -4,13 +4,13 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.JsonProtocols
 import com.helio.api.protocols.audit.AuditEventResponse
 import com.helio.domain.model._
 import com.helio.domain.model.AuditEvent.NewAuditEvent
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
+import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -35,7 +35,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class AuditEventRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 

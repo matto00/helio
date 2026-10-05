@@ -7,7 +7,6 @@ import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader, `Set-Coo
 import org.apache.pekko.http.scaladsl.model.{HttpResponse, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api._
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
@@ -18,6 +17,7 @@ import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.infrastructure.persistence.auth.{MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
+import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -38,7 +38,7 @@ import scala.concurrent.{Await, Future}
 class MfaApiRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 

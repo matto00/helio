@@ -3,7 +3,7 @@ package com.helio.infrastructure.email
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.HttpEntity
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import com.helio.testkit.HelioRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -14,7 +14,7 @@ import spray.json._
  *  round trip) — mirrors `HttpClaudeTransportSpec`'s exact philosophy. Also covers the
  *  owner-notification-email spec's "API key never appears in logs" requirement at the one place
  *  it's mechanically checkable: `EmailConfig.toString`/`HttpResendEmailSender.toString`. */
-class HttpResendEmailSenderSpec extends AnyWordSpec with Matchers with ScalatestRouteTest {
+class HttpResendEmailSenderSpec extends AnyWordSpec with Matchers with HelioRouteTest {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 

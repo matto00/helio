@@ -1,5 +1,6 @@
 package com.helio.api.routes.dashboards
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.domain.connectors.RestApiConnectorDriver
@@ -9,7 +10,6 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.http.{AuthDirectives, SessionCookies}
 import com.helio.api.{ApiRoutes, JsonProtocols}
 import com.helio.domain.model._
@@ -58,7 +58,7 @@ import scala.concurrent.duration.DurationInt
 class DashboardPanelAclSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll with TempDirectorySupport {
 

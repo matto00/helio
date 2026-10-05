@@ -28,6 +28,7 @@ import com.helio.services.pipelines.PipelineService
 import com.helio.services.proposals.{DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.DataSourceService
 import com.helio.services.workspace.WorkspaceContextService
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.NotUsed
@@ -36,7 +37,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCode, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.scaladsl.Source
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -59,7 +59,7 @@ import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Futu
 class ClaudeRoutesChatGateSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll
     with TempDirectorySupport {

@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, CsvSource, CsvSourceConfig, DataSourceId, UserId}
@@ -10,7 +11,6 @@ import com.typesafe.config.ConfigFactory
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.flywaydb.core.Flyway
 import org.postgresql.util.PSQLException
@@ -51,7 +51,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class V100ZeroRootGuardNonSuperuserSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped

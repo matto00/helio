@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.JsonProtocols
@@ -31,7 +32,6 @@ import com.helio.services.workspace.WorkspaceContextService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -62,7 +62,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  `pipelineService`/`workspaceContextService` are wired WITH a real `outputRepo` (a probe-
  *  confirmed prerequisite: `WorkspaceContextServiceSpec`/`PatchSetUndoServiceSpec` both hit a
  *  silent `laneTree: []`/`boundOutputs: []` bug from a fixture missing this exact wiring). */
-class Hel914Ac1EndToEndSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with JsonProtocols with TempDirectorySupport {
+class Hel914Ac1EndToEndSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll with JsonProtocols with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer

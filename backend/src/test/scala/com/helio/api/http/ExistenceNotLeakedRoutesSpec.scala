@@ -11,6 +11,7 @@ import com.helio.infrastructure.persistence.pipelines.{OutputRepository, Pipelin
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.spark.{PipelineRunCache, RunStatus, SparkJobSubmitter}
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
@@ -19,7 +20,6 @@ import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMetho
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -50,7 +50,7 @@ import scala.jdk.CollectionConverters._
 class ExistenceNotLeakedRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll
     with TempDirectorySupport {

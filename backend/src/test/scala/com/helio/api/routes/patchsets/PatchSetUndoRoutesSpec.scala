@@ -1,5 +1,6 @@
 package com.helio.api.routes.patchsets
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.routes.patchsets.PatchSetUndoRoutes
@@ -23,7 +24,6 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.http.{AccessCheckerImpl, ResourceType => AclResourceType, ResourceTypeRegistry}
 import com.helio.api.JsonProtocols
 import com.helio.domain.model._
@@ -45,7 +45,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class PatchSetUndoRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll with TempDirectorySupport {
 
