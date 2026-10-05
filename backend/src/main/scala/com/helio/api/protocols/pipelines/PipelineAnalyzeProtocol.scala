@@ -231,11 +231,13 @@ final case class CostReasonResponse(
  *  `Option`) on the non-concise `analyze` response -- design.md D6. `autoRunnable` is true iff
  *  `reasons` is empty; `estimatedRows` is omitted when no estimate was available.
  *
- *  `canRun` (HEL-1096 design.md D1): true iff the REQUESTING user is the pipeline's owner or
- *  holds an editor grant on it -- the same check `POST /api/pipelines/:id/run` enforces -- set
- *  regardless of `autoRunnable` (a viewer can be told they *could* run an already-allowed
- *  pipeline too, though the pipeline-detail page only renders the "Run to update" control when
- *  BOTH `autoRunnable` is false and `canRun` is true, per the `run-to-update-affordance` spec). */
+ *  `canRun` (HEL-1096 design.md D1, HEL-1266 D1-D3): true iff the REQUESTING user is the
+ *  pipeline's owner or holds an editor grant on it -- the same check `POST /api/pipelines/:id/run`
+ *  enforces -- AND no enabled step carries a `validationError` (each such step adds a
+ *  `step-config-invalid` reason naming it and clears `autoRunnable` too; a permission denial
+ *  carries no reason code). Otherwise set regardless of `autoRunnable`; the pipeline-detail page
+ *  only renders the "Run to update" control when BOTH `autoRunnable` is false and `canRun` is
+ *  true, per the `run-to-update-affordance` spec. */
 final case class CostVerdictResponse(
     autoRunnable:  Boolean,
     estimatedRows: Option[Long] = None,

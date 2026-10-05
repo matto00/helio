@@ -1,6 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.api.protocols.pipelines._
+import com.helio.domain.{AggregateConfig, AggregateField, Aggregation}
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
@@ -116,6 +117,70 @@ class PipelineServiceCanRunSpec extends AnyWordSpec with Matchers with BeforeAnd
 
       val result = await(service.analyze(pid, viewer)).getOrElse(fail("expected Right"))
       result.costVerdict.canRun shouldBe false
+    }
+  }
+
+  "PipelineService.analyze's costVerdict with step validationErrors (HEL-1266 design.md D1-D3)" should {
+
+    def aggregate(fn: String) =
+      AggregateConfig(Vector(AggregateField("name", "string")), Vector(Aggregation("total", fn, "name")))
+
+    def pipelineWithSteps(owner: AuthenticatedUser, steps: Seq[(String, Boolean)]): (PipelineId, Seq[String]) = {
+      val req = CreatePipelineRequest(name = "cfg", roots = Vector(CreatePipelineRootRequest(sourceId = Some(newSource(owner).value))))
+      val pid = PipelineId(await(service.create(req, owner)).getOrElse(fail("expected Right")).id)
+      val ids = steps.map { case (fn, enabled) =>
+        await(pipelineStepRepo.insertInternal(pid, "aggregate", aggregate(fn), enabled = enabled, explicitRootId = None)).id.value
+      }
+      (pid, ids)
+    }
+
+    "report canRun=false and a step-config-invalid reason naming the step for the owner" in {
+      val owner         = newUser()
+      val (pid, Seq(s)) = pipelineWithSteps(owner, Seq("bogus_fn" -> true))
+
+      val verdict = await(service.analyze(pid, owner)).getOrElse(fail("expected Right")).costVerdict
+      verdict.canRun shouldBe false
+      verdict.autoRunnable shouldBe false
+      val reason = verdict.reasons.find(_.code == "step-config-invalid").getOrElse(fail("expected a step-config-invalid reason"))
+      reason.stepId shouldBe Some(s)
+      reason.detail should include("bogus_fn")
+    }
+
+    "name every misconfigured enabled step with its own reason" in {
+      val owner          = newUser()
+      val (pid, Seq(a, b)) = pipelineWithSteps(owner, Seq("bogus_a" -> true, "bogus_b" -> true))
+
+      val verdict = await(service.analyze(pid, owner)).getOrElse(fail("expected Right")).costVerdict
+      verdict.reasons.filter(_.code == "step-config-invalid").flatMap(_.stepId).toSet shouldBe Set(a, b)
+    }
+
+    "ignore a disabled misconfigured step" in {
+      val owner   = newUser()
+      val (pid, _) = pipelineWithSteps(owner, Seq("bogus_fn" -> false))
+
+      val verdict = await(service.analyze(pid, owner)).getOrElse(fail("expected Right")).costVerdict
+      verdict.reasons.map(_.code) should not contain "step-config-invalid"
+      verdict.canRun shouldBe true
+    }
+
+    "keep canRun=true and add no config reason for an owner with a valid step" in {
+      val owner    = newUser()
+      val (pid, _) = pipelineWithSteps(owner, Seq("count" -> true))
+
+      val verdict = await(service.analyze(pid, owner)).getOrElse(fail("expected Right")).costVerdict
+      verdict.reasons.map(_.code) should not contain "step-config-invalid"
+      verdict.canRun shouldBe true
+    }
+
+    "give a viewer canRun=false without a step-config-invalid reason when no step is misconfigured" in {
+      val owner    = newUser()
+      val viewer   = newUser()
+      val (pid, _) = pipelineWithSteps(owner, Seq("count" -> true))
+      seedGrant(pid, viewer.id, "viewer")
+
+      val verdict = await(service.analyze(pid, viewer)).getOrElse(fail("expected Right")).costVerdict
+      verdict.canRun shouldBe false
+      verdict.reasons.map(_.code) should not contain "step-config-invalid"
     }
   }
 }

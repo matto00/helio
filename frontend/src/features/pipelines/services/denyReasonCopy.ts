@@ -11,9 +11,10 @@
 
 import type { CostReason } from "../types/pipelineStep";
 
-/** Every `CostReason.code` the backend's `PipelineCostEstimator` can produce (mirrors the
- *  `schemas/sources/denied-pipeline-response.schema.json` / `schemas/pipelines/pipeline-
- *  analyze-response.schema.json` `CostReason.code` enum verbatim). The single source of truth
+/** Every `CostReason.code` a surface can render: the codes `PipelineCostEstimator` produces
+ *  (`schemas/sources/denied-pipeline-response.schema.json`) plus `step-config-invalid`, which only
+ *  the analyze response emits (`schemas/pipelines/pipeline-analyze-response.schema.json`, HEL-1266),
+ *  so the list is the union of the two schema enums. The single source of truth
  *  `denyReasonCoverage.test.ts` iterates to prove every one of these has a mapping entry. */
 export const ALL_COST_REASON_CODES = [
   "ai-step",
@@ -26,6 +27,7 @@ export const ALL_COST_REASON_CODES = [
   "row-estimate-unavailable",
   "rows-above-threshold",
   "steps-above-bound",
+  "step-config-invalid",
 ] as const;
 
 export type CostReasonCode = (typeof ALL_COST_REASON_CODES)[number];
@@ -51,6 +53,8 @@ const DENY_REASON_COPY: Record<string, string> = {
   "remote-fetch": "This pipeline reads from a remote source, so it wasn't updated automatically.",
   "rows-above-threshold": "This pipeline processes too many rows to update automatically.",
   "steps-above-bound": "This pipeline has too many steps to update automatically.",
+  "step-config-invalid":
+    "A step in this pipeline is misconfigured, so it can't run until that step is fixed.",
   // Honest, non-alarming copy (design.md D6) — nothing is known about risk for these four; they
   // name what wasn't recognized/available, not why it might be unsafe.
   "unclassified-op":

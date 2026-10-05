@@ -1,0 +1,12 @@
+[info] - should preserves a query string already carried on the endpoint, followed by the config's pairs
+[info] - should the auth query parameter replaces (never rides alongside) a source-supplied param of the same name
+[info] - should resolves a templated value at each occurrence of a repeated key, not once per unique key
+[info] DataSourceConfigCodec.decodeRest backward compatibility with an already-persisted map-shaped row (HEL-844 task 8.2)
+[info] - should fetches identically for a real legacy map-shaped `queryParams` blob
+20:47:01.584 INFO  [com-helio-domain-connectors-RestApiConnectorDriverQueryParamsSpec-pekko.actor.default-dispatcher-6] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] Run completed in 7 minutes, 41 seconds.
+[info] Total number of tests run: 5709
+[info] Suites: completed 396, aborted 0
+[info] Tests: succeeded 5709, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 463 s (0:07:43.0), cache 7%, 33 disk cache hits, 393 onsite tasks

@@ -1,0 +1,294 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/)
+[info] compiling 2 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[info] compiling 77 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/src/main/scala/com/helio/api/ApiRoutes.scala:225:24: Implicit definition should have explicit type (inferred scala.concurrent.ExecutionContextExecutor) [quickfixable]
+[warn]   private implicit val ec = system.executionContext
+[warn]                        ^
+[warn] 1 deprecation (since 1.0.0)
+[warn] 2 deprecations (since 1.1.0)
+[warn] 8 deprecations (since Akka HTTP 10.1.11)
+[warn] 11 deprecations in total; re-run with -deprecation for details
+[warn] 5 warnings found
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] compiling 114 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/src/test/scala/com/helio/api/routes/telemetry/ProductEventRoutesSpec.scala:45:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Repos(
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewOutputContextSpec.scala:142:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Seeded(
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceSpec.scala:232:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class SeededPipeline(id: String, outputId: String)
+[warn]                            ^
+[warn] 63 deprecations (since 1.1.0)
+[warn] 10 deprecations (since Akka HTTP 10.1.11)
+[warn] 73 deprecations in total; re-run with -deprecation for details
+[warn] 6 warnings found
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+20:34:32,336 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+20:34:32,337 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5515f76d - No custom configurators were discovered as a service.
+20:34:32,337 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5515f76d - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:34:32,337 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5515f76d - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:34:32,339 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+20:34:32,340 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+20:34:32,370 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+20:34:32,372 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@1d94211b - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+20:34:32,372 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+20:34:32,374 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+20:34:32,375 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@1d94211b - value "plain" substituted for "${LOG_APPENDER}"
+20:34:32,375 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+20:34:32,375 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+20:34:32,375 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+20:34:32,377 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+20:34:32,387 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+20:34:32,387 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+20:34:32,387 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+20:34:32,388 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@1d94211b - value "INFO" substituted for "${LOG_LEVEL}"
+20:34:32,388 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+20:34:32,388 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@1d94211b - value "plain" substituted for "${LOG_APPENDER}"
+20:34:32,388 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+20:34:32,388 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@3d9ad51f - End of configuration.
+20:34:32,388 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@428e125f - Registering current configuration as safe fallback point
+20:34:32,390 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5515f76d - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 51 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+20:34:32.392 INFO  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-5] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] PipelineAnalyzeRoutesSpec:
+20:34:32.949 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+20:34:32.950 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+20:34:33.493 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:39557/postgres?user=postgres (PostgreSQL 14.10)
+20:34:33.525 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+20:34:33.528 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 114 migrations (execution time 00:00.021s)
+20:34:33.535 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+20:34:33.685 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+[info] GET /pipelines/:id/analyze
+[info] - should return 404 for a non-existent pipeline id
+20:34:34.286 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source d76b9b0b-6276-48a0-a34e-e4bb72111445 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with empty steps and sourceSchema for a pipeline with no steps
+20:34:34.368 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source 0ad2dda9-f211-4ca7-9ffe-44bb21ed583e decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should serialize sourceSchemas entries with the renamed dataSourceName wire key
+20:34:34.457 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source 4c58eb29-1530-4e13-b6b8-d8df968ddd2b decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with correct schemas for a pipeline with a select step
+20:34:34.522 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source b1f00c2f-0c28-4f54-8cb8-0e107c7ecf8f decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with the concise {path, op, validationError} shape when concise=true is given
+20:34:34.587 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source 3ad2b635-cedb-4279-a43e-9cc170d234e0 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should omit validationError from a concise node's JSON when absent, never emitting null
+20:34:34.631 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source fc7c0818-b14e-4f6b-908d-af6e90b1b61d decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with correct schemas for a pipeline with a splittext step (regression: analyze 500 on splittext)
+20:34:34.689 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source df541d49-5c78-49a3-a61d-0c50b2c8ffe2 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with correct schemas for a pipeline with an extractheadings step (regression: analyze 500 on extractheadings)
+20:34:34.745 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source 87de9cb3-d6d0-4208-8125-2fa1bbf6d5d7 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with correct schemas for a pipeline with a chunkbytokencount step (regression: analyze 500 on chunkbytokencount)
+20:34:34.810 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source 89f795ab-0cb6-4742-b8be-2de8d977e0be decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 excluding a disabled step from the response entirely
+20:34:34.858 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source ee81ee79-3d82-4b71-b4c1-a04ad2d935f3 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with empty sourceSchema when no DataType is linked to the DataSource
+20:34:34.903 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source 28d130e4-3beb-4590-806f-97b074961ff7 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should (a) omit sourceSchemaDrift when the pipeline has never run successfully (no baseline)
+20:34:34.953 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source dfb69802-1e00-4f22-b298-7b02b6eacd22 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should omit sourceSchemaDrift when the current source schema matches the last successful run's baseline
+20:34:35.003 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source 118cf1c8-1322-43b9-98b5-aae663284754 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should (b)(c) report removed and type-changed columns against the last successful run's baseline
+20:34:35.063 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source 1bf04dd7-2cfc-4782-a580-ab409ba11c26 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+20:34:35.074 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.s.pipelines.PipelineService - HEL-462: failed to parse last_source_schema baseline for pipeline 2f2b4a06-fb84-4530-9b46-668f53fcdcfe
+spray.json.DeserializationException: Expected Collection as JsArray, but got "not-json"
+	at spray.json.package$.deserializationError(package.scala:23)
+	at spray.json.CollectionFormats$$anon$4.read(CollectionFormats.scala:92)
+	at spray.json.CollectionFormats$$anon$4.read(CollectionFormats.scala:88)
+	at spray.json.JsValue.convertTo(JsValue.scala:33)
+	at com.helio.services.pipelines.PipelineService.$anonfun$parseBaselineSchema$2(PipelineService.scala:1382)
+	at scala.util.Try$.apply(Try.scala:217)
+	at com.helio.services.pipelines.PipelineService.$anonfun$parseBaselineSchema$1(PipelineService.scala:1382)
+	at scala.Option.flatMap(Option.scala:283)
+	at com.helio.services.pipelines.PipelineService.parseBaselineSchema(PipelineService.scala:1381)
+	at com.helio.services.pipelines.PipelineService.$anonfun$analyze$32(PipelineService.scala:1042)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:467)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+[info] - should (HEL-462 fold-in) omit sourceSchemaDrift and surface no error when the persisted baseline is syntactically-valid but not schema-array-shaped JSON
+20:34:35.120 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source 12d0cf87-93d1-4e61-81b2-8c8884eaa28f decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with a validationError naming the unsupported aggregate function
+20:34:35.181 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source 6745f53a-f782-42b9-b62d-269af6c19f0b decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with a validationError naming the unsupported groupby aggregation function
+20:34:35.233 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-5] c.h.i.p.sources.DataSourceRepository - rest_api data source 576512fc-dab1-4f50-8d4e-923561738a0d decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with a validationError naming the unsupported pivot aggregation function
+20:34:35.285 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-5] c.h.i.p.sources.DataSourceRepository - rest_api data source ea646bbb-b105-4aeb-9fda-45cdcc7ae919 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with a validationError naming the unsupported union mode
+20:34:35.333 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-5] c.h.i.p.sources.DataSourceRepository - rest_api data source 8add7ec9-1167-40be-bc09-96a0e655c2ed decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with a validationError naming the unsupported join type
+20:34:35.382 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-5] c.h.i.p.sources.DataSourceRepository - rest_api data source caf66bf1-2902-4fa2-abf7-d6da6bcb6b41 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with no validationError for a valid groupby step
+20:34:35.435 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-5] c.h.i.p.sources.DataSourceRepository - rest_api data source f3c8ca66-05a3-48d3-a619-3f19af424b74 decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should return 200 with a single validationError joining two independent failures for one step
+20:34:35.482 ERROR [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] o.apache.pekko.actor.ActorSystemImpl - Error during processing of request: 'PipelineStepRepository: failed to decode config for step 8343e0a0-da4d-4b17-9d66-3502a8f02111 (op='cast'): 'casts' must be an object mapping field name to type name, got an array.'. Completing with 500 Internal Server Error response. To change default exception handling behavior, provide a custom ExceptionHandler.
+java.lang.IllegalStateException: PipelineStepRepository: failed to decode config for step 8343e0a0-da4d-4b17-9d66-3502a8f02111 (op='cast'): 'casts' must be an object mapping field name to type name, got an array.
+	at com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.rowToDomain(PipelineStepRepository.scala:1355)
+	at com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.$anonfun$listByPipelineInternal$3(PipelineStepRepository.scala:349)
+	at scala.collection.immutable.Vector1.map(Vector.scala:2141)
+	at scala.collection.immutable.Vector1.map(Vector.scala:386)
+	at com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.$anonfun$listByPipelineInternal$2(PipelineStepRepository.scala:349)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:467)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+Caused by: com.helio.domain.steps.StepConfigTypeMismatch: 'casts' must be an object mapping field name to type name, got an array.
+	at com.helio.domain.steps.StepCodecUtil$.stringMap(StepCodecUtil.scala:174)
+	at com.helio.domain.steps.CastConfig$.decode(CastStep.scala:22)
+	at com.helio.domain.steps.CastStep$$anon$1.decodeConfig(CastStep.scala:87)
+	at com.helio.api.protocols.pipelines.PipelineStepConfigCodec$.$anonfun$decode$1(PipelineStepConfigCodec.scala:32)
+	at scala.util.Try$.apply(Try.scala:217)
+	at com.helio.api.protocols.pipelines.PipelineStepConfigCodec$.decode(PipelineStepConfigCodec.scala:31)
+	at com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.rowToDomain(PipelineStepRepository.scala:1320)
+	... 17 common frames omitted
+[info] - should a persisted cast step with a raw list-shaped casts config now FAILS the analyze read rather than being silently reduced to an empty cast map (HEL-814 D1)
+[info] GET /pipelines/:id/analyze costVerdict (HEL-1092)
+[info] - should allow a small local pipeline with only allowlisted enabled steps
+20:34:35.584 WARN  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-6] c.h.i.p.sources.DataSourceRepository - rest_api data source a799b875-cf08-4e27-ada0-56ad11b4f80b decoded to a sentinel config (malformed: neither connectorId nor url present): row still listed, fetch will fail fast
+[info] - should deny a pipeline rooted at a rest_api source with remote-fetch
+20:34:35.624 ERROR [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-5] o.apache.pekko.actor.ActorSystemImpl - Error during processing of request: 'PipelineStepRepository: failed to decode config for step 905dcbc6-a10b-4a17-8c4d-2ccbab67e7f6 (op='notarealop'): Unknown step op: 'notarealop'. Valid values: aggregate, analyzewithai, assert, cast, chunkbytokencount, compute, convertformat, datebucket, dedupe, extractheadings, fillnull, filter, generatetext, groupby, join, limit, lookup, pivot, rename, select, sort, splittext, stringops, union, unpivot, upsertsource, window'. Completing with 500 Internal Server Error response. To change default exception handling behavior, provide a custom ExceptionHandler.
+java.lang.IllegalStateException: PipelineStepRepository: failed to decode config for step 905dcbc6-a10b-4a17-8c4d-2ccbab67e7f6 (op='notarealop'): Unknown step op: 'notarealop'. Valid values: aggregate, analyzewithai, assert, cast, chunkbytokencount, compute, convertformat, datebucket, dedupe, extractheadings, fillnull, filter, generatetext, groupby, join, limit, lookup, pivot, rename, select, sort, splittext, stringops, union, unpivot, upsertsource, window
+	at com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.rowToDomain(PipelineStepRepository.scala:1355)
+	at com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.$anonfun$listByPipelineInternal$3(PipelineStepRepository.scala:349)
+	at scala.collection.immutable.Vector1.map(Vector.scala:2141)
+	at scala.collection.immutable.Vector1.map(Vector.scala:386)
+	at com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.$anonfun$listByPipelineInternal$2(PipelineStepRepository.scala:349)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:467)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+Caused by: java.lang.IllegalArgumentException: Unknown step op: 'notarealop'. Valid values: aggregate, analyzewithai, assert, cast, chunkbytokencount, compute, convertformat, datebucket, dedupe, extractheadings, fillnull, filter, generatetext, groupby, join, limit, lookup, pivot, rename, select, sort, splittext, stringops, union, unpivot, upsertsource, window
+	at com.helio.api.protocols.pipelines.PipelineStepConfigCodec$.$anonfun$decode$1(PipelineStepConfigCodec.scala:33)
+	at scala.util.Try$.apply(Try.scala:217)
+	at com.helio.api.protocols.pipelines.PipelineStepConfigCodec$.decode(PipelineStepConfigCodec.scala:31)
+	at com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.rowToDomain(PipelineStepRepository.scala:1320)
+	... 17 common frames omitted
+[info] - should records that a persisted row with an unregistered op cannot reach the estimator: it 500s at decode, before costVerdict is ever computed
+[info] pipelineAnalyzeResponseFormat output (HEL-462 sourceSchemaDrift)
+[info] - should validate cleanly against schemas/pipelines/pipeline-analyze-response.schema.json when sourceSchemaDrift is populated
+[info] - should omit sourceSchemaDrift entirely from the serialized JSON when None
+20:34:35.780 INFO  [com-helio-api-routes-pipelines-PipelineAnalyzeRoutesSpec-pekko.actor.default-dispatcher-5] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] PipelineServiceCanRunSpec:
+20:34:36,151 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+20:34:36,151 |-INFO in ch.qos.logback.classic.util.ContextInitializer@c01679d - No custom configurators were discovered as a service.
+20:34:36,151 |-INFO in ch.qos.logback.classic.util.ContextInitializer@c01679d - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:34:36,152 |-INFO in ch.qos.logback.classic.util.ContextInitializer@c01679d - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:34:36,153 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+20:34:36,155 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+20:34:36,193 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+20:34:36,195 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@6e450c75 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+20:34:36,195 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+20:34:36,200 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+20:34:36,201 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@6e450c75 - value "plain" substituted for "${LOG_APPENDER}"
+20:34:36,201 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+20:34:36,202 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+20:34:36,202 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+20:34:36,204 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+20:34:36,222 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+20:34:36,222 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+20:34:36,222 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+20:34:36,222 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@6e450c75 - value "INFO" substituted for "${LOG_LEVEL}"
+20:34:36,222 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+20:34:36,222 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@6e450c75 - value "plain" substituted for "${LOG_APPENDER}"
+20:34:36,222 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+20:34:36,223 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@11aba05e - End of configuration.
+20:34:36,223 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@32fed3f5 - Registering current configuration as safe fallback point
+20:34:36,225 |-INFO in ch.qos.logback.classic.util.ContextInitializer@c01679d - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 71 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+20:34:36.245 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+20:34:36.246 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+20:34:36.875 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:46657/postgres?user=postgres (PostgreSQL 14.10)
+20:34:36.914 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+20:34:36.917 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 114 migrations (execution time 00:00.027s)
+20:34:36.924 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+20:34:37.093 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+[info] PipelineService.analyze's costVerdict.canRun (HEL-1096 design.md D1)
+[info] - should is true for the pipeline OWNER
+[info] - should is true for an EDITOR grantee (not the owner)
+[info] - should is false for a VIEWER grantee
+[info] PipelineService.analyze's costVerdict with step validationErrors (HEL-1266 design.md D1-D3)
+[info] - should report canRun=false and a step-config-invalid reason naming the step for the owner
+[info] - should name every misconfigured enabled step with its own reason
+[info] - should ignore a disabled misconfigured step
+[info] - should keep canRun=true and add no config reason for an owner with a valid step
+[info] - should give a viewer canRun=false without a step-config-invalid reason when no step is misconfigured
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+20:34:39,133 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+20:34:39,134 |-INFO in ch.qos.logback.classic.util.ContextInitializer@46521fd8 - No custom configurators were discovered as a service.
+20:34:39,134 |-INFO in ch.qos.logback.classic.util.ContextInitializer@46521fd8 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:34:39,134 |-INFO in ch.qos.logback.classic.util.ContextInitializer@46521fd8 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+20:34:39,136 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+20:34:39,138 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/bug/analyze-canrun-validation-error/HEL-1266/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+20:34:39,173 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+20:34:39,174 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@36daa77c - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+20:34:39,174 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+20:34:39,177 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+20:34:39,177 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@36daa77c - value "plain" substituted for "${LOG_APPENDER}"
+20:34:39,178 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+20:34:39,178 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+20:34:39,178 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+20:34:39,180 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+20:34:39,191 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+20:34:39,191 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+20:34:39,191 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+20:34:39,191 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@36daa77c - value "INFO" substituted for "${LOG_LEVEL}"
+20:34:39,191 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+20:34:39,191 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@36daa77c - value "plain" substituted for "${LOG_APPENDER}"
+20:34:39,191 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+20:34:39,191 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@2835cf35 - End of configuration.
+20:34:39,192 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@2d62426a - Registering current configuration as safe fallback point
+20:34:39,194 |-INFO in ch.qos.logback.classic.util.ContextInitializer@46521fd8 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 58 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+20:34:39.197 INFO  [com-helio-api-routes-pipelines-PipelineAnalyzeCanRunRoutesSpec-pekko.actor.default-dispatcher-4] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] PipelineAnalyzeCanRunRoutesSpec:
+20:34:39.786 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+20:34:39.788 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+20:34:40.370 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:45657/postgres?user=postgres (PostgreSQL 14.10)
+20:34:40.400 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+20:34:40.402 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 114 migrations (execution time 00:00.019s)
+20:34:40.407 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+20:34:40.562 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+[info] GET /pipelines/:id/analyze costVerdict with a misconfigured step (HEL-1266)
+[info] - should match the shared seam fixture and validate against the response schema
+[info] - should name every enabled misconfigured step, once each, and ignore a disabled one
+[info] - should leave canRun true for a clean owner pipeline and for a pipeline whose only misconfigured step is disabled
+20:34:41.703 INFO  [com-helio-api-routes-pipelines-PipelineAnalyzeCanRunRoutesSpec-pekko.actor.default-dispatcher-4] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] Run completed in 10 seconds, 115 milliseconds.
+[info] Total number of tests run: 39
+[info] Suites: completed 3, aborted 0
+[info] Tests: succeeded 39, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 11 s, cache 84%, 28 disk cache hits, 5 onsite tasks

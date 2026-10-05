@@ -545,6 +545,10 @@ export interface CostVerdictResponse {
   estimatedRows?: number;
   stepCount: number;
   reasons: CostReasonResponse[];
+  /** False when the caller may not run the pipeline (not owner/editor) OR an enabled step has a
+   *  `validationError` (HEL-1266; then `reasons` carries a `step-config-invalid` entry naming the
+   *  step). A permission denial carries no reason code. */
+  canRun: boolean;
 }
 
 export interface PipelineAnalyzeResponse {

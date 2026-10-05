@@ -1050,7 +1050,7 @@ final class PipelineService(
                                     },
                 steps             = analyzed.map(toAnalyzeStepResponse),
                 sourceSchemaDrift = drift.map(toDriftResponse),
-                costVerdict       = toCostVerdictResponse(costVerdict, canRun)
+                costVerdict       = toCostVerdictResponse(costVerdict, canRun, analyzed)
               ))
             }
             }
@@ -1065,14 +1065,23 @@ final class PipelineService(
   // `analyze` (via `costInputGathering.gather`) and `AutoRunTriggerService` now share one
   // implementation instead of two.
 
-  private def toCostVerdictResponse(v: PipelineCostEstimator.CostVerdict, canRun: Boolean): CostVerdictResponse =
+  /** HEL-1266 (design.md D1-D3): an enabled step with a `validationError` is a run that is certain
+   *  to fail, so it adds a `step-config-invalid` reason (after the estimator's, in step order) and
+   *  clears both `autoRunnable` and `canRun`. Permission stays inside `canRun` with no reason code. */
+  private def toCostVerdictResponse(
+      v:        PipelineCostEstimator.CostVerdict,
+      canRun:   Boolean,
+      analyzed: Vector[PipelineAnalyzeService.AnalyzedStep]
+  ): CostVerdictResponse = {
+    val configReasons = analyzed.flatMap(s => s.validationError.map(CostReasonResponse(PipelineService.StepConfigInvalidCode, _, Some(s.id))))
     CostVerdictResponse(
-      autoRunnable  = v.autoRunnable,
+      autoRunnable  = v.autoRunnable && configReasons.isEmpty,
       estimatedRows = v.estimatedRows,
       stepCount     = v.stepCount,
-      reasons       = v.reasons.map(r => CostReasonResponse(r.code, r.detail, r.stepId)),
-      canRun        = canRun
+      reasons       = v.reasons.map(r => CostReasonResponse(r.code, r.detail, r.stepId)) ++ configReasons,
+      canRun        = canRun && configReasons.isEmpty
     )
+  }
 
   /** HEL-1236: pre-resolves the inferred schema of every `join` step's `source`-kind secondary
    *  input so `PipelineAnalyzeService.analyzeNodes` can project the join's renamed columns
@@ -2415,6 +2424,9 @@ private final case class PipelineCreateValidationFailure(error: ServiceError) ex
 object PipelineService {
 
   private val log = LoggerFactory.getLogger(getClass)
+
+  /** HEL-1266: `CostReasonResponse.code` for an enabled step whose analyze `validationError` is set. */
+  private val StepConfigInvalidCode = "step-config-invalid"
 
   /** HEL-913 task 7.3c (R14): the request-address format THIS change emits for create-time
    *  validation errors -- `roots[<i>]`/`steps[<i>]`/`outputs[<i>]` addressing the request's OWN

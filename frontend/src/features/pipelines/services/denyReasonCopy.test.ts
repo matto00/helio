@@ -51,3 +51,11 @@ describe("denyReasonCopy coverage (HEL-1096 design.md D6)", () => {
     expect(denyReasonCopy({ code: "some-future-code", detail: "" })).toBe(GENERIC_FALLBACK_MESSAGE);
   });
 });
+
+describe("denyReasonCopy step-config-invalid (HEL-1266)", () => {
+  it("says a step is misconfigured and the pipeline cannot run until it is fixed", () => {
+    expect(denyReasonCopy({ code: "step-config-invalid", detail: "x", stepId: "s1" })).toBe(
+      "A step in this pipeline is misconfigured, so it can't run until that step is fixed.",
+    );
+  });
+});
