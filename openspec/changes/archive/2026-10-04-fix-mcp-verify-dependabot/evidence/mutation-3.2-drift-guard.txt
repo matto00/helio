@@ -1,0 +1,138 @@
+### 3.2a mutation: builder sends retired 'source' instead of 'roots'
+39:      source: [
+FAIL helio-mcp/scripts/verifyPayloads.test.ts
+  verify.ts write payloads vs the registered tool input schemas
+    ✕ buildCreatePipelineCall passes input validation and reaches its handler (13 ms)
+    ✓ buildAddTopNOutputCall passes input validation and reaches its handler (3 ms)
+    ✓ buildAddInvalidParamsCall passes input validation and reaches its handler (3 ms)
+    ✓ buildAddUnknownShapeCall passes input validation and reaches its handler (2 ms)
+    ✕ sends create_pipeline a non-empty roots array and no retired source field (1 ms)
+  verify.ts only makes write calls that have a checked payload
+    ✓ has no hand-written write-tool call outside the payload builders
+    ✓ calls every exported payload builder
+    ✓ lists every exported builder in VERIFY_WRITE_BUILDERS and covers each in the drift cases (1 ms)
+
+  ● verify.ts write payloads vs the registered tool input schemas › buildCreatePipelineCall passes input validation and reaches its handler
+
+    expect(received).not.toMatch(expected)
+
+    Expected pattern: not /invalid|required/i
+    Received string:      "MCP error -32602: Input validation error: Invalid arguments for tool create_pipeline: [
+      {
+        \"code\": \"invalid_type\",
+        \"expected\": \"array\",
+        \"received\": \"undefined\",
+        \"path\": [
+          \"roots\"
+        ],
+        \"message\": \"Required\"
+      }
+    ]"
+
+      83 |     const { reached, isError, text } = await callThroughRealServer(call);
+      84 |
+    > 85 |     expect(text).not.toMatch(/invalid|required/i);
+         |                      ^
+      86 |     expect(isError).toBe(false);
+      87 |     expect(reached).toContain(method);
+      88 |   });
+
+      at helio-mcp/scripts/verifyPayloads.test.ts:85:22
+
+  ● verify.ts write payloads vs the registered tool input schemas › sends create_pipeline a non-empty roots array and no retired source field
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      91 |     const args = payloads.buildCreatePipelineCall(RUN_ID).arguments;
+      92 |
+    > 93 |     expect(Array.isArray(args.roots) && args.roots.length > 0).toBe(true);
+         |                                                                ^
+      94 |     expect(args).not.toHaveProperty("source");
+      95 |   });
+      96 | });
+
+      at Object.<anonymous> (helio-mcp/scripts/verifyPayloads.test.ts:93:64)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 6 passed, 8 total
+Snapshots:   0 total
+Time:        3.008 s, estimated 4 s
+exit=1
+### reverted; 3.2b mutation: reintroduce a hand-written create_pipeline call in verify.ts
+PASS helio-mcp/scripts/verifyPayloads.test.ts
+  verify.ts write payloads vs the registered tool input schemas
+    ✓ buildCreatePipelineCall passes input validation and reaches its handler (13 ms)
+    ✓ buildAddTopNOutputCall passes input validation and reaches its handler (6 ms)
+    ✓ buildAddInvalidParamsCall passes input validation and reaches its handler (3 ms)
+    ✓ buildAddUnknownShapeCall passes input validation and reaches its handler (2 ms)
+    ✓ sends create_pipeline a non-empty roots array and no retired source field (1 ms)
+  verify.ts only makes write calls that have a checked payload
+    ✓ has no hand-written write-tool call outside the payload builders
+    ✓ calls every exported payload builder (1 ms)
+    ✓ lists every exported builder in VERIFY_WRITE_BUILDERS and covers each in the drift cases
+
+Test Suites: 1 passed, 1 total
+Tests:       8 passed, 8 total
+Snapshots:   0 total
+Time:        2.987 s, estimated 3 s
+Ran all test suites matching helio-mcp/scripts.
+exit=0
+### reverted
+ M .github/dependabot.yml
+ M helio-mcp/README.md
+ M helio-mcp/scripts/verify.ts
+ M scripts/check-dependabot-groups.mjs
+?? helio-mcp/scripts/verifyFixtures.ts
+?? helio-mcp/scripts/verifyPayloads.test.ts
+?? helio-mcp/scripts/verifyPayloads.ts
+?? openspec/changes/fix-mcp-verify-dependabot/
+### 3.2b mutation (redo; first attempt's sed missed on indentation): hand-written create_pipeline call in verify.ts
+236:  await client.callTool({ name: "create_pipeline", arguments: {} });
+FAIL helio-mcp/scripts/verifyPayloads.test.ts
+  verify.ts write payloads vs the registered tool input schemas
+    ✓ buildCreatePipelineCall passes input validation and reaches its handler (16 ms)
+    ✓ buildAddTopNOutputCall passes input validation and reaches its handler (3 ms)
+    ✓ buildAddInvalidParamsCall passes input validation and reaches its handler (3 ms)
+    ✓ buildAddUnknownShapeCall passes input validation and reaches its handler (2 ms)
+    ✓ sends create_pipeline a non-empty roots array and no retired source field (1 ms)
+  verify.ts only makes write calls that have a checked payload
+    ✕ has no hand-written write-tool call outside the payload builders (2 ms)
+    ✓ calls every exported payload builder
+    ✓ lists every exported builder in VERIFY_WRITE_BUILDERS and covers each in the drift cases
+
+  ● verify.ts only makes write calls that have a checked payload › has no hand-written write-tool call outside the payload builders
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "create_pipeline",
+    + ]
+
+      104 |     const unchecked = literalTools.filter((t) => !READ_PREFIX.test(t));
+      105 |
+    > 106 |     expect(unchecked).toEqual([]);
+          |                       ^
+      107 |   });
+      108 |
+      109 |   it("calls every exported payload builder", () => {
+
+      at Object.<anonymous> (helio-mcp/scripts/verifyPayloads.test.ts:106:23)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 7 passed, 8 total
+Snapshots:   0 total
+Time:        1.743 s, estimated 3 s
+Ran all test suites matching helio-mcp/scripts.
+exit=1
+### reverted
+ M helio-mcp/scripts/verify.ts
+?? helio-mcp/scripts/verifyFixtures.ts
+?? helio-mcp/scripts/verifyPayloads.test.ts
+?? helio-mcp/scripts/verifyPayloads.ts

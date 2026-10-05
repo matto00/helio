@@ -1,0 +1,5 @@
+### Backend provenance (C4)
+pid 1817635 cwd -> /home/matt/Development/helio/.claude/worktrees/task/fix-mcp-verify-dependabot/HEL-1264/backend
+pid 1817854 cwd -> /home/matt/Development/helio/.claude/worktrees/task/fix-mcp-verify-dependabot/HEL-1264/frontend
+LISTEN 0      511                     [::1]:6696          [::]:*    users:(("node",pid=1817854,fd=20))
+LISTEN 0      100                         *:9603             *:*    users:(("java",pid=1817635,fd=339))

@@ -1,0 +1,17 @@
+## Skeptic Report — final gate (round 1, skeptic-final-1.md), head 64afd1956b2f7c1c31f0e8423da99f35dc08093c
+
+### What I verified (with evidence)
+- Spawn-cwd guard READY. Base resolved via resolve-review-base.sh (56284e17); diff touches only helio-mcp/scripts, README, dependabot.yml, check-dependabot-groups.mjs, openspec artifacts. No backend/migration change (C1). Main checkout helio-mcp/dist untouched (I built in the worktree's own helio-mcp, a real dir, gitignored dist) (C2).
+- Live run: started servers from this worktree (start-servers.sh, nice 19); backend java pid 1839611 `readlink /proc/pid/cwd` = WORKTREE/backend (C4), port 9603. Minted my bootstrap PAT 91a1c8aa-0665-412b-9099-ba9726d0bab5 (dev account), ran `npm run verify`: exit 0, "VERIFY OK". Run 72cc95a0 minted token ac3d5350-e1ad-42b9-8dd5-903da2109883; deleted pipeline 12bb2ac7-0d8d-4c0d-9276-428b38fe3f42 (404), data source b6416ba8-6824-4438-9637-116319f611cc (404), token revoked (401). Re-queried live: no HEL-1264 pipelines/sources/tokens remain except my bootstrap; I then revoked it by exact id (204), list shows 0, bootstrap token probe 401. Stopped only pids 1839611/1839897; ports free; scratch /tmp/claude-1000/skp removed.
+- Drift guard under my own mutations (all reverted via git checkout; tree clean): M1 replace builder call with hand-written double-quoted call -> red (2 tests); M4 same with reversed key order -> red; M7 drop pipelineId from top-n builder -> red from real tool schema; M6 ADDED extra double-quoted stale create_pipeline -> red; M2/M3 builder call replaced by single-quoted/computed-name call -> red via "calls every exported builder".
+- Blind spot found (see notes): M5, an ADDED single-quoted stale `create_pipeline` call alongside intact builder calls -> guard stays GREEN (8/8).
+- Teardown proof: backend getDatasetSchema (DataSourceService.scala:979) returns 404 only when findByIdOwned is None; an existing static source returns 400 and a dataset source 200, so 404 on /schema cannot occur while the source exists under the same owner. Not vacuous. Pipelines use GET by id 404. Token revoke is proven by a 401 probe on the minted token.
+- Dependabot: new /helio-mcp npm entry is weekly, limit 10, labels ["dependencies"], pattern group declared before the dev-dependencies catch-all, with a comment, matching root and frontend conventions; mcp-sdk = exactly helio-mcp's two prod deps. `npm run check:dependabot` OK (5 families), selftest 6/6, tsc typecheck, eslint --max-warnings 0, prettier all clean. Guard script now derives manifest dirs from config.
+- Jest verifyPayloads: 8/8 green on unmutated head.
+- AC trace: current shapes for every write tool (4 builders, validated through the real registered tool); verify passes e2e from worktree backend; own fixtures cleaned by exact id incl. PAT; guard present and shown red; dependabot entry present.
+
+### Verdict: CONFIRM
+
+### Non-blocking notes
+- Guard blind spot: the "no hand-written write call" regex only matches `name: "<double-quoted literal>"`; an additional call using single quotes (prettier would rewrite to double, mitigating) or a computed/variable tool name is not seen. Removing/replacing a builder call is still caught, so the guard is not vacuous, but a purely additive stray call via a variable name would pass.
+- If create_pipeline succeeded server-side but its response failed parse, the ledger would miss the id; the 1-day PAT expiry is the backstop only for the PAT, not the fixtures.

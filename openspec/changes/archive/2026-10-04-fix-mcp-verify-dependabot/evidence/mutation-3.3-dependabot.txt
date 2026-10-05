@@ -1,0 +1,23 @@
+### 3.3a mutation: drop zod from the mcp-sdk group
+ .github/dependabot.yml | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+check-dependabot-groups: FAILED
+
+  - family "mcp-sdk" is split/ungrouped: zod resolve to no group in npm /helio-mcp — each would arrive as its own PR
+
+1 problem(s). Co-versioned families must upgrade in one PR; see openspec design.md Decision 1.
+exit=1
+### reverted; 3.3b mutation: scratch prod dep in helio-mcp/package.json in no family/independent
+-    "zod": "^3.25.0"
++    "zod": "^3.25.0",
++    "scratch-unaccounted-dep": "1.0.0"
+check-dependabot-groups: FAILED
+
+  - unaccounted production dependency "scratch-unaccounted-dep" in /helio-mcp/package.json — add it to a declared family or to DECLARED_INDEPENDENT with a justification
+
+1 problem(s). Co-versioned families must upgrade in one PR; see openspec design.md Decision 1.
+exit=1
+### reverted
+ M .github/dependabot.yml
+check-dependabot-groups: OK — 5 declared families each resolve to a single group; every production dependency accounted for.
+exit=0
