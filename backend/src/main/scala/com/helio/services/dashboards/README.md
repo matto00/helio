@@ -2,7 +2,8 @@
 
 Dashboard CRUD, validation and the dashboards-local read helpers (`DashboardContentsService`).
 
-Holds: `DashboardContentsService`, `DashboardService`, `DashboardServiceValidation`.
+Holds: `DashboardContentsService`, `DashboardService`, `DashboardServiceValidation`, `DashboardLayoutRepair` (the pure
+decision logic of the owner-only stored-layout repair, `POST /api/dashboards/:id/layout/repair`, HEL-1233).
 
 Does NOT hold: business logic for other domains, or persistence
 (`infrastructure/persistence/dashboards/`) — this directory's files call

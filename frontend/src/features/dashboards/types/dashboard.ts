@@ -30,6 +30,10 @@ export interface Dashboard {
   meta: ResourceMeta;
   appearance: DashboardAppearance;
   layout: DashboardLayout;
+  /** The owner's user id (always on the wire from the server; optional in the type only so the many
+   *  hand-built test fixtures need not carry it). Ownership is enforced server-side; the client uses
+   *  this only to avoid requests an owner-only endpoint would refuse, and treats absent as not-owner. */
+  ownerId?: string;
 }
 
 export interface DuplicateDashboardResponse {

@@ -4,7 +4,7 @@ import com.helio.services.auth.AccessChecker
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.dashboards.{DashboardSnapshotPayload, UpdateDashboardRequest}
+import com.helio.api.protocols.dashboards.{DashboardLayoutPatchPayload, DashboardSnapshotPayload, UpdateDashboardRequest}
 import com.helio.api.protocols.dashboards.DashboardSnapshotPanelEntry
 import com.helio.domain.model._
 import com.helio.domain.panels.PanelConfigCodec
@@ -294,6 +294,51 @@ final class DashboardService(
   }
 
 
+  /** Owner-only stored-layout repair (HEL-1233; see [[DashboardLayoutRepair]]). Ownership is
+   *  decided here from the stored row, never from the request: no access -> 404, visible but not
+   *  the owner (any grant role, editors included although PATCH admits them) -> 403. Writes only
+   *  the layout, compare-and-set against what was read, so a concurrent change wins with 409. */
+  def repairLayout(
+      dashboardId: DashboardId,
+      patchPayload: DashboardLayoutPatchPayload,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Dashboard]] =
+    dashboardRepo.findById(dashboardId, Some(user)).flatMap {
+      case None =>
+        Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
+      case Some(d) if d.ownerId != user.id =>
+        Future.successful(Left(ServiceError.Forbidden()))
+      case Some(existing) =>
+        validateDashboardLayoutPayload(Some(patchPayload)) match {
+          case Left(msg)            => Future.successful(Left(ServiceError.BadRequest(msg)))
+          case Right(None)          => Future.successful(Right(existing))
+          case Right(Some(patch)) =>
+            dashboardRepo.panelIdsInternal(dashboardId).flatMap { panelIds =>
+              DashboardLayoutRepair.plan(existing.layout, patch, panelIds) match {
+                case Left(msg)                      => Future.successful(Left(ServiceError.BadRequest(msg)))
+                case Right(toWrite) if toWrite.isEmpty => Future.successful(Right(existing))
+                case Right(toWrite) =>
+                  val next = LayoutPolicy.applyUnvalidated(existing.layout, toWrite)
+                  dashboardRepo.updateLayoutIfUnchanged(dashboardId, user.id, existing.layout, next).flatMap {
+                    case false =>
+                      Future.successful(Left(ServiceError.Conflict("Dashboard layout changed; repair not applied")))
+                    case true =>
+                      audit(
+                        "dashboard.layout.repair",
+                        Some(dashboardId.value),
+                        user,
+                        JsObject("breakpoints" -> JsArray(LayoutPolicy.Breakpoints.filter(toWrite.get(_).isDefined).map(JsString(_))))
+                      )
+                      dashboardRepo.findByIdInternal(dashboardId).map {
+                        case Some(updated) => Right(updated)
+                        case None          => Left(ServiceError.NotFound("Dashboard not found"))
+                      }
+                  }
+              }
+            }
+        }
+    }
+
   /** Sharing-aware export. Owner and editor grantees may export.
    *  - No access → 404
    *  - Owner → proceed
@@ -333,7 +378,7 @@ final class DashboardService(
         validateImportPanels(payload, user).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
-            dashboardRepo.importSnapshot(payload, user.id).map { case value @ (dashboard, panels) =>
+            dashboardRepo.importSnapshot(repairImportedLayoutGeometry(payload), user.id).map { case value @ (dashboard, panels) =>
               // HEL-477 design.md Decision 9: a distinct dashboard.import action
               // (not dashboard.create) — one row, no per-panel events.
               audit(

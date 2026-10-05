@@ -203,8 +203,8 @@ class DashboardLayoutValidationSpec extends ApplyProposalSpecBase {
     }
   }
 
-  "dashboard import and duplicate (HEL-1071 D7)" should {
-    "reject an imported snapshot with an overlapping breakpoint, naming the breakpoint and snapshot ids" in {
+  "dashboard import (HEL-1233) and duplicate (HEL-1071 D7)" should {
+    "store an imported snapshot's overlapping or out-of-bounds breakpoints repaired, keeping every panel" in {
       val id = createDashboard("import-source")
       val p1 = createDivider(id, "One")
       val p2 = createDivider(id, "Two")
@@ -212,23 +212,43 @@ class DashboardLayoutValidationSpec extends ApplyProposalSpecBase {
         status shouldBe StatusCodes.OK
         responseAs[String].parseJson.asJsObject
       }
-      def snapshotWithXs(xs: String): String = {
+      def snapshotWith(bps: (String, String)*): String = {
         val dash   = exported.fields("dashboard").asJsObject
-        val layout = JsObject(dash.fields("layout").asJsObject.fields.updated("xs", xs.parseJson))
+        val layout = JsObject(bps.foldLeft(dash.fields("layout").asJsObject.fields)((fs, kv) => fs.updated(kv._1, kv._2.parseJson)))
         JsObject(exported.fields.updated("dashboard", JsObject(dash.fields.updated("layout", layout)))).compactPrint
       }
-      val before = dashboardCount()
-      Post("/api/dashboards/import", json(snapshotWithXs(arr(item(p1, 0, 0), item(p2, 0, 0)))))
-        .addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
-        status shouldBe StatusCodes.BadRequest
-        message should include("breakpoint 'xs'")
-        message should include(p1)
-        message should include(p2)
-      }
-      dashboardCount() shouldBe before
+      def importedLayout(body: String): JsObject =
+        Post("/api/dashboards/import", json(body)).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+          status shouldBe StatusCodes.Created
+          responseAs[String].parseJson.asJsObject.fields("dashboard").asJsObject.fields("layout").asJsObject
+        }
+      def cells(layout: JsObject, name: String): Vector[(Int, Int, Int)] =
+        bp(layout, name).map(_.asJsObject.fields).map(f => (f("x").convertTo[Int], f("y").convertTo[Int], f("w").convertTo[Int]))
 
-      Post("/api/dashboards/import", json(snapshotWithXs(arr(item(p1, 0, 0), item(p2, 1, 0)))))
-        .addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check { status shouldBe StatusCodes.Created }
+      val lgBefore = exported.fields("dashboard").asJsObject.fields("layout").asJsObject.fields("lg")
+      val overlap  = importedLayout(snapshotWith("xs" -> arr(item(p1, 0, 0), item(p2, 0, 0))))
+      bp(overlap, "xs") should have size 2
+      cells(overlap, "xs").distinct should have size 2 // no longer the same cell
+      overlap.fields("lg") should not be JsNull
+      overlap.fields("lg").convertTo[Vector[JsValue]].size shouldBe lgBefore.convertTo[Vector[JsValue]].size
+
+      val oob = importedLayout(snapshotWith("md" -> arr(item(p1, 8, 0, 4), item(p2, 0, 2, 4))))
+      bp(oob, "md") should have size 2
+      cells(oob, "md").foreach { case (x, _, w) => (x + w) should be <= 10 }
+    }
+
+    "still reject an imported layout entry that references no snapshot panel" in {
+      val id = createDashboard("import-ref-source")
+      createDivider(id, "One")
+      val exported = Get(s"/api/dashboards/$id/export").addHeader(sessionCookie) ~> routes ~> check {
+        responseAs[String].parseJson.asJsObject
+      }
+      val dash   = exported.fields("dashboard").asJsObject
+      val layout = JsObject(dash.fields("layout").asJsObject.fields.updated("xs", arr(item("ghost", 0, 0)).parseJson))
+      val body   = JsObject(exported.fields.updated("dashboard", JsObject(dash.fields.updated("layout", layout)))).compactPrint
+      Post("/api/dashboards/import", json(body)).addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+      }
     }
 
     "duplicate a stored-bad dashboard as a faithful copy (no validation, ids remapped)" in {

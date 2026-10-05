@@ -59,6 +59,19 @@ export async function updateDashboardLayout(
   return response.data;
 }
 
+/** Owner-only repair of stored-bad breakpoints (HEL-1233); the server ignores any breakpoint that is
+ *  not stored-bad and writes only the layout. */
+export async function repairDashboardLayout(
+  dashboardId: string,
+  layout: Partial<DashboardLayout>,
+): Promise<Dashboard> {
+  const response = await httpClient.post<Dashboard>(
+    `/api/dashboards/${dashboardId}/layout/repair`,
+    layout,
+  );
+  return response.data;
+}
+
 export async function duplicateDashboard(dashboardId: string): Promise<DuplicateDashboardResponse> {
   const response = await httpClient.post<DuplicateDashboardResponse>(
     `/api/dashboards/${dashboardId}/duplicate`,

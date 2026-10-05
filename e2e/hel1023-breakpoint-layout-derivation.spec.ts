@@ -325,6 +325,28 @@ async function injectStoredLayout(page: Page, dashboardId: string, layout: Layou
   return injections;
 }
 
+/** HEL-1233: the signed-in owner of a stored-bad dashboard sends a one-time repair POST on open. Here the
+ * stored-bad layout exists only in the response the browser receives (the server holds a valid one), so
+ * the server correctly answers that POST with a no-op carrying ITS layout, and the client adopts it,
+ * replacing the injected layout this suite exists to render. Stubbing the POST with a 409 (a documented
+ * "layout changed, not applied" response the client logs and ignores) keeps the repair path inert so
+ * what is asserted stays the HEL-1023 render-time repair of a layout the server never stored.
+ * The owner repair itself is covered by the HEL-1233 jest, route and seam specs. */
+async function stubOwnerRepair(page: Page) {
+  const calls = { count: 0 };
+  await page.route(
+    (url) => /\/api\/dashboards\/[^/]+\/layout\/repair$/.test(url.pathname),
+    async (route) => {
+      calls.count++;
+      await route.fulfill({
+        status: 409,
+        json: { message: "Dashboard layout changed; repair not applied" },
+      });
+    },
+  );
+  return calls;
+}
+
 // Request volume matters: the default backend rate-limits one user to 120 /api requests per 60s and a
 // 429 on /api/auth/me logs the page out. So a state is loaded ONCE per theme and the window is then
 // resized with setViewportSize (the grid re-measures and re-layouts live) instead of a goto per width.
@@ -393,6 +415,7 @@ test.describe("HEL-1023 derive/repair the breakpoint layout at render", () => {
           `${state} fixture must be stored-bad`,
         ).toBe(true);
         injections = await injectStoredLayout(page, seeded.dashboardId, layouts[state]);
+        await stubOwnerRepair(page);
       } else {
         const patch = await request.patch(`/api/dashboards/${seeded.dashboardId}/update`, {
           data: { fields: ["layout"], dashboard: { layout: layouts[state] } },

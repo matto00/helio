@@ -31,9 +31,16 @@
 //   3. placement extension — a panel create appended items to every breakpoint with the previous store
 //      layout as an exact prefix (`layoutPlacement.ts`): extend the baseline by the same items, so a
 //      pending edit survives the create and a create alone is not pending
-//   4. anything else       — server/external truth (fetch, upsert, PATCH response): re-baseline
+//   4. anything else       — server/external truth (fetch, upsert, PATCH response, the owner's
+//      stored-layout repair response — HEL-1233): re-baseline
 // Cases 1-3 then set pending = (layout differs from the baseline); case 4 clears it. An undo/redo is
 // therefore "a local edit like a drag", persisted by the same flush.
+// The owner's one-time stored-layout repair (`useStoredLayoutRepair`, `repairDashboardLayout`) is
+// class 4 and cannot be mistaken for 1-3: it is not an interaction commit (no local commit equals it),
+// not a traversal (revision unchanged), and not a placement extension (a stored-bad breakpoint can
+// only become valid by moving or dropping an existing item, so the previous layout is never an exact
+// prefix of the repaired one). It therefore re-baselines: pending stays false, no history entry, and a
+// later drag persists normally.
 // D5: a PATCH response never overwrites a newer local layout (see `dashboardsSlice`'s fulfilled
 // reducer); `persistLayout`'s `.then` then recomputes pending against the server baseline. Known,
 // accepted race: if a panel create lands while a PATCH is in flight and the server handled the PATCH

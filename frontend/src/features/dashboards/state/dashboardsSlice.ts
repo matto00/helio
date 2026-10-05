@@ -10,6 +10,7 @@ import {
   importDashboard as importDashboardRequest,
   renameDashboard as renameDashboardRequest,
   updateDashboardAppearance as updateDashboardAppearanceRequest,
+  repairDashboardLayout as repairDashboardLayoutRequest,
   updateDashboardLayout as updateDashboardLayoutRequest,
 } from "../services/dashboardService";
 import { applyDashboardProposal as applyDashboardProposalRequest } from "../services/proposalService";
@@ -181,6 +182,25 @@ export const updateDashboardLayout = createAsyncThunk<
   },
 );
 
+/**
+ * HEL-1233: the owner's one-time repair of stored-bad breakpoints. `layout` is the POST body (those
+ * breakpoints only); `expectedLayout` is the authored layout it was computed from and never goes on
+ * the wire. Store class 4 (server truth, see `useLayoutSave.ts`): never touches the undo history or
+ * `hasPendingLayout`, and a failure is deliberately silent (no `state.error`, no toast) because the
+ * display already shows the render-time repair. Callers log it.
+ */
+export const repairDashboardLayout = createAsyncThunk<
+  Dashboard,
+  { dashboardId: string; layout: Partial<DashboardLayout>; expectedLayout: DashboardLayout },
+  { rejectValue: string }
+>("dashboards/repairDashboardLayout", async ({ dashboardId, layout }, { rejectWithValue }) => {
+  try {
+    return await repairDashboardLayoutRequest(dashboardId, layout);
+  } catch (err) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to repair dashboard layout."));
+  }
+});
+
 export const duplicateDashboard = createAsyncThunk<
   DuplicateDashboardResponse,
   string,
@@ -326,6 +346,16 @@ const dashboardsSlice = createSlice({
             state.hasPendingLayout = false;
             return action.payload;
           }
+          return { ...action.payload, layout: dashboard.layout };
+        });
+      })
+      .addCase(repairDashboardLayout.fulfilled, (state, action) => {
+        // Adopt the server's layout only over the layout the repair was computed from; a newer local
+        // edit keeps its layout (by reference) and the server already holds the repair.
+        const { expectedLayout } = action.meta.arg;
+        state.items = state.items.map((dashboard) => {
+          if (dashboard.id !== action.payload.id) return dashboard;
+          if (areDashboardLayoutsEqual(dashboard.layout, expectedLayout)) return action.payload;
           return { ...action.payload, layout: dashboard.layout };
         });
       })
