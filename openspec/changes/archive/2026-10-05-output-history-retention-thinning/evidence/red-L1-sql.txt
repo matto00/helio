@@ -1,0 +1,50 @@
+07:32:33.448 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "110 - pipeline auto run debounce"
+07:32:33.450 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "111 - safe cast functions"
+07:32:33.452 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "112 - add output panel controls"
+07:32:33.454 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "113 - product events"
+07:32:33.459 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "114 - backfill signup completed events"
+07:32:33.461 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "115 - output snapshot history"
+07:32:33.466 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Successfully applied 115 migrations to schema "public", now at version v115 (execution time 00:00.099s)
+[info] insertAction
+[info] - should round-trip every column including the JSONB summary and a null run id
+[info] - should be a no-op for an empty batch
+[info] - should store a hostile summary key as data, never as SQL
+[info] listRecent
+[info] - should return newest first, honour the limit, and tie-break equal timestamps by id descending
+[info] - should be empty for an Output with no history and ignore other Outputs
+[info] nearestAtOrBefore
+[info] - should return the latest point at or before the instant, including exactly-at
+[info] - should return None for an instant before the first point or for an empty Output
+[info] earliest
+[info] - should return the oldest captured_at, or None when there is no history
+[info] thinAndPurge
+[info] - should keep only the newest point per 5-minute bucket inside the recent window
+[info] - should thin to one point per hour between 1 and 7 days old and one per day beyond
+[info] - should keep every point that sits alone in its bucket
+[info] - should thin each Output independently
+[info] - should purge points older than the owner's tier max age
+[info] - should fall back to the strictest supplied cap for a tier absent from the map (HEL-1272) *** FAILED ***
+[info]   1 was not equal to 2 (OutputHistoryRepositorySpec.scala:202)
+[info] - should apply the shortest of several supplied caps to a missing tier *** FAILED ***
+[info]   0 was not equal to 2 (OutputHistoryRepositorySpec.scala:213)
+[info] - should retain a shared pipeline's history on the pipeline owner's tier, not the Output creator's (HEL-1272) *** FAILED ***
+[info]   1 was not equal to 0 (OutputHistoryRepositorySpec.scala:229)
+[info] - should be idempotent: a second pass deletes nothing
+[info] the output_id foreign key
+[info] - should cascade: deleting an Output removes its history and no one else's
+07:32:34.030 INFO  [postgres:pid(3238882)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-05 07:32:34.030 PDT [3239036] ERROR:  insert or update on table "output_snapshot_history" violates foreign key constraint "output_snapshot_history_output_id_fkey"
+07:32:34.030 INFO  [postgres:pid(3238882)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-05 07:32:34.030 PDT [3239036] DETAIL:  Key (output_id)=(2265aca4-8028-4ae6-82d8-4f5cd231aaa1) is not present in table "outputs".
+07:32:34.030 INFO  [postgres:pid(3238882)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-05 07:32:34.030 PDT [3239036] STATEMENT:  insert into "output_snapshot_history" ("id","output_id","pipeline_id","node_step_id","root_id","run_id","trigger_source","captured_at","row_count","summary")  values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+[info] - should reject a history row naming a non-existent Output
+07:32:34.137 INFO  [pg_ctl:pid(3239037)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+07:32:34.137 INFO  [pg_ctl:pid(3239037)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+07:32:34.137 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 8ce67bf3-3485-43b8-8255-fa47f5729caa shut down postmaster in 00:00:00.103
+[info] Run completed in 2 seconds, 359 milliseconds.
+[info] Total number of tests run: 19
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 16, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.infrastructure.persistence.pipelines.OutputHistoryRepositorySpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 3 s, cache 90%, 27 disk cache hits, 3 onsite tasks

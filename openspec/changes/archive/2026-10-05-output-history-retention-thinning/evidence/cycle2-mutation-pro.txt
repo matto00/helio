@@ -1,0 +1,2 @@
+# mutation: new tier case object Pro added to UserTier, nothing else touched (proves fail-closed: must stay GREEN, unknown tier is purged by construction)
+242:[info] Tests: succeeded 26, failed 0, canceled 0, ignored 0, pending 0

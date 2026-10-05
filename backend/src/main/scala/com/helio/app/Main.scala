@@ -27,7 +27,7 @@ import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.services.sources.{ContentSourceSupport, RestSourceConnectorMigration}
 import com.helio.infrastructure.storage.{GcsFileSystem, LocalFileSystem}
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.services.pipelines.PipelineSchedulerService
+import com.helio.services.pipelines.{OutputHistoryRetentionConfig, OutputHistoryRetentionService, PipelineSchedulerService}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.{Await, Future}
@@ -279,6 +279,8 @@ object Main {
       // HEL-1208: same ProductTelemetryConfig.fromEnv() values ApiRoutes reads for its own limiter.
       val productEventRollupService =
         new ProductEventRollupService(new ProductEventRepository(ctx), ProductTelemetryConfig.fromEnv(), SystemClock)
+      val outputHistoryRetentionService =
+        new OutputHistoryRetentionService(outputHistoryRepo, OutputHistoryRetentionConfig.fromEnv(), SystemClock)
       val pipelineSchedulerService = new PipelineSchedulerService(
         pipelineScheduleRepo,
         pipelineRepo,
@@ -287,7 +289,8 @@ object Main {
         SystemClock,
         pipelineRunGuardRepo = pipelineRunGuardRepo,
         autoRunDebounceRepo = autoRunDebounceRepo,
-        productEventRollupService = productEventRollupService
+        productEventRollupService = productEventRollupService,
+        outputHistoryRetentionService = outputHistoryRetentionService
       )
       context.spawn(PipelineSchedulerActor(pipelineSchedulerService, schedulerTickInterval), "pipeline-scheduler")
 

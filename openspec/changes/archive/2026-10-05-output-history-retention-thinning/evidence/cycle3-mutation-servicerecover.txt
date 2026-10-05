@@ -1,0 +1,5 @@
+# mutation: service-level recover+log removed (scheduler outer recover still present)
+212:[info] - should complete the tick, fire the due schedule and log when the history purge returns a failed future *** FAILED ***
+226:[info] - should complete the tick, fire the due schedule and log when the history purge throws synchronously *** FAILED ***
+268:[info] Tests: succeeded 9, failed 2, canceled 0, ignored 0, pending 0
+269:[info] *** 2 TESTS FAILED ***

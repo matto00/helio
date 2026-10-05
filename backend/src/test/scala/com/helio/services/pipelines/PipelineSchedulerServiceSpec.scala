@@ -4,8 +4,13 @@ import com.helio.services.pipelines.{PipelineRunService, PipelineSchedulerServic
 import com.helio.domain.util.{Clock, CronSchedule}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, OutputHistoryRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
+import ch.qos.logback.classic.{Level, Logger => LogbackLogger}
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
+import org.slf4j.LoggerFactory
+import scala.jdk.CollectionConverters._
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.services.audit.AuditService
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
@@ -19,7 +24,7 @@ import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json.{JsObject, JsString}
 
 import java.nio.charset.StandardCharsets
-import java.time.Instant
+import java.time.{Duration, Instant}
 import java.time.temporal.ChronoUnit
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -45,6 +50,8 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
   private var runRepo: PipelineRunRepository           = _
   private var service: PipelineSchedulerService        = _
   private var auditEventRepo: AuditEventRepository     = _
+  private var runServiceForHistory: PipelineRunService  = _
+  private var historyCtx: DbContext                     = _
 
   private class FakeClock(@volatile private var instant: Instant) extends Clock {
     def set(i: Instant): Unit    = instant = i
@@ -105,6 +112,8 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
       fakeFileSystem,
       auditService = auditService
     )
+    runServiceForHistory = pipelineRunService
+    historyCtx = ctx
     service = new PipelineSchedulerService(scheduleRepo, pipelineRepo, runRepo, pipelineRunService, fakeClock)
   }
 
@@ -252,6 +261,50 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
       val updated = await(scheduleRepo.findByPipelineId(pid, user)).get
       updated.lastRunAt shouldBe Some(fakeClock.now())
       updated.nextRunAt shouldBe CronSchedule.nextFireTime(ScheduleKind.Cron, expression, "UTC", fakeClock.now())
+    }
+
+    // HEL-1272: a retention-purge failure never fails the tick nor blocks its other work.
+    def historyFailureCase(name: String, failing: => OutputHistoryRepository): Unit =
+      name in {
+        cleanDb(); seedUser()
+        val pid = seedStaticPipeline()
+        fakeClock.set(Instant.parse("2026-03-01T00:00:00Z"))
+        seedSchedule(pid, nextRunAt = Some(fakeClock.now().minusSeconds(60)), expression = "30m")
+        val retention = new OutputHistoryRetentionService(failing, OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock)
+        val svc = new PipelineSchedulerService(
+          scheduleRepo, pipelineRepo, runRepo, runServiceForHistory, fakeClock, outputHistoryRetentionService = retention
+        )
+        val appender = new ListAppender[ILoggingEvent]()
+        val logger   = LoggerFactory.getLogger(classOf[OutputHistoryRetentionService]).asInstanceOf[LogbackLogger]
+        appender.start(); logger.addAppender(appender)
+        try {
+          noException should be thrownBy await(svc.tick())
+          await(runRepo.listByPipelineInternal(pid)) should have size 1
+          appender.list.asScala.exists(e => e.getLevel == Level.ERROR && e.getFormattedMessage.contains("Output history retention purge failed")) shouldBe true
+        } finally logger.detachAppender(appender)
+      }
+
+    class FailingHistoryRepo(sync: Boolean) extends OutputHistoryRepository(historyCtx) {
+      override def thinAndPurge(now: Instant, policy: HistoryThinningPolicy, caps: Map[UserTier, Duration]): Future[Int] =
+        if (sync) throw new IllegalStateException("boom-sync") else Future.failed(new IllegalStateException("boom-future"))
+    }
+
+    historyFailureCase("complete the tick, fire the due schedule and log when the history purge returns a failed future", new FailingHistoryRepo(sync = false))
+    historyFailureCase("complete the tick, fire the due schedule and log when the history purge throws synchronously", new FailingHistoryRepo(sync = true))
+
+    "complete the tick when the retention service itself fails (outer recover)" in {
+      cleanDb(); seedUser()
+      val pid = seedStaticPipeline()
+      fakeClock.set(Instant.parse("2026-03-01T00:00:00Z"))
+      seedSchedule(pid, nextRunAt = Some(fakeClock.now().minusSeconds(60)), expression = "30m")
+      val broken = new OutputHistoryRetentionService(new OutputHistoryRepository(historyCtx), OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock) {
+        override def purgeIfDue(now: Instant): Future[Option[Int]] = throw new IllegalStateException("service bug")
+      }
+      val svc = new PipelineSchedulerService(
+        scheduleRepo, pipelineRepo, runRepo, runServiceForHistory, fakeClock, outputHistoryRetentionService = broken
+      )
+      noException should be thrownBy await(svc.tick())
+      await(runRepo.listByPipelineInternal(pid)) should have size 1
     }
 
     "never submit a run for a pipeline with no schedule" in {

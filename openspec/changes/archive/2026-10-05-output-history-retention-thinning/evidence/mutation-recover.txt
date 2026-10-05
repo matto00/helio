@@ -1,0 +1,9 @@
+# mutation: scheduler outer recover removed
+# specs: com.helio.services.pipelines.PipelineSchedulerServiceSpec
+224:[info] - should complete the tick when the retention service itself fails (outer recover) *** FAILED ***
+253:[info] Tests: succeeded 10, failed 1, canceled 0, ignored 0, pending 0
+254:[info] *** 1 TEST FAILED ***
+255:[error] Failed tests:
+256:[error] 	com.helio.services.pipelines.PipelineSchedulerServiceSpec
+257:[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+258:[error] elapsed time: 3 s, cache 93%, 28 disk cache hits, 2 onsite tasks

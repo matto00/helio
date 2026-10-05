@@ -1,0 +1,9 @@
+# mutation: join reverted to outputs.owner_id
+# specs: com.helio.infrastructure.persistence.pipelines.OutputHistoryRepositorySpec
+214:[info] - should retain a shared pipeline's history on the pipeline owner's tier, not the Output creator's (HEL-1272) *** FAILED ***
+229:[info] Tests: succeeded 18, failed 1, canceled 0, ignored 0, pending 0
+230:[info] *** 1 TEST FAILED ***
+231:[error] Failed tests:
+232:[error] 	com.helio.infrastructure.persistence.pipelines.OutputHistoryRepositorySpec
+233:[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+234:[error] elapsed time: 3 s, cache 93%, 28 disk cache hits, 2 onsite tasks

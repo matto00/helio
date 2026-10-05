@@ -1,0 +1,1 @@
+404:[info]   + measured tick duration on the 40-day fixture (2 Outputs x 1923 points): 20 ms 

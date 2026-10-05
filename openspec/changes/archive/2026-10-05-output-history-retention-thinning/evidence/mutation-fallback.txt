@@ -1,0 +1,10 @@
+# mutation: strictest-cap fallback removed
+# specs: com.helio.infrastructure.persistence.pipelines.OutputHistoryRepositorySpec
+212:[info] - should fall back to the strictest supplied cap for a tier absent from the map (HEL-1272) *** FAILED ***
+214:[info] - should apply the shortest of several supplied caps to a missing tier *** FAILED ***
+230:[info] Tests: succeeded 17, failed 2, canceled 0, ignored 0, pending 0
+231:[info] *** 2 TESTS FAILED ***
+232:[error] Failed tests:
+233:[error] 	com.helio.infrastructure.persistence.pipelines.OutputHistoryRepositorySpec
+234:[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+235:[error] elapsed time: 3 s, cache 93%, 28 disk cache hits, 2 onsite tasks

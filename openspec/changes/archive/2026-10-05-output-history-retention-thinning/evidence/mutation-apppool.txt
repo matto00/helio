@@ -1,0 +1,9 @@
+# mutation: purge routed through the app pool (withUserContext, no real user)
+# specs: com.helio.services.pipelines.OutputHistoryRetentionPrivilegedSpec
+201:[info] - should run on helio_privileged and delete the expected points, while the app pool is not BYPASSRLS *** FAILED ***
+216:[info] Tests: succeeded 1, failed 1, canceled 0, ignored 0, pending 0
+217:[info] *** 1 TEST FAILED ***
+218:[error] Failed tests:
+219:[error] 	com.helio.services.pipelines.OutputHistoryRetentionPrivilegedSpec
+220:[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+221:[error] elapsed time: 2 s, cache 93%, 28 disk cache hits, 2 onsite tasks

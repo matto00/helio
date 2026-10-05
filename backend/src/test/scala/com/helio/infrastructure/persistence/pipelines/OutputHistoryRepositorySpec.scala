@@ -179,16 +179,103 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
       awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe 0
     }
 
-    "purge points older than the owner's tier max age, and only for tiers present in the map" in {
+    "purge points older than the owner's tier max age" in {
       awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
       val (_, pidF, oidF) = fresh("free")
       val (_, pidO, oidO) = fresh("owner")
       val ancient = now.minus(Duration.ofDays(40))
       val recent  = now.minus(Duration.ofDays(10))
       insert(historyEntry(oidF, pidF, ancient), historyEntry(oidF, pidF, recent), historyEntry(oidO, pidO, ancient))
-      awaitDb(repo.thinAndPurge(now, policy, Map(UserTier.Free -> Duration.ofDays(30)))) shouldBe 1
+      val caps: Map[UserTier, Duration] = Map(UserTier.Free -> Duration.ofDays(30), UserTier.Beta -> Duration.ofDays(90), UserTier.Owner -> Duration.ofDays(365))
+      awaitDb(repo.thinAndPurge(now, policy, caps)) shouldBe 1
       capturedAts(oidF) shouldBe Vector(recent)
       historyCount(oidO) shouldBe 1
+    }
+
+    "fall back to the strictest supplied cap for a tier absent from the map (HEL-1272)" in {
+      awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
+      val (_, pidF, oidF) = fresh("free")
+      val (_, pidO, oidO) = fresh("owner")
+      val ancient = now.minus(Duration.ofDays(40))
+      val recent  = now.minus(Duration.ofDays(10))
+      insert(historyEntry(oidF, pidF, ancient), historyEntry(oidF, pidF, recent), historyEntry(oidO, pidO, ancient), historyEntry(oidO, pidO, recent))
+      awaitDb(repo.thinAndPurge(now, policy, Map(UserTier.Free -> Duration.ofDays(30)))) shouldBe 2
+      capturedAts(oidF) shouldBe Vector(recent)
+      capturedAts(oidO) shouldBe Vector(recent)
+    }
+
+    "apply the shortest of several supplied caps to a missing tier" in {
+      awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
+      val (_, pidO, oidO) = fresh("owner")
+      val at40 = now.minus(Duration.ofDays(40))
+      val at20 = now.minus(Duration.ofDays(20))
+      insert(historyEntry(oidO, pidO, at40), historyEntry(oidO, pidO, at20))
+      awaitDb(repo.thinAndPurge(now, policy, Map(UserTier.Free -> Duration.ofDays(30), UserTier.Beta -> Duration.ofDays(10)))) shouldBe 2
+      historyCount(oidO) shouldBe 0
+    }
+
+    "retain a shared pipeline's history on the pipeline owner's tier, not the Output creator's (HEL-1272)" in {
+      awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
+      val ownerTierUser = seedUser("owner")
+      val (pid, _)      = seedPipelineWithOutput(ownerTierUser)
+      val granteeFree   = seedUser("free")
+      val oid           = UUID.randomUUID().toString
+      // An Editor grantee's Output on the owner's pipeline: outputs.owner_id is the grantee.
+      awaitDb(db.run(sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, config, root_id)
+                            VALUES ($oid, $pid, NULL, $granteeFree::uuid, 'shared', 'metric', '{}'::jsonb, $pid)"""))
+      val at40 = now.minus(Duration.ofDays(40))
+      insert(historyEntry(oid, pid, at40))
+      val caps: Map[UserTier, Duration] = Map(UserTier.Free -> Duration.ofDays(30), UserTier.Beta -> Duration.ofDays(90), UserTier.Owner -> Duration.ofDays(365))
+      awaitDb(repo.thinAndPurge(now, policy, caps)) shouldBe 0
+      capturedAts(oid) shouldBe Vector(at40)
+    }
+
+    "age-purge a tier the code does not know at the strictest cap (fails closed by construction)" in {
+      awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
+      // `users.tier` is CHECK-constrained to free/beta/owner; drop that CHECK (embedded Postgres only)
+      // to create a genuinely unknown tier, then restore it.
+      val checkName = awaitDb(db.run(
+        sql"""SELECT conname FROM pg_constraint
+              WHERE conrelid = 'users'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%tier%'""".as[String].head
+      ))
+      awaitDb(db.run(sqlu"ALTER TABLE users DROP CONSTRAINT #$checkName"))
+      var proUser = ""
+      try {
+        proUser = seedUser("pro")
+        val (pid, oid) = seedPipelineWithOutput(proUser)
+        val at40 = now.minus(Duration.ofDays(40))
+        val at10 = now.minus(Duration.ofDays(10))
+        insert(historyEntry(oid, pid, at40), historyEntry(oid, pid, at10))
+        val caps: Map[UserTier, Duration] = Map(UserTier.Free -> Duration.ofDays(30), UserTier.Owner -> Duration.ofDays(365))
+        awaitDb(repo.thinAndPurge(now, policy, caps)) shouldBe 1
+        capturedAts(oid) shouldBe Vector(at10)
+      } finally {
+        try {
+          if (proUser.nonEmpty) awaitDb(db.run(DBIO.seq(
+            sqlu"DELETE FROM pipelines WHERE owner_id = $proUser::uuid",
+            sqlu"DELETE FROM data_sources WHERE owner_id = $proUser::uuid",
+            sqlu"DELETE FROM users WHERE id = $proUser::uuid"
+          )))
+        } finally {
+          awaitDb(db.run(sqlu"ALTER TABLE users ADD CONSTRAINT #$checkName CHECK (tier IN ('free', 'beta', 'owner'))"))
+        }
+      }
+    }
+
+    "skip the whole pass, deleting nothing, while another session holds the purge lock (HEL-1272)" in {
+      awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
+      val (_, pid, oid) = fresh()
+      val ats = Seq("11:56:00", "11:57:00", "11:58:00").map(t => Instant.parse(s"2026-06-30T${t}Z"))
+      insert(ats.map(historyEntry(oid, pid, _)): _*)
+      val holder = embeddedPostgres.getPostgresDatabase.getConnection
+      try {
+        holder.createStatement().execute(s"SELECT pg_advisory_lock(${OutputHistoryRepository.PurgeAdvisoryLockKey})")
+        awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe 0
+        historyCount(oid) shouldBe 3
+        holder.createStatement().execute(s"SELECT pg_advisory_unlock(${OutputHistoryRepository.PurgeAdvisoryLockKey})")
+      } finally holder.close()
+      awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe 2
+      historyCount(oid) shouldBe 1
     }
 
     "be idempotent: a second pass deletes nothing" in {
