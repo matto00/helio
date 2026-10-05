@@ -64,7 +64,7 @@ import com.helio.services.telemetry.AdminUsageService
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, OAuthStateRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -215,7 +215,10 @@ final class ApiRoutes(
     // HEL-1209: test seams so a spec can wire a counting Claude transport through EVERY Claude-bearing
     // service and assert the first-run path never touches it; production passes neither (Main.scala).
     claudeConfigProvider: () => Either[String, ClaudeConfig] = () => ClaudeConfig.fromEnv(),
-    claudeTransportFactory: Option[String => ClaudeTransport] = None
+    claudeTransportFactory: Option[String => ClaudeTransport] = None,
+    // HEL-1271: owned by Main so the retention leaf can schedule against the same instance; null in
+    // fixtures, where a DbContext-backed one is derived below (see `outputHistoryRepoOpt`).
+    outputHistoryRepo: OutputHistoryRepository = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -245,6 +248,10 @@ final class ApiRoutes(
   // can be validated against the pipeline's real roots instead of silently ignored.
   private val pipelineRootRepoOpt: Option[PipelineRootRepository] = Option(dbContext).map(new PipelineRootRepository(_))
   private val nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = Option(dbContext).map(new NodeSnapshotRepository(_))
+  // HEL-1271: Main's instance when passed, else one derived from `dbContext` so DB-backed fixtures
+  // record history through the real path with no constructor churn; `PipelineRunService` null-checks it.
+  val outputHistoryRepoOpt: Option[OutputHistoryRepository] =
+    Option(outputHistoryRepo).orElse(Option(dbContext).map(new OutputHistoryRepository(_)))
   // HEL-1093 (design.md Decision 2): built from `pipelineRootRepoOpt` above and the explicitly
   // threaded `autoRunDebounceRepo` (nullable-optional, see that constructor param's own doc) --
   // `None` unless BOTH are present, so a fixture that passes neither (or only one) simply gets
@@ -461,6 +468,7 @@ final class ApiRoutes(
     executionBackend = null,
     outputRepo = outputRepoOpt.orNull,
     nodeSnapshotRepo = nodeSnapshotRepoOpt.orNull,
+    outputHistoryRepo = outputHistoryRepoOpt.orNull,
     aiStepClient = aiStepClient,
     // HEL-505: `pipelineRunGuardRepo` is `null` in fixtures that don't pass one (constructor
     // default `null`, purely additive) -- `pipelineRunGuardConfig` is always real (fromEnv-once

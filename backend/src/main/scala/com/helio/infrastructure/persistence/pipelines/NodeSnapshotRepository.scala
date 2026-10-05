@@ -103,7 +103,24 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  `None` (auto-resolve the pipeline's first/only root, exactly today's single-root behavior)
    *  so every pre-existing call site is unaffected; `PipelineRunService`'s multi-root-aware
    *  write path passes the target root explicitly. */
-  def overwriteRows(pipelineId: String, nodeStepId: Option[String], rows: Seq[JsObject], explicitRootId: Option[String]): Future[Unit] = {
+  def overwriteRows(pipelineId: String, nodeStepId: Option[String], rows: Seq[JsObject], explicitRootId: Option[String]): Future[Unit] =
+    ctx.withSystemContext(overwriteRowsAction(pipelineId, nodeStepId, rows, explicitRootId))
+
+  /** `overwriteRows` plus `andThen` (HEL-1271: the per-Output history insert) in ONE transaction,
+   *  so a failing `andThen` rolls back the replace. Run as two separate `withSystemContext` calls
+   *  this would silently commit the replace first -- `withSystemContext` already wraps each call in
+   *  its own transaction, so a bare `.transactionally` here would be a no-op, not the guarantee. */
+  def overwriteRowsWith(
+      pipelineId: String,
+      nodeStepId: Option[String],
+      rows: Seq[JsObject],
+      explicitRootId: Option[String],
+      andThen: DBIO[Unit]
+  ): Future[Unit] =
+    ctx.withSystemContext(overwriteRowsAction(pipelineId, nodeStepId, rows, explicitRootId).andThen(andThen))
+
+  /** The replace as a composable `DBIO` (unchanged SQL); runs nothing by itself. */
+  def overwriteRowsAction(pipelineId: String, nodeStepId: Option[String], rows: Seq[JsObject], explicitRootId: Option[String]): DBIO[Unit] = {
     val deleteAction = (nodeStepId, explicitRootId) match {
       case (Some(stepId), _) =>
         sqlu"DELETE FROM node_snapshots WHERE pipeline_id = $pipelineId AND node_step_id = $stepId"
@@ -133,7 +150,7 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       }
       DBIO.seq((deleteAction +: insertActions): _*)
     }
-    ctx.withSystemContext(action.transactionally)
+    action.transactionally
   }
 
   /** Return stored snapshot rows for `(pipelineId, nodeStepId)` ordered by

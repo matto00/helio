@@ -13,7 +13,8 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.domain.history.OutputSummaryReducer
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputHistoryInsert, OutputHistoryRepository, OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.PipelineRunAssertionRow
@@ -76,6 +77,10 @@ final class PipelineRunService(
     // task 4.1 has removed the legacy `data_type_rows` write alongside it.
     outputRepo: OutputRepository = null,
     nodeSnapshotRepo: NodeSnapshotRepository = null,
+    // HEL-1271 (design.md D-4): nullable-default convention mirrors nodeSnapshotRepo. When set, each
+    // materialized node's per-Output history point is inserted in that node's own snapshot
+    // transaction; when null, the snapshot write is the unchanged history-free `overwriteRows`.
+    outputHistoryRepo: OutputHistoryRepository = null,
     // HEL-1106 (design.md D2): nullable-default convention mirrors binaryRefRepo/
     // alertEvaluationService above -- threaded through to InProcessPipelineEngine so an
     // `analyzewithai` step can call the model. Defaults to AiStepClient.Unavailable so every
@@ -1079,7 +1084,7 @@ final class PipelineRunService(
                 executeRunFailure(pipelineId, runId, pidStr, isDry, user, assertionSink, ex)
               case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes)) =>
                 executeRunSuccess(
-                  pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, assertionSink, truncationSink, writeBackSink,
+                  pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, triggerSource, assertionSink, truncationSink, writeBackSink,
                   resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes
                 )
             }
@@ -1147,6 +1152,7 @@ final class PipelineRunService(
       pidStr: String,
       isDry: Boolean,
       user: AuthenticatedUser,
+      triggerSource: String,
       assertionSink: AssertionSink,
       truncationSink: TruncationSink,
       writeBackSink: WriteBackSink,
@@ -1179,7 +1185,7 @@ final class PipelineRunService(
           if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results, availableRowCount, truncatedReads).map(_ => Right(None))
           else
             onRunSuccess(
-              roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user,
+              roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, triggerSource,
               assertionSink.results, availableRowCount, truncatedReads, writeBackSink, pipeline.ownerId
             )
         followUp.map {
@@ -1260,6 +1266,7 @@ final class PipelineRunService(
       jsRows:             Vector[JsObject],
       nodeOutcomes:       Map[NodeKey, NodeOutcome],
       user:               AuthenticatedUser,
+      triggerSource:      String,
       assertionResults:   Vector[AssertionResult],
       primaryAvailableRowCount: Option[Long],
       truncatedReads:     Vector[TruncatedReadResponse],
@@ -1280,7 +1287,7 @@ final class PipelineRunService(
         val errMsg = s"Step (upsertsource): $reason"
         onWriteBackFailure(pipelineId, runId, pidStr, user, assertionResults, errMsg).map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
       case Right(()) =>
-        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, assertionResults, primaryAvailableRowCount, truncatedReads).map(Right(_))
+        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads).map(Right(_))
     }
   }
 
@@ -1361,6 +1368,13 @@ final class PipelineRunService(
     } yield Some(summary)
   }
 
+  /** HEL-1271: the run's Output configs in ONE query (privileged read; `outputs` was already
+   *  ACL-scoped by `listByPipelineInternal`), needed only by the history summary. Empty when no
+   *  history repository is wired, so history-free fixtures pay nothing. */
+  private def historyConfigs(outputs: Vector[Output]): Future[Map[String, JsObject]] =
+    if (outputHistoryRepo == null) Future.successful(Map.empty)
+    else outputRepo.findConfigsByIdsInternal(outputs.map(_.id.value))
+
   /** The pre-existing succeeded path (all-passing or warn-only), unchanged in
    *  behavior — a pure insertion point above this method, not a rewrite. */
   private def onUnblockedRunSuccess(
@@ -1373,6 +1387,7 @@ final class PipelineRunService(
       jsRows:             Vector[JsObject],
       nodeOutcomes:       Map[NodeKey, NodeOutcome],
       user:               AuthenticatedUser,
+      triggerSource:      String,
       assertionResults:   Vector[AssertionResult],
       primaryAvailableRowCount: Option[Long],
       truncatedReads:     Vector[TruncatedReadResponse]
@@ -1387,7 +1402,7 @@ final class PipelineRunService(
     // updated and later ones untouched.
     val materializedWrites: Future[Unit] =
       if (nodeSnapshotRepo != null && outputRepo != null)
-        outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
+        outputRepo.listByPipelineInternal(pipelineId).flatMap(outputs => historyConfigs(outputs).map(outputs -> _)).flatMap { case (outputs, configsById) =>
           // HEL-913 (design.md R12, task 5.8 runtime half): keyed by NodeKey, not the old
           // `Option[String]`/`None`-means-root encoding -- a root-bound Output (`stepId = None`)
           // keys on `RootKey(output.node.rootId)`, so it only ever matches THAT root's outcome,
@@ -1415,14 +1430,35 @@ final class PipelineRunService(
                 case StepKey(sid) => (Some(sid), None)
                 case RootKey(rid) => (None, Some(rid))
               }
-              nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt).flatMap { _ =>
+              val nodeOutputs = outputsByNodeKey.getOrElse(nodeKey, Vector.empty)
+              val replace: Future[Unit] =
+                if (outputHistoryRepo == null) nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt)
+                else {
+                  // HEL-1271 (D9): the summary insert shares this node's replace transaction -- NOT
+                  // best-effort; a failure here fails the node exactly like a snapshot-insert failure.
+                  val entries = nodeOutputs.map { o =>
+                    OutputHistoryInsert(
+                      outputId      = o.id.value,
+                      pipelineId    = pipelineId.value,
+                      nodeStepId    = nodeStepIdOpt,
+                      rootId        = explicitRootIdOpt,
+                      runId         = Some(runId.value),
+                      triggerSource = triggerSource,
+                      capturedAt    = now,
+                      rowCount      = nodeJsRows.size,
+                      summary       = OutputSummaryReducer.summarize(nodeJsRows, o.kind, configsById.getOrElse(o.id.value, JsObject.empty))
+                    )
+                  }
+                  nodeSnapshotRepo.overwriteRowsWith(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt, outputHistoryRepo.insertAction(entries))
+                }
+              replace.flatMap { _ =>
                 // HEL-905 (design.md Decision 4): per-Output shallow-union schema derivation
                 // over this node's own row set. Two Outputs on the same node get independently
                 // derived (but identical) schemas -- no sharing/caching needed at this scale.
                 val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
                 val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
                 Future
-                  .sequence(outputsByNodeKey.getOrElse(nodeKey, Vector.empty).map(o => outputRepo.updateSchemaInternal(o.id, schema)))
+                  .sequence(nodeOutputs.map(o => outputRepo.updateSchemaInternal(o.id, schema)))
                   .map(_ => ())
               }
             }

@@ -1,0 +1,612 @@
+{
+  "coerce": [
+    {
+      "name": "integer string",
+      "value": "12",
+      "expected": 12
+    },
+    {
+      "name": "padded",
+      "value": " 12 ",
+      "expected": 12
+    },
+    {
+      "name": "empty",
+      "value": "",
+      "expected": null
+    },
+    {
+      "name": "blank",
+      "value": "   ",
+      "expected": null
+    },
+    {
+      "name": "alpha",
+      "value": "abc",
+      "expected": null
+    },
+    {
+      "name": "trailing junk",
+      "value": "12abc",
+      "expected": null
+    },
+    {
+      "name": "hex",
+      "value": "0x1A",
+      "expected": 26
+    },
+    {
+      "name": "upper hex",
+      "value": "0X1a",
+      "expected": 26
+    },
+    {
+      "name": "binary",
+      "value": "0b101",
+      "expected": 5
+    },
+    {
+      "name": "octal",
+      "value": "0o17",
+      "expected": 15
+    },
+    {
+      "name": "signed hex",
+      "value": "-0x1",
+      "expected": null
+    },
+    {
+      "name": "bare hex prefix",
+      "value": "0x",
+      "expected": null
+    },
+    {
+      "name": "exponent",
+      "value": "1e3",
+      "expected": 1000
+    },
+    {
+      "name": "plus sign",
+      "value": "+5",
+      "expected": 5
+    },
+    {
+      "name": "leading dot",
+      "value": ".5",
+      "expected": 0.5
+    },
+    {
+      "name": "trailing dot",
+      "value": "5.",
+      "expected": 5
+    },
+    {
+      "name": "negative leading dot",
+      "value": "-.5",
+      "expected": -0.5
+    },
+    {
+      "name": "signed exponent dot",
+      "value": "+.5e1",
+      "expected": 5
+    },
+    {
+      "name": "leading zeros",
+      "value": "00012",
+      "expected": 12
+    },
+    {
+      "name": "java double suffix",
+      "value": "1d",
+      "expected": null
+    },
+    {
+      "name": "java float suffix",
+      "value": "1f",
+      "expected": null
+    },
+    {
+      "name": "java hex float",
+      "value": "0x1p3",
+      "expected": null
+    },
+    {
+      "name": "underscore",
+      "value": "1_000",
+      "expected": null
+    },
+    {
+      "name": "Infinity",
+      "value": "Infinity",
+      "expected": null
+    },
+    {
+      "name": "negative Infinity",
+      "value": "-Infinity",
+      "expected": null
+    },
+    {
+      "name": "NaN",
+      "value": "NaN",
+      "expected": null
+    },
+    {
+      "name": "overflow",
+      "value": "1e400",
+      "expected": null
+    },
+    {
+      "name": "dangling exponent",
+      "value": "1e",
+      "expected": null
+    },
+    {
+      "name": "exponent only",
+      "value": "e5",
+      "expected": null
+    },
+    {
+      "name": "inner space",
+      "value": "1 2",
+      "expected": null
+    },
+    {
+      "name": "nbsp and BOM padding",
+      "value": " 12﻿",
+      "expected": 12
+    },
+    {
+      "name": "arabic-indic digits",
+      "value": "١٢",
+      "expected": null
+    },
+    {
+      "name": "boolean",
+      "value": true,
+      "expected": null
+    },
+    {
+      "name": "null",
+      "value": null,
+      "expected": null
+    },
+    {
+      "name": "absent",
+      "absent": true,
+      "expected": null
+    },
+    {
+      "name": "integral double",
+      "value": 1,
+      "expected": 1
+    },
+    {
+      "name": "fractional",
+      "value": 2.5,
+      "expected": 2.5
+    },
+    {
+      "name": "large exponent",
+      "value": 1e21,
+      "expected": 1e21
+    },
+    {
+      "name": "small exponent",
+      "value": 1e-7,
+      "expected": 1e-7
+    },
+    {
+      "name": "negative",
+      "value": -5,
+      "expected": -5
+    }
+  ],
+  "aggregate": [
+    {
+      "name": "mixed sum",
+      "rows": [
+        {
+          "f": "1"
+        },
+        {
+          "f": 2
+        },
+        {
+          "f": null
+        },
+        {
+          "f": "x"
+        },
+        {
+          "f": " "
+        },
+        {}
+      ],
+      "field": "f",
+      "agg": "sum",
+      "expected": 3
+    },
+    {
+      "name": "mixed count",
+      "rows": [
+        {
+          "f": "1"
+        },
+        {
+          "f": 2
+        },
+        {
+          "f": null
+        },
+        {
+          "f": "x"
+        },
+        {
+          "f": " "
+        },
+        {}
+      ],
+      "field": "f",
+      "agg": "count",
+      "expected": 4
+    },
+    {
+      "name": "mixed avg",
+      "rows": [
+        {
+          "f": "1"
+        },
+        {
+          "f": 2
+        },
+        {
+          "f": null
+        },
+        {
+          "f": "x"
+        },
+        {
+          "f": " "
+        },
+        {}
+      ],
+      "field": "f",
+      "agg": "avg",
+      "expected": 1.5
+    },
+    {
+      "name": "mixed min",
+      "rows": [
+        {
+          "f": "1"
+        },
+        {
+          "f": 2
+        },
+        {
+          "f": null
+        },
+        {
+          "f": "x"
+        },
+        {
+          "f": " "
+        },
+        {}
+      ],
+      "field": "f",
+      "agg": "min",
+      "expected": 1
+    },
+    {
+      "name": "mixed max",
+      "rows": [
+        {
+          "f": "1"
+        },
+        {
+          "f": 2
+        },
+        {
+          "f": null
+        },
+        {
+          "f": "x"
+        },
+        {
+          "f": " "
+        },
+        {}
+      ],
+      "field": "f",
+      "agg": "max",
+      "expected": 2
+    },
+    {
+      "name": "none coercible sum",
+      "rows": [
+        {
+          "f": "x"
+        },
+        {
+          "f": null
+        }
+      ],
+      "field": "f",
+      "agg": "sum",
+      "expected": 0
+    },
+    {
+      "name": "none coercible avg",
+      "rows": [
+        {
+          "f": "x"
+        },
+        {
+          "f": null
+        }
+      ],
+      "field": "f",
+      "agg": "avg",
+      "expected": null
+    },
+    {
+      "name": "none coercible min",
+      "rows": [
+        {
+          "f": "x"
+        },
+        {
+          "f": null
+        }
+      ],
+      "field": "f",
+      "agg": "min",
+      "expected": null
+    },
+    {
+      "name": "empty rows sum",
+      "rows": [],
+      "field": "f",
+      "agg": "sum",
+      "expected": 0
+    },
+    {
+      "name": "empty rows count",
+      "rows": [],
+      "field": "f",
+      "agg": "count",
+      "expected": 0
+    },
+    {
+      "name": "count counts non-numeric non-null cells",
+      "rows": [
+        {
+          "f": "x"
+        },
+        {
+          "f": ""
+        },
+        {
+          "f": false
+        },
+        {
+          "f": null
+        }
+      ],
+      "field": "f",
+      "agg": "count",
+      "expected": 3
+    },
+    {
+      "name": "hex and exponent strings",
+      "rows": [
+        {
+          "f": "0x10"
+        },
+        {
+          "f": "1e1"
+        },
+        {
+          "f": " 4 "
+        }
+      ],
+      "field": "f",
+      "agg": "sum",
+      "expected": 30
+    },
+    {
+      "name": "negative min",
+      "rows": [
+        {
+          "f": "-3"
+        },
+        {
+          "f": -7.5
+        },
+        {
+          "f": 2
+        }
+      ],
+      "field": "f",
+      "agg": "min",
+      "expected": -7.5
+    }
+  ],
+  "group": [
+    {
+      "name": "numeric keys use ES Number toString",
+      "rows": [
+        {
+          "k": 1,
+          "y": 1
+        },
+        {
+          "k": 2.5,
+          "y": 2
+        },
+        {
+          "k": 1e21,
+          "y": 3
+        },
+        {
+          "k": 1e-7,
+          "y": 4
+        },
+        {
+          "k": 9223372036854775808,
+          "y": 5
+        },
+        {
+          "k": 100000000000000000000,
+          "y": 6
+        },
+        {
+          "k": 9007199254740993,
+          "y": 7
+        },
+        {
+          "k": -0,
+          "y": 8
+        },
+        {
+          "k": 1.5e-7,
+          "y": 9
+        },
+        {
+          "k": 123.456,
+          "y": 10
+        },
+        {
+          "k": 5e-324,
+          "y": 11
+        },
+        {
+          "k": 1e-323,
+          "y": 12
+        },
+        {
+          "k": 0.000001,
+          "y": 13
+        },
+        {
+          "k": -1.5,
+          "y": 14
+        }
+      ],
+      "groupBy": "k",
+      "agg": "sum",
+      "yField": "y",
+      "expected": {
+        "categories": [
+          "-1.5",
+          "0",
+          "0.000001",
+          "1",
+          "1.5e-7",
+          "100000000000000000000",
+          "123.456",
+          "1e+21",
+          "1e-323",
+          "1e-7",
+          "2.5",
+          "5e-324",
+          "9007199254740992",
+          "9223372036854776000"
+        ],
+        "values": [14, 8, 13, 1, 9, 6, 10, 3, 12, 4, 2, 11, 7, 5]
+      }
+    },
+    {
+      "name": "non-numeric keys",
+      "rows": [
+        {
+          "k": "b",
+          "y": "1"
+        },
+        {
+          "k": "a",
+          "y": "2"
+        },
+        {
+          "k": "b",
+          "y": "3"
+        },
+        {
+          "k": null,
+          "y": 4
+        },
+        {
+          "y": 5
+        },
+        {
+          "k": true,
+          "y": 6
+        },
+        {
+          "k": false,
+          "y": 7
+        },
+        {
+          "k": "B",
+          "y": 8
+        }
+      ],
+      "groupBy": "k",
+      "agg": "sum",
+      "yField": "y",
+      "expected": {
+        "categories": ["B", "a", "b", "false", "null", "true", "undefined"],
+        "values": [8, 2, 4, 7, 4, 6, 5]
+      }
+    },
+    {
+      "name": "group avg with non-coercible group",
+      "rows": [
+        {
+          "k": "a",
+          "y": "x"
+        },
+        {
+          "k": "b",
+          "y": "4"
+        },
+        {
+          "k": "b",
+          "y": 6
+        }
+      ],
+      "groupBy": "k",
+      "agg": "avg",
+      "yField": "y",
+      "expected": {
+        "categories": ["a", "b"],
+        "values": [0, 5]
+      }
+    },
+    {
+      "name": "group count",
+      "rows": [
+        {
+          "k": "a",
+          "y": null
+        },
+        {
+          "k": "a",
+          "y": 1
+        },
+        {
+          "k": "b",
+          "y": "z"
+        }
+      ],
+      "groupBy": "k",
+      "agg": "count",
+      "yField": "y",
+      "expected": {
+        "categories": ["a", "b"],
+        "values": [1, 1]
+      }
+    }
+  ]
+}

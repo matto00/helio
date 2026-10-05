@@ -338,7 +338,10 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
             "pipeline_roots",
             // HEL-1074: dataset_rows is created (not pre-existing) by V106, same "created and
             // FORCEd by this same migration" shape as outputs/node_snapshots/pipeline_roots above.
-            "dataset_rows"
+            "dataset_rows",
+            // HEL-1271: output_snapshot_history is created and FORCEd by V115 as this same
+            // non-superuser role; its existence here also proves the migration applied.
+            "output_snapshot_history"
           )
           for (tableName <- forceRlsTables) {
             val forced = await(
