@@ -55,17 +55,14 @@ exactly; no bound was changed.
 
 ## CI heap probe (cycle 2)
 
-CI backend job OOM'd (`Java heap space`, sbt server `max 1.00GB`). Probed locally in `backend/`, reading the
-server JVM's `Runtime.getRuntime.maxMemory` via `sbt '<form>' 'eval java.lang.Runtime.getRuntime.maxMemory'`
-(local default heap is 16651386880):
+CI backend job OOM'd (`Java heap space`, sbt server `max 1.00GB`). Local probes in `backend/` with no server
+running (`Runtime.getRuntime.maxMemory`; local default 16651386880):
 
-- `SBT_OPTS=-Xmx3g` -> 16651386880 (NOT applied to the server)
-- `JAVA_OPTS=-Xmx3g` -> 16651386880 (NOT applied)
-- `sbt -J-Xmx3g ...` -> **3221225472** (applied)
+- `SBT_OPTS=-Xmx3g` and `JAVA_OPTS=-Xmx3g` -> 16651386880 (not applied locally)
+- thin client `sbt -J-Xmx3g` -> 3221225472; `sbt -batch -J-Xmx3g` -> 3221225472; a `.jvmopts` with `-Xmx3g` -> 3221225472
 
-`sbt -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile"` also prints `ans: Long = 3221225472`
-inside one quoted command. ci.yml's "Compile and test" step now runs
-`sbt -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile; testFull"`; `backend/.sbtopts` untouched.
-The `-J` form only takes effect when it starts the server (fresh CI runner); servers shut down after each probe
-with `sbt --client shutdown`. The owner-ruling event log was not present in this worktree to check; the change
-follows the instruction as relayed.
+First CI attempt (21cd9f10, thin client + `-J-Xmx3g`) still printed `ans: Long = 1073741824` on the runner and
+OOM'd (run 37341661099, job 111869966251): the local result did not transfer to CI's sbt runner. Retry: batch
+mode plus a CI-only `.jvmopts` plus `-J-Xmx3g`, with the eval line kept as proof. The earlier statement here that
+`-J` was proven by the local probe is superseded: it was proven locally only. Owner ruling
+`ci-only-heap-in-this-pr` verified in the main checkout's `.concertino/runs/HEL-1273/events.jsonl`.

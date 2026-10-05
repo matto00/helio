@@ -154,11 +154,15 @@ jobs:
       - name: Compile and test
         # HEL-1018: one quoted command -- sbt 2's thin client joins unquoted args into a single
         # (unparseable) command; testFull never serves a cached result.
-        # HEL-1273: the sbt server defaulted to a 1.00GB heap here; main's base ran at ~97% of it
-        # (85-97% GC) and PR #769's test compile hit `java.lang.OutOfMemoryError: Java heap space`.
-        # `-J-Xmx3g` is the form that reaches the server JVM (SBT_OPTS/JAVA_OPTS did not when probed
-        # locally); the leading `eval` prints the server's real max heap (~3221225472) into this log.
-        run: sbt -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile; testFull"
+        # HEL-1273: the sbt server's heap was 1.00GB here; main's base ran at ~97% of it (85-97% GC)
+        # and PR #769's test compile hit `java.lang.OutOfMemoryError: Java heap space`. A first try
+        # (`sbt -J-Xmx3g` via the thin client) still printed 1073741824 on this runner although it
+        # gave 3221225472 locally, so the heap is now set two ways at once, in batch mode (no thin
+        # client / background server): a CI-only `.jvmopts` (untracked; backend/.sbtopts is
+        # untouched) and `-J-Xmx3g`. The leading `eval` prints the JVM's real max heap into this log.
+        run: |
+          printf '%s\n' -Xmx3g > .jvmopts
+          sbt -batch -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile; testFull"
         working-directory: backend
 
   # HEL-459: fails the build on a new high/critical CVE. Backend: a small sbt task
