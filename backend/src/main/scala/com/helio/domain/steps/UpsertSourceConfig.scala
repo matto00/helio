@@ -1,10 +1,7 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId}
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import spray.json._
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /** HEL-1099: config model for the future `upsertsource` pipeline step (design spec
@@ -42,17 +39,16 @@ import scala.util.{Failure, Success, Try}
  *      `PipelineStepRepository.rowToDomain` turns any decode failure into an
  *      `IllegalStateException` on every read, so strictness must live here, not there). A
  *      PRESENT-but-wrong-typed value still fails `decode`, exactly like every other step.
- *    - [[validateTargetOwnership]] — the async ownership pre-flight an `ExistingSource`
- *      target needs before HEL-1100 can wire this into `PipelineService.addStep`'s existing
- *      `aclCheckF` (mirrors the `secondaryDataSourceId`/`findByIdOwned` pattern `join`/
+ *    - [[UpsertTargetCheck]] — the async ownership-and-kind pre-flight an `ExistingSource`
+ *      target needs (mirrors the `secondaryDataSourceId`/`findByIdOwned` pattern `join`/
  *      `union`/`lookup` already use). Returns a uniform "not found" for both a genuinely
  *      absent id and one owned by another tenant — never a distinguishable cross-tenant
- *      existence oracle.
+ *      existence oracle — and a named refusal for an owned non-dataset (HEL-1265).
  *
  *  '''HEL-1100 registers the real `UpsertSourceStep`''' into `PipelineStep.Registry` — it is the
  *  ticket that supplies `evaluate`, so it is the one with a reason to touch the registry; HEL-1101
  *  and HEL-1102 do not. HEL-1100 reuses this file's `UpsertSourceConfig`/`UpsertTarget` types and
- *  wires `validateRawConfig`/`validateTargetOwnership` into the `Companion` exactly as this
+ *  wires `validateRawConfig`/[[UpsertTargetCheck]] into the `Companion` exactly as this
  *  scaladoc describes — no config-shape decision is deferred to that ticket. Per design.md
  *  Decision 1 (added after design-gate skeptic round 1 REFUTE): '''HEL-1100 is blocked on
  *  HEL-1101''' — registration, and flipping `PipelineCreateTransactionalSpec`'s pinned rejection,
@@ -244,31 +240,4 @@ object UpsertSourceConfig {
         case _ => None
       }
     }
-
-  /** Async ownership pre-flight for an [[UpsertTarget.ExistingSource]] target — the
-   *  standalone building block for the `aclCheckF` HEL-1100 will add to
-   *  `PipelineService.addStep`'s existing pre-flight (mirrors the `secondaryDataSourceId`/
-   *  `findByIdOwned` pattern `join`/`union`/`lookup` already use there).
-   *
-   *  `findByIdOwned` returns `None` uniformly for "does not exist" and "exists but is owned
-   *  by someone else" (see its own scaladoc / HEL-278) — so this never gives a caller a way
-   *  to distinguish "not found" from "found, not yours" for another tenant's source. An
-   *  empty `dataSourceId` (the picker's own unset-draft value, matching HEL-950) is treated
-   *  as an incomplete config, not a lookup — skipped, `None`.
-   *
-   *  A [[UpsertTarget.NewSource]] target has nothing to own yet — always `None`. */
-  def validateTargetOwnership(
-      target: UpsertTarget,
-      user: AuthenticatedUser,
-      dataSourceRepo: DataSourceRepository
-  )(implicit ec: ExecutionContext): Future[Option[String]] = target match {
-    case UpsertTarget.NewSource(_) => Future.successful(None)
-    case UpsertTarget.ExistingSource(id) if id.trim.isEmpty =>
-      Future.successful(None)
-    case UpsertTarget.ExistingSource(id) =>
-      dataSourceRepo.findByIdOwned(DataSourceId(id), user).map {
-        case Some(_) => None
-        case None    => Some(s"Data source not found: $id")
-      }
-  }
 }

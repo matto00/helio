@@ -389,7 +389,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   ): DBIO[Either[String, Unit]] =
     table.filter(r => r.id === id.value && r.ownerId === ownerUuid).map(r => (r.sourceType, r.datasetSchema)).result.headOption.flatMap {
       case None => DBIO.successful(Left(s"Data source not found: ${id.value}"))
-      case Some((kind, _)) if kind != DataSourceKind.Dataset && kind != DataSourceKind.Static =>
+      case Some((kind, _)) if !DataSourceKind.isWritableDataset(kind) =>
         DBIO.successful(Left(s"Data source is not a dataset: ${id.value}"))
       case Some((_, schemaColOpt)) =>
         val declaration = schemaColOpt.map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]]).getOrElse(Vector.empty)

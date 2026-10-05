@@ -216,54 +216,66 @@ class UpsertSourceConfigSpec extends AnyWordSpec with Matchers with OptionValues
     id
   }
 
-  "UpsertSourceConfig.validateTargetOwnership" should {
+  private def seedOwnedDataset(owner: AuthenticatedUser): DataSourceId = {
+    val now = Instant.now()
+    val id  = DataSourceId(UUID.randomUUID().toString)
+    await(repo.insert(DatasetSource(id, "Owned Dataset", owner.id, now, now), owner))
+    id
+  }
+
+  "UpsertTargetCheck.check" should {
 
     "accept a NewSource target unconditionally -- nothing to own yet" in {
       cleanDb()
-      await(UpsertSourceConfig.validateTargetOwnership(UpsertTarget.NewSource("New One"), ownerA, repo)) shouldBe None
+      await(UpsertTargetCheck.check(UpsertTarget.NewSource("New One"), ownerA, repo)) shouldBe UpsertTargetCheck.Writable
     }
 
     "accept an empty existingSource dataSourceId as an incomplete draft, not a lookup" in {
       cleanDb()
-      await(UpsertSourceConfig.validateTargetOwnership(UpsertTarget.ExistingSource(""), ownerA, repo)) shouldBe None
+      await(UpsertTargetCheck.check(UpsertTarget.ExistingSource(""), ownerA, repo)) shouldBe UpsertTargetCheck.Writable
     }
 
-    "accept an existingSource target the caller owns" in {
+    "accept an existingSource dataset target the caller owns" in {
+      cleanDb()
+      val id = seedOwnedDataset(ownerA)
+      await(UpsertTargetCheck.check(UpsertTarget.ExistingSource(id.value), ownerA, repo)) shouldBe UpsertTargetCheck.Writable
+    }
+
+    "refuse an owned non-dataset target as NotWritable, naming its id, name and kind (HEL-1265)" in {
       cleanDb()
       val id = seedOwnedSource(ownerA)
-      await(UpsertSourceConfig.validateTargetOwnership(UpsertTarget.ExistingSource(id.value), ownerA, repo)) shouldBe None
+      await(UpsertTargetCheck.check(UpsertTarget.ExistingSource(id.value), ownerA, repo)) match {
+        case UpsertTargetCheck.NotWritable(msg) => msg should (include(id.value) and include("Owned Source") and include("rest_api"))
+        case other                              => fail(s"expected NotWritable, got $other")
+      }
     }
 
     "reject a genuinely unknown dataSourceId" in {
       cleanDb()
-      val problem = await(
-        UpsertSourceConfig.validateTargetOwnership(
-          UpsertTarget.ExistingSource(UUID.randomUUID().toString), ownerA, repo
-        )
-      )
-      problem shouldBe defined
+      await(UpsertTargetCheck.check(UpsertTarget.ExistingSource(UUID.randomUUID().toString), ownerA, repo)) shouldBe a[UpsertTargetCheck.NotFound]
     }
 
     "reject another tenant's dataSourceId with the SAME message as an unknown id -- " +
       "no cross-tenant existence oracle: a non-owner cannot distinguish 'not found' from " +
-      "'found, but not yours'" in {
+      "'found, but not yours', and never learns the foreign source's kind" in {
       cleanDb()
       val othersId = seedOwnedSource(ownerB)
       val unknownId = UUID.randomUUID().toString
 
-      val forOthersSource = await(
-        UpsertSourceConfig.validateTargetOwnership(UpsertTarget.ExistingSource(othersId.value), ownerA, repo)
-      )
-      val forUnknown = await(
-        UpsertSourceConfig.validateTargetOwnership(UpsertTarget.ExistingSource(unknownId), ownerA, repo)
-      )
+      val forOthersSource = await(UpsertTargetCheck.check(UpsertTarget.ExistingSource(othersId.value), ownerA, repo))
+      val forUnknown      = await(UpsertTargetCheck.check(UpsertTarget.ExistingSource(unknownId), ownerA, repo))
 
-      forOthersSource shouldBe defined
-      forUnknown shouldBe defined
-      // Same shape of message either way -- both name only the id the CALLER supplied,
-      // never anything about the row that actually exists under a different owner.
-      forOthersSource.get shouldBe s"Data source not found: ${othersId.value}"
-      forUnknown.get shouldBe s"Data source not found: $unknownId"
+      forOthersSource shouldBe UpsertTargetCheck.NotFound(s"Data source not found: ${othersId.value}")
+      forUnknown shouldBe UpsertTargetCheck.NotFound(s"Data source not found: $unknownId")
+    }
+  }
+
+  "DataSourceKind.isWritableDataset" should {
+    "be true only for dataset, including the retired static alias" in {
+      DataSourceKind.isWritableDataset(DataSourceKind.Dataset) shouldBe true
+      DataSourceKind.isWritableDataset(DataSourceKind.Static) shouldBe true
+      Seq(DataSourceKind.Csv, DataSourceKind.RestApi, DataSourceKind.Sql, DataSourceKind.Text, DataSourceKind.Pdf, DataSourceKind.Image)
+        .foreach(kind => withClue(kind)(DataSourceKind.isWritableDataset(kind) shouldBe false))
     }
   }
 }

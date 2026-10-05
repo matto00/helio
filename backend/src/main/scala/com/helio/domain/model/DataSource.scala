@@ -284,6 +284,11 @@ object DataSourceKind {
   def canonicalize(s: String): String =
     if (s == Static) Dataset else s
 
+  /** HEL-1265: the single "may an `upsertsource` step write rows into a source of this kind"
+   *  predicate. The save-time check, analyze, step evaluation and the real run's deferred write
+   *  all call this, so they cannot disagree about which kinds are writable. */
+  def isWritableDataset(kind: String): Boolean = canonicalize(kind) == Dataset
+
   def parseKind(s: String): Either[String, String] = {
     val canonical = canonicalize(s)
     if (All.contains(canonical)) Right(canonical)

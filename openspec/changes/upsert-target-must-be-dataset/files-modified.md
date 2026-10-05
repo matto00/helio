@@ -1,0 +1,16 @@
+- `backend/src/main/scala/com/helio/domain/model/DataSource.scala` — `DataSourceKind.isWritableDataset`, the single writability predicate
+- `backend/src/main/scala/com/helio/domain/steps/UpsertTargetCheck.scala` — new: typed Writable/NotFound/NotWritable outcome, shared message, owner-scoped check
+- `backend/src/main/scala/com/helio/domain/steps/UpsertSourceConfig.scala` — removed `validateTargetOwnership` (superseded by `UpsertTargetCheck`), docs updated
+- `backend/src/main/scala/com/helio/domain/steps/UpsertSourceStep.scala` — evaluate refuses a non-writable target (StepConfigError) / not-found / no-owner before recording the write
+- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala` — write-time kind test now uses the shared predicate (behaviour-identical)
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — save-time 422 for NotWritable; analyze/concise/analyzeProposal overlay target problems (small hunks)
+- `backend/src/main/scala/com/helio/services/pipelines/UpsertTargetAnalysis.scala` — new: pre-resolves upsert targets for analyze and overlays `validationError`
+- `helio-mcp/src/tools/write.ts` — add_pipeline_step upsertsource description: target must be a dataset the owner owns
+- `backend/src/test/scala/com/helio/api/routes/pipelines/UpsertTargetWritableRoutesSpec.scala` — new: save/analyze/preview/Output preview/dry run/real run/list/sibling/HEL-1252 route coverage
+- `backend/src/test/scala/com/helio/services/pipelines/UpsertTargetWritableRlsSpec.scala` — new: non-BYPASSRLS proof incl. grantee-editor and no kind disclosure for foreign/unknown
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineApplyProposalUpsertTargetSpec.scala` — new: apply-proposal funnels through the check, atomic
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetApplyServiceSpec.scala` — one case: patch-set upsert create with a CSV target fails and rolls back the earlier edit
+- `backend/src/test/scala/com/helio/domain/steps/UpsertSourceConfigSpec.scala` — old ownership tests rewritten against `UpsertTargetCheck`; predicate test
+- `backend/src/test/scala/com/helio/domain/steps/UpsertSourceStepSpec.scala` — fixture-shape: pure evaluate test uses NewSource (no repo)
+- `openspec/changes/upsert-target-must-be-dataset/tasks.md` — tasks ticked
+- `openspec/changes/upsert-target-must-be-dataset/repro-findings.md` — live red/green evidence, ids, dev DB count, mutation
