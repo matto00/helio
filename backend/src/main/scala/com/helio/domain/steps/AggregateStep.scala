@@ -93,7 +93,7 @@ object AggregateStep {
       val aggMap: PipelineRowJson.Row = aggregations.map { agg =>
         val fn = agg.fn.toLowerCase
         if (!SupportedFunctions.contains(fn))
-          throw new IllegalArgumentException(
+          throw new StepConfigError(
             "Unsupported aggregation function: " + fn +
               ". Supported: " + SupportedFunctions.mkString(", ")
           )
@@ -116,7 +116,7 @@ object AggregateStep {
           val field = agg.field
           val nums  = groupRows.flatMap(r => PipelineRowJson.toDouble(r.getOrElse(field, null)))
           if (!SupportedFunctions.contains(fn))
-            throw new IllegalArgumentException(
+            throw new StepConfigError(
               "Unsupported aggregation function: " + fn +
                 ". Supported: " + SupportedFunctions.mkString(", ")
             )

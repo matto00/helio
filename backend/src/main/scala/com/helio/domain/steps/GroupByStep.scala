@@ -71,7 +71,7 @@ object GroupByStep {
     val aggFn     = cfg.aggFunction.toLowerCase
     val outputCol = outputColumnName(cfg)
     if (!SupportedFunctions.contains(aggFn))
-      throw new IllegalArgumentException(
+      throw new StepConfigError(
         "Unsupported aggregation function: " + aggFn + ". Supported: " + SupportedFunctions.mkString(", ")
       )
     val grouped   = rows.groupBy(row => groupCols.map(c => row.getOrElse(c, null)))

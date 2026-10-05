@@ -98,6 +98,26 @@ final class PipelineRunService(
 
   private val log = LoggerFactory.getLogger(getClass)
 
+  /** HEL-1147: one log call for every pipeline-execution failure site. A step-configuration
+   *  failure is a user error (an incomplete/invalid step), so it is a single WARN line --
+   *  pipeline, step id, kind, reason -- with no stack trace; anything else (data, reference,
+   *  provider, engine fault) keeps ERROR + stack. */
+  private def logExecutionFailure(context: String, ex: Throwable): Unit = ex match {
+    case see: StepExecutionException if see.isStepConfigError =>
+      log.warn(s"$context: invalid step configuration at step ${see.stepId} (${see.stepKind}): ${see.reason}")
+    case _ => log.error(context, ex)
+  }
+
+  /** HEL-1147: the 422 for a failed execution. A step-configuration failure is the named
+   *  [[ServiceError.StepConfigInvalid]] (same `message`, plus the failing step and clean reason);
+   *  everything else stays the unnamed [[ServiceError.UnprocessableEntity]]. */
+  private def executionFailureError(ex: Throwable): ServiceError = ex match {
+    case see: StepExecutionException if see.isStepConfigError =>
+      ServiceError.StepConfigInvalid(see.stepId, see.stepKind, see.reason, see.getMessage)
+    case see: StepExecutionException => ServiceError.UnprocessableEntity(see.getMessage)
+    case _                           => ServiceError.UnprocessableEntity("Pipeline execution failed")
+  }
+
   /** HEL-862/HEL-881 (design.md Decision 2/3, task 2.2): the single seam the
    *  engine calls for EVERY URL-backed source kind — a thin closure that
    *  dispatches by `kind` to `CsvUrlFetch.fetch` (csv keeps its https-only +
@@ -521,12 +541,8 @@ final class PipelineRunService(
                   truncationNotice = notice, truncatedReads = truncatedReads
                 ))
               }.recover { case ex =>
-                log.error(s"previewAtNode (source-level) failed for pipeline ${pipelineId.value}", ex)
-                val errMsg = ex match {
-                  case see: StepExecutionException => see.getMessage
-                  case _                            => "Pipeline execution failed"
-                }
-                Left(ServiceError.UnprocessableEntity(errMsg))
+                logExecutionFailure(s"previewAtNode (source-level) failed for pipeline ${pipelineId.value}", ex)
+                Left(executionFailureError(ex))
               }
             }
           case roots =>
@@ -620,12 +636,8 @@ final class PipelineRunService(
                     // the raw exception tail; log the detail server-side.
                     // HEL-859 (design.md Decision 3): forward the attributed
                     // step id/kind/reason when available, same as run's failure path.
-                    log.error(s"previewStep failed for pipeline ${pipelineId.value}, step $stepId", ex)
-                    val errMsg = ex match {
-                      case see: StepExecutionException => see.getMessage
-                      case _                            => "Pipeline execution failed"
-                    }
-                    Left(ServiceError.UnprocessableEntity(errMsg))
+                    logExecutionFailure(s"previewStep failed for pipeline ${pipelineId.value}, step $stepId", ex)
+                    Left(executionFailureError(ex))
                   }
                   }
               }
@@ -730,7 +742,7 @@ final class PipelineRunService(
                 ownerUserId = Some(pipeline.ownerId.value))
               .flatMap(outcome => persistBackfilledRows(pipelineId, None, outcome.rows, explicitRootId))
               .recover { case ex =>
-                log.error(s"HEL-947: backfill source-level evaluation failed for pipeline ${pipelineId.value}", ex)
+                logExecutionFailure(s"HEL-947: backfill source-level evaluation failed for pipeline ${pipelineId.value}", ex)
               }
           case roots =>
             val stepId = targetStepId.get.value
@@ -753,7 +765,7 @@ final class PipelineRunService(
                       persistBackfilledRows(pipelineId, targetStepId, targetRows, explicitRootId = None)
                     }
                     .recover { case ex =>
-                      log.error(s"HEL-947: backfill evaluation failed for pipeline ${pipelineId.value}, step $stepId", ex)
+                      logExecutionFailure(s"HEL-947: backfill evaluation failed for pipeline ${pipelineId.value}, step $stepId", ex)
                     }
               }
             }
@@ -1092,7 +1104,7 @@ final class PipelineRunService(
         // and the persisted `PipelineRunRecord.errorLog` returned by
         // run-history. Genericizing here (keeping the static prefix, logging
         // the raw cause server-side) covers all three at construction.
-        log.error(s"Pipeline execution failed for pipeline ${pipelineId.value}, run ${runId.value}", ex)
+        logExecutionFailure(s"Pipeline execution failed for pipeline ${pipelineId.value}, run ${runId.value}", ex)
         // HEL-859 (design.md Decision 3, Decision 3a): when the failure was
         // attributed to a specific step by the in-process engine, forward its
         // curated message (id, kind, allowlisted reason); the Spark path
@@ -1121,7 +1133,7 @@ final class PipelineRunService(
               persistAssertions(runId, assertionSink.results)
             }
           } else Future.successful(())
-        failWork.map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
+        failWork.map(_ => Left(executionFailureError(ex)))
   }
 
   /** The `Success(...)` branch of `executeRun`'s original inline `transformWith` (HEL-505:

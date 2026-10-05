@@ -25,6 +25,11 @@ object ServiceError {
    *  processed due to semantic issues (e.g. pipeline source type unsupported,
    *  execution failed for a request-supplied input). */
   final case class UnprocessableEntity(message: String) extends ServiceError
+  /** 422 for a pipeline execution refused because a step's own configuration is missing or
+   *  invalid (HEL-1147). A sibling of [[UnprocessableEntity]] (same status, `message` unchanged)
+   *  that additionally names the failing step so the client can render the clean `reason`.
+   *  `ServiceResponse.completeError` emits it as `StepConfigErrorResponse`. */
+  final case class StepConfigInvalid(stepId: String, stepKind: String, reason: String, message: String) extends ServiceError
   /** Upstream / external service failure — used by connector preview / refresh
    *  paths that propagate REST or SQL fetch errors back as 502. */
   final case class BadGateway(message: String) extends ServiceError

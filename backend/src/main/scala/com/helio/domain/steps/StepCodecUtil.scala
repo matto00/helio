@@ -2,6 +2,14 @@ package com.helio.domain.steps
 
 import spray.json._
 
+/** HEL-1147: marks a step-CONFIGURATION failure -- a step kind's required-config check, or an
+ *  invalid configuration value a step detects while evaluating -- as distinct from data,
+ *  reference, provider and engine failures, which all also surface as plain
+ *  `IllegalArgumentException`. Extends `IllegalArgumentException` so HEL-859's message
+ *  pass-through in `StepExecutionException.from` is unchanged; `StepExecutionException`
+ *  exposes `isStepConfigError` for the service layer to branch on. */
+class StepConfigError(message: String) extends IllegalArgumentException(message)
+
 /** Raised by the strict extractors below when a configuration key is
  *  **present but of a JSON type that cannot represent the field's declared
  *  type** (HEL-814 D1). Extends `IllegalArgumentException` so the run path's
@@ -14,7 +22,7 @@ import spray.json._
  *  into a 500, so absence-strictness would break opening the pipeline editor
  *  on a step a user added but has not configured yet (20 such rows measured
  *  live across dev and prod). */
-final class StepConfigTypeMismatch(message: String) extends IllegalArgumentException(message)
+final class StepConfigTypeMismatch(message: String) extends StepConfigError(message)
 
 /** Shared parsing helpers for the per-step config decoders.
  *

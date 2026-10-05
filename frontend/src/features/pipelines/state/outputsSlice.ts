@@ -22,6 +22,7 @@ import {
 // action and reset the preview cache the instant a new run starts, without
 // requiring every dispatch call site to remember a second dispatch. One-way
 // dependency (pipelinesSlice does not import outputsSlice), so no cycle.
+import { extractStepConfigError } from "../services/stepConfigError";
 import { submitPipelineRun } from "./pipelinesSlice";
 import type {
   CreateOutputPayload,
@@ -39,6 +40,12 @@ function extractErrorMessage(err: unknown, fallback: string): string {
     return err.response.data.message;
   }
   return fallback;
+}
+
+/** HEL-1147: a step-configuration 422 surfaces its clean `reason`; every other failure keeps this
+ *  slice's own extraction. */
+function previewFailureMessage(err: unknown, fallback: string): string {
+  return extractStepConfigError(err)?.reason ?? extractErrorMessage(err, fallback);
 }
 
 export type AsyncStatus = "idle" | "loading" | "succeeded" | "failed";
@@ -205,7 +212,7 @@ export const previewOutput = createAsyncThunk<
       }
       return { key, result: entry.preview, requestToken };
     } catch (err) {
-      return rejectWithValue(extractErrorMessage(err, "Failed to preview output."));
+      return rejectWithValue(previewFailureMessage(err, "Failed to preview output."));
     }
   },
 );
@@ -224,7 +231,7 @@ export const previewUnsavedOutputStep = createAsyncThunk<
       const result = await previewStepRequest(pipelineId, stepId);
       return { key, result, requestToken };
     } catch (err) {
-      return rejectWithValue(extractErrorMessage(err, "Failed to preview step."));
+      return rejectWithValue(previewFailureMessage(err, "Failed to preview step."));
     }
   },
 );

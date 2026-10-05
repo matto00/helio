@@ -78,7 +78,7 @@ object PivotStep {
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: PivotConfig): Seq[PipelineRowJson.Row] = {
     if (!SupportedAggs.contains(cfg.agg))
-      throw new IllegalArgumentException(
+      throw new StepConfigError(
         s"Unsupported pivot aggregation function: '${cfg.agg}'. Supported: ${SupportedAggs.mkString(", ")}"
       )
 

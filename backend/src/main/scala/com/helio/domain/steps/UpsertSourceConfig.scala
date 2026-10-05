@@ -163,10 +163,25 @@ object UpsertSourceConfig {
     val obj    = StepCodecUtil.asObject(raw)
     val target = obj.fields.get("target") match {
       case None | Some(JsNull) => UpsertTarget.Default
-      case Some(v)             => UpsertTarget.format.read(v)
+      case Some(v)             => readTargetTolerant(v)
     }
     val mode = StepCodecUtil.str(obj, "mode", UpsertMode.Default)
     UpsertSourceConfig(target, mode)
+  }
+
+  /** HEL-1147 decode-only target reader: a `newSource` target whose `name` is absent or not a
+   *  string reads as `NewSource("")` (the same "unset, not affirmatively wrong" tolerance the
+   *  absent-`target` case above gets), so a stored row in that shape still lists and surfaces
+   *  `requiredConfigProblems` instead of failing `rowToDomain`. Everything else delegates to the
+   *  strict [[UpsertTarget.format]], which the write path, wire protocol and
+   *  DataSourceReferenceRepository keep using unchanged. */
+  private def readTargetTolerant(v: JsValue): UpsertTarget = v match {
+    case obj: JsObject if obj.fields.get("kind").contains(JsString("newSource")) =>
+      obj.fields.get("name") match {
+        case Some(JsString(name)) => UpsertTarget.NewSource(name)
+        case _                    => UpsertTarget.NewSource("")
+      }
+    case other => UpsertTarget.format.read(other)
   }
 
   implicit val format: RootJsonFormat[UpsertSourceConfig] = new RootJsonFormat[UpsertSourceConfig] {

@@ -7,6 +7,11 @@ import spray.json._
 
 final case class ResourceMetaResponse(createdBy: Option[String], createdAt: String, lastUpdated: String)
 final case class ErrorResponse(message: String)
+/** HEL-1147: 422 body for a pipeline execution refused because a step's own configuration is
+ *  missing/invalid. `message` is the unchanged generic error text (step id + lane path included);
+ *  `reason` is the step's own problem description without that prefix. Titled
+ *  `StepConfigErrorResponse` in `schemas/shared/`. */
+final case class StepConfigErrorResponse(message: String, code: String, stepId: String, stepKind: String, reason: String)
 final case class HealthResponse(status: String)
 
 object ResourceMetaResponse {
@@ -26,5 +31,7 @@ trait ResourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
     ResourceMetaResponse.apply
   )
   implicit val errorResponseFormat: RootJsonFormat[ErrorResponse]   = jsonFormat1(ErrorResponse.apply)
+  implicit val stepConfigErrorResponseFormat: RootJsonFormat[StepConfigErrorResponse] =
+    jsonFormat5(StepConfigErrorResponse.apply)
   implicit val healthResponseFormat: RootJsonFormat[HealthResponse] = jsonFormat1(HealthResponse.apply)
 }
