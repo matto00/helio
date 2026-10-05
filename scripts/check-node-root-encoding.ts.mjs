@@ -38,7 +38,7 @@
  *     composition (a type inheriting `rootId` from a base interface it `extends` would be
  *     flagged as if it lacked the field entirely). `KNOWN_TYPE_EXEMPT_INTERFACES` below is the
  *     explicit, itemized escape hatch for that case, exactly like the Scala guard's
- *     `KNOWN_ROOT_QUALIFIED_LINES`.
+ *     `KNOWN_EXEMPTIONS`.
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -50,10 +50,10 @@ const SRC_ROOT = join(repoRoot, "helio-mcp", "src");
 
 // Interfaces that legitimately declare `nodeStepId` with NO `rootId` sibling -- reviewed and
 // found correct, named here rather than silently exempted (mirrors the Scala guard's own
-// `KNOWN_ROOT_QUALIFIED_LINES` convention: an itemized escape hatch, not a blanket one).
+// `KNOWN_EXEMPTIONS` convention: an itemized escape hatch, not a blanket one).
 const KNOWN_TYPE_EXEMPT_INTERFACES = new Set([
   // ProposalOutputSummary (types.ts) mirrors the backend's `ProposalOutputSummary` verbatim
-  // (PipelineProposalProtocol.scala:126) -- that backend type genuinely has NO `rootId` field,
+  // (`PipelineProposalProtocol.scala`'s `ProposalOutputSummary` case class) -- that backend type genuinely has NO `rootId` field,
   // because `apply_pipeline_proposal` is confirmed single-source by design (HEL-913 7.2a's own
   // finding: PipelineProposalService never touched the multi-root wire fields). Adding a
   // `rootId` here would claim a capability the backend does not have.
@@ -66,18 +66,30 @@ const NULL_COALESCE_FORM = /\bnodeStepId\s*(\?\?|\|\|)\s*null\b/;
 
 // Lines already reviewed where a real `rootId` companion IS present, just on an ADJACENT line
 // (an object literal spanning several lines) rather than the same one -- mirrors the Scala
-// guard's own `KNOWN_ROOT_QUALIFIED_LINES` convention exactly, for the identical reason (a
-// plain per-line check cannot see a value split across lines). Each entry is
-// `relPath:lineNumber` (1-indexed) of the FLAGGED line, so a review stays pinned to an exact
-// occurrence, not a fuzzy description.
-const KNOWN_ROOT_QUALIFIED_LINES = new Set([
-  // context.ts's buildOutputSummariesByPipeline: `nodeStepId: o.nodeStepId ?? null,` is
-  // immediately followed by `rootId: o.rootId ?? null,` in the SAME object literal (the very
-  // next line) -- verified by eye, not merely assumed, since 8.1a's own lesson is that a gate's
-  // green result is scoped to exactly what it can see, and a per-line regex genuinely cannot
-  // see the next line.
-  "helio-mcp/src/context.ts:222",
-]);
+// guard's content-keyed `KNOWN_EXEMPTIONS` convention exactly (HEL-1282: previously keyed on
+// `relPath:lineNumber`, which broke on any unrelated edit above the site), for the identical
+// reason (a plain per-line check cannot see a value split across lines). An entry is
+// `{ file, scope, arm, text, count, reason }`: `scope` is the nearest preceding
+// `function <name>`, `arm` the governing `case ... =>` line in that scope (`<none>` here),
+// `text` the whitespace-normalised hit line, `count` the EXACT number of occurrences covered.
+// More hits than `count` -> every hit in the group is a violation; fewer -> the entry is
+// reported STALE (and the guard fails); no matching key -> violation. `file` is repo-relative,
+// the same form the entry point passes to `scanTextForViolations`.
+export const KNOWN_EXEMPTIONS = [
+  {
+    file: "helio-mcp/src/context.ts",
+    scope: "buildOutputSummariesByPipeline",
+    arm: "<none>",
+    text: "nodeStepId: o.nodeStepId ?? null,",
+    count: 1,
+    // context.ts's buildOutputSummariesByPipeline: `nodeStepId: o.nodeStepId ?? null,` is
+    // immediately followed by `rootId: o.rootId ?? null,` in the SAME object literal (the very
+    // next line) -- verified by eye, not merely assumed, since 8.1a's own lesson is that a gate's
+    // green result is scoped to exactly what it can see, and a per-line regex genuinely cannot
+    // see the next line.
+    reason: "rootId companion is on the very next line of the same object literal",
+  },
+];
 
 function isRootQualifiedSameLine(line) {
   return /rootId/.test(line);
@@ -106,26 +118,63 @@ function findInterfaceBlocks(text) {
   return blocks;
 }
 
+const normalise = (line) => line.trim().replace(/\s+/g, " ");
+const SCOPE_RE = /\bfunction\s+(\w+)/;
+const ARM_RE = /^\s*case\b.*=>/;
+const NO_ARM = "<none>";
+const keyOf = (file, scope, arm, text) => JSON.stringify([file, scope, arm, text]);
+
 /** Exported for the selftest (task 9.10-i, "prove the guard fires"): scans already-in-memory
  *  text (no disk access), mirroring `check-node-root-encoding.mjs`'s `scanTextForViolations`
- *  export contract exactly, so both guards' selftests share the same shape. */
-export function scanTextForViolations(relPath, text) {
+ *  export contract exactly, so both guards' selftests share the same shape. `exemptions`
+ *  defaults to the shipped table; stale entries for `relPath` are returned in the same array,
+ *  prefixed `stale exemption:`. */
+export function scanTextForViolations(relPath, text, exemptions = KNOWN_EXEMPTIONS) {
   const found = [];
 
   // Check 1: value-level, per-line.
-  const lines = text.split("\n");
-  lines.forEach((raw, idx) => {
-    const lineNo = idx + 1;
-    const key = `${relPath}:${lineNo}`;
-    if (KNOWN_ROOT_QUALIFIED_LINES.has(key)) return;
+  const hits = [];
+  let scope = "<top>";
+  let arm = NO_ARM;
+  text.split("\n").forEach((raw, idx) => {
     const trimmed = raw.trim();
     if (trimmed.startsWith("//") || trimmed.startsWith("*")) return;
+    const declared = SCOPE_RE.exec(raw);
+    if (declared) {
+      scope = declared[1];
+      arm = NO_ARM;
+    }
+    if (ARM_RE.test(raw)) arm = normalise(raw);
     if (!NULL_COALESCE_FORM.test(raw)) return;
     if (isRootQualifiedSameLine(raw)) return;
-    found.push(
-      `${relPath}:${lineNo}: null-means-root value encoding ("${trimmed}") -- see design.md R12`,
-    );
+    hits.push({ lineNo: idx + 1, trimmed, key: keyOf(relPath, scope, arm, normalise(raw)) });
   });
+
+  const entries = new Map();
+  for (const e of exemptions) {
+    if (e.file === relPath) entries.set(keyOf(e.file, e.scope, e.arm, e.text), e);
+  }
+  const groups = new Map();
+  for (const h of hits) groups.set(h.key, [...(groups.get(h.key) ?? []), h]);
+
+  for (const h of hits) {
+    const entry = entries.get(h.key);
+    const n = groups.get(h.key).length;
+    if (entry && n === entry.count) continue;
+    const surplus = entry ? ` -- ${n} occurrences, exemption covers ${entry.count}` : "";
+    found.push(
+      `${relPath}:${h.lineNo}: null-means-root value encoding ("${h.trimmed}") -- see design.md R12${surplus}`,
+    );
+  }
+  for (const [key, e] of entries) {
+    const n = groups.get(key)?.length ?? 0;
+    if (n < e.count) {
+      found.push(
+        `stale exemption: ${relPath} scope '${e.scope}' arm '${e.arm}' text "${e.text}" ` +
+          `matches ${n} line(s), expected ${e.count} -- delete or update the KNOWN_EXEMPTIONS entry`,
+      );
+    }
+  }
 
   // Check 2: type-level, per-interface-block.
   for (const { name, body, bodyStartLine } of findInterfaceBlocks(text)) {
@@ -141,6 +190,18 @@ export function scanTextForViolations(relPath, text) {
     );
   }
 
+  return found;
+}
+
+/** Entry-point post-scan pass: an exemption whose file was not among `scannedRelPaths`
+ *  (renamed/deleted) is stale -- scanning "" reports it. Paths must be in the same repo-relative
+ *  form the table uses. Exported pure so the selftest can drive it without touching the repo. */
+export function staleForUnscannedFiles(scannedRelPaths, exemptions = KNOWN_EXEMPTIONS) {
+  const scanned = new Set(scannedRelPaths);
+  const found = [];
+  for (const file of new Set(exemptions.map((e) => e.file))) {
+    if (!scanned.has(file)) found.push(...scanTextForViolations(file, "", exemptions));
+  }
   return found;
 }
 
@@ -169,6 +230,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const text = readFileSync(absPath, "utf8");
     violations.push(...scanTextForViolations(relPath, text));
   }
+
+  violations.push(...staleForUnscannedFiles(files.map((absPath) => relative(repoRoot, absPath))));
 
   if (violations.length > 0) {
     process.stderr.write(

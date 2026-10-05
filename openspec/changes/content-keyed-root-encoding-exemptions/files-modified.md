@@ -1,0 +1,5 @@
+- `scripts/check-node-root-encoding.mjs` — content-keyed exemption table (file/scope/arm/text/count), scope+arm tracking, exact-count and stale-entry enforcement
+- `scripts/check-node-root-encoding.selftest.mjs` — real-file proofs: line shift green, new/duplicate hit red, removed exemption, stale, whitespace, arm widening, missing file
+- `scripts/check-node-root-encoding.ts.mjs` — same keying for the TS sibling plus post-scan stale evaluation of unscanned entry files
+- `scripts/check-node-root-encoding.ts.selftest.mjs` — TS equivalents of the above
+- `openspec/changes/content-keyed-root-encoding-exemptions/mutation-proof.md` — recorded per-row mutation evidence (cycle 2)
