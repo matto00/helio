@@ -55,19 +55,42 @@ final class PatchSetUndoService(
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
     applicationRepo: PatchSetApplicationRepository,
-    // HEL-914 task 5.6: nullable-optional, mirrors PatchSetApplyService.outputRepo's identical
-    // convention.
-    outputRepo: OutputRepository = null
+    // HEL-1256: required, no default. May be an explicit `null` (no DbContext); `undo` then
+    // rejects with a typed error when an edit needs it. Read only via `context.outputRepo`.
+    outputRepo: OutputRepository
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  private val context: PatchSetUndoContext =
-    PatchSetUndoContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, outputRepo)
+  private[services] val context: PatchSetUndoContext =
+    PatchSetUndoContext.build(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, outputRepo)
+
+  /** HEL-1256 D3: whether undoing this edit dereferences the Output repository. Total on purpose
+   *  (pattern matches only, no `asJsObject`/`fields(...)`): it runs before Phase 1, outside
+   *  `safeRestoreOne`'s recover, so a malformed journal must not throw here. A `pipelineStep`
+   *  create is conservatively always "needs" (its outcome reports `removedPlacementCount`). Keep
+   *  in step with `restoreBoundOutputs`/`countPlacementsForStep`. */
+  private def needsOutputRepo(edit: JournaledEdit): Boolean =
+    (edit.targetKind, edit.op) match {
+      case ("pipelineStep", "create") => true
+      case ("pipelineStep", "delete") =>
+        edit.priorState match {
+          case Some(o: JsObject) =>
+            o.fields.get("boundOutputs") match {
+              case Some(arr: JsArray) => arr.elements.nonEmpty
+              case _                  => false
+            }
+          case _ => false
+        }
+      case _ => false
+    }
 
   def undo(applicationId: PatchSetApplicationId, user: AuthenticatedUser): Future[Either[ServiceError, PatchSetUndoResponse]] =
     applicationRepo.findById(applicationId, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("Patch-set application not found")))
+      case Some(record) if context.outputRepo == null && record.edits.exists(needsOutputRepo) =>
+        // Before Phase 1/2: nothing has been restored. A server-configuration fault (500), not a 409.
+        Future.successful(Left(PatchSetApplyContext.outputRepoUnavailable))
       case Some(record) =>
         PatchSetUndoConflictCheck.checkAll(record.edits, user, context).flatMap { blockers =>
           if (blockers.nonEmpty)
@@ -295,7 +318,7 @@ final class PatchSetUndoService(
       val placements      = entryObj.fields.get("placements").map(_.convertTo[Vector[PanelResponse]]).getOrElse(Vector.empty)
       val kind            = OutputKind.fromString(outputResponse.kind).getOrElse(OutputKind.Table)
       val schema          = outputResponse.schema.flatMap(f => DataFieldType.fromString(f.`type`).map(t => SchemaField(f.name, DataFieldType.asString(t))))
-      outputRepo.insertInternal(
+      context.outputRepo.insertInternal(
         PipelineId(outputResponse.pipelineId), Some(PipelineStepId(newStepId)), user.id, outputResponse.name, kind,
         config = outputResponse.config.asJsObject, schema = schema, tag = None, explicitRootId = None
       ).flatMap { newOutput =>
@@ -316,8 +339,8 @@ final class PatchSetUndoService(
    *  chain, the SAME cascade a real delete already relies on -- no second, bespoke teardown to
    *  drift from it). The placement count is read BEFORE the delete purely for the reported
    *  outcome (task 5.6's "reporting the placement count") -- it plays no role in the delete
-   *  itself, which is atomic regardless of whether this count succeeds. `outputRepo == null`
-   *  (a fixture that never wires one) degrades to reporting a `0` count rather than a NPE. */
+   *  itself, which is atomic regardless of whether this count succeeds. A null repo never reaches
+   *  here: `undo` rejects it up front (HEL-1256 D3) instead of reporting a fabricated `0`. */
   private def restorePipelineStepCreate(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
     edit.newId match {
       case None => Future.successful(Left(s"edit ${edit.index} (pipelineStep create): journal is missing its captured newId"))
@@ -337,9 +360,9 @@ final class PatchSetUndoService(
     }
 
   private def countPlacementsForStep(pipelineId: PipelineId, stepId: PipelineStepId): Future[Int] =
-    if (outputRepo == null || pipelineId.value.isEmpty) Future.successful(0)
+    if (pipelineId.value.isEmpty) Future.successful(0)
     else
-      outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
+      context.outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
         val boundOutputIds = outputs.filter(_.node.stepId.contains(stepId)).map(_.id.value)
         if (boundOutputIds.isEmpty) Future.successful(0)
         else panelRepo.countByOutputIdsInternal(boundOutputIds).map(_.values.sum)

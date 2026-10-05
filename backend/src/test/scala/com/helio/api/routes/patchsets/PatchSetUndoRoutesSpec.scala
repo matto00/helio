@@ -110,7 +110,7 @@ class PatchSetUndoRoutesSpec
     patchSetUndoService = new PatchSetUndoService(
       panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      applicationRepo
+      applicationRepo, new OutputRepository(ctx)
     )
 
     seedUsers()
