@@ -97,7 +97,7 @@ object StringOpsStep {
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: StringOpsConfig): Seq[PipelineRowJson.Row] = {
     if (!SupportedOperations.contains(cfg.operation))
-      throw new IllegalArgumentException(
+      throw new StepConfigError(
         s"Unsupported stringops operation: '${cfg.operation}'. Supported: ${SupportedOperations.mkString(", ")}"
       )
 
@@ -107,15 +107,15 @@ object StringOpsStep {
       case "lower" => singleFieldFn(cfg.field, s => s.toLowerCase)
       case "split" =>
         val separator = cfg.separator.getOrElse(
-          throw new IllegalArgumentException("stringops operation 'split' requires 'separator'")
+          throw new StepConfigError("stringops operation 'split' requires 'separator'")
         )
         val index = cfg.index.getOrElse(
-          throw new IllegalArgumentException("stringops operation 'split' requires 'index'")
+          throw new StepConfigError("stringops operation 'split' requires 'index'")
         )
         splitFn(cfg.field, separator, index)
       case "extractRegex" =>
         val patternStr = cfg.pattern.getOrElse(
-          throw new IllegalArgumentException("stringops operation 'extractRegex' requires 'pattern'")
+          throw new StepConfigError("stringops operation 'extractRegex' requires 'pattern'")
         )
         extractRegexFn(cfg.field, patternStr)
       case "concat" =>
@@ -159,10 +159,10 @@ object StringOpsStep {
       try Pattern.compile(patternStr)
       catch {
         case e: PatternSyntaxException =>
-          throw new IllegalArgumentException(s"stringops operation 'extractRegex' has an invalid pattern '$patternStr': ${e.getMessage}")
+          throw new StepConfigError(s"stringops operation 'extractRegex' has an invalid pattern '$patternStr': ${e.getMessage}")
       }
     if (compiled.matcher("").groupCount() < 1)
-      throw new IllegalArgumentException(
+      throw new StepConfigError(
         s"stringops operation 'extractRegex' pattern '$patternStr' requires at least one capturing group"
       )
 

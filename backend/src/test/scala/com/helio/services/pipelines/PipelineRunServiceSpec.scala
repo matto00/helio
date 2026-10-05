@@ -502,7 +502,13 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val before = countAssertionRows()
       val result = await(service.submit(pid, isDry = true, dummyUser))
       result shouldBe a[Left[_, _]]
-      result.swap.toOption.get shouldBe a[ServiceError.UnprocessableEntity]
+      // HEL-1147: `failingStepConfig` is a step-CONFIGURATION failure (stringops extractRegex
+      // without a pattern, D2 row StringOps:118), so it is now the named sibling of
+      // UnprocessableEntity; the `message` is unchanged.
+      val err = result.swap.toOption.get
+      err shouldBe a[ServiceError.StepConfigInvalid]
+      err.message should (startWith("Pipeline execution failed at step ") and include("(stringops)"))
+      err.asInstanceOf[ServiceError.StepConfigInvalid].reason shouldBe "stringops operation 'extractRegex' requires 'pattern'"
 
       // No pipeline_runs row exists for a failed dry run, so there is nothing
       // to link an assertion result to — verify no row was written anywhere,

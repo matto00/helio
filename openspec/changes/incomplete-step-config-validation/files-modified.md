@@ -1,0 +1,25 @@
+- `backend/src/main/scala/com/helio/domain/steps/StepCodecUtil.scala` — new `StepConfigError` marker; `StepConfigTypeMismatch` re-parented onto it
+- `backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala` — `StepExecutionException.isStepConfigError`; requiredConfigProblems branch throws `StepConfigError`
+- `backend/src/main/scala/com/helio/domain/steps/AggregateStep.scala` — D2 config rows -> `StepConfigError`
+- `backend/src/main/scala/com/helio/domain/steps/ChunkByTokenCountStep.scala` — D2 config rows -> `StepConfigError`
+- `backend/src/main/scala/com/helio/domain/steps/DateBucketStep.scala` — D2 config rows -> `StepConfigError`
+- `backend/src/main/scala/com/helio/domain/steps/FillNullStep.scala` — D2 config rows -> `StepConfigError`
+- `backend/src/main/scala/com/helio/domain/steps/GroupByStep.scala` — D2 config rows -> `StepConfigError`
+- `backend/src/main/scala/com/helio/domain/steps/JoinStep.scala` — D2 config rows -> `StepConfigError`
+- `backend/src/main/scala/com/helio/domain/steps/PivotStep.scala` — D2 config rows -> `StepConfigError`
+- `backend/src/main/scala/com/helio/domain/steps/StringOpsStep.scala` — D2 config rows -> `StepConfigError`
+- `backend/src/main/scala/com/helio/domain/steps/UnionStep.scala` — D2 config rows -> `StepConfigError`
+- `backend/src/main/scala/com/helio/domain/steps/WindowStep.scala` — D2 config rows -> `StepConfigError` (unreachable default -> `IllegalStateException`)
+- `backend/src/main/scala/com/helio/domain/steps/UpsertSourceConfig.scala` — D7 decode-only tolerant newSource name reader (write path stays strict)
+- `backend/src/main/scala/com/helio/services/ServiceError.scala` — `StepConfigInvalid`
+- `backend/src/main/scala/com/helio/api/routes/ServiceResponse.scala` — 422 mapping + `completeError` arm emitting the structured body
+- `backend/src/main/scala/com/helio/api/protocols/ResourceProtocol.scala`, `backend/src/main/scala/com/helio/api/package.scala` — `StepConfigErrorResponse` + format + alias
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — `logExecutionFailure` / `executionFailureError` helpers at all five failure sites
+- `schemas/shared/step-config-error-response.schema.json` — body schema
+- `backend/src/test/scala/com/helio/api/routes/pipelines/StepConfigInvalidRoutesSpec.scala` — route contract, log level, guards, D7 (new)
+- `backend/src/test/scala/com/helio/domain/steps/StepConfigErrorClassificationSpec.scala` — per-D2-row classification (new)
+- `backend/src/test/scala/com/helio/domain/steps/UpsertSourceConfigSpec.scala` — D7 decode tolerance + strictness pins
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceSpec.scala` — one assertion (:505) updated to `StepConfigInvalid`
+- `frontend/src/features/pipelines/services/stepConfigError.ts` — typed guard + preview message helper (new)
+- `frontend/src/features/pipelines/hooks/useStepCardPreview.ts`, `frontend/src/features/pipelines/state/outputsSlice.ts` — consume the structured reason
+- `frontend/src/features/pipelines/ui/StepCard.test.tsx`, `frontend/src/features/pipelines/state/outputsSlice.test.ts` — frontend tests

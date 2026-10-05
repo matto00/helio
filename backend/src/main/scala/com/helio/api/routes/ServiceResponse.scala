@@ -5,7 +5,7 @@ import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCode, StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.`Retry-After`
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.api.{ErrorResponse, JsonProtocols}
+import com.helio.api.{ErrorResponse, JsonProtocols, StepConfigErrorResponse}
 import com.helio.services.ServiceError
 
 import scala.concurrent.Future
@@ -77,8 +77,16 @@ object ServiceResponse extends JsonProtocols {
       respondWithHeader(`Retry-After`(retryAfterSeconds)) {
         complete(statusCodeFor(e), ErrorResponse(e.message))
       }
+    case ServiceError.StepConfigInvalid(stepId, stepKind, reason, message) =>
+      complete(
+        statusCodeFor(e),
+        StepConfigErrorResponse(message, StepConfigInvalidCode, stepId, stepKind, reason)
+      )
     case _ => complete(statusCodeFor(e), ErrorResponse(e.message))
   }
+
+  /** Wire `code` of a [[ServiceError.StepConfigInvalid]] body (HEL-1147). */
+  val StepConfigInvalidCode: String = "STEP_CONFIG_INVALID"
 
   /** Status-code mapping for each `ServiceError` variant — `private[routes]` (not `private`) so
    *  `DashboardAuthoringRoutes`'s bespoke completion helper (HEL-401 design.md D1: `completeError`
@@ -92,6 +100,7 @@ object ServiceResponse extends JsonProtocols {
     case ServiceError.Forbidden(_)           => StatusCodes.Forbidden
     case ServiceError.Conflict(_)            => StatusCodes.Conflict
     case ServiceError.UnprocessableEntity(_) => StatusCodes.UnprocessableEntity
+    case ServiceError.StepConfigInvalid(_, _, _, _) => StatusCodes.UnprocessableEntity
     case ServiceError.BadGateway(_)          => StatusCodes.BadGateway
     case ServiceError.InternalError(_)       => StatusCodes.InternalServerError
     case ServiceError.PayloadTooLarge(_)     => StatusCodes.RequestEntityTooLarge

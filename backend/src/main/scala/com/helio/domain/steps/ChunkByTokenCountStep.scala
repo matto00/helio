@@ -104,7 +104,7 @@ object ChunkByTokenCountStep {
     // loud failure rather than a silent fallback so a future caller that
     // bypasses that check cannot tokenize with an encoding nobody asked for.
     case other =>
-      throw new IllegalArgumentException(
+      throw new StepConfigError(
         s"Unsupported chunkbytokencount encoding: '$other'. Supported: ${SupportedEncodings.mkString(", ")}"
       )
   }

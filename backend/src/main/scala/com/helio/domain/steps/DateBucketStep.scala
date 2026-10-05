@@ -60,7 +60,7 @@ final case class DateBucketStep(
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
     DateBucketStep.floorFn(config.granularity) match {
-      case Left(err) => Future.failed(new IllegalArgumentException(err))
+      case Left(err) => Future.failed(new StepConfigError(err))
       case Right(floor) =>
         val result = DateBucketStep.apply(rows, config, floor)
         val outputCol = config.outputColumn.filter(_.nonEmpty).getOrElse(config.field)

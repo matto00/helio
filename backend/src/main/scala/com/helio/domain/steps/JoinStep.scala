@@ -68,7 +68,7 @@ final case class JoinStep(
         leftRow ++ JoinColumnNaming.renameRightRow(rightRow, mapping)
       val normalizedType = joinType.toLowerCase
       if (!JoinStep.SupportedJoinTypes.contains(normalizedType))
-        throw new IllegalArgumentException(
+        throw new StepConfigError(
           "Unsupported join type: " + normalizedType + ". Supported: " + JoinStep.SupportedJoinTypes.mkString(", ")
         )
       normalizedType match {

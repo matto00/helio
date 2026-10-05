@@ -192,4 +192,38 @@ describe("outputsSlice", () => {
     // @ts-expect-error -- test store only wires the outputs slice
     expect(selectAllOutputsStatus(store.getState())).toBe("failed");
   });
+
+  // HEL-1147: a step-configuration 422 rejects with the clean `reason`, not the UUID/path-prefixed
+  // `message`; any other 422 keeps the slice's existing `message` extraction.
+  it("previewOutput rejects with the STEP_CONFIG_INVALID reason rather than the prefixed message", async () => {
+    mockedHttpClient.post.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        status: 422,
+        data: {
+          message:
+            "Pipeline execution failed at step s-1 (compute) [path: root:r > s-1]: column missing",
+          code: "STEP_CONFIG_INVALID",
+          stepId: "s-1",
+          stepKind: "compute",
+          reason: "column missing",
+        },
+      },
+    });
+    const store = buildStore();
+    // @ts-expect-error -- test store only wires the outputs slice
+    const result = await store.dispatch(previewOutput({ pipelineId: "p-1", outputId: "out-1" }));
+    expect(result.payload).toBe("column missing");
+  });
+
+  it("previewOutput keeps the backend message for a 422 that is not STEP_CONFIG_INVALID", async () => {
+    mockedHttpClient.post.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 422, data: { message: "Pipeline execution failed" } },
+    });
+    const store = buildStore();
+    // @ts-expect-error -- test store only wires the outputs slice
+    const result = await store.dispatch(previewOutput({ pipelineId: "p-1", outputId: "out-1" }));
+    expect(result.payload).toBe("Pipeline execution failed");
+  });
 });

@@ -97,14 +97,14 @@ object WindowStep {
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: WindowConfig): Seq[PipelineRowJson.Row] = {
     if (!SupportedFunctions.contains(cfg.function))
-      throw new IllegalArgumentException(
+      throw new StepConfigError(
         s"Unsupported window function: '${cfg.function}'. Supported: ${SupportedFunctions.mkString(", ")}"
       )
 
     val fieldName =
       if (FieldRequired.contains(cfg.function))
         cfg.field.getOrElse(
-          throw new IllegalArgumentException(s"window function '${cfg.function}' requires 'field'")
+          throw new StepConfigError(s"window function '${cfg.function}' requires 'field'")
         )
       else ""
 
@@ -112,7 +112,7 @@ object WindowStep {
       if (cfg.function == "lag" || cfg.function == "lead") {
         val o = cfg.offset.getOrElse(1)
         if (o <= 0)
-          throw new IllegalArgumentException(
+          throw new StepConfigError(
             s"window function '${cfg.function}' requires a positive 'offset', got $o"
           )
         o
@@ -140,7 +140,7 @@ object WindowStep {
         case other =>
           // Unreachable: cfg.function was validated against SupportedFunctions
           // above. Kept only so the match stays total for the compiler.
-          throw new IllegalArgumentException(s"Unsupported window function: '$other'")
+          throw new IllegalStateException(s"Unsupported window function: '$other'")
       }
     }.toMap
 

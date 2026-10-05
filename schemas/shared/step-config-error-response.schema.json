@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/shared/step-config-error-response.schema.json",
+  "title": "StepConfigErrorResponse",
+  "description": "422 body for a pipeline execution (step preview, Output preview, dry run, real run) refused because a step's own configuration is missing or invalid (HEL-1147). `message` is the unchanged generic error text (it carries the step id and lane path) so `extractErrorMessage` and every existing reader keep working; `code`, `stepId`, `stepKind` and `reason` are the structured addition. Failures caused by data, an unresolved lane/source reference or an external provider are NOT this shape and keep the plain `{message}` body.",
+  "type": "object",
+  "required": ["message", "code", "stepId", "stepKind", "reason"],
+  "properties": {
+    "message": {
+      "type": "string"
+    },
+    "code": {
+      "const": "STEP_CONFIG_INVALID"
+    },
+    "stepId": {
+      "type": "string",
+      "description": "The failing step. May be an ancestor of the previewed step."
+    },
+    "stepKind": {
+      "type": "string",
+      "description": "The failing step's kind, e.g. `upsertsource`."
+    },
+    "reason": {
+      "type": "string",
+      "description": "The step's own problem description, without any step id or lane-path prefix."
+    }
+  },
+  "additionalProperties": false
+}

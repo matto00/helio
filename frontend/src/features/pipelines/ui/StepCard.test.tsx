@@ -184,6 +184,75 @@ describe("StepCard preview — rows + schema (3.1)", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Row limit must be greater than 0");
   });
 
+  // HEL-1147: a step-configuration 422 carries the clean `reason` alongside the unchanged,
+  // UUID/path-prefixed `message`; the tray renders the reason only.
+  const prefixedMessage =
+    "Pipeline execution failed at step persisted-step-1 (limit) [path: root:abc > persisted-step-1]: row limit missing";
+
+  it("shows the clean reason, without the step id or lane path, for the step's own STEP_CONFIG_INVALID failure", async () => {
+    fetchStepPreviewMock.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 422,
+        data: {
+          message: prefixedMessage,
+          code: "STEP_CONFIG_INVALID",
+          stepId: "persisted-step-1",
+          stepKind: "limit",
+          reason: "row limit missing",
+        },
+      },
+    });
+
+    render(<StepCard {...baseProps()} />);
+    await click("Limit rows");
+    await click("Preview data");
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("row limit missing");
+    expect(alert).not.toHaveTextContent("persisted-step-1");
+    expect(alert).not.toHaveTextContent("path:");
+  });
+
+  it("attributes a STEP_CONFIG_INVALID failure to the upstream step's kind when an ancestor failed", async () => {
+    fetchStepPreviewMock.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 422,
+        data: {
+          message: prefixedMessage,
+          code: "STEP_CONFIG_INVALID",
+          stepId: "ancestor-step-9",
+          stepKind: "compute",
+          reason: "compute step is missing required config value 'column'.",
+        },
+      },
+    });
+
+    render(<StepCard {...baseProps()} />);
+    await click("Limit rows");
+    await click("Preview data");
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Upstream compute step is not fully configured: compute step is missing required config value 'column'.",
+    );
+    expect(alert).not.toHaveTextContent("ancestor-step-9");
+  });
+
+  it("keeps the backend message for a 422 that is not STEP_CONFIG_INVALID", async () => {
+    fetchStepPreviewMock.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 422, data: { message: prefixedMessage } },
+    });
+
+    render(<StepCard {...baseProps()} />);
+    await click("Limit rows");
+    await click("Preview data");
+
+    expect(screen.getByRole("alert")).toHaveTextContent(prefixedMessage);
+  });
+
   it("second toggle hides the preview", async () => {
     fetchStepPreviewMock.mockResolvedValue({ rows: [{ id: 1, name: "alice" }], rowCount: 1 });
 

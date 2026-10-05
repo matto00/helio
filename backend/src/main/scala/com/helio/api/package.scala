@@ -9,6 +9,8 @@ package object api {
   type ResourceMetaResponse = protocols.ResourceMetaResponse
   val ResourceMetaResponse: protocols.ResourceMetaResponse.type = protocols.ResourceMetaResponse
   type ErrorResponse = protocols.ErrorResponse
+  type StepConfigErrorResponse = protocols.StepConfigErrorResponse
+  val StepConfigErrorResponse: protocols.StepConfigErrorResponse.type = protocols.StepConfigErrorResponse
   val ErrorResponse: protocols.ErrorResponse.type = protocols.ErrorResponse
   type HealthResponse = protocols.HealthResponse
   val HealthResponse: protocols.HealthResponse.type = protocols.HealthResponse

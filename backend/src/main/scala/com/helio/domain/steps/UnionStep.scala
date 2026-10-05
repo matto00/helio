@@ -67,7 +67,7 @@ final case class UnionStep(
     val mode = config.mode
     def apply(otherRows: Seq[Map[String, Any]]): Seq[Map[String, Any]] = {
       if (!UnionStep.SupportedModes.contains(mode))
-        throw new IllegalArgumentException(
+        throw new StepConfigError(
           "Unsupported union mode: " + mode + ". Supported: " + UnionStep.SupportedModes.mkString(", ")
         )
       mode match {

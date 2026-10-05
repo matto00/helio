@@ -6,6 +6,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
@@ -20,7 +21,7 @@ import scala.concurrent.duration.DurationInt
  *  scaladoc for why) — coverage here is direct against the companion object, mirroring
  *  `ComputeStepSpec`'s "not wired into a route yet" pattern, rather than through
  *  `PipelineService.addStep`. */
-class UpsertSourceConfigSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
+class UpsertSourceConfigSpec extends AnyWordSpec with Matchers with OptionValues with BeforeAndAfterAll {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
@@ -60,6 +61,23 @@ class UpsertSourceConfigSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
     "decode an absent target as the incomplete-draft default, not a decode failure" in {
       UpsertSourceConfig.decode("""{"mode":"replace"}""").target shouldBe UpsertTarget.ExistingSource("")
+    }
+
+    // HEL-1147 D7 (constraint C3): the tolerance is decode-only; the strict target format and the
+    // write-path validator still reject the same shape.
+    "decode a newSource target with an absent or non-string name as NewSource(\"\") (decode-only tolerance)" in {
+      UpsertSourceConfig.decode("""{"target":{"kind":"newSource"},"mode":"append"}""").target shouldBe UpsertTarget.NewSource("")
+      UpsertSourceConfig.decode("""{"target":{"kind":"newSource","name":5}}""").target shouldBe UpsertTarget.NewSource("")
+    }
+
+    "keep the strict target format and the write-path validator rejecting a newSource without a name" in {
+      import spray.json._
+      an[StepConfigTypeMismatch] should be thrownBy UpsertTarget.format.read("""{"kind":"newSource"}""".parseJson)
+      UpsertSourceConfig.validateRawConfig("""{"target":{"kind":"newSource"},"mode":"append"}""").value should include("requires a string 'name'")
+    }
+
+    "keep an existingSource without a dataSourceId a decode failure (tolerance is newSource-name only)" in {
+      an[StepConfigTypeMismatch] should be thrownBy UpsertSourceConfig.decode("""{"target":{"kind":"existingSource"}}""")
     }
 
     "decode an absent mode as the tolerant default 'append'" in {

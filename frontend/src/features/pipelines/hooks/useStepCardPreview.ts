@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
-import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { fetchStepPreview } from "../services/pipelineService";
 import type { StepPreviewResponse } from "../services/pipelineService";
+import { previewErrorMessage } from "../services/stepConfigError";
 
 // HEL-404 — persistent per-user "preview open" preference. One global key
 // (not per-step, see design.md Decision 3): the last explicit open/hide
@@ -109,8 +109,9 @@ export function useStepCardPreview({
         // HEL sweep F-155: don't surface raw Axios/transport text (e.g.
         // "Request failed with status code 422") — read the backend's
         // parsed error body first, matching the app-wide extractErrorMessage
-        // convention (see its docstring).
-        setPreviewError(extractErrorMessage(err, "Preview failed — try again."));
+        // convention (see its docstring). HEL-1147: a step-configuration 422 shows the clean
+        // `reason` (attributed to the upstream step when an ancestor is the one that failed).
+        setPreviewError(previewErrorMessage(err, "Preview failed — try again.", stepId));
       } finally {
         setPreviewLoading(false);
       }

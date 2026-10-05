@@ -3,7 +3,7 @@ package com.helio.domain.engine
 import com.helio.domain.ai.AiStepClient
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DatasetSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineRootId, PipelineStep, PipelineStepId, RestSource, SqlSource, TextSource, TruncatedRead, TruncationSink, WriteBackSink}
-import com.helio.domain.steps.{JoinStep, LookupStep, SecondaryInput, UnionStep}
+import com.helio.domain.steps.{JoinStep, LookupStep, SecondaryInput, StepConfigError, UnionStep}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
@@ -37,7 +37,12 @@ final class StepExecutionException(val stepId: String, val stepKind: String, val
       if (lanePath.nonEmpty) s"Pipeline execution failed at step $stepId ($stepKind) [path: $lanePath]: $reason"
       else s"Pipeline execution failed at step $stepId ($stepKind): $reason",
       cause
-    )
+    ) {
+
+  /** HEL-1147: true exactly when the failure is a step-configuration problem (the cause is a
+   *  [[StepConfigError]]) -- not data, reference, provider or engine failures. */
+  val isStepConfigError: Boolean = cause.isInstanceOf[StepConfigError]
+}
 
 object StepExecutionException {
 
@@ -263,7 +268,7 @@ class InProcessPipelineEngine(
         // the reason verbatim, attributed to this step's id and kind.
         requiredConfigProblems(step) match {
           case problems if problems.nonEmpty =>
-            Future.failed(new IllegalArgumentException(problems.mkString("; ")))
+            Future.failed(new StepConfigError(problems.mkString("; ")))
           case _ => step.evaluate(currentRows, ctx)
         }
       } catch { case ex: Throwable => Future.failed(ex) }

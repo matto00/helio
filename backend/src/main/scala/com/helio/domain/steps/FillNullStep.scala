@@ -82,14 +82,14 @@ object FillNullStep {
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: FillNullConfig): Seq[PipelineRowJson.Row] = {
     if (!SupportedStrategies.contains(cfg.strategy))
-      throw new IllegalArgumentException(
+      throw new StepConfigError(
         s"Unsupported fillnull strategy: '${cfg.strategy}'. Supported: ${SupportedStrategies.mkString(", ")}"
       )
 
     cfg.strategy match {
       case "constant" =>
         val fillValue = cfg.value.getOrElse(
-          throw new IllegalArgumentException("fillnull strategy 'constant' requires 'value'")
+          throw new StepConfigError("fillnull strategy 'constant' requires 'value'")
         )
         fillConstant(rows, cfg.columns, fillValue)
       case "forwardFill" => fillForward(rows, cfg.columns)
