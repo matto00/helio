@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{PendingWrite, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
+import com.helio.domain.model.{AuthenticatedUser, PendingWrite, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup, UserId}
 import spray.json._
 
 import java.time.Instant
@@ -29,9 +29,33 @@ final case class UpsertSourceStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] = {
-    ctx.writeBackSink.record(PendingWrite(id.value, config, rows))
-    Future.successful(rows)
+    checkTarget(ctx).map { _ =>
+      ctx.writeBackSink.record(PendingWrite(id.value, config, rows))
+      rows
+    }
   }
+
+  /** HEL-1265: refuses a non-writable existing-source target before any write is deferred, so
+   *  every surface that evaluates this step (previews, dry run, real run) fails identically. A
+   *  non-dataset target is a step-CONFIGURATION failure ([[StepConfigError]], HEL-1147's named
+   *  422); an unknown or foreign target is a plain not-found, and a missing owner identity fails
+   *  closed rather than skipping the check. The target is resolved as the pipeline owner, matching
+   *  the owner-context the deferred write itself later runs under. */
+  private def checkTarget(ctx: PipelineExecutionContext)(implicit ec: ExecutionContext): Future[Unit] =
+    config.target match {
+      case UpsertTarget.ExistingSource(targetId) if targetId.trim.nonEmpty =>
+        ctx.ownerUserId match {
+          case None =>
+            Future.failed(new IllegalArgumentException(UpsertTargetCheck.notFoundMessage(targetId)))
+          case Some(owner) =>
+            UpsertTargetCheck.checkExisting(targetId, AuthenticatedUser(UserId(owner)), ctx.dataSourceRepo).flatMap {
+              case UpsertTargetCheck.Writable          => Future.unit
+              case UpsertTargetCheck.NotFound(msg)     => Future.failed(new IllegalArgumentException(msg))
+              case UpsertTargetCheck.NotWritable(msg)  => Future.failed(new StepConfigError(msg))
+            }
+        }
+      case _ => Future.unit
+    }
 }
 
 object UpsertSourceStep {

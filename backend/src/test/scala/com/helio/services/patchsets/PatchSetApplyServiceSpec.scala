@@ -543,6 +543,29 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestR
       }
     }
 
+    "refuse an upsertsource create targeting a non-dataset source and roll back the earlier edit (HEL-1265)" in {
+      val sourceId = seedDatasetSource(userA)
+      val pipeline = seedPipeline(userA, sourceId, "Before upsert refusal")
+      val now      = Instant.now()
+      val csv = await(dataSourceRepo.insert(
+        CsvSource(DataSourceId(UUID.randomUUID().toString), "upsert-refused-csv", userA.id, now, now, CsvSourceConfig("csv/x.csv")), userA
+      ))
+      val rename = Edit(EditTarget("pipeline", Some(pipeline.id)), "update", None, None, None, Some(UpdatePipelineRequest("After upsert refusal")), None, None)
+      val createPatch = JsObject(
+        "type"   -> JsString("upsertsource"),
+        "config" -> JsObject(
+          "target" -> JsObject("kind" -> JsString("existingSource"), "dataSourceId" -> JsString(csv.id.value)),
+          "mode"   -> JsString("append")
+        )
+      )
+      val stepCreate = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
+
+      val response = await(service.apply(PatchSet(None, Vector(rename, stepCreate)), userA)).getOrElse(fail("expected Right with failure reported"))
+      response.failure.getOrElse(fail("expected a reported failure")) should (include(csv.id.value) and include("csv"))
+      await(pipelineRepo.findByIdInternal(PipelineId(pipeline.id))).map(_.name) shouldBe Some("Before upsert refusal")
+      await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id))) shouldBe empty
+    }
+
     // patch-set-lane-edits spec, "A create edit naming a parent that already has a child produces
     // a sibling": a pipelineStep create's `patch.parentStepId` naming an EXISTING step that
     // already has one child must add a SECOND child (a sibling lane), never reparent the

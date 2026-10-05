@@ -14,7 +14,7 @@ import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, Da
 import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, LaneReferenceError, PipelineAnalyzeService, PipelineCostEstimator, RuntimeGraphPath, SchemaField}
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.{AggregateConfig, AnalyzeWithAiConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, ConvertFormatConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GenerateTextConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig, UpsertSourceConfig}
-import com.helio.domain.steps.SecondaryInput
+import com.helio.domain.steps.{SecondaryInput, UpsertTargetCheck}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineCycleGuard, PipelineRepository, PipelineRootRepository, PipelineStepRepository, ReparentRejected}
@@ -474,6 +474,13 @@ final class PipelineService(
       }
     }
   }
+
+  private def upsertTargetProblems(steps: Seq[PipelineStep], pipelineOwnerId: UserId): Future[Map[String, String]] =
+    UpsertTargetAnalysis.problems(
+      steps.map(s => (s.id.value, s.kind, PipelineStepConfigCodec.encode(s))),
+      AuthenticatedUser(pipelineOwnerId),
+      dataSourceRepo
+    )
 
   private def checkOwnedSource(dataSourceId: String, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     dataSourceRepo.findByIdOwned(DataSourceId(dataSourceId), user).map {
@@ -963,9 +970,10 @@ final class PipelineService(
                                   }
             // HEL-1236: source-kind join secondaries' schemas, so a join's renamed columns project.
             secondarySchemas  <- resolveSecondarySourceSchemas(allSteps.map(s => s.kind -> PipelineStepConfigCodec.encode(s)), dataSourceRepo.findByIdInternal)
-          } yield (rootIdOfStep, rootDsOpts, secondarySchemas)
+            upsertProblems    <- upsertTargetProblems(allSteps, pipeline.ownerId)
+          } yield (rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems)
 
-          rootFetch.flatMap { case (rootIdOfStep, rootDsOpts, secondarySchemas) =>
+          rootFetch.flatMap { case (rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems) =>
             val rootSchemas = rootDsOpts.map { case (rid, dsOpt) =>
               (rid, dsOpt.map(_.name).getOrElse(""), dsOpt.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField]))
             }
@@ -996,7 +1004,7 @@ final class PipelineService(
                 enabled      = s.enabled
               )
             )
-            val projections = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas)
+            val projections = UpsertTargetAnalysis.overlay(PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas), upsertProblems)
             val enabledSteps = allSteps.filter(_.enabled)
             // Reassemble in the SAME order `enabledSteps` lists them; a node that never resolved
             // (unknown parentStepId, dangling lane reference) is simply absent, mirroring
@@ -1093,7 +1101,7 @@ final class PipelineService(
   def analyzeConcise(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeConciseResponse]] =
     pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
-      case Some(_) =>
+      case Some(pipeline) =>
         pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
           val rootFetch = for {
             rootDataSourceIds <- pipelineRepo.listRootDataSourceIdsInternal(pipelineId)
@@ -1104,9 +1112,10 @@ final class PipelineService(
                                     }
                                   }
             secondarySchemas  <- resolveSecondarySourceSchemas(allSteps.map(s => s.kind -> PipelineStepConfigCodec.encode(s)), dataSourceRepo.findByIdInternal)
-          } yield (rootDataSourceIds.map(_._1.value), rootIdOfStep, rootSchemas.toMap, secondarySchemas)
+            upsertProblems    <- upsertTargetProblems(allSteps, pipeline.ownerId)
+          } yield (rootDataSourceIds.map(_._1.value), rootIdOfStep, rootSchemas.toMap, secondarySchemas, upsertProblems)
 
-          rootFetch.map { case (rootIds, rootIdOfStep, schemasByRoot, secondarySchemas) =>
+          rootFetch.map { case (rootIds, rootIdOfStep, schemasByRoot, secondarySchemas, upsertProblems) =>
             val rootIdOfStepStr = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
             val nodeInputs = allSteps.map(s =>
               PipelineAnalyzeService.NodeStepInput(
@@ -1119,7 +1128,7 @@ final class PipelineService(
                 enabled      = s.enabled
               )
             )
-            val projections = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas)
+            val projections = UpsertTargetAnalysis.overlay(PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas), upsertProblems)
             val graphPath    = RuntimeGraphPath.build(allSteps, rootIds, rootIdOfStepStr)
             val nodes = allSteps.filter(_.enabled).flatMap { s =>
               projections.get(s.id.value).map { analyzed =>
@@ -1413,7 +1422,10 @@ final class PipelineService(
         resolveAllProposalRootSchemas(proposal, user).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(rootSchemas) =>
-          resolveSecondarySourceSchemas(proposal.steps.map(r => r.`type` -> r.config.compactPrint), dsId => dataSourceRepo.findByIdOwned(dsId, user)).map { secondarySchemas =>
+          for {
+            secondarySchemas <- resolveSecondarySourceSchemas(proposal.steps.map(r => r.`type` -> r.config.compactPrint), dsId => dataSourceRepo.findByIdOwned(dsId, user))
+            upsertProblems   <- UpsertTargetAnalysis.problems(proposal.steps.map(r => (r.clientId, r.`type`, r.config.compactPrint)), user, dataSourceRepo)
+          } yield {
             val rootKeys = proposal.roots.zipWithIndex.map { case (root, idx) => root.clientId.getOrElse(idx.toString) }
             val schemasByRoot: Map[String, Vector[SchemaField]] =
               rootKeys.zip(rootSchemas.map(_._2)).toMap
@@ -1433,7 +1445,7 @@ final class PipelineService(
                 enabled      = req.enabled.getOrElse(true)
               )
             }
-            val projections  = PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas)
+            val projections  = UpsertTargetAnalysis.overlay(PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas), upsertProblems)
             val enabledSteps = proposal.steps.filter(_.enabled.getOrElse(true))
             val analyzed     = enabledSteps.flatMap(s => projections.get(s.clientId))
 
@@ -1924,9 +1936,10 @@ final class PipelineService(
     typedConfig match {
       case cfg: UpsertSourceConfig =>
         val ownerUser = AuthenticatedUser(pipelineOwnerId, caller.source, caller.tokenId)
-        UpsertSourceConfig.validateTargetOwnership(cfg.target, ownerUser, dataSourceRepo).map {
-          case Some(msg) => Left(ServiceError.NotFound(msg))
-          case None      => Right(())
+        UpsertTargetCheck.check(cfg.target, ownerUser, dataSourceRepo).map {
+          case UpsertTargetCheck.NotFound(msg)    => Left(ServiceError.NotFound(msg))
+          case UpsertTargetCheck.NotWritable(msg) => Left(ServiceError.UnprocessableEntity(msg))
+          case UpsertTargetCheck.Writable         => Right(())
         }
       case _ => Future.successful(Right(()))
     }

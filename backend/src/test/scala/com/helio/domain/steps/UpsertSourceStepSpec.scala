@@ -58,7 +58,10 @@ class UpsertSourceStepSpec extends AnyWordSpec with Matchers {
 
   "UpsertSourceStep.evaluate" should {
     "record a PendingWrite into ctx.writeBackSink and return the input rows unchanged" in {
-      val config = UpsertSourceConfig(UpsertTarget.ExistingSource("ds-1"), "append")
+      // NewSource: an ExistingSource target is resolved against the repository at evaluate time
+      // (HEL-1265, covered with a real repository in UpsertTargetWritableRlsSpec), and this
+      // pure test has no repository.
+      val config = UpsertSourceConfig(UpsertTarget.NewSource("Target"), "append")
       val step = UpsertSourceStep(
         PipelineStepId("step-1"), PipelineId("pipe-1"), position = 0,
         config = config, createdAt = Instant.now(), updatedAt = Instant.now()

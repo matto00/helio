@@ -488,7 +488,8 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "mode?: 'append'|'replace'} — a TERMINAL step (HEL-1098) that writes this step's input " +
         "rows to a `dataset` source instead of passing rows downstream. `target.kind:'newSource'` " +
         "creates a brand-new dataset source named `name` at run time; `target.kind:'existingSource'` " +
-        "writes into an already-existing dataset identified by `dataSourceId`. `mode` (default " +
+        "writes into an already-existing dataset identified by `dataSourceId` (must be a `dataset`-kind " +
+        "source the pipeline owner owns; a CSV/REST/SQL/content source is rejected with a 422 naming it). `mode` (default " +
         "'append' when omitted) selects 'append' (adds rows to the target's existing data) or " +
         "'replace' (atomically overwrites the target's data entirely — irreversible, use with " +
         "care). IMPORTANT ownership rule: an `existingSource` target must be a dataset OWNED BY THE " +
