@@ -140,6 +140,8 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
     val tables = Seq(
       "resource_permissions",
       "panels",
+      "output_snapshot_history",
+      "outputs",
       "pipeline_steps",
       "pipeline_runs",
       "pipelines",
@@ -268,6 +270,44 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
         sqlu"""INSERT INTO pipeline_runs (id, pipeline_id, status, started_at)
                VALUES ($runId, $pipId, 'running', now())"""
       ))
+    }
+  }
+
+  "withSystemContext DML on output_snapshot_history" should {
+
+    // The parent `outputs` row is seeded here because this spec had no outputs coverage before
+    // HEL-1271 (the FK needs a real parent); history's own INSERT/UPDATE/DELETE grants to
+    // helio_privileged are what is under test.
+    def seedHistoryRow(): String = {
+      val srcId  = UUID.randomUUID().toString
+      val pipId  = UUID.randomUUID().toString
+      val outId  = UUID.randomUUID().toString
+      val histId = UUID.randomUUID().toString
+      await(ctx.withSystemContext(DBIO.seq(
+        sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+               VALUES ($srcId::uuid, 'src-hist', 'csv', '{"path":"csv/test.csv"}'::jsonb,
+                       ${ownerA.value}::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pipId, 'pipe-hist', ${ownerA.value}::uuid, now(), now())""",
+        sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pipId, $pipId, $srcId, 0)""",
+        sqlu"""INSERT INTO outputs (id, pipeline_id, node_step_id, owner_id, name, kind, root_id)
+               VALUES ($outId, $pipId, NULL, ${ownerA.value}::uuid, 'out-hist', 'metric', $pipId)""",
+        sqlu"""INSERT INTO output_snapshot_history (id, output_id, pipeline_id, root_id, run_id, trigger_source, captured_at, row_count, summary)
+               VALUES ($histId::uuid, $outId, $pipId, $pipId, 'run-1', 'manual', now(), 3, '{"v":1}'::jsonb)"""
+      )))
+      histId
+    }
+
+    "INSERT a row" in {
+      cleanDb()
+      noException should be thrownBy seedHistoryRow()
+    }
+
+    "SELECT, UPDATE and DELETE an inserted row" in {
+      cleanDb()
+      val histId = seedHistoryRow()
+      await(ctx.withSystemContext(sql"SELECT count(*) FROM output_snapshot_history WHERE id = $histId::uuid".as[Int].head)) shouldBe 1
+      await(ctx.withSystemContext(sqlu"UPDATE output_snapshot_history SET row_count = 9 WHERE id = $histId::uuid")) shouldBe 1
+      await(ctx.withSystemContext(sqlu"DELETE FROM output_snapshot_history WHERE id = $histId::uuid")) shouldBe 1
     }
   }
 

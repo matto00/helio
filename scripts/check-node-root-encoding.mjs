@@ -119,10 +119,14 @@ const KNOWN_ROOT_QUALIFIED_LINES = new Set([
 // ticket added (`distinctValueCountCapped`, `topDistinctValues`), both of which derive
 // `explicitRootId` from `output.node.rootId` via `OutputFilterCapability`'s own callers --
 // identical, already-audited derivation, not a new occurrence of the pattern.
+//
+// HEL-1271 line-number remap (no code change to any arm): :113/:161/:185 shifted to :130/:178/:202
+// because extracting `overwriteRowsAction` from `overwriteRows` (plus the new `overwriteRowsWith`)
+// added 17 lines above all three arms -- the count stays at 3, the SQL is unchanged.
 const KNOWN_UNFIXED_LINES = new Set([
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:113",
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:161",
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:185",
+  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:130",
+  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:178",
+  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:202",
   "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala:49",
   "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala:108",
   "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala:128",
