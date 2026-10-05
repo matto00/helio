@@ -1,0 +1,4 @@
+# mutation: scheduler outer recover/delegate removed only
+224:[info] - should complete the tick when the retention service itself fails (outer recover) *** FAILED ***
+253:[info] Tests: succeeded 10, failed 1, canceled 0, ignored 0, pending 0
+254:[info] *** 1 TEST FAILED ***

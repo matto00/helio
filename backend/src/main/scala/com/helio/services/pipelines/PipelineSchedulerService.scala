@@ -44,7 +44,9 @@ final class PipelineSchedulerService(
     // HEL-1208: nullable-optional wiring like pipelineRunGuardRepo above -- a fixture that doesn't
     // pass one simply skips the product-event rollup + retention-purge pass. Piggybacked on this
     // tick rather than a second timer.
-    productEventRollupService: ProductEventRollupService = null
+    productEventRollupService: ProductEventRollupService = null,
+    // HEL-1272: nullable-optional like productEventRollupService -- skipped when not wired.
+    outputHistoryRetentionService: OutputHistoryRetentionService = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -93,7 +95,15 @@ final class PipelineSchedulerService(
     // HEL-1208: product-event rollup + purge; tickAt/tick already swallow and log their own failures.
     val telemetryWork =
       if (productEventRollupService != null) productEventRollupService.tickAt(now) else Future.successful(())
-    candidatesWork.zip(cleanupWork).zip(autoRunWork).zip(telemetryWork).map(_ => ())
+    // HEL-1272: Output-history thinning/purge, interval-gated inside the service; never fails the tick.
+    val historyWork =
+      if (outputHistoryRetentionService != null)
+        Future.delegate(outputHistoryRetentionService.purgeIfDue(now)).map(_ => ()).recover { case ex =>
+          log.error("PipelineSchedulerService: output history retention failed", ex)
+          ()
+        }
+      else Future.successful(())
+    candidatesWork.zip(cleanupWork).zip(autoRunWork).zip(telemetryWork).zip(historyWork).map(_ => ())
   }
 
   /** HEL-1093 (design.md Decision 3): claims every due `pipeline_auto_run_debounce` row and fires

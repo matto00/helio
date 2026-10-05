@@ -1,0 +1,10 @@
+# mutation: NOT-IN (unknown-tier) purge removed
+212:[info] - should fall back to the strictest supplied cap for a tier absent from the map (HEL-1272) *** FAILED ***
+214:[info] - should apply the shortest of several supplied caps to a missing tier *** FAILED ***
+217:[info] - should age-purge a tier the code does not know at the strictest cap (fails closed by construction) *** FAILED ***
+241:[info] Tests: succeeded 23, failed 3, canceled 0, ignored 0, pending 0
+242:[info] *** 3 TESTS FAILED ***
+243:[error] Failed tests:
+244:[error] 	com.helio.infrastructure.persistence.pipelines.OutputHistoryRepositorySpec
+245:[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+246:[error] elapsed time: 3 s, cache 90%, 28 disk cache hits, 3 onsite tasks

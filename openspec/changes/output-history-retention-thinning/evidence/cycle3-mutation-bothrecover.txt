@@ -1,0 +1,6 @@
+# mutation: service recover and scheduler recover both removed
+198:[info] - should complete the tick, fire the due schedule and log when the history purge returns a failed future *** FAILED ***
+200:[info] - should complete the tick, fire the due schedule and log when the history purge throws synchronously *** FAILED ***
+202:[info] - should complete the tick when the retention service itself fails (outer recover) *** FAILED ***
+231:[info] Tests: succeeded 8, failed 3, canceled 0, ignored 0, pending 0
+232:[info] *** 3 TESTS FAILED ***

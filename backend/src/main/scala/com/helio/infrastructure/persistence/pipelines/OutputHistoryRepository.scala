@@ -3,6 +3,7 @@ package com.helio.infrastructure.persistence.pipelines
 import com.helio.domain.model.UserTier
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.OutputRepository.jsObjectColumnType
+import org.slf4j.LoggerFactory
 import slick.jdbc.PostgresProfile.api._
 import spray.json.JsObject
 
@@ -55,6 +56,7 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import OutputHistoryRepository._
 
+  private val log   = LoggerFactory.getLogger(getClass)
   private val table = TableQuery[HistoryTable]
 
   private def toPoint(r: HistoryRow): OutputHistoryPoint =
@@ -87,17 +89,32 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(table.filter(_.outputId === outputId).map(_.capturedAt).min.result)
 
   /** Thins history to the newest point per `(output, age class, bucket)` and purges points older
-   *  than the owner's tier max age (a tier absent from `maxAgeByTier` is never age-purged).
+   *  than the tier max age of the owner of the point's PIPELINE (`pipelines.owner_id`, not
+   *  `outputs.owner_id`, which is the acting Editor grantee on a shared pipeline). A tier absent
+   *  from `maxAgeByTier` (including any tier unknown to this code) uses the strictest (shortest)
+   *  supplied cap, so a partial map fails toward bounded storage; an empty map applies no age purge.
    *  One transaction; idempotent. Buckets are epoch-aligned and partitioned by age class, so a
    *  coarse bucket straddling a window boundary may briefly keep two points until a later pass. */
   def thinAndPurge(now: Instant, policy: HistoryThinningPolicy, maxAgeByTier: Map[UserTier, Duration]): Future[Int] = {
-    val purgeByAge = DBIO.sequence(maxAgeByTier.toSeq.map { case (tier, maxAge) =>
+    val strictest = if (maxAgeByTier.isEmpty) None else Some(maxAgeByTier.values.min)
+    val named = maxAgeByTier.toSeq.map { case (tier, maxAge) =>
       val tierName = UserTier.asString(tier)
       val cutoff   = Timestamp.from(now.minus(maxAge))
       sqlu"""DELETE FROM output_snapshot_history h
-             USING outputs o, users u
-             WHERE h.output_id = o.id AND o.owner_id = u.id AND u.tier = $tierName AND h.captured_at < $cutoff"""
-    }).map(_.sum)
+             USING pipelines p, users u
+             WHERE h.pipeline_id = p.id AND p.owner_id = u.id AND u.tier = $tierName AND h.captured_at < $cutoff"""
+    }
+    // Any tier NOT named in the map (a tier added after this code, or a partial map) is purged at the
+    // strictest supplied cap, so an unknown tier fails closed without this code enumerating tiers.
+    val unnamed = strictest.toSeq.map { cap =>
+      val namedCsv = maxAgeByTier.keys.map(UserTier.asString).mkString(",")
+      val cutoff   = Timestamp.from(now.minus(cap))
+      sqlu"""DELETE FROM output_snapshot_history h
+             USING pipelines p, users u
+             WHERE h.pipeline_id = p.id AND p.owner_id = u.id
+               AND u.tier <> ALL (string_to_array($namedCsv, ',')) AND h.captured_at < $cutoff"""
+    }
+    val purgeByAge = DBIO.sequence(named ++ unnamed).map(_.sum)
 
     val nowTs        = Timestamp.from(now)
     val recentSecs   = policy.recentWindow.getSeconds
@@ -124,11 +141,22 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
                  ) classed
                ) ranked WHERE rn > 1)"""
 
-    ctx.withSystemContext((purgeByAge.flatMap(a => thin.map(_ + a))).transactionally)
+    // Another instance already purging: skip rather than contend (two multi-row DELETEs can
+    // deadlock); the next interval re-runs it. The xact lock releases at commit/rollback.
+    val guarded = sql"SELECT pg_try_advisory_xact_lock($PurgeAdvisoryLockKey)".as[Boolean].head.flatMap {
+      case true  => purgeByAge.flatMap(a => thin.map(_ + a))
+      case false =>
+        log.debug("Output history thin/purge skipped: another session holds the purge lock")
+        DBIO.successful(0)
+    }
+    ctx.withSystemContext(guarded.transactionally)
   }
 }
 
 object OutputHistoryRepository {
+  /** Namespace for the purge's `pg_try_advisory_xact_lock` (ASCII "HEL1272"); no other lock uses it. */
+  private[persistence] val PurgeAdvisoryLockKey: Long = 0x48454C31323732L
+
   type HistoryRow = (UUID, String, String, Option[String], Option[String], Option[String], String, Instant, Int, JsObject)
 
   class HistoryTable(tag: Tag) extends Table[HistoryRow](tag, "output_snapshot_history") {

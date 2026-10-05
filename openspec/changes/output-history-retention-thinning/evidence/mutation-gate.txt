@@ -1,0 +1,10 @@
+# mutation: interval gate removed
+# specs: com.helio.services.pipelines.OutputHistoryRetentionServiceSpec
+199:[info] - should be a no-op for a second tick inside the interval, then thin again at the interval *** FAILED ***
+201:[info] - should allow only one of several concurrent due callers to run the purge *** FAILED ***
+211:[info] Tests: succeeded 1, failed 2, canceled 0, ignored 0, pending 0
+212:[info] *** 2 TESTS FAILED ***
+213:[error] Failed tests:
+214:[error] 	com.helio.services.pipelines.OutputHistoryRetentionServiceSpec
+215:[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+216:[error] elapsed time: 3 s, cache 93%, 28 disk cache hits, 2 onsite tasks

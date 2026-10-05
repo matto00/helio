@@ -1,0 +1,8 @@
+# mutation: lock skip branch runs the purge anyway
+216:[info] - should skip the whole pass, deleting nothing, while another session holds the purge lock (HEL-1272) *** FAILED ***
+239:[info] Tests: succeeded 25, failed 1, canceled 0, ignored 0, pending 0
+240:[info] *** 1 TEST FAILED ***
+241:[error] Failed tests:
+242:[error] 	com.helio.infrastructure.persistence.pipelines.OutputHistoryRepositorySpec
+243:[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+244:[error] elapsed time: 3 s, cache 90%, 28 disk cache hits, 3 onsite tasks
