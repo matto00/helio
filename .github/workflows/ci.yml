@@ -163,9 +163,11 @@ jobs:
   # local vulnerability DB, so no extra cache beyond the existing sbt/coursier cache) scans
   # it, with day-one-known-unfixable advisories suppressed via backend/osv-scanner.toml
   # (see that file for individual written justifications). Frontend: audit-ci wraps
-  # `npm audit` for both the root and frontend/ lockfiles against .audit-ci.jsonc /
-  # frontend/.audit-ci.jsonc. See design.md D2/D3/D6 for the tool choices and the
-  # severity-filter rationale.
+  # `npm audit` for three lockfiles: root and frontend/ (each at "high", against
+  # .audit-ci.jsonc / frontend/.audit-ci.jsonc) and helio-mcp/ (at "moderate", against
+  # helio-mcp/.audit-ci.jsonc -- HEL-1204; it runs the ROOT-pinned audit-ci with --directory,
+  # since helio-mcp does not declare audit-ci itself). See design.md D2/D3/D6 for the tool
+  # choices and the severity-filter rationale.
   security:
     runs-on: ubuntu-latest
     steps:
@@ -191,6 +193,7 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             frontend/package-lock.json
+            helio-mcp/package-lock.json
       - run: npm ci
       - run: npm --prefix frontend ci
 
@@ -281,6 +284,11 @@ jobs:
       - name: Frontend audit (frontend/)
         working-directory: frontend
         run: npx audit-ci --config .audit-ci.jsonc
+
+      # HEL-1204: root-pinned audit-ci (installed by the root `npm ci` above) reading helio-mcp's
+      # lockfile; an audit needs only the lockfile, so no `npm --prefix helio-mcp ci` here.
+      - name: helio-mcp audit (helio-mcp/)
+        run: npx audit-ci --config helio-mcp/.audit-ci.jsonc --directory helio-mcp
 
   # HEL-951 — this job runs Playwright by GLOB (`npx playwright test`, no
   # per-file arguments), so discovery is governed entirely by

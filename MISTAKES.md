@@ -211,13 +211,18 @@ tags have no Release because of exactly this. Verify with
 `scripts/release/audit-releases.sh`; **a successful deploy is not evidence the
 release was cut correctly, the audit is.**
 
-### The security gate is unconditional on high/critical
+### The security gate is unconditional on high/critical (moderate for helio-mcp)
 
-`audit-ci` runs with `"high": true` and an empty allowlist in **both** the root
-and `frontend/` trees. A newly-published advisory turns every open PR red with no
-repository change — "nothing moved, the world did". Check both trees; an advisory
-may span two major ranges (js-yaml affected both 3.x and 4.x, with a separate
-override floor for each).
+`audit-ci` runs with `"high": true` in the root and `frontend/` trees, and with
+`"moderate": true` in `helio-mcp/` (HEL-1204: its advisories were all moderate,
+so a `"high"` gate there would be green on a vulnerable lockfile). The
+`frontend/` and `helio-mcp/` allowlists are empty; the root allowlist carries one
+path-scoped entry (HEL-1246, `GHSA-vfj7-8cjw-p6xm|*micromatch>braces*`, dev-only,
+no patched version, review-by 2026-11-02). A newly-published advisory turns every open PR red with no
+repository change — "nothing moved, the world did". Check all three trees; an
+advisory may span two major ranges (js-yaml affected both 3.x and 4.x, with a
+separate override floor for each). The helio-mcp step runs the root-pinned
+`audit-ci` via `--directory helio-mcp` — helio-mcp does not declare it.
 
 ---
 
