@@ -1,8 +1,0 @@
-- `helio-mcp/scripts/verifyPayloads.ts` — new: pure builders for every write-tool payload verify sends (create_pipeline on `roots[]`, three add_outputs_from_shape calls)
-- `helio-mcp/scripts/verifyFixtures.ts` — new: PAT mint/revoke and exact-id pipeline/source teardown with 404/401 confirmation
-- `helio-mcp/scripts/verify.ts` — uses the builders, mints its own run token, tears down fixtures in `finally`, fails on teardown residue
-- `helio-mcp/scripts/verifyPayloads.test.ts` — new: drift guard driving each payload through the real registered tool in-process; asserts no hand-written write call in verify.ts
-- `helio-mcp/README.md` — Verifying section (PAT lifecycle, cleanup, guard), layout block (stale compose.ts removed)
-- `.github/dependabot.yml` — npm entry for /helio-mcp with mcp-sdk group ahead of dev-dependencies
-- `scripts/check-dependabot-groups.mjs` — declares the mcp-sdk family; manifest directories derived from the config's npm entries
-- `openspec/changes/fix-mcp-verify-dependabot/evidence/*` — mutation, live RED/GREEN, provenance and residue transcripts
