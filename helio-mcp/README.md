@@ -99,6 +99,18 @@ never carries `errorLog` or assertion `observed` values. Status codes, probed li
 for an unknown/malformed/unreadable Output id; `401` for a missing or invalid token. A separate
 tool rather than a field on `get_output`, so ordinary Output reads do not pay its query budget.
 
+### Output history (HEL-1274)
+
+`get_output_history(outputId, limit?, since?, includeSummaries?)` reads
+`GET /api/outputs/:id/history`: the last N recorded values (`limit` 1..100, default 30) of an Output in
+one call, as `sparkline` (oldest first) and `points` (newest first), plus the Output's
+`config.compare` resolved to `current`/`baseline`/`delta`/`pct`/`availableFrom`. Values are non-null
+only for **metric** Outputs. History is thinned as it ages, so a `previous_run` baseline is the
+second-newest _retained_ point, not necessarily the last run. `points[].summary` is dropped unless
+`includeSummaries: true`. `add_output`, `update_output`, `create_pipeline` and `propose_pipeline`
+document the optional `config.compare` (`previous_run | 1d | 7d | 30d | custom:<ISO-8601 duration>`);
+the backend validates it (400 otherwise), and `place_outputs` does not take it.
+
 ### Output-panel controls (HEL-1193)
 
 `get_output_filter_capabilities(outputId)` reads `GET /api/outputs/:id/filter-capabilities`

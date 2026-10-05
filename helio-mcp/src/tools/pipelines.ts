@@ -22,6 +22,7 @@ import {
   createPipelineHandler,
   removePipelineRootHandler,
 } from "./pipelinesHandlers.js";
+import { COMPARE_CONFIG_DOC } from "./outputs.js";
 import { pipelineProposalOutputSchema, pipelineProposalStepSchema } from "./pipelineProposal.js";
 
 function jsonResult(value: unknown): CallToolResult {
@@ -95,7 +96,8 @@ export function registerPipelineTools(server: McpServer, api: HelioApi): void {
         "resources be torn down together later with teardown_resources. Returns the created " +
         "pipeline summary (its `roots` array carries each real, position-ordered root id), plus " +
         "`outputs` (the created Outputs, if any were requested — a follow-up read, since the " +
-        "create response itself doesn't report them).",
+        "create response itself doesn't report them). " +
+        COMPARE_CONFIG_DOC,
       inputSchema: {
         name: z.string().min(1),
         roots: z.array(createPipelineRootSchema).min(1),

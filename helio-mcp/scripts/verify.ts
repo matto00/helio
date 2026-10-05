@@ -21,6 +21,9 @@ import { randomBytes } from "node:crypto";
 import { mintRunToken, newLedger, teardown, type MintedToken } from "./verifyFixtures.js";
 import {
   buildAddInvalidParamsCall,
+  buildAddMetricOutputCall,
+  buildGetOutputHistoryCall,
+  buildRunPipelineCall,
   buildAddTopNOutputCall,
   buildAddUnknownShapeCall,
   buildCreatePipelineCall,
@@ -334,6 +337,8 @@ async function runChecks(
     `  • Output count before=${outputsBeforeFailures.items.length} after=${outputsAfterFailures.items.length} (unchanged by the two failures)\n`,
   );
 
+  await verifyOutputHistory(client, shapePipeline.id, runId);
+
   section("resource read: helio://workspace/context");
   const ctx = await client.readResource({ uri: "helio://workspace/context" });
   const ctxContent = ctx.contents[0];
@@ -358,6 +363,71 @@ async function runChecks(
     );
   }
   process.stdout.write(`  • pipelineShapes entries=${toolCtx.pipelineShapes.length}\n`);
+}
+
+const HISTORY_RUNS = 30;
+const RATE_LIMIT_BACKOFF_MS = 15_000;
+const HISTORY_RUN_BUDGET_MS = 6 * 60_000;
+
+/** HEL-1274: 30 real runs of a metric Output, then ONE get_output_history call returning 30 values. */
+async function verifyOutputHistory(
+  client: Client,
+  pipelineId: string,
+  runId: string,
+): Promise<void> {
+  section(
+    `get_output_history — add a metric Output with config.compare, run ${HISTORY_RUNS}x, read once`,
+  );
+  const metric = parse<{ id: string; config?: { compare?: string } }>(
+    await client.callTool(buildAddMetricOutputCall(pipelineId, runId)),
+  );
+  process.stdout.write(`  • metric Output ${metric.id} compare=${metric.config?.compare}\n`);
+
+  const deadline = Date.now() + HISTORY_RUN_BUDGET_MS;
+  for (let done = 0; done < HISTORY_RUNS; ) {
+    const res = await client.callTool(buildRunPipelineCall(pipelineId));
+    if (!isErrorOf(res)) {
+      done += 1;
+      continue;
+    }
+    // A 429 survives the HTTP client's own bounded retries: wait out the window, then retry.
+    if (Date.now() + RATE_LIMIT_BACKOFF_MS > deadline) {
+      throw new Error(
+        `only ${done}/${HISTORY_RUNS} runs within budget; last error: ${textOf(res)}`,
+      );
+    }
+    process.stdout.write(`  • run ${done + 1} refused (${textOf(res).slice(0, 80)}); waiting\n`);
+    await new Promise((r) => setTimeout(r, RATE_LIMIT_BACKOFF_MS));
+  }
+  process.stdout.write(`  • ${HISTORY_RUNS} real runs succeeded\n`);
+
+  // Evidence only: how many points are retained right before the one-call read (limit 100 is the
+  // route's max), so a pass is not a lucky timing and thinning shows up as a count below 30.
+  const preRead = parse<{ points: unknown[] }>(
+    await client.callTool(buildGetOutputHistoryCall(metric.id, 100)),
+  );
+  process.stdout.write(`  • pre-read retained point count (limit 100): ${preRead.points.length}\n`);
+
+  const history = parse<{
+    compare: string | null;
+    current: { value: number | null } | null;
+    baseline: { value: number | null } | null;
+    delta: number | null;
+    sparkline: Array<{ capturedAt: string; value: number | null }>;
+    points: unknown[];
+  }>(await client.callTool(buildGetOutputHistoryCall(metric.id, HISTORY_RUNS)));
+  process.stdout.write(
+    `  • ONE get_output_history call: points=${history.points.length} sparkline=${history.sparkline.length} ` +
+      `compare=${history.compare} current=${history.current?.value} baseline=${history.baseline?.value} delta=${history.delta}\n`,
+  );
+  for (const p of history.sparkline) process.stdout.write(`    ${p.capturedAt} -> ${p.value}\n`);
+  const numeric = history.sparkline.filter((p) => typeof p.value === "number").length;
+  if (history.points.length !== HISTORY_RUNS || numeric !== HISTORY_RUNS) {
+    throw new Error(
+      `expected ${HISTORY_RUNS} points and ${HISTORY_RUNS} numeric sparkline values in one call, got ` +
+        `points=${history.points.length} numeric=${numeric} (history thinning by another backend's purge is the likely cause when fewer; rerun)`,
+    );
+  }
 }
 
 main().catch((err) => {

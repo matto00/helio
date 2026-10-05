@@ -26,6 +26,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
+import { COMPARE_CONFIG_DOC } from "./outputs.js";
 import type { PipelineProposalSource } from "../types.js";
 import {
   analyzePipelineProposalHandler,
@@ -132,7 +133,9 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "absent extends the trunk) — may be empty to bind the raw source schema unchanged. " +
         "`outputs` (optional, empty by default) is a list of `{kind, name, nodeStepClientId?}` " +
         "Outputs; nodeStepClientId resolves against steps[].clientId, absent means the pipeline's " +
-        "raw source. Read-only-checks a given `sourceId` resolves among your data sources and " +
+        "raw source. " +
+        COMPARE_CONFIG_DOC +
+        " Read-only-checks a given `sourceId` resolves among your data sources and " +
         "that an inline source supplies a non-blank `name` and its matching `config`, returning " +
         "{ proposal, warnings, applyReady }. Every SQL step/source in the pipeline must remain " +
         "read-only (non-SELECT is rejected at apply time, never re-validated here). Review the " +

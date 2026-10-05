@@ -2,7 +2,7 @@
  * Output tools (HEL-907 task 3.5/3.7): `add_output`, `update_output`,
  * `delete_output`, `list_outputs`, `get_output`, `get_output_rows`,
  * `get_output_panels`, `get_output_assertion_status`, `preview_outputs`,
- * `get_output_capabilities`, `get_output_provenance`.
+ * `get_output_capabilities`, `get_output_provenance`, `get_output_history`.
  *
  * This file is a thin shell (mirrors `pipelineProposal.ts`'s design.md D4b
  * split): zod `inputSchema` declarations + `guarded(() => xHandler(api,
@@ -22,6 +22,7 @@ import {
   deleteOutputHandler,
   getOutputAssertionStatusHandler,
   getOutputCapabilitiesHandler,
+  getOutputHistoryHandler,
   getOutputProvenanceHandler,
   getOutputHandler,
   getOutputPanelsHandler,
@@ -51,6 +52,17 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
 // (schemas/pipelines/create-pipeline-transactional-output-request.schema.json).
 const outputKindSchema = z.enum(["table", "metric", "chart", "collection", "timeline", "markdown"]);
 
+/** Shared `config.compare` documentation (HEL-1274), appended to every Output-config write tool
+ *  that accepts it. One constant so the wording changes in one place when the `previous_run`
+ *  semantics are settled (HEL-1285). The backend is the sole validator. */
+export const COMPARE_CONFIG_DOC =
+  "Optional `config.compare` (HEL-1273) selects the history baseline get_output_history " +
+  "resolves for this Output: `previous_run` (the second-newest RETAINED history point — older " +
+  "history is thinned, so this can be earlier than the last run), `1d`, `7d`, `30d`, " +
+  "`custom:<ISO-8601 duration>` (positive, days/hours/minutes/seconds, e.g. `custom:P2D` or " +
+  "`custom:PT6H`, at most 365 days), or null for none. Anything else is rejected by the " +
+  "backend with a 400; this tool does not validate it.";
+
 export function registerOutputTools(server: McpServer, api: HelioApi): void {
   server.registerTool(
     "add_output",
@@ -69,7 +81,9 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         "fieldMapping key for either kind is a 400). `rootId` (HEL-913, multi-root only) " +
         "names WHICH root a root-bound Output attaches to — mutually exclusive with " +
         "`nodeStepId`; omit it on a single-root pipeline (the backend auto-resolves the one " +
-        "root). Requires editor or owner access on the pipeline. Returns the created Output.",
+        "root). Requires editor or owner access on the pipeline. " +
+        COMPARE_CONFIG_DOC +
+        " Returns the created Output.",
       inputSchema: {
         pipelineId: z.string().min(1),
         nodeStepId: z.string().min(1).optional(),
@@ -91,7 +105,10 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         "Rename an Output and/or patch its config (PATCH /api/outputs/:id) — owner-only. " +
         "`config`, when present, merges one level deep for legend/tooltip/seriesColors/" +
         "axisLabels (HEL-877) rather than replacing the whole object; every other config key is " +
-        "replaced outright. Absent fields are left unchanged. Returns the updated Output.",
+        "replaced outright — including `compare`, which is replaced, never deep-merged; sending " +
+        "`compare: null` clears it. " +
+        COMPARE_CONFIG_DOC +
+        " Absent fields are left unchanged. Returns the updated Output.",
       inputSchema: {
         outputId: z.string().min(1),
         name: z.string().min(1).optional(),
@@ -208,6 +225,39 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
       inputSchema: { outputId: z.string().min(1) },
     },
     ({ outputId }) => guarded(() => getOutputProvenanceHandler(api, outputId)),
+  );
+
+  server.registerTool(
+    "get_output_history",
+    {
+      title: "Get an Output's value history",
+      description:
+        "The last N recorded values of an Output in ONE call (GET /api/outputs/:id/history): " +
+        "`sparkline` (oldest first, `{capturedAt, value}`), `points` (newest first, `{capturedAt, " +
+        "runId, triggerSource, rowCount}`), and the Output's `config.compare` resolved to " +
+        "`current`, `baseline`, `delta`, `pct` and `availableFrom` over its whole retained " +
+        "history (independent of limit/since). Only successful real (non-dry) pipeline runs " +
+        "record history. `value`, `current.value`, `baseline.value`, `delta` and `pct` are " +
+        "non-null ONLY for metric-kind Outputs (the server-computed headline over all rows); " +
+        "for every other kind they are null — use `points[].rowCount`, or set " +
+        "`includeSummaries: true` for each point's stored `summary`, which is dropped by " +
+        "default because it is bulky. History is thinned as it ages (about one point per 5 " +
+        "minutes within 24h, per hour to 7 days, per day beyond), so a `previous_run` baseline " +
+        "is the second-newest RETAINED point and may be older than the last run. `baseline` " +
+        "null with `availableFrom` set means the compare window is not yet covered. `limit` is " +
+        "an integer 1..100 (default 30; never clamped); `since` is an ISO-8601 instant that " +
+        "narrows the newest `limit` points — it does not page further back. Status codes: 400 " +
+        "bad `limit`/`since`; 404 when the id does not exist or is an Output you cannot read; " +
+        "401 when the API token is missing or invalid.",
+      inputSchema: {
+        outputId: z.string().min(1),
+        limit: z.number().int().min(1).max(100).optional(),
+        since: z.string().min(1).optional(),
+        includeSummaries: z.boolean().optional(),
+      },
+    },
+    ({ outputId, limit, since, includeSummaries }) =>
+      guarded(() => getOutputHistoryHandler(api, { outputId, limit, since, includeSummaries })),
   );
 
   server.registerTool(

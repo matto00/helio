@@ -17,6 +17,7 @@
 import type { HelioApi } from "../helioApi.js";
 import type {
   AssertionStatusResponse,
+  OutputHistoryResponse,
   OutputProvenanceResponse,
   CreateOutputRequest,
   DeleteOutputResponse,
@@ -104,6 +105,24 @@ export function getOutputProvenanceHandler(
   outputId: string,
 ): Promise<OutputProvenanceResponse> {
   return api.getOutputProvenance(outputId);
+}
+
+/** Pass-through of `GET /api/outputs/:id/history`. The only change is a field omission: each
+ *  `points[].summary` (up to ~200 series points + 20 column stats) is dropped unless
+ *  `includeSummaries` is true; `sparkline` already carries the values. No arithmetic here. */
+export async function getOutputHistoryHandler(
+  api: HelioApi,
+  input: { outputId: string; limit?: number; since?: string; includeSummaries?: boolean },
+): Promise<OutputHistoryResponse> {
+  const res = await api.getOutputHistory(input.outputId, {
+    limit: input.limit,
+    since: input.since,
+  });
+  if (input.includeSummaries === true) return res;
+  return {
+    ...res,
+    points: res.points.map(({ summary: _summary, ...rest }) => rest),
+  };
 }
 
 export function previewOutputsHandler(
