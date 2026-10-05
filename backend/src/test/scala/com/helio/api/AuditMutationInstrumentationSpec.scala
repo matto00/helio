@@ -1,5 +1,6 @@
 package com.helio.api
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.sources.ContentSourceSupport
@@ -9,7 +10,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader, `Set-Cookie`}
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.protocols.auth.{AuthResponse, LoginRequest, MfaConfirmRequest, MfaEnrollResponse, MfaRequiredResponse, MfaVerifyRequest, RegisterRequest}
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse, DashboardSnapshotPayload, DuplicateDashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelBatchItem, CreatePanelRequest, CreatePanelsBatchRequest, CreatePanelsBatchResponse, PanelBatchItem, PanelResponse, UpdatePanelsBatchRequest}
@@ -60,7 +60,7 @@ import scala.concurrent.duration.DurationInt
 class AuditMutationInstrumentationSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll with TempDirectorySupport {
 

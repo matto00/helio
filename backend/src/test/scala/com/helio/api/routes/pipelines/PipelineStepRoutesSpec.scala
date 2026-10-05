@@ -4,7 +4,6 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, PipelineStepId, UserId}
 import com.helio.domain.{CastConfig, StepConfigTypeMismatch}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -26,11 +25,12 @@ import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import com.helio.domain.steps.SecondaryInput
+import com.helio.testkit.HelioRouteTest
 
 class PipelineStepRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 

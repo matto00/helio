@@ -5,10 +5,10 @@ import com.helio.domain.model.{ApiTokenId, AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, UserSessionRepository}
 import com.helio.services.auth.ApiTokenService
 import com.helio.services.ratelimit.InMemoryRateLimiter
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken}
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -25,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  be its own hard problem — see [[RateLimitDirective]]'s scaladoc. The tests below cover only the
  *  authenticated (session/PAT) keying path shipped here, plus the deliberate pass-through behavior
  *  for everything else. */
-class RateLimitDirectiveSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with JsonProtocols {
+class RateLimitDirectiveSpec extends AnyWordSpec with Matchers with HelioRouteTest with JsonProtocols {
 
   private val sessionTokenA = "session-token-a"
   private val sessionTokenB = "session-token-b"

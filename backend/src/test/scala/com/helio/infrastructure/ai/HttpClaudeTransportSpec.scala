@@ -3,7 +3,7 @@ package com.helio.infrastructure.ai
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.HttpEntity
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import com.helio.testkit.HelioRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -14,7 +14,7 @@ import spray.json._
  *  without ever invoking `sendTool` (which would perform a real HTTP round trip). Mirrors
  *  `ClaudeClientSpec`'s "hand-written fake, zero real network calls" philosophy at the transport
  *  layer instead of the client layer. */
-class HttpClaudeTransportSpec extends AnyWordSpec with Matchers with ScalatestRouteTest {
+class HttpClaudeTransportSpec extends AnyWordSpec with Matchers with HelioRouteTest {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 

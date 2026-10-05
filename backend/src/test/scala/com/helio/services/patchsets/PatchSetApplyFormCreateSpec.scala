@@ -1,9 +1,9 @@
 package com.helio.services.patchsets
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.services.ServiceError
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
@@ -42,7 +42,7 @@ import scala.concurrent.{Await, Future}
 class PatchSetApplyFormCreateSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with TempDirectorySupport
     with BeforeAndAfterAll {
 

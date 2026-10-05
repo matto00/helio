@@ -4,9 +4,9 @@ import com.helio.api._
 import com.helio.domain.model.{AuthenticatedUser, ResourcePermission, Role, UserId}
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.services.sharing.ShareTokenValidator
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  token also happens to be present (design.md D5's "never confined to the anonymous branch, and
  *  never downgrades" property). Exercises `AclDirective.authorizeResourceWithSharing` directly, at
  *  the same level `AclDirectiveSpec` already does, rather than through a full route stack. */
-class ShareTokenAuthenticatedAccessSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with JsonProtocols {
+class ShareTokenAuthenticatedAccessSpec extends AnyWordSpec with Matchers with HelioRouteTest with JsonProtocols {
 
   private val ownerUserId  = "owner-user-id"
   private val editorUserId = "editor-user-id"

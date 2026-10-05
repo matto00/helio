@@ -8,6 +8,7 @@ import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.services.ServiceError
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
+import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -15,7 +16,6 @@ import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.headers.Location
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -38,7 +38,7 @@ import scala.util.{Success, Try}
  *  The ONLY drivers constructed with `fetchOverride = None` in this file are the ones in the
  *  "SourceService" and "RestApiConnectorDriver" sections below; each is called out at its
  *  construction site. */
-class RestConnectorEgressGuardSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
+class RestConnectorEgressGuardSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer

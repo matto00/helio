@@ -9,12 +9,12 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.services.pipelines.ProvenanceService
+import com.helio.testkit.HelioRouteTest
 import com.helio.testsupport.ProvenanceFixtures
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -30,7 +30,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** HEL-1206: authenticated `GET /api/outputs/:id/provenance` route shell (200 shape, 404 paths).
  *  The sharing-aware ACL itself is exercised against a NON-superuser pool in `ProvenanceServiceSpec`. */
-class ProvenanceRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with JsonProtocols with BeforeAndAfterAll {
+class ProvenanceRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTest with JsonProtocols with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext

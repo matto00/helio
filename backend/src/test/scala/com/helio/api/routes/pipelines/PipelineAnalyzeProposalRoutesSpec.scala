@@ -6,7 +6,6 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.pipelines.{CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, OutputAnalyzeResponse, PipelineAnalyzeProposalResponse, PipelineProposal, PipelineProposalSource, RootSourceSchemaResponse, SchemaFieldResponse, SelectAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload}
@@ -17,6 +16,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.pipelines.PipelineService
+import com.helio.testkit.HelioRouteTest
 import com.helio.testsupport.JsonSchemaValidation
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -39,7 +39,7 @@ import scala.concurrent.duration.DurationInt
 class PipelineAnalyzeProposalRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 

@@ -2,9 +2,9 @@ package com.helio.api.routes.pipelines
 
 import com.helio.api.routes.pipelines.RunStatusEvent
 import com.helio.api.routes.pipelines.PipelineRunRegistry
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer}
 import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.concurrent.Eventually
@@ -20,7 +20,7 @@ import scala.concurrent.duration.DurationInt
 class PipelineRunRegistrySpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with Eventually {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped

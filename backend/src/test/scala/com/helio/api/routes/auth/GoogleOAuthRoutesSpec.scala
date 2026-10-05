@@ -8,7 +8,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.model.headers.`Set-Cookie`
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.routes.auth.OAuthRoutes
 import com.helio.api._
 import com.helio.domain.model.{ApiTokenId, AuditEvent, AuditEventId, AuditSource, UserId, UserMfa}
@@ -17,6 +16,7 @@ import com.helio.infrastructure.persistence.auth.{MfaRepository, OAuthStateRepos
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.audit.AuditService
 import com.helio.services.auth.{AuthService, MfaService, UserTierConfig}
+import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -41,7 +41,7 @@ import scala.concurrent.duration.DurationInt
 class GoogleOAuthRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with Directives
     with JsonProtocols
     with BeforeAndAfterAll {

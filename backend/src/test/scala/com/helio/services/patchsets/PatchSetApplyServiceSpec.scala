@@ -1,5 +1,6 @@
 package com.helio.services.patchsets
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
@@ -25,7 +26,6 @@ import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import com.helio.api.JsonProtocols
 import com.helio.api.http.{ResourceType => AclResourceType}
@@ -55,7 +55,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  implicit `ActorSystem`/`Materializer` (`DataSourceService` needs one) —
  *  mirrors `DataSourceServiceSpec`'s own identical reason, no routes are
  *  exercised here. */
-class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with JsonProtocols with TempDirectorySupport {
+class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll with JsonProtocols with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer

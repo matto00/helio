@@ -6,7 +6,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
@@ -19,6 +18,7 @@ import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.services.pipelines.PipelineRunGuardConfig
+import com.helio.testkit.HelioRouteTest
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -39,7 +39,7 @@ import scala.concurrent.duration.DurationInt
 class ApiRoutesPipelineRunGuardSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 

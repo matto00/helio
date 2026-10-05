@@ -24,7 +24,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, StatusCodes}
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.SystemMaterializer
 import org.apache.pekko.stream.scaladsl.Source
 import org.flywaydb.core.Flyway

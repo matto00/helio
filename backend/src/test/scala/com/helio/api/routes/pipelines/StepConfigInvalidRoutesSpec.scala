@@ -8,7 +8,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.concat
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{CreatePipelineRequest, ErrorResponse, JsonProtocols, StepConfigErrorResponse}
 import com.helio.api.protocols.pipelines.{CreatePipelineRootRequest, PipelineStepResponse}
 import com.helio.domain.model.{AuthenticatedUser, OutputKind, PipelineId, PipelineStepId, UserId}
@@ -18,6 +17,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.pipelines.{PipelineRunService, PipelineService}
 import com.helio.spark.PipelineRunCache
+import com.helio.testkit.HelioRouteTest
 import com.helio.testsupport.DatasetRowsTestSupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -44,7 +44,7 @@ import scala.jdk.CollectionConverters._
 class StepConfigInvalidRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 

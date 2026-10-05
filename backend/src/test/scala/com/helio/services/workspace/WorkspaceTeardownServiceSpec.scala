@@ -1,5 +1,6 @@
 package com.helio.services.workspace
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.sources.DataSourceService
@@ -20,7 +21,6 @@ import com.helio.infrastructure.persistence.pipelines.PipelineRepository.Pipelin
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -66,7 +66,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class WorkspaceTeardownServiceSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with BeforeAndAfterAll with TempDirectorySupport {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped

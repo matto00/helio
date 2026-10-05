@@ -3,9 +3,9 @@ package com.helio.services.pipelines
 import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.model.{AuthenticatedUser, DataSourceKind, RestApiConfig, UserId}
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -18,7 +18,7 @@ import scala.concurrent.{Await, Future}
  *  payload the same way `method`/`headers` already do, so a POST+body inline source doesn't
  *  silently drop its body during dry-analyze. Uses a `fetchOverride` stub (never touches the
  *  network) that asserts the body it was handed matches what the payload declared. */
-class PipelineServiceInlineRestBodySpec extends AnyWordSpec with Matchers with ScalatestRouteTest {
+class PipelineServiceInlineRestBodySpec extends AnyWordSpec with Matchers with HelioRouteTest {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 

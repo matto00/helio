@@ -5,7 +5,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.concat
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{CreatePipelineRequest, ErrorResponse, JsonProtocols, PipelineSummaryResponse}
 import com.helio.api.protocols.pipelines.{CreatePipelineRootRequest, PipelineStepResponse}
 import com.helio.domain.engine.SchemaField
@@ -14,6 +13,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.services.pipelines.PipelineService
+import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -40,7 +40,7 @@ import scala.concurrent.duration.DurationInt
 class PipelineCycleRouteStatusSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 

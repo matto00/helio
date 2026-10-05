@@ -8,9 +8,9 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.pipelines.PipelineRunService
 import com.helio.spark.PipelineRunCache
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -54,7 +54,7 @@ import scala.concurrent.duration.DurationInt
 class SseReconnectGapProbeSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped

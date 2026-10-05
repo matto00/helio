@@ -2,7 +2,7 @@ package com.helio.api.routes.pipelines
 
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -28,7 +28,7 @@ import scala.concurrent.{Await, ExecutionContext}
 class PipelineRunCrossInstanceSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped

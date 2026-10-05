@@ -1,6 +1,6 @@
 package com.helio.infrastructure.ai
 
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.apache.pekko.util.ByteString
@@ -16,7 +16,7 @@ import scala.concurrent.{Await, Future}
  *  across chunk boundaries still parse correctly. Feeds hand-constructed raw SSE `ByteString`
  *  chunks directly — no HTTP layer, no real network — mirroring design.md D5's isolated,
  *  directly-unit-tested parser. */
-class ClaudeStreamAssemblySpec extends AnyWordSpec with Matchers with ScalatestRouteTest {
+class ClaudeStreamAssemblySpec extends AnyWordSpec with Matchers with HelioRouteTest {
 
   private implicit val mat: Materializer = Materializer(system)
 

@@ -5,7 +5,7 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.{ConnectionContext, Http}
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -36,7 +36,7 @@ import scala.util.{Failure, Success, Try}
  *  helper's success path at all. The client side installs a trust-all
  *  `SSLContext` as Pekko's default client HTTPS context so the self-signed
  *  cert is accepted without needing a CA-signed certificate in CI. */
-class CsvUrlFetchSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
+class CsvUrlFetchSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer

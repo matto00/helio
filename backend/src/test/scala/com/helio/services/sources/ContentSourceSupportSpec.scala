@@ -2,13 +2,13 @@ package com.helio.services.sources
 
 import com.helio.services.sources.ContentSourceSupport
 import com.helio.domain.model.DataFieldType
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.headers.Location
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -23,7 +23,7 @@ import scala.util.{Failure, Success, Try}
  *  metadata-field builder future content connectors (HEL-214/HEL-216) reuse,
  *  plus the extension-validation and URL-filename helpers, and (cycle-2
  *  fix) the SSRF guard `fetchUrl`/`validateUrl` enforce. */
-class ContentSourceSupportSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
+class ContentSourceSupportSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer

@@ -7,12 +7,12 @@ import com.helio.domain.connectors.ConnectorMetadata
 import com.helio.domain.connectors.{ConnectorDriver, RestApiConnectorDriver}
 import com.helio.domain.engine.SchemaInferenceEngine
 import com.helio.domain.model.{EphemeralRestConfig, RestApiConfig}
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -32,7 +32,7 @@ import scala.concurrent.{Await, Future}
  *  Connector-resolving path, so this still proves the request/response pipeline end to end.
  *  Connector-resolution + auth-header-application coverage lives in
  *  `RestApiConnectorDriverConnectorResolutionSpec` (DB-backed). */
-class RestApiConnectorSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll {
+class RestApiConnectorSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private implicit val mat: Materializer                 = SystemMaterializer(typedSystem).materializer

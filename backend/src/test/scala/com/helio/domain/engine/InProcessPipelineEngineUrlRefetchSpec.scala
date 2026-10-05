@@ -1,5 +1,6 @@
 package com.helio.domain.engine
 
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.domain.model.{ImageSourceConfig, PdfSourceConfig, TextSourceConfig}
@@ -14,7 +15,6 @@ import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.model.ContentTypes.`application/octet-stream`
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -45,7 +45,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  design.md Decision 1), NOT a conditional-request short-circuit (mechanism
  *  (b), ruled out below since no request — conditional or otherwise — was
  *  ever issued). */
-class InProcessPipelineEngineUrlRefetchSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with BeforeAndAfterAll with TempDirectorySupport {
+class InProcessPipelineEngineUrlRefetchSpec extends AnyWordSpec with Matchers with HelioRouteTest with BeforeAndAfterAll with TempDirectorySupport {
 
   private val ec: ExecutionContext                       = ExecutionContext.global
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped

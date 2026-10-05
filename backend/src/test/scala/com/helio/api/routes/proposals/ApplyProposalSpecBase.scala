@@ -7,7 +7,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
@@ -18,6 +17,7 @@ import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
+import com.helio.testkit.HelioRouteTest
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -48,7 +48,7 @@ import scala.concurrent.duration.DurationInt
 abstract class ApplyProposalSpecBase
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 

@@ -6,9 +6,9 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.model.{AuthenticatedUser, DataSourceKind, UserId}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.services.ServiceError
+import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.mockito.Mockito.mock
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -20,7 +20,7 @@ import scala.concurrent.{Await, Future}
  *  database name is refused with a 400 on both inline-source paths (the dry-analyze path in
  *  `PipelineService` and the structural validation in `PipelineProposalService`), before any
  *  connection is attempted. */
-class PipelineInlineSqlShapeSpec extends AnyWordSpec with Matchers with ScalatestRouteTest {
+class PipelineInlineSqlShapeSpec extends AnyWordSpec with Matchers with HelioRouteTest {
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
 

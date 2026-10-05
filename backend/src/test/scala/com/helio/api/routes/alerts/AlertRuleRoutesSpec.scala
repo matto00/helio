@@ -5,13 +5,13 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{AlertRuleResponse, AlertRulesResponse, JsonProtocols}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.alerts.AlertRuleService
+import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -30,7 +30,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class AlertRuleRoutesSpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll {
 

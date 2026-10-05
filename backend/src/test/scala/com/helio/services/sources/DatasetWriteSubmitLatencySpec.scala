@@ -8,11 +8,11 @@ import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRe
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.pipelines.AutoRunTriggerService
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -39,7 +39,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class DatasetWriteSubmitLatencySpec
     extends AnyWordSpec
     with Matchers
-    with ScalatestRouteTest
+    with HelioRouteTest
     with BeforeAndAfterAll
     with TempDirectorySupport {
 

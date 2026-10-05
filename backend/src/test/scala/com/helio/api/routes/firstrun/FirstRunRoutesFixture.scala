@@ -15,6 +15,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.sources.DataSourceService
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
+import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -24,7 +25,6 @@ import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, StatusCodes}
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.SystemMaterializer
 import org.apache.pekko.stream.scaladsl.Source
 import org.flywaydb.core.Flyway
@@ -45,7 +45,7 @@ import scala.concurrent.{Await, Future}
  *  Claude-bearing service so a spec can assert a build made zero model calls. */
 trait FirstRunRoutesFixture
     extends Suite
-    with ScalatestRouteTest
+    with HelioRouteTest
     with JsonProtocols
     with BeforeAndAfterAll
     with TempDirectorySupport {
@@ -132,6 +132,13 @@ trait FirstRunRoutesFixture
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($userId::uuid, 'e1@helio.test', now())""",
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($otherId::uuid, 'e2@helio.test', now())"""
     )))
+
+    // Warm-up (HEL-1228): the class's first build request pays one-time class-loading/JIT cost for the
+    // pipeline apply+run path; absorb it here so no test's measured request is the cold one.
+    val warmSrc = csvSource(user, "Warmup", datedCsv)
+    authed(Post("/api/first-run/dashboard", HttpEntity(ContentTypes.`application/json`, s"""{"sourceId":"$warmSrc"}"""))) ~> routes ~> check {
+      assert(status == StatusCodes.Created)
+    }
   }
 
   override def afterAll(): Unit = { appDb.close(); privilegedDb.close(); embeddedPostgres.close(); super.afterAll() }

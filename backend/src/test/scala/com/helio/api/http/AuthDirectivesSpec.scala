@@ -5,10 +5,10 @@ import com.helio.api.http.{AuthDirectives, SessionCookies}
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader}
 import org.apache.pekko.http.scaladsl.server.Directives._
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.domain.model.{ApiTokenId, AuditSource, AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, UserSessionRepository}
 import com.helio.services.auth.ApiTokenService
+import com.helio.testkit.HelioRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -20,7 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  still are), and the CSRF header requirement. Exercised directly against
  *  the directives with stub repositories — no DB, no full `ApiRoutes` — the
  *  route-level round-trip is covered by `ApiRoutesSpec`/`ApiTokenAuthSpec`. */
-class AuthDirectivesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with JsonProtocols {
+class AuthDirectivesSpec extends AnyWordSpec with Matchers with HelioRouteTest with JsonProtocols {
 
   private val sessionToken   = "a-real-session-token"
   private val patToken       = "helio_pat_" + "a" * 64

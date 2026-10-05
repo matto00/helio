@@ -2,10 +2,10 @@ package com.helio.api.routes.pipelines
 
 import com.helio.api.routes.pipelines.PipelineShapeRoutes
 import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import com.helio.api.{ErrorResponse, ExpandPipelineShapeRequest, ExpandPipelineShapeResponse, JsonProtocols, PipelineShapeCatalogEntryResponse}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.services.pipelines.PipelineShapeService
+import com.helio.testkit.HelioRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -17,7 +17,7 @@ import java.util.UUID
  *  `PipelineShape.Registry` via `PipelineShapeService`. The composed-route-tree / 401 coverage
  *  lives in `ApiRoutesSpec` (spec.md "The catalog route is reachable through the real composed
  *  route tree" / "Unauthenticated request is rejected"). */
-class PipelineShapeRoutesSpec extends AnyWordSpec with Matchers with ScalatestRouteTest with JsonProtocols {
+class PipelineShapeRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTest with JsonProtocols {
 
   private val user    = AuthenticatedUser(UserId(UUID.randomUUID().toString))
   private val service = new PipelineShapeService()
