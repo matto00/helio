@@ -1,0 +1,6 @@
+5:run c1689ba8: minted token 5eb158a2-c422-46bf-a36b-378b99b2e57c (revoked at the end)
+4259:teardown
+4261:  deleted pipeline f9ec13a7-46f7-4917-b759-f54dc25833cb (confirmed 404)
+4262:  revoked token 5eb158a2-c422-46bf-a36b-378b99b2e57c (confirmed 401)
+4263:TEARDOWN FAILED: data source ec1ac60b-5b12-4ff2-8800-c6cc85d9bbe6: GET after delete returned HTTP 405, expected 404
+4264:verify failed: Error: teardown left residue: data source ec1ac60b-5b12-4ff2-8800-c6cc85d9bbe6: GET after delete returned HTTP 405, expected 404

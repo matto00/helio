@@ -1,0 +1,10 @@
+### GREEN (final code, after lint-driven finally->sequential teardown refactor): fixed verify vs worktree backend :9603 (backend cwd = worktree/backend), exit=0.
+### Filtered to run/teardown lines + VERIFY OK; no credential printed. Bootstrap token id 519e6f6a-e453-470e-8658-c11835b86af7 revoked below.
+run 0ea82a50: minted token b9f65dcb-3338-45a3-8686-e8e3b423c56e (revoked at the end)
+teardown
+  deleted pipeline ba6cb776-27e3-4519-8912-f4fd02c8e65e (confirmed 404)
+  deleted data source 25290af1-e184-4472-b013-9d8f4e5067c7 (confirmed 404)
+  revoked token b9f65dcb-3338-45a3-8686-e8e3b423c56e (confirmed 401)
+VERIFY OK
+revoke bootstrap 519e6f6a-e453-470e-8658-c11835b86af7 -> HTTP 204
+bootstrap PAT after revoke -> HTTP 401

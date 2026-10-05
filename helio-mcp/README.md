@@ -180,8 +180,9 @@ scratch — source → pipeline (single-call `create_pipeline` with `steps[]`/
 assert the chain, plus a daily schedule set+read-back. This is the
 composition verified rendering real data in the running app (see
 `docs/agent-native.md` → "End-to-end proof"). `scripts/verify.ts`
-(`npm run verify`) is the companion read-tool verification harness — it
-does not write/compose a dashboard.
+(`npm run verify`) is the companion verification harness — every read tool plus
+a small `create_pipeline`/`add_outputs_from_shape` write check; it does not
+compose a dashboard.
 
 ## Context serializer
 
@@ -246,12 +247,24 @@ backend endpoint deliberately, not to thicken this server.
 ## Verifying
 
 `scripts/verify.ts` spawns the built server with the real MCP SDK **client** over
-stdio and exercises every tool + the resource:
+stdio and exercises every read tool, the resource, and the `create_pipeline` /
+`add_outputs_from_shape` write tools:
 
 ```bash
 npm run build
 HELIO_API_BASE_URL=http://localhost:8080 HELIO_PAT=helio_pat_… npm run verify
 ```
+
+`HELIO_PAT` is only the bootstrap credential. Each run mints its own PAT
+(`expiresInDays: 1`, named `HEL-1264 verify <runId>`), runs the server under
+it, and at the end deletes every pipeline and inline data source it created and
+revokes the PAT, each by exact id and each confirmed (404 / 401). A failed
+teardown prints the id and exits non-zero.
+
+The write payloads are built by `scripts/verifyPayloads.ts`.
+`scripts/verifyPayloads.test.ts` (collected by the root Jest run) sends each one
+through the real registered tool in-process, so a payload the tool's input
+schema rejects fails the suite without a backend.
 
 ## Project layout
 
@@ -266,6 +279,7 @@ src/
   tools/read.ts  registers the read tools + get_workspace_context
   tools/write.ts registers the write/composition tools
 scripts/
-  compose.ts     end-to-end composition harness (real MCP client, write tools)
-  verify.ts      end-to-end harness (real MCP client over stdio)
+  verify.ts          end-to-end harness (real MCP client over stdio)
+  verifyPayloads.ts  pure builders for verify's write-tool payloads
+  verifyFixtures.ts  verify's PAT mint/revoke + exact-id teardown
 ```

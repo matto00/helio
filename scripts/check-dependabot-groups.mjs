@@ -66,6 +66,13 @@ export const DECLARED_FAMILIES = [
     directory: "/frontend",
     members: ["react", "react-dom", "@types/react", "@types/react-dom"],
   },
+  // The SDK declares zod as a peer and helio-mcp hands zod schemas to `registerTool`.
+  {
+    name: "mcp-sdk",
+    ecosystem: "npm",
+    directory: "/helio-mcp",
+    members: ["@modelcontextprotocol/sdk", "zod"],
+  },
 ];
 
 // Verbatim from the independent rows of design.md Decision 1. A package here
@@ -383,7 +390,12 @@ function main() {
   const configText = readFileSync(configPath, "utf8");
 
   const manifests = {};
-  for (const directory of ["/", "/frontend"]) {
+  // Derived from the config's own npm entries so a newly added directory is coverage-checked
+  // rather than silently skipped.
+  const npmDirectories = (parseDependabotYaml(configText).updates ?? [])
+    .filter((u) => u["package-ecosystem"] === "npm")
+    .map((u) => u.directory);
+  for (const directory of npmDirectories) {
     const path = join(repoRoot, directory.replace(/^\//, ""), "package.json");
     try {
       manifests[manifestKey("npm", directory)] = JSON.parse(readFileSync(path, "utf8"));

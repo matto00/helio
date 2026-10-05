@@ -1,0 +1,14 @@
+### Residue check (psql, shared dev DB 'helio',)
+pipelines|0
+data_sources|0
+outputs for runIds|0
+id|uuid||not null|gen_random_uuid()
+user_id|uuid||not null|
+token_hash|text||not null|
+api_tokens|0
+minted ids present|0
+pipelines by id|0
+sources by id|0
+pipelines|0
+sources|0
+tokens|0

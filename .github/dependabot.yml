@@ -56,6 +56,22 @@ updates:
       dev-dependencies:
         dependency-type: "development"
 
+  - package-ecosystem: "npm"
+    directory: "/helio-mcp"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels: ["dependencies"]
+    groups:
+      # The SDK declares zod as a peer and helio-mcp passes zod schemas into
+      # `registerTool`, so a lone zod major bump typechecks against the old SDK's types.
+      mcp-sdk:
+        patterns:
+          - "@modelcontextprotocol/sdk"
+          - "zod"
+      dev-dependencies:
+        dependency-type: "development"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

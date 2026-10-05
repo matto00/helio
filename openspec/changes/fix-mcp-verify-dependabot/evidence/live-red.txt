@@ -1,0 +1,27 @@
+### RED: pre-fix verify.ts (from main) against worktree backend on :9603, worktree-built dist
+    }
+  ]
+}
+
+========================================================================
+list_pipeline_shapes
+========================================================================
+
+========================================================================
+add_outputs_from_shape — setup: create_pipeline (single-call, HEL-906) with an inline static source, no steps/outputs
+========================================================================
+verify failed: Error: tool returned isError: MCP error -32602: Input validation error: Invalid arguments for tool create_pipeline: [
+  {
+    "code": "invalid_type",
+    "expected": "array",
+    "received": "undefined",
+    "path": [
+      "roots"
+    ],
+    "message": "Required"
+  }
+]
+    at parse (/home/matt/Development/helio/.claude/worktrees/task/fix-mcp-verify-dependabot/HEL-1264/helio-mcp/scripts/verify.prefix.ts:44:32)
+    at main (/home/matt/Development/helio/.claude/worktrees/task/fix-mcp-verify-dependabot/HEL-1264/helio-mcp/scripts/verify.prefix.ts:215:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+exit=1
