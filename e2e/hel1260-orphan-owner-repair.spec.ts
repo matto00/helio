@@ -41,8 +41,22 @@ for (const theme of ["light", "dark"] as const) {
     test.setTimeout(90_000);
     await page.setViewportSize({ width: 1920, height: 1200 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
+    // Attached before login so the whole page lifetime is counted: "exactly one repair POST" holds
+    // over the test, wherever the page sends it from. The dashboard id is unknown yet, so record
+    // the url and assert it once seeded.
+    const repairPosts: { url: string; body: string }[] = [];
+    const layoutPatches: string[] = [];
+    page.on("request", (r) => {
+      if (r.method() === "POST" && /\/api\/dashboards\/[^/]+\/layout\/repair$/.test(r.url()))
+        repairPosts.push({ url: r.url(), body: r.postData() ?? "" });
+      if (r.method() === "PATCH" && r.url().includes("/api/dashboards/"))
+        layoutPatches.push(r.url());
+    });
     const email = await registerAndLogin(page, request);
     console.log(`[HEL-1260 e2e] throwaway user: ${email}`);
+    // After login the page is live on `/`, whose mount fetches race the API seeding below and can
+    // observe the orphan and repair it there. Idle the page so the explicit open is the only app load.
+    await page.goto("about:blank");
 
     const dash = await request.post("/api/dashboards", {
       data: { name: `HEL-1260 orphan ${theme}` },
@@ -66,22 +80,15 @@ for (const theme of ["light", "dark"] as const) {
       const before = await storedLayout(request, dashboardId);
       for (const bp of BREAKPOINTS) expect(before[bp]).toHaveLength(0);
 
-      const repairPosts: string[] = [];
-      const layoutPatches: string[] = [];
-      page.on("request", (r) => {
-        if (
-          r.method() === "POST" &&
-          r.url().endsWith(`/api/dashboards/${dashboardId}/layout/repair`)
-        )
-          repairPosts.push(r.postData() ?? "");
-        if (r.method() === "PATCH" && r.url().includes(`/api/dashboards/${dashboardId}/`))
-          layoutPatches.push(r.url());
-      });
+      expect(repairPosts).toHaveLength(0);
       await page.goto(`/dashboards/${dashboardId}`);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
       await expect.poll(() => repairPosts.length, { timeout: 15_000 }).toBe(1);
-      const sent = JSON.parse(repairPosts[0]) as Record<string, { panelId: string }[]>;
+      expect(repairPosts[0].url.endsWith(`/api/dashboards/${dashboardId}/layout/repair`)).toBe(
+        true,
+      );
+      const sent = JSON.parse(repairPosts[0].body) as Record<string, { panelId: string }[]>;
       expect(Object.keys(sent).sort()).toEqual([...BREAKPOINTS].sort());
 
       await expect
@@ -117,8 +124,14 @@ for (const theme of ["light", "dark"] as const) {
     test.setTimeout(90_000);
     await page.setViewportSize({ width: 1920, height: 1200 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
+    const repairPosts: string[] = [];
+    page.on("request", (r) => {
+      if (r.method() === "POST" && r.url().endsWith("/layout/repair")) repairPosts.push(r.url());
+    });
     const email = await registerAndLogin(page, request);
     console.log(`[HEL-1260 e2e] throwaway user: ${email}`);
+    // Idle the page so no app code runs while the dashboard is seeded (see the orphan test).
+    await page.goto("about:blank");
 
     const dash = await request.post("/api/dashboards", {
       data: { name: `HEL-1260 ui create ${theme}` },
@@ -127,10 +140,6 @@ for (const theme of ["light", "dark"] as const) {
     expect(dash.status()).toBe(201);
     const dashboardId = ((await dash.json()) as { id: string }).id;
     try {
-      const repairPosts: string[] = [];
-      page.on("request", (r) => {
-        if (r.method() === "POST" && r.url().endsWith("/layout/repair")) repairPosts.push(r.url());
-      });
       await page.goto(`/dashboards/${dashboardId}`);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
