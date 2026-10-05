@@ -1,0 +1,6 @@
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoTypes.scala` — outputRepo required; add PatchSetUndoContext.build
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoService.scala` — required outputRepo, context via build, needsOutputRepo pre-Phase-1 typed rejection, reads via context
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoServiceSpec.scala` — parity, typed-rejection (delete/create) and panel-only null-repo tests
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetUndoRoutesSpec.scala` — pass OutputRepository (omission is now a compile error)
+- `openspec/changes/undo-output-repo-required/tasks.md` — tasks ticked
+- `openspec/changes/undo-output-repo-required/evidence.md` — red-first, audit, coverage, gate evidence

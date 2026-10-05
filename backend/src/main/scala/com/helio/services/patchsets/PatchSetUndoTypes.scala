@@ -22,8 +22,23 @@ private[services] final case class PatchSetUndoContext(
     dataSourceRepo: DataSourceRepository,
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
-    // HEL-914 task 5.6: nullable-optional, mirrors PatchSetApplyContext.outputRepo's identical
-    // convention -- a fixture that never constructs a pipelineStep-create edit's undo is
-    // unaffected either way.
-    outputRepo: OutputRepository = null
+    // HEL-1256: required, no default (mirrors PatchSetApplyContext.outputRepo, HEL-1239). A
+    // caller with no DbContext passes `null` explicitly; PatchSetUndoService.undo then rejects
+    // any application that needs the repo with PatchSetApplyContext.outputRepoUnavailable.
+    outputRepo: OutputRepository
 )
+
+private[services] object PatchSetUndoContext {
+
+  /** The ONE construction path; every parameter is required so a new context field cannot be
+   *  silently omitted (HEL-1256). */
+  def build(
+      panelRepo: PanelRepository,
+      dashboardRepo: DashboardRepository,
+      dataSourceRepo: DataSourceRepository,
+      pipelineRepo: PipelineRepository,
+      pipelineStepRepo: PipelineStepRepository,
+      outputRepo: OutputRepository
+  ): PatchSetUndoContext =
+    PatchSetUndoContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, outputRepo)
+}
