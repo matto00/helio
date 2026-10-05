@@ -466,19 +466,28 @@ describe("PatchSetReviewPage", () => {
     });
   });
 
-  // F-002: mirrors `PanelMutationRepository`'s backend baseTitle/copyTitleRegex
-  // pattern — repeated demo-fixture triggers against the same panel must stay
-  // idempotent instead of stacking " (previewed) (previewed) (previewed)…".
+  // F-002 + HEL-1154: mirrors `PanelMutationRepository`'s backend baseTitle/copyTitleRegex
+  // pattern — repeated demo-fixture triggers against the same panel must converge to exactly
+  // one " (previewed)" marker, even from an already-compounded title.
   describe("baseTitle (F-002 idempotency)", () => {
     it("strips a single trailing '(previewed)' suffix", () => {
       expect(baseTitle("Revenue (previewed)")).toBe("Revenue");
     });
 
-    it("strips a stacked suffix down to just the last occurrence in one pass, not the whole tail", () => {
-      // A single `baseTitle` call only strips one trailing occurrence — this
-      // documents that behavior on already-corrupted input rather than
-      // asserting full recovery in one call.
-      expect(baseTitle("Revenue (previewed) (previewed)")).toBe("Revenue (previewed)");
+    it("strips the whole trailing run of markers (HEL-1154)", () => {
+      expect(baseTitle("Revenue (previewed) (previewed)")).toBe("Revenue");
+    });
+
+    it.each([0, 1, 2, 3, 4, 5])(
+      "re-appending one marker to a title with %i markers yields exactly one",
+      (n) => {
+        const built = `${baseTitle("Revenue" + " (previewed)".repeat(n))} (previewed)`;
+        expect(built).toBe("Revenue (previewed)");
+      },
+    );
+
+    it("leaves a marker in the middle of a title untouched", () => {
+      expect(baseTitle("A (previewed) B")).toBe("A (previewed) B");
     });
 
     it("leaves an un-suffixed title unchanged", () => {

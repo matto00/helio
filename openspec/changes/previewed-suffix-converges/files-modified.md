@@ -1,0 +1,4 @@
+- `frontend/src/features/patchSets/ui/PatchSetReviewPage.tsx` — PREVIEWED_SUFFIX_RE strips whole trailing marker run; comments updated
+- `frontend/src/features/patchSets/ui/PatchSetReviewPage.test.tsx` — baseTitle test updated to full-strip, N=0..5 loop, mid-title case
+- `frontend/src/features/patchSets/ui/PatchSetReviewPage.demoFixture.test.tsx` — new page-level probe with IS_DEV mocked true
+- `openspec/changes/previewed-suffix-converges/*` — tasks ticked, red-green-evidence.md, files-modified.md

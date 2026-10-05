@@ -208,16 +208,18 @@ export function PatchSetReviewPage() {
   );
 }
 
-// F-002: strips a prior "(previewed)" suffix before re-appending it, so
-// repeated dev/test triggers against the same panel stay idempotent instead
-// of stacking " (previewed) (previewed) (previewed)…" — mirrors the same
-// baseTitle/copyTitleRegex pattern `PanelMutationRepository` already uses on
-// the backend for the real panel-duplicate action, for the identical reason.
-const PREVIEWED_SUFFIX_RE = / \(previewed\)$/;
+// F-002 / HEL-1154: strips the whole trailing run of "(previewed)" markers
+// before re-appending exactly one, so repeated dev/test triggers against the
+// same panel converge to a single marker (even from an already-compounded
+// title) instead of stacking " (previewed) (previewed) (previewed)…" — mirrors
+// the same baseTitle/copyTitleRegex pattern `PanelMutationRepository` already
+// uses on the backend for the real panel-duplicate action. Anchored at the
+// end, so a marker mid-title is untouched.
+const PREVIEWED_SUFFIX_RE = /(?: \(previewed\))+$/;
 
-// Exported for a focused regression test (F-002) — the demo-fixture path
-// itself only runs in DEV builds, unreachable under Jest (`config/env`'s
-// `IS_DEV` is mocked `false`; see `PatchSetReviewPage.test.tsx`).
+// Exported for a focused regression test (F-002). The demo-fixture path itself
+// only runs in DEV builds; `PatchSetReviewPage.demoFixture.test.tsx` reaches it
+// by mocking `config/env`'s `IS_DEV` to `true` for that file only.
 export function baseTitle(title: string): string {
   return title.replace(PREVIEWED_SUFFIX_RE, "");
 }
