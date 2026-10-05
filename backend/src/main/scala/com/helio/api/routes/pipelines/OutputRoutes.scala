@@ -8,7 +8,8 @@ import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.IdParsing.{OutputIdSegment, PipelineIdSegment}
 import com.helio.api.protocols.pipelines.{CreateOutputRequest, OutputsResponse, UpdateOutputRequest}
 import com.helio.domain.model.{AuthenticatedUser, Page, PagedResult}
-import com.helio.services.pipelines.OutputService
+import com.helio.services.pipelines.{OutputHistoryService, OutputService}
+import com.helio.api.protocols.pipelines.OutputHistoryResponses
 import spray.json.JsObject
 
 import scala.concurrent.ExecutionContext
@@ -23,7 +24,10 @@ import scala.concurrent.ExecutionContext
  *  site, not mounted twice. */
 class OutputRoutes(
     outputService: OutputService,
-    user:          AuthenticatedUser
+    user:          AuthenticatedUser,
+    // HEL-1273: optional so fixtures without a DbContext (no history repository) simply don't
+    // serve `GET /api/outputs/:id/history`.
+    historyService: Option[OutputHistoryService] = None
 )(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
@@ -78,6 +82,21 @@ class OutputRoutes(
         path("panels") {
           get {
             ServiceResponse.run(outputService.listPanels(outputId, user))(identity)
+          }
+        },
+        // HEL-1273: history + resolved `config.compare` comparison. `read` authorizes through the
+        // sharing-aware `findById`, so a non-grantee and an unknown id both get the same 404.
+        path("history") {
+          get {
+            parameters("limit".optional, "since".optional) { (limitRaw, sinceRaw) =>
+              OutputHistoryQueryParsing.parse(limitRaw, sinceRaw) match {
+                case Left(err) => complete(StatusCodes.BadRequest, ErrorResponse(err))
+                case Right(q) =>
+                  historyService.fold(reject: Route) { svc =>
+                    ServiceResponse.run(svc.read(outputId, user, q.limit, q.since))(r => OutputHistoryResponses.authenticated(outputId.value, r))
+                  }
+              }
+            }
           }
         },
         path("assertion-status") {

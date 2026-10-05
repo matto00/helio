@@ -43,7 +43,7 @@ import com.helio.services.sharing.{ShareTokenService, ShareTokenValidatorImpl}
 import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardContentsService, DashboardService}
-import com.helio.services.pipelines.{AutoRunTriggerService, OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService, ProvenanceService}
+import com.helio.services.pipelines.{AutoRunTriggerService, OutputHistoryService, OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService, ProvenanceService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
 import com.helio.services.ratelimit.{InMemoryRateLimiter, RateLimitConfig}
@@ -494,6 +494,9 @@ final class ApiRoutes(
       pipelineRunService = pipelineRunService,
       pipelineRootRepo   = pipelineRootRepoOpt.orNull
     ))
+  // HEL-1273: history + comparison read; absent without a DbContext (no history repository).
+  private val outputHistoryServiceOpt: Option[OutputHistoryService] =
+    for { outputRepo <- outputRepoOpt; historyRepo <- outputHistoryRepoOpt } yield new OutputHistoryService(outputRepo, historyRepo)
   // HEL-1206: provenance read (authenticated route + public variant below). Same nullable-DbContext
   // derived wiring as outputServiceOpt: absent without a DbContext / PipelineRunRepository.
   private val provenanceServiceOpt: Option[ProvenanceService] =
@@ -868,7 +871,7 @@ final class ApiRoutes(
               pathPrefix("auth") { concat(auth.routes, oauth.routes, mfaRoutesOpt.fold(reject: Route)(_.verifyRoute)) },
               authDirectives.optionalAuthenticate { userOpt =>
                 concat(
-                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt, outputRepoOpt, Option(pipelineRepo), nodeSnapshotRepoOpt, provenanceServiceOpt).routes,
+                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt, outputRepoOpt, Option(pipelineRepo), nodeSnapshotRepoOpt, provenanceServiceOpt, outputHistoryServiceOpt).routes,
                   imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes),
                   // HEL-955 design.md D5: optional-auth so an unauthenticated human can complete
                   // a pending Connector out-of-band, while an authenticated caller is still
@@ -994,7 +997,7 @@ final class ApiRoutes(
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
                   // HEL-906: `/api/pipelines/:id/outputs` + `/api/outputs/:id` —
                   // fixtures that don't pass a DbContext simply don't get these mounted.
-                  outputServiceOpt.fold(reject: Route)(svc => new OutputRoutes(svc, authenticatedUser).routes),
+                  outputServiceOpt.fold(reject: Route)(svc => new OutputRoutes(svc, authenticatedUser, outputHistoryServiceOpt).routes),
                   provenanceServiceOpt.fold(reject: Route)(svc => new ProvenanceRoutes(svc, authenticatedUser).routes),
                   new PipelineProposalRoutes(pipelineProposalService, authenticatedUser).routes,
                   // HEL-387: brand-new top-level `proposals` prefix (design.md

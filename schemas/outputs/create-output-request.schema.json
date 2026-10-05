@@ -6,14 +6,30 @@
   "type": "object",
   "required": ["kind", "name"],
   "properties": {
-    "nodeStepId": { "type": ["string", "null"] },
-    "rootId": { "type": ["string", "null"] },
+    "nodeStepId": {
+      "type": ["string", "null"]
+    },
+    "rootId": {
+      "type": ["string", "null"]
+    },
     "kind": {
       "type": "string",
       "enum": ["table", "metric", "chart", "collection", "timeline", "markdown"]
     },
-    "name": { "type": "string", "minLength": 1 },
-    "config": { "type": "object" }
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config": {
+      "type": "object",
+      "description": "Output config. `compare` (HEL-1273) selects the history comparison: absent/null (none), `previous_run`, `1d`, `7d`, `30d`, or `custom:<d>` where <d> is a positive ISO-8601 duration in days/hours/minutes/seconds (PnDTnHnMnS, at most 365 days; week/month/year and lowercase/signed forms are rejected). Anything else is a 400.",
+      "properties": {
+        "compare": {
+          "type": ["string", "null"],
+          "pattern": "^(previous_run|1d|7d|30d|custom:P(\\d+D)?(T(\\d+H)?(\\d+M)?(\\d+(\\.\\d+)?S)?)?)$"
+        }
+      }
+    }
   },
   "additionalProperties": false
 }

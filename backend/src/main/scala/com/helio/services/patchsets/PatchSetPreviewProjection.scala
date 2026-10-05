@@ -124,7 +124,7 @@ private[services] object PatchSetPreviewProjection {
 
   /** HEL-1239: after-state of an Output update -- `name` replaced, `config` shallow-merged (with
    *  the sub-object merge) and its `fieldMapping` validated EXACTLY as `OutputService.update`
-   *  does (shared `OutputService.mergeConfig`/`validateFieldMapping`), so a preview of an invalid
+   *  does (shared `OutputService.mergeConfig`/`validateConfig`), so a preview of an invalid
    *  patch 400s like the apply would. `updatedAt` stays at `prior`'s value (design.md D3's
    *  timestamp exclusion, same as every other update projection). */
   private def outputUpdateAfter(
@@ -133,7 +133,7 @@ private[services] object PatchSetPreviewProjection {
       priorConfig: JsObject
   ): Either[ServiceError, Option[JsValue]] = {
     val merged = request.config.map(patch => OutputService.mergeConfig(priorConfig, patch))
-    merged.map(cfg => OutputService.validateFieldMapping(prior.kind, cfg)).getOrElse(Right(())).map { _ =>
+    merged.map(cfg => OutputService.validateConfig(prior.kind, cfg)).getOrElse(Right(())).map { _ =>
       val updated = prior.copy(name = request.name.getOrElse(prior.name))
       Some(outputResponseFormat.write(outputResponseFrom(updated, merged.getOrElse(priorConfig))))
     }

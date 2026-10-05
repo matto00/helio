@@ -5,16 +5,16 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.helio.api._
 import com.helio.api.http._
-import com.helio.api.protocols.pipelines.{OutputSchemaFieldResponse, ProvenanceResponses, PublicOutputMetaResponse, PublicOutputProvenanceResponse}
+import com.helio.api.protocols.pipelines.{OutputHistoryResponses, OutputSchemaFieldResponse, ProvenanceResponses, PublicOutputHistoryResponse, PublicOutputMetaResponse, PublicOutputProvenanceResponse}
 import com.helio.api.routes.ServiceResponse
-import com.helio.api.routes.pipelines.OutputRowsQueryParsing
+import com.helio.api.routes.pipelines.{OutputHistoryQueryParsing, OutputRowsQueryParsing}
 import com.helio.domain.model._
 import com.helio.domain.panels.OutputPanel
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository}
 import com.helio.services.ServiceError
 import com.helio.services.panels.{OutputControlsValidator, PublicOutputControlScope}
-import com.helio.services.pipelines.{OutputFilterCapability, OutputRowsQuery, ProvenanceService}
+import com.helio.services.pipelines.{OutputFilterCapability, OutputHistoryService, OutputRowsQuery, ProvenanceService}
 import spray.json.{JsObject, JsValue}
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -44,7 +44,8 @@ final class PublicDashboardRoutes(
     outputRepoOpt: Option[OutputRepository] = None,
     pipelineRepoOpt: Option[PipelineRepository] = None,
     nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = None,
-    provenanceServiceOpt: Option[ProvenanceService] = None
+    provenanceServiceOpt: Option[ProvenanceService] = None,
+    historyServiceOpt: Option[OutputHistoryService] = None
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -294,6 +295,27 @@ final class PublicDashboardRoutes(
         }
     }
 
+  /** HEL-1273: public history -- same `resolvePanelOutput` gate as `output-meta`/`provenance`
+   *  (every failure `404`), projected through the allowlist-only public type. The Output's config is
+   *  read with the same `*Internal` batch lookup `output-meta` uses. */
+  private def resolveHistory(
+      dashboardId: String,
+      panelId: String,
+      q: OutputHistoryQueryParsing.Query
+  ): Future[Either[ServiceError, PublicOutputHistoryResponse]] =
+    (historyServiceOpt, outputRepoOpt) match {
+      case (Some(svc), Some(outputRepo)) =>
+        resolvePanelOutput(dashboardId, panelId).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right((_, output)) =>
+            outputRepo.findConfigsByIdsInternal(Vector(output.id.value)).flatMap { configs =>
+              svc.forOutput(output, configs.getOrElse(output.id.value, JsObject.empty), q.limit, q.since)
+                .map(r => Right(OutputHistoryResponses.public(r)))
+            }
+        }
+      case _ => Future.successful(Left(ServiceError.NotFound("Output not found")))
+    }
+
   val routes: Route =
     pathPrefix("dashboards" / Segment / "panels") { dashboardId =>
       pathPrefix(Segment / "rows") { panelId =>
@@ -382,6 +404,27 @@ final class PublicDashboardRoutes(
                 token
               ) { _ =>
                 ServiceResponse.run(resolveOutputMeta(dashboardId, panelId))(identity)
+              }
+            }
+          }
+        }
+      } ~
+      pathPrefix(Segment / "history") { panelId =>
+        pathEndOrSingleSlash {
+          get {
+            parameters("limit".optional, "since".optional, "token".optional) { (limitRaw, sinceRaw, token) =>
+              OutputHistoryQueryParsing.parse(limitRaw, sinceRaw) match {
+                case Left(err) => complete(StatusCodes.BadRequest, ErrorResponse(err))
+                case Right(q) =>
+                  aclDirective.authorizeResourceWithSharing(
+                    "dashboard",
+                    dashboardId,
+                    userOpt,
+                    "Dashboard not found",
+                    token
+                  ) { _ =>
+                    ServiceResponse.run(resolveHistory(dashboardId, panelId, q))(identity)
+                  }
               }
             }
           }
