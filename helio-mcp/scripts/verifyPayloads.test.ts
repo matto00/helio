@@ -34,6 +34,8 @@ function stubApi(reached: string[]): HelioApi {
     addPipelineStep: record("addPipelineStep", { id: "step-stub" }),
     createOutput: record("createOutput", { id: "output-stub" }),
     listOutputsByPipeline: record("listOutputsByPipeline", { items: [] }),
+    runPipeline: record("runPipeline", { pipelineId: PIPELINE_ID, status: "succeeded" }),
+    getOutputHistory: record("getOutputHistory", { points: [], sparkline: [] }),
   } as unknown as HelioApi;
 }
 
@@ -75,6 +77,17 @@ const CALLS: Array<[string, VerifyToolCall, string]> = [
     "buildAddUnknownShapeCall",
     payloads.buildAddUnknownShapeCall(PIPELINE_ID, RUN_ID),
     "expandPipelineShape",
+  ],
+  [
+    "buildAddMetricOutputCall",
+    payloads.buildAddMetricOutputCall(PIPELINE_ID, RUN_ID),
+    "createOutput",
+  ],
+  ["buildRunPipelineCall", payloads.buildRunPipelineCall(PIPELINE_ID), "runPipeline"],
+  [
+    "buildGetOutputHistoryCall",
+    payloads.buildGetOutputHistoryCall("output-stub", 30),
+    "getOutputHistory",
   ],
 ];
 

@@ -87,9 +87,39 @@ export function buildAddUnknownShapeCall(pipelineId: string, runId: string): Ver
   };
 }
 
+/** Root-bound metric Output (no nodeStepId) summing `revenue`, with a history comparison. The keys
+ *  (`fieldMapping.value`, `aggregation.agg`) are the ones `OutputSummaryReducer.metric` reads. */
+export function buildAddMetricOutputCall(pipelineId: string, runId: string): VerifyToolCall {
+  return {
+    name: "add_output",
+    arguments: {
+      pipelineId,
+      kind: "metric",
+      name: `HEL-1274 verify metric output ${runId}`,
+      config: {
+        fieldMapping: { value: "revenue" },
+        aggregation: { agg: "sum" },
+        compare: "previous_run",
+      },
+    },
+  };
+}
+
+/** A real (non-dry) run; each success records one history point on the pipeline's Outputs. */
+export function buildRunPipelineCall(pipelineId: string): VerifyToolCall {
+  return { name: "run_pipeline", arguments: { pipelineId, dry: false } };
+}
+
+export function buildGetOutputHistoryCall(outputId: string, limit: number): VerifyToolCall {
+  return { name: "get_output_history", arguments: { outputId, limit } };
+}
+
 export const VERIFY_WRITE_BUILDERS = [
   "buildCreatePipelineCall",
   "buildAddTopNOutputCall",
   "buildAddInvalidParamsCall",
   "buildAddUnknownShapeCall",
+  "buildAddMetricOutputCall",
+  "buildRunPipelineCall",
+  "buildGetOutputHistoryCall",
 ] as const;

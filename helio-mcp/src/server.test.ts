@@ -89,6 +89,7 @@ const EXPECTED_TOOL_NAMES = [
   "get_output_assertion_status",
   "get_output_capabilities",
   "get_output_filter_capabilities",
+  "get_output_history",
   "get_output_panels",
   "get_output_provenance",
   "get_output_rows",
@@ -297,5 +298,39 @@ describe("control tool copy states the observed status codes (HEL-1193 C2)", () 
 
     expect(description).toContain("controls: [{ kind:");
     expect(description).toContain("HTTP 400");
+  });
+});
+
+describe("HEL-1274 get_output_history + compare documentation", () => {
+  async function descriptions(): Promise<Record<string, string>> {
+    const server = createServer({} as HelioApi);
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    try {
+      const { tools } = await client.listTools();
+      return Object.fromEntries(tools.map((t) => [t.name, t.description ?? ""]));
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  }
+
+  it("get_output_history says non-metric values are null and history is thinned, never 'previous run'", async () => {
+    const d = (await descriptions()).get_output_history ?? "";
+
+    expect(d).toMatch(/non-null ONLY for metric/);
+    expect(d).toMatch(/thinned/);
+    expect(d.toLowerCase()).not.toContain("previous run");
+  });
+
+  it("documents compare on add_output, update_output, create_pipeline, propose_pipeline only", async () => {
+    const all = await descriptions();
+
+    for (const tool of ["add_output", "update_output", "create_pipeline", "propose_pipeline"]) {
+      expect(all[tool]).toContain("compare");
+      expect(all[tool]).toContain("previous_run");
+    }
+    expect(all.place_outputs).not.toContain("compare");
   });
 });

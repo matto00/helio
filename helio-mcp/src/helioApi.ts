@@ -64,6 +64,7 @@ import type {
   UpdatePanelRequest,
   UpdatePipelineStepRequest,
   AssertionStatusResponse,
+  OutputHistoryResponse,
   OutputProvenanceResponse,
   CreateOutputRequest,
   DeleteOutputResponse,
@@ -1146,6 +1147,18 @@ export class HelioApi {
   /** `GET /api/outputs/:id/provenance` (`get_output_provenance`, HEL-1206). */
   getOutputProvenance(outputId: string): Promise<OutputProvenanceResponse> {
     return this.http.get<OutputProvenanceResponse>(`/api/outputs/${outputId}/provenance`);
+  }
+
+  /** `GET /api/outputs/:id/history` (`get_output_history`, HEL-1274). `limit`/`since` are sent
+   *  only when defined, so the backend defaults (limit 30) apply otherwise. */
+  getOutputHistory(
+    outputId: string,
+    opts: { limit?: number; since?: string } = {},
+  ): Promise<OutputHistoryResponse> {
+    const params: Record<string, string | number> = {};
+    if (opts.limit !== undefined) params.limit = opts.limit;
+    if (opts.since !== undefined) params.since = opts.since;
+    return this.http.get<OutputHistoryResponse>(`/api/outputs/${outputId}/history`, params);
   }
 
   /** `GET /api/outputs/:id/rows?offset&limit` — paginated latest-run row snapshot

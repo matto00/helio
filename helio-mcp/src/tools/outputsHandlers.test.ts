@@ -15,6 +15,7 @@ import type {
   DeleteOutputResponse,
   NodeCapabilitiesResponse,
   OutputPanelPlacementResponse,
+  OutputHistoryResponse,
   OutputProvenanceResponse,
   OutputResponse,
   OutputsResponse,
@@ -27,6 +28,7 @@ import {
   getOutputAssertionStatusHandler,
   getOutputCapabilitiesHandler,
   getOutputHandler,
+  getOutputHistoryHandler,
   getOutputPanelsHandler,
   getOutputProvenanceHandler,
   getOutputRowsHandler,
@@ -66,6 +68,9 @@ function makeFakeApi(overrides: Partial<Record<keyof HelioApi, unknown>> = {}): 
     },
     previewOutputs: async () => {
       throw new Error("previewOutputs not stubbed");
+    },
+    getOutputHistory: async () => {
+      throw new Error("getOutputHistory not stubbed");
     },
     getOutputCapabilities: async () => {
       throw new Error("getOutputCapabilities not stubbed");
@@ -358,5 +363,81 @@ describe("getOutputCapabilitiesHandler", () => {
     await expect(
       getOutputCapabilitiesHandler(api, { pipelineId: "pipeline-1", stepId: "bogus" }),
     ).rejects.toThrow(HelioApiError);
+  });
+});
+
+describe("getOutputHistoryHandler (HEL-1274)", () => {
+  const summary = { v: 1, rowCount: 3 };
+  const history = {
+    outputId: "output-1",
+    compare: "previous_run",
+    current: { capturedAt: "2026-10-05T10:00:00Z", rowCount: 3, value: 12 },
+    baseline: { capturedAt: "2026-10-05T09:00:00Z", rowCount: 3, value: 10 },
+    delta: 2,
+    pct: 20,
+    availableFrom: null,
+    sparkline: [
+      { capturedAt: "2026-10-05T09:00:00Z", value: 10 },
+      { capturedAt: "2026-10-05T10:00:00Z", value: 12 },
+    ],
+    points: [
+      {
+        capturedAt: "2026-10-05T10:00:00Z",
+        runId: "r2",
+        triggerSource: "manual",
+        rowCount: 3,
+        summary,
+      },
+      {
+        capturedAt: "2026-10-05T09:00:00Z",
+        runId: "r1",
+        triggerSource: "manual",
+        rowCount: 3,
+        summary,
+      },
+    ],
+  } as unknown as OutputHistoryResponse;
+
+  it("forwards args and drops points[].summary by default, leaving everything else identical", async () => {
+    const calls: unknown[][] = [];
+    const api = makeFakeApi({
+      getOutputHistory: async (...args: unknown[]) => {
+        calls.push(args);
+        return history;
+      },
+    });
+
+    const result = await getOutputHistoryHandler(api, {
+      outputId: "output-1",
+      limit: 30,
+      since: "2026-10-05T00:00:00Z",
+    });
+
+    expect(calls).toEqual([["output-1", { limit: 30, since: "2026-10-05T00:00:00Z" }]]);
+    expect(result.points.every((p) => !("summary" in p))).toBe(true);
+    expect({ ...result, points: [] }).toEqual({ ...history, points: [] });
+    expect(result.points.map((p) => p.runId)).toEqual(["r2", "r1"]);
+  });
+
+  it("returns the backend response unchanged with includeSummaries", async () => {
+    const api = makeFakeApi({ getOutputHistory: async () => history });
+
+    const result = await getOutputHistoryHandler(api, {
+      outputId: "output-1",
+      includeSummaries: true,
+    });
+
+    expect(result).toEqual(history);
+  });
+
+  it("propagates a HelioApiError", async () => {
+    const err = new HelioApiError(404, "/api/outputs/nope/history", "Output not found");
+    const api = makeFakeApi({
+      getOutputHistory: async () => {
+        throw err;
+      },
+    });
+
+    await expect(getOutputHistoryHandler(api, { outputId: "nope" })).rejects.toBe(err);
   });
 });

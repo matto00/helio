@@ -253,6 +253,40 @@ export interface AssertionStatusResponse {
  *  every data source feeding the Output (trunk roots, then direct join/union/lookup Source
  *  secondaries); `nodePath` is the step-kind chain from the trunk root to the Output's node
  *  (empty for a root-bound Output). No `errorLog` or assertion `observed` values. */
+/** `GET /api/outputs/:id/history` (HEL-1273); mirrors schemas/outputs/output-history-response.schema.json.
+ *  `value` is non-null only for metric-kind Outputs. `summary` is the stored per-run summary and is
+ *  dropped from `points[]` by `get_output_history` unless `includeSummaries` is true. */
+export interface OutputHistoryResolvedPoint {
+  capturedAt: string;
+  rowCount: number;
+  value: number | null;
+}
+
+export interface OutputHistorySparklinePoint {
+  capturedAt: string;
+  value: number | null;
+}
+
+export interface OutputHistoryPoint {
+  capturedAt: string;
+  runId: string | null;
+  triggerSource: string;
+  rowCount: number;
+  summary?: Record<string, unknown>;
+}
+
+export interface OutputHistoryResponse {
+  outputId: string;
+  compare: string | null;
+  current: OutputHistoryResolvedPoint | null;
+  baseline: OutputHistoryResolvedPoint | null;
+  delta: number | null;
+  pct: number | null;
+  availableFrom: string | null;
+  sparkline: OutputHistorySparklinePoint[];
+  points: OutputHistoryPoint[];
+}
+
 export interface OutputProvenanceResponse {
   outputId: string;
   pipeline: { id: string; name: string };
