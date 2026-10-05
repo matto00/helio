@@ -131,7 +131,8 @@ final class AlertRuleService(
 
   /** Validates that `condition` is a JSON object carrying a well-formed
    *  `comparator` (one of `Comparator`'s wire values) and a numeric
-   *  `threshold`. Everything else inside the blob — including unknown/extra
+   *  `threshold`. `baseline`/`n`/`mode` are validated
+   *  by `HistoryBaseline.parse` (HEL-1278). Everything else inside the blob — including unknown/extra
    *  keys future condition kinds add — passes through untouched; this method
    *  never destructures or rewrites `condition`. */
   private def validateCondition(condition: JsValue): Either[ServiceError, Unit] =
@@ -142,13 +143,15 @@ final class AlertRuleService(
           case Some(_)           => Left(ServiceError.BadRequest("condition.comparator must be a string"))
           case None              => Left(ServiceError.BadRequest("condition.comparator is required"))
         }
-        comparatorCheck.flatMap { _ =>
+        val thresholdCheck: Either[ServiceError, Unit] = comparatorCheck.flatMap { _ =>
           obj.fields.get("threshold") match {
             case Some(_: JsNumber) => Right(())
             case Some(_)           => Left(ServiceError.BadRequest("condition.threshold must be a number"))
             case None              => Left(ServiceError.BadRequest("condition.threshold is required"))
           }
         }
+        // HEL-1278: `baseline`/`n`/`mode` are reserved keys, validated as a unit.
+        thresholdCheck.flatMap(_ => HistoryBaseline.parse(obj).left.map(ServiceError.BadRequest(_)).map(_ => ()))
       case _ =>
         Left(ServiceError.BadRequest("condition must be a JSON object"))
     }

@@ -416,7 +416,7 @@ final class ApiRoutes(
     for {
       ruleRepo  <- Option(alertRuleRepo)
       eventRepo <- Option(alertEventRepo)
-    } yield new AlertEvaluationService(ruleRepo, eventRepo)
+    } yield new AlertEvaluationService(ruleRepo, eventRepo, outputHistoryRepoOpt.orNull)
   // HEL-415: exposed (not private) so Main.scala can hand the same instance
   // to PipelineSchedulerService — scheduled runs reuse the manual-run path's
   // PipelineRunCache/PipelineRunRegistry instead of duplicating wiring.

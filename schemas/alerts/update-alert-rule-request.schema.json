@@ -21,6 +21,22 @@
         },
         "window": {
           "type": "string"
+        },
+        "baseline": {
+          "type": "string",
+          "enum": ["previous", "rolling_avg"],
+          "description": "Compare against output history instead of the bare threshold: comparator/threshold then apply to the delta between the current value and the baseline. Requires `mode`; the triggering run's own history point is excluded."
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Number of prior history points averaged by `rolling_avg`. Required for rolling_avg, forbidden for previous, and rejected without `baseline`."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["abs", "pct"],
+          "description": "abs: current - baseline; pct: (current - baseline) / |baseline| * 100. Required with `baseline`, rejected without it."
         }
       },
       "required": ["comparator", "threshold"]
