@@ -39,6 +39,8 @@ class DashboardLayoutRepairRoutesSpec extends ApplyProposalSpecBase {
 
   private def xsOf(id: String): Vector[JsValue] = storedLayoutJson(id).fields("xs").convertTo[Vector[JsValue]]
 
+  private def xsOfBp(id: String, bp: String): Vector[JsValue] = storedLayoutJson(id).fields(bp).convertTo[Vector[JsValue]]
+
   private def dashboardJson(id: String): JsObject =
     Get("/api/dashboards").addHeader(sessionCookie) ~> routes ~> check {
       responseAs[String].parseJson.asJsObject.fields("items").convertTo[Vector[JsObject]].find(_.fields("id") == JsString(id)).get
@@ -148,6 +150,53 @@ class DashboardLayoutRepairRoutesSpec extends ApplyProposalSpecBase {
       val id     = seedDashboardWithLayout("repair-stranger", otherId, """{"lg":[],"md":[],"sm":[],"xs":[{"panelId":"x","x":0,"y":0,"w":1,"h":2},{"panelId":"y","x":0,"y":0,"w":1,"h":2}]}""")
       val before = storedLayoutJson(id)
       repair(id, s"""{"xs":${arr(item("x", 0, 0), item("y", 0, 2))}}""") ~> routes ~> check { status shouldBe StatusCodes.NotFound }
+      storedLayoutJson(id) shouldBe before
+    }
+
+    "append an orphan to an incomplete (valid) breakpoint, leaving the stored item unchanged" in {
+      val (id, p1, p2) = seedWithTwoPanels("repair-incomplete-append")((p1, _) => s"""{"lg":${arr(item(p1, 0, 0, 6))},"md":[],"sm":[],"xs":[]}""")
+      repair(id, s"""{"lg":${arr(item(p1, 0, 0, 6), item(p2, 6, 0, 6))}}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      storedLayoutJson(id).fields("lg").convertTo[Vector[JsObject]].map(_.fields("panelId")) shouldBe Vector(JsString(p1), JsString(p2))
+      storedLayoutJson(id).fields("lg").convertTo[Vector[JsObject]].head shouldBe JsonParser(item(p1, 0, 0, 6))
+    }
+
+    "fill an empty breakpoint that has live panels" in {
+      val (id, p1, p2) = seedWithTwoPanels("repair-empty-bp")((p1, p2) => s"""{"lg":${arr(item(p1, 0, 0, 6), item(p2, 6, 0, 6))},"md":[],"sm":[],"xs":[]}""")
+      repair(id, s"""{"md":${arr(item(p1, 0, 0, 5), item(p2, 5, 0, 5))}}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      xsOfBp(id, "md").map(_.asJsObject.fields("panelId")) shouldBe Vector(JsString(p1), JsString(p2))
+    }
+
+    "reject an incomplete-breakpoint repair that moves a stored item, naming the breakpoint, and store nothing" in {
+      val (id, p1, p2) = seedWithTwoPanels("repair-incomplete-move")((p1, _) => s"""{"lg":${arr(item(p1, 0, 0, 6))},"md":[],"sm":[],"xs":[]}""")
+      val before       = storedLayoutJson(id)
+      repair(id, s"""{"lg":${arr(item(p1, 0, 4, 6), item(p2, 6, 0, 6))}}""") ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        message should include("breakpoint 'lg'")
+      }
+      storedLayoutJson(id) shouldBe before
+    }
+
+    "let stored-bad rules win over append-only when a breakpoint is both overlapping and missing a panel" in {
+      val (id, p1, p2) = seedWithTwoPanels("repair-bad-and-missing") { (p1, p2) =>
+        s"""{"lg":${arr(item(p1, 0, 0, 6), item(p2, 6, 0, 6))},"md":[],"sm":[],"xs":${arr(item(p1, 0, 0), item("ghost", 0, 0))}}"""
+      }
+      repair(id, s"""{"xs":${arr(item(p1, 0, 2), item(p2, 0, 4))}}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      xsOf(id).map(_.asJsObject.fields("panelId")) shouldBe Vector(JsString(p1), JsString(p2))
+    }
+
+    "be a no-op the second time for an incomplete-breakpoint append" in {
+      val (id, p1, p2) = seedWithTwoPanels("repair-incomplete-twice")((p1, _) => s"""{"lg":${arr(item(p1, 0, 0, 6))},"md":[],"sm":[],"xs":[]}""")
+      repair(id, s"""{"lg":${arr(item(p1, 0, 0, 6), item(p2, 6, 0, 6))}}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      val afterFirst = storedLayoutJson(id)
+      repair(id, s"""{"lg":${arr(item(p1, 0, 0, 6), item(p2, 6, 4, 6))}}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      storedLayoutJson(id) shouldBe afterFirst
+    }
+
+    "refuse an editor grantee's append to an incomplete breakpoint with 403, writing nothing" in {
+      val id = seedDashboardWithLayout("repair-incomplete-grantee", otherId, """{"lg":[{"panelId":"x","x":0,"y":0,"w":6,"h":2}],"md":[],"sm":[],"xs":[]}""")
+      val before = storedLayoutJson(id)
+      grantRole(id, userId, "editor")
+      repair(id, s"""{"lg":${arr(item("x", 0, 0, 6), item("y", 6, 0, 6))}}""") ~> routes ~> check { status shouldBe StatusCodes.Forbidden }
       storedLayoutJson(id) shouldBe before
     }
 

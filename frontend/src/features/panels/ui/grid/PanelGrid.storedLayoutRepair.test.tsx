@@ -1,6 +1,7 @@
-// HEL-1233 — the owner's one-time repair of stored-bad layout breakpoints on open: exactly one
-// POST carrying only the bad breakpoints, never an undo entry, never a pending flag, never a PATCH,
-// at every width; non-owners and valid layouts never write.
+// HEL-1233 (widened by HEL-1260) — the owner's one-time repair of stored-bad AND incomplete layout
+// breakpoints on open: exactly one POST carrying only the repairable breakpoints, never an undo
+// entry, never a pending flag, never a PATCH, at every width; non-owners and complete valid layouts
+// never write.
 import { act } from "@testing-library/react";
 import { Responsive } from "react-grid-layout";
 
@@ -67,17 +68,48 @@ const lg = [
   { panelId: "a", x: 0, y: 0, w: 6, h: 5 },
   { panelId: "b", x: 6, y: 0, w: 6, h: 5 },
 ];
-// lg valid; xs stored-bad (both panels in one cell); md/sm merely unauthored (never repaired).
+const md = [
+  { panelId: "a", x: 0, y: 0, w: 5, h: 5 },
+  { panelId: "b", x: 5, y: 0, w: 5, h: 5 },
+];
+const sm = [
+  { panelId: "a", x: 0, y: 0, w: 3, h: 5 },
+  { panelId: "b", x: 3, y: 0, w: 3, h: 5 },
+];
+// lg/md/sm complete and valid; xs stored-bad (both panels in one cell).
 const badLayout: DashboardLayout = {
   lg,
-  md: [],
-  sm: [],
+  md,
+  sm,
   xs: [
     { panelId: "a", x: 0, y: 0, w: 2, h: 2 },
     { panelId: "b", x: 0, y: 0, w: 2, h: 2 },
   ],
 };
-const validLayout: DashboardLayout = { lg, md: [], sm: [], xs: [] };
+const validLayout: DashboardLayout = {
+  lg,
+  md,
+  sm,
+  xs: [
+    { panelId: "a", x: 0, y: 0, w: 1, h: 5 },
+    { panelId: "b", x: 1, y: 0, w: 1, h: 5 },
+  ],
+};
+// Every breakpoint valid, but panel "b" has no item anywhere (a pre-HEL-1260 orphan).
+const orphanLayout: DashboardLayout = {
+  lg: [lg[0]],
+  md: [md[0]],
+  sm: [sm[0]],
+  xs: [{ panelId: "a", x: 0, y: 0, w: 2, h: 5 }],
+};
+// xs holds a stale entry for a deleted panel next to the live ones, and lacks live panel "b".
+const staleLayout: DashboardLayout = {
+  ...validLayout,
+  xs: [
+    { panelId: "a", x: 0, y: 0, w: 2, h: 5 },
+    { panelId: "gone", x: 0, y: 5, w: 2, h: 5 },
+  ],
+};
 
 type Handlers = {
   onDragStart: () => void;
@@ -170,6 +202,57 @@ describe("owner stored-layout repair on open (HEL-1233)", () => {
     expect(store.getState().layoutHistory.byDashboard.d1?.past ?? []).toEqual([]);
     expect(updateMock).not.toHaveBeenCalled();
     expect(rgl().layouts.xs).toEqual(displayedBefore); // stored now equals what was displayed
+  });
+
+  it("repairs a panel orphaned in every breakpoint with one POST, append-only, with no pending, history or PATCH (class 3)", async () => {
+    const { store, flush, storeLayoutNow } = setup({ layout: orphanLayout });
+    await act(async () => {});
+    await flush();
+
+    expect(repairMock).toHaveBeenCalledTimes(1);
+    const patch = repairMock.mock.calls[0][1];
+    expect(Object.keys(patch).sort()).toEqual(["lg", "md", "sm", "xs"]);
+    for (const bp of ["lg", "md", "sm", "xs"] as const) {
+      expect(patch[bp]?.find((i) => i.panelId === "a")).toEqual(orphanLayout[bp][0]);
+      expect(patch[bp]?.map((i) => i.panelId).sort()).toEqual(["a", "b"]);
+    }
+    expect(storeLayoutNow().lg).toEqual(patch.lg);
+    expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
+    expect(store.getState().layoutHistory.byDashboard.d1?.past ?? []).toEqual([]);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("re-baselines on a repair that also drops a stale entry (class 4): not pending, and a later drag sends only its own breakpoint", async () => {
+    const { store, flush } = setup({ layout: staleLayout });
+    await act(async () => {});
+    await flush();
+    expect(Object.keys(repairMock.mock.calls[0][1])).toEqual(["xs"]);
+    expect(store.getState().dashboards.hasPendingLayout).toBeFalsy();
+    expect(store.getState().layoutHistory.byDashboard.d1?.past ?? []).toEqual([]);
+
+    const moved = (
+      rgl().layouts.md as { i: string; x: number; y: number; w: number; h: number }[]
+    ).map((item) => (item.i === "a" ? { ...item, y: 9 } : item));
+    act(() => rgl().onDragStart());
+    act(() => {
+      rgl().onDragStop();
+      rgl().onLayoutChange(moved, undefined);
+    });
+    await flush();
+    expect(Object.keys(updateMock.mock.calls[0][1])).toEqual(["md"]);
+  });
+
+  it("keeps a pending local edit over an orphan repair response", async () => {
+    let resolveRepair: (v: never) => void = () => undefined;
+    repairMock.mockImplementation(() => new Promise((r) => (resolveRepair = r as never)));
+    const { store, storeLayoutNow } = setup({ layout: orphanLayout });
+    await act(async () => {});
+    const local: DashboardLayout = { ...orphanLayout, lg: [{ ...orphanLayout.lg[0], y: 7 }] };
+    act(() => void store.dispatch(setDashboardLayoutLocally({ dashboardId: "d1", layout: local })));
+    await act(async () => {
+      resolveRepair({ id: "d1", layout: orphanLayout } as never);
+    });
+    expect(storeLayoutNow()).toBe(local);
   });
 
   it("a drag after the repair persists normally (md, the active breakpoint)", async () => {

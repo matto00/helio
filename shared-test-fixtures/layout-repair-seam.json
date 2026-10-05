@@ -1,5 +1,5 @@
 {
-  "description": "Shared client/server stored-layout repair seam fixture (HEL-1233). Jest (repairPatch.seam.test.ts) asserts buildRepairPatch(panels, layout) deep-equals expectedRepair and that each repaired breakpoint is valid; ScalaTest (DashboardLayoutRepairSeamSpec) seeds layout as stored (panels created in order, layout written by SQL) and POSTs expectedRepair to /api/dashboards/:id/layout/repair, asserting 200, stored == expectedRepair, and LayoutValidator validity. Panel ids in this file are placeholders: the Scala side maps them to the created panels' real ids by position.",
+  "description": "Shared client/server stored-layout repair seam fixture (HEL-1233, widened by HEL-1260: a valid breakpoint missing a live panel, or empty on a dashboard with live panels, is repaired too, append-only). Jest (repairPatch.seam.test.ts) asserts buildRepairPatch(panels, layout) deep-equals expectedRepair and that each repaired breakpoint is valid; ScalaTest (DashboardLayoutRepairSeamSpec) seeds layout as stored (panels created in order, layout written by SQL) and POSTs expectedRepair to /api/dashboards/:id/layout/repair, asserting 200, stored == expectedRepair, and LayoutValidator validity. Panel ids in this file are placeholders: the Scala side maps them to the created panels' real ids by position.",
   "cases": [
     {
       "name": "overlapping xs is repaired, valid breakpoints left out",
@@ -41,6 +41,38 @@
         ]
       },
       "expectedRepair": {
+        "md": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 5,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 5,
+            "y": 0,
+            "w": 5,
+            "h": 4
+          }
+        ],
+        "sm": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 2
+          },
+          {
+            "panelId": "b",
+            "x": 0,
+            "y": 2,
+            "w": 6,
+            "h": 2
+          }
+        ],
         "xs": [
           {
             "panelId": "a",
@@ -114,6 +146,38 @@
             "w": 5,
             "h": 4
           }
+        ],
+        "sm": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 3,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 3,
+            "y": 0,
+            "w": 3,
+            "h": 4
+          }
+        ],
+        "xs": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 1,
+            "y": 0,
+            "w": 1,
+            "h": 4
+          }
         ]
       }
     },
@@ -150,6 +214,24 @@
         ]
       },
       "expectedRepair": {
+        "md": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 5,
+            "h": 4
+          }
+        ],
+        "sm": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 2
+          }
+        ],
         "xs": [
           {
             "panelId": "a",
@@ -208,6 +290,52 @@
         ]
       },
       "expectedRepair": {
+        "md": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 3,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 3,
+            "y": 0,
+            "w": 3,
+            "h": 4
+          },
+          {
+            "panelId": "c",
+            "x": 7,
+            "y": 0,
+            "w": 3,
+            "h": 4
+          }
+        ],
+        "sm": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 2
+          },
+          {
+            "panelId": "b",
+            "x": 0,
+            "y": 6,
+            "w": 6,
+            "h": 2
+          },
+          {
+            "panelId": "c",
+            "x": 4,
+            "y": 2,
+            "w": 2,
+            "h": 4
+          }
+        ],
         "xs": [
           {
             "panelId": "a",
@@ -304,6 +432,22 @@
             "h": 3
           }
         ],
+        "sm": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 3,
+            "h": 3
+          },
+          {
+            "panelId": "b",
+            "x": 1,
+            "y": 3,
+            "w": 3,
+            "h": 3
+          }
+        ],
         "xs": [
           {
             "panelId": "a",
@@ -318,6 +462,114 @@
             "y": 3,
             "w": 1,
             "h": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "valid breakpoints missing a live panel get it appended, stored items unchanged",
+      "panels": ["a", "b"],
+      "layout": {
+        "lg": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          }
+        ],
+        "md": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 5,
+            "h": 4
+          }
+        ],
+        "sm": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 3,
+            "h": 4
+          }
+        ],
+        "xs": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 4
+          }
+        ]
+      },
+      "expectedRepair": {
+        "lg": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 6,
+            "y": 0,
+            "w": 4,
+            "h": 5
+          }
+        ],
+        "md": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 5,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 5,
+            "y": 0,
+            "w": 4,
+            "h": 5
+          }
+        ],
+        "sm": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 3,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 3,
+            "y": 0,
+            "w": 3,
+            "h": 5
+          }
+        ],
+        "xs": [
+          {
+            "panelId": "a",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 4
+          },
+          {
+            "panelId": "b",
+            "x": 0,
+            "y": 4,
+            "w": 2,
+            "h": 5
           }
         ]
       }

@@ -13,7 +13,8 @@ frontend `breakpointLayout.ts` and is tested against the shared fixture
 policy: identical-to-stored passes, absent is preserved, a changed breakpoint
 must be valid or the whole write is a 400 — never clamped), `LayoutReflow`
 (valid-by-construction md/sm/xs for system-generated layouts) and
-`LayoutBreakpointScaling` (the column counts).
+`LayoutBreakpointScaling` (the column counts), and `CreatePlacement` (HEL-1260: the one pure placer every
+panel-create path — single, batch, duplicate — appends through, at x = 0 below each breakpoint's own bottom).
 
 Does NOT hold: business logic for other domains, or persistence
 (`infrastructure/persistence/panels/`) — this directory's files call

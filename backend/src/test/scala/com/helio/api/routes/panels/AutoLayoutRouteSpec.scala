@@ -80,12 +80,14 @@ class AutoLayoutRouteSpec extends ApplyProposalSpecBase {
       val dashboardId = createDashboard("Unknown Panel Target")
       val p1 = createPanel(dashboardId, "Chart 1", "divider")
       val fakeId = UUID.randomUUID().toString
+      // HEL-1260: the create already stored p1's own item; a rejected auto-layout must leave it as it was.
+      val before = storedLg(dashboardId)
 
       autoLayout(dashboardId, s"""{"items":[{"panelId":"$p1","w":6,"h":8},{"panelId":"$fakeId","w":4,"h":4}]}""") ~> routes ~> check {
         status shouldBe StatusCodes.BadRequest
       }
 
-      storedLg(dashboardId) shouldBe empty
+      storedLg(dashboardId) shouldBe before
     }
 
     "keeps an omitted panel's saved position unchanged and appends the newly packed panel" in {

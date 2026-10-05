@@ -1,0 +1,718 @@
+{
+  "description": "Shared client/server seam fixture for panel create placement (HEL-1260). ScalaTest (PanelCreateSeamSpec) performs each case's operations through the real routes (panels are created in order; placeholder ids p1.. map to them by position) and asserts the stored layout equals `layout`, then re-sends every breakpoint through the real layout PATCH and asserts 200, and POSTs `pendingDrag.patch` to the same PATCH route. Jest (layoutCreateSeam.test.ts) asserts every breakpoint of `layout` passes isLayoutValid, that resolving it against `panels` returns it unchanged (a reload shows the stored positions), that re-sending it is a no-op patch, and that buildLayoutPatch over `pendingDrag.local` equals `pendingDrag.patch`.",
+  "pendingDrag": {
+    "panels": ["p1", "p2"],
+    "stored": {
+      "lg": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 4,
+          "h": 5
+        }
+      ],
+      "md": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 4,
+          "h": 5
+        }
+      ],
+      "sm": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 0,
+          "w": 3,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 3,
+          "h": 5
+        }
+      ],
+      "xs": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 0,
+          "w": 2,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 2,
+          "h": 5
+        }
+      ]
+    },
+    "local": {
+      "lg": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 5,
+          "w": 4,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 4,
+          "h": 5
+        }
+      ],
+      "md": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 5,
+          "w": 4,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 4,
+          "h": 5
+        }
+      ],
+      "sm": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 5,
+          "w": 3,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 3,
+          "h": 5
+        }
+      ],
+      "xs": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 5,
+          "w": 2,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 2,
+          "h": 5
+        }
+      ]
+    },
+    "patch": {
+      "lg": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 4,
+          "h": 5
+        }
+      ],
+      "md": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 4,
+          "h": 5
+        }
+      ],
+      "sm": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 0,
+          "w": 3,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 3,
+          "h": 5
+        }
+      ],
+      "xs": [
+        {
+          "panelId": "p1",
+          "x": 0,
+          "y": 0,
+          "w": 2,
+          "h": 5
+        },
+        {
+          "panelId": "p2",
+          "x": 0,
+          "y": 5,
+          "w": 2,
+          "h": 5
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "name": "output, text, markdown, image, divider and form created one after another",
+      "operations": [
+        {
+          "op": "create",
+          "kind": "output"
+        },
+        {
+          "op": "create",
+          "kind": "text"
+        },
+        {
+          "op": "create",
+          "kind": "markdown"
+        },
+        {
+          "op": "create",
+          "kind": "image"
+        },
+        {
+          "op": "create",
+          "kind": "divider"
+        },
+        {
+          "op": "create",
+          "kind": "form"
+        }
+      ],
+      "panels": ["p1", "p2", "p3", "p4", "p5", "p6"],
+      "layout": {
+        "lg": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 6
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 6,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p3",
+            "x": 0,
+            "y": 11,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p4",
+            "x": 0,
+            "y": 16,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p5",
+            "x": 0,
+            "y": 21,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p6",
+            "x": 0,
+            "y": 26,
+            "w": 4,
+            "h": 5
+          }
+        ],
+        "md": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 5,
+            "h": 6
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 6,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p3",
+            "x": 0,
+            "y": 11,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p4",
+            "x": 0,
+            "y": 16,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p5",
+            "x": 0,
+            "y": 21,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p6",
+            "x": 0,
+            "y": 26,
+            "w": 4,
+            "h": 5
+          }
+        ],
+        "sm": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 3,
+            "h": 6
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 6,
+            "w": 3,
+            "h": 5
+          },
+          {
+            "panelId": "p3",
+            "x": 0,
+            "y": 11,
+            "w": 3,
+            "h": 5
+          },
+          {
+            "panelId": "p4",
+            "x": 0,
+            "y": 16,
+            "w": 3,
+            "h": 5
+          },
+          {
+            "panelId": "p5",
+            "x": 0,
+            "y": 21,
+            "w": 3,
+            "h": 5
+          },
+          {
+            "panelId": "p6",
+            "x": 0,
+            "y": 26,
+            "w": 3,
+            "h": 5
+          }
+        ],
+        "xs": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 6
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 6,
+            "w": 2,
+            "h": 5
+          },
+          {
+            "panelId": "p3",
+            "x": 0,
+            "y": 11,
+            "w": 2,
+            "h": 5
+          },
+          {
+            "panelId": "p4",
+            "x": 0,
+            "y": 16,
+            "w": 2,
+            "h": 5
+          },
+          {
+            "panelId": "p5",
+            "x": 0,
+            "y": 21,
+            "w": 2,
+            "h": 5
+          },
+          {
+            "panelId": "p6",
+            "x": 0,
+            "y": 26,
+            "w": 2,
+            "h": 5
+          }
+        ]
+      }
+    },
+    {
+      "name": "a batch of a text and an output after one text",
+      "operations": [
+        {
+          "op": "create",
+          "kind": "text"
+        },
+        {
+          "op": "batch",
+          "kinds": ["text", "output"]
+        }
+      ],
+      "panels": ["p1", "p2", "p3"],
+      "layout": {
+        "lg": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 5,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p3",
+            "x": 0,
+            "y": 10,
+            "w": 6,
+            "h": 6
+          }
+        ],
+        "md": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 5,
+            "w": 4,
+            "h": 5
+          },
+          {
+            "panelId": "p3",
+            "x": 0,
+            "y": 10,
+            "w": 5,
+            "h": 6
+          }
+        ],
+        "sm": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 3,
+            "h": 5
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 5,
+            "w": 3,
+            "h": 5
+          },
+          {
+            "panelId": "p3",
+            "x": 0,
+            "y": 10,
+            "w": 3,
+            "h": 6
+          }
+        ],
+        "xs": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 5
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 5,
+            "w": 2,
+            "h": 5
+          },
+          {
+            "panelId": "p3",
+            "x": 0,
+            "y": 10,
+            "w": 1,
+            "h": 6
+          }
+        ]
+      }
+    },
+    {
+      "name": "a duplicate of a text panel after a stored resize",
+      "operations": [
+        {
+          "op": "create",
+          "kind": "text"
+        },
+        {
+          "op": "overwrite",
+          "layout": {
+            "lg": [
+              {
+                "panelId": "p1",
+                "x": 0,
+                "y": 0,
+                "w": 6,
+                "h": 4
+              }
+            ],
+            "md": [
+              {
+                "panelId": "p1",
+                "x": 0,
+                "y": 0,
+                "w": 5,
+                "h": 4
+              }
+            ],
+            "sm": [
+              {
+                "panelId": "p1",
+                "x": 0,
+                "y": 0,
+                "w": 3,
+                "h": 4
+              }
+            ],
+            "xs": [
+              {
+                "panelId": "p1",
+                "x": 0,
+                "y": 0,
+                "w": 2,
+                "h": 4
+              }
+            ]
+          }
+        },
+        {
+          "op": "duplicate",
+          "source": "p1"
+        }
+      ],
+      "panels": ["p1", "p2"],
+      "layout": {
+        "lg": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 6,
+            "h": 4
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 4,
+            "w": 6,
+            "h": 4
+          }
+        ],
+        "md": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 5,
+            "h": 4
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 4,
+            "w": 5,
+            "h": 4
+          }
+        ],
+        "sm": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 3,
+            "h": 4
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 4,
+            "w": 3,
+            "h": 4
+          }
+        ],
+        "xs": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 4
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 4,
+            "w": 2,
+            "h": 4
+          }
+        ]
+      }
+    },
+    {
+      "name": "a proposal with one authored output and one unplaced text",
+      "operations": [
+        {
+          "op": "proposal"
+        }
+      ],
+      "panels": ["p1", "p2"],
+      "layout": {
+        "lg": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 4,
+            "h": 3
+          },
+          {
+            "panelId": "p2",
+            "x": 0,
+            "y": 3,
+            "w": 4,
+            "h": 5
+          }
+        ],
+        "md": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 3,
+            "h": 3
+          },
+          {
+            "panelId": "p2",
+            "x": 3,
+            "y": 0,
+            "w": 3,
+            "h": 5
+          }
+        ],
+        "sm": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 2,
+            "h": 3
+          },
+          {
+            "panelId": "p2",
+            "x": 2,
+            "y": 0,
+            "w": 2,
+            "h": 5
+          }
+        ],
+        "xs": [
+          {
+            "panelId": "p1",
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 3
+          },
+          {
+            "panelId": "p2",
+            "x": 1,
+            "y": 0,
+            "w": 1,
+            "h": 5
+          }
+        ]
+      }
+    }
+  ]
+}

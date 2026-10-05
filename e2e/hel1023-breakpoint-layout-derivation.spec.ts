@@ -325,7 +325,8 @@ async function injectStoredLayout(page: Page, dashboardId: string, layout: Layou
   return injections;
 }
 
-/** HEL-1233: the signed-in owner of a stored-bad dashboard sends a one-time repair POST on open. Here the
+/** HEL-1233 (widened by HEL-1260 to incomplete breakpoints): the signed-in owner of a stored-bad or
+ * incomplete dashboard sends a one-time repair POST on open. Here the
  * stored-bad layout exists only in the response the browser receives (the server holds a valid one), so
  * the server correctly answers that POST with a no-op carrying ITS layout, and the client adopts it,
  * replacing the injected layout this suite exists to render. Stubbing the POST with a 409 (a documented
@@ -422,6 +423,9 @@ test.describe("HEL-1023 derive/repair the breakpoint layout at render", () => {
           headers: CSRF_HEADER,
         });
         expect(patch.status()).toBe(200);
+        // HEL-1260: A and B are valid but INCOMPLETE (empty / partial breakpoints), which the owner
+        // repair now also writes on open; keep it inert so the render-time derivation is what is asserted.
+        await stubOwnerRepair(page);
       }
       const layoutPatches: string[] = [];
       page.on("request", (r) => {

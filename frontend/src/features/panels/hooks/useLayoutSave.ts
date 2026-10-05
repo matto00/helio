@@ -28,19 +28,24 @@
 //   1. interaction commit  — a drag/resize stop wrote it (`commitInteractionLayout`):  keep baseline
 //   2. history traversal   — an undo/redo wrote it (revision changed AND layout equals the history
 //      slice's `applied` layout, so a no-op traversal's stale revision can never match): keep baseline
-//   3. placement extension — a panel create appended items to every breakpoint with the previous store
+//   3. placement extension — a panel create or duplicate appended items to every breakpoint with the previous store
 //      layout as an exact prefix (`layoutPlacement.ts`): extend the baseline by the same items, so a
 //      pending edit survives the create and a create alone is not pending
 //   4. anything else       — server/external truth (fetch, upsert, PATCH response, the owner's
 //      stored-layout repair response — HEL-1233): re-baseline
 // Cases 1-3 then set pending = (layout differs from the baseline); case 4 clears it. An undo/redo is
 // therefore "a local edit like a drag", persisted by the same flush.
-// The owner's one-time stored-layout repair (`useStoredLayoutRepair`, `repairDashboardLayout`) is
-// class 4 and cannot be mistaken for 1-3: it is not an interaction commit (no local commit equals it),
-// not a traversal (revision unchanged), and not a placement extension (a stored-bad breakpoint can
-// only become valid by moving or dropping an existing item, so the previous layout is never an exact
-// prefix of the repaired one). It therefore re-baselines: pending stays false, no history entry, and a
-// later drag persists normally.
+// The owner's one-time stored-layout repair (`useStoredLayoutRepair`, `repairDashboardLayout`) is not an
+// interaction commit (no local commit equals it) and not a traversal (revision unchanged), and it
+// lands as one of two shapes with the SAME outcome. The reducer adopts its response only while the
+// store still equals the layout the repair was computed from, so a response arriving during a pending
+// local edit is never adopted. (a) A repair that only appends panels orphaned in EVERY breakpoint, with
+// the previous layout an exact prefix, is a placement extension (class 3): the baseline is extended by
+// exactly those items, which is the new layout. (b) Anything else (a stored-bad breakpoint repaired by
+// moving or dropping items, a stale entry dropped, a panel orphaned in only some breakpoints, or the
+// client's panel order differing from the stored order) is class 4 and re-baselines. Either way pending
+// stays false, no history entry is added (history comes only from drag/resize/undo), the baseline
+// becomes the repaired layout, and a later drag persists normally.
 // D5: a PATCH response never overwrites a newer local layout (see `dashboardsSlice`'s fulfilled
 // reducer); `persistLayout`'s `.then` then recomputes pending against the server baseline. Known,
 // accepted race: if a panel create lands while a PATCH is in flight and the server handled the PATCH
