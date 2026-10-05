@@ -3,7 +3,7 @@ package com.helio.services.alerts
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
-import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputHistoryInsert, OutputHistoryRepository, OutputRepository, PipelineRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -37,6 +37,8 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
   private var pipeRepo: PipelineRepository       = _
   private var outRepo: OutputRepository          = _
   private var svc: AlertEvaluationService        = _
+  private var histRepo: OutputHistoryRepository   = _
+  private var baseSvc: AlertEvaluationService     = _
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -56,6 +58,8 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     pipeRepo = new PipelineRepository(ctx, dsRepo)
     outRepo = new OutputRepository(ctx)
     svc    = new AlertEvaluationService(arRepo, aeRepo)
+    histRepo = new OutputHistoryRepository(ctx)
+    baseSvc  = new AlertEvaluationService(arRepo, aeRepo, histRepo)
   }
 
   override def afterAll(): Unit = {
@@ -67,6 +71,7 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
 
   private def cleanDb(): Unit = {
     import PostgresProfile.api._
+    await(db.run(sqlu"DELETE FROM output_snapshot_history"))
     await(db.run(sqlu"DELETE FROM alert_events"))
     await(db.run(sqlu"DELETE FROM alert_rules"))
     await(db.run(sqlu"DELETE FROM outputs"))
@@ -292,6 +297,197 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
 
       await(aeRepo.findActiveByRule(badRule.id)) shouldBe None
       await(aeRepo.findActiveByRule(goodRule.id)).map(_.state) shouldBe Some(AlertEventState.Firing)
+    }
+  }
+
+  // ── HEL-1278: history baselines ──────────────────────────────────────────
+
+  private def pipelineIdOf(outputId: OutputId): String = {
+    import PostgresProfile.api._
+    await(db.run(sql"SELECT pipeline_id FROM outputs WHERE id = ${outputId.value}".as[String].head))
+  }
+
+  private val t0 = Instant.parse("2026-01-01T00:00:00Z")
+
+  /** Seeds one history point whose `metric` column sums to `total`; `age` orders points (higher = newer). */
+  private def seedPoint(outputId: OutputId, runId: String, total: Double, age: Int, metric: String = "amount"): Unit = {
+    val summary = JsObject(
+      "v" -> JsNumber(1), "rowCount" -> JsNumber(1),
+      "columns" -> JsObject(metric -> JsObject("count" -> JsNumber(1), "sum" -> JsNumber(total), "min" -> JsNumber(total), "max" -> JsNumber(total)))
+    )
+    await(db.run(histRepo.insertAction(Seq(OutputHistoryInsert(
+      outputId.value, pipelineIdOf(outputId), None, None, Some(runId), "manual", t0.plusSeconds(age.toLong), 1, summary
+    )))))
+  }
+
+  private def baselineCond(baseline: String, mode: String, comparator: String, threshold: Double, n: Option[Int] = None): JsValue =
+    JsObject(
+      (Map("baseline" -> JsString(baseline), "mode" -> JsString(mode), "comparator" -> JsString(comparator), "threshold" -> JsNumber(threshold)) ++
+        n.map(v => "n" -> (JsNumber(v): JsValue))
+      )
+    )
+
+  private def amountRows(total: Int): Seq[Map[String, Any]] = Seq(Map("amount" -> total))
+
+  "AlertEvaluationService baseline rules" should {
+
+    "breach then resolve against the previous run (abs)" in {
+      cleanDb(); seedUser()
+      val out  = seedOutput()
+      val rule = seedRule(out, "amount", baselineCond("previous", "abs", "gt", 10))
+      seedPoint(out, "r1", 80, 1)
+
+      await(baseSvc.evaluateForOutput(out, amountRows(120), Some("r2")))
+      val ev = await(aeRepo.findActiveByRule(rule.id)).get
+      ev.state shouldBe AlertEventState.Firing
+      ev.value shouldBe JsObject("value" -> JsNumber(120), "baseline" -> JsNumber(80), "delta" -> JsNumber(40), "mode" -> JsString("abs"))
+
+      seedPoint(out, "r2", 120, 2)
+      await(baseSvc.evaluateForOutput(out, amountRows(125), Some("r3")))
+      await(aeRepo.findActiveByRule(rule.id)) shouldBe None
+      await(aeRepo.findAll(owner, None)).head.state shouldBe AlertEventState.Resolved
+    }
+
+    "breach then resolve against the rolling average (pct)" in {
+      cleanDb(); seedUser()
+      val out  = seedOutput()
+      val rule = seedRule(out, "amount", baselineCond("rolling_avg", "pct", "lt", -20, Some(3)))
+      seedPoint(out, "r1", 100, 1); seedPoint(out, "r2", 120, 2); seedPoint(out, "r3", 140, 3)
+
+      await(baseSvc.evaluateForOutput(out, amountRows(84), Some("r4")))
+      val fired = await(aeRepo.findActiveByRule(rule.id)).get
+      fired.state shouldBe AlertEventState.Firing
+      fired.value shouldBe JsObject("value" -> JsNumber(84), "baseline" -> JsNumber(120), "delta" -> JsNumber(-30), "mode" -> JsString("pct"))
+
+      seedPoint(out, "r4", 84, 4)
+      await(baseSvc.evaluateForOutput(out, amountRows(125), Some("r5")))
+      await(aeRepo.findActiveByRule(rule.id)) shouldBe None
+    }
+
+    "create no event when history is empty" in {
+      cleanDb(); seedUser()
+      val out = seedOutput()
+      seedRule(out, "amount", baselineCond("previous", "abs", "gt", 10))
+      seedRule(out, "amount", baselineCond("rolling_avg", "abs", "gt", 10, Some(2)))
+
+      await(baseSvc.evaluateForOutput(out, amountRows(500), Some("r1")))
+      await(aeRepo.findAll(owner, None)) shouldBe empty
+    }
+
+    "leave an active baseline event firing when the baseline cannot be resolved" in {
+      cleanDb(); seedUser()
+      val out  = seedOutput()
+      val rule = seedRule(out, "amount", baselineCond("rolling_avg", "abs", "gt", 10, Some(2)))
+      seedPoint(out, "r1", 100, 1); seedPoint(out, "r2", 100, 2)
+      await(baseSvc.evaluateForOutput(out, amountRows(500), Some("r3")))
+      await(aeRepo.findActiveByRule(rule.id)).map(_.state) shouldBe Some(AlertEventState.Firing)
+
+      import PostgresProfile.api._
+      await(db.run(sqlu"DELETE FROM output_snapshot_history WHERE run_id = 'r2'"))
+      await(baseSvc.evaluateForOutput(out, amountRows(1), Some("r4")))
+      await(aeRepo.findActiveByRule(rule.id)).map(_.state) shouldBe Some(AlertEventState.Firing)
+    }
+
+    "skip a pct rule whose baseline is zero (no breach, no event)" in {
+      cleanDb(); seedUser()
+      val out = seedOutput()
+      seedRule(out, "amount", baselineCond("previous", "pct", "gt", 1))
+      seedPoint(out, "r1", 0, 1)
+      await(baseSvc.evaluateForOutput(out, amountRows(50), Some("r2")))
+      await(aeRepo.findAll(owner, None)) shouldBe empty
+    }
+
+    "compare numeric-string columns consistently on both sides" in {
+      cleanDb(); seedUser()
+      val out  = seedOutput()
+      val rule = seedRule(out, "amount", baselineCond("previous", "abs", "gt", 10))
+      seedPoint(out, "r1", 100, 1)
+      await(baseSvc.evaluateForOutput(out, Seq(Map("amount" -> "70"), Map("amount" -> "50")), Some("r2")))
+      await(aeRepo.findActiveByRule(rule.id)).map(_.value) shouldBe
+        Some(JsObject("value" -> JsNumber(120), "baseline" -> JsNumber(100), "delta" -> JsNumber(20), "mode" -> JsString("abs")))
+    }
+
+    "support the * (row count) metric" in {
+      cleanDb(); seedUser()
+      val out  = seedOutput()
+      val rule = seedRule(out, "*", baselineCond("previous", "abs", "gt", 1))
+      // seedPoint stores rowCount = 1
+      seedPoint(out, "r1", 0, 1)
+      await(baseSvc.evaluateForOutput(out, Seq(Map("a" -> 1), Map("a" -> 2), Map("a" -> 3)), Some("r2")))
+      await(aeRepo.findActiveByRule(rule.id)).map(_.state) shouldBe Some(AlertEventState.Firing)
+    }
+
+    "EXCLUDE the triggering run's own history point (previous)" in {
+      // Fixture: EXACTLY k=1 older point + the current run's point, the latter NEWEST. Included, the
+      // baseline would be the run's own 120 (delta 0, no breach); excluded it is 100 (delta 20, breach).
+      cleanDb(); seedUser()
+      val out  = seedOutput()
+      val rule = seedRule(out, "amount", baselineCond("previous", "abs", "gt", 10))
+      seedPoint(out, "r1", 100, 1)
+      seedPoint(out, "cur", 120, 2)
+
+      await(baseSvc.evaluateForOutput(out, amountRows(120), Some("cur")))
+      await(aeRepo.findActiveByRule(rule.id)).map(_.value.asJsObject.fields("baseline")) shouldBe Some(JsNumber(100))
+    }
+
+    "EXCLUDE the triggering run's own history point (rolling_avg, exactly n older points)" in {
+      // Older 80,120 + current-run point 10 (newest). Pinning the exact baseline in the event value:
+      // excluded mean is 100; self-inclusive it would be 55, and a k-limited fetch yields too few points.
+      cleanDb(); seedUser()
+      val out  = seedOutput()
+      val rule = seedRule(out, "amount", baselineCond("rolling_avg", "abs", "gt", 0, Some(2)))
+      seedPoint(out, "r1", 80, 1); seedPoint(out, "r2", 120, 2)
+      seedPoint(out, "cur", 10, 3)
+
+      await(baseSvc.evaluateForOutput(out, amountRows(200), Some("cur")))
+      await(aeRepo.findActiveByRule(rule.id)).map(_.value.asJsObject.fields("baseline")) shouldBe Some(JsNumber(100))
+    }
+
+    "still use the n newest older points when the triggering run's point is not yet written" in {
+      cleanDb(); seedUser()
+      val out  = seedOutput()
+      val rule = seedRule(out, "amount", baselineCond("rolling_avg", "abs", "gt", 0, Some(2)))
+      seedPoint(out, "r0", 1000, 0); seedPoint(out, "r1", 100, 1); seedPoint(out, "r2", 100, 2)
+
+      await(baseSvc.evaluateForOutput(out, amountRows(200), Some("cur")))
+      await(aeRepo.findActiveByRule(rule.id)).map(_.value.asJsObject.fields("baseline")) shouldBe Some(JsNumber(100))
+    }
+
+    "skip baseline rules when no triggering run id is supplied" in {
+      cleanDb(); seedUser()
+      val out = seedOutput()
+      seedRule(out, "amount", baselineCond("previous", "abs", "gt", 10))
+      seedPoint(out, "r1", 100, 1)
+      await(baseSvc.evaluateForOutput(out, amountRows(500), None))
+      await(aeRepo.findAll(owner, None)) shouldBe empty
+    }
+
+    "skip baseline rules when no history repository is wired" in {
+      cleanDb(); seedUser()
+      val out = seedOutput()
+      seedRule(out, "amount", baselineCond("previous", "abs", "gt", 10))
+      seedPoint(out, "r1", 100, 1)
+      await(svc.evaluateForOutput(out, amountRows(500), Some("r2")))
+      await(aeRepo.findAll(owner, None)) shouldBe empty
+    }
+
+    "isolate a malformed stored baseline condition from sibling rules" in {
+      cleanDb(); seedUser()
+      val out  = seedOutput()
+      val bad  = seedRule(out, "amount", JsObject("baseline" -> JsString("median"), "comparator" -> JsString("gt"), "threshold" -> JsNumber(1)))
+      val good = seedRule(out, "amount", baselineCond("previous", "abs", "gt", 10))
+      seedPoint(out, "r1", 100, 1)
+      await(baseSvc.evaluateForOutput(out, amountRows(120), Some("r2")))
+      await(aeRepo.findActiveByRule(bad.id)) shouldBe None
+      await(aeRepo.findActiveByRule(good.id)).map(_.state) shouldBe Some(AlertEventState.Firing)
+    }
+
+    "leave plain threshold rules byte-unchanged (numeric string still skipped even with a history repo)" in {
+      cleanDb(); seedUser()
+      val out = seedOutput()
+      seedRule(out, "amount", condition("gt", 5))
+      await(baseSvc.evaluateForOutput(out, Seq(Map("amount" -> "70")), Some("r1")))
+      await(aeRepo.findAll(owner, None)) shouldBe empty
     }
   }
 }

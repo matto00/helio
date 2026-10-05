@@ -343,4 +343,67 @@ class AlertRuleServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfter
       result shouldBe Left(ServiceError.NotFound("Alert rule not found"))
     }
   }
+
+  // ── HEL-1278: baseline condition validation ──────────────────────────────
+
+  private def bc(extra: (String, JsValue)*): JsValue =
+    JsObject((Map("comparator" -> JsString("gt"), "threshold" -> JsNumber(1)) ++ extra.toMap))
+
+  private val malformedBaselines: Seq[(String, JsValue)] = Seq(
+      "unknown kind"          -> bc("baseline" -> JsString("median"), "mode" -> JsString("abs")),
+      "null baseline"         -> bc("baseline" -> JsNull, "mode" -> JsString("abs")),
+      "missing mode"          -> bc("baseline" -> JsString("previous")),
+      "bad mode"              -> bc("baseline" -> JsString("previous"), "mode" -> JsString("rel")),
+      "rolling_avg no n"      -> bc("baseline" -> JsString("rolling_avg"), "mode" -> JsString("abs")),
+      "rolling_avg n=0"       -> bc("baseline" -> JsString("rolling_avg"), "n" -> JsNumber(0), "mode" -> JsString("abs")),
+      "rolling_avg n=101"     -> bc("baseline" -> JsString("rolling_avg"), "n" -> JsNumber(101), "mode" -> JsString("abs")),
+      "rolling_avg n=2.5"     -> bc("baseline" -> JsString("rolling_avg"), "n" -> JsNumber(2.5), "mode" -> JsString("abs")),
+      "rolling_avg n string"  -> bc("baseline" -> JsString("rolling_avg"), "n" -> JsString("3"), "mode" -> JsString("abs")),
+      "previous with n"       -> bc("baseline" -> JsString("previous"), "n" -> JsNumber(2), "mode" -> JsString("abs")),
+      "n without baseline"    -> bc("n" -> JsNumber(3)),
+      "mode without baseline" -> bc("mode" -> JsString("abs"))
+    )
+
+  "AlertRuleService baseline conditions" should {
+
+    "reject every malformed baseline condition on create with BadRequest" in {
+      cleanDb(); seedUsers()
+      val dt = insertDataType(owner1)
+      malformedBaselines.foreach { case (label, c) =>
+        withClue(label) {
+          await(service.create(createReq(dt.id.value, condition = c), user1)) match {
+            case Left(ServiceError.BadRequest(_)) => succeed
+            case other                             => fail(s"Expected BadRequest, got: $other")
+          }
+        }
+      }
+      await(alertRuleRepo.findAll(owner1)) shouldBe empty
+    }
+
+    "reject every malformed baseline condition on update with BadRequest and not mutate" in {
+      cleanDb(); seedUsers()
+      val dt      = insertDataType(owner1)
+      val created = await(service.create(createReq(dt.id.value), user1)).getOrElse(fail("expected Right"))
+      malformedBaselines.foreach { case (label, c) =>
+        withClue(label) {
+          await(service.update(created.id, UpdateAlertRuleRequest(None, Some(c), None, None, None), user1)) match {
+            case Left(ServiceError.BadRequest(_)) => succeed
+            case other                             => fail(s"Expected BadRequest, got: $other")
+          }
+        }
+      }
+      await(service.findById(created.id, user1)).map(_.condition) shouldBe Right(validCondition)
+    }
+
+    "accept and round-trip well-formed baseline conditions" in {
+      cleanDb(); seedUsers()
+      val dt = insertDataType(owner1)
+      val prev = bc("baseline" -> JsString("previous"), "mode" -> JsString("pct"))
+      val roll = bc("baseline" -> JsString("rolling_avg"), "n" -> JsNumber(5), "mode" -> JsString("abs"))
+      val created = await(service.create(createReq(dt.id.value, condition = prev), user1)).getOrElse(fail("expected Right"))
+      created.condition shouldBe prev
+      val updated = await(service.update(created.id, UpdateAlertRuleRequest(None, Some(roll), None, None, None), user1)).getOrElse(fail("expected Right"))
+      updated.condition shouldBe roll
+    }
+  }
 }

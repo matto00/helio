@@ -295,4 +295,60 @@ class AlertRuleRoutesSpec
       }
     }
   }
+
+  // ── HEL-1278: baseline condition validation over HTTP ────────────────────
+
+  private def bc(extra: (String, JsValue)*): JsObject =
+    JsObject((Map("comparator" -> JsString("gt"), "threshold" -> JsNumber(1)) ++ extra.toMap))
+
+  private val malformedBaselines: Seq[(String, JsObject)] = Seq(
+      "unknown kind"          -> bc("baseline" -> JsString("median"), "mode" -> JsString("abs")),
+      "null baseline"         -> bc("baseline" -> JsNull, "mode" -> JsString("abs")),
+      "missing mode"          -> bc("baseline" -> JsString("previous")),
+      "bad mode"              -> bc("baseline" -> JsString("previous"), "mode" -> JsString("rel")),
+      "rolling_avg no n"      -> bc("baseline" -> JsString("rolling_avg"), "mode" -> JsString("abs")),
+      "rolling_avg n=0"       -> bc("baseline" -> JsString("rolling_avg"), "n" -> JsNumber(0), "mode" -> JsString("abs")),
+      "rolling_avg n=101"     -> bc("baseline" -> JsString("rolling_avg"), "n" -> JsNumber(101), "mode" -> JsString("abs")),
+      "rolling_avg n=2.5"     -> bc("baseline" -> JsString("rolling_avg"), "n" -> JsNumber(2.5), "mode" -> JsString("abs")),
+      "rolling_avg n string"  -> bc("baseline" -> JsString("rolling_avg"), "n" -> JsString("3"), "mode" -> JsString("abs")),
+      "previous with n"       -> bc("baseline" -> JsString("previous"), "n" -> JsNumber(2), "mode" -> JsString("abs")),
+      "n without baseline"    -> bc("n" -> JsNumber(3)),
+      "mode without baseline" -> bc("mode" -> JsString("abs"))
+    )
+
+  "baseline conditions over HTTP" should {
+
+    "return 400 for every malformed baseline on POST and PATCH" in {
+      val dtId = seedDataType(ownerAId)
+      val id   = createRule(userA, dtId)
+      malformedBaselines.foreach { case (label, c) =>
+        withClue(s"POST $label") {
+          Post("/alert-rules", createBody(dtId).copy(fields = createBody(dtId).fields.updated("condition", c))) ~> routesFor(userA) ~> check {
+            status shouldBe StatusCodes.BadRequest
+          }
+        }
+        withClue(s"PATCH $label") {
+          Patch(s"/alert-rules/$id", JsObject("condition" -> c)) ~> routesFor(userA) ~> check {
+            status shouldBe StatusCodes.BadRequest
+          }
+        }
+      }
+    }
+
+    "round-trip a well-formed baseline condition on POST (201) and PATCH (200)" in {
+      val dtId = seedDataType(ownerAId)
+      val good = bc("baseline" -> JsString("rolling_avg"), "n" -> JsNumber(5), "mode" -> JsString("pct"), "threshold" -> JsNumber(-20), "comparator" -> JsString("lt"))
+      var id: String = null
+      Post("/alert-rules", createBody(dtId).copy(fields = createBody(dtId).fields.updated("condition", good))) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[AlertRuleResponse].condition shouldBe good
+        id = responseAs[AlertRuleResponse].id
+      }
+      val prev = bc("baseline" -> JsString("previous"), "mode" -> JsString("abs"))
+      Patch(s"/alert-rules/$id", JsObject("condition" -> prev)) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[AlertRuleResponse].condition shouldBe prev
+      }
+    }
+  }
 }

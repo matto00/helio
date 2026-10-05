@@ -3,6 +3,7 @@ package com.helio.services.alerts
 import com.helio.domain.engine.PipelineRowJson
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
+import com.helio.infrastructure.persistence.pipelines.OutputHistoryRepository
 import org.slf4j.LoggerFactory
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -28,7 +29,8 @@ import scala.util.control.NonFatal
  *  .transition` internally. */
 final class AlertEvaluationService(
     alertRuleRepo: AlertRuleRepository,
-    alertEventRepo: AlertEventRepository
+    alertEventRepo: AlertEventRepository,
+    outputHistoryRepo: OutputHistoryRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -116,6 +118,56 @@ final class AlertEvaluationService(
     }
 
   private def evaluateRule(rule: AlertRule, rows: Seq[PipelineRowJson.Row], triggeringRunId: Option[String]): Future[Unit] =
+    if (HistoryBaseline.isBaselineCondition(rule.condition)) evaluateBaselineRule(rule, rows, triggeringRunId)
+    else evaluateThresholdRule(rule, rows, triggeringRunId)
+
+  /** HEL-1278: a rule whose condition carries `baseline`. Current and baseline values both come
+   *  from the history summary reducer (see [[HistoryBaseline]]); the triggering run's own history
+   *  point is excluded by run id (it may or may not be committed yet -- evaluation runs
+   *  concurrently with the history write), hence the one spare point fetched. A rule that cannot
+   *  produce a comparison is skipped: no breach, no auto-resolve. */
+  private def evaluateBaselineRule(rule: AlertRule, rows: Seq[PipelineRowJson.Row], triggeringRunId: Option[String]): Future[Unit] =
+    if (outputHistoryRepo == null || triggeringRunId.isEmpty) {
+      log.warn(
+        "AlertEvaluationService: skipping baseline rule={} outputId={} (historyRepo={}, triggeringRunId={})",
+        rule.id.value, rule.targetOutputId.value, if (outputHistoryRepo == null) "absent" else "present", triggeringRunId.getOrElse("none")
+      )
+      Future.successful(())
+    } else {
+      val runId = triggeringRunId.get
+      Future.fromTry(Try {
+        val baseline = HistoryBaseline.parse(rule.condition.asJsObject).fold(err => throw new IllegalArgumentException(err), identity).getOrElse(
+          throw new IllegalArgumentException("baseline condition missing baseline key")
+        )
+        val (comparator, threshold) = parseCondition(rule.condition)
+        (baseline, comparator, threshold)
+      }).flatMap { case (baseline, comparator, threshold) =>
+        outputHistoryRepo.listRecent(rule.targetOutputId.value, baseline.kind.k + 1).flatMap { recent =>
+          val prior   = HistoryBaseline.eligible(recent, runId, baseline.kind.k)
+          val current = HistoryBaseline.currentValue(rows, rule.metric)
+          if (current.isEmpty)
+            log.info("AlertEvaluationService: rule={} skipped, no current value for metric={}", rule.id.value, rule.metric)
+          val comparison = for {
+            cur  <- current
+            base <- HistoryBaseline.baselineValue(baseline.kind, prior, rule.metric)
+            d    <- HistoryBaseline.delta(baseline.mode, cur, base)
+          } yield (cur, base, d)
+          comparison match {
+            case None => Future.successful(())
+            case Some((cur, base, d)) =>
+              val eventValue = JsObject(
+                "value"    -> JsNumber(cur),
+                "baseline" -> JsNumber(base),
+                "delta"    -> JsNumber(d),
+                "mode"     -> JsString(HistoryBaseline.Mode.asString(baseline.mode))
+              )
+              applyOutcome(rule, breaches(d, comparator, threshold), eventValue, triggeringRunId)
+          }
+        }
+      }
+    }
+
+  private def evaluateThresholdRule(rule: AlertRule, rows: Seq[PipelineRowJson.Row], triggeringRunId: Option[String]): Future[Unit] =
     Future.fromTry(Try {
       extractMetric(rule.metric, rows).map { value =>
         val (comparator, threshold) = parseCondition(rule.condition)
@@ -126,9 +178,13 @@ final class AlertEvaluationService(
         // Skipped extraction (zero rows / missing field / non-numeric value)
         // — no breach, no auto-resolve.
         Future.successful(())
-      case Some((value, true)) =>
+      case Some((value, breached)) => applyOutcome(rule, breached, JsNumber(value), triggeringRunId)
+    }
+
+  private def applyOutcome(rule: AlertRule, breached: Boolean, eventValue: JsValue, triggeringRunId: Option[String]): Future[Unit] =
+    if (breached)
         alertEventRepo
-          .upsertFiringInternal(rule.id, rule.ownerId, rule.targetOutputId, JsNumber(value), triggeringRunId, rule.severity)
+          .upsertFiringInternal(rule.id, rule.ownerId, rule.targetOutputId, eventValue, triggeringRunId, rule.severity)
           .map { event =>
             log.info(
               "AlertEvaluationService: rule={} event={} state={} severity={} outputId={} triggeringRunId={}",
@@ -136,7 +192,7 @@ final class AlertEvaluationService(
               Severity.asString(event.severity), rule.targetOutputId.value, triggeringRunId.getOrElse("none")
             )
           }
-      case Some((_, false)) =>
+    else
         alertEventRepo.resolveInternal(rule.id).map {
           case Some(event) =>
             log.info(
@@ -147,5 +203,4 @@ final class AlertEvaluationService(
           case None =>
             () // no active event, or active event was snoozed — no-op
         }
-    }
 }
