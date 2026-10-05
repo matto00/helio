@@ -13,7 +13,7 @@ import com.helio.api.protocols.panels.{FieldValidationError, FieldValidationErro
 import com.helio.api.protocols.sources.RowWriteResponse
 import com.helio.domain.model._
 import com.helio.services.FormSubmitError
-import com.helio.services.panels.PanelService
+import com.helio.services.panels.{PanelService, PlacedLayouts}
 import com.helio.services.sources.RowWriteResult
 import spray.json._
 
@@ -52,6 +52,17 @@ final class PanelRoutes(
         complete(ServiceResponse.statusCodeFor(err), ErrorResponse(err.message))
     }
 
+  /** A created or duplicated panel with the layout item the server stored for it in every breakpoint,
+   *  so the client adopts the server's placement instead of deriving its own (HEL-1260). */
+  private def placedResponse(panel: Panel, placed: PlacedLayouts): PanelResponse = {
+    def wire(item: DashboardLayoutItem) = PanelLayoutResponse(x = item.x, y = item.y, w = item.w, h = item.h)
+    PanelResponse.fromDomain(
+      panel,
+      layout  = Some(wire(placed.lg)),
+      layouts = Some(PanelLayoutsResponse(wire(placed.lg), wire(placed.md), wire(placed.sm), wire(placed.xs)))
+    )
+  }
+
   val routes: Route =
     pathPrefix("panels") {
       concat(
@@ -71,7 +82,7 @@ final class PanelRoutes(
           post {
             entity(as[CreatePanelsBatchRequest]) { request =>
               ServiceResponse.run(panelService.batchCreate(request, user)) { created =>
-                StatusCodes.Created -> CreatePanelsBatchResponse(created.map(p => PanelResponse.fromDomain(p)))
+                StatusCodes.Created -> CreatePanelsBatchResponse(created.map { case (p, placed) => placedResponse(p, placed) })
               }
             }
           }
@@ -80,12 +91,7 @@ final class PanelRoutes(
           post {
             entity(as[CreatePanelRequest]) { request =>
               ServiceResponse.run(panelService.create(request, user)) { case (created, placed) =>
-                def wire(item: DashboardLayoutItem) = PanelLayoutResponse(x = item.x, y = item.y, w = item.w, h = item.h)
-                StatusCodes.Created -> PanelResponse.fromDomain(
-                  created,
-                  layout  = placed.map(p => wire(p.lg)),
-                  layouts = placed.map(p => PanelLayoutsResponse(wire(p.lg), wire(p.md), wire(p.sm), wire(p.xs)))
-                )
+                StatusCodes.Created -> placedResponse(created, placed)
               }
             }
           }
@@ -107,8 +113,8 @@ final class PanelRoutes(
         // carried over to Outputs (design.md line 195).
         path(PanelIdSegment / "duplicate") { panelId =>
           post {
-            ServiceResponse.run(panelService.duplicate(panelId, user)) { panel =>
-              StatusCodes.Created -> PanelResponse.fromDomain(panel)
+            ServiceResponse.run(panelService.duplicate(panelId, user)) { case (panel, placed) =>
+              StatusCodes.Created -> placedResponse(panel, placed)
             }
           }
         },

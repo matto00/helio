@@ -1,8 +1,10 @@
-// The owner's one-time repair of stored-bad layout breakpoints (HEL-1233 owner ruling).
+// The owner's one-time repair of stored-bad and incomplete layout breakpoints (HEL-1233 owner
+// ruling, widened by HEL-1260's `extend-owner-repair`).
 //
 // Fires at most once per dashboard per mount, at EVERY viewport width (mounted by `PanelGrid`, not
 // `DesktopPanelGrid`), and only when: the signed-in user is the dashboard's owner, this dashboard's
-// panels have loaded (never on an empty/stale list), and at least one stored breakpoint is invalid.
+// panels have loaded (never on an empty/stale list), and at least one breakpoint is repairable (stored-bad,
+// or valid but missing a live panel).
 // The server re-checks ownership; the owner check here only avoids calls it would refuse.
 //
 // It is the ONE deliberate exception to the HEL-301 phone-width "no layout write" guarantee
@@ -13,7 +15,7 @@
 import { useEffect, useRef } from "react";
 
 import { repairDashboardLayout } from "../../dashboards/state/dashboardsSlice";
-import { buildRepairPatch, hasStoredBadBreakpoint } from "../../dashboards/state/repairPatch";
+import { buildRepairPatch, hasRepairableBreakpoint } from "../../dashboards/state/repairPatch";
 import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import type { Panel } from "../types/panel";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
@@ -43,7 +45,7 @@ export function useStoredLayoutRepair({
   useEffect(() => {
     if (!panelsLoaded || currentUserId === null || ownerId !== currentUserId) return;
     if (attemptedRef.current.has(dashboardId)) return;
-    if (!hasStoredBadBreakpoint(layout)) return;
+    if (!hasRepairableBreakpoint(panels, layout)) return;
     attemptedRef.current.add(dashboardId);
     void dispatch(
       repairDashboardLayout({

@@ -2,7 +2,7 @@
 
 Dashboard CRUD, layout, appearance, and NL authoring/refinement:
 `state/dashboardsSlice.ts` and `state/dashboardLayout.ts`; `state/repairPatch.ts` builds the
-owner's one-time stored-bad-breakpoint repair body (sent by `useStoredLayoutRepair` in `panels`); services for CRUD
+owner's one-time stored-bad-or-incomplete-breakpoint repair body (sent by `useStoredLayoutRepair` in `panels`); services for CRUD
 (`dashboardService.ts`), NL authoring (`authoringService.ts`,
 `proposalService.ts`) and conversational refinement (`refinementService.ts`);
 `types/` for dashboard, proposal, authoring, and refinement wire shapes;

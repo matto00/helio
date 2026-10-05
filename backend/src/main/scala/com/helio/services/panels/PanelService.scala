@@ -215,17 +215,14 @@ final class PanelService(
       }
     }.map(_.toMap)
 
-  /** `POST /api/panels`. Returns the inserted panel plus, for an Output
-   *  panel only, the decision-15 default-size [[DashboardLayoutItem]] it was
-   *  placed at on `dashboardId`'s grid (epic spec
-   *  `docs/superpowers/specs/2026-08-30-pipelines-outputs-remodel-design.md`
-   *  lines 44/140/224 — HEL-909 CR1). A non-Output panel (text/markdown/
-   *  image/divider) gets no server-owned placement — `None`, unchanged
-   *  behavior. */
+  /** `POST /api/panels`. Returns the inserted panel plus the [[DashboardLayoutItem]] it was placed at
+   *  in EACH breakpoint of `dashboardId`'s grid, for every panel kind (HEL-1260). The panel insert and
+   *  its layout append are one transaction ([[PanelRepository.insertPlaced]]), so a panel is never
+   *  stored without its item, and concurrent creates never lose one. */
   def create(
       request: CreatePanelRequest,
       user: AuthenticatedUser
-  ): Future[Either[ServiceError, (Panel, Option[PlacedLayouts])]] =
+  ): Future[Either[ServiceError, (Panel, PlacedLayouts)]] =
     validateCreatePanelRequest(request) match {
       case Left(error) =>
         Future.successful(Left(ServiceError.BadRequest(error)))
@@ -237,57 +234,35 @@ final class PanelService(
           case Right(_) =>
             buildForCreate(dashboardId, request, user).flatMap {
               case Left(err)    => Future.successful(Left(err))
-              case Right(panel) => panelRepo.insert(panel).flatMap { inserted =>
-                audit("panel.create", Some(inserted.id.value), user)
-                placeDefaultLayout(dashboardId, inserted).map(layout => Right((inserted, layout)))
-              }
+              case Right(panel) =>
+                defaultSizesFor(panel).flatMap(sizes => panelRepo.insertPlaced(panel, sizes)).map {
+                  case None         => Left(ServiceError.NotFound("Dashboard not found"))
+                  case Some(placed) =>
+                    audit("panel.create", Some(panel.id.value), user)
+                    Right((panel, placed))
+                }
             }
         }
     }
 
-  /** Decision-15: compute the placed Output's kind-driven default size
-   *  (`OutputPanelDefaultSize`) and append it to EACH breakpoint at x=0 below THAT breakpoint's
-   *  own lowest occupied row (HEL-1071), with `w` scaled to the breakpoint's column count. Because
-   *  the new item starts below everything already in its breakpoint, it can never overlap an
-   *  existing item (and a stored-bad breakpoint never blocks creating a panel). Persists on
-   *  `dashboards.layout` and returns the item stored in each breakpoint so the client adopts the
-   *  server's placement. A `null` `outputRepo` (unwired fixture) or a non-Output panel no-op to
-   *  `None` without touching the dashboard. */
-  private def placeDefaultLayout(dashboardId: DashboardId, panel: Panel): Future[Option[PlacedLayouts]] =
+  /** The size a new `panel` takes in each breakpoint. An Output panel takes its Output kind's
+   *  decision-15 default (`OutputPanelDefaultSize`), scaled per breakpoint's column count; every other
+   *  kind, and an Output whose output cannot be resolved (placement is never skipped), takes
+   *  [[PlacementSizes.ContentDefault]]. A `null` `outputRepo` (unwired fixture) resolves nothing. */
+  private def defaultSizesFor(panel: Panel): Future[PlacementSizes] =
     panel match {
       case outputPanel: OutputPanel if outputRepo != null =>
         outputPanel.outputId match {
-          case None => Future.successful(None)
+          case None => Future.successful(PlacementSizes.ContentDefault)
           case Some(outputId) =>
-            outputRepo.findByIdInternal(outputId).flatMap {
-              case None => Future.successful(None)
+            outputRepo.findByIdInternal(outputId).map {
+              case None         => PlacementSizes.ContentDefault
               case Some(output) =>
                 val size = OutputPanelDefaultSize.forKind(output.kind)
-                dashboardRepo.findByIdInternal(dashboardId).flatMap {
-                  case None => Future.successful(None)
-                  case Some(dashboard) =>
-                    val lgCols = LayoutBreakpointScaling.breakpointCols("lg")
-                    def placeIn(bp: String): DashboardLayoutItem = {
-                      val cols   = LayoutBreakpointScaling.breakpointCols(bp)
-                      val w      = math.max(1, math.min(cols, math.round(size.w.toDouble * cols / lgCols).toInt))
-                      val bottom = (LayoutPolicy.stored(dashboard.layout, bp).map(i => i.y + i.h) :+ 0).max
-                      DashboardLayoutItem(panel.id, x = 0, y = bottom, w = w, h = size.h)
-                    }
-                    val placed = PlacedLayouts(placeIn("lg"), placeIn("md"), placeIn("sm"), placeIn("xs"))
-                    val updatedDashboard = dashboard.copy(
-                      layout = DashboardLayout(
-                        lg = dashboard.layout.lg :+ placed.lg,
-                        md = dashboard.layout.md :+ placed.md,
-                        sm = dashboard.layout.sm :+ placed.sm,
-                        xs = dashboard.layout.xs :+ placed.xs
-                      ),
-                      meta = dashboard.meta.copy(lastUpdated = Instant.now())
-                    )
-                    dashboardRepo.update(updatedDashboard).map(_ => Some(placed))
-                }
+                PlacementSizes.scaledFromLg(ItemSize(size.w, size.h))
             }
         }
-      case _ => Future.successful(None)
+      case _ => Future.successful(PlacementSizes.ContentDefault)
     }
 
   /** Construct + validate a new `Panel` domain object for `dashboardId` from a
@@ -401,7 +376,9 @@ final class PanelService(
         }
     }
 
-  def duplicate(panelId: PanelId, user: AuthenticatedUser): Future[Either[ServiceError, Panel]] =
+  /** `POST /api/panels/:id/duplicate`: the copy is stored with an item in every breakpoint, appended in the
+   *  same transaction (HEL-1260); see [[CreatePlacement.duplicateSizes]] for its size. */
+  def duplicate(panelId: PanelId, user: AuthenticatedUser): Future[Either[ServiceError, (Panel, PlacedLayouts)]] =
     panelRepo.findById(panelId, Some(user)).flatMap {
       case None =>
         Future.successful(Left(ServiceError.NotFound("Panel not found")))
@@ -409,16 +386,15 @@ final class PanelService(
         authorizeEditorOnDashboard(panel.dashboardId, user).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
-            panelRepo.duplicate(panelId, user.id).map {
-              case Some(p) =>
+            defaultSizesFor(panel).flatMap(kindDefault => panelRepo.duplicate(panelId, user.id, kindDefault)).map {
+              case Some((p, placed)) =>
                 // HEL-477 design.md Decision 7: one panel.duplicate row.
                 audit("panel.duplicate", Some(p.id.value), user, JsObject("sourcePanelId" -> JsString(panelId.value)))
-                Right(p)
-              case None    => Left(ServiceError.NotFound("Panel not found"))
+                Right((p, placed))
+              case None => Left(ServiceError.NotFound("Panel not found"))
             }
         }
     }
-
 
   /** Batch update panels. ACL is enforced via `accessChecker.requireAccess`
    *  on the parent dashboard — the authoritative gate. Per-panel owner checks
@@ -498,11 +474,11 @@ final class PanelService(
    *  `CreatePanelRequest` and delegates validation + construction to
    *  `buildAllForCreate` with a labeled `itemLabel` (design.md D2/D5) so a
    *  bad item's 400 names it by 1-based index and title. Only on full success
-   *  does `panelRepo.insertBatch` run — zero DB writes on any invalid item. */
+   *  does `panelRepo.insertBatchPlaced` run (panels AND their layout items in one transaction, HEL-1260) — zero DB writes on any invalid item. */
   def batchCreate(
       request: CreatePanelsBatchRequest,
       user: AuthenticatedUser
-  ): Future[Either[ServiceError, Vector[Panel]]] =
+  ): Future[Either[ServiceError, Vector[(Panel, PlacedLayouts)]]] =
     if (request.panels.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("panels must not be empty")))
     else
@@ -528,17 +504,22 @@ final class PanelService(
                 idx => Some(s"panel ${idx + 1} ('${items(idx).title.getOrElse("")}')")
               buildAllForCreate(dashboardId, createRequests, user, itemLabel).flatMap {
                 case Left(err)     => Future.successful(Left(err))
-                case Right(built)  => panelRepo.insertBatch(built).map { inserted =>
-                  // HEL-477 design.md Decision 9: one panel.batch_create row
-                  // per call, not one per panel.
-                  audit(
-                    "panel.batch_create",
-                    Some(dashboardId.value),
-                    user,
-                    JsObject("count" -> JsNumber(inserted.size), "panelIds" -> JsArray(inserted.map(p => JsString(p.id.value))))
-                  )
-                  Right(inserted)
-                }
+                case Right(built)  =>
+                  Future.traverse(built)(p => defaultSizesFor(p).map(p -> _))
+                    .flatMap(panelRepo.insertBatchPlaced)
+                    .map {
+                      case None => Left(ServiceError.NotFound("Dashboard not found"))
+                      case Some(inserted) =>
+                        // HEL-477 design.md Decision 9: one panel.batch_create row
+                        // per call, not one per panel.
+                        audit(
+                          "panel.batch_create",
+                          Some(dashboardId.value),
+                          user,
+                          JsObject("count" -> JsNumber(inserted.size), "panelIds" -> JsArray(inserted.map { case (p, _) => JsString(p.id.value) }))
+                        )
+                        Right(inserted)
+                    }
               }
           }
       }

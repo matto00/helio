@@ -3,6 +3,7 @@ package com.helio.infrastructure.persistence.panels
 import com.helio.api.protocols.panels.PanelBatchItem
 import com.helio.domain.model._
 import com.helio.domain.panels._
+import com.helio.services.panels.{CreatePlacement, PlacedLayouts, PlacementSizes}
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -17,10 +18,24 @@ trait PanelMutationOps { self: PanelRepository =>
 
   import PanelRepository._ // column-type implicits (e.g. panelAppearanceColumnType)
 
+  /** Single create (HEL-1260): the panel insert, the dashboard row lock and the layout append run in ONE
+   *  `withUserContext(caller)` transaction, so a failed layout write rolls the panel back and the
+   *  `panels_insert` WITH CHECK policy stays a live defence. Returns `None` (nothing written) when the
+   *  dashboard row is not visible to the caller. */
+  def insertPlaced(panel: Panel, sizes: PlacementSizes): Future[Option[PlacedLayouts]] = {
+    val action = PanelLayoutPlacement
+      .insertAndAppend(panel.dashboardId, table += domainToRow(panel), _ => Vector(panel.id -> sizes))
+      .map(placed => Option(placed.head))
+      .transactionally
+    ctx.withUserContext(panel.ownerId.value)(action).recover { case _: PlacementTargetMissing => None }
+  }
+
   /** Privileged duplicate: uses withSystemContext because PanelService has confirmed
    *  ownership before calling this. New row is inserted with the calling user's
-   *  ownerId so V36 RLS policies apply to it correctly after insertion. */
-  def duplicate(id: PanelId, ownerId: UserId): Future[Option[Panel]] = {
+   *  ownerId so V36 RLS policies apply to it correctly after insertion. The layout item is
+   *  appended in the same transaction (HEL-1260), sized from the source's item in the locked
+   *  layout, else `kindDefault` (see [[CreatePlacement.duplicateSizes]]). */
+  def duplicate(id: PanelId, ownerId: UserId, kindDefault: PlacementSizes): Future[Option[(Panel, PlacedLayouts)]] = {
     val copyTitleRegex = """^(.*)\s+\(copy(?:\s+(\d+))?\)$""".r
 
     def baseTitle(title: String): String = title match {
@@ -54,11 +69,15 @@ trait PanelMutationOps { self: PanelRepository =>
               lastUpdated = now,
               ownerId     = UUID.fromString(ownerId.value)
             )
-            (table += newRow).map(_ => Some(rowToDomain(newRow)))
+            val plan = (layout: DashboardLayout) =>
+              Vector(PanelId(newRow.id) -> CreatePlacement.duplicateSizes(layout, PanelId(source.id), kindDefault))
+            PanelLayoutPlacement
+              .insertAndAppend(DashboardId(source.dashboardId), table += newRow, plan)
+              .map(placed => Option((rowToDomain(newRow), placed.head)))
           }
     }.transactionally
 
-    ctx.withSystemContext(action)
+    ctx.withSystemContext(action).recover { case _: PlacementTargetMissing => None }
   }
 
   /** Batch update: applies title / appearance / typed-config patches to many
@@ -126,25 +145,27 @@ trait PanelMutationOps { self: PanelRepository =>
     ctx.withSystemContext(action).map(_.map(rowToDomain).toVector)
   }
 
-  /** Batch create (HEL-370 D1): a pure multi-row INSERT, append-only — no
-   *  DELETE, no dashboard-row touch, no layout write (layout is HEL-367's
-   *  job). This is the additive sibling of `DashboardContentsOps.
-   *  replaceContents`'s DELETE-then-INSERT, not a reuse of it: reusing
-   *  `replaceContents` verbatim would delete every panel the caller didn't
-   *  include, which is replace-contents' contract, not batch-create's.
-   *  Returns `panels` verbatim (not a re-query) so the response order is
-   *  exactly the input order — the same trick `PanelRepository.insert` uses
-   *  for the single-create path.
+  /** Batch create (HEL-370 D1, placement HEL-1260): a multi-row INSERT plus, in the SAME transaction, the
+   *  dashboard row lock and one layout item per panel at every breakpoint, stacked in input order
+   *  below the existing items. All-or-nothing: a failed layout write rolls every panel back.
+   *  Returns `panels` verbatim (not a re-query) so the response order is exactly the input order, with
+   *  the items stored for each; `None` (nothing written) when the dashboard row cannot be read.
    *
    *  Privileged (`withSystemContext`, bypasses the `panels_insert` RLS `WITH
    *  CHECK` policy): `PanelService.batchCreate` has already confirmed the
    *  caller is an owner/editor of the target dashboard, and every panel
    *  passed here already has its `ownerId` set to that ACL-checked caller by
-   *  `PanelService.buildForCreate` — mirrors `PanelMutationOps.duplicate`'s
-   *  identical bypass rationale above. */
-  def insertBatch(panels: Vector[Panel]): Future[Vector[Panel]] = {
-    if (panels.isEmpty) return Future.successful(Vector.empty)
-    val action = DBIO.sequence(panels.map(p => table += domainToRow(p))).transactionally
-    ctx.withSystemContext(action).map(_ => panels)
+   *  `PanelService.buildForCreate` -- mirrors `duplicate`'s identical bypass rationale above. The
+   *  layout write rides the same bypass: it only touches `layout`/`last_updated` of the dashboard
+   *  the ACL check already admitted. */
+  def insertBatchPlaced(panels: Vector[(Panel, PlacementSizes)]): Future[Option[Vector[(Panel, PlacedLayouts)]]] = {
+    if (panels.isEmpty) return Future.successful(Some(Vector.empty))
+    val inserts = DBIO.sequence(panels.map { case (p, _) => table += domainToRow(p) })
+    val plan    = (_: DashboardLayout) => panels.map { case (p, sizes) => p.id -> sizes }
+    val action  = PanelLayoutPlacement
+      .insertAndAppend(panels.head._1.dashboardId, inserts, plan)
+      .map(placed => Option(panels.map(_._1).zip(placed)))
+      .transactionally
+    ctx.withSystemContext(action).recover { case _: PlacementTargetMissing => None }
   }
 }

@@ -297,6 +297,18 @@ abstract class ApplyProposalSpecBase
   // dropped, and its only caller was already retired in task 4.1 (see
   // `AuditMutationInstrumentationSpec`'s own comment).
 
+  /** HEL-1260: what the APP pool (the one `withUserContext` uses) actually is, read through that pool:
+   *  `(superuser or BYPASSRLS, dashboards has FORCE RLS, panels has FORCE RLS)`. A test that claims to
+   *  prove behaviour under row-level security asserts `(false, true, true)` first, so it cannot pass
+   *  vacuously on a harness that quietly bypasses RLS. */
+  protected def appPoolRlsPosture(): (Boolean, Boolean, Boolean) =
+    await(ctx.withUserContext(userId)(
+      sql"""SELECT (r.rolsuper OR r.rolbypassrls),
+                   (SELECT relforcerowsecurity FROM pg_class WHERE relname = 'dashboards' AND relkind = 'r'),
+                   (SELECT relforcerowsecurity FROM pg_class WHERE relname = 'panels' AND relkind = 'r')
+            FROM pg_roles r WHERE r.rolname = current_user""".as[(Boolean, Boolean, Boolean)].head
+    ))
+
   /** HEL-1148: ACL-free count of rows appended to a dataset source (proves a form submit landed). */
   protected def datasetRowCount(dataSourceId: String): Int =
     await(ctx.withSystemContext(

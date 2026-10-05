@@ -73,19 +73,20 @@ class PanelServiceOutputControlsSpec extends AnyWordSpec with Matchers {
       ownerId    = ownerId
     )
 
-  // `PanelService.create`'s decision-15 default-layout placement (HEL-909) always runs for an
-  // Output panel — dashboardRepo stubs here exist only to let that unrelated side effect complete
-  // without an NPE; no test in this file asserts on the placed layout itself.
+  // `PanelService.create` always places the panel (HEL-909, HEL-1260) — the `insertPlaced` stub here
+  // exists only to let that unrelated side effect complete without an NPE; no test in this file
+  // asserts on the placed layout itself.
   private def buildService(output: Output, existingPanel: Option[OutputPanel] = None): PanelService = {
     val panelRepo     = mock(classOf[PanelRepository])
     val dashboardRepo = mock(classOf[DashboardRepository])
     val outputRepo    = mock(classOf[OutputRepository])
 
-    when(panelRepo.insert(any())).thenAnswer(inv => Future.successful(inv.getArgument[Panel](0)))
+    when(panelRepo.insertPlaced(any(), any())).thenAnswer { inv =>
+      val panel = inv.getArgument[Panel](0)
+      Future.successful(Option(CreatePlacement.append(emptyDashboard().layout, Vector(panel.id -> inv.getArgument[PlacementSizes](1)))._2.head))
+    }
     when(outputRepo.findByIdOwned(output.id, user)).thenReturn(Future.successful(Some(output)))
     when(outputRepo.findByIdInternal(output.id)).thenReturn(Future.successful(Some(output)))
-    when(dashboardRepo.findByIdInternal(dashboardId)).thenReturn(Future.successful(Some(emptyDashboard())))
-    when(dashboardRepo.update(any())).thenAnswer(inv => Future.successful(Some(inv.getArgument[Dashboard](0))))
     existingPanel.foreach { p =>
       when(panelRepo.findByIdInternal(p.id)).thenReturn(Future.successful(Some(p)))
       when(panelRepo.findById(p.id, Some(user))).thenReturn(Future.successful(Some(p)))

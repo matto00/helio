@@ -50,14 +50,16 @@ class FormPanelRoundTripSpec extends ApplyProposalSpecBase {
       }
     }
 
-    "require no Output binding — layout is null/absent for a form panel" in {
+    "require no Output binding — a form panel is still placed, at the content default size (HEL-1260)" in {
       val dashboardId = createDashboard("Form No Output Binding")
       Post("/api/panels", json(createFormPanelBody(dashboardId, datasetSourceId)))
         .addHeader(sessionCookie).addHeader(csrfHeader) ~> routes ~> check {
         status shouldBe StatusCodes.Created
-        // HEL-909 decision-15 default layout only applies to output panels.
-        responseAs[String].parseJson.asJsObject.fields.get("layout") should
-          (be(None) or be(Some(JsNull)))
+        // Placement no longer depends on the kind (HEL-1260); only the size does: the Output
+        // decision-15 table is for output panels, the client's 4x5 render default for the rest.
+        val body = responseAs[String].parseJson.asJsObject
+        body.fields("layout") shouldBe JsObject("x" -> JsNumber(0), "y" -> JsNumber(0), "w" -> JsNumber(4), "h" -> JsNumber(5))
+        body.fields("layouts").asJsObject.fields.keySet shouldBe Set("lg", "md", "sm", "xs")
       }
     }
 

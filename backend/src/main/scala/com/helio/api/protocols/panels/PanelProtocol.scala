@@ -22,14 +22,15 @@ final case class PanelAppearanceResponse(
 )
 
 /** `{x, y, w, h}` — the grid position/size a panel was just placed at.
- *  Populated only by `POST /api/panels` (decision-15 server-owned default
- *  size, HEL-909 CR1); every other `PanelResponse` producer passes `None`
+ *  Populated only by the create paths (`POST /api/panels`, each item of
+ *  `POST /api/panels/batch`, `POST /api/panels/:id/duplicate`; HEL-909 CR1,
+ *  HEL-1260); every other `PanelResponse` producer passes `None`
  *  since layout is otherwise a dashboard-owned field
  *  (`dashboards.layout`), not re-echoed per panel. */
 final case class PanelLayoutResponse(x: Int, y: Int, w: Int, h: Int)
 
-/** HEL-1071: the item the server stored in EACH breakpoint when it placed a new Output panel
- *  (`POST /api/panels` only). Authoritative: the client adopts these instead of projecting `layout`
+/** HEL-1071, HEL-1260: the item the server stored in EACH breakpoint when it created a panel
+ *  (single create, batch create, duplicate). Authoritative: the client adopts these instead of projecting `layout`
  *  (the lg item, kept for compatibility) into md/sm/xs itself. */
 final case class PanelLayoutsResponse(lg: PanelLayoutResponse, md: PanelLayoutResponse, sm: PanelLayoutResponse, xs: PanelLayoutResponse)
 

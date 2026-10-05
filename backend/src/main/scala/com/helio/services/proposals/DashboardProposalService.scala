@@ -1,7 +1,7 @@
 package com.helio.services.proposals
 
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.panels.{OutputControlsValidator, PanelService}
+import com.helio.services.panels.{ItemSize, OutputControlsValidator, PanelService}
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{DashboardLayoutItemPayload, DashboardLayoutPatchPayload, UpdateDashboardRequest}
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel}
@@ -130,46 +130,50 @@ final class DashboardProposalService(
             // write a false `dashboard.delete` for a dashboard that, from
             // the caller's perspective, never existed.
             dashboardService.deleteInternal(dashboard.id, user).map(_ => Left(err))
-          case Right(panels) =>
+          case Right(created) =>
             // HEL-904: the chart-panel appearance follow-up (`applyAppearance`)
             // was removed here — `ChartPanel` no longer exists, so
             // `created.kind == ChartPanel.Kind` could never fire again.
-            applyLayout(dashboard, proposal.panels, panels, user).flatMap {
+            applyLayout(dashboard, proposal.panels, created, user).flatMap {
               case Left(err) => dashboardService.deleteInternal(dashboard.id, user).map(_ => Left(err))
               case right     => Future.successful(right)
             }
         }
     }
 
-  /** Create panels in proposal order, short-circuiting on the first failure.
+  /** Create panels in proposal order, short-circuiting on the first failure. Each is paired with the lg
+   *  size it was created at, which a panel with no authored placement keeps in [[applyLayout]].
    *  `buildCreateRequest` is shared with `DashboardContentsService` via
    *  [[ProposalPanelSupport]] (HEL-363). */
   private def createPanels(
       dashboardId: DashboardId,
       remaining: Vector[ProposalPanel],
       user: AuthenticatedUser,
-      acc: Vector[Panel]
-  ): Future[Either[ServiceError, Vector[Panel]]] =
+      acc: Vector[(Panel, ItemSize)]
+  ): Future[Either[ServiceError, Vector[(Panel, ItemSize)]]] =
     remaining.headOption match {
       case None => Future.successful(Right(acc))
       case Some(panel) =>
         panelService.create(ProposalPanelSupport.buildCreateRequest(dashboardId, panel), user).flatMap {
           case Left(err)    => Future.successful(Left(err))
-          case Right((panel0, _)) => createPanels(dashboardId, remaining.tail, user, acc :+ panel0)
+          case Right((panel0, placed)) =>
+            createPanels(dashboardId, remaining.tail, user, acc :+ (panel0 -> ItemSize(placed.lg.w, placed.lg.h)))
         }
     }
 
-  /** Persist per-panel layout (all four breakpoints) for panels that specify one: the authored `lg`
-   *  items were validated before anything was created, md/sm/xs are reflowed (valid by construction),
+  /** Persist the layout of every created panel (all four breakpoints): the authored `lg` items were
+   *  validated before anything was created, a panel with no authored placement is appended below them
+   *  at the size it was created at, md/sm/xs are reflowed (valid by construction),
    *  and the write still goes through `DashboardService.update`'s validation. A failure is surfaced
    *  (HEL-1071: it used to be swallowed as "best-effort") and the caller rolls the dashboard back. */
   private def applyLayout(
       dashboard: Dashboard,
       proposalPanels: Vector[ProposalPanel],
-      createdPanels: Vector[Panel],
+      created: Vector[(Panel, ItemSize)],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, (Dashboard, Vector[Panel])]] = {
-    val layout = ProposalLayoutSupport.buildLayout(proposalPanels, createdPanels.map(_.id))
+    val createdPanels = created.map(_._1)
+    val layout        = ProposalLayoutSupport.buildLayout(proposalPanels, createdPanels.map(_.id), created.map(_._2))
     if (layout.lg.isEmpty) Future.successful(Right((dashboard, createdPanels)))
     else {
       def payloads(items: Vector[DashboardLayoutItem]) = Some(items.map(i => DashboardLayoutItemPayload(i.panelId.value, i.x, i.y, i.w, i.h)))

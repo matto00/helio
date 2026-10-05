@@ -57,7 +57,7 @@ import type {
 // `markDashboardPanelsStale` and the `fetchPanels` thunk itself — both are
 // re-exported by the slice once it is constructed.
 import { markDashboardPanelsStale } from "./panelActions";
-import { setDashboardLayoutLocally } from "../../dashboards/state/dashboardsSlice";
+import { adoptPlacedLayouts } from "./panelPlacement";
 
 export const fetchPanels = createAsyncThunk<
   Panel[],
@@ -104,32 +104,9 @@ export const createPanel = createAsyncThunk<
   ) => {
     try {
       const createdPanel = await createPanelRequest(dashboardId, type, title, outputId, config);
-      // Decision-15 (HEL-909 CR6/spec `output-picker/spec.md`): the server computes the placement and
-      // returns, in `layouts`, the item it stored in EACH breakpoint. HEL-1071: adopt those verbatim
-      // (appended to each breakpoint's own existing array) instead of projecting the lg item into
-      // md/sm/xs here — a client-side projection collapses columns into the same cell and would ride
-      // the next layout PATCH as a "changed" invalid breakpoint the server rejects.
-      if (createdPanel.layouts) {
-        const placed = createdPanel.layouts;
-        const dashboard = getState().dashboards.items.find((d) => d.id === dashboardId);
-        if (dashboard) {
-          const withPanel = (bp: keyof typeof placed) => [
-            ...dashboard.layout[bp],
-            { panelId: createdPanel.id, ...placed[bp] },
-          ];
-          dispatch(
-            setDashboardLayoutLocally({
-              dashboardId,
-              layout: {
-                lg: withPanel("lg"),
-                md: withPanel("md"),
-                sm: withPanel("sm"),
-                xs: withPanel("xs"),
-              },
-            }),
-          );
-        }
-      }
+      // The server computes the placement (every kind, HEL-1260) and returns the item it stored in each
+      // breakpoint; adopt those verbatim (see `panelPlacement.ts`).
+      adoptPlacedLayouts(dispatch, getState, dashboardId, createdPanel);
       dispatch(markDashboardPanelsStale(dashboardId));
       await dispatch(fetchPanels(dashboardId));
       return createdPanel;
@@ -193,16 +170,20 @@ export const duplicatePanel = createAsyncThunk<
   Panel,
   { panelId: string; dashboardId: string },
   { state: RootState; rejectValue: string }
->("panels/duplicatePanel", async ({ panelId, dashboardId }, { dispatch, rejectWithValue }) => {
-  try {
-    const created = await duplicatePanelRequest(panelId);
-    dispatch(markDashboardPanelsStale(dashboardId));
-    await dispatch(fetchPanels(dashboardId));
-    return created;
-  } catch {
-    return rejectWithValue("Failed to duplicate panel.");
-  }
-});
+>(
+  "panels/duplicatePanel",
+  async ({ panelId, dashboardId }, { dispatch, getState, rejectWithValue }) => {
+    try {
+      const created = await duplicatePanelRequest(panelId);
+      adoptPlacedLayouts(dispatch, getState, dashboardId, created);
+      dispatch(markDashboardPanelsStale(dashboardId));
+      await dispatch(fetchPanels(dashboardId));
+      return created;
+    } catch {
+      return rejectWithValue("Failed to duplicate panel.");
+    }
+  },
+);
 
 export const updatePanelAppearance = createAsyncThunk<
   Panel,

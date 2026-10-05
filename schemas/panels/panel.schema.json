@@ -43,7 +43,7 @@
     },
     "layout": {
       "type": ["object", "null"],
-      "description": "Decision-15 server-owned default grid placement (HEL-909) — present only on the `POST /api/panels` response for a newly placed `output` panel; absent/null everywhere else (layout otherwise lives on the dashboard's own `layout` field).",
+      "description": "Decision-15 server-owned default grid placement (HEL-909) — present on the create responses (`POST /api/panels` for every panel kind, each item of `POST /api/panels/batch`, `POST /api/panels/:id/duplicate`) as the lg item; absent/null everywhere else (layout otherwise lives on the dashboard's own `layout` field).",
       "additionalProperties": false,
       "properties": {
         "x": { "type": "integer", "minimum": 0 },
@@ -54,7 +54,7 @@
     },
     "layouts": {
       "type": ["object", "null"],
-      "description": "Authoritative per-breakpoint placement (HEL-1071) — the item the server stored in EACH of lg/md/sm/xs when it placed a new `output` panel; present only on the `POST /api/panels` response. Each is placed at x=0 below that breakpoint's own existing items with `w` scaled to its column count, so it can never overlap. `layout` above is the lg item, retained for compatibility; clients adopt `layouts`.",
+      "description": "Authoritative per-breakpoint placement (HEL-1071, HEL-1260) — the item the server stored in EACH of lg/md/sm/xs when it created the panel; present on the `POST /api/panels` response (every panel kind), on every item of a `POST /api/panels/batch` response, and on a `POST /api/panels/:id/duplicate` response. Each is placed at x=0 below that breakpoint's own existing items, so it can never overlap: an `output` panel at its Output kind's default size scaled to the breakpoint's column count, any other kind at 4/4/3/2 columns by 5 rows, a duplicate at its source's size. `layout` above is the lg item, retained for compatibility; clients adopt `layouts`.",
       "additionalProperties": false,
       "properties": {
         "lg": { "$ref": "#/$defs/PanelPlacement" },
