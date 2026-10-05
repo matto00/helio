@@ -82,3 +82,13 @@ behaviour. Alternative (append `"/helio-mcp"` to the literal) rejected: it repea
 - Self-approved: D3 (mint/revoke rather than "verify mints nothing") — reads the AC literally and keeps the bootstrap
   credential out of the spawned server.
 - Self-approved: D5 family classification, grounded in the SDK's own `peerDependencies`.
+
+## Gate-Chain Implications Checklist
+
+`scripts/check-dependabot-groups.mjs` is run by `.husky/pre-commit` (`npm run check:dependabot`) and was already wired before this change; the change only edits it (a new `mcp-sdk` family, and manifest directories derived from the config's npm entries instead of a hard-coded list).
+
+- **What does it execute?** It executes no subprocess: no `spawn`/`exec`, and no `git` call. It uses `readFileSync` to read `.github/dependabot.yml` and, for each npm `directory` in that file (`/`, `/frontend`, `/helio-mcp`), that directory's `package.json`. It then runs its own purpose-built YAML-subset parser and first-match-wins group assignment in-process, and exits 1 with a message per violation or 0 with an OK line.
+- **What environment does it inherit, and from where?** It reads no environment variables. Its one input besides the files is `process.argv[2]`; when absent, `repoRoot` is derived from the script's own location (`dirname(fileURLToPath(import.meta.url))/..`). So it does not depend on cwd, `GIT_DIR`, or `GIT_WORK_TREE`, which Husky exports to hook children from a linked worktree. It needs only Node and no `node_modules`, since it imports only `node:` builtins.
+- **Does it write anything outside its own sandbox?** No. It only writes to stdout/stderr. It creates, modifies and deletes no files and touches no git state.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. It resolves the repo root from its own file path, so in a linked worktree it checks that worktree's `.github/dependabot.yml` and `package.json` files, and in a main checkout it checks main's. It never consults git, so a worktree's `.git` file or the inherited `GIT_DIR` cannot change what it reads. A directory with no `package.json` is skipped, not an error.
+- **What happens on its first run?** The first run of the changed script on this tree passes: `check-dependabot-groups: OK - 5 declared families each resolve to a single group; every production dependency accounted for.` Before this change `/helio-mcp` was never coverage-checked (the directory list was a literal). The `mutation-3.3-dependabot.txt` evidence shows it now goes red (exit 1) on a split family and on an unaccounted `/helio-mcp` production dependency. `scripts/concertino/test-gate-in-isolation.sh` also ran it once against a disposable fixture repo under a hook-shaped environment and passed.
