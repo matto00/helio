@@ -22,12 +22,21 @@
  *   - DOES NOT distinguish "pattern-matching on an already-resolved domain value" (e.g.
  *     `nodeStepId.isEmpty` on a plain `Option[PipelineStepId]` local/parameter — legitimate,
  *     not a DB predicate) from "querying the TABLE'S column via Slick" (the actual violation) --
- *     it is a text-level guard, not a type-aware one. `KNOWN_ROOT_QUALIFIED_LINES` below is the
- *     explicit, itemized escape hatch for lines already reviewed and found correct (a real
- *     root-id qualifier is present, just not textually adjacent enough for this script's plain
- *     substring check) -- unlike the OTHER escape ("a line the ticket has not gotten to yet"),
- *     which is what `KNOWN_UNFIXED_LINES` names, one at a time, so the debt stays visible rather
- *     than silently exempted.
+ *     it is a text-level guard, not a type-aware one. `KNOWN_EXEMPTIONS` below is the explicit,
+ *     itemized escape hatch for sites already reviewed and found correct, one named entry each,
+ *     so the debt stays visible rather than silently exempted.
+ *
+ * EXEMPTIONS ARE KEYED ON CONTENT, NOT LINE NUMBER (HEL-1282; the old `file:line` keys broke on
+ * every unrelated edit above them -- HEL-1027, HEL-1188, HEL-1271). An entry is
+ * `{ file, scope, arm, text, count, reason }`: `scope` is the nearest preceding `def <name>`,
+ * `arm` the governing `case ... =>` line within that scope (or `<none>`), `text` the hit line
+ * with whitespace normalised. Hits are grouped by `(file, scope, arm, text)` and the group must
+ * match an entry's `count` EXACTLY, in both directions:
+ *   - more hits than `count` (a copy of an exempt line) -> EVERY hit in the group is a violation;
+ *   - fewer hits than `count` (the site was fixed/deleted/renamed) -> the entry is reported as
+ *     STALE and the guard fails, so a dangling entry can never absorb a future line;
+ *   - a hit with no matching key (new method, other file, other text, rewritten arm) -> violation.
+ * See openspec/changes/content-keyed-root-encoding-exemptions/design.md for the residual risks.
  */
 
 import { readFileSync } from "node:fs";
@@ -41,17 +50,6 @@ const TARGET_FILES = [
   "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala",
   "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala",
 ];
-
-// Lines already reviewed where a real root-id qualifier IS present on the same statement, just
-// not close enough (e.g. split across a multi-line `sqlu"""..."""`) for the plain per-line
-// substring check below to see it. Each entry is `file:lineNumber` (1-indexed), so a review
-// stays pinned to an exact line rather than a fuzzy description.
-const KNOWN_ROOT_QUALIFIED_LINES = new Set([
-  // NodeSnapshotRepository.overwriteRows / BinaryRefRepository.overwriteForNode: the
-  // `(None, Some(rid))` delete-branch pairs `node_step_id IS NULL` with `AND root_id = $rid` ON
-  // THE SAME LINE already, so these are caught by the same-line check directly and need no
-  // entry here -- listed for completeness of the review, not because an entry was needed.
-]);
 
 // HEL-913 task 5.8b-iv: re-examined now that 5.8b-iv-a removed EVERY `explicitRootId`'s default
 // argument on these two repositories -- the exact thing that used to make "does a caller reach
@@ -70,8 +68,8 @@ const KNOWN_ROOT_QUALIFIED_LINES = new Set([
 // production caller of `overwriteRows`/`listRows`/`listRowsPaged`/`overwriteForNode`(each
 // checked directly, `grep -rn` against `src/main`) derives `explicitRootId` from either (a)
 // `output.node.rootId`, or (b) a `NodeKey` match's `RootKey(rid) => Some(rid)` arm, or (c) an
-// explicit `if (nodeStepId.isEmpty) Some(realRootId) else None` guard immediately at the call
-// site (`PipelineRunService:1030`) -- and in every one of those cases, `nodeStepId.isEmpty` is
+// explicit `val explicitRootId = if (trunkLastStepId.isEmpty) Some(lowestRootId) else None`
+// guard immediately at the call site (in `PipelineRunService`'s run-success path) -- and in every one of those cases, `nodeStepId.isEmpty` is
 // structurally paired with a REAL root id, never bare `None`, because a root-bound `Output`/
 // snapshot ALWAYS carries a real `root_id` (V98's `(node_step_id IS NULL) <> (root_id IS NULL)`
 // CHECK enforces this at the DB row level, and the domain model reads it straight off that
@@ -101,37 +99,67 @@ const KNOWN_ROOT_QUALIFIED_LINES = new Set([
 // Kept here, exempted BY NAME with this proof, not silently -- any NEW occurrence anywhere else
 // in these files still fails the guard.
 //
-// HEL-1027 line-number remap (post-merge, no code change): `NodeSnapshotRepository.scala`'s three
-// entries shifted from :52/:100/:135 to :92/:140/:164 because HEL-1027's sort/filter machinery was
-// inserted earlier in the file -- the count stays at 3, not a new violation. The former :135 arm
-// (`listRowsPaged`'s own inline `nodeFilter` val) was ALSO extracted, by HEL-1027, into the new
-// shared `private def nodeFilterFragment(...)` helper, whose `(None, None)` arm is now at :164 and
-// is called by BOTH `listRowsPaged` (:264) and the new `hasAnyRow` (:301) -- one shared arm, not a
-// new occurrence of the pattern. `hasAnyRow`'s only caller (`OutputService.materializedFor`, via
-// `OutputService.rows`) derives `explicitRootId` from `output.node.rootId`, the exact same
-// structurally-safe derivation this proof already audits for every other production caller above.
-//
-// HEL-1188 line-number remap (post-merge, no code change to any of the three arms below):
-// :92/:140/:164 shifted to :113/:161/:185 because HEL-1188 inserted its own `OpSpec` ADT and
-// `FilterSpec.ops` field into the companion object (ABOVE all three arms) to support the new
-// `gte`/`lte`/`eq`/`in` filter operators -- the count stays at 3, no arm's own logic changed, and
-// `nodeFilterFragment` (the shared helper the :185 arm belongs to) gained two NEW callers this
-// ticket added (`distinctValueCountCapped`, `topDistinctValues`), both of which derive
-// `explicitRootId` from `output.node.rootId` via `OutputFilterCapability`'s own callers --
-// identical, already-audited derivation, not a new occurrence of the pattern.
-//
-// HEL-1271 line-number remap (no code change to any arm): :113/:161/:185 shifted to :130/:178/:202
-// because extracting `overwriteRowsAction` from `overwriteRows` (plus the new `overwriteRowsWith`)
-// added 17 lines above all three arms -- the count stays at 3, the SQL is unchanged.
-const KNOWN_UNFIXED_LINES = new Set([
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:130",
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:178",
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala:202",
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala:49",
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala:108",
-  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala:128",
-]);
+// HEL-1282: exemptions were previously `file:line` strings (re-mapped by hand after HEL-1027,
+// HEL-1188 and HEL-1271 shifted the lines above them); they are now keyed on content -- see the
+// header's EXEMPTIONS paragraph. The proof above applies to every entry below, unchanged.
+const PERSISTENCE = "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/";
+const NODE_SNAPSHOT_REPO = `${PERSISTENCE}NodeSnapshotRepository.scala`;
+const BINARY_REF_REPO = `${PERSISTENCE}BinaryRefRepository.scala`;
+const REASON =
+  "single-root `(None, None)` arm: production-unreachable, test-reachable (see proof above)";
+const ARM = "case (None, None) =>";
+const NSF = 'sql" AND node_step_id IS NULL"';
 
+export const KNOWN_EXEMPTIONS = [
+  {
+    file: NODE_SNAPSHOT_REPO,
+    scope: "overwriteRowsAction",
+    arm: ARM,
+    text: 'sqlu"DELETE FROM node_snapshots WHERE pipeline_id = $pipelineId AND node_step_id IS NULL"',
+    count: 1,
+    reason: REASON,
+  },
+  {
+    file: NODE_SNAPSHOT_REPO,
+    scope: "listRows",
+    arm: `${ARM} ${NSF}`,
+    text: `${ARM} ${NSF}`,
+    count: 1,
+    reason: REASON,
+  },
+  {
+    file: NODE_SNAPSHOT_REPO,
+    scope: "nodeFilterFragment",
+    arm: `${ARM} ${NSF}`,
+    text: `${ARM} ${NSF}`,
+    count: 1,
+    reason: REASON,
+  },
+  {
+    file: BINARY_REF_REPO,
+    scope: "overwriteForNode",
+    arm: `${ARM} sqlu"DELETE FROM binary_refs WHERE pipeline_id = $pipelineId AND node_step_id IS NULL"`,
+    text: `${ARM} sqlu"DELETE FROM binary_refs WHERE pipeline_id = $pipelineId AND node_step_id IS NULL"`,
+    count: 1,
+    reason: REASON,
+  },
+  {
+    file: BINARY_REF_REPO,
+    scope: "findByNodeAndRow",
+    arm: ARM,
+    text: 'WHERE pipeline_id = $pipelineId AND node_step_id IS NULL AND row_index = $rowIndex"""',
+    count: 1,
+    reason: REASON,
+  },
+  {
+    file: BINARY_REF_REPO,
+    scope: "selectQuery",
+    arm: ARM,
+    text: 'WHERE pipeline_id = $pipelineId AND node_step_id IS NULL"""',
+    count: 1,
+    reason: REASON,
+  },
+];
 // Raw SQL: `node_step_id IS NULL` as a standalone (not `... IS NULL AND root_id ...`) predicate.
 const RAW_SQL_STANDALONE = /node_step_id\s+IS\s+NULL(?!\s+AND\s+root_id)/i;
 // Slick-lifted forms.
@@ -145,21 +173,31 @@ function isRootQualifiedSameLine(line) {
   return /root_id/i.test(line) || /rootId/.test(line);
 }
 
-/** Exported for the selftest (task 5.8b-i, "prove the guard fires"): scans already-in-memory
- *  text (no disk access) for the banned encoding, using the SAME exempt-line keys the real scan
- *  uses (`relPath:lineNumber`) so a selftest can exercise the exemption logic too, not just the
- *  detection regexes. */
-export function scanTextForViolations(relPath, text) {
-  const found = [];
-  const lines = text.split("\n");
-  lines.forEach((raw, idx) => {
-    const lineNo = idx + 1;
-    const key = `${relPath}:${lineNo}`;
-    if (KNOWN_UNFIXED_LINES.has(key)) return;
-    if (KNOWN_ROOT_QUALIFIED_LINES.has(key)) return;
+const normalise = (line) => line.trim().replace(/\s+/g, " ");
+const SCOPE_RE = /\bdef\s+(\w+)/;
+const ARM_RE = /^\s*case\b.*=>/;
+const NO_ARM = "<none>";
+const keyOf = (file, scope, arm, text) => JSON.stringify([file, scope, arm, text]);
 
+/** Exported for the selftest (task 5.8b-i, "prove the guard fires"): scans already-in-memory
+ *  text (no disk access) for the banned encoding. Exemptions are content-keyed (see header);
+ *  `exemptions` defaults to the shipped table and exists so a selftest can inject others.
+ *  Stale-exemption failures (entries for `relPath` that no longer match exactly `count` hits)
+ *  are returned in the same array, prefixed `stale exemption:`. */
+export function scanTextForViolations(relPath, text, exemptions = KNOWN_EXEMPTIONS) {
+  const hits = [];
+  let scope = "<top>";
+  let arm = NO_ARM;
+  text.split("\n").forEach((raw, idx) => {
     const trimmed = raw.trim();
     if (trimmed.startsWith("//") || trimmed.startsWith("*")) return;
+
+    const declared = SCOPE_RE.exec(raw);
+    if (declared) {
+      scope = declared[1];
+      arm = NO_ARM;
+    }
+    if (ARM_RE.test(raw)) arm = normalise(raw);
 
     const rawMatch = RAW_SQL_STANDALONE.test(raw);
     const slickMatch = SLICK_FORMS.some((re) => re.test(raw));
@@ -170,10 +208,41 @@ export function scanTextForViolations(relPath, text) {
     // violation, regardless of which form (raw or Slick) triggered the match.
     if (isRootQualifiedSameLine(raw)) return;
 
-    found.push(
-      `${relPath}:${lineNo}: standalone node-root-NULL encoding ("${trimmed}") -- see design.md R12`,
-    );
+    hits.push({
+      lineNo: idx + 1,
+      trimmed,
+      scope,
+      arm,
+      key: keyOf(relPath, scope, arm, normalise(raw)),
+    });
   });
+
+  const entries = new Map();
+  for (const e of exemptions) {
+    if (e.file === relPath) entries.set(keyOf(e.file, e.scope, e.arm, e.text), e);
+  }
+  const groups = new Map();
+  for (const h of hits) groups.set(h.key, [...(groups.get(h.key) ?? []), h]);
+
+  const found = [];
+  for (const h of hits) {
+    const entry = entries.get(h.key);
+    const n = groups.get(h.key).length;
+    if (entry && n === entry.count) continue;
+    const surplus = entry ? ` -- ${n} occurrences, exemption covers ${entry.count}` : "";
+    found.push(
+      `${relPath}:${h.lineNo}: standalone node-root-NULL encoding ("${h.trimmed}") -- see design.md R12${surplus}`,
+    );
+  }
+  for (const [key, e] of entries) {
+    const n = groups.get(key)?.length ?? 0;
+    if (n < e.count) {
+      found.push(
+        `stale exemption: ${relPath} scope '${e.scope}' arm '${e.arm}' text "${e.text}" ` +
+          `matches ${n} line(s), expected ${e.count} -- delete or update the KNOWN_EXEMPTIONS entry`,
+      );
+    }
+  }
   return found;
 }
 
@@ -188,8 +257,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     try {
       text = readFileSync(absPath, "utf8");
     } catch (e) {
-      if (e.code === "ENOENT") continue;
-      throw e;
+      if (e.code !== "ENOENT") throw e;
+      // A missing file is skipped unless exemptions still name it: scanning "" then reports
+      // each such entry as stale, so renaming/deleting an exempt file forces a table update.
+      text = "";
     }
     violations.push(...scanTextForViolations(relPath, text));
   }
@@ -201,7 +272,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     for (const v of violations) process.stderr.write(`  ${v}\n`);
     process.stderr.write(
       "\nEach root-bound row must be scoped to a real root id (root_id), never a bare NULL check. " +
-        "If this is a genuine known gap, name it in KNOWN_UNFIXED_LINES with the task number that owns it.\n",
+        "If this is a genuine known gap, add a content-keyed KNOWN_EXEMPTIONS entry with the proof that owns it.\n",
     );
     process.exit(1);
   }
