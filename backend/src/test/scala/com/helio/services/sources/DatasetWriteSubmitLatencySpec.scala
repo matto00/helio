@@ -7,7 +7,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
-import com.helio.services.pipelines.AutoRunTriggerService
+import com.helio.services.pipelines.{AutoRunTriggerService, EvaluatedPipeline}
 import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -27,15 +27,25 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** HEL-1096 tasks.md 3.4 (design.md Decision 2, C12 -- owner instruction: "measure, don't just
- *  ship"): p50/p95 submit-latency BEFORE (no `AutoRunTriggerService` wired -- the write returns
- *  without waiting on any downstream evaluation, matching the pre-HEL-1096 fire-and-forget shape
- *  from the CALLER's perspective) vs. AFTER (the real awaited evaluation, HEL-1096 design.md D1)
- *  for `appendFormRow`, `replaceRows`, and `patchRow` -- the three call sites design.md D2 names
- *  -- on a fixture with 5 downstream pipelines (3 allowed, 2 denied). Not a pass/fail
- *  correctness gate (wall-clock timing on a shared CI/dev machine is inherently noisy) -- the
- *  measured numbers are logged and restated plainly in the executor's PR-body/handoff, per C12.
- *  A loose sanity assertion (after >= before) guards against a future regression that makes the
- *  "after" measurement meaningless (e.g. the awaited call accidentally becoming a no-op). */
+ *  ship") on a fixture with 5 downstream pipelines (3 allowed, 2 denied by an enabled
+ *  `analyzewithai` step), for `appendFormRow`, `replaceRows`, and `patchRow` -- the three call
+ *  sites design.md D2 names. BEFORE = no `AutoRunTriggerService` wired (the write returns without
+ *  waiting on any downstream evaluation); AFTER = the real awaited evaluation (HEL-1096 D1).
+ *
+ *  Two layers (HEL-1344):
+ *  - Default suite, DETERMINISTIC (no wall clock in any pass/fail decision): every AFTER write's
+ *    response carries exactly the two seeded AI pipelines as denied entries, each with reason code
+ *    `ai-step`; every BEFORE write carries none. That is the guard's real intent -- "the awaited
+ *    call performed the downstream evaluation, it did not silently become a no-op". (The BEFORE == 0
+ *    half holds by construction -- null trigger service -- and only documents the contrast; the
+ *    AFTER half is the guard.) The earlier `p50(after) >= p50(before) - 5ms` wall-clock assertion
+ *    was removed: it flaked under a contended `testFull` (HEL-1344).
+ *  - Opt-in measurement, REPORT-ONLY: with `HELIO_MEASURE=1` in the environment of the forked test
+ *    JVM, the p50/p95 sampling runs (after discarded warm-up iterations per phase) and prints the
+ *    `HEL-1096 submit-latency [...]` lines, restated in the PR body per C12, plus a labelled line
+ *    when p95 growth (after - before) exceeds HEL-1096 D2's 200ms reporting trigger. It never
+ *    asserts on timing. Without it those tests are canceled, never failed. Note `sbt --client`
+ *    does not forward the env to an already-running server; use a plain `sbt` invocation. */
 class DatasetWriteSubmitLatencySpec
     extends AnyWordSpec
     with Matchers
@@ -58,7 +68,11 @@ class DatasetWriteSubmitLatencySpec
   private var serviceBefore: DataSourceService                 = _ // no AutoRunTriggerService wired
   private var serviceAfter: DataSourceService                  = _ // real, AWAITED AutoRunTriggerService
 
-  private val Iterations = 20
+  private val Iterations       = 20 // timed samples per phase (HELIO_MEASURE=1 only)
+  private val WarmupIterations  = 5  // discarded per phase, so the report is not order-biased
+  private val CountIterations   = 3  // default-mode writes per phase; 3 is enough to prove "every write"
+  private val P95GrowthReportMs = 200L // HEL-1096 design.md D2's PR-body reporting trigger
+  private val Measure           = sys.env.get("HELIO_MEASURE").contains("1")
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -103,7 +117,7 @@ class DatasetWriteSubmitLatencySpec
 
   /** 5 downstream pipelines reading `dsId`: 3 cheap (no steps -- trivially `autoRunnable`), 2
    *  denied (an enabled `analyzewithai` step each). */
-  private def seedFiveDownstreamPipelines(owner: UserId, dsId: DataSourceId): Unit = {
+  private def seedFiveDownstreamPipelines(owner: UserId, dsId: DataSourceId): Vector[PipelineId] = {
     import PostgresProfile.api._
     def seedPipeline(): PipelineId = {
       val pid = UUID.randomUUID().toString
@@ -115,11 +129,12 @@ class DatasetWriteSubmitLatencySpec
       PipelineId(pid)
     }
     (1 to 3).foreach(_ => seedPipeline())
-    (1 to 2).foreach { _ =>
+    (1 to 2).map { _ =>
       val pid = seedPipeline()
       val cfg = AnalyzeWithAiConfig("name", "go", Vector(AnalyzeWithAiOutputField("sentiment", "string")))
       await(pipelineStepRepo.insertInternal(pid, "analyzewithai", cfg, enabled = true, parentStepId = None, explicitRootId = None))
-    }
+      pid
+    }.toVector
   }
 
   private def percentile(samplesMs: Seq[Long], p: Double): Long = {
@@ -138,96 +153,72 @@ class DatasetWriteSubmitLatencySpec
     println(s"HEL-1096 submit-latency [$label]: p50=${p50}ms p95=${p95}ms n=${samplesMs.size}")
   }
 
-  "appendFormRow submit latency (design.md D2)" should {
-    "measures p50/p95 before (fire-and-forget-equivalent) vs. after (awaited, 5-pipeline fixture)" in {
-      val ownerBefore = seedUser()
-      val dsBefore    = seedDataset(AuthenticatedUser(ownerBefore), serviceBefore)
-      seedFiveDownstreamPipelines(ownerBefore, dsBefore)
-      val build = (_: Vector[DatasetFieldDeclaration], _: java.time.Instant) => Right(Vector[JsValue](JsString("v")))
+  /** One write against a fresh dataset+owner+5-pipeline fixture; each call performs one write and
+   *  returns the denied pipelines folded into that write's response. */
+  private final case class Fixture(write: () => Vector[EvaluatedPipeline.Denied], aiPipelineIds: Vector[PipelineId])
 
-      val beforeSamples = (1 to Iterations).map { _ =>
-        val t0 = System.nanoTime()
-        await(serviceBefore.appendFormRow(dsBefore, build, PanelId(UUID.randomUUID().toString), AuthenticatedUser(ownerBefore)))
-        (System.nanoTime() - t0) / 1000000L
-      }
+  private val build = (_: Vector[DatasetFieldDeclaration], _: java.time.Instant) => Right(Vector[JsValue](JsString("v")))
 
-      val ownerAfter = seedUser()
-      val dsAfter    = seedDataset(AuthenticatedUser(ownerAfter), serviceAfter)
-      seedFiveDownstreamPipelines(ownerAfter, dsAfter)
-
-      val afterSamples = (1 to Iterations).map { _ =>
-        val t0 = System.nanoTime()
-        await(serviceAfter.appendFormRow(dsAfter, build, PanelId(UUID.randomUUID().toString), AuthenticatedUser(ownerAfter)))
-        (System.nanoTime() - t0) / 1000000L
-      }
-
-      report("appendFormRow / before", beforeSamples)
-      report("appendFormRow / after", afterSamples)
-      percentile(afterSamples, 0.50) should be >= percentile(beforeSamples, 0.50) - 5L // 5ms noise floor
+  private def fixture(kind: String, service: DataSourceService): Fixture = {
+    val owner = seedUser()
+    val user  = AuthenticatedUser(owner)
+    val ds    = seedDataset(user, service)
+    val ai    = seedFiveDownstreamPipelines(owner, ds)
+    val write: () => Vector[EvaluatedPipeline.Denied] = kind match {
+      case "appendFormRow" =>
+        () => await(service.appendFormRow(ds, build, PanelId(UUID.randomUUID().toString), user))
+          .getOrElse(fail("expected Right")).deniedPipelines
+      case "replaceRows" =>
+        var i = 0
+        () => { i += 1; await(service.replaceRows(ds, Vector(Vector(JsString(s"r$i"))), user)).getOrElse(fail("expected Right")).deniedPipelines }
+      case "patchRow" =>
+        var row = await(service.appendRows(ds, Vector(Vector(JsString("seed"))), user)).getOrElse(fail("expected Right")).rows.head
+        var i   = 0
+        () => {
+          i += 1
+          val result = await(service.patchRow(ds, row.id, row.updatedAt.toString, Vector(JsString(s"p$i")), user)).getOrElse(fail("expected Right"))
+          row = RowWriteRow(result.rowId, result.seq, result.rowUpdatedAt)
+          result.deniedPipelines
+        }
     }
+    Fixture(write, ai)
   }
 
-  "replaceRows submit latency (design.md D2)" should {
-    "measures p50/p95 before vs. after (awaited, 5-pipeline fixture)" in {
-      val ownerBefore = seedUser()
-      val dsBefore    = seedDataset(AuthenticatedUser(ownerBefore), serviceBefore)
-      seedFiveDownstreamPipelines(ownerBefore, dsBefore)
-
-      val beforeSamples = (1 to Iterations).map { i =>
-        val t0 = System.nanoTime()
-        await(serviceBefore.replaceRows(dsBefore, Vector(Vector(JsString(s"r$i"))), AuthenticatedUser(ownerBefore)))
-        (System.nanoTime() - t0) / 1000000L
-      }
-
-      val ownerAfter = seedUser()
-      val dsAfter    = seedDataset(AuthenticatedUser(ownerAfter), serviceAfter)
-      seedFiveDownstreamPipelines(ownerAfter, dsAfter)
-
-      val afterSamples = (1 to Iterations).map { i =>
-        val t0 = System.nanoTime()
-        await(serviceAfter.replaceRows(dsAfter, Vector(Vector(JsString(s"r$i"))), AuthenticatedUser(ownerAfter)))
-        (System.nanoTime() - t0) / 1000000L
-      }
-
-      report("replaceRows / before", beforeSamples)
-      report("replaceRows / after", afterSamples)
-      percentile(afterSamples, 0.50) should be >= percentile(beforeSamples, 0.50) - 5L
-    }
+  private def timed(f: Fixture): Long = {
+    val t0 = System.nanoTime()
+    f.write()
+    (System.nanoTime() - t0) / 1000000L
   }
 
-  "patchRow submit latency (design.md D2)" should {
-    "measures p50/p95 before vs. after (awaited, 5-pipeline fixture)" in {
-      val ownerBefore = seedUser()
-      val dsBefore    = seedDataset(AuthenticatedUser(ownerBefore), serviceBefore)
-      seedFiveDownstreamPipelines(ownerBefore, dsBefore)
-      var rowBefore = await(serviceBefore.appendRows(dsBefore, Vector(Vector(JsString("seed"))), AuthenticatedUser(ownerBefore)))
-        .getOrElse(fail("expected Right")).rows.head
+  private def sampleAfterWarmup(f: Fixture): Seq[Long] = {
+    (1 to WarmupIterations).foreach(_ => f.write())
+    (1 to Iterations).map(_ => timed(f))
+  }
 
-      val beforeSamples = (1 to Iterations).map { i =>
-        val t0 = System.nanoTime()
-        val result = await(serviceBefore.patchRow(dsBefore, rowBefore.id, rowBefore.updatedAt.toString, Vector(JsString(s"p$i")), AuthenticatedUser(ownerBefore)))
-          .getOrElse(fail("expected Right"))
-        rowBefore = RowWriteRow(result.rowId, result.seq, result.rowUpdatedAt)
-        (System.nanoTime() - t0) / 1000000L
+  for (kind <- Seq("appendFormRow", "replaceRows", "patchRow")) {
+    s"$kind submit (design.md D2)" should {
+      "AFTER (awaited) reports exactly the 2 seeded AI pipelines as denied (ai-step) on every write; BEFORE reports none" in {
+        val before = fixture(kind, serviceBefore)
+        val after  = fixture(kind, serviceAfter)
+
+        (1 to CountIterations).foreach { _ =>
+          before.write() shouldBe empty
+          val denied = after.write()
+          denied.map(_.pipelineId).sortBy(_.value) shouldBe after.aiPipelineIds.sortBy(_.value)
+          all(denied.map(_.reasons.map(_.code))) should contain("ai-step")
+        }
       }
 
-      val ownerAfter = seedUser()
-      val dsAfter    = seedDataset(AuthenticatedUser(ownerAfter), serviceAfter)
-      seedFiveDownstreamPipelines(ownerAfter, dsAfter)
-      var rowAfter = await(serviceAfter.appendRows(dsAfter, Vector(Vector(JsString("seed"))), AuthenticatedUser(ownerAfter)))
-        .getOrElse(fail("expected Right")).rows.head
-
-      val afterSamples = (1 to Iterations).map { i =>
-        val t0 = System.nanoTime()
-        val result = await(serviceAfter.patchRow(dsAfter, rowAfter.id, rowAfter.updatedAt.toString, Vector(JsString(s"p$i")), AuthenticatedUser(ownerAfter)))
-          .getOrElse(fail("expected Right"))
-        rowAfter = RowWriteRow(result.rowId, result.seq, result.rowUpdatedAt)
-        (System.nanoTime() - t0) / 1000000L
+      "reports p50/p95 before vs. after (report-only; HELIO_MEASURE=1)" in {
+        assume(Measure, "set HELIO_MEASURE=1 to run the report-only HEL-1096 latency measurement")
+        val before = sampleAfterWarmup(fixture(kind, serviceBefore))
+        val after  = sampleAfterWarmup(fixture(kind, serviceAfter))
+        report(s"$kind / before", before)
+        report(s"$kind / after", after)
+        val growth = percentile(after, 0.95) - percentile(before, 0.95)
+        if (growth > P95GrowthReportMs)
+          println(s"HEL-1096 REPORT [$kind]: p95 growth ${growth}ms exceeds ${P95GrowthReportMs}ms -- restate in the PR body (design.md D2)")
       }
-
-      report("patchRow / before", beforeSamples)
-      report("patchRow / after", afterSamples)
-      percentile(afterSamples, 0.50) should be >= percentile(beforeSamples, 0.50) - 5L
     }
   }
 }
