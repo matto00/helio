@@ -3,7 +3,7 @@
 // (its React key is stable across the swap), and an edit made while the POST was in flight must
 // reach the server. The create POST is held on a deferred promise so the window is deterministic
 // (the draft path issues no post-create steps GET, unlike HEL-1294's create-immediately paths).
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { AxiosError } from "axios";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Provider } from "react-redux";
@@ -27,6 +27,7 @@ import {
   getPipelineSchedule,
   getPipelineStepCatalog,
   getPipelineSteps,
+  reorderPipelineSteps,
   updatePipelineStep,
   updatePipelineStepEnabled,
 } from "../services/pipelineService";
@@ -39,6 +40,7 @@ jest.mock("../services/pipelineService", () => ({
   fetchRunHistory: jest.fn(),
   getPipelineById: jest.fn(),
   getPipelineSteps: jest.fn(),
+  reorderPipelineSteps: jest.fn(),
   updatePipeline: jest.fn(),
   updatePipelineStep: jest.fn(),
   updatePipelineStepEnabled: jest.fn(),
@@ -439,6 +441,45 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
     await waitFor(() => expect(updatePipelineStepEnabled).toHaveBeenCalledWith("ai-1", false));
     await screen.findByRole("button", { name: "Enable step" });
+
+    expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("a non-head reorder keeps a created draft's card open", async () => {
+    // Server-realistic: today's trunk create head-splices (HEL-1340 probe.md case 1), so any
+    // later full resync lists the created step first; it must never make `ai-1` vanish.
+    getPipelineStepsMock.mockResolvedValueOnce([
+      persisted("anchor-1", "rename", 0),
+      persisted("f-1", "filter", 1),
+    ]);
+    getPipelineStepsMock.mockResolvedValue([
+      aiPersisted("ai-1", 0),
+      persisted("anchor-1", "rename", 1),
+      persisted("f-1", "filter", 2),
+    ]);
+    const create = deferredCreate();
+    renderPage();
+    await screen.findByRole("button", { name: /Filter rows/i, expanded: false });
+    const gaps = screen.getAllByRole("button", { name: "Insert step here" });
+    fireEvent.click(gaps[gaps.length - 1]);
+    fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
+    await completeDraft();
+    await create.resolve(aiPersisted("ai-1", 2));
+    await waitFor(() =>
+      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
+    );
+
+    jest
+      .mocked(reorderPipelineSteps)
+      .mockResolvedValue([
+        persisted("anchor-1", "rename", 0),
+        aiPersisted("ai-1", 1),
+        persisted("f-1", "filter", 2),
+      ]);
+    const card = generateToggle().closest(".pipeline-detail-page__step-card") as HTMLElement;
+    fireEvent.click(within(card).getByRole("button", { name: /Move step up/i }));
+    await waitFor(() => expect(reorderPipelineSteps).toHaveBeenCalled());
+    await act(async () => {});
 
     expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
   });
