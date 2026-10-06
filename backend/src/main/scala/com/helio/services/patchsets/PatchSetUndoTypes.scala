@@ -22,11 +22,12 @@ private[services] final case class PatchSetUndoContext(
     dataSourceRepo: DataSourceRepository,
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
-    // HEL-1256: required, no default (mirrors PatchSetApplyContext.outputRepo, HEL-1239). A
-    // caller with no DbContext passes `null` explicitly; PatchSetUndoService.undo then rejects
-    // any application that needs the repo with PatchSetApplyContext.outputRepoUnavailable.
+    // HEL-1256: required, no default (mirrors PatchSetApplyContext.outputRepo, HEL-1239);
+    // HEL-1337: non-null is asserted at construction.
     outputRepo: OutputRepository
-)
+) {
+  require(outputRepo != null, "PatchSetUndoContext requires an OutputRepository")
+}
 
 private[services] object PatchSetUndoContext {
 

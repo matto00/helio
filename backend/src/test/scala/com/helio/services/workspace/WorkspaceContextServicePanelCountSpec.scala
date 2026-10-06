@@ -1,6 +1,8 @@
 package com.helio.services.workspace
 
 import com.helio.services.workspace.WorkspaceContextService
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import org.mockito.Mockito.mock
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import org.scalatest.matchers.should.Matchers
@@ -63,7 +65,7 @@ class WorkspaceContextServicePanelCountSpec extends AnyWordSpec with Matchers {
 
   "toDashboardEntry" should {
     "report the real panel count from PanelRepository when panelRepoOpt is wired, even though layout is empty (F-004)" in {
-      val service = new WorkspaceContextService(null, null, null, null, None, None, Some(stubPanelRepo(3)))
+      val service = new WorkspaceContextService(null, null, mock(classOf[OutputRepository]), null, None, None, Some(stubPanelRepo(3)))
 
       val entry = await(service.toDashboardEntry(dashboardWithUndraggedPanels, user))
 
@@ -73,13 +75,13 @@ class WorkspaceContextServicePanelCountSpec extends AnyWordSpec with Matchers {
     }
 
     "report 0 from PanelRepository, not merely from an empty layout, when the dashboard truly has no panels" in {
-      val service = new WorkspaceContextService(null, null, null, null, None, None, Some(stubPanelRepo(0)))
+      val service = new WorkspaceContextService(null, null, mock(classOf[OutputRepository]), null, None, None, Some(stubPanelRepo(0)))
 
       await(service.toDashboardEntry(dashboardWithUndraggedPanels, user)).panelCount shouldBe 0
     }
 
     "fall back to the legacy layout-derived heuristic when panelRepoOpt is not wired (pre-fix fixture compatibility)" in {
-      val service = new WorkspaceContextService(null, null, null, null)
+      val service = new WorkspaceContextService(null, null, mock(classOf[OutputRepository]), null)
 
       await(service.toDashboardEntry(dashboardWithUndraggedPanels, user)).panelCount shouldBe 0
     }

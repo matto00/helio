@@ -21,6 +21,8 @@ final class OutputControlsValidator(
     nodeSnapshotRepo: NodeSnapshotRepository
 )(implicit ec: ExecutionContext) {
 
+  require(outputRepo != null, "OutputControlsValidator requires an OutputRepository")
+
   /** Validates ONLY `controls` entries that are NEW (no matching persisted `id` in
    *  `existingControls`) or whose `column`/`kind` differ from the matching persisted entry —
    *  diffed by `id`. An entry whose `id`/`column`/`kind` are unchanged (only `label`/
@@ -28,9 +30,8 @@ final class OutputControlsValidator(
    *  re-validated here, regardless of its current eligibility (D5's read-time classification
    *  handles that) — this is what lets an author save an unrelated edit (a different control, the
    *  title, appearance) without an already-orphaned control locking the panel. A `None`
-   *  `outputIdOpt` (no output-kind config in play), empty `toValidate`, or a `null` `outputRepo`
-   *  (unwired fixture, mirrors this file's other nullable-optional dependencies) all skip the
-   *  eligibility check entirely — `PanelService.rejectMissingOutput` already 404s a nonexistent/
+   *  `outputIdOpt` (no output-kind config in play) or empty `toValidate` skips the eligibility
+   *  check entirely — `PanelService.rejectMissingOutput` already 404s a nonexistent/
    *  cross-user `outputId` before this runs. */
   def reject(
       outputIdOpt: Option[OutputId],
@@ -49,11 +50,9 @@ final class OutputControlsValidator(
     else
       outputIdOpt match {
         case None                          => Future.successful(Right(()))
-        // A null nodeSnapshotRepo alone does NOT skip this whole check (unlike outputRepo, which
-        // is needed to fetch the Output at all) — text/numeric-range/date-range eligibility is
-        // pure schema/type-driven and must still run; only controlEligible's `dropdown` branch
-        // actually needs nodeSnapshotRepo, and degrades locally there.
-        case Some(_) if outputRepo == null => Future.successful(Right(()))
+        // A null nodeSnapshotRepo does NOT skip this whole check — text/numeric-range/date-range
+        // eligibility is pure schema/type-driven and must still run; only controlEligible's
+        // `dropdown` branch actually needs nodeSnapshotRepo, and degrades locally there.
         case Some(outputId) =>
           outputRepo.findByIdOwned(outputId, user).flatMap {
             // rejectMissingOutput (already run first, same panelId/user) 404s this case.
