@@ -1,0 +1,7 @@
+- `frontend/src/features/pipelines/types/step.ts` — client-only optional `renderKey` on `Step`
+- `frontend/src/features/pipelines/state/stepTree.ts` — `stepRenderKey` / `laneRenderKey` key helpers
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts` — draft swap sets renderKey, in-flight edit flush (D3), provisional lane position (D2b), resync carries renderKey
+- `frontend/src/features/pipelines/ui/LaneColumn.tsx` — key by stable render key
+- `frontend/src/features/pipelines/ui/PipelineRiverView.tsx` — key by stable render key
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx` — draft card now stays open after create (removes the re-expand workaround)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx` — new RTL regression tests (red before the fix)

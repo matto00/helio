@@ -1,0 +1,11 @@
+# D2 / C2 audit — step id read by a preserved StepCard subtree and page-level state
+
+Run against the fixed tree. `renderKey` keeps the card mounted across temp -> server id, so any id captured once at mount would go stale.
+
+- Mount-captured ids: `grep -rnE "useState\(.*(step\.id|stepId)|useRef\(.*(step\.id|stepId)|localStorage|sessionStorage" ui hooks` — none capture a step id. The only localStorage use is the preview-open preference (`useStepCardPreview.ts`), a global key, not id-keyed.
+- `useStepCardState.ts`: every `step.id` read (L282 temp-id skip, L289 PATCH, L295 onConfigChange, L505) is inside a function recreated each render, so it reads the current id. `persist` is called per edit, so a post-swap edit PATCHes the persisted id (asserted by the test "an edit after the swap PATCHes the persisted id").
+- `useStepCardPreview.ts`: takes `stepId` as an argument with `stepId` in the effect deps; the swap re-runs the preview fetch against the real id (correct; the temp id has no server row).
+- `StepCard.tsx`: `isDraft = isTempStepId(step.id)` is computed per render; the "draft, not yet saved" label disappears after the swap (asserted).
+- Page-level state keyed by step id (C2): `laneDropdownForStepId` (LaneColumn/PipelineRiverView), `duplicatingStepIds`, `draftCreateErrors`. A temp id held there stops matching after the swap: a lane dropdown open on the draft would close (benign), `duplicatingStepIds` cannot contain a draft (no duplicate before create), and `draftCreateErrors` for the temp id is cleared by the next edit; the D3 flush error is written under the persisted id and rendered via `draftError={draftCreateErrors[step.id]}`.
+- Wire payloads (task 2.1): `createPipelineStep`/`updatePipelineStep` take explicit scalar args (`opType.id`, `config`, index, parent, rootId); `grep -rnE "\.\.\.step\b|JSON.stringify\(.*steps"` over hooks/ui/services found no whole-`Step` serialization. `renderKey` never reaches the wire.
+- Render keys (task 2.3): `grep -n "key=" ui/PipelineRiverView.tsx ui/LaneColumn.tsx ui/RootColumn.tsx` — step Fragments and tail-chain steps use `stepRenderKey(step)`, child lanes use `laneRenderKey(lane)`; `root.id` and gap keys are unchanged; RootColumn has no keyed step/lane lists.
