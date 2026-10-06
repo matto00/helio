@@ -1,0 +1,180 @@
+
+== light Alpha label={"rotate":0,"show":true,"overflow":"truncate","position":"outer","alignTo":"none","edgeDistance":"25%","distanceToLabelLine":5} legend=#211d19 axX=undefined
+  "East" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#333333 12.63 
+  "West" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#333333 12.63 
+  "North" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#333333 12.63 
+  "South" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#333333 12.63 
+  "Central" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#333333 12.63 
+  "East" style={"fill":"#211d19","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#211d19 16.33 
+  "West" style={"fill":"#211d19","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#211d19 16.33 
+  "North" style={"fill":"#211d19","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#211d19 16.33 
+  "South" style={"fill":"#211d19","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#211d19 16.33 
+  "Central" style={"fill":"#211d19","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#211d19 16.33 
+
+== light Bravo label={"show":true,"formatter":"{b}: {d}%","rotate":0,"overflow":"truncate","position":"outer","alignTo":"none","edgeDistance":"25%","distanceToLabelLine":5} legend=#211d19 axX=undefined
+  "East: 19.23%" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#333333 12.63 
+  "West: 28.84%" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#333333 12.63 
+  "North: 17.31%" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#fdfcfa painted=#333333 12.32 
+  "South: 23.08%" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#333333 12.63 
+  "Central: 11.54%" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#fdfcfa painted=#333333 12.32 
+  "East" style={"fill":"#211d19","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#211d19 16.33 
+  "West" style={"fill":"#211d19","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#211d19 16.33 
+  "North" style={"fill":"#211d19","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#211d19 16.33 
+  "South" style={"fill":"#211d19","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#211d19 16.33 
+  "Central" style={"fill":"#211d19","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#211d19 16.33 
+
+== light usage-0: Signups per day, 5231 in the last 30 days label={} legend=#54555a axX=#54555a
+  "0" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "500" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "1000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "1500" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "2000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "2500" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "3000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 5" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 9" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 13" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 17" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 21" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 25" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 29" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Oct 3" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+
+== light usage-1: Daily and weekly active users; latest DAU 43, WAU 223 label={"position":"top"} legend=#54555a axX=#54555a
+  "0" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "1000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "2000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "3000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "4000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "5000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "6000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 5" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 9" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 13" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 17" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 21" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 25" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 29" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Oct 3" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Daily active users" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Weekly active users" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+
+== light usage-2: Time to first dashboard, new users only; latest Oct 4 median 3s, p90 10s label={"position":"top"} legend=#54555a axX=#54555a
+  "0s" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "34d 17h" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "69d 10h" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "104d 4h" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "138d 21h" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "173d 14h" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 5" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 9" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 13" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 17" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 21" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 25" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 29" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Oct 3" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Median" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "p90" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+
+== light usage-3: Provenance opens per day, 0 in the last 30 days label={} legend=#54555a axX=#54555a
+  "0" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "1" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 5" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 9" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 13" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 17" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 21" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 25" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Sep 29" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+  "Oct 3" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#fdfcfa painted=#54555a 7.25 
+
+== dark Alpha label={"rotate":0,"show":true,"overflow":"truncate","position":"outer","alignTo":"none","edgeDistance":"25%","distanceToLabelLine":5} legend=#f2efe9 axX=undefined
+  "East" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#1a1816 17.7 
+  "West" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#1a1816 17.7 
+  "North" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#1a1816 17.7 
+  "South" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#1a1816 17.7 
+  "Central" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#1a1816 17.7 
+  "East" style={"fill":"#f2efe9","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#f2efe9 15.43 
+  "West" style={"fill":"#f2efe9","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#f2efe9 15.43 
+  "North" style={"fill":"#f2efe9","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#f2efe9 15.43 
+  "South" style={"fill":"#f2efe9","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#f2efe9 15.43 
+  "Central" style={"fill":"#f2efe9","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#f2efe9 15.43 
+
+== dark Bravo label={"show":true,"formatter":"{b}: {d}%","rotate":0,"overflow":"truncate","position":"outer","alignTo":"none","edgeDistance":"25%","distanceToLabelLine":5} legend=#f2efe9 axX=undefined
+  "East: 19.23%" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#1a1816 17.7 
+  "West: 28.84%" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#1a1816 17.7 
+  "North: 17.31%" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#1a1816 painted=#ffffff 17.7 
+  "South: 23.08%" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#ffffff painted=#1a1816 17.7 
+  "Central: 11.54%" style={"fill":"#333","stroke":"rgba(255,255,255,1)","lineWidth":2} def=null child=null bg=#1a1816 painted=#ffffff 17.7 
+  "East" style={"fill":"#f2efe9","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#f2efe9 15.43 
+  "West" style={"fill":"#f2efe9","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#f2efe9 15.43 
+  "North" style={"fill":"#f2efe9","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#f2efe9 15.43 
+  "South" style={"fill":"#f2efe9","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#f2efe9 15.43 
+  "Central" style={"fill":"#f2efe9","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#f2efe9 15.43 
+
+== dark usage-0: Signups per day, 5231 in the last 30 days label={} legend=#54555a axX=#54555a
+  "0" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "500" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "1000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "1500" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "2000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "2500" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "3000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 5" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 9" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 13" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 17" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 21" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 25" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 29" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Oct 3" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+
+== dark usage-1: Daily and weekly active users; latest DAU 43, WAU 223 label={"position":"top"} legend=#54555a axX=#54555a
+  "0" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "1000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "2000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "3000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "4000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "5000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "6000" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 5" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 9" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 13" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 17" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 21" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 25" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 29" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Oct 3" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Daily active users" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Weekly active users" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+
+== dark usage-2: Time to first dashboard, new users only; latest Oct 4 median 3s, p90 10s label={"position":"top"} legend=#54555a axX=#54555a
+  "0s" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "34d 17h" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "69d 10h" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "104d 4h" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "138d 21h" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "173d 14h" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 5" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 9" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 13" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 17" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 21" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 25" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 29" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Oct 3" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Median" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "p90" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+
+== dark usage-3: Provenance opens per day, 0 in the last 30 days label={} legend=#54555a axX=#54555a
+  "0" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "1" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 5" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 9" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 13" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 17" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 21" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 25" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Sep 29" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 
+  "Oct 3" style={"fill":"#54555a","stroke":null,"lineWidth":1} def=null child=null bg=#1a1816 painted=#54555a 2.38 

@@ -1,0 +1,7 @@
+- `frontend/src/features/panels/ui/buildChartOption.ts` — post-merge pie pass: every series `label.color = textColor` (resolveChartTextColor), which also drops zrender's auto outline
+- `frontend/src/features/panels/ui/buildChartOption.textColor.test.ts` — pie slice label cases (inherit/empty/absent, explicit, percent labels, aggregate, no outline, non-pie untouched)
+- `frontend/src/features/adminUsage/ui/UsageChart.tsx` — resolve text colour via resolveChartTextColor(theme, undefined, tokens.text) into textStyle, legend, axisLabel, nameTextStyle
+- `frontend/src/features/adminUsage/ui/UsageChart.test.tsx` — new: distinct per-theme --app-text values, theme switch, option follows
+- `docs/contrast-audit.md` — new section 10.1 (pie slice labels and usage charts, before -> after)
+- `frontend/src/utils/chartAppearance.ts` — export toSeriesArray for the pie pass
+- `openspec/changes/chart-pie-usage-text-contrast/` — measurement, red-first, mutation, gates and evidence artefacts

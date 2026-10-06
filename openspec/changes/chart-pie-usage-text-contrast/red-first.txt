@@ -1,0 +1,157 @@
+FAIL src/features/adminUsage/ui/UsageChart.test.tsx
+  ● UsageChart text colour (HEL-1342) › resolves every text slot to the live --app-text token and tracks a theme switch
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+        "slot": "global",
+    -   "value": "#111111",
+    +   "value": undefined,
+      }
+
+      79 | function expectAll(option: Record<string, unknown>, expected: string) {
+      80 |   for (const [slot, value] of Object.entries(texts(option))) {
+    > 81 |     expect({ slot, value }).toEqual({ slot, value: expected });
+         |                             ^
+      82 |   }
+      83 | }
+      84 |
+
+      at expectAll (src/features/adminUsage/ui/UsageChart.test.tsx:81:29)
+      at Object.<anonymous> (src/features/adminUsage/ui/UsageChart.test.tsx:95:5)
+
+FAIL src/features/panels/ui/buildChartOption.textColor.test.ts
+  ● buildChartOption pie slice label colour (HEL-1342) › a inherit panel colour resolves slice labels to the live text token
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "#abcdef"
+    Received: undefined
+
+      138 |     expect(labels.length).toBeGreaterThan(0);
+      139 |     for (const label of labels) {
+    > 140 |       expect(label.color).toBe(expected);
+          |                           ^
+      141 |       expect(label.textBorderColor).toBeUndefined();
+      142 |       expect(label.textBorderWidth ?? 0).toBe(0);
+      143 |     }
+
+      at expectLabels (src/features/panels/ui/buildChartOption.textColor.test.ts:140:27)
+      at src/features/panels/ui/buildChartOption.textColor.test.ts:151:5
+
+  ● buildChartOption pie slice label colour (HEL-1342) › a empty panel colour resolves slice labels to the live text token
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "#abcdef"
+    Received: undefined
+
+      138 |     expect(labels.length).toBeGreaterThan(0);
+      139 |     for (const label of labels) {
+    > 140 |       expect(label.color).toBe(expected);
+          |                           ^
+      141 |       expect(label.textBorderColor).toBeUndefined();
+      142 |       expect(label.textBorderWidth ?? 0).toBe(0);
+      143 |     }
+
+      at expectLabels (src/features/panels/ui/buildChartOption.textColor.test.ts:140:27)
+      at src/features/panels/ui/buildChartOption.textColor.test.ts:151:5
+
+  ● buildChartOption pie slice label colour (HEL-1342) › a absent panel colour resolves slice labels to the live text token
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "#abcdef"
+    Received: undefined
+
+      138 |     expect(labels.length).toBeGreaterThan(0);
+      139 |     for (const label of labels) {
+    > 140 |       expect(label.color).toBe(expected);
+          |                           ^
+      141 |       expect(label.textBorderColor).toBeUndefined();
+      142 |       expect(label.textBorderWidth ?? 0).toBe(0);
+      143 |     }
+
+      at expectLabels (src/features/panels/ui/buildChartOption.textColor.test.ts:140:27)
+      at src/features/panels/ui/buildChartOption.textColor.test.ts:151:5
+
+  ● buildChartOption pie slice label colour (HEL-1342) › an undefined appearance resolves slice labels to the live text token
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "#abcdef"
+    Received: undefined
+
+      138 |     expect(labels.length).toBeGreaterThan(0);
+      139 |     for (const label of labels) {
+    > 140 |       expect(label.color).toBe(expected);
+          |                           ^
+      141 |       expect(label.textBorderColor).toBeUndefined();
+      142 |       expect(label.textBorderWidth ?? 0).toBe(0);
+      143 |     }
+
+      at expectLabels (src/features/panels/ui/buildChartOption.textColor.test.ts:140:27)
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.textColor.test.ts:158:5)
+
+  ● buildChartOption pie slice label colour (HEL-1342) › an explicit panel colour passes through to slice labels
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "#336699"
+    Received: undefined
+
+      138 |     expect(labels.length).toBeGreaterThan(0);
+      139 |     for (const label of labels) {
+    > 140 |       expect(label.color).toBe(expected);
+          |                           ^
+      141 |       expect(label.textBorderColor).toBeUndefined();
+      142 |       expect(label.textBorderWidth ?? 0).toBe(0);
+      143 |     }
+
+      at expectLabels (src/features/panels/ui/buildChartOption.textColor.test.ts:140:27)
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.textColor.test.ts:169:5)
+
+  ● buildChartOption pie slice label colour (HEL-1342) › percent labels keep their formatter and gain the colour
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "#abcdef"
+    Received: undefined
+
+      138 |     expect(labels.length).toBeGreaterThan(0);
+      139 |     for (const label of labels) {
+    > 140 |       expect(label.color).toBe(expected);
+          |                           ^
+      141 |       expect(label.textBorderColor).toBeUndefined();
+      142 |       expect(label.textBorderWidth ?? 0).toBe(0);
+      143 |     }
+
+      at expectLabels (src/features/panels/ui/buildChartOption.textColor.test.ts:140:27)
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.textColor.test.ts:179:5)
+
+  ● buildChartOption pie slice label colour (HEL-1342) › the aggregate pie path also colours slice labels
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "#abcdef"
+    Received: undefined
+
+      138 |     expect(labels.length).toBeGreaterThan(0);
+      139 |     for (const label of labels) {
+    > 140 |       expect(label.color).toBe(expected);
+          |                           ^
+      141 |       expect(label.textBorderColor).toBeUndefined();
+      142 |       expect(label.textBorderWidth ?? 0).toBe(0);
+      143 |     }
+
+      at expectLabels (src/features/panels/ui/buildChartOption.textColor.test.ts:140:27)
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.textColor.test.ts:191:5)
+
+Test Suites: 2 failed, 2 total
+Tests:       8 failed, 35 passed, 43 total
+Snapshots:   0 total
+Time:        3.865 s
+Ran all test suites matching src/features/adminUsage/ui/UsageChart.test.tsx|src/features/panels/ui/buildChartOption.textColor.test.ts.

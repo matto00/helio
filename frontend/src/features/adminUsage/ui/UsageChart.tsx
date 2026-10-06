@@ -5,7 +5,7 @@ import type { EChartsOption } from "echarts";
 import ReactECharts from "echarts-for-react/esm/core";
 
 import echarts from "../../panels/ui/echartsCore";
-import { defaultChartAppearance } from "../../../theme/appearance";
+import { defaultChartAppearance, resolveChartTextColor } from "../../../theme/appearance";
 import { useTheme } from "../../../theme/ThemeProvider";
 import { appearanceToEChartsOption, resolveChartTheme } from "../../../utils/chartAppearance";
 
@@ -47,6 +47,10 @@ export function UsageChart({
   const option = useMemo<EChartsOption>(() => {
     void themeSyncTick;
     const tokens = resolveChartTheme();
+    // HEL-1342 — the usage page has no panel appearance, so an undefined appearance resolves to the
+    // live `--app-text` token exactly as an inherited panel colour does. `appearanceToEChartsOption`
+    // sets colour only on the tooltip, so every other text slot is wired here (fontFamily kept).
+    const textColor = resolveChartTextColor(theme, undefined, tokens.text);
     const { option: base } = appearanceToEChartsOption(
       {
         ...defaultChartAppearance,
@@ -56,6 +60,8 @@ export function UsageChart({
       },
       tokens,
     );
+    const baseTextStyle = (base.textStyle as object | undefined) ?? {};
+    const textStyle = { ...baseTextStyle, color: textColor };
     const tooltip = {
       ...(base.tooltip as object),
       trigger: "axis" as const,
@@ -67,14 +73,34 @@ export function UsageChart({
       ...base,
       backgroundColor: "transparent",
       tooltip,
+      textStyle,
+      legend: {
+        ...(base.legend as object),
+        textStyle: {
+          ...baseTextStyle,
+          ...((base.legend as { textStyle?: object } | undefined)?.textStyle ?? {}),
+          color: textColor,
+        },
+      },
       grid: { left: 8, right: 16, top: series.length > 1 ? 32 : 16, bottom: 8, containLabel: true },
-      xAxis: { ...(base.xAxis as object), type: "category", data: categories },
+      xAxis: {
+        ...(base.xAxis as object),
+        type: "category",
+        data: categories,
+        nameTextStyle: textStyle,
+        axisLabel: {
+          ...((base.xAxis as { axisLabel?: object }).axisLabel ?? {}),
+          color: textColor,
+        },
+      },
       yAxis: {
         ...(base.yAxis as object),
         type: "value",
         minInterval: valueFormatter ? undefined : 1,
+        nameTextStyle: textStyle,
         axisLabel: {
           ...((base.yAxis as { axisLabel?: object }).axisLabel ?? {}),
+          color: textColor,
           ...(valueFormatter ? { formatter: (v: number) => valueFormatter(v) } : {}),
         },
       },
@@ -87,7 +113,7 @@ export function UsageChart({
         ...(kind === "line" ? { showSymbol: categories.length <= 31, smooth: false } : {}),
       })),
     } as EChartsOption;
-  }, [categories, series, kind, valueFormatter, themeSyncTick]);
+  }, [categories, series, kind, valueFormatter, themeSyncTick, theme]);
 
   return (
     <div className="usage-chart" role="img" aria-label={ariaLabel}>

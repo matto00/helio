@@ -120,3 +120,84 @@ describe("buildChartOption text colour follows the theme argument", () => {
     expect((option.textStyle as Texty).color).toBe(TOKEN_TEXT);
   });
 });
+
+// HEL-1342 — pie slice labels are attached text, so they ignore the global `textStyle` and fell
+// back to zrender's `#333` fill with a light auto-outline. They must take the resolved text colour,
+// with no outline carrying the contrast.
+describe("buildChartOption pie slice label colour (HEL-1342)", () => {
+  interface LabelLike {
+    color?: string;
+    textBorderColor?: string;
+    textBorderWidth?: number;
+    formatter?: unknown;
+  }
+  const labelsOf = (option: ReturnType<typeof buildChartOption>): LabelLike[] =>
+    (option.series as Array<{ label?: LabelLike }>).map((s) => s.label ?? {});
+
+  function expectLabels(labels: LabelLike[], expected: string) {
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) {
+      expect(label.color).toBe(expected);
+      expect(label.textBorderColor).toBeUndefined();
+      expect(label.textBorderWidth ?? 0).toBe(0);
+    }
+  }
+
+  it.each([
+    ["inherit", { color: "inherit" }],
+    ["empty", { color: "" }],
+    ["absent", { color: undefined as unknown as string }],
+  ])("a %s panel colour resolves slice labels to the live text token", (_n, over) => {
+    expectLabels(
+      labelsOf(buildChartOption({ ...base, appearance: appearanceFor("pie", over) })),
+      TOKEN_TEXT,
+    );
+  });
+
+  it("an explicit panel colour passes through to slice labels", () => {
+    const option = buildChartOption({
+      ...base,
+      appearance: appearanceFor("pie", { color: "#336699" }),
+    });
+    expectLabels(labelsOf(option), "#336699");
+  });
+
+  it("percent labels keep their formatter and gain the colour", () => {
+    const option = buildChartOption({
+      ...base,
+      appearance: appearanceFor("pie"),
+      chartOptions: { pie: { showPercentLabels: true } },
+    });
+    const labels = labelsOf(option);
+    expectLabels(labels, TOKEN_TEXT);
+    expect(labels[0].formatter).toBe("{b}: {d}%");
+  });
+
+  it("the aggregate pie path also colours slice labels", () => {
+    const option = buildChartOption({
+      ...base,
+      rawRows: undefined,
+      headers: undefined,
+      appearance: appearanceFor("pie"),
+      chartAggregate: { categories: ["East", "West"], values: [100, 150] },
+    });
+    expectLabels(labelsOf(option), TOKEN_TEXT);
+  });
+
+  it("a no-data pie gains no series key", () => {
+    const option = buildChartOption({
+      ...base,
+      rawRows: undefined,
+      headers: undefined,
+      appearance: appearanceFor("pie"),
+    });
+    expect(option).not.toHaveProperty("series");
+  });
+
+  it("non-pie charts do not gain a series label colour", () => {
+    const option = buildChartOption({ ...base, appearance: appearanceFor("bar") });
+    for (const s of option.series as Array<{ label?: LabelLike }>) {
+      expect(s.label?.color).toBeUndefined();
+    }
+  });
+});

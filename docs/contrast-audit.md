@@ -321,3 +321,18 @@ Cause: `buildChartOption` wrote `appearance.color` (`"inherit"`) verbatim into a
 Scatter renders no legend (one unnamed series). Pie has no axes; its slice labels take ECharts' own `#333` with a light outline, do not use the global text colour, and were left untouched (not axis/legend text; the sampled ratio is outline-confounded). Honest scope note: light-theme axis text already passed before the change; the light-theme legends and the dark-theme axes were the failures. Evidence: `openspec/changes/chart-label-theme-contrast/measure-{before,after}.md` and screenshots.
 
 The card's contrast-flip branch for `"inherit"` is not reachable: `resolvePanelTextColor` returned the palette `defaultText` for all 12 probed backgrounds in both themes at the 0.24 tint strength, so the chart and card always agree on the token.
+
+### 10.1 Pie slice labels and the admin usage charts (HEL-1342 — measured on the running app, before -> after)
+
+Threshold and method as §10 (WCAG 2.x SC 1.4.3 AA, 4.5:1; zrender text elements, DPR-2 rect pixels, sampled surface). Surfaces: dark `#1a1816`, light `#fdfcfa`. Pie panels use the default `appearance.color: "inherit"` (a default pie and a percent-label pie, 5 slices each; the percent pie has `chartOptions.pie.showPercentLabels` on its Output config and renders "Name: NN.NN%"); the usage charts are the four on `/admin/usage` as an owner.
+
+Causes: pie slice labels are attached text, so they ignore the global `textStyle` and fell back to zrender's `#333` fill plus an automatic white outline (`Element.js` `getOutsideFill`/`getOutsideStroke`). The usage page's `UsageChart` builds its own option, and `appearanceToEChartsOption` sets colour only on the tooltip, so axis and legend text painted ECharts' built-in `#54555a`. After: both resolve through `resolveChartTextColor` (the live `--app-text` token for an inherited/absent colour, an explicit panel colour unchanged). An explicit label colour also drops zrender's automatic outline, so no outline carries the contrast. Labels stay outside the slices, on the panel surface the themed legend is measured against (recorded exception: no reachable config places them inside the slices).
+
+| Text                                 | Theme | Before (fill, ratio)                                          | After (fill, ratio)   |
+| ------------------------------------ | ----- | ------------------------------------------------------------- | --------------------- |
+| Pie slice labels (default, percent)  | dark  | `#333` + 2px white outline, **1.40 FAIL** without the outline | `#f2efe9`, 15.43 PASS |
+| Pie slice labels (default, percent)  | light | `#333` + 2px white outline, 12.32 PASS (already passing)      | `#211d19`, 16.33 PASS |
+| Usage charts, axis ticks and legends | dark  | `#54555a`, **2.38 FAIL**                                      | `#f2efe9`, 15.43 PASS |
+| Usage charts, axis ticks and legends | light | `#54555a`, 7.25 PASS (already passing)                        | `#211d19`, 16.33 PASS |
+
+The sampled "painted" ratio of the before pie label is outline-confounded (the white ring dominates the rect), so the table uses the fill against the real surface. Honest scope note: light-theme pie labels and light-theme usage text already passed; the dark theme was the failure in both. Usage axis names are empty strings and do not render. Label lines are graphics, not text (SC 1.4.3 does not apply) and keep the sector colour. Evidence: `openspec/changes/chart-pie-usage-text-contrast/measure-{before,after}.md`; screenshots (PNGs are gitignored) are persisted under `.concertino/runs/HEL-1342/evidence/openspec/changes/chart-pie-usage-text-contrast/{before,after}-{light,dark}-*.png` (pie screenshots are `pie-default` and `pie-percent`).

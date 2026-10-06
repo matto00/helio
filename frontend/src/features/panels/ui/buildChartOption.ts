@@ -6,6 +6,7 @@ import {
   applyAxisTriggerTooltip,
   applyHoverEmphasis,
   prefersReducedMotion,
+  toSeriesArray,
 } from "../../../utils/chartAppearance";
 import type { ChartThemeTokens } from "../../../utils/chartAppearance";
 import { defaultChartAppearance, resolveChartTextColor } from "../../../theme/appearance";
@@ -173,6 +174,23 @@ export function buildChartOption({
   // after appearance merge and before the mobile `compact` pass, so `compact`
   // (HEL-301) stays the last transform and is unchanged.
   built = applyChartTypeOptions(built, chartType, chartOptions);
+
+  // HEL-1342 — a pie's slice labels are attached text: they ignore the global `textStyle` and, with
+  // no colour of their own, fall back to zrender's `#333` fill plus an auto light outline (1.40:1
+  // without the outline on the dark surface). Run after `applyChartTypeOptions` so the percent
+  // formatter is already merged and preserved. An explicit `color` also suppresses zrender's
+  // auto-outline, so no outline carries the contrast. Labels stay outside the slices, on the panel
+  // surface, which is the surface the themed legend is measured against.
+  const pieSeries = isPie ? toSeriesArray(built) : [];
+  if (pieSeries.length > 0) {
+    built = {
+      ...built,
+      series: pieSeries.map((s) => ({
+        ...s,
+        label: { ...((s.label as object | undefined) ?? {}), color: textColor },
+      })),
+    } as EChartsOption;
+  }
 
   // HEL-566 D3/D4 — axis-trigger tooltip (shared-x, multi-series bar/line)
   // and hover-emphasis styling both need the FINAL series array (after
