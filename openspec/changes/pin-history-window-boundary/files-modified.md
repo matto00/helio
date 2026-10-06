@@ -1,3 +1,0 @@
-- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/OutputHistoryRepositorySpec.scala` — repo-level microsecond-exact boundary case (b-1us, b, b+1us, latest)
-- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputHistoryRoutesSpec.scala` — route-level microsecond-exact window-boundary case (compare 7d)
-- `openspec/changes/pin-history-window-boundary/mutation-red.txt` / `mutation-green.txt` — mutation evidence
