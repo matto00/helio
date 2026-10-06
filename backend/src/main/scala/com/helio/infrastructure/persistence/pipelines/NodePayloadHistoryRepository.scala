@@ -44,7 +44,9 @@ class NodePayloadHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext
 
   /** Stores this node's payload when the owner's tier allows it and the rows are within BOTH caps,
    *  then trims at most ONE payload (the single oldest beyond the node's newest N) so the run
-   *  transaction never multi-row deletes. Returns the new payload id, or None when nothing was
+   *  transaction never multi-row deletes. The trim runs only if the transaction can take the HEL-1272
+   *  purge advisory lock SHARED (try, never waits; see `insertAndTrim`); while the retention pass
+   *  holds it exclusive the trim is skipped and the next purge removes the excess. Returns the new payload id, or None when nothing was
    *  stored. Order matters: tier first (a tier that stores nothing never serializes and never
    *  warns), then the row cap (a node over it is never serialized), then the compact-JSON byte cap
    *  (UTF-8 bytes, not `String.length`). Over either cap logs a WARN: the caller still writes the
@@ -105,7 +107,20 @@ class NodePayloadHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext
                  SELECT id FROM node_payload_history WHERE pipeline_id = $pipelineId AND node_step_id IS NULL AND root_id = $root
                  ORDER BY captured_at DESC, id DESC OFFSET $keep LIMIT 1)"""
     }
-    insert.andThen(trim).map(_ => id)
+    // HEL-1333: the trim's ON DELETE SET NULL cascade row-locks the summary points linked to the
+    // victim payload, which the retention pass (thinAndPurge / purge) also row-locks in its own
+    // order -- a deadlock cycle in which the run could be the victim. The retention pass holds the
+    // HEL-1272 key EXCLUSIVE for its whole transaction, so the run takes the SAME key SHARED, with a
+    // TRY, immediately before the trim: shared/exclusive conflict (no trim while retention runs),
+    // shared/shared do not (concurrent runs never serialize), and neither side ever waits on the
+    // key. On false the trim is skipped and a later purge removes the excess; the run never waits.
+    val guardedTrim = sql"SELECT pg_try_advisory_xact_lock_shared(${OutputHistoryRepository.PurgeAdvisoryLockKey})".as[Boolean].head.flatMap {
+      case true => trim
+      case false =>
+        log.debug("Node payload trim skipped for pipeline {} node {}: the history retention pass holds the purge lock", pipelineId, nodeLabel(nodeStepId, rootId))
+        DBIO.successful(0)
+    }
+    insert.andThen(guardedTrim).map(_ => id)
   }
 
   def findById(id: UUID): Future[Option[NodePayload]] = {
@@ -128,7 +143,9 @@ class NodePayloadHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext
    *  Deletes, in order: payloads of any owner tier that stores none (zero runs/age, or a tier the
    *  config does not name, which fails closed and also covers downgrades); payloads older than the
    *  owner tier's age limit; payloads beyond the per-node newest-N; and payloads no
-   *  `output_snapshot_history.payload_id` references (a thinned-away or trimmed summary point). */
+   *  `output_snapshot_history.payload_id` references (a thinned-away or trimmed summary point).
+   *  Lock contract (HEL-1333): holds the advisory key EXCLUSIVE for the whole transaction; a run's
+   *  write-time trim takes it SHARED (try) first, so the two never interleave row locks. */
   def purge(now: Instant, config: PayloadHistoryConfig): Future[Int] = {
     val allowed = config.byTier.filter(_._2.allowsPayloads).toSeq
     val allowedCsv = allowed.map(t => UserTier.asString(t._1)).mkString(",")
