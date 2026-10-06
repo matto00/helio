@@ -189,3 +189,33 @@ All deleted by exact id (sources/pipelines/dashboards via the spec `finally`; us
 - `49f6edee-350c-405a-947c-a490ece00c99` — DELETED (exact id)
 - `800566cf-d8cc-4f5d-893b-18c98a75bd16` — DELETED (exact id)
 
+
+## Evaluator cycle 3 (2026-10-06)
+
+All rows were deleted by exact id, and exact-id counts were verified at 0 in `users`, `dashboards`, `pipelines`, `data_sources`, `share_tokens`, and every owner/user-keyed dependent table. `matt@helio.dev` was never touched.
+
+- **Users** (tier set to `beta` by exact id). Deleted by exact id with psql, after their `pipeline_run_rate_window` rows (selected by the same exact user ids).
+  - `ba5687f1-1f66-4ee6-a91b-23026348b824` (manual UI seed)
+  - `593884da-d4c1-4b8e-840c-75097a76d7e5` (e2e re-run)
+  - `fdf58903-2de5-4007-9564-624fbdf19b99` (e2e re-run)
+  - `968fcc92-683c-4131-b823-201fcbc62580` (e2e re-run)
+  - `dd50e327-e766-45e3-97f1-43e21c880a13` (e2e re-run)
+- **e2e resources.** The spec's `finally` deleted these; counts verified at 0.
+  - Sources: `4354d789-d5a9-4f7b-8436-e3ae07c0ea39`, `0981171b-721e-4800-92ca-bc756dce1eb4`, `7c84e226-70fb-42cb-ac48-b0118aef4275`, `31385be7-27b4-4111-a3e4-4b778d74ffcf`
+  - Pipelines: `9e7e030e-5095-4b35-8263-35df0b99c106`, `f64384eb-e064-4195-bcda-eb5216e48f5a`, `6d69157c-71c4-45d1-879b-b766d2b28dc1`, `e2a3ac04-208a-4c8b-8695-c97a6d7a1fd4`
+  - Outputs: deleted by cascade with their pipelines.
+  - Dashboards: `c389e8ee-9e2a-48f3-8250-54fc52acb46b`, `27296881-cbca-4165-9151-afc56f73a820`
+- **Manual seed** under user `ba5687f1…`. Deleted by exact id through the API.
+  - Source `f95d8c2e-7ecf-4cd4-8ca3-00ece4ca4d9c`
+  - Pipeline `42182410-e5d5-42be-8484-ef41cec5c87b`, with outputs `1fd53bad-dae3-45c4-8120-bc8725ca4594`, `e86f970f-b19c-411c-b581-4a8bb84849d7` and `bdb542f1-4bf6-4339-80d7-a80276860b6a`
+  - Dashboard `3e0a4ebf-9735-4c32-8575-5dc465cb763c`, with panels `b63f3cc4-8351-422e-8d02-0aa1efd8cfce` and `1abfc1bf-349a-4f7c-917e-70c39e66ccd1`, and share token `0f385edc-8cfd-4927-9f1a-161a3da86df2`
+
+## Skeptic final gate round 2 (2026-10-06)
+
+All rows deleted by exact id; exact-id counts verified at 0 in `users`, `pipelines`, `dashboards`, `data_sources`, `share_tokens`. `matt@helio.dev` excluded in SQL and confirmed still present.
+
+- **Users** (tier `beta` by exact id), deleted with psql after their `pipeline_run_rate_window` rows:
+  - `9a62ddf7-67e2-4515-857c-6401e67c8bd7` (skeptic probe)
+  - `83ee4c11-f049-4f82-9856-f7e4d2209c5f`, `5f0e0356-27c7-458c-a2fb-10e11d34f122`, `6a481483-9179-4f02-af0b-ed251fc8cc33`, `1c441591-f51a-4acb-ac36-de4c0a8f2f7f` (e2e re-run)
+- **Skeptic probe** (deleted via API, 204 each): source `796f6bb4-5858-4805-8be7-7f2d7919c84a`; pipeline `776dd463-ac1c-4fb6-aa50-d6f75d691c3e` with outputs `7466eabb-82e8-46ea-8115-62f86cd854d9`, `28bd1f2c-3140-4be0-8070-f1dfcfc78837`, `f845f5bb-eef3-4d43-b5a3-d518b5e93817` (cascade); dashboard `d19309c9-9259-431b-9a60-dd571d538488` with panels `761b29df-ecfb-4fb7-baad-a087f30d0cb9`, `3b3be347-c966-4a95-a25b-b315d5cf3461` and share token `88df688a-728e-4cda-93f2-e07508e60874`.
+- **e2e re-run** (spec `finally`): sources `0bf53fe6-abf3-4530-ad4c-a1da0491430a`, `5ee0879e-c583-4a50-98af-48a3b814fe63`, `a94a6360-7712-4422-8210-82ccdaa9b7b6`, `436917d3-3480-4dab-838c-a64fb69f6173`; pipelines `f7e304a9-c4d3-48a8-b55a-b47164670940`, `339ad19c-1741-4bf2-8cdc-1197681f4ee7`, `62c1c85f-5b05-4e5b-95ee-cfe3bca226eb`, `ae04a12c-62bf-4c2b-8d2d-e1455fa0bed7`; dashboards `bac4f69f-6806-4bc2-829d-0ffd2556e65b`, `47ef1f86-240d-4b9a-8c1a-d1382d155c17`.
