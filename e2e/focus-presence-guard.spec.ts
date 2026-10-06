@@ -2,6 +2,8 @@ import { expect, test, type APIRequestContext, type CDPSession, type Page } from
 
 import { FOCUSABLE_SELECTOR } from "./support/stateContrastProbe";
 import { forceFocusVisible } from "./support/forceFocusVisible";
+import { waitForSettingsAuditTable } from "./support/settingsReady";
+import { settleTransitions } from "./support/settleTransitions";
 import {
   readIndicatorSnapshot,
   measureOneElement,
@@ -47,21 +49,12 @@ async function registerAndLogin(page: Page, request: APIRequestContext, label: s
     data: { email, password, displayName: `HEL-520 ${label}` },
     headers: { [CSRF_HEADER]: "1" },
   });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
+  // HEL-1288: `register` already set the session cookie on `request`'s context; hand it to the
+  // page's context and open `/`, instead of re-doing the same login through the UI form in every
+  // cell (the guards never test login, and the sessions are identical: same httpOnly cookie).
+  await page.context().addCookies((await request.storageState()).cookies);
+  await page.goto("/");
   await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
-}
-
-async function setTheme(page: Page, theme: "dark" | "light") {
-  await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);
-  await page.reload();
-  await expect(
-    page.getByRole("button", { name: "Add dashboard" }).or(page.locator("body")),
-  ).toBeVisible();
-  await page.waitForTimeout(150); // settle theme-transition CSS (theme.css var(--app-transition))
 }
 
 // CR5 (evaluation-1.md) — the coverage claim must be SELF-CHECKING, not
@@ -140,108 +133,112 @@ async function assertRouteFullyCovered(
   );
 }
 
+// HEL-1288 — split from ONE serial test (a ~3 min hard floor on any worker/shard) into one
+// independently schedulable test per (theme x route) cell, so `--shard` and the 2 workers can
+// spread the guard. The measured population is unchanged: the same routes, the same themes, the
+// same per-element sweep. `mode: "parallel"` is scoped to this file only and there are NO
+// beforeAll/afterAll hooks (hooks would make Playwright chunk the cells back into one group).
+// Each cell registers its own fresh user and seeds its own data, so cells share nothing.
+// The run-wide `totalMeasured > 0` vacuity floor became a per-cell `measured > 0` (stricter).
+const THEMES = ["dark", "light"] as const;
+type RouteKey = "/" | "/sources" | "source-detail" | "pipeline-detail" | "/settings";
+const ROUTE_KEYS: RouteKey[] = ["/", "/sources", "source-detail", "pipeline-detail", "/settings"];
+
 test.describe("HEL-520 focus-presence guard (AC2)", () => {
-  test.setTimeout(360_000);
+  test.describe.configure({ mode: "parallel" });
+  test.setTimeout(120_000);
 
-  test("every focusable element presents an unclipped, conforming focus indicator, in every theme", async ({
-    page,
-    request,
-  }) => {
-    const client = await page.context().newCDPSession(page);
-    await client.send("DOM.enable");
-    await client.send("CSS.enable");
+  for (const theme of THEMES) {
+    for (const routeKey of ROUTE_KEYS) {
+      test(`every focusable element on ${routeKey} presents an unclipped, conforming focus indicator (${theme})`, async ({
+        page,
+        request,
+      }) => {
+        const client = await page.context().newCDPSession(page);
+        await client.send("DOM.enable");
+        await client.send("CSS.enable");
 
-    await registerAndLogin(page, request, "focus-presence");
+        await registerAndLogin(page, request, "focus-presence");
 
-    // Same minimal seed shape as the sibling HEL-866 guard — a real
-    // dashboard, source, and pipeline so /sources, /pipelines and the
-    // pipeline-detail route render real rows/fields rather than an empty
-    // state with a structurally tiny population (evaluation-2.md CR7).
-    await page.getByRole("button", { name: "Add dashboard" }).click();
-    await page.getByLabel("Dashboard name").fill("HEL-520 Guard Dashboard");
-    await page.getByRole("button", { name: "Create dashboard" }).click();
-    await expect(
-      page.getByRole("button", { name: "HEL-520 Guard Dashboard", exact: true }),
-    ).toBeVisible();
+        // Same minimal seed shape as the sibling HEL-866 guard — a real
+        // dashboard, source, and pipeline so /sources, /pipelines and the
+        // pipeline-detail route render real rows/fields rather than an empty
+        // state with a structurally tiny population (evaluation-2.md CR7).
+        // HEL-1288 cycle 4: the dashboard is created over the API (was three UI clicks); the page
+        // loads it on its next navigation.
+        const dashRes = await request.post("/api/dashboards", {
+          data: { name: "HEL-520 Guard Dashboard" },
+          headers: { [CSRF_HEADER]: "1" },
+        });
+        expect(dashRes.status()).toBe(201);
 
-    const sourceRes = await request.post("/api/data-sources", {
-      data: {
-        name: "HEL-520 Guard Source",
-        type: "static",
-        columns: [{ name: "amount", type: "integer" }],
-        rows: [[10], [20]],
-      },
-      headers: { [CSRF_HEADER]: "1" },
-    });
-    expect(sourceRes.status()).toBe(201);
-    const source = await sourceRes.json();
-    const pipelineRes = await request.post("/api/pipelines", {
-      data: { name: "HEL-520 Guard Pipeline", roots: [{ sourceId: source.id }] },
-      headers: { [CSRF_HEADER]: "1" },
-    });
-    expect(pipelineRes.status()).toBe(201);
-    const pipeline = await pipelineRes.json();
+        const sourceRes = await request.post("/api/data-sources", {
+          data: {
+            name: "HEL-520 Guard Source",
+            type: "static",
+            columns: [{ name: "amount", type: "integer" }],
+            rows: [[10], [20]],
+          },
+          headers: { [CSRF_HEADER]: "1" },
+        });
+        expect(sourceRes.status()).toBe(201);
+        const source = await sourceRes.json();
+        const pipelineRes = await request.post("/api/pipelines", {
+          data: { name: "HEL-520 Guard Pipeline", roots: [{ sourceId: source.id }] },
+          headers: { [CSRF_HEADER]: "1" },
+        });
+        expect(pipelineRes.status()).toBe(201);
+        const pipeline = await pipelineRes.json();
 
-    // HEL-1080 tasks.md 5.3 (design.md Decision 9): `/sources/:id` for the seeded dataset
-    // ("static"-kind) source above, so this guard actually covers `DatasetRowGrid`'s gridMode
-    // focus/tabindex markup — it did not visit this route before this change.
-    const routes = [
-      "/",
-      "/sources",
-      `/sources/${source.id}`,
-      `/pipelines/${pipeline.id}`,
-      "/settings",
-    ];
-    const viewList: string[] = [];
-    const findings: Finding[] = [];
-    let totalMeasured = 0;
-    const runStart = Date.now();
+        // HEL-1080 tasks.md 5.3 (design.md Decision 9): `/sources/:id` for the seeded dataset
+        // ("static"-kind) source above, so this guard actually covers `DatasetRowGrid`'s gridMode
+        // focus/tabindex markup. Runtime ids are resolved here, inside the cell; the cell title and
+        // the logged view name use the static label.
+        const routePaths: Record<RouteKey, string> = {
+          "/": "/",
+          "/sources": "/sources",
+          "source-detail": `/sources/${source.id}`,
+          "pipeline-detail": `/pipelines/${pipeline.id}`,
+          "/settings": "/settings",
+        };
+        const route = routePaths[routeKey];
+        const viewName = `${routeKey}(${theme})`;
+        const findings: Finding[] = [];
 
-    // Cycle 8 (production CI, run 34416621152) — a flat `waitForTimeout(200)`
-    // after `page.goto(route)` is NOT sufficient to guarantee the seeded
-    // content above has actually rendered before the sweep stamps/measures
-    // the document. It happened to be enough against a shared local dev
-    // database already warmed up by other worktrees' traffic (rendering
-    // was effectively instant because other data made the page non-empty
-    // regardless), which is exactly how this went undetected locally and
-    // shipped a spec whose real, reproducible coverage depended on ambient
-    // database state rather than this test's own seed (MISTAKES.md: "the
-    // shared dev DB is mostly test residue"). On a clean CI database,
-    // `/sources` rendered its loading/empty frame at the 200ms mark and
-    // the sweep measured zero — caught, correctly, by CR-B's non-emptiness
-    // floor rather than silently passing. Each route below now waits for
-    // a route-specific marker proving ITS OWN seeded content rendered,
-    // not an arbitrary settle delay.
-    const ROUTE_READY_MARKERS: Record<string, (p: Page) => Promise<unknown>> = {
-      // `.first()` on each: the seeded name legitimately appears more than
-      // once per route (breadcrumb, command palette, list row, etc.) —
-      // this marker only needs to prove at least one rendering of the
-      // seeded content is visible, not disambiguate a single element.
-      "/": (p) =>
-        expect(p.getByText("HEL-520 Guard Dashboard", { exact: true }).first()).toBeVisible(),
-      "/sources": (p) =>
-        expect(p.getByText("HEL-520 Guard Source", { exact: true }).first()).toBeVisible(),
-      // The dataset row grid's "Add row" button is always present once `DatasetRowGrid` has
-      // resolved the seeded source's declared schema + rows (HEL-1080).
-      [`/sources/${source.id}`]: (p) =>
-        expect(p.getByRole("button", { name: "Add row" })).toBeVisible(),
-      [`/pipelines/${pipeline.id}`]: (p) =>
-        expect(p.getByText("HEL-520 Guard Pipeline", { exact: true }).first()).toBeVisible(),
-      // "Appearance" is SettingsPage.tsx's first static `<h2>` section
-      // heading — always present regardless of account data, so it proves
-      // the route rendered without depending on any seeded/ambient state.
-      "/settings": (p) => expect(p.getByRole("heading", { name: "Appearance" })).toBeVisible(),
-    };
+        // Cycle 8 (production CI, run 34416621152) — a flat `waitForTimeout(200)`
+        // after `page.goto(route)` is NOT sufficient to guarantee the seeded
+        // content has rendered before the sweep stamps/measures the document
+        // (on a clean CI database `/sources` rendered its loading frame at the
+        // 200ms mark and the sweep measured zero). Each route below waits for
+        // a route-specific marker proving ITS OWN seeded content rendered.
+        const ROUTE_READY_MARKERS: Record<RouteKey, (p: Page) => Promise<unknown>> = {
+          // `.first()` on each: the seeded name legitimately appears more than
+          // once per route (breadcrumb, command palette, list row, etc.).
+          "/": (p) =>
+            expect(p.getByText("HEL-520 Guard Dashboard", { exact: true }).first()).toBeVisible(),
+          "/sources": (p) =>
+            expect(p.getByText("HEL-520 Guard Source", { exact: true }).first()).toBeVisible(),
+          // The dataset row grid's "Add row" button is always present once `DatasetRowGrid` has
+          // resolved the seeded source's declared schema + rows (HEL-1080).
+          "source-detail": (p) => expect(p.getByRole("button", { name: "Add row" })).toBeVisible(),
+          "pipeline-detail": (p) =>
+            expect(p.getByText("HEL-520 Guard Pipeline", { exact: true }).first()).toBeVisible(),
+          // "Appearance" is SettingsPage.tsx's first static `<h2>` section
+          // heading — always present regardless of account data.
+          "/settings": async (p) => {
+            await expect(p.getByRole("heading", { name: "Appearance" })).toBeVisible();
+            // async-loaded audit-log table: HEL-1336's shared readiness helper.
+            await waitForSettingsAuditTable(p);
+          },
+        };
 
-    for (const theme of ["dark", "light"] as const) {
-      await setTheme(page, theme);
-
-      for (const route of routes) {
+        // HEL-1288: the theme is stored and then applied by the route's own load (a separate
+        // reload on `/` first only re-did that work); the `data-theme` assertion proves it took.
+        await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);
         await page.goto(route);
-        await ROUTE_READY_MARKERS[route](page);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        await ROUTE_READY_MARKERS[routeKey](page);
         await page.waitForTimeout(200); // settle any post-render CSS transition, not a substitute for the wait above
-        const viewName = `${route}(${theme})`;
-        viewList.push(viewName);
 
         const totalStamped = await stampFocusableDocument(page);
         const coveredIds = new Set<string>();
@@ -316,7 +313,9 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
           // see focusPresenceProbe.ts's module comment — but the
           // transition-timing hazard is the same for any ring-geometry
           // read taken too early).
-          await page.waitForTimeout(400);
+          // HEL-1288: settled by awaiting the running CSS transitions (including the skip
+          // link's `top` transition named above), not a fixed 400 ms sleep.
+          await settleTransitions(page);
 
           // Everything that depends on the REVEALED (focused) DOM state —
           // the forced snapshot itself, ancestor clip boxes, and the
@@ -337,49 +336,25 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
           }
           findings.push(finding);
           measuredThisView++;
-          totalMeasured++;
         }
 
         console.log(
           `[HEL-520 focus-presence guard] view "${viewName}": ${measuredThisView} focusable element(s) measured (uncapped)`,
         );
         await assertRouteFullyCovered(page, viewName, totalStamped, coveredIds);
-      }
+
+        const failures = findings.filter((f) => f.verdict !== "pass");
+        if (failures.length > 0) {
+          const grouped = failures
+            .map((f) => `  [${f.verdict}] ${f.view} ${f.desc} — ${f.detail}`)
+            .join("\n");
+          throw new Error(
+            `HEL-520 focus-presence guard: ${failures.length}/${measuredThisView} measured element(s) did not present a conforming, unclipped focus indicator:\n${grouped}`,
+          );
+        }
+
+        expect(measuredThisView).toBeGreaterThan(0);
+      });
     }
-
-    const runtimeMs = Date.now() - runStart;
-    console.log(
-      `[HEL-520 focus-presence guard] total measured: ${totalMeasured} across ${viewList.length} view(s): ${viewList.join(", ")}`,
-    );
-    console.log(`[HEL-520 focus-presence guard] runtime: ${runtimeMs}ms`);
-
-    // evaluation-2.md CR-A retraction: a `KNOWN_RESIDUAL_RATIOS` allowance
-    // used to live here, naming 10 `.ui-input`-family sites as accepted
-    // `--app-accent-dim` halo residuals owned by HEL-1046/1050. That
-    // finding was a PROBE DEFECT, not a real one: `measureOneElement`
-    // graded exactly one channel by precedence (`outline > box-shadow >
-    // border`), and every one of those 10 sites has `outline: none` PLUS a
-    // real, contrast-derived `border-color` PLUS a deliberately decorative
-    // `box-shadow` halo — precedence fell through to the halo and never
-    // measured the border, the channel actually carrying the conforming
-    // indicator. Measured with the corrected any-channel rule
-    // (`focusPresenceProbe.ts`): the border alone clears 3:1 (4.96 dark /
-    // 3.48 light) on every one of those sites. The residual population is
-    // now zero and this allowance block is deleted outright, not left
-    // empty — see files-modified.md for the full retraction and the
-    // corrected HEL-1046/1050 attribution (there is no real gap to hand
-    // that lineage).
-
-    const failures = findings.filter((f) => f.verdict !== "pass");
-    if (failures.length > 0) {
-      const grouped = failures
-        .map((f) => `  [${f.verdict}] ${f.view} ${f.desc} — ${f.detail}`)
-        .join("\n");
-      throw new Error(
-        `HEL-520 focus-presence guard: ${failures.length}/${totalMeasured} measured element(s) did not present a conforming, unclipped focus indicator:\n${grouped}`,
-      );
-    }
-
-    expect(totalMeasured).toBeGreaterThan(0);
-  });
+  }
 });

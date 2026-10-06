@@ -9,6 +9,12 @@ import {
   sweepSurface,
 } from "./support/touchTargetProbe";
 
+// HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
+// own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
+// schedulable — they spread across the 2 workers and across `--shard` boundaries instead of
+// forming one serial group.
+test.describe.configure({ mode: "parallel" });
+
 // HEL-813 — steady-state CI guard for the DESIGN.md 44px mobile touch-
 // target floor. Measures RENDERED geometry (`getBoundingClientRect()`) at
 // runtime, at 430px and 768px, across the six surfaces enumerated in

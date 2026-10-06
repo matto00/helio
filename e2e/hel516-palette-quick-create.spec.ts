@@ -1,6 +1,12 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 
+// HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
+// own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
+// schedulable — they spread across the 2 workers and across `--shard` boundaries instead of
+// forming one serial group.
+test.describe.configure({ mode: "parallel" });
+
 // HEL-516 — real-browser proof for reach: the central hazard design.md and tasks.md both call
 // out repeatedly. jsdom can prove DOM presence but never focus/visibility/computed style
 // (evidence rule 3), and a test driven from the OWNING route proves nothing about reach at all
