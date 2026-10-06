@@ -234,9 +234,9 @@ const instructionBox = () => screen.getByRole("textbox", { name: /instruction fo
 const generateToggle = () => screen.getByRole("button", { name: /Generate text/i });
 
 /** Opens the Generate-text draft and completes its config (create fires). */
-async function completeDraft() {
+async function completeDraft(field = "notes") {
   fireEvent.click(await screen.findByRole("button", { name: /Generate text/i, expanded: false }));
-  chooseSelectOption(/input field to generate from/i, "notes");
+  chooseSelectOption(/input field to generate from/i, field);
   fireEvent.change(instructionBox(), { target: { value: "Summarize" } });
   fireEvent.change(screen.getByRole("textbox", { name: /destination field/i }), {
     target: { value: "summary" },
@@ -507,24 +507,37 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     await completeDraft();
     // Hold every later /analyze (the post-swap debounced one) unresolved.
     analyzePipelineMock.mockReturnValue(new Promise<PipelineAnalyzeResponse>(() => {}));
+    const analyzeCallsBefore = analyzePipelineMock.mock.calls.length;
     await create.resolve(aiPersisted("ai-1", 0));
     await waitFor(() =>
       expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
     );
+    // Assert only once the post-swap /analyze has actually been issued (debounced) and is held.
+    await waitFor(() =>
+      expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(analyzeCallsBefore),
+    );
 
     expect(inputFieldSelect()).toHaveTextContent("notes");
+    // The fallback input has no matching output schema yet: no false "dropped" diff chips.
+    expect(
+      document.querySelector(".pipeline-detail-page__step-card-diff-chip--removed"),
+    ).toBeNull();
   });
 
-  it("a lane draft in flight resolves its field from its anchor, not the root source", async () => {
-    getPipelineStepsMock.mockResolvedValue([persisted("anchor-1", "rename", 0)]);
-    // The anchor's output exposes `notes`; the root source exposes only `other`, so only an
-    // exact-anchor resolution can show the chosen field.
+  it("a lane draft in flight resolves its field from its exact anchor, not a trunk neighbour", async () => {
+    // Trunk p-0 -> anchor-1. Only p-0 has an analyze entry (output `notes`); the anchor has none
+    // and the root source exposes only `other`. Exact-anchor resolution therefore falls to the
+    // root source (`other`); a trunk array walk would wrongly land on p-0 (`notes`).
+    getPipelineStepsMock.mockResolvedValue([
+      persisted("p-0", "rename", 0),
+      persisted("anchor-1", "rename", 1),
+    ]);
     analyzePipelineMock.mockResolvedValue({
       ...analyzeResponse,
       sourceSchemas: [{ rootId: "root-1", sourceSchema: [{ name: "other", type: "string" }] }],
       steps: [
         {
-          id: "anchor-1",
+          id: "p-0",
           position: 0,
           type: "rename" as const,
           config: { renames: {} },
@@ -535,12 +548,19 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     });
     const create = deferredCreate();
     renderPage();
-    await addLaneDraft();
-    await completeDraft();
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: /Rename column/i })).toHaveLength(2),
+    );
+    const branchButtons = screen.getAllByRole("button", {
+      name: /Branch this step into a new lane/i,
+    });
+    fireEvent.click(branchButtons[branchButtons.length - 1]);
+    fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
+    await completeDraft("other");
 
-    expect(inputFieldSelect()).toHaveTextContent("notes");
+    expect(inputFieldSelect()).toHaveTextContent("other");
 
-    await create.resolve(aiPersisted("ai-1", 1, "anchor-1"));
-    expect(inputFieldSelect()).toHaveTextContent("notes");
+    await create.resolve(aiPersisted("ai-1", 2, "anchor-1"));
+    expect(inputFieldSelect()).toHaveTextContent("other");
   });
 });

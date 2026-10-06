@@ -6,6 +6,7 @@ import { fetchSources } from "../../sources/state/sourcesSlice";
 import type { DataSource } from "../../sources/types/dataSource";
 import { useRunToUpdate } from "./useRunToUpdate";
 import { usePipelineStepCreation } from "./usePipelineStepCreation";
+import type { PendingDraftMeta } from "./usePipelineStepCreation";
 import {
   analyzePipeline,
   clearRunState,
@@ -164,24 +165,14 @@ export function usePipelineDetailPage() {
   // otherwise have passed straight to `createPipelineStep` at add-time.
   // Consumed once, by `handleStepConfigChange`, the moment the draft's local
   // config first satisfies `isCompleteAiStepConfig`.
-  const pendingDraftMetaRef = useRef(
-    new Map<
-      string,
-      { index?: number; parentStepId?: string; attachAsTail?: boolean; rootId?: string }
-    >(),
-  );
+  const pendingDraftMetaRef = useRef(new Map<string, PendingDraftMeta>());
   // HEL-1340 — the anchor meta of a draft whose create has been SENT. `pendingDraftMetaRef` is
   // emptied at send (the create-exactly-once guard and `stepsFingerprint` depend on that), which
   // left the in-flight draft with neither an analyze entry nor meta, so its field picker lost its
   // schema. Keyed by the temp id while in flight, re-keyed to the persisted id on the swap, and
   // dropped once the step has its own analyze entry (or is gone) or the create fails. Consulted
   // by the schema fallback only, never by the guard or the fingerprint.
-  const draftFallbackMetaRef = useRef(
-    new Map<
-      string,
-      { index?: number; parentStepId?: string; attachAsTail?: boolean; rootId?: string }
-    >(),
-  );
+  const draftFallbackMetaRef = useRef(new Map<string, PendingDraftMeta>());
   // HEL-908 Cycle 13 -- read inside the SSE `onTerminal` closure (defined
   // below, before `allOutputs` itself is computed) so a completed run can
   // re-fetch every visible Output's preview without a stale closure over an
@@ -602,6 +593,12 @@ export function usePipelineDetailPage() {
   const getAnalyzeOutputSchema = useCallback(
     (stepId: string): SchemaField[] =>
       analyzeByStepId.get(stepId)?.outputSchema ?? EMPTY_ANALYZE_SCHEMA,
+    [analyzeByStepId],
+  );
+
+  // HEL-1340 — lets StepCard suppress the schema diff while a step is still on the fallback.
+  const hasOwnAnalyzeEntry = useCallback(
+    (stepId: string): boolean => analyzeByStepId.has(stepId),
     [analyzeByStepId],
   );
 
@@ -1363,6 +1360,7 @@ export function usePipelineDetailPage() {
     getAnalyzeColumns,
     getAnalyzeSchema,
     getAnalyzeOutputSchema,
+    hasOwnAnalyzeEntry,
     getAnalyzeValidationError,
     outputsByStepId,
     allOutputs,

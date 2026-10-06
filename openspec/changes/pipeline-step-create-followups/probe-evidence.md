@@ -49,3 +49,20 @@ reads `pendingDraftMetaRef ?? draftFallbackMetaRef`. Guard and `stepsFingerprint
 ## Gates (task 5.1)
 Pre-commit for each commit ran eslint, tsc, prettier, root and frontend Jest (439 suites / 4582 tests
 green on commits 1 and 2); see final report for commit 3 and the explicit lint / format:check / build runs.
+
+## Cycle 2 (evaluation-1.md change requests, item 3 follow-ups)
+
+- CR1 (false "dropped" chips post-swap). Red: with StepCard's chip condition reverted to `!isDraft`
+  only, scenario 2 fails: `Received: <span ...diff-chip--removed>− notes</span>` (1 failed, 11 passed;
+  hel1340-c2-cr1-red.log). Fix: page hook exposes `hasOwnAnalyzeEntry` (`analyzeByStepId.has`), threaded
+  (optional prop) PipelineDetailPage -> PipelineRiverView -> RootColumn/LaneColumn -> StepCard
+  `hasOwnAnalyze` (default true); chips render only when `!isDraft && hasOwnAnalyze`. Green: 12 of 12
+  (hel1340-c2-green.log).
+- CR2 (lane variant pins the exact anchor). New test: trunk p-0 -> anchor-1, only p-0 has an analyze entry
+  (output `notes`), root source exposes only `other`, lane draft on anchor-1 picks `other`. Mutation at
+  usePipelineDetailPage.ts:555 (`pendingDraftMetaRef.current.get(stepId) ?? draftFallbackMetaRef...` ->
+  `pendingDraftMetaRef.current.get(stepId)`): `1 failed, 11 passed`, lane test fails
+  (hel1340-c2-cr2-red.log). Restored: 12 of 12.
+- CR3 (scenario 2 timing). It now records `analyzePipelineMock.mock.calls.length` before the resolve and
+  waits for it to increase (the post-swap call issued and held) before asserting.
+- DRY: both meta refs typed with the exported `PendingDraftMeta`.

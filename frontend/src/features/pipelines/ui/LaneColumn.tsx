@@ -40,6 +40,8 @@ interface LaneColumnProps {
   getAnalyzeColumns: (stepId: string) => string[];
   getAnalyzeSchema: (stepId: string) => SchemaField[];
   getAnalyzeOutputSchema: (stepId: string) => SchemaField[];
+  /** HEL-1340 — true when the step has its own analyze entry (see StepCard `hasOwnAnalyze`). */
+  hasOwnAnalyzeEntry?: (stepId: string) => boolean;
   getAnalyzeValidationError: (stepId: string) => string | undefined;
   onConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   runStepRowCounts: Record<string, number> | null | undefined;
@@ -102,6 +104,7 @@ export function LaneColumn({
   getAnalyzeColumns,
   getAnalyzeSchema,
   getAnalyzeOutputSchema,
+  hasOwnAnalyzeEntry,
   getAnalyzeValidationError,
   onConfigChange,
   runStepRowCounts,
@@ -159,6 +162,7 @@ export function LaneColumn({
             getAnalyzeColumns={getAnalyzeColumns}
             getAnalyzeSchema={getAnalyzeSchema}
             getAnalyzeOutputSchema={getAnalyzeOutputSchema}
+            hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
             getAnalyzeValidationError={getAnalyzeValidationError}
             onConfigChange={onConfigChange}
             runStepRowCounts={runStepRowCounts}
@@ -215,6 +219,7 @@ export function LaneColumn({
                 analyzeColumns={getAnalyzeColumns(step.id)}
                 analyzeSchema={getAnalyzeSchema(step.id)}
                 analyzeOutputSchema={getAnalyzeOutputSchema(step.id)}
+                hasOwnAnalyze={hasOwnAnalyzeEntry?.(step.id) ?? true}
                 validationError={getAnalyzeValidationError(step.id)}
                 onConfigChange={onConfigChange}
                 rowCount={runStepRowCounts?.[step.id] ?? null}
@@ -266,6 +271,7 @@ export function LaneColumn({
               analyzeColumns={getAnalyzeColumns(step.id)}
               analyzeSchema={getAnalyzeSchema(step.id)}
               analyzeOutputSchema={getAnalyzeOutputSchema(step.id)}
+              hasOwnAnalyze={hasOwnAnalyzeEntry?.(step.id) ?? true}
               validationError={getAnalyzeValidationError(step.id)}
               onConfigChange={onConfigChange}
               rowCount={runStepRowCounts?.[step.id] ?? null}

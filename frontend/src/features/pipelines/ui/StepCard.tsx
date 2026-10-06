@@ -50,6 +50,10 @@ interface StepCardProps {
    *  rendered inline in the preview tray alongside the sample rows. Empty when
    *  analyze data for the step is unavailable (pending/failed/unknown step id). */
   analyzeOutputSchema: SchemaField[];
+  /** HEL-1340 — whether `analyzeSchema` comes from this step's OWN analyze entry. False while an
+   *  already-created draft is still on the anchor-derived fallback schema (no output schema yet),
+   *  where a diff would falsely report every field as dropped. Defaults to true. */
+  hasOwnAnalyze?: boolean;
   /** This step's analyze-time `validationError`, if any. Rendered generically via
    *  `InlineError` in the expanded card body (skeptic-final-1.md CR1) for every op
    *  except `compute`, which renders it itself inline below the expression input
@@ -149,6 +153,7 @@ export const StepCard = React.memo(function StepCard({
   analyzeColumns,
   analyzeSchema,
   analyzeOutputSchema,
+  hasOwnAnalyze = true,
   validationError,
   onConfigChange,
   rowCount,
@@ -372,8 +377,9 @@ export const StepCard = React.memo(function StepCard({
            * falsely report every field as dropped -- suppressed entirely for
            * a draft rather than mirroring the fallback into the output side,
            * which would instead assert the equally-unknown "nothing
-           * changes". */}
-          {!isDraft && (
+           * changes". HEL-1340: the same holds for a created draft still on the fallback
+           * schema (`hasOwnAnalyze` false). */}
+          {!isDraft && hasOwnAnalyze && (
             <StepSchemaDiffChips
               input={analyzeSchema}
               output={analyzeOutputSchema}

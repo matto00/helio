@@ -69,6 +69,7 @@ export function PipelineDetailPage() {
     getAnalyzeColumns,
     getAnalyzeSchema,
     getAnalyzeOutputSchema,
+    hasOwnAnalyzeEntry,
     getAnalyzeValidationError,
     outputsByStepId,
     allOutputs,
@@ -274,6 +275,7 @@ export function PipelineDetailPage() {
             getAnalyzeColumns={getAnalyzeColumns}
             getAnalyzeSchema={getAnalyzeSchema}
             getAnalyzeOutputSchema={getAnalyzeOutputSchema}
+            hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
             getAnalyzeValidationError={getAnalyzeValidationError}
             estimatedRows={estimatedRows}
             draftCreateErrors={draftCreateErrors}
