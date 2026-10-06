@@ -8,6 +8,26 @@ export interface HistoryResolvedPoint {
   rowCount: number;
   /** `null` for a non-metric Output (and for a non-finite metric). */
   value: number | null;
+  /** HEL-1277 — the point's stored chart series; `null` when its summary has none. */
+  series?: HistorySeries | null;
+}
+
+/** HEL-1277 — a stored reduced chart series (`schemas/outputs/*` `seriesSummary`). */
+export interface HistorySeries {
+  mode: "grouped" | "rows";
+  x: string;
+  y: string;
+  agg: string | null;
+  points: [unknown, number | null][];
+  totalPoints: number;
+  downsampled: boolean;
+}
+
+export interface HistoryColumnStats {
+  count: number;
+  sum: number | null;
+  min: number | null;
+  max: number | null;
 }
 
 export interface HistorySparklinePoint {
@@ -24,7 +44,15 @@ export interface HistoryPointMetric {
 export interface HistoryPoint {
   capturedAt: string;
   rowCount: number;
-  summary: { metric?: HistoryPointMetric | null } & Record<string, unknown>;
+  summary: {
+    metric?: HistoryPointMetric | null;
+    series?: HistorySeries | null;
+    columns?: Record<string, HistoryColumnStats>;
+  } & Record<string, unknown>;
+  /** Absent on the public variant. */
+  id?: string;
+  /** Absent on the public variant. */
+  hasPayload?: boolean;
   runId?: string | null;
   triggerSource?: string;
 }
@@ -43,8 +71,25 @@ export interface OutputHistory {
   points: HistoryPoint[];
 }
 
-export async function fetchOutputHistory(outputId: string): Promise<OutputHistory> {
-  const response = await httpClient.get<OutputHistory>(`/api/outputs/${outputId}/history`);
+export async function fetchOutputHistory(
+  outputId: string,
+  options: { limit?: number } = {},
+): Promise<OutputHistory> {
+  const response = await httpClient.get<OutputHistory>(`/api/outputs/${outputId}/history`, {
+    params: options.limit === undefined ? undefined : { limit: options.limit },
+  });
+  return response.data;
+}
+
+/** HEL-1277 — `GET /api/outputs/:id/history/:pointId/rows`: a point's stored row payload
+ *  (authenticated only; there is no public counterpart). */
+export async function fetchHistoryPointRows(
+  outputId: string,
+  pointId: string,
+): Promise<{ rows: Record<string, unknown>[]; rowCount: number }> {
+  const response = await httpClient.get<{ rows: Record<string, unknown>[]; rowCount: number }>(
+    `/api/outputs/${outputId}/history/${pointId}/rows`,
+  );
   return response.data;
 }
 

@@ -97,3 +97,22 @@ COMMIT;`,
   );
   return Number(lines[lines.length - 1]);
 }
+
+/** HEL-1277 — payload history needs a beta/owner pipeline owner (free caps payload runs at 0), and
+ *  the public API cannot change a tier. Sets the tier of EXACTLY the one user whose id the spec
+ *  just registered: selected by that id alone (never an email, name or pattern), the freshly
+ *  registered account only (the seeded `matt@helio.dev` dev account is refused in SQL), and throws
+ *  unless exactly one row changed. Returns the updated id for the spec's teardown log. */
+export function setUserTierForTest(userId: string, tier: "beta" | "owner"): string {
+  if (!UUID.test(userId)) throw new Error("historySeed: refusing a non-UUID user id");
+  if (tier !== "beta" && tier !== "owner") throw new Error("historySeed: refusing an unknown tier");
+  const ids = psql(
+    `UPDATE users SET tier = '${tier}' WHERE id = '${userId}' AND email <> 'matt@helio.dev' RETURNING id;`,
+  ).filter((l) => UUID.test(l));
+  if (ids.length !== 1 || ids[0].toLowerCase() !== userId.toLowerCase()) {
+    throw new Error(
+      `historySeed: expected to update exactly user ${userId}, changed ${ids.length} row(s)`,
+    );
+  }
+  return ids[0];
+}

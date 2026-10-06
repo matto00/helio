@@ -121,6 +121,7 @@ function PublicOutputPanelBody({
         noData={panelData.noData}
         paginationRows={panelData.paginationRows}
         totalRowCount={panelData.total}
+        rowsTruncated={panelData.rowsTruncated}
         // HEL-1190 design.md D9 — `panelData.output` is ALWAYS a `PublicOutputMeta`
         // (`ownerId: null`, structurally, never a real owner id), which is what keeps
         // `TableRenderer`'s `canWrite` false here regardless of the viewing session's identity.

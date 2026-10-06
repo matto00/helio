@@ -5,7 +5,7 @@ import com.helio.domain.model.{AuthenticatedUser, Output, OutputId}
 import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryPoint, OutputHistoryRepository, OutputRepository}
 import com.helio.services.ServiceError
 import org.slf4j.LoggerFactory
-import spray.json.{JsArray, JsNumber, JsObject, JsString}
+import spray.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValue}
 
 import java.time.Instant
 import java.util.UUID
@@ -13,7 +13,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** A history point reduced to what a comparison needs. `value` is the stored, server-computed
  *  headline metric over ALL rows (summary `metric.value`), `None` when the summary has none. */
-final case class ResolvedHistoryPoint(capturedAt: Instant, rowCount: Int, value: Option[Double])
+final case class ResolvedHistoryPoint(capturedAt: Instant, rowCount: Int, value: Option[Double], series: Option[JsValue])
 
 /** `points` is newest first (the raw rows, after `limit`/`since`); `sparkline` is derived from the
  *  same points, oldest first. Everything but `points`/`sparkline` is resolved over the Output's
@@ -124,7 +124,7 @@ final class OutputHistoryService(
 
 object OutputHistoryService {
 
-  def resolve(p: OutputHistoryPoint): ResolvedHistoryPoint = ResolvedHistoryPoint(p.capturedAt, p.rowCount, headline(p.summary))
+  def resolve(p: OutputHistoryPoint): ResolvedHistoryPoint = ResolvedHistoryPoint(p.capturedAt, p.rowCount, headline(p.summary), p.summary.fields.get("series").filter(_ != JsNull))
 
   /** The stored summary's all-rows metric value (`v == 1`, `metric.value` a JSON number). */
   def headline(summary: JsObject): Option[Double] =

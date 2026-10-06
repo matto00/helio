@@ -22,7 +22,6 @@ import { useOutputMeta } from "../hooks/useOutputMeta";
 import { useAppSelector } from "../../../hooks/reduxHooks";
 import type { CrossFilterMode } from "../hooks/useCrossFilterServerOps";
 import {
-  readChartConfig,
   readCollectionConfig,
   readMarkdownConfig,
   readTableConfig,
@@ -33,7 +32,7 @@ import {
   filterRowsByDimension,
   isPanelFilterableByDimension,
 } from "../../../utils/crossFilterRows";
-import { ChartRenderer } from "./renderers/ChartRenderer";
+import { ChartOutputPanel } from "./ChartOutputPanel";
 import { CollectionRenderer } from "./renderers/CollectionRenderer";
 import { DividerRenderer } from "./renderers/DividerRenderer";
 import { FormRenderer } from "./renderers/FormRenderer";
@@ -258,18 +257,23 @@ function OutputPanelContent({
   let content: ReactNode;
 
   if (kind === "chart") {
-    const cfg = readChartConfig(output.config);
     content = (
-      <ChartRenderer
+      <ChartOutputPanel
+        panelId={panelId}
+        outputId={outputId}
+        pipelineId={"pipelineId" in output ? output.pipelineId : undefined}
+        config={output.config}
         appearance={appearance}
         rawRows={filteredRawRows}
         headers={headers}
-        fieldMapping={cfg.fieldMapping}
         chartAggregate={chartAggregate}
-        chartOptions={cfg.chartOptions}
-        annotation={cfg.annotation ?? null}
         compact={compact}
         onDataPointSelect={onDataPointSelect}
+        // HEL-1277 design D9 — a viewer control filter, or a cross-filter narrowing this panel,
+        // hides the overlay (it compares against the Output's unfiltered rows).
+        filterActive={viewerFilterActive || crossFilterMode === "server" || isCrossFiltered}
+        rowsTruncated={rowsTruncated}
+        historySource={historySource}
       />
     );
   } else if (kind === "table") {

@@ -9,6 +9,7 @@ import { PipelineShareDialog } from "./PipelineShareDialog";
 import { PipelineDetailSkeleton } from "./PipelineDetailSkeleton";
 import { OutputsGalleryTab } from "./OutputsGalleryTab";
 import { OutputEditorSheet } from "./outputEditor/OutputEditorSheet";
+import { OutputHistoryModal } from "./outputHistory/OutputHistoryModal";
 import { PageShell } from "../../../shared/ui/PageShell";
 import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
@@ -75,6 +76,9 @@ export function PipelineDetailPage() {
     allOutputs,
     previewRowCountByOutputId,
     handleOpenOutput,
+    historyOutput,
+    handleOpenOutputHistory,
+    handleCloseOutputHistory,
     handleAddOutput,
     outputSheet,
     handleCloseOutputSheet,
@@ -319,6 +323,7 @@ export function PipelineDetailPage() {
             laneGraph={laneGraph}
             previewRowCountByOutputId={previewRowCountByOutputId}
             onOpenOutput={handleOpenOutput}
+            onOpenHistory={handleOpenOutputHistory}
             onAddOutput={() => handleAddOutput()}
           />
         </div>
@@ -335,6 +340,15 @@ export function PipelineDetailPage() {
           steps={steps}
           onAddAsTailWithAggregate={handleAddOutputViaAggregateTail}
           onRunPipeline={() => void handleRunPipeline()}
+        />
+      )}
+
+      {/* ── Output history view (HEL-1277) ── */}
+      {historyOutput && (
+        <OutputHistoryModal
+          key={historyOutput.id}
+          output={historyOutput}
+          onClose={handleCloseOutputHistory}
         />
       )}
 

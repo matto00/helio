@@ -210,9 +210,20 @@
         },
         "value": {
           "type": ["number", "null"]
+        },
+        "series": {
+          "description": "The point's stored summary.series (HEL-1277), or null when the summary has none.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/seriesSummary"
+            }
+          ]
         }
       },
-      "required": ["capturedAt", "rowCount", "value"],
+      "required": ["capturedAt", "rowCount", "value", "series"],
       "additionalProperties": false
     },
     "sparklinePoint": {

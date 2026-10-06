@@ -260,6 +260,8 @@ export interface OutputHistoryResolvedPoint {
   capturedAt: string;
   rowCount: number;
   value: number | null;
+  /** The point's stored chart series (HEL-1277); dropped by `get_output_history` unless `includeSummaries`. */
+  series?: Record<string, unknown> | null;
 }
 
 export interface OutputHistorySparklinePoint {

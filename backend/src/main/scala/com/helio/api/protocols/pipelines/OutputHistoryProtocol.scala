@@ -92,7 +92,7 @@ trait OutputHistoryProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   private def num(v: Option[Double]): JsValue    = v.filter(d => !d.isNaN && !d.isInfinite).fold[JsValue](JsNull)(d => JsNumber(d))
 
   private def resolved(p: ResolvedHistoryPoint): JsValue =
-    JsObject("capturedAt" -> JsString(p.capturedAt.toString), "rowCount" -> JsNumber(p.rowCount), "value" -> num(p.value))
+    JsObject("capturedAt" -> JsString(p.capturedAt.toString), "rowCount" -> JsNumber(p.rowCount), "value" -> num(p.value), "series" -> p.series.getOrElse(JsNull))
 
   private def sparklinePoint(p: SparklinePoint): JsValue =
     JsObject("capturedAt" -> JsString(p.capturedAt.toString), "value" -> num(p.value))

@@ -240,8 +240,9 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         "record history. `value`, `current.value`, `baseline.value`, `delta` and `pct` are " +
         "non-null ONLY for metric-kind Outputs (the server-computed headline over all rows); " +
         "for every other kind they are null — use `points[].rowCount`, or set " +
-        "`includeSummaries: true` for each point's stored `summary`, which is dropped by " +
-        "default because it is bulky. History is thinned as it ages (about one point per 5 " +
+        "`includeSummaries: true` for each point's stored `summary` (and the resolved " +
+        "`current`/`baseline` chart `series`), which are dropped by " +
+        "default because they are bulky. History is thinned as it ages (about one point per 5 " +
         "minutes within 24h, per hour to 7 days, per day beyond), so a `previous_run` baseline " +
         "is the second-newest RETAINED point and may be older than the last run. `baseline` " +
         "null with `availableFrom` set means the compare window is not yet covered. `limit` is " +

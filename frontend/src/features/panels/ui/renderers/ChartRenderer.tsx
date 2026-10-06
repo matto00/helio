@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import type { ChartTypeOptionsMap, PanelAppearance } from "../../types/panel";
 import type { GroupedAggregate } from "../../../../utils/aggregate";
 import type { ChartClickSelection } from "../../../../utils/chartClickSelection";
+import type { ChartOverlay } from "../../history/chartOverlay";
 import { PanelSuspenseFallback } from "../../../../shared/ui/SuspenseFallback";
 
 // HEL-512 — `echarts`/`echarts-for-react` (see `ChartPanel.tsx`'s own docblock) is loaded via a
@@ -21,6 +22,8 @@ interface ChartRendererProps {
   chartAggregate?: GroupedAggregate | null;
   /** HEL-248: forwarded to `ChartPanel` — persisted per-type display options. */
   chartOptions?: ChartTypeOptionsMap | null;
+  /** HEL-1277: forwarded to `ChartPanel` — a labelled "vs" comparison series. */
+  overlay?: ChartOverlay | null;
   /** HEL-318: optional static subtitle/footnote rendered beneath the chart
    *  canvas. Absent/blank renders nothing. */
   annotation?: string | null;
@@ -37,6 +40,7 @@ export function ChartRenderer({
   fieldMapping,
   chartAggregate,
   chartOptions,
+  overlay,
   annotation,
   compact,
   onDataPointSelect,
@@ -53,6 +57,7 @@ export function ChartRenderer({
             fieldMapping={fieldMapping}
             chartAggregate={chartAggregate}
             chartOptions={chartOptions}
+            overlay={overlay}
             compact={compact}
             onDataPointSelect={onDataPointSelect}
           />

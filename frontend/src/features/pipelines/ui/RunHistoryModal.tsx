@@ -7,6 +7,7 @@ import { EmptyState } from "../../../shared/ui/EmptyState";
 import { StatusChip } from "../../../shared/ui/StatusChip";
 import { TruncatedRowCountBadge } from "./TruncatedRowCountBadge";
 import { RotateCcwClock } from "lucide-react";
+import { triggerSourceLabel } from "../utils/triggerSourceLabel";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
   if (!completedAt) return "—";
@@ -50,12 +51,6 @@ function StatusBadge({ status }: { status: PipelineRunRecord["status"] }) {
   );
 }
 
-const TRIGGER_SOURCE_LABELS: Record<PipelineRunRecord["triggerSource"], string> = {
-  manual: "Manual",
-  scheduled: "Scheduled",
-  external: "External",
-};
-
 function TriggerSourceBadge({
   triggerSource,
 }: {
@@ -63,7 +58,7 @@ function TriggerSourceBadge({
 }) {
   return (
     <span className={`run-history-modal__trigger run-history-modal__trigger--${triggerSource}`}>
-      {TRIGGER_SOURCE_LABELS[triggerSource]}
+      {triggerSourceLabel(triggerSource)}
     </span>
   );
 }

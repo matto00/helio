@@ -25,6 +25,9 @@ interface OutputsGalleryTabProps {
   laneGraph?: LaneGraph;
   previewRowCountByOutputId: Record<string, number>;
   onOpenOutput: (output: Output) => void;
+  /** HEL-1277 — opens the History view for one Output; the card's "History" action is offered
+   *  only when supplied. */
+  onOpenHistory?: (output: Output) => void;
   onAddOutput: () => void;
 }
 
@@ -34,6 +37,7 @@ export function OutputsGalleryTab({
   laneGraph,
   previewRowCountByOutputId,
   onOpenOutput,
+  onOpenHistory,
   onAddOutput,
 }: OutputsGalleryTabProps) {
   // HEL-968 D1 — `buildLaneGraph` now requires the pipeline's `roots[]`; this
@@ -92,6 +96,7 @@ export function OutputsGalleryTab({
                 }
                 rowCount={previewRowCountByOutputId[output.id]}
                 onOpen={onOpenOutput}
+                onOpenHistory={onOpenHistory}
               />
             ))}
           </div>

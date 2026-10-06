@@ -661,6 +661,10 @@ export function usePipelineDetailPage() {
   const handleOpenOutput = useCallback((output: Output) => {
     setOutputSheet({ output });
   }, []);
+  // HEL-1277 — the per-Output History view (scrubber); separate from the editor sheet above.
+  const [historyOutput, setHistoryOutput] = useState<Output | null>(null);
+  const handleOpenOutputHistory = useCallback((output: Output) => setHistoryOutput(output), []);
+  const handleCloseOutputHistory = useCallback(() => setHistoryOutput(null), []);
   const handleAddOutput = useCallback((stepId?: string) => {
     setOutputSheet({ output: null, createTargetStepId: stepId });
   }, []);
@@ -1366,6 +1370,9 @@ export function usePipelineDetailPage() {
     allOutputs,
     previewRowCountByOutputId,
     handleOpenOutput,
+    historyOutput,
+    handleOpenOutputHistory,
+    handleCloseOutputHistory,
     handleAddOutput,
     outputSheet,
     handleCloseOutputSheet,
