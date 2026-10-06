@@ -96,7 +96,8 @@ trait OutputHistoryProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       "capturedAt" -> JsString(p.capturedAt.toString),
       "rowCount"   -> JsNumber(p.rowCount),
       "value"      -> num(p.value),
-      "metric"     -> p.metric.fold[JsValue](JsNull)(m => JsObject("field" -> JsString(m.field), "agg" -> str(m.agg)))
+      "metric"     -> p.metric.fold[JsValue](JsNull)(m => JsObject("field" -> JsString(m.field), "agg" -> str(m.agg))),
+      "series"     -> p.series.getOrElse(JsNull)
     )
 
   private def sparklinePoint(p: SparklinePoint): JsValue =

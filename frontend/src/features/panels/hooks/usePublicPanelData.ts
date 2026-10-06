@@ -26,6 +26,10 @@ export interface PublicPanelDataResult {
    *  threaded to `PanelContent`'s `totalRowCount` prop so the loaded-scope disclosure describes
    *  the whole (filtered) Output, not just this single fetched page. */
   total: number;
+  /** HEL-1277 — true unless the single loaded page is known to hold every row (`total <= loaded`).
+   *  Fails closed (`true`) before the first successful load, so a not-yet-known total is never read
+   *  as "complete" (a chart overlay compares against ALL rows, so it needs completeness). */
+  rowsTruncated: boolean;
   /** HEL-1326 design.md D6 — the filtered full-set metric from the LAST rows response; `undefined`
    *  when that response carried none (so a removed filter clears it). */
   filteredMetric: FilteredMetric | null | undefined;
@@ -151,6 +155,7 @@ export function usePublicPanelData(
     output,
     outputMetaLoading,
     total,
+    rowsTruncated: rows === null || total > rows.length,
     filteredMetric,
   };
 }

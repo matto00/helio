@@ -5,7 +5,7 @@ import com.helio.domain.model.{AuthenticatedUser, Output, OutputId}
 import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryPoint, OutputHistoryRepository, OutputRepository}
 import com.helio.services.ServiceError
 import org.slf4j.LoggerFactory
-import spray.json.{JsArray, JsNumber, JsObject, JsString}
+import spray.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValue}
 
 import java.time.Instant
 import java.util.UUID
@@ -13,7 +13,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** A history point reduced to what a comparison needs. `value` is the stored, server-computed
  *  headline metric over ALL rows (summary `metric.value`), `None` when the summary has none. */
-final case class ResolvedHistoryPoint(capturedAt: Instant, rowCount: Int, value: Option[Double], metric: Option[StoredMetricIdentity] = None)
+final case class ResolvedHistoryPoint(capturedAt: Instant, rowCount: Int, value: Option[Double], metric: Option[StoredMetricIdentity] = None, series: Option[JsValue] = None)
 
 /** The field/aggregation a stored summary's metric was computed from (HEL-1326): a read-out of the
  *  stored record only, so a reader can tell whether a point still matches the current config. */
@@ -128,7 +128,7 @@ final class OutputHistoryService(
 
 object OutputHistoryService {
 
-  def resolve(p: OutputHistoryPoint): ResolvedHistoryPoint = ResolvedHistoryPoint(p.capturedAt, p.rowCount, headline(p.summary), metricIdentity(p.summary))
+  def resolve(p: OutputHistoryPoint): ResolvedHistoryPoint = ResolvedHistoryPoint(p.capturedAt, p.rowCount, headline(p.summary), metricIdentity(p.summary), p.summary.fields.get("series").filter(_ != JsNull))
 
   /** The stored summary's metric identity (`v == 1`, `metric.field` a string), `None` for no metric. */
   def metricIdentity(summary: JsObject): Option[StoredMetricIdentity] =

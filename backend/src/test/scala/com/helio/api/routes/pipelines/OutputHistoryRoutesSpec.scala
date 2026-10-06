@@ -296,6 +296,26 @@ class OutputHistoryRoutesSpec
     }
   }
 
+  "GET /outputs/:id/history -- resolved-point series (HEL-1277)" should {
+    "carry the stored series on a window baseline older than every returned point" in {
+      val (pid, oid) = seedMetricOutput(ownerId, Some("7d"))
+      addPointWithSummary(oid, pid, ago(T, days = 8), seriesSummary(Seq(1, 2, 3)))
+      (0 until 40).foreach(i => addPointWithSummary(oid, pid, ago(T, hours = i.toLong), seriesSummary(Seq(9, 9))))
+      val body = history(oid)
+      body.fields("points").convertTo[Vector[JsValue]].size shouldBe 30
+      at(body, "baseline") shouldBe Some(ago(T, days = 8).toString)
+      val bs = body.fields("baseline").asJsObject.fields("series").asJsObject
+      bs.fields("points").convertTo[Vector[JsValue]].size shouldBe 3
+      body.fields("current").asJsObject.fields("series").asJsObject.fields("points").convertTo[Vector[JsValue]].size shouldBe 2
+    }
+
+    "emit series as an explicit JSON null for a metric Output" in {
+      val (pid, oid) = seedMetricOutput(ownerId, Some("7d"))
+      addPoint(oid, pid, T, Some(5))
+      history(oid).fields("current").asJsObject.fields("series") shouldBe JsNull
+    }
+  }
+
   "GET /outputs/:id/history -- wire contract (schema seam)" should {
     val schema = JsonSchemaValidation.compile("outputs/output-history-response.schema.json")
     def errors(raw: String): Vector[String] = JsonSchemaValidation.validationErrors(schema, raw)

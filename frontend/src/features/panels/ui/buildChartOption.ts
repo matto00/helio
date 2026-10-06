@@ -14,6 +14,8 @@ import type { Theme } from "../../../theme/theme";
 import { applyChartTypeOptions } from "../../../utils/chartTypeOptions";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import { buildAggregateDataOption, buildDataOption } from "./chartDataOptions";
+import type { ChartOverlay } from "../history/chartOverlay";
+import { applyChartOverlay } from "./chartOverlayOption";
 
 // `type`/`data` only — no placeholder `name` (unlike the persisted-appearance
 // default, `defaultChartAppearance` in theme/appearance.ts, this is never
@@ -60,6 +62,9 @@ export interface BuildChartOptionParams {
    *  entry is applied to the built option; entries for other types are ignored
    *  on render but preserved in storage. */
   chartOptions?: ChartTypeOptionsMap | null;
+  /** HEL-1277: a labelled "vs" comparison series (single-series line/bar with a category x axis
+   *  only; see `applyChartOverlay` for every ignore rule). */
+  overlay?: ChartOverlay | null;
   effectiveCompact: boolean;
   measuredPieLegendOverlap: boolean;
   themeTokens: ChartThemeTokens;
@@ -77,6 +82,7 @@ export function buildChartOption({
   fieldMapping,
   chartAggregate,
   chartOptions,
+  overlay,
   effectiveCompact,
   measuredPieLegendOverlap,
   themeTokens,
@@ -174,6 +180,10 @@ export function buildChartOption({
   // after appearance merge and before the mobile `compact` pass, so `compact`
   // (HEL-301) stays the last transform and is unchanged.
   built = applyChartTypeOptions(built, chartType, chartOptions);
+
+  // HEL-1277 — the labelled "vs" overlay joins the series array here so the axis-trigger tooltip
+  // and hover-emphasis passes below see it.
+  built = applyChartOverlay(built, chartType, chartOptions, overlay, themeTokens);
 
   // HEL-1342 — a pie's slice labels are attached text: they ignore the global `textStyle` and, with
   // no colour of their own, fall back to zrender's `#333` fill plus an auto light outline (1.40:1

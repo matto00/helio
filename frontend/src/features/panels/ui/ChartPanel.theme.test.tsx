@@ -121,6 +121,7 @@ describe("ChartPanel — tooltip and hover emphasis (HEL-566)", () => {
           shadowSoft: isDark ? "DARK_SHADOW" : "LIGHT_SHADOW",
           radiusMd: "9px",
           accentStrong: `ACCENT_STRONG(${accent})`,
+          textMuted: "MUTED",
         };
       });
     }

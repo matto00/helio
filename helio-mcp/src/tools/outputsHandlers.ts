@@ -17,6 +17,7 @@
 import type { HelioApi } from "../helioApi.js";
 import type {
   AssertionStatusResponse,
+  OutputHistoryResolvedPoint,
   OutputHistoryResponse,
   OutputProvenanceResponse,
   CreateOutputRequest,
@@ -107,8 +108,14 @@ export function getOutputProvenanceHandler(
   return api.getOutputProvenance(outputId);
 }
 
+function withoutSeries(p: OutputHistoryResolvedPoint): OutputHistoryResolvedPoint {
+  const { series: _series, ...rest } = p;
+  return rest;
+}
+
 /** Pass-through of `GET /api/outputs/:id/history`. The only change is a field omission: each
- *  `points[].summary` (up to ~200 series points + 20 column stats) is dropped unless
+ *  `points[].summary` (up to ~200 series points + 20 column stats) and the resolved
+ *  `current`/`baseline` `series` (HEL-1277, same bulk) are dropped unless
  *  `includeSummaries` is true; `sparkline` already carries the values. No arithmetic here. */
 export async function getOutputHistoryHandler(
   api: HelioApi,
@@ -121,6 +128,8 @@ export async function getOutputHistoryHandler(
   if (input.includeSummaries === true) return res;
   return {
     ...res,
+    current: res.current ? withoutSeries(res.current) : res.current,
+    baseline: res.baseline ? withoutSeries(res.baseline) : res.baseline,
     points: res.points.map(({ summary: _summary, ...rest }) => rest),
   };
 }

@@ -27,6 +27,8 @@ export interface ChartThemeTokens {
    *  accent token, used for hover-emphasis highlighting. Deliberately NOT
    *  plain `--app-accent` (see design.md Decision 5). */
   accentStrong: string;
+  /** HEL-1277: `--app-text-muted`, the subordinate colour of the "vs" comparison overlay series. */
+  textMuted: string;
 }
 
 /** Dark-theme literal fallbacks (`theme.css`'s `:root[data-theme="dark"]`
@@ -48,6 +50,7 @@ const FALLBACK_CHART_THEME: ChartThemeTokens = {
   shadowSoft: "0 4px 16px rgba(0, 0, 0, 0.35), 0 24px 64px -16px rgba(0, 0, 0, 0.55)",
   radiusMd: "9px",
   accentStrong: "#fa9249",
+  textMuted: "#aaa49c",
 };
 
 /** Reads the app's current theme tokens straight off the document root's
@@ -69,6 +72,7 @@ export function resolveChartTheme(): ChartThemeTokens {
     shadowSoft: read("--app-shadow-soft", FALLBACK_CHART_THEME.shadowSoft),
     radiusMd: read("--app-radius-md", FALLBACK_CHART_THEME.radiusMd),
     accentStrong: read("--app-accent-strong", FALLBACK_CHART_THEME.accentStrong),
+    textMuted: read("--app-text-muted", FALLBACK_CHART_THEME.textMuted),
   };
 }
 

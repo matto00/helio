@@ -97,6 +97,39 @@ describe("OutputsGalleryTab", () => {
     await waitFor(() => expect(mockListOutputPanels).toHaveBeenCalled());
   });
 
+  it("opens the History view (not the editor) from a card's History action (HEL-1277)", async () => {
+    const onOpenOutput = jest.fn();
+    const onOpenHistory = jest.fn();
+    render(
+      <OutputsGalleryTab
+        outputs={[buildOutput()]}
+        steps={[buildStep()]}
+        previewRowCountByOutputId={{}}
+        onOpenOutput={onOpenOutput}
+        onOpenHistory={onOpenHistory}
+        onAddOutput={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "History for Revenue" }));
+    expect(onOpenHistory).toHaveBeenCalledWith(expect.objectContaining({ id: "out-1" }));
+    expect(onOpenOutput).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockListOutputPanels).toHaveBeenCalled());
+  });
+
+  it("offers no History action when no handler is supplied", async () => {
+    render(
+      <OutputsGalleryTab
+        outputs={[buildOutput()]}
+        steps={[buildStep()]}
+        previewRowCountByOutputId={{}}
+        onOpenOutput={jest.fn()}
+        onAddOutput={jest.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /^History for/ })).toBeNull();
+    await waitFor(() => expect(mockListOutputPanels).toHaveBeenCalled());
+  });
+
   it("calls onAddOutput when '+ New output' is clicked", () => {
     const onAddOutput = jest.fn();
     render(

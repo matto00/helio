@@ -430,6 +430,36 @@ describe("getOutputHistoryHandler (HEL-1274)", () => {
     expect(result).toEqual(history);
   });
 
+  it("omits resolved-point series by default and keeps it with includeSummaries (HEL-1277)", async () => {
+    const series = {
+      mode: "rows",
+      x: "d",
+      y: "v",
+      agg: null,
+      points: [["a", 1]],
+      totalPoints: 1,
+      downsampled: false,
+    };
+    const withSeries = {
+      ...history,
+      current: { ...history.current!, series },
+      baseline: { ...history.baseline!, series },
+    } as unknown as OutputHistoryResponse;
+    const api = makeFakeApi({ getOutputHistory: async () => withSeries });
+
+    const trimmed = await getOutputHistoryHandler(api, { outputId: "output-1" });
+    expect("series" in trimmed.current!).toBe(false);
+    expect("series" in trimmed.baseline!).toBe(false);
+    expect(trimmed.current!.value).toBe(12);
+
+    const full = await getOutputHistoryHandler(api, {
+      outputId: "output-1",
+      includeSummaries: true,
+    });
+    expect(full.current).toEqual(withSeries.current);
+    expect(full.baseline).toEqual(withSeries.baseline);
+  });
+
   it("propagates a HelioApiError", async () => {
     const err = new HelioApiError(404, "/api/outputs/nope/history", "Output not found");
     const api = makeFakeApi({
