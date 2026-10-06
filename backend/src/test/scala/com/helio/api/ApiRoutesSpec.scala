@@ -1512,8 +1512,8 @@ class ApiRoutesSpec
     }
 
     // HEL-910 task 2.1 (design.md Decision 5, Gap A): `routes()` wires the real, production
-    // `ApiRoutes` (non-null `outputRepoOpt`) — this is deliberately NOT a fixture on the `null`
-    // default, so this assertion is not vacuous per the task's own verification requirement.
+    // `ApiRoutes` (real `outputRepo` from the required `dbContext`), so this assertion is not
+    // vacuous per the task's own verification requirement.
     "reject import with an unresolvable outputId, creating nothing" in {
       cleanDb()
       val payload = DashboardSnapshotPayload(

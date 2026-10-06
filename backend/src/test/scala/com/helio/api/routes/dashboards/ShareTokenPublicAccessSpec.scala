@@ -101,7 +101,7 @@ class ShareTokenPublicAccessSpec
       panelRepo,
       aclDirective,
       userOpt = None,
-      Some(outputRepo),
+      outputRepo,
       Some(pipelineRepo),
       Some(nodeSnapshotRepo)
     )(typedSystem).routes

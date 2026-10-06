@@ -94,7 +94,7 @@ class PublicDashboardRoutesSpec
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
   private def routes(): Route =
-    new PublicDashboardRoutes(panelRepo, aclDirective, userOpt = None, Some(outputRepo), Some(pipelineRepo), Some(nodeSnapshotRepo))(typedSystem).routes
+    new PublicDashboardRoutes(panelRepo, aclDirective, userOpt = None, outputRepo, Some(pipelineRepo), Some(nodeSnapshotRepo))(typedSystem).routes
 
   private def seedDashboardWithPublicGrant(): String = {
     import PostgresProfile.api._
@@ -218,7 +218,7 @@ class PublicDashboardRoutesSpec
       await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES (${viewer.id.value}::uuid, ${s"viewer-${viewer.id.value}@helio.test"}, now())"""))
       await(permissionRepo.insert(ResourcePermission("dashboard", dashId, Some(viewer.id), Role.Viewer, Instant.now())))
       val authedRoutes =
-        new PublicDashboardRoutes(panelRepo, aclDirective, userOpt = Some(viewer), Some(outputRepo), Some(pipelineRepo), Some(nodeSnapshotRepo))(typedSystem).routes
+        new PublicDashboardRoutes(panelRepo, aclDirective, userOpt = Some(viewer), outputRepo, Some(pipelineRepo), Some(nodeSnapshotRepo))(typedSystem).routes
 
       Get(s"/dashboards/$dashId/panels") ~> authedRoutes ~> check {
         status shouldBe StatusCodes.OK

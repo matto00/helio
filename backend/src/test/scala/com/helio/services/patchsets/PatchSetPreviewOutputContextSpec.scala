@@ -260,22 +260,6 @@ class PatchSetPreviewOutputContextSpec
       )
       assertParity("apply", apply.context)
     }
-
-    "return a typed ServiceError (never an NPE) for output edits and pipelineStep delete when outputRepo is null" in {
-      val noOutput = new PatchSetPreviewService(
-        panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, null
-      )
-      val s = seedAll()
-      val edits = Vector(
-        edit("output", "update", Some(s.outputId))(output = Some(UpdateOutputRequest(Some("x"), None))),
-        edit("output", "delete", Some(s.outputId))(),
-        edit("pipelineStep", "delete", Some(s.stepId))()
-      )
-      edits.foreach { e =>
-        await(noOutput.preview(PatchSet(None, Vector(e)), userA)) shouldBe
-          Left(ServiceError.InternalError(PatchSetApplyContext.OutputRepoUnavailableMessage))
-      }
-    }
   }
 
   "PatchSetPreviewService over the whole (kind, op) matrix (HEL-1239)" should {

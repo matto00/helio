@@ -99,7 +99,7 @@ class OutputHistoryQueryCountSpec
 
   private def publicCount(dashId: String, panelId: String): (Int, Int) = measure {
     val route = new PublicDashboardRoutes(
-      panelRepo, aclDirective, userOpt = None, Some(outputRepo), Some(pipelineRepo), Some(snapshotRepo), None, Some(historyService)
+      panelRepo, aclDirective, userOpt = None, outputRepo, Some(pipelineRepo), Some(snapshotRepo), None, Some(historyService)
     )(typedSystem).routes
     Get(s"/dashboards/$dashId/panels/$panelId/history") ~> route ~> check { status shouldBe StatusCodes.OK }
   }

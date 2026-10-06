@@ -9,7 +9,7 @@ import com.helio.api.protocols.pipelines.{AnalyzeStepResponse, PipelineSummaryRe
 import com.helio.api.protocols.sources.ConnectorSummary
 import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextDashboard, WorkspaceContextDataSource, WorkspaceContextOutput, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextPipelineStep, WorkspaceContextResponse}
 import com.helio.api.protocols.pipelines.PipelineLaneTreeNode
-import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, DataSourceId, Dashboard, FieldTypeCategory, Output, Page, PagedResult, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, DataSourceId, Dashboard, FieldTypeCategory, Output, Page, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
@@ -79,11 +79,12 @@ final class WorkspaceContextService(
     // justification `outputsF`'s own `outputRepo.listByPipelineInternal` call already documents)
     // and feed them into `PipelineService.laneTreeGiven`, instead of `laneTree` re-deriving them
     // via a second, redundant `pipelineStepRepo.listByPipelineInternal` round trip. `None` (a
-    // fixture predating this fix) degrades `laneTree` to `[]`, mirroring `outputRepo == null`'s
-    // existing degrade convention below.
+    // fixture predating this fix) degrades `laneTree` to `[]`.
     pipelineStepRepoOpt: Option[PipelineStepRepository] = None
 )(implicit ec: ExecutionContext)
     extends WorkspaceContextComputations {
+
+  require(outputRepo != null, "WorkspaceContextService requires an OutputRepository")
 
   /** Shared fetch's row bound (HEL-373 design.md D1): raised from
    *  `SampleRowLimit` (5) to 500 — matches `DataSourceService.staticMaxRows`,
@@ -120,17 +121,7 @@ final class WorkspaceContextService(
       budgetBytes: Int = WorkspaceContextBudget.DefaultBudgetBytes
   ): Future[WorkspaceContextResponse] = {
     val sourcesF      = dataSourceService.findAll(user, Page.Default)
-    // HEL-904 task 3.12: `outputRepo` is `null` in any environment where `ApiRoutes`' own
-    // `outputRepoOpt` degrades to `None` (no `DbContext` passed -- a pre-existing, task-3.1
-    // convention this class did not introduce, see `ApiRoutes.outputRepoOpt`'s own doc). A real
-    // caller in that shape (confirmed live: `ApiTokenAuthSpec`'s `ApiRoutes` fixture predates
-    // `dbContext` and constructs `WorkspaceContextService` transitively via `ApiRoutes` with
-    // `outputRepo = null`) must degrade `dataTypes`/`counts.dataTypes` to empty, not NPE the
-    // whole `GET /api/workspace/context` route -- mirrors `DataTypeService.listRows`'s identical
-    // null-repo-degrades-to-empty precedent.
-    val typesF        =
-      if (outputRepo == null) Future.successful(PagedResult(Vector.empty[Output], 0, 0, Page.Default.limit))
-      else outputRepo.findAllByOwner(user.id, Page.Default)
+    val typesF        = outputRepo.findAllByOwner(user.id, Page.Default)
     val dashboardsF   = dashboardService.findAll(user, Page.Default)
     val summariesF    = pipelineService.listSummaries(user)
     val agentContextF = buildAgentContext(user)
@@ -304,9 +295,7 @@ final class WorkspaceContextService(
     // as the best-effort "representative" Output, matching the field's old one-per-pipeline
     // semantics as closely as the new many-Outputs-per-pipeline model allows. Empty strings
     // when the pipeline has no Output yet (unchanged from the prior placeholder).
-    val outputsF =
-      if (outputRepo == null) Future.successful(Vector.empty[Output])
-      else outputRepo.listByPipelineInternal(PipelineId(summary.id))
+    val outputsF = outputRepo.listByPipelineInternal(PipelineId(summary.id))
     val analyzeF = pipelineService.analyze(PipelineId(summary.id), user)
       .map {
         case Right(analyzed) => (analyzed.steps.map(toStepEntry), Option.empty[String])

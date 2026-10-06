@@ -71,17 +71,18 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     // HEL-904 task 3.12/3.2: WorkspaceContextService/WorkspaceSearchService take the SAME
     // `outputRepo` param this helper already threads through to `dashboardProposalService` --
     // `dataTypeService` is no longer a collaborator of either.
-    val workspaceContextService  = new WorkspaceContextService(null, null, outputRepo, null)
-    val workspaceSearchService   = new WorkspaceSearchService(null, null, outputRepo, null, workspaceContextService)
+    // HEL-1337: both services require a non-null `outputRepo`; a test that never reaches the repo
+    // gets a typed double instead of null.
+    val workspaceOutputRepo      = if (outputRepo != null) outputRepo else mock(classOf[OutputRepository])
+    val workspaceContextService  = new WorkspaceContextService(null, null, workspaceOutputRepo, null)
+    val workspaceSearchService   = new WorkspaceSearchService(null, null, workspaceOutputRepo, null, workspaceContextService)
     // HEL-904 task 3.11: rewired onto OutputRepository/NodeSnapshotRepository -- reuses the SAME
     // `outputRepo` this helper already threads to workspaceContextService/workspaceSearchService/
     // dashboardProposalService above. `null` NodeSnapshotRepository degrades to `rowCount = 0`; no
     // test in this file asserts on panel-capability row counts.
     val panelCapabilityService   = new PanelCapabilityService(outputRepo, null)
-    // HEL-1295: DashboardProposalService requires a non-null repository; this helper's `outputRepo`
-    // stays null for the workspace services above (their own null handling is out of scope), so
-    // the proposal service gets a typed double instead.
-    val dashboardProposalService = new DashboardProposalService(null, null, if (outputRepo != null) outputRepo else mock(classOf[OutputRepository]))
+    // HEL-1295: DashboardProposalService requires a non-null repository.
+    val dashboardProposalService = new DashboardProposalService(null, null, workspaceOutputRepo)
     // HEL-756 tasks.md 2.4/2.5/2.7 — the default is a REAL instance whose own collaborators are all
     // null, safe because `PipelineProposalService.validate`'s `validateSourceReference` never
     // touches `dataSourceRepo` for an inline (sourceId = None) source. A test that needs `validate`

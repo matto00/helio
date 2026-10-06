@@ -1,6 +1,8 @@
 package com.helio.services.workspace
 
 import com.helio.services.workspace.WorkspaceContextService
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import org.mockito.Mockito.mock
 import com.helio.api.protocols.workspace.{WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextOutput}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -25,7 +27,7 @@ class WorkspaceContextServiceComputeJoinHintsSpec extends AnyWordSpec with Match
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private val service = new WorkspaceContextService(null, null, null, null)
+  private val service = new WorkspaceContextService(null, null, mock(classOf[OutputRepository]), null)
 
   private def identifierColumn(
       name: String,

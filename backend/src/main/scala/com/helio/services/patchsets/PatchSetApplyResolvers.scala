@@ -634,8 +634,6 @@ private[services] object PatchSetApplyResolvers {
           case Some(existing) =>
             requireVisibleStep(existing.pipelineId, index, user, ctx).flatMap {
               case Left(err) => Future.successful(Left(err))
-              case Right(_) if ctx.outputRepo == null =>
-                Future.successful(Left(PatchSetApplyContext.outputRepoUnavailable))
               case Right(_) =>
                 // HEL-913 task 7.6a-i: same `priorState`-must-carry-its-real-root rationale as
                 // the update resolver above -- a delete's `priorState` is what a later undo
@@ -771,8 +769,7 @@ private[services] object PatchSetApplyResolvers {
       user: AuthenticatedUser,
       ctx: PatchSetApplyContext
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Output]] =
-    if (ctx.outputRepo == null) Future.successful(Left(PatchSetApplyContext.outputRepoUnavailable))
-    else ctx.outputRepo.findById(id, user).map {
+    ctx.outputRepo.findById(id, user).map {
       case None                                     => Left(ServiceError.NotFound("Output not found"))
       case Some(output) if output.ownerId != user.id => Left(ServiceError.NotFound("Output not found"))
       case Some(output)                              => Right(output)
