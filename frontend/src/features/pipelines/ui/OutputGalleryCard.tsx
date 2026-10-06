@@ -18,7 +18,7 @@ import { useEffect, useState } from "react";
 import type { Output } from "../types/output";
 import { listOutputPanels } from "../services/outputService";
 import "./OutputGalleryCard.css";
-import { ChartLine, Table } from "lucide-react";
+import { ChartLine, History, Table } from "lucide-react";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 function thumbnailText(output: Output, rowCount: number | undefined): string {
@@ -36,9 +36,17 @@ interface OutputGalleryCardProps {
   stepLabel: string;
   rowCount: number | undefined;
   onOpen: (output: Output) => void;
+  /** HEL-1277 — opens the Output's History view (scrubber over its recorded runs). */
+  onOpenHistory?: (output: Output) => void;
 }
 
-export function OutputGalleryCard({ output, stepLabel, rowCount, onOpen }: OutputGalleryCardProps) {
+export function OutputGalleryCard({
+  output,
+  stepLabel,
+  rowCount,
+  onOpen,
+  onOpenHistory,
+}: OutputGalleryCardProps) {
   const [placementCount, setPlacementCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -59,32 +67,45 @@ export function OutputGalleryCard({ output, stepLabel, rowCount, onOpen }: Outpu
   }, [output.id]);
 
   return (
-    <button
-      type="button"
-      className="output-gallery-card"
-      onClick={() => onOpen(output)}
-      aria-label={`Open ${output.name} output`}
-    >
-      <div className="output-gallery-card__thumbnail">
-        <span className="output-gallery-card__kind">{kindLabel(output.kind)}</span>
-        {output.kind === "chart" ? (
-          <ChartLine className="output-gallery-card__thumbnail-icon" size={ICON_SIZE.lg} />
-        ) : (
-          <Table className="output-gallery-card__thumbnail-icon" size={ICON_SIZE.lg} />
-        )}
-        <span className="output-gallery-card__thumbnail-value">
-          {thumbnailText(output, rowCount)}
-        </span>
-      </div>
-      <div className="output-gallery-card__body">
-        <span className="output-gallery-card__name">{output.name}</span>
-        <span className="output-gallery-card__meta">off {stepLabel}</span>
-        {placementCount !== null && (
-          <span className="output-gallery-card__meta">
-            on {placementCount} dashboard{placementCount === 1 ? "" : "s"}
+    <div className="output-gallery-card">
+      <button
+        type="button"
+        className="output-gallery-card__open"
+        onClick={() => onOpen(output)}
+        aria-label={`Open ${output.name} output`}
+      >
+        <div className="output-gallery-card__thumbnail">
+          <span className="output-gallery-card__kind">{kindLabel(output.kind)}</span>
+          {output.kind === "chart" ? (
+            <ChartLine className="output-gallery-card__thumbnail-icon" size={ICON_SIZE.lg} />
+          ) : (
+            <Table className="output-gallery-card__thumbnail-icon" size={ICON_SIZE.lg} />
+          )}
+          <span className="output-gallery-card__thumbnail-value">
+            {thumbnailText(output, rowCount)}
           </span>
-        )}
-      </div>
-    </button>
+        </div>
+        <div className="output-gallery-card__body">
+          <span className="output-gallery-card__name">{output.name}</span>
+          <span className="output-gallery-card__meta">off {stepLabel}</span>
+          {placementCount !== null && (
+            <span className="output-gallery-card__meta">
+              on {placementCount} dashboard{placementCount === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
+      </button>
+      {onOpenHistory && (
+        <button
+          type="button"
+          className="output-gallery-card__history tap-expand-44"
+          onClick={() => onOpenHistory(output)}
+          aria-label={`History for ${output.name}`}
+        >
+          <History size={ICON_SIZE.sm} />
+          <span>History</span>
+        </button>
+      )}
+    </div>
   );
 }

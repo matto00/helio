@@ -15,8 +15,6 @@
   border: 1px solid var(--app-border-subtle);
   background: var(--app-surface);
   color: var(--app-text);
-  cursor: pointer;
-  text-align: left;
   transition: var(--app-transition);
   min-height: 44px;
 }
@@ -24,6 +22,45 @@
 .output-gallery-card:hover {
   border-color: var(--app-border-strong);
   background: var(--app-surface-soft);
+}
+
+/* HEL-1277 -- the card is now a wrapper holding two sibling buttons (a button may not nest another
+ * button); the open button carries the card's former content layout and click target. */
+.output-gallery-card__open {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  min-height: 44px;
+}
+
+.output-gallery-card__history {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-sm);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-text-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: var(--app-transition);
+}
+
+.output-gallery-card__history:hover {
+  background: var(--app-surface-raised);
+  color: var(--app-text);
 }
 
 .output-gallery-card__thumbnail {

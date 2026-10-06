@@ -43,6 +43,9 @@ export interface ColumnDef {
    *  `TableRenderer` for a Content-category or undeclared-in-schema column,
    *  which the server rejects as `400` if requested anyway. */
   disabledReason?: string;
+  /** HEL-1277 — a render-only column (e.g. a derived "Change" marker): no sort control, no
+   *  per-column filter input and no resize handle, so it can never be mistaken for data. */
+  inert?: boolean;
 }
 
 type DataGridVariant = "full" | "preview";
@@ -301,6 +304,9 @@ interface DataGridProps {
    */
   onPinToggle?: (key: string) => void;
   className?: string;
+  /** HEL-1277 — an extra class for one body row (e.g. a changed-row tint). Called per rendered
+   *  row; `undefined` adds nothing. */
+  rowClassName?: (row: Record<string, unknown>) => string | undefined;
   /**
    * HEL-1080 design.md Decision 0 (owner ruling, standing constraint C1) — default-off grid/a11y
    * mode. Absent/`false` renders today's plain `<table>` exactly as before; every existing
@@ -422,6 +428,7 @@ export function DataGrid({
   pinnedColumns,
   onPinToggle,
   className,
+  rowClassName,
   gridMode = false,
   activeCell = null,
   onActiveCellChange,
@@ -994,7 +1001,7 @@ export function DataGrid({
                 // HEL-1027 design.md D3 (task 4.5) — a per-column override of the grid-wide
                 // `sortable` flag: a column with a `disabledReason` never renders a sort control
                 // at all, regardless of `sort`/`onSort` being wired for the grid as a whole.
-                const columnSortable = sortable && col.disabledReason == null;
+                const columnSortable = sortable && col.disabledReason == null && !col.inert;
                 const direction: SortDirection | null =
                   columnSortable && sort?.key === col.key ? sort.direction : null;
                 const ariaSort = !columnSortable
@@ -1115,7 +1122,7 @@ export function DataGrid({
                         onClick={() => onPinToggle(col.key)}
                       />
                     )}
-                    {resizable && (
+                    {resizable && !col.inert && (
                       <span
                         className="ui-data-grid__resize-handle"
                         role="separator"
@@ -1160,16 +1167,18 @@ export function DataGrid({
                         ...(isPinned ? { left: pinnedOffsets[col.key], zIndex: 3 } : undefined),
                       }}
                     >
-                      <input
-                        type="text"
-                        className="ui-data-grid__filter-input"
-                        aria-label={`Filter column ${col.header ?? col.key}`}
-                        placeholder="Filter…"
-                        value={columnTerms[col.key] ?? ""}
-                        onChange={handleColumnFilterChange(col.key)}
-                        disabled={col.disabledReason != null}
-                        title={col.disabledReason}
-                      />
+                      {!col.inert && (
+                        <input
+                          type="text"
+                          className="ui-data-grid__filter-input"
+                          aria-label={`Filter column ${col.header ?? col.key}`}
+                          placeholder="Filter…"
+                          value={columnTerms[col.key] ?? ""}
+                          onChange={handleColumnFilterChange(col.key)}
+                          disabled={col.disabledReason != null}
+                          title={col.disabledReason}
+                        />
+                      )}
                     </th>
                   );
                 })}
@@ -1214,9 +1223,12 @@ export function DataGrid({
                   aria-rowindex={i + 2}
                   role={gridMode ? "row" : undefined}
                   className={
-                    showBottomSpacer && isLastMountedRow
-                      ? "ui-data-grid__row--no-border"
-                      : undefined
+                    [
+                      showBottomSpacer && isLastMountedRow ? "ui-data-grid__row--no-border" : null,
+                      rowClassName?.(row),
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || undefined
                   }
                 >
                   {resolvedColumns.map((col, index) => {

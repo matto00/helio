@@ -5,6 +5,7 @@ import type { ChartTypeOptionsMap, PanelAppearance } from "../types/panel";
 import { resolveChartTheme } from "../../../utils/chartAppearance";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import { useTheme } from "../../../theme/ThemeProvider";
+import type { ChartOverlay } from "../history/chartOverlay";
 import { buildChartOption } from "./buildChartOption";
 
 export interface UseChartOptionParams {
@@ -14,6 +15,7 @@ export interface UseChartOptionParams {
   fieldMapping?: Record<string, string> | null;
   chartAggregate?: GroupedAggregate | null;
   chartOptions?: ChartTypeOptionsMap | null;
+  overlay?: ChartOverlay | null;
   effectiveCompact: boolean;
   measuredPieLegendOverlap: boolean;
 }
@@ -30,6 +32,7 @@ export function useChartOption({
   fieldMapping,
   chartAggregate,
   chartOptions,
+  overlay,
   effectiveCompact,
   measuredPieLegendOverlap,
 }: UseChartOptionParams): EChartsOption {
@@ -91,6 +94,7 @@ export function useChartOption({
       fieldMapping,
       chartAggregate,
       chartOptions,
+      overlay,
       effectiveCompact,
       measuredPieLegendOverlap,
       themeTokens,
@@ -103,6 +107,7 @@ export function useChartOption({
     fieldMapping,
     chartAggregate,
     chartOptions,
+    overlay,
     effectiveCompact,
     measuredPieLegendOverlap,
     theme,

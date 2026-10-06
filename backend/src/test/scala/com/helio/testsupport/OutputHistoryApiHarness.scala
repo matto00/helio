@@ -138,6 +138,20 @@ trait OutputHistoryApiHarness extends OutputHistoryFixtures {
       historyEntry(outputId, pipelineId, at).copy(rowCount = rowCount, summary = summaryOf(value, rowCount))
     ))))
 
+  /** A rows-mode series summary (x -> y points) for series-bearing history points (HEL-1277). */
+  protected def seriesSummary(ys: Seq[Double], rowCount: Int = 10): JsObject = {
+    val series = JsObject(
+      "mode" -> JsString("rows"), "x" -> JsString("day"), "y" -> JsString("amount"), "agg" -> JsNull,
+      "points" -> JsArray(ys.zipWithIndex.map { case (y, i) => JsArray(JsString(s"d$i"), JsNumber(y)) }.toVector),
+      "totalPoints" -> JsNumber(ys.size), "downsampled" -> JsBoolean(false)
+    )
+    summaryOf(None, rowCount).copy(fields = summaryOf(None, rowCount).fields + ("series" -> series))
+  }
+
+  /** Inserts one history point carrying `summary` verbatim. */
+  protected def addPointWithSummary(outputId: String, pipelineId: String, at: Instant, summary: JsObject): Unit =
+    awaitDb(db.run(historyRepo.insertAction(Seq(historyEntry(outputId, pipelineId, at).copy(summary = summary)))))
+
   /** A pipeline owned by `ownerId` with a metric Output whose config carries `compare` (raw seed, so
    *  no validation path is involved). Returns (pipelineId, outputId). */
   protected def seedMetricOutput(ownerId: String, compare: Option[String]): (String, String) = {

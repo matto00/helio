@@ -103,6 +103,22 @@ class OutputHistoryPublicRoutesSpec
       }
     }
 
+    "carry series on resolved points and still leak no id, payload flag, run id or trigger source" in {
+      val dashId     = seedDashboard(public = true)
+      val (pid, oid) = seedMetricOutput(ownerId, Some("7d"))
+      addPointWithSummary(oid, pid, daysBefore(8), seriesSummary(Seq(1, 2)))
+      addPointWithSummary(oid, pid, T, seriesSummary(Seq(3, 4)))
+      val panelId = seedPanel(dashId, Some(oid))
+      Get(s"/dashboards/$dashId/panels/$panelId/history") ~> routes() ~> check {
+        val raw  = responseAs[String]
+        val body = raw.parseJson.asJsObject
+        body.fields("baseline").asJsObject.fields("series").asJsObject.fields("y") shouldBe JsString("amount")
+        body.fields("current").asJsObject.fields("series").asJsObject.fields("points").convertTo[Vector[JsValue]].size shouldBe 2
+        Seq("\"id\"", "hasPayload", "runId", "triggerSource").foreach(k => withClue(s"key '$k': ")(raw should not include k))
+        JsonSchemaValidation.validationErrors(schema, raw) shouldBe Vector.empty
+      }
+    }
+
     "resolve the same comparison as the authenticated route (baseline T-8d, delta, pct)" in {
       val (dashId, panelId, _, _, _) = seedBoundFixture()
       Get(s"/dashboards/$dashId/panels/$panelId/history") ~> routes() ~> check {

@@ -15,6 +15,7 @@ import {
   PIE_LEGEND_HIDE_HEIGHT_PX,
   useMeasuredChartHeight,
 } from "./useChartCompact";
+import type { ChartOverlay } from "../history/chartOverlay";
 import { useChartOption } from "./useChartOption";
 import { useChartClickHandler } from "./useChartClickHandler";
 import echarts from "./echartsCore";
@@ -32,6 +33,8 @@ export interface ChartPanelProps {
    *  entry is applied to the built option; entries for other types are ignored
    *  on render but preserved in storage. */
   chartOptions?: ChartTypeOptionsMap | null;
+  /** HEL-1277: a labelled "vs" comparison series (see `buildChartOption`'s `overlay`). */
+  overlay?: ChartOverlay | null;
   /** HEL-301: true when rendered in the phone stack, where there is no room
    *  for a legend and full-size axis labels overflow. Hides the legend and
    *  shrinks axis label font via ECharts config — "fix via ECharts config,
@@ -58,6 +61,7 @@ export function ChartPanel({
   fieldMapping,
   chartAggregate,
   chartOptions,
+  overlay,
   compact = false,
   onDataPointSelect,
 }: ChartPanelProps = {}) {
@@ -75,6 +79,7 @@ export function ChartPanel({
     fieldMapping,
     chartAggregate,
     chartOptions,
+    overlay,
     effectiveCompact,
     measuredPieLegendOverlap,
   });

@@ -59,6 +59,7 @@ describe("buildChartOption chart-less vs explicitly-defaulted (HEL-1178)", () =>
     shadowSoft: "0 1px 2px rgba(0,0,0,0.1)",
     radiusMd: "8px",
     accentStrong: "#ea580c",
+    textMuted: "#aaa49c",
   };
   const darkTokens: ChartThemeTokens = {
     ...lightTokens,

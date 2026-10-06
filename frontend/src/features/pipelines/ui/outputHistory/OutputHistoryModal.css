@@ -1,0 +1,121 @@
+/* HEL-1277 -- Output History view. Tokens only (DESIGN.md); light/dark parity comes from the
+ * --app-* ramps. */
+.output-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.output-history__scrubber {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.output-history__range {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--app-accent);
+}
+
+/* DESIGN.md §3 touch floor: the range input is the scrub control on touch devices. */
+@media (max-width: 768px), (pointer: coarse) {
+  .output-history__range {
+    min-height: 44px;
+  }
+}
+
+.output-history__summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.output-history__point-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.output-history__point-time {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
+}
+
+.output-history__caption,
+.output-history__note,
+.output-history__muted {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.output-history__metric {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.output-history__metric-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
+}
+
+.output-history__loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.output-history__error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-error);
+}
+
+.output-history__chart {
+  height: 260px;
+  min-width: 0;
+}
+
+.output-history__chart .panel-content--chart {
+  height: 100%;
+}
+
+.output-history__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.output-history__table {
+  height: 360px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.output-history__table .panel-content {
+  flex: 1;
+  min-height: 0;
+}
+
+/* A changed row reads as a text cue (the "Change" cell) AND an accent wash; the wash uses the
+ * selection-surface token so it carries through user accents in both themes. */
+.output-history__row--changed td {
+  background: var(--app-accent-surface);
+}

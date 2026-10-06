@@ -102,6 +102,17 @@ interface TableRendererProps {
    *  pagination at all, e.g. the panel detail modal) falls back to the loaded/filtered row count
    *  actually in hand — the D7 "client-side-fallback-only" path. */
   totalRowCount?: number;
+  /** HEL-1277 — render-only columns placed before the data columns (the History view's "Change"
+   *  marker). Forced `inert` (no sort/filter/resize control) and EXCLUDED from filtering, sorting,
+   *  `columnOrder`, widths and every persistence path; rows are never mutated. Supplying any also
+   *  disables the pin control (a pinned run must start at the first column). */
+  leadingColumns?: ColumnDef[];
+  /** HEL-1277 — an extra class for a body row (e.g. a changed-row tint), keyed by row OBJECT, so it
+   *  survives the table's own sort/filter. Passed straight through to `DataGrid`. */
+  rowClassName?: (row: Record<string, unknown>) => string | undefined;
+  /** HEL-1277 — hides the pin control (a read-only history table keeps it off for every point,
+   *  so it never appears and disappears while scrubbing). */
+  disablePinning?: boolean;
 }
 
 /** HEL-1027 design.md D2/D3 (task 4.5) — `undefined` when `schema` itself is `undefined` (no
@@ -284,6 +295,9 @@ export function TableRenderer({
   onSortChange,
   onFilterChange,
   totalRowCount,
+  leadingColumns,
+  rowClassName,
+  disablePinning = false,
 }: TableRendererProps) {
   // Local-only column widths (no longer persisted — see the file's HEL-909
   // interface-parity note, now folded into the `outputId` doc comment).
@@ -759,13 +773,23 @@ export function TableRenderer({
     </div>
   );
 
+  const hasLeading = leadingColumns != null && leadingColumns.length > 0;
+  const gridColumns = useMemo<ColumnDef[]>(
+    () =>
+      hasLeading
+        ? [...leadingColumns.map((c) => ({ ...c, inert: true })), ...formattedColumns]
+        : formattedColumns,
+    [hasLeading, leadingColumns, formattedColumns],
+  );
+
   if (usingPagination || usingRaw) {
     return (
       <div className="panel-content panel-content--table">
         <DataGrid
           variant="full"
           rows={displayRows}
-          columns={formattedColumns}
+          columns={gridColumns}
+          rowClassName={rowClassName}
           columnWidths={widths}
           onColumnResize={handleColumnResize}
           sort={sortState.key === UNSORTED_SENTINEL ? null : sortState}
@@ -773,7 +797,7 @@ export function TableRenderer({
           filters={filters}
           onFilterChange={handleFilterChange}
           pinnedColumns={pinnedKeys}
-          onPinToggle={handlePinToggle}
+          onPinToggle={hasLeading || disablePinning ? undefined : handlePinToggle}
           emptyText={emptyText}
           emptyAction={emptyAction}
         />

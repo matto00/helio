@@ -196,3 +196,16 @@ describe("RunHistoryModal — HEL-873 persisted truncation signal", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("RunHistoryModal — trigger labels (HEL-1277)", () => {
+  it.each([
+    ["manual", "Manual"],
+    ["scheduled", "Scheduled"],
+    ["external", "External"],
+    ["auto-run", "Auto-run"],
+  ])("labels a %s run %s through the shared helper", (triggerSource, label) => {
+    const run = makeRun({ triggerSource: triggerSource as PipelineRunRecord["triggerSource"] });
+    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+    expect(screen.getByText(label)).toBeInTheDocument();
+  });
+});

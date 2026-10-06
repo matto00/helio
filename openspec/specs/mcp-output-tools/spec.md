@@ -145,7 +145,7 @@ helio-mcp SHALL register a `get_output_history` tool taking `outputId` (required
 `since` (optional ISO-8601 instant) and `includeSummaries` (optional boolean, default false). It SHALL issue exactly
 one `GET /api/outputs/:id/history` request, forwarding `limit`/`since` as query parameters only when supplied. It SHALL
 return that route's response unchanged, except that when `includeSummaries` is not true each `points[]` entry omits
-its `summary` field. The tool SHALL NOT compute baselines, deltas, percentages or values itself.
+its `summary` field and the resolved `current` and `baseline` objects (when non-null) omit their `series` field. The tool SHALL NOT compute baselines, deltas, percentages or values itself.
 
 The tool description SHALL state that a value is non-null only for metric-kind Outputs. It SHALL state that a
 `previous_run` baseline is the second-newest retained history point, which may be older than the immediately
@@ -166,9 +166,9 @@ preceding run because older history is thinned. The description SHALL NOT claim 
 #### Scenario: Summaries trimmed by default
 
 - **WHEN** `get_output_history` is called without `includeSummaries`
-- **THEN** no returned `points[]` entry has a `summary` field, and every other response field is unchanged
+- **THEN** no returned `points[]` entry has a `summary` field, neither `current` nor `baseline` has a `series` field, and every other response field is unchanged
 - **WHEN** it is called with `includeSummaries: true`
-- **THEN** each `points[]` entry carries the backend's `summary` unchanged
+- **THEN** each `points[]` entry carries the backend's `summary` unchanged and `current`/`baseline` carry the backend's `series` unchanged
 
 #### Scenario: Backend errors surface as tool errors
 
