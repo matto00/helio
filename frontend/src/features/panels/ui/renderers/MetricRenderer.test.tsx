@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 
 import { MetricRenderer } from "./MetricRenderer";
+import type { MetricComparison } from "../../history/metricHistoryView";
 
 describe("MetricRenderer — unit rendering", () => {
   it("renders the unit adjacent to the value when both are present", () => {
@@ -119,5 +120,100 @@ describe("MetricRenderer format (HEL-876)", () => {
   it("multiplies by 100 and appends % for format: percent", () => {
     render(<MetricRenderer data={{ value: "0.4213" }} format="percent" />);
     expect(screen.getByText("42.13%")).toBeInTheDocument();
+  });
+});
+
+describe("MetricRenderer — history comparison (HEL-1275)", () => {
+  const delta = (over: Partial<Extract<MetricComparison, { kind: "delta" }>> = {}) =>
+    ({
+      kind: "delta",
+      direction: "up",
+      pct: 12,
+      absDelta: 129,
+      label: "7d",
+      words: "versus 7 days earlier",
+      baselineAt: "2026-09-28T09:00:00Z",
+      baselineValue: 1075,
+      ...over,
+    }) as MetricComparison;
+
+  it("renders up with the up modifier and an accessible name", () => {
+    render(<MetricRenderer data={{ value: "1204" }} format="integer" comparison={delta()} />);
+    expect(screen.getByText("1,204")).toBeInTheDocument();
+    const el = screen.getByRole("img", { name: "up 12% versus 7 days earlier" });
+    expect(el).toHaveTextContent("▲ 12% vs 7d");
+    expect(el).toHaveClass("panel-content__metric-trend--up");
+  });
+
+  it("renders down", () => {
+    render(
+      <MetricRenderer data={{ value: "1" }} comparison={delta({ direction: "down", pct: 8.5 })} />,
+    );
+    const el = screen.getByRole("img", { name: /^down 8\.5%/ });
+    expect(el).toHaveTextContent("▼ 8.5% vs 7d");
+    expect(el).toHaveClass("panel-content__metric-trend--down");
+  });
+
+  it("renders flat with 0%", () => {
+    render(
+      <MetricRenderer data={{ value: "1" }} comparison={delta({ direction: "flat", pct: 0 })} />,
+    );
+    const el = screen.getByRole("img", { name: /^unchanged 0%/ });
+    expect(el).toHaveTextContent("▬ 0% vs 7d");
+    expect(el).toHaveClass("panel-content__metric-trend--flat");
+  });
+
+  it("shows the absolute delta in the headline's format when pct is null", () => {
+    render(
+      <MetricRenderer
+        data={{ value: "5" }}
+        format="integer"
+        comparison={delta({ pct: null, absDelta: 5 })}
+      />,
+    );
+    expect(screen.getByRole("img", { name: /^up 5 / })).toHaveTextContent("▲ 5 vs 7d");
+  });
+
+  it("labels previous_run as 'previous', never 'previous run'", () => {
+    const { container } = render(
+      <MetricRenderer
+        data={{ value: "1" }}
+        comparison={delta({ label: "previous", words: "versus the previous point" })}
+      />,
+    );
+    expect(container).toHaveTextContent("vs previous");
+    expect(container.textContent).not.toMatch(/previous run/i);
+    expect(screen.getByRole("img").getAttribute("aria-label")).not.toMatch(/previous run/i);
+  });
+
+  it("renders the available-from note and no delta glyph", () => {
+    const { container } = render(
+      <MetricRenderer
+        data={{ value: "1" }}
+        comparison={{ kind: "availableFrom", label: "7d", availableFrom: "2026-10-12T09:00:00Z" }}
+      />,
+    );
+    expect(container).toHaveTextContent(
+      `7d comparison available from ${new Date("2026-10-12T09:00:00Z").toLocaleDateString()}`,
+    );
+    expect(container.textContent).not.toMatch(/[▲▼]/);
+  });
+
+  it("renders a focusable filtered marker with a tooltip and description", () => {
+    render(<MetricRenderer data={{ value: "1" }} comparison={{ kind: "filtered" }} />);
+    const marker = screen.getByTitle("comparison reflects unfiltered data");
+    expect(marker).toHaveAttribute("tabindex", "0");
+    expect(marker).toHaveAccessibleDescription("comparison reflects unfiltered data");
+  });
+
+  it("renders a sparkline only with at least two values", () => {
+    const { rerender } = render(<MetricRenderer data={{ value: "1" }} sparkline={[1, 2, 3]} />);
+    expect(
+      screen.getByRole("img", { name: /Trend over 3 data points, rising/ }),
+    ).toBeInTheDocument();
+    rerender(<MetricRenderer data={{ value: "1" }} sparkline={[1]} />);
+    expect(screen.queryByRole("img")).toBeNull();
+    rerender(<MetricRenderer data={{ value: "1" }} sparkline={null} />);
+    expect(screen.queryByRole("img")).toBeNull();
   });
 });

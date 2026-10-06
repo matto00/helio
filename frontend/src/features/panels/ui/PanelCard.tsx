@@ -348,6 +348,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
         // `usePanelSortFilter` already seeded from, instead of independently fetching its own
         // copy. See `PanelContentProps.output`'s own doc comment for the full contract.
         output={output}
+        viewerFilterActive={controlFilterOps.length > 0}
         outputMetaLoading={isOutputMetaLoading}
         crossFilterMode={crossFilterMode}
       />

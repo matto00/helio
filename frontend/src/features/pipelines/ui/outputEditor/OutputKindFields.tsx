@@ -175,6 +175,22 @@ export const METRIC_FORMAT_OPTIONS: SelectOption[] = [
   { value: "percent", label: "Percent (%)" },
 ];
 
+/** HEL-1275 design.md D7 — `config.compare` choices. A pre-existing `custom:<duration>` value is
+ *  appended as its own option by `compareOptions` so opening and saving never silently drops it. */
+export const METRIC_COMPARE_OPTIONS: SelectOption[] = [
+  { value: "none", label: "None" },
+  { value: "previous_run", label: "Previous" },
+  { value: "1d", label: "1 day" },
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+];
+
+function compareOptions(value: string): SelectOption[] {
+  return value.startsWith("custom:")
+    ? [...METRIC_COMPARE_OPTIONS, { value, label: `Custom (${value.slice("custom:".length)})` }]
+    : METRIC_COMPARE_OPTIONS;
+}
+
 interface MetricKindFieldsProps {
   fieldOptions: SelectOption[];
   fieldValue: string;
@@ -187,6 +203,9 @@ interface MetricKindFieldsProps {
    *  default rendering. */
   formatValue: string;
   onFormatChange: (v: string) => void;
+  /** HEL-1275 — `"none"` or a `config.compare` token. */
+  compareValue: string;
+  onCompareChange: (v: string) => void;
 }
 
 export function MetricKindFields({
@@ -199,6 +218,8 @@ export function MetricKindFields({
   unitState,
   formatValue,
   onFormatChange,
+  compareValue,
+  onCompareChange,
 }: MetricKindFieldsProps) {
   return (
     <>
@@ -218,6 +239,15 @@ export function MetricKindFields({
           value={formatValue}
           onChange={onFormatChange}
           options={METRIC_FORMAT_OPTIONS}
+        />
+      </div>
+      <div className="output-editor-sheet__data-section">
+        <span className="output-editor-sheet__data-label">Compare</span>
+        <Select
+          ariaLabel="Compare"
+          value={compareValue}
+          onChange={onCompareChange}
+          options={compareOptions(compareValue)}
         />
       </div>
       <div className="output-editor-sheet__data-section">

@@ -76,6 +76,10 @@ function PublicOutputPanelBody({
     [dashboardId, panel.id, token],
   );
 
+  const historySource = useMemo(
+    () => ({ variant: "public" as const, dashboardId, token }),
+    [dashboardId, token],
+  );
   const panelData = usePublicPanelData(
     panel,
     dashboardId,
@@ -126,6 +130,8 @@ function PublicOutputPanelBody({
         // `PanelCard`/`PanelInspectView`/`CrossFilterIndicator` here), so the client-side
         // cross-filter path must never engage.
         crossFilterMode="none"
+        viewerFilterActive={controlFilterOps.length > 0}
+        historySource={historySource}
       />
       {/* HEL-1190 design.md D10 (task 5.5) — this page had NO live region at all before this
           ticket; a control-driven row-count change is announced here. */}

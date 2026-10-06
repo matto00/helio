@@ -25,6 +25,11 @@ import {
 import { onProvenanceOpened, type ProvenanceVariant } from "./provenanceTelemetry";
 import { ProvenancePopover } from "./ProvenancePopover";
 import { useProvenance } from "./useProvenance";
+import {
+  comparisonStoreKey,
+  getPublishedComparison,
+  subscribeComparisons,
+} from "../history/metricComparisonStore";
 
 const POPOVER_MAX_WIDTH = 360;
 const VIEWPORT_MARGIN = 8;
@@ -92,6 +97,10 @@ export function ProvenanceTrigger({
     [isPublic, dashboardId, panelId, token, outputId],
   );
   const state = useProvenance(key, fetcher, isOpen);
+  // HEL-1275 design.md D5 — the comparison the panel body resolved (null when hidden/absent).
+  const comparison = useSyncExternalStore(subscribeComparisons, () =>
+    getPublishedComparison(comparisonStoreKey(variant, panelId)),
+  );
 
   // A cached chain goes stale when its pipeline next succeeds or fails: evict so the next open
   // refetches. Subscribes only once a chain is loaded (nothing to go stale before that; the fan-out
@@ -179,6 +188,7 @@ export function ProvenanceTrigger({
           variant={variant}
           pos={panelPos}
           state={state}
+          comparison={comparison}
           focusChecks={focusChecks}
           pipelineHref={pipelineHref}
           container={container}

@@ -1,0 +1,170 @@
+import { expect, test, type Page, type BrowserContext } from "@playwright/test";
+import { writeFileSync } from "node:fs";
+import { backdateHistory } from "./support/historySeed";
+
+const CSRF = { "X-Helio-Requested-With": "1" };
+const SH = process.env.SHOTS!;
+const IDS = process.env.IDS_OUT!;
+const log = (...a: unknown[]) => console.log("[probe]", ...a);
+
+test("skeptic r2 probe", async ({ browser }) => {
+  const rec: Record<string, unknown> = {};
+  const save = () => writeFileSync(IDS, JSON.stringify(rec, null, 2));
+  const ctx: BrowserContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await ctx.addInitScript(() => window.localStorage.setItem("helio-theme", "light"));
+  const page = await ctx.newPage();
+  const errors: string[] = [];
+  page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") errors.push(`${m.type()}: ${m.text()}`); });
+  const email = `hel1275-sk2-${Date.now()}@example.test`;
+  const password = "correcthorsebattery1";
+  const req = ctx.request;
+  expect((await req.post("/api/auth/register", { data: { email, password, displayName: "Skeptic2" }, headers: CSRF })).status()).toBe(201);
+  rec.email = email; save();
+  await page.goto("about:blank");
+  const me = await (await req.get("/api/auth/me")).json();
+  rec.userId = me.id; save();
+  const post = async (u: string, d: unknown) => { const r = await req.post(u, { data: d, headers: CSRF }); expect(r.ok(), `${u} ${await r.text()}`).toBeTruthy(); return r.json(); };
+  try {
+    const src = await post("/api/data-sources", { name: "SK2 revenue", type: "static", columns: [{ name: "region", type: "string" }, { name: "amount", type: "integer" }], rows: [["east", 500], ["west", 575]] });
+    rec.source = src.id; save();
+    const pipe = await post("/api/pipelines", { name: "SK2 pipeline", roots: [{ sourceId: src.id }] });
+    rec.pipeline = pipe.id; save();
+    const out = await post(`/api/pipelines/${pipe.id}/outputs`, { kind: "metric", name: "SK2 Revenue", config: { fieldMapping: {}, aggregation: { value: "amount", agg: "sum" }, format: "integer" } });
+    rec.output = out.id; save();
+    const dash = await post("/api/dashboards", { name: "SK2 dash" });
+    rec.dashboard = dash.id; save();
+    expect((await req.post(`/api/pipelines/${pipe.id}/run`, { data: {}, headers: CSRF })).status()).toBe(200);
+    rec.historyIds = backdateHistory(out.id, me.id, "7 days 1 hour", 1); save();
+    expect((await req.put(`/api/data-sources/${src.id}/rows`, { data: { rows: [["east", 600], ["west", 604]] }, headers: CSRF })).status()).toBe(200);
+    expect((await req.post(`/api/pipelines/${pipe.id}/run`, { data: {}, headers: CSRF })).status()).toBe(200);
+    const pA = await post("/api/panels", { dashboardId: dash.id, title: "SK2 Plain", type: "output", config: { outputId: out.id } });
+    const pB = await post("/api/panels", { dashboardId: dash.id, title: "SK2 Dropdown", type: "output", config: { outputId: out.id, controls: [{ id: "rc", kind: "dropdown", column: "region", label: "Region" }] } });
+    rec.panelA = pA.id; rec.panelB = pB.id; save();
+    await post(`/api/dashboards/${dash.id}/auto-layout`, { items: [{ panelId: pB.id, w: 4, h: 4 }] });
+    const share = await post(`/api/dashboards/${dash.id}/share-tokens`, {});
+    rec.shareTokenId = share.id; rec.token = share.token; save();
+
+    // choose 7 days through the editor
+    await page.goto(`/pipelines/${pipe.id}`);
+    await page.getByRole("tab", { name: /^Outputs/ }).click();
+    await page.getByRole("button", { name: "Open SK2 Revenue output" }).click();
+    await page.getByRole("combobox", { name: "Compare" }).click();
+    await page.getByRole("option", { name: "7 days" }).click();
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("combobox", { name: "Compare" })).toBeHidden();
+
+    for (const theme of ["light", "dark"] as const) {
+      await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);
+      await ctx.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
+      await page.goto(`/dashboards/${dash.id}`);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      const A = page.locator(".react-grid-item", { hasText: "SK2 Plain" });
+      const B = page.locator(".react-grid-item", { hasText: "SK2 Dropdown" });
+      await expect(A.getByText("1,204", { exact: true })).toBeVisible({ timeout: 15000 });
+      await expect(A.getByText("▲ 12% vs 7d", { exact: true })).toBeVisible();
+      log(theme, "A text:", (await A.innerText()).replace(/\n/g, " | "));
+      const gridItemBox = await A.boundingBox(); log(theme, "A box", JSON.stringify(gridItemBox));
+      await page.screenshot({ path: `${SH}/sk2-dash-${theme}.png` });
+      await A.screenshot({ path: `${SH}/sk2-default-${theme}.png` });
+      // computed styles
+      const styles = await A.evaluate((el) => {
+        const t = el.querySelector(".panel-content__metric-trend") as HTMLElement | null;
+        const s = el.querySelector(".panel-content__metric-sparkline polyline") as SVGElement | null;
+        const v = el.querySelector(".panel-content__metric-value") as HTMLElement | null;
+        const cs = (e: Element | null) => (e ? getComputedStyle(e) : null);
+        return { trend: t && { color: cs(t)!.color, size: cs(t)!.fontSize, font: cs(t)!.fontFamily }, spark: s && { stroke: cs(s)!.stroke }, value: v && { size: cs(v)!.fontSize } };
+      });
+      log(theme, "styles", JSON.stringify(styles));
+      // provenance
+      await A.getByRole("button", { name: "Data provenance" }).click();
+      const dlg = page.getByRole("dialog", { name: /Data provenance/ });
+      await expect(dlg.getByRole("heading", { name: "Compared with" })).toBeVisible();
+      log(theme, "prov:", (await dlg.innerText()).replace(/\n/g, " | "));
+      await page.screenshot({ path: `${SH}/sk2-prov-${theme}.png` });
+      await page.keyboard.press("Escape");
+      // dropdown filter
+      await expect(B.getByText("1,204", { exact: true })).toBeVisible();
+      const combo = B.getByRole("combobox", { name: /Region/ });
+      log(theme, "combo count", await combo.count());
+      await combo.click();
+      await page.getByRole("option", { name: "west" }).click();
+      await expect(B.getByText("604", { exact: true })).toBeVisible({ timeout: 15000 });
+      const marker = B.getByTitle("comparison reflects unfiltered data");
+      await expect(marker).toBeVisible();
+      log(theme, "B text:", (await B.innerText()).replace(/\n/g, " | "));
+      await marker.focus(); log(theme, "marker focused", await marker.evaluate((e) => document.activeElement === e));
+      await B.screenshot({ path: `${SH}/sk2-filtered-${theme}.png` });
+      await B.getByRole("button", { name: "Data provenance" }).click();
+      await expect(page.getByRole("dialog", { name: /Data provenance/ })).toBeVisible();
+      log(theme, "filtered prov compared-with count", await page.getByRole("heading", { name: "Compared with" }).count());
+      await page.keyboard.press("Escape");
+      log(theme, "A while B filtered:", (await A.innerText()).replace(/\n/g, " | "));
+      // clear filter
+      await combo.click();
+      const opts = await page.getByRole("option").allInnerTexts(); log(theme, "options", JSON.stringify(opts));
+      await page.keyboard.press("Escape");
+
+      // public, fresh unauthenticated context
+      const pctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      await pctx.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
+      const pp = await pctx.newPage();
+      const reqs: string[] = [];
+      pp.on("request", (r) => { if (r.url().includes("/api/")) reqs.push(r.url().replace(/token=[^&]+/, "token=***")); });
+      const perr: string[] = [];
+      pp.on("console", (m) => { if (m.type() === "error") perr.push(m.text()); });
+      await pp.goto(`/dashboards/${dash.id}/panels?token=${share.token}`);
+      const PA = pp.locator(".react-grid-item, [data-panel-id], article", { hasText: "SK2 Plain" }).first();
+      await expect(pp.getByText("▲ 12% vs 7d").first()).toBeVisible({ timeout: 15000 });
+      await pp.waitForTimeout(1000);
+      await pp.screenshot({ path: `${SH}/sk2-public-${theme}.png`, fullPage: true });
+      const html = await pp.content();
+      log(theme, "public reqs", JSON.stringify(reqs));
+      log(theme, "public DOM has output/pipeline/run id:", html.includes(out.id), html.includes(pipe.id));
+      log(theme, "public text", (await pp.locator("body").innerText()).replace(/\n/g, " | ").slice(0, 500));
+      const provBtn = pp.getByRole("button", { name: "Data provenance" }).first();
+      if (await provBtn.count()) {
+        await provBtn.click();
+        const pd = pp.getByRole("dialog", { name: /Data provenance/ });
+        await pd.waitFor({ timeout: 5000 }).catch(() => undefined);
+        log(theme, "public prov:", (await pd.innerText().catch(() => "n/a")).replace(/\n/g, " | "));
+        await pp.screenshot({ path: `${SH}/sk2-public-prov-${theme}.png` });
+      }
+      log(theme, "public console errors", JSON.stringify(perr), "PA count", await PA.count());
+      await pctx.close();
+    }
+
+    // STALE COMPARE PROBE (SPA): dashboard loaded with 7d → SPA nav to pipeline, change to 30 days → SPA back.
+    await page.goto(`/dashboards/${dash.id}`);
+    const A = page.locator(".react-grid-item", { hasText: "SK2 Plain" });
+    await expect(A.getByText("▲ 12% vs 7d", { exact: true })).toBeVisible({ timeout: 15000 });
+    await page.getByRole("link", { name: "Data Pipelines" }).click();
+    await page.getByText("SK2 pipeline").first().click();
+    await page.waitForURL(new RegExp(`/pipelines/${pipe.id}`));
+    log("stale: navigated SPA to", page.url());
+    await page.getByRole("tab", { name: /^Outputs/ }).click();
+    await page.getByRole("button", { name: "Open SK2 Revenue output" }).click();
+    await page.getByRole("combobox", { name: "Compare" }).click();
+    await page.getByRole("option", { name: "30 days" }).click();
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("combobox", { name: "Compare" })).toBeHidden();
+    const outNow = await (await req.get(`/api/outputs/${out.id}`)).json();
+    log("stale: server compare now", JSON.stringify(outNow.config?.compare));
+    await page.getByRole("link", { name: "Dashboards" }).first().click();
+    await page.getByText("SK2 dash").first().click();
+    await page.waitForURL(new RegExp(`/dashboards/${dash.id}`));
+    await page.waitForTimeout(3000);
+    log("stale: SPA-return A text:", (await A.innerText()).replace(/\n/g, " | "));
+    await A.screenshot({ path: `${SH}/sk2-stale-spa.png` });
+    await page.reload();
+    await expect(A.getByText("1,204", { exact: true })).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(2000);
+    log("stale: after reload A text:", (await A.innerText()).replace(/\n/g, " | "));
+    await A.screenshot({ path: `${SH}/sk2-stale-reload.png` });
+    log("console", JSON.stringify(errors.slice(0, 20)));
+  } finally {
+    if (rec.dashboard) log("del dash", (await req.delete(`/api/dashboards/${rec.dashboard}`, { headers: CSRF })).status());
+    if (rec.pipeline) log("del pipe", (await req.delete(`/api/pipelines/${rec.pipeline}`, { headers: CSRF })).status());
+    if (rec.source) log("del src", (await req.delete(`/api/data-sources/${rec.source}`, { headers: CSRF })).status());
+    await ctx.close();
+  }
+});

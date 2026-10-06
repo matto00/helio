@@ -253,6 +253,36 @@
   color: var(--app-text-muted);
 }
 
+/* HEL-1275 — available-from / filtered-state note, muted like a trend flat state. */
+.panel-content__metric-note {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--app-text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* HEL-1275 — comparison + sparkline row/column. */
+.panel-content__metric-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.panel-content__metric-sparkline {
+  width: min(100%, 8rem);
+  height: var(--space-6);
+  margin-top: var(--space-1);
+}
+
+/* 1.5px is a literal: no stroke-width token exists, and this is thin enough to stay secondary to
+   the value. Decoration token, not --app-accent-text (text-only). */
+.panel-content__metric-sparkline polyline {
+  stroke: var(--app-accent);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
 /* Container Query: Metric compact height (< 180px) */
 
 @container panel-card (max-height: 179px) {
@@ -270,6 +300,19 @@
 
   .panel-content__metric-trend {
     font-size: var(--text-micro);
+  }
+
+  /* HEL-1275 — the default 3x2 card (~122px) is compact: keep the sparkline, reduced and inline
+     beside the delta so the value, delta and footer all still fit. */
+  .panel-content__metric-meta {
+    flex-direction: row;
+    gap: var(--space-2);
+  }
+
+  .panel-content__metric-sparkline {
+    width: var(--space-9);
+    height: var(--space-4);
+    margin-top: 0;
   }
 }
 
