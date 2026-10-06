@@ -197,11 +197,23 @@ Verdicts are recorded against a run, not a commit. Check which SHA the evaluator
 report names before treating its PASS as covering your head. (Tracked upstream as
 CON-166.)
 
-### The backend CI job takes ~12 minutes
+### The backend CI job is sharded, and sbt's own forked-group limit of 1 beats yours
 
-Roughly 2× the merge-readiness script's default poll window, so a healthy PR
-routinely produces a false "CI pending" escalation. (Fixed upstream as CON-159;
-reaches this repo only via `concertino sync`.)
+The `backend` job is a 4-leg matrix (owner cap: backend + e2e share ~8 legs of a ~20-job free-plan pool; never add legs) (`HELIO_TEST_SHARD_INDEX/COUNT`; `backend/project/TestShards.scala`
+partitions suites exactly once and fails a leg naming any suite assigned to zero or two shards). Each leg
+runs ~1/4 of the suites and restores a cached compile output so zinc compiles incrementally (`backend/target/out` AND `~/.cache/sbt` as one entry -- sbt 2 symlinks into its disk cache, so `target/out` alone restores dangling links; saved only by main pushes under the `backend-compile-v3-` prefix, never test reports); measured legs ran 3:23-3:43 warm (exact compile-cache hit) and 4:04-6:04 cold, against 12-18 min for the old single job (HEL-1287, `profile.md`). Three traps:
+
+- `Global / concurrentRestrictions += Tags.limit(ForkedTestGroup, N)` does NOT raise sbt's built-in
+  `Limit forked-test-group to 1` -- every limit on a tag applies, so the "4 concurrent forks" of HEL-924 never
+  ran concurrently. `build.sbt` now replaces the default, but only when `HEL924_TEST_GROUP_CONCURRENCY` is set.
+- `backend/project/` used to be wholly gitignored: a new build source there stayed untracked and CI failed to
+  compile the build. Only generated subdirectories are ignored now.
+- The shard count must equal the matrix size (it is derived from `strategy.job-total`); raising it past the
+  matrix would silently skip suites. 12 legs also starved the shared runner pool; 3 concurrent forks per leg
+  flaked `ConnectorCompletionServiceSpec`'s 50ms-expiry race.
+
+The merge-readiness script's poll window (CON-159) is still shorter than a slow run; its fix reaches this repo
+only via `concertino sync`.
 
 ### Tag pushes deploy; never hand-roll a tag
 

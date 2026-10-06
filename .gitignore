@@ -9,7 +9,11 @@ dist/
 frontend/dist/
 build/
 backend/target/
-backend/project/
+# HEL-1287: backend/project/ holds tracked build sources (TestShards.scala, weights); ignore only generated output.
+backend/project/target/
+backend/project/project/
+backend/project/.bloop/
+backend/project/.bsp/
 backend/.bloop/
 backend/.bsp/
 backend/.metals/

@@ -163,10 +163,21 @@ lazy val root = (project in file("."))
     // actual bottleneck is concurrent CPU/IO/shared-memory load, which per-suite
     // isolation does nothing to cap). Group count and concurrency are both
     // overridable via env vars for machines with a different core count.
-    Global / concurrentRestrictions += Tags.limit(
-      Tags.ForkedTestGroup,
-      sys.env.get("HEL924_TEST_GROUP_CONCURRENCY").flatMap(s => scala.util.Try(s.toInt).toOption).getOrElse(4)
-    ),
+    //
+    // HEL-1287 (probe-confirmed from CI JUnit timestamps + `show Global/concurrentRestrictions`): sbt's own
+    // default restriction `Limit forked-test-group to 1` was never removed, and a tag's limits all apply,
+    // so the intended "4 concurrent forked groups" was in practice ONE at a time -- the 8 groups ran back to
+    // back (~14.5 min of test execution on a CI runner). The sbt default is now replaced, but ONLY when
+    // HEL924_TEST_GROUP_CONCURRENCY is set explicitly (CI sets it); unset keeps today's effective serial default.
+    Global / concurrentRestrictions ~= { rules =>
+      sys.env.get("HEL924_TEST_GROUP_CONCURRENCY").flatMap(_.toIntOption) match {
+        case Some(n) =>
+          // Rule is opaque (no extractor); its toString is `Limit forked-test-group to N`.
+          rules.filterNot(_.toString.startsWith(s"Limit ${Tags.ForkedTestGroup.name} ")) :+
+            Tags.limit(Tags.ForkedTestGroup, n)
+        case None => rules
+      }
+    },
     // HEL-1018 (sbt 2 task caching): sbt 2 caches task results and needs a `JsonFormat` for the result
     // type; `Seq[Tests.Group]` has none, so the build failed to load. Remedy chosen: `Def.uncached(...)`
     // around the (unchanged) body below, so this task is never cached. Declined: (1) `@transient` --
@@ -188,8 +199,24 @@ lazy val root = (project in file("."))
         connectInput = false,
         envVars = (Test / envVars).value
       )
-      val groups: Seq[(Int, Seq[TestDefinition])] =
-        (Test / definedTests).value.groupBy(t => java.lang.Math.floorMod(t.name.hashCode, groupCount)).toSeq
+      val defined = (Test / definedTests).value
+      // HEL-1287: when HELIO_TEST_SHARD_INDEX/COUNT are both set (CI matrix), run only this shard's suites,
+      // LPT-packed over test-suite-weights.tsv; every shard's partition is verified exact before any test runs.
+      // With neither set (local `sbt testFull`) the hash grouping below is unchanged. Invalid input fails loudly.
+      val shardRequest = TestShards.parseEnv(sys.env).fold(msg => sys.error(msg), identity)
+      val groups: Seq[(Int, Seq[TestDefinition])] = shardRequest match {
+        case None =>
+          defined.groupBy(t => java.lang.Math.floorMod(t.name.hashCode, groupCount)).toSeq
+        case Some((shardIndex, shardCount)) =>
+          val weights = TestShards.loadWeights((Test / baseDirectory).value / "project" / "test-suite-weights.tsv")
+          val mine = TestShards
+            .select(defined.map(_.name), weights, shardIndex, shardCount)
+            .fold(msg => sys.error(msg), identity)
+          val byName = defined.map(t => t.name -> t).toMap
+          TestShards.groupWithinShard(mine, weights, groupCount).zipWithIndex.map { case (names, idx) =>
+            idx -> names.map(byName)
+          }
+      }
       groups.map { case (idx, tests) =>
         new Tests.Group(name = s"hel924-group-$idx", tests = tests, runPolicy = Tests.SubProcess(baseForkOptions))
       }
