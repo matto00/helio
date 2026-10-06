@@ -125,7 +125,8 @@ class ApiRoutesCorsErrorHandlingSpec
       pipelineRepo,
       pipelineStepRepo,
       new PipelineRunCache(),
-      new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)
+      new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
+      dbContext = ctx
     ).routes
   }
 

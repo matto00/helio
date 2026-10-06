@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.api.routes.pipelines.PipelineRoutes
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -47,6 +48,8 @@ class PipelineAnalyzeRoutesSpec
   private var dataSourceRepo: DataSourceRepository  = _
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
+  private var outputRepo: OutputRepository = _
+
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -56,6 +59,7 @@ class PipelineAnalyzeRoutesSpec
       .load().migrate()
     db               = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx          = new DbContext(db, db)(routeEc)
+    outputRepo = new OutputRepository(ctx)
     dataSourceRepo   = new DataSourceRepository(ctx)(routeEc)
     pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
@@ -113,7 +117,7 @@ class PipelineAnalyzeRoutesSpec
 
   private def routes: Route = {
     implicit val ec: ExecutionContext = routeEc
-    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
     new PipelineRoutes(service, dummyUser).routes
   }
 

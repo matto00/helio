@@ -143,7 +143,8 @@ class AutoRunGuardBurstProofSpec extends AnyWordSpec with Matchers with BeforeAn
       pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
       new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
       pipelineRunGuardRepo = if (withGuard) guardRepo else null,
-      guardConfig = guardConfig
+      guardConfig = guardConfig,
+      outputRepo = new OutputRepository(ctx)
     )
 
   private def newScheduler(runService: PipelineRunService, clock: Clock): PipelineSchedulerService =

@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineStepRepository}
@@ -159,7 +160,8 @@ class SseReconnectGapProbeSpec
       // IS active (a real pipelineRunRepo is passed), exactly like production.
       val service = new PipelineRunService(
         pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo, cache, registry, fileSystem,
-        connector = new RestApiConnectorDriver(None)
+        connector = new RestApiConnectorDriver(None),
+        outputRepo = new OutputRepository(ctx)
       )
 
       val first  = await(service.submit(pid, isDry = false, dummyUser))

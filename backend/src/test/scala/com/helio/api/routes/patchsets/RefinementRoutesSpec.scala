@@ -108,13 +108,13 @@ class RefinementRoutesSpec
     val tmpDir = newTempDir("helio-refinement-routes-spec")
     val fs     = new LocalFileSystem(tmpDir)
 
-    val dashboardService = new DashboardService(dashboardRepo, accessChecker)
-    val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)
-    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
     val outputRepo     = new OutputRepository(ctx)
+    val dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
+    val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, outputRepo = outputRepo)
+    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     val nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
-    val pipelineService    = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    val pipelineService    = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
 
     val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     val panelCapabilityService  = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)

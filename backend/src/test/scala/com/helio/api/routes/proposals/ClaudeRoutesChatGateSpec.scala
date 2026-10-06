@@ -105,10 +105,10 @@ class ClaudeRoutesChatGateSpec
     )
     val accessChecker     = new AccessCheckerImpl(new ResourcePermissionRepository(ctx), registry)
     val fs                = new LocalFileSystem(newTempDir("helio-claude-routes-gate-spec"))
-    dashboardService      = new DashboardService(dashboardRepo, accessChecker)
-    panelService          = new PanelService(panelRepo, accessChecker, dashboardRepo)
+    dashboardService      = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
+    panelService          = new PanelService(panelRepo, accessChecker, dashboardRepo, outputRepo = outputRepo)
     dataSourceService     = new DataSourceService(dataSourceRepo, fs)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
 
     val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     val panelCapabilityService  = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)

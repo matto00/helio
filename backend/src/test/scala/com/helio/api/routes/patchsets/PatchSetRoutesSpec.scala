@@ -100,10 +100,10 @@ class PatchSetRoutesSpec
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
     val fileSystem = new LocalFileSystem(newTempDir("patch-set-routes-spec"))
 
-    dashboardService = new DashboardService(dashboardRepo, accessChecker)
-    panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)
+    dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
+    panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, outputRepo = outputRepo)
     val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
 
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     patchSetApplyService = new PatchSetApplyService(

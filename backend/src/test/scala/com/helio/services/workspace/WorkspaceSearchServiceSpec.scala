@@ -94,13 +94,13 @@ class WorkspaceSearchServiceSpec
     dataSourceService = new DataSourceService(dataSourceRepo, fs)
     outputRepo        = new OutputRepository(ctx)
     nodeSnapshotRepo  = new NodeSnapshotRepository(ctx)
-    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
 
     val registry = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value)))
     )
     val accessChecker = new AccessCheckerImpl(permissionRepo, registry)
-    dashboardService  = new DashboardService(dashboardRepo, accessChecker)
+    dashboardService  = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
 
     workspaceContextService = new WorkspaceContextService(
       dashboardService, dataSourceService, outputRepo, pipelineService,

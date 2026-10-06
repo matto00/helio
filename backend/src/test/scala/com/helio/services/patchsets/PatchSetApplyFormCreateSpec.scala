@@ -88,11 +88,11 @@ class PatchSetApplyFormCreateSpec
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
     val fileSystem = new LocalFileSystem(newTempDir("patch-set-form-create-spec"))
 
-    dashboardService = new DashboardService(dashboardRepo, accessChecker)
+    dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = new OutputRepository(ctx))
     // Wired like production: the real PanelService has the data-source repo.
-    val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, dataSourceRepo = dataSourceRepo)
+    val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, dataSourceRepo = dataSourceRepo, outputRepo = new OutputRepository(ctx))
     val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = new OutputRepository(ctx))
     service = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,

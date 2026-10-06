@@ -137,7 +137,8 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
     new PipelineRunService(
       pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
       new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
-      pipelineRunGuardRepo = guardRepo, guardConfig = guardConfig
+      pipelineRunGuardRepo = guardRepo, guardConfig = guardConfig,
+      outputRepo = new OutputRepository(ctx)
     )
 
   private def newScheduler(runService: PipelineRunService): PipelineSchedulerService =

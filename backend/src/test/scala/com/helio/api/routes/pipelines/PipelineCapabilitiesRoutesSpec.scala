@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.api.JsonProtocols
 import com.helio.api.http.{AccessCheckerImpl, ResourceType => AclResourceType, ResourceTypeRegistry}
 import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse, ValidateExpressionRequest}
@@ -85,7 +86,7 @@ class PipelineCapabilitiesRoutesSpec
     pipelineRepo      = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo  = new PipelineStepRepository(ctx)(routeEc)
     permissionRepo    = new ResourcePermissionRepository(ctx)(routeEc)
-    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)(routeEc)
+    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = new OutputRepository(ctx))(routeEc)
 
     seedUsers()
   }

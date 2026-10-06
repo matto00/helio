@@ -1,6 +1,7 @@
 package com.helio.services.proposals
 
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.PipelineProposalService
 import com.helio.services.proposals.CombinedProposalService
@@ -39,7 +40,7 @@ class CombinedProposalServiceValidateSpec extends AnyWordSpec with Matchers {
 
   private def newService(dataSourceRepo: DataSourceRepository): CombinedProposalService = {
     val pipelineProposalService = new PipelineProposalService(null, null, null, null, dataSourceRepo, null)
-    new CombinedProposalService(pipelineProposalService, new DashboardProposalService(null, null))
+    new CombinedProposalService(pipelineProposalService, new DashboardProposalService(null, null, outputRepo = mock(classOf[OutputRepository])))
   }
 
   private def existingSource(source: DataSourceId): DataSource =

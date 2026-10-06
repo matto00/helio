@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
 import com.helio.services.pipelines.{PipelineRunService, PipelineSchedulerService}
@@ -112,7 +113,8 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
       new PipelineRunCache(),
       registry = null,
       fakeFileSystem,
-      auditService = auditService
+      auditService = auditService,
+      outputRepo = new OutputRepository(ctx)
     )
     runServiceForHistory = pipelineRunService
     historyCtx = ctx

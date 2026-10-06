@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence.dashboards
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -157,7 +158,7 @@ class DashboardLayoutRepairRlsSpec extends AnyWordSpec with Matchers with Before
           super.updateLayoutIfUnchanged(i, o, e, n)
         }
       }
-      val service = new DashboardService(racing, null.asInstanceOf[AccessChecker])
+      val service = new DashboardService(racing, null.asInstanceOf[AccessChecker], outputRepo = new OutputRepository(ctx))
       def item(p: String, x: Int) = DashboardLayoutItemPayload(p, x, 0, 1, 2)
       val ids = await(repo.panelIdsInternal(id)).toVector.map(_.value)
       val body = DashboardLayoutPatchPayload(xs = Some(ids.zipWithIndex.map { case (p, i) => item(p, i) }))

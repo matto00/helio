@@ -116,7 +116,7 @@ class ResourceTaggingSpec
 
   private def pipelineRoutesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
-    val svc = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    val svc = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
     new PipelineRoutes(svc, user)(routeEc).routes
   }
 
@@ -135,11 +135,11 @@ class ResourceTaggingSpec
     val dashboardRepo  = new DashboardRepository(ctx)(routeEc)
     val registry        = new ResourceTypeRegistry()
     val accessChecker    = new AccessCheckerImpl(new ResourcePermissionRepository(ctx)(routeEc), registry)
-    val dashboardService = new DashboardService(dashboardRepo, accessChecker)
-    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
     // HEL-904 task 3.12: WorkspaceContextService takes an OutputRepository now.
     val outputRepo = new OutputRepository(ctx)(routeEc)
+    val dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
+    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
     val contextSvc = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     new WorkspaceRoutes(Some(teardownSvc), contextSvc, user)(routeEc).routes
   }

@@ -96,10 +96,10 @@ class PatchSetUndoRoutesSpec
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
     val fileSystem = new LocalFileSystem(newTempDir("patch-set-undo-routes-spec"))
 
-    dashboardService = new DashboardService(dashboardRepo, accessChecker)
-    panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)
+    dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = new OutputRepository(ctx))
+    panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, outputRepo = new OutputRepository(ctx))
     val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = new OutputRepository(ctx))
 
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     patchSetApplyService = new PatchSetApplyService(

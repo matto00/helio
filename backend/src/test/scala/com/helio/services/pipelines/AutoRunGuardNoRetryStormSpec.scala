@@ -130,7 +130,8 @@ class AutoRunGuardNoRetryStormSpec extends AnyWordSpec with Matchers with Before
     new PipelineRunService(
       pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
       new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
-      pipelineRunGuardRepo = guardRepo, guardConfig = guardConfig
+      pipelineRunGuardRepo = guardRepo, guardConfig = guardConfig,
+      outputRepo = new OutputRepository(ctx)
     )
 
   private def newScheduler(runService: PipelineRunService, clock: Clock): PipelineSchedulerService =

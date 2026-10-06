@@ -131,23 +131,6 @@ class PipelineRootRoutesSpec
     new PipelineRoutes(service, owner).routes
   }
 
-  /** HEL-913 (skeptic-final-2.md FIX 2): mirrors `routes` exactly EXCEPT `outputRepo` is left
-   *  unwired (`null`) -- proves `removeRoot` FAILS CLOSED (a named 500), rather than silently
-   *  reporting `removedOutputCount = 0` while the DB cascade destroys the root's Outputs anyway
-   *  regardless of whether this collaborator is wired. */
-  private def routesWithoutOutputRepo: Route = {
-    implicit val ec: ExecutionContext = routeEc
-    val fs                = new LocalFileSystem(newTempDir("pipeline-root-routes-spec-no-output-repo"))
-    val dataSourceService = new DataSourceService(dataSourceRepo, fs)
-    val sourceService = new SourceService(dataSourceRepo, connector = null)
-    val service = new PipelineService(
-      pipelineRepo, stepRepo, dataSourceRepo, pipelineRootRepo = rootRepo,
-      sourceService = sourceService, dataSourceService = dataSourceService
-      // outputRepo deliberately OMITTED -- stays null (the default).
-    )
-    new PipelineRoutes(service, owner).routes
-  }
-
   private def countRows(sql: String): Int = {
     import PostgresProfile.api._
     await(db.run(sql"#$sql".as[Int])).head
@@ -295,27 +278,6 @@ class PipelineRootRoutesSpec
       }
       // mutation-proof: root must still be there
       await(rootRepo.listInternal(PipelineId(pid))).size shouldEqual 1
-    }
-
-    // HEL-913 (skeptic-final-2.md FIX 2): the guard here must FAIL if the silent-0 fallback
-    // comes back -- not merely assert the call succeeded. A permissive assertion (e.g. "returns
-    // SOME error") would pass against the old `removedOutputCount = 0`/200-with-wrong-count
-    // shape too, so this asserts the SPECIFIC fail-closed contract: 500, no root removed, no
-    // Output/panel touched -- and separately (see the very next test) that the same call
-    // through the FULLY-wired `routes` actually reports and removes correctly, so the two
-    // together bound the behavior on both sides of the collaborator being present.
-    "500s and removes NOTHING when outputRepo is not wired -- never silently reports removedOutputCount = 0 while the cascade destroys real Outputs" in {
-      val (pid, rid0) = seedPipelineWithOneRoot()
-      val newDsId     = seedOwnedDataSource()
-      addRootViaApi(pid, newDsId)
-      val roots = await(rootRepo.listInternal(PipelineId(pid)))
-      val root2 = roots.find(_.dataSourceId.value == newDsId).get
-
-      Delete(s"/pipelines/$pid/roots/${root2.id.value}") ~> routesWithoutOutputRepo ~> check {
-        status shouldEqual StatusCodes.InternalServerError
-      }
-      // mutation-proof of the fail-closed contract: NOTHING was removed.
-      await(rootRepo.listInternal(PipelineId(pid))).map(_.id.value).toSet shouldEqual Set(rid0, root2.id.value)
     }
 
     "remove a non-last root, compact positions, and report counts (R7 phase 2)" in {

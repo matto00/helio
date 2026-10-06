@@ -105,10 +105,10 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with HelioRouteT
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
     val fileSystem = new LocalFileSystem(newTempDir("patch-set-undo-service-spec"))
 
-    dashboardService   = new DashboardService(dashboardRepo, accessChecker)
+    dashboardService   = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
     panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo, null, outputRepo)
     dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
-    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
 
     applyService = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
@@ -294,10 +294,10 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with HelioRouteT
     // (delete) and a delete edit's undo (recreate) -- the panel/dashboard/pipelineStep tests
     // above never exercise an "output"-kind panel at all, only "divider"/generic ones, so this
     // was a real, previously-unverified gap (flagged explicitly in tasks.md's own 5.5 entry).
-    // `outputRepo` is nullable-optional on `PanelService` (HEL-904 follow-up) and this spec's
-    // `panelService` never wires one, so the outputId-existence check is skipped -- a synthetic
-    // id is fine here since this test is about placement-field PRESERVATION through undo, not
-    // Output existence validation (that is a separate, already-covered concern elsewhere).
+    // `panelService` is wired with the real `outputRepo` (HEL-1295), so the outputId-existence
+    // check runs for real -- both Outputs below are genuine persisted rows. The test is about
+    // placement-field PRESERVATION through undo, not Output existence validation (see the next
+    // test for the undo-time rejection).
     "restore an output-kind placement panel's create/delete-undo, preserving config.outputId (5.5)" in {
       val dashboard    = seedDashboard(userA)
       val sourceId      = seedDatasetSource(userA, "Placement-preservation source")
@@ -345,6 +345,38 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with HelioRouteT
       await(panelRepo.findByIdInternal(PanelId(createdPanelId))) shouldBe None
       val recreatedPanel = await(panelRepo.findByIdInternal(PanelId(recreatedId))).getOrElse(fail("recreated panel missing"))
       recreatedPanel.asInstanceOf[OutputPanel].config.outputId.value shouldBe outputToDelete.id.value
+    }
+
+    // HEL-1295: undo-path counterpart of `PanelServiceOutputBindingSpec`. Recreating a deleted
+    // output panel re-runs `PanelService`'s outputId check; once the Output is gone, undo must be
+    // refused (the check is no longer skippable for lack of a repository) rather than recreating
+    // a panel bound to nothing. NOTE: a regression guard, not a mutation proof -- with the app-level
+    // check removed the `panels.output_id` FK still refuses the recreate, so this stays green; the
+    // check itself is pinned by `PanelServiceOutputBindingSpec`.
+    "refuse to recreate a deleted output panel whose Output no longer resolves (HEL-1295)" in {
+      val dashboard = seedDashboard(userA)
+      val sourceId  = seedDatasetSource(userA, "Undo-missing-output source")
+      val pipeline  = seedPipeline(userA, sourceId, "Undo-missing-output pipeline")
+      val output    = seedOutput(pipeline, userA, "Soon-gone Output")
+      val panel = await(panelService.create(
+        CreatePanelRequest(Some(dashboard.id.value), Some("Bound panel"), Some("output"),
+          Some(JsObject("outputId" -> JsString(output.id.value)))),
+        userA
+      )) match {
+        case Right((p, _)) => p
+        case Left(e)       => fail(s"seed output panel failed: $e")
+      }
+      val applicationId = applySuccessfully(Vector(
+        Edit(EditTarget("panel", Some(panel.id.value)), "delete", None, None, None, None, None, None)
+      ))
+      await(outputRepo.deleteInternal(output.id)) shouldBe true
+
+      val undone = await(undoService.undo(PatchSetApplicationId(applicationId), userA))
+
+      val statuses = undone.toOption.toVector.flatMap(_.edits.map(_.status))
+      statuses should not contain "recreated"
+      await(panelRepo.findByIdInternal(panel.id)) shouldBe None
+      await(panelRepo.findAllByDashboardId(dashboard.id, Some(userA), Page.Default)).items shouldBe empty
     }
 
     // skeptic-final-2.md CR1: a `dashboard` `create` edit's undo has no parent id to fall back

@@ -117,14 +117,14 @@ class AuthoringTelemetrySpec
     // no longer exists).
     outputRepo            = new OutputRepository(ctx)
     nodeSnapshotRepo      = new NodeSnapshotRepository(ctx)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
 
     val registry        = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value)))
     )
     val permissionRepo   = new ResourcePermissionRepository(ctx)
     val accessChecker    = new AccessCheckerImpl(permissionRepo, registry)
-    val dashboardService = new DashboardService(dashboardRepo, accessChecker)
+    val dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
 
     workspaceContextService  = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     panelCapabilityService   = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)

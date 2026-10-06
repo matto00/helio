@@ -44,14 +44,12 @@ final class DashboardService(
     // audit rows behaves as "audit disabled", never a NullPointerException,
     // since every call site below guards on it via `audit(...)`.
     auditService: AuditService = null,
-    // HEL-910 task 2.1 (design.md Decision 5, Gap A): nullable-optional wiring mirrors
-    // `auditService` above -- a `null` outputRepo makes `importSnapshot`'s outputId-existence
-    // check a no-op (mirrors `PanelService.rejectMissingOutput`'s own existing `null`-skips
-    // convention). None of the 16 pre-existing test fixtures construct this with a real
-    // OutputRepository, so none of them exercise the new check -- only a fixture that passes
-    // one, deliberately, does.
-    outputRepo: OutputRepository = null
+    // HEL-910 task 2.1 (design.md Decision 5, Gap A): backs `importSnapshot`'s outputId-existence
+    // check. HEL-1295: required, never null (enforced by the `require` below).
+    outputRepo: OutputRepository
 )(implicit ec: ExecutionContext) {
+
+  require(outputRepo != null, "DashboardService requires an OutputRepository")
 
   import DashboardService._
 
@@ -401,8 +399,7 @@ final class DashboardService(
    *     appearance decode/validate path (`PanelServiceHelpers.resolveCreateAppearance`) — closes
    *     HEL-628 (import previously skipped both).
    *   - Gap A: for an output-kind panel, confirm the bound `outputId` actually resolves via
-   *     `outputRepo.findByIdOwned` (a `null` outputRepo skips this, matching
-   *     `PanelService.rejectMissingOutput`'s existing null-skips convention).
+   *     `outputRepo.findByIdOwned`.
    *  Returns the first failing entry's error, labelled with its `snapshotId` (mirrors
    *  `validatePanelEntries`'s own labelling convention). */
   private def validateImportPanels(
@@ -432,7 +429,7 @@ final class DashboardService(
             case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"panel '${entry.snapshotId}': $msg")))
             case Right(_) =>
               PanelServiceHelpers.outputIdFromCreateConfig(createConfig) match {
-                case Some(outputId) if outputRepo != null =>
+                case Some(outputId) =>
                   outputRepo.findByIdOwned(outputId, user).map {
                     case None    => Left(ServiceError.BadRequest(s"panel '${entry.snapshotId}': outputId '${outputId.value}' not found"))
                     case Some(_) => Right(())

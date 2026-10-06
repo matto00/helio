@@ -101,10 +101,10 @@ class PatchSetPreviewOutputContextSpec
     accessChecker = new AccessCheckerImpl(permissionRepo, registry)
     val fileSystem = new LocalFileSystem(newTempDir("patch-set-preview-output-context-spec"))
 
-    dashboardService  = new DashboardService(dashboardRepo, accessChecker)
-    panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo)
+    dashboardService  = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
+    panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, outputRepo = outputRepo)
     dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
-    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
     outputService     = new OutputService(outputRepo, panelRepo, accessChecker)
 
     previewService = new PatchSetPreviewService(

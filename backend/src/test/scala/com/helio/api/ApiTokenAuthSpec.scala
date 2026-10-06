@@ -155,7 +155,8 @@ class ApiTokenAuthSpec
       pipelineRepo, pipelineStepRepo,
       new PipelineRunCache(),
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
-      apiTokenRepo = apiTokenRepo
+      apiTokenRepo = apiTokenRepo,
+      dbContext = ctx
     ).routes
 
     // Seed the two owners (privileged: users has no RLS but the pool is the

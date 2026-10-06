@@ -37,16 +37,15 @@ final class DashboardContentsService(
     // HEL-477: nullable-optional wiring.
     auditService: AuditService = null,
     // HEL-904 task 3.8/3.9: validates an "output"-kind panel's binding
-    // against a real Output. Nullable-optional, mirroring auditService above.
-    // HEL-904 task 3.2: the `metricRepo` param (HEL-549, unused since task
-    // 3.9 dropped `validateMetricBinding`/`preValidateBindings`'s metricRepo
-    // parameter -- metrics no longer exist) is REMOVED outright.
-    outputRepo: OutputRepository = null,
+    // against a real Output. HEL-1295: required, never null (enforced by the `require` below).
+    outputRepo: OutputRepository,
     // HEL-1193: same nullable-optional wiring; validates controls ahead of any write.
     controlsValidator: OutputControlsValidator = null,
     // HEL-1148: validates a `form` panel's `dataSourceId` before any write; nullable-optional.
     dataSourceRepo: DataSourceRepository = null
 )(implicit ec: ExecutionContext) {
+
+  require(outputRepo != null, "DashboardContentsService requires an OutputRepository")
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)

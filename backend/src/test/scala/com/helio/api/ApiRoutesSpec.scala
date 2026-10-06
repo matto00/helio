@@ -146,7 +146,7 @@ class ApiRoutesSpec
 
   /** Routes that use the real DB-backed session repository (needed for auth/me tests). */
   private def realSessionRoutes(): Route =
-    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)).routes
+    new ApiRoutes(dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem, stubConnector(Left("no real HTTP in tests")), userRepo, realSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext), dbContext = ctx).routes
 
   import org.apache.pekko.http.scaladsl.server.Directives.mapRequest
 
@@ -2754,7 +2754,8 @@ class ApiRoutesSpec
         dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem,
         stubConnector(Left("no real HTTP in tests")), failingUserRepo, realSessionRepo, userPreferenceRepo,
         pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
-        new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext)
+        new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
+        dbContext = ctx
       ).routes
 
       val logbackLogger = LoggerFactory.getLogger(classOf[ApiRoutes]).asInstanceOf[LogbackLogger]

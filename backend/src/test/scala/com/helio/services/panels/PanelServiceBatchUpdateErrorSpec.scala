@@ -1,5 +1,6 @@
 package com.helio.services.panels
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.services.auth.AccessChecker
 import com.helio.services.panels.PanelService
 import ch.qos.logback.classic.{Logger => LogbackLogger}
@@ -68,7 +69,7 @@ class PanelServiceBatchUpdateErrorSpec extends AnyWordSpec with Matchers {
       logbackLogger.addAppender(appender)
 
       try {
-        val result = await(new PanelService(panelRepo, stubAccess, dashboardRepo).batchUpdate(Vector(item), user))
+        val result = await(new PanelService(panelRepo, stubAccess, dashboardRepo, outputRepo = mock(classOf[OutputRepository])).batchUpdate(Vector(item), user))
 
         result.isLeft shouldBe true
         val message = result.swap.toOption.get.message

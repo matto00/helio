@@ -1,6 +1,7 @@
 package com.helio.services.panels
 
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.services.ServiceError
 import com.helio.services.auth.AccessChecker
 import com.helio.services.panels.PanelService
@@ -9,7 +10,7 @@ import com.helio.domain.model._
 import com.helio.domain.panels.OutputPanel
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import org.mockito.Mockito.mock
+import org.mockito.Mockito.{mock, when}
 import spray.json.{JsObject, JsString}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -43,11 +44,12 @@ class PanelServiceBuildAllForCreateSpec extends AnyWordSpec with Matchers {
       Future.successful(Right(ResourceAccess.Owner))
   }
 
-  private def newService(): PanelService =
+  private def newService(outputRepo: OutputRepository = mock(classOf[OutputRepository])): PanelService =
     new PanelService(
       mock(classOf[PanelRepository]),
       stubAccess,
-      mock(classOf[DashboardRepository])
+      mock(classOf[DashboardRepository]),
+      outputRepo = outputRepo
     )
 
   private def validTextRequest(title: String): CreatePanelRequest =
@@ -111,7 +113,14 @@ class PanelServiceBuildAllForCreateSpec extends AnyWordSpec with Matchers {
 
     "build a real OutputPanel for type = \"output\" (HEL-904 task 3.6 write-path increment) — " +
       "the new write path this task adds, not just PanelType.fromString accepting the string" in {
-      val service = newService()
+      // HEL-1295: the outputId check is no longer skippable for lack of a repository, so the
+      // double must resolve "out-1" for the SAME assertions below to keep holding (this test
+      // passed before only because a null repository skipped the check -- see files-modified.md).
+      val now        = java.time.Instant.now()
+      val output     = Output(OutputId("out-1"), "Out", user.id, NodeRef(PipelineId(UUID.randomUUID().toString), None), OutputKind.Table, createdAt = now, updatedAt = now)
+      val outputRepo = mock(classOf[OutputRepository])
+      when(outputRepo.findByIdOwned(OutputId("out-1"), user)).thenReturn(Future.successful(Some(output)))
+      val service = newService(outputRepo)
       val request = CreatePanelRequest(
         dashboardId = Some(dashId.value),
         title       = Some("Revenue"),

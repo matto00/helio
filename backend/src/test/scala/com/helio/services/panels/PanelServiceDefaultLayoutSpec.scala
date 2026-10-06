@@ -245,7 +245,7 @@ class PanelServiceDefaultLayoutSpec extends AnyWordSpec with Matchers {
         val panel = inv.getArgument[Panel](0)
         Future.successful(Option(CreatePlacement.append(emptyDashboard().layout, Vector(panel.id -> inv.getArgument[PlacementSizes](1)))._2.head))
       }
-      val service = new PanelService(panelRepo, stubAccess, dashboardRepo, auditService = null, outputRepo = null)
+      val service = new PanelService(panelRepo, stubAccess, dashboardRepo, auditService = null, outputRepo = mock(classOf[OutputRepository]))
       val request = CreatePanelRequest(Some(dashboardId.value), None, Some("divider"), None)
       val (_, layout) = await(service.create(request, user)).getOrElse(fail("create failed"))
       (layout.lg.w, layout.md.w, layout.sm.w, layout.xs.w) shouldBe ((4, 4, 3, 2))
@@ -256,7 +256,7 @@ class PanelServiceDefaultLayoutSpec extends AnyWordSpec with Matchers {
     "answer 404 and place nothing when the repository could not see the dashboard" in {
       val panelRepo = mock(classOf[PanelRepository])
       when(panelRepo.insertPlaced(any(), any())).thenReturn(Future.successful(None))
-      val service = new PanelService(panelRepo, stubAccess, mock(classOf[DashboardRepository]), auditService = null, outputRepo = null)
+      val service = new PanelService(panelRepo, stubAccess, mock(classOf[DashboardRepository]), auditService = null, outputRepo = mock(classOf[OutputRepository]))
       val request = CreatePanelRequest(Some(dashboardId.value), None, Some("divider"), None)
       await(service.create(request, user)) shouldBe Left(ServiceError.NotFound("Dashboard not found"))
     }

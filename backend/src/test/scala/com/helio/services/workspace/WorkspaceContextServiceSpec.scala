@@ -134,7 +134,7 @@ class WorkspaceContextServiceSpec
     )
     val permissionRepo   = new ResourcePermissionRepository(ctx)
     val accessChecker    = new AccessCheckerImpl(permissionRepo, registry)
-    val dashboardService = new DashboardService(dashboardRepo, accessChecker)
+    val dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
 
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository (sample rows/columnStats
     // now come from NodeSnapshotRepository, replacing DataTypeRowRepository).
@@ -1201,7 +1201,8 @@ class WorkspaceContextServiceSpec
         new DashboardService(dashboardRepo, new AccessCheckerImpl(
           new ResourcePermissionRepository(new DbContext(db, db)),
           new ResourceTypeRegistry(AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value))))
-        )),
+        ),
+        outputRepo = outputRepo),
         dataSourceService,
         outputRepo,
         spiedPipelineService,

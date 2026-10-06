@@ -38,9 +38,8 @@ final class DashboardProposalService(
     dashboardService: DashboardService,
     panelService: PanelService,
     // HEL-904 task 3.8/3.9: validates an "output"-kind panel's binding
-    // against a real Output. Nullable-optional for the many test call sites
-    // that never construct an output-kind panel.
-    outputRepo: OutputRepository = null,
+    // against a real Output. HEL-1295: required, never null (enforced by the `require` below).
+    outputRepo: OutputRepository,
     // HEL-1193: the same validator PanelService uses for a panel's controls, run at propose time
     // too; nullable-optional like the other collaborators (null skips the control check).
     controlsValidator: OutputControlsValidator = null,
@@ -50,6 +49,8 @@ final class DashboardProposalService(
     // `ProposalPanelSupport.validatePanel` never depends on it).
     dataSourceRepo: DataSourceRepository = null
 )(implicit ec: ExecutionContext) {
+
+  require(outputRepo != null, "DashboardProposalService requires an OutputRepository")
 
   import DashboardProposalService._
 
