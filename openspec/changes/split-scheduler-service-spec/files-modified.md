@@ -1,0 +1,3 @@
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineSchedulerServiceFixture.scala` — new shared fixture trait (embedded Postgres, fake clock/fs, seeds); private -> protected only
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineSchedulerServiceSpec.scala` — reduced to the 8 schedule-firing tests, mixes in the fixture
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineSchedulerServiceMaintenanceHooksSpec.scala` — new; the 3 retention-hook failure tests moved verbatim
