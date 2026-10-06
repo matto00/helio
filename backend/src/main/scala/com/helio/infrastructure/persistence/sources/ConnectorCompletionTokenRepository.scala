@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence.sources
 
 import com.helio.domain.model.{ConnectorCompletionToken, ConnectorCompletionTokenId, ConnectorId, UserId}
+import com.helio.domain.util.{Clock, SystemClock}
 import com.helio.infrastructure.persistence.DbContext
 import slick.jdbc.PostgresProfile.api._
 
@@ -20,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  owner-only RLS policy is actually exercised. `findByHash`/`consume` -- the anonymous
  *  completion-endpoint lookup/write, which has no `app.current_user_id` to set -- go through
  *  `ctx.withSystemContext`, mirroring `findActiveByHash`'s justification. */
-class ConnectorCompletionTokenRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+class ConnectorCompletionTokenRepository(ctx: DbContext, clock: Clock = SystemClock)(implicit ec: ExecutionContext) {
 
   import ConnectorCompletionTokenRepository._
 
@@ -45,7 +46,7 @@ class ConnectorCompletionTokenRepository(ctx: DbContext)(implicit ec: ExecutionC
    *  minting the first token at Connector-creation time or re-minting (agent re-initiation or the
    *  owner re-mint endpoint). */
   def mintSupersedingPrior(connectorId: ConnectorId, userId: UserId, tokenHash: String, expiresAt: Instant): Future[ConnectorCompletionToken] = {
-    val now = Instant.now()
+    val now = clock.now()
     val connectorUuid = UUID.fromString(connectorId.value)
     val supersedeAction = table
       .filter(r => r.connectorId === connectorUuid && r.consumedAt.isEmpty && r.supersededAt.isEmpty)
@@ -81,7 +82,7 @@ class ConnectorCompletionTokenRepository(ctx: DbContext)(implicit ec: ExecutionC
    *  and the caller treats it identically to every other invalid-token case. Runs on the
    *  privileged pool -- the anonymous completion endpoint has no `app.current_user_id`. */
   def consume(tokenHash: String): Future[Boolean] = {
-    val now = Instant.now()
+    val now = clock.now()
     val action = table
       .filter(r => r.tokenHash === tokenHash && r.consumedAt.isEmpty && r.supersededAt.isEmpty && r.expiresAt > now)
       .map(_.consumedAt)
@@ -94,7 +95,7 @@ class ConnectorCompletionTokenRepository(ctx: DbContext)(implicit ec: ExecutionC
    *  fresh mint is actually needed, and by tests asserting the supersede invariant. */
   def findLiveByConnector(connectorId: ConnectorId, userId: UserId): Future[Vector[ConnectorCompletionToken]] = {
     val connectorUuid = UUID.fromString(connectorId.value)
-    val now           = Instant.now()
+    val now           = clock.now()
     ctx.withUserContext(userId.value)(
       table.filter(r => r.connectorId === connectorUuid && r.consumedAt.isEmpty && r.supersededAt.isEmpty && r.expiresAt > now).result
     ).map(_.map(rowToDomain).toVector)

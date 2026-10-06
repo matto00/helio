@@ -210,7 +210,9 @@ runs ~1/4 of the suites and restores a cached compile output so zinc compiles in
   compile the build. Only generated subdirectories are ignored now.
 - The shard count must equal the matrix size (it is derived from `strategy.job-total`); raising it past the
   matrix would silently skip suites. 12 legs also starved the shared runner pool; 3 concurrent forks per leg
-  flaked `ConnectorCompletionServiceSpec`'s 50ms-expiry race.
+  flaked `ConnectorCompletionServiceSpec`'s 50ms-expiry race. HEL-1323 root-caused that to the spec's wall-clock
+  50 ms token lifetime and replaced it with an injected `Clock`; other timing-sensitive specs were not swept, and
+  the fork count is unchanged (a separate decision).
 
 The merge-readiness script's poll window (CON-159) is still shorter than a slow run; its fix reaches this repo
 only via `concertino sync`.

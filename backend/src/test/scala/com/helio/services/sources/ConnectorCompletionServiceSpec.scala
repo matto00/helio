@@ -2,6 +2,7 @@ package com.helio.services.sources
 
 import com.helio.domain.connectors.ConnectorAuthShape
 import com.helio.domain.model._
+import com.helio.domain.util.Clock
 import com.helio.infrastructure.crypto.TokenHashing
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
@@ -69,6 +70,24 @@ class ConnectorCompletionServiceSpec extends AnyWordSpec with Matchers with Befo
   }
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
+
+  /** Expiry is driven by advancing this clock, never by sleeping: the service and the repository
+   *  share one instance so the `consume` SQL predicate observes the same "now" as the mint. It
+   *  starts at the real time so persisted timestamps stay realistic, and tests advance well past
+   *  the expiry because Postgres stores microseconds while `Instant.now()` can carry more. */
+  private final class FakeClock(start: Instant = Instant.now()) extends Clock {
+    @volatile private var current: Instant = start
+    override def now(): Instant = current
+    def advance(by: Duration): Unit = current = current.plus(by)
+  }
+
+  private val shortExpiry = Duration.ofMillis(50)
+  private val pastExpiry  = Duration.ofSeconds(5)
+
+  private def fakeClockServices(clock: FakeClock): (ConnectorCompletionTokenRepository, ConnectorCompletionService) = {
+    val repo = new ConnectorCompletionTokenRepository(ctx, clock)
+    (repo, new ConnectorCompletionService(connectorRepo, repo, defaultExpiry = shortExpiry, clock = clock))
+  }
 
   private def freshUser(label: String): AuthenticatedUser = {
     val id = UUID.randomUUID().toString
@@ -255,18 +274,19 @@ class ConnectorCompletionServiceSpec extends AnyWordSpec with Matchers with Befo
     // way -- a token that expires AFTER being read as live must also refuse at `consume()`.
     "consume() itself refuses a token that expired AFTER being read as live" in {
       val user = freshUser("race-predicate-expiry")
-      val shortLivedService = new ConnectorCompletionService(connectorRepo, tokenRepo, defaultExpiry = Duration.ofMillis(50))
+      val clock = new FakeClock()
+      val (clockTokenRepo, shortLivedService) = fakeClockServices(clock)
       val minted = await(shortLivedService.createOrRemintPending(
         "My API", "rest_api", "https://race-predicate-expiry.example.test", ConnectorAuthShape(authType = "bearer"), user
       )).getOrElse(fail("expected Right"))
       val hash = TokenHashing.sha256Hex(minted.rawToken)
 
-      val readAsLive = await(tokenRepo.findByHash(hash)).get
-      readAsLive.isValid(Instant.now()) shouldBe true
+      val readAsLive = await(clockTokenRepo.findByHash(hash)).get
+      readAsLive.isValid(clock.now()) shouldBe true
 
-      Thread.sleep(100) // past the 50ms expiry, AFTER the "read as live" check above.
+      clock.advance(pastExpiry) // past the expiry, AFTER the "read as live" check above.
 
-      await(tokenRepo.consume(hash)) shouldBe false
+      await(clockTokenRepo.consume(hash)) shouldBe false
       val connector = await(connectorRepo.findByIdOwned(minted.connectorId, user)).get
       connector.isPending shouldBe true
     }
@@ -307,13 +327,18 @@ class ConnectorCompletionServiceSpec extends AnyWordSpec with Matchers with Befo
   "expiry recovery (task 4.7 / ticket AC4)" should {
     "refuse an expired token, then a re-mint on the SAME Connector succeeds with a fresh token" in {
       val user = freshUser("expiry-recovery")
-      val shortLivedService = new ConnectorCompletionService(connectorRepo, tokenRepo, defaultExpiry = Duration.ofMillis(50))
+      val clock = new FakeClock()
+      val (_, shortLivedService) = fakeClockServices(clock)
 
       val firstMint = await(shortLivedService.createOrRemintPending(
         "My API", "rest_api", "https://expiry-recovery.example.test", ConnectorAuthShape(authType = "bearer"), user
       )).getOrElse(fail("expected Right"))
 
-      Thread.sleep(100) // past the 50ms expiry
+      clock.advance(pastExpiry)
+
+      // describePending decides on the in-memory validity check alone (no consume), so this is
+      // the assertion that observes the service's clock.
+      await(shortLivedService.describePending(firstMint.rawToken, requestingUser = None)) shouldBe Left(ConnectorCompletionService.RefusalError)
 
       // 1. The completion URL has genuinely expired -- refused, and it costs no partial write.
       val expiredAttempt = await(shortLivedService.complete(firstMint.rawToken, "attacker-or-late-secret", requestingUser = None))
@@ -340,12 +365,13 @@ class ConnectorCompletionServiceSpec extends AnyWordSpec with Matchers with Befo
 
     "owner re-mint also recovers an expired pending Connector" in {
       val user = freshUser("expiry-recovery-owner")
-      val shortLivedService = new ConnectorCompletionService(connectorRepo, tokenRepo, defaultExpiry = Duration.ofMillis(50))
+      val clock = new FakeClock()
+      val (_, shortLivedService) = fakeClockServices(clock)
 
       val firstMint = await(shortLivedService.createOrRemintPending(
         "My API", "rest_api", "https://expiry-recovery-owner.example.test", ConnectorAuthShape(authType = "bearer"), user
       )).getOrElse(fail("expected Right"))
-      Thread.sleep(100)
+      clock.advance(pastExpiry)
       await(shortLivedService.complete(firstMint.rawToken, "too-late", requestingUser = None)) shouldBe Left(ConnectorCompletionService.RefusalError)
 
       val remint = await(shortLivedService.ownerRemint(firstMint.connectorId, user)).getOrElse(fail("expected Right"))

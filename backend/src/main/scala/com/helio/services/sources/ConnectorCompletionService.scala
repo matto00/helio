@@ -2,6 +2,7 @@ package com.helio.services.sources
 
 import com.helio.domain.connectors.ConnectorAuthShape
 import com.helio.domain.model._
+import com.helio.domain.util.{Clock, SystemClock}
 import com.helio.infrastructure.crypto.TokenHashing
 import com.helio.infrastructure.persistence.sources.{ConnectorCompletionTokenRepository, ConnectorRepository}
 import com.helio.services.ServiceError
@@ -24,7 +25,8 @@ final class ConnectorCompletionService(
     // hard-capped at a 24-hour ceiling -- `min(configured, 24h)`, so the ceiling is reachable
     // and is the worst case the Risks statement is argued against.
     defaultExpiry: Duration = Duration.ofMinutes(60),
-    maxExpiry:     Duration = Duration.ofHours(24)
+    maxExpiry:     Duration = Duration.ofHours(24),
+    clock:         Clock = SystemClock
 )(implicit ec: ExecutionContext) {
 
   import ConnectorCompletionService._
@@ -83,7 +85,7 @@ final class ConnectorCompletionService(
   private def mintToken(connectorId: ConnectorId, user: AuthenticatedUser): Future[MintedToken] = {
     val raw       = generateRawToken()
     val hash      = TokenHashing.sha256Hex(raw)
-    val expiresAt = Instant.now().plus(effectiveExpiry)
+    val expiresAt = clock.now().plus(effectiveExpiry)
     tokenRepo.mintSupersedingPrior(connectorId, user.id, hash, expiresAt).map { _ =>
       MintedToken(connectorId, raw, expiresAt)
     }
@@ -99,7 +101,7 @@ final class ConnectorCompletionService(
       val hash = TokenHashing.sha256Hex(rawToken)
       tokenRepo.findByHash(hash).flatMap {
         case None => Future.successful(Left(RefusalError))
-        case Some(token) if !token.isValid(Instant.now()) => Future.successful(Left(RefusalError))
+        case Some(token) if !token.isValid(clock.now()) => Future.successful(Left(RefusalError))
         case Some(token) =>
           connectorRepo.findByIdUnscoped(token.connectorId).map {
             case None => Left(RefusalError)
