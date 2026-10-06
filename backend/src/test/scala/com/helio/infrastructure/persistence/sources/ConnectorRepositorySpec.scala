@@ -428,6 +428,76 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       fetched.get.credentialId shouldBe updatedConnector.credentialId
     }
 
+    // HEL-1338 D4: deterministic (not load-dependent) proof that rotation awaits the old
+    // credential's delete. A separate superuser connection holds a row lock on the OLD
+    // credential, so a DELETE of it cannot complete. Rotation must therefore NOT report
+    // success until the lock is released; a fire-and-forget delete would let it return at once.
+    "does not return success until the old credential is actually deleted (HEL-1338)" in {
+      val owner     = freshUser()
+      val connector = await(
+        repo.create(owner, "Await-delete", DataSourceKind.RestApi, "https://await-delete.example.com", "{}", "old-secret", "cred")
+      )
+      val oldCredentialId = connector.credentialId.get
+      val user            = AuthenticatedUser(owner)
+
+      val holder = embeddedPostgres.getPostgresDatabase.getConnection
+      var released = false
+      def release(): Unit = if (!released) { released = true; holder.rollback(); holder.close() }
+      try {
+        holder.setAutoCommit(false)
+        val lockStmt = holder.prepareStatement("SELECT 1 FROM connector_credentials WHERE id = ?::uuid FOR UPDATE")
+        lockStmt.setString(1, oldCredentialId.value)
+        lockStmt.executeQuery().close()
+        lockStmt.close()
+
+        val rotation = repo.rotateCredential(connector.id, "new-secret", "rotated", user)
+
+        // Bounded poll (not a bare sleep): rotation must stay pending for the whole window.
+        val deadline = System.nanoTime() + 1500L * 1000000L
+        while (System.nanoTime() < deadline && !rotation.isCompleted) Thread.sleep(25)
+        withClue("rotation reported success while the old credential's delete was still blocked: ") {
+          rotation.isCompleted shouldBe false
+        }
+
+        release()
+        val rotated = Await.result(rotation, 10.seconds)
+        rotated.isRight shouldBe true
+        await(credentialRepo.get(oldCredentialId, owner)) shouldBe None
+        await(credentialRepo.decryptForUse(oldCredentialId, owner)) shouldBe None
+        await(credentialRepo.decryptForUse(rotated.toOption.get.credentialId.get, owner)) shouldBe Some("new-secret")
+      } finally {
+        release()
+      }
+    }
+
+    // HEL-1338 D3: the old-credential delete is part of the rotation transaction, so when it
+    // fails the whole rotation rolls back -- the Connector keeps its original (still decryptable)
+    // credential and the freshly minted credential row does not survive.
+    "rolls the whole rotation back when the old-credential delete fails (HEL-1338)" in {
+      val failingCredentialRepo = new ConnectorCredentialRepository(
+        ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider(testEnv))
+      ) {
+        override def deleteAction(id: ConnectorCredentialId): DBIO[Int] =
+          DBIO.failed(new RuntimeException("simulated old-credential delete failure"))
+      }
+      val failingRepo = new ConnectorRepository(ctx, failingCredentialRepo)
+
+      val owner     = freshUser()
+      val connector = await(
+        repo.create(owner, "Rollback target", DataSourceKind.RestApi, "https://rollback.example.com", "{}", "original-secret", "cred")
+      )
+      val user = AuthenticatedUser(owner)
+
+      val failure = the[RuntimeException] thrownBy
+        await(failingRepo.rotateCredential(connector.id, "attempted-new-secret", "rotated", user))
+      failure.getMessage should include("simulated old-credential delete failure")
+
+      val fetched = await(repo.findByIdOwned(connector.id, user))
+      fetched.get.credentialId shouldBe connector.credentialId
+      await(credentialRepo.decryptForUse(connector.credentialId.get, owner)) shouldBe Some("original-secret")
+      await(credentialRepo.list(owner)).map(_.id) shouldBe Seq(connector.credentialId.get)
+    }
+
     "returns not-found for another user's Connector, performing no write" in {
       val ownerA = freshUser()
       val ownerB = freshUser()

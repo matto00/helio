@@ -30,24 +30,36 @@ class ConnectorCredentialRepository(ctx: DbContext, secretBackend: EncryptedSecr
    *  `EncryptedSecretBackend.encrypt` returns `Left` -- most notably
    *  `MasterKeyError.NoKeyConfigured`, the single most important negative case in this ticket. */
   def create(userId: UserId, name: String, plaintext: String): Future[ConnectorCredentialMeta] =
-    secretBackend.encrypt(plaintext) match {
-      case Left(err) => Future.failed(ConnectorCredentialEncryptionFailed(err))
-      case Right(payload) =>
-        val id  = UUID.randomUUID()
-        val now = Instant.now()
-        val row = ConnectorCredentialRow(
-          id             = id,
-          userId         = UUID.fromString(userId.value),
-          name           = name,
-          keyId          = payload.keyId,
-          wrappedDataKey = payload.wrappedDataKey,
-          nonceDek       = payload.nonceDek,
-          ciphertext     = payload.ciphertext,
-          nonceValue     = payload.nonceValue,
-          createdAt      = now,
-          updatedAt      = now
-        )
-        ctx.withUserContext(userId.value)(credentials += row).map(_ => rowToMeta(row))
+    insertAction(userId, name, plaintext) match {
+      case Left(err)              => Future.failed(ConnectorCredentialEncryptionFailed(err))
+      case Right((action, meta)) => ctx.withUserContext(userId.value)(action).map(_ => meta)
+    }
+
+  /** DBIO-level building block behind [[create]] (HEL-1338): encrypts `plaintext` eagerly (pure
+   *  CPU, no database access -- so a `Left` means nothing was or will be written) and returns the
+   *  insert action plus the metadata it will persist. The caller composes the action into its own
+   *  [[DbContext.withUserContext]] transaction. */
+  def insertAction(
+      userId: UserId,
+      name: String,
+      plaintext: String
+  ): Either[MasterKeyError, (DBIO[Int], ConnectorCredentialMeta)] =
+    secretBackend.encrypt(plaintext).map { payload =>
+      val id  = UUID.randomUUID()
+      val now = Instant.now()
+      val row = ConnectorCredentialRow(
+        id             = id,
+        userId         = UUID.fromString(userId.value),
+        name           = name,
+        keyId          = payload.keyId,
+        wrappedDataKey = payload.wrappedDataKey,
+        nonceDek       = payload.nonceDek,
+        ciphertext     = payload.ciphertext,
+        nonceValue     = payload.nonceValue,
+        createdAt      = now,
+        updatedAt      = now
+      )
+      ((credentials += row): DBIO[Int], rowToMeta(row))
     }
 
   /** Metadata only -- id/name/key_id/timestamps, never plaintext or ciphertext. This is the only
@@ -82,9 +94,13 @@ class ConnectorCredentialRepository(ctx: DbContext, secretBackend: EncryptedSecr
     }
 
   def delete(id: ConnectorCredentialId, userId: UserId): Future[Boolean] =
-    ctx.withUserContext(userId.value)(
-      credentials.filter(_.id === UUID.fromString(id.value)).delete
-    ).map(_ > 0)
+    ctx.withUserContext(userId.value)(deleteAction(id)).map(_ > 0)
+
+  /** DBIO-level building block behind [[delete]] (HEL-1338), composable into a caller's own
+   *  user-context transaction. Deliberately overridable: a test substitutes a failing action to
+   *  prove a rotation rolls back when the old-credential delete fails. */
+  def deleteAction(id: ConnectorCredentialId): DBIO[Int] =
+    credentials.filter(_.id === UUID.fromString(id.value)).delete
 
   /** Rotation support (design.md Decision 5 / task 5.2): re-wraps every row whose `key_id` is not
    *  `currentKeyId` under the currently-active master key, via `provider.unwrapDataKey` (resolves
