@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 import {
   assertFloor,
@@ -36,6 +37,7 @@ function uniqueEmail(label: string): string {
 
 async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-813 Regression ${label}` },
@@ -259,6 +261,8 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
     try {
       await page.setViewportSize({ width: 430, height: 900 });
       await registerAndLogin(page, request, "caseB");
+      // HEL-1300: seeding below must not race the live post-login `/`.
+      await isolateLivePage(page);
       const dashboardRes = await page.request.post("/api/dashboards", {
         data: { name: "HEL-813 Regression Nav" },
         headers: { [CSRF_HEADER]: "1" },

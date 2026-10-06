@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-716 — live verification (skeptic-final-3.md).
 //
@@ -37,6 +38,7 @@ test.describe("HEL-716 PanelDetailModal tall-viewport footer visibility", () => 
     request,
   }) => {
     const email = uniqueEmail("tallviewport");
+    console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
     const password = "correcthorsebattery1";
 
     await request.post("/api/auth/register", {
@@ -49,6 +51,8 @@ test.describe("HEL-716 PanelDetailModal tall-viewport footer visibility", () => 
     await page.fill("#password", password);
     await page.click("button[type=submit]");
     await page.waitForURL("/");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
 
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-716 Tall Viewport Verification" },

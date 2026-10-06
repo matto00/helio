@@ -5,6 +5,7 @@ import {
   type BrowserContext,
   type Page,
 } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-287 — httpOnly-cookie session migration, live verification (design.md
 // Migration Plan / tasks.md section 7). Runs against real dev servers
@@ -199,6 +200,8 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     await page.fill("#password", password);
     await page.click("button[type=submit]");
     await page.waitForURL("/");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
 
     const withoutHeader = await page.request.post("/api/dashboards", {
       data: { name: "Should be rejected" },

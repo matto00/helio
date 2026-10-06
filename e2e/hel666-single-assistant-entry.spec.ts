@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-666 — live verification (tasks.md 3.3/3.4, AC1/AC2). Both the quick-launcher (HEL-665) and
 // the proposal hand-off (HEL-665's `ProposalHandoff.tsx`) were already fully shipped before this
@@ -20,6 +21,7 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     request,
   }) => {
     const email = uniqueEmail("entrypoints");
+    console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
     const password = "correcthorsebattery1";
     await request.post("/api/auth/register", {
       data: { email, password, displayName: "HEL-666 E2E Entry Points" },
@@ -31,6 +33,8 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     await page.fill("#password", password);
     await page.click("button[type=submit]");
     await page.waitForURL("/");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
 
     // A dashboard, so "/" also exercises the dashboard-scoped "Refine with AI" button below
     // (auto-selected as most-recent, mirroring e2e/hel399-shape-instantiate.spec.ts's precedent).
@@ -76,6 +80,7 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     request,
   }) => {
     const email = uniqueEmail("proposal");
+    console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
     const password = "correcthorsebattery1";
     await request.post("/api/auth/register", {
       data: { email, password, displayName: "HEL-666 E2E Proposal" },
@@ -87,6 +92,8 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     await page.fill("#password", password);
     await page.click("button[type=submit]");
     await page.waitForURL("/");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
 
     // Grounding data: a real pipeline-output DataType (source -> pipeline -> type, the only path
     // that produces panel-bindable data) the assistant's `find`/`get_resource` tools can discover.

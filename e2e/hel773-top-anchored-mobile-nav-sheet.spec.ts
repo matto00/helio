@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-773 — live verification (design.md Risks/Trade-offs; tasks.md 6.1-6.7).
 //
@@ -18,6 +19,7 @@ function uniqueEmail(label: string): string {
 
 async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-773 ${label}` },
@@ -56,6 +58,8 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, "safearea");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Safe Area" },
       headers: { [CSRF_HEADER]: "1" },
@@ -107,6 +111,8 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, "44px");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Tap Target A" },
       headers: { [CSRF_HEADER]: "1" },
@@ -207,11 +213,16 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, "iconsize");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Icon Size" },
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(dashboardRes.status()).toBe(201);
+    // HEL-1300: the loop below sets localStorage via page.evaluate, which needs the app origin
+    // (about:blank has none); this load is also the first one that can see the seeded dashboard.
+    await page.goto("/");
 
     for (const theme of ["dark", "light"] as const) {
       await page.evaluate((t) => localStorage.setItem("helio-theme", t), theme);
@@ -244,6 +255,8 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, "stacking");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Stacking" },
       headers: { [CSRF_HEADER]: "1" },
@@ -295,6 +308,8 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, "clearance");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
     for (let i = 0; i < 8; i++) {
       const res = await page.request.post("/api/dashboards", {
         data: { name: `HEL-773 Clearance ${i}` },
@@ -329,6 +344,8 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await registerAndLogin(page, request, "reducedmotion");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Reduced Motion" },
       headers: { [CSRF_HEADER]: "1" },
@@ -367,6 +384,8 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, "reopen");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Reopen" },
       headers: { [CSRF_HEADER]: "1" },
@@ -442,6 +461,8 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, `matrix-${width}-${theme}`);
         await page.evaluate((t) => localStorage.setItem("helio-theme", t), theme);
+        // HEL-1300: the theme step needs the app origin, so isolate after it and before the seed.
+        await isolateLivePage(page);
         const dashboardRes = await page.request.post("/api/dashboards", {
           data: { name: "HEL-773 Matrix" },
           headers: { [CSRF_HEADER]: "1" },

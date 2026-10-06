@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page, type Request } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-1080 skeptic-final-3.md CR-G — the owner condition this round attached: real Playwright
 // e2e specs driving the ACTUAL backend (not a jest mock), for the three cases round 2's evaluator
@@ -13,6 +14,7 @@ function uniqueEmail(label: string): string {
 
 async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-1080 ${label}` },
@@ -24,6 +26,8 @@ async function registerAndLogin(page: Page, request: APIRequestContext, label: s
   await page.click("button[type=submit]");
   await page.waitForURL("/");
   await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
+  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
+  await isolateLivePage(page);
 }
 
 interface CreatedSource {
