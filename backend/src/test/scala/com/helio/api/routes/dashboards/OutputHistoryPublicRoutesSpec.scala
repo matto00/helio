@@ -40,7 +40,7 @@ class OutputHistoryPublicRoutesSpec
 
   private def routes(): Route =
     new PublicDashboardRoutes(
-      panelRepo, aclDirective, userOpt = None, Some(outputRepo), Some(pipelineRepo), Some(snapshotRepo), None, Some(historyService)
+      panelRepo, aclDirective, userOpt = None, outputRepo, Some(pipelineRepo), Some(snapshotRepo), None, Some(historyService)
     )(typedSystem).routes
 
   private val T: Instant = Instant.now().minus(3, ChronoUnit.DAYS).truncatedTo(ChronoUnit.MILLIS)

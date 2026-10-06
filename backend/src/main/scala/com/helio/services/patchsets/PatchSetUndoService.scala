@@ -55,8 +55,7 @@ final class PatchSetUndoService(
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
     applicationRepo: PatchSetApplicationRepository,
-    // HEL-1256: required, no default. May be an explicit `null` (no DbContext); `undo` then
-    // rejects with a typed error when an edit needs it. Read only via `context.outputRepo`.
+    // HEL-1256: required, no default; non-null asserted by `PatchSetUndoContext` (HEL-1337).
     outputRepo: OutputRepository
 )(implicit ec: ExecutionContext) {
 
@@ -65,32 +64,9 @@ final class PatchSetUndoService(
   private[services] val context: PatchSetUndoContext =
     PatchSetUndoContext.build(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, outputRepo)
 
-  /** HEL-1256 D3: whether undoing this edit dereferences the Output repository. Total on purpose
-   *  (pattern matches only, no `asJsObject`/`fields(...)`): it runs before Phase 1, outside
-   *  `safeRestoreOne`'s recover, so a malformed journal must not throw here. A `pipelineStep`
-   *  create is conservatively always "needs" (its outcome reports `removedPlacementCount`). Keep
-   *  in step with `restoreBoundOutputs`/`countPlacementsForStep`. */
-  private def needsOutputRepo(edit: JournaledEdit): Boolean =
-    (edit.targetKind, edit.op) match {
-      case ("pipelineStep", "create") => true
-      case ("pipelineStep", "delete") =>
-        edit.priorState match {
-          case Some(o: JsObject) =>
-            o.fields.get("boundOutputs") match {
-              case Some(arr: JsArray) => arr.elements.nonEmpty
-              case _                  => false
-            }
-          case _ => false
-        }
-      case _ => false
-    }
-
   def undo(applicationId: PatchSetApplicationId, user: AuthenticatedUser): Future[Either[ServiceError, PatchSetUndoResponse]] =
     applicationRepo.findById(applicationId, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("Patch-set application not found")))
-      case Some(record) if context.outputRepo == null && record.edits.exists(needsOutputRepo) =>
-        // Before Phase 1/2: nothing has been restored. A server-configuration fault (500), not a 409.
-        Future.successful(Left(PatchSetApplyContext.outputRepoUnavailable))
       case Some(record) =>
         PatchSetUndoConflictCheck.checkAll(record.edits, user, context).flatMap { blockers =>
           if (blockers.nonEmpty)

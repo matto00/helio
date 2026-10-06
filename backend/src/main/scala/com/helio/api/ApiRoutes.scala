@@ -151,10 +151,8 @@ final class ApiRoutes(
     // (pipelineScheduleServiceOpt.fold(reject)). Appended last for the same
     // purely-additive reason.
     pipelineScheduleRepo: PipelineScheduleRepository = null,
-    // HEL-366: same nullable-optional wiring pattern as the repos above —
-    // fixtures that don't pass a DbContext simply don't get the
-    // /api/workspace/teardown route mounted (workspaceTeardownServiceOpt.
-    // fold(reject)). Unlike the other nullable params this is a raw
+    // HEL-366: required (HEL-1295); /api/workspace/teardown is always mounted.
+    // Unlike the nullable params above this is a raw
     // DbContext rather than a repository: WorkspaceTeardownRepository's
     // entire teardown transaction must run via `ctx.withUserContext` (design.md
     // Decision 3's hard constraint), which no existing repository exposes.
@@ -189,7 +187,7 @@ final class ApiRoutes(
     // pattern). Threaded explicitly (like pipelineRunRepo) rather than derived from `dbContext`
     // here, since `Main.scala`/`PipelineSchedulerService` also need the SAME instance for its
     // cleanup tick (design.md Decision 2) — mirrors pipelineRunRepo's own explicit-param wiring,
-    // not outputRepoOpt's dbContext-derived one. Appended last for the same purely-additive reason.
+    // not `outputRepo`'s dbContext-derived one. Appended last for the same purely-additive reason.
     pipelineRunGuardRepo: PipelineRunGuardRepository = null,
     // HEL-505: explicit constructor param (default `fromEnv()`), NOT a private fromEnv()-only val
     // like rateLimitConfig/userTierConfig above — a spec needs to inject a small
@@ -218,7 +216,7 @@ final class ApiRoutes(
     claudeConfigProvider: () => Either[String, ClaudeConfig] = () => ClaudeConfig.fromEnv(),
     claudeTransportFactory: Option[String => ClaudeTransport] = None,
     // HEL-1271: owned by Main so the retention leaf can schedule against the same instance; null in
-    // fixtures, where a DbContext-backed one is derived below (see `outputHistoryRepoOpt`).
+    // fixtures, where a DbContext-backed one is derived below (see `resolvedOutputHistoryRepo`).
     outputHistoryRepo: OutputHistoryRepository = null,
     // HEL-1276: owned by Main (shared with the retention service); derived from `dbContext` when absent.
     nodePayloadHistoryRepo: NodePayloadHistoryRepository = null,
@@ -243,36 +241,33 @@ final class ApiRoutes(
   private val auditService: AuditService = Option(auditEventRepo).map(new AuditService(_)).orNull
 
   // HEL-1295: `dbContext` is required, so there is always a real OutputRepository; the services
-  // that take one never receive null. `outputRepoOpt` stays for the Option-shaped consumers below.
+  // that take one never receive null.
   private val outputRepo: OutputRepository = new OutputRepository(dbContext)
-  private val outputRepoOpt: Option[OutputRepository] = Some(outputRepo)
-  // HEL-913 task 5.8a: threaded into `outputServiceOpt` below so `CreateOutputRequest.rootId`
+  // HEL-913 task 5.8a: threaded into `outputService` below so `CreateOutputRequest.rootId`
   // can be validated against the pipeline's real roots instead of silently ignored.
-  private val pipelineRootRepoOpt: Option[PipelineRootRepository] = Option(dbContext).map(new PipelineRootRepository(_))
-  private val nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = Option(dbContext).map(new NodeSnapshotRepository(_))
+  private val pipelineRootRepo: PipelineRootRepository = new PipelineRootRepository(dbContext)
+  private val nodeSnapshotRepo: NodeSnapshotRepository = new NodeSnapshotRepository(dbContext)
   // HEL-1271: Main's instance when passed, else one derived from `dbContext` so DB-backed fixtures
-  // record history through the real path with no constructor churn; `PipelineRunService` null-checks it.
-  val outputHistoryRepoOpt: Option[OutputHistoryRepository] =
-    Option(outputHistoryRepo).orElse(Option(dbContext).map(new OutputHistoryRepository(_)))
-  // HEL-1276: same derive-from-`dbContext` fallback as `outputHistoryRepoOpt`.
-  val nodePayloadHistoryRepoOpt: Option[NodePayloadHistoryRepository] =
-    Option(nodePayloadHistoryRepo).orElse(Option(dbContext).map(new NodePayloadHistoryRepository(_)))
-  // HEL-1093 (design.md Decision 2): built from `pipelineRootRepoOpt` above and the explicitly
+  // record history through the real path with no constructor churn. Named `resolved*` because the
+  // plain names are the (nullable) constructor params above.
+  val resolvedOutputHistoryRepo: OutputHistoryRepository =
+    Option(outputHistoryRepo).getOrElse(new OutputHistoryRepository(dbContext))
+  // HEL-1276: same derive-from-`dbContext` fallback as `resolvedOutputHistoryRepo`.
+  val resolvedNodePayloadHistoryRepo: NodePayloadHistoryRepository =
+    Option(nodePayloadHistoryRepo).getOrElse(new NodePayloadHistoryRepository(dbContext))
+  // HEL-1093 (design.md Decision 2): built from `pipelineRootRepo` above and the explicitly
   // threaded `autoRunDebounceRepo` (nullable-optional, see that constructor param's own doc) --
-  // `None` unless BOTH are present, so a fixture that passes neither (or only one) simply gets
+  // `None` unless the debounce repo is present, so a fixture that passes none simply gets
   // `dataSourceService` constructed with `autoRunTriggerService = null` (debounce-scheduling
   // skipped entirely on every row-mutation call).
   private val autoRunTriggerServiceOpt: Option[AutoRunTriggerService] =
-    for {
-      rootRepo     <- pipelineRootRepoOpt
-      debounceRepo <- Option(autoRunDebounceRepo)
-    } yield new AutoRunTriggerService(rootRepo, pipelineRepo, pipelineStepRepo, dataSourceRepo, debounceRepo)
-  // HEL-590: same nullable-DbContext-derived wiring pattern as outputRepoOpt/nodeSnapshotRepoOpt
-  // above -- fixtures that don't pass a DbContext simply don't get /api/dashboards/:id/share-tokens
-  // mounted (shareTokenServiceOpt.fold(reject) below), and the token fallback in AclDirective
-  // always evaluates to `false` (ShareTokenValidatorImpl's own None-repo branch).
-  private val shareTokenRepoOpt: Option[ShareTokenRepository] = Option(dbContext).map(new ShareTokenRepository(_))
-  private val shareTokenValidator = new ShareTokenValidatorImpl(shareTokenRepoOpt)
+    Option(autoRunDebounceRepo).map(debounceRepo =>
+      new AutoRunTriggerService(pipelineRootRepo, pipelineRepo, pipelineStepRepo, dataSourceRepo, debounceRepo)
+    )
+  // HEL-590: ShareTokenValidatorImpl takes an Option repo (its own None-repo branch is a separate
+  // optionality this ticket does not change), so the always-present repo is passed as `Some`.
+  private val shareTokenRepo: ShareTokenRepository = new ShareTokenRepository(dbContext)
+  private val shareTokenValidator = new ShareTokenValidatorImpl(Some(shareTokenRepo))
 
   // HEL-488: same nullable-optional wiring pattern as auditService above —
   // fixtures that don't pass an AuditEventRepository simply don't get the
@@ -349,21 +344,16 @@ final class ApiRoutes(
   // None`, which AuthService's own defaulted ctor param treats identically
   // to the feature being entirely absent (design.md D3).
   private val mfaServiceOpt: Option[MfaService] = Option(mfaRepo).map(new MfaService(_, userRepo, auditService))
-  // HEL-1019: mirrors patchSetApplicationRepo's always-constructed-even-with-null-dbContext
-  // pattern below — dbContext being null only matters to a fixture that never exercises
-  // GET /api/auth/google[/callback], since OAuthStateRepository doesn't touch the DB at
-  // construction time.
+  // HEL-1019: OAuthStateRepository doesn't touch the DB at construction time.
   private val oauthStateStore   = new OAuthStateRepository(dbContext)
-  // HEL-1208: nullable-dbContext gated like every other dbContext-derived service; AuthService
-  // takes it as an Option so a fixture without a DbContext simply records no signup event.
+  // HEL-1208: AuthService takes the product-event service as an Option (its own optionality is
+  // unchanged by this ticket), so the always-present service is passed as `Some`.
   // HEL-1211: owner-only usage view; reads the rollup tables only via ProductUsageRepository.
-  private val adminUsageServiceOpt: Option[AdminUsageService] =
-    Option(dbContext).map(ctx => new AdminUsageService(new ProductUsageRepository(ctx), SystemClock))
+  private val adminUsageService = new AdminUsageService(new ProductUsageRepository(dbContext), SystemClock)
   private val adminAccessService = new AdminAccessService(userRepo)
 
-  private val productEventServiceOpt: Option[ProductEventService] =
-    Option(dbContext).map(ctx => new ProductEventService(new ProductEventRepository(ctx), SystemClock))
-  private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore, productEventServiceOpt)
+  private val productEventService = new ProductEventService(new ProductEventRepository(dbContext), SystemClock)
+  private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore, Some(productEventService))
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService, outputRepo)
   // HEL-1087: constructed ahead of `panelService` (moved up from its former position below
   // `autoLayoutService`) so `panelService` can wire it in for `submitForm` — no behavior change
@@ -372,10 +362,10 @@ final class ApiRoutes(
   // HEL-904 task 4.1: `PanelService` no longer takes `dataTypeRepo`/
   // `metricRepo` — Text/Markdown's data-bound "Source mode" and metrics are
   // both removed outright.
-  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepo, dataSourceRepo, dataSourceService, fileSystem, nodeSnapshotRepoOpt.orNull)
+  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepo, dataSourceRepo, dataSourceService, fileSystem, nodeSnapshotRepo)
   // HEL-1193: one validator instance shared by the propose-time control checks below; the same
   // class (and eligibility function) PanelService constructs internally for the write path.
-  private val outputControlsValidator = new OutputControlsValidator(outputRepo, nodeSnapshotRepoOpt.orNull)
+  private val outputControlsValidator = new OutputControlsValidator(outputRepo, nodeSnapshotRepo)
   private val proposalService   = new DashboardProposalService(dashboardService, panelService, outputRepo, outputControlsValidator, dataSourceRepo)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // accessChecker instances the other dashboard/panel services use.
@@ -388,25 +378,24 @@ final class ApiRoutes(
   // constructed early (before sourceService) so SourceService.createRest's legacy-url
   // dual-support path (task 1.2a) has a repository to synthesize an implicit Connector
   // through; reused (not re-constructed) at connectorEntityServiceOpt's site below.
-  private val connectorRepoOpt: Option[ConnectorRepository] =
-    Option(dbContext).map { ctx =>
-      val masterKeyProvider = new EnvMasterKeyProvider()
-      val secretBackend     = new EncryptedSecretBackend(masterKeyProvider)
-      val connectorCredentialRepo = new ConnectorCredentialRepository(ctx, secretBackend)
-      new ConnectorRepository(ctx, connectorCredentialRepo)
-    }
-  private val sourceService     = new SourceService(dataSourceRepo, connector, auditService, connectorRepoOpt.orNull, sqlUrlResolveHost, sqlUrlIsBlocked)
+  private val connectorRepo: ConnectorRepository = {
+    val masterKeyProvider = new EnvMasterKeyProvider()
+    val secretBackend     = new EncryptedSecretBackend(masterKeyProvider)
+    val connectorCredentialRepo = new ConnectorCredentialRepository(dbContext, secretBackend)
+    new ConnectorRepository(dbContext, connectorCredentialRepo)
+  }
+  private val sourceService     = new SourceService(dataSourceRepo, connector, auditService, connectorRepo, sqlUrlResolveHost, sqlUrlIsBlocked)
   // HEL-904 task 4.1: `DataTypeService`/`DataTypeRoutes` deleted outright —
   // DataTypes no longer exist.
   // HEL-365: builds the panel-capabilities report from Outputs/node
   // snapshots (design.md D6).
-  private val panelCapabilityService = new PanelCapabilityService(outputRepo, nodeSnapshotRepoOpt.orNull)
+  private val panelCapabilityService = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
   // HEL-381: threads the same RestApiConnectorDriver instance sourceService already
   // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo
   // above covers every other analyzeProposal branch).
   private val pipelineService   = new PipelineService(
     pipelineRepo, pipelineStepRepo, dataSourceRepo, connector, auditService, outputRepo,
-    pipelineRootRepo = pipelineRootRepoOpt.orNull,
+    pipelineRootRepo = pipelineRootRepo,
     // HEL-913 task 7.1a: `addRoot`'s inline-source branch reuses these SAME instances
     // `POST /api/sources`/`POST /api/data-sources` already use (defined above).
     sourceService = sourceService,
@@ -421,7 +410,7 @@ final class ApiRoutes(
     for {
       ruleRepo  <- Option(alertRuleRepo)
       eventRepo <- Option(alertEventRepo)
-    } yield new AlertEvaluationService(ruleRepo, eventRepo, outputHistoryRepoOpt.orNull)
+    } yield new AlertEvaluationService(ruleRepo, eventRepo, resolvedOutputHistoryRepo)
   // HEL-415: exposed (not private) so Main.scala can hand the same instance
   // to PipelineSchedulerService — scheduled runs reuse the manual-run path's
   // PipelineRunCache/PipelineRunRegistry instead of duplicating wiring.
@@ -434,22 +423,18 @@ final class ApiRoutes(
   // every other *ServiceOpt val's own convention). Degrades to AiStepClient.Unavailable (never
   // constructed) rather than failing ApiRoutes construction, so the backend still boots with no
   // ANTHROPIC_API_KEY (design.md D3).
-  // HEL-1108 (design.md D8, design-gate N6): built from `Option(dbContext)` directly, NOT from
-  // `chatAccessServiceOpt` (declared below, at :488) -- referencing that val here would silently
-  // capture `null` per Scala's declaration-order val initialization, with no compiler complaint.
-  // A missing `DbContext` (no fixtures wire one) degrades `aiStepClient` to `AiStepClient
-  // .Unavailable` below, exactly like the missing-`ANTHROPIC_API_KEY` branch -- an ungated
+  // HEL-1108 (design.md D8, design-gate N6): built from `dbContext` directly, NOT from
+  // `chatAccessService` (declared below) -- referencing that val here would silently capture
+  // `null` per Scala's declaration-order val initialization, with no compiler complaint. A missing
+  // `ANTHROPIC_API_KEY` degrades `aiStepClient` to `AiStepClient.Unavailable` below -- an ungated
   // `ClaudeAiStepClient` is never constructible either way.
   private val aiStepClient: AiStepClient =
-    (claudeConfigProvider(), Option(dbContext)) match {
-      case (Left(reason), _) =>
+    claudeConfigProvider() match {
+      case Left(reason) =>
         log.warn(s"pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): $reason")
         AiStepClient.Unavailable
-      case (Right(_), None) =>
-        log.warn("pipeline AI steps disabled (no DbContext for the tier gate; falls back to ai-unavailable at run time)")
-        AiStepClient.Unavailable
-      case (Right(claudeConfig), Some(ctx)) =>
-        val quotaGate = new AiPipelineQuotaGate.Live(userRepo, new AssistantDailyUsageRepository(ctx), userTierConfig)
+      case Right(claudeConfig) =>
+        val quotaGate = new AiPipelineQuotaGate.Live(userRepo, new AssistantDailyUsageRepository(dbContext), userTierConfig)
         new ClaudeAiStepClient(new ClaudeClient(claudeConfig, transportFor(claudeConfig.apiKey)), quotaGate)
     }
 
@@ -468,12 +453,12 @@ final class ApiRoutes(
     resolveHost = sqlUrlResolveHost,
     isBlocked = sqlUrlIsBlocked,
     // HEL-904 (task 3.1/3.14): resolves per-Output alert evaluation +
-    // node_snapshots dual-write (`outputRepo`/`nodeSnapshotRepoOpt` above).
+    // node_snapshots dual-write (`outputRepo`/`nodeSnapshotRepo` above).
     executionBackend = null,
     outputRepo = outputRepo,
-    nodeSnapshotRepo = nodeSnapshotRepoOpt.orNull,
-    outputHistoryRepo = outputHistoryRepoOpt.orNull,
-    nodePayloadRepo = nodePayloadHistoryRepoOpt.orNull,
+    nodeSnapshotRepo = nodeSnapshotRepo,
+    outputHistoryRepo = resolvedOutputHistoryRepo,
+    nodePayloadRepo = resolvedNodePayloadHistoryRepo,
     payloadConfig = payloadHistoryConfig,
     aiStepClient = aiStepClient,
     // HEL-505: `pipelineRunGuardRepo` is `null` in fixtures that don't pass one (constructor
@@ -483,36 +468,30 @@ final class ApiRoutes(
     pipelineRunGuardRepo = pipelineRunGuardRepo,
     guardConfig = pipelineRunGuardConfig
   )
-  // HEL-906: mirrors alertRuleServiceOpt's nullable-optional wiring below —
-  // fixtures that don't pass a DbContext simply don't get
-  // /api/pipelines/:id/outputs or /api/outputs/:id mounted.
+  // HEL-906: /api/pipelines/:id/outputs and /api/outputs/:id.
   // HEL-947: moved below `pipelineRunService`'s own definition (was previously constructed
   // above it) so it can be threaded in here -- `OutputService.create`/`update` fire
   // `pipelineRunService.backfillOutputNode` off the request path on a newly-Output-bound node
   // that already has a materialized ancestor run (see OutputService.triggerBackfill's doc).
-  private val outputServiceOpt: Option[OutputService] =
+  private val outputService: OutputService =
     // HEL-906 task 2.5: threads the same `pipelineRunRepo` constructor param ApiRoutes already
     // takes (nullable, default `null`) -- fixtures that don't pass one simply get
     // `assertionStatus`'s null-checked `invalid = false` fallback, matching every other
     // nullable-optional collaborator in this file.
-    outputRepoOpt.map(new OutputService(
-      _, panelRepo, accessChecker, auditService, pipelineRunRepo, nodeSnapshotRepoOpt.orNull,
+    new OutputService(
+      outputRepo, panelRepo, accessChecker, auditService, pipelineRunRepo, nodeSnapshotRepo,
       pipelineRunService = pipelineRunService,
-      pipelineRootRepo   = pipelineRootRepoOpt.orNull
-    ))
-  // HEL-1273: history + comparison read; absent without a DbContext (no history repository).
-  private val outputHistoryServiceOpt: Option[OutputHistoryService] =
-    for { outputRepo <- outputRepoOpt; historyRepo <- outputHistoryRepoOpt; payloadRepo <- nodePayloadHistoryRepoOpt }
-      yield new OutputHistoryService(outputRepo, historyRepo, payloadRepo)
-  // HEL-1206: provenance read (authenticated route + public variant below). Same nullable-DbContext
-  // derived wiring as outputServiceOpt: absent without a DbContext / PipelineRunRepository.
+      pipelineRootRepo   = pipelineRootRepo
+    )
+  // HEL-1273: history + comparison read.
+  private val outputHistoryService: OutputHistoryService =
+    new OutputHistoryService(outputRepo, resolvedOutputHistoryRepo, resolvedNodePayloadHistoryRepo)
+  // HEL-1206: provenance read (authenticated route + public variant below). Absent only when no
+  // PipelineRunRepository was passed (the one genuinely optional input).
   private val provenanceServiceOpt: Option[ProvenanceService] =
-    for {
-      outputRepo   <- outputRepoOpt
-      rootRepo     <- pipelineRootRepoOpt
-      snapshotRepo <- nodeSnapshotRepoOpt
-      runRepo      <- Option(pipelineRunRepo)
-    } yield new ProvenanceService(outputRepo, pipelineRepo, pipelineStepRepo, rootRepo, dataSourceRepo, runRepo, snapshotRepo)
+    Option(pipelineRunRepo).map(runRepo =>
+      new ProvenanceService(outputRepo, pipelineRepo, pipelineStepRepo, pipelineRootRepo, dataSourceRepo, runRepo, nodeSnapshotRepo)
+    )
   // HEL-383: atomic pipeline-proposal apply — composes sourceService/
   // dataSourceService/pipelineService/pipelineRunService/dataTypeService,
   // all already constructed above, plus dataSourceRepo/dataTypeRepo for the
@@ -535,8 +514,7 @@ final class ApiRoutes(
     )
   // HEL-413: owner-scoped journal repository `PatchSetApplyService`'s successful-apply write and
   // `PatchSetUndoService`'s read both share -- constructed unconditionally (mirrors
-  // patchSetApplyService's own always-constructed pattern below) since `dbContext` being null only
-  // matters to fixtures that never exercise a genuinely successful patch-set apply/undo call.
+  // patchSetApplyService's own always-constructed pattern below).
   private val patchSetApplicationRepo = new PatchSetApplicationRepository(dbContext)
   // HEL-406: atomic patch-set apply — composes the same, already-constructed
   // per-resource services (panelService/dashboardService/dataSourceService/
@@ -550,7 +528,7 @@ final class ApiRoutes(
     accessChecker, patchSetApplicationRepo,
     // HEL-907 task 1.2: wires the `output` target.kind's own repo/service, mirroring every
     // other nullable-optional collaborator in this file (`.orNull`).
-    outputRepo, outputServiceOpt.orNull
+    outputRepo, outputService
   )
   // HEL-408: read-only diff/impact preview -- reuses PatchSetApplyResolvers
   // (same package) for pre-validation; needs only the repos/accessChecker
@@ -577,10 +555,8 @@ final class ApiRoutes(
   // `PanelBindingSpec`/bound-`*Panel.scala` dependencies no longer exist
   // after this ticket's `PanelType` collapse.
   private val permissionService           = new PermissionService(permissionRepo, accessChecker)
-  // HEL-590: same nullable-optional wiring pattern as outputServiceOpt above -- fixtures that
-  // don't pass a DbContext simply don't get /api/dashboards/:id/share-tokens mounted.
-  private val shareTokenServiceOpt: Option[ShareTokenService] =
-    shareTokenRepoOpt.map(new ShareTokenService(_, accessChecker))
+  // HEL-590: /api/dashboards/:id/share-tokens.
+  private val shareTokenService = new ShareTokenService(shareTokenRepo, accessChecker)
   private val pipelinePermissionService   = new PipelinePermissionService(permissionRepo, accessChecker)
   // Optional wiring mirrors the nullable constructor param: fixtures that
   // don't pass an ApiTokenRepository get session-only auth and no /api/tokens.
@@ -597,13 +573,9 @@ final class ApiRoutes(
   private val imageUploadServiceOpt       = Option(imageUploadRepo).map(new ImageUploadService(_, fileSystem, auditService))
   // HEL-447: same optional-wiring pattern — fixtures that don't pass an
   // AlertRuleRepository simply don't get the /api/alert-rules routes.
-  // HEL-904 (task 3.1): both alertRuleRepo AND an OutputRepository are now
-  // required to mount /api/alert-rules — a rule's targetOutputId can't be
-  // validated without one.
-  private val alertRuleServiceOpt = for {
-    ruleRepo <- Option(alertRuleRepo)
-    outRepo  <- outputRepoOpt
-  } yield new AlertRuleService(ruleRepo, outRepo)
+  // HEL-904 (task 3.1): a rule's targetOutputId is validated against the (always present)
+  // OutputRepository.
+  private val alertRuleServiceOpt = Option(alertRuleRepo).map(new AlertRuleService(_, outputRepo))
   // HEL-455: same optional-wiring pattern — fixtures that don't pass an
   // AlertEventRepository simply don't get the /api/alerts routes.
   private val alertEventServiceOpt        = Option(alertEventRepo).map(new AlertEventService(_))
@@ -628,20 +600,15 @@ final class ApiRoutes(
       memoryRepo      <- Option(agentMemoryRepo)
       preferencesSvc  <- agentPreferencesServiceOpt
     } yield new AgentMemoryService(memoryRepo, preferencesSvc)
-  // HEL-663: same nullable-optional wiring pattern as metricServiceOpt above — fixtures that don't
-  // pass a DbContext simply don't get the /api/assistant-conversations routes mounted
-  // (assistantConversationServiceOpt.fold(reject)). fileSystem is always present (a required,
+  // HEL-663: /api/assistant-conversations. fileSystem is always present (a required,
   // non-nullable constructor param) — this is the same FileSystem instance dataSourceService/
   // pipelineRunService/imageUploadServiceOpt already share, no new selection logic (design.md D2).
-  private val assistantConversationServiceOpt: Option[AssistantConversationService] =
-    Option(dbContext).map(ctx => new AssistantConversationService(new AssistantConversationRepository(ctx), fileSystem))
-  // HEL-703: same nullable-optional wiring pattern as assistantConversationServiceOpt above (both
-  // depend on the same `dbContext`, so they're always Some/None together) — fixtures that don't
-  // pass a DbContext simply don't get a tier gate, but they also don't get the
-  // /api/assistant-conversations routes mounted at all in that case (see the combined `.fold`
-  // below), so there is no route reachable without one.
-  private val chatAccessServiceOpt: Option[ChatAccessService] =
-    Option(dbContext).map(ctx => new ChatAccessService(userRepo, new AssistantDailyUsageRepository(ctx), userTierConfig))
+  private val assistantConversationService: AssistantConversationService =
+    new AssistantConversationService(new AssistantConversationRepository(dbContext), fileSystem)
+  // HEL-703: the tier gate. DashboardAuthoringRoutes/RefinementRoutes take it as an Option (their
+  // own optionality is unchanged by this ticket), so they are passed `Some(chatAccessService)`.
+  private val chatAccessService: ChatAccessService =
+    new ChatAccessService(userRepo, new AssistantDailyUsageRepository(dbContext), userTierConfig)
   // HEL-704 design.md D6: same fromEnv-once-inject-explicitly convention as ClaudeConfig above --
   // a missing RESEND_API_KEY/HELIO_EMAIL_FROM degrades ONLY POST /api/beta-access/request to its
   // own 503 (BetaAccessError.EmailUnconfigured), never the whole backend boot. Constructed once
@@ -655,60 +622,43 @@ final class ApiRoutes(
       case Right(config) =>
         Some(new HttpResendEmailSender(config))
     }
-  // HEL-704: same nullable-optional wiring pattern as chatAccessServiceOpt/metricServiceOpt above
-  // -- fixtures that don't pass a DbContext simply don't get the /api/beta-access routes mounted
-  // (betaAccessServiceOpt.fold(reject)). emailSenderOpt is a SECOND, independently nullable
-  // dependency (env-sourced) -- BetaAccessService itself is always constructed once dbContext is
-  // present; a missing emailSenderOpt degrades only its own request-access flow internally
-  // (design.md D6), never the whole route family the way a nullable dbContext does.
-  private val betaAccessServiceOpt: Option[BetaAccessService] =
-    Option(dbContext).map(ctx =>
-      new BetaAccessService(new InviteCodeRepository(ctx), userRepo, userTierConfig, emailSenderOpt)
-    )
+  // HEL-704: /api/beta-access. emailSenderOpt is an independently nullable dependency
+  // (env-sourced) -- a missing one degrades only the request-access flow internally
+  // (design.md D6), never the whole route family.
+  private val betaAccessService: BetaAccessService =
+    new BetaAccessService(new InviteCodeRepository(dbContext), userRepo, userTierConfig, emailSenderOpt)
   // HEL-391: dependency-free, mirrors ConnectorRoutes/ConnectorRegistry — no
   // repository, so no nullable-optional wiring needed.
   private val pipelineShapeService        = new PipelineShapeService()
   // HEL-1136: dependency-free, mirrors pipelineShapeService immediately above — no
   // repository, so no nullable-optional wiring needed.
   private val pipelineStepCatalogService  = new PipelineStepCatalogService()
-  // HEL-366: same nullable-optional wiring pattern as the repos above —
-  // fixtures that don't pass a DbContext simply don't get the
-  // /api/workspace/teardown route mounted.
-  private val workspaceTeardownServiceOpt: Option[WorkspaceTeardownService] =
-    Option(dbContext).map(ctx =>
-      new WorkspaceTeardownService(new WorkspaceTeardownRepository(ctx), fileSystem, auditService)
-    )
-  // HEL-821: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
-  // fixtures that don't pass a DbContext simply don't get the /api/connectors routes
-  // mounted. `EncryptedSecretBackend`/`EnvMasterKeyProvider` are consumed as-is (HEL-536) --
+  // HEL-366: /api/workspace/teardown (WorkspaceRoutes takes it as an Option; passed `Some`).
+  private val workspaceTeardownService: WorkspaceTeardownService =
+    new WorkspaceTeardownService(new WorkspaceTeardownRepository(dbContext), fileSystem, auditService)
+  // HEL-821: /api/connectors routes. `EncryptedSecretBackend`/`EnvMasterKeyProvider` are consumed as-is (HEL-536) --
   // no new encryption mechanism here (design.md).
   // HEL-822 design.md Decision 5 (revised, round-4 CR2): wires the real `dependentCount`
   // seam here (not `Main.scala` — the original design draft's wrong file) — `dataSourceRepo`
-  // is already in scope at this construction site. Reuses `connectorRepoOpt` (constructed
+  // is already in scope at this construction site. Reuses `connectorRepo` (constructed
   // above, alongside `sourceService`) instead of building a second `ConnectorRepository`.
-  private val connectorEntityServiceOpt: Option[ConnectorEntityService] =
-    connectorRepoOpt.map { connectorRepo =>
-      // HEL-879 design.md Decision 5: reuses the existing dataSourceUrl*
-      // seam/defaults rather than adding a second one.
-      new ConnectorEntityService(
-        connectorRepo,
-        dependentCount = (id: ConnectorId) => dataSourceRepo.countRestSourcesReferencing(id),
-        resolveHost = dataSourceUrlResolveHost,
-        isBlocked = dataSourceUrlIsBlocked
-      )
-    }
-  // HEL-955: same nullable-optional wiring pattern as shareTokenServiceOpt/connectorEntityServiceOpt
-  // above -- fixtures that don't pass a DbContext simply don't get the completion routes mounted.
-  // Expiry read once from env (design.md D9: min(configured, 24h)) -- fromEnv-once convention.
-  private val connectorCompletionTokenRepoOpt: Option[ConnectorCompletionTokenRepository] =
-    Option(dbContext).map(new ConnectorCompletionTokenRepository(_))
-  private val connectorCompletionServiceOpt: Option[ConnectorCompletionService] =
-    for {
-      connectorRepo <- connectorRepoOpt
-      tokenRepo     <- connectorCompletionTokenRepoOpt
-    } yield new ConnectorCompletionService(
+  private val connectorEntityService: ConnectorEntityService =
+    // HEL-879 design.md Decision 5: reuses the existing dataSourceUrl*
+    // seam/defaults rather than adding a second one.
+    new ConnectorEntityService(
       connectorRepo,
-      tokenRepo,
+      dependentCount = (id: ConnectorId) => dataSourceRepo.countRestSourcesReferencing(id),
+      resolveHost = dataSourceUrlResolveHost,
+      isBlocked = dataSourceUrlIsBlocked
+    )
+  // HEL-955: completion routes.
+  // Expiry read once from env (design.md D9: min(configured, 24h)) -- fromEnv-once convention.
+  private val connectorCompletionTokenRepo: ConnectorCompletionTokenRepository =
+    new ConnectorCompletionTokenRepository(dbContext)
+  private val connectorCompletionService: ConnectorCompletionService =
+    new ConnectorCompletionService(
+      connectorRepo,
+      connectorCompletionTokenRepo,
       defaultExpiry = ConnectorCompletionService.clampExpiry(sys.env.get("CONNECTOR_COMPLETION_EXPIRY_MINUTES"))
     )
   // HEL-371: unconditional (not Option-guarded, unlike workspaceTeardownServiceOpt
@@ -723,46 +673,35 @@ final class ApiRoutes(
   private val workspaceContextService = new WorkspaceContextService(
     dashboardService,
     dataSourceService,
-    // HEL-904 task 3.12: `outputRepoOpt` (constructed above, alongside `nodeSnapshotRepoOpt`) —
-    // both are only `None` when `dbContext` itself is null (fixture-only), matching the same
-    // unconditional-in-production convention `dataTypeService` had.
     outputRepo,
     pipelineService,
     agentPreferencesServiceOpt,
     agentMemoryServiceOpt,
     Some(panelRepo),
-    // HEL-828 design.md Decision 5: reuses the EXISTING connectorRepoOpt (constructed above,
-    // alongside sourceService/connectorEntityServiceOpt) — no new ConnectorRepository here.
-    connectorRepoOpt,
-    nodeSnapshotRepoOpt,
+    // HEL-828 design.md Decision 5: reuses the EXISTING connectorRepo (constructed above,
+    // alongside sourceService/connectorEntityService) — no new ConnectorRepository here.
+    // The class's own params are Option-typed (optionality unchanged by this ticket): `Some`.
+    Some(connectorRepo),
+    Some(nodeSnapshotRepo),
     // HEL-914 (performance fix): `pipelineStepRepo` is unconditionally constructed above (used by
     // `pipelineService`/`pipelineRunService` etc. already) — always `Some` in production, exactly
     // like `pipelineService` itself two lines up.
     Some(pipelineStepRepo)
   )
-  // HEL-397: same nullable-optional wiring pattern as workspaceTeardownServiceOpt above —
-  // fixtures that don't pass a DbContext simply don't get the authoring routes' persistence
-  // collaborator (folded into the ClaudeConfig gate below, since DashboardAuthoringService needs
-  // BOTH to be usable).
-  private val authoringConversationRepoOpt: Option[AuthoringConversationRepository] =
-    Option(dbContext).map(new AuthoringConversationRepository(_))
-  // HEL-392 (extended by HEL-397): same nullable-optional wiring pattern as alertRuleServiceOpt/...
-  // above, but gated on ClaudeConfig.fromEnv() AND authoringConversationRepoOpt rather than a bare
-  // nullable repo — either a missing ANTHROPIC_API_KEY or a missing DbContext degrades ONLY this
-  // route family to a clean 503, never a startup failure (mirrors HEL-390 D6's "no forced startup
-  // requirement"). Composes the already-constructed workspaceContextService/panelCapabilityService/
+  // HEL-397: the authoring routes' persistence collaborator.
+  private val authoringConversationRepo = new AuthoringConversationRepository(dbContext)
+  // HEL-392 (extended by HEL-397): gated on ClaudeConfig.fromEnv() — a missing ANTHROPIC_API_KEY
+  // degrades ONLY this route family to a clean 503, never a startup failure (mirrors HEL-390 D6's
+  // "no forced startup requirement"). Composes the already-constructed workspaceContextService/panelCapabilityService/
   // proposalService above, plus a fresh ClaudeClient over the production HttpClaudeTransport.
   private val dashboardAuthoringServiceOpt: Option[DashboardAuthoringService] =
-    (claudeConfigProvider(), authoringConversationRepoOpt) match {
-      case (Left(reason), _) =>
+    claudeConfigProvider() match {
+      case Left(reason) =>
         log.warn(s"POST /api/authoring/dashboard disabled: $reason")
         None
-      case (Right(_), None) =>
-        log.warn("POST /api/authoring/dashboard disabled: no DbContext configured")
-        None
-      case (Right(claudeConfig), Some(conversationRepo)) =>
+      case Right(claudeConfig) =>
         val claudeClient = new ClaudeClient(claudeConfig, transportFor(claudeConfig.apiKey))
-        Some(new DashboardAuthoringService(workspaceContextService, panelCapabilityService, proposalService, claudeClient, conversationRepo))
+        Some(new DashboardAuthoringService(workspaceContextService, panelCapabilityService, proposalService, claudeClient, authoringConversationRepo))
     }
   // HEL-411: unconditional (not Option-guarded) — every dependency (dashboardRepo/panelRepo/
   // pipelineService/workspaceContextService/panelCapabilityService) is already constructed
@@ -771,22 +710,19 @@ final class ApiRoutes(
   // target-resolution + ACL check.
   private val refinementGrounding = new RefinementGrounding(dashboardRepo, panelRepo, pipelineService, workspaceContextService, panelCapabilityService)
   // HEL-411 design.md D3/D5: SAME nullable-optional wiring pattern as dashboardAuthoringServiceOpt
-  // above, gated on the SAME ClaudeConfig.fromEnv() + authoringConversationRepoOpt (one shared
+  // above, gated on the SAME ClaudeConfig.fromEnv() + authoringConversationRepo (one shared
   // conversation store, AC4 — no parallel gate). A fresh ClaudeClient/HttpClaudeTransport pair is
   // constructed here rather than reusing dashboardAuthoringServiceOpt's local one (out of scope
   // outside that match arm) — both are cheap, stateless wrappers over the same pooled Pekko HTTP
   // client, so this costs nothing beyond one extra object allocation per process.
   private val refinementServiceOpt: Option[RefinementService] =
-    (claudeConfigProvider(), authoringConversationRepoOpt) match {
-      case (Left(reason), _) =>
+    claudeConfigProvider() match {
+      case Left(reason) =>
         log.warn(s"POST /api/refinements disabled: $reason")
         None
-      case (Right(_), None) =>
-        log.warn("POST /api/refinements disabled: no DbContext configured")
-        None
-      case (Right(claudeConfig), Some(conversationRepo)) =>
+      case Right(claudeConfig) =>
         val claudeClient = new ClaudeClient(claudeConfig, transportFor(claudeConfig.apiKey))
-        Some(new RefinementService(refinementGrounding, patchSetPreviewService, claudeClient, conversationRepo))
+        Some(new RefinementService(refinementGrounding, patchSetPreviewService, claudeClient, authoringConversationRepo))
     }
 
   // HEL-665 (reopened composer ticket) design.md D2: SAME nullable-optional wiring pattern as
@@ -878,13 +814,13 @@ final class ApiRoutes(
               pathPrefix("auth") { concat(auth.routes, oauth.routes, mfaRoutesOpt.fold(reject: Route)(_.verifyRoute)) },
               authDirectives.optionalAuthenticate { userOpt =>
                 concat(
-                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt, outputRepoOpt, Option(pipelineRepo), nodeSnapshotRepoOpt, provenanceServiceOpt, outputHistoryServiceOpt).routes,
+                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt, outputRepo, Option(pipelineRepo), Some(nodeSnapshotRepo), provenanceServiceOpt, Some(outputHistoryService)).routes,
                   imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes),
                   // HEL-955 design.md D5: optional-auth so an unauthenticated human can complete
                   // a pending Connector out-of-band, while an authenticated caller is still
                   // checked against ownership inside the service. Still behind rate-limiting and
                   // CSRF (both wrap this whole branch already).
-                  connectorCompletionServiceOpt.fold(reject: Route)(svc => new ConnectorCompletionRoutes(svc, userOpt).routes)
+                  new ConnectorCompletionRoutes(connectorCompletionService, userOpt).routes
                 )
               },
               authDirectives.authenticate { authenticatedUser =>
@@ -965,7 +901,7 @@ final class ApiRoutes(
                   // alongside `BoundPanelService` (see its deletion note above).
                   new PanelRoutes(panelService, authenticatedUser).routes,
                   new PermissionRoutes(permissionService, authenticatedUser).routes,
-                  shareTokenServiceOpt.fold(reject: Route)(svc => new ShareTokenRoutes(svc, authenticatedUser).routes),
+                  new ShareTokenRoutes(shareTokenService, authenticatedUser).routes,
                   new DataSourceRoutes(dataSourceService, authenticatedUser, Some(csvUploadGate)).routes,
                   // HEL-505 (design.md Decision 6): the tighter per-user rate limit is threaded
                   // IN to each route class and applied AFTER its own internal path match, never
@@ -983,15 +919,13 @@ final class ApiRoutes(
                   new ConnectorRoutes(authenticatedUser).routes,
                   // HEL-821: `ConnectorEntityRoutes` is distinct from `ConnectorRoutes` above
                   // (design.md Decision 7) -- serves the new /api/connectors entity CRUD surface,
-                  // gated on connectorEntityServiceOpt like every other nullable-DbContext route
-                  // family (workspaceTeardownServiceOpt above).
                   // HEL-955 task 5.1: mounted BEFORE ConnectorEntityRoutes so the literal
                   // "pending" path segment is never shadowed by ConnectorEntityRoutes'
                   // `ConnectorIdSegment` matcher.
-                  connectorCompletionServiceOpt.fold(reject: Route)(svc => new ConnectorPendingRoutes(svc, authenticatedUser).routes),
-                  connectorEntityServiceOpt.fold(reject: Route)(svc => new ConnectorEntityRoutes(svc, authenticatedUser).routes),
+                  new ConnectorPendingRoutes(connectorCompletionService, authenticatedUser).routes,
+                  new ConnectorEntityRoutes(connectorEntityService, authenticatedUser).routes,
                   // HEL-955 design.md D9: owner-initiated completion-token re-mint.
-                  connectorCompletionServiceOpt.fold(reject: Route)(svc => new ConnectorCompletionTokenRoutes(svc, authenticatedUser).routes),
+                  new ConnectorCompletionTokenRoutes(connectorCompletionService, authenticatedUser).routes,
                   // HEL-391: distinct top-level `pipeline-shapes` prefix, NOT nested under
                   // `pipelines` — mount order relative to PipelineRoutes doesn't matter (design.md
                   // Decision 6).
@@ -1002,9 +936,8 @@ final class ApiRoutes(
                   new PipelineStepCatalogRoutes(pipelineStepCatalogService, authenticatedUser).routes,
                   new PipelineRoutes(pipelineService, authenticatedUser).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
-                  // HEL-906: `/api/pipelines/:id/outputs` + `/api/outputs/:id` —
-                  // fixtures that don't pass a DbContext simply don't get these mounted.
-                  outputServiceOpt.fold(reject: Route)(svc => new OutputRoutes(svc, authenticatedUser, outputHistoryServiceOpt).routes),
+                  // HEL-906: `/api/pipelines/:id/outputs` + `/api/outputs/:id`.
+                  new OutputRoutes(outputService, authenticatedUser, Some(outputHistoryService)).routes,
                   provenanceServiceOpt.fold(reject: Route)(svc => new ProvenanceRoutes(svc, authenticatedUser).routes),
                   new PipelineProposalRoutes(pipelineProposalService, authenticatedUser).routes,
                   // HEL-387: brand-new top-level `proposals` prefix (design.md
@@ -1041,38 +974,24 @@ final class ApiRoutes(
                   alertRuleServiceOpt.fold(reject: Route)(svc => new AlertRuleRoutes(svc, authenticatedUser).routes),
                   alertEventServiceOpt.fold(reject: Route)(svc => new AlertEventRoutes(svc, authenticatedUser).routes),
                   pipelineScheduleServiceOpt.fold(reject: Route)(svc => new PipelineScheduleRoutes(svc, authenticatedUser).routes),
-                  // HEL-663: same `.fold(reject)`-gated optional-wiring pattern as metricServiceOpt
-                  // above — fixtures that don't pass a DbContext simply don't get the
-                  // /api/assistant-conversations routes mounted. HEL-665 (reopened composer ticket)
-                  // design.md D3/D4: assistantServiceOpt is passed in as a SECOND, independently
-                  // nullable dependency — the whole route family stays gated on dbContext alone
-                  // (Pattern A, unaffected); only the new POST /:id/converse route additionally
-                  // checks assistantServiceOpt and degrades to its own 503 when it's None.
-                  // HEL-703: chatAccessServiceOpt is combined via a for-comprehension with
-                  // assistantConversationServiceOpt (both derive from the same `dbContext`, so
-                  // they're always Some/None together) — the route family stays reachable only
-                  // when both are present, same net gating as before this ticket.
-                  (for {
-                    svc        <- assistantConversationServiceOpt
-                    chatAccess <- chatAccessServiceOpt
-                  } yield new AssistantConversationRoutes(svc, assistantServiceOpt, chatAccess, authenticatedUser).routes)
-                    .fold(reject: Route)(identity),
-                  // HEL-371: mounted unconditionally (not `.fold(reject)`-gated
-                  // on workspaceTeardownServiceOpt like every other nullable-repo
-                  // route family in this list) — WorkspaceRoutes itself now
-                  // internally gates only its `.../teardown` sub-route on the
-                  // Option, so `.../context` stays reachable regardless of
-                  // whether `dbContext` was supplied (design.md D2).
-                  new WorkspaceRoutes(workspaceTeardownServiceOpt, workspaceContextService, authenticatedUser).routes,
+                  // HEL-663: /api/assistant-conversations. HEL-665 (reopened composer ticket)
+                  // design.md D3/D4: assistantServiceOpt is passed in as an independently
+                  // nullable dependency — only the POST /:id/converse route checks it and
+                  // degrades to its own 503 when it's None.
+                  new AssistantConversationRoutes(assistantConversationService, assistantServiceOpt, chatAccessService, authenticatedUser).routes,
+                  // HEL-371: WorkspaceRoutes takes the teardown service as an Option (its own
+                  // optionality is unchanged by this ticket) and gates only its `.../teardown`
+                  // sub-route on it (design.md D2).
+                  new WorkspaceRoutes(Some(workspaceTeardownService), workspaceContextService, authenticatedUser).routes,
                   // HEL-392: mounted UNCONDITIONALLY (unlike the `.fold(reject)`-gated route
                   // families above) — a missing ANTHROPIC_API_KEY must degrade this specific
                   // route to a clean 503, not a bare 404 that looks like the path doesn't exist
                   // (task 4.2). DashboardAuthoringRoutes itself handles the `None` case.
-                  new DashboardAuthoringRoutes(dashboardAuthoringServiceOpt, authenticatedUser, chatAccessServiceOpt).routes,
+                  new DashboardAuthoringRoutes(dashboardAuthoringServiceOpt, authenticatedUser, Some(chatAccessService)).routes,
                   // HEL-411: mounted UNCONDITIONALLY, same reasoning as DashboardAuthoringRoutes
                   // above — a missing ANTHROPIC_API_KEY/DbContext must degrade this route to a
                   // clean 503, not a bare 404. RefinementRoutes itself handles the `None` case.
-                  new RefinementRoutes(refinementServiceOpt, authenticatedUser, chatAccessServiceOpt).routes,
+                  new RefinementRoutes(refinementServiceOpt, authenticatedUser, Some(chatAccessService)).routes,
                   // HEL-472 (420-A): same `.fold(reject)`-gated optional-wiring pattern as
                   // metricServiceOpt above — fixtures that don't pass an
                   // AgentPreferencesRepository simply don't get the /api/preferences routes
@@ -1082,21 +1001,17 @@ final class ApiRoutes(
                   // agentPreferencesServiceOpt above — fixtures that don't pass an
                   // AgentMemoryRepository simply don't get the /api/agent/memory routes mounted.
                   agentMemoryServiceOpt.fold(reject: Route)(svc => new AgentMemoryRoutes(svc, authenticatedUser).routes),
-                  // HEL-704: same `.fold(reject)`-gated optional-wiring pattern as the repos above
-                  // — fixtures that don't pass a DbContext simply don't get the /api/beta-access
-                  // routes mounted. A missing RESEND_API_KEY/HELIO_EMAIL_FROM degrades only the
+                  // HEL-704: a missing RESEND_API_KEY/HELIO_EMAIL_FROM degrades only the
                   // request-access endpoint internally (BetaAccessService), not this mount.
-                  betaAccessServiceOpt.fold(reject: Route)(svc => new BetaAccessRoutes(svc, authenticatedUser).routes),
+                  new BetaAccessRoutes(betaAccessService, authenticatedUser).routes,
                   // HEL-488: same `.fold(reject)`-gated optional-wiring pattern as the repos
                   // above — fixtures that don't pass an AuditEventRepository simply don't get
                   // the GET /api/audit-events route mounted.
                   auditEventRepoOpt.fold(reject: Route)(repo => new AuditEventRoutes(repo, authenticatedUser).routes),
                   // HEL-1208: write-only product-telemetry ingestion, own rate limiter.
-                  productEventServiceOpt.fold(reject: Route)(svc =>
-                    new ProductEventRoutes(svc, authenticatedUser, productEventsRateLimitDirective, productTelemetryConfig.rateLimitPerWindow).routes
-                  ),
+                  new ProductEventRoutes(productEventService, authenticatedUser, productEventsRateLimitDirective, productTelemetryConfig.rateLimitPerWindow).routes,
                   // HEL-1211: owner-only aggregate usage view; the gate is server-side (AdminAccessService).
-                  adminUsageServiceOpt.fold(reject: Route)(svc => new AdminUsageRoutes(adminAccessService, svc, authenticatedUser).routes)
+                  new AdminUsageRoutes(adminAccessService, adminUsageService, authenticatedUser).routes
                 )
               }
             )

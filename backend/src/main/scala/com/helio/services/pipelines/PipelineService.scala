@@ -315,51 +315,51 @@ final class PipelineService(
       user: AuthenticatedUser,
       tag: Option[String]
   ): Future[Either[ServiceError, PipelineSummaryResponse]] = {
-      val stepRootIndices: Either[ServiceError, Vector[Option[Int]]] =
-        req.steps.zipWithIndex.foldLeft[Either[ServiceError, Vector[Option[Int]]]](Right(Vector.empty)) { (accE, stepAndIdx) =>
-          val (step, stepIdx) = stepAndIdx
-          for {
-            acc <- accE
-            idx <- resolveStepRootIndex(step, stepIdx, req.roots)
-          } yield acc :+ idx
-        }
-      val outputRootIndices: Either[ServiceError, Vector[Option[Int]]] =
-        req.outputs.zipWithIndex.foldLeft[Either[ServiceError, Vector[Option[Int]]]](Right(Vector.empty)) { (accE, outputAndIdx) =>
-          val (output, outputIdx) = outputAndIdx
-          for {
-            acc <- accE
-            idx <- resolveOutputRootIndex(output, outputIdx, req.roots)
-          } yield acc :+ idx
-        }
-      (stepRootIndices, outputRootIndices) match {
-        case (Left(err), _) => Future.successful(Left(err))
-        case (_, Left(err)) => Future.successful(Left(err))
-        case (Right(stepRootIdxs), Right(outputRootIdxs)) =>
-          validateStepCrossOwnerRefs(req.steps, user).flatMap {
-            case Left(err) => Future.successful(Left(err))
-            case Right(()) =>
-              // HEL-907 task 1.4: computed OUTSIDE the DBIO chain -- analyzeNodes is a pure,
-              // in-memory function (no DB access), so there's no reason to pay for it inside the
-              // transaction. `req.steps` (not the just-inserted rows) is the correct input: the
-              // clientId keys this produces are exactly what `buildOutputsAction` already
-              // resolves `nodeStepClientId` against. `sourceSchemasByRoot` is keyed by
-              // INDEX-as-string (matching `NodeStepInput.rootId` below) since no root has a real
-              // persisted id at this point in the call.
-              val sourceSchemasByRoot: Map[String, Vector[SchemaField]] =
-                dataSources.zipWithIndex.map { case ((_, ds), idx) => idx.toString -> ds.inferredSchema }.toMap
-              val nodeInputsForAnalyze =
-                req.steps.zip(stepRootIdxs).zipWithIndex.map { case ((s, rootIdxOpt), idx) =>
-                  PipelineAnalyzeService.NodeStepInput(
-                    id           = s.clientId,
-                    parentStepId = s.parentStepId,
-                    position     = idx,
-                    op           = s.`type`,
-                    config       = s.config.compactPrint,
-                    rootId       = rootIdxOpt.map(_.toString)
-                  )
-                }
-              // HEL-1236: cross-referenced sources already passed `validateStepCrossOwnerRefs` above.
-              resolveSecondarySourceSchemas(nodeInputsForAnalyze.map(n => n.op -> n.config), dataSourceRepo.findByIdInternal).flatMap { secondarySchemas =>
+    val stepRootIndices: Either[ServiceError, Vector[Option[Int]]] =
+      req.steps.zipWithIndex.foldLeft[Either[ServiceError, Vector[Option[Int]]]](Right(Vector.empty)) { (accE, stepAndIdx) =>
+        val (step, stepIdx) = stepAndIdx
+        for {
+          acc <- accE
+          idx <- resolveStepRootIndex(step, stepIdx, req.roots)
+        } yield acc :+ idx
+      }
+    val outputRootIndices: Either[ServiceError, Vector[Option[Int]]] =
+      req.outputs.zipWithIndex.foldLeft[Either[ServiceError, Vector[Option[Int]]]](Right(Vector.empty)) { (accE, outputAndIdx) =>
+        val (output, outputIdx) = outputAndIdx
+        for {
+          acc <- accE
+          idx <- resolveOutputRootIndex(output, outputIdx, req.roots)
+        } yield acc :+ idx
+      }
+    (stepRootIndices, outputRootIndices) match {
+      case (Left(err), _) => Future.successful(Left(err))
+      case (_, Left(err)) => Future.successful(Left(err))
+      case (Right(stepRootIdxs), Right(outputRootIdxs)) =>
+        validateStepCrossOwnerRefs(req.steps, user).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(()) =>
+            // HEL-907 task 1.4: computed OUTSIDE the DBIO chain -- analyzeNodes is a pure,
+            // in-memory function (no DB access), so there's no reason to pay for it inside the
+            // transaction. `req.steps` (not the just-inserted rows) is the correct input: the
+            // clientId keys this produces are exactly what `buildOutputsAction` already
+            // resolves `nodeStepClientId` against. `sourceSchemasByRoot` is keyed by
+            // INDEX-as-string (matching `NodeStepInput.rootId` below) since no root has a real
+            // persisted id at this point in the call.
+            val sourceSchemasByRoot: Map[String, Vector[SchemaField]] =
+              dataSources.zipWithIndex.map { case ((_, ds), idx) => idx.toString -> ds.inferredSchema }.toMap
+            val nodeInputsForAnalyze =
+              req.steps.zip(stepRootIdxs).zipWithIndex.map { case ((s, rootIdxOpt), idx) =>
+                PipelineAnalyzeService.NodeStepInput(
+                  id           = s.clientId,
+                  parentStepId = s.parentStepId,
+                  position     = idx,
+                  op           = s.`type`,
+                  config       = s.config.compactPrint,
+                  rootId       = rootIdxOpt.map(_.toString)
+                )
+              }
+            // HEL-1236: cross-referenced sources already passed `validateStepCrossOwnerRefs` above.
+            resolveSecondarySourceSchemas(nodeInputsForAnalyze.map(n => n.op -> n.config), dataSourceRepo.findByIdInternal).flatMap { secondarySchemas =>
               val analyzedNodes = PipelineAnalyzeService.analyzeNodes(nodeInputsForAnalyze, sourceSchemasByRoot, secondarySchemas)
               val action: DBIO[PipelineSummary] = for {
                 createResult      <- pipelineRepo.createAction(req.name.trim, dataSources, user, tag)
@@ -376,10 +376,10 @@ final class PipelineService(
                 case PipelineCycleGuard.PipelineCycleRejected(msg) => Left(ServiceError.BadRequest(msg))
                 case ex                                            => Left(PipelineService.classifyDbError(ex))
               }
-              }
-          }
-      }
+            }
+        }
     }
+  }
 
   /** HEL-907: closes a real gap found while retargeting `PipelineProposalService` onto this
    *  single-call transactional path -- `addStep` (the pre-existing per-step write path) has

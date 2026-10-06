@@ -1,6 +1,8 @@
 package com.helio.services.workspace
 
 import com.helio.services.workspace.WorkspaceContextService
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import org.mockito.Mockito.mock
 import com.helio.api.protocols.workspace.WorkspaceContextColumnStats
 import com.helio.domain.model.DataField
 import org.scalatest.matchers.should.Matchers
@@ -18,7 +20,7 @@ class WorkspaceContextServiceClassifySemanticRoleSpec extends AnyWordSpec with M
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private val service = new WorkspaceContextService(null, null, null, null)
+  private val service = new WorkspaceContextService(null, null, mock(classOf[OutputRepository]), null)
 
   private def field(name: String, dataType: String): DataField =
     DataField(name = name, displayName = name, dataType = dataType, nullable = false)

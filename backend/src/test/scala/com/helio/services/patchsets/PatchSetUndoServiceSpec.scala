@@ -150,8 +150,8 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with HelioRouteT
     }
 
   /** A real, persisted Output -- `panels.output_id` is FK-constrained against `outputs`, so a
-   *  placement test needs a genuine row, not a synthetic id (an `outputRepo == null` fixture
-   *  would only skip the app-level existence CHECK, never the DB-level FK). */
+   *  placement test needs a genuine row, not a synthetic id (the DB-level FK is checked
+   *  regardless of the app-level existence CHECK). */
   private def seedOutput(pipeline: PipelineSummaryResponse, owner: AuthenticatedUser, name: String = "Output"): Output =
     await(outputRepo.insertInternal(PipelineId(pipeline.id), None, owner.id, name, OutputKind.Table, explicitRootId = None))
 
@@ -707,12 +707,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with HelioRouteT
     // longer exist.
   }
 
-  private def undoServiceWithoutOutputRepo: PatchSetUndoService = new PatchSetUndoService(
-    panelService, dashboardService, dataSourceService, pipelineService,
-    panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-    applicationRepo, outputRepo = null
-  )
-
   "PatchSetUndoContext parity (HEL-1256)" should {
 
     "carry every undo-context field, non-null and identical to the supplied collaborator, and be a subset of the apply context" in {
@@ -743,63 +737,6 @@ class PatchSetUndoServiceSpec extends AnyWordSpec with Matchers with HelioRouteT
       // Undo's context is a subset of apply's: a repo added to one and not the other shows up here.
       val applyFields = applyService.context.productElementNames.toSet
       fields.map(_._1).toSet.subsetOf(applyFields) shouldBe true
-    }
-  }
-
-  "PatchSetUndoService.undo with a null outputRepo (HEL-1256)" should {
-
-    def assertUnavailable(r: Either[ServiceError, _]): Unit = r match {
-      case Left(ServiceError.InternalError(msg)) => msg shouldBe "Output repository is not configured"
-      case other                                    => fail(s"expected InternalError(outputRepo unavailable), got $other")
-    }
-
-    "reject a pipelineStep delete with bound Outputs before restoring anything" in {
-      val sourceId = seedDatasetSource(userA, "Null-repo delete source")
-      val pipeline = seedPipeline(userA, sourceId, "Null-repo delete pipeline")
-      val step = seedPipelineStep(PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("old" -> JsString("new"))))
-      val output = await(outputRepo.insertInternal(
-        PipelineId(pipeline.id), Some(PipelineStepId(step.id)), userA.id, "Lane output", OutputKind.Table, explicitRootId = None
-      ))
-      val dashboard = seedDashboard(userA)
-      await(panelService.create(
-        CreatePanelRequest(Some(dashboard.id.value), Some("Lane panel"), Some("output"), Some(JsObject("outputId" -> JsString(output.id.value)))), userA
-      ))
-      val applicationId = applySuccessfully(Vector(Edit(EditTarget("pipelineStep", Some(step.id)), "delete", None, None, None, None, None, None)))
-
-      assertUnavailable(await(undoServiceWithoutOutputRepo.undo(PatchSetApplicationId(applicationId), userA)))
-
-      // Nothing recreated: no step, no Output.
-      await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id))) shouldBe empty
-      await(outputRepo.listByPipelineInternal(PipelineId(pipeline.id))) shouldBe empty
-    }
-
-    "reject a pipelineStep create rather than reporting a 0 placement count, leaving the created step in place" in {
-      val sourceId = seedDatasetSource(userA, "Null-repo create source")
-      val pipeline = seedPipeline(userA, sourceId, "Null-repo create pipeline")
-      val createPatch = JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1)))
-      val applicationId = applySuccessfully(Vector(
-        Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
-      ))
-      val application = await(applicationRepo.findById(PatchSetApplicationId(applicationId), userA)).getOrElse(fail("application missing"))
-      val createdStepId = application.edits.head.newId.getOrElse(fail("expected newId"))
-
-      assertUnavailable(await(undoServiceWithoutOutputRepo.undo(PatchSetApplicationId(applicationId), userA)))
-
-      await(pipelineStepRepo.findByIdInternal(PipelineStepId(createdStepId))) shouldBe defined
-    }
-
-    "still undo an application that never needs the Output repository" in {
-      val dashboard = seedDashboard(userA, "Null-repo panel dashboard")
-      val panel     = seedPanel(dashboard.id, userA, "Panel v1")
-      val applicationId = applySuccessfully(Vector(
-        Edit(EditTarget("panel", Some(panel.id.value)), "update",
-          Some(UpdatePanelRequest(Some("Panel v2"), None, None, None)), None, None, None, None, None)
-      ))
-      await(undoServiceWithoutOutputRepo.undo(PatchSetApplicationId(applicationId), userA)) match {
-        case Right(r)  => r.edits.map(_.status) shouldBe Vector("restored")
-        case Left(err) => fail(s"expected success, got $err")
-      }
-      await(panelRepo.findByIdInternal(panel.id)).map(_.title) shouldBe Some("Panel v1")
     }
   }
 }

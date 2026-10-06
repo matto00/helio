@@ -41,7 +41,7 @@ final class PublicDashboardRoutes(
     panelRepo: PanelRepository,
     aclDirective: AclDirective,
     userOpt: Option[AuthenticatedUser],
-    outputRepoOpt: Option[OutputRepository] = None,
+    outputRepo: OutputRepository,
     pipelineRepoOpt: Option[PipelineRepository] = None,
     nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = None,
     provenanceServiceOpt: Option[ProvenanceService] = None,
@@ -52,23 +52,22 @@ final class PublicDashboardRoutes(
 
   private implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
-  // HEL-1189 design.md D5 — same nullable-optional `.orNull` convention `ApiRoutes.scala` uses to
-  // wire `PanelService`'s own instance; reused here (rather than threading `PanelService` itself
-  // into this route, a broader constructor change) so this, the app's one true panel-READ path
-  // (`GET /api/dashboards/:id/panels` — see this class's own doc comment: authenticated dashboard
-  // viewing and public/shared viewing both funnel through here), can compute live orphan status
+  // HEL-1189 design.md D5 — same convention `ApiRoutes.scala` uses to wire `PanelService`'s own
+  // instance (`outputRepo` required, `nodeSnapshotRepo` nullable); reused here (rather than
+  // threading `PanelService` itself into this route, a broader constructor change) so this, the
+  // app's one true panel-READ path (`GET /api/dashboards/:id/panels` — see this class's own doc
+  // comment: authenticated dashboard viewing and public/shared viewing both funnel through here), can compute live orphan status
   // per `output-panel-placement`'s Requirement 3 ("reported as orphaned wherever the panel's
   // controls are read") using the SAME decision `OutputControlsValidator.reject` (write-time)
   // makes — never a second, independently-maintained copy.
-  private val outputControlsValidator = new OutputControlsValidator(outputRepoOpt.orNull, nodeSnapshotRepoOpt.orNull)
+  private val outputControlsValidator = new OutputControlsValidator(outputRepo, nodeSnapshotRepoOpt.orNull)
 
-  /** `None` for any panel kind other than `OutputPanel`, or when either repo is unavailable
-   *  (mirrors this codebase's existing `Option[Repository]`-degrades-gracefully convention, e.g.
-   *  `outputRepoOpt` in `ApiRoutes.scala`), or when the Output/pipeline can no longer be
-   *  resolved. */
+  /** `None` for any panel kind other than `OutputPanel`, or when the pipeline repo is unavailable
+   *  (mirrors this codebase's existing `Option[Repository]`-degrades-gracefully convention), or
+   *  when the Output/pipeline can no longer be resolved. */
   private def resolveDataAsOf(panel: Panel): Future[Option[String]] =
-    (panel, outputRepoOpt, pipelineRepoOpt) match {
-      case (op: OutputPanel, Some(outputRepo), Some(pipelineRepo)) =>
+    (panel, pipelineRepoOpt) match {
+      case (op: OutputPanel, Some(pipelineRepo)) =>
         op.outputId match {
           case Some(outputId) =>
             outputRepo.findByIdInternal(outputId).flatMap {
@@ -85,10 +84,10 @@ final class PublicDashboardRoutes(
    *  absent from the Output's CURRENT declared schema, or present but no longer eligible for its
    *  kind), mirroring `resolveDataAsOf`'s own per-panel async-resolve pattern and degrade-
    *  gracefully convention. `Set.empty` for any non-`OutputPanel` kind, a panel with no controls,
-   *  an unresolvable Output, or when `outputRepoOpt` is unavailable — never a failed page. */
+   *  or an unresolvable Output — never a failed page. */
   private def resolveOrphanedControlIds(panel: Panel): Future[Set[String]] =
-    (panel, outputRepoOpt) match {
-      case (op: OutputPanel, Some(outputRepo)) if op.config.controls.nonEmpty =>
+    panel match {
+      case op: OutputPanel if op.config.controls.nonEmpty =>
         op.outputId match {
           case Some(outputId) =>
             outputRepo.findByIdInternal(outputId).flatMap {
@@ -139,8 +138,8 @@ final class PublicDashboardRoutes(
       paged.items.find(_.id.value == panelId) match {
         case None => Future.successful(Left(ServiceError.NotFound("Panel not found")))
         case Some(op: OutputPanel) =>
-          (op.outputId, outputRepoOpt, nodeSnapshotRepoOpt) match {
-            case (Some(outputId), Some(outputRepo), Some(nodeSnapshotRepo)) =>
+          (op.outputId, nodeSnapshotRepoOpt) match {
+            case (Some(outputId), Some(nodeSnapshotRepo)) =>
               outputRepo.findByIdInternal(outputId).flatMap {
                 case None => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))
                 case Some(output) =>
@@ -184,21 +183,20 @@ final class PublicDashboardRoutes(
    *  caller-supplied `outputId` (C11). Reuses `resolveRows`'s SAME `findAllByDashboardId` lookup --
    *  the panel is proven to actually belong to THIS dashboard before anything about its bound
    *  Output is resolved. Deliberately `ServiceError.NotFound` for every "can't resolve" case
-   *  (missing panel, wrong kind, no bound Output, unresolvable Output, or a fixture missing
-   *  `outputRepoOpt`) -- unlike `resolveRows`'s degrade-gracefully-to-empty-page contract, these
+   *  (missing panel, wrong kind, no bound Output, or unresolvable Output) -- unlike `resolveRows`'s degrade-gracefully-to-empty-page contract, these
    *  three routes have no "page" to degrade to, so a 404 is the correct, existence-not-leaked
    *  response (the caller already passed the dashboard-level ACL gate to reach here). */
   private def resolvePanelOutput(dashboardId: String, panelId: String): Future[Either[ServiceError, (OutputPanel, Output)]] =
     panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, Page(offset = 0, limit = Page.MaxLimit), accessAlreadyGranted = true).flatMap { paged =>
       paged.items.find(_.id.value == panelId) match {
         case Some(op: OutputPanel) =>
-          (op.outputId, outputRepoOpt) match {
-            case (Some(outputId), Some(outputRepo)) =>
+          op.outputId match {
+            case Some(outputId) =>
               outputRepo.findByIdInternal(outputId).map {
                 case Some(output) => Right((op, output))
                 case None         => Left(ServiceError.NotFound("Output not found"))
               }
-            case _ => Future.successful(Left(ServiceError.NotFound("Output not found")))
+            case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
           }
         case _ => Future.successful(Left(ServiceError.NotFound("Panel not found")))
       }
@@ -266,18 +264,14 @@ final class PublicDashboardRoutes(
     resolvePanelOutput(dashboardId, panelId).flatMap {
       case Left(err) => Future.successful(Left(err))
       case Right((_, output)) =>
-        outputRepoOpt match {
-          case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
-          case Some(outputRepo) =>
-            outputRepo.findConfigsByIdsInternal(Vector(output.id.value)).map { configs =>
-              Right(
-                PublicOutputMetaResponse(
-                  kind = OutputKind.asString(output.kind),
-                  config = configs.getOrElse(output.id.value, JsObject.empty),
-                  schema = output.schema.flatMap(sf => DataFieldType.fromString(sf.`type`).map(t => OutputSchemaFieldResponse(sf.name, DataFieldType.asString(t))))
-                )
-              )
-            }
+        outputRepo.findConfigsByIdsInternal(Vector(output.id.value)).map { configs =>
+          Right(
+            PublicOutputMetaResponse(
+              kind = OutputKind.asString(output.kind),
+              config = configs.getOrElse(output.id.value, JsObject.empty),
+              schema = output.schema.flatMap(sf => DataFieldType.fromString(sf.`type`).map(t => OutputSchemaFieldResponse(sf.name, DataFieldType.asString(t))))
+            )
+          )
         }
     }
 
@@ -303,8 +297,8 @@ final class PublicDashboardRoutes(
       panelId: String,
       q: OutputHistoryQueryParsing.Query
   ): Future[Either[ServiceError, PublicOutputHistoryResponse]] =
-    (historyServiceOpt, outputRepoOpt) match {
-      case (Some(svc), Some(outputRepo)) =>
+    historyServiceOpt match {
+      case Some(svc) =>
         resolvePanelOutput(dashboardId, panelId).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right((_, output)) =>
@@ -313,7 +307,7 @@ final class PublicDashboardRoutes(
                 .map(r => Right(OutputHistoryResponses.public(r)))
             }
         }
-      case _ => Future.successful(Left(ServiceError.NotFound("Output not found")))
+      case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
     }
 
   val routes: Route =

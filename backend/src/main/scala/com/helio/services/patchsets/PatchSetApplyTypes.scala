@@ -1,6 +1,5 @@
 package com.helio.services.patchsets
 
-import com.helio.services.ServiceError
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
@@ -104,19 +103,14 @@ private[services] final case class PatchSetApplyContext(
     pipelineStepRepo: PipelineStepRepository,
     accessChecker: AccessChecker,
     // HEL-1239: NO `= null` default -- a construction site that omits a collaborator must fail to
-    // compile instead of silently reaching a resolver NPE. A caller with no DbContext still passes
-    // `null` explicitly (ApiRoutes' `outputRepoOpt.orNull`); the output resolvers turn that into a
-    // typed `ServiceError` (`PatchSetApplyContext.outputRepoUnavailable`), never an NPE.
+    // compile instead of silently reaching a resolver NPE. HEL-1337: non-null is also asserted at
+    // construction (below), so a null repo fails loudly here rather than as a later NPE.
     outputRepo: OutputRepository
-)
+) {
+  require(outputRepo != null, "PatchSetApplyContext requires an OutputRepository")
+}
 
 private[services] object PatchSetApplyContext {
-
-  /** Returned by every output resolver (and the pipelineStep-delete `boundOutputs` capture) when
-   *  `ctx.outputRepo` is null (ApiRoutes with no DbContext). */
-  val OutputRepoUnavailableMessage: String = "Output repository is not configured"
-
-  def outputRepoUnavailable: ServiceError = ServiceError.InternalError(OutputRepoUnavailableMessage)
 
   /** The ONE construction path for the context -- both [[PatchSetApplyService]] and
    *  [[PatchSetPreviewService]] build through here, so a collaborator one of them omits is a

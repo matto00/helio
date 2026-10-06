@@ -104,7 +104,7 @@ class PublicRouteOwnerIdLeakSpec
   private def await[T](f: Future[T]): T = Await.result(f, 15.seconds)
 
   private def routesFor(user: Option[AuthenticatedUser]): Route =
-    new PublicDashboardRoutes(panelRepo, aclDirective, user, Some(outputRepo), Some(pipelineRepo), Some(nodeSnapshotRepo), Some(provenance))(typedSystem).routes
+    new PublicDashboardRoutes(panelRepo, aclDirective, user, outputRepo, Some(pipelineRepo), Some(nodeSnapshotRepo), Some(provenance))(typedSystem).routes
 
   private def seedDashboard(public: Boolean): String = {
     import PostgresProfile.api._

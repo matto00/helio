@@ -40,6 +40,8 @@ final class WorkspaceSearchService(
     workspaceContextService: WorkspaceContextService
 )(implicit ec: ExecutionContext) {
 
+  require(outputRepo != null, "WorkspaceSearchService requires an OutputRepository")
+
   /** `find`'s fixed top-K result cap (design.md D1a, design-gate round-1 REFUTE fix) — `find` scans
    *  up to `Page.Default` (200) candidates per requested resource type (up to 1,000 total across all
    *  5 unfiltered), but the ticket's Scope section promises "top-K matches," not "every match." A
@@ -70,10 +72,7 @@ final class WorkspaceSearchService(
       else Future.successful(Vector.empty)
 
     val dataTypeSummariesF: Future[Vector[WorkspaceResourceSummary]] =
-      // HEL-904 task 3.2: `outputRepo` is `null` when `ApiRoutes`' `outputRepoOpt` degrades to
-      // `None` (no `DbContext` -- pre-existing task-3.1 convention) -- degrade to empty rather
-      // than NPE the whole `find`, mirroring `WorkspaceContextService.assemble`'s identical fix.
-      if (requested(WorkspaceResourceType.DataType) && outputRepo != null)
+      if (requested(WorkspaceResourceType.DataType))
         outputRepo.findAllByOwner(user.id, Page.Default).map(_.items.map(toDataTypeSummary))
       else Future.successful(Vector.empty)
 

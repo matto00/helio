@@ -122,8 +122,8 @@ class WorkspaceContextServiceSpec
     outputRepo = new OutputRepository(ctx)
     // HEL-914 task 6.6: `PipelineService.laneTree` reads ITS OWN `outputRepo` field (not
     // `WorkspaceContextService`'s) to report bound Outputs -- wired here so this fixture
-    // matches `ApiRoutes`'s real construction (`outputRepoOpt.orNull` at the same positional
-    // slot), not a null that would silently degrade every laneTree node's outputIds to [].
+    // matches `ApiRoutes`'s real construction (the required `outputRepo` at the same positional
+    // slot).
     pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
     nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
 

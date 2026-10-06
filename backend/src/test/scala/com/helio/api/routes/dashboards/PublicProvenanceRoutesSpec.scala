@@ -98,7 +98,7 @@ class PublicProvenanceRoutesSpec
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
   private def routes(): Route =
-    new PublicDashboardRoutes(panelRepo, aclDirective, userOpt = None, Some(outputRepo), Some(pipelineRepo), Some(nodeSnapshotRepo), Some(provenance))(typedSystem).routes
+    new PublicDashboardRoutes(panelRepo, aclDirective, userOpt = None, outputRepo, Some(pipelineRepo), Some(nodeSnapshotRepo), Some(provenance))(typedSystem).routes
 
   private def seedDashboard(public: Boolean): String = {
     import PostgresProfile.api._
