@@ -36,6 +36,8 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
 import java.nio.file.Files
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
@@ -259,7 +261,7 @@ class AssistantConversationRoutesSpec
   // (Postgres session-timezone-dependent), so this assertion can never disagree with production
   // behavior over a timezone mismatch.
   private def dailyUsageCount(user: AuthenticatedUser): Option[Int] = {
-    val today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString
+    val today = LocalDate.now(ZoneOffset.UTC).toString
     await(ctx.withSystemContext(
       sql"""SELECT message_count FROM assistant_daily_usage
             WHERE user_id = ${user.id.value}::uuid AND usage_date = $today::date"""

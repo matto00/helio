@@ -4,6 +4,7 @@ import com.helio.domain.model.AuditEvent.NewAuditEvent
 import com.helio.domain.model.AuditEventId
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 /** HEL-477 tasks.md 1.2 — shared test fixture for every service spec whose
@@ -45,7 +46,7 @@ object AuditTestFixture {
     val events: scala.collection.mutable.ArrayBuffer[NewAuditEvent] = scala.collection.mutable.ArrayBuffer.empty
     override def append(event: NewAuditEvent): Future[AuditEventId] = {
       events += event
-      Future.successful(AuditEventId(java.util.UUID.randomUUID().toString))
+      Future.successful(AuditEventId(UUID.randomUUID().toString))
     }
   }
 

@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json.{JsString, JsValue}
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -143,7 +144,7 @@ class DatasetWriteSubmitLatencySpec
       val ownerBefore = seedUser()
       val dsBefore    = seedDataset(AuthenticatedUser(ownerBefore), serviceBefore)
       seedFiveDownstreamPipelines(ownerBefore, dsBefore)
-      val build = (_: Vector[DatasetFieldDeclaration], _: java.time.Instant) => Right(Vector[JsValue](JsString("v")))
+      val build = (_: Vector[DatasetFieldDeclaration], _: Instant) => Right(Vector[JsValue](JsString("v")))
 
       val beforeSamples = (1 to Iterations).map { _ =>
         val t0 = System.nanoTime()

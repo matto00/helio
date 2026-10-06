@@ -28,6 +28,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -647,7 +648,7 @@ class FormSubmitRoutesSpec
       row.head shouldBe JsNumber(1)
       val storedOccurredAt = row(1).asInstanceOf[JsString].value
       storedOccurredAt should not be "1999-01-01T00:00:00Z"
-      java.time.Instant.parse(storedOccurredAt).isAfter(java.time.Instant.parse("2020-01-01T00:00:00Z")) shouldBe true
+      Instant.parse(storedOccurredAt).isAfter(Instant.parse("2020-01-01T00:00:00Z")) shouldBe true
       row(2) shouldBe JsNull
     }
 

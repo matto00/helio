@@ -9,6 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
+import java.sql.DriverManager
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -276,7 +277,7 @@ class V98PipelineRootsMigrationSpec extends AnyWordSpec with Matchers with Befor
         // applies a `.sql` migration file, and the only way pgjdbc accepts a multi-statement
         // script) connected AS the non-superuser role -- never through Slick's `sqlu`, which
         // prepares a statement (extended protocol) and would reject multiple commands outright.
-        val roleConn = java.sql.DriverManager.getConnection(
+        val roleConn = DriverManager.getConnection(
           ep.getJdbcUrl("hel913_bracket_test", "postgres"), "hel913_bracket_test", "test"
         )
         try {

@@ -52,7 +52,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       rows: Seq[Seq[JsValue]],
       idOverride: Option[String] = None
   ): DataSource = {
-    val id      = DataSourceId(idOverride.getOrElse(java.util.UUID.randomUUID().toString))
+    val id      = DataSourceId(idOverride.getOrElse(UUID.randomUUID().toString))
     val colJson = JsArray(cols.map { case (n, t) =>
       JsObject("name" -> JsString(n), "type" -> JsString(t))
     }.toVector)

@@ -16,6 +16,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.sql.SQLException
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -339,7 +340,7 @@ class AuthoringConversationRepositorySpec extends AnyWordSpec with Matchers with
           (id, owner_id, api_history, display_turns, latest_proposal, latest_patch_set, total_tokens_used, created_at, updated_at)
         VALUES
           ($id, ${ownerA.value}::uuid, '[]'::jsonb, '[]'::jsonb, '{"dashboardName":"X","panels":[]}'::jsonb,
-           '{"summary":null,"edits":[]}'::jsonb, 0, ${java.sql.Timestamp.from(now)}, ${java.sql.Timestamp.from(now)})
+           '{"summary":null,"edits":[]}'::jsonb, 0, ${Timestamp.from(now)}, ${Timestamp.from(now)})
       """
 
       val thrown = intercept[SQLException] {

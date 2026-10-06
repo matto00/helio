@@ -30,6 +30,7 @@ import java.io.ByteArrayOutputStream
 import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.time.Instant
 import java.util.UUID
 import javax.imageio.ImageIO
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -194,7 +195,7 @@ class DataSourceServiceSpec
     "re-populate the source's inferredSchema when it was empty (Fix D)" in {
       cleanDb()
       val src = createCsvSource("col1,col2\n1,2")
-      await(dataSourceRepo.upsertInferredSchema(src.id, Vector.empty, java.time.Instant.now(), user))
+      await(dataSourceRepo.upsertInferredSchema(src.id, Vector.empty, Instant.now(), user))
       await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema shouldBe empty
 
       val result = await(service.refresh(src.id, None, user))
@@ -484,7 +485,7 @@ class DataSourceServiceSpec
         case Right(s) => s
         case Left(e)  => fail(s"createStatic failed: $e")
       }
-      await(dataSourceRepo.upsertInferredSchema(src.id, Vector.empty, java.time.Instant.now(), user))
+      await(dataSourceRepo.upsertInferredSchema(src.id, Vector.empty, Instant.now(), user))
 
       val refreshPayload = StaticDataPayload(
         columns = Vector(StaticColumnPayload("id", "integer"), StaticColumnPayload("label", "string")),

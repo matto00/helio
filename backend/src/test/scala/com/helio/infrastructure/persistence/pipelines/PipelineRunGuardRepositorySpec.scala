@@ -10,6 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -110,7 +111,7 @@ class PipelineRunGuardRepositorySpec extends AnyWordSpec with Matchers with Befo
     val bucketed = repo.bucketStart(now, windowSeconds)
     await(ctx.withSystemContext(
       sql"""SELECT request_count FROM pipeline_run_rate_window
-            WHERE user_id = ${owner.value}::uuid AND window_start = ${java.sql.Timestamp.from(bucketed)}"""
+            WHERE user_id = ${owner.value}::uuid AND window_start = ${Timestamp.from(bucketed)}"""
         .as[Int]
         .headOption
     ))
@@ -206,7 +207,7 @@ class PipelineRunGuardRepositorySpec extends AnyWordSpec with Matchers with Befo
       val bucketed = repo.bucketStart(now, 60)
       val rows = await(ctx.withUserContext(ownerB.value)(
         sql"""SELECT user_id::text FROM pipeline_run_rate_window
-              WHERE window_start = ${java.sql.Timestamp.from(bucketed)}""".as[String]
+              WHERE window_start = ${Timestamp.from(bucketed)}""".as[String]
       ))
       rows shouldBe empty
     }
@@ -219,7 +220,7 @@ class PipelineRunGuardRepositorySpec extends AnyWordSpec with Matchers with Befo
 
       val updated = await(ctx.withUserContext(ownerB.value)(
         sqlu"""UPDATE pipeline_run_rate_window SET request_count = 999
-               WHERE user_id = ${ownerA.value}::uuid AND window_start = ${java.sql.Timestamp.from(bucketed)}"""
+               WHERE user_id = ${ownerA.value}::uuid AND window_start = ${Timestamp.from(bucketed)}"""
       ))
       updated shouldBe 0
       countFor(ownerA, now, 60) shouldBe Some(1)
@@ -233,7 +234,7 @@ class PipelineRunGuardRepositorySpec extends AnyWordSpec with Matchers with Befo
 
       val rows = await(ctx.withSystemContext(
         sql"""SELECT user_id::text FROM pipeline_run_rate_window
-              WHERE window_start = ${java.sql.Timestamp.from(bucketed)}""".as[String]
+              WHERE window_start = ${Timestamp.from(bucketed)}""".as[String]
       ))
       rows should contain(ownerA.value)
     }

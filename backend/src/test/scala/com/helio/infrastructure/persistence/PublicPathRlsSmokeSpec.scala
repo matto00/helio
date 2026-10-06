@@ -12,6 +12,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json.{JsNumber, JsObject}
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -81,7 +82,7 @@ class PublicPathRlsSmokeSpec extends AnyWordSpec with Matchers with BeforeAndAft
     val owner = AuthenticatedUser(UserId(ownerId))
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, ${s"$ownerId@test.local"}, now())
                          ON CONFLICT DO NOTHING"""))
-    val now = java.time.Instant.now()
+    val now = Instant.now()
     val source = DatasetSource(DataSourceId(UUID.randomUUID().toString), "src", owner.id, now, now)
     val createdSource = await(dataSourceRepo.insert(source, owner))
     val pipeline = await(pipelineRepo.create("pipe", Vector(createdSource.id), owner)).getOrElse(

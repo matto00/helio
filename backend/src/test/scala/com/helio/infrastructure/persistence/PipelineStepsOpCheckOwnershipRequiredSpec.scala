@@ -5,6 +5,7 @@ import org.postgresql.util.PSQLException
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.sql.DriverManager
 import java.sql.SQLException
 
 /** HEL-1104 task 2.2 (design.md Decision 2's falsifiability half): `FlywayNonSuperuserMigrationSpec`
@@ -43,7 +44,7 @@ class PipelineStepsOpCheckOwnershipRequiredSpec extends AnyWordSpec with Matcher
         } finally superConn.close()
 
         val nonOwnerUrl = embeddedPostgres.getJdbcUrl("hel1104_non_owner", "postgres")
-        val nonOwnerConn = java.sql.DriverManager.getConnection(nonOwnerUrl, "hel1104_non_owner", "test")
+        val nonOwnerConn = DriverManager.getConnection(nonOwnerUrl, "hel1104_non_owner", "test")
         try {
           val stmt = nonOwnerConn.createStatement()
           try {

@@ -25,6 +25,7 @@ import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json._
 
 import java.net.URLEncoder
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -124,7 +125,7 @@ class PublicDashboardRoutesSpec
     )
     val pipelineId = PipelineId(pipeline.id)
     import PostgresProfile.api._
-    await(db.run(sqlu"UPDATE pipelines SET last_run_at = ${java.sql.Timestamp.from(lastRunAt)} WHERE id = ${pipelineId.value}"))
+    await(db.run(sqlu"UPDATE pipelines SET last_run_at = ${Timestamp.from(lastRunAt)} WHERE id = ${pipelineId.value}"))
     pipelineId
   }
 

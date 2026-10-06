@@ -13,6 +13,7 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -1093,8 +1094,8 @@ object DataSourceRepository {
   }
 
   implicit val instantColumnType: BaseColumnType[Instant] =
-    MappedColumnType.base[Instant, java.sql.Timestamp](
-      instant => java.sql.Timestamp.from(instant),
+    MappedColumnType.base[Instant, Timestamp](
+      instant => Timestamp.from(instant),
       ts      => ts.toInstant
     )
 

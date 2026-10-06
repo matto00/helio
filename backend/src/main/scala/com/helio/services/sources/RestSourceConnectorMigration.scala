@@ -8,6 +8,7 @@ import org.apache.pekko.http.scaladsl.model.Uri
 import org.slf4j.Logger
 import spray.json._
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -100,7 +101,7 @@ object RestSourceConnectorMigration {
       dataSourceRepo: DataSourceRepository,
       connectorRepo: ConnectorRepository,
       id: String,
-      ownerIdOpt: Option[java.util.UUID],
+      ownerIdOpt: Option[UUID],
       name: String,
       rawConfig: String,
       logger: Logger

@@ -1,6 +1,7 @@
 package com.helio.services.proposals
 
 import com.helio.infrastructure.ai.{ClaudeMessage, ClaudeTokenEstimator}
+import scala.annotation.tailrec
 
 /** Deterministic history bounding for continued authoring conversations (HEL-397 design.md D4/D5)
  *  — oldest-turn-pairs-first truncation via the existing `ClaudeTokenEstimator`, never an
@@ -25,7 +26,7 @@ object AuthoringHistoryBudget {
    *  pre-flight guardrail to reject — a distinct, per-request concern this budget never
    *  duplicates). */
   def trim(apiHistory: Vector[ClaudeMessage], maxTokens: Int): Vector[ClaudeMessage] = {
-    @scala.annotation.tailrec
+    @tailrec
     def loop(remaining: Vector[ClaudeMessage]): Vector[ClaudeMessage] =
       if (remaining.size <= 2 || ClaudeTokenEstimator.estimate(remaining) <= maxTokens) remaining
       else loop(remaining.drop(2))

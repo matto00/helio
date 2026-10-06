@@ -46,6 +46,7 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import javax.imageio.ImageIO
@@ -246,7 +247,7 @@ class AuditMutationInstrumentationSpec
    *  caller-scoped ACL to honor). */
   private def allAuditRows(): Seq[AuditEvent] = {
     import slick.jdbc.PostgresProfile.api._
-    val rows = await(db.run(sql"""SELECT id, actor_user_id, actor_token_id, source, action, resource_type, resource_id, metadata, created_at FROM audit_events""".as[(String, Option[String], Option[String], String, String, String, Option[String], String, java.sql.Timestamp)]))
+    val rows = await(db.run(sql"""SELECT id, actor_user_id, actor_token_id, source, action, resource_type, resource_id, metadata, created_at FROM audit_events""".as[(String, Option[String], Option[String], String, String, String, Option[String], String, Timestamp)]))
     rows.map { case (id, actor, token, source, action, resourceType, resourceId, metadata, createdAt) =>
       AuditEvent(
         id           = AuditEventId(id),

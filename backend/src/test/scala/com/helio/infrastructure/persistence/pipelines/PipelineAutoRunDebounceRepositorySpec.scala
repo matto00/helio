@@ -10,6 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -112,13 +113,13 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
   private def rawFireAt(pipelineId: PipelineId): Option[Instant] =
     await(ctx.withSystemContext(
       sql"""SELECT fire_at FROM pipeline_auto_run_debounce WHERE pipeline_id = ${pipelineId.value}"""
-        .as[java.sql.Timestamp].headOption
+        .as[Timestamp].headOption
     )).map(_.toInstant)
 
   private def rawClaimedAt(pipelineId: PipelineId): Option[Instant] =
     await(ctx.withSystemContext(
       sql"""SELECT claimed_at FROM pipeline_auto_run_debounce WHERE pipeline_id = ${pipelineId.value}"""
-        .as[Option[java.sql.Timestamp]].headOption
+        .as[Option[Timestamp]].headOption
     )).flatten.map(_.toInstant)
 
   "upsertDebounce" should {

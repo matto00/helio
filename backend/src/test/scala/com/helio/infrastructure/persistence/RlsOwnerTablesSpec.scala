@@ -23,6 +23,7 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
 import java.nio.file.Files
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -540,7 +541,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
           sql"SELECT id FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String].head
         ))
         val rowUpdatedAt = await(ctx.withSystemContext(
-          sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head
+          sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[Timestamp].head
         )).toInstant.toString
 
         // Owner B cannot see or patch owner A's source at all -- 404, not 403.
@@ -725,7 +726,7 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
           sql"SELECT id FROM dataset_rows WHERE data_source_id = ${src.id.value}".as[String].head
         ))
         val rowUpdatedAt = await(ctx.withSystemContext(
-          sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head
+          sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[Timestamp].head
         )).toInstant.toString
 
         val crossOwnerAttempt = Await.result(

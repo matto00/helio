@@ -20,6 +20,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json.{JsArray, JsObject, JsString}
 
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -475,11 +476,11 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
       import PostgresProfile.api._
       val key = PipelineCycleValidator.AdvisoryLockKey
 
-      def acquireHoldRelease(holdSeconds: Double): DBIO[(java.sql.Timestamp, java.sql.Timestamp)] =
+      def acquireHoldRelease(holdSeconds: Double): DBIO[(Timestamp, Timestamp)] =
         for {
-          acquiredAt <- sql"select pg_advisory_xact_lock($key)::text".as[String].andThen(sql"select clock_timestamp()".as[java.sql.Timestamp].head)
+          acquiredAt <- sql"select pg_advisory_xact_lock($key)::text".as[String].andThen(sql"select clock_timestamp()".as[Timestamp].head)
           _          <- sql"select pg_sleep($holdSeconds)::text".as[String]
-          finalTs    <- sql"select clock_timestamp()".as[java.sql.Timestamp].head
+          finalTs    <- sql"select clock_timestamp()".as[Timestamp].head
         } yield (acquiredAt, finalTs)
 
       // tx1 grabs the lock first and holds it (inside one open transaction) for 800ms.
