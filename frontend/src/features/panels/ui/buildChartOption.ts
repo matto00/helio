@@ -8,7 +8,8 @@ import {
   prefersReducedMotion,
 } from "../../../utils/chartAppearance";
 import type { ChartThemeTokens } from "../../../utils/chartAppearance";
-import { defaultChartAppearance } from "../../../theme/appearance";
+import { defaultChartAppearance, resolveChartTextColor } from "../../../theme/appearance";
+import type { Theme } from "../../../theme/theme";
 import { applyChartTypeOptions } from "../../../utils/chartTypeOptions";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import { buildAggregateDataOption, buildDataOption } from "./chartDataOptions";
@@ -61,6 +62,7 @@ export interface BuildChartOptionParams {
   effectiveCompact: boolean;
   measuredPieLegendOverlap: boolean;
   themeTokens: ChartThemeTokens;
+  theme: Theme;
 }
 
 // F-231 — this used to rebuild the full ECharts option object on every
@@ -77,6 +79,7 @@ export function buildChartOption({
   effectiveCompact,
   measuredPieLegendOverlap,
   themeTokens,
+  theme,
 }: BuildChartOptionParams): EChartsOption {
   // HEL-1178: an absent `appearance.chart` renders with the default chart
   // appearance (what the appearance editor pre-fills) so tooltip/axes/fonts
@@ -97,8 +100,8 @@ export function buildChartOption({
 
   const isPie = chartType === "pie";
 
-  const textColor = appearance?.color;
-  const textStyleOverride = textColor ? { color: textColor } : {};
+  const textColor = resolveChartTextColor(theme, appearance, themeTokens.text);
+  const textStyleOverride = { color: textColor };
   // F-196: `appearanceOption.textStyle` is where chartAppearance.ts wires
   // `fontFamily: --font-sans` (and the tooltip/axisLabel equivalents). Every
   // spot below that renders its own `textStyle`-shaped object must MERGE

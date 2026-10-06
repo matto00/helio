@@ -94,6 +94,7 @@ export function useChartOption({
       effectiveCompact,
       measuredPieLegendOverlap,
       themeTokens,
+      theme,
     });
   }, [
     appearance,

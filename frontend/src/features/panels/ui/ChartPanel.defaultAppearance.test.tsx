@@ -76,6 +76,7 @@ describe("buildChartOption chart-less vs explicitly-defaulted (HEL-1178)", () =>
     fieldMapping: { xAxis: "year", yAxis: "value", series: "team" },
     effectiveCompact: false,
     measuredPieLegendOverlap: false,
+    theme: "dark" as const,
   };
 
   it.each([

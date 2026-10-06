@@ -1,0 +1,10 @@
+# GREEN: with the change
+Test Suites: 2 passed, 2 total
+Tests:       35 passed, 35 total
+
+# MUTATION: restore appearance?.color (same edit as RED)
+Test Suites: 1 failed, 1 total
+Tests:       25 failed, 8 passed, 33 total
+
+# MUTATION 2: palette defaultText altered (#f2efe9 -> #f2efea) turns paletteSync red
+Tests:       1 failed, 1 passed, 2 total
