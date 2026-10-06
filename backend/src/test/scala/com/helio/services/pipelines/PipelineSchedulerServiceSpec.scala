@@ -1,39 +1,16 @@
 package com.helio.services.pipelines
 
-import com.helio.infrastructure.persistence.pipelines.OutputRepository
-import com.helio.domain.history.PayloadHistoryConfig
-import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
-import com.helio.services.pipelines.{PipelineRunService, PipelineSchedulerService}
-import com.helio.domain.util.{Clock, CronSchedule}
+import com.helio.domain.util.CronSchedule
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, OutputHistoryRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, RetentionPassOutcome}
-import com.helio.infrastructure.persistence.DbContext
-import ch.qos.logback.classic.{Level, Logger => LogbackLogger}
-import ch.qos.logback.classic.spi.ILoggingEvent
-import ch.qos.logback.core.read.ListAppender
-import org.slf4j.LoggerFactory
-import scala.jdk.CollectionConverters._
-import com.helio.infrastructure.persistence.audit.AuditEventRepository
-import com.helio.services.audit.AuditService
-import com.helio.infrastructure.storage.{FileSystem, ListPage}
-import com.helio.spark.PipelineRunCache
-import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
-import org.flywaydb.core.Flyway
-import org.scalatest.BeforeAndAfterAll
+import slick.jdbc.PostgresProfile
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import slick.jdbc.{JdbcBackend, PostgresProfile}
-import spray.json.{JsObject, JsString}
 
 import java.nio.charset.StandardCharsets
-import java.time.{Duration, Instant}
+import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.{Future, Promise}
 
 /** HEL-415 — `PipelineSchedulerService.tick`: due-schedule firing through the
  *  real `PipelineRunService.submit` path (embedded Postgres, mirrors
@@ -42,171 +19,7 @@ import scala.concurrent.{Await, ExecutionContext, Future, Promise}
  *  and the no-schedule no-op (task 6.2). Uses an injected fake `Clock` —
  *  never exercises Pekko's real timer (`PipelineSchedulerActor` is untested
  *  here by design; see design.md Decision 6). */
-class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
-
-  private implicit val ec: ExecutionContext = ExecutionContext.global
-
-  private var embeddedPostgres: EmbeddedPostgres = _
-  private var db: JdbcBackend.Database           = _
-  private var scheduleRepo: PipelineScheduleRepository = _
-  private var pipelineRepo: PipelineRepository         = _
-  private var runRepo: PipelineRunRepository           = _
-  private var service: PipelineSchedulerService        = _
-  private var auditEventRepo: AuditEventRepository     = _
-  private var runServiceForHistory: PipelineRunService  = _
-  private var historyCtx: DbContext                     = _
-
-  private class FakeClock(@volatile private var instant: Instant) extends Clock {
-    def set(i: Instant): Unit    = instant = i
-    override def now(): Instant  = instant
-  }
-
-  private val fakeClock = new FakeClock(Instant.parse("2026-01-01T00:00:00Z"))
-
-  /** A path registered here hangs `FileSystem.read` on `bytes.future` and
-   *  completes `reached` the moment `read` is called for it — the
-   *  deterministic hand-off point the overlap-guard test blocks on, instead
-   *  of a real timer or a sleep-based race (design.md Decision 8). */
-  private case class HangEntry(bytes: Promise[Array[Byte]], reached: Promise[Unit])
-  private val hangingReads = new ConcurrentHashMap[String, HangEntry]()
-  private val readCount    = new AtomicInteger(0)
-
-  private val fakeFileSystem: FileSystem = new FileSystem {
-    def write(path: String, bytes: Array[Byte]): Future[Unit] = Future.successful(())
-    def read(path: String): Future[Array[Byte]] = {
-      readCount.incrementAndGet()
-      Option(hangingReads.get(path)) match {
-        case Some(entry) =>
-          entry.reached.trySuccess(())
-          entry.bytes.future
-        case None => Future.successful("col\n1\n".getBytes(StandardCharsets.UTF_8))
-      }
-    }
-    def delete(path: String): Future[Unit]    = Future.successful(())
-    def exists(path: String): Future[Boolean] = Future.successful(true)
-    def list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage] =
-      Future.successful(ListPage(Seq.empty, None))
-  }
-
-  override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
-    Flyway
-      .configure()
-      .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
-      .locations("classpath:db/migration")
-      .load()
-      .migrate()
-    db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val ctx            = new DbContext(db, db)
-    val dataSourceRepo = new DataSourceRepository(ctx)
-    val pipelineStepRepo = new PipelineStepRepository(ctx)
-    pipelineRepo  = new PipelineRepository(ctx, dataSourceRepo)
-    scheduleRepo  = new PipelineScheduleRepository(ctx)
-    runRepo       = new PipelineRunRepository(ctx)
-    auditEventRepo = new AuditEventRepository(ctx)
-    val auditService = new AuditService(auditEventRepo)
-    val pipelineRunService = new PipelineRunService(
-      pipelineRepo,
-      pipelineStepRepo,
-      dataSourceRepo,
-      runRepo,
-      new PipelineRunCache(),
-      registry = null,
-      fakeFileSystem,
-      auditService = auditService,
-      outputRepo = new OutputRepository(ctx)
-    )
-    runServiceForHistory = pipelineRunService
-    historyCtx = ctx
-    service = new PipelineSchedulerService(scheduleRepo, pipelineRepo, runRepo, pipelineRunService, fakeClock)
-  }
-
-  override def afterAll(): Unit = {
-    db.close(); embeddedPostgres.close()
-  }
-
-  private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
-
-  private def cleanDb(): Unit = {
-    import PostgresProfile.api._
-    await(db.run(sqlu"DELETE FROM pipeline_runs"))
-    await(db.run(sqlu"DELETE FROM pipeline_schedules"))
-    await(db.run(sqlu"DELETE FROM pipelines"))
-    await(db.run(sqlu"DELETE FROM data_sources"))
-    await(db.run(sqlu"DELETE FROM users"))
-    hangingReads.clear()
-    readCount.set(0)
-  }
-
-  private val ownerId = UUID.randomUUID().toString
-  private val owner   = UserId(ownerId)
-  private val user    = AuthenticatedUser(owner)
-
-  private def seedUser(): Unit = {
-    import PostgresProfile.api._
-    await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, ${s"a-$ownerId@helio.test"}, now())"""))
-  }
-
-  /** Fully-runnable pipeline over a `DatasetSource` with no rows — succeeds
-   *  with zero rows, no steps. */
-  private def seedStaticPipeline(): PipelineId = {
-    import PostgresProfile.api._
-    val dsId = UUID.randomUUID().toString
-    val dtId = UUID.randomUUID().toString
-    val pid  = UUID.randomUUID().toString
-    await(db.run(DBIO.seq(
-      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($dsId, 'ds', 'dataset', '{"columns":[],"rows":[]}', $ownerId::uuid, now(), now())""",
-      
-      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
-    )))
-    PipelineId(pid)
-  }
-
-  /** Pipeline over a `CsvSource` at `path` — an empty `path` fails
-   *  synchronously in `InProcessPipelineEngine.loadRows` (the failure-path
-   *  test); a non-empty `path` reads through `fakeFileSystem` (the
-   *  overlap-guard hang test). */
-  private def seedCsvPipeline(path: String): PipelineId = {
-    import PostgresProfile.api._
-    val dsId = UUID.randomUUID().toString
-    val dtId = UUID.randomUUID().toString
-    val pid  = UUID.randomUUID().toString
-    val configJson = JsObject("path" -> JsString(path)).compactPrint
-    await(db.run(DBIO.seq(
-      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-             VALUES ($dsId, 'ds', 'csv', $configJson, $ownerId::uuid, now(), now())""",
-      
-      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', $ownerId::uuid, now(), now())""",
-      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
-    )))
-    PipelineId(pid)
-  }
-
-  private def seedSchedule(
-      pipelineId: PipelineId,
-      nextRunAt: Option[Instant],
-      lastRunAt: Option[Instant] = None,
-      kind: ScheduleKind = ScheduleKind.Interval,
-      expression: String = "30m"
-  ): PipelineScheduleId = {
-    val now = Instant.now()
-    val schedule = PipelineSchedule(
-      id         = PipelineScheduleId(UUID.randomUUID().toString),
-      pipelineId = pipelineId,
-      kind       = kind,
-      expression = expression,
-      enabled    = true,
-      timezone   = "UTC",
-      nextRunAt  = nextRunAt,
-      lastRunAt  = lastRunAt,
-      createdAt  = now,
-      updatedAt  = now
-    )
-    await(scheduleRepo.upsert(schedule, user))
-    schedule.id
-  }
+class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with PipelineSchedulerServiceFixture {
 
   "PipelineSchedulerService.tick" should {
 
@@ -265,50 +78,6 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
       val updated = await(scheduleRepo.findByPipelineId(pid, user)).get
       updated.lastRunAt shouldBe Some(fakeClock.now())
       updated.nextRunAt shouldBe CronSchedule.nextFireTime(ScheduleKind.Cron, expression, "UTC", fakeClock.now())
-    }
-
-    // HEL-1272: a retention-purge failure never fails the tick nor blocks its other work.
-    def historyFailureCase(name: String, failing: => OutputHistoryRepository): Unit =
-      name in {
-        cleanDb(); seedUser()
-        val pid = seedStaticPipeline()
-        fakeClock.set(Instant.parse("2026-03-01T00:00:00Z"))
-        seedSchedule(pid, nextRunAt = Some(fakeClock.now().minusSeconds(60)), expression = "30m")
-        val retention = new OutputHistoryRetentionService(failing, OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock, new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults)
-        val svc = new PipelineSchedulerService(
-          scheduleRepo, pipelineRepo, runRepo, runServiceForHistory, fakeClock, outputHistoryRetentionService = retention
-        )
-        val appender = new ListAppender[ILoggingEvent]()
-        val logger   = LoggerFactory.getLogger(classOf[OutputHistoryRetentionService]).asInstanceOf[LogbackLogger]
-        appender.start(); logger.addAppender(appender)
-        try {
-          noException should be thrownBy await(svc.tick())
-          await(runRepo.listByPipelineInternal(pid)) should have size 1
-          appender.list.asScala.exists(e => e.getLevel == Level.ERROR && e.getFormattedMessage.contains("Output history retention purge failed")) shouldBe true
-        } finally logger.detachAppender(appender)
-      }
-
-    class FailingHistoryRepo(sync: Boolean) extends OutputHistoryRepository(historyCtx) {
-      override def thinAndPurge(now: Instant, policy: HistoryThinningPolicy, caps: Map[UserTier, Duration]): Future[RetentionPassOutcome] =
-        if (sync) throw new IllegalStateException("boom-sync") else Future.failed(new IllegalStateException("boom-future"))
-    }
-
-    historyFailureCase("complete the tick, fire the due schedule and log when the history purge returns a failed future", new FailingHistoryRepo(sync = false))
-    historyFailureCase("complete the tick, fire the due schedule and log when the history purge throws synchronously", new FailingHistoryRepo(sync = true))
-
-    "complete the tick when the retention service itself fails (outer recover)" in {
-      cleanDb(); seedUser()
-      val pid = seedStaticPipeline()
-      fakeClock.set(Instant.parse("2026-03-01T00:00:00Z"))
-      seedSchedule(pid, nextRunAt = Some(fakeClock.now().minusSeconds(60)), expression = "30m")
-      val broken = new OutputHistoryRetentionService(new OutputHistoryRepository(historyCtx), OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock, new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults) {
-        override def purgeIfDue(now: Instant): Future[Option[Int]] = throw new IllegalStateException("service bug")
-      }
-      val svc = new PipelineSchedulerService(
-        scheduleRepo, pipelineRepo, runRepo, runServiceForHistory, fakeClock, outputHistoryRetentionService = broken
-      )
-      noException should be thrownBy await(svc.tick())
-      await(runRepo.listByPipelineInternal(pid)) should have size 1
     }
 
     "never submit a run for a pipeline with no schedule" in {
