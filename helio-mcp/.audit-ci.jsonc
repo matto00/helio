@@ -6,7 +6,7 @@
   // would be green on a vulnerable lockfile. Accepted, un-fixable advisories go in `allowlist`
   // below as `"<GHSA>|<path-scope>*"` with an inline comment carrying the ticket, reason,
   // dependency path and a review-by date (HEL-1246 pattern) — never a bare GHSA id or a
-  // package-wide wildcard. Empty today: `npm audit` is 0 for the helio-mcp/ tree.
+  // package-wide wildcard. The allowlist is empty; the helio-mcp/ tree is clean at the moderate threshold (HEL-1319).
   "moderate": true,
   "allowlist": [],
 }
