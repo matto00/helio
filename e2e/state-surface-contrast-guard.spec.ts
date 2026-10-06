@@ -16,6 +16,8 @@ import {
 } from "./support/stateContrast.mjs";
 import { INTERACTIVE_SELECTOR } from "./support/stateContrastProbe";
 import { forceFocusVisible } from "./support/forceFocusVisible";
+import { waitForSettingsAuditTable } from "./support/settingsReady";
+import { settleTransitions } from "./support/settleTransitions";
 
 // HEL-866 — the mechanical, RENDERED state-surface contrast guard (AC5,
 // design.md D4). Walks the RUNNING app (not a static parse of theme.css or
@@ -71,28 +73,16 @@ function uniqueEmail(label: string): string {
   return `hel866-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
 }
 
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
+/** Registers a fresh user over the API; the session cookie lands on `request`'s context. */
+async function registerUser(request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
   const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
+  const res = await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-866 ${label}` },
     headers: { [CSRF_HEADER]: "1" },
   });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
-}
-
-async function setTheme(page: Page, theme: "dark" | "light") {
-  await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);
-  await page.reload();
-  await expect(
-    page.getByRole("button", { name: "Add dashboard" }).or(page.locator("body")),
-  ).toBeVisible();
-  await page.waitForTimeout(150); // settle theme-transition CSS (theme.css var(--app-transition))
+  expect(res.status()).toBe(201);
+  return { email, password };
 }
 
 interface Backdrop {
@@ -427,7 +417,8 @@ async function probeView(
       // direct probe against this app), which stateContrast.mjs's
       // parseColor correctly refuses to guess at rather than mis-reading.
       // 400ms gives >2x margin over the declared 0.16s duration.
-      await page.waitForTimeout(400);
+      // HEL-1288: settled by awaiting the running CSS transitions, not a fixed sleep.
+      await settleTransitions(page);
       const state = await readSnapshot(cand.locator);
       // Reset WITHOUT Escape: an open overlay (command palette, modal,
       // ActionsMenu) treats Escape as "close me", which would detach every
@@ -509,212 +500,324 @@ async function probeView(
   return docIds;
 }
 
+// HEL-1288 — the guard used to be ONE serial test (~4.6 min, a hard floor on any worker/shard).
+// It is now one independently schedulable test per cell: theme x {chrome, each route, overlays}.
+// The measured population is unchanged: every cell runs the SAME probeView / partition code the
+// unsplit walk ran, on the same seed, in the same theme. `mode: "parallel"` is scoped to this
+// file only and there are NO beforeAll/afterAll hooks (hooks would make Playwright chunk the
+// cells back into one group). Every cell registers its own fresh user and seeds its own data.
+//
+// Assertion mapping vs the unsplit run: per-element failure verdicts are per cell (a failing
+// element fails the suite either way); `assertPartitioned` was already per-route and is
+// unchanged; the run-wide `unresolvedFraction < 0.5` ceiling is now PER CELL (stricter) and each
+// cell logs its own fraction.
+const THEMES = ["dark", "light"] as const;
+type Theme = (typeof THEMES)[number];
+const DASH_NAME = "HEL-866 Guard Dashboard";
+const PIPELINE_NAME = "HEL-866 Guard Pipeline";
+const SOURCE_NAME = "HEL-866 Guard Source";
+
+// `/sources/:id` and the `*/review` routes remain deliberately excluded — named here rather than
+// left implicit, per design.md D6.2. Runtime ids are resolved inside the cell; titles and logged
+// view names use the static label.
+const ROUTE_KEYS = [
+  "/",
+  "/sources",
+  "/pipelines",
+  "pipeline-detail",
+  "/connectors",
+  "/chat",
+  "/settings",
+] as const;
+type RouteKey = (typeof ROUTE_KEYS)[number];
+// Densest routes first (measured cell time on CI: /settings and pipeline-detail ~21 s, the rest 6-12 s).
+const ROUTE_KEYS_HEAVIEST_FIRST: RouteKey[] = [
+  "/settings",
+  "pipeline-detail",
+  "/sources",
+  "/pipelines",
+  "/",
+  "/chat",
+  "/connectors",
+];
+
+type Counts = {
+  resolved: number;
+  unresolved: number;
+  pass: number;
+  fail: number;
+  advisory: number;
+};
+
+// The chrome (command bar + sidebar nav row) is probed once per theme, scoped to `body` excluding
+// `<main>` and the sidebar's per-route rail. See the unsplit guard's history: the `.app-skip-link`
+// sits OUTSIDE `.app-command-bar`/`.app-sidebar__nav-row`, so a container scope cannot reach it.
+const CHROME_EXCLUDE = "main, .app-sidebar > :not(.app-sidebar__nav-row)";
+
+async function newCell(page: Page, request: APIRequestContext, theme: Theme) {
+  const client = await page.context().newCDPSession(page);
+  await client.send("DOM.enable");
+  await client.send("CSS.enable");
+
+  // HEL-1288 cycle 4: seeding is API-only (register, dashboard, source, pipeline, step), replacing
+  // three UI clicks per cell. Each
+  // cell still has its own fresh user and data; the per-view population lines must equal main's.
+  const creds = await registerUser(request, "guard");
+  const dashRes = await request.post("/api/dashboards", {
+    data: { name: DASH_NAME },
+    headers: { [CSRF_HEADER]: "1" },
+  });
+  expect(dashRes.status()).toBe(201);
+
+  // evaluation-2.md CR7 — a fresh account renders every list/table view (/sources, /pipelines) as
+  // an EMPTY STATE (structurally 1 element). Seeded the same way `e2e/hel908-full-flow.spec.ts`
+  // does (a real API-created static source + a pipeline rooted on it), so those routes render a
+  // real row.
+  const sourceRes = await request.post("/api/data-sources", {
+    data: {
+      name: SOURCE_NAME,
+      type: "static",
+      columns: [
+        { name: "amount", type: "integer" },
+        { name: "category", type: "string" },
+      ],
+      rows: [
+        [10, "a"],
+        [20, "b"],
+      ],
+    },
+    headers: { [CSRF_HEADER]: "1" },
+  });
+  expect(sourceRes.status()).toBe(201);
+  const source = await sourceRes.json();
+  const pipelineRes = await request.post("/api/pipelines", {
+    data: { name: PIPELINE_NAME, roots: [{ sourceId: source.id }] },
+    headers: { [CSRF_HEADER]: "1" },
+  });
+  expect(pipelineRes.status()).toBe(201);
+  const pipeline = await pipelineRes.json();
+  // skeptic-final-2.md / 2B CR2 — a pipeline with only a root renders NO step card; a real
+  // `limit` step gives `/pipelines/:id` a step card to expand.
+  const stepRes = await request.post(`/api/pipelines/${pipeline.id}/steps`, {
+    data: { type: "limit", config: { count: 2 } },
+    headers: { [CSRF_HEADER]: "1" },
+  });
+  expect(stepRes.status()).toBe(201);
+
+  // HEL-1288: store the theme; every cell's first `goto` applies it (no separate reload), and
+  // each cell asserts `data-theme` after that load.
+  // Root cause of the earlier `/settings` 24-vs-25 (probe, HEL-1288 cycle 5): the audit-log table on
+  // `/settings` lists the user's audit events and `INTERACTIVE_SELECTOR` includes `tbody tr`, so a
+  // session that never LOGGED IN has one row ("Registered account") while a real login adds a second
+  // ("Signed in", `auth.login`). The harness therefore performs a real login over the API (same
+  // audit event as the UI form, no browser round-trips) and hands that session's cookie to the page,
+  // which keeps the measured population identical to a UI login. The audit table's 5 sort buttons
+  // also load async, so the `/settings` cell gates on them.
+  const loginRes = await request.post("/api/auth/login", {
+    data: { email: creds.email, password: creds.password },
+    headers: { [CSRF_HEADER]: "1" },
+  });
+  expect(loginRes.status()).toBe(200);
+  await page.context().addCookies((await request.storageState()).cookies);
+  await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
+  return { client, pipelineId: pipeline.id as string };
+}
+
+/** Reports counts and asserts (exemptions, failures, per-cell unresolved ceiling). */
+function finishCell(cell: string, results: ElementResult[], counts: Counts) {
+  // Task 2.7 — report resolved/unresolved and pass/fail/advisory counts
+  // BEFORE remediation is evaluated. Printed unconditionally so a CI log
+  // always carries this even when the run is green.
+  //
+  // skeptic-final-1.md CR5 / skeptic-final-1B.md CR3 — "N probed" is NOT
+  // the same claim as "N asserted": `advisory` verdicts gate nothing
+  // (D4a — a legitimate border/outline/shadow-only design, HEL-1044's
+  // call, not this ticket's). Printing pass/advisory/exempt as a fraction
+  // of probed makes that bound legible at the point a reader meets the
+  // number, rather than requiring them to cross-reference the `advisory`
+  // field themselves.
+  const assertedFraction = (
+    ((counts.pass + counts.fail) / Math.max(1, results.length)) *
+    100
+  ).toFixed(0);
+  console.log(
+    `[HEL-866 guard] elements probed: ${results.length}, resolved=${counts.resolved}, ` +
+      `unresolved=${counts.unresolved}, pass=${counts.pass}, fail=${counts.fail}, ` +
+      `advisory=${counts.advisory} — ${assertedFraction}% of probes are pass/fail-ASSERTED ` +
+      `(the rest is advisory: a channel other than background conveyed the state, gates nothing here).`,
+  );
+
+  // Task 2.7 — "any exemption is a reviewed diff entry with a written
+  // reason", never a bulk allowlist. These three are the ONLY exemptions
+  // in this run, each independently confirmed by reading the real
+  // component CSS, not guessed:
+  //   1. `.accent-picker__swatch` (Settings, accent colour picker) — its
+  //      hover feedback is `transform: scale(1.15)` (AccentPicker.css).
+  //      Transform is a real, deliberate, visible state channel; this
+  //      guard's D4a classifier (background/border/outline/box-shadow,
+  //      per design.md) does not measure it, so it reads as "nothing
+  //      changed" — a guard LIMITATION (routed as a D6 finding in the
+  //      PR), not an app defect.
+  //   2. The command-palette result row for the query's only/default
+  //      match, and 3. AddSourceModal's default-selected "REST API" type
+  //      tab — both already carry `[data-active="true"]`/`--selected`
+  //      styling identical to their `:hover` styling AT REST (before any
+  //      interaction), so hovering produces no INCREMENTAL change. The
+  //      element is not silent — it already shows the state visually —
+  //      this is a before/after-diff probe limitation for an
+  //      already-active resting state, not the D4a "conveys nothing at
+  //      all" absence this guard exists to catch.
+  //   4. `.pipeline-detail-page__tab` (Steps/Outputs tabs on
+  //      `/pipelines/:id`, newly reached by cycle 4's route addition) —
+  //      its hover feedback is a text COLOUR change only
+  //      (`color: var(--app-text-muted)` → `var(--app-text)`); the active
+  //      state's own indicator is a `border-bottom` underline, a
+  //      deliberate, visible, non-background channel (design.md's tab
+  //      convention). This guard's D4a classifier (background/border/
+  //      outline/box-shadow) does not track plain `color`, so it reads
+  //      as "nothing changed" — the same guard LIMITATION shape as
+  //      #1 (a real, visible channel outside what this guard measures),
+  //      not an app defect.
+  // evaluation-1.md CR5 / evaluation-2.md CR9 — keyed on STABLE IDENTITY
+  // (the `[class]` token `describeElement` always emits), never on
+  // `#index`: an ordinal shifts if any element upstream in DOM order
+  // changes, which would silently exempt a different, unrelated element
+  // next time — the curated-allowlist failure mode AC5 exists to forbid,
+  // arriving by accident rather than by intent. All exemptions below key
+  // on the bracketed `[class]` token (never rendered text), matching what
+  // files-modified.md documents — evaluation-2.md CR9 caught a real drift
+  // where two of the original three still matched on text.
+  const isExempt = (r: ElementResult) =>
+    r.forced === "hover" &&
+    (r.desc.includes("[accent-picker__swatch]") ||
+      r.desc.includes("[command-palette__item]") ||
+      r.desc.includes("[add-source-modal__type-btn]") ||
+      r.desc.includes("[pipeline-detail-page__tab]"));
+
+  const failures = results.filter((r) => r.verdict === "fail" && !isExempt(r));
+  const exempted = results.filter((r) => r.verdict === "fail" && isExempt(r));
+  if (exempted.length > 0) {
+    console.log(
+      `[HEL-866 guard] ${exempted.length} reviewed exemption(s) applied (see the isExempt comment above):\n` +
+        exempted.map((f) => `  [${f.theme}] ${f.view} :: ${f.desc} (${f.forced})`).join("\n"),
+    );
+  }
+  if (failures.length > 0) {
+    // A CI-caught real regression (a `ratio=n/a` failure that reached
+    // this line unactionably) is what prompted naming the two cases
+    // "n/a" actually means, right in the failure line: `classifyState`
+    // only ever returns a null ratio via its `!backgroundChanged`
+    // branch, so "n/a" ALWAYS means "nothing this guard tracks changed
+    // at all" (D4a) — never an unmeasurable-but-real backdrop. A reader
+    // should not have to re-derive that from the source.
+    const lines = failures.map((f) => {
+      const ratioText =
+        f.ratio === null
+          ? "ratio=n/a (no background/border/outline/box-shadow change detected at all — D4a absence, not an unmeasurable backdrop)"
+          : `ratio=${f.ratio}`;
+      return `  [${f.theme}] ${f.view} :: ${f.desc} (${f.forced}) — ${ratioText}`;
+    });
+    throw new Error(
+      `HEL-866 guard: ${failures.length} state(s) failed the ${CONTRAST_THRESHOLD} contrast threshold:\n${lines.join("\n")}`,
+    );
+  }
+
+  // Ceiling check (task 2.7): an unresolved fraction this large means the walk itself is
+  // defective, not that the tree needs exemptions. Per cell since HEL-1288 (stricter than the
+  // old run-wide check), logged so the fraction is recorded in CI.
+  const unresolvedFraction = counts.unresolved / Math.max(1, counts.resolved + counts.unresolved);
+  console.log(`[HEL-866 guard] cell "${cell}" unresolvedFraction=${unresolvedFraction.toFixed(3)}`);
+  expect(unresolvedFraction).toBeLessThan(0.5);
+}
+
+/** Polls the persisted recents until `kind`/`id` is recorded WITH a resolved title. */
+async function expectRecentRecorded(page: Page, kind: string, id: string) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          ({ k, i }) => {
+            try {
+              const list = JSON.parse(window.localStorage.getItem("helio.recentVisits") ?? "[]");
+              const e = Array.isArray(list)
+                ? list.find((x: { kind: string; id: string }) => x.kind === k && x.id === i)
+                : undefined;
+              return typeof e?.title === "string" && e.title.length > 0;
+            } catch {
+              return false;
+            }
+          },
+          { k: kind, i: id },
+        ),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+}
+
 test.describe("HEL-866 state-surface contrast guard", () => {
-  test.setTimeout(360_000);
+  test.describe.configure({ mode: "parallel" });
+  test.setTimeout(120_000);
 
-  test("every interactive state background differs measurably from its resolved backdrop, in every theme", async ({
-    page,
-    request,
-  }) => {
-    const client = await page.context().newCDPSession(page);
-    await client.send("DOM.enable");
-    await client.send("CSS.enable");
+  // Cells are registered heaviest-first (overlays ~35 s, then the dense routes), then the cheap
+  // ones: a worker that picks up a ~35 s cell last is the tail of the whole shard, so putting
+  // the long cells first (longest-processing-time order) shortens the shard's makespan. Titles
+  // and populations are unaffected by registration order.
+  for (const theme of THEMES) {
+    test(`overlays: command palette, modal and actions menu state backgrounds differ measurably from their backdrop (${theme})`, async ({
+      page,
+      request,
+    }) => {
+      const { client, pipelineId } = await newCell(page, request, theme);
+      const results: ElementResult[] = [];
+      const counts: Counts = { resolved: 0, unresolved: 0, pass: 0, fail: 0, advisory: 0 };
 
-    await registerAndLogin(page, request, "guard");
-
-    // Give the account one dashboard so the ActionsMenu row overlay exists.
-    await page.getByRole("button", { name: "Add dashboard" }).click();
-    await page.getByLabel("Dashboard name").fill(`HEL-866 Guard Dashboard`);
-    await page.getByRole("button", { name: "Create dashboard" }).click();
-    const dashName = "HEL-866 Guard Dashboard";
-    await expect(page.getByRole("button", { name: dashName, exact: true })).toBeVisible();
-
-    // evaluation-2.md CR7 — a fresh account renders every list/table view
-    // (/sources, /pipelines) as an EMPTY STATE, so the guard's population on
-    // those routes was structurally 1 element regardless of the walk logic
-    // (measured live in a populated account: /sources has 98 visible
-    // interactive elements; a fresh account has 1). Table/list/card row
-    // families — exactly where evaluation-2.md CR6 found real regressions
-    // — never entered the walk at all. Seeded the same way `e2e/hel908-
-    // full-flow.spec.ts` does (a real API-created static source + a
-    // pipeline rooted on it), so /sources and /pipelines render a real row.
-    const sourceRes = await request.post("/api/data-sources", {
-      data: {
-        name: "HEL-866 Guard Source",
-        type: "static",
-        columns: [
-          { name: "amount", type: "integer" },
-          { name: "category", type: "string" },
-        ],
-        rows: [
-          [10, "a"],
-          [20, "b"],
-        ],
-      },
-      headers: { [CSRF_HEADER]: "1" },
-    });
-    expect(sourceRes.status()).toBe(201);
-    const source = await sourceRes.json();
-    const pipelineRes = await request.post("/api/pipelines", {
-      data: { name: "HEL-866 Guard Pipeline", roots: [{ sourceId: source.id }] },
-      headers: { [CSRF_HEADER]: "1" },
-    });
-    expect(pipelineRes.status()).toBe(201);
-    const pipeline = await pipelineRes.json();
-    // skeptic-final-2.md / skeptic-final-2B.md CR2 — a pipeline with only a
-    // root and no steps renders NO `.pipeline-detail-page__step-card` at
-    // all (confirmed live: the earlier `--expanded`-branch fix's toggle
-    // click silently no-op'd on a 0-count locator, wrapped in `if (await
-    // toggle.count())`, so the mutation proof below would have gone
-    // unnoticed without this). A real `limit` step gives the route a real
-    // step card to expand.
-    const stepRes = await request.post(`/api/pipelines/${pipeline.id}/steps`, {
-      data: { type: "limit", config: { count: 2 } },
-      headers: { [CSRF_HEADER]: "1" },
-    });
-    expect(stepRes.status()).toBe(201);
-
-    const results: ElementResult[] = [];
-    const counts = { resolved: 0, unresolved: 0, pass: 0, fail: 0, advisory: 0 };
-    // skeptic-final-1.md CR3 — `/pipelines/:id` is a route this diff's own
-    // CSS changes (PipelineDetailPage.css) render on, and was previously
-    // absent from this list; the seeded pipeline's id makes it reachable.
-    // `/sources/:id` and the `*/review` routes remain deliberately excluded
-    // — named here rather than left implicit, per design.md D6.2.
-    const routes = [
-      "/",
-      "/sources",
-      "/pipelines",
-      `/pipelines/${pipeline.id}`,
-      "/connectors",
-      "/chat",
-      "/settings",
-    ];
-
-    for (const theme of ["dark", "light"] as const) {
-      await setTheme(page, theme);
-
-      // evaluation-1.md CR1 — chrome (command bar + sidebar) is probed
-      // EXACTLY ONCE per theme, as its own view, instead of being re-swept
-      // inside every route's un-scoped query (where it used to crowd out
-      // page content). `.app-sidebar` itself is NOT the scope root — it
-      // wraps BOTH the page-invariant nav (`.app-sidebar__nav-row`, links +
-      // collapse toggle) AND a per-route rail region (e.g. the Data
-      // Sources list on `/sources`) that is real page content, confirmed by
-      // direct DOM inspection. Scoping to the whole `.app-sidebar` leaked
-      // that rail's buttons into "chrome" (and, being probed once on `/`
-      // only, made them measure the WRONG route's rail). `.app-command-bar,
-      // .app-sidebar__nav-row` queries `INTERACTIVE_SELECTOR` within both
-      // and unions the matches — nav links + collapse toggle only.
-      // Cycle 4 — the partition assertion's first real catch: `.app-skip-
-      // link` (route-invariant, off-screen-until-focused) sits as a
-      // SIBLING BEFORE `.app-shell`, not inside `.app-command-bar`/
-      // `.app-sidebar__nav-row`, so it could not be reached by scoping to
-      // those two containers directly (a container-locator's own matched
-      // roots are never themselves included in `root.locator(...)`'s
-      // descendant search). Scoped to `body` instead, excluding `<main>`
-      // and the sidebar's non-nav-row rail (probed separately below) —
-      // this reaches the skip link, the command bar, and the sidebar nav
-      // row without re-including page content.
-      const CHROME_EXCLUDE = "main, .app-sidebar > :not(.app-sidebar__nav-row)";
-      const chromeScope = page.locator("body");
+      // The unsplit walk reached the palette having visited, in order, `/` -> `/sources` ->
+      // `/pipelines` -> `/pipelines/<id>` -> `/connectors` -> `/chat` -> `/settings` -> `/`, which
+      // fills the palette's empty-query Recent section ({dashboard, pipeline}; localStorage
+      // `helio.recentVisits`). Replay EXACTLY that sequence (never `/sources/<id>`, which the
+      // unsplit walk never visits) so the palette population is the same SET, gating each step on
+      // a readiness signal instead of a bare `goto` chain.
       await page.goto("/");
-      await expect(page.locator(".app-command-bar")).toBeVisible();
-      await page.waitForTimeout(200);
-      await probeView(page, client, "chrome", theme, chromeScope, results, counts, CHROME_EXCLUDE);
-
-      // skeptic-final-1B.md CR1/CR2 — `.app-sidebar` wraps the page-
-      // invariant nav row (probed above as "chrome") AND a per-route
-      // content rail (`SidebarBody` → e.g. `DashboardList`) that is real
-      // page content and was previously in NO view at all: neither
-      // "chrome" (which explicitly excludes it) nor the route's `<main>`
-      // scope (the rail renders inside `<aside>`, not `<main>`). Probed
-      // per route, scoped to `.app-sidebar` with the nav row excluded (via
-      // `el.closest()`, not re-probed) so this view's population is
-      // exactly the rail, not a duplicate of "chrome".
-      for (const route of routes) {
-        await page.goto(route);
-        // `location.href` re-checked before every reading, per CON-165.
-        await expect(page).toHaveURL(
-          new RegExp(`${route === "/" ? "/$" : route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`),
-        );
-        await page.waitForTimeout(200);
-
-        // skeptic-final-2.md / skeptic-final-2B.md CR2 — `/pipelines/:id`
-        // was previously visited only in its DEFAULT (collapsed) DOM state,
-        // so the `--expanded` step-card branch (exactly where this
-        // cycle's regression shipped) was exercised by no gate. Expand the
-        // one seeded step card before probing this route so that state
-        // enters the population too — an interaction-gated component
-        // state, not a hand-enumerated one.
-        if (route === `/pipelines/${pipeline.id}`) {
-          // Asserted, not conditionally skipped (`if (await toggle.count())`
-          // silently no-op'd here once already, when the seeded pipeline
-          // had zero steps and this toggle never existed — the exact
-          // silent-skip shape CR8 already forbade for the ActionsMenu
-          // overlay). A missing toggle now fails the whole run loudly.
-          const toggle = page.locator(".pipeline-detail-page__step-card-toggle").first();
-          await expect(toggle).toHaveCount(1);
-          await toggle.click();
-          await expect(page.locator(".pipeline-detail-page__step-card--expanded")).toHaveCount(1);
-        }
-
-        // skeptic-final-1.md CR3 / skeptic-final-1B.md CR2 — THE STRUCTURAL
-        // FIX: stamp every visible/enabled interactive element in this
-        // route's rendered document, probe every declared view against it,
-        // then assert nothing was left uncovered. A hand-enumerated view
-        // list (chrome / sidebar-rail / main) is exactly the same hand-
-        // picked-input-set AC5 forbids at the element level — this makes
-        // that list self-checking instead of trusted.
-        const totalStamped = await stampDocument(page);
-        const sidebarRailDocIds = await probeView(
-          page,
-          client,
-          `${route}:sidebar-rail`,
-          theme,
-          page.locator(".app-sidebar"),
-          results,
-          counts,
-          ".app-sidebar__nav-row",
-        );
-        const main = page.locator("main");
-        await expect(main).toBeVisible();
-        const mainDocIds = await probeView(page, client, route, theme, main, results, counts);
-        // Chrome's coverage on THIS route's fresh stamp — collected (not
-        // re-probed; hover/focus already measured once, on "/") purely to
-        // credit chrome's elements as covered for the partition check.
-        const { docIds: chromeCoverageHere } = await collectCandidates(
-          page,
-          chromeScope,
-          MAX_ELEMENTS_PER_VIEW,
-          CHROME_EXCLUDE,
-        );
-        await assertPartitioned(page, route, totalStamped, [
-          chromeCoverageHere,
-          sidebarRailDocIds,
-          mainDocIds,
-        ]);
-      }
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
+      await page.goto("/sources");
+      await expect(page.getByText(SOURCE_NAME, { exact: true }).first()).toBeVisible();
+      await page.goto("/pipelines");
+      await expect(page.getByText(PIPELINE_NAME, { exact: true }).first()).toBeVisible();
+      await page.goto(`/pipelines/${pipelineId}`);
+      await expect(page.getByText(PIPELINE_NAME, { exact: true }).first()).toBeVisible();
+      await expectRecentRecorded(page, "pipeline", pipelineId);
+      await page.goto("/connectors");
+      await expect(page).toHaveURL(/\/connectors$/);
+      await expect(page.locator("main")).toBeVisible();
+      await page.goto("/chat");
+      await expect(page).toHaveURL(/\/chat$/);
+      await expect(page.locator("main")).toBeVisible();
+      await page.goto("/settings");
+      await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
+      await page.goto("/");
+      await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
 
       // Overlay: command palette (this ticket's canonical defect surface).
-      await page.goto("/");
       await page.waitForTimeout(150);
       await page.keyboard.press(process.platform === "darwin" ? "Meta+k" : "Control+k");
       const palette = page.locator(".command-palette[open]");
       await expect(palette).toHaveCount(1);
+      // Per-run guarantee that the replayed recents are present (the equality proof is otherwise
+      // one-time): the Recent rows must include the seeded dashboard and pipeline.
+      const recentTitles = palette.locator(".command-palette__item-title");
+      await expect(recentTitles.filter({ hasText: DASH_NAME }).first()).toBeVisible();
+      await expect(recentTitles.filter({ hasText: PIPELINE_NAME }).first()).toBeVisible();
       await page.waitForTimeout(150);
       await probeView(page, client, "command-palette", theme, palette, results, counts);
       await page.keyboard.press("Escape");
       await expect(palette).toHaveCount(0);
 
-      // Overlay: modal (AddSourceModal, on /sources) — this ticket's other
-      // canonical defect surface. NOTE: DashboardList's "Add dashboard"
-      // control is an INLINE form (`<form className="dashboard-list__
-      // create">`), not a `<Modal>`/native `<dialog>` — confirmed by direct
-      // probe (0 open dialogs after clicking it) — so it does not exercise
-      // the modal-hosted population this task requires; AddSourceModal
-      // does (`frontend/src/features/sources/ui/AddSourceModal.tsx`, a
-      // real `<Modal>`/`<dialog>`).
+      // Overlay: modal (AddSourceModal, on /sources). NOTE: DashboardList's "Add dashboard"
+      // control is an INLINE form, not a `<Modal>`/native `<dialog>`, so it does not exercise the
+      // modal-hosted population; AddSourceModal does.
       await page.goto("/sources");
       const addSourceTrigger = page.getByRole("button", { name: "Add source" }).first();
       await expect(addSourceTrigger).toBeVisible();
@@ -727,25 +830,17 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       await expect(modal).toHaveCount(0);
       await page.waitForTimeout(150);
 
-      // Overlay: ActionsMenu (dashboard row). evaluation-2.md CR8 — this
-      // used to be looked up while still on `/sources` (the previous
-      // block's route), where the dashboard-row trigger never renders; the
-      // lookup was wrapped in `if (await trigger.count())`, so the miss was
-      // silently indistinguishable from a pass and this documented view
-      // never actually ran. Navigate to `/`, where the dashboard row
-      // genuinely renders, and assert the trigger exists rather than
-      // conditionally skipping — a missing overlay now fails loudly.
+      // Overlay: ActionsMenu (dashboard row). evaluation-2.md CR8 — navigate to `/`, where the
+      // dashboard row genuinely renders, and assert the trigger exists rather than conditionally
+      // skipping — a missing overlay fails loudly.
       await page.goto("/");
-      await expect(page.getByRole("button", { name: dashName, exact: true })).toBeVisible();
-      const row = page.locator(".dashboard-list__item-row", { hasText: dashName });
+      await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
+      const row = page.locator(".dashboard-list__item-row", { hasText: DASH_NAME });
       await expect(row).toHaveCount(1);
-      const trigger = row.locator(`button[aria-label="${dashName} actions"]`);
+      const trigger = row.locator(`button[aria-label="${DASH_NAME} actions"]`);
       await expect(trigger).toHaveCount(1);
-      // DashboardList.css clips the trigger to a 1x1 box until
-      // `.dashboard-list__item-row:hover` (or `:focus-within`) reveals it —
-      // hovering the TRIGGER itself (which a `force: true` click also
-      // bypasses) is not enough, because the row's own `:hover` is what
-      // actually undoes the clip; hover the row first.
+      // DashboardList.css clips the trigger to a 1x1 box until the row's own `:hover` (or
+      // `:focus-within`) reveals it; hover the row first.
       await row.hover();
       await expect(trigger).toBeVisible();
       await trigger.click();
@@ -757,108 +852,124 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       await page.waitForTimeout(150);
       await probeView(page, client, "actions-menu", theme, menu, results, counts);
       await page.keyboard.press("Escape");
-    }
+      finishCell(`overlays(${theme})`, results, counts);
+    });
+  }
 
-    // Task 2.7 — report resolved/unresolved and pass/fail/advisory counts
-    // BEFORE remediation is evaluated. Printed unconditionally so a CI log
-    // always carries this even when the run is green.
-    //
-    // skeptic-final-1.md CR5 / skeptic-final-1B.md CR3 — "N probed" is NOT
-    // the same claim as "N asserted": `advisory` verdicts gate nothing
-    // (D4a — a legitimate border/outline/shadow-only design, HEL-1044's
-    // call, not this ticket's). Printing pass/advisory/exempt as a fraction
-    // of probed makes that bound legible at the point a reader meets the
-    // number, rather than requiring them to cross-reference the `advisory`
-    // field themselves.
-    const assertedFraction = (
-      ((counts.pass + counts.fail) / Math.max(1, results.length)) *
-      100
-    ).toFixed(0);
-    console.log(
-      `[HEL-866 guard] elements probed: ${results.length}, resolved=${counts.resolved}, ` +
-        `unresolved=${counts.unresolved}, pass=${counts.pass}, fail=${counts.fail}, ` +
-        `advisory=${counts.advisory} — ${assertedFraction}% of probes are pass/fail-ASSERTED ` +
-        `(the rest is advisory: a channel other than background conveyed the state, gates nothing here).`,
-    );
+  for (const routeKey of ROUTE_KEYS_HEAVIEST_FIRST) {
+    for (const theme of THEMES) {
+      test(`${routeKey}: every interactive state background differs measurably from its resolved backdrop (${theme})`, async ({
+        page,
+        request,
+      }) => {
+        const { client, pipelineId } = await newCell(page, request, theme);
+        const results: ElementResult[] = [];
+        const counts: Counts = { resolved: 0, unresolved: 0, pass: 0, fail: 0, advisory: 0 };
+        const route = routeKey === "pipeline-detail" ? `/pipelines/${pipelineId}` : routeKey;
+        const viewName = routeKey === "pipeline-detail" ? "/pipelines/:id" : routeKey;
 
-    // Task 2.7 — "any exemption is a reviewed diff entry with a written
-    // reason", never a bulk allowlist. These three are the ONLY exemptions
-    // in this run, each independently confirmed by reading the real
-    // component CSS, not guessed:
-    //   1. `.accent-picker__swatch` (Settings, accent colour picker) — its
-    //      hover feedback is `transform: scale(1.15)` (AccentPicker.css).
-    //      Transform is a real, deliberate, visible state channel; this
-    //      guard's D4a classifier (background/border/outline/box-shadow,
-    //      per design.md) does not measure it, so it reads as "nothing
-    //      changed" — a guard LIMITATION (routed as a D6 finding in the
-    //      PR), not an app defect.
-    //   2. The command-palette result row for the query's only/default
-    //      match, and 3. AddSourceModal's default-selected "REST API" type
-    //      tab — both already carry `[data-active="true"]`/`--selected`
-    //      styling identical to their `:hover` styling AT REST (before any
-    //      interaction), so hovering produces no INCREMENTAL change. The
-    //      element is not silent — it already shows the state visually —
-    //      this is a before/after-diff probe limitation for an
-    //      already-active resting state, not the D4a "conveys nothing at
-    //      all" absence this guard exists to catch.
-    //   4. `.pipeline-detail-page__tab` (Steps/Outputs tabs on
-    //      `/pipelines/:id`, newly reached by cycle 4's route addition) —
-    //      its hover feedback is a text COLOUR change only
-    //      (`color: var(--app-text-muted)` → `var(--app-text)`); the active
-    //      state's own indicator is a `border-bottom` underline, a
-    //      deliberate, visible, non-background channel (design.md's tab
-    //      convention). This guard's D4a classifier (background/border/
-    //      outline/box-shadow) does not track plain `color`, so it reads
-    //      as "nothing changed" — the same guard LIMITATION shape as
-    //      #1 (a real, visible channel outside what this guard measures),
-    //      not an app defect.
-    // evaluation-1.md CR5 / evaluation-2.md CR9 — keyed on STABLE IDENTITY
-    // (the `[class]` token `describeElement` always emits), never on
-    // `#index`: an ordinal shifts if any element upstream in DOM order
-    // changes, which would silently exempt a different, unrelated element
-    // next time — the curated-allowlist failure mode AC5 exists to forbid,
-    // arriving by accident rather than by intent. All exemptions below key
-    // on the bracketed `[class]` token (never rendered text), matching what
-    // files-modified.md documents — evaluation-2.md CR9 caught a real drift
-    // where two of the original three still matched on text.
-    const isExempt = (r: ElementResult) =>
-      r.forced === "hover" &&
-      (r.desc.includes("[accent-picker__swatch]") ||
-        r.desc.includes("[command-palette__item]") ||
-        r.desc.includes("[add-source-modal__type-btn]") ||
-        r.desc.includes("[pipeline-detail-page__tab]"));
+        await page.goto(route);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        // `location.href` re-checked before every reading, per CON-165.
+        await expect(page).toHaveURL(
+          new RegExp(`${route === "/" ? "/$" : route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`),
+        );
+        // Readiness gate (HEL-1288 evaluation-1): the route's OWN content, in `<main>` and in the
+        // sidebar rail where the rail lists seeded data, must have rendered before anything is
+        // stamped or probed. A fixed sleep let a fresh, concurrently loaded page be probed with a
+        // half-rendered rail (`/sources:sidebar-rail` measured 1/1 and 3/0 on CI vs 3/3 on main).
+        const sidebar = page.locator(".app-sidebar");
+        const seeded = (scope: Locator, text: string) =>
+          expect(scope.getByText(text, { exact: true }).first()).toBeVisible();
+        if (routeKey === "/") {
+          await seeded(sidebar, DASH_NAME);
+        } else if (routeKey === "/sources") {
+          await seeded(sidebar, SOURCE_NAME);
+          await seeded(page.locator("main"), SOURCE_NAME);
+        } else if (routeKey === "/pipelines") {
+          await seeded(sidebar, PIPELINE_NAME);
+          await seeded(page.locator("main"), PIPELINE_NAME);
+        } else if (routeKey === "pipeline-detail") {
+          await seeded(sidebar, PIPELINE_NAME);
+          await seeded(page.locator("main"), PIPELINE_NAME);
+        } else if (routeKey === "/settings") {
+          await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
+          // async-loaded audit-log table (see newCell); HEL-1336's shared readiness helper.
+          await waitForSettingsAuditTable(page);
+        } else {
+          await expect(page.locator("main")).toBeVisible();
+        }
+        await page.waitForTimeout(200); // post-render CSS settle only; readiness is gated above
 
-    const failures = results.filter((r) => r.verdict === "fail" && !isExempt(r));
-    const exempted = results.filter((r) => r.verdict === "fail" && isExempt(r));
-    if (exempted.length > 0) {
-      console.log(
-        `[HEL-866 guard] ${exempted.length} reviewed exemption(s) applied (see the isExempt comment above):\n` +
-          exempted.map((f) => `  [${f.theme}] ${f.view} :: ${f.desc} (${f.forced})`).join("\n"),
-      );
-    }
-    if (failures.length > 0) {
-      // A CI-caught real regression (a `ratio=n/a` failure that reached
-      // this line unactionably) is what prompted naming the two cases
-      // "n/a" actually means, right in the failure line: `classifyState`
-      // only ever returns a null ratio via its `!backgroundChanged`
-      // branch, so "n/a" ALWAYS means "nothing this guard tracks changed
-      // at all" (D4a) — never an unmeasurable-but-real backdrop. A reader
-      // should not have to re-derive that from the source.
-      const lines = failures.map((f) => {
-        const ratioText =
-          f.ratio === null
-            ? "ratio=n/a (no background/border/outline/box-shadow change detected at all — D4a absence, not an unmeasurable backdrop)"
-            : `ratio=${f.ratio}`;
-        return `  [${f.theme}] ${f.view} :: ${f.desc} (${f.forced}) — ${ratioText}`;
+        // skeptic-final-2.md / 2B CR2 — `/pipelines/:id` was previously visited only in its
+        // DEFAULT (collapsed) DOM state, so the `--expanded` step-card branch was exercised by no
+        // gate. Expand the one seeded step card before probing. Asserted, not conditionally
+        // skipped: a missing toggle fails loudly.
+        if (routeKey === "pipeline-detail") {
+          const toggle = page.locator(".pipeline-detail-page__step-card-toggle").first();
+          await expect(toggle).toHaveCount(1);
+          await toggle.click();
+          await expect(page.locator(".pipeline-detail-page__step-card--expanded")).toHaveCount(1);
+        }
+
+        // THE STRUCTURAL FIX (skeptic-final-1.md CR3 / 1B CR2): stamp every visible/enabled
+        // interactive element in this route's rendered document, probe every declared view
+        // against it, then assert nothing was left uncovered.
+        const totalStamped = await stampDocument(page);
+        const sidebarRailDocIds = await probeView(
+          page,
+          client,
+          `${viewName}:sidebar-rail`,
+          theme,
+          page.locator(".app-sidebar"),
+          results,
+          counts,
+          ".app-sidebar__nav-row",
+        );
+        const main = page.locator("main");
+        await expect(main).toBeVisible();
+        const mainDocIds = await probeView(page, client, viewName, theme, main, results, counts);
+        // Chrome's coverage on THIS route's fresh stamp — collected (not re-probed; the `chrome`
+        // cell measures hover/focus) purely to credit chrome's elements for the partition check.
+        const { docIds: chromeCoverageHere } = await collectCandidates(
+          page,
+          page.locator("body"),
+          MAX_ELEMENTS_PER_VIEW,
+          CHROME_EXCLUDE,
+        );
+        await assertPartitioned(page, viewName, totalStamped, [
+          chromeCoverageHere,
+          sidebarRailDocIds,
+          mainDocIds,
+        ]);
+        finishCell(`${viewName}(${theme})`, results, counts);
       });
-      throw new Error(
-        `HEL-866 guard: ${failures.length} state(s) failed the ${CONTRAST_THRESHOLD} contrast threshold:\n${lines.join("\n")}`,
-      );
     }
+  }
 
-    // Ceiling check (task 2.7): an unresolved fraction this large means the
-    // walk itself is defective, not that the tree needs exemptions.
-    const unresolvedFraction = counts.unresolved / Math.max(1, counts.resolved + counts.unresolved);
-    expect(unresolvedFraction).toBeLessThan(0.5);
-  });
+  for (const theme of THEMES) {
+    test(`chrome: every interactive state background differs measurably from its resolved backdrop (${theme})`, async ({
+      page,
+      request,
+    }) => {
+      const { client } = await newCell(page, request, theme);
+      const results: ElementResult[] = [];
+      const counts: Counts = { resolved: 0, unresolved: 0, pass: 0, fail: 0, advisory: 0 };
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect(page.locator(".app-command-bar")).toBeVisible();
+      await page.waitForTimeout(200);
+      await probeView(
+        page,
+        client,
+        "chrome",
+        theme,
+        page.locator("body"),
+        results,
+        counts,
+        CHROME_EXCLUDE,
+      );
+      finishCell(`chrome(${theme})`, results, counts);
+    });
+  }
 });
