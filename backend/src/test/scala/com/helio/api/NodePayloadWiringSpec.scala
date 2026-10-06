@@ -6,6 +6,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.util.SystemClock
+import com.helio.infrastructure.crypto.TokenHashing
 import com.helio.infrastructure.persistence.auth.{UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryRepository}
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
@@ -25,7 +26,6 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -98,13 +98,11 @@ class NodePayloadWiringSpec extends AnyWordSpec with Matchers with HelioRouteTes
       val dashId  = UUID.randomUUID().toString
       val panelId = UUID.randomUUID().toString
       val shareToken = "wiring-share-token-" + UUID.randomUUID()
-      val tokenHash  = MessageDigest.getInstance("SHA-256").digest(shareToken.getBytes("UTF-8")).map("%02x".format(_)).mkString
+      val tokenHash  = TokenHashing.sha256Hex(shareToken)
       awaitDb(db.run(DBIO.seq(
         sqlu"""INSERT INTO dashboards (id, name, created_by, created_at, last_updated, appearance, layout, owner_id)
                VALUES ($dashId, 'Dash', $ownerId, now(), now(),
                        '{"background":"transparent","gridBackground":"transparent"}', '{"lg":[],"md":[],"sm":[],"xs":[]}', ${ownerId}::uuid)""",
-        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
-               VALUES ('dashboard', $dashId, NULL, 'viewer', now())""",
         // A REAL, valid share token (only its SHA-256 hex is stored, V101): the token-only request below
         // would be authorized if any public route handled the payload path.
         sqlu"""INSERT INTO share_tokens (dashboard_id, user_id, token_hash) VALUES ($dashId, ${ownerId}::uuid, $tokenHash)""",
@@ -112,13 +110,35 @@ class NodePayloadWiringSpec extends AnyWordSpec with Matchers with HelioRouteTes
                VALUES ($panelId, $dashId, 'P', $ownerId, now(), now(),
                        '{"background":"transparent","color":"inherit","transparency":0.0}', 'output', ${fx.optedOutput}, ${ownerId}::uuid)"""
       )))
-      Seq("", s"?token=$shareToken").foreach { q =>
-        Get(s"/api/dashboards/$dashId/panels/$panelId/history/$pointId/rows$q") ~> api ~> check {
-          status shouldBe StatusCodes.Unauthorized
-          responseAs[String] should not include "\"rows\""
-          responseAs[String] should not include "\"label\""
+      def assertPayloadPathRefused(): Unit =
+        Seq("", s"?token=$shareToken").foreach { q =>
+          Get(s"/api/dashboards/$dashId/panels/$panelId/history/$pointId/rows$q") ~> api ~> check {
+            status shouldBe StatusCodes.Unauthorized
+            responseAs[String] should not include "\"rows\""
+            responseAs[String] should not include "\"label\""
+          }
         }
+
+      // Phase A (no public grant): the share token is the ONLY way in. Anonymous /history is denied
+      // (AclDirective: 404 for no access), while the same token gets 200 with history points -- so the 401s
+      // below cannot be explained by a broken token. (With a public grant this control would be vacuous:
+      // the directive consults the token only when grant resolution denies.)
+      Get(s"/api/dashboards/$dashId/panels/$panelId/history") ~> api ~> check {
+        status shouldBe StatusCodes.NotFound
       }
+      Get(s"/api/dashboards/$dashId/panels/$panelId/history?token=$shareToken") ~> api ~> check {
+        status shouldBe StatusCodes.OK
+        val points = responseAs[String].parseJson.asJsObject.fields("points").convertTo[Vector[JsValue]]
+        points should not be empty
+      }
+      assertPayloadPathRefused()
+
+      // Phase B: even once the dashboard is public, payloads stay unexposed.
+      awaitDb(db.run(
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+               VALUES ('dashboard', $dashId, NULL, 'viewer', now())"""
+      ))
+      assertPayloadPathRefused()
     }
   }
 
