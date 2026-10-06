@@ -1,8 +1,16 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+  type Request,
+} from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { backdateHistory, historyRowCount } from "./support/historySeed";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-1275 — exit criterion of the metric history UI: a metric panel reads "1,204 ▲ 12% vs 7d" with
 // a sparkline, from REAL history. Two real pipeline runs write the history (sum 1075, then sum
@@ -63,6 +71,28 @@ async function layoutSettled(locator: Locator) {
     .toBe(true);
 }
 
+/** Sets the viewport width and waits for the card to REFLOW to it: first until the card's width
+ *  differs from its pre-resize width, then until the box stops changing. `layoutSettled` alone
+ *  passes vacuously on four reads taken at the OLD size right after `setViewportSize`, before the
+ *  grid has reflowed (HEL-1327). When the viewport is already `width` nothing resizes, so only the
+ *  settle runs. */
+async function resizeAndSettle(page: Page, card: Locator, width: number) {
+  const before = (await card.boundingBox())?.width ?? null;
+  expect(before, "card has no box before the resize").not.toBeNull();
+  const resizes = page.viewportSize()?.width !== width;
+  await page.setViewportSize({ width, height: 900 });
+  if (resizes) {
+    await expect
+      .poll(async () => (await card.boundingBox())?.width ?? null, {
+        timeout: 15_000,
+        intervals: [50, 100, 100, 100, 250],
+        message: `card width never changed from ${before}px after resizing the viewport to ${width}px`,
+      })
+      .not.toBe(before);
+  }
+  await layoutSettled(card);
+}
+
 async function runPipeline(request: APIRequestContext, pipelineId: string) {
   // Synchronous: the 200 returns after the history insert.
   const res = await request.post(`/api/pipelines/${pipelineId}/run`, { data: {}, headers: CSRF });
@@ -78,9 +108,10 @@ for (const theme of ["light", "dark"] as const) {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
     const userId = await registerAndLogin(page, request);
+    console.log(`[HEL-1275 e2e] user id: ${userId}`);
     // The post-login page is live on `/`; idle it so its mount fetches cannot race the API seeding
     // (HEL-1289).
-    await page.goto("about:blank");
+    await isolateLivePage(page);
 
     const created: { source?: string; pipeline?: string; dashboard?: string } = {};
     try {
@@ -211,8 +242,7 @@ for (const theme of ["light", "dark"] as const) {
       // Default 3x2 placement (no layout call): the sparkline sits inside the card, below the
       // header and clear of the value/delta, at the desktop widths 1440 and 1100.
       for (const width of [1440, 1100]) {
-        await page.setViewportSize({ width, height: 900 });
-        await layoutSettled(card);
+        await resizeAndSettle(page, card, width);
         const spark = card.getByRole("img", { name: /Trend over \d+ data points/ });
         await expect(spark).toBeVisible();
         const [c, sp, delta] = await Promise.all([
@@ -228,9 +258,8 @@ for (const theme of ["light", "dark"] as const) {
         // beside the delta, not overlapping it
         expect(sp!.x).toBeGreaterThanOrEqual(delta!.x + delta!.width - 1);
       }
-      await page.setViewportSize({ width: 1440, height: 900 });
       // Wait for the reflow to finish before clicking (no fixed sleep).
-      await layoutSettled(card);
+      await resizeAndSettle(page, card, 1440);
       await layoutSettled(card.getByRole("button", { name: "Data provenance" }));
       await card.getByRole("button", { name: "Data provenance" }).click();
       const popover = page.getByRole("dialog", { name: /Data provenance/ });
@@ -259,6 +288,20 @@ for (const theme of ["light", "dark"] as const) {
 
       // Editor -> back within the app (NO reload): a compare saved while the dashboard's history
       // is cached must show up without a full page load. 7d -> 1 day.
+      // No-reload proof (HEL-1327): the history cache this step exercises survives only if no hop
+      // of the round trip loads a new document. Two signals: a window sentinel (lost on ANY new
+      // document, even one served without a network request) and a count of main-frame document
+      // requests (names the URLs that reloaded).
+      const sentinel = `hel1327-${Math.random().toString(36).slice(2)}`;
+      await page.evaluate((t) => {
+        (window as unknown as Record<string, string>).__hel1327NoReload = t;
+      }, sentinel);
+      const documentRequests: string[] = [];
+      const onRequest = (req: Request) => {
+        if (req.resourceType() === "document" && req.frame() === page.mainFrame())
+          documentRequests.push(req.url());
+      };
+      page.on("request", onRequest);
       await page.getByRole("link", { name: "Data Pipelines" }).first().click();
       await page
         .getByRole("link", { name: new RegExp(`HEL-1275 pipeline ${theme}`) })
@@ -276,6 +319,14 @@ for (const theme of ["light", "dark"] as const) {
         timeout: 15_000,
       });
       await expect(switched.getByText(/vs 7d/)).toHaveCount(0);
+      page.off("request", onRequest);
+      expect(documentRequests, "full document loads during editor -> dashboard").toEqual([]);
+      expect(
+        await page.evaluate(
+          () => (window as unknown as Record<string, string>).__hel1327NoReload ?? null,
+        ),
+        "window sentinel lost: a full document load replaced the page",
+      ).toBe(sentinel);
       await switched.screenshot({ path: resolve(SHOTS, `metric-compare-switch-${theme}.png`) });
 
       await card.screenshot({ path: resolve(SHOTS, `metric-delta-sparkline-${theme}.png`) });
