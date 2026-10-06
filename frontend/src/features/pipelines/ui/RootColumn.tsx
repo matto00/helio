@@ -37,6 +37,9 @@ interface RootColumnProps {
   onDuplicateStep: (stepId: string) => void;
   /** HEL-706 — passed straight through to `LaneColumn`/`StepCard`. */
   duplicatingStepIds: ReadonlySet<string>;
+  /** HEL-1294 — ids of steps whose optimistic create (POST + resync) is still in flight; a card
+   *  in this set cannot be expanded (see `StepCard.isCreating`). Absent means none. */
+  creatingStepIds?: ReadonlySet<string>;
   enabledBits: string;
   outputsByStepId: Record<string, Output[]>;
   previewRowCountByOutputId: Record<string, number>;
@@ -77,6 +80,7 @@ export function RootColumn({
   onToggleStepEnabled,
   onDuplicateStep,
   duplicatingStepIds,
+  creatingStepIds,
   enabledBits,
   outputsByStepId,
   previewRowCountByOutputId,
@@ -126,6 +130,7 @@ export function RootColumn({
           onToggleStepEnabled={onToggleStepEnabled}
           onDuplicateStep={onDuplicateStep}
           duplicatingStepIds={duplicatingStepIds}
+          creatingStepIds={creatingStepIds}
           enabledBits={enabledBits}
           outputsByStepId={outputsByStepId}
           previewRowCountByOutputId={previewRowCountByOutputId}

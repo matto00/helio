@@ -108,6 +108,9 @@ interface PipelineRiverViewProps {
    *  (`isDuplicating={duplicatingStepIds.has(step.id)}`) rather than passing
    *  a function prop, since `StepCard` is `React.memo`-wrapped. */
   duplicatingStepIds: ReadonlySet<string>;
+  /** HEL-1294 — ids of steps whose optimistic create (POST + resync) is still in flight; a card
+   *  in this set cannot be expanded (see `StepCard.isCreating`). Absent means none. */
+  creatingStepIds?: ReadonlySet<string>;
   /** task 3.3 — one Outputs array per step id, from
    *  `selectOutputsByStepId`; feeds each `StepCard`'s `OutputsRail`. */
   outputsByStepId: Record<string, Output[]>;
@@ -149,6 +152,7 @@ export function PipelineRiverView({
   onToggleStepEnabled,
   onDuplicateStep,
   duplicatingStepIds,
+  creatingStepIds,
   outputsByStepId,
   previewRowCountByOutputId,
   onOpenOutput,
@@ -378,6 +382,7 @@ export function PipelineRiverView({
                         onToggleEnabled={onToggleStepEnabled}
                         onDuplicate={onDuplicateStep}
                         isDuplicating={duplicatingStepIds.has(step.id)}
+                        isCreating={creatingStepIds?.has(step.id) ?? false}
                         enabledBits={enabledBits}
                         outputs={outputsByStepId[step.id] ?? EMPTY_OUTPUTS}
                         previewRowCountByOutputId={previewRowCountByOutputId}
@@ -436,6 +441,7 @@ export function PipelineRiverView({
                               estimatedRows={estimatedRows}
                               draftCreateErrors={draftCreateErrors}
                               duplicatingStepIds={duplicatingStepIds}
+                              creatingStepIds={creatingStepIds}
                               enabledBits={enabledBits}
                               outputsByStepId={outputsByStepId}
                               previewRowCountByOutputId={previewRowCountByOutputId}
@@ -510,6 +516,7 @@ export function PipelineRiverView({
               onToggleStepEnabled={onToggleStepEnabled}
               onDuplicateStep={onDuplicateStep}
               duplicatingStepIds={duplicatingStepIds}
+              creatingStepIds={creatingStepIds}
               enabledBits={enabledBits}
               outputsByStepId={outputsByStepId}
               previewRowCountByOutputId={previewRowCountByOutputId}

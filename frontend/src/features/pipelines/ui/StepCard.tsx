@@ -118,6 +118,11 @@ interface StepCardProps {
    *  create message, if its most recent create attempt failed. `undefined`
    *  for a persisted step or a draft with no outstanding failure. */
   draftError?: string;
+  /** HEL-1294 — true while this step's optimistic create (POST + resync) is in flight. The resync
+   *  swaps the temp id for the persisted one, which remounts this keyed card collapsed, so the
+   *  expand toggle is disabled until then (an open editor would be lost, and an edit made on the
+   *  temp id is a no-op). Cleared on failure so the kept local step stays openable. */
+  isCreating?: boolean;
 }
 
 // F-146 — rendered once per pipeline step, and every edit to any one step's
@@ -164,6 +169,7 @@ export const StepCard = React.memo(function StepCard({
   isTail = false,
   estimatedRows,
   draftError,
+  isCreating = false,
 }: StepCardProps) {
   // HEL-1109 (design.md D6, pipeline-ai-step-authoring spec) — a step still
   // carrying its `makeStep`-minted temp id has no server-side representation
@@ -234,6 +240,8 @@ export const StepCard = React.memo(function StepCard({
           className="pipeline-detail-page__step-card-toggle"
           onClick={handleHeaderClick}
           aria-expanded={expanded}
+          disabled={isCreating}
+          title={isCreating ? "Saving step…" : undefined}
         >
           <span className="pipeline-detail-page__step-card-icon" aria-hidden="true">
             <step.opType.icon size={ICON_SIZE.md} />

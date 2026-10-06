@@ -50,6 +50,9 @@ interface LaneColumnProps {
    *  (`isDuplicating={duplicatingStepIds.has(step.id)}`), never a function
    *  prop, since `StepCard` is `React.memo`-wrapped. */
   duplicatingStepIds: ReadonlySet<string>;
+  /** HEL-1294 — ids of steps whose optimistic create (POST + resync) is still in flight; a card
+   *  in this set cannot be expanded (see `StepCard.isCreating`). Absent means none. */
+  creatingStepIds?: ReadonlySet<string>;
   enabledBits: string;
   outputsByStepId: Record<string, Output[]>;
   previewRowCountByOutputId: Record<string, number>;
@@ -105,6 +108,7 @@ export function LaneColumn({
   onToggleStepEnabled,
   onDuplicateStep,
   duplicatingStepIds,
+  creatingStepIds,
   enabledBits,
   outputsByStepId,
   previewRowCountByOutputId,
@@ -161,6 +165,7 @@ export function LaneColumn({
             onToggleStepEnabled={onToggleStepEnabled}
             onDuplicateStep={onDuplicateStep}
             duplicatingStepIds={duplicatingStepIds}
+            creatingStepIds={creatingStepIds}
             enabledBits={enabledBits}
             outputsByStepId={outputsByStepId}
             previewRowCountByOutputId={previewRowCountByOutputId}
@@ -218,6 +223,7 @@ export function LaneColumn({
                 onToggleEnabled={onToggleStepEnabled}
                 onDuplicate={onDuplicateStep}
                 isDuplicating={duplicatingStepIds.has(step.id)}
+                isCreating={creatingStepIds?.has(step.id) ?? false}
                 enabledBits={enabledBits}
                 outputs={outputsByStepId[step.id] ?? EMPTY_OUTPUTS}
                 previewRowCountByOutputId={previewRowCountByOutputId}
@@ -272,6 +278,7 @@ export function LaneColumn({
               onToggleEnabled={onToggleStepEnabled}
               onDuplicate={onDuplicateStep}
               isDuplicating={duplicatingStepIds.has(step.id)}
+              isCreating={creatingStepIds?.has(step.id) ?? false}
               enabledBits={enabledBits}
               outputs={outputsByStepId[step.id] ?? EMPTY_OUTPUTS}
               previewRowCountByOutputId={previewRowCountByOutputId}

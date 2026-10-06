@@ -581,13 +581,17 @@ describe("PipelineDetailPage", () => {
   });
 
   it("removing a step removes its card", async () => {
+    // HEL-1294 — a card is not expandable while its create is in flight, so the never-persisted
+    // (temp) step this test removes is the failed-create one: the create rejects and the kept
+    // local step becomes expandable again (its Remove button is the way out).
+    createPipelineStepMock.mockRejectedValueOnce(new Error("Request failed with status code 500"));
     renderDetailPage();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
     fireEvent.click(await screen.findByRole("option", { name: /Rename column/i }));
 
     // Expand it to get the Remove button
-    fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
+    fireEvent.click(await screen.findByRole("button", { name: /Rename column/i, expanded: false }));
     fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
 
     expect(screen.queryByText("Rename column")).not.toBeInTheDocument();

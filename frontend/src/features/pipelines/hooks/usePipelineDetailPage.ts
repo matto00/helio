@@ -176,6 +176,20 @@ export function usePipelineDetailPage() {
   // surfaced inline on the draft's own card rather than swallowed; cleared
   // once the draft either creates successfully or is edited again.
   const [draftCreateErrors, setDraftCreateErrors] = useState<Record<string, string>>({});
+  // HEL-1294 — temp ids whose optimistic create (POST + resync) is in flight. The resync replaces
+  // the temp step with the persisted one under a new id, which remounts the keyed card collapsed;
+  // a card in this set therefore cannot be expanded (StepCard `isCreating`). Cleared in a `finally`
+  // so a failed create re-enables the toggle (its kept local step still needs Remove).
+  const [creatingStepIds, setCreatingStepIds] = useState<ReadonlySet<string>>(() => new Set());
+  const markCreating = useCallback((tempId: string, creating: boolean) => {
+    setCreatingStepIds((prev) => {
+      if (creating === prev.has(tempId)) return prev;
+      const next = new Set(prev);
+      if (creating) next.add(tempId);
+      else next.delete(tempId);
+      return next;
+    });
+  }, []);
   // HEL-908 Cycle 13 -- read inside the SSE `onTerminal` closure (defined
   // below, before `allOutputs` itself is computed) so a completed run can
   // re-fetch every visible Output's preview without a stale closure over an
@@ -753,6 +767,7 @@ export function usePipelineDetailPage() {
         });
         return;
       }
+      markCreating(tempStep.id, true);
       try {
         const initialConfig = defaultConfigFor(opType.id);
         await createPipelineStep(
@@ -780,9 +795,11 @@ export function usePipelineDetailPage() {
           variant: "error",
           message: `Failed to add ${opType.label.toLowerCase()} step: ${message}`,
         });
+      } finally {
+        markCreating(tempStep.id, false);
       }
     },
-    [id, pushToast, syncStepsFromServer, roots],
+    [id, pushToast, syncStepsFromServer, roots, markCreating],
   );
 
   const handleAddStep = useCallback(
@@ -832,6 +849,7 @@ export function usePipelineDetailPage() {
         });
         return;
       }
+      markCreating(tempStep.id, true);
       try {
         const initialConfig = defaultConfigFor(opType.id);
         await createPipelineStep(
@@ -854,9 +872,11 @@ export function usePipelineDetailPage() {
           variant: "error",
           message: `Failed to add ${opType.label.toLowerCase()} lane: ${message}`,
         });
+      } finally {
+        markCreating(tempStep.id, false);
       }
     },
-    [id, pushToast, syncStepsFromServer],
+    [id, pushToast, syncStepsFromServer, markCreating],
   );
 
   // HEL-908 task 5.6 — "Add as tail with aggregate": issues the two calls
@@ -1513,6 +1533,7 @@ export function usePipelineDetailPage() {
     handleToggleStepEnabled,
     handleDuplicateStep,
     duplicatingStepIds,
+    creatingStepIds,
     handleRunPipeline,
     handleDryRun,
     handleSave,
