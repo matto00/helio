@@ -11,6 +11,8 @@ import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.concurrent.Eventually.{eventually, interval, timeout}
+import org.scalatest.time.{Millis, Span}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
@@ -334,6 +336,20 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
 
     def await[T](f: Future[T]): T = Await.result(f, 30.seconds)
 
+    // HEL-1325: wait for the background Spark job's persisted terminal state instead of a fixed sleep.
+    // `SparkJobSubmitter` issues the `pipelines` and `pipeline_runs` terminal writes un-awaited, so
+    // commit order is not guaranteed: poll BOTH (run row terminal AND lastRunStatus defined). The poll
+    // checks "defined", never the expected value, so a wrong value still fails the test's own assertion.
+    def awaitRunPersisted(pid: String): Unit = {
+      val owner = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
+      eventually(timeout(Span(30000, Millis)), interval(Span(50, Millis))) {
+        val runTerminal = await(pipelineRunRepoForSubmit.listByPipeline(PipelineId(pid), owner))
+          .exists(r => r.status == RunStatus.Succeeded || r.status == RunStatus.Failed)
+        val lastRunSet  = await(pipelineRepoForSubmit.findByIdInternal(PipelineId(pid))).flatMap(_.lastRunStatus).isDefined
+        (runTerminal && lastRunSet) shouldBe true
+      }
+    }
+
     def seedPipeline(dsId: String): String = {
       import PostgresProfile.api._
       val ownerId = "00000000-0000-0000-0000-000000000001"
@@ -377,8 +393,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
           val pip = makePipeline(pid, dsId)
           val cache = new PipelineRunCache()
           await(submitterWithRepo.submit(pip, ds, Seq.empty, cache))
-          // Give the Spark future a moment to run
-          Thread.sleep(3000)
+          awaitRunPersisted(pid)
           val found = await(pipelineRepoForSubmit.findByIdInternal(PipelineId(pid)))
           found.get.lastRunStatus shouldBe Some(RunStatus.Succeeded)
           val runs = await(pipelineRunRepoForSubmit.listByPipeline(PipelineId(pid), AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))))
@@ -415,7 +430,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
           val pip   = makePipeline(pid, dsId)
           val cache = new PipelineRunCache()
           await(submitterWithRepo.submit(pip, ds, Seq(badStep), cache))
-          Thread.sleep(3000)
+          awaitRunPersisted(pid)
           val found = await(pipelineRepoForSubmit.findByIdInternal(PipelineId(pid)))
           found.get.lastRunStatus shouldBe Some(RunStatus.Failed)
           // Verify run record was persisted with a generic error — the raw
