@@ -15,7 +15,8 @@ final case class OutputHistoryRetentionConfig(
     maxAgeFree: Duration,
     maxAgeBeta: Duration,
     maxAgeOwner: Duration,
-    purgeInterval: Duration
+    purgeInterval: Duration,
+    lockRetry: Duration = Duration.ofSeconds(120)
 ) {
 
   /** Cap for a known tier (a non-exhaustive match only warns in this build, so totality is NOT relied on:
@@ -54,12 +55,18 @@ object OutputHistoryRetentionConfig {
         )
         d
       }
+    val purgeInterval = Duration.ofMinutes(positive("OUTPUT_HISTORY_PURGE_INTERVAL_MINUTES", 60))
     OutputHistoryRetentionConfig(
       policy = policy,
       maxAgeFree = Duration.ofDays(positive("OUTPUT_HISTORY_MAX_AGE_DAYS_FREE", 30)),
       maxAgeBeta = Duration.ofDays(positive("OUTPUT_HISTORY_MAX_AGE_DAYS_BETA", 90)),
       maxAgeOwner = Duration.ofDays(positive("OUTPUT_HISTORY_MAX_AGE_DAYS_OWNER", 365)),
-      purgeInterval = Duration.ofMinutes(positive("OUTPUT_HISTORY_PURGE_INTERVAL_MINUTES", 60))
+      purgeInterval = purgeInterval,
+      // HEL-1343: retry window after a lock-held skip; capped at the interval so it never lengthens the wait.
+      lockRetry = {
+        val retry = Duration.ofSeconds(positive("OUTPUT_HISTORY_LOCK_RETRY_SECONDS", 120))
+        if (retry.compareTo(purgeInterval) > 0) purgeInterval else retry
+      }
     )
   }
 }

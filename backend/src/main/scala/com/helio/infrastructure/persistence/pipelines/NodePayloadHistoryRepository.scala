@@ -137,16 +137,17 @@ class NodePayloadHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext
     })
   }
 
-  /** Enforces the payload retention policy, returning the number of payloads deleted. One
-   *  transaction under the SAME advisory lock as `OutputHistoryRepository.thinAndPurge` (so the two
-   *  never contend across instances; a second instance skips and the next interval retries).
+  /** Enforces the payload retention policy, returning `Purged(n)` (payloads deleted) or `LockBusy`
+   *  (nothing run; another session holds the key). One transaction under the SAME advisory lock as
+   *  `OutputHistoryRepository.thinAndPurge` (so the two never contend across instances; a lock-held
+   *  skip is retried by the service after its short lock-retry window).
    *  Deletes, in order: payloads of any owner tier that stores none (zero runs/age, or a tier the
    *  config does not name, which fails closed and also covers downgrades); payloads older than the
    *  owner tier's age limit; payloads beyond the per-node newest-N; and payloads no
    *  `output_snapshot_history.payload_id` references (a thinned-away or trimmed summary point).
    *  Lock contract (HEL-1333): holds the advisory key EXCLUSIVE for the whole transaction; a run's
    *  write-time trim takes it SHARED (try) first, so the two never interleave row locks. */
-  def purge(now: Instant, config: PayloadHistoryConfig): Future[Int] = {
+  def purge(now: Instant, config: PayloadHistoryConfig): Future[RetentionPassOutcome] = {
     val allowed = config.byTier.filter(_._2.allowsPayloads).toSeq
     val allowedCsv = allowed.map(t => UserTier.asString(t._1)).mkString(",")
     val disallowed =
@@ -176,10 +177,10 @@ class NodePayloadHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext
     val steps = DBIO.sequence((disallowed +: perTier) :+ unreferenced).map(_.sum)
 
     val guarded = sql"SELECT pg_try_advisory_xact_lock(${OutputHistoryRepository.PurgeAdvisoryLockKey})".as[Boolean].head.flatMap {
-      case true => steps
+      case true => steps.map(RetentionPassOutcome.Purged(_))
       case false =>
         log.debug("Node payload purge skipped: another session holds the purge lock")
-        DBIO.successful(0)
+        DBIO.successful(RetentionPassOutcome.LockBusy)
     }
     ctx.withSystemContext(guarded.transactionally)
   }

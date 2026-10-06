@@ -1,7 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import com.helio.domain.history.{PayloadHistoryConfig, PayloadTierLimit}
-import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryRepository, RetentionPassOutcome}
 import com.helio.testsupport.OutputHistoryFixtures
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -256,7 +256,7 @@ class NodePayloadTrimPurgeLockOrderSpec extends AnyWordSpec with Matchers with B
       isSuper shouldBe false
       id should not be empty
       payloadCount(s.pipelineId) shouldBe 2 // keep + 1: the trim was skipped while retention ran
-      awaitDb(payloadRepo.purge(Instant.now(), cfg)) should be >= 1
+      awaitDb(payloadRepo.purge(Instant.now(), cfg)) should matchPattern { case RetentionPassOutcome.Purged(n) if n >= 1 => }
       payloadCount(s.pipelineId) shouldBe 1 // the later retention pass removed the excess
       awaitDb(seedDb.run(sql"SELECT count(*) FROM node_payload_history WHERE id = ${id.get.toString}::uuid".as[Int].head)) shouldBe 1
     }

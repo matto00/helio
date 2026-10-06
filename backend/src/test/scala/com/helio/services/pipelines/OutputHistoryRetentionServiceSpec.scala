@@ -1,7 +1,9 @@
 package com.helio.services.pipelines
 
 import com.helio.domain.history.PayloadHistoryConfig
-import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
+import com.helio.domain.model.UserTier
+import com.helio.infrastructure.persistence.RetentionLockKey
+import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, NodePayloadHistoryRepository, RetentionPassOutcome}
 import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.OutputHistoryRepository
@@ -15,6 +17,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.{Duration, Instant}
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}
 
 /** HEL-1272: tick-level retention behaviour against embedded Postgres. Expected survivors are
@@ -124,6 +127,96 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
       val svc = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults)
       val results = awaitDb(Future.sequence((1 to 8).map(_ => Future(svc.purgeIfDue(now)).flatten)))
       results.count(_.isDefined) shouldBe 1
+    }
+    "retry a lock-held skip after the short window, then restore the full interval (HEL-1343)" in {
+      awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
+      awaitDb(db.run(sqlu"DELETE FROM node_payload_history"))
+      val (pid, oid) = seedPipelineWithOutput(seedUser("free"))
+      // Three points in the one [23:55, 00:00) 5-minute bucket: thinning keeps only the newest.
+      val ats = Seq("23:56:00", "23:57:00", "23:58:00").map(t => Instant.parse(s"2026-06-29T${t}Z"))
+      awaitDb(new DbContext(db, db).withSystemContext(repo.insertAction(ats.map(historyEntry(oid, pid, _)))))
+      val config = OutputHistoryRetentionConfig.fromEnv(Map.empty)
+      val retry  = config.lockRetry
+      retry shouldBe Duration.ofSeconds(120)
+      val svc = new OutputHistoryRetentionService(repo, config, new FakeClock(now), new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults)
+
+      val holder = embeddedPostgres.getPostgresDatabase.getConnection
+      try {
+        holder.createStatement().execute(s"SELECT pg_advisory_lock_shared(${RetentionLockKey.value})")
+        awaitDb(svc.purgeIfDue(now)) shouldBe None
+        historyCount(oid) shouldBe 3
+        holder.createStatement().execute(s"SELECT pg_advisory_unlock_shared(${RetentionLockKey.value})")
+      } finally holder.close()
+
+      awaitDb(svc.purgeIfDue(now.plus(retry).minusSeconds(1))) shouldBe None
+      historyCount(oid) shouldBe 3 // not retried before the window elapses
+
+      awaitDb(svc.purgeIfDue(now.plus(retry))) shouldBe Some(2)
+      survivors(oid) shouldBe Set(ats.last)
+
+      // The retry succeeded, so the full interval applies again (fresh thinnable pair after the success).
+      val t1 = now.plus(retry)
+      awaitDb(new DbContext(db, db).withSystemContext(repo.insertAction(Seq(
+        historyEntry(oid, pid, t1.plus(Duration.ofMinutes(11))), historyEntry(oid, pid, t1.plus(Duration.ofMinutes(12)))
+      ))))
+      historyCount(oid) shouldBe 3
+      awaitDb(svc.purgeIfDue(t1.plus(config.purgeInterval).minusSeconds(1))) shouldBe None
+      historyCount(oid) shouldBe 3
+      awaitDb(svc.purgeIfDue(t1.plus(config.purgeInterval))) shouldBe Some(1)
+      historyCount(oid) shouldBe 2
+    }
+  }
+
+  /** Stub repositories that COUNT invocations: "ran" is a count increment, "not run" an unchanged count,
+   *  never `purgeIfDue`'s return (None means both "not due" and "ran and failed"). */
+  private class Stubs(history: () => RetentionPassOutcome, payload: () => RetentionPassOutcome) {
+    val historyCalls = new AtomicInteger(0)
+    val payloadCalls = new AtomicInteger(0)
+    private val c = new DbContext(db, db)
+    val historyRepo: OutputHistoryRepository = new OutputHistoryRepository(c) {
+      override def thinAndPurge(n: Instant, p: HistoryThinningPolicy, caps: Map[UserTier, Duration]): Future[RetentionPassOutcome] = {
+        historyCalls.incrementAndGet()
+        Future(history())
+      }
+    }
+    val payloadRepo: NodePayloadHistoryRepository = new NodePayloadHistoryRepository(c) {
+      override def purge(n: Instant, cfg: PayloadHistoryConfig): Future[RetentionPassOutcome] = {
+        payloadCalls.incrementAndGet()
+        Future(payload())
+      }
+    }
+    def service: OutputHistoryRetentionService =
+      new OutputHistoryRetentionService(historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), payloadRepo, PayloadHistoryConfig.Defaults)
+    def counts: (Int, Int) = (historyCalls.get, payloadCalls.get)
+  }
+
+  private val boom: () => RetentionPassOutcome = () => throw new IllegalStateException("boom")
+  private val purged: () => RetentionPassOutcome = () => RetentionPassOutcome.Purged(0)
+  private val busy: () => RetentionPassOutcome   = () => RetentionPassOutcome.LockBusy
+  private val retryAt    = now.plus(Duration.ofSeconds(120))
+  private val intervalAt = now.plus(Duration.ofMinutes(60))
+
+  "OutputHistoryRetentionService failure cadence (HEL-1343)" should {
+
+    "keep a failed history pass on the full interval, not the lock-retry window" in {
+      val st = new Stubs(boom, purged); val svc = st.service
+      awaitDb(svc.purgeIfDue(now)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(retryAt)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(intervalAt)); st.counts shouldBe ((2, 2))
+    }
+
+    "let a failure win over a lock-held payload part (full interval)" in {
+      val st = new Stubs(boom, busy); val svc = st.service
+      awaitDb(svc.purgeIfDue(now)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(retryAt)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(intervalAt)); st.counts shouldBe ((2, 2))
+    }
+
+    "retry a payload-only lock-held skip after the short window" in {
+      val st = new Stubs(purged, busy); val svc = st.service
+      awaitDb(svc.purgeIfDue(now)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(retryAt.minusSeconds(1))); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(retryAt)); st.counts shouldBe ((2, 2))
     }
   }
 }

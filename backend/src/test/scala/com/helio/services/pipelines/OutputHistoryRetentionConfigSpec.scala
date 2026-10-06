@@ -48,6 +48,16 @@ class OutputHistoryRetentionConfigSpec extends AnyWordSpec with Matchers {
       c.policy shouldBe HistoryThinningPolicy()
     }
 
+    "default the lock retry to 120 s, read it, fall back on invalid input and cap it at the purge interval (HEL-1343)" in {
+      OutputHistoryRetentionConfig.fromEnv(Map.empty).lockRetry shouldBe Duration.ofSeconds(120)
+      OutputHistoryRetentionConfig.fromEnv(Map("OUTPUT_HISTORY_LOCK_RETRY_SECONDS" -> "30")).lockRetry shouldBe Duration.ofSeconds(30)
+      for (bad <- Seq("abc", "0", "-5", ""))
+        OutputHistoryRetentionConfig.fromEnv(Map("OUTPUT_HISTORY_LOCK_RETRY_SECONDS" -> bad)).lockRetry shouldBe Duration.ofSeconds(120)
+      // Interval (1 min) shorter than the retry (default 120 s): capped, so no lengthening.
+      OutputHistoryRetentionConfig.fromEnv(Map("OUTPUT_HISTORY_PURGE_INTERVAL_MINUTES" -> "1")).lockRetry shouldBe Duration.ofMinutes(1)
+      OutputHistoryRetentionConfig.fromEnv(Map("OUTPUT_HISTORY_LOCK_RETRY_SECONDS" -> "99999")).lockRetry shouldBe Duration.ofMinutes(60)
+    }
+
     "provide a cap for every tier" in {
       OutputHistoryRetentionConfig.fromEnv(Map.empty).maxAgeByTier.keySet shouldBe Set(UserTier.Free, UserTier.Beta, UserTier.Owner)
     }

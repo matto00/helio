@@ -1,7 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import com.helio.domain.history.PayloadHistoryConfig
-import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
+import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, RetentionPassOutcome}
 import com.helio.testsupport.OutputHistoryFixtures
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -175,7 +175,7 @@ class NodePayloadHistoryRlsSpec extends AnyWordSpec with Matchers with BeforeAnd
         pid2, None, Some(pid2), None, "manual", Instant.now(), Vector(JsObject("a" -> JsNumber(1))), PayloadHistoryConfig.Defaults
       ))) should not be empty
       // No summary point references it, so the purge removes it (on the privileged pool, RLS bypassed).
-      awaitDb(payloadRepo.purge(Instant.now(), PayloadHistoryConfig.Defaults)) should be >= 1
+      awaitDb(payloadRepo.purge(Instant.now(), PayloadHistoryConfig.Defaults)) should matchPattern { case RetentionPassOutcome.Purged(n) if n >= 1 => }
       awaitDb(privilegedDb.run(sql"SELECT count(*) FROM node_payload_history WHERE pipeline_id = $pid2".as[Int].head)) shouldBe 0
     }
   }

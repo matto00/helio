@@ -160,7 +160,7 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
       // Epoch-aligned bucket [11:55, 12:00): three points; bucket [11:50, 11:55): two points.
       val ats = Seq("11:56:00", "11:57:30", "11:59:59", "11:50:10", "11:54:00").map(t => Instant.parse(s"2026-06-30T${t}Z"))
       insert(ats.map(historyEntry(oid, pid, _)): _*)
-      awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe 3
+      awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe RetentionPassOutcome.Purged(3)
       capturedAts(oid) shouldBe Vector(Instant.parse("2026-06-30T11:54:00Z"), Instant.parse("2026-06-30T11:59:59Z"))
     }
 
@@ -174,7 +174,7 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
         historyEntry(oid, pid, midA.plus(Duration.ofHours(1)).plusSeconds(5)),
         historyEntry(oid, pid, oldA.plus(Duration.ofHours(2))), historyEntry(oid, pid, oldA.plus(Duration.ofHours(20)))
       )
-      awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe 2
+      awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe RetentionPassOutcome.Purged(2)
       capturedAts(oid) shouldBe Vector(oldA.plus(Duration.ofHours(20)), midA.plusSeconds(1800), midA.plus(Duration.ofHours(1)).plusSeconds(5))
     }
 
@@ -182,7 +182,7 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
       awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
       val (_, pid, oid) = fresh()
       insert((0 until 5).map(i => historyEntry(oid, pid, now.minus(Duration.ofMinutes(10L * (i + 1))))): _*)
-      awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe 0
+      awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe RetentionPassOutcome.Purged(0)
       historyCount(oid) shouldBe 5
     }
 
@@ -192,7 +192,7 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
       val (_, pidB, oidB) = fresh()
       val at = Instant.parse("2026-06-30T11:56:00Z")
       insert(historyEntry(oidA, pidA, at), historyEntry(oidB, pidB, at.plusSeconds(30)))
-      awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe 0
+      awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe RetentionPassOutcome.Purged(0)
     }
 
     "purge points older than the owner's tier max age" in {
@@ -203,7 +203,7 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
       val recent  = now.minus(Duration.ofDays(10))
       insert(historyEntry(oidF, pidF, ancient), historyEntry(oidF, pidF, recent), historyEntry(oidO, pidO, ancient))
       val caps: Map[UserTier, Duration] = Map(UserTier.Free -> Duration.ofDays(30), UserTier.Beta -> Duration.ofDays(90), UserTier.Owner -> Duration.ofDays(365))
-      awaitDb(repo.thinAndPurge(now, policy, caps)) shouldBe 1
+      awaitDb(repo.thinAndPurge(now, policy, caps)) shouldBe RetentionPassOutcome.Purged(1)
       capturedAts(oidF) shouldBe Vector(recent)
       historyCount(oidO) shouldBe 1
     }
@@ -215,7 +215,7 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
       val ancient = now.minus(Duration.ofDays(40))
       val recent  = now.minus(Duration.ofDays(10))
       insert(historyEntry(oidF, pidF, ancient), historyEntry(oidF, pidF, recent), historyEntry(oidO, pidO, ancient), historyEntry(oidO, pidO, recent))
-      awaitDb(repo.thinAndPurge(now, policy, Map(UserTier.Free -> Duration.ofDays(30)))) shouldBe 2
+      awaitDb(repo.thinAndPurge(now, policy, Map(UserTier.Free -> Duration.ofDays(30)))) shouldBe RetentionPassOutcome.Purged(2)
       capturedAts(oidF) shouldBe Vector(recent)
       capturedAts(oidO) shouldBe Vector(recent)
     }
@@ -226,7 +226,7 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
       val at40 = now.minus(Duration.ofDays(40))
       val at20 = now.minus(Duration.ofDays(20))
       insert(historyEntry(oidO, pidO, at40), historyEntry(oidO, pidO, at20))
-      awaitDb(repo.thinAndPurge(now, policy, Map(UserTier.Free -> Duration.ofDays(30), UserTier.Beta -> Duration.ofDays(10)))) shouldBe 2
+      awaitDb(repo.thinAndPurge(now, policy, Map(UserTier.Free -> Duration.ofDays(30), UserTier.Beta -> Duration.ofDays(10)))) shouldBe RetentionPassOutcome.Purged(2)
       historyCount(oidO) shouldBe 0
     }
 
@@ -242,7 +242,7 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
       val at40 = now.minus(Duration.ofDays(40))
       insert(historyEntry(oid, pid, at40))
       val caps: Map[UserTier, Duration] = Map(UserTier.Free -> Duration.ofDays(30), UserTier.Beta -> Duration.ofDays(90), UserTier.Owner -> Duration.ofDays(365))
-      awaitDb(repo.thinAndPurge(now, policy, caps)) shouldBe 0
+      awaitDb(repo.thinAndPurge(now, policy, caps)) shouldBe RetentionPassOutcome.Purged(0)
       capturedAts(oid) shouldBe Vector(at40)
     }
 
@@ -263,7 +263,7 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
         val at10 = now.minus(Duration.ofDays(10))
         insert(historyEntry(oid, pid, at40), historyEntry(oid, pid, at10))
         val caps: Map[UserTier, Duration] = Map(UserTier.Free -> Duration.ofDays(30), UserTier.Owner -> Duration.ofDays(365))
-        awaitDb(repo.thinAndPurge(now, policy, caps)) shouldBe 1
+        awaitDb(repo.thinAndPurge(now, policy, caps)) shouldBe RetentionPassOutcome.Purged(1)
         capturedAts(oid) shouldBe Vector(at10)
       } finally {
         try {
@@ -286,11 +286,11 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
       val holder = embeddedPostgres.getPostgresDatabase.getConnection
       try {
         holder.createStatement().execute(s"SELECT pg_advisory_lock(${OutputHistoryRepository.PurgeAdvisoryLockKey})")
-        awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe 0
+        awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe RetentionPassOutcome.LockBusy
         historyCount(oid) shouldBe 3
         holder.createStatement().execute(s"SELECT pg_advisory_unlock(${OutputHistoryRepository.PurgeAdvisoryLockKey})")
       } finally holder.close()
-      awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe 2
+      awaitDb(repo.thinAndPurge(now, policy, noAgeLimit)) shouldBe RetentionPassOutcome.Purged(2)
       historyCount(oid) shouldBe 1
     }
 
@@ -298,8 +298,8 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
       awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
       val (_, pid, oid) = fresh()
       insert(Seq("11:56:00", "11:57:00", "11:58:00").map(t => historyEntry(oid, pid, Instant.parse(s"2026-06-30T${t}Z"))): _*)
-      awaitDb(repo.thinAndPurge(now, policy, Map(UserTier.Free -> Duration.ofDays(30)))) should be > 0
-      awaitDb(repo.thinAndPurge(now, policy, Map(UserTier.Free -> Duration.ofDays(30)))) shouldBe 0
+      awaitDb(repo.thinAndPurge(now, policy, Map(UserTier.Free -> Duration.ofDays(30)))) should matchPattern { case RetentionPassOutcome.Purged(n) if n > 0 => }
+      awaitDb(repo.thinAndPurge(now, policy, Map(UserTier.Free -> Duration.ofDays(30)))) shouldBe RetentionPassOutcome.Purged(0)
     }
   }
 

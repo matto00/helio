@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.domain.util.Clock
-import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
+import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, RetentionPassOutcome}
 import com.helio.testsupport.NodePayloadFixtures
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -24,7 +24,10 @@ class NodePayloadHistoryRetentionSpec extends AnyWordSpec with Matchers with Bef
 
   private val now = Instant.parse("2026-06-30T00:00:00Z")
   private def ago(d: Duration): Instant = now.minus(d)
-  private def purge(): Int = awaitDb(payloadRepo.purge(now, PayloadHistoryConfig.Defaults))
+  private def purge(): Int = awaitDb(payloadRepo.purge(now, PayloadHistoryConfig.Defaults)) match {
+    case RetentionPassOutcome.Purged(n) => n
+    case RetentionPassOutcome.LockBusy  => fail("payload purge unexpectedly reported LockBusy")
+  }
   private def exists(id: String): Boolean =
     awaitDb(db.run(sql"SELECT count(*) FROM node_payload_history WHERE id = $id::uuid".as[Int].head)) == 1
 
@@ -110,7 +113,7 @@ class NodePayloadHistoryRetentionSpec extends AnyWordSpec with Matchers with Bef
       seedPair(fx, now.minus(Duration.ofMinutes(8)))
       seedPair(fx, now.minus(Duration.ofMinutes(7)))
       val failing = new NodePayloadHistoryRepository(ctx) {
-        override def purge(at: Instant, config: PayloadHistoryConfig): Future[Int] = Future.failed(new IllegalStateException("payload purge boom"))
+        override def purge(at: Instant, config: PayloadHistoryConfig): Future[RetentionPassOutcome] = Future.failed(new IllegalStateException("payload purge boom"))
       }
       val svc = new OutputHistoryRetentionService(
         historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), failing, PayloadHistoryConfig.Defaults
