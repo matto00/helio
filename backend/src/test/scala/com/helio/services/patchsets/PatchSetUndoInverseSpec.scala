@@ -16,7 +16,7 @@ import spray.json._
  *  re-verified here for undo's INDEPENDENT reimplementation, never a shared reference to the
  *  apply-side builder (design.md D5's own explicit point). A pure unit test (no DB) -- the
  *  `apply` -> `undo` full round trip through a real panel row is covered separately by
- *  `PatchSetUndoServiceSpec` (tasks.md 5.3). */
+ *  the `PatchSetUndo*Spec` suites (`PatchSetUndoPanelDashboardSpec`, `PatchSetUndoLaneSpec`, `PatchSetUndoRefusalSpec`) (tasks.md 5.3). */
 class PatchSetUndoInverseSpec extends AnyWordSpec with Matchers with JsonProtocols {
 
   private def panelResponse(config: JsValue): PanelResponse =
