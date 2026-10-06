@@ -1,6 +1,12 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 
+// HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
+// own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
+// schedulable — they spread across the 2 workers and across `--shard` boundaries instead of
+// forming one serial group.
+test.describe.configure({ mode: "parallel" });
+
 // HEL-1028 — layout undo/redo must VISIBLY move the rendered panel. Real browser, real drag on
 // `.panel-grid-card__handle`, asserting the RENDERED boundingBox (never the store). Before the fix a
 // drag only wrote RGL's own live layout, the store layout (and so the `layouts` prop) did not move
@@ -19,8 +25,6 @@ interface Box {
   height: number;
 }
 
-const seededUsers: string[] = [];
-
 async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = `hel1028-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
   const password = "correcthorsebattery1";
@@ -29,7 +33,9 @@ async function registerAndLogin(page: Page, request: APIRequestContext, label: s
     headers: CSRF_HEADER,
   });
   expect(res.status()).toBe(201);
-  seededUsers.push(email);
+  // Registered users have no delete API; log each so residue is traceable by exact email
+  // (was an `afterAll` summary, which would forbid parallel mode).
+  console.log(`[HEL-1028 e2e] throwaway user registered: ${email}`);
   await page.goto("/login");
   await page.fill("#email", email);
   await page.fill("#password", password);
@@ -182,6 +188,10 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
             });
             await openDashboard(page, dashboardId, theme);
 
+            // `boundingBox()` does not wait for visibility (it returns null while the grid
+            // container is still hidden/unlaid-out) — wait for it first, web-first (HEL-1288: a CI
+            // run saw `null` here once the file was scheduled across workers).
+            await expect(page.locator(".panel-grid")).toBeVisible();
             const container = (await page.locator(".panel-grid").boundingBox())!;
             expect(container.width).toBeGreaterThanOrEqual(vp.containerMin);
             expect(container.width).toBeLessThan(vp.containerMax);
@@ -282,10 +292,5 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
     } finally {
       await cleanupDashboard(request, dashboardId);
     }
-  });
-
-  test.afterAll(() => {
-    // Registered users have no delete API; list them so residue is traceable by exact email.
-    console.log(`[HEL-1028 e2e] throwaway users registered: ${JSON.stringify(seededUsers)}`);
   });
 });

@@ -1,6 +1,12 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 
+// HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
+// own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
+// schedulable — they spread across the 2 workers and across `--shard` boundaries instead of
+// forming one serial group.
+test.describe.configure({ mode: "parallel" });
+
 // HEL-588 — live-browser verification of dashboard-scoped cross-filtering,
 // specifically the Table-kind narrowing defect evaluation-1.md CR1/CR2
 // found and required a live re-check for: a Table-kind sibling panel's
@@ -365,8 +371,8 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
 
     // Light/dark toggle WITHOUT navigating away (DESIGN.md's visual-cohesion
     // gate) — via the app's own command-palette toggle, the same real
-    // affordance a user would use, not a direct DOM attribute write (see
-    // hel516-screenshots.spec.ts's identical rationale).
+    // affordance a user would use, not a direct DOM attribute write (the
+    // app re-applies `data-theme` from React state on every render).
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await expect
       .poll(

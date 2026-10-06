@@ -1,6 +1,12 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 
+// HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
+// own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
+// schedulable — they spread across the 2 workers and across `--shard` boundaries instead of
+// forming one serial group.
+test.describe.configure({ mode: "parallel" });
+
 // HEL-773 — live verification (design.md Risks/Trade-offs; tasks.md 6.1-6.7).
 //
 // jsdom implements no real layout, `clip-path` compositing, or media-query

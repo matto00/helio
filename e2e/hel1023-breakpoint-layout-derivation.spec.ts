@@ -1,6 +1,12 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 
+// HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
+// own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
+// schedulable — they spread across the 2 workers and across `--shard` boundaries instead of
+// forming one serial group.
+test.describe.configure({ mode: "parallel" });
+
 // HEL-1023 — a breakpoint with no usable saved layout must be derived/repaired AT RENDER so panels
 // never overlap or leave the container, while a valid authored layout renders exactly as saved and
 // a mere view never persists anything. Real browser, real RGL, geometry read from the rendered
@@ -53,7 +59,6 @@ const titles = [
 ];
 const readingOrder = titles;
 
-const seededUsers: string[] = [];
 const it = (panelId: string, x: number, y: number, w: number, h: number): Item => ({
   panelId,
   x,
@@ -70,7 +75,8 @@ async function registerAndLogin(page: Page, request: APIRequestContext) {
     headers: CSRF_HEADER,
   });
   expect(res.status()).toBe(201);
-  seededUsers.push(email);
+  // Logged per registration (was an `afterAll` summary, which would forbid parallel mode).
+  console.log(`[HEL-1023 e2e] throwaway user registered: ${email}`);
   await page.goto("/login");
   await page.fill("#email", email);
   await page.fill("#password", password);
@@ -388,10 +394,6 @@ test.describe("HEL-1023 derive/repair the breakpoint layout at render", () => {
       if (res.status() !== 429) return;
       await new Promise((r) => setTimeout(r, 11_000));
     }
-  });
-
-  test.afterAll(() => {
-    console.log(`[HEL-1023 e2e] throwaway users registered: ${JSON.stringify(seededUsers)}`);
   });
 
   // A and B are valid layouts (unauthored/partial breakpoints), so they are saved through the API.

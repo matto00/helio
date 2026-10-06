@@ -122,7 +122,16 @@ export default defineConfig({
   timeout: 30_000,
   retries: 0,
   fullyParallel: false,
-  reporter: [["list"]],
+  // HEL-1288 — CI pins 2 workers per shard leg (the e2e matrix is capped at 4 legs by the
+  // account-wide concurrent-job limit). 3 workers measured no faster and 4 workers flaked on CI
+  // (the 4-vCPU runner is CPU-bound); 2 is also the runner default. Cross-test isolation at 2 workers can only be proven on CI
+  // (local runs stay at <= 2 workers). CI additionally writes a JSON report (uploaded as an artifact by
+  // the `e2e` job) so per-test durations come from CI rather than a dev box. A bare local run is
+  // unchanged: default workers, list reporter only, nothing written.
+  workers: process.env.CI ? 2 : undefined,
+  reporter: process.env.CI
+    ? [["list"], ["json", { outputFile: "test-results/results.json" }]]
+    : [["list"]],
   use: {
     baseURL: `http://localhost:${DEV_PORT}`,
     trace: "retain-on-failure",

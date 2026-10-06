@@ -85,3 +85,22 @@ else references `playwright.regression.config.ts`.
 Always confirm `git status --short` is clean after a run — each case wraps
 its mutation in `try/finally` so the revert runs even if an assertion
 fails mid-case, but this is the final belt-and-suspenders check.
+
+## CI runtime: sharding and parallel-mode files (HEL-1288)
+
+The CI `e2e` job runs `npx playwright test --shard=<i>/<N>` on a matrix of runners (`strategy.job-total` is N,
+so the matrix is the single source). `--shard` partitions the set Playwright itself collects from this config
+(glob + `testIgnore`, HEL-951) — it is not a hand-picked file list. Each shard has its own Postgres, backend and
+Vite, so shards share no state; `ci-complete` still gates on every leg (a matrix job's result is `failure` if any
+leg fails). `workers` is pinned to 2 on CI (the matrix is capped at 4 legs), and CI additionally writes `test-results/results.json` (uploaded per
+shard as `playwright-json-shard-<i>`); `node scripts/e2e-profile.mjs json|list|steps ...` ranks specs/steps from
+those CI artefacts. A bare local run is unchanged.
+
+Sharding splits by **test count, in group order**, and a default-mode file is ONE group, so a file only spreads
+across workers/shards if its tests are independent. Files that are, declare
+`test.describe.configure({ mode: "parallel" })` — scoped to that file, never `fullyParallel: true` globally. The
+rule for adding it: every test registers its own user and seeds its own data, and the file has **no
+`beforeAll`/`afterAll`** (Playwright re-chunks a parallel file with those hooks back into per-worker groups). The two
+contrast/focus guards (`state-surface-contrast-guard`, `focus-presence-guard`) are one test per theme x view cell for
+the same reason; the per-view `[HEL-866 guard] view ...` / `[HEL-520 focus-presence guard] view ...` log lines are the
+population contract (compare them to a green main run when touching a guard).

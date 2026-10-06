@@ -416,6 +416,20 @@ jobs:
   # naming its follow-up ticket — see that file for the current list.
   e2e:
     runs-on: ubuntu-latest
+    # Slowest leg measures ~7 min; ~2.5x so a hung leg frees its runner instead of holding it for
+    # the 6 h default (HEL-1288).
+    timeout-minutes: 18
+    # HEL-1288 (C8) — at most 4 legs (account-wide concurrent-job cap, shared with the backend job's legs;
+    # see profile.md); per-leg speed comes from Playwright `workers` (playwright.config.ts), not more legs.
+    # Sharded across N runners (each with its OWN Postgres service, backend and Vite,
+    # so shards share no mutable state). `fail-fast: false` so every shard reports; the matrix
+    # job's aggregate result is `failure` if any leg fails, which `ci-complete` (needs: e2e)
+    # already treats as a failed required check.
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         image: postgres:16
@@ -476,6 +490,12 @@ jobs:
             ~/.cache/coursier
           key: sbt-${{ hashFiles('**/build.sbt') }}
           restore-keys: sbt-
+      # HEL-1288 — the backend (sbt compile + boot, ~85 s) is the longest non-test step, so it
+      # is started in the background right after the sbt cache restores and overlaps the npm /
+      # browser steps below; the health wait is a separate, later step that still fails loudly
+      # and dumps the log.
+      - name: Start backend (sbt run, background)
+        run: scripts/e2e-backend.sh start
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -485,19 +505,15 @@ jobs:
             frontend/package-lock.json
       - run: npm ci
       - run: npm --prefix frontend ci
+      # HEL-1288 measured an `~/.cache/ms-playwright` cache and dropped it: the dominant cost of
+      # this step is `--with-deps` (apt), not the browser download, and a hit (restore 5-10 s +
+      # install 21-27 s) was no faster than the uncached baseline (22-23 s).
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-      - name: Start backend (sbt run)
-        working-directory: backend
-        run: |
-          nohup sbt run > /tmp/backend.log 2>&1 &
-          for i in $(seq 1 60); do
-            curl -sf http://localhost:8080/health && exit 0
-            sleep 5
-          done
-          echo "backend did not become healthy" >&2
-          cat /tmp/backend.log
-          exit 1
+      # Fail-fast health wait (HEL-1288): detects a dead sbt group or one hung before compile/run within
+      # seconds and dumps /tmp/backend.log on failure (no restart). See scripts/e2e-backend.sh.
+      - name: Wait for backend health
+        run: scripts/e2e-backend.sh wait
       - name: Start frontend (Vite dev server)
         working-directory: frontend
         run: |
@@ -509,8 +525,11 @@ jobs:
           echo "frontend did not become healthy" >&2
           cat /tmp/frontend.log
           exit 1
+      # HEL-951 contract preserved: this is still `npx playwright test` against the config's glob
+      # and `testIgnore` — `--shard` only partitions the set Playwright itself collected, it is
+      # not a hand-picked file list.
       - name: Run e2e suite (glob, honours playwright.config.ts testIgnore)
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
       # HEL-910 task 6.3 note: the P1.4 Sleeper MCP rebuild acceptance test
       # (`helio-mcp/e2e/sleeper-rebuild.ts`) is deliberately NOT wired in
       # here. Correcting an assumption from the ticket brief: it does NOT
@@ -521,11 +540,20 @@ jobs:
       # minted against a running backend, neither of which this job
       # currently provisions. Wiring it in is a real, scoped follow-up
       # (npm script + PAT bootstrap step), not a live-credentials problem.
+      # Per-shard artifact names (upload-artifact v4+ rejects duplicate names within a run).
+      - name: Upload Playwright JSON report (per-test durations)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-json-shard-${{ matrix.shard }}
+          path: test-results/results.json
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: |
             test-results/
             /tmp/backend.log

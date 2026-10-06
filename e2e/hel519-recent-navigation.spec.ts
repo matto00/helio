@@ -1,5 +1,11 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
+// HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
+// own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
+// schedulable — they spread across the 2 workers and across `--shard` boundaries instead of
+// forming one serial group.
+test.describe.configure({ mode: "parallel" });
+
 // HEL-519 — real-browser proof that recording ACTUALLY FIRES, per design.md's central hazard:
 // a feature that records nothing is indistinguishable on screen from an empty history, and a
 // fixture-fed (store-seeded) test proves ordering logic and nothing about observation. Every
