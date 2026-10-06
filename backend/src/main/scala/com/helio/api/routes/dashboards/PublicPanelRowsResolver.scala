@@ -30,15 +30,15 @@ final class PublicPanelRowsResolver(
    *  `authorizeResourceWithSharing` gate in `PublicDashboardRoutes` is only a valid authority for panels that are
    *  really on the dashboard it was checked against. A panel of a non-`OutputPanel` kind, a
    *  panel with no bound `outputId`, or an unresolvable Output/snapshot degrades to an empty
-   *  page rather than a 500 -- mirrors `resolveDataAsOf`'s own degrade-gracefully convention
-   *  in `PublicPanelListResolver.resolveDataAsOf`.
+   *  page rather than a 500 -- mirrors `PublicPanelListResolver.resolveDataAsOf`'s own
+   *  degrade-gracefully convention.
    *
    *  HEL-590 evaluation-2.md CR-A: always called from inside the directive's authorized block, so
    *  `accessAlreadyGranted = true` is passed straight through to `findAllByDashboardId` -- see that
    *  method's own doc for why this is required (a share-token-authorized caller matches none of
    *  the repository's own owner/grantee/public-viewer-grant predicates). */
   /** HEL-1190 design.md D6 (task 1.2/1.3) — `sort`/`filter` are `None` for every pre-existing
-   *  caller (the panel-list route's own zero-arg usage doesn't apply here; every call site below
+   *  caller (the panel-list route's own zero-arg usage doesn't apply here; every call site in `PublicDashboardRoutes`
    *  passes them explicitly), resolved via the SAME `OutputRowsQuery.resolveSort/resolveFilter`
    *  `OutputService.rows` already relies on (D6's "contract and rows endpoint can't drift"
    *  guarantee). `filter`'s named columns are additionally gated to this panel's OWN configured

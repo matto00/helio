@@ -18,7 +18,7 @@ final class PublicPanelOutputResolver(
 )(implicit executionContext: ExecutionContext) {
 
   /** HEL-1190 design.md D5/D8 (tasks 2.1/2.2/2.4) — resolves `dashboardId + panelId ->
-   *  (OutputPanel, Output)` server-side, shared by the three new panel-scoped public routes below
+   *  (OutputPanel, Output)` server-side, shared by the three new panel-scoped public routes in `PublicDashboardRoutes`
    *  (`filter-capabilities`/`distinct-values`/`output-meta`) so none of them ever accepts a
    *  caller-supplied `outputId` (C11). Reuses `resolveRows`'s SAME `findAllByDashboardId` lookup --
    *  the panel is proven to actually belong to THIS dashboard before anything about its bound

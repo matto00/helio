@@ -60,7 +60,7 @@ Scratch copy `hel1291-PublicDashboardRoutes.mutated.scala` = original with `filt
 - New `panelList` method signature + its one-line first statement (`panelRepo.findAllByDashboardId(...)`, was `val resultF = panelRepo....`); body dedented 12 columns (allow-indentation-change).
 - Entry point: 5 `private val` module declarations (declared before `val routes`), 7 receiver renames at call sites (list above).
 - D4 positional/reference words in comments only: "panel-list route above" -> "... in `PublicDashboardRoutes`"; "gate below" -> "gate in `PublicDashboardRoutes`"; "convention above" -> "in `PublicPanelListResolver.resolveDataAsOf`";
-  "(the panel-list route above)" -> "(the panel-list route)"; "`resolveFilterCapabilities` above," -> "`resolveFilterCapabilities`,"; "three ... routes below" -> "three ... routes"; "this class's own doc comment" -> "`PublicDashboardRoutes`'s own doc comment"; "authenticated route... `resolveRows`'s" unchanged.
+  "(the panel-list route above)" -> "(the panel-list route)"; "`resolveFilterCapabilities` above," -> "`resolveFilterCapabilities`,"; "three new panel-scoped public routes below" -> "... public routes in `PublicDashboardRoutes`" (corrected in cycle 2; the first pass left the original "below" in `PublicPanelOutputResolver` and "every call site below" in `PublicPanelRowsResolver`, both now fixed); "this class's own doc comment" -> "`PublicDashboardRoutes`'s own doc comment"; "authenticated route... `resolveRows`'s" unchanged.
 - README "Holds" line.
 
 Everything else (resolver bodies, validator, dataAsOf, orphaned-controls, ownerView rule, all doc comments) is classed as moved.
