@@ -1,2 +1,0 @@
-- `.github/workflows/ci.yml` — security job only: SBOM step timeout-minutes 2, step ids, `!cancelled()` + prerequisite-outcome gating on every audit/chain step, job timeout comment
-- `openspec/changes/security-job-timeout-unmask/` — change artifacts (spec wording, tasks, ci-proof.md)
