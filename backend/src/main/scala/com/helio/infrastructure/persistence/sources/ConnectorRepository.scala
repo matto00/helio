@@ -2,7 +2,7 @@ package com.helio.infrastructure.persistence.sources
 
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
+import com.helio.infrastructure.persistence.auth.{ConnectorCredentialEncryptionFailed, ConnectorCredentialRepository}
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
@@ -204,15 +204,20 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
     ).map(_.map(rowToDomain).toVector)
   }
 
-  /** Credential rotation (HEL-824 design.md Decision 1) -- mirrors `create`'s existing
-   *  two-step-plus-compensation shape, in the same layer `create` lives in. Scoped by
-   *  `findByIdOwned` first (not-found for another owner's Connector id, matching
-   *  `update`/`delete`). On success: mints a NEW credential row via `credentialRepo.create`,
-   *  repoints `credential_id` on the `connectors` row, then best-effort deletes the OLD
-   *  credential row (mirroring `create`'s own compensation pattern -- nothing references the old
-   *  row once repointed, so its cleanup failing is inert, not a correctness issue). On repoint
-   *  failure, compensates by deleting the just-minted new row before propagating the failure --
-   *  never leaves the connector pointing at nothing. */
+  /** Credential rotation (HEL-824 design.md Decision 1; made atomic by HEL-1338). Scoped by
+   *  `findByIdOwned` first (not-found for another owner's Connector id, matching `update`/`delete`;
+   *  pending Connectors are refused). The new secret is encrypted BEFORE any database work, so the
+   *  no-master-key path fails with zero writes.
+   *
+   *  The rotation itself is ONE transaction under the caller's user context (RLS-enforced, never
+   *  the privileged pool): lock-read the Connector's current `credential_id` (`FOR UPDATE`, first
+   *  statement, so concurrent rotations serialise), insert the NEW credential row, repoint
+   *  `credential_id`, then delete the OLD credential row (`connectors.credential_id` is
+   *  `ON DELETE RESTRICT`, hence that order). The returned Future completes only after COMMIT, so
+   *  the old credential is gone (unresolvable) whenever this reports success. Any failure,
+   *  including the old-credential delete, rolls the whole rotation back: the Connector keeps its
+   *  original, still-decryptable credential and no new row remains. A Connector deleted or
+   *  made pending concurrently yields `Left(ConnectorRotationNotFound)` with nothing written. */
   def rotateCredential(
       id: ConnectorId,
       newCredentialPlaintext: String,
@@ -229,33 +234,28 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
       case Some(existing) if existing.isPending =>
         Future.successful(Left(ConnectorRotationPending))
       case Some(existing) =>
-        credentialRepo.create(user.id, credentialName, newCredentialPlaintext).flatMap { newCredentialMeta =>
-          val now = Instant.now()
-          val repointAction = table
-            .filter(_.id === UUID.fromString(id.value))
-            .map(r => (r.credentialId, r.updatedAt))
-            .update((Some(UUID.fromString(newCredentialMeta.id.value)), now))
-          ctx.withUserContext(user.id.value)(repointAction)
-            .flatMap { updatedCount =>
-              if (updatedCount > 0) {
-                // Best-effort delete of the OLD credential row -- never block success on it.
-                // `existing.credentialId` is non-empty here (the pending branch above already
-                // excluded `None`).
-                existing.credentialId.foreach(old => credentialRepo.delete(old, user.id).recover { case _ => false })
-                Future.successful(
-                  Right(existing.copy(credentialId = Some(newCredentialMeta.id), updatedAt = now))
-                )
-              } else {
-                // Repoint failed (e.g. row disappeared concurrently) -- compensate by deleting
-                // the just-minted new row so it isn't orphaned, then propagate not-found.
-                credentialRepo.delete(newCredentialMeta.id, user.id).recover { case _ => false }
-                  .map(_ => Left(ConnectorRotationNotFound))
+        credentialRepo.insertAction(user.id, credentialName, newCredentialPlaintext) match {
+          case Left(err) => Future.failed(ConnectorCredentialEncryptionFailed(err))
+          case Right((insertNew, newCredentialMeta)) =>
+            val connectorUuid = UUID.fromString(id.value)
+            val ownerUuid     = UUID.fromString(user.id.value)
+            val now           = Instant.now()
+            val newCredUuid   = UUID.fromString(newCredentialMeta.id.value)
+            val rotation: DBIO[Either[ConnectorRotationRefusal, Connector]] =
+              table.filter(r => r.id === connectorUuid && r.ownerId === ownerUuid).forUpdate.result.headOption.flatMap {
+                case Some(locked) if locked.credentialId.isDefined =>
+                  val oldCredentialId = ConnectorCredentialId(locked.credentialId.get.toString)
+                  for {
+                    _ <- insertNew
+                    _ <- table.filter(_.id === connectorUuid).map(r => (r.credentialId, r.updatedAt)).update((Some(newCredUuid), now))
+                    _ <- credentialRepo.deleteAction(oldCredentialId)
+                  } yield Right(rowToDomain(locked).copy(credentialId = Some(newCredentialMeta.id), updatedAt = now)): Either[ConnectorRotationRefusal, Connector]
+                case Some(_) =>
+                  DBIO.successful(Left(ConnectorRotationPending): Either[ConnectorRotationRefusal, Connector])
+                case None =>
+                  DBIO.successful(Left(ConnectorRotationNotFound): Either[ConnectorRotationRefusal, Connector])
               }
-            }
-            .recoverWith { case repointFailure =>
-              credentialRepo.delete(newCredentialMeta.id, user.id).recover { case _ => false }
-              Future.failed(repointFailure)
-            }
+            ctx.withUserContext(user.id.value)(rotation)
         }
     }
 
