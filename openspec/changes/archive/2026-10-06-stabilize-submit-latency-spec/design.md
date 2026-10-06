@@ -91,3 +91,10 @@ Self-approved: option (a)+(b) combined. The premise check confirmed that no owne
 (HEL-1096 D2 is measure-and-report), and that the guard's intent is covered deterministically, so no escalation was
 needed. Self-approved: introducing the `HELIO_MEASURE` name here, since it exists nowhere yet. Self-approved: a small
 default-mode iteration count.
+
+## Erratum (archive time)
+
+D3 and the Planner Notes say `HELIO_MEASURE` "does not exist anywhere yet". That was true of main at planning time,
+but HEL-1326 (#805) landed first with the same gate (`sys.env.get("HELIO_MEASURE").contains("1")` + `assume`), so
+this spec reuses that convention (skeptic-final-1.md Q1). Tasks 1.1/1.2 record the PLAN; their outcome is a
+documented non-reproduction (probe.md, C5), not a reproduction or a confirmed mechanism.
