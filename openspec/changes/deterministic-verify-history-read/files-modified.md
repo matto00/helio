@@ -1,0 +1,10 @@
+- `helio-mcp/scripts/verifyIsolated.ts` — `npm run verify:isolated` CLI entry
+- `helio-mcp/scripts/isolatedRun.ts` — isolated run lifecycle: dedicated DB, backend JVM, D2 wait, harness, signal-safe teardown
+- `helio-mcp/scripts/isolatedDb.ts` — psql/createdb/dropdb helpers, backend/.env + JDBC URL parsing
+- `helio-mcp/scripts/isolatedBackend.ts` — backend JVM launch (assembly jar), OS port, listener identity check, stop by exact PID
+- `helio-mcp/scripts/isolatedAuth.ts` — throwaway user registration and bootstrap PAT mint/revoke
+- `helio-mcp/scripts/isolatedDb.test.ts` — Jest guards for .env / JDBC URL parsing
+- `helio-mcp/scripts/verify.ts` — thinning failure message points at `npm run verify:isolated`
+- `helio-mcp/package.json` — `verify:isolated` script entry only (no dependency changes)
+- `helio-mcp/README.md` — "Isolated verify run" section and layout entries
+- `openspec/changes/deterministic-verify-history-read/` — tasks ticked, design implementation notes, evidence-*.md

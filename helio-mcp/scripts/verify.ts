@@ -425,7 +425,8 @@ async function verifyOutputHistory(
   if (history.points.length !== HISTORY_RUNS || numeric !== HISTORY_RUNS) {
     throw new Error(
       `expected ${HISTORY_RUNS} points and ${HISTORY_RUNS} numeric sparkline values in one call, got ` +
-        `points=${history.points.length} numeric=${numeric} (history thinning by another backend's purge is the likely cause when fewer; rerun)`,
+        `points=${history.points.length} numeric=${numeric} (fewer usually means another backend sharing this database ran its retention purge and thinned the fixture; ` +
+        `rerun with \`npm run verify:isolated\`, which uses a dedicated database no other backend can reach)`,
     );
   }
 }
