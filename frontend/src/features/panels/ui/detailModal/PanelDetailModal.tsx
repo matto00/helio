@@ -508,6 +508,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
               // `usePanelData`'s `rowsTruncated` doc comment.
               rowsTruncated={rowsTruncated}
               crossFilterMode={crossFilterMode}
+              viewerFilterActive={controlFilterOps.length > 0}
             />
             {/* HEL-1190 design.md D10 (task 5.5) — this modal had NO live region at all before this
                 ticket; a control-driven row-count change is announced here, mirroring

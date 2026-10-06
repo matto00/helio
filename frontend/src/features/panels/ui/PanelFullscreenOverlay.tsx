@@ -6,6 +6,7 @@ import { OutputViewerControlBar } from "./OutputViewerControlBar";
 import { PanelContent } from "./PanelContent";
 import { PanelInspectView } from "./PanelInspectView";
 import { ProvenanceTrigger } from "../provenance/ProvenanceTrigger";
+import { buildViewerControlFilterOps } from "../state/viewerControlValues";
 import { clearSelection, selectDataPoint } from "../state/panelsSlice";
 import { getOutputId, isOutputPanel } from "../state/panelNarrowing";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
@@ -134,6 +135,12 @@ export function PanelFullscreenOverlay({
     setValue: setControlValue,
     clearValue: clearControlValue,
   } = useViewerControls(panel.id, controls);
+  // HEL-1275 design.md D3 — this overlay builds no filter ops of its own (it never fetches), so
+  // derive the same ops the card sends, from the same URL-held values.
+  const viewerFilterActive = useMemo(
+    () => buildViewerControlFilterOps(controls, controlValues).length > 0,
+    [controls, controlValues],
+  );
   const hasVisibleControls = useMemo(() => controls.some((c) => !c.orphaned), [controls]);
   const fetchDistinctValues = useCallback(
     (column: string) =>
@@ -217,6 +224,7 @@ export function PanelFullscreenOverlay({
             rowsTruncated={rowsTruncated}
             onDataPointSelect={handleDataPointSelect}
             crossFilterMode={crossFilterMode}
+            viewerFilterActive={viewerFilterActive}
           />
           {/* HEL-1190 design.md D10 (task 5.5) — this overlay had NO live region at all before
               this ticket; a control-driven row-count change is announced here. */}

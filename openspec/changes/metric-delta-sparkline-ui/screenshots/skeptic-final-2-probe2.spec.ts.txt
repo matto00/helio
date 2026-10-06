@@ -1,0 +1,78 @@
+import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+const CSRF = { "X-Helio-Requested-With": "1" };
+const SH = process.env.SHOTS!;
+const ids = JSON.parse(readFileSync(process.env.IDS_OUT!, "utf8"));
+const log = (...a: unknown[]) => console.log("[probe2]", ...a);
+test("stale compare + public prov + cleanup", async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await ctx.addInitScript(() => window.localStorage.setItem("helio-theme", "light"));
+  const req = ctx.request;
+  try {
+    expect((await req.post("/api/auth/login", { data: { email: ids.email, password: "correcthorsebattery1" }, headers: CSRF })).status()).toBe(200);
+    if (process.env.STALE === "1") {
+      const page = await ctx.newPage();
+      await page.goto(`/dashboards/${ids.dashboard}`);
+      const A = page.locator(".react-grid-item", { hasText: "SK2 Plain" });
+      await page.waitForTimeout(5000); log("body:", (await page.locator("body").innerText()).replace(/\n/g, " | ").slice(0, 400));
+      await expect(A.getByText(/1,204|120/).first()).toBeVisible({ timeout: 15000 });
+      await page.waitForTimeout(1500);
+      await page.evaluate(() => { (window as unknown as { __sk?: number }).__sk = 42; });
+      log("start A:", (await A.innerText()).replace(/\n/g, " | "));
+      await page.getByRole("link", { name: "Data Pipelines" }).click();
+      await page.getByText("SK2 pipeline").first().click();
+      await page.waitForURL(new RegExp(`/pipelines/${ids.pipeline}`));
+      await page.getByRole("tab", { name: /^Outputs/ }).click();
+      await page.getByRole("button", { name: "Open SK2 Revenue output" }).click();
+      await page.getByRole("combobox", { name: process.env.COMBO ?? "Compare" }).click();
+      await page.getByRole("option", { name: process.env.TO ?? "30 days" }).click();
+      await page.getByRole("button", { name: "Save" }).click();
+      await expect(page.getByRole("combobox", { name: process.env.COMBO ?? "Compare" })).toBeHidden();
+      const o = await (await req.get(`/api/outputs/${ids.output}`)).json();
+      log("server compare now", JSON.stringify(o.config?.compare));
+      if (process.env.NAV === "link") {
+        await page.getByRole("link", { name: "Dashboards" }).first().click();
+        await page.getByRole("link", { name: "SK2 dash" }).first().click();
+        log("nav via links, same document:", await page.evaluate(() => (window as unknown as { __sk?: number }).__sk));
+      } else { await page.goBack(); await page.goBack(); }
+      await page.waitForURL(new RegExp(`/dashboards/${ids.dashboard}`));
+      await page.waitForTimeout(4000);
+      log("SPA-return A:", (await A.innerText()).replace(/\n/g, " | "));
+      await A.screenshot({ path: `${SH}/sk2-stale-spa-3.png` });
+      await page.reload();
+      await expect(A.getByText(/1,204|120/).first()).toBeVisible({ timeout: 15000 });
+      await page.waitForTimeout(2000);
+      log("after reload A:", (await A.innerText()).replace(/\n/g, " | "));
+      await A.screenshot({ path: `${SH}/sk2-stale-reload-3.png` });
+    }
+    if (process.env.PUBPROV === "1") {
+      const pctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      await pctx.addInitScript(() => window.localStorage.setItem("helio-theme", "dark"));
+      const pp = await pctx.newPage();
+      const res: string[] = [];
+      pp.on("response", (r) => { if (r.url().includes("/api/")) res.push(`${r.status()} ${r.url().replace(/token=[^&]+/, "token=***")}`); });
+      await pp.goto(`/dashboards/${ids.dashboard}/panels?token=${ids.token}`);
+      await expect(pp.getByText(/▲ 12% vs/).first()).toBeVisible({ timeout: 15000 });
+      const card = pp.locator("article, section, div", { hasText: /^SK2 Plain/ }).last();
+      const btns = pp.getByRole("button", { name: "Data provenance" });
+      log("public prov buttons", await btns.count());
+      await btns.last().click();
+      const pd = pp.getByRole("dialog", { name: /Data provenance/ });
+      await expect(pd.getByRole("heading", { name: "Last run" })).toBeVisible({ timeout: 10000 });
+      log("public prov:", (await pd.innerText()).replace(/\n/g, " | "));
+      await pp.screenshot({ path: `${SH}/sk2-public-prov-dark.png` });
+      const h = await (await pp.request.get(`/api/dashboards/${ids.dashboard}/panels/${ids.panelA}/history?token=${ids.token}`)).text();
+      log("public history keys contain outputId/runId/triggerSource:", h.includes("outputId"), h.includes("runId"), h.includes("triggerSource"), h.includes(ids.output));
+      log("responses", JSON.stringify(res.filter((r) => !r.startsWith("200"))));
+      void card;
+      await pctx.close();
+    }
+  } finally {
+    if (process.env.CLEAN === "1") {
+      log("del dash", (await req.delete(`/api/dashboards/${ids.dashboard}`, { headers: CSRF })).status());
+      log("del pipe", (await req.delete(`/api/pipelines/${ids.pipeline}`, { headers: CSRF })).status());
+      log("del src", (await req.delete(`/api/data-sources/${ids.source}`, { headers: CSRF })).status());
+    }
+    await ctx.close();
+  }
+});

@@ -230,7 +230,11 @@ export function OutputEditorSheet({
   const tableFormats = useOutputColumnFormats(tableConfig.columnFormats);
 
   // Metric
-  const [metricField, setMetricField] = useState(metricConfig.fieldMapping.value ?? "");
+  const [metricField, setMetricField] = useState(
+    // An aggregated metric stores its field in `aggregation.value`, not `fieldMapping.value`;
+    // reading only the latter silently dropped the aggregation on the next save (HEL-1275).
+    metricConfig.fieldMapping.value ?? metricConfig.aggregation?.value ?? "",
+  );
   const [metricAggFn, setMetricAggFn] = useState<string>(metricConfig.aggregation?.agg ?? "");
   const metricLabelState = useBoundOrLiteralState(
     defaultBoundOrLiteralMode(metricConfig.label !== undefined),
@@ -243,6 +247,7 @@ export function OutputEditorSheet({
     metricConfig.unit ?? "",
   );
   const [metricFormat, setMetricFormat] = useState<string>(metricConfig.format ?? "number");
+  const [metricCompare, setMetricCompare] = useState<string>(metricConfig.compare ?? "none");
 
   // Markdown
   // Literal-only (HEL-1139): a legacy `fieldMapping.content` is ignored on open
@@ -297,6 +302,7 @@ export function OutputEditorSheet({
       metricLabelState,
       metricUnitState,
       metricFormat,
+      metricCompare,
       markdownContent,
       collectionFieldMapping,
       collectionFormat,
@@ -385,6 +391,7 @@ export function OutputEditorSheet({
         metricLabelState,
         metricUnitState,
         metricFormat,
+        metricCompare,
       },
       capabilities,
     );
@@ -549,6 +556,8 @@ export function OutputEditorSheet({
             unitState={metricUnitState}
             formatValue={metricFormat}
             onFormatChange={setMetricFormat}
+            compareValue={metricCompare}
+            onCompareChange={setMetricCompare}
           />
         )}
         {kind === "markdown" && (

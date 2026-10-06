@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import "../../../shared/chrome/Popover.css";
 import "./ProvenancePopover.css";
 import { ProvenanceContent } from "./ProvenanceContent";
+import type { PublishedComparison } from "../history/metricComparisonStore";
 import type { ProvenanceState } from "./useProvenance";
 import type { ProvenanceVariant } from "./provenanceTelemetry";
 import type { PortalPopoverPos } from "../../../hooks/usePortalPopover";
@@ -16,6 +17,8 @@ interface ProvenancePopoverProps {
   variant: ProvenanceVariant;
   pos: PortalPopoverPos;
   state: ProvenanceState;
+  /** HEL-1275 — the metric panel's resolved comparison, when it shows a delta. */
+  comparison: PublishedComparison | null;
   /** `true` when opened from the Invalid data badge: focus lands on the Checks section. */
   focusChecks: boolean;
   pipelineHref: string | null;
@@ -35,6 +38,7 @@ export function ProvenancePopover({
   variant,
   pos,
   state,
+  comparison,
   focusChecks,
   pipelineHref,
   container,
@@ -138,6 +142,7 @@ export function ProvenancePopover({
           <ProvenanceContent
             data={state.data}
             variant={variant}
+            comparison={comparison}
             checksRef={checksRef}
             pipelineHref={pipelineHref}
             onNavigate={onClose}

@@ -25,11 +25,9 @@ import {
   readChartConfig,
   readCollectionConfig,
   readMarkdownConfig,
-  readMetricConfig,
   readTableConfig,
   readTimelineConfig,
 } from "../../pipelines/ui/outputEditor/outputConfigTypes";
-import { computeAggregate } from "../../../utils/aggregate";
 import {
   filterRecordRowsByDimension,
   filterRowsByDimension,
@@ -43,6 +41,8 @@ import { ImageRenderer } from "./renderers/ImageRenderer";
 import { LoadedScopeDisclosure } from "./renderers/LoadedScopeDisclosure";
 import { MarkdownRenderer } from "./renderers/MarkdownRenderer";
 import { MetricRenderer } from "./renderers/MetricRenderer";
+import { MetricOutputPanel } from "./MetricOutputPanel";
+import type { HistorySource } from "../history/useOutputHistory";
 import { TableRenderer } from "./renderers/TableRenderer";
 import { TextRenderer } from "./renderers/TextRenderer";
 import { TimelineRenderer } from "./renderers/TimelineRenderer";
@@ -126,6 +126,12 @@ export interface PanelContentProps {
    *  rows already arrive narrowed, and on `"none"` the filter doesn't touch this panel (also the
    *  public viewer, where no cross-filter can exist). */
   crossFilterMode: CrossFilterMode;
+  /** HEL-1275 design.md D3 — true when the caller's built viewer-control filter ops are non-empty
+   *  (the SAME ops it sends with the row fetch); hides a metric panel's unfiltered comparison. */
+  viewerFilterActive?: boolean;
+  /** HEL-1275 design.md D4 — set only by the public viewer; absent → the authenticated history
+   *  route keyed by the Output id. */
+  historySource?: HistorySource;
 }
 
 /** Dispatches on an output-kind panel's fetched Output `kind`/`config`
@@ -151,6 +157,8 @@ function OutputPanelContent({
   output: outputProp,
   isLoading: isLoadingProp,
   crossFilterMode,
+  viewerFilterActive,
+  historySource,
 }: {
   panelId: string;
   rawRows?: string[][] | null;
@@ -170,6 +178,8 @@ function OutputPanelContent({
   output?: Output | PublicOutputMeta | null;
   isLoading?: boolean;
   crossFilterMode: CrossFilterMode;
+  viewerFilterActive: boolean;
+  historySource?: HistorySource;
 }) {
   // evaluation-1.md CR1/CR2 (cycle 2) — applying the cross-filter HERE,
   // rather than upstream at PanelCard/MobileStackPanelBody, is what makes
@@ -290,24 +300,20 @@ function OutputPanelContent({
       />
     );
   } else if (kind === "metric") {
-    const cfg = readMetricConfig(output.config);
-    const firstRow =
-      filteredRawRows && headers && filteredRawRows.length > 0
-        ? Object.fromEntries(headers.map((h, i) => [h, filteredRawRows[0][i]]))
-        : null;
-    const valueColumn = Object.values(cfg.fieldMapping)[0];
-    const rowsAsRecords =
-      filteredRawRows && headers
-        ? filteredRawRows.map((row) => Object.fromEntries(headers.map((h, i) => [h, row[i]])))
-        : [];
-    const value =
-      valueColumn && cfg.aggregation?.agg
-        ? String(computeAggregate(rowsAsRecords, valueColumn, cfg.aggregation.agg) ?? "")
-        : valueColumn && firstRow
-          ? String(firstRow[valueColumn] ?? "")
-          : "";
-    const data: MappedPanelData = { value, label: cfg.label ?? "", unit: cfg.unit ?? "" };
-    content = <MetricRenderer data={data} format={cfg.format} />;
+    content = (
+      <MetricOutputPanel
+        panelId={panelId}
+        outputId={outputId}
+        pipelineId={"pipelineId" in output ? output.pipelineId : undefined}
+        config={output.config}
+        rawRows={filteredRawRows}
+        headers={headers}
+        // HEL-1275 design.md D3 — an applied viewer control filter, or a cross-filter narrowing this
+        // panel (server `eq`, or the client-side loaded-rows fallback), hides the unfiltered delta.
+        filterActive={viewerFilterActive || crossFilterMode === "server" || isCrossFiltered}
+        historySource={historySource}
+      />
+    );
   } else if (kind === "markdown") {
     const cfg = readMarkdownConfig(output.config);
     content = <MarkdownRenderer content={cfg.content} />;
@@ -394,6 +400,8 @@ export function PanelContent({
   output,
   outputMetaLoading,
   crossFilterMode,
+  viewerFilterActive = false,
+  historySource,
 }: PanelContentProps) {
   if (isLoading) {
     // HEL-528 design.md D6/D7 — a shape-matched skeleton, not the accent
@@ -478,6 +486,8 @@ export function PanelContent({
         output={output}
         isLoading={outputMetaLoading}
         crossFilterMode={crossFilterMode}
+        viewerFilterActive={viewerFilterActive}
+        historySource={historySource}
       />
     );
   }

@@ -34,6 +34,7 @@ function baseParams(overrides: Partial<BuildOutputConfigParams> = {}): BuildOutp
     metricLabelState: boundOrLiteral(),
     metricUnitState: boundOrLiteral(),
     metricFormat: "number",
+    metricCompare: "none",
     markdownContent: "",
     collectionFieldMapping: {},
     collectionFormat: "number",

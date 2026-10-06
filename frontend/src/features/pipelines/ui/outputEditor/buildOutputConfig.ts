@@ -40,12 +40,21 @@ export interface BuildOutputConfigParams {
   metricUnitState: BoundOrLiteralState;
   // HEL-876 — numeric display style, shared by metric and collection (metric baseType).
   metricFormat: string;
+  // HEL-1275 — the Compare picker's value: `"none"` or a `config.compare` token (including a
+  // pre-existing `custom:<duration>`, kept verbatim).
+  metricCompare: string;
   // Markdown
   markdownContent: string;
   // Collection / Timeline
   collectionFieldMapping: Record<string, string>;
   collectionFormat: string;
   timelineFieldMapping: Record<string, string>;
+}
+
+/** HEL-1275 design.md D7 — `"none"` becomes a literal `null`, never an omitted key: `PATCH
+ *  /api/outputs/:id` shallow-merges config, so an omitted key silently KEEPS the old comparison. */
+function compareOrNull(value: string): string | null {
+  return value === "" || value === "none" ? null : value;
 }
 
 function readFormatOrNull(value: string): MetricFormat | null {
@@ -103,6 +112,7 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
             ? params.metricUnitState.literalValue
             : undefined,
         format: readFormatOrNull(params.metricFormat),
+        compare: compareOrNull(params.metricCompare),
       };
     case "markdown":
       // Literal-only: `OutputBindingSpec.Markdown` has no fieldMapping slots (HEL-1139).
@@ -163,6 +173,7 @@ export function buildAggregateTailConfigs(
     | "metricLabelState"
     | "metricUnitState"
     | "metricFormat"
+    | "metricCompare"
   >,
   capabilities: NodeCapabilities | undefined,
 ): { aggregateConfig: AggregateConfig; outputConfig: Record<string, unknown> } | null {
@@ -208,6 +219,7 @@ export function buildAggregateTailConfigs(
       unit:
         params.metricUnitState.mode === "literal" ? params.metricUnitState.literalValue : undefined,
       format: readFormatOrNull(params.metricFormat),
+      compare: compareOrNull(params.metricCompare),
     },
   };
 }

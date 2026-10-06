@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 import { lastRunState, stepKindLabel } from "./provenanceLabels";
+import type { PublishedComparison } from "../history/metricComparisonStore";
 import type { Provenance } from "./provenanceService";
 import type { ProvenanceVariant } from "./provenanceTelemetry";
 
@@ -75,9 +76,34 @@ function ChecksRow({ assertions }: { assertions: Provenance["assertions"] }) {
   );
 }
 
+/** HEL-1275 — "Compared with <time> · <value>": the baseline point a metric delta was computed
+ *  against. The time element mirrors `LastRunRow`'s (title + focusable absolute time). */
+function ComparedWithRow({ comparison }: { comparison: PublishedComparison }) {
+  const absolute = new Date(comparison.baselineAt).toLocaleString();
+  return (
+    <section>
+      <h3 className="provenance-popover__heading">Compared with</h3>
+      <p className="provenance-popover__value">
+        <time
+          dateTime={comparison.baselineAt}
+          title={absolute}
+          aria-label={`${formatRelativeTime(comparison.baselineAt)}, ${absolute}`}
+          tabIndex={0}
+          className="provenance-popover__time"
+        >
+          {formatRelativeTime(comparison.baselineAt)}
+        </time>
+        {" \u00B7 "}
+        {comparison.baselineText}
+      </p>
+    </section>
+  );
+}
+
 interface ProvenanceContentProps {
   data: Provenance;
   variant: ProvenanceVariant;
+  comparison: PublishedComparison | null;
   checksRef: RefObject<HTMLHeadingElement | null>;
   pipelineHref: string | null;
   onNavigate: () => void;
@@ -86,6 +112,7 @@ interface ProvenanceContentProps {
 export function ProvenanceContent({
   data,
   variant,
+  comparison,
   checksRef,
   pipelineHref,
   onNavigate,
@@ -124,6 +151,7 @@ export function ProvenanceContent({
         <h3 className="provenance-popover__heading">Last run</h3>
         <LastRunRow lastRun={lastRun} />
       </section>
+      {comparison && <ComparedWithRow comparison={comparison} />}
       <section>
         <h3 ref={checksRef} tabIndex={-1} className="provenance-popover__heading">
           Checks

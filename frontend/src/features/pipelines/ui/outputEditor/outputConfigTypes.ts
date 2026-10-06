@@ -118,6 +118,9 @@ export interface MetricOutputConfig {
   label?: string;
   unit?: string;
   format?: MetricFormat | null;
+  /** HEL-1275 — `config.compare` (`previous_run | 1d | 7d | 30d | custom:<ISO-8601 duration>`);
+   *  `null`/absent means no comparison. */
+  compare?: string | null;
 }
 
 export interface MarkdownOutputConfig {
@@ -265,6 +268,7 @@ export function readMetricConfig(config: Record<string, unknown>): MetricOutputC
     label: typeof config.label === "string" ? config.label : undefined,
     unit: typeof config.unit === "string" ? config.unit : undefined,
     format: isMetricFormat(config.format) ? config.format : null,
+    compare: typeof config.compare === "string" ? config.compare : null,
   };
 }
 
