@@ -333,7 +333,7 @@
    `--step-card-hover-bg` custom property as the sibling action buttons
    above — already correct in both themes and both expanded/collapsed
    states, since it is defined on the same ancestor card. */
-.pipeline-detail-page__step-card-toggle:hover {
+.pipeline-detail-page__step-card-toggle:hover:not(:disabled) {
   background: var(--step-card-hover-bg);
 }
 
@@ -2005,4 +2005,11 @@
 .pipeline-detail-page__tab--active {
   color: var(--app-text);
   border-bottom-color: var(--app-accent);
+}
+
+/* HEL-1294 — the toggle is inert while the step's create is in flight (same disabled recipe as the
+   move/duplicate buttons above). */
+.pipeline-detail-page__step-card-toggle:disabled {
+  opacity: 0.6;
+  cursor: progress;
 }

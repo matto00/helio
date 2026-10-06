@@ -1,0 +1,10 @@
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts` — creatingStepIds set; entered before create, cleared in finally (after resync) in handleInsertStep and handleAddLaneStep
+- `frontend/src/features/pipelines/ui/StepCard.tsx` — isCreating prop disables the expand toggle (title "Saving step…")
+- `frontend/src/features/pipelines/ui/LaneColumn.tsx` — threads isCreating to both StepCard sites
+- `frontend/src/features/pipelines/ui/PipelineRiverView.tsx` — threads isCreating / creatingStepIds
+- `frontend/src/features/pipelines/ui/RootColumn.tsx` — passes creatingStepIds through
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.tsx` — passes hook's creatingStepIds down
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.css` — toggle :disabled style (appended at EOF to keep token-audit baseline line numbers stable); hover excludes disabled
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.creatingStep.test.tsx` — new RTL tests (red without the fix)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx` — "removing a step" now uses the failed-create temp step (a card is not expandable mid-create)
+- `openspec/changes/step-card-temp-swap-collapse/**` — change artifacts

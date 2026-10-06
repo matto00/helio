@@ -94,6 +94,7 @@ export function PipelineDetailPage() {
     handleToggleStepEnabled,
     handleDuplicateStep,
     duplicatingStepIds,
+    creatingStepIds,
     handleRunPipeline,
     handleDryRun,
     handleSave,
@@ -289,6 +290,7 @@ export function PipelineDetailPage() {
             onToggleStepEnabled={handleToggleStepEnabled}
             onDuplicateStep={handleDuplicateStep}
             duplicatingStepIds={duplicatingStepIds}
+            creatingStepIds={creatingStepIds}
             outputsByStepId={outputsByStepId}
             previewRowCountByOutputId={previewRowCountByOutputId}
             onOpenOutput={handleOpenOutput}
