@@ -4,7 +4,11 @@ import {
   fetchPublicOutputMeta,
   fetchPublicPanelRows,
 } from "../../dashboards/services/publicDashboardService";
-import type { OutputRowsFilter, OutputRowsSort } from "../../pipelines/services/outputService";
+import type {
+  FilteredMetric,
+  OutputRowsFilter,
+  OutputRowsSort,
+} from "../../pipelines/services/outputService";
 import type { PublicOutputMeta } from "../../pipelines/types/output";
 import { getOutputId } from "../state/panelNarrowing";
 import type { Panel } from "../types/panel";
@@ -22,6 +26,9 @@ export interface PublicPanelDataResult {
    *  threaded to `PanelContent`'s `totalRowCount` prop so the loaded-scope disclosure describes
    *  the whole (filtered) Output, not just this single fetched page. */
   total: number;
+  /** HEL-1326 design.md D6 — the filtered full-set metric from the LAST rows response; `undefined`
+   *  when that response carried none (so a removed filter clears it). */
+  filteredMetric: FilteredMetric | null | undefined;
 }
 
 /** HEL-1190 design.md D1 (task 3.1) — the public/anonymous equivalent of `usePanelData` +
@@ -51,6 +58,9 @@ export function usePublicPanelData(
   const [outputMetaLoading, setOutputMetaLoading] = useState(outputId !== null);
   const [rows, setRows] = useState<Record<string, unknown>[] | null>(null);
   const [total, setTotal] = useState(0);
+  const [filteredMetric, setFilteredMetric] = useState<FilteredMetric | null | undefined>(
+    undefined,
+  );
   const [isLoading, setIsLoading] = useState(outputId !== null);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,6 +110,7 @@ export function usePublicPanelData(
         if (requestSeqRef.current !== mySeq) return;
         setRows(result.items);
         setTotal(result.total);
+        setFilteredMetric(result.metric);
         setError(null);
         setIsLoading(false);
       })
@@ -140,5 +151,6 @@ export function usePublicPanelData(
     output,
     outputMetaLoading,
     total,
+    filteredMetric,
   };
 }

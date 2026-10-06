@@ -29,6 +29,7 @@ import { isAxiosError } from "axios";
 import {
   composeOutputRowsFilter,
   getOutputRows,
+  type FilteredMetric,
   type OutputRowsFilter,
   type OutputRowsSort,
 } from "../../pipelines/services/outputService";
@@ -329,6 +330,7 @@ export const fetchPanelPage = createAsyncThunk<
     hasMore: boolean;
     materialized: boolean;
     total: number;
+    metric?: FilteredMetric | null;
   },
   {
     panelId: string;
@@ -373,6 +375,7 @@ export const fetchPanelPage = createAsyncThunk<
         hasMore,
         materialized: result.materialized,
         total: result.total,
+        metric: result.metric,
       };
     } catch (err: unknown) {
       // HEL-1191 design.md D3a — read the raw HTTP status BEFORE `classifyRequestError` (which

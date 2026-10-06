@@ -1,0 +1,60 @@
+- `backend/src/main/scala/com/helio/domain/history/OutputSummaryReducer.scala` — metric field rule (value, then aggregation.value; never label/unit), `metricField`/`metricOf` exposed
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala` — `listFieldCells`: projected filtered single-field read, row_index ASC
+- `backend/src/main/scala/com/helio/services/pipelines/OutputFilteredMetric.scala` — shared helper computing the full-filtered-set metric (metric kind + resolved filter + offset 0 only)
+- `backend/src/main/scala/com/helio/services/pipelines/OutputService.scala` — rows responds with `metric`
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/OutputProtocol.scala` — `OutputRowsResponse.metric`, new `PublicPanelRowsResponse`
+- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelRowsResolver.scala` — public rows return `PublicPanelRowsResponse` with `metric`
+- `backend/src/main/scala/com/helio/services/pipelines/OutputHistoryService.scala` — stored metric identity on resolved points
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/OutputHistoryProtocol.scala` — `metric` identity on current/baseline wire JSON
+- `schemas/outputs/output-rows-response.schema.json`, `schemas/dashboards/public-panel-rows-response.schema.json` (new), `schemas/outputs/output-history-response.schema.json`, `schemas/outputs/public-output-history-response.schema.json` — contracts
+- `shared-test-fixtures/output-summary-reducer.json` — `metricField` cases shared by Scala and TS
+- `backend/src/test/scala/com/helio/domain/history/OutputSummaryReducerSpec.scala`, `OutputSummaryReducerSeamSpec.scala` — reducer reds + shared fixture
+- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputFilteredMetricRoutesSpec.scala`, `OutputHistoryMetricIdentityRoutesSpec.scala` (new) — route specs, schema-validated
+- `backend/src/test/scala/com/helio/services/pipelines/OutputFilteredMetricMeasurementSpec.scala` (new) — D3 measurement, opt-in `HELIO_MEASURE=1`
+- `frontend/src/features/panels/history/metricHistoryView.ts` (+ test) — same field rule; baseline staleness from `baseline.metric`
+- `frontend/src/features/panels/history/outputHistoryService.ts`, `frontend/src/features/pipelines/services/outputService.ts` (service types only), `frontend/src/features/dashboards/services/publicDashboardService.ts`, `frontend/src/features/panels/types/panel.ts` — `FilteredMetric`/`metric` types
+- `frontend/src/features/panels/state/panelThunks.ts`, `panelsSlice.ts` — carry `metric` on the page-0 pagination entry, clear when absent
+- `frontend/src/features/panels/hooks/usePublicPanelData.ts`, `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.tsx` — public `filteredMetric`
+- `frontend/src/features/panels/ui/PanelCard.tsx`, `PanelContent.tsx`, `MetricOutputPanel.tsx` — `filteredMetric` prop and headline rule
+- `frontend/src/utils/aggregate.fixture.test.ts`, `frontend/src/features/panels/ui/PanelCard.filteredMetric.test.tsx` (new), `PublicDashboardViewerPage.filteredMetric.test.tsx` (new), `PanelContent.metricHistory.test.tsx` — client tests
+- `helio-mcp/src/types.ts` — additive optional `metric` on resolved history points
+- `openspec/changes/fix-metric-headline-and-field/` — tasks ticked, `red-green-evidence.md`, `evidence/`
+
+## Declared paths (one per bullet, for squash-branch.sh)
+
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/OutputHistoryProtocol.scala`
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/OutputProtocol.scala`
+- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelRowsResolver.scala`
+- `backend/src/main/scala/com/helio/domain/history/OutputSummaryReducer.scala`
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/OutputFilteredMetric.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/OutputHistoryService.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/OutputService.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputFilteredMetricRoutesSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputHistoryMetricIdentityRoutesSpec.scala`
+- `backend/src/test/scala/com/helio/domain/history/OutputSummaryReducerSeamSpec.scala`
+- `backend/src/test/scala/com/helio/domain/history/OutputSummaryReducerSpec.scala`
+- `backend/src/test/scala/com/helio/services/pipelines/OutputFilteredMetricMeasurementSpec.scala`
+- `frontend/src/features/dashboards/services/publicDashboardService.ts`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.filteredMetric.test.tsx`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.tsx`
+- `frontend/src/features/panels/history/metricHistoryView.test.ts`
+- `frontend/src/features/panels/history/metricHistoryView.ts`
+- `frontend/src/features/panels/history/outputHistoryService.ts`
+- `frontend/src/features/panels/hooks/usePublicPanelData.ts`
+- `frontend/src/features/panels/state/panelThunks.ts`
+- `frontend/src/features/panels/state/panelsSlice.ts`
+- `frontend/src/features/panels/types/panel.ts`
+- `frontend/src/features/panels/ui/MetricOutputPanel.tsx`
+- `frontend/src/features/panels/ui/PanelCard.filteredMetric.test.tsx`
+- `frontend/src/features/panels/ui/PanelCard.tsx`
+- `frontend/src/features/panels/ui/PanelContent.metricHistory.test.tsx`
+- `frontend/src/features/panels/ui/PanelContent.tsx`
+- `frontend/src/features/pipelines/services/outputService.ts`
+- `frontend/src/utils/aggregate.fixture.test.ts`
+- `helio-mcp/src/types.ts`
+- `schemas/dashboards/public-panel-rows-response.schema.json`
+- `schemas/outputs/output-history-response.schema.json`
+- `schemas/outputs/output-rows-response.schema.json`
+- `schemas/outputs/public-output-history-response.schema.json`
+- `shared-test-fixtures/output-summary-reducer.json`

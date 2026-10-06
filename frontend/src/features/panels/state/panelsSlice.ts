@@ -308,6 +308,7 @@ const panelsSlice = createSlice({
           rows: existing?.rows ?? [],
           materialized: existing?.materialized ?? true,
           total: existing?.total ?? 0,
+          metric: existing?.metric,
           // HEL-1191 design.md D9a-i — ONLY a page-0 request (re)writes `lastQuery`; a load-more
           // (page > 0) carries the existing one forward so a replay always describes the window's
           // own query, never an appended page's.
@@ -318,7 +319,7 @@ const panelsSlice = createSlice({
         };
       })
       .addCase(fetchPanelPage.fulfilled, (state, action) => {
-        const { panelId, page, rows, hasMore, materialized, total } = action.payload;
+        const { panelId, page, rows, hasMore, materialized, total, metric } = action.payload;
         // HEL-1027 skeptic-final-1.md CR2 (Defect 2) — a response whose OWN dispatch is no
         // longer the latest one recorded for this panel is STALE (a newer request has already
         // superseded it, regardless of which one's promise happens to settle first) and must
@@ -340,6 +341,9 @@ const panelsSlice = createSlice({
           rows: updatedRows,
           materialized,
           total,
+          // HEL-1326 design.md D6 — only a page-0 response (re)writes the filtered metric, and one
+          // WITHOUT it clears it (no stale value after a filter is removed); a load-more keeps it.
+          metric: page === 0 ? metric : existing?.metric,
           lastQuery: existing?.lastQuery,
         };
       })
