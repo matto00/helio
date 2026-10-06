@@ -245,15 +245,19 @@ jobs:
   # choices and the severity-filter rationale.
   security:
     runs-on: ubuntu-latest
-    # HEL-1287 D11: measured 69-90 s (runs 37382209230, 37387080368); step-level timeouts are HEL-1296's.
+    # HEL-1287 D11: measured 69-90 s (runs 37382209230, 37387080368). HEL-1296: the SBOM step now has its
+    # own 2-min timeout (inside this bound), and every audit reports independently of the others.
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
+      - id: checkout
+        uses: actions/checkout@v7
+      - id: setup-java
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
-      - uses: sbt/setup-sbt@v1
+      - id: setup-sbt
+        uses: sbt/setup-sbt@v1
       - name: Cache sbt
         uses: actions/cache@v6
         with:
@@ -263,7 +267,9 @@ jobs:
             ~/.cache/coursier
           key: sbt-${{ hashFiles('**/build.sbt') }}
           restore-keys: sbt-
-      - uses: actions/setup-node@v7
+      - id: setup-node
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -271,14 +277,24 @@ jobs:
             package-lock.json
             frontend/package-lock.json
             helio-mcp/package-lock.json
-      - run: npm ci
-      - run: npm --prefix frontend ci
+      - id: npm-ci-root
+        if: ${{ !cancelled() && steps.setup-node.outcome == 'success' }}
+        run: npm ci
+      - id: npm-ci-frontend
+        if: ${{ !cancelled() && steps.setup-node.outcome == 'success' }}
+        run: npm --prefix frontend ci
 
+      # HEL-1296: bounded (measured ~20 s); a hung step fails at 2 min so the npm audits still fit the job timeout.
       - name: Generate backend SBOM
+        id: sbom
+        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.setup-sbt.outcome == 'success' }}
+        timeout-minutes: 2
         working-directory: backend
         run: sbt -batch generateSbom
 
       - name: Backend SBOM positive control
+        id: sbom-control
+        if: ${{ !cancelled() && steps.sbom.outcome == 'success' }}
         working-directory: backend
         run: |
           count=$(jq '.components | length' target/sbom.cdx.json)
@@ -289,6 +305,8 @@ jobs:
           fi
 
       - name: Install osv-scanner
+        id: osv-install
+        if: ${{ !cancelled() && steps.sbom-control.outcome == 'success' }}
         run: |
           curl -sL -o /usr/local/bin/osv-scanner \
             https://github.com/google/osv-scanner/releases/download/v2.5.1/osv-scanner_linux_amd64
@@ -296,6 +314,8 @@ jobs:
           osv-scanner --version
 
       - name: Scan backend SBOM (osv-scanner)
+        id: osv-scan
+        if: ${{ !cancelled() && steps.osv-install.outcome == 'success' }}
         working-directory: backend
         run: |
           set +e
@@ -314,6 +334,7 @@ jobs:
           cat /tmp/osv-scan.json
 
       - name: Enforce backend CVSS >= 7 threshold
+        if: ${{ !cancelled() && steps.osv-scan.outcome == 'success' }}
         working-directory: backend
         run: |
           # osv-scanner has no severity-threshold flag (verified against its CLI flags and
@@ -356,15 +377,18 @@ jobs:
           fi
 
       - name: Frontend audit (root)
+        if: ${{ !cancelled() && steps.npm-ci-root.outcome == 'success' }}
         run: npx audit-ci --config .audit-ci.jsonc
 
       - name: Frontend audit (frontend/)
+        if: ${{ !cancelled() && steps.npm-ci-frontend.outcome == 'success' }}
         working-directory: frontend
         run: npx audit-ci --config .audit-ci.jsonc
 
       # HEL-1204: root-pinned audit-ci (installed by the root `npm ci` above) reading helio-mcp's
       # lockfile; an audit needs only the lockfile, so no `npm --prefix helio-mcp ci` here.
       - name: helio-mcp audit (helio-mcp/)
+        if: ${{ !cancelled() && steps.npm-ci-root.outcome == 'success' }}
         run: npx audit-ci --config helio-mcp/.audit-ci.jsonc --directory helio-mcp
 
   # HEL-951 — this job runs Playwright by GLOB (`npx playwright test`, no
