@@ -101,8 +101,9 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  from `maxAgeByTier` (including any tier unknown to this code) uses the strictest (shortest)
    *  supplied cap, so a partial map fails toward bounded storage; an empty map applies no age purge.
    *  One transaction; idempotent. Buckets are epoch-aligned and partitioned by age class, so a
-   *  coarse bucket straddling a window boundary may briefly keep two points until a later pass. */
-  def thinAndPurge(now: Instant, policy: HistoryThinningPolicy, maxAgeByTier: Map[UserTier, Duration]): Future[Int] = {
+   *  coarse bucket straddling a window boundary may briefly keep two points until a later pass.
+   *  Returns `Purged(deleted)`, or `LockBusy` (nothing run) when another session holds the purge lock. */
+  def thinAndPurge(now: Instant, policy: HistoryThinningPolicy, maxAgeByTier: Map[UserTier, Duration]): Future[RetentionPassOutcome] = {
     val strictest = if (maxAgeByTier.isEmpty) None else Some(maxAgeByTier.values.min)
     val named = maxAgeByTier.toSeq.map { case (tier, maxAge) =>
       val tierName = UserTier.asString(tier)
@@ -149,12 +150,12 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
                ) ranked WHERE rn > 1)"""
 
     // Another instance already purging: skip rather than contend (two multi-row DELETEs can
-    // deadlock); the next interval re-runs it. The xact lock releases at commit/rollback.
+    // deadlock); the service retries a lock-held skip after a short window. The xact lock releases at commit/rollback.
     val guarded = sql"SELECT pg_try_advisory_xact_lock($PurgeAdvisoryLockKey)".as[Boolean].head.flatMap {
-      case true  => purgeByAge.flatMap(a => thin.map(_ + a))
+      case true  => purgeByAge.flatMap(a => thin.map(t => RetentionPassOutcome.Purged(t + a)))
       case false =>
         log.debug("Output history thin/purge skipped: another session holds the purge lock")
-        DBIO.successful(0)
+        DBIO.successful(RetentionPassOutcome.LockBusy)
     }
     ctx.withSystemContext(guarded.transactionally)
   }

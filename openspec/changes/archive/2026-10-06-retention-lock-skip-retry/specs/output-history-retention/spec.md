@@ -1,10 +1,4 @@
-# output-history-retention Specification
-
-## Purpose
-Bounds Output history storage by thinning points into age-dependent time buckets and purging points older than the
-pipeline owner's tier maximum age, on the existing scheduler tick.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Tiered time-bucket retention on the scheduler tick
 The system SHALL, from the existing pipeline scheduler tick and at most once per configured purge interval (default
@@ -28,30 +22,7 @@ days by default).
 - **WHEN** an Editor grantee on a free tier created an Output on an owner-tier user's pipeline
 - **THEN** that Output's history is retained for the owner tier's maximum age
 
-### Requirement: Retention failures never fail the tick
-A failure of the retention purge SHALL be logged at error level and SHALL NOT fail the scheduler tick or prevent the
-tick's other work.
-
-#### Scenario: Purge throws
-- **WHEN** the history purge fails during a tick
-- **THEN** the tick completes successfully, its scheduled-run work still runs, and the failure is logged
-
-### Requirement: Retention runs on the privileged pool
-The retention purge SHALL run on the privileged (BYPASSRLS) database pool, because no user context exists on the
-scheduler tick and history is protected by forced row-level security.
-
-#### Scenario: Two-role topology
-- **WHEN** the purge runs with an app pool as a non-BYPASSRLS role and a privileged pool as `helio_privileged`
-- **THEN** the purge deletes the expected points, while the same delete on the app pool without a user context
-  deletes nothing
-
-### Requirement: Env-driven retention configuration
-Retention SHALL be configured from environment variables read once at startup, each falling back to its documented
-default when unset, non-numeric or not positive.
-
-#### Scenario: Unset or invalid values
-- **WHEN** a retention environment variable is unset, non-numeric or not positive
-- **THEN** the documented default is used for that value
+## ADDED Requirements
 
 ### Requirement: Lock-held retention skip retries within a short window
 A retention pass has two parts, the history thin/purge and the node-payload purge, each guarded by the retention

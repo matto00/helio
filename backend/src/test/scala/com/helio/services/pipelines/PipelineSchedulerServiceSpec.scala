@@ -7,7 +7,7 @@ import com.helio.services.pipelines.{PipelineRunService, PipelineSchedulerServic
 import com.helio.domain.util.{Clock, CronSchedule}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, OutputHistoryRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, OutputHistoryRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, RetentionPassOutcome}
 import com.helio.infrastructure.persistence.DbContext
 import ch.qos.logback.classic.{Level, Logger => LogbackLogger}
 import ch.qos.logback.classic.spi.ILoggingEvent
@@ -289,7 +289,7 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
       }
 
     class FailingHistoryRepo(sync: Boolean) extends OutputHistoryRepository(historyCtx) {
-      override def thinAndPurge(now: Instant, policy: HistoryThinningPolicy, caps: Map[UserTier, Duration]): Future[Int] =
+      override def thinAndPurge(now: Instant, policy: HistoryThinningPolicy, caps: Map[UserTier, Duration]): Future[RetentionPassOutcome] =
         if (sync) throw new IllegalStateException("boom-sync") else Future.failed(new IllegalStateException("boom-future"))
     }
 
