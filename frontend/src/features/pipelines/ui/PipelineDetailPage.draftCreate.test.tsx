@@ -483,4 +483,64 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
 
     expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
   });
+
+  // HEL-1340 item 3 — between the create being sent and the step's own analyze entry arriving, the
+  // draft has neither an analyze entry nor pending meta; its field picker must still resolve.
+  const inputFieldSelect = () =>
+    screen.getByRole("combobox", { name: /input field to generate from/i });
+
+  it("keeps the chosen input field shown while the draft's create is in flight", async () => {
+    const create = deferredCreate();
+    renderPage();
+    await addTrunkDraft();
+    await completeDraft();
+
+    expect(inputFieldSelect()).toHaveTextContent("notes");
+
+    await create.resolve(aiPersisted("ai-1", 0));
+  });
+
+  it("keeps the chosen input field shown after the create, before its own analyze lands", async () => {
+    const create = deferredCreate();
+    renderPage();
+    await addTrunkDraft();
+    await completeDraft();
+    // Hold every later /analyze (the post-swap debounced one) unresolved.
+    analyzePipelineMock.mockReturnValue(new Promise<PipelineAnalyzeResponse>(() => {}));
+    await create.resolve(aiPersisted("ai-1", 0));
+    await waitFor(() =>
+      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
+    );
+
+    expect(inputFieldSelect()).toHaveTextContent("notes");
+  });
+
+  it("a lane draft in flight resolves its field from its anchor, not the root source", async () => {
+    getPipelineStepsMock.mockResolvedValue([persisted("anchor-1", "rename", 0)]);
+    // The anchor's output exposes `notes`; the root source exposes only `other`, so only an
+    // exact-anchor resolution can show the chosen field.
+    analyzePipelineMock.mockResolvedValue({
+      ...analyzeResponse,
+      sourceSchemas: [{ rootId: "root-1", sourceSchema: [{ name: "other", type: "string" }] }],
+      steps: [
+        {
+          id: "anchor-1",
+          position: 0,
+          type: "rename" as const,
+          config: { renames: {} },
+          inputSchema: notesSchema,
+          outputSchema: notesSchema,
+        },
+      ],
+    });
+    const create = deferredCreate();
+    renderPage();
+    await addLaneDraft();
+    await completeDraft();
+
+    expect(inputFieldSelect()).toHaveTextContent("notes");
+
+    await create.resolve(aiPersisted("ai-1", 1, "anchor-1"));
+    expect(inputFieldSelect()).toHaveTextContent("notes");
+  });
 });

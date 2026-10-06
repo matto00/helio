@@ -14,9 +14,9 @@
   carry removed, green restored; commit (item 1)
 - [x] 2.1 Create `hooks/usePipelineStepCreation.ts` per design D3 and move the create/draft logic; verify lint, tsc,
   and the full frontend Jest suite pass with zero test-file changes; commit (item 2)
-- [ ] 3.1 Probe item 3's root cause (D4) and record it; write the red test; fix; verify red→green; commit (item 3)
+- [x] 3.1 Probe item 3's root cause (D4) and record it; write the red test; fix; verify red→green; commit (item 3)
 
 ### Tests
 
-- [ ] 5.1 Run lint, format:check, typecheck, root and frontend Jest (`--maxWorkers=2`) and the frontend build; verify all
+- [x] 5.1 Run lint, format:check, typecheck, root and frontend Jest (`--maxWorkers=2`) and the frontend build; verify all
   green and record results in `probe-evidence.md`

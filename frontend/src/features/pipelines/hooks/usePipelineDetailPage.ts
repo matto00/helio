@@ -170,6 +170,18 @@ export function usePipelineDetailPage() {
       { index?: number; parentStepId?: string; attachAsTail?: boolean; rootId?: string }
     >(),
   );
+  // HEL-1340 — the anchor meta of a draft whose create has been SENT. `pendingDraftMetaRef` is
+  // emptied at send (the create-exactly-once guard and `stepsFingerprint` depend on that), which
+  // left the in-flight draft with neither an analyze entry nor meta, so its field picker lost its
+  // schema. Keyed by the temp id while in flight, re-keyed to the persisted id on the swap, and
+  // dropped once the step has its own analyze entry (or is gone) or the create fails. Consulted
+  // by the schema fallback only, never by the guard or the fingerprint.
+  const draftFallbackMetaRef = useRef(
+    new Map<
+      string,
+      { index?: number; parentStepId?: string; attachAsTail?: boolean; rootId?: string }
+    >(),
+  );
   // HEL-908 Cycle 13 -- read inside the SSE `onTerminal` closure (defined
   // below, before `allOutputs` itself is computed) so a completed run can
   // re-fetch every visible Output's preview without a stale closure over an
@@ -540,31 +552,48 @@ export function usePipelineDetailPage() {
         steps,
         (id) => analyzeByStepId.get(id),
         sourceSchemaForRoot,
-        pendingDraftMetaRef.current.get(stepId),
+        pendingDraftMetaRef.current.get(stepId) ?? draftFallbackMetaRef.current.get(stepId),
       ),
     [steps, analyzeByStepId, sourceSchemaForRoot],
   );
+
+  const hasDraftFallbackMeta = useCallback(
+    (stepId: string) =>
+      pendingDraftMetaRef.current.has(stepId) || draftFallbackMetaRef.current.has(stepId),
+    [],
+  );
+
+  // HEL-1340 — drop a sent draft's fallback meta once its CURRENT id has its own analyze entry
+  // (reads go to `analyzeByStepId` first, so the stale entry is harmless; this just bounds it) or
+  // the step is gone (removed, or its create failed and was removed).
+  useEffect(() => {
+    for (const key of Array.from(draftFallbackMetaRef.current.keys())) {
+      if (analyzeByStepId.has(key) || !steps.some((s) => s.id === key)) {
+        draftFallbackMetaRef.current.delete(key);
+      }
+    }
+  }, [analyzeByStepId, steps]);
 
   const getAnalyzeColumns = useCallback(
     (stepId: string): string[] => {
       const entry = analyzeByStepId.get(stepId);
       if (entry) return entry.columns;
-      if (pendingDraftMetaRef.current.has(stepId)) {
+      if (hasDraftFallbackMeta(stepId)) {
         return getDraftFallbackSchema(stepId).map((f) => f.name);
       }
       return EMPTY_ANALYZE_COLUMNS;
     },
-    [analyzeByStepId, getDraftFallbackSchema],
+    [analyzeByStepId, getDraftFallbackSchema, hasDraftFallbackMeta],
   );
 
   const getAnalyzeSchema = useCallback(
     (stepId: string): SchemaField[] => {
       const entry = analyzeByStepId.get(stepId);
       if (entry) return entry.schema;
-      if (pendingDraftMetaRef.current.has(stepId)) return getDraftFallbackSchema(stepId);
+      if (hasDraftFallbackMeta(stepId)) return getDraftFallbackSchema(stepId);
       return EMPTY_ANALYZE_SCHEMA;
     },
-    [analyzeByStepId, getDraftFallbackSchema],
+    [analyzeByStepId, getDraftFallbackSchema, hasDraftFallbackMeta],
   );
 
   // HEL-404 — mirror of getAnalyzeSchema, reading outputSchema instead of
@@ -740,6 +769,7 @@ export function usePipelineDetailPage() {
     syncStepsFromServer,
     pushToast,
     pendingDraftMetaRef,
+    draftFallbackMetaRef,
   });
 
   // HEL-908 task 5.6 — "Add as tail with aggregate": issues the two calls

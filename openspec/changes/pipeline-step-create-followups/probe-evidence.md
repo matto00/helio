@@ -13,3 +13,39 @@ Test: `a non-head reorder keeps a created draft's card open` in
   Result: `Tests: 1 failed, 8 passed, 9 total`; the new test fails with
   `Expected the element to have attribute: aria-expanded="true"` (hel1340-item1-red.log).
 - Mutation reverted (`git checkout`); file clean.
+
+## Item 3 (AC3): in-flight draft select placeholder
+
+### Root-cause probe (before any fix)
+Temporary `console.log` in `getAnalyzeSchema` (reverted; hel1340-item3-probe.log), test run with
+`-t "while the draft's create is in flight"`:
+
+```
+3  PROBE getAnalyzeSchema step-1 analyzeEntry= false pendingMeta= true    (before the create is sent)
+1  PROBE getAnalyzeSchema step-1 analyzeEntry= false pendingMeta= false   (after the create is sent)
+```
+After the create is sent the draft has neither an analyze entry nor `pendingDraftMetaRef` meta
+(deleted at send), so `getAnalyzeSchema` returns `EMPTY_ANALYZE_SCHEMA` and the select shows its
+placeholder. Hypothesis in design D4 confirmed.
+
+### Red run (tests added, fix not yet applied; hel1340-item3-red.log)
+`Tests: 3 failed, 9 passed, 12 total`. All three new tests fail with
+`Expected element to have text content: notes / Received: — select a string field —`:
+- keeps the chosen input field shown while the draft's create is in flight
+- keeps the chosen input field shown after the create, before its own analyze lands (post-swap
+  `analyzePipeline` held unresolved)
+- a lane draft in flight resolves its field from its anchor, not the root source (anchor output
+  exposes `notes`, root source only `other`)
+
+### Green (fix applied; hel1340-item3-green.log)
+`Test Suites: 5 passed, 5 total / Tests: 155 passed, 155 total`
+(`src/features/pipelines/ui/PipelineDetailPage*`).
+
+Fix: `draftFallbackMetaRef` (page hook, next to `pendingDraftMetaRef`) written at create send, re-keyed
+temp -> persisted id in the create `.then` before `setSteps`, deleted on create failure, and dropped by
+an effect once the step's current id has an analyze entry or the step is gone. The schema fallback
+reads `pendingDraftMetaRef ?? draftFallbackMetaRef`. Guard and `stepsFingerprint` unchanged.
+
+## Gates (task 5.1)
+Pre-commit for each commit ran eslint, tsc, prettier, root and frontend Jest (439 suites / 4582 tests
+green on commits 1 and 2); see final report for commit 3 and the explicit lint / format:check / build runs.

@@ -32,6 +32,8 @@ type UsePipelineStepCreationArgs = {
   pushToast: ReturnType<typeof useToast>["push"];
   // Created by the page hook because `stepsFingerprint` reads it during render.
   pendingDraftMetaRef: MutableRefObject<Map<string, PendingDraftMeta>>;
+  // HEL-1340 — sent drafts' anchor meta for the schema fallback (see the page hook).
+  draftFallbackMetaRef: MutableRefObject<Map<string, PendingDraftMeta>>;
 };
 
 /**
@@ -48,6 +50,7 @@ export function usePipelineStepCreation({
   syncStepsFromServer,
   pushToast,
   pendingDraftMetaRef,
+  draftFallbackMetaRef,
 }: UsePipelineStepCreationArgs) {
   // Guards against firing a second create for the same draft while the
   // first is still in flight (a burst of edits can call
@@ -274,6 +277,7 @@ export function usePipelineStepCreation({
       if (!id) return;
       creatingDraftIdsRef.current.add(stepId);
       pendingDraftMetaRef.current.delete(stepId);
+      draftFallbackMetaRef.current.set(stepId, meta);
       void createPipelineStep(
         id,
         step.opType.id as PipelineStepKind,
@@ -289,6 +293,9 @@ export function usePipelineStepCreation({
           // inequality with the POSTed config means the user edited while the create was in
           // flight; that edit was never sent (the create carried the older config, and a
           // temp-id PATCH is skipped), so flush it to the persisted id once.
+          // HEL-1340 — keep the schema fallback alive across the id swap.
+          draftFallbackMetaRef.current.delete(stepId);
+          draftFallbackMetaRef.current.set(persisted.id, meta);
           const latest = stepsRef.current.find((s) => s.id === stepId);
           const editedInFlight = latest !== undefined && latest.config !== config;
           // HEL-1321 D2 — the temp id becomes the stable render key (set once), so the open
@@ -317,6 +324,7 @@ export function usePipelineStepCreation({
         .catch((err: unknown) => {
           const message = extractErrorMessage(err, "Failed to save this step — try again.");
           setDraftCreateErrors((prev) => ({ ...prev, [stepId]: message }));
+          draftFallbackMetaRef.current.delete(stepId);
           // Restore the pending meta so a subsequent completing edit retries the create.
           pendingDraftMetaRef.current.set(stepId, meta);
         })
@@ -324,7 +332,7 @@ export function usePipelineStepCreation({
           creatingDraftIdsRef.current.delete(stepId);
         });
     },
-    [id, stepsRef, setSteps, pendingDraftMetaRef],
+    [id, stepsRef, setSteps, pendingDraftMetaRef, draftFallbackMetaRef],
   );
 
   return {
