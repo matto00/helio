@@ -67,7 +67,7 @@ The history summary SHALL contain the row count, per-numeric-column count/sum/mi
 - **THEN** the stored series holds at most 200 points including the first and last, with the original point count recorded
 
 ### Requirement: History repository primitives
-The history repository SHALL provide listing the most recent points of an Output newest first, finding the nearest point at or before an instant, finding the earliest point's timestamp, and thinning plus purging history by age-dependent time buckets and per-tier maximum age, where the tier is the tier of the owner of the history point's pipeline and a tier absent from the supplied caps (including a tier unknown to the code) uses the strictest (shortest) supplied cap. Concurrent thinning/purge passes SHALL NOT run simultaneously: a pass that finds another in progress deletes nothing.
+The history repository SHALL provide listing the most recent points of an Output newest first, finding the nearest point at or before an instant, finding the earliest point's timestamp, and thinning plus purging history by age-dependent time buckets and per-tier maximum age, where the tier is the tier of the owner of the history point's pipeline and a tier absent from the supplied caps (including a tier unknown to the code) uses the strictest (shortest) supplied cap. Concurrent thinning/purge passes SHALL NOT run simultaneously, and a pass SHALL NOT wait on the retention lock: a pass that finds the retention lock held (by another retention pass, or shared by a run's write-time payload trim) deletes nothing and reports a lock-held skip that is distinguishable from a pass that ran and deleted nothing.
 
 #### Scenario: Nearest point at or before
 - **WHEN** points exist at t1 < t2 < t3 and the lookup instant falls between t2 and t3
@@ -82,8 +82,8 @@ The history repository SHALL provide listing the most recent points of an Output
 - **THEN** that owner's history points older than the shortest supplied cap are deleted
 
 #### Scenario: A pass that finds another in progress deletes nothing
-- **WHEN** another session holds the purge lock and thinning is invoked with thinnable points present
-- **THEN** it returns 0 and no point is deleted, and a later pass after the lock is released thins them
+- **WHEN** another session holds the retention lock (exclusively or shared) and thinning is invoked with thinnable points present
+- **THEN** it reports a lock-held skip (not a zero-delete result) and no point is deleted, and a later pass after the lock is released thins them
 
 #### Scenario: A tier unknown to the code is still age-purged
 - **WHEN** the caps name some tiers and a pipeline owner has a tier not among them, even one the code has never heard of
