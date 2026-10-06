@@ -1,3 +1,0 @@
-- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.history.test.tsx` — new page-level RTL test pinning the public history route (AC2)
-- `e2e/hel1275-metric-delta-sparkline.spec.ts` — no-reload assertion, resizeAndSettle, isolateLivePage + user-id log (AC3, AC4, D4)
-- `openspec/changes/history-delta-test-gaps/mutation-evidence.md` — red/green evidence
