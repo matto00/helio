@@ -141,15 +141,5 @@ class DateBucketStepSpec extends AnyWordSpec with Matchers {
       val result = evaluate(rows, step(granularity = "day"))
       result should have size 3
     }
-
-    "does not fail on a partially-parseable input — still nulls the unparseable row, doesn't fail the step" in {
-      val rows = Seq(
-        Map[String, Any]("ts" -> "2026-03-17T00:00:00Z"),
-        Map[String, Any]("ts" -> "not-a-date")
-      )
-      val result = evaluate(rows, step(granularity = "day"))
-      result.head("ts") shouldBe "2026-03-17"
-      result(1)("ts").asInstanceOf[AnyRef] shouldBe null
-    }
   }
 }

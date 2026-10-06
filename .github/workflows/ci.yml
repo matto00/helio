@@ -9,9 +9,19 @@ on:
 permissions:
   contents: read
 
+# HEL-1287 D10: a new push to a PR supersedes that PR's in-flight run (key = PR number). Every other event (main
+# pushes) gets its own group (key = run_id) and never cancels: within ONE group GitHub keeps only one running and
+# one pending run and cancels an older pending run even with cancel-in-progress false, so a shared per-ref group on
+# main would silently drop a queued main run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   frontend:
     runs-on: ubuntu-latest
+    # HEL-1287 D11: measured 5-7.7 min (runs 37382209230, 37387080368: 373-455 s); ~2.5x.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -120,7 +130,26 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
+    # HEL-1287: the suite runs as SHARD_COUNT parallel legs of this one job id, so `ci-complete`'s
+    # `needs: backend` waits on every leg and sees `failure` if any leg fails. backend/project/TestShards.scala
+    # assigns each suite to exactly one shard and fails the leg, naming the suite, if that is ever not true.
+    # HEL-1287 D11: measured legs take 3.4-6.4 min (runs 37382209230, 37387080368: cold 237-385 s); 15 min is ~2.5x the cold worst case.
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      # Equal to the leg count: documents the owner's ~4-leg cap (C6) rather than throttling; a lower value would
+      # serialise legs and miss the time target.
+      max-parallel: 4
+      matrix:
+        shard: [0, 1, 2, 3]
     env:
+      HELIO_TEST_SHARD_INDEX: ${{ matrix.shard }}
+      # Derived from the matrix size so the shard count can never disagree with the legs that actually run
+      # (a count larger than the matrix would silently skip the surplus shards' suites).
+      HELIO_TEST_SHARD_COUNT: ${{ strategy.job-total }}
+      # HEL-1287: really run 2 forked groups at once per leg (see build.sbt; sbt's own limit of 1 otherwise wins).
+      HEL924_TEST_GROUP_CONCURRENCY: 2
+      HEL924_TEST_GROUP_COUNT: 4
       # HEL-822: dual-support REST source create now synthesizes an implicit
       # Connector (ImplicitConnectorConfig -> ConnectorRepository.create ->
       # ConnectorCredentialRepository.create) for the legacy bare-url create
@@ -151,19 +180,57 @@ jobs:
             ~/.cache/coursier
           key: sbt-${{ hashFiles('**/build.sbt') }}
           restore-keys: sbt-
+      # HEL-1287 D7: restore the nearest earlier compile output so sbt/zinc compiles incrementally (only changed
+      # sources and their dependents). sbt 2 writes compile outputs into its content-addressed disk cache
+      # (~/.cache/sbt/v2/cas) and leaves SYMLINKS to it under backend/target/out, so BOTH paths are one entry:
+      # `target/out` alone restores dangling links (run 37382209230 attempt 2: every leg failed with
+      # "Not found: TestShards"). Test reports are excluded so results cannot leak between runs; tests always
+      # re-run (`testFull` never serves a cached result). Hygiene: every run only RESTORES (exact key, then the
+      # newest backend-compile-v3 entry); only a push to main, from shard 0, saves (below), so there is at most one
+      # entry per main push and none per PR or per leg. The prefix is deliberately outside the `sbt-` namespace so
+      # the dependency step's `restore-keys: sbt-` can never prefix-match a compile entry.
+      - name: Restore backend compile output
+        id: compile-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            backend/target/out
+            ~/.cache/sbt
+            !backend/target/out/**/test-reports
+          key: backend-compile-v3-${{ runner.os }}-${{ hashFiles('backend/src/**', 'backend/build.sbt', 'backend/project/*.scala', 'backend/project/*.sbt', 'backend/project/build.properties') }}
+          restore-keys: backend-compile-v3-${{ runner.os }}-
       - name: Compile and test
         # HEL-1018: one quoted command -- sbt 2's thin client joins unquoted args into a single
         # (unparseable) command; testFull never serves a cached result.
         # HEL-1273: the sbt server's heap was 1.00GB here; main's base ran at ~97% of it (85-97% GC)
         # and PR #769's test compile hit `java.lang.OutOfMemoryError: Java heap space`. A first try
         # (`sbt -J-Xmx3g` via the thin client) still printed 1073741824 on this runner although it
-        # gave 3221225472 locally, so the heap is now set two ways at once, in batch mode (no thin
-        # client / background server): a CI-only `.jvmopts` (untracked; backend/.sbtopts is
+        # gave 3221225472 locally, so the heap is now set two ways at once with `-batch` (the log still
+        # prints "entering thin client", so this does not prove there is no background server): a CI-only
+        # `.jvmopts` (untracked; backend/.sbtopts is
         # untouched) and `-J-Xmx3g`. The leading `eval` prints the JVM's real max heap into this log.
         run: |
           printf '%s\n' -Xmx3g > .jvmopts
           sbt -batch -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile; testFull"
         working-directory: backend
+      - name: Save backend compile output (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.shard == 0 && steps.compile-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            backend/target/out
+            ~/.cache/sbt
+            !backend/target/out/**/test-reports
+          key: backend-compile-v3-${{ runner.os }}-${{ hashFiles('backend/src/**', 'backend/build.sbt', 'backend/project/*.scala', 'backend/project/*.sbt', 'backend/project/build.properties') }}
+      # HEL-1287: JUnit XML (one per suite, `time` attribute) is the per-suite profile source.
+      - name: Upload backend JUnit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-junit-reports-shard-${{ matrix.shard }}
+          path: backend/target/**/test-reports/*.xml
+          if-no-files-found: warn
+          retention-days: 14
 
   # HEL-459: fails the build on a new high/critical CVE. Backend: a small sbt task
   # (build.sbt `generateSbom`) reads the resolved compile-scope classpath's attached
@@ -178,6 +245,8 @@ jobs:
   # choices and the severity-filter rationale.
   security:
     runs-on: ubuntu-latest
+    # HEL-1287 D11: measured 69-90 s (runs 37382209230, 37387080368); step-level timeouts are HEL-1296's.
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -448,6 +517,8 @@ jobs:
     if: always()
     needs: [frontend, backend, security, e2e]
     runs-on: ubuntu-latest
+    # HEL-1287 D11: measured 2-4 s of execution; 2 min leaves runner start-up jitter.
+    timeout-minutes: 2
     steps:
       - name: Verify no job failed or was cancelled
         run: |
