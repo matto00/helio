@@ -19,7 +19,7 @@ import type { OpType, Step } from "../types/step";
 import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Output } from "../types/output";
 import type { Lane, LaneGraph } from "../state/stepTree";
-import { childLanesOf } from "../state/stepTree";
+import { childLanesOf, laneRenderKey, stepRenderKey } from "../state/stepTree";
 
 const EMPTY_OUTPUTS: Output[] = [];
 // Stable no-op for the drag callbacks of a card that renders no drag handle (a stable reference keeps
@@ -149,7 +149,7 @@ export function LaneColumn({
       <div className="pipeline-detail-page__lane-row" role="group" aria-label="Lanes">
         {childLanes.map((childLane, index) => (
           <LaneColumn
-            key={childLane.id}
+            key={laneRenderKey(childLane)}
             lane={childLane}
             laneGraph={laneGraph}
             allSteps={allSteps}
@@ -200,7 +200,7 @@ export function LaneColumn({
         {lane.steps.map((step) => (
           <div
             className="pipeline-detail-page__tail-chain-step"
-            key={step.id}
+            key={stepRenderKey(step)}
             title={nodePathByStepId[step.id]}
           >
             <div className="pipeline-detail-page__tail-chain-item">
@@ -246,7 +246,7 @@ export function LaneColumn({
     <div className="pipeline-detail-page__lane-column" aria-label="Lane">
       {laneHeader}
       {lane.steps.map((step, idx) => (
-        <Fragment key={step.id}>
+        <Fragment key={stepRenderKey(step)}>
           {reorder && reorder.dragLaneId === lane.id && reorder.overIndex === idx && (
             <div className="pipeline-detail-page__drop-indicator" aria-hidden="true" />
           )}

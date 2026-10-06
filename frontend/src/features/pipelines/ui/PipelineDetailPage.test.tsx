@@ -694,13 +694,10 @@ describe("PipelineDetailPage", () => {
       );
 
       // A further edit after the create resolved must PATCH, not re-create.
-      // (The card remounts with the real id as its React key -- the same
-      // pre-existing behavior every immediate-create op already has via
-      // `syncStepsFromServer` -- so it re-collapses; re-expand before editing.)
+      // (HEL-1321: the card keeps its stable render key across the id swap, so it stays open.)
       await waitFor(() =>
         expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
       );
-      fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
       fireEvent.change(screen.getByRole("textbox", { name: /instruction for the model/i }), {
         target: { value: "Summarize briefly" },
       });

@@ -47,4 +47,9 @@ export interface Step {
   // root isn't known until the create call resolves; a persisted step
   // always carries one (R4).
   rootId?: string;
+  // HEL-1321 — client-only React key that survives the temp-id -> server-id swap of a step
+  // created from an AI draft, so its open card (and lane) is not remounted. Never sent to the
+  // server; render sites key by `renderKey ?? id` (see `stepRenderKey`). Real identity (lookups,
+  // callbacks, lane ids) stays `id`.
+  renderKey?: string;
 }

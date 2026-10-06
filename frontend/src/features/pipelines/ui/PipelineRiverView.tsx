@@ -25,7 +25,7 @@ import type { PipelineRoot, PipelineStepConfig, SchemaField } from "../types/pip
 import type { ExpandPipelineShapeResponse } from "../types/pipelineShape";
 import type { Output } from "../types/output";
 import type { LaneGraph } from "../state/stepTree";
-import { childLanesOf } from "../state/stepTree";
+import { childLanesOf, laneRenderKey, stepRenderKey } from "../state/stepTree";
 import { useLaneReorder } from "../hooks/useLaneReorder";
 import type { LaneReorder } from "../hooks/useLaneReorder";
 import { nodePath } from "../state/nodePath";
@@ -351,7 +351,7 @@ export function PipelineRiverView({
               {primarySteps.map((step, idx) => {
                 const childLanes = childLanesOf(laneGraph, step.id);
                 return (
-                  <Fragment key={step.id}>
+                  <Fragment key={stepRenderKey(step)}>
                     {primaryLane && dragLaneId === primaryLane.id && overIndex === idx && (
                       <div className="pipeline-detail-page__drop-indicator" aria-hidden="true" />
                     )}
@@ -422,7 +422,7 @@ export function PipelineRiverView({
                         >
                           {childLanes.map((childLane, index) => (
                             <LaneColumn
-                              key={childLane.id}
+                              key={laneRenderKey(childLane)}
                               laneNumber={index + 1}
                               lane={childLane}
                               laneGraph={laneGraph}

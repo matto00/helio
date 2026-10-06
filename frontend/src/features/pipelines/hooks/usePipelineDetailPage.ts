@@ -50,6 +50,7 @@ import {
   duplicatePipelineStep,
   removePipelineRoot,
   reorderPipelineSteps,
+  updatePipelineStep,
   updatePipelineStepEnabled,
 } from "../services/pipelineService";
 import { createOutput } from "../services/outputService";
@@ -730,7 +731,17 @@ export function usePipelineDetailPage() {
   const syncStepsFromServer = useCallback(async () => {
     if (!id) return;
     const { steps: freshSteps } = await dispatch(fetchPipelineSteps(id)).unwrap();
-    setSteps(freshSteps.map(pipelineStepToStep));
+    // HEL-1321 — carry a draft-created step's stable render key across the full-list replace
+    // (matched by real id); every other step is rebuilt exactly as before.
+    const renderKeys = new Map<string, string>();
+    for (const s of stepsRef.current) if (s.renderKey) renderKeys.set(s.id, s.renderKey);
+    setSteps(
+      freshSteps.map((ps) => {
+        const next = pipelineStepToStep(ps);
+        const renderKey = renderKeys.get(next.id);
+        return renderKey ? { ...next, renderKey } : next;
+      }),
+    );
   }, [id, dispatch]);
 
   // HEL-410 — generalizes the former `handleAddStep` to insert at any list
@@ -821,7 +832,22 @@ export function usePipelineDetailPage() {
     async (opType: OpType, parentStepId: string) => {
       if (!id) return;
       setStepsInitialized(true);
-      const tempStep = makeStep(opType, parentStepId);
+      const baseStep = makeStep(opType, parentStepId);
+      // HEL-1321 D2b — a draft (only) gets a provisional non-zero `position` so
+      // `buildLaneGraph` renders it as the head of its OWN lane from the first render (a sole
+      // position-less child would render inside the anchor's lane, then hop to a new
+      // `LaneColumn` once the server assigns position >= 1). Mirrors the server's
+      // `attachTail` rule (max sibling position + 1). Never sent: the create passes
+      // `attachAsTail`, not a position. The create-immediately branch keeps the plain step.
+      const tempStep = requiresCompleteConfigForCreate(opType.id)
+        ? {
+            ...baseStep,
+            position:
+              stepsRef.current
+                .filter((s) => s.parentStepId === parentStepId)
+                .reduce((max, s) => Math.max(max, s.position ?? 0), 0) + 1,
+          }
+        : baseStep;
       // Must land IMMEDIATELY after the anchor in the flat array —
       // `buildLaneGraph` derives lane membership from `parentStepId` and
       // `position`, not array order, but `executionOrder` still emits a
@@ -1085,11 +1111,35 @@ export function usePipelineDetailPage() {
         meta.rootId,
       )
         .then((persisted) => {
+          // HEL-1321 D3 — `stepsRef` still holds the PRE-swap list here, so look the draft up by
+          // its temp id. Every edit replaces `config` with a new object, so reference
+          // inequality with the POSTed config means the user edited while the create was in
+          // flight; that edit was never sent (the create carried the older config, and a
+          // temp-id PATCH is skipped), so flush it to the persisted id once.
+          const latest = stepsRef.current.find((s) => s.id === stepId);
+          const editedInFlight = latest !== undefined && latest.config !== config;
+          // HEL-1321 D2 — the temp id becomes the stable render key (set once), so the open
+          // card and its lane are not remounted by the id swap.
           setSteps((prev) =>
             prev.map((s) =>
-              s.id === stepId ? { ...pipelineStepToStep(persisted), config: s.config } : s,
+              s.id === stepId
+                ? {
+                    ...pipelineStepToStep(persisted),
+                    config: s.config,
+                    renderKey: s.renderKey ?? s.id,
+                  }
+                : s,
             ),
           );
+          if (editedInFlight) {
+            updatePipelineStep(persisted.id, latest.config).catch((err: unknown) => {
+              const message = extractErrorMessage(
+                err,
+                "Failed to save your latest edit — try editing again.",
+              );
+              setDraftCreateErrors((prev) => ({ ...prev, [persisted.id]: message }));
+            });
+          }
         })
         .catch((err: unknown) => {
           const message = extractErrorMessage(err, "Failed to save this step — try again.");
@@ -1238,7 +1288,7 @@ export function usePipelineDetailPage() {
           newOrder.map((s) => {
             if (isTempStepId(s.id)) return s;
             const persisted = response.find((r) => r.id === s.id);
-            return persisted ? pipelineStepToStep(persisted) : s;
+            return persisted ? { ...pipelineStepToStep(persisted), renderKey: s.renderKey } : s;
           }),
         );
       } catch (err: unknown) {
@@ -1320,7 +1370,11 @@ export function usePipelineDetailPage() {
       setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, enabled } : s)));
       try {
         const persisted = await updatePipelineStepEnabled(stepId, enabled);
-        setSteps((prev) => prev.map((s) => (s.id === stepId ? pipelineStepToStep(persisted) : s)));
+        setSteps((prev) =>
+          prev.map((s) =>
+            s.id === stepId ? { ...pipelineStepToStep(persisted), renderKey: s.renderKey } : s,
+          ),
+        );
       } catch (err: unknown) {
         setSteps(previousSteps);
         const message = extractErrorMessage(err, "Failed to update step.");

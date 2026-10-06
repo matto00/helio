@@ -45,6 +45,13 @@ export interface LaneGraphRoot {
   id: string;
 }
 
+/** HEL-1321 — the React key for a step's card: its stable `renderKey` when it has one (an
+ *  AI-draft step keeps its temp id here across the create swap), else its real id. Key only —
+ *  never use for lookups. */
+export function stepRenderKey(step: Step): string {
+  return step.renderKey ?? step.id;
+}
+
 export interface Lane {
   /** Stable id for this lane — the id of the lane's first (root) step, or
    *  a synthesized id for an empty root's placeholder lane (task 3.3). */
@@ -227,6 +234,13 @@ export function buildLaneGraph(steps: Step[], roots: LaneGraphRoot[]): LaneGraph
   }
 
   return { lanes, laneOfStepId };
+}
+
+/** HEL-1321 — the React key for a lane: its head step's stable render key when it has one
+ *  (a draft-created lane head), else the lane id. Key only. */
+export function laneRenderKey(lane: Lane): string {
+  const head = lane.steps[0];
+  return head ? stepRenderKey(head) : lane.id;
 }
 
 /** Every lane rooted directly off `stepId` (its immediate child-lanes),
