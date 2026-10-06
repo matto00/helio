@@ -81,6 +81,8 @@ interface PipelineRiverViewProps {
   /** HEL-404 — per-step output schema (name + type), sourced from the analyze
    *  endpoint's outputSchema; threaded into StepCard's inline preview tray. */
   getAnalyzeOutputSchema: (stepId: string) => SchemaField[];
+  /** HEL-1340 — true when the step has its own analyze entry (see StepCard `hasOwnAnalyze`). */
+  hasOwnAnalyzeEntry?: (stepId: string) => boolean;
   getAnalyzeValidationError: (stepId: string) => string | undefined;
   onStepConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   runStepRowCounts: Record<string, number> | null | undefined;
@@ -144,6 +146,7 @@ export function PipelineRiverView({
   getAnalyzeColumns,
   getAnalyzeSchema,
   getAnalyzeOutputSchema,
+  hasOwnAnalyzeEntry,
   getAnalyzeValidationError,
   onStepConfigChange,
   runStepRowCounts,
@@ -371,6 +374,7 @@ export function PipelineRiverView({
                         analyzeColumns={getAnalyzeColumns(step.id)}
                         analyzeSchema={getAnalyzeSchema(step.id)}
                         analyzeOutputSchema={getAnalyzeOutputSchema(step.id)}
+                        hasOwnAnalyze={hasOwnAnalyzeEntry?.(step.id) ?? true}
                         validationError={getAnalyzeValidationError(step.id)}
                         onConfigChange={onStepConfigChange}
                         rowCount={runStepRowCounts?.[step.id] ?? null}
@@ -433,6 +437,7 @@ export function PipelineRiverView({
                               getAnalyzeColumns={getAnalyzeColumns}
                               getAnalyzeSchema={getAnalyzeSchema}
                               getAnalyzeOutputSchema={getAnalyzeOutputSchema}
+                              hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
                               getAnalyzeValidationError={getAnalyzeValidationError}
                               onConfigChange={onStepConfigChange}
                               runStepRowCounts={runStepRowCounts}
@@ -510,6 +515,7 @@ export function PipelineRiverView({
               getAnalyzeColumns={getAnalyzeColumns}
               getAnalyzeSchema={getAnalyzeSchema}
               getAnalyzeOutputSchema={getAnalyzeOutputSchema}
+              hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
               getAnalyzeValidationError={getAnalyzeValidationError}
               onConfigChange={onStepConfigChange}
               runStepRowCounts={runStepRowCounts}

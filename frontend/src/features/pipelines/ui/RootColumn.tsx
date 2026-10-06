@@ -30,6 +30,8 @@ interface RootColumnProps {
   getAnalyzeColumns: (stepId: string) => string[];
   getAnalyzeSchema: (stepId: string) => SchemaField[];
   getAnalyzeOutputSchema: (stepId: string) => SchemaField[];
+  /** HEL-1340 — true when the step has its own analyze entry (see StepCard `hasOwnAnalyze`). */
+  hasOwnAnalyzeEntry?: (stepId: string) => boolean;
   getAnalyzeValidationError: (stepId: string) => string | undefined;
   onConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   runStepRowCounts: Record<string, number> | null | undefined;
@@ -74,6 +76,7 @@ export function RootColumn({
   getAnalyzeColumns,
   getAnalyzeSchema,
   getAnalyzeOutputSchema,
+  hasOwnAnalyzeEntry,
   getAnalyzeValidationError,
   onConfigChange,
   runStepRowCounts,
@@ -124,6 +127,7 @@ export function RootColumn({
           getAnalyzeColumns={getAnalyzeColumns}
           getAnalyzeSchema={getAnalyzeSchema}
           getAnalyzeOutputSchema={getAnalyzeOutputSchema}
+          hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
           getAnalyzeValidationError={getAnalyzeValidationError}
           onConfigChange={onConfigChange}
           runStepRowCounts={runStepRowCounts}

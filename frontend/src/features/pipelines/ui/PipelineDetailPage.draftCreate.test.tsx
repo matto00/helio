@@ -3,7 +3,7 @@
 // (its React key is stable across the swap), and an edit made while the POST was in flight must
 // reach the server. The create POST is held on a deferred promise so the window is deterministic
 // (the draft path issues no post-create steps GET, unlike HEL-1294's create-immediately paths).
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { AxiosError } from "axios";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Provider } from "react-redux";
@@ -27,6 +27,7 @@ import {
   getPipelineSchedule,
   getPipelineStepCatalog,
   getPipelineSteps,
+  reorderPipelineSteps,
   updatePipelineStep,
   updatePipelineStepEnabled,
 } from "../services/pipelineService";
@@ -39,6 +40,7 @@ jest.mock("../services/pipelineService", () => ({
   fetchRunHistory: jest.fn(),
   getPipelineById: jest.fn(),
   getPipelineSteps: jest.fn(),
+  reorderPipelineSteps: jest.fn(),
   updatePipeline: jest.fn(),
   updatePipelineStep: jest.fn(),
   updatePipelineStepEnabled: jest.fn(),
@@ -232,9 +234,9 @@ const instructionBox = () => screen.getByRole("textbox", { name: /instruction fo
 const generateToggle = () => screen.getByRole("button", { name: /Generate text/i });
 
 /** Opens the Generate-text draft and completes its config (create fires). */
-async function completeDraft() {
+async function completeDraft(field = "notes") {
   fireEvent.click(await screen.findByRole("button", { name: /Generate text/i, expanded: false }));
-  chooseSelectOption(/input field to generate from/i, "notes");
+  chooseSelectOption(/input field to generate from/i, field);
   fireEvent.change(instructionBox(), { target: { value: "Summarize" } });
   fireEvent.change(screen.getByRole("textbox", { name: /destination field/i }), {
     target: { value: "summary" },
@@ -441,5 +443,142 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     await screen.findByRole("button", { name: "Enable step" });
 
     expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("a non-head reorder keeps a created draft's card open", async () => {
+    // Server-realistic: today's trunk create head-splices (HEL-1340 probe.md case 1), so any
+    // later full resync lists the created step first; it must never make `ai-1` vanish.
+    getPipelineStepsMock.mockResolvedValueOnce([
+      persisted("anchor-1", "rename", 0),
+      persisted("f-1", "filter", 1),
+    ]);
+    getPipelineStepsMock.mockResolvedValue([
+      aiPersisted("ai-1", 0),
+      persisted("anchor-1", "rename", 1),
+      persisted("f-1", "filter", 2),
+    ]);
+    const create = deferredCreate();
+    renderPage();
+    await screen.findByRole("button", { name: /Filter rows/i, expanded: false });
+    const gaps = screen.getAllByRole("button", { name: "Insert step here" });
+    fireEvent.click(gaps[gaps.length - 1]);
+    fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
+    await completeDraft();
+    await create.resolve(aiPersisted("ai-1", 2));
+    await waitFor(() =>
+      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
+    );
+
+    jest
+      .mocked(reorderPipelineSteps)
+      .mockResolvedValue([
+        persisted("anchor-1", "rename", 0),
+        aiPersisted("ai-1", 1),
+        persisted("f-1", "filter", 2),
+      ]);
+    const card = generateToggle().closest(".pipeline-detail-page__step-card") as HTMLElement;
+    fireEvent.click(within(card).getByRole("button", { name: /Move step up/i }));
+    await waitFor(() => expect(reorderPipelineSteps).toHaveBeenCalled());
+    await act(async () => {});
+
+    expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  // HEL-1340 item 3 — between the create being sent and the step's own analyze entry arriving, the
+  // draft has neither an analyze entry nor pending meta; its field picker must still resolve.
+  const inputFieldSelect = () =>
+    screen.getByRole("combobox", { name: /input field to generate from/i });
+
+  it("keeps the chosen input field shown while the draft's create is in flight", async () => {
+    const create = deferredCreate();
+    renderPage();
+    await addTrunkDraft();
+    await completeDraft();
+
+    expect(inputFieldSelect()).toHaveTextContent("notes");
+
+    await create.resolve(aiPersisted("ai-1", 0));
+  });
+
+  it("keeps the chosen input field shown after the create, before its own analyze lands", async () => {
+    const create = deferredCreate();
+    renderPage();
+    await addTrunkDraft();
+    await completeDraft();
+    // Hold every later /analyze (the post-swap debounced one) unresolved.
+    analyzePipelineMock.mockReturnValue(new Promise<PipelineAnalyzeResponse>(() => {}));
+    const analyzeCallsBefore = analyzePipelineMock.mock.calls.length;
+    await create.resolve(aiPersisted("ai-1", 0));
+    await waitFor(() =>
+      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
+    );
+    // Assert only once the post-swap /analyze has actually been issued (debounced) and is held.
+    await waitFor(() =>
+      expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(analyzeCallsBefore),
+    );
+
+    expect(inputFieldSelect()).toHaveTextContent("notes");
+    // The fallback input has no matching output schema yet: no false "dropped" diff chips.
+    expect(
+      document.querySelector(".pipeline-detail-page__step-card-diff-chip--removed"),
+    ).toBeNull();
+  });
+
+  it("a lane draft in flight resolves its field from its exact anchor, not a trunk neighbour", async () => {
+    // Real root assignment and parent chain (root-1: p-0 -> anchor-1), so `buildLaneGraph` builds
+    // a genuine child lane and the draft renders through `LaneColumn` inside the Lanes group.
+    // Only p-0 has an analyze entry (output `notes`); the anchor has none and the root source
+    // exposes only `other`. Exact-anchor resolution therefore falls to the root source (`other`);
+    // a trunk array walk would wrongly land on p-0 (`notes`).
+    getPipelineStepsMock.mockResolvedValue([
+      { ...persisted("p-0", "rename", 0), rootId: "root-1" },
+      { ...persisted("anchor-1", "rename", 0), rootId: "root-1", parentStepId: "p-0" },
+    ]);
+    analyzePipelineMock.mockResolvedValue({
+      ...analyzeResponse,
+      sourceSchemas: [{ rootId: "root-1", sourceSchema: [{ name: "other", type: "string" }] }],
+      steps: [
+        {
+          id: "p-0",
+          position: 0,
+          type: "rename" as const,
+          config: { renames: {} },
+          inputSchema: notesSchema,
+          outputSchema: notesSchema,
+        },
+      ],
+    });
+    const create = deferredCreate();
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: /Rename column/i })).toHaveLength(2),
+    );
+    const branchButtons = screen.getAllByRole("button", {
+      name: /Branch this step into a new lane/i,
+    });
+    fireEvent.click(branchButtons[branchButtons.length - 1]);
+    fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
+    await completeDraft("other");
+    const inLanesGroup = () => generateToggle().closest('[aria-label="Lanes"]') !== null;
+
+    expect(inLanesGroup()).toBe(true);
+    expect(inputFieldSelect()).toHaveTextContent("other");
+
+    // Hold the post-swap /analyze and wait until it has actually been issued.
+    analyzePipelineMock.mockReturnValue(new Promise<PipelineAnalyzeResponse>(() => {}));
+    const analyzeCallsBefore = analyzePipelineMock.mock.calls.length;
+    await create.resolve(aiPersisted("ai-1", 1, "anchor-1"));
+    await waitFor(() =>
+      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(analyzeCallsBefore),
+    );
+
+    expect(inLanesGroup()).toBe(true);
+    expect(inputFieldSelect()).toHaveTextContent("other");
+    expect(
+      document.querySelector(".pipeline-detail-page__step-card-diff-chip--removed"),
+    ).toBeNull();
   });
 });
