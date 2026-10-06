@@ -41,7 +41,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Route-level coverage for `POST /patch-sets/:id/undo` (HEL-413, tasks.md 5.4) -- request/
  *  response shape + 404/409 status mapping. Mirrors `PatchSetRoutesSpec`'s lightweight fixture
- *  shape exactly. Service-level restore/conflict coverage lives in `PatchSetUndoServiceSpec`. */
+ *  shape exactly. Service-level restore/conflict coverage lives in the `PatchSetUndo*Spec` suites (`PatchSetUndoPanelDashboardSpec`, `PatchSetUndoLaneSpec`, `PatchSetUndoRefusalSpec`). */
 class PatchSetUndoRoutesSpec
     extends AnyWordSpec
     with Matchers

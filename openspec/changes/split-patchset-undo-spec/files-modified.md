@@ -1,0 +1,9 @@
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoServiceSpec.scala` — deleted (split)
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoServiceFixture.scala` — new shared fixture trait (verbatim, private -> protected)
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoPanelDashboardSpec.scala` — new, 5 panel/dashboard/placement tests
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoLaneSpec.scala` — new, 5 pipelineStep lane tests
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoRefusalSpec.scala` — new, 5 refusal/failure/404 tests
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoRepoWiringSpec.scala` — new, 1 HEL-1256 parity test (null-outputRepo block removed upstream by HEL-1337)
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetUndoRoutesSpec.scala` — comment-only pointer update (D7)
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoInverseSpec.scala` — comment-only pointer update (D7)
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetApplyServiceSpec.scala` — comment-only pointer updates (D7)
