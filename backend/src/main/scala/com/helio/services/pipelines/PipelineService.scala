@@ -59,12 +59,10 @@ final class PipelineService(
     connector: RestApiConnectorDriver = null,
     // HEL-477: nullable-optional wiring mirrors connector above.
     auditService: AuditService = null,
-    // HEL-906 task 3.1: nullable-optional wiring mirrors connector/auditService above -- a
-    // fixture that doesn't pass an OutputRepository simply can't exercise `create`'s
-    // `outputs[]` branch (a non-empty `outputs[]` with no OutputRepository wired is an
-    // InternalError, never silently ignored -- see `create`'s doc).
-    outputRepo: OutputRepository = null,
-    // HEL-913 task 7.4: nullable-optional wiring mirrors outputRepo above -- a fixture that
+    // HEL-906 task 3.1: backs `create`'s `outputs[]` branch and `removeRoot`'s Output report.
+    // HEL-1295: required, never null (enforced by the `require` in the class body).
+    outputRepo: OutputRepository,
+    // HEL-913 task 7.4: nullable-optional wiring mirrors auditService above -- a fixture that
     // doesn't pass a PipelineRootRepository simply can't exercise addRoot/removeRoot (both
     // InternalError, never silently no-op, when null).
     pipelineRootRepo: PipelineRootRepository = null,
@@ -79,6 +77,8 @@ final class PipelineService(
     sourceService:     SourceService = null,
     dataSourceService: DataSourceService = null
 )(implicit ec: ExecutionContext) {
+
+  require(outputRepo != null, "PipelineService requires an OutputRepository")
 
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -301,9 +301,7 @@ final class PipelineService(
    *  root via `resolveRootDataSources` before this is ever called) -- HEL-907 fix, see
    *  `validateStepCrossOwnerRefs` for every join/union/lookup step's cross-referenced source)
    *  runs OUTSIDE the transaction -- read-only ACL/existence checks, not writes, so they don't
-   *  need to share the write transaction's atomicity; `outputRepo`'s nullability is also checked
-   *  outside the transaction (a missing collaborator is a wiring problem, not a rollback-worthy
-   *  business failure).
+   *  need to share the write transaction's atomicity.
    *
    *  HEL-913 task 7.3a/7.3a-i (R13): every step/Output's owning root is resolved to an INDEX
    *  into `dataSources` (`resolveStepRootIndex`/`resolveOutputRootIndex`) BEFORE the transaction
@@ -316,10 +314,7 @@ final class PipelineService(
       dataSources: Vector[(DataSourceId, DataSource)],
       user: AuthenticatedUser,
       tag: Option[String]
-  ): Future[Either[ServiceError, PipelineSummaryResponse]] =
-    if (req.outputs.nonEmpty && outputRepo == null)
-      Future.successful(Left(ServiceError.InternalError("Output creation is unavailable (no OutputRepository configured)")))
-    else {
+  ): Future[Either[ServiceError, PipelineSummaryResponse]] = {
       val stepRootIndices: Either[ServiceError, Vector[Option[Int]]] =
         req.steps.zipWithIndex.foldLeft[Either[ServiceError, Vector[Option[Int]]]](Right(Vector.empty)) { (accE, stepAndIdx) =>
           val (step, stepIdx) = stepAndIdx
@@ -857,16 +852,6 @@ final class PipelineService(
   def removeRoot(pipelineId: PipelineId, rootId: PipelineRootId, user: AuthenticatedUser): Future[Either[ServiceError, RemovePipelineRootResponse]] =
     if (pipelineRootRepo == null)
       Future.successful(Left(ServiceError.InternalError("Root removal is unavailable (no PipelineRootRepository configured)")))
-    // HEL-913 (skeptic-final-2.md FIX 2): FAILS CLOSED, matching `createTransactional`'s own
-    // `outputRepo == null` guard at this file's Output-creation entry point exactly. The prior
-    // shape (`if (outputRepo == null) Future.successful(0)` deep inside `removedOutputsF`) is
-    // the round-1 CR2 mechanism reintroduced one caller over: the root removal's own CASCADE
-    // (`outputs.root_id`/`outputs.node_step_id`, both `ON DELETE CASCADE`) destroys every
-    // Output on this root's steps REGARDLESS of whether `outputRepo` is wired -- only the
-    // REPORT of that destruction depended on it. A missing collaborator must refuse the whole
-    // operation, not silently under-report real data loss as zero.
-    else if (outputRepo == null)
-      Future.successful(Left(ServiceError.InternalError("Root removal is unavailable (no OutputRepository configured)")))
     else
       pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
         case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
@@ -908,9 +893,6 @@ final class PipelineService(
                         // 2 steps 3-5). Outputs about to be deleted are read BEFORE the
                         // transactional delete -- a DB-level cascade would remove them without
                         // ever producing this report (design.md R7's own callout).
-                        // `outputRepo` is guaranteed non-null here -- `removeRoot`'s own entry
-                        // guard (this file, HEL-913 skeptic-final-2.md FIX 2) already refused the
-                        // whole call otherwise.
                         val removedOutputsF: Future[Int] =
                           outputRepo.listByPipelineInternal(pipelineId).map(_.count { o =>
                             o.node.stepId.exists(sid => doomedIds.contains(sid.value)) || o.node.rootId.contains(rootId)
@@ -1166,9 +1148,7 @@ final class PipelineService(
       case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
       case Some(_) =>
         pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
-          val outputsF =
-            if (outputRepo == null) Future.successful(Vector.empty[Output])
-            else outputRepo.listByPipelineInternal(pipelineId)
+          val outputsF = outputRepo.listByPipelineInternal(pipelineId)
           outputsF.flatMap(outputs => laneTreeGiven(pipelineId, allSteps, outputs)).map(Right(_))
         }
     }

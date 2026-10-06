@@ -111,7 +111,8 @@ class HookRoutesSpec
       new PipelineRunCache(),
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
       pipelineRunRepo = pipelineRunRepo,
-      apiTokenRepo = apiTokenRepo
+      apiTokenRepo = apiTokenRepo,
+      dbContext = ctx
     ).routes
 
     await(ctx.withSystemContext(DBIO.seq(

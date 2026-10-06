@@ -917,7 +917,8 @@ class PipelineRunRoutesSpec
       }
       val reg          = new PipelineRunRegistry()(typedSystem)
       val service      = new PipelineRunService(
-        failingRepo, stepRepo, dataSourceRepo, null, new PipelineRunCache(), reg, fileSystem, null
+        failingRepo, stepRepo, dataSourceRepo, null, new PipelineRunCache(), reg, fileSystem, null,
+        outputRepo = outputRepo
       )
       val routes: Route = new PipelineRunStreamRoutes(service, dummyUser).routes
       Get("/pipelines/00000000-0000-0000-0000-0000000000aa/run-events") ~> routes ~> check {

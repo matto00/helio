@@ -194,7 +194,8 @@ class AuditMutationInstrumentationSpec
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
       auditEventRepo = auditEventRepo,
       mfaRepo = mfaRepo,
-      apiTokenRepo = apiTokenRepo
+      apiTokenRepo = apiTokenRepo,
+      dbContext = dbContext
     ).routes
 
   /** Routes backed by the REAL, embedded-Postgres `SlickUserSessionRepository`
@@ -211,7 +212,8 @@ class AuditMutationInstrumentationSpec
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
       auditEventRepo = auditEventRepo,
       mfaRepo = mfaRepo,
-      apiTokenRepo = apiTokenRepo
+      apiTokenRepo = apiTokenRepo,
+      dbContext = dbContext
     ).routes
 
   private val csrfHeaderValue = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
@@ -483,7 +485,8 @@ class AuditMutationInstrumentationSpec
         dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFileSystem, stubConnector,
         userRepo, stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
         new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
-        auditEventRepo = failingAuditRepo
+        auditEventRepo = failingAuditRepo,
+        dbContext = dbContext
       ).routes
       val csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
       val withAuth: Route = Directives.mapRequest { (req: HttpRequest) =>

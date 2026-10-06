@@ -149,7 +149,7 @@ class OutputRoutesSpec
       outputRepo, panelRepo, accessChecker, auditService = null, pipelineRunRepo, nodeSnapshotRepo,
       pipelineRunService = sharedRunService, pipelineRootRepo = pipelineRootRepo
     )(routeEc)
-    dashboardService = new DashboardService(dashboardRepo, accessChecker)(routeEc)
+    dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)(routeEc)
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, null, outputRepo)(routeEc)
 
     seedUsers()

@@ -134,7 +134,8 @@ class DatasetWriteAutoRunCoalescingSpec extends AnyWordSpec with Matchers with B
   private def newRunService(): PipelineRunService =
     new PipelineRunService(
       pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
-      new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/"))
+      new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
+      outputRepo = new OutputRepository(ctx)
     )
 
   private def newScheduler(runService: PipelineRunService, clock: FakeClock, staleClaimAfterSeconds: Long = 300L): PipelineSchedulerService =

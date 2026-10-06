@@ -96,7 +96,8 @@ class MfaApiRoutesSpec
       pipelineStepRepo,
       new PipelineRunCache(),
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
-      mfaRepo = mfaRepo
+      mfaRepo = mfaRepo,
+      dbContext = ctx
     ).routes
   }
 

@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.api.routes.pipelines.{PipelineRoutes, PipelineRunHistoryRoutes, PipelineRunStatusRoutes, PipelineRunStreamRoutes, PipelineRunSubmitRoutes, PipelineStepRoutes}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -63,6 +64,8 @@ class PipelineAclSpec
   private val userBId = UUID.randomUUID().toString
   private val userA   = AuthenticatedUser(UserId(userAId))
   private val userB   = AuthenticatedUser(UserId(userBId))
+  private var outputRepo: OutputRepository = _
+
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -72,6 +75,7 @@ class PipelineAclSpec
       .load().migrate()
     db              = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx         = new DbContext(db, db)(routeEc)
+    outputRepo = new OutputRepository(ctx)
     dataSourceRepo  = new DataSourceRepository(ctx)(routeEc)
     stepRepo        = new PipelineStepRepository(ctx)(routeEc)
     pipelineRepo    = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
@@ -136,10 +140,11 @@ class PipelineAclSpec
   private def routesFor(user: AuthenticatedUser): Route = {
     implicit val ec: ExecutionContext = routeEc
     val cache         = new PipelineRunCache()
-    val pipelineSvc   = new PipelineService(pipelineRepo, stepRepo, dataSourceRepo)
+    val pipelineSvc   = new PipelineService(pipelineRepo, stepRepo, dataSourceRepo, outputRepo = outputRepo)
     val runSvc        = new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
-      cache, null, fileSystem
+      cache, null, fileSystem,
+      outputRepo = outputRepo
     )
     concat(
       new PipelineRoutes(pipelineSvc, user).routes,

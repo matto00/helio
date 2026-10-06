@@ -164,12 +164,12 @@ class PatchSetPreviewServiceSpec
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
     val fileSystem = new LocalFileSystem(newTempDir("patch-set-preview-service-spec"))
 
-    dashboardService   = new DashboardService(dashboardRepo, accessChecker)
-    panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo)
-    dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
-    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
-
     outputRepo = new OutputRepository(ctx)
+    dashboardService   = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
+    panelService        = new PanelService(panelRepo, accessChecker, dashboardRepo, outputRepo = outputRepo)
+    dataSourceService   = new DataSourceService(dataSourceRepo, fileSystem)
+    pipelineService      = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
+
     service = new PatchSetPreviewService(
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
       accessChecker, outputRepo

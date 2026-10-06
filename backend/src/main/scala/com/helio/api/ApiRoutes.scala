@@ -158,7 +158,7 @@ final class ApiRoutes(
     // DbContext rather than a repository: WorkspaceTeardownRepository's
     // entire teardown transaction must run via `ctx.withUserContext` (design.md
     // Decision 3's hard constraint), which no existing repository exposes.
-    dbContext: DbContext = null,
+    dbContext: DbContext,
     // HEL-904 task 4.1: `metricRepo` removed outright — metrics no longer exist.
     // HEL-472 (420-A): same nullable-optional wiring pattern as the repos
     // above — fixtures that don't pass an AgentPreferencesRepository simply
@@ -242,12 +242,10 @@ final class ApiRoutes(
   // rest of this file's nullable-optional convention.
   private val auditService: AuditService = Option(auditEventRepo).map(new AuditService(_)).orNull
 
-  // HEL-904 (task 3.1/3.14): built from the already-nullable `dbContext`
-  // param (task 3.16-adjacent: no new ApiRoutes/Main.scala constructor
-  // param needed) — `null` in every fixture that doesn't pass a DbContext,
-  // matching this file's existing nullable-optional convention.
-  // `PipelineRunService` and `AlertRuleService` both null-check these.
-  private val outputRepoOpt: Option[OutputRepository] = Option(dbContext).map(new OutputRepository(_))
+  // HEL-1295: `dbContext` is required, so there is always a real OutputRepository; the services
+  // that take one never receive null. `outputRepoOpt` stays for the Option-shaped consumers below.
+  private val outputRepo: OutputRepository = new OutputRepository(dbContext)
+  private val outputRepoOpt: Option[OutputRepository] = Some(outputRepo)
   // HEL-913 task 5.8a: threaded into `outputServiceOpt` below so `CreateOutputRequest.rootId`
   // can be validated against the pipeline's real roots instead of silently ignored.
   private val pipelineRootRepoOpt: Option[PipelineRootRepository] = Option(dbContext).map(new PipelineRootRepository(_))
@@ -366,7 +364,7 @@ final class ApiRoutes(
   private val productEventServiceOpt: Option[ProductEventService] =
     Option(dbContext).map(ctx => new ProductEventService(new ProductEventRepository(ctx), SystemClock))
   private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore, productEventServiceOpt)
-  private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService, outputRepoOpt.orNull)
+  private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService, outputRepo)
   // HEL-1087: constructed ahead of `panelService` (moved up from its former position below
   // `autoLayoutService`) so `panelService` can wire it in for `submitForm` — no behavior change
   // to `dataSourceService` itself, only its construction ORDER.
@@ -374,14 +372,14 @@ final class ApiRoutes(
   // HEL-904 task 4.1: `PanelService` no longer takes `dataTypeRepo`/
   // `metricRepo` — Text/Markdown's data-bound "Source mode" and metrics are
   // both removed outright.
-  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepoOpt.orNull, dataSourceRepo, dataSourceService, fileSystem, nodeSnapshotRepoOpt.orNull)
+  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepo, dataSourceRepo, dataSourceService, fileSystem, nodeSnapshotRepoOpt.orNull)
   // HEL-1193: one validator instance shared by the propose-time control checks below; the same
   // class (and eligibility function) PanelService constructs internally for the write path.
-  private val outputControlsValidator = new OutputControlsValidator(outputRepoOpt.orNull, nodeSnapshotRepoOpt.orNull)
-  private val proposalService   = new DashboardProposalService(dashboardService, panelService, outputRepoOpt.orNull, outputControlsValidator, dataSourceRepo)
+  private val outputControlsValidator = new OutputControlsValidator(outputRepo, nodeSnapshotRepoOpt.orNull)
+  private val proposalService   = new DashboardProposalService(dashboardService, panelService, outputRepo, outputControlsValidator, dataSourceRepo)
   // HEL-363: atomic replace-contents — reuses the same dashboardRepo/panelService/
   // accessChecker instances the other dashboard/panel services use.
-  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, accessChecker, auditService, outputRepoOpt.orNull, outputControlsValidator, dataSourceRepo)
+  private val dashboardContentsService = new DashboardContentsService(dashboardRepo, panelService, accessChecker, auditService, outputRepo, outputControlsValidator, dataSourceRepo)
   // HEL-367: reuses the same dashboardRepo/panelRepo/accessChecker instances
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.
@@ -402,12 +400,12 @@ final class ApiRoutes(
   // DataTypes no longer exist.
   // HEL-365: builds the panel-capabilities report from Outputs/node
   // snapshots (design.md D6).
-  private val panelCapabilityService = new PanelCapabilityService(outputRepoOpt.orNull, nodeSnapshotRepoOpt.orNull)
+  private val panelCapabilityService = new PanelCapabilityService(outputRepo, nodeSnapshotRepoOpt.orNull)
   // HEL-381: threads the same RestApiConnectorDriver instance sourceService already
   // receives — analyzeProposal's inline rest_api branch needs it (dataSourceRepo
   // above covers every other analyzeProposal branch).
   private val pipelineService   = new PipelineService(
-    pipelineRepo, pipelineStepRepo, dataSourceRepo, connector, auditService, outputRepoOpt.orNull,
+    pipelineRepo, pipelineStepRepo, dataSourceRepo, connector, auditService, outputRepo,
     pipelineRootRepo = pipelineRootRepoOpt.orNull,
     // HEL-913 task 7.1a: `addRoot`'s inline-source branch reuses these SAME instances
     // `POST /api/sources`/`POST /api/data-sources` already use (defined above).
@@ -470,10 +468,9 @@ final class ApiRoutes(
     resolveHost = sqlUrlResolveHost,
     isBlocked = sqlUrlIsBlocked,
     // HEL-904 (task 3.1/3.14): resolves per-Output alert evaluation +
-    // node_snapshots dual-write — `null` in fixtures that don't pass a
-    // DbContext (outputRepoOpt/nodeSnapshotRepoOpt above).
+    // node_snapshots dual-write (`outputRepo`/`nodeSnapshotRepoOpt` above).
     executionBackend = null,
-    outputRepo = outputRepoOpt.orNull,
+    outputRepo = outputRepo,
     nodeSnapshotRepo = nodeSnapshotRepoOpt.orNull,
     outputHistoryRepo = outputHistoryRepoOpt.orNull,
     nodePayloadRepo = nodePayloadHistoryRepoOpt.orNull,
@@ -522,7 +519,7 @@ final class ApiRoutes(
   // read-only lookups its own scaladoc documents (no direct DB writes).
   private val pipelineProposalService = new PipelineProposalService(
     sourceService, dataSourceService, pipelineService, pipelineRunService,
-    dataSourceRepo, outputRepoOpt.orNull
+    dataSourceRepo, outputRepo
   )
   // HEL-387: atomic combined pipeline+dashboard proposal apply — composes the
   // already-constructed pipelineProposalService/proposalService (the latter
@@ -553,7 +550,7 @@ final class ApiRoutes(
     accessChecker, patchSetApplicationRepo,
     // HEL-907 task 1.2: wires the `output` target.kind's own repo/service, mirroring every
     // other nullable-optional collaborator in this file (`.orNull`).
-    outputRepoOpt.orNull, outputServiceOpt.orNull
+    outputRepo, outputServiceOpt.orNull
   )
   // HEL-408: read-only diff/impact preview -- reuses PatchSetApplyResolvers
   // (same package) for pre-validation; needs only the repos/accessChecker
@@ -564,7 +561,7 @@ final class ApiRoutes(
     accessChecker,
     // HEL-1239: same nullable-optional `.orNull` as the apply service above -- a null here (no
     // DbContext) surfaces as a typed ServiceError from the output resolvers, never an NPE.
-    outputRepoOpt.orNull
+    outputRepo
   )
   // HEL-413: restores a successfully-journaled apply's edits (design.md D4/D5) -- composes the
   // same per-resource services/repos patchSetApplyService does (minus metricRepo/accessChecker,
@@ -573,7 +570,7 @@ final class ApiRoutes(
   private val patchSetUndoService = new PatchSetUndoService(
     panelService, dashboardService, dataSourceService, pipelineService,
     panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-    patchSetApplicationRepo, outputRepo = outputRepoOpt.orNull
+    patchSetApplicationRepo, outputRepo = outputRepo
   )
   // HEL-904 task 3.6/4.1: `BoundPanelService` (`POST /api/panels/bound`) is
   // deleted outright — design.md's P1.1 row lists it explicitly, and its
@@ -729,7 +726,7 @@ final class ApiRoutes(
     // HEL-904 task 3.12: `outputRepoOpt` (constructed above, alongside `nodeSnapshotRepoOpt`) —
     // both are only `None` when `dbContext` itself is null (fixture-only), matching the same
     // unconditional-in-production convention `dataTypeService` had.
-    outputRepoOpt.orNull,
+    outputRepo,
     pipelineService,
     agentPreferencesServiceOpt,
     agentMemoryServiceOpt,
@@ -808,7 +805,7 @@ final class ApiRoutes(
         None
       case Right(claudeConfig) =>
         val claudeClient           = new ClaudeClient(claudeConfig, transportFor(claudeConfig.apiKey))
-        val workspaceSearchService = new WorkspaceSearchService(dashboardService, dataSourceService, outputRepoOpt.orNull, pipelineService, workspaceContextService)
+        val workspaceSearchService = new WorkspaceSearchService(dashboardService, dataSourceService, outputRepo, pipelineService, workspaceContextService)
         Some(new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, proposalService, pipelineProposalService, combinedProposalService, patchSetPreviewService, sourceService))
     }
 

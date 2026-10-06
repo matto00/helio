@@ -101,14 +101,14 @@ class WorkspaceContextServiceAgentContextSpec
     val dataSourceService = new DataSourceService(dataSourceRepo, fs)
     // HEL-904 task 3.12: WorkspaceContextService takes OutputRepository now (dataTypeService dropped from that constructor).
     val outputRepo     = new OutputRepository(ctx)
-    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo)
 
     val registry       = new ResourceTypeRegistry(
       AclResourceType("dashboard", id => dashboardRepo.findByIdInternal(DashboardId(id)).map(_.map(_.ownerId.value)))
     )
     val permissionRepo  = new ResourcePermissionRepository(ctx)
     val accessChecker   = new AccessCheckerImpl(permissionRepo, registry)
-    val dashboardService = new DashboardService(dashboardRepo, accessChecker)
+    val dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
 
     agentMemoryRepo = new AgentMemoryRepository(ctx)
     val agentPreferencesRepo = new AgentPreferencesRepository(ctx)

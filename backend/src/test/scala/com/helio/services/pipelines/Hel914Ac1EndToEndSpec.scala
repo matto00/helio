@@ -112,7 +112,7 @@ class Hel914Ac1EndToEndSpec extends AnyWordSpec with Matchers with HelioRouteTes
     val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
     val fileSystem = new LocalFileSystem(newTempDir("hel914-ac1-e2e-spec"))
 
-    dashboardService = new DashboardService(dashboardRepo, accessChecker)
+    dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, null, outputRepo)
     dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
     // outputRepo IS wired (positional slot 6) — required for laneTree's bound-Output lookup and

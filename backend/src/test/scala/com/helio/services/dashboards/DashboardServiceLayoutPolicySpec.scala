@@ -1,5 +1,6 @@
 package com.helio.services.dashboards
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.api.protocols.dashboards.{DashboardLayoutItemPayload, DashboardLayoutPatchPayload, UpdateDashboardRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
@@ -42,7 +43,7 @@ class DashboardServiceLayoutPolicySpec extends AnyWordSpec with Matchers {
     when(repo.findById(id, Some(owner))).thenReturn(Future.successful(Some(dashboard)))
     val captor = ArgumentCaptor.forClass(classOf[Dashboard])
     when(repo.update(captor.capture())).thenAnswer(inv => Future.successful(Some(inv.getArgument[Dashboard](0))))
-    (new DashboardService(repo, mock(classOf[AccessChecker])), captor, repo)
+    (new DashboardService(repo, mock(classOf[AccessChecker]), outputRepo = mock(classOf[OutputRepository])), captor, repo)
   }
 
   // The stored dashboard has a good xs; the value being "restored" is a previously stored-bad one.

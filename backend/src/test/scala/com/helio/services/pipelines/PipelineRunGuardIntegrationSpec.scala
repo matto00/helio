@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.testkit.TempDirectorySupport
 import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.services.ServiceError
@@ -116,7 +117,8 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
       pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
       new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
       pipelineRunGuardRepo = guardRepo,
-      guardConfig = guardConfig
+      guardConfig = guardConfig,
+      outputRepo = new OutputRepository(ctx)
     )
 
   /** A `PipelineExecutionBackend` whose `execute` blocks on `gate` before returning an empty
@@ -163,7 +165,8 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
       new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
       pipelineRunGuardRepo = guardRepo,
       guardConfig = guardConfig,
-      executionBackend = new GatedExecutionBackend(gate, onAdmitted)
+      executionBackend = new GatedExecutionBackend(gate, onAdmitted),
+      outputRepo = new OutputRepository(ctx)
     )
 
   /** HEL-1184 (root cause -- see `PipelineRunGuardIntegrationSpec` H1 investigation in

@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -63,7 +64,7 @@ class JoinStepConfigSeamSpec
     val dataSourceRepo = new DataSourceRepository(ctx)(ec)
     val stepRepo       = new PipelineStepRepository(ctx)(ec)
     val pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)(ec)
-    routes = new PipelineStepRoutes(new PipelineService(pipelineRepo, stepRepo, dataSourceRepo), owner).routes
+    routes = new PipelineStepRoutes(new PipelineService(pipelineRepo, stepRepo, dataSourceRepo, outputRepo = new OutputRepository(ctx)), owner).routes
   }
 
   override def afterAll(): Unit = {

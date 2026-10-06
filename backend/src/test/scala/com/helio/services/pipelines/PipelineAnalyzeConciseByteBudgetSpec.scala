@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
@@ -59,7 +60,7 @@ class PipelineAnalyzeConciseByteBudgetSpec extends AnyWordSpec with Matchers wit
     pipelineStepRepo  = new PipelineStepRepository(ctx)
     val fileSystem    = new LocalFileSystem(newTempDir("analyze-concise-budget-spec"))
     dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
-    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo)
+    pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = new OutputRepository(ctx))
 
     import slick.jdbc.PostgresProfile.api._
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES (${user.id.value}::uuid, ${s"u-${user.id.value}@helio.test"}, now())"""))

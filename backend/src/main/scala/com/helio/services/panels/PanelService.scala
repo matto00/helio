@@ -64,14 +64,10 @@ final class PanelService(
     // HEL-477: nullable-optional wiring — a fixture that doesn't pass one
     // simply never audits (see `audit` below).
     auditService: AuditService = null,
-    // HEL-904 follow-up (flagged cycle 17): appended last, nullable-optional
-    // (default `null`) so every existing positional caller stays unmodified.
-    // A `null` outputRepo skips the outputId-existence check entirely (same
-    // convention as a fixture that never wires `auditService`) — only
-    // exercised once a caller actually creates/patches an `"output"`-kind
-    // panel with a non-empty `outputId`.
-    outputRepo: OutputRepository = null,
-    // HEL-1083: nullable-optional wiring, same convention as `outputRepo` —
+    // HEL-1295: required (no default, never null — enforced by the `require` below). Backs the
+    // outputId-existence/ownership check on `"output"`-kind panels and default sizing.
+    outputRepo: OutputRepository,
+    // HEL-1083: nullable-optional wiring, same convention as `auditService` —
     // a `null` dataSourceRepo skips the dataSourceId-existence/ownership
     // check entirely, only exercised once a caller actually creates/patches
     // a `"form"`-kind panel with a non-empty `dataSourceId` (design.md D6).
@@ -84,13 +80,15 @@ final class PanelService(
     // fileSystem only breaks `submitForm` when the caller actually attaches a file (the
     // no-file submit path never touches it, matching every other existing fixture/caller).
     fileSystem: FileSystem = null,
-    // HEL-1189: nullable-optional wiring, same convention as `outputRepo` — a `null`
+    // HEL-1189: nullable-optional wiring, same convention as `dataSourceRepo` — a `null`
     // nodeSnapshotRepo skips `rejectInvalidControls`'s `dropdown`-kind eq/in cardinality check
     // entirely (only that one kind needs it; text/numeric-range/date-range eligibility is derived
     // purely from the Output's declared schema, zero DB cost — design.md D3), only exercised once a
     // caller actually adds/rebinds a `dropdown` control on an "output"-kind panel.
     nodeSnapshotRepo: NodeSnapshotRepository = null
 )(implicit ec: ExecutionContext) {
+
+  require(outputRepo != null, "PanelService requires an OutputRepository")
 
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -248,10 +246,10 @@ final class PanelService(
   /** The size a new `panel` takes in each breakpoint. An Output panel takes its Output kind's
    *  decision-15 default (`OutputPanelDefaultSize`), scaled per breakpoint's column count; every other
    *  kind, and an Output whose output cannot be resolved (placement is never skipped), takes
-   *  [[PlacementSizes.ContentDefault]]. A `null` `outputRepo` (unwired fixture) resolves nothing. */
+   *  [[PlacementSizes.ContentDefault]]. */
   private def defaultSizesFor(panel: Panel): Future[PlacementSizes] =
     panel match {
-      case outputPanel: OutputPanel if outputRepo != null =>
+      case outputPanel: OutputPanel =>
         outputPanel.outputId match {
           case None => Future.successful(PlacementSizes.ContentDefault)
           case Some(outputId) =>
@@ -623,16 +621,13 @@ final class PanelService(
    *  an `"output"`-kind panel's `outputId` reached `panelRepo.insert`/
    *  `patchApplier.apply` unchecked and hit the raw `panels.output_id` FK
    *  violation as a 500 instead of a clean, explicit rejection. A `None`
-   *  input (no outputId in this create/patch) or a `null` `outputRepo`
-   *  (unwired caller — mirrors this file's other nullable-optional
-   *  dependencies) both pass through unchanged. */
+   *  input (no outputId in this create/patch) passes through unchanged. */
   private def rejectMissingOutput(
       outputIdOpt: Option[OutputId],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, Unit]] =
     outputIdOpt match {
       case None => Future.successful(Right(()))
-      case Some(_) if outputRepo == null => Future.successful(Right(()))
       case Some(outputId) =>
         outputRepo.findByIdOwned(outputId, user).map {
           case Some(_) => Right(())

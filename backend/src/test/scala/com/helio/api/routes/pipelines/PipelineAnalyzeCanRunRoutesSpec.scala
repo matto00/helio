@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.api.{JsonProtocols, PipelineAnalyzeResponse}
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
 import com.helio.domain.{AggregateConfig, AggregateField, Aggregation}
@@ -60,7 +61,7 @@ class PipelineAnalyzeCanRunRoutesSpec
     val pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo   = new PipelineStepRepository(ctx)(routeEc)
     implicit val ec: ExecutionContext = routeEc
-    routes = new PipelineRoutes(new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo), owner).routes
+    routes = new PipelineRoutes(new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = new OutputRepository(ctx)), owner).routes
   }
 
   override def afterAll(): Unit = {

@@ -1,5 +1,7 @@
 package com.helio.services.pipelines
 
+import org.mockito.Mockito.mock
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.model.{AuthenticatedUser, DataSourceKind, RestApiConfig, UserId}
@@ -39,7 +41,8 @@ class PipelineServiceInlineRestBodySpec extends AnyWordSpec with Matchers with H
         pipelineRepo     = null,
         pipelineStepRepo = null,
         dataSourceRepo   = null,
-        connector        = connector
+        connector        = connector,
+        outputRepo = mock(classOf[OutputRepository])
       )
 
       val restPayload = ProposalRestApiConfig(

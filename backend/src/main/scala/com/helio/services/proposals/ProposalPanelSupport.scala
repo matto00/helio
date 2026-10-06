@@ -155,9 +155,10 @@ object ProposalPanelSupport {
   def preValidateBindings(
       panels: Vector[ProposalPanel],
       user: AuthenticatedUser,
-      outputRepo: OutputRepository = null,
+      outputRepo: OutputRepository,
       dataSourceRepo: DataSourceRepository = null
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] = {
+    require(outputRepo != null, "ProposalPanelSupport.preValidateBindings requires an OutputRepository")
     panels.foldLeft[Future[Either[ServiceError, Unit]]](Future.successful(Right(()))) {
       (accF, panel) =>
         accF.flatMap {
@@ -169,6 +170,7 @@ object ProposalPanelSupport {
             }
         }
     }
+  }
 
   /** HEL-1148: only the source-bound panels' `dataSourceId` check, over every panel — read-only,
    *  run before any write (the combined-proposal path calls it before the pipeline phase). */
@@ -212,10 +214,7 @@ object ProposalPanelSupport {
    *  text/markdown panel into a `markdown`-kind Output + `OutputPanel`
    *  placement, design.md line 76/103), so a non-output panel's
    *  `panel.outputId` is never a real binding to validate. `outputRepo`
-   *  is nullable, mirroring this file's other legacy-optional constructor
-   *  params — a caller that never wires it (many test doubles, and any call
-   *  site that doesn't yet construct output-kind panels) gets
-   *  existence-check skipped rather than an NPE. */
+   *  is required (HEL-1295): the existence check is never skipped. */
   private def validateDataTypeBinding(
       panel: ProposalPanel,
       user: AuthenticatedUser,
@@ -223,8 +222,6 @@ object ProposalPanelSupport {
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
     bindingCandidate(panel) match {
       case None => Future.successful(Right(()))
-      case Some(_) if panel.`type` == "output" && outputRepo == null =>
-        Future.successful(Right(()))
       case Some(id) if panel.`type` == "output" =>
         outputRepo.findByIdOwned(OutputId(id), user).map {
           case None    => Left(ServiceError.BadRequest(s"panel '${panel.title}': output $id not found"))

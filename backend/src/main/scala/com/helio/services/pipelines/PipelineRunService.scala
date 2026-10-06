@@ -69,14 +69,14 @@ final class PipelineRunService(
     // is an instance field, out of scope in a synthesized static default-argument method) --
     // resolved to the `backend` field below instead.
     executionBackend: PipelineExecutionBackend = null,
-    // HEL-904 (task 3.1/3.14): nullable-default convention mirrors
-    // binaryRefRepo/alertEvaluationService above. `outputRepo` resolves the
+    // HEL-904 (task 3.1/3.14). `outputRepo` (HEL-1295: required, never null -- enforced by the
+    // `require` in the class body) resolves the
     // Outputs attached to a pipeline's trunk-last node so alert evaluation
     // runs `evaluateForOutput` per Output instead of the retired
     // `evaluateForDataType`; `nodeSnapshotRepo` writes `node_snapshots`
     // keyed by that same node — the sole row-materialization write now that
     // task 4.1 has removed the legacy `data_type_rows` write alongside it.
-    outputRepo: OutputRepository = null,
+    outputRepo: OutputRepository,
     nodeSnapshotRepo: NodeSnapshotRepository = null,
     // HEL-1271 (design.md D-4): nullable-default convention mirrors nodeSnapshotRepo. When set, each
     // materialized node's per-Output history point is inserted in that node's own snapshot
@@ -91,8 +91,8 @@ final class PipelineRunService(
     // `analyzewithai` step can call the model. Defaults to AiStepClient.Unavailable so every
     // fixture that omits it degrades to the named `ai-unavailable` run failure rather than an NPE.
     aiStepClient: AiStepClient = AiStepClient.Unavailable,
-    // HEL-505 (design.md Decisions 1/2): nullable-default convention mirrors alertEvaluationService/
-    // outputRepo above -- fixtures that don't pass a PipelineRunGuardRepository simply skip the
+    // HEL-505 (design.md Decisions 1/2): nullable-default convention mirrors alertEvaluationService
+    // above -- fixtures that don't pass a PipelineRunGuardRepository simply skip the
     // rate-limit check in `executeRun` (guard off, matching every other nullable-optional
     // collaborator's fixture behavior in this file).
     pipelineRunGuardRepo: PipelineRunGuardRepository = null,
@@ -105,6 +105,8 @@ final class PipelineRunService(
     // still gets a real (non-zero) cap rather than an NPE.
     guardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv()
 )(implicit ec: ExecutionContext) {
+
+  require(outputRepo != null, "PipelineRunService requires an OutputRepository")
 
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -417,52 +419,49 @@ final class PipelineRunService(
    *  `PipelineRunServiceSpec`'s "does not mutate last_run_status/last_run_at" tests (BOTH the
    *  single-Output and all-Outputs variants) and `OutputRoutesSpec`'s HTTP-level equivalents. */
   def previewOutputs(pipelineId: PipelineId, outputId: Option[OutputId], user: AuthenticatedUser): Future[Either[ServiceError, PipelinePreviewResponse]] =
-    if (outputRepo == null)
-      Future.successful(Left(ServiceError.InternalError("Output preview is unavailable (no OutputRepository configured)")))
-    else
-      outputId match {
-        case Some(id) =>
-          outputRepo.findById(id, user).flatMap {
-            case None => Future.successful(Left(ServiceError.NotFound("Output not found: " + id.value)))
-            case Some(output) if output.node.pipelineId != pipelineId =>
-              Future.successful(Left(ServiceError.NotFound("Output not found: " + id.value)))
-            case Some(output) =>
-              // HEL-913 (evaluation-1.md cycle 2, Priority 2 Site B): `output.node.rootId`
-              // threaded through -- dropping it here is exactly the defect this fixes: EVERY
-              // root-bound Output on EVERY root used to collapse to key `None` and silently
-              // read `roots.head`'s rows regardless of which root the Output actually names.
-              previewAtNode(pipelineId, output.node.stepId.map(_.value), output.node.rootId.map(_.value), user).map(_.map { result =>
-                PipelinePreviewResponse(Vector(OutputPreviewEntry(id.value, result)))
-              })
-          }
-        case None =>
-          pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
-            case None =>
-              Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
-            case Some(_) =>
-              outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
-                // HEL-913 (evaluation-1.md cycle 2, Priority 2 Site B): keyed by the FULL
-                // `(stepId, rootId)` pair, not `stepId` alone -- a bare `stepId` key collapsed
-                // every root-bound Output (stepId = None) onto ONE shared key regardless of
-                // which root it actually names, so a two-root pipeline's root-1 Output silently
-                // read root-0's rows via `byNodeKey`. Two Outputs sharing (None, Some(rootId))
-                // legitimately share one preview call -- they read the SAME root's raw rows --
-                // but two Outputs differing only in `rootId` never collapse into each other now.
-                val distinctNodeKeys = outputs.map(o => (o.node.stepId.map(_.value), o.node.rootId.map(_.value))).distinct
-                Future.traverse(distinctNodeKeys) { case (stepKey, rootKey) =>
-                  previewAtNode(pipelineId, stepKey, rootKey, user).map((stepKey, rootKey) -> _)
-                }.map { resultsByNode =>
-                  resultsByNode.collectFirst { case (_, Left(err)) => err } match {
-                    case Some(err) => Left(err)
-                    case None =>
-                      val byNodeKey = resultsByNode.collect { case (k, Right(r)) => k -> r }.toMap
-                      val entries = outputs.map(o => OutputPreviewEntry(o.id.value, byNodeKey((o.node.stepId.map(_.value), o.node.rootId.map(_.value)))))
-                      Right(PipelinePreviewResponse(entries))
-                  }
+    outputId match {
+      case Some(id) =>
+        outputRepo.findById(id, user).flatMap {
+          case None => Future.successful(Left(ServiceError.NotFound("Output not found: " + id.value)))
+          case Some(output) if output.node.pipelineId != pipelineId =>
+            Future.successful(Left(ServiceError.NotFound("Output not found: " + id.value)))
+          case Some(output) =>
+            // HEL-913 (evaluation-1.md cycle 2, Priority 2 Site B): `output.node.rootId`
+            // threaded through -- dropping it here is exactly the defect this fixes: EVERY
+            // root-bound Output on EVERY root used to collapse to key `None` and silently
+            // read `roots.head`'s rows regardless of which root the Output actually names.
+            previewAtNode(pipelineId, output.node.stepId.map(_.value), output.node.rootId.map(_.value), user).map(_.map { result =>
+              PipelinePreviewResponse(Vector(OutputPreviewEntry(id.value, result)))
+            })
+        }
+      case None =>
+        pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
+          case None =>
+            Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
+          case Some(_) =>
+            outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
+              // HEL-913 (evaluation-1.md cycle 2, Priority 2 Site B): keyed by the FULL
+              // `(stepId, rootId)` pair, not `stepId` alone -- a bare `stepId` key collapsed
+              // every root-bound Output (stepId = None) onto ONE shared key regardless of
+              // which root it actually names, so a two-root pipeline's root-1 Output silently
+              // read root-0's rows via `byNodeKey`. Two Outputs sharing (None, Some(rootId))
+              // legitimately share one preview call -- they read the SAME root's raw rows --
+              // but two Outputs differing only in `rootId` never collapse into each other now.
+              val distinctNodeKeys = outputs.map(o => (o.node.stepId.map(_.value), o.node.rootId.map(_.value))).distinct
+              Future.traverse(distinctNodeKeys) { case (stepKey, rootKey) =>
+                previewAtNode(pipelineId, stepKey, rootKey, user).map((stepKey, rootKey) -> _)
+              }.map { resultsByNode =>
+                resultsByNode.collectFirst { case (_, Left(err)) => err } match {
+                  case Some(err) => Left(err)
+                  case None =>
+                    val byNodeKey = resultsByNode.collect { case (k, Right(r)) => k -> r }.toMap
+                    val entries = outputs.map(o => OutputPreviewEntry(o.id.value, byNodeKey((o.node.stepId.map(_.value), o.node.rootId.map(_.value)))))
+                    Right(PipelinePreviewResponse(entries))
                 }
               }
-          }
-      }
+            }
+        }
+    }
 
   /** Shared implementation for `previewStep`/`previewOutputs` -- `targetStepId = None` means
    *  "preview the pipeline's raw source rows" (an empty step slice); `Some(id)` walks the
@@ -787,20 +786,18 @@ final class PipelineRunService(
       JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
     }.toVector
     nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeKey.map(_.value), nodeJsRows, explicitRootId.map(_.value)).flatMap { _ =>
-      if (outputRepo == null) Future.successful(())
-      else
-        outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
-          // HEL-913 task 5.10: a root-bound backfill (`nodeKey = None`) refreshes only the
-          // Output(s) bound to THAT root when `explicitRootId` is named, not every root-bound
-          // Output on the pipeline.
-          val onThisNode = nodeKey match {
-            case Some(_) => outputs.filter(_.node.stepId == nodeKey)
-            case None    => outputs.filter(o => o.node.stepId.isEmpty && (explicitRootId.isEmpty || o.node.rootId == explicitRootId))
-          }
-          val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
-          val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
-          Future.sequence(onThisNode.map(o => outputRepo.updateSchemaInternal(o.id, schema))).map(_ => ())
+      outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
+        // HEL-913 task 5.10: a root-bound backfill (`nodeKey = None`) refreshes only the
+        // Output(s) bound to THAT root when `explicitRootId` is named, not every root-bound
+        // Output on the pipeline.
+        val onThisNode = nodeKey match {
+          case Some(_) => outputs.filter(_.node.stepId == nodeKey)
+          case None    => outputs.filter(o => o.node.stepId.isEmpty && (explicitRootId.isEmpty || o.node.rootId == explicitRootId))
         }
+        val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
+        val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
+        Future.sequence(onThisNode.map(o => outputRepo.updateSchemaInternal(o.id, schema))).map(_ => ())
+      }
     }
   }
 
@@ -1406,7 +1403,7 @@ final class PipelineRunService(
     // NOT provided (see design.md Decision 3): a mid-sequence failure leaves earlier nodes
     // updated and later ones untouched.
     val materializedWrites: Future[Unit] =
-      if (nodeSnapshotRepo != null && outputRepo != null)
+      if (nodeSnapshotRepo != null)
         outputRepo.listByPipelineInternal(pipelineId).flatMap(outputs => historyConfigs(outputs).map(outputs -> _)).flatMap { case (outputs, configsById) =>
           // HEL-913 (design.md R12, task 5.8 runtime half): keyed by NodeKey, not the old
           // `Option[String]`/`None`-means-root encoding -- a root-bound Output (`stepId = None`)
@@ -1525,7 +1522,7 @@ final class PipelineRunService(
     // worse than not evaluating them at all) and logged, since every node the walk actually
     // materializes always has an outcome; a miss here means a real bug elsewhere.
     val alertEvaluation =
-      if (alertEvaluationService != null && outputRepo != null)
+      if (alertEvaluationService != null)
         outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
           Future
             .sequence(outputs.map { output =>

@@ -206,7 +206,8 @@ class DashboardPanelAclSpec
       userRepo, stubSessionRepo, userPrefRepo,
       mkPipelineRepo, mkPipelineStepRepo,
       new PipelineRunCache(),
-      new SparkJobSubmitter("local", dataSourceRepo, mkPipelineRepo)(routeEc)
+      new SparkJobSubmitter("local", dataSourceRepo, mkPipelineRepo)(routeEc),
+      dbContext = ctx
     )
 
   // HEL-287: session auth moved from an `Authorization` bearer header to a

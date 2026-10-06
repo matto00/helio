@@ -78,7 +78,10 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     // dashboardProposalService above. `null` NodeSnapshotRepository degrades to `rowCount = 0`; no
     // test in this file asserts on panel-capability row counts.
     val panelCapabilityService   = new PanelCapabilityService(outputRepo, null)
-    val dashboardProposalService = new DashboardProposalService(null, null, outputRepo)
+    // HEL-1295: DashboardProposalService requires a non-null repository; this helper's `outputRepo`
+    // stays null for the workspace services above (their own null handling is out of scope), so
+    // the proposal service gets a typed double instead.
+    val dashboardProposalService = new DashboardProposalService(null, null, if (outputRepo != null) outputRepo else mock(classOf[OutputRepository]))
     // HEL-756 tasks.md 2.4/2.5/2.7 — the default is a REAL instance whose own collaborators are all
     // null, safe because `PipelineProposalService.validate`'s `validateSourceReference` never
     // touches `dataSourceRepo` for an inline (sourceId = None) source. A test that needs `validate`

@@ -123,7 +123,8 @@ class UploadRoutesSpec
         dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, fileSystem, stubConnector, userRepo,
         stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
         new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
-        imageUploadRepo = imageUploadRepo
+        imageUploadRepo = imageUploadRepo,
+        dbContext = ctx
       ).routes
     }
   }
@@ -144,7 +145,8 @@ class UploadRoutesSpec
       dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, fileSystem, stubConnector, userRepo,
       stubSessionRepo, userPreferenceRepo, pipelineRepo, pipelineStepRepo, new PipelineRunCache(),
       new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(typedSystem.executionContext),
-      imageUploadRepo = imageUploadRepo
+      imageUploadRepo = imageUploadRepo,
+      dbContext = ctx
     ).routes
   }
 
