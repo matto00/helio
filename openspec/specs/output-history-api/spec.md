@@ -65,6 +65,11 @@ present on the wire as an explicit `null`, never omitted.
 - **WHEN** an Output with `compare: "7d"` has points at T−9d, T−8d, T−6d and T, and T is the newest point
 - **THEN** `baseline` is the T−8d point, `delta` and `pct` are computed against it, and `availableFrom` is null
 
+#### Scenario: A point exactly at the window boundary is the baseline
+- **WHEN** an Output with `compare: "7d"` has its newest point at T, a point captured exactly at T − 7d (to the
+  microsecond), and an older point 1 microsecond before that
+- **THEN** `baseline` is the point at exactly T − 7d, not the older point, and `delta` and `pct` are computed against it
+
 #### Scenario: No baseline yet
 - **WHEN** an Output with `compare: "7d"` has points only at T−3d and T
 - **THEN** `baseline` is `null`, `delta` and `pct` are `null`, and `availableFrom` is T−3d plus 7 days

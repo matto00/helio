@@ -1,0 +1,87 @@
+# MUTATION RED: r.capturedAt <= at -> < ; note: pre-existing whole-second exactly-at repo test is also expected to fail
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/task/history-window-boundary-test/HEL-1290/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/task/history-window-boundary-test/HEL-1290/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/task/history-window-boundary-test/HEL-1290/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] OutputHistoryRepositorySpec:
+
+
+[info] OutputHistoryRoutesSpec:
+[info] insertAction
+[info] - should round-trip every column including the JSONB summary and a null run id
+[info] - should be a no-op for an empty batch
+[info] - should store a hostile summary key as data, never as SQL
+[info] listRecent
+[info] - should return newest first, honour the limit, and tie-break equal timestamps by id descending
+[info] - should be empty for an Output with no history and ignore other Outputs
+[info] nearestAtOrBefore
+[info] - should return the latest point at or before the instant, including exactly-at *** FAILED ***
+[info]   Some(2026-01-01T00:00:00Z) was not equal to Some(2026-01-01T00:01:40Z) (OutputHistoryRepositorySpec.scala:111)
+[info] - should select the point exactly at latest minus 7d (microsecond-exact), not the 1us-earlier decoy nor the 1us-later point *** FAILED ***
+[info]   Some(2026-03-03T12:00:00.123455Z) was not equal to Some(2026-03-03T12:00:00.123456Z) (OutputHistoryRepositorySpec.scala:128)
+[info] - should return None for an instant before the first point or for an empty Output
+[info] earliest
+[info] - should return the oldest captured_at, or None when there is no history
+[info] thinAndPurge
+[info] - should keep only the newest point per 5-minute bucket inside the recent window
+[info] - should thin to one point per hour between 1 and 7 days old and one per day beyond
+[info] - should keep every point that sits alone in its bucket
+[info] - should thin each Output independently
+[info] - should purge points older than the owner's tier max age
+[info] - should fall back to the strictest supplied cap for a tier absent from the map (HEL-1272)
+[info] - should apply the shortest of several supplied caps to a missing tier
+[info] - should retain a shared pipeline's history on the pipeline owner's tier, not the Output creator's (HEL-1272)
+[info] - should age-purge a tier the code does not know at the strictest cap (fails closed by construction)
+[info] - should skip the whole pass, deleting nothing, while another session holds the purge lock (HEL-1272)
+[info] - should be idempotent: a second pass deletes nothing
+[info] the output_id foreign key
+[info] - should cascade: deleting an Output removes its history and no one else's
+[info] the app pool used by this spec
+[info] - should reject a history row naming a non-existent Output
+[info] - should not bypass row-level security (asserted before any 200/404 below)
+[info] GET /outputs/:id/history -- window baseline (nearest at or before latest - w)
+[info] - should pick the T-8d point (not the now-relative T-6d, not the earliest) and null availableFrom
+[info] - should limit=1 narrows points and sparkline to the T point while the baseline is unchanged
+[info] - should list points newest first and the sparkline oldest first with the headline values
+[info] - should work for a custom duration and a 1d window
+[info] GET /outputs/:id/history -- window boundary
+[info] - should pick a point exactly at latest - w (microsecond-exact), not the 1us-earlier decoy nor the 1us-later point *** FAILED ***
+[info]   Some("2026-09-25T05:29:28.615455Z") was not equal to Some("2026-09-25T05:29:28.615456Z") (OutputHistoryRoutesSpec.scala:145)
+[info] GET /outputs/:id/history -- no baseline yet
+[info] - should return a null baseline and availableFrom = earliest + w (not earliest, not current + w)
+[info] - should return every resolved field null for an empty history, for any compare value
+[info] GET /outputs/:id/history -- previous_run
+[info] - should use the second-newest retained point (not the newest)
+[info] - should return null baseline and null availableFrom with a single point
+[info] GET /outputs/:id/history -- delta and pct arithmetic
+[info] - should give a null pct (but a real delta) for a zero baseline
+[info] - should use |baseline| for a negative baseline
+[info] - should give null delta and pct when a point has no headline value, while rowCount stays present
+[info] GET /outputs/:id/history -- no compare configured
+[info] - should give null compare/baseline/delta/pct/availableFrom but still the current point; explicit nulls on the wire
+[info] - should degrade a stored unparsable compare to no comparison (200, never 500)
+[info] GET /outputs/:id/history -- since and limit
+[info] - should return the newest `limit` points and honour `since`
+[info] - should 400 an out-of-range or malformed limit/since, never clamping
+[info] GET /outputs/:id/history -- sharing visibility (app pool does not bypass RLS)
+[info] - should serve the owner and a viewer grantee, and 404 a non-grantee byte-identically to an unknown id
+[info] GET /outputs/:id/history -- wire contract (schema seam)
+[info] - should validate a hand-seeded response, with every nullable field an explicit null
+[info] - should validate the empty-history response
+[info] - should the schema rejects a response with a nullable field omitted (guard has teeth)
+[info] - should validate a response produced by REAL pipeline runs through PipelineRunService
+[info] Run completed in 4 seconds, 49 milliseconds.
+[info] Total number of tests run: 44
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 41, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.OutputHistoryRoutesSpec
+[error] 	com.helio.infrastructure.persistence.pipelines.OutputHistoryRepositorySpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 5 s, cache 93%, 28 disk cache hits, 2 onsite tasks
