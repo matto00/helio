@@ -100,6 +100,32 @@ late, just before Delivery. Re-run the guard after rebasing. Any new in-scope hi
 gets fixed the same way (that is the same rule, not a scope widening). A textual conflict is reported to the driver, not
 resolved by guessing.
 
+## Gate-Chain Implications Checklist
+
+Both changed scripts run from `.husky/pre-commit` (via `npm run check:scala-quality`) and from CI (`ci.yml:115`).
+
+- **What does it execute?** `node scripts/check-scala-quality.selftest.mjs && node scripts/check-scala-quality.mjs`. The
+  selftest calls the exported pure `scanScalaText` on in-memory fixtures, then spawns the real CLI exactly once, via
+  `process.execPath`, against a temp fixture root. The CLI reads `.scala` files under `<root>/backend/src/{main,test}/scala`
+  and prints violations. Neither script runs git, a shell, or any other binary.
+- **What environment does it inherit, and from where?** The hook's environment, inherited from git. In a linked worktree
+  that includes `GIT_DIR`/`GIT_INDEX_FILE`, and the spawned CLI inherits the same environment. Neither script reads any
+  environment variable, and neither runs git. The repo root comes from the script's own path
+  (`fileURLToPath(import.meta.url)`, default) or an explicit argv root, never from `GIT_DIR` or the cwd, so the inherited
+  git variables have nothing to act on.
+- **Does it write anything outside its own sandbox?** Only the selftest's `mkdtempSync(join(tmpdir(), "scala-quality-selftest-"))`
+  fixture directory, which a `finally` block removes by its exact path. The guard CLI is read-only. Neither script
+  writes to the repository, the git index, or `~`.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. With no git invocation and the
+  root resolved from the script's own path, each checkout scans its own sources. One caveat: the CLI's entry guard
+  compares the realpath-normalised `import.meta.url` with `resolve(argv[1])`. Invoking it through a symlinked absolute
+  path would skip it silently (final-gate skeptic, note 2). Hook and CI invocations use a relative path from the
+  physical cwd, which the final skeptic confirmed still exits 1 on a red tree.
+- **What happens on its first run?** There is no state, cache or install step, so the first run is identical to every
+  later one. On the merged tree the guard is clean. A lane whose branch still adds an inline `java.sql.`/`java.time.`/
+  `java.util.`/`scala.annotation.` reference will fail its next commit with a message naming the line and the fix (a
+  top-of-file import). This is the intended enforcement.
+
 ## Risks / Trade-offs
 
 - [Silent shadowing changes resolution without a compile error]: D5's collision check, plus the identical test-name
