@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { waitForSettingsAuditTable } from "./support/settingsReady";
 
 import {
   assertHiddenAtWidth,
@@ -143,6 +144,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, `settings-${width}`);
         await page.goto("/settings");
+        await waitForSettingsAuditTable(page);
         await page.getByRole("button", { name: "Add color" }).click();
 
         // `.ui-icon-btn` moved to the expander mechanism app-wide, so this
@@ -171,6 +173,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, `toast-${width}`);
         await page.goto("/settings");
+        await waitForSettingsAuditTable(page);
 
         await page.fill("#api-token-name", "HEL-813 token");
         await page.getByRole("button", { name: "Create token" }).click();
