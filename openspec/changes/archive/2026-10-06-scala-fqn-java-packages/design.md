@@ -109,8 +109,9 @@ Both changed scripts run from `.husky/pre-commit` (via `npm run check:scala-qual
   `process.execPath`, against a temp fixture root. The CLI reads `.scala` files under `<root>/backend/src/{main,test}/scala`
   and prints violations. Neither script runs git, a shell, or any other binary.
 - **What environment does it inherit, and from where?** The hook's environment, inherited from git. In a linked worktree
-  that includes `GIT_DIR`/`GIT_INDEX_FILE`, and the spawned CLI inherits the same environment. Neither script reads any
-  environment variable, and neither runs git. The repo root comes from the script's own path
+  that includes `GIT_DIR`/`GIT_INDEX_FILE`, and the spawned CLI inherits the same environment. Neither script reads
+  `process.env` or runs git. The only environment-dependent input is the selftest's `os.tmpdir()`, which honours
+  `TMPDIR`/`TMP`/`TEMP`. Git does not set these, so the fixture dir lands in the hook user's normal temp dir. The repo root comes from the script's own path
   (`fileURLToPath(import.meta.url)`, default) or an explicit argv root, never from `GIT_DIR` or the cwd, so the inherited
   git variables have nothing to act on.
 - **Does it write anything outside its own sandbox?** Only the selftest's `mkdtempSync(join(tmpdir(), "scala-quality-selftest-"))`
