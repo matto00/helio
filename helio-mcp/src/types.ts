@@ -268,6 +268,10 @@ export interface OutputHistorySparklinePoint {
 }
 
 export interface OutputHistoryPoint {
+  /** The point's id; usable as `:point` on `GET /api/outputs/:id/history/:point/rows` (HEL-1276). */
+  id: string;
+  /** True exactly when a stored row payload is linked to this point (HEL-1276). */
+  hasPayload: boolean;
   capturedAt: string;
   runId: string | null;
   triggerSource: string;

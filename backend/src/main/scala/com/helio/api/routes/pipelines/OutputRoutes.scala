@@ -99,6 +99,15 @@ class OutputRoutes(
             }
           }
         },
+        // HEL-1276: a stored row payload for one history point. Authenticated only (never mounted on
+        // the public routes); the same `findById` ACL as `history`, so a stranger gets the same 404.
+        path("history" / JavaUUID / "rows") { pointId =>
+          get {
+            historyService.fold(reject: Route) { svc =>
+              ServiceResponse.run(svc.payloadRows(outputId, pointId, user))(r => OutputHistoryResponses.payload(outputId.value, r))
+            }
+          }
+        },
         path("assertion-status") {
           get {
             ServiceResponse.run(outputService.assertionStatus(outputId, user))(identity)

@@ -14,11 +14,14 @@
     "name": { "type": "string", "minLength": 1 },
     "config": {
       "type": "object",
-      "description": "Output config. `compare` (HEL-1273) selects the history comparison: absent/null (none), `previous_run`, `1d`, `7d`, `30d`, or `custom:<d>` where <d> is a positive ISO-8601 duration in days/hours/minutes/seconds (PnDTnHnMnS, at most 365 days; week/month/year and lowercase/signed forms are rejected). Anything else is a 400.",
+      "description": "Output config. `compare` (HEL-1273) selects the history comparison: absent/null (none), `previous_run`, `1d`, `7d`, `30d`, or `custom:<d>` where <d> is a positive ISO-8601 duration in days/hours/minutes/seconds (PnDTnHnMnS, at most 365 days; week/month/year and lowercase/signed forms are rejected). Anything else is a 400. `historyPayloads` (HEL-1276) opts this Output's node into storing each real run's full row payload (boolean, default off; absent/null/false store none): kept only for beta (10 runs / 7 days) and owner (30 runs / 30 days) pipeline owners, never for free, and a node over 1000 rows or 1 MiB stores none. Any non-boolean is a 400.",
       "properties": {
         "compare": {
           "type": ["string", "null"],
           "pattern": "^(previous_run|1d|7d|30d|custom:P(\\d+D)?(T(\\d+H)?(\\d+M)?(\\d+(\\.\\d+)?S)?)?)$"
+        },
+        "historyPayloads": {
+          "type": ["boolean", "null"]
         }
       }
     },

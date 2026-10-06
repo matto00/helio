@@ -13,13 +13,14 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
-import com.helio.domain.history.OutputSummaryReducer
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputHistoryInsert, OutputHistoryRepository, OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.domain.history.{OutputSummaryReducer, PayloadHistoryConfig, PayloadOptIn}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputHistoryInsert, NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.PipelineRunAssertionRow
 import com.helio.spark.PipelineRunCache
 import org.slf4j.LoggerFactory
+import slick.dbio.DBIO
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -81,6 +82,10 @@ final class PipelineRunService(
     // materialized node's per-Output history point is inserted in that node's own snapshot
     // transaction; when null, the snapshot write is the unchanged history-free `overwriteRows`.
     outputHistoryRepo: OutputHistoryRepository = null,
+    // HEL-1276: nullable-default convention mirrors outputHistoryRepo; only consulted inside the
+    // history branch below, so a fixture without a payload repo writes summaries exactly as before.
+    nodePayloadRepo: NodePayloadHistoryRepository = null,
+    payloadConfig: PayloadHistoryConfig = PayloadHistoryConfig.Defaults,
     // HEL-1106 (design.md D2): nullable-default convention mirrors binaryRefRepo/
     // alertEvaluationService above -- threaded through to InProcessPipelineEngine so an
     // `analyzewithai` step can call the model. Defaults to AiStepClient.Unavailable so every
@@ -1449,7 +1454,17 @@ final class PipelineRunService(
                       summary       = OutputSummaryReducer.summarize(nodeJsRows, o.kind, configsById.getOrElse(o.id.value, JsObject.empty))
                     )
                   }
-                  nodeSnapshotRepo.overwriteRowsWith(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt, outputHistoryRepo.insertAction(entries))
+                  // HEL-1276 (D9): when an Output on this node opted in, the payload insert joins the same
+                  // transaction and only the opted-in Outputs' points link to it. With no opt-in nothing
+                  // is built or measured.
+                  val optedIn = nodeOutputs.filter(o => PayloadOptIn.enabled(configsById.getOrElse(o.id.value, JsObject.empty))).map(_.id.value).toSet
+                  val historyAction: DBIO[Unit] =
+                    if (nodePayloadRepo == null || optedIn.isEmpty) outputHistoryRepo.insertAction(entries)
+                    else
+                      nodePayloadRepo
+                        .writeAction(pipelineId.value, nodeStepIdOpt, explicitRootIdOpt, Some(runId.value), triggerSource, now, nodeJsRows, payloadConfig)
+                        .flatMap(pid => outputHistoryRepo.insertAction(entries.map(e => if (optedIn(e.outputId)) e.copy(payloadId = pid) else e)))
+                  nodeSnapshotRepo.overwriteRowsWith(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt, historyAction)
                 }
               replace.flatMap { _ =>
                 // HEL-905 (design.md Decision 4): per-Output shallow-union schema derivation

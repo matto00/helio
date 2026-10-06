@@ -53,6 +53,7 @@ import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, Agent
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.services.audit.AuditService
+import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.domain.util.SystemClock
 import com.helio.infrastructure.persistence.telemetry.ProductEventRepository
 import com.helio.services.telemetry.{ProductEventService, ProductTelemetryConfig}
@@ -64,7 +65,7 @@ import com.helio.services.telemetry.AdminUsageService
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, OAuthStateRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodePayloadHistoryRepository, NodeSnapshotRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -218,7 +219,10 @@ final class ApiRoutes(
     claudeTransportFactory: Option[String => ClaudeTransport] = None,
     // HEL-1271: owned by Main so the retention leaf can schedule against the same instance; null in
     // fixtures, where a DbContext-backed one is derived below (see `outputHistoryRepoOpt`).
-    outputHistoryRepo: OutputHistoryRepository = null
+    outputHistoryRepo: OutputHistoryRepository = null,
+    // HEL-1276: owned by Main (shared with the retention service); derived from `dbContext` when absent.
+    nodePayloadHistoryRepo: NodePayloadHistoryRepository = null,
+    payloadHistoryConfig: PayloadHistoryConfig = PayloadHistoryConfig.fromEnv()
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -252,6 +256,9 @@ final class ApiRoutes(
   // record history through the real path with no constructor churn; `PipelineRunService` null-checks it.
   val outputHistoryRepoOpt: Option[OutputHistoryRepository] =
     Option(outputHistoryRepo).orElse(Option(dbContext).map(new OutputHistoryRepository(_)))
+  // HEL-1276: same derive-from-`dbContext` fallback as `outputHistoryRepoOpt`.
+  val nodePayloadHistoryRepoOpt: Option[NodePayloadHistoryRepository] =
+    Option(nodePayloadHistoryRepo).orElse(Option(dbContext).map(new NodePayloadHistoryRepository(_)))
   // HEL-1093 (design.md Decision 2): built from `pipelineRootRepoOpt` above and the explicitly
   // threaded `autoRunDebounceRepo` (nullable-optional, see that constructor param's own doc) --
   // `None` unless BOTH are present, so a fixture that passes neither (or only one) simply gets
@@ -469,6 +476,8 @@ final class ApiRoutes(
     outputRepo = outputRepoOpt.orNull,
     nodeSnapshotRepo = nodeSnapshotRepoOpt.orNull,
     outputHistoryRepo = outputHistoryRepoOpt.orNull,
+    nodePayloadRepo = nodePayloadHistoryRepoOpt.orNull,
+    payloadConfig = payloadHistoryConfig,
     aiStepClient = aiStepClient,
     // HEL-505: `pipelineRunGuardRepo` is `null` in fixtures that don't pass one (constructor
     // default `null`, purely additive) -- `pipelineRunGuardConfig` is always real (fromEnv-once
@@ -496,7 +505,8 @@ final class ApiRoutes(
     ))
   // HEL-1273: history + comparison read; absent without a DbContext (no history repository).
   private val outputHistoryServiceOpt: Option[OutputHistoryService] =
-    for { outputRepo <- outputRepoOpt; historyRepo <- outputHistoryRepoOpt } yield new OutputHistoryService(outputRepo, historyRepo)
+    for { outputRepo <- outputRepoOpt; historyRepo <- outputHistoryRepoOpt; payloadRepo <- nodePayloadHistoryRepoOpt }
+      yield new OutputHistoryService(outputRepo, historyRepo, payloadRepo)
   // HEL-1206: provenance read (authenticated route + public variant below). Same nullable-DbContext
   // derived wiring as outputServiceOpt: absent without a DbContext / PipelineRunRepository.
   private val provenanceServiceOpt: Option[ProvenanceService] =

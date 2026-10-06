@@ -1,5 +1,7 @@
 package com.helio.services.pipelines
 
+import com.helio.domain.history.PayloadHistoryConfig
+import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
 import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.OutputHistoryRepository
@@ -79,7 +81,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
       seedPoints(oF, pF); seedPoints(oO, pO)
       historyCount(oF) shouldBe 1923
       val clock = new FakeClock(now)
-      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock)
+      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock, new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults)
 
       val started = System.nanoTime()
       awaitDb(svc.tickAt(now))
@@ -101,7 +103,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
       awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
       val (pid, oid) = seedPipelineWithOutput(seedUser("free"))
       val clock = new FakeClock(now)
-      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock)
+      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock, new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults)
       awaitDb(svc.purgeIfDue(now)) shouldBe Some(0)
 
       // New thinnable points AFTER the first purge: two in one [now+10m, now+15m) bucket.
@@ -119,7 +121,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
 
     "allow only one of several concurrent due callers to run the purge" in {
       awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
-      val svc = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now))
+      val svc = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults)
       val results = awaitDb(Future.sequence((1 to 8).map(_ => Future(svc.purgeIfDue(now)).flatten)))
       results.count(_.isDefined) shouldBe 1
     }

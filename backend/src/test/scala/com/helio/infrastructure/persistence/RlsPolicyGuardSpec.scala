@@ -86,6 +86,8 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     "node_snapshots" -> None,
     // V115 — output_snapshot_history, sharing-aware via helio_can_access_pipeline (HEL-1271)
     "output_snapshot_history" -> None,
+    // V116 — node_payload_history, sharing-aware via helio_can_access_pipeline (HEL-1276)
+    "node_payload_history" -> None,
     // V98 — pipeline_roots, sharing-aware SELECT / owner-only write (HEL-913)
     "pipeline_roots" -> None,
     // V36 — sharing-aware tables

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/output-history-payload-response.schema.json",
+  "title": "OutputHistoryPayloadResponse",
+  "description": "Response for GET /api/outputs/:id/history/:point/rows (HEL-1276): the stored full row payload of one history point. Authenticated only (never public); readable by the Output's owner and pipeline grantees. An unknown or inaccessible Output, a point of another Output and a point with no stored payload all return 404. `capturedAt`, `runId` and `triggerSource` are the history point's; `rowCount` and `rows` the payload's (rows in their original order, at most the configured row cap). Every nullable field is present as an explicit null.",
+  "type": "object",
+  "properties": {
+    "pointId": { "type": "string", "format": "uuid" },
+    "outputId": { "type": "string" },
+    "capturedAt": { "type": "string", "format": "date-time" },
+    "runId": { "type": ["string", "null"] },
+    "triggerSource": { "type": "string" },
+    "rowCount": { "type": "integer", "minimum": 0 },
+    "rows": {
+      "type": "array",
+      "items": { "type": "object" }
+    }
+  },
+  "required": ["pointId", "outputId", "capturedAt", "runId", "triggerSource", "rowCount", "rows"],
+  "additionalProperties": false
+}

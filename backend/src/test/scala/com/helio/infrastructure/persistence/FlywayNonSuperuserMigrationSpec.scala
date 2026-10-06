@@ -341,7 +341,10 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
             "dataset_rows",
             // HEL-1271: output_snapshot_history is created and FORCEd by V115 as this same
             // non-superuser role; its existence here also proves the migration applied.
-            "output_snapshot_history"
+            "output_snapshot_history",
+            // HEL-1276: node_payload_history is created and FORCEd by V116 as this same
+            // non-superuser role (which also ALTERs V115's table to add payload_id).
+            "node_payload_history"
           )
           for (tableName <- forceRlsTables) {
             val forced = await(

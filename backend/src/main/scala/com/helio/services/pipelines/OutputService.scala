@@ -1,6 +1,6 @@
 package com.helio.services.pipelines
 
-import com.helio.domain.history.OutputCompare
+import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.services.auth.AccessChecker
@@ -455,9 +455,11 @@ object OutputService {
   }
 
   /** Every Output config write path's validation: `fieldMapping` slots (HEL-892), then
-   *  `config.compare` (HEL-1273). */
+   *  `config.compare` (HEL-1273), then `config.historyPayloads` (HEL-1276). */
   def validateConfig(kind: OutputKind, config: JsObject): Either[ServiceError, Unit] =
-    validateFieldMapping(kind, config).flatMap(_ => OutputCompare.validateConfig(config).left.map(ServiceError.BadRequest(_)))
+    validateFieldMapping(kind, config)
+      .flatMap(_ => OutputCompare.validateConfig(config).left.map(ServiceError.BadRequest(_)))
+      .flatMap(_ => PayloadOptIn.validateConfig(config).left.map(ServiceError.BadRequest(_)))
 
   private val mergeableSubObjects = Set("legend", "tooltip", "seriesColors", "axisLabels")
 
