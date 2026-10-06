@@ -183,7 +183,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       owner: AuthenticatedUser,
       kind: String,
       config: JsObject,
-      // HEL-907 evaluator-final-2: optional branch point, mirrors PatchSetUndoServiceSpec's own
+      // HEL-907 evaluator-final-2: optional branch point, mirrors PatchSetUndoServiceFixture's own
       // fixture -- needed by the rollback-side HEL-766 regression test below.
       parentStepId: Option[String] = None
   ): PipelineStepResponse =
@@ -287,7 +287,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       // ALREADY correct before this cycle -- `git show d36bb991^:` on this file confirms it
       // predates the fix commit unchanged. The genuine regression this cycle fixed was
       // PatchSetUndoInverse.pipelineStepCreateRequestFromResponse (the HEL-766 test below in
-      // PatchSetUndoServiceSpec, a DIFFERENT code path -- a POST-application undo call, not a
+      // PatchSetUndoLaneSpec, a DIFFERENT code path -- a POST-application undo call, not a
       // mid-apply rollback). This test exists to cover PatchSetApplyRollback's own
       // inverse-builder directly, fired mid-`apply` when a LATER edit in the same batch fails
       // and an already-applied pipelineStep delete must be compensated within the same request
