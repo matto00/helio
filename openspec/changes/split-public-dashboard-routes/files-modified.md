@@ -1,7 +1,0 @@
-- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicDashboardRoutes.scala` — reduced to constructor + module wiring + unchanged directive tree/ACL calls
-- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelOutputResolver.scala` — new: resolvePanelOutput (verbatim)
-- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelListResolver.scala` — new: validator, dataAsOf, orphaned controls, panel-list assembly (verbatim)
-- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelRowsResolver.scala` — new: resolveRows/FilterCapabilities/DistinctValues (verbatim)
-- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelOutputMetaResolver.scala` — new: resolveOutputMeta/Provenance (verbatim)
-- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelHistoryResolver.scala` — new: resolveHistory (verbatim)
-- `backend/src/main/scala/com/helio/api/routes/dashboards/README.md` — Holds list updated
