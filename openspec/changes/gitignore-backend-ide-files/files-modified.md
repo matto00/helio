@@ -1,0 +1,1 @@
+- `.gitignore` — ignore backend/project/metals.sbt and backend/.jvmopts

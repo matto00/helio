@@ -14,9 +14,11 @@ backend/project/target/
 backend/project/project/
 backend/project/.bloop/
 backend/project/.bsp/
+backend/project/metals.sbt
 backend/.bloop/
 backend/.bsp/
 backend/.metals/
+backend/.jvmopts
 backend/.ivy2/
 coverage/
 playwright-report/
