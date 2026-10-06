@@ -1,0 +1,2 @@
+- `backend/src/test/scala/com/helio/spark/SparkJobSubmitterSpec.scala` — replace two Thread.sleep(3000) with awaitRunPersisted (Eventually poll: run row terminal AND lastRunStatus defined)
+- `openspec/changes/spark-spec-poll-run-record/mutation-evidence.md` — verbatim mutation red/green and timing evidence
