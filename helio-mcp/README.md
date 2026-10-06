@@ -278,6 +278,54 @@ The write payloads are built by `scripts/verifyPayloads.ts`.
 through the real registered tool in-process, so a payload the tool's input
 schema rejects fails the suite without a backend.
 
+### Isolated verify run (HEL-1297)
+
+The harness's last section proves `get_output_history` with 30 real pipeline runs and reads all 30
+points back in one call. Against the shared dev database that read can come back short: every worktree
+backend shares one DB and each runs the hourly Output-history retention pass (HEL-1272), whose thin
+`DELETE` covers **every** Output in the table using the **purging** backend's own policy. A sibling
+backend at defaults collapses the fixture to about one point per five minutes, whatever
+`OUTPUT_HISTORY_*` the verify backend itself runs with. (HEL-1343's lock-busy retry makes contending
+backends purge _more_ often, not less.) The harness fails loudly rather than passing falsely, but it
+fails intermittently. Plain `npm run verify` against a shared DB is therefore a smoke run only.
+
+For the deterministic check use the isolated mode:
+
+```bash
+npm run build                                 # helio-mcp/dist
+(cd ../backend && sbt assembly)               # backend/target/scala-2.13/helio-backend.jar
+npm run verify:isolated
+```
+
+It needs `psql`, `createdb`, `dropdb`, `java` and `backend/.env` (its `DATABASE_URL` supplies the
+Postgres host and credentials; the role needs `CREATEDB`). No other lane's DB or server is touched. It:
+
+1. creates a uniquely named database `helio_verify_<random hex>`;
+2. starts the backend jar as the JVM itself (the recorded PID is the server) on an OS-chosen
+   ephemeral port, against that database, with `OUTPUT_HISTORY_PURGE_INTERVAL_MINUTES=1440` and
+   `OUTPUT_HISTORY_LOCK_RETRY_SECONDS=86400` (capped at the interval by the backend), so after its
+   startup pass no retention pass can fall inside the run, a busy or failed one included;
+3. waits for the startup pass to finish (a second scheduler tick is observed in `pg_stat_user_tables`);
+4. checks the port's listener is the recorded JVM, registers a throwaway user, confirms that user's row
+   is in the dedicated database, and mints a bootstrap PAT;
+5. runs the unchanged `scripts/verify.ts`, then revokes the PAT, stops the JVM by its recorded PID and
+   drops the database by its recorded name, whether the run passed, failed or was interrupted
+   (Ctrl-C); any removal it cannot confirm is named on stderr and makes the exit non-zero.
+
+**Why it holds when other backends purge.** A purge can only delete rows in the database its backend
+connects to. Nothing else connects to the dedicated database, so no other backend's pass, at any
+interval, can reach the fixture. The lock-retry interaction (HEL-1343) is closed the same way: sibling
+backends cannot take the purge advisory lock on a database they never open, and the isolated backend's own
+overlap with a pipeline run (a write-time payload trim takes the same key shared) would re-arm a pass
+only after the retry window, which is pinned to the 1440-minute interval.
+
+Every identifier it creates (database, uploads directory, JVM PID, user id, PAT id, harness PID) is
+printed as a `LEDGER` line and appended to a ledger file under the OS temp dir (path printed first), so
+an interrupted or crashed run leaves exact names for manual removal. The cost is one JVM and Flyway
+migration on a fresh database, roughly 20 seconds. The isolated backend also lifts the per-user API and
+pipeline-run rate limits, since it has one user and a 429 whose `Retry-After` outlasts the MCP client's
+60 second request timeout would otherwise fail the run.
+
 ## Project layout
 
 ```
@@ -294,4 +342,9 @@ scripts/
   verify.ts          end-to-end harness (real MCP client over stdio)
   verifyPayloads.ts  pure builders for verify's write-tool payloads
   verifyFixtures.ts  verify's PAT mint/revoke + exact-id teardown
+  verifyIsolated.ts  `npm run verify:isolated` entry (HEL-1297)
+  isolatedRun.ts     isolated run lifecycle: dedicated DB, backend JVM, harness, teardown
+  isolatedDb.ts      psql/createdb/dropdb helpers and backend/.env parsing
+  isolatedBackend.ts backend JVM launch, identity check, stop by exact PID
+  isolatedAuth.ts    throwaway user + bootstrap PAT
 ```
