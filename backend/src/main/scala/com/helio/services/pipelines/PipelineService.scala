@@ -27,6 +27,7 @@ import spray.json.DefaultJsonProtocol._
 import slick.jdbc.PostgresProfile.api._
 
 import java.net.InetAddress
+import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -1870,20 +1871,42 @@ final class PipelineService(
             PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
               case None => Future.successful(Right(()))
               case Some(_) =>
-                pipelineStepRepo.listByPipelineInternal(pipelineId).map { current =>
-                  // HEL-911 evaluation-1.md CR2 (cycle 2): `trunkOf(current).lastOption` is
-                  // the SAME deterministic "first position-0 child at each level" anchor
-                  // `trunkOf`'s own scaladoc documents -- used here ONLY as the fallback when
-                  // `req.parentStepId` is absent, exactly mirroring `persistNewStep`'s real
-                  // placement logic below (`spliceInsertAtInternal`'s own no-explicit-parent
-                  // branch), so the ancestor chain this cycle-check is computed against is
-                  // always the SAME node the step will actually be anchored to -- never a
-                  // silently different one.
-                  val prospectiveParent: Option[PipelineStepId] =
-                    req.parentStepId.map(PipelineStepId(_))
-                      .orElse(pipelineStepRepo.trunkOf(current).lastOption.map(_.id))
-                  val ancestors = PipelineService.ancestorChainOf(prospectiveParent, current)
-                  PipelineService.validateLaneReference(typedConfig, current, ancestors, selfId = None)
+                // HEL-1345 (design D3): a `rootId` create (no `parentStepId`) resolves its prospective
+                // parent through the SAME anchor resolver `persistNewStep` places with, scoped to
+                // THAT root. An unknown root, or an out-of-range `position`, uses no ancestors
+                // (`persistNewStep` still returns the 422); `validateLaneReference` runs regardless.
+                val rootScopedParent: Future[Option[(Vector[PipelineStep], Option[PipelineStepId])]] =
+                  (req.parentStepId, req.rootId) match {
+                    case (None, Some(rootIdRaw)) =>
+                      for {
+                        roots                   <- pipelineRepo.listRootDataSourceIdsInternal(pipelineId)
+                        (current, rootIdOfStep) <- pipelineStepRepo.listWithRootIdsInternal(pipelineId)
+                      } yield roots.find(_._1.value == rootIdRaw) match {
+                        case Some((rootId, _)) =>
+                          val anchor = PipelineService.resolveRootTrunkAnchor(current, rootIdOfStep, rootId, req.position).toOption.flatten
+                          Some((current, anchor))
+                        case None => Some((current, None))
+                      }
+                    case _ => Future.successful(None)
+                  }
+                rootScopedParent.flatMap {
+                  case Some((current, anchorOpt)) =>
+                    Future.successful(PipelineService.validateLaneReference(typedConfig, current, PipelineService.ancestorChainOf(anchorOpt, current), selfId = None))
+                  case None => pipelineStepRepo.listByPipelineInternal(pipelineId).map { current =>
+                    // HEL-911 evaluation-1.md CR2 (cycle 2): `trunkOf(current).lastOption` is
+                    // the SAME deterministic "first position-0 child at each level" anchor
+                    // `trunkOf`'s own scaladoc documents -- used here ONLY as the fallback when
+                    // `req.parentStepId` is absent, exactly mirroring `persistNewStep`'s real
+                    // placement logic below (`spliceInsertAtInternal`'s own no-explicit-parent
+                    // branch), so the ancestor chain this cycle-check is computed against is
+                    // always the SAME node the step will actually be anchored to -- never a
+                    // silently different one.
+                    val prospectiveParent: Option[PipelineStepId] =
+                      req.parentStepId.map(PipelineStepId(_))
+                        .orElse(pipelineStepRepo.trunkOf(current).lastOption.map(_.id))
+                    val ancestors = PipelineService.ancestorChainOf(prospectiveParent, current)
+                    PipelineService.validateLaneReference(typedConfig, current, ancestors, selfId = None)
+                  }
                 }
             }
           aclCheckF.flatMap {
@@ -1973,21 +1996,37 @@ final class PipelineService(
           "Cannot name both parentStepId and rootId -- a step with a parent inherits its root implicitly"
         )))
       case (None, Some(rootIdRaw)) =>
-        // HEL-913 task 7.3b: rootId is the alternative anchor to parentStepId -- the new step
-        // becomes a trunk-continuation of THAT root, never the pipeline's first/lowest-
-        // positioned root by silent default. Validated against this pipeline's OWN roots
-        // (mirroring parentStepId's "must belong to this pipeline" check) before splicing.
+        // HEL-913 task 7.3b: rootId is the alternative anchor to parentStepId -- validated
+        // against this pipeline's OWN roots (mirroring parentStepId's "must belong to this
+        // pipeline" check) before splicing.
+        //
+        // HEL-1345: the new step is placed in THAT root's trunk, never by an unconditional
+        // head-splice. `position` is an index into the root's trunk (`resolveRootTrunkAnchor`):
+        // absent appends after the trunk-last step, `0` becomes the new head (reparenting that
+        // root's parentless steps), `0 < k <= trunk length` splices directly after `trunk(k - 1)`
+        // (reparenting that anchor's children, tails included). Out of range is a 422 and
+        // nothing is persisted. A `Some(anchor)` goes through the same splice call the
+        // `parentStepId` arm uses (root derived from the parent, V98's XOR holds); `None` keeps
+        // the root-level insert (empty root, or an explicit head insert).
         pipelineRepo.listRootDataSourceIdsInternal(pipelineId).flatMap { roots =>
           roots.find(_._1.value == rootIdRaw) match {
             case None =>
               Future.successful(Left(ServiceError.UnprocessableEntity(s"rootId '$rootIdRaw' is not a root of this pipeline")))
             case Some((rootId, _)) =>
-              pipelineStepRepo.spliceInsertReportingInternal(pipelineId, req.`type`, typedConfig, None, enabled, explicitRootId = Some(rootId), actingUserId = pipelineOwnerId.value, rejectIfReparents = reject)
-                .flatMap { case (step, moved) =>
-                  audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
-                  stepResponseWithRoot(pipelineId, step).map(resp => Right((resp, moved)))
+              pipelineStepRepo.listWithRootIdsInternal(pipelineId).flatMap { case (current, rootIdOfStep) =>
+                PipelineService.resolveRootTrunkAnchor(current, rootIdOfStep, rootId, req.position) match {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(anchorOpt) =>
+                    // `explicitRootId` only matters (and is only legal) with no parent anchor.
+                    val explicitRoot = if (anchorOpt.isEmpty) Some(rootId) else None
+                    pipelineStepRepo.spliceInsertReportingInternal(pipelineId, req.`type`, typedConfig, anchorOpt, enabled, explicitRootId = explicitRoot, actingUserId = pipelineOwnerId.value, rejectIfReparents = reject)
+                      .flatMap { case (step, moved) =>
+                        audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
+                        stepResponseWithRoot(pipelineId, step).map(resp => Right((resp, moved)))
+                      }
+                      .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
                 }
-                .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+              }
           }
         }
       case (Some(parentStepIdRaw), None) =>
@@ -2501,6 +2540,47 @@ object PipelineService {
         else
           Right(())
     }
+
+  /** HEL-1345 (design D1/D3): the splice anchor for a `rootId` create, as an index into THAT root's
+   *  trunk. Pure -- shared by `persistNewStep`'s rootId arm and `addStep`'s lane pre-check so the
+   *  two never disagree.
+   *
+   *  The root's trunk: its head is the lowest-`position` root-level step of the root (ties keep
+   *  `steps`' execution order, `sortBy` being stable), then each step's first `position == 0` child.
+   *  When the root has a `position == 0` root-level step this equals `trunkOfRoot`; it also covers
+   *  a root whose root-level steps all have `position != 0` (legacy tails left after the head was
+   *  deleted) the way the editor renders it.
+   *
+   *  `position` absent -> the trunk-last step (`None` for an empty trunk); `0` -> `None` (the new
+   *  step becomes that root's head); `0 < k <= trunk.size` -> `trunk(k - 1)`; else a 422 naming the
+   *  root's trunk length. */
+  private[pipelines] def resolveRootTrunkAnchor(
+      steps: Vector[PipelineStep],
+      rootIdOfStep: Map[PipelineStepId, PipelineRootId],
+      rootId: PipelineRootId,
+      position: Option[Int]
+  ): Either[ServiceError, Option[PipelineStepId]] = {
+    val head = steps
+      .filter(s => s.parentStepId.isEmpty && rootIdOfStep.get(s.id).contains(rootId))
+      .sortBy(_.position)
+      .headOption
+    @tailrec
+    def walk(cur: Option[PipelineStep], acc: Vector[PipelineStep]): Vector[PipelineStep] = cur match {
+      case Some(step) if acc.size < steps.size =>
+        walk(steps.filter(c => c.parentStepId.contains(step.id) && c.position == 0).sortBy(_.position).headOption, acc :+ step)
+      case _ => acc
+    }
+    val trunk = walk(head, Vector.empty)
+    position match {
+      case None                                      => Right(trunk.lastOption.map(_.id))
+      case Some(0)                                   => Right(None)
+      case Some(k) if k > 0 && k <= trunk.size       => Right(Some(trunk(k - 1).id))
+      case Some(_) =>
+        Left(ServiceError.UnprocessableEntity(
+          s"position must be between 0 and ${trunk.size} (this root's trunk length)"
+        ))
+    }
+  }
 
   /** The ancestor-id chain (root-ward) starting at `parentStepId`, walked via
    *  `pipelineSteps`' own `parentStepId` links. Pure -- shared by both `addStep` (the

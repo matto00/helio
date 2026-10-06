@@ -186,21 +186,17 @@ function renderPage(store = makeStore()) {
   );
 }
 
-/** Holds every `getPipelineSteps` call made AFTER the create resolves (the resync) on one deferred
- *  promise; calls before that (the page-load fetch) get `initial`. */
-function holdResync(initial: PipelineStep[]) {
-  let held = false;
-  let release: (steps: PipelineStep[]) => void = () => {};
-  const deferred = new Promise<PipelineStep[]>((resolve) => {
-    release = resolve;
-  });
-  getPipelineStepsMock.mockImplementation(() => (held ? deferred : Promise.resolve(initial)));
-  return {
-    markCreateIssued: () => {
-      held = true;
-    },
-    release: (steps: PipelineStep[]) => act(async () => release(steps)),
-  };
+/** HEL-1345 — the create-immediately paths no longer issue a post-create steps GET (they apply the
+ *  create response's delta), so the in-flight window is the CREATE request itself: hold it on a
+ *  deferred promise and release it with the persisted step. */
+function holdCreate() {
+  let release: (step: PipelineStep) => void = () => {};
+  createPipelineStepMock.mockReturnValueOnce(
+    new Promise<PipelineStep>((resolve) => {
+      release = resolve;
+    }),
+  );
+  return { release: (step: PipelineStep) => act(async () => release(step)) };
 }
 
 async function addFilterStep() {
@@ -235,26 +231,23 @@ describe("PipelineDetailPage — step card is not expandable while its create is
     jest.clearAllMocks();
   });
 
-  it("disables the toggle and opens no editor until the resync lands, then edits PATCH the real id", async () => {
-    const resync = holdResync([]);
-    createPipelineStepMock.mockImplementation(async () => {
-      resync.markCreateIssued();
-      return persisted("real-1", "rename", 0);
-    });
+  it("disables the toggle and opens no editor until the create lands, then edits PATCH the real id", async () => {
+    getPipelineStepsMock.mockResolvedValue([]);
+    const create = holdCreate();
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
     fireEvent.click(await screen.findByRole("option", { name: /Rename column/i }));
     await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(1));
 
-    // In flight: the create resolved, the resync is held.
+    // In flight: the create request is held.
     const toggle = screen.getByRole("button", { name: /Rename column/i });
     expect(toggle).toBeDisabled();
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("textbox", { name: "New name for dept" })).not.toBeInTheDocument();
 
-    await resync.release([persisted("real-1", "rename", 0)]);
+    await create.release(persisted("real-1", "rename", 0));
 
     // Settled: the persisted card is enabled and opens; an edit PATCHes the real id.
     const settled = await screen.findByRole("button", { name: /Rename column/i, expanded: false });
@@ -307,11 +300,8 @@ describe("PipelineDetailPage — step card is not expandable while its create is
   });
 
   it("a lane-add step is not expandable while its create is in flight", async () => {
-    const resync = holdResync([persisted("anchor-1", "rename", 0)]);
-    createPipelineStepMock.mockImplementation(async () => {
-      resync.markCreateIssued();
-      return persisted("real-1", "filter", 1);
-    });
+    getPipelineStepsMock.mockResolvedValue([persisted("anchor-1", "rename", 0)]);
+    const create = holdCreate();
     renderPage();
     await screen.findByRole("button", { name: /Rename column/i, expanded: false });
 
@@ -321,7 +311,7 @@ describe("PipelineDetailPage — step card is not expandable while its create is
 
     expect(screen.getByRole("button", { name: /Filter rows/i })).toBeDisabled();
 
-    await resync.release([persisted("anchor-1", "rename", 0), persisted("real-1", "filter", 1)]);
+    await create.release(persisted("real-1", "filter", 1));
     await waitFor(() => expect(screen.getByRole("button", { name: /Filter rows/i })).toBeEnabled());
   });
 });

@@ -177,12 +177,13 @@ final case class GenerateTextStepResponse(
 
 /** Create request — the `type` discriminator selects which subtype's config
  *  shape `config` must conform to. `position` is an OPTIONAL whole-pipeline
- *  execution-order index (HEL-410; semantics updated HEL-904 for the trunk/tail
+ *  execution-order index when NO `rootId` is given (HEL-410; semantics updated HEL-904 for the trunk/tail
  *  step-tree model): absent means trunk continuation (spliced onto the current
  *  trunk-last step as its sole new child, persisted `position = 0` — not the
  *  old MAX(position)+1 whole-pipeline append value); present means the index
  *  is translated to a splice anchor, validated at the service layer as
- *  `0 <= position <= count`. `enabled` (HEL-412) is OPTIONAL and defaults to
+ *  `0 <= position <= count`. With `rootId` it is instead an index into THAT root's trunk (see
+ *  `rootId` below). `enabled` (HEL-412) is OPTIONAL and defaults to
  *  `true` (created enabled) when absent.
  *
  *  `parentStepId` (HEL-906 cycle 7, task 3.2) is OPTIONAL: an explicit real persisted step id
@@ -200,13 +201,21 @@ final case class GenerateTextStepResponse(
  *  (see `PipelineStepRepository.spliceInsertAtInternal` vs. `attachTailInternal`). Absent/false
  *  preserves the exact pre-existing splice semantics for every other caller. */
 /** `rootId` (HEL-913 task 7.3b, R13's sibling for the per-step add-step endpoint): names WHICH
- *  root a PARENTLESS new step attaches to as a trunk continuation of THAT root -- an alternative
- *  anchor to `parentStepId`, exactly one of the two may be present. With more than one root and
- *  BOTH absent, which root's trunk to extend is ambiguous -- a named `BadRequest`, never a
- *  silent default to the pipeline's first/lowest-positioned root; naming both is also a named
- *  `BadRequest` (a step with a parent already has an implicit root). A `rootId` naming a root of
- *  ANOTHER pipeline (or no root at all) is a named error, mirroring `parentStepId`'s own
- *  belongs-to-this-pipeline validation. */
+ *  root a PARENTLESS new step attaches to -- an alternative anchor to `parentStepId`, exactly one
+ *  of the two may be present. With more than one root and BOTH absent, which root's trunk to
+ *  extend is ambiguous -- a named `BadRequest`, never a silent default to the pipeline's
+ *  first/lowest-positioned root; naming both is also a named `BadRequest` (a step with a parent
+ *  already has an implicit root). A `rootId` naming a root of ANOTHER pipeline (or no root at all)
+ *  is a named error, mirroring `parentStepId`'s own belongs-to-this-pipeline validation.
+ *
+ *  Placement (HEL-1345): with `rootId`, `position` is an index into THAT root's trunk (its head,
+ *  then each step's first `position == 0` child), not the whole-pipeline execution-order slot
+ *  `position` means without `rootId`. Absent appends after that root's trunk-last step (a root
+ *  with no steps gets its first step); `0` makes the new step that root's head, re-parenting the
+ *  root's existing root-level steps under it; `0 < k <= trunk length` splices directly after the
+ *  trunk's k-th step, re-parenting that step's existing children (tails included) under the new
+ *  step. Any other value is a 422 naming the trunk length, and nothing is persisted. Other roots
+ *  are never touched. */
 final case class CreatePipelineStepRequest(
     `type`: String,
     config: JsObject,

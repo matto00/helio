@@ -1955,7 +1955,7 @@ describe("PipelineDetailPage", () => {
       });
     });
 
-    it("inserting between two steps renders the new card in the middle and calls the service with the gap's index", async () => {
+    it("inserting between two steps renders the new card in the middle and anchors the create on the preceding persisted step", async () => {
       createPipelineStepMock.mockResolvedValueOnce({ ...persistedCast, position: 1 });
       const { container } = renderDetailPage();
       await screen.findByRole("button", { name: /Rename column/i, expanded: false });
@@ -1971,10 +1971,12 @@ describe("PipelineDetailPage", () => {
           "pipe-1",
           "cast",
           { casts: {} },
-          1,
+          // HEL-1345 D11: a gap insert anchors on the preceding persisted step (x1), not on a
+          // lane index, so the server's splice-after-x1 no longer depends on index agreement.
+          undefined,
+          "x1",
           undefined,
           undefined,
-          "root-1",
         );
       });
     });
@@ -2025,22 +2027,16 @@ describe("PipelineDetailPage", () => {
     });
 
     it("an insert changes stepsFingerprint and the existing debounced analyze re-dispatches", async () => {
-      createPipelineStepMock.mockResolvedValueOnce({ ...persistedCast, position: 1 });
-      // HEL-972 CR2 -- `syncStepsFromServer` (fired by `handleInsertStep`
-      // right after the create resolves) resyncs the FULL list from
-      // `getPipelineSteps`. Without wiring its second call to reflect the
-      // now-3-step server state, the resync reverts local `steps` back to
-      // the beforeEach's stale 2-step default -- a fixture-realism gap that
-      // happened to be invisible before CR2 (the old effect dispatched on
-      // every settled fingerprint unconditionally, including a reverted
-      // one) but isn't once a genuinely-unchanged settled fingerprint is
-      // correctly treated as "nothing new to analyze".
-      getPipelineStepsMock.mockResolvedValueOnce([persistedRename, persistedFilter]);
-      getPipelineStepsMock.mockResolvedValueOnce([
-        persistedRename,
-        { ...persistedCast, position: 1 },
-        persistedFilter,
-      ]);
+      // HEL-1345 D5 — the insert no longer resyncs the whole list from `getPipelineSteps`; it
+      // applies the create response's own delta, so the server's post-insert truth is expressed
+      // through the create mock (a spliced-in step anchored after x1) and no post-insert GET
+      // value is queued (an unconsumed once-value would leak into later tests).
+      createPipelineStepMock.mockResolvedValueOnce({
+        ...persistedCast,
+        position: 0,
+        parentStepId: "x1",
+        reparentedStepIds: [],
+      });
       renderDetailPage();
       await screen.findByRole("button", { name: /Rename column/i, expanded: false });
 
@@ -2065,7 +2061,11 @@ describe("PipelineDetailPage", () => {
     // machinery composes with insert (implement nothing new; assert only).
     it("a step after the insert point gets a new stepIndex, refreshing its open preview", async () => {
       fetchStepPreviewMock.mockResolvedValue({ rows: [], rowCount: 0 });
-      createPipelineStepMock.mockResolvedValueOnce(persistedCast);
+      createPipelineStepMock.mockResolvedValueOnce({
+        ...persistedCast,
+        parentStepId: "x1",
+        reparentedStepIds: [],
+      });
       renderDetailPage();
       await screen.findByRole("button", { name: /Rename column/i, expanded: false });
 
@@ -2077,11 +2077,8 @@ describe("PipelineDetailPage", () => {
       });
       const callsBeforeInsert = fetchStepPreviewMock.mock.calls.length;
 
-      // CR9 fix — `handleInsertStep` now resyncs the full step list from the
-      // server after the create resolves (evaluation-2.md CR9), rather than
-      // patching just the one new element; queue the post-insert server
-      // truth for that follow-up `getPipelineSteps` call.
-      getPipelineStepsMock.mockResolvedValueOnce([persistedRename, persistedCast, persistedFilter]);
+      // HEL-1345 D5 — the post-insert server truth arrives via the create response (no resync
+      // GET), so there is nothing to queue for `getPipelineSteps` here.
 
       // Insert a new step before Filter (gap index 1) — Filter's stepIndex
       // shifts from 1 to 2, changing its `${stepIndex}:config` fingerprint.

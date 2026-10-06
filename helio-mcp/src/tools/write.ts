@@ -558,8 +558,9 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "them); omitted = safe default -- if the insert would re-parent any existing step it " +
         "fails with an error naming those steps and NOTHING is written, so a second branch off " +
         "the same node can never silently demote the first. An anchor with no children (e.g. the " +
-        "last step of a chain) simply appends. To append to the end of a trunk use parentStepId = " +
-        "its last step; rootId on a root that already has steps trips the guard.",
+        "last step of a chain) simply appends. rootId with no position appends at THAT root's trunk " +
+        "tail (guarded only if the trunk-last step already has children); to append after a " +
+        "specific step use parentStepId.",
       inputSchema: {
         pipelineId: z.string().min(1),
         type: z.string().min(1),

@@ -22,6 +22,7 @@ import { PipelineDetailPage } from "./PipelineDetailPage";
 import {
   analyzePipeline,
   createPipelineStep,
+  duplicatePipelineStep,
   fetchRunHistory,
   getPipelineById,
   getPipelineSchedule,
@@ -45,6 +46,7 @@ jest.mock("../services/pipelineService", () => ({
   updatePipelineStep: jest.fn(),
   updatePipelineStepEnabled: jest.fn(),
   createPipelineStep: jest.fn(),
+  duplicatePipelineStep: jest.fn(),
   deletePipelineStep: jest.fn(),
   analyzePipeline: jest.fn(),
   fetchStepPreview: jest.fn(),
@@ -409,19 +411,23 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
       expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
     );
 
-    // A create-immediately add triggers `syncStepsFromServer` (full list replace).
-    createPipelineStepMock.mockResolvedValueOnce(persisted("real-2", "filter", 1));
-    getPipelineStepsMock.mockResolvedValue([
-      aiPersisted("ai-1", 0),
-      persisted("real-2", "filter", 1),
-    ]);
-    fireEvent.click(screen.getAllByRole("button", { name: "Insert step here" })[0]);
-    fireEvent.click(await screen.findByRole("option", { name: /Filter rows/i }));
-    await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(2));
-    await screen.findByRole("button", { name: /Filter rows/i, expanded: false });
-    await waitFor(() => expect(screen.getByRole("button", { name: /Filter rows/i })).toBeEnabled());
+    // HEL-1345 D5 — a create-immediately add no longer resyncs (it applies the response delta), so
+    // the full-list replace is triggered by a caller that still uses `syncStepsFromServer`:
+    // duplicating the created draft's step. The `renderKey`-across-full-replace path stays
+    // exercised.
+    jest.mocked(duplicatePipelineStep).mockResolvedValue(aiPersisted("ai-2", 1));
+    getPipelineStepsMock.mockResolvedValue([aiPersisted("ai-1", 0), aiPersisted("ai-2", 1)]);
+    const draftCard = generateToggle().closest(".pipeline-detail-page__step-card") as HTMLElement;
+    fireEvent.click(within(draftCard).getByRole("button", { name: "Duplicate step" }));
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: /Generate text/i })).toHaveLength(2),
+    );
+    await act(async () => {});
 
-    expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
+    // WHICH card: the created draft (ai-1, first) stays open, the duplicate (ai-2) is collapsed.
+    const toggles = screen.getAllByRole("button", { name: /Generate text/i });
+    expect(toggles[0]).toHaveAttribute("aria-expanded", "true");
+    expect(toggles[1]).toHaveAttribute("aria-expanded", "false");
   });
 
   it("an enable toggle on a created draft keeps its card open", async () => {
@@ -446,16 +452,17 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
   });
 
   it("a non-head reorder keeps a created draft's card open", async () => {
-    // Server-realistic: today's trunk create head-splices (HEL-1340 probe.md case 1), so any
-    // later full resync lists the created step first; it must never make `ai-1` vanish.
+    // Server-realistic (HEL-1345): a gap insert after `anchor-1` splices directly after it, so
+    // the created step sits between `anchor-1` and `f-1` and `f-1` hangs under it. Any later full
+    // resync lists them in that order, and it must never make `ai-1` vanish.
     getPipelineStepsMock.mockResolvedValueOnce([
       persisted("anchor-1", "rename", 0),
       persisted("f-1", "filter", 1),
     ]);
     getPipelineStepsMock.mockResolvedValue([
-      aiPersisted("ai-1", 0),
-      persisted("anchor-1", "rename", 1),
-      persisted("f-1", "filter", 2),
+      persisted("anchor-1", "rename", 0),
+      aiPersisted("ai-1", 0, "anchor-1"),
+      { ...persisted("f-1", "filter", 0), parentStepId: "ai-1" },
     ]);
     const create = deferredCreate();
     renderPage();
@@ -464,7 +471,10 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     fireEvent.click(gaps[gaps.length - 1]);
     fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
     await completeDraft();
-    await create.resolve(aiPersisted("ai-1", 2));
+    await create.resolve({
+      ...aiPersisted("ai-1", 0, "anchor-1"),
+      reparentedStepIds: ["f-1"],
+    } as unknown as PipelineStep);
     await waitFor(() =>
       expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
     );
