@@ -1,4 +1,0 @@
-- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala` — rotateCredential now one user-context transaction (FOR UPDATE read, insert new, repoint, delete old); best-effort/compensation deletes removed
-- `backend/src/main/scala/com/helio/infrastructure/persistence/auth/ConnectorCredentialRepository.scala` — DBIO-level insertAction/deleteAction builders; create/delete are thin wrappers
-- `backend/src/test/scala/com/helio/infrastructure/persistence/sources/ConnectorRepositorySpec.scala` — lock-holding D4 regression test and failing-delete rollback test
-- `openspec/changes/rotate-credential-await-delete/probe.md` — root-cause probe and contention evidence
