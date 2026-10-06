@@ -12,7 +12,7 @@
 
 - [x] 1.1 Port HEL-1321's reorder probe into `PipelineDetailPage.draftCreate.test.tsx`; verify green, red with the :1290
   carry removed, green restored; commit (item 1)
-- [ ] 2.1 Create `hooks/usePipelineStepCreation.ts` per design D3 and move the create/draft logic; verify lint, tsc,
+- [x] 2.1 Create `hooks/usePipelineStepCreation.ts` per design D3 and move the create/draft logic; verify lint, tsc,
   and the full frontend Jest suite pass with zero test-file changes; commit (item 2)
 - [ ] 3.1 Probe item 3's root cause (D4) and record it; write the red test; fix; verify red→green; commit (item 3)
 
