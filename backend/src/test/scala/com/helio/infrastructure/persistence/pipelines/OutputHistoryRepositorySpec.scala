@@ -112,6 +112,22 @@ class OutputHistoryRepositorySpec extends AnyWordSpec with Matchers with BeforeA
       awaitDb(repo.nearestAtOrBefore(oid, t3.plusSeconds(1))).map(_.capturedAt) shouldBe Some(t3)
     }
 
+    "select the point exactly at latest minus 7d (microsecond-exact), not the 1us-earlier decoy nor the 1us-later point" in {
+      val (_, pid, oid) = fresh()
+      // Microsecond-exact: Postgres timestamptz stores micros, so each instant has getNano % 1000 == 0
+      // and a non-millisecond micro component; the listRecent read-back proves nothing was rounded.
+      val latest   = Instant.parse("2026-03-10T12:00:00.123456Z").truncatedTo(ChronoUnit.MICROS)
+      val boundary = latest.minus(Duration.ofDays(7))
+      val before   = boundary.minus(Duration.ofNanos(1000))
+      val after    = boundary.plus(Duration.ofNanos(1000))
+      val all      = Vector(before, boundary, after, latest)
+      all.foreach(_.getNano % 1000 shouldBe 0)
+      boundary.getNano % 1000000 should not be 0
+      insert(all.map(historyEntry(oid, pid, _)): _*)
+      capturedAts(oid) shouldBe all
+      awaitDb(repo.nearestAtOrBefore(oid, latest.minus(Duration.ofDays(7)))).map(_.capturedAt) shouldBe Some(boundary)
+    }
+
     "return None for an instant before the first point or for an empty Output" in {
       val (_, pid, oid) = fresh()
       insert(historyEntry(oid, pid, T0))

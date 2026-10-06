@@ -124,6 +124,31 @@ class OutputHistoryRoutesSpec
     }
   }
 
+  "GET /outputs/:id/history -- window boundary" should {
+    "pick a point exactly at latest - w (microsecond-exact), not the 1us-earlier decoy nor the 1us-later point" in {
+      // Microsecond-exact: Postgres timestamptz stores micros, so every seeded instant has getNano % 1000 == 0
+      // and a non-millisecond micro component; the wire read-back below proves nothing was rounded.
+      val latest   = T.minus(java.time.Duration.ofDays(1)).plus(java.time.Duration.ofNanos(123_456_000L))
+      val boundary = latest.minus(java.time.Duration.ofDays(7))
+      val before   = boundary.minus(java.time.Duration.ofNanos(1000))
+      val after    = boundary.plus(java.time.Duration.ofNanos(1000))
+      Seq(latest, boundary, before, after).foreach(_.getNano % 1000 shouldBe 0)
+      boundary.getNano % 1000000 should not be 0
+      val (pid, oid) = seedMetricOutput(ownerId, Some("7d"))
+      addPoint(oid, pid, before, Some(10))
+      addPoint(oid, pid, boundary, Some(20))
+      addPoint(oid, pid, after, Some(40))
+      addPoint(oid, pid, latest, Some(50))
+      val body = history(oid)
+      at(body, "current") shouldBe Some(latest.toString)
+      // Under `<` the query would return the b-1us decoy (value 10); a b+1us pick would give delta 10.
+      at(body, "baseline") shouldBe Some(boundary.toString)
+      num(body.fields("delta")) shouldBe Some(30.0)
+      num(body.fields("pct")) shouldBe Some(150.0)
+      body.fields("availableFrom") shouldBe JsNull
+    }
+  }
+
   "GET /outputs/:id/history -- no baseline yet" should {
     "return a null baseline and availableFrom = earliest + w (not earliest, not current + w)" in {
       val (pid, oid) = seedMetricOutput(ownerId, Some("7d"))
