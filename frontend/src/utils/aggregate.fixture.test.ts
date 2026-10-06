@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { computeAggregate, groupAndAggregate, type AggregatableRow } from "./aggregate";
 import type { AggFn } from "../features/panels/types/panel";
+import { resolveServerMetricField } from "../features/panels/history/metricHistoryView";
 
 // The same fixture the backend `OutputSummaryReducerSeamSpec` reads (HEL-1271): the real functions
 // here are the oracle, so the backend port must reproduce every `expected` value below.
@@ -32,10 +33,16 @@ interface GroupCase {
   yField: string;
   expected: { categories: string[]; values: number[] };
 }
+interface MetricFieldCase {
+  name: string;
+  config: Record<string, unknown>;
+  expected: { field: string; agg: string | null } | null;
+}
 interface Fixture {
   coerce: CoerceCase[];
   aggregate: AggregateCase[];
   group: GroupCase[];
+  metricField: MetricFieldCase[];
 }
 
 const fixture: Fixture = JSON.parse(fs.readFileSync(FIXTURE_PATH, "utf8"));
@@ -54,5 +61,9 @@ describe("output-summary-reducer shared fixture", () => {
 
   it.each(fixture.group)("group: $name", (c) => {
     expect(groupAndAggregate(c.rows, c.groupBy, c.agg, c.yField)).toEqual(c.expected);
+  });
+
+  it.each(fixture.metricField)("metricField: $name", (c) => {
+    expect(resolveServerMetricField(c.config)).toEqual(c.expected);
   });
 });

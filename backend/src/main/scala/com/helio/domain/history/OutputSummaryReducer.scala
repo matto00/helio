@@ -52,7 +52,7 @@ object OutputSummaryReducer {
       "rowCount"         -> JsNumber(rows.size),
       "columns"          -> columns,
       "columnsTruncated" -> JsBoolean(truncated),
-      "metric"           -> (if (kind == OutputKind.Metric) metric(rows, config) else JsNull),
+      "metric"           -> (if (kind == OutputKind.Metric) metricOf(rows, config) else JsNull),
       "series"           -> (if (kind == OutputKind.Chart) series(rows, config) else JsNull)
     )
   }
@@ -84,23 +84,26 @@ object OutputSummaryReducer {
       case JsString(s) if s.nonEmpty => s
     }
 
-  private def metric(rows: Vector[JsObject], config: JsObject): JsValue = {
-    val mapping: Vector[String] =
-      config.fields.get("fieldMapping").collect { case o: JsObject => o.fields.values.toVector }.getOrElse(Vector.empty).collect { case JsString(s) => s }
-    val fieldOpt: Option[String] =
-      if (mapping.size == 1) mapping.headOption
-      else stringField(config, "fieldMapping", "value").orElse(stringField(config, "aggregation", "value"))
-    fieldOpt match {
+  /** The metric field/aggregation for a config: `fieldMapping.value`, then `aggregation.value`. A
+   *  `label`/`unit` mapping is never the metric field; with neither present there is none
+   *  (HEL-1326). Mirrored by the client's `resolveServerMetricField` (shared `metricField` fixture). */
+  def metricField(config: JsObject): Option[(String, Option[String])] =
+    stringField(config, "fieldMapping", "value").orElse(stringField(config, "aggregation", "value")).map { field =>
+      (field, stringField(config, "aggregation", "agg"))
+    }
+
+  /** The metric summary `{field, agg, value}` over `rows`, or `JsNull` when the config resolves to no field.
+   *  Only `config`'s metric field is read from each row, so projected `{field -> cell}` rows give the same result. */
+  def metricOf(rows: Vector[JsObject], config: JsObject): JsValue =
+    metricField(config) match {
       case None => JsNull
-      case Some(field) =>
-        val aggOpt = stringField(config, "aggregation", "agg")
-        val value  = aggOpt match {
+      case Some((field, aggOpt)) =>
+        val value = aggOpt match {
           case Some(agg) => computeAggregate(rows, field, agg)
           case None      => rows.headOption.flatMap(cell(_, field)).flatMap(coerceNumber)
         }
         JsObject("field" -> JsString(field), "agg" -> aggOpt.fold[JsValue](JsNull)(JsString(_)), "value" -> num(value))
     }
-  }
 
   private def series(rows: Vector[JsObject], config: JsObject): JsValue = {
     val groupBy   = stringField(config, "aggregation", "groupBy")

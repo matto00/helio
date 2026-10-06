@@ -210,9 +210,30 @@
         },
         "value": {
           "type": ["number", "null"]
+        },
+        "metric": {
+          "description": "HEL-1326: the field/aggregation the stored summary's metric was computed from, or null when the summary has no metric. A read-out of the stored record only; it never changes which point is selected.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "agg": {
+                  "type": ["string", "null"]
+                }
+              },
+              "required": ["field", "agg"],
+              "additionalProperties": false
+            }
+          ]
         }
       },
-      "required": ["capturedAt", "rowCount", "value"],
+      "required": ["capturedAt", "rowCount", "value", "metric"],
       "additionalProperties": false
     },
     "sparklinePoint": {

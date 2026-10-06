@@ -23,6 +23,17 @@
     "materialized": {
       "type": "boolean",
       "description": "False only when the bound node has never had a successful pipeline run since the Output was added -- never derived from a filter's match count."
+    },
+    "metric": {
+      "type": ["object", "null"],
+      "description": "HEL-1326: the metric value over the FULL filtered set (not just this page) -- `{field, agg, value}`, computed with the same selection rule and reducer as the stored history summary. Present only for a metric Output when a filter applied and `offset` is 0 (the key is absent otherwise); `null` when the metric's config resolves to no field. Lets the panel headline cover every matching row instead of the loaded first page.",
+      "properties": {
+        "field": { "type": "string" },
+        "agg": { "type": ["string", "null"] },
+        "value": { "type": ["number", "null"] }
+      },
+      "required": ["field", "agg", "value"],
+      "additionalProperties": false
     }
   },
   "required": ["items", "total", "offset", "limit", "materialized"],

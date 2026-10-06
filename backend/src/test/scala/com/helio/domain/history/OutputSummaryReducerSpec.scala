@@ -72,6 +72,21 @@ class OutputSummaryReducerSpec extends AnyWordSpec with Matchers {
       summarize(rows, OutputKind.Metric, "{}").fields("metric") shouldBe JsNull
     }
 
+    "be null for a lone label mapping" in {
+      summarize(rows, OutputKind.Metric, """{"fieldMapping":{"label":"amount"},"aggregation":{"agg":"sum"}}""").fields("metric") shouldBe JsNull
+    }
+
+    "be null for a lone unit mapping" in {
+      summarize(rows, OutputKind.Metric, """{"fieldMapping":{"unit":"amount"}}""").fields("metric") shouldBe JsNull
+    }
+
+    "aggregate aggregation.value for {label} + aggregation.value (RED on main: label column was aggregated)" in {
+      val big = rows.map(r => JsObject(r.fields + ("name" -> JsString("n"))))
+      val m   = summarize(big, OutputKind.Metric, """{"fieldMapping":{"label":"name"},"aggregation":{"value":"amount","agg":"sum"}}""").fields("metric").asJsObject
+      m.fields("field") shouldBe JsString("amount")
+      m.fields("value") shouldBe JsNumber(45150)
+    }
+
     "map a non-finite sum to null" in {
       val big  = Vector(row("v" -> JsNumber(BigDecimal("1e308"))), row("v" -> JsNumber(BigDecimal("1e308"))))
       val m    = summarize(big, OutputKind.Metric, """{"fieldMapping":{"value":"v"},"aggregation":{"agg":"sum"}}""").fields("metric").asJsObject

@@ -8,6 +8,9 @@ export interface HistoryResolvedPoint {
   rowCount: number;
   /** `null` for a non-metric Output (and for a non-finite metric). */
   value: number | null;
+  /** The field/aggregation the stored summary's metric used (HEL-1326); `null` for no metric,
+   *  absent from an older server. */
+  metric?: { field: string; agg: string | null } | null;
 }
 
 export interface HistorySparklinePoint {

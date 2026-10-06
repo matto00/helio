@@ -361,6 +361,28 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     )
   }
 
+  /** HEL-1326 design.md D3 -- one field's cell for EVERY row of the node matching `filter`, as
+   *  single-key `{field -> cell}` objects (a row lacking the key yields `{}`, a JSON null yields
+   *  `{field: null}`), always `row_index ASC` so an order-dependent reducer (`metric` with no
+   *  aggregation reads the first row) has one defined answer. Backs the full-filtered-set metric
+   *  headline; projecting one column keeps the unbounded read to a single cell per row. */
+  def listFieldCells(
+      pipelineId: String,
+      nodeStepId: Option[String],
+      explicitRootId: Option[String],
+      field: String,
+      filter: Option[NodeSnapshotRepository.FilterSpec]
+  ): Future[Vector[JsObject]] = {
+    val where: SQLActionBuilder =
+      sql"WHERE pipeline_id = $pipelineId".concat(nodeFilterFragment(nodeStepId, explicitRootId)).concat(filterWhereFragment(filter).getOrElse(sql""))
+    val query: SQLActionBuilder =
+      sql"SELECT (data -> $field)::text FROM node_snapshots ".concat(where).concat(sql" ORDER BY row_index ASC")
+    ctx.withSystemContext(query.as[Option[String]]).map(_.map {
+      case None       => JsObject()
+      case Some(text) => JsObject(field -> text.parseJson(listRowsJsonParserSettings))
+    }.toVector)
+  }
+
   /** HEL-1027 design.md D5 amendment (task 3.4) — a cheap, filter-INDEPENDENT existence check:
    *  does this node have ANY row at all? Used by `OutputService.rows` to derive `materialized`
    *  when a filter is active, since `listRowsPaged`'s `total` under a filter can legitimately be

@@ -110,6 +110,34 @@ describe("PanelContent — metric history (HEL-1275)", () => {
     expect(screen.queryByText(/vs 7d/)).toBeNull();
   });
 
+  it("GUARD (D5 existing-disclosure): a client-side cross-filter over truncated rows keeps the loaded-rows value and shows the HEL-588 disclosure, ignoring a filtered server metric", async () => {
+    const config = { ...METRIC_CONFIG, fieldMapping: { value: "amount", label: "region" } };
+    getOutputById.mockResolvedValue(makeOutput(config));
+    renderWithStore(
+      <PanelContent
+        crossFilterMode="client-fallback"
+        panel={PANEL}
+        rawRows={[
+          ["400", "east"],
+          ["500", "west"],
+        ]}
+        headers={["amount", "region"]}
+        rowsTruncated
+        totalRowCount={500}
+        filteredMetric={{ field: "amount", agg: "sum", value: 9999 }}
+      />,
+      {
+        panels: {
+          items: [],
+          crossFilter: { panelId: "other-panel", dimension: "region", value: "east", series: "x" },
+        },
+      },
+    );
+    expect(await screen.findByText("400")).toBeInTheDocument();
+    expect(screen.queryByText("9,999")).toBeNull();
+    expect(screen.getByText(/1 of 2 loaded rows match\./)).toBeInTheDocument();
+  });
+
   it("an empty dropdown control value builds no filter ops, so the delta still renders", async () => {
     const control = { id: "c1", kind: "dropdown" as const, column: "region", label: "Region" };
     // The SAME builder the call sites use to derive `viewerFilterActive`.

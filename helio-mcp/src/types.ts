@@ -260,6 +260,8 @@ export interface OutputHistoryResolvedPoint {
   capturedAt: string;
   rowCount: number;
   value: number | null;
+  /** The field/aggregation the stored summary's metric used, or `null` for no metric (HEL-1326). */
+  metric?: { field: string; agg: string | null } | null;
 }
 
 export interface OutputHistorySparklinePoint {

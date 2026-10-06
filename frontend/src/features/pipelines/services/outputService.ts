@@ -111,6 +111,15 @@ export async function getFilterCapabilities(
   return response.data;
 }
 
+/** HEL-1326 design.md D2 — the metric value over the FULL filtered set, returned with a page-0
+ *  rows response for a metric Output when a filter applied. `null` = the metric's config resolves
+ *  to no field; absent = not provided (no filter, a later page, a non-metric Output, older server). */
+export interface FilteredMetric {
+  field: string;
+  agg: string | null;
+  value: number | null;
+}
+
 export interface FetchOutputRowsResult {
   items: Record<string, unknown>[];
   total: number;
@@ -122,6 +131,7 @@ export interface FetchOutputRowsResult {
    *  true`, `items` still empty). Consumers should show a "run the
    *  pipeline" affordance only when this is `false`. */
   materialized: boolean;
+  metric?: FilteredMetric | null;
 }
 
 /** HEL-1027 design.md D1 — `GET /api/outputs/:id/rows`'s `sort` query param shape. */

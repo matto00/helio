@@ -343,6 +343,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
         // threaded through to `TableRenderer`'s loaded-scope disclosure so a filtered count
         // describes the WHOLE Output, never just the currently-loaded page (task 5.2).
         totalRowCount={paginationEntry?.total}
+        filteredMetric={paginationEntry?.metric}
         // HEL-1027 skeptic-final-3.md CR1 (cycle 4) — this component's OWN `useOutputMeta`
         // result (above), so `OutputPanelContent` renders from the SAME fetch this component's
         // `usePanelSortFilter` already seeded from, instead of independently fetching its own
