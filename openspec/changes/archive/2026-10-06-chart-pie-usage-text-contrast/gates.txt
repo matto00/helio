@@ -1,0 +1,57 @@
+### npm run lint
+
+> helio@0.7.4 lint
+> eslint . --max-warnings=0
+
+EXIT=0
+### npm run format:check
+
+> helio@0.7.4 format:check
+> prettier . --check
+
+Checking formatting...
+All matched files use Prettier code style!
+EXIT=0
+### npm --prefix frontend run typecheck
+
+> helio-frontend@0.0.0 typecheck
+> tsc --noEmit
+
+EXIT=0
+### npm test  (RED run, kept as originally recorded by the cycle-3 gate run)
+
+Test Suites: 1 failed, 438 passed, 439 total
+Tests:       1 failed, 4580 passed, 4581 total
+Snapshots:   1 passed, 1 total
+Time:        38.63 s
+Ran all test suites.
+EXIT=1
+
+NOTE: the failing test name and message are UNRECOVERABLE. Only the last 6 lines were saved, and the full log was overwritten by a later run. It is not known which test failed; it is not claimed to be the PanelCard flake (that test failed once in a cycle-1 parallel run and passed in isolation, but nothing ties it to this failure).
+
+### npm test  (re-run 1: frontend jest alone, green)
+Tests:       4581 passed, 4581 total
+EXIT=0 (npm test after the amend, below, is re-run 2)
+
+### npm test  (re-run 2, green)
+Tests:       4581 passed (root 371 passed), EXIT=0
+
+### npm test  (re-run 3, nice -n 19 --maxWorkers=3, log hel1342-gate-r3.log)
+
+Test Suites: 439 passed, 439 total
+Tests:       4581 passed, 4581 total
+Snapshots:   1 passed, 1 total
+Time:        38.399 s
+Ran all test suites.
+EXIT=0
+
+The failure did not reproduce in 3 re-runs (plus 2 green pre-commit hook runs of the full chain).
+
+### npm --prefix frontend run build
+PWA v1.3.0
+mode      generateSW
+precache  33 entries (2146.75 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-acf3c99e.js
+EXIT=0

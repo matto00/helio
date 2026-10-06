@@ -201,7 +201,7 @@ export function appearanceToEChartsOption(
  *  a cross-module import: both files read the same built-option shape at a
  *  different point in `ChartPanel`'s assembly pipeline, and the two-line
  *  duplication is cheaper than the coupling). */
-function toSeriesArray(option: EChartsOption): Array<Record<string, unknown>> {
+export function toSeriesArray(option: EChartsOption): Array<Record<string, unknown>> {
   const series = option.series;
   if (Array.isArray(series)) return series as Array<Record<string, unknown>>;
   if (series) return [series as Record<string, unknown>];

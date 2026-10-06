@@ -1,0 +1,21 @@
+## Mutation 1: remove pie label colour (label: { ...(s.label ?? {}) } only)
+ frontend/src/features/panels/ui/buildChartOption.ts | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+Tests:       6 failed, 34 passed, 40 total
+## Mutation 2: remove UsageChart axis colour (axisLabel color lines)
+Tests:       1 failed, 1 passed, 2 total
+## Mutation 3: hardcode the dark fallback token in place of tokens.text
+Tests:       1 failed, 1 passed, 2 total
+## Restored: all three green
+Tests:       42 passed, 42 total
+## Re-run after harness change (button-driven theme switch, lint fix)
+## Mutation 2 (re-run)
+Tests:       1 failed, 1 passed, 2 total
+## Mutation 3 (re-run)
+Tests:       1 failed, 1 passed, 2 total
+Tests:       2 passed, 2 total
+## Cycle 3: no-data pie guard uses not.toHaveProperty("series")
+# with cycle-1 buildChartOption.ts (76c43eef2):
+Tests:       1 failed, 40 skipped, 41 total
+# with HEAD buildChartOption.ts:
+Tests:       40 skipped, 1 passed, 41 total
