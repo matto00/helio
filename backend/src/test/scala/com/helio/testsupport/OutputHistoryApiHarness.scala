@@ -1,6 +1,7 @@
 package com.helio.testsupport
 
 import com.helio.api.http.{AccessCheckerImpl, AclDirective, ResourceType => AclResourceType, ResourceTypeRegistry}
+import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.domain.model._
 import com.helio.domain.steps.AssertConfig
 import com.helio.infrastructure.persistence.DbContext
@@ -44,6 +45,7 @@ trait OutputHistoryApiHarness extends OutputHistoryFixtures {
   protected var ctx: DbContext                     = _
   protected var outputRepo: OutputRepository       = _
   protected var historyRepo: OutputHistoryRepository = _
+  protected var payloadRepo: NodePayloadHistoryRepository = _
   protected var panelRepo: PanelRepository         = _
   protected var dashboardRepo: DashboardRepository = _
   protected var permissionRepo: ResourcePermissionRepository = _
@@ -94,6 +96,7 @@ trait OutputHistoryApiHarness extends OutputHistoryFixtures {
     snapshotRepo   = new NodeSnapshotRepository(ctx)
     outputRepo     = new OutputRepository(ctx)
     historyRepo    = new OutputHistoryRepository(ctx)
+    payloadRepo    = new NodePayloadHistoryRepository(ctx)
     panelRepo      = new PanelRepository(ctx)
     dashboardRepo  = new DashboardRepository(ctx)
     permissionRepo = new ResourcePermissionRepository(ctx)
@@ -104,7 +107,7 @@ trait OutputHistoryApiHarness extends OutputHistoryFixtures {
     accessChecker  = new AccessCheckerImpl(permissionRepo, registry)
     aclDirective   = new AclDirective(permissionRepo, registry, None)
     outputService  = new OutputService(outputRepo, panelRepo, accessChecker)
-    historyService = new OutputHistoryService(outputRepo, historyRepo)
+    historyService = new OutputHistoryService(outputRepo, historyRepo, payloadRepo)
   }
 
   protected def stopHarness(): Unit = { appDb.close(); db.close(); embeddedPostgres.close() }
@@ -164,11 +167,15 @@ trait OutputHistoryApiHarness extends OutputHistoryFixtures {
     (pipelineId, out.id)
   }
 
-  protected def runService(): PipelineRunService = {
+  /** Override to change the payload caps/tier limits used by `runService()`. */
+  protected def payloadConfig: PayloadHistoryConfig = PayloadHistoryConfig.Defaults
+
+  protected def runService(payloadCfg: PayloadHistoryConfig = payloadConfig): PipelineRunService = {
     implicit val ec: ExecutionContext = harnessEc
     new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, runRepo, new PipelineRunCache(), registry = null,
-      new LocalFileSystem(Paths.get("/")), outputRepo = outputRepo, nodeSnapshotRepo = snapshotRepo, outputHistoryRepo = historyRepo
+      new LocalFileSystem(Paths.get("/")), outputRepo = outputRepo, nodeSnapshotRepo = snapshotRepo, outputHistoryRepo = historyRepo,
+      nodePayloadRepo = payloadRepo, payloadConfig = payloadCfg
     )
   }
 }

@@ -18,7 +18,7 @@ import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, Agent
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository, ImageUploadRepository}
@@ -27,6 +27,7 @@ import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.services.sources.{ContentSourceSupport, RestSourceConnectorMigration}
 import com.helio.infrastructure.storage.{GcsFileSystem, LocalFileSystem}
 import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.services.pipelines.{OutputHistoryRetentionConfig, OutputHistoryRetentionService, PipelineSchedulerService}
 import com.typesafe.config.ConfigFactory
 
@@ -150,6 +151,10 @@ object Main {
       // HEL-1271: per-Output summary history; ApiRoutes wires it into PipelineRunService's snapshot
       // write. Constructed here (not inside ApiRoutes) so the retention leaf can schedule against it.
       val outputHistoryRepo = new OutputHistoryRepository(ctx)
+      // HEL-1276: opt-in node payload history; built once so the run path, the read route and the
+      // retention pass share one repository and one set of caps.
+      val nodePayloadHistoryRepo = new NodePayloadHistoryRepository(ctx)
+      val payloadHistoryConfig   = PayloadHistoryConfig.fromEnv()
       val apiTokenRepo       = new ApiTokenRepository(ctx)
       val binaryRefRepo      = new BinaryRefRepository(ctx)
       val imageUploadRepo    = new ImageUploadRepository(ctx)
@@ -269,7 +274,9 @@ object Main {
         pipelineRunGuardRepo = pipelineRunGuardRepo,
         autoRunDebounceRepo = autoRunDebounceRepo,
         pipelineRunNotifyBus = pipelineRunNotifyBus,
-        outputHistoryRepo = outputHistoryRepo
+        outputHistoryRepo = outputHistoryRepo,
+        nodePayloadHistoryRepo = nodePayloadHistoryRepo,
+        payloadHistoryConfig = payloadHistoryConfig
       )
 
       // HEL-415: scheduler runtime — reuses apiRoutes.pipelineRunService so
@@ -280,7 +287,9 @@ object Main {
       val productEventRollupService =
         new ProductEventRollupService(new ProductEventRepository(ctx), ProductTelemetryConfig.fromEnv(), SystemClock)
       val outputHistoryRetentionService =
-        new OutputHistoryRetentionService(outputHistoryRepo, OutputHistoryRetentionConfig.fromEnv(), SystemClock)
+        new OutputHistoryRetentionService(
+          outputHistoryRepo, OutputHistoryRetentionConfig.fromEnv(), SystemClock, nodePayloadHistoryRepo, payloadHistoryConfig
+        )
       val pipelineSchedulerService = new PipelineSchedulerService(
         pipelineScheduleRepo,
         pipelineRepo,

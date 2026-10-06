@@ -22,7 +22,9 @@ final case class OutputHistoryInsert(
     triggerSource: String,
     capturedAt: Instant,
     rowCount: Int,
-    summary: JsObject
+    summary: JsObject,
+    /** HEL-1276: the node payload this point links to; only set for an Output that opted in. */
+    payloadId: Option[UUID] = None
 )
 
 final case class OutputHistoryPoint(
@@ -35,7 +37,8 @@ final case class OutputHistoryPoint(
     triggerSource: String,
     capturedAt: Instant,
     rowCount: Int,
-    summary: JsObject
+    summary: JsObject,
+    payloadId: Option[UUID] = None
 )
 
 /** Age-dependent bucket widths for thinning (owner ruling D4): within `recentWindow` keep at most
@@ -60,7 +63,7 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   private val table = TableQuery[HistoryTable]
 
   private def toPoint(r: HistoryRow): OutputHistoryPoint =
-    OutputHistoryPoint(r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8, r._9, r._10)
+    OutputHistoryPoint(r._1, r._2, r._3, r._4, r._5, r._6, r._7, r._8, r._9, r._10, r._11)
 
   /** Composable (never runs itself) so it can share the node snapshot replace's transaction.
    *  A lifted batch insert: `summary` carries user-controlled column names and string values and
@@ -69,7 +72,7 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     if (entries.isEmpty) DBIO.successful(())
     else
       (table ++= entries.map(e =>
-        (UUID.randomUUID(), e.outputId, e.pipelineId, e.nodeStepId, e.rootId, e.runId, e.triggerSource, e.capturedAt, e.rowCount, e.summary)
+        (UUID.randomUUID(), e.outputId, e.pipelineId, e.nodeStepId, e.rootId, e.runId, e.triggerSource, e.capturedAt, e.rowCount, e.summary, e.payloadId)
       )).map(_ => ())
 
   /** Newest first; `id DESC` breaks `captured_at` ties deterministically. */
@@ -77,6 +80,10 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(
       table.filter(_.outputId === outputId).sortBy(r => (r.capturedAt.desc, r.id.desc)).take(limit).result
     ).map(_.map(toPoint).toVector)
+
+  /** One point, scoped to its Output (a point id from another Output never resolves). */
+  def findPoint(outputId: String, pointId: UUID): Future[Option[OutputHistoryPoint]] =
+    ctx.withSystemContext(table.filter(r => r.id === pointId && r.outputId === outputId).result).map(_.headOption.map(toPoint))
 
   /** The latest point with `captured_at <= at` (the baseline lookup). */
   def nearestAtOrBefore(outputId: String, at: Instant): Future[Option[OutputHistoryPoint]] =
@@ -157,7 +164,7 @@ object OutputHistoryRepository {
   /** Namespace for the purge's `pg_try_advisory_xact_lock` (ASCII "HEL1272"); no other lock uses it. */
   private[persistence] val PurgeAdvisoryLockKey: Long = 0x48454C31323732L
 
-  type HistoryRow = (UUID, String, String, Option[String], Option[String], Option[String], String, Instant, Int, JsObject)
+  type HistoryRow = (UUID, String, String, Option[String], Option[String], Option[String], String, Instant, Int, JsObject, Option[UUID])
 
   class HistoryTable(tag: Tag) extends Table[HistoryRow](tag, "output_snapshot_history") {
     def id            = column[UUID]("id", O.PrimaryKey)
@@ -170,7 +177,8 @@ object OutputHistoryRepository {
     def capturedAt    = column[Instant]("captured_at")
     def rowCount      = column[Int]("row_count")
     def summary       = column[JsObject]("summary")
+    def payloadId     = column[Option[UUID]]("payload_id")
 
-    def * = (id, outputId, pipelineId, nodeStepId, rootId, runId, triggerSource, capturedAt, rowCount, summary)
+    def * = (id, outputId, pipelineId, nodeStepId, rootId, runId, triggerSource, capturedAt, rowCount, summary, payloadId)
   }
 }

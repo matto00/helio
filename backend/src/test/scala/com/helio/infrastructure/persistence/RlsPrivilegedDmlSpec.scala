@@ -140,6 +140,7 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
     val tables = Seq(
       "resource_permissions",
       "panels",
+      "node_payload_history",
       "output_snapshot_history",
       "outputs",
       "pipeline_steps",
@@ -308,6 +309,33 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
       await(ctx.withSystemContext(sql"SELECT count(*) FROM output_snapshot_history WHERE id = $histId::uuid".as[Int].head)) shouldBe 1
       await(ctx.withSystemContext(sqlu"UPDATE output_snapshot_history SET row_count = 9 WHERE id = $histId::uuid")) shouldBe 1
       await(ctx.withSystemContext(sqlu"DELETE FROM output_snapshot_history WHERE id = $histId::uuid")) shouldBe 1
+    }
+  }
+
+  "withSystemContext DML on node_payload_history" should {
+
+    def seedPayloadRow(): String = {
+      val pipId     = UUID.randomUUID().toString
+      val payloadId = UUID.randomUUID().toString
+      await(ctx.withSystemContext(DBIO.seq(
+        sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pipId, 'pipe-payload', ${ownerA.value}::uuid, now(), now())""",
+        sqlu"""INSERT INTO node_payload_history (id, pipeline_id, root_id, run_id, trigger_source, captured_at, row_count, byte_size, rows)
+               VALUES ($payloadId::uuid, $pipId, $pipId, 'run-1', 'manual', now(), 1, 7, '[{"a":1}]'::jsonb)"""
+      )))
+      payloadId
+    }
+
+    "INSERT a row" in {
+      cleanDb()
+      noException should be thrownBy seedPayloadRow()
+    }
+
+    "SELECT, UPDATE and DELETE an inserted row" in {
+      cleanDb()
+      val id = seedPayloadRow()
+      await(ctx.withSystemContext(sql"SELECT count(*) FROM node_payload_history WHERE id = $id::uuid".as[Int].head)) shouldBe 1
+      await(ctx.withSystemContext(sqlu"UPDATE node_payload_history SET row_count = 9 WHERE id = $id::uuid")) shouldBe 1
+      await(ctx.withSystemContext(sqlu"DELETE FROM node_payload_history WHERE id = $id::uuid")) shouldBe 1
     }
   }
 

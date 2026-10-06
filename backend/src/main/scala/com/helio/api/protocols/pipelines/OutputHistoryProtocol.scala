@@ -1,7 +1,7 @@
 package com.helio.api.protocols.pipelines
 
 import com.helio.infrastructure.persistence.pipelines.OutputHistoryPoint
-import com.helio.services.pipelines.{OutputHistoryResolution, OutputHistoryService, ResolvedHistoryPoint}
+import com.helio.services.pipelines.{OutputHistoryPayload, OutputHistoryResolution, OutputHistoryService, ResolvedHistoryPoint}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
@@ -9,7 +9,26 @@ import java.time.Instant
 
 /** HEL-1273 -- wire shapes of `GET /api/outputs/:id/history` and its public variant. Named
  *  `...PointResponse` to stay apart from the repository's `OutputHistoryPoint`. */
-final case class OutputHistoryPointResponse(capturedAt: Instant, runId: Option[String], triggerSource: String, rowCount: Int, summary: JsObject)
+final case class OutputHistoryPointResponse(
+    id: String,
+    hasPayload: Boolean,
+    capturedAt: Instant,
+    runId: Option[String],
+    triggerSource: String,
+    rowCount: Int,
+    summary: JsObject
+)
+
+/** HEL-1276 -- `GET /api/outputs/:id/history/:point/rows`. Authenticated only; no public counterpart. */
+final case class OutputHistoryPayloadResponse(
+    pointId: String,
+    outputId: String,
+    capturedAt: Instant,
+    runId: Option[String],
+    triggerSource: String,
+    rowCount: Int,
+    rows: JsArray
+)
 final case class SparklinePoint(capturedAt: Instant, value: Option[Double])
 final case class OutputHistoryResponse(
     outputId: String,
@@ -45,8 +64,11 @@ object OutputHistoryResponses {
   def authenticated(outputId: String, r: OutputHistoryResolution): OutputHistoryResponse =
     OutputHistoryResponse(
       outputId, r.compare, r.current, r.baseline, r.delta, r.pct, r.availableFrom, sparkline(r.points),
-      r.points.map(p => OutputHistoryPointResponse(p.capturedAt, p.runId, p.triggerSource, p.rowCount, p.summary))
+      r.points.map(p => OutputHistoryPointResponse(p.id.toString, p.payloadId.isDefined, p.capturedAt, p.runId, p.triggerSource, p.rowCount, p.summary))
     )
+
+  def payload(outputId: String, r: OutputHistoryPayload): OutputHistoryPayloadResponse =
+    OutputHistoryPayloadResponse(r.point.id.toString, outputId, r.point.capturedAt, r.point.runId, r.point.triggerSource, r.rowCount, r.rows)
 
   /** Built field by field -- never `authenticated(...)` with fields removed. */
   def public(r: OutputHistoryResolution): PublicOutputHistoryResponse =
@@ -92,6 +114,8 @@ trait OutputHistoryProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val outputHistoryResponseFormat: RootJsonFormat[OutputHistoryResponse] = writeOnly { r =>
     val points = JsArray(r.points.map(p =>
       JsObject(
+        "id"            -> JsString(p.id),
+        "hasPayload"    -> JsBoolean(p.hasPayload),
         "capturedAt"    -> JsString(p.capturedAt.toString),
         "runId"         -> str(p.runId),
         "triggerSource" -> JsString(p.triggerSource),
@@ -101,6 +125,18 @@ trait OutputHistoryProtocol extends SprayJsonSupport with DefaultJsonProtocol {
     ))
     JsObject(
       (("outputId" -> (JsString(r.outputId): JsValue)) +: common(r.compare, r.current, r.baseline, r.delta, r.pct, r.availableFrom, r.sparkline) :+ ("points" -> (points: JsValue))).toMap
+    )
+  }
+
+  implicit val outputHistoryPayloadResponseFormat: RootJsonFormat[OutputHistoryPayloadResponse] = writeOnly { r =>
+    JsObject(
+      "pointId"       -> JsString(r.pointId),
+      "outputId"      -> JsString(r.outputId),
+      "capturedAt"    -> JsString(r.capturedAt.toString),
+      "runId"         -> str(r.runId),
+      "triggerSource" -> JsString(r.triggerSource),
+      "rowCount"      -> JsNumber(r.rowCount),
+      "rows"          -> r.rows
     )
   }
 

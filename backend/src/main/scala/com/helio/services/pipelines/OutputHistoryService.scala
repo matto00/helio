@@ -2,12 +2,13 @@ package com.helio.services.pipelines
 
 import com.helio.domain.history.OutputCompare
 import com.helio.domain.model.{AuthenticatedUser, Output, OutputId}
-import com.helio.infrastructure.persistence.pipelines.{OutputHistoryPoint, OutputHistoryRepository, OutputRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryPoint, OutputHistoryRepository, OutputRepository}
 import com.helio.services.ServiceError
 import org.slf4j.LoggerFactory
-import spray.json.{JsNumber, JsObject, JsString}
+import spray.json.{JsArray, JsNumber, JsObject, JsString}
 
 import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 /** A history point reduced to what a comparison needs. `value` is the stored, server-computed
@@ -27,11 +28,18 @@ final case class OutputHistoryResolution(
     points: Vector[OutputHistoryPoint]
 )
 
+/** HEL-1276: a stored payload with the history point it was read through. */
+final case class OutputHistoryPayload(point: OutputHistoryPoint, rowCount: Int, rows: JsArray)
+
 /** HEL-1273: the one comparison-resolution routine behind both history routes (owner ruling D6).
  *  Reuses L1's `OutputHistoryRepository` reads as-is (no new SQL). Statement budget, independent of
  *  history size: `listRecent` always, `nearestAtOrBefore` for a window, `earliest` only when a window
  *  baseline is missing. */
-final class OutputHistoryService(outputRepo: OutputRepository, historyRepo: OutputHistoryRepository)(implicit ec: ExecutionContext) {
+final class OutputHistoryService(
+    outputRepo: OutputRepository,
+    historyRepo: OutputHistoryRepository,
+    payloadRepo: NodePayloadHistoryRepository
+)(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -42,6 +50,28 @@ final class OutputHistoryService(outputRepo: OutputRepository, historyRepo: Outp
       case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
       case Some(output) =>
         outputRepo.findConfigById(id, user).flatMap(cfg => forOutput(output, cfg.getOrElse(JsObject.empty), limit, since).map(Right(_)))
+    }
+
+  /** HEL-1276: the stored row payload of one history point. Authorizes through `findById` exactly as
+   *  `read` does (an unknown id and a no-access id are the same `NotFound`), then loads the point
+   *  scoped to this Output (a point of another Output never resolves), then its payload. A point
+   *  with no payload is `NotFound`. Authenticated only: no public route calls this. */
+  def payloadRows(id: OutputId, pointId: UUID, user: AuthenticatedUser): Future[Either[ServiceError, OutputHistoryPayload]] =
+    outputRepo.findById(id, user).flatMap {
+      case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
+      case Some(_) =>
+        historyRepo.findPoint(id.value, pointId).flatMap {
+          case None => Future.successful(Left(ServiceError.NotFound("History point not found")))
+          case Some(point) =>
+            point.payloadId match {
+              case None => Future.successful(Left(ServiceError.NotFound("History point has no stored payload")))
+              case Some(pid) =>
+                payloadRepo.findById(pid).map {
+                  case None          => Left(ServiceError.NotFound("History point has no stored payload"))
+                  case Some(payload) => Right(OutputHistoryPayload(point, payload.rowCount, payload.rows))
+                }
+            }
+        }
     }
 
   /** No ACL: the caller must already have authorized access to `output` (the public route does so

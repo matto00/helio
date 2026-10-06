@@ -236,6 +236,15 @@
     "historyPoint": {
       "type": "object",
       "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The point's id; usable as :point on GET /api/outputs/:id/history/:point/rows (HEL-1276)."
+        },
+        "hasPayload": {
+          "type": "boolean",
+          "description": "True exactly when a stored row payload is linked to this point (HEL-1276)."
+        },
         "capturedAt": {
           "type": "string",
           "format": "date-time"
@@ -254,7 +263,15 @@
           "$ref": "#/$defs/summaryV1"
         }
       },
-      "required": ["capturedAt", "runId", "triggerSource", "rowCount", "summary"],
+      "required": [
+        "id",
+        "hasPayload",
+        "capturedAt",
+        "runId",
+        "triggerSource",
+        "rowCount",
+        "summary"
+      ],
       "additionalProperties": false
     }
   }

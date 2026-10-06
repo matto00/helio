@@ -1,5 +1,7 @@
 package com.helio.services.pipelines
 
+import com.helio.domain.history.PayloadHistoryConfig
+import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
 import com.helio.services.pipelines.{PipelineRunService, PipelineSchedulerService}
 import com.helio.domain.util.{Clock, CronSchedule}
 import com.helio.domain.model._
@@ -270,7 +272,7 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
         val pid = seedStaticPipeline()
         fakeClock.set(Instant.parse("2026-03-01T00:00:00Z"))
         seedSchedule(pid, nextRunAt = Some(fakeClock.now().minusSeconds(60)), expression = "30m")
-        val retention = new OutputHistoryRetentionService(failing, OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock)
+        val retention = new OutputHistoryRetentionService(failing, OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock, new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults)
         val svc = new PipelineSchedulerService(
           scheduleRepo, pipelineRepo, runRepo, runServiceForHistory, fakeClock, outputHistoryRetentionService = retention
         )
@@ -297,7 +299,7 @@ class PipelineSchedulerServiceSpec extends AnyWordSpec with Matchers with Before
       val pid = seedStaticPipeline()
       fakeClock.set(Instant.parse("2026-03-01T00:00:00Z"))
       seedSchedule(pid, nextRunAt = Some(fakeClock.now().minusSeconds(60)), expression = "30m")
-      val broken = new OutputHistoryRetentionService(new OutputHistoryRepository(historyCtx), OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock) {
+      val broken = new OutputHistoryRetentionService(new OutputHistoryRepository(historyCtx), OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock, new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults) {
         override def purgeIfDue(now: Instant): Future[Option[Int]] = throw new IllegalStateException("service bug")
       }
       val svc = new PipelineSchedulerService(
