@@ -274,6 +274,34 @@ export function resolvePanelTextColor(
 }
 
 /**
+ * The text colour a chart renders its axis labels, axis names, legend and
+ * global text style with. An explicit `appearance.color` passes through
+ * unchanged; `"inherit"`/absent/empty resolve to what the panel card's body
+ * text resolves to: the live `--app-text` token (`liveTextToken`, read from
+ * the DOM by `resolveChartTheme()`) unless the card would flip to a readable
+ * literal on a tinted surface, in which case the chart flips with it.
+ * ECharts cannot use the literal string `"inherit"`: it reaches the canvas as
+ * an invalid `fillStyle`, so text paints in whatever colour the canvas last had.
+ */
+export function resolveChartTextColor(
+  theme: Theme,
+  appearance: { color?: string; background?: string; transparency?: number } | undefined,
+  liveTextToken: string,
+): string {
+  const explicit = appearance?.color;
+  if (explicit && explicit !== "inherit") {
+    return explicit;
+  }
+  const resolved = resolvePanelTextColor(
+    theme,
+    appearance?.background ?? "transparent",
+    appearance?.transparency ?? 0,
+    "inherit",
+  );
+  return resolved === themeAppearancePalette[theme].defaultText ? liveTextToken : resolved;
+}
+
+/**
  * Returns the WCAG contrast ratio between the resolved dashboard background
  * and the theme's default text color. Returns `null` when `appearance.background`
  * is "transparent" (the theme's own background is used, which is always legible).

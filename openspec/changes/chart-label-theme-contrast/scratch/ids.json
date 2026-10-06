@@ -1,0 +1,16 @@
+{
+  "user": "f9b99055-4f33-4c04-b09d-31dc4f610c9e",
+  "email": "hel1263-measure-1791278480673@example.test",
+  "password": "<redacted>",
+  "dashboard": "79ab66ec-f187-4c06-9c75-246baa59cd1a",
+  "source": "7a234160-fc67-41b1-af94-bf60fbb2da6c",
+  "pipeline": "9716be42-e5db-4bd7-9d9d-40c8071b1f33",
+  "output": "7c5b6062-8dd3-4d19-9489-2db24f49b157",
+  "panels": {
+    "line": "8b44d86d-c335-4926-b5bd-b2e32de77c05",
+    "bar": "6cf6ab99-2415-4f1a-b302-a9988a06fb03",
+    "scatter": "906235cd-23b2-4296-a217-cb32a16e6739",
+    "pie": "dbdf0537-e85c-4ff5-8ff9-3b854eaa2daa",
+    "tinted-line": "f610b573-9bb2-4ecf-8d5d-d1a2a5318ff7"
+  }
+}

@@ -1,0 +1,39 @@
+$ npm run typecheck
+
+> helio@0.7.4 typecheck
+> npm --prefix frontend run typecheck
+
+
+> helio-frontend@0.0.0 typecheck
+> tsc --noEmit
+
+exit=0
+$ npm run lint
+
+> helio@0.7.4 lint
+> eslint . --max-warnings=0
+
+exit=0
+$ npm run format:check
+
+> helio@0.7.4 format:check
+> prettier . --check
+
+Checking formatting...
+All matched files use Prettier code style!
+exit=0
+$ npm test
+Time:        6.331 s
+Ran all test suites.
+
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests
+
+
+Test Suites: 438 passed, 438 total
+Tests:       4571 passed, 4571 total
+Snapshots:   1 passed, 1 total
+Time:        37.734 s
+Ran all test suites.
+exit=0
+$ openspec validate chart-label-theme-contrast --type change -> valid, exit=0

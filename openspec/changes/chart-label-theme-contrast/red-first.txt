@@ -1,0 +1,3 @@
+# RED: main's text-colour line (textColor = appearance?.color), theme param accepted but unused
+Test Suites: 1 failed, 1 total
+Tests:       25 failed, 8 passed, 33 total

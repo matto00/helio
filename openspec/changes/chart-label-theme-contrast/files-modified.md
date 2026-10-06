@@ -1,0 +1,7 @@
+- `frontend/src/theme/appearance.ts` — add `resolveChartTextColor` (explicit colour passes through; inherit resolves to live `--app-text` or the card's flipped colour)
+- `frontend/src/features/panels/ui/buildChartOption.ts` — take `theme`, use `resolveChartTextColor` for axis labels, axis names, global text and legend text
+- `frontend/src/features/panels/ui/useChartOption.ts` — pass `theme` into `buildChartOption`
+- `frontend/src/features/panels/ui/buildChartOption.textColor.test.ts` — new regression tests (line/bar/scatter/pie, inherit/empty/absent, explicit, tinted, compact)
+- `frontend/src/theme/appearance.paletteSync.test.ts` — new guard: palette `defaultText` equals theme.css `--app-text` in both themes
+- `frontend/src/features/panels/ui/ChartPanel.defaultAppearance.test.tsx` — supply the new required `theme` param
+- `docs/contrast-audit.md` — section 10, before/after chart text contrast (SC 1.4.3 AA 4.5:1)

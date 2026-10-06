@@ -300,3 +300,24 @@ parses `theme.css` directly, asserts a non-empty parsed surface/foreground/
 tint set (vacuity refusal), asserts every pair in sections 1-3 above clears
 4.5:1 in both themes, asserts the section 6 accent-ink floor across all 8
 presets, and carries mutation arms proving each assertion is failable.
+
+## 10. Chart text (HEL-1263 — measured on the running app, before -> after)
+
+Threshold: WCAG 2.x SC 1.4.3 AA, 4.5:1 for normal text (axis labels are ~12px, 10px in compact mode, so the 3:1 large-text floor never applies). Method: every zrender text element of each chart (`echarts.getInstanceByDom`) has its `style.fill` read, and its rect is screenshotted at DPR 2; the painted colour is the pixel farthest from the rect's background mode (a lower bound on the true contrast, because of glyph antialiasing). Panels use the default `appearance.color: "inherit"`. Surfaces: dark `#1a1816`, light `#fdfcfa`.
+
+Cause: `buildChartOption` wrote `appearance.color` (`"inherit"`) verbatim into axis labels, axis names, `textStyle` and legend text. ECharts passes that string to canvas as a `fillStyle`, which canvas ignores, so axis text painted canvas-default black and legend text painted white or the series colour. After: an inherited colour resolves to the live `--app-text` token (`resolveChartTextColor`); an explicit colour is untouched.
+
+| Text                                                        | Theme        | Before (fill -> painted, ratio)                              | After (painted, ratio) |
+| ----------------------------------------------------------- | ------------ | ------------------------------------------------------------ | ---------------------- |
+| Axis ticks and names (line, bar, scatter)                   | dark         | `inherit` -> `#000000`, **1.19 FAIL**                        | `#f2efe9`, 15.43 PASS  |
+| Axis ticks and names (line, bar, scatter)                   | light        | `inherit` -> `#000000`, 20.48 PASS (already passing)         | `#211d19`, 16.33 PASS  |
+| Legend, line                                                | dark         | `inherit` -> `#ffffff`, 17.7 PASS (already passing)          | `#f2efe9`, 15.43 PASS  |
+| Legend, line                                                | light        | `inherit` -> `#ffffff`, **1.03 FAIL**                        | `#211d19`, 16.33 PASS  |
+| Legend, bar                                                 | dark / light | `inherit` -> series colour `#5070dd`, **3.96 / 4.36 FAIL**   | 15.43 / 16.33 PASS     |
+| Legend, pie (5 slices)                                      | dark / light | series colours, **2.38 to 10.67 / 1.62 to 7.26, FAIL (min)** | 15.43 / 16.33 PASS     |
+| Axis text, dark panel tinted `#ffd700` (surface `#514611`)  | dark         | `#000000`, **2.23 FAIL**                                     | `#f2efe9`, 8.19 PASS   |
+| Axis text, light panel tinted `#ffd700` (surface `#fdf3be`) | light        | `#000000`, 18.74 PASS (already passing)                      | `#211d19`, 14.94 PASS  |
+
+Scatter renders no legend (one unnamed series). Pie has no axes; its slice labels take ECharts' own `#333` with a light outline, do not use the global text colour, and were left untouched (not axis/legend text; the sampled ratio is outline-confounded). Honest scope note: light-theme axis text already passed before the change; the light-theme legends and the dark-theme axes were the failures. Evidence: `openspec/changes/chart-label-theme-contrast/measure-{before,after}.md` and screenshots.
+
+The card's contrast-flip branch for `"inherit"` is not reachable: `resolvePanelTextColor` returned the palette `defaultText` for all 12 probed backgrounds in both themes at the 0.24 tint strength, so the chart and card always agree on the token.
