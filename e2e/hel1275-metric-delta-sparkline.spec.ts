@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -12,7 +12,10 @@ import { backdateHistory, historyRowCount } from "./support/historySeed";
 // Run in both themes; screenshots land in the change dir. Cleans up by exact recorded ids.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
-const SHOTS = resolve(__dirname, "../openspec/changes/metric-delta-sparkline-ui/screenshots");
+const SHOTS = resolve(
+  __dirname,
+  "../openspec/changes/archive/2026-10-05-metric-delta-sparkline-ui/screenshots",
+);
 
 async function registerAndLogin(page: Page, request: APIRequestContext): Promise<string> {
   const email = `hel1275-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
@@ -41,6 +44,23 @@ async function postJson<T>(
   const res = await request.post(url, { data, headers: CSRF });
   expect(res.status(), `${url}: ${await res.text()}`).toBe(status);
   return (await res.json()) as T;
+}
+
+/** Waits until a locator's box is unchanged across consecutive reads. After a viewport resize the
+ *  grid reflows over several frames; a click on a button whose position is still moving lands on
+ *  the card body instead (CI race: it opened the panel detail modal, not the popover). */
+async function layoutSettled(locator: Locator) {
+  const reads: string[] = [];
+  await expect
+    .poll(
+      async () => {
+        reads.push(JSON.stringify(await locator.boundingBox()));
+        const last = reads.slice(-4);
+        return last.length === 4 && last[0] !== "null" && last.every((r) => r === last[0]);
+      },
+      { timeout: 15_000, intervals: [50, 100, 100, 100, 250] },
+    )
+    .toBe(true);
 }
 
 async function runPipeline(request: APIRequestContext, pipelineId: string) {
@@ -192,6 +212,7 @@ for (const theme of ["light", "dark"] as const) {
       // header and clear of the value/delta, at the desktop widths 1440 and 1100.
       for (const width of [1440, 1100]) {
         await page.setViewportSize({ width, height: 900 });
+        await layoutSettled(card);
         const spark = card.getByRole("img", { name: /Trend over \d+ data points/ });
         await expect(spark).toBeVisible();
         const [c, sp, delta] = await Promise.all([
@@ -208,7 +229,9 @@ for (const theme of ["light", "dark"] as const) {
         expect(sp!.x).toBeGreaterThanOrEqual(delta!.x + delta!.width - 1);
       }
       await page.setViewportSize({ width: 1440, height: 900 });
-
+      // Wait for the reflow to finish before clicking (no fixed sleep).
+      await layoutSettled(card);
+      await layoutSettled(card.getByRole("button", { name: "Data provenance" }));
       await card.getByRole("button", { name: "Data provenance" }).click();
       const popover = page.getByRole("dialog", { name: /Data provenance/ });
       await expect(popover.getByRole("heading", { name: "Compared with" })).toBeVisible();
@@ -226,6 +249,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(filtered.getByText(/vs 7d/)).toHaveCount(0);
       await expect(filtered.getByRole("img", { name: /Trend over/ })).toHaveCount(0);
       // The provenance row is hidden under the filter.
+      await layoutSettled(filtered.getByRole("button", { name: "Data provenance" }));
       await filtered.getByRole("button", { name: "Data provenance" }).click();
       await expect(page.getByRole("dialog", { name: /Data provenance/ })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Compared with" })).toHaveCount(0);
