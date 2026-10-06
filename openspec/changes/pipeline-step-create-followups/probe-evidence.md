@@ -60,9 +60,26 @@ green on commits 1 and 2); see final report for commit 3 and the explicit lint /
   (hel1340-c2-green.log).
 - CR2 (lane variant pins the exact anchor). New test: trunk p-0 -> anchor-1, only p-0 has an analyze entry
   (output `notes`), root source exposes only `other`, lane draft on anchor-1 picks `other`. Mutation at
-  usePipelineDetailPage.ts:555 (`pendingDraftMetaRef.current.get(stepId) ?? draftFallbackMetaRef...` ->
+  usePipelineDetailPage.ts:546 (the schema-resolver meta lookup; line cited as :555 in the evaluator report, now :546) (`pendingDraftMetaRef.current.get(stepId) ?? draftFallbackMetaRef...` ->
   `pendingDraftMetaRef.current.get(stepId)`): `1 failed, 11 passed`, lane test fails
   (hel1340-c2-cr2-red.log). Restored: 12 of 12.
 - CR3 (scenario 2 timing). It now records `analyzePipelineMock.mock.calls.length` before the resolve and
   waits for it to increase (the post-swap call issued and held) before asserting.
 - DRY: both meta refs typed with the exported `PendingDraftMeta`.
+
+## Cycle 3 (skeptic-final-1.md CR1: pin the lane render path)
+
+- The cycle-2 lane test used trunk steps with no `rootId`, so `buildLaneGraph` swept the draft into the
+  unassigned primary lane and `LaneColumn` never rendered it. The test is rewritten with a real root
+  (`rootId: "root-1"`) and parent chain (`p-0 -> anchor-1`), asserts the draft card is inside
+  `[aria-label="Lanes"]` both before and after the swap, holds the post-swap analyze (waits for the call
+  count to rise), and asserts the select shows `other` and no `--removed` chip.
+- Green at the fix: 12 of 12 (hel1340-c3-green.log).
+- Red under the mutation: both `hasOwnAnalyze={hasOwnAnalyzeEntry?.(step.id) ?? true}` sites in
+  LaneColumn.tsx set to `hasOwnAnalyze={true}` -> `1 failed, 11 passed`, `Received: <span ...diff-chip--removed>− other</span>`
+  (hel1340-c3-red.log). Restored; file clean.
+- The exact-anchor mutation (usePipelineDetailPage.ts:546 dropping `?? draftFallbackMetaRef...`) still
+  turns the rewritten lane test red (1 failed, 11 passed).
+- Required `hasOwnAnalyzeEntry`: tried; `tsc` fails in `PipelineRiverView.test.tsx` and
+  `PipelineRiverView.multiRootReorder.test.tsx` (their typed props omit it). Per the instruction not to
+  edit existing tests for this, the prop stays optional.

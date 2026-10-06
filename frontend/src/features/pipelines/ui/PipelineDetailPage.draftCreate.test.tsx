@@ -525,12 +525,14 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
   });
 
   it("a lane draft in flight resolves its field from its exact anchor, not a trunk neighbour", async () => {
-    // Trunk p-0 -> anchor-1. Only p-0 has an analyze entry (output `notes`); the anchor has none
-    // and the root source exposes only `other`. Exact-anchor resolution therefore falls to the
-    // root source (`other`); a trunk array walk would wrongly land on p-0 (`notes`).
+    // Real root assignment and parent chain (root-1: p-0 -> anchor-1), so `buildLaneGraph` builds
+    // a genuine child lane and the draft renders through `LaneColumn` inside the Lanes group.
+    // Only p-0 has an analyze entry (output `notes`); the anchor has none and the root source
+    // exposes only `other`. Exact-anchor resolution therefore falls to the root source (`other`);
+    // a trunk array walk would wrongly land on p-0 (`notes`).
     getPipelineStepsMock.mockResolvedValue([
-      persisted("p-0", "rename", 0),
-      persisted("anchor-1", "rename", 1),
+      { ...persisted("p-0", "rename", 0), rootId: "root-1" },
+      { ...persisted("anchor-1", "rename", 0), rootId: "root-1", parentStepId: "p-0" },
     ]);
     analyzePipelineMock.mockResolvedValue({
       ...analyzeResponse,
@@ -557,10 +559,26 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     fireEvent.click(branchButtons[branchButtons.length - 1]);
     fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
     await completeDraft("other");
+    const inLanesGroup = () => generateToggle().closest('[aria-label="Lanes"]') !== null;
 
+    expect(inLanesGroup()).toBe(true);
     expect(inputFieldSelect()).toHaveTextContent("other");
 
-    await create.resolve(aiPersisted("ai-1", 2, "anchor-1"));
+    // Hold the post-swap /analyze and wait until it has actually been issued.
+    analyzePipelineMock.mockReturnValue(new Promise<PipelineAnalyzeResponse>(() => {}));
+    const analyzeCallsBefore = analyzePipelineMock.mock.calls.length;
+    await create.resolve(aiPersisted("ai-1", 1, "anchor-1"));
+    await waitFor(() =>
+      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(analyzeCallsBefore),
+    );
+
+    expect(inLanesGroup()).toBe(true);
     expect(inputFieldSelect()).toHaveTextContent("other");
+    expect(
+      document.querySelector(".pipeline-detail-page__step-card-diff-chip--removed"),
+    ).toBeNull();
   });
 });
