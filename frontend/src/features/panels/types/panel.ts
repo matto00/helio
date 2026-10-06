@@ -18,7 +18,11 @@
 // `panel.config`.
 
 import type { ResourceMeta } from "../../../types/models";
-import type { OutputRowsFilter, OutputRowsSort } from "../../pipelines/services/outputService";
+import type {
+  FilteredMetric,
+  OutputRowsFilter,
+  OutputRowsSort,
+} from "../../pipelines/services/outputService";
 
 // Extracted from `types/models.ts` in CS4 cycle 1.
 
@@ -461,6 +465,9 @@ export interface PanelPaginationState {
    *  have been PAGED IN so far; `total` is the true Output-wide count even before every page has
    *  been loaded. Defaults to `0` before the first fetch resolves. */
   total: number;
+  /** HEL-1326 design.md D6 — the filtered full-set metric the LAST page-0 response carried, or
+   *  `undefined` when it carried none (so a removed filter clears it). Never set by a load-more. */
+  metric?: FilteredMetric | null;
   /** HEL-1191 design.md D9a-i — see `PanelLastQuery`. Absent until the first page-0 request. */
   lastQuery?: PanelLastQuery;
 }

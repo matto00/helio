@@ -81,6 +81,11 @@ export async function deletePipeline(id: string): Promise<void> {
   await httpClient.delete(`/api/pipelines/${id}`);
 }
 
+/** What `createPipelineStep` resolves to (HEL-1345): the step plus the ids the insert re-parented
+ *  (`reparentedStepIds`, create-only). The service always populates it (`[]` when none); it is
+ *  optional in the type so existing step-shaped mocks stay valid. */
+export type CreatedPipelineStep = PipelineStep & { reparentedStepIds?: string[] };
+
 /** CS2c-3a — `type` discriminator + typed `config` object. The old
  *  stringified-JSON `config` path is gone; callers pass typed configs
  *  directly.
@@ -110,15 +115,28 @@ export async function createPipelineStep(
   // "This pipeline has N roots -- name one via rootId, or anchor via parentStepId") --
   // ignored server-side when `parentStepId` is also given (root is derived from the parent).
   rootId?: string,
-): Promise<PipelineStep> {
-  const response = await httpClient.post<PipelineStep>(`/api/pipelines/${pipelineId}/steps`, {
-    type,
-    config,
-    ...(parentStepId !== undefined ? { parentStepId } : position === undefined ? {} : { position }),
-    ...(parentStepId !== undefined && attachAsTail ? { attachAsTail: true } : {}),
-    ...(parentStepId === undefined && rootId !== undefined ? { rootId } : {}),
-  });
-  return normalizePipelineStep(response.data);
+): Promise<CreatedPipelineStep> {
+  const response = await httpClient.post<CreatedPipelineStep>(
+    `/api/pipelines/${pipelineId}/steps`,
+    {
+      type,
+      config,
+      ...(parentStepId !== undefined
+        ? { parentStepId }
+        : position === undefined
+          ? {}
+          : { position }),
+      ...(parentStepId !== undefined && attachAsTail ? { attachAsTail: true } : {}),
+      ...(parentStepId === undefined && rootId !== undefined ? { rootId } : {}),
+    },
+  );
+  // HEL-1345 D5 — the create response lists the existing steps the insert re-parented
+  // (`reparentedStepIds`, create-only; `[]` when none). Surface it so the editor can apply the
+  // server's delta; `[]` when absent so older mocks/responses keep working.
+  return {
+    ...normalizePipelineStep(response.data),
+    reparentedStepIds: response.data.reparentedStepIds ?? [],
+  };
 }
 
 export async function updatePipelineStep(

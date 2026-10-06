@@ -1,5 +1,6 @@
 package com.helio.domain.history
 
+import com.helio.domain.model.OutputKind
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -49,6 +50,20 @@ class OutputSummaryReducerSeamSpec extends AnyWordSpec with Matchers {
         val expected     = c.fields("expected").asJsObject
         cats shouldBe expected.fields("categories").asInstanceOf[JsArray].elements.map(_.asInstanceOf[JsString].value)
         vals shouldBe expected.fields("values").asInstanceOf[JsArray].elements.map(_.asInstanceOf[JsNumber].value.toDouble)
+      }
+    }
+  }
+
+  "OutputSummaryReducer metric field selection" should {
+    for (c <- cases("metricField")) {
+      s"match the frontend for ${str(c, "name")}" in {
+        val metric   = OutputSummaryReducer.summarize(Vector.empty, OutputKind.Metric, c.fields("config").asJsObject).fields("metric")
+        val resolved = metric match {
+          case JsNull      => JsNull
+          case o: JsObject => JsObject("field" -> o.fields("field"), "agg" -> o.fields("agg"))
+          case other       => fail(s"unexpected metric $other")
+        }
+        resolved shouldBe c.fields("expected")
       }
     }
   }

@@ -608,5 +608,145 @@
         "values": [1, 1]
       }
     }
+  ],
+  "metricField": [
+    {
+      "name": "value mapping only",
+      "config": {
+        "fieldMapping": {
+          "value": "amount"
+        }
+      },
+      "expected": {
+        "field": "amount",
+        "agg": null
+      }
+    },
+    {
+      "name": "value mapping with aggregation agg",
+      "config": {
+        "fieldMapping": {
+          "value": "amount"
+        },
+        "aggregation": {
+          "agg": "sum"
+        }
+      },
+      "expected": {
+        "field": "amount",
+        "agg": "sum"
+      }
+    },
+    {
+      "name": "value mapping wins over aggregation value",
+      "config": {
+        "fieldMapping": {
+          "value": "amount"
+        },
+        "aggregation": {
+          "value": "other",
+          "agg": "avg"
+        }
+      },
+      "expected": {
+        "field": "amount",
+        "agg": "avg"
+      }
+    },
+    {
+      "name": "value and label mappings",
+      "config": {
+        "fieldMapping": {
+          "value": "amount",
+          "label": "name"
+        }
+      },
+      "expected": {
+        "field": "amount",
+        "agg": null
+      }
+    },
+    {
+      "name": "aggregation value only",
+      "config": {
+        "aggregation": {
+          "value": "amount",
+          "agg": "max"
+        }
+      },
+      "expected": {
+        "field": "amount",
+        "agg": "max"
+      }
+    },
+    {
+      "name": "lone label mapping",
+      "config": {
+        "fieldMapping": {
+          "label": "name"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "lone unit mapping",
+      "config": {
+        "fieldMapping": {
+          "unit": "currency"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "lone label mapping with aggregation value",
+      "config": {
+        "fieldMapping": {
+          "label": "name"
+        },
+        "aggregation": {
+          "value": "amount",
+          "agg": "sum"
+        }
+      },
+      "expected": {
+        "field": "amount",
+        "agg": "sum"
+      }
+    },
+    {
+      "name": "lone label mapping with aggregation but no value",
+      "config": {
+        "fieldMapping": {
+          "label": "name"
+        },
+        "aggregation": {
+          "agg": "sum"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "lone unvalidated legacy key",
+      "config": {
+        "fieldMapping": {
+          "legacy": "amount"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "empty config",
+      "config": {},
+      "expected": null
+    },
+    {
+      "name": "empty value mapping string",
+      "config": {
+        "fieldMapping": {
+          "value": ""
+        }
+      },
+      "expected": null
+    }
   ]
 }

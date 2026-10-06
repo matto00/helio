@@ -1,12 +1,13 @@
 package com.helio.api.routes.dashboards
 
+import com.helio.api.protocols.pipelines.PublicPanelRowsResponse
 import com.helio.domain.model._
 import com.helio.domain.panels.OutputPanel
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository}
 import com.helio.services.ServiceError
 import com.helio.services.panels.PublicOutputControlScope
-import com.helio.services.pipelines.{OutputFilterCapability, OutputRowsQuery}
+import com.helio.services.pipelines.{OutputFilterCapability, OutputFilteredMetric, OutputRowsQuery}
 import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -51,7 +52,7 @@ final class PublicPanelRowsResolver(
       page: Page,
       sort: Option[OutputRowsQuery.SortParam],
       filter: Option[OutputRowsQuery.FilterParam]
-  ): Future[Either[ServiceError, PagedResult[JsValue]]] =
+  ): Future[Either[ServiceError, PublicPanelRowsResponse]] =
     panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, Page(offset = 0, limit = Page.MaxLimit), accessAlreadyGranted = true).flatMap { paged =>
       paged.items.find(_.id.value == panelId) match {
         case None => Future.successful(Left(ServiceError.NotFound("Panel not found")))
@@ -59,7 +60,7 @@ final class PublicPanelRowsResolver(
           (op.outputId, nodeSnapshotRepoOpt) match {
             case (Some(outputId), Some(nodeSnapshotRepo)) =>
               outputRepo.findByIdInternal(outputId).flatMap {
-                case None => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))
+                case None => Future.successful(Right(emptyPage(page)))
                 case Some(output) =>
                   PublicOutputControlScope
                     .validateFilterColumns(op.config.controls, filter)
@@ -84,16 +85,22 @@ final class PublicPanelRowsResolver(
                                   sort = resolvedSort,
                                   filter = resolvedFilter
                                 )
-                                .map(paged => Right(paged.copy(items = paged.items.map(identity[JsValue]))))
+                                .flatMap { paged =>
+                                  OutputFilteredMetric.compute(output, resolvedFilter, page.offset, outputRepo, nodeSnapshotRepo).map { metric =>
+                                    Right(PublicPanelRowsResponse(paged.items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, metric))
+                                  }
+                                }
                           }
                       }
                   }
               }
-            case _ => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))
+            case _ => Future.successful(Right(emptyPage(page)))
           }
-        case Some(_) => Future.successful(Right(PagedResult(Vector.empty[JsValue], 0, page.offset, page.limit)))
+        case Some(_) => Future.successful(Right(emptyPage(page)))
       }
     }
+
+  private def emptyPage(page: Page): PublicPanelRowsResponse = PublicPanelRowsResponse(Vector.empty, 0, page.offset, page.limit)
 
   /** HEL-1190 design.md D5 (task 2.1) — the full-schema contract (same `OutputFilterCapability
    *  .buildContract` the authenticated `filter-capabilities` route delegates to, computed

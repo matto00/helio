@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 
 import type { MappedPanelData } from "../types/panel";
+import type { FilteredMetric } from "../../pipelines/services/outputService";
 import { readMetricConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import { computeAggregate } from "../../../utils/aggregate";
 import { MetricRenderer, formatMetricValue } from "./renderers/MetricRenderer";
@@ -26,6 +27,9 @@ interface MetricOutputPanelProps {
   headers: string[] | null | undefined;
   /** An applied viewer control filter or cross-filter narrows this panel's rows (design D3). */
   filterActive: boolean;
+  /** The metric over the FULL filtered set from the last page-0 rows response (HEL-1326 design D6);
+   *  `undefined` = none provided, so the loaded-rows value stands. */
+  filteredMetric?: FilteredMetric | null;
   historySource?: HistorySource;
 }
 
@@ -40,6 +44,7 @@ export function MetricOutputPanel({
   rawRows,
   headers,
   filterActive,
+  filteredMetric,
   historySource,
 }: MetricOutputPanelProps) {
   const cfg = readMetricConfig(config);
@@ -62,7 +67,8 @@ export function MetricOutputPanel({
       : null;
   // The server's own selection rule (also reads `aggregation.value`, where the editor stores an
   // aggregated metric's field), so a filtered panel aggregates the same column the headline does.
-  const valueColumn = resolveServerMetricField(config)?.field;
+  const resolvedMetric = resolveServerMetricField(config);
+  const valueColumn = resolvedMetric?.field;
   const rowsAsRecords =
     rawRows && headers
       ? rawRows.map((row) => Object.fromEntries(headers.map((h, i) => [h, row[i]])))
@@ -73,7 +79,29 @@ export function MetricOutputPanel({
       : valueColumn && firstRow
         ? String(firstRow[valueColumn] ?? "")
         : "";
-  const value = view.headline !== null ? String(view.headline) : loadedValue;
+  // HEL-1326 design D6 — under a server-applied filter the headline is the full-filtered-set value,
+  // never the loaded page's aggregate; it only counts when it was computed from the field/agg the
+  // CURRENT config resolves to (`metric: null` agrees with a config that resolves to no field).
+  const filteredValue =
+    filterActive && filteredMetric !== undefined
+      ? filteredMetric === null
+        ? resolvedMetric === null
+          ? ""
+          : null
+        : resolvedMetric !== null &&
+            filteredMetric.field === resolvedMetric.field &&
+            filteredMetric.agg === resolvedMetric.agg
+          ? filteredMetric.value === null
+            ? ""
+            : String(filteredMetric.value)
+          : null
+      : null;
+  const value =
+    filteredValue !== null
+      ? filteredValue
+      : view.headline !== null
+        ? String(view.headline)
+        : loadedValue;
   const data: MappedPanelData = { value, label: cfg.label ?? "", unit: cfg.unit ?? "" };
 
   const comparison = view.comparison;

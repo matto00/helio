@@ -10,6 +10,9 @@ export interface HistoryResolvedPoint {
   value: number | null;
   /** HEL-1277 — the point's stored chart series; `null` when its summary has none. */
   series?: HistorySeries | null;
+  /** The field/aggregation the stored summary's metric used (HEL-1326); `null` for no metric,
+   *  absent from an older server. */
+  metric?: { field: string; agg: string | null } | null;
 }
 
 /** HEL-1277 — a stored reduced chart series (`schemas/outputs/*` `seriesSummary`). */

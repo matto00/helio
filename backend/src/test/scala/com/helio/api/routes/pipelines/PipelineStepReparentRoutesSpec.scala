@@ -135,15 +135,48 @@ class PipelineStepReparentRoutesSpec
       parentOf(child) shouldBe Some(anchor)
     }
 
-    "422 for a rootId anchor that already has root-level steps, writing nothing" in {
+    // HEL-1345: a `rootId` create no longer head-splices, so "rootId on a non-empty root" is not
+    // always a reparent. It reparents (and so trips the guard) only for `position: 0` (new head)
+    // or when that root's trunk-last step has children (a tail).
+    "422 for a rootId create with position 0 on a root that already has root-level steps, writing nothing" in {
       val pid  = seedPipeline()
       val root = seedRootStep(pid)
-      Post(s"/pipelines/$pid/steps", castReq("rootId" -> JsString(pid), "rejectIfReparents" -> JsBoolean(true))) ~> routes ~> check {
+      Post(s"/pipelines/$pid/steps", castReq("rootId" -> JsString(pid), "position" -> JsNumber(0), "rejectIfReparents" -> JsBoolean(true))) ~> routes ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         responseAs[String] should include(root)
       }
       stepCount(pid) shouldBe 1
       parentOf(root) shouldBe None
+    }
+
+    "422 for a no-position rootId append whose trunk-last step has a tail, writing nothing" in {
+      val pid   = seedPipeline()
+      val root  = seedRootStep(pid)
+      val trunk = seedChild(pid, root, 0)
+      val tail  = seedChild(pid, trunk, 1)
+      Post(s"/pipelines/$pid/steps", castReq("rootId" -> JsString(pid), "rejectIfReparents" -> JsBoolean(true))) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[String] should include(tail)
+      }
+      stepCount(pid) shouldBe 3
+      parentOf(tail) shouldBe Some(trunk)
+    }
+
+    "append a no-position rootId create onto a childless trunk-last step with the flag set, nothing reparented" in {
+      val pid   = seedPipeline()
+      val root  = seedRootStep(pid)
+      val trunk = seedChild(pid, root, 0)
+      var newId = ""
+      Post(s"/pipelines/$pid/steps", castReq("rootId" -> JsString(pid), "rejectIfReparents" -> JsBoolean(true))) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val o = body
+        newId = o.fields("id").convertTo[String]
+        reparented(o) shouldBe empty
+      }
+      stepCount(pid) shouldBe 3
+      parentOf(newId) shouldBe Some(trunk)
+      parentOf(root) shouldBe None
+      parentOf(trunk) shouldBe Some(root)
     }
 
     "422 for a no-anchor add whose trunk-last step has a tail" in {

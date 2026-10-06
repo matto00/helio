@@ -156,3 +156,36 @@ All deleted by exact id; exact-id counts verified at 0 in `users`, `dashboards`,
   - source `bf7f95b5-5815-4370-af3f-ce11c3d2741d`
   - pipeline `8f3dfdde-18ce-4457-8499-888135674c31` (outputs `ae9e7d96-0da7-4a1e-98c6-1a3fcabb7ea4`, `606f7197-5188-4eb2-8e07-1b3972975132`)
   - dashboard `11a84a62-7093-42d6-b424-d3a4ee555dc7` (panels `bda49d0e-7689-4771-9ea9-7e99aa4eb34d`, `5ada0a52-3667-4214-ba82-38a8a5995b9c`; share tokens `08924e3f-6f8a-4c01-bb12-12bd36d485c1`, `3984e6b8-7d24-4f54-a111-024f80e51828`)
+
+## Cycle 3 (merge of origin/main; e2e run 5: 4 tests)
+
+All deleted by exact id (sources/pipelines/dashboards via the spec `finally`; users by psql with their `pipeline_run_rate_window` rows, same exact ids). Exact-id counts afterwards: 0 in every table.
+
+### Users
+- `3e558b97-7a38-4d70-bac2-2347a7f3b488` — DELETED (exact id)
+- `57d956d5-fb4a-4847-9a88-e6489eb2b510` — DELETED (exact id)
+- `71466e37-4b67-41c6-8af7-f02eb0da5621` — DELETED (exact id)
+- `81ad4331-fb34-4495-9059-6f602caa3f1b` — DELETED (exact id)
+
+### Data sources
+- `1811148d-e04f-4e54-bef7-4ed7657fb923` — DELETED (exact id)
+- `1937fdf4-fafd-41f9-ae01-30e251d216fc` — DELETED (exact id)
+- `710048f1-eedd-47df-b915-aa2aed7b1edd` — DELETED (exact id)
+- `ad74bcee-f039-417a-9913-f8ed810d3d2f` — DELETED (exact id)
+
+### Pipelines
+- `301cfb16-5ca6-41a2-b3ec-19f2944c94c8` — DELETED (exact id)
+- `3fc8899f-2d0d-4d64-9cb0-0f2bf9486f77` — DELETED (exact id)
+- `a1fd8c5a-31c3-4098-b7ee-46424deefe8a` — DELETED (exact id)
+- `a6a39a85-bd90-4a8a-b7cb-6059085ca841` — DELETED (exact id)
+
+### Outputs (cascade)
+- `35bbb824-0ce5-4bdc-905e-ae12ed89fb8c` — DELETED (exact id)
+- `8c8c0105-8867-41a1-ac12-83c6984857f8` — DELETED (exact id)
+- `915f1796-b747-40c7-ab1b-6417814a1369` — DELETED (exact id)
+- `963f986f-d568-4e37-8bb8-df890b8976b2` — DELETED (exact id)
+
+### Dashboards
+- `49f6edee-350c-405a-947c-a490ece00c99` — DELETED (exact id)
+- `800566cf-d8cc-4f5d-893b-18c98a75bd16` — DELETED (exact id)
+

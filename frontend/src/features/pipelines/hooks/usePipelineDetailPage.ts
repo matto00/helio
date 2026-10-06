@@ -761,6 +761,7 @@ export function usePipelineDetailPage() {
     handleAddLaneStep,
     clearDraftCreateError,
     createDraftIfComplete,
+    markTempRemoved,
   } = usePipelineStepCreation({
     id,
     roots,
@@ -967,6 +968,9 @@ export function usePipelineDetailPage() {
     (stepId: string) => {
       const previousSteps = stepsRef.current;
       setSteps((prev) => prev.filter((s) => s.id !== stepId));
+      // HEL-1345 D5 — a removed temp's create may still be in flight; remember it so its response
+      // does not re-add the orphaned server step.
+      if (isTempStepId(stepId)) markTempRemoved(stepId);
       // Persist the deletion for steps that exist server-side. Temp steps created
       // by `makeStep` carry a local `step-N` id and have no backend row yet, so a
       // DELETE would 404. Fire-and-forget mirrors the config-PATCH path in
@@ -1000,7 +1004,7 @@ export function usePipelineDetailPage() {
           });
       }
     },
-    [pushToast, syncStepsFromServer],
+    [pushToast, syncStepsFromServer, markTempRemoved],
   );
 
   // HEL-407 — drag/keyboard reorder handler (design.md Decision 7). `newOrder`

@@ -64,14 +64,23 @@ final case class CreateOutputRequest(
  *  replacing `config` wholesale — see `OutputService.mergeConfig`. */
 final case class UpdateOutputRequest(name: Option[String], config: Option[JsObject])
 
-/** `GET /api/outputs/:id/rows` response (HEL-946 Bug C(2)). `materialized:
+/** `GET /api/outputs/:id/rows` response (HEL-946 Bug C(2)). `metric` (HEL-1326) is the metric value
+ *  over the FULL filtered set -- `{field, agg, value}` -- present only for a metric Output when a
+ *  filter applied on a page-0 request (else the key is absent); `null` when the metric's config
+ *  resolves to no field. `materialized:
  *  false` distinguishes "this node has never had a successful run since the
  *  Output was added — `node_snapshots` was never written for it" from a
  *  genuine empty result set (`materialized: true`, `items` still empty) — a
  *  node that ran and legitimately produced zero rows. See
  *  `PipelineRunRepository.latestSuccessfulCompletedAtInternal` for the
  *  derivation. */
-final case class OutputRowsResponse(items: Vector[JsValue], total: Int, offset: Int, limit: Int, materialized: Boolean)
+final case class OutputRowsResponse(items: Vector[JsValue], total: Int, offset: Int, limit: Int, materialized: Boolean, metric: Option[JsValue] = None)
+
+/** `GET /api/dashboards/:dashboardId/panels/:panelId/rows` response (public/optional-auth). Same
+ *  keys as the generic paged shape it replaced (`items`, `total`, `offset`, `limit`), plus the
+ *  optional filtered `metric` (HEL-1326) -- declared LAST, with the same presence rule as
+ *  `OutputRowsResponse.metric`. */
+final case class PublicPanelRowsResponse(items: Vector[JsValue], total: Int, offset: Int, limit: Int, metric: Option[JsValue] = None)
 
 final case class OutputPanelPlacementResponse(panelId: String, dashboardId: String)
 
@@ -107,7 +116,8 @@ trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat12(OutputResponse)
   implicit val outputsResponseFormat: RootJsonFormat[OutputsResponse]                     = jsonFormat1(OutputsResponse)
   implicit val createOutputRequestFormat: RootJsonFormat[CreateOutputRequest]             = jsonFormat5(CreateOutputRequest)
-  implicit val outputRowsResponseFormat: RootJsonFormat[OutputRowsResponse]               = jsonFormat5(OutputRowsResponse)
+  implicit val outputRowsResponseFormat: RootJsonFormat[OutputRowsResponse]               = jsonFormat6(OutputRowsResponse)
+  implicit val publicPanelRowsResponseFormat: RootJsonFormat[PublicPanelRowsResponse]   = jsonFormat5(PublicPanelRowsResponse)
   implicit val outputPanelPlacementResponseFormat: RootJsonFormat[OutputPanelPlacementResponse] = jsonFormat2(OutputPanelPlacementResponse)
   implicit val deleteOutputResponseFormat: RootJsonFormat[DeleteOutputResponse]           = jsonFormat1(DeleteOutputResponse)
   implicit val outputFilterCapabilityColumnResponseFormat: RootJsonFormat[OutputFilterCapabilityColumnResponse] = jsonFormat3(OutputFilterCapabilityColumnResponse)

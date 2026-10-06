@@ -5,6 +5,7 @@ import { PanelBodySkeleton } from "./PanelBodySkeleton";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
+import type { FilteredMetric } from "../../pipelines/services/outputService";
 import type { Output, PublicOutputMeta } from "../../pipelines/types/output";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import type { ChartClickSelection } from "../../../utils/chartClickSelection";
@@ -102,6 +103,10 @@ export interface PanelContentProps {
   /** HEL-1027 design.md D5/D7 — the server's row count for the current sort/filter
    *  (`PanelPaginationState.total`), forwarded to `TableRenderer`'s loaded-scope disclosure. */
   totalRowCount?: number;
+  /** HEL-1326 design.md D6 — the metric value over the FULL filtered set returned with the last
+   *  page-0 rows response (`undefined` = none provided); read only by a metric panel under a
+   *  server-applied filter, and never when a client-side cross-filter narrows the loaded rows. */
+  filteredMetric?: FilteredMetric | null;
   /** HEL-1027 skeptic-final-3.md CR1 (cycle 4) — the caller's ALREADY-resolved
    *  `useOutputMeta(outputId)` result (e.g. `PanelCardBody`'s own, which `usePanelSortFilter`
    *  also seeds from), reused here instead of `OutputPanelContent` performing its own
@@ -153,6 +158,7 @@ function OutputPanelContent({
   onSortChange,
   onFilterChange,
   totalRowCount,
+  filteredMetric,
   output: outputProp,
   isLoading: isLoadingProp,
   crossFilterMode,
@@ -174,6 +180,7 @@ function OutputPanelContent({
   onSortChange?: (column: string, direction: SortDirection | null) => void;
   onFilterChange?: (filters: TableColumnFilters) => void;
   totalRowCount?: number;
+  filteredMetric?: FilteredMetric | null;
   output?: Output | PublicOutputMeta | null;
   isLoading?: boolean;
   crossFilterMode: CrossFilterMode;
@@ -315,6 +322,10 @@ function OutputPanelContent({
         // HEL-1275 design.md D3 — an applied viewer control filter, or a cross-filter narrowing this
         // panel (server `eq`, or the client-side loaded-rows fallback), hides the unfiltered delta.
         filterActive={viewerFilterActive || crossFilterMode === "server" || isCrossFiltered}
+        // HEL-1326 design.md D5/D6 — a client-side cross-filter narrows only the LOADED rows, which
+        // the server's filtered value cannot reflect, so that state keeps the loaded-rows value (the
+        // HEL-588 disclosure below labels it); otherwise the server's full-filtered-set value wins.
+        filteredMetric={isCrossFiltered ? undefined : filteredMetric}
         historySource={historySource}
       />
     );
@@ -401,6 +412,7 @@ export function PanelContent({
   onSortChange,
   onFilterChange,
   totalRowCount,
+  filteredMetric,
   output,
   outputMetaLoading,
   crossFilterMode,
@@ -487,6 +499,7 @@ export function PanelContent({
         onSortChange={onSortChange}
         onFilterChange={onFilterChange}
         totalRowCount={totalRowCount}
+        filteredMetric={filteredMetric}
         output={output}
         isLoading={outputMetaLoading}
         crossFilterMode={crossFilterMode}

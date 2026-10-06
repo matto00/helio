@@ -13,7 +13,11 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** A history point reduced to what a comparison needs. `value` is the stored, server-computed
  *  headline metric over ALL rows (summary `metric.value`), `None` when the summary has none. */
-final case class ResolvedHistoryPoint(capturedAt: Instant, rowCount: Int, value: Option[Double], series: Option[JsValue])
+final case class ResolvedHistoryPoint(capturedAt: Instant, rowCount: Int, value: Option[Double], metric: Option[StoredMetricIdentity] = None, series: Option[JsValue] = None)
+
+/** The field/aggregation a stored summary's metric was computed from (HEL-1326): a read-out of the
+ *  stored record only, so a reader can tell whether a point still matches the current config. */
+final case class StoredMetricIdentity(field: String, agg: Option[String])
 
 /** `points` is newest first (the raw rows, after `limit`/`since`); `sparkline` is derived from the
  *  same points, oldest first. Everything but `points`/`sparkline` is resolved over the Output's
@@ -124,7 +128,16 @@ final class OutputHistoryService(
 
 object OutputHistoryService {
 
-  def resolve(p: OutputHistoryPoint): ResolvedHistoryPoint = ResolvedHistoryPoint(p.capturedAt, p.rowCount, headline(p.summary), p.summary.fields.get("series").filter(_ != JsNull))
+  def resolve(p: OutputHistoryPoint): ResolvedHistoryPoint = ResolvedHistoryPoint(p.capturedAt, p.rowCount, headline(p.summary), metricIdentity(p.summary), p.summary.fields.get("series").filter(_ != JsNull))
+
+  /** The stored summary's metric identity (`v == 1`, `metric.field` a string), `None` for no metric. */
+  def metricIdentity(summary: JsObject): Option[StoredMetricIdentity] =
+    for {
+      JsNumber(v)     <- summary.fields.get("v")
+      if v == BigDecimal(1)
+      metric          <- summary.fields.get("metric").collect { case o: JsObject => o }
+      JsString(field) <- metric.fields.get("field")
+    } yield StoredMetricIdentity(field, metric.fields.get("agg").collect { case JsString(a) => a })
 
   /** The stored summary's all-rows metric value (`v == 1`, `metric.value` a JSON number). */
   def headline(summary: JsObject): Option[Double] =

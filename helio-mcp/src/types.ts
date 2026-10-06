@@ -262,6 +262,8 @@ export interface OutputHistoryResolvedPoint {
   value: number | null;
   /** The point's stored chart series (HEL-1277); dropped by `get_output_history` unless `includeSummaries`. */
   series?: Record<string, unknown> | null;
+  /** The field/aggregation the stored summary's metric used, or `null` for no metric (HEL-1326). */
+  metric?: { field: string; agg: string | null } | null;
 }
 
 export interface OutputHistorySparklinePoint {

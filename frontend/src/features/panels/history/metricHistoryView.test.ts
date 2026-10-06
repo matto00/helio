@@ -5,11 +5,20 @@ import {
   selectMetricHistoryView,
 } from "./metricHistoryView";
 
-describe("resolveServerMetricField (mirrors OutputSummaryReducer.metric)", () => {
-  it("uses the lone fieldMapping string", () => {
+describe("resolveServerMetricField (mirrors OutputSummaryReducer.metricField)", () => {
+  it("never picks a lone label or unit mapping (HEL-1326)", () => {
+    expect(resolveServerMetricField({ fieldMapping: { label: "name" } })).toBeNull();
     expect(
-      resolveServerMetricField({ fieldMapping: { x: "price" }, aggregation: { agg: "avg" } }),
-    ).toEqual({ field: "price", agg: "avg" });
+      resolveServerMetricField({ fieldMapping: { unit: "ccy" }, aggregation: { agg: "sum" } }),
+    ).toBeNull();
+  });
+  it("aggregates aggregation.value for the {label} + aggregation shape", () => {
+    expect(
+      resolveServerMetricField({
+        fieldMapping: { label: "name" },
+        aggregation: { value: "amount", agg: "sum" },
+      }),
+    ).toEqual({ field: "amount", agg: "sum" });
   });
   it("falls back to fieldMapping.value, then aggregation.value, when several are mapped", () => {
     expect(resolveServerMetricField({ fieldMapping: { value: "a", label: "b" } })).toEqual({
@@ -82,6 +91,54 @@ describe("selectMetricHistoryView", () => {
     const view = selectMetricHistoryView(history, METRIC_CONFIG, false);
     expect(view.sparkline).toEqual([1100, 1204]);
     expect(view.comparison).toBeNull();
+  });
+
+  describe("baseline older than every returned point (HEL-1326 design D4)", () => {
+    const OLD_AT = "2026-08-01T09:00:00Z";
+    const outOfWindow = (metric?: { field: string; agg: string | null } | null) =>
+      makeHistory({
+        compare: "30d",
+        baseline: {
+          capturedAt: OLD_AT,
+          rowCount: 10,
+          value: 0,
+          ...(metric === undefined ? {} : { metric }),
+        },
+        delta: 1204,
+        pct: null,
+      });
+    const config = { ...METRIC_CONFIG, compare: "30d" };
+
+    it("hides the delta when the baseline's own stored identity is another field", () => {
+      const view = selectMetricHistoryView(
+        outOfWindow({ field: "region", agg: "sum" }),
+        config,
+        false,
+      );
+      expect(view.headline).toBe(1204);
+      expect(view.comparison).toBeNull();
+    });
+
+    it("hides the delta when the baseline's stored summary had no metric (null identity)", () => {
+      expect(selectMetricHistoryView(outOfWindow(null), config, false).comparison).toBeNull();
+    });
+
+    it("GUARD: still shows the delta when the baseline identity matches the config", () => {
+      const view = selectMetricHistoryView(
+        outOfWindow({ field: "amount", agg: "sum" }),
+        config,
+        false,
+      );
+      expect(view.comparison).toMatchObject({ kind: "delta", direction: "up" });
+    });
+
+    it("GUARD: an older server's baseline without identity keeps today's behaviour", () => {
+      expect(
+        selectMetricHistoryView(outOfWindow(undefined), config, false).comparison,
+      ).toMatchObject({
+        kind: "delta",
+      });
+    });
   });
 
   it("renders no sparkline under two usable points and skips null values", () => {

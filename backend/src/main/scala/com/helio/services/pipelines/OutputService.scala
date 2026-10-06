@@ -359,9 +359,10 @@ final class OutputService(
                     filter = resolvedFilter
                   )
                   .flatMap { paged =>
-                    materializedFor(output, paged, filterActive = resolvedFilter.isDefined).map { materialized =>
-                      Right(OutputRowsResponse(paged.items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, materialized = materialized))
-                    }
+                    for {
+                      materialized <- materializedFor(output, paged, filterActive = resolvedFilter.isDefined)
+                      metric       <- OutputFilteredMetric.compute(output, resolvedFilter, page.offset, outputRepo, nodeSnapshotRepo)
+                    } yield Right(OutputRowsResponse(paged.items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, materialized = materialized, metric = metric))
                   }
             }
         }

@@ -1,0 +1,3 @@
+[info] - should add no more than 500 ms (median of 20) to the rows service path !!! CANCELED !!!
+[info] Tests: succeeded 6069, failed 0, canceled 1, ignored 0, pending 0
+[success] elapsed time: 635 s (0:10:35.0), cache 57%, 269 disk cache hits, 196 onsite tasks

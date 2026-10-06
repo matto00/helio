@@ -9,6 +9,7 @@ import type { Panel } from "../../panels/types/panel";
 import type { PagedResult } from "../../../types/models";
 import {
   isFilterActive,
+  type FilteredMetric,
   type OutputRowsFilter,
   type OutputRowsSort,
 } from "../../pipelines/services/outputService";
@@ -34,6 +35,8 @@ export interface PublicPanelRowsResult {
   total: number;
   offset: number;
   limit: number;
+  /** HEL-1326: see `FilteredMetric`. */
+  metric?: FilteredMetric | null;
 }
 
 /** HEL-1190 design.md D1/D6 — `GET /api/dashboards/:dashboardId/panels/:panelId/rows`, extended

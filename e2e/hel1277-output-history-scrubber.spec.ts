@@ -17,7 +17,10 @@ import { setUserTierForTest } from "./support/historySeed";
 // Screenshots land in the change dir, both themes.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
-const SHOTS = resolve(__dirname, "../openspec/changes/output-history-scrubber-diff/screenshots");
+const SHOTS = resolve(
+  __dirname,
+  "../openspec/changes/archive/2026-10-06-output-history-scrubber-diff/screenshots",
+);
 
 async function postJson<T>(
   request: APIRequestContext,

@@ -51,7 +51,8 @@ The history response SHALL include `compare` (the Output's stored `config.compar
 Output's whole retained history, independent of `limit`/`since`. `current` SHALL be the newest point, or `null` when the
 Output has no history, in which case `baseline` and `availableFrom` SHALL also be `null` for every compare value. Each resolved point SHALL carry its capture time, row count
 and headline value, which is the stored server-computed metric value over all rows, or `null` when the summary has
-none. For `previous_run`, `baseline` SHALL be the second-newest retained point. Because history is thinned with age,
+none, plus `metric`: the stored summary's metric identity `{"field": string, "agg": string|null}`, or `null` when the
+summary has no metric. `metric` is a read-out of the stored record only; it SHALL NOT change which point is selected. For `previous_run`, `baseline` SHALL be the second-newest retained point. Because history is thinned with age,
 this is the previous retained point, not necessarily the immediately previous run. For a window `w` (`1d`, `7d`,
 `30d` or a custom duration), `baseline` SHALL be the newest point captured at or before (`current` capture time − `w`).
 When no such point exists, `baseline` SHALL be `null` and `availableFrom` SHALL be the earliest point's capture time
@@ -95,6 +96,14 @@ present on the wire as an explicit `null`, never omitted.
 #### Scenario: Zero baseline
 - **WHEN** the baseline's headline value is 0 and the current value is 5
 - **THEN** `delta` is 5 and `pct` is `null`
+
+#### Scenario: Resolved points carry their stored metric identity
+- **WHEN** the newest point stored `metric: {field: "amount", agg: "sum", value: 12}` and the 7d baseline stored `metric: {field: "region", agg: "sum", value: 0}`
+- **THEN** `current.metric` is `{field: "amount", agg: "sum"}`, `baseline.metric` is `{field: "region", agg: "sum"}`, and `baseline`/`delta`/`pct` are resolved exactly as for any other point
+
+#### Scenario: Baseline older than the returned points carries its identity
+- **WHEN** a `30d` compare resolves to a baseline point older than the 30 points returned by a default-`limit` read
+- **THEN** `baseline.metric` still reports that point's stored identity, so a client can compare it with the current config without the point being in `points`
 
 ### Requirement: Bounded query count
 Serving either history route SHALL issue a number of executed database statements, counted across both connection

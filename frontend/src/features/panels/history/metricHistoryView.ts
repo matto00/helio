@@ -18,25 +18,28 @@ function nested(config: Record<string, unknown>, key: string): Record<string, un
     : null;
 }
 
-/** Port of `OutputSummaryReducer.metric`'s selection rule: exactly one string field-mapping value
- *  wins; otherwise `fieldMapping.value`, then `aggregation.value`. */
+/** Port of `OutputSummaryReducer.metricField`'s selection rule: `fieldMapping.value`, then
+ *  `aggregation.value`. A `label`/`unit` mapping is never the metric field (HEL-1326); with neither
+ *  present the metric resolves to `null`. */
 export function resolveServerMetricField(
   config: Record<string, unknown>,
 ): ServerMetricField | null {
   const mapping = nested(config, "fieldMapping");
   const aggregation = nested(config, "aggregation");
-  const strings = Object.values(mapping ?? {}).filter((v): v is string => typeof v === "string");
-  const field =
-    strings.length === 1
-      ? strings[0]
-      : (nonEmptyString(mapping?.value) ?? nonEmptyString(aggregation?.value));
+  const field = nonEmptyString(mapping?.value) ?? nonEmptyString(aggregation?.value);
   if (field === null) return null;
   return { field, agg: nonEmptyString(aggregation?.agg) };
 }
 
-function pointMatches(point: HistoryPoint | undefined, resolved: ServerMetricField): boolean {
-  const metric = point?.summary?.metric;
+function identityMatches(
+  metric: { field: string; agg: string | null } | null | undefined,
+  resolved: ServerMetricField,
+): boolean {
   return !!metric && metric.field === resolved.field && (metric.agg ?? null) === resolved.agg;
+}
+
+function pointMatches(point: HistoryPoint | undefined, resolved: ServerMetricField): boolean {
+  return identityMatches(point?.summary?.metric, resolved);
 }
 
 export type MetricComparison =
@@ -129,11 +132,16 @@ export function selectMetricHistoryView(
   let comparison: MetricComparison | null = null;
   const { compare, baseline, delta, pct, availableFrom } = history;
   if (compare !== null) {
+    // HEL-1326 design D4 — the baseline's own stored identity decides, wherever it lies (a window
+    // baseline can be older than every returned point); a response without it falls back to the
+    // returned point with the same capture time, as before.
     const baselineInPoints = baseline
       ? history.points.find((p) => p.capturedAt === baseline.capturedAt)
       : undefined;
     const baselineStale =
-      baselineInPoints !== undefined && !pointMatches(baselineInPoints, resolved);
+      baseline && baseline.metric !== undefined
+        ? !identityMatches(baseline.metric, resolved)
+        : baselineInPoints !== undefined && !pointMatches(baselineInPoints, resolved);
     if (baseline && delta !== null && baseline.value !== null) {
       if (!baselineStale) {
         comparison = {
