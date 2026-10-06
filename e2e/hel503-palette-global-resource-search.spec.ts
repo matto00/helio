@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-503 — real-browser proof that resource search works on `/` with NO prior navigation
 // (the ticket's PRIMARY acceptance criterion), across all four kinds (dashboard/source/
@@ -25,6 +26,7 @@ async function registerAndLoginWithDashboard(
   label: string,
 ) {
   const email = uniqueEmail(label);
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-503 ${label}` },
@@ -35,6 +37,8 @@ async function registerAndLoginWithDashboard(
   await page.fill("#password", password);
   await page.click("button[type=submit]");
   await page.waitForURL("/");
+  // HEL-1300: idle the post-login `/` so the seeding below races none of its mount effects.
+  await isolateLivePage(page);
 
   const dashRes = await request.post("/api/dashboards", {
     data: { name: `HEL-503 ${label} Dashboard` },
@@ -100,7 +104,8 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
 
     // Reload lands fresh on `/` with an EMPTY client-side Redux store — sources/pipelines have
     // never been fetched by anything on this route (design.md D2's load-timing survey).
-    await page.reload();
+    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -119,7 +124,8 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     const pipeline = await createPipeline(request, "HEL-503 Output Pipeline", source.id);
     const output = await createOutput(request, pipeline.id, "HEL-503 Revenue Output");
 
-    await page.reload();
+    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -148,7 +154,8 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     expect(secondRes.status()).toBe(201);
     const secondDashboard = (await secondRes.json()) as { id: string; name: string };
 
-    await page.reload();
+    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
     // The auto-selected dashboard is whichever loaded first; select the SECOND one via the
     // sidebar list first so the palette's own selection (of the FIRST) below is a real change.
@@ -174,7 +181,8 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     await registerAndLoginWithDashboard(page, request, "root-source-nav");
     const source = await createStaticSource(request, "HEL-503 Navigable Source");
 
-    await page.reload();
+    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -198,7 +206,8 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
       await new Promise((resolve) => setTimeout(resolve, 800));
       await route.continue();
     });
-    await page.reload();
+    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -222,7 +231,8 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
       await createStaticSource(request, `HEL-503 Zeta Source ${i}`);
     }
 
-    await page.reload();
+    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);

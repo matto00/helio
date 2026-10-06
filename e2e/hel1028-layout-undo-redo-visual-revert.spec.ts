@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-1028 — layout undo/redo must VISIBLY move the rendered panel. Real browser, real drag on
 // `.panel-grid-card__handle`, asserting the RENDERED boundingBox (never the store). Before the fix a
@@ -167,6 +168,8 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
         }) => {
           await page.setViewportSize({ width: vp.width, height: vp.height });
           await registerAndLogin(page, request, `${vp.name}-${theme}-${via}`);
+          // HEL-1300: seeding below must not race the live post-login `/`.
+          await isolateLivePage(page);
           const dashboardId = await seedDashboard(request);
           try {
             const layoutPatches: string[] = [];
@@ -216,6 +219,8 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
     test(`${vp.name}: drag, undo, flush sends no layout PATCH`, async ({ page, request }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
       await registerAndLogin(page, request, `${vp.name}-noop`);
+      // HEL-1300: seeding below must not race the live post-login `/`.
+      await isolateLivePage(page);
       const dashboardId = await seedDashboard(request);
       try {
         const layoutPatches: string[] = [];
@@ -242,6 +247,8 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
     test(`${vp.name}: resize, immediate undo, redo (keyboard)`, async ({ page, request }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
       await registerAndLogin(page, request, `${vp.name}-resize`);
+      // HEL-1300: seeding below must not race the live post-login `/`.
+      await isolateLivePage(page);
       const dashboardId = await seedDashboard(request);
       try {
         await openDashboard(page, dashboardId, "light");
@@ -265,6 +272,8 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
   }) => {
     await page.setViewportSize({ width: 430, height: 900 });
     await registerAndLogin(page, request, "xs");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
     const dashboardId = await seedDashboard(request);
     try {
       await page.goto(`/dashboards/${dashboardId}`);

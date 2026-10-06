@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 import { forceFocusVisible } from "./support/forceFocusVisible";
 import { readIndicatorSnapshot } from "./support/focusPresenceProbe";
@@ -36,6 +37,7 @@ function uniqueEmail(label: string): string {
 
 async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   const res = await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-1065 ${label}` },
@@ -57,6 +59,8 @@ async function seedPinnableTablePanel(
   page: Page,
   label: string,
 ): Promise<{ dashboardName: string }> {
+  // HEL-1300: seeding below must not race the live post-login `/`.
+  await isolateLivePage(page);
   const dashboardName = `HEL-1065 ${label} Dashboard`;
   const dashRes = await page.request.post("/api/dashboards", {
     data: { name: dashboardName },

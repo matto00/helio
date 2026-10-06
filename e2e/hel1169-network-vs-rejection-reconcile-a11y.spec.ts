@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-1169 tasks.md 3.3 — live-browser proof that a definite rejection and an indeterminate
 // (no-response) failure produce visually and textually DISTINCT states, and that a definite
@@ -19,6 +20,7 @@ function uniqueEmail(label: string): string {
 
 async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   const res = await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-1169 ${label}` },
@@ -30,6 +32,8 @@ async function registerAndLogin(page: Page, request: APIRequestContext, label: s
   await page.fill("#password", password);
   await page.click("button[type=submit]");
   await page.waitForURL("/");
+  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
+  await isolateLivePage(page);
 }
 
 interface Created {

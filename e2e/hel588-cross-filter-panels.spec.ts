@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-588 — live-browser verification of dashboard-scoped cross-filtering,
 // specifically the Table-kind narrowing defect evaluation-1.md CR1/CR2
@@ -18,6 +19,7 @@ function uniqueEmail(label: string): string {
 
 async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   const res = await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-588 ${label}` },
@@ -29,6 +31,8 @@ async function registerAndLogin(page: Page, request: APIRequestContext, label: s
   await page.fill("#password", password);
   await page.click("button[type=submit]");
   await page.waitForURL("/");
+  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
+  await isolateLivePage(page);
 }
 
 interface SeededDashboard {

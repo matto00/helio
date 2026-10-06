@@ -1,0 +1,34 @@
+- `e2e/support/isolateLivePage.ts` — new: `isolateLivePage(page)` (about:blank) and `loginThenIsolate`, with the race and reload/evaluate hazard documented
+- `e2e/auth-cookie-migration.spec.ts` — call-site isolate in the CSRF test (dashboard seeded while `/` live); email log
+- `e2e/hel1023-breakpoint-layout-derivation.spec.ts` — isolate in beforeEach before `seedDashboard` (no email log; D5-exempt)
+- `e2e/hel1028-layout-undo-redo-visual-revert.spec.ts` — isolate at the four `registerAndLogin` call sites (no email log; D5-exempt)
+- `e2e/hel1065-pin-toggle-css-fixes.spec.ts` — isolate at top of `seedPinnableTablePanel`; email log
+- `e2e/hel1079-dataset-management-ui-live.spec.ts` — call-site isolate in the four seeding tests; email log
+- `e2e/hel1080-dataset-row-grid-live.spec.ts` — isolate in `registerAndLogin` (all callers seed); email log
+- `e2e/hel1085-form-field-renderers-keyboard.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel1087-form-submit-path.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel1088-compact-counter-chrome.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel1090-form-panel-assembled-a11y.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel1094-sse-fan-out-panel-refresh.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel1095-optimistic-pending-writing-panel-a11y.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel1096-run-to-update-affordance.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel1169-network-vs-rejection-reconcile-a11y.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel1189-output-panel-controls-live.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel1230-drag-then-create-persists.spec.ts` — isolate in `registerAndLogin` (before its `return`); email log
+- `e2e/hel503-palette-global-resource-search.spec.ts` — isolate in `registerAndLoginWithDashboard`; six `page.reload()` -> `page.goto("/")` (D2a); email log
+- `e2e/hel516-palette-quick-create.spec.ts` — call-site isolate in 3 tests plus the inline parity login; email logs
+- `e2e/hel519-screenshots.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel572-chart-click-drilldown.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel588-cross-filter-panels.spec.ts` — isolate in `registerAndLogin`; email log
+- `e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts` — call-site isolate in 6 tests; matrix tests isolate after their localStorage step; `iconsize`: isolate, seed, `goto("/")` before its theme loop; email log
+- `e2e/hel813-mobile-touch-target-floor.spec.ts` — call-site isolate in surfaces 1, 5, 6; email log
+- `e2e/hel666-single-assistant-entry.spec.ts` — isolate after both inline logins (code-read only, quarantined, C9); email logs
+- `e2e/hel716-panel-detail-tall-viewport-footer.spec.ts` — isolate after the inline login (code-read only, quarantined, C9); email log
+- `e2e/hel909-output-picker-panel-sheet.spec.ts` — isolate in `registerAndLogin` (code-read only, quarantined, C9); email log
+- `e2e/hel968-multi-root-editor-flow.spec.ts` — call-site isolate in the two touch-target tests (code-read only, quarantined, C9); email log
+- `e2e/hel520-focus-presence-guard.regression.spec.ts` — call-site isolate in Case B (code-read only, opt-in, C9); email log
+- `e2e/hel813-mobile-touch-target-floor.regression.spec.ts` — call-site isolate in Case B (code-read only, opt-in, C9); email log
+- `openspec/changes/isolate-e2e-seeding-live-page/inventory.md` — the audit (read set, per-test verdicts, guards, probe, HEL-1298/1294)
+- `openspec/changes/isolate-e2e-seeding-live-page/verification.md` — run evidence
+- `openspec/changes/isolate-e2e-seeding-live-page/residue-users.txt` — every user created by every run: email and id (exact-email lookup)
+- `openspec/changes/isolate-e2e-seeding-live-page/tasks.md` — checkboxes

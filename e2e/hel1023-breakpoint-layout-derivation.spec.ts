@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-1023 — a breakpoint with no usable saved layout must be derived/repaired AT RENDER so panels
 // never overlap or leave the container, while a valid authored layout renders exactly as saved and
@@ -370,6 +371,9 @@ test.describe("HEL-1023 derive/repair the breakpoint layout at render", () => {
 
   test.beforeEach(async ({ page, request }) => {
     await registerAndLogin(page, request);
+    // HEL-1300: seeding below must not race the live post-login `/` (its mount fetches and the
+    // owner layout repair); the first app load is then openAt's goto.
+    await isolateLivePage(page);
     seeded = await seedDashboard(request);
     layouts = states(seeded.ids);
   });

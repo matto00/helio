@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-516 — real-browser proof for reach: the central hazard design.md and tasks.md both call
 // out repeatedly. jsdom can prove DOM presence but never focus/visibility/computed style
@@ -15,6 +16,7 @@ function uniqueEmail(label: string): string {
 
 async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-516 ${label}` },
@@ -81,6 +83,8 @@ test.describe("HEL-516 palette quick-create — reach", () => {
     request,
   }) => {
     await registerAndLogin(page, request, "panel-reach");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
     await request.post("/api/dashboards", {
       data: { name: "HEL-516 fixture dashboard" },
       headers: { [CSRF_HEADER]: "1" },
@@ -146,6 +150,8 @@ test.describe("HEL-516 palette quick-create — never presented twice", () => {
     request,
   }) => {
     await registerAndLogin(page, request, "panel-owning");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
     await request.post("/api/dashboards", {
       data: { name: "HEL-516 fixture dashboard" },
       headers: { [CSRF_HEADER]: "1" },
@@ -211,6 +217,8 @@ test.describe("HEL-516 design.md D3a — the StrictMode-masked production defect
     request,
   }) => {
     await registerAndLogin(page, request, "strictmode-positive");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
     await request.post("/api/data-sources", {
       data: {
         name: "HEL-516 fixture",
@@ -280,6 +288,7 @@ test.describe("HEL-516 design.md D3b — OutputPicker parity between / and off-r
     request,
   }) => {
     const email = `hel516-parity-${Date.now()}@example.test`;
+    console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
     const password = "correcthorsebattery1";
     await request.post("/api/auth/register", {
       data: { email, password, displayName: "HEL-516 parity" },
@@ -290,6 +299,8 @@ test.describe("HEL-516 design.md D3b — OutputPicker parity between / and off-r
     await page.fill("#password", password);
     await page.click("button[type=submit]");
     await page.waitForURL("/");
+    // HEL-1300: seeding below must not race the live post-login `/`.
+    await isolateLivePage(page);
 
     await request.post("/api/dashboards", {
       data: { name: "HEL-516 Parity Dashboard" },

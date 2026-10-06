@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-519 task 6.4 — visual cohesion evidence. A token check does not substitute (owner-mandated):
 // screenshots go to `.concertino/runs/HEL-519/evidence/` ONLY.
@@ -6,6 +7,7 @@ const CSRF_HEADER = "X-Helio-Requested-With";
 
 async function registerAndLogin(page: any, request: any, label: string) {
   const email = `hel519-shot-${label}-${Date.now()}@example.test`;
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   await request.post("/api/auth/register", {
     data: { email, password, displayName: `Shot ${label}` },
@@ -17,6 +19,8 @@ async function registerAndLogin(page: any, request: any, label: string) {
   await page.click("button[type=submit]");
   await page.waitForURL("/");
   await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
+  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
+  await isolateLivePage(page);
 }
 
 async function openPalette(page: any) {

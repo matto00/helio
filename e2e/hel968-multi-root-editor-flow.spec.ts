@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-968 task 11 / AC1 (HEL-913's original AC5, verbatim): add a second
 // root via pasted table, join it to the first lane, place the resulting
@@ -24,6 +25,7 @@ function uniqueEmail(label: string): string {
 
 async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   const res = await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-968 ${label}` },
@@ -194,6 +196,8 @@ test.describe("HEL-968 mobile touch targets (task 10.2)", () => {
     }) => {
       await page.setViewportSize({ width, height: 800 });
       await registerAndLogin(page, request, `touch-target-${width}`);
+      // HEL-1300: seeding below must not race the live post-login `/`.
+      await isolateLivePage(page);
 
       const sourceRes = await request.post("/api/data-sources", {
         data: {

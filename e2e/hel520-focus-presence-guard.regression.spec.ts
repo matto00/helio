@@ -9,6 +9,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 import { forceFocusVisible } from "./support/forceFocusVisible";
 import { readIndicatorSnapshot, measureOneElement } from "./support/focusPresenceProbe";
@@ -49,6 +50,7 @@ function uniqueEmail(label: string): string {
 
 async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-520 Regression ${label}` },
@@ -267,6 +269,8 @@ test.describe("HEL-520 demonstrated-RED regression harness", () => {
       await client.send("CSS.enable");
 
       await registerAndLogin(page, request, "caseB");
+      // HEL-1300: seeding below must not race the live post-login `/`.
+      await isolateLivePage(page);
       const sourceRes = await page.request.post("/api/data-sources", {
         data: {
           name: "HEL-520 Regression Source",

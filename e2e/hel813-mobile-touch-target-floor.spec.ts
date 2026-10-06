@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import { isolateLivePage } from "./support/isolateLivePage";
 
 import {
   assertHiddenAtWidth,
@@ -29,6 +30,7 @@ function uniqueEmail(label: string): string {
 
 async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
   const email = uniqueEmail(label);
+  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
   const password = "correcthorsebattery1";
   await request.post("/api/auth/register", {
     data: { email, password, displayName: `HEL-813 ${label}` },
@@ -94,6 +96,8 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       test("surface 1: mobile nav sheet / command bar", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, `nav-${width}`);
+        // HEL-1300: seeding below must not race the live post-login `/`.
+        await isolateLivePage(page);
         const dashboardRes = await page.request.post("/api/dashboards", {
           data: { name: "HEL-813 Nav" },
           headers: { [CSRF_HEADER]: "1" },
@@ -236,6 +240,8 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       test("surface 5: ui-select trigger + option list", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, `uiselect-${width}`);
+        // HEL-1300: seeding below must not race the live post-login `/`.
+        await isolateLivePage(page);
         const sourceRes = await page.request.post("/api/data-sources", {
           data: {
             name: "HEL-813 Source",
@@ -269,6 +275,8 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       test("surface 6: panel-list zoom + dashboard-actions controls", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, `panellist-${width}`);
+        // HEL-1300: seeding below must not race the live post-login `/`.
+        await isolateLivePage(page);
         const dashboardRes = await page.request.post("/api/dashboards", {
           data: { name: "HEL-813 PanelList" },
           headers: { [CSRF_HEADER]: "1" },
