@@ -1,2 +1,0 @@
-- `backend/src/test/scala/com/helio/api/NodePayloadWiringSpec.scala` — use TokenHashing.sha256Hex; two-phase seed with share-token positive control on public /history
-- `openspec/changes/nodepayload-spec-share-control/mutation-evidence.md` — red/green mutation transcripts
