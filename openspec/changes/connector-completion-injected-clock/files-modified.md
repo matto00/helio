@@ -1,5 +1,0 @@
-- `backend/src/main/scala/com/helio/services/sources/ConnectorCompletionService.scala` — inject `Clock` (default `SystemClock`)
-- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorCompletionTokenRepository.scala` — inject `Clock` (default `SystemClock`)
-- `backend/src/test/scala/com/helio/services/sources/ConnectorCompletionServiceSpec.scala` — FakeClock replaces 50 ms sleeps in three tests; added describePending expiry assertion
-- `MISTAKES.md` — update CI note citing this flake
-- `openspec/changes/connector-completion-injected-clock/probe.md` — probe, proofs, before/after rates, recommendation
