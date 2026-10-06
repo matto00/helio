@@ -3,11 +3,14 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { createPipelineStep, updatePipelineStep } from "../services/pipelineService";
+import type { CreatedPipelineStep } from "../services/pipelineService";
+import { applyCreatedStep } from "../state/applyCreatedStep";
+import { computeInsertAnchor, insertWireArgs } from "../state/insertAnchor";
+import type { InsertAnchor } from "../state/insertAnchor";
 import {
   defaultConfigFor,
   isCompleteAiStepConfig,
   makeStep,
-  pipelineStepToStep,
   requiresCompleteConfigForCreate,
 } from "../state/stepNarrowing";
 import type { PipelineRoot, PipelineStepConfig, PipelineStepKind } from "../types/pipelineStep";
@@ -16,7 +19,10 @@ import type { useToast } from "../../toasts/hooks/useToast";
 
 /** Metadata for a deferred (draft) create, keyed by the draft's temp id in the page hook's ref. */
 export type PendingDraftMeta = {
-  index?: number;
+  // HEL-1345 D11 — a gap insert's anchor (a persisted step id, or the root head), resolved at
+  // click time; `undefined` is the bottom-row append. NOT `parentStepId` below, which is the LANE
+  // draft's anchor and is read by `getDraftFallbackSchema`.
+  anchor?: InsertAnchor;
   parentStepId?: string;
   attachAsTail?: boolean;
   rootId?: string;
@@ -75,6 +81,35 @@ export function usePipelineStepCreation({
     });
   }, []);
 
+  // HEL-1345 D5 — reparents a create's response reports for steps not present locally yet (their
+  // own create has not responded): reparented id -> the created id that took it.
+  const pendingParentRef = useRef(new Map<string, string>());
+  // Temp ids the user removed while their create may still be in flight (an orphaned server step
+  // must not be re-added when its response lands).
+  const userRemovedTempIdsRef = useRef(new Set<string>());
+  const markTempRemoved = useCallback((tempId: string) => {
+    userRemovedTempIdsRef.current.add(tempId);
+  }, []);
+
+  /** Apply a create response's delta (see `applyCreatedStep`). `renderKey` is set for drafts only. */
+  const applyCreated = useCallback(
+    (tempId: string, created: CreatedPipelineStep, renderKey?: string) => {
+      // Read + delete the claim OUTSIDE the updater so the updater stays idempotent (StrictMode).
+      const claimedParent = pendingParentRef.current.get(created.id);
+      pendingParentRef.current.delete(created.id);
+      const reparented = created.reparentedStepIds ?? [];
+      setSteps((prev) =>
+        applyCreatedStep(prev, tempId, created, reparented, {
+          renderKey,
+          claimedParent,
+          pendingParent: pendingParentRef.current,
+          userRemoved: userRemovedTempIdsRef.current,
+        }),
+      );
+    },
+    [setSteps],
+  );
+
   const clearDraftCreateError = useCallback((stepId: string) => {
     setDraftCreateErrors((prev) => {
       if (!(stepId in prev)) return prev;
@@ -102,6 +137,9 @@ export function usePipelineStepCreation({
       setStepsInitialized(true);
       const tempStep = makeStep(opType);
       const isAppend = index >= stepsRef.current.length;
+      // HEL-1345 D11 — resolve the anchor from the lane the river rendered, BEFORE the optimistic
+      // splice below changes `stepsRef`. The wire call is built from it when the create is sent.
+      const anchor = isAppend ? undefined : computeInsertAnchor(stepsRef.current, roots, index);
       setSteps((prev) => {
         const next = [...prev];
         next.splice(index, 0, tempStep);
@@ -113,7 +151,7 @@ export function usePipelineStepCreation({
       // all) until `handleStepConfigChange` sees its config become complete.
       if (requiresCompleteConfigForCreate(opType.id)) {
         pendingDraftMetaRef.current.set(tempStep.id, {
-          index: isAppend ? undefined : index,
+          anchor,
           rootId: roots[0]?.id,
         });
         return;
@@ -121,22 +159,27 @@ export function usePipelineStepCreation({
       markCreating(tempStep.id, true);
       try {
         const initialConfig = defaultConfigFor(opType.id);
-        await createPipelineStep(
+        // HEL-968: this handler only ever inserts into root 0's own top-level lane (every other
+        // root renders read-only-ish via `RootColumn`, task 6) -- `rootId` is required once the
+        // pipeline has more than one root (R6/task 2.3).
+        const wire = insertWireArgs(
+          anchor,
+          (stepId) => stepsRef.current.some((s) => s.id === stepId),
+          roots[0]?.id,
+        );
+        const created = await createPipelineStep(
           id,
           opType.id as PipelineStepKind,
           initialConfig,
-          isAppend ? undefined : index,
+          wire.position,
+          wire.parentStepId,
           undefined,
-          undefined,
-          // HEL-968: this handler only ever inserts into root 0's own top-level
-          // lane (every other root renders read-only-ish via `RootColumn`, task 6) --
-          // required once the pipeline has more than one root (R6/task 2.3).
-          roots[0]?.id,
+          wire.rootId,
         );
-        // CR9 — a trunk splice-insert (this call, when not appending) can
-        // reparent OTHER existing steps server-side; resync the whole list
-        // rather than patching just this one element.
-        await syncStepsFromServer();
+        // CR9 / HEL-1345 D5 — a splice-insert can reparent OTHER existing steps server-side. Apply
+        // the response's reported delta instead of a wholesale resync, which would drop local-only
+        // drafts and overwrite a card's local config.
+        applyCreated(tempStep.id, created);
       } catch (err: unknown) {
         // Keep temp step if POST fails; PATCH calls will be no-ops until ID is real.
         // Surface the failure — a silent catch here previously let a step creation
@@ -153,9 +196,9 @@ export function usePipelineStepCreation({
     [
       id,
       pushToast,
-      syncStepsFromServer,
       roots,
       markCreating,
+      applyCreated,
       stepsRef,
       setSteps,
       setStepsInitialized,
@@ -228,7 +271,7 @@ export function usePipelineStepCreation({
       markCreating(tempStep.id, true);
       try {
         const initialConfig = defaultConfigFor(opType.id);
-        await createPipelineStep(
+        const created = await createPipelineStep(
           id,
           opType.id as PipelineStepKind,
           initialConfig,
@@ -236,12 +279,9 @@ export function usePipelineStepCreation({
           parentStepId,
           true,
         );
-        // CR9 — a tail-attach itself never reparents siblings, but keeping
-        // this handler symmetric with `handleInsertStep`'s resync means a
-        // SUBSEQUENT trunk-append (which CAN reparent this tail's anchor)
-        // always starts from server-fresh local state, not a value stale
-        // since whichever earlier create last did a one-element patch.
-        await syncStepsFromServer();
+        // HEL-1345 D5 — a tail attach reports no reparented ids; this swaps the temp for the
+        // persisted step in place (the wholesale resync it replaces would drop local-only drafts).
+        applyCreated(tempStep.id, created);
       } catch (err: unknown) {
         const message = extractErrorMessage(err, "Failed to add lane step.");
         pushToast({
@@ -255,8 +295,8 @@ export function usePipelineStepCreation({
     [
       id,
       pushToast,
-      syncStepsFromServer,
       markCreating,
+      applyCreated,
       stepsRef,
       setSteps,
       setStepsInitialized,
@@ -278,14 +318,25 @@ export function usePipelineStepCreation({
       creatingDraftIdsRef.current.add(stepId);
       pendingDraftMetaRef.current.delete(stepId);
       draftFallbackMetaRef.current.set(stepId, meta);
+      // A lane draft (`meta.parentStepId`) sends its own anchor; a trunk draft builds the wire
+      // call from its click-time anchor NOW (and on every retry), so a trunk that changed in
+      // between never turns a stale index into a permanent 422 (HEL-1345 D11).
+      const wire =
+        meta.parentStepId !== undefined
+          ? { parentStepId: meta.parentStepId, rootId: meta.rootId }
+          : insertWireArgs(
+              meta.anchor,
+              (stepId) => stepsRef.current.some((s) => s.id === stepId),
+              meta.rootId,
+            );
       void createPipelineStep(
         id,
         step.opType.id as PipelineStepKind,
         config,
-        meta.index,
-        meta.parentStepId,
+        wire.position,
+        wire.parentStepId,
         meta.attachAsTail,
-        meta.rootId,
+        wire.rootId,
       )
         .then((persisted) => {
           // HEL-1321 D3 — `stepsRef` still holds the PRE-swap list here, so look the draft up by
@@ -299,18 +350,9 @@ export function usePipelineStepCreation({
           const latest = stepsRef.current.find((s) => s.id === stepId);
           const editedInFlight = latest !== undefined && latest.config !== config;
           // HEL-1321 D2 — the temp id becomes the stable render key (set once), so the open
-          // card and its lane are not remounted by the id swap.
-          setSteps((prev) =>
-            prev.map((s) =>
-              s.id === stepId
-                ? {
-                    ...pipelineStepToStep(persisted),
-                    config: s.config,
-                    renderKey: s.renderKey ?? s.id,
-                  }
-                : s,
-            ),
-          );
+          // card and its lane are not remounted by the id swap. HEL-1345 D5 — the same swap also
+          // applies the response's reparented ids.
+          applyCreated(stepId, persisted, stepId);
           if (editedInFlight) {
             updatePipelineStep(persisted.id, latest.config).catch((err: unknown) => {
               const message = extractErrorMessage(
@@ -332,7 +374,7 @@ export function usePipelineStepCreation({
           creatingDraftIdsRef.current.delete(stepId);
         });
     },
-    [id, stepsRef, setSteps, pendingDraftMetaRef, draftFallbackMetaRef],
+    [id, stepsRef, applyCreated, pendingDraftMetaRef, draftFallbackMetaRef],
   );
 
   return {
@@ -343,5 +385,6 @@ export function usePipelineStepCreation({
     handleAddLaneStep,
     clearDraftCreateError,
     createDraftIfComplete,
+    markTempRemoved,
   };
 }

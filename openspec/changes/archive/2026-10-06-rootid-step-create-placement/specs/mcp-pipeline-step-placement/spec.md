@@ -1,9 +1,4 @@
-# mcp-pipeline-step-placement Specification
-
-## Purpose
-Defines the explicit, non-silent placement semantics (attachAsTail, rejectIfReparents guard) of the MCP step-adding tools.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: MCP step-adding tools never silently re-parent existing steps
 `add_pipeline_step` SHALL accept an optional `attachAsTail` boolean. `true` creates a new sibling lane and moves nothing; `false` performs the splice-insert deliberately; omitted SHALL send `rejectIfReparents: true` so an insert that would re-parent existing steps fails with the backend's error naming them (nothing written). The tool description SHALL state this. `attachAsTail: true` without `parentStepId` (that is, with `rootId` or with no anchor) SHALL be rejected by the tool before any request, because the backend only honours attachAsTail with `parentStepId`; the message points to `parentStepId` of an existing step. An invalid anchor SHALL continue to fail with the backend's reason. The result SHALL pass through `reparentedStepIds`.
