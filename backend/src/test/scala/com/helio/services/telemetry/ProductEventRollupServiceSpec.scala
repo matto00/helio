@@ -62,18 +62,32 @@ class ProductEventRollupServiceSpec extends AnyWordSpec with Matchers with Produ
     priv(sqlu"#$sqlText")
   }
 
-  /** ~400 historical users (one per day, 1..400 days before BackfillNow) plus the harness's two. */
+  /** A non-backfill user whose email has the exact shape of a harness user whose random UUID starts with "bf". */
+  private val DecoyId = "bf222222-2222-4222-8222-222222222222"
+
+  /** Backfill fixture users use the reserved `@backfill.invalid` domain, which no harness, newUser() or migration email can match.
+    * ~400 historical users (one per day, 1..400 days before BackfillNow) plus the harness's two and a "bf"-UUID decoy. */
   private def withHistoricalUsers[T](body: => T): T = {
+    priv(sqlu"INSERT INTO users (id, email, created_at) VALUES (${DecoyId}::uuid, ${DecoyId + "@t.local"}, now())")
     // every pre-existing user (harness users + any migration-seeded baseline user) lands on a day a bf user also uses
     priv(sqlu"""UPDATE users SET created_at = TIMESTAMPTZ '2026-09-23 10:00:00+00'""")
     priv(sqlu"""INSERT INTO users (id, email, created_at)
-                SELECT gen_random_uuid(), 'bf' || g || '@t.local', TIMESTAMPTZ '2026-10-03 09:00:00+00' - (g || ' days')::interval
+                SELECT gen_random_uuid(), 'bf' || g || '@backfill.invalid', TIMESTAMPTZ '2026-10-03 09:00:00+00' - (g || ' days')::interval
                 FROM generate_series(1, 400) g""")
-    try body
-    finally priv(sqlu"DELETE FROM users WHERE email LIKE 'bf%@t.local'")
+    try {
+      val result =
+        try body
+        finally priv(sqlu"DELETE FROM users WHERE email LIKE '%@backfill.invalid'")
+      // reached only when body completed: the cleanup must not have deleted userA, userB or the decoy
+      val survivors = priv(
+        sql"SELECT COUNT(*) FROM users WHERE id IN (${userA.value}::uuid, ${userB.value}::uuid, ${DecoyId}::uuid)".as[Int].head
+      )
+      survivors shouldBe 3
+      result
+    } finally priv(sqlu"DELETE FROM users WHERE id = ${DecoyId}::uuid")
   }
 
-  private def otherUsers: Int = priv(sql"SELECT COUNT(*) FROM users WHERE email NOT LIKE 'bf%@t.local'".as[Int].head)
+  private def otherUsers: Int = priv(sql"SELECT COUNT(*) FROM users WHERE email NOT LIKE '%@backfill.invalid'".as[Int].head)
 
   private def wau(day: LocalDate): Option[Long] =
     priv(sql"SELECT weekly_active_users FROM product_active_users_daily WHERE day = CAST(${day.toString} AS date)".as[Option[Long]].headOption).flatten
