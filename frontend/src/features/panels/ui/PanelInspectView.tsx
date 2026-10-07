@@ -8,7 +8,10 @@ import { EmptyState } from "../../../shared/ui/EmptyState";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { setCrossFilter } from "../state/panelsSlice";
-import { filterRowsForSelection } from "../../../utils/chartClickSelection";
+import {
+  filterRecordsForAggregateSelection,
+  filterRowsForSelection,
+} from "../../../utils/chartClickSelection";
 import type { ChartInspectConfig } from "../../../utils/chartClickSelection";
 
 export interface PanelInspectViewProps {
@@ -33,6 +36,10 @@ export interface PanelInspectViewProps {
   onClear: () => void;
   rawRows: string[][] | null;
   headers: string[] | null;
+  /** HEL-1351 design D3 — the loaded row RECORDS, narrowed by the same cross-filter the chart
+   *  grouped over. Read only for an aggregate-rendered chart (`chartInspectConfig.aggregation`),
+   *  whose groups key on `String(row[groupBy])`, never the null-to-"" stringified `rawRows`. */
+  records?: Record<string, unknown>[] | null;
   /** Required (not optional) — the mount site (`PanelCard`/
    *  `PanelFullscreenOverlay`) only ever renders this component once its
    *  own `chartInspectConfig` is non-null (chart-eligible panels only). */
@@ -60,6 +67,7 @@ export function PanelInspectView({
   onClear,
   rawRows,
   headers,
+  records,
   chartInspectConfig,
   rowsTruncated,
   variant,
@@ -73,13 +81,19 @@ export function PanelInspectView({
   // action does. Dispatches, then closes the SAME way the header ×/Escape/
   // backdrop already do (`onClose`, not `onClear` — the selection itself is
   // untouched, only the dashboard-level filter changes).
+  //
+  // HEL-1351 edge (accepted, documented): on an aggregate-rendered chart the selection's `value` is
+  // the plotted category, so "Filter dashboard" on the `"null"` group writes the value `"null"`,
+  // which `filterRecordRowsByDimension` (null read as `""`) will not match on sibling panels.
   const handleFilterDashboard = useCallback(() => {
     if (!selection) return;
     dispatch(setCrossFilter(selection));
     onClose();
   }, [dispatch, selection, onClose]);
 
+  const aggregation = chartInspectConfig.aggregation ?? null;
   const filteredRows = useMemo(() => {
+    if (aggregation) return [];
     if (!selection || !rawRows || !headers || headers.length === 0) return [];
     return filterRowsForSelection(
       rawRows,
@@ -89,12 +103,20 @@ export function PanelInspectView({
       selection,
       chartInspectConfig.scatterOptions,
     );
-  }, [selection, rawRows, headers, chartInspectConfig]);
+  }, [aggregation, selection, rawRows, headers, chartInspectConfig]);
 
   const gridRows = useMemo(() => {
+    if (aggregation) {
+      if (!selection || !records) return [];
+      return filterRecordsForAggregateSelection(records, aggregation, selection).map((row) =>
+        Object.fromEntries(
+          Object.entries(row).map(([k, v]) => [k, v !== null && v !== undefined ? String(v) : ""]),
+        ),
+      );
+    }
     if (!headers) return [];
     return filteredRows.map((row) => Object.fromEntries(headers.map((h, i) => [h, row[i]])));
-  }, [filteredRows, headers]);
+  }, [aggregation, selection, records, filteredRows, headers]);
 
   const headerLabel = selection
     ? `Showing rows for ${selection.dimension}: ${selection.value}${

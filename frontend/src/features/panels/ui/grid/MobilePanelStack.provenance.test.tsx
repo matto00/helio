@@ -25,7 +25,6 @@ jest.mock("../../hooks/usePanelData", () => ({
     errorKind: null,
     noData: true,
     neverMaterialized: false,
-    chartAggregate: null,
     rowsTruncated: false,
     refresh: jest.fn(),
     isRefreshing: false,

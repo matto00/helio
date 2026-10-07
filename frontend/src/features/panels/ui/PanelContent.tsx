@@ -7,7 +7,6 @@ import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
 import type { FilteredMetric } from "../../pipelines/services/outputService";
 import type { Output, PublicOutputMeta } from "../../pipelines/types/output";
-import type { GroupedAggregate } from "../../../utils/aggregate";
 import type { ChartClickSelection } from "../../../utils/chartClickSelection";
 import type { SortDirection } from "../../../shared/ui/useSortedRows";
 import type { TableColumnFilters } from "../../pipelines/ui/outputEditor/outputConfigTypes";
@@ -85,8 +84,6 @@ export interface PanelContentProps {
    *  Passed through unconditionally from BOTH call sites (`PanelCard`,
    *  `PanelDetailModal`); defaults to `false` only when genuinely unknown. */
   rowsTruncated?: boolean;
-  /** HEL-292: precomputed chart groupBy aggregate, chart panels only. */
-  chartAggregate?: GroupedAggregate | null;
   /** HEL-301: forwarded to `ChartRenderer` only — see `ChartPanel`'s
    *  `compact` prop. */
   compact?: boolean;
@@ -151,7 +148,6 @@ function OutputPanelContent({
   paginationIsLoadingMore,
   onLoadMore,
   rowsTruncated,
-  chartAggregate,
   compact,
   outputId,
   onDataPointSelect,
@@ -173,7 +169,6 @@ function OutputPanelContent({
   paginationIsLoadingMore?: boolean;
   onLoadMore?: () => void;
   rowsTruncated?: boolean;
-  chartAggregate?: GroupedAggregate | null;
   compact?: boolean;
   outputId: string;
   onDataPointSelect?: (selection: ChartClickSelection) => void;
@@ -273,7 +268,8 @@ function OutputPanelContent({
         appearance={appearance}
         rawRows={filteredRawRows}
         headers={headers}
-        chartAggregate={chartAggregate}
+        // HEL-1351 design D2 — the cross-filter-narrowed record rows an aggregated Output groups.
+        records={filteredPaginationRows}
         compact={compact}
         onDataPointSelect={onDataPointSelect}
         // HEL-1277 design D9 — a viewer control filter, or a cross-filter narrowing this panel,
@@ -406,7 +402,6 @@ export function PanelContent({
   paginationIsLoadingMore,
   onLoadMore,
   rowsTruncated,
-  chartAggregate,
   compact,
   onDataPointSelect,
   onSortChange,
@@ -492,7 +487,6 @@ export function PanelContent({
         paginationIsLoadingMore={paginationIsLoadingMore}
         onLoadMore={onLoadMore}
         rowsTruncated={rowsTruncated}
-        chartAggregate={chartAggregate}
         compact={compact}
         outputId={panel.config.outputId}
         onDataPointSelect={onDataPointSelect}

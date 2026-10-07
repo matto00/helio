@@ -2,7 +2,13 @@ import { defaultChartAppearance } from "../../../theme/appearance";
 import type { ChartThemeTokens } from "../../../utils/chartAppearance";
 import type { ChartTypeOptionsMap, PanelAppearance } from "../types/panel";
 import type { ChartOverlay } from "../history/chartOverlay";
-import { buildChartOption } from "./buildChartOption";
+import {
+  buildChartOption,
+  COMPACT_AXIS_LABEL_FONT_SIZE,
+  COMPACT_GRID_INSET_PX,
+  COMPACT_LEGEND_CLEARANCE_HORIZONTAL_PX,
+  COMPACT_LEGEND_CLEARANCE_VERTICAL_PX,
+} from "./buildChartOption";
 
 const themeTokens: ChartThemeTokens = {
   surfaceStrong: "#1a1d24",
@@ -22,12 +28,19 @@ const rows = [
   ["Wed", "30", "east"],
 ];
 
-function appearanceFor(chartType: "line" | "bar" | "pie" | "scatter"): PanelAppearance {
+function appearanceFor(
+  chartType: "line" | "bar" | "pie" | "scatter",
+  legend: Partial<typeof defaultChartAppearance.legend> = {},
+): PanelAppearance {
   return {
     background: "transparent",
     color: "inherit",
     transparency: 0,
-    chart: { ...defaultChartAppearance, chartType },
+    chart: {
+      ...defaultChartAppearance,
+      chartType,
+      legend: { ...defaultChartAppearance.legend, ...legend },
+    },
   };
 }
 
@@ -38,10 +51,15 @@ function build(
     chartOptions?: ChartTypeOptionsMap;
     fieldMapping?: Record<string, string>;
     compact?: boolean;
+    legendPosition?: "top" | "bottom" | "left" | "right";
+    legendShow?: boolean;
   } = {},
 ) {
   return buildChartOption({
-    appearance: appearanceFor(chartType),
+    appearance: appearanceFor(chartType, {
+      ...(extra.legendPosition ? { position: extra.legendPosition } : {}),
+      ...(extra.legendShow !== undefined ? { show: extra.legendShow } : {}),
+    }),
     rawRows: rows,
     headers: ["day", "amount", "region"],
     fieldMapping: extra.fieldMapping ?? { xAxis: "day", yAxis: "amount" },
@@ -174,9 +192,55 @@ describe("buildChartOption overlay (HEL-1277)", () => {
     expect(names).not.toContain("vs 7d");
   });
 
-  it("hides the legend in compact mode but keeps the series (tooltip still names it)", () => {
-    const o = build("line", overlay, { compact: true });
+  it("compact with no drawn overlay keeps the legend hidden (F-026/F-028 unchanged)", () => {
+    const o = build("line", null, { compact: true });
     expect((o.legend as { show?: boolean }).show).toBe(false);
-    expect(seriesOf(o).map((s) => s.name)).toContain("vs 7d");
+    const noMatch = build("line", { label: "vs 7d", points: [["Sun", 1]] }, { compact: true });
+    expect((noMatch.legend as { show?: boolean }).show).toBe(false);
+    expect((o.grid as { top: number }).top).toBe(COMPACT_GRID_INSET_PX);
+  });
+
+  describe("compact legend with a drawn overlay (HEL-1351)", () => {
+    it("keeps a compact, scrolling legend that lists the overlay", () => {
+      const o = build("line", overlay, { compact: true });
+      const legend = o.legend as {
+        show?: boolean;
+        type?: string;
+        itemHeight?: number;
+        textStyle?: { fontSize?: number };
+      };
+      expect(legend.show).toBe(true);
+      expect(legend.type).toBe("scroll");
+      expect(legend.itemHeight).toBeLessThan(14);
+      expect(legend.textStyle?.fontSize).toBe(COMPACT_AXIS_LABEL_FONT_SIZE);
+      expect(seriesOf(o).map((s) => s.name)).toContain("vs 7d");
+    });
+
+    it("enlarges the grid inset on the legend's side only (top by default)", () => {
+      const o = build("bar", overlay, { compact: true });
+      const grid = o.grid as { top: number; bottom: number; left: number; right: number };
+      expect(grid.top).toBe(COMPACT_GRID_INSET_PX + COMPACT_LEGEND_CLEARANCE_HORIZONTAL_PX);
+      expect(grid.bottom).toBe(COMPACT_GRID_INSET_PX);
+      expect(grid.left).toBe(COMPACT_GRID_INSET_PX);
+      expect(grid.right).toBe(COMPACT_GRID_INSET_PX);
+    });
+
+    it("honours a stored legend position", () => {
+      const o = build("bar", overlay, { compact: true, legendPosition: "bottom" });
+      const grid = o.grid as { top: number; bottom: number };
+      expect(grid.bottom).toBe(COMPACT_GRID_INSET_PX + COMPACT_LEGEND_CLEARANCE_HORIZONTAL_PX);
+      expect(grid.top).toBe(COMPACT_GRID_INSET_PX);
+      const right = build("bar", overlay, { compact: true, legendPosition: "right" });
+      expect((right.grid as { right: number }).right).toBe(
+        COMPACT_GRID_INSET_PX + COMPACT_LEGEND_CLEARANCE_VERTICAL_PX,
+      );
+    });
+
+    it("an explicitly hidden legend stays hidden and the grid is not enlarged", () => {
+      const o = build("line", overlay, { compact: true, legendShow: false });
+      expect((o.legend as { show?: boolean }).show).toBe(false);
+      expect((o.grid as { top: number }).top).toBe(COMPACT_GRID_INSET_PX);
+      expect(seriesOf(o).map((s) => s.name)).toContain("vs 7d");
+    });
   });
 });

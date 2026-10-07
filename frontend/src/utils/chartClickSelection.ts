@@ -9,6 +9,7 @@
 
 import type { ChartType } from "./chartAppearance";
 import type { ScatterChartOptions } from "../features/panels/types/panel";
+import type { ChartAggregationSpec } from "../features/panels/history/chartOverlay";
 
 interface ResolvedColumns {
   xCol: number;
@@ -124,6 +125,34 @@ export function mapChartClickToSelection(
   return { dimension, value: params.name, series: params.seriesName ?? "" };
 }
 
+/** HEL-1351 design D4a/D3 — the name of an aggregate-rendered chart's primary series. */
+export function aggregateSeriesName(spec: ChartAggregationSpec): string {
+  return `${spec.agg}(${spec.yField})`;
+}
+
+/** HEL-1351 design D3 — a click on an AGGREGATE-rendered bar/line/pie (see `ChartPanel`): the
+ *  category is a `groupBy` value, so the selection's dimension is the aggregation's `groupBy`, never
+ *  `fieldMapping.xAxis`. `series` is always the primary series name (a click on the "vs" overlay
+ *  series carries the overlay label in `seriesName`, which must not leak into the selection). */
+export function mapAggregateClickToSelection(
+  params: ChartClickParams,
+  spec: ChartAggregationSpec,
+): ChartClickSelection | null {
+  if (typeof params.name !== "string") return null;
+  return { dimension: spec.groupBy, value: params.name, series: aggregateSeriesName(spec) };
+}
+
+/** HEL-1351 design D3 — the Inspect rows of an aggregate selection: exactly the loaded RECORD rows
+ *  whose `String(row[groupBy])` equals the clicked category — the keying `groupAndAggregate` used
+ *  (so a null group is `"null"`, matching the chart). Records, not the null-to-"" stringified rows. */
+export function filterRecordsForAggregateSelection(
+  records: Record<string, unknown>[],
+  spec: ChartAggregationSpec,
+  selection: { value: string },
+): Record<string, unknown>[] {
+  return records.filter((row) => String(row[spec.groupBy]) === selection.value);
+}
+
 /** design.md D4 — row filtering for the inspect view, reusing the exact
  *  same resolved columns `mapChartClickToSelection` (and `buildDataOption`)
  *  use, so the two can never disagree about which rows a selection means. */
@@ -173,4 +202,8 @@ export interface ChartInspectConfig {
   chartType: ChartType;
   fieldMapping: Record<string, string> | null;
   scatterOptions?: ScatterChartOptions;
+  /** HEL-1351 design D3 — non-null exactly when the panel renders the Output's aggregation (the
+   *  Output is aggregated AND the resolved `chartType` is not scatter): clicks key on `groupBy`
+   *  and Inspect lists the loaded records of the clicked group. */
+  aggregation?: ChartAggregationSpec | null;
 }

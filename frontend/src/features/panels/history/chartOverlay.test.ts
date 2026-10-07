@@ -1,4 +1,5 @@
 import {
+  chartAggregationSpec,
   chartCompareBlocker,
   selectChartOverlay,
   selectPointOverlay,
@@ -125,15 +126,74 @@ describe("selectChartOverlay", () => {
     expect(selectChartOverlay(history, cfg, c)).toBeNull();
   });
 
-  it("returns null for a grouped baseline matching an aggregation (dashboards plot rows)", () => {
-    const grouped = series({ mode: "grouped", x: "day", y: "amount", agg: "sum" });
-    expect(
-      selectChartOverlay(
-        historyWith(grouped),
-        { ...config, aggregation: { groupBy: "day", yField: "amount", agg: "sum" } },
-        ctx,
-      ),
-    ).toBeNull();
+  describe("aggregated Output (HEL-1351)", () => {
+    const aggCfg = {
+      ...config,
+      chartType: "bar",
+      aggregation: { groupBy: "region", yField: "amount", agg: "sum" },
+    };
+    const grouped = (o: Partial<HistorySeries> = {}) =>
+      series({ mode: "grouped", x: "region", y: "amount", agg: "sum", ...o });
+    // The grouped plot does not read rawRows/headers: only completeness and filters gate it.
+    const aggCtx: ChartOverlayContext = { ...ctx, rawRows: null, headers: null };
+
+    it("returns the grouped baseline when groupBy/yField/agg match", () => {
+      expect(selectChartOverlay(historyWith(grouped()), aggCfg, aggCtx)).toEqual({
+        label: "vs 7d",
+        points: grouped().points,
+      });
+    });
+
+    it.each([
+      ["a different agg", grouped({ agg: "avg" })],
+      ["a different x", grouped({ x: "day" })],
+      ["a different y", grouped({ y: "cost" })],
+      ["a rows-mode series", series()],
+      ["a downsampled series", grouped({ downsampled: true })],
+    ])("returns null for %s", (_n, s) => {
+      expect(selectChartOverlay(historyWith(s), aggCfg, aggCtx)).toBeNull();
+    });
+
+    it("returns null when truncated, unknown-completeness, or filtered (C1)", () => {
+      const h = historyWith(grouped());
+      expect(selectChartOverlay(h, aggCfg, { ...aggCtx, rowsTruncated: true })).toBeNull();
+      expect(selectChartOverlay(h, aggCfg, { ...aggCtx, rowsTruncated: undefined })).toBeNull();
+      expect(selectChartOverlay(h, aggCfg, { ...aggCtx, filterActive: true })).toBeNull();
+    });
+
+    it("does not apply the repeated-x rule to grouped mode", () => {
+      const s = grouped({
+        points: [
+          ["a", 1],
+          ["a", 2],
+        ],
+      });
+      expect(selectChartOverlay(historyWith(s), aggCfg, aggCtx)).not.toBeNull();
+    });
+
+    it("a scatter Output is never aggregated: a grouped baseline is rejected", () => {
+      expect(
+        selectChartOverlay(historyWith(grouped()), { ...aggCfg, chartType: "scatter" }, aggCtx),
+      ).toBeNull();
+    });
+  });
+});
+
+describe("chartAggregationSpec (HEL-1351)", () => {
+  const agg = { groupBy: "region", agg: "sum", yField: "amount" };
+  it("returns the spec for a complete non-scatter aggregation", () => {
+    expect(chartAggregationSpec({ chartType: "bar", aggregation: agg })).toEqual(agg);
+    expect(chartAggregationSpec({ aggregation: agg })).toEqual(agg);
+  });
+  it.each([
+    ["scatter", { chartType: "scatter", aggregation: agg }],
+    ["no aggregation", { chartType: "bar", aggregation: null }],
+    ["empty groupBy", { aggregation: { ...agg, groupBy: "" } }],
+    ["missing yField", { aggregation: { groupBy: "region", agg: "sum" } }],
+    ["unsupported agg", { aggregation: { ...agg, agg: "median" } }],
+    ["non-string agg", { aggregation: { ...agg, agg: 3 } }],
+  ])("returns null for %s", (_n, cfg) => {
+    expect(chartAggregationSpec(cfg)).toBeNull();
   });
 });
 
@@ -187,7 +247,6 @@ describe("chartCompareBlocker (HEL-1350)", () => {
     expect(chartCompareBlocker({ ...clean, chartType: "scatter" })).toBeNull();
   });
   it.each([
-    ["aggregated", { aggregation: { groupBy: "a", agg: "sum", yField: "b" } }],
     ["series", { fieldMapping: { xAxis: "day", yAxis: "amount", series: "r" } }],
     ["unmapped", { fieldMapping: { category: "a", value: "b" } }],
     ["unmapped", { fieldMapping: { xAxis: "day", yAxis: "" } }],
@@ -196,14 +255,41 @@ describe("chartCompareBlocker (HEL-1350)", () => {
   ])("returns %s", (expected, patch) => {
     expect(chartCompareBlocker({ ...clean, ...patch })).toBe(expected);
   });
+  it("an aggregated config never blocks on aggregation, series or unmapped x/y (HEL-1351)", () => {
+    const agg = { groupBy: "a", agg: "sum", yField: "b" };
+    expect(chartCompareBlocker({ fieldMapping: {}, aggregation: agg })).toBeNull();
+    expect(
+      chartCompareBlocker({ fieldMapping: { series: "r" }, chartType: "bar", aggregation: agg }),
+    ).toBeNull();
+  });
+  it("an aggregated config still blocks on horizontal / normalized bars", () => {
+    const agg = { groupBy: "a", agg: "sum", yField: "b" };
+    expect(
+      chartCompareBlocker({
+        aggregation: agg,
+        chartOptions: { bar: { orientation: "horizontal" } },
+      }),
+    ).toBe("horizontal");
+    expect(
+      chartCompareBlocker({ aggregation: agg, chartOptions: { bar: { stacking: "normalized" } } }),
+    ).toBe("normalized");
+  });
+  it("a scatter Output with a leftover aggregation takes the non-aggregated path", () => {
+    expect(
+      chartCompareBlocker({
+        chartType: "scatter",
+        fieldMapping: {},
+        aggregation: { groupBy: "a", agg: "sum", yField: "b" },
+      }),
+    ).toBe("unmapped");
+  });
   it("returns the first blocker in order", () => {
     expect(
       chartCompareBlocker({
-        fieldMapping: {},
-        aggregation: { groupBy: "a" },
+        fieldMapping: { series: "r" },
         chartOptions: { bar: { orientation: "horizontal" } },
       }),
-    ).toBe("aggregated");
+    ).toBe("series");
     expect(
       chartCompareBlocker({
         ...clean,

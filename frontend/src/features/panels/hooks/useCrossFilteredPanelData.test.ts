@@ -138,3 +138,43 @@ describe("useCrossFilteredPanelData — HEL-1191 mode gating", () => {
     },
   );
 });
+
+describe("useCrossFilteredPanelData -- HEL-1351 record rows", () => {
+  const crossFilter = { panelId: "origin", dimension: "quarter", value: "Q1", series: "" };
+  const records = [
+    { quarter: "Q1", revenue: 100 },
+    { quarter: "Q1", revenue: 150 },
+    { quarter: "Q2", revenue: 120 },
+  ];
+
+  it("narrows the records by the same decision as rawRows", () => {
+    const panel = makeOutputPanel({ id: "panel-sibling" });
+    const { result } = renderHook(
+      () =>
+        useCrossFilteredPanelData(panel, rawRows, headers, chartOutput, "client-fallback", records),
+      { wrapper: wrapper(makeStore(crossFilter)) },
+    );
+    expect(result.current.records).toEqual(records.slice(0, 2));
+  });
+
+  it("returns the records untouched when nothing narrows rawRows", () => {
+    const panel = makeOutputPanel({ id: "panel-sibling" });
+    const { result } = renderHook(
+      () => useCrossFilteredPanelData(panel, rawRows, headers, chartOutput, "none", records),
+      { wrapper: wrapper(makeStore(crossFilter)) },
+    );
+    expect(result.current.records).toBe(records);
+  });
+
+  it("does not narrow the records when the dimension is not a header (rawRows no-op)", () => {
+    const panel = makeOutputPanel({ id: "panel-sibling" });
+    const drift = { ...crossFilter, dimension: "missing" };
+    const output = { kind: "chart", config: { fieldMapping: { xAxis: "missing" } } };
+    const { result } = renderHook(
+      () => useCrossFilteredPanelData(panel, rawRows, headers, output, "client-fallback", records),
+      { wrapper: wrapper(makeStore(drift)) },
+    );
+    expect(result.current.rawRows).toBe(rawRows);
+    expect(result.current.records).toBe(records);
+  });
+});

@@ -43,6 +43,22 @@ export const COMPACT_AXIS_LABEL_FONT_SIZE = 10;
  *  the plotted series a near-invisible sliver. */
 export const COMPACT_GRID_INSET_PX = 8;
 
+/** HEL-1351 design D6 — extra grid inset on the legend's side when a compact chart keeps its legend
+ *  because an overlay is drawn: a one-row 10px legend (horizontal) or a narrow label column
+ *  (vertical, for a left/right legend). Just enough to clear it, never the full default margins. */
+export const COMPACT_LEGEND_CLEARANCE_HORIZONTAL_PX = 22;
+export const COMPACT_LEGEND_CLEARANCE_VERTICAL_PX = 90;
+const COMPACT_LEGEND_ITEM_SIZE_PX = 10;
+
+/** The side of the grid a (non-pie) legend sits on, from the keys `legendPositionProps` sets. */
+function legendSide(
+  legend: Record<string, unknown> | undefined,
+): "top" | "bottom" | "left" | "right" {
+  if (legend?.bottom !== undefined) return "bottom";
+  if (legend?.orient === "vertical") return legend.right !== undefined ? "right" : "left";
+  return "top";
+}
+
 /** Inputs to `buildChartOption` — the appearance/data/compact inputs the
  *  original inline `useMemo` closed over, plus the already-resolved
  *  `themeTokens` (design.md D2: `useChartOption.ts`'s own `useMemo` callback
@@ -183,7 +199,10 @@ export function buildChartOption({
 
   // HEL-1277 — the labelled "vs" overlay joins the series array here so the axis-trigger tooltip
   // and hover-emphasis passes below see it.
+  const beforeOverlay = built;
   built = applyChartOverlay(built, chartType, chartOptions, overlay, themeTokens);
+  // `applyChartOverlay` returns its input unchanged whenever it draws nothing.
+  const overlayApplied = built !== beforeOverlay;
 
   // HEL-1342 — a pie's slice labels are attached text: they ignore the global `textStyle` and, with
   // no colour of their own, fall back to zrender's `#333` fill plus an auto light outline (1.40:1
@@ -219,13 +238,43 @@ export function buildChartOption({
   // Independent of `effectiveCompact` so a default-sized (`h: 4`) pie
   // panel clears the collision even though it's well above the generic
   // small-chart threshold.
-  const hideLegendForMeasuredSize = effectiveCompact || (isPie && measuredPieLegendOverlap);
+  //
+  // HEL-1351 design D6 — a compact chart that actually DRAWS an overlay keeps its legend (the
+  // overlay's label is otherwise reachable only through the tooltip): the legend then follows the
+  // panel's own appearance (an explicit `show: false` stays hidden), in compact form below.
+  const hideLegendForMeasuredSize =
+    (effectiveCompact && !overlayApplied) || (isPie && measuredPieLegendOverlap);
 
   if (hideLegendForMeasuredSize) {
     built = { ...built, legend: { ...(built.legend as object), show: false } };
   }
 
+  const legendOpt = built.legend as Record<string, unknown> | undefined;
+  const compactLegendShown = effectiveCompact && overlayApplied && legendOpt?.show !== false;
+  if (compactLegendShown) {
+    built = {
+      ...built,
+      legend: {
+        ...legendOpt,
+        type: "scroll",
+        itemWidth: COMPACT_LEGEND_ITEM_SIZE_PX,
+        itemHeight: COMPACT_LEGEND_ITEM_SIZE_PX,
+        textStyle: {
+          ...(legendOpt?.textStyle as object | undefined),
+          fontSize: COMPACT_AXIS_LABEL_FONT_SIZE,
+        },
+      },
+    };
+  }
+
   if (effectiveCompact && !isPie) {
+    const side = legendSide(legendOpt);
+    const clearance =
+      side === "left" || side === "right"
+        ? COMPACT_LEGEND_CLEARANCE_VERTICAL_PX
+        : COMPACT_LEGEND_CLEARANCE_HORIZONTAL_PX;
+    const inset = (edge: typeof side) =>
+      COMPACT_GRID_INSET_PX + (compactLegendShown && side === edge ? clearance : 0);
     built = {
       ...built,
       // F-028 — an explicit small inset + `containLabel` so ECharts
@@ -235,10 +284,10 @@ export function buildChartOption({
       // chart canvas.
       grid: {
         ...(built.grid as object),
-        top: COMPACT_GRID_INSET_PX,
-        right: COMPACT_GRID_INSET_PX,
-        bottom: COMPACT_GRID_INSET_PX,
-        left: COMPACT_GRID_INSET_PX,
+        top: inset("top"),
+        right: inset("right"),
+        bottom: inset("bottom"),
+        left: inset("left"),
         containLabel: true,
       },
       xAxis: {

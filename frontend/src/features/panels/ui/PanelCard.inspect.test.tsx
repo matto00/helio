@@ -91,7 +91,6 @@ beforeEach(() => {
     errorKind: null,
     noData: false,
     neverMaterialized: false,
-    chartAggregate: null,
     rowsTruncated: false,
     refresh: jest.fn(),
     isRefreshing: false,

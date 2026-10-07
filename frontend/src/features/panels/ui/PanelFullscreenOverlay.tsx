@@ -53,6 +53,9 @@ export interface PanelFullscreenOverlayProps extends Omit<PanelDataResult, "isRe
    *  this explicitly). */
   inspectRawRows?: string[][] | null;
   inspectHeaders?: string[] | null;
+  /** HEL-1351 design D3 — the cross-filter-narrowed record rows for the nested Inspect's aggregate
+   *  branch (the counterpart of `inspectRawRows`); falls back to `paginationRows` when omitted. */
+  inspectRecords?: Record<string, unknown>[] | null;
   /** HEL-1191 design.md D9b — REQUIRED (an omitting caller is a type error): the cross-filter
    *  mode `PanelCard` computed for this panel. This overlay never resolves an Output itself, so
    *  it renders whatever the caller decided rather than deciding again. */
@@ -106,12 +109,13 @@ export function PanelFullscreenOverlay({
   errorKind,
   noData,
   neverMaterialized,
-  chartAggregate,
+  paginationRows,
   rowsTruncated,
   refresh,
   chartInspectConfig,
   inspectRawRows,
   inspectHeaders,
+  inspectRecords,
   crossFilterMode,
 }: PanelFullscreenOverlayProps) {
   const dispatch = useAppDispatch();
@@ -220,7 +224,7 @@ export function PanelFullscreenOverlay({
             retryVariant="button"
             noData={noData}
             neverMaterialized={neverMaterialized}
-            chartAggregate={chartAggregate}
+            paginationRows={paginationRows}
             rowsTruncated={rowsTruncated}
             onDataPointSelect={handleDataPointSelect}
             crossFilterMode={crossFilterMode}
@@ -251,6 +255,7 @@ export function PanelFullscreenOverlay({
               onClear={handleClearInspect}
               rawRows={inspectRawRows !== undefined ? inspectRawRows : (rawRows ?? null)}
               headers={inspectHeaders !== undefined ? inspectHeaders : (headers ?? null)}
+              records={inspectRecords !== undefined ? inspectRecords : (paginationRows ?? null)}
               chartInspectConfig={chartInspectConfig}
               rowsTruncated={rowsTruncated}
               variant="full"

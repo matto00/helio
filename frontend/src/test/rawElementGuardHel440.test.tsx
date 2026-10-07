@@ -26,7 +26,6 @@ jest.mock("../features/panels/hooks/usePanelData", () => ({
     error: null,
     errorKind: null,
     noData: true,
-    chartAggregate: null,
     refresh: jest.fn(),
   })),
 }));

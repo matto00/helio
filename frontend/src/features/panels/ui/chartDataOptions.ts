@@ -198,6 +198,12 @@ export function buildAggregateDataOption(
 
   return {
     xAxis: { type: "category", data: aggregate.categories },
-    series: [{ type: chartType, data: aggregate.values }],
+    series: [
+      {
+        type: chartType,
+        ...(aggregate.seriesName ? { name: aggregate.seriesName } : {}),
+        data: aggregate.values,
+      },
+    ],
   };
 }

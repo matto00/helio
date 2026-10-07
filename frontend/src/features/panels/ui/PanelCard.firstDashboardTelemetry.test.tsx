@@ -32,7 +32,6 @@ const baseData = {
   error: null,
   errorKind: null,
   neverMaterialized: false,
-  chartAggregate: null,
   rowsTruncated: false,
   refresh: jest.fn(),
   isRefreshing: false,

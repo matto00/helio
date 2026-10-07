@@ -311,13 +311,6 @@ export function OutputEditorSheet({
     });
   }
 
-  // Scatter never groups server-side (the sheet says aggregation isn't available there), so a
-  // leftover `aggregation` must not raise the "aggregated" reason; every other blocker still applies.
-  function compareBlockerInput(): Record<string, unknown> {
-    const cfg = buildConfig();
-    return chartType === "scatter" ? { ...cfg, aggregation: null } : cfg;
-  }
-
   async function handleSave() {
     setSaving(true);
     setSaveError(null);
@@ -541,7 +534,7 @@ export function OutputEditorSheet({
             annotationState={annotationState}
             compareValue={compare}
             onCompareChange={setCompare}
-            compareBlocker={chartCompareBlocker(compareBlockerInput())}
+            compareBlocker={chartCompareBlocker(buildConfig())}
           />
         )}
         {kind === "table" && (

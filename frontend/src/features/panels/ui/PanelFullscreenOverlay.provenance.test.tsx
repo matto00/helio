@@ -47,7 +47,6 @@ const dataProps = {
   errorKind: null,
   noData: true,
   neverMaterialized: false,
-  chartAggregate: null,
   rowsTruncated: false,
   refresh: jest.fn(),
   chartInspectConfig: null,

@@ -15,7 +15,7 @@ import {
   PIE_LEGEND_HIDE_HEIGHT_PX,
   useMeasuredChartHeight,
 } from "./useChartCompact";
-import type { ChartOverlay } from "../history/chartOverlay";
+import type { ChartAggregationSpec, ChartOverlay } from "../history/chartOverlay";
 import { useChartOption } from "./useChartOption";
 import { useChartClickHandler } from "./useChartClickHandler";
 import echarts from "./echartsCore";
@@ -29,6 +29,9 @@ export interface ChartPanelProps {
    *  `chartType` is `bar`/`line`/`pie` (HEL-624) — scatter (or an absent
    *  aggregate) falls back to the existing per-row `rawRows` path unchanged. */
   chartAggregate?: GroupedAggregate | null;
+  /** HEL-1351 design D3 — the aggregation `chartAggregate` was grouped by. When set (and the
+   *  rendered type is bar/line/pie) a click selects on its `groupBy` dimension. */
+  aggregationSpec?: ChartAggregationSpec | null;
   /** HEL-248: persisted per-chart-type display options. The active chart type's
    *  entry is applied to the built option; entries for other types are ignored
    *  on render but preserved in storage. */
@@ -60,6 +63,7 @@ export function ChartPanel({
   headers,
   fieldMapping,
   chartAggregate,
+  aggregationSpec,
   chartOptions,
   overlay,
   compact = false,
@@ -90,6 +94,7 @@ export function ChartPanel({
     headers,
     fieldMapping,
     chartOptions,
+    aggregationSpec: chartAggregate ? aggregationSpec : null,
     onDataPointSelect,
   });
 

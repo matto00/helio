@@ -20,6 +20,8 @@ import { useMemo } from "react";
 import type { ChartType } from "../../../../utils/chartAppearance";
 import { defaultChartAppearance, defaultPanelAppearance } from "../../../../theme/appearance";
 import { computeAggregate, groupAndAggregate } from "../../../../utils/aggregate";
+import { aggregateSeriesName } from "../../../../utils/chartClickSelection";
+import { chartAggregationSpec } from "../../../panels/history/chartOverlay";
 import { ChartRenderer } from "../../../panels/ui/renderers/ChartRenderer";
 import { MetricRenderer } from "../../../panels/ui/renderers/MetricRenderer";
 import type { MappedPanelData, ChartTypeOptionsMap } from "../../../panels/types/panel";
@@ -82,9 +84,17 @@ export function OutputPreviewPane({
   const rawRowData = useMemo(() => rows?.rows ?? [], [rows]);
 
   const chartAggregate = useMemo(() => {
-    if (kind !== "chart" || chartType === "scatter") return null;
-    if (!chartGroupBy || !chartYField || !chartAggFn || !isAggFn(chartAggFn)) return null;
-    return groupAndAggregate(rawRowData, chartGroupBy, chartAggFn, chartYField);
+    if (kind !== "chart") return null;
+    // HEL-1351 design D1/C2 — the same condition and grouping function the dashboard panel uses.
+    const spec = chartAggregationSpec({
+      chartType,
+      aggregation: { groupBy: chartGroupBy, agg: chartAggFn, yField: chartYField },
+    });
+    if (!spec) return null;
+    return {
+      ...groupAndAggregate(rawRowData, spec.groupBy, spec.agg, spec.yField),
+      seriesName: aggregateSeriesName(spec),
+    };
   }, [kind, chartType, chartGroupBy, chartYField, chartAggFn, rawRowData]);
 
   if (loading && rawRowData.length === 0) {

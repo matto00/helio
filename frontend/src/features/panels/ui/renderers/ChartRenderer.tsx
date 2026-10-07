@@ -3,7 +3,7 @@ import { lazy, Suspense } from "react";
 import type { ChartTypeOptionsMap, PanelAppearance } from "../../types/panel";
 import type { GroupedAggregate } from "../../../../utils/aggregate";
 import type { ChartClickSelection } from "../../../../utils/chartClickSelection";
-import type { ChartOverlay } from "../../history/chartOverlay";
+import type { ChartAggregationSpec, ChartOverlay } from "../../history/chartOverlay";
 import { PanelSuspenseFallback } from "../../../../shared/ui/SuspenseFallback";
 
 // HEL-512 — `echarts`/`echarts-for-react` (see `ChartPanel.tsx`'s own docblock) is loaded via a
@@ -20,6 +20,8 @@ interface ChartRendererProps {
   headers?: string[] | null;
   fieldMapping?: Record<string, string> | null;
   chartAggregate?: GroupedAggregate | null;
+  /** HEL-1351: forwarded to `ChartPanel` — the aggregation `chartAggregate` was grouped by. */
+  aggregationSpec?: ChartAggregationSpec | null;
   /** HEL-248: forwarded to `ChartPanel` — persisted per-type display options. */
   chartOptions?: ChartTypeOptionsMap | null;
   /** HEL-1277: forwarded to `ChartPanel` — a labelled "vs" comparison series. */
@@ -39,6 +41,7 @@ export function ChartRenderer({
   headers,
   fieldMapping,
   chartAggregate,
+  aggregationSpec,
   chartOptions,
   overlay,
   annotation,
@@ -56,6 +59,7 @@ export function ChartRenderer({
             headers={headers}
             fieldMapping={fieldMapping}
             chartAggregate={chartAggregate}
+            aggregationSpec={aggregationSpec}
             chartOptions={chartOptions}
             overlay={overlay}
             compact={compact}

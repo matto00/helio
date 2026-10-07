@@ -70,7 +70,6 @@ function Harness({ panel }: { panel: Panel }) {
       errorKind={panelData.errorKind}
       noData={panelData.noData}
       neverMaterialized={panelData.neverMaterialized}
-      chartAggregate={panelData.chartAggregate}
       rowsTruncated={panelData.rowsTruncated}
       refresh={panelData.refresh}
     />

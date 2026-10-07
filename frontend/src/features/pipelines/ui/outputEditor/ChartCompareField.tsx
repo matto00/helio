@@ -8,9 +8,8 @@ import { CHART_COMPARE_OPTIONS, compareOptions } from "./compareOptions";
 const CHART_COMPARE_HELP_ID = "output-chart-compare-help";
 const CHART_COMPARE_NOTE_ID = "output-chart-compare-note";
 const CHART_COMPARE_HELP =
-  "Adds a “vs” line or bars to dashboard charts. It doesn't show for pie or scatter panels, multi-series charts, horizontal or 100% stacked bars, aggregated Outputs, Outputs with more than 200 rows, or while a filter is applied.";
+  "Adds a “vs” line or bars to dashboard charts. It doesn't show for pie or scatter panels, multi-series charts, horizontal or 100% stacked bars, Outputs with more than 200 rows, or while a filter is applied.";
 const CHART_COMPARE_NOTES: Record<ChartCompareBlocker, string> = {
-  aggregated: "This Output aggregates its rows, so dashboards won't show the comparison.",
   series: "This Output splits into several series, so dashboards won't show the comparison.",
   unmapped: "This Output doesn't name x and y fields, so dashboards won't show the comparison.",
   horizontal: "Horizontal bars don't show the comparison on bar panels.",
