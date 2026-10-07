@@ -94,6 +94,10 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     await page.goto("/sources");
     await page.locator(".source-list-table__name", { hasText: source.name }).click();
     await page.waitForURL(new RegExp(`/sources/${source.id}$`));
+    // HEL-1298: `waitForURL` resolves on the history push, not on the route committing, and
+    // recording is a post-commit effect (`RecentVisitsRouteObserver`). Leaving before the detail
+    // view has rendered (CPU contention) means the arrival was never observed. Wait for it.
+    await expect(page.getByRole("heading", { name: source.name, exact: true })).toBeVisible();
 
     await navigateViaSidebar(page, "Data Pipelines");
     await openPalette(page);
@@ -175,6 +179,10 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     await page.goto("/sources");
     await page.locator(".source-list-table__name", { hasText: source.name }).click();
     await page.waitForURL(new RegExp(`/sources/${source.id}$`));
+    // HEL-1298: `waitForURL` resolves on the history push, not on the route committing, and
+    // recording is a post-commit effect (`RecentVisitsRouteObserver`). Leaving before the detail
+    // view has rendered (CPU contention) means the arrival was never observed. Wait for it.
+    await expect(page.getByRole("heading", { name: source.name, exact: true })).toBeVisible();
 
     await navigateViaSidebar(page, "Data Pipelines");
     await openPalette(page);
@@ -213,6 +221,10 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     await page.goto("/sources");
     await page.locator(".source-list-table__name", { hasText: source.name }).click();
     await page.waitForURL(new RegExp(`/sources/${source.id}$`));
+    // HEL-1298: `waitForURL` resolves on the history push, not on the route committing, and
+    // recording is a post-commit effect (`RecentVisitsRouteObserver`). Leaving before the detail
+    // view has rendered (CPU contention) means the arrival was never observed. Wait for it.
+    await expect(page.getByRole("heading", { name: source.name, exact: true })).toBeVisible();
 
     await navigateViaSidebar(page, "Data Pipelines");
     await openPalette(page);
