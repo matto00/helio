@@ -349,10 +349,15 @@ lazy val root = (project in file("."))
       "org.apache.logging.log4j" % "log4j-api"      % "2.25.5",
       "org.apache.logging.log4j" % "log4j-core"     % "2.25.5",
       "org.apache.logging.log4j" % "log4j-1.2-api"  % "2.25.5",
-      // HEL-452: clears GHSA-vqf4-7m7x-wgfc (out-of-bounds memory / DoS). The other two
-      // lz4-java advisories on this artifact (GHSA-cmp6-m4wj-q63q, GHSA-xx22-p4ch-683r) have
-      // no published fix anywhere and are deferred — see design.md D5.
+      // HEL-452: clears GHSA-vqf4-7m7x-wgfc (out-of-bounds memory / DoS). Central now publishes
+      // org.lz4:lz4-java:1.8.1 as a relocation POM to at.yawk.lz4:lz4-java, so this line resolves to the
+      // at.yawk.lz4 jar. HEL-1367: the at.yawk.lz4 override below lifts it to 1.11.4, the lowest version
+      // that fixes all seven lz4-java advisories OSV reports against 1.8.1: GHSA-mcr4-qmvw-px4g,
+      // GHSA-cmp6-m4wj-q63q, GHSA-xx22-p4ch-683r, GHSA-343h-94h5-c4wr, GHSA-4v53-57pg-c464,
+      // GHSA-6cx8-rjf8-pr8g and GHSA-gm45-99xc-r7wv (mcr4, 343h and gm45 are first fixed in 1.11.4).
+      // org.lz4 has no fix (all are last_affected 1.8.1); at.yawk.lz4 is fixed from 1.11.4.
       "org.lz4" % "lz4-java" % "1.8.1",
+      "at.yawk.lz4" % "lz4-java" % "1.11.4",
       // HEL-1018: under sbt 1 the Test-scope embedded-postgres dependency lifted commons-compress to
       // 1.26.2 on every classpath (sbt 1 unified versions across configurations); sbt 2 resolves
       // Compile on its own and falls back to Spark's 1.23.0 (< 1.26.0, which carries

@@ -1,0 +1,3 @@
+- `backend/build.sbt` — add at.yawk.lz4:lz4-java 1.11.4 override (D2a); refresh lz4 comment
+- `backend/osv-scanner.toml` — remove stale GHSA-cmp6/xx22 suppressions (D3)
+- `backend/src/test/scala/com/helio/spark/Lz4CodecSpec.scala` — Spark LZ4 codec round-trip + jar >= 1.11.4 assertion (D5)
