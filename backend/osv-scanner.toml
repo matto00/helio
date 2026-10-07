@@ -2,8 +2,13 @@
 #
 # This list was derived EMPIRICALLY by running `osv-scanner scan --sbom=backend/target/sbom.cdx.json
 # --format=json` against the current `main` tree (post HEL-452 remediation) and reading the actual JSON
-# output — not copied from HEL-452's osv-after.md without verification (design.md D5). All 5 entries below
-# were independently confirmed present in that live scan; the live scan reported nothing beyond these 5.
+# output — not copied from HEL-452's osv-after.md without verification (design.md D5). The entries
+# below were independently confirmed present in that live scan.
+#
+# HEL-1367 removed the two lz4-java entries (GHSA-cmp6-m4wj-q63q and GHSA-xx22-p4ch-683r) because
+# at.yawk.lz4 1.11.4 fixes them. The 3 remaining entries (aircompressor GHSA-vx9q-rhv9-3jvg, zookeeper
+# GHSA-7286-pgfv-vxvh and GHSA-r978-9m6m-6gm6) are exactly what an unsuppressed osv-scanner v2.5.1 run on
+# the current SBOM reports (verified with an empty config on 2026-10-07: those 3 IDs, nothing else).
 #
 # Each entry must carry its own written justification with a review-by date. Do not add a suppression
 # without a real reason — a false-clean gate is worse than none (see design.md Context / ticket owner
@@ -13,16 +18,6 @@
 id = "GHSA-vx9q-rhv9-3jvg"
 ignoreUntil = 2026-11-26
 reason = "HEL-452: io.airlift:aircompressor 0.27 — fix is only at 2.0.3, a major version bump with an API-breaking change to the decompressor interface that Spark 3.5.x's own decompression path calls directly; not achievable without a Spark major bump, which is out of scope. Review by 2026-11-26."
-
-[[IgnoredVulns]]
-id = "GHSA-cmp6-m4wj-q63q"
-ignoreUntil = 2026-11-26
-reason = "HEL-452: org.lz4:lz4-java 1.8.1 — no fixed version exists anywhere upstream (confirmed by direct OSV query, see osv-after.md). Review by 2026-11-26."
-
-[[IgnoredVulns]]
-id = "GHSA-xx22-p4ch-683r"
-ignoreUntil = 2026-11-26
-reason = "HEL-452: org.lz4:lz4-java 1.8.1 — no fixed version exists anywhere upstream (confirmed by direct OSV query, see osv-after.md). Review by 2026-11-26."
 
 [[IgnoredVulns]]
 id = "GHSA-7286-pgfv-vxvh"
