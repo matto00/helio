@@ -281,14 +281,14 @@ const C = () => ps("C", "limit", { parent: "B" });
 
 // Every case renders the full PipelineDetailPage (real store, router, theme, overlay) and does
 // 8-15 sequential findBy/waitFor round trips, so it is CPU-bound, not waiting. HEL-1353 probe
-// (`openspec/changes/createplacement-test-load-timeout/probe-evidence.md`): ~0.3-1.3s per case
-// unloaded; with the CPU shared ~7 ways (3 burners + 3 workers + the jest parent) a case runs up to ~19s, every phase
-// scaling with
-// contention (no fixed floor, no unresolved promise), so jest's 5s default fails at random under
-// load. 40s is >= 2x the worst loaded observation. Every case in THIS file exceeds half the 5s
-// default loaded (min 2.8s), so it is applied file-wide here via `jest.setTimeout` (scoped to this
-// test file only, never `jest.config.cjs`) rather than as a third argument on each case, which
-// Prettier would otherwise re-indent into a ~550-line diff.
+// (`openspec/changes/archive/2026-10-07-createplacement-test-load-timeout/probe-evidence.md`):
+// ~0.3-1.3s per case unloaded; with the CPU shared ~7 ways (3 burners + 3 workers + the jest
+// parent) a case runs up to ~19s, every phase scaling with contention (no fixed floor, no
+// unresolved promise), so jest's 5s default fails at random under load. 40s is >= 2x the worst
+// loaded observation. Every case in THIS file exceeds half the 5s default loaded (min 2.8s), so it
+// is applied file-wide here via `jest.setTimeout` (scoped to this test file only, never
+// `jest.config.cjs`) rather than as a third argument on each case, which Prettier would otherwise
+// re-indent into a ~550-line diff.
 const LOADED_CASE_TIMEOUT_MS = 40000;
 jest.setTimeout(LOADED_CASE_TIMEOUT_MS);
 // The same work also outlasts testing-library's 1000 ms `findBy*`/`waitFor` default ("Unable to
