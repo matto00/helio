@@ -81,9 +81,12 @@ jobs:
       # core (`e2e/support/stateContrast.mjs`) is failable (the dark-defect/alpha-
       # compositing/absence cases); an ungated proof is not a proof. The rendered guard
       # itself (`e2e/state-surface-contrast-guard.spec.ts`) is separately gated by the `e2e`
-      # job's `npx playwright test` glob below -- this line gates the FAST, browser-free
+      # job's Playwright discovery (config glob + `testIgnore`, partitioned by scripts/e2e-shard.mjs) below -- this line gates the FAST, browser-free
       # self-test alongside `check:tokens:selftest`, not a duplicate of the `e2e` job.
       - run: npm run check:state-contrast:selftest
+      # HEL-1361: proves the e2e shard partition (scripts/e2e-shard.mjs) is exact-once and failable.
+      # Wired into BOTH .husky/pre-commit and here, like check:tokens:selftest above.
+      - run: npm run check:e2e-shard:selftest
       # HEL-996: check:openspec[:selftest] existed as runnable npm scripts, wired only into
       # .husky/pre-commit -- but unlike HEL-913/HEL-846 above, that was not an oversight: `openspec`
       # is a globally-installed CLI (~/.local/bin/openspec on a dev machine), not a repo
@@ -562,11 +565,13 @@ jobs:
           echo "frontend did not become healthy" >&2
           cat /tmp/frontend.log
           exit 1
-      # HEL-951 contract preserved: this is still `npx playwright test` against the config's glob
-      # and `testIgnore` — `--shard` only partitions the set Playwright itself collected, it is
-      # not a hand-picked file list.
-      - name: Run e2e suite (glob, honours playwright.config.ts testIgnore)
-        run: npx playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+      # HEL-951 contract preserved: discovery is still Playwright's own (`playwright test --list`
+      # over the config's glob and `testIgnore`). HEL-1361: scripts/e2e-shard.mjs partitions that
+      # discovered set by per-file weight (e2e/shard-weights.tsv, from CI timings) instead of
+      # Playwright's count-based `--shard`, verifies every spec lands in exactly one leg, and
+      # fails loudly (naming files) on any partition or selection defect. Not a hand-picked list.
+      - name: Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)
+        run: node scripts/e2e-shard.mjs run ${{ matrix.shard }} ${{ strategy.job-total }}
       # HEL-910 task 6.3 note: the P1.4 Sleeper MCP rebuild acceptance test
       # (`helio-mcp/e2e/sleeper-rebuild.ts`) is deliberately NOT wired in
       # here. Correcting an assumption from the ticket brief: it does NOT

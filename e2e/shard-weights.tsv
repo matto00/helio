@@ -1,0 +1,42 @@
+# HEL-1361 e2e shard weights: seconds per spec file, from CI Playwright JSON reports.
+# Per run: durations summed across ALL shard reports; weight = median across runs.
+# Runs: 37661644840 37663167352 37666908476 37671667190 37672748835
+# Regenerate: node scripts/e2e-shard.mjs weights <runDir>... > e2e/shard-weights.tsv (never hand-edit).
+auth-cookie-migration.spec.ts	19
+focus-presence-guard.spec.ts	106
+hel1003-actions-menu-keyboard-reach.spec.ts	10
+hel1007-multi-root-reorder.spec.ts	6
+hel1023-breakpoint-layout-derivation.spec.ts	72
+hel1028-layout-undo-redo-visual-revert.spec.ts	80
+hel1065-pin-toggle-css-fixes.spec.ts	21
+hel1079-dataset-management-ui-live.spec.ts	43
+hel1080-dataset-row-grid-live.spec.ts	38
+hel1085-form-field-renderers-keyboard.spec.ts	9
+hel1087-form-submit-path.spec.ts	24
+hel1088-compact-counter-chrome.spec.ts	9
+hel1090-form-panel-assembled-a11y.spec.ts	31
+hel1094-sse-fan-out-panel-refresh.spec.ts	65
+hel1095-optimistic-pending-writing-panel-a11y.spec.ts	20
+hel1096-run-to-update-affordance.spec.ts	15
+hel1169-network-vs-rejection-reconcile-a11y.spec.ts	26
+hel1189-output-panel-controls-live.spec.ts	21
+hel1230-drag-then-create-persists.spec.ts	9
+hel1260-orphan-owner-repair.spec.ts	35
+hel1275-metric-delta-sparkline.spec.ts	44
+hel1277-output-history-scrubber.spec.ts	28
+hel1345-rootid-step-placement.spec.ts	9
+hel1350-chart-compare-picker.spec.ts	23
+hel503-palette-global-resource-search.spec.ts	29
+hel510-keyboard-shortcuts.spec.ts	19
+hel516-palette-quick-create.spec.ts	63
+hel519-recent-navigation.spec.ts	47
+hel572-chart-click-drilldown.spec.ts	18
+hel588-cross-filter-panels.spec.ts	40
+hel773-top-anchored-mobile-nav-sheet.spec.ts	70
+hel813-mobile-touch-target-floor.spec.ts	81
+hel908-step-card-split.spec.ts	7
+hel908-trunk-reorder-drag.spec.ts	8
+hel908-trunk-reorder-order.spec.ts	5
+hel910-pipeline-to-dashboard-flow.spec.ts	22
+hel958-join-step-editor.spec.ts	8
+state-surface-contrast-guard.spec.ts	273

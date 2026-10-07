@@ -88,16 +88,26 @@ fails mid-case, but this is the final belt-and-suspenders check.
 
 ## CI runtime: sharding and parallel-mode files (HEL-1288)
 
-The CI `e2e` job runs `npx playwright test --shard=<i>/<N>` on a matrix of runners (`strategy.job-total` is N,
-so the matrix is the single source). `--shard` partitions the set Playwright itself collects from this config
-(glob + `testIgnore`, HEL-951) — it is not a hand-picked file list. Each shard has its own Postgres, backend and
-Vite, so shards share no state; `ci-complete` still gates on every leg (a matrix job's result is `failure` if any
-leg fails). `workers` is pinned to 2 on CI (the matrix is capped at 4 legs), and CI additionally writes `test-results/results.json` (uploaded per
-shard as `playwright-json-shard-<i>`); `node scripts/e2e-profile.mjs json|list|steps ...` ranks specs/steps from
-those CI artefacts. A bare local run is unchanged.
+The CI `e2e` job runs `node scripts/e2e-shard.mjs run <i> <N>` on a matrix of runners (`strategy.job-total` is N,
+so the matrix is the single source). Discovery is still Playwright's own (HEL-951): the script calls
+`playwright test --list` over this config's glob + `testIgnore`, then partitions the discovered **spec files** with a
+deterministic longest-processing-time-first assignment weighted by `e2e/shard-weights.tsv` (seconds per file, taken
+from CI Playwright JSON reports; HEL-1361). A spec with no row gets the median of the rows for currently discovered
+files and is printed as `defaulted`; rows for files no longer discovered are ignored (reported as stale). Every leg
+recomputes all legs, fails naming files unless each discovered spec is in exactly one leg, re-lists the exact
+selection it will run and fails unless it equals the assignment, and refuses to run (never falls back to the whole
+suite) on an empty leg. Inspect an assignment without running tests with `DEV_PORT=<port> node scripts/e2e-shard.mjs plan 4`.
+Regenerate the table from fresh CI artifacts (never a local run, never by hand): download the `playwright-json-shard-*`
+artifacts of several recent green `ci.yml` runs into one directory per run (`gh run download <runId> -p
+'playwright-json-shard-*' -D <dir>/<runId>`), then `node scripts/e2e-shard.mjs weights <dir>/<runId>... >
+e2e/shard-weights.tsv` (per file: durations summed across all of a run's shard reports, median across runs). Each shard
+has its own Postgres, backend and Vite, so shards share no state; `ci-complete` still gates on every leg (a matrix
+job's result is `failure` if any leg fails). `workers` is pinned to 2 on CI (the matrix is capped at 4 legs), and CI
+additionally writes `test-results/results.json` (uploaded per shard as `playwright-json-shard-<i>`); `node
+scripts/e2e-profile.mjs json|list|steps ...` ranks specs/steps from those CI artefacts. A bare local run is unchanged.
 
-Sharding splits by **test count, in group order**, and a default-mode file is ONE group, so a file only spreads
-across workers/shards if its tests are independent. Files that are, declare
+Within a leg, Playwright schedules by test group, and a default-mode file is ONE group, so a file only spreads
+across that leg's workers if its tests are independent (a file is never split across legs by the weighted assignment). Files that are, declare
 `test.describe.configure({ mode: "parallel" })` — scoped to that file, never `fullyParallel: true` globally. The
 rule for adding it: every test registers its own user and seeds its own data, and the file has **no
 `beforeAll`/`afterAll`** (Playwright re-chunks a parallel file with those hooks back into per-worker groups). The two
