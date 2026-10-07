@@ -15,4 +15,4 @@
 - [x] 2.1 Write `scripts/e2e-shard.selftest.mjs` (D7) with a demonstrated-red mutation; verify it passes and the mutation fails
 - [x] 2.2 Wire `check:e2e-shard:selftest` into package.json, `.husky/pre-commit`, and CI per `check-precommit-ci-parity`; verify `npm run check:precommit-ci-parity` passes
 - [x] 2.3 Locally (`nice -n 19`, <= 2 workers, own DEV_PORT) dry-check all 4 assignments cover every discovered spec exactly once via `--list`
-- [ ] 2.4 Push the branch, open a DRAFT PR (title `HEL-1361 ...`), measure >= 5 sequential CI runs of one head (wait for each, then `gh run rerun`) via the GitHub API; write `profile.md` with before (25-run and 5-run) / after per-leg medians and maxima (leg + test step) and run ids
+- [x] 2.4 Push the branch, open a DRAFT PR (title `HEL-1361 ...`), measure >= 5 sequential CI runs of one head (wait for each, then `gh run rerun`) via the GitHub API; write `profile.md` with before (25-run and 5-run) / after per-leg medians and maxima (leg + test step) and run ids
