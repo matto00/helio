@@ -1,7 +1,6 @@
 import { expect, test, type APIRequestContext, type Page, type Request } from "@playwright/test";
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
 
+import { evidencePath } from "./support/evidencePath";
 import { backdateHistory, historyRowCount } from "./support/historySeed";
 import { loginThenIsolate } from "./support/isolateLivePage";
 
@@ -9,11 +8,10 @@ import { loginThenIsolate } from "./support/isolateLivePage";
 // The comparison is chosen through the editor UI (never seeded): picker -> PATCH body -> dashboard
 // overlay, in one chain, from REAL history (run 1, backdated 7d1h, then run 2). The overlay is
 // canvas-rendered, so "vs 7d" is read from the DOM axis tooltip on hover (as hel1277 does).
-// Both themes; screenshots land in the change dir. Every created id is logged and deleted by
+// Both themes; screenshots land in e2e-evidence/<ticket>/ (support/evidencePath.ts). Every created id is logged and deleted by
 // exact id in `finally`.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
-const SHOTS = resolve(__dirname, "../openspec/changes/chart-output-compare-picker/screenshots");
 
 async function postJson<T>(
   request: APIRequestContext,
@@ -156,8 +154,9 @@ for (const theme of ["light", "dark"] as const) {
       await picker.click();
       await expect(page.getByRole("option", { name: "Previous" })).toHaveCount(0);
       await page.getByRole("option", { name: "7 days" }).click();
-      mkdirSync(SHOTS, { recursive: true });
-      await page.screenshot({ path: resolve(SHOTS, `editor-compare-picker-${theme}.png`) });
+      await page.screenshot({
+        path: evidencePath("HEL-1350", `editor-compare-picker-${theme}.png`),
+      });
 
       // No-reload proof: window sentinel + main-frame document requests (HEL-1327).
       const sentinel = `hel1350-${Math.random().toString(36).slice(2)}`;
@@ -205,7 +204,7 @@ for (const theme of ["light", "dark"] as const) {
       // Settle the hover emphasis before the screenshot so it shows the resting colours.
       await page.mouse.move(0, 0);
       await page.waitForTimeout(800);
-      await card.screenshot({ path: resolve(SHOTS, `chart-overlay-panel-${theme}.png`) });
+      await card.screenshot({ path: evidencePath("HEL-1350", `chart-overlay-panel-${theme}.png`) });
     } finally {
       console.log(
         `[HEL-1350 e2e] deleting dashboard ${created.dashboard} pipeline ${created.pipeline} source ${created.source}`,

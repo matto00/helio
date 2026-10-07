@@ -1,0 +1,5 @@
+cwd / -> /home/matt/Development/helio/.claude/worktrees/task/e2e-evidence-path-isolation/HEL-1363/e2e-evidence/HEL-1363/probe.png
+throws HEL-1 ../a.png
+throws ../HEL-1 a.png
+throws HEL-1 a/b.png
+throws HEL-1 ..

@@ -6,9 +6,8 @@ import {
   type Page,
   type Request,
 } from "@playwright/test";
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
 
+import { evidencePath } from "./support/evidencePath";
 import { backdateHistory, historyRowCount } from "./support/historySeed";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
@@ -18,13 +17,9 @@ import { registerAndLogin } from "./support/auth";
 // 1204); only the first run's `captured_at` is moved back 7d1h (support/historySeed.ts, selected by
 // this test's own output_id, ids recorded). The 7-day comparison is chosen through the Output
 // editor UI — never seeded — so the picker, the PATCH and the render are proven as one chain.
-// Run in both themes; screenshots land in the change dir. Cleans up by exact recorded ids.
+// Run in both themes; screenshots land in e2e-evidence/<ticket>/ (support/evidencePath.ts). Cleans up by exact recorded ids.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
-const SHOTS = resolve(
-  __dirname,
-  "../openspec/changes/archive/2026-10-05-metric-delta-sparkline-ui/screenshots",
-);
 
 const AUTH = { prefix: "hel1275", displayName: "HEL-1275" } as const;
 
@@ -271,8 +266,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(page.getByRole("dialog", { name: /Data provenance/ })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Compared with" })).toHaveCount(0);
       await page.keyboard.press("Escape");
-      mkdirSync(SHOTS, { recursive: true });
-      await filtered.screenshot({ path: resolve(SHOTS, `metric-filtered-${theme}.png`) });
+      await filtered.screenshot({ path: evidencePath("HEL-1275", `metric-filtered-${theme}.png`) });
 
       // Editor -> back within the app (NO reload): a compare saved while the dashboard's history
       // is cached must show up without a full page load. 7d -> 1 day.
@@ -315,10 +309,14 @@ for (const theme of ["light", "dark"] as const) {
         ),
         "window sentinel lost: a full document load replaced the page",
       ).toBe(sentinel);
-      await switched.screenshot({ path: resolve(SHOTS, `metric-compare-switch-${theme}.png`) });
+      await switched.screenshot({
+        path: evidencePath("HEL-1275", `metric-compare-switch-${theme}.png`),
+      });
 
-      await card.screenshot({ path: resolve(SHOTS, `metric-delta-sparkline-${theme}.png`) });
-      await page.screenshot({ path: resolve(SHOTS, `dashboard-${theme}.png`) });
+      await card.screenshot({
+        path: evidencePath("HEL-1275", `metric-delta-sparkline-${theme}.png`),
+      });
+      await page.screenshot({ path: evidencePath("HEL-1275", `dashboard-${theme}.png`) });
     } finally {
       if (created.dashboard)
         await request.delete(`/api/dashboards/${created.dashboard}`, { headers: CSRF });

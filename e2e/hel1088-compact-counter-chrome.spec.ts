@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
@@ -172,7 +173,7 @@ test.describe("HEL-1088 compact single-counter-field layout (real backend)", () 
           await page.waitForTimeout(400);
         }
         await page.screenshot({
-          path: `.concertino/runs/HEL-1088/evidence/compact-counter-${theme}.png`,
+          path: evidencePath("HEL-1088", `compact-counter-${theme}.png`),
         });
       }
 

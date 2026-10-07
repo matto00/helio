@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
@@ -296,7 +297,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     await expect(unrelatedCard.getByText("150", { exact: true })).toBeVisible();
 
     await page.screenshot({
-      path: ".concertino/runs/HEL-588/evidence/table-narrowed-after-filter.png",
+      path: evidencePath("HEL-588", "table-narrowed-after-filter.png"),
     });
 
     // Clear-all restores every panel to unfiltered.
@@ -306,7 +307,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     await expect(tableCard.getByRole("cell", { name: "West", exact: true })).toHaveCount(2);
 
     await page.screenshot({
-      path: ".concertino/runs/HEL-588/evidence/after-clear-filter-cr2.png",
+      path: evidencePath("HEL-588", "after-clear-filter-cr2.png"),
     });
   });
 
@@ -349,7 +350,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
       expect(box!.x).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
       await page.screenshot({
-        path: `.concertino/runs/HEL-588/evidence/cr3-breakpoint-${width}-dark.png`,
+        path: evidencePath("HEL-588", `cr3-breakpoint-${width}-dark.png`),
       });
     }
 
@@ -383,7 +384,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     await expect(tableCard.getByRole("table")).toBeVisible();
 
     await page.screenshot({
-      path: ".concertino/runs/HEL-588/evidence/cr3-light-theme.png",
+      path: evidencePath("HEL-588", "cr3-light-theme.png"),
     });
   });
 
@@ -552,7 +553,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     await expect(tableCard.getByRole("button", { name: /load more/i })).toHaveCount(0);
 
     await page.screenshot({
-      path: ".concertino/runs/HEL-588/evidence/truncation-disclosure-matches-grid.png",
+      path: evidencePath("HEL-588", "truncation-disclosure-matches-grid.png"),
     });
 
     // skeptic-final-1.md CR1/CR3 — the Fullscreen overlay must agree with the grid card for the
@@ -569,7 +570,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     await expect(fullscreenDialog).not.toContainText("loaded rows match");
 
     await page.screenshot({
-      path: ".concertino/runs/HEL-588/evidence/fullscreen-truncation-disclosure-matches-grid.png",
+      path: evidencePath("HEL-588", "fullscreen-truncation-disclosure-matches-grid.png"),
     });
   });
 
@@ -829,7 +830,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     await expect(fullscreenInspect).toContainText(String(fullscreenExpectedRevenue));
 
     await page.screenshot({
-      path: ".concertino/runs/HEL-588/evidence/fullscreen-inspect-dimension-mismatch-fixed.png",
+      path: evidencePath("HEL-588", "fullscreen-inspect-dimension-mismatch-fixed.png"),
     });
   });
 });

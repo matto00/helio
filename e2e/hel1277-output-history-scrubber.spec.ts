@@ -1,7 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
 
+import { evidencePath } from "./support/evidencePath";
 import { loginThenIsolate } from "./support/isolateLivePage";
 import { setUserTierForTest } from "./support/historySeed";
 
@@ -14,13 +13,9 @@ import { setUserTierForTest } from "./support/historySeed";
 //   * a chart Output with `config.compare` ("previous_run") on a dashboard panel.
 // Login happens through the UI, then `isolateLivePage` idles the page on about:blank BEFORE any API
 // seeding (HEL-1289). Every created id is logged; resources are deleted by exact id in `finally`.
-// Screenshots land in the change dir, both themes.
+// Screenshots land in e2e-evidence/HEL-1277/ (support/evidencePath.ts), both themes.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
-const SHOTS = resolve(
-  __dirname,
-  "../openspec/changes/archive/2026-10-06-output-history-scrubber-diff/screenshots",
-);
 
 async function postJson<T>(
   request: APIRequestContext,
@@ -180,8 +175,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(flagged).toHaveCount(2);
       await expect(flagged.filter({ hasText: "east" })).toHaveCount(0);
 
-      mkdirSync(SHOTS, { recursive: true });
-      await dialog.screenshot({ path: resolve(SHOTS, `history-view-diff-${theme}.png`) });
+      await dialog.screenshot({ path: evidencePath("HEL-1277", `history-view-diff-${theme}.png`) });
 
       // Touch floor (DESIGN.md §3): at phone width the scrubber range is a 44px-high target.
       await page.setViewportSize({ width: 375, height: 812 });
@@ -322,8 +316,7 @@ for (const theme of ["light", "dark"] as const) {
       // Settle the hover emphasis before the screenshot so it shows the resting colours.
       await page.mouse.move(0, 0);
       await page.waitForTimeout(800);
-      mkdirSync(SHOTS, { recursive: true });
-      await card.screenshot({ path: resolve(SHOTS, `chart-overlay-panel-${theme}.png`) });
+      await card.screenshot({ path: evidencePath("HEL-1277", `chart-overlay-panel-${theme}.png`) });
     } finally {
       if (created.dashboard)
         await request.delete(`/api/dashboards/${created.dashboard}`, { headers: CSRF });

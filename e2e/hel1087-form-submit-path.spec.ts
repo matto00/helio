@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
@@ -276,7 +277,7 @@ test.describe("HEL-1087 form submit path (real backend)", () => {
           await page.waitForTimeout(400);
         }
         await page.screenshot({
-          path: `.concertino/runs/HEL-1087/evidence/form-submit-path-${theme}.png`,
+          path: evidencePath("HEL-1087", `form-submit-path-${theme}.png`),
         });
       }
     } finally {

@@ -119,6 +119,8 @@ jobs:
       - run: npm run check:scala-quality
       - run: npm run check:test-temp-dir-hygiene
       - run: npm run check:test-temp-dir-hygiene:selftest
+      - run: npm run check:e2e-evidence-paths
+      - run: npm run check:e2e-evidence-paths:selftest
       - run: npm run check:schemas
       # HEL-1148: keeps check:schemas's agent-facing-panel-type derivation (exclusion table +
       # wire-expressibility assertions) failable. CI-only on purpose, like the other selftests above

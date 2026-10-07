@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
@@ -174,7 +175,7 @@ test.describe("HEL-1095 optimistic pending/rollback ARIA state (real backend)", 
         await expect(control).toHaveAttribute("aria-valuenow", "5", { timeout: 5000 });
 
         await page.screenshot({
-          path: `.concertino/runs/HEL-1095/evidence/pending-${theme}.png`,
+          path: evidencePath("HEL-1095", `pending-${theme}.png`),
         });
       } finally {
         if (dashboard) await deleteDashboard(request, dashboard.id);
@@ -229,7 +230,7 @@ test.describe("HEL-1095 optimistic pending/rollback ARIA state (real backend)", 
         await expect(control).not.toHaveAttribute("aria-busy", "true");
 
         await page.screenshot({
-          path: `.concertino/runs/HEL-1095/evidence/rollback-${theme}.png`,
+          path: evidencePath("HEL-1095", `rollback-${theme}.png`),
         });
       } finally {
         // Dashboard (and its form panel) first: the source delete 409s while a panel still binds it.

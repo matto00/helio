@@ -1,7 +1,6 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
 
+import { evidencePath } from "./support/evidencePath";
 import { backdateHistory, historyRowCount } from "./support/historySeed";
 import { loginThenIsolate } from "./support/isolateLivePage";
 
@@ -18,10 +17,6 @@ import { loginThenIsolate } from "./support/isolateLivePage";
 // Every created id is logged and deleted by exact id in `finally`.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
-const SHOTS = resolve(
-  __dirname,
-  "../openspec/changes/dashboard-chart-overlay-coverage/screenshots",
-);
 
 async function postJson<T>(
   request: APIRequestContext,
@@ -262,10 +257,11 @@ for (const theme of ["light", "dark"] as const) {
       expect(hovered).toMatch(/\b(15|7)\b/);
       expect(hovered).not.toMatch(/previous/i);
 
-      mkdirSync(SHOTS, { recursive: true });
       await page.mouse.move(0, 0);
       await page.waitForTimeout(800);
-      await tallCard.screenshot({ path: resolve(SHOTS, `aggregated-overlay-tall-${theme}.png`) });
+      await tallCard.screenshot({
+        path: evidencePath("HEL-1351", `aggregated-overlay-tall-${theme}.png`),
+      });
 
       // Item 3: a phone viewport puts the panels in the mobile stack, where the canvas is < 179px.
       await page.setViewportSize({ width: 390, height: 844 });
@@ -309,10 +305,10 @@ for (const theme of ["light", "dark"] as const) {
       await page.mouse.move(0, 0);
       await page.waitForTimeout(800);
       await stackCompact.screenshot({
-        path: resolve(SHOTS, `aggregated-overlay-compact-legend-${theme}.png`),
+        path: evidencePath("HEL-1351", `aggregated-overlay-compact-legend-${theme}.png`),
       });
       await stackPlain.screenshot({
-        path: resolve(SHOTS, `aggregated-no-overlay-compact-hidden-legend-${theme}.png`),
+        path: evidencePath("HEL-1351", `aggregated-no-overlay-compact-hidden-legend-${theme}.png`),
       });
     } finally {
       console.log(

@@ -1,0 +1,5 @@
+MUTATION 2.2: rule (b) value check disabled
+FAIL: red: cwd-relative string — status=0 stderr=
+FAIL: red: cwd-relative template literal (multi-line call) — status=0 stderr=
+FAIL: red: indirection through a variable — status=0 stderr=
+9 passed, 3 failed, 12 total
