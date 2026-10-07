@@ -85,8 +85,9 @@ for (const theme of ["light", "dark"] as const) {
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
       await expect.poll(() => repairPosts.length, { timeout: 15_000 }).toBe(1);
-      expect(repairPosts[0].url.endsWith(`/api/dashboards/${dashboardId}/layout/repair`)).toBe(
-        true,
+      const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      expect(repairPosts[0].url).toMatch(
+        new RegExp(`/api/dashboards/${escapeRe(dashboardId)}/layout/repair$`),
       );
       const sent = JSON.parse(repairPosts[0].body) as Record<string, { panelId: string }[]>;
       expect(Object.keys(sent).sort()).toEqual([...BREAKPOINTS].sort());

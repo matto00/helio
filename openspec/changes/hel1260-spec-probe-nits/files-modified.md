@@ -1,0 +1,2 @@
+- `e2e/hel1260-orphan-owner-repair.spec.ts` — URL assertion now end-anchored, id-escaped `toMatch` (prints actual URL on failure)
+- `openspec/changes/archive/2026-10-05-isolate-orphan-repair-e2e-seeding/probe-check-isolation.py` — classify by in-trace test title; archival header
