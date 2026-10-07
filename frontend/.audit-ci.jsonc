@@ -1,8 +1,10 @@
 {
-  // HEL-459: fails CI on any high/critical npm advisory in the frontend/ lockfile. Accepted,
-  // un-fixable advisories go in `allowlist` below with an inline comment carrying the ticket
-  // and a review-by date — never a silent/blanket suppression. The allowlist is empty; the
-  // frontend/ tree still carries moderate advisories below this "high" threshold (tracked in HEL-1320).
-  "high": true,
+  // HEL-459 / HEL-1320: fails CI on any moderate-or-higher npm advisory in the frontend/ lockfile
+  // (matches helio-mcp/, HEL-1204; a "high" threshold stayed green on moderate advisories). Accepted,
+  // un-fixable advisories go in `allowlist` below as `"<GHSA>|<path-scope>*"` with an inline comment
+  // carrying the ticket, reason, dependency path and a review-by date (HEL-1246 pattern) — never a
+  // bare GHSA id or a package-wide wildcard. The allowlist is empty; the frontend/ tree is clean at
+  // the moderate threshold (HEL-1320).
+  "moderate": true,
   "allowlist": [],
 }
