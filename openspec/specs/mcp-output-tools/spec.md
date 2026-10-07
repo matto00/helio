@@ -147,9 +147,10 @@ one `GET /api/outputs/:id/history` request, forwarding `limit`/`since` as query 
 return that route's response unchanged, except that when `includeSummaries` is not true each `points[]` entry omits
 its `summary` field and the resolved `current` and `baseline` objects (when non-null) omit their `series` field. The tool SHALL NOT compute baselines, deltas, percentages or values itself.
 
-The tool description SHALL state that a value is non-null only for metric-kind Outputs. It SHALL state that a
-`previous_run` baseline is the second-newest retained history point, which may be older than the immediately
-preceding run because older history is thinned. The description SHALL NOT claim the baseline is the previous run.
+The tool description SHALL state that a value is non-null only for metric-kind Outputs. It SHALL state that history is
+thinned as it ages but never an Output's newest 101 points, so a `previous_run` baseline is the immediately previous
+recorded run, while a `1d`/`7d`/`30d` window baseline is the nearest surviving point at or before the target and may be
+up to one thinning bucket earlier. The description SHALL NOT contain the phrase "previous run".
 
 #### Scenario: Last 30 values in one call
 
