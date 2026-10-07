@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { uniqueEmail } from "./support/auth";
 
 // HEL-912 task 8.1 — AC1's only guard: add a lane off a filter, add an
 // aggregate in each lane, rejoin with `union` selecting the OTHER lane, add
@@ -7,10 +8,6 @@ import { expect, test } from "@playwright/test";
 // count text, thumbnail text), not merely that each interaction succeeded
 // (lesson 8).
 const CSRF_HEADER = "X-Helio-Requested-With";
-
-function uniqueEmail(label: string): string {
-  return `hel912-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
 
 /** The NEAREST enclosing per-step wrapper for the Nth step card carrying
  *  the given accessible label (several cards can share a label -- e.g. two
@@ -42,7 +39,7 @@ test.describe("HEL-912 parallel lanes: add lane, aggregate each lane, union rejo
     page,
   }) => {
     test.setTimeout(90_000);
-    const email = uniqueEmail("lanes-rejoin");
+    const email = uniqueEmail("hel912", "lanes-rejoin", "example.com");
     const password = "correcthorsebattery1";
 
     const registerRes = await page.request.post("/api/auth/register", {

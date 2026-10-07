@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { uniqueEmail } from "./support/auth";
 import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-716 — live verification (skeptic-final-3.md).
@@ -26,10 +27,6 @@ import { isolateLivePage } from "./support/isolateLivePage";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel716-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
 test.use({ viewport: { width: 1440, height: 900 } });
 
 test.describe("HEL-716 PanelDetailModal tall-viewport footer visibility", () => {
@@ -37,7 +34,7 @@ test.describe("HEL-716 PanelDetailModal tall-viewport footer visibility", () => 
     page,
     request,
   }) => {
-    const email = uniqueEmail("tallviewport");
+    const email = uniqueEmail("hel716", "tallviewport", "example.com");
     console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
     const password = "correcthorsebattery1";
 

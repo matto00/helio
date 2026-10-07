@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { uniqueEmail } from "./support/auth";
 
 // HEL-908, Cycle 8 — live proof for the "+ tail" create affordance restored
 // on top of the new backend `attachTailInternal` primitive (design.md's
@@ -9,15 +10,11 @@ import { expect, test } from "@playwright/test";
 // `spliceInsertAtInternal`-routed create used to produce.
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel908-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
 test.describe("HEL-908 tail-attach live verification", () => {
   test("adding a tail off the first of two trunk steps nests it, not a third trunk card", async ({
     page,
   }) => {
-    const email = uniqueEmail("tail-attach");
+    const email = uniqueEmail("hel908", "tail-attach", "example.com");
     const password = "correcthorsebattery1";
 
     const registerRes = await page.request.post("/api/auth/register", {
@@ -126,7 +123,7 @@ test.describe("HEL-908 tail-attach live verification", () => {
   test("a leaf tail follows its true owner after a later trunk-append, without reload", async ({
     page,
   }) => {
-    const email = uniqueEmail("cr9-trunk-append");
+    const email = uniqueEmail("hel908", "cr9-trunk-append", "example.com");
     const password = "correcthorsebattery1";
 
     const registerRes = await page.request.post("/api/auth/register", {
@@ -200,7 +197,7 @@ test.describe("HEL-908 tail-attach live verification", () => {
   test("duplicating a tailed trunk step keeps the tail on the clone, without reload", async ({
     page,
   }) => {
-    const email = uniqueEmail("cr10-duplicate");
+    const email = uniqueEmail("hel908", "cr10-duplicate", "example.com");
     const password = "correcthorsebattery1";
 
     const registerRes = await page.request.post("/api/auth/register", {
@@ -284,7 +281,7 @@ test.describe("HEL-908 tail-attach live verification", () => {
   test("removing a step that owns both a head child and a tail drops the cascade-deleted tail, without reload", async ({
     page,
   }) => {
-    const email = uniqueEmail("cr11-remove");
+    const email = uniqueEmail("hel908", "cr11-remove", "example.com");
     const password = "correcthorsebattery1";
 
     const registerRes = await page.request.post("/api/auth/register", {

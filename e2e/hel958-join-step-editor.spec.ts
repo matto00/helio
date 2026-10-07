@@ -1,14 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { uniqueEmail } from "./support/auth";
 
 // HEL-958 — build a join through the pipeline UI (palette -> "Join tables" -> right source, key,
 // type), run the pipeline, and assert the REAL output rows, including HEL-1236's `right_<name>`
 // prefix for the column both sources carry. Asserts the values produced, not just that each
 // interaction succeeded.
 const CSRF_HEADER = "X-Helio-Requested-With";
-
-function uniqueEmail(): string {
-  return `hel958-join-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
 
 test.describe("HEL-958 join step editor", () => {
   test("a join built in the UI runs and yields joined rows with a right_<name> collision column", async ({
@@ -17,7 +14,11 @@ test.describe("HEL-958 join step editor", () => {
     test.setTimeout(90_000);
     const headers = { [CSRF_HEADER]: "1" };
     const registerRes = await page.request.post("/api/auth/register", {
-      data: { email: uniqueEmail(), password: "correcthorsebattery1", displayName: "HEL-958 Join" },
+      data: {
+        email: uniqueEmail("hel958-join", undefined, "example.com"),
+        password: "correcthorsebattery1",
+        displayName: "HEL-958 Join",
+      },
       headers,
     });
     expect(registerRes.status()).toBe(201);

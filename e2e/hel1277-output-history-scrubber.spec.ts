@@ -1,6 +1,7 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 
 import { evidencePath } from "./support/evidencePath";
+import { currentUserId, registerUser } from "./support/auth";
 import { loginThenIsolate } from "./support/isolateLivePage";
 import { setUserTierForTest } from "./support/historySeed";
 
@@ -51,25 +52,6 @@ async function patchConfig(
   expect(res.status(), await res.text()).toBe(200);
 }
 
-async function registerThenLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = `hel1277-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: "HEL-1277" },
-    headers: CSRF,
-  });
-  expect(res.status()).toBe(201);
-  const me = await request.get("/api/auth/me");
-  expect(me.status()).toBe(200);
-  const userId = ((await me.json()) as { id: string }).id;
-  // Payload tier caps are per pipeline-owner tier (free = 0); set ONLY this user's, by exact id.
-  console.log(
-    `[HEL-1277 e2e] created user ${userId}; tier set for ${setUserTierForTest(userId, "beta")}`,
-  );
-  await loginThenIsolate(page, { email, password });
-  return userId;
-}
-
 for (const theme of ["light", "dark"] as const) {
   test(`History view: scrub, changed-rows highlight, summary-only point (${theme})`, async ({
     page,
@@ -78,7 +60,17 @@ for (const theme of ["light", "dark"] as const) {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
-    await registerThenLogin(page, request, `table-${theme}`);
+    const credentials = await registerUser(request, {
+      prefix: `hel1277-table-${theme}`,
+      displayName: "HEL-1277",
+      logEmail: false,
+    });
+    const userId = await currentUserId(request);
+    // Payload tier caps are per pipeline-owner tier (free = 0); set ONLY this user's, by exact id.
+    console.log(
+      `[HEL-1277 e2e] created user ${userId}; tier set for ${setUserTierForTest(userId, "beta")}`,
+    );
+    await loginThenIsolate(page, credentials);
 
     const created: { source?: string; pipeline?: string; output?: string } = {};
     try {
@@ -208,7 +200,17 @@ for (const theme of ["light", "dark"] as const) {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
-    await registerThenLogin(page, request, `chart-${theme}`);
+    const credentials = await registerUser(request, {
+      prefix: `hel1277-chart-${theme}`,
+      displayName: "HEL-1277",
+      logEmail: false,
+    });
+    const userId = await currentUserId(request);
+    // Payload tier caps are per pipeline-owner tier (free = 0); set ONLY this user's, by exact id.
+    console.log(
+      `[HEL-1277 e2e] created user ${userId}; tier set for ${setUserTierForTest(userId, "beta")}`,
+    );
+    await loginThenIsolate(page, credentials);
 
     const created: { source?: string; pipeline?: string; dashboard?: string } = {};
     try {
