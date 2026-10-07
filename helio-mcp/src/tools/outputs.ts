@@ -63,6 +63,20 @@ export const COMPARE_CONFIG_DOC =
   "`custom:PT6H`, at most 365 days), or null for none. Anything else is rejected by the " +
   "backend with a 400; this tool does not validate it.";
 
+/** `config.historyPayloads` documentation (HEL-1331), appended to `update_output`. The caps and
+ *  retention mirror the backend defaults (`PayloadHistoryConfig.Defaults`); the backend is the sole
+ *  validator (a non-boolean value is a 400). */
+export const HISTORY_PAYLOADS_CONFIG_DOC =
+  "Optional `config.historyPayloads` (boolean, off by default) opts this Output into keeping the " +
+  "full rows of each real run, taking effect from the next run on, so History can show what " +
+  "changed. A run over 1,000 rows or 1 MiB keeps only its summary (no rows are stored). Rows are " +
+  "kept only when the PIPELINE OWNER's tier allows it: free keeps none; beta keeps the last 10 " +
+  "runs for 7 days; owner keeps 30 runs for 30 days. The Output's read-only " +
+  "`historyPayloadsAvailable` field (on get_output/list_outputs/update_output results) reports " +
+  "whether that tier keeps any rows; when false the setting is accepted but stores nothing. " +
+  "Setting it to false stops storing rows but does not purge: rows already kept expire on the " +
+  "normal schedule. Omit the key to leave the stored value unchanged.";
+
 export function registerOutputTools(server: McpServer, api: HelioApi): void {
   server.registerTool(
     "add_output",
@@ -108,6 +122,8 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         "replaced outright — including `compare`, which is replaced, never deep-merged; sending " +
         "`compare: null` clears it. " +
         COMPARE_CONFIG_DOC +
+        " " +
+        HISTORY_PAYLOADS_CONFIG_DOC +
         " Absent fields are left unchanged. Returns the updated Output.",
       inputSchema: {
         outputId: z.string().min(1),

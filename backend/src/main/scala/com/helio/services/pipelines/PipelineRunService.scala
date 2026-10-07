@@ -983,6 +983,18 @@ final class PipelineRunService(
   private def publish(pipelineId: String, event: RunStatusEvent): Unit =
     if (registry != null) registry.publish(pipelineId, event)
 
+  /** HEL-1366: publishes a run's TERMINAL event only once `writes` (the path's own durable terminal
+   *  writes) has completed, so any subscriber reacting to it reads the terminal state. Publishes
+   *  exactly once whether `writes` succeeds or fails (a subscriber is never left waiting), and
+   *  returns `writes` unchanged. Every terminal path calls this exactly once per run. */
+  private def publishTerminalAfter[T](pipelineId: String, event: RunStatusEvent, writes: => Future[T]): Future[T] =
+    // `writes` is by-name and started inside `Future.unit.flatMap`, so a synchronous throw while
+    // building the chain becomes a failed Future and still reaches the publish below.
+    Future.unit.flatMap(_ => writes).transformWith { outcome =>
+      publish(pipelineId, event)
+      Future.fromTry(outcome)
+    }
+
   /** Pre-execute (insert run record + prune) → load source rows → run engine
    *  → publish SSE events → handle success/failure. Extracted from `submit`
    *  to flatten the nested flatMap chain. Behaviour-preserving. */
@@ -1121,8 +1133,7 @@ final class PipelineRunService(
           case see: StepExecutionException => see.getMessage
           case _                           => "Pipeline execution failed"
         }
-        publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg), runId = Some(runId.value)))
-        val failWork: Future[Unit] =
+        def failWork(): Future[Unit] =
           // HEL-509 (419-B, design.md Decision 4): a failed dry run has no
           // `pipeline_runs` row to attach assertion results to (a dry run's
           // row is inserted only on success, see onDryRunSuccess below) — the
@@ -1140,7 +1151,9 @@ final class PipelineRunService(
               persistAssertions(runId, assertionSink.results)
             }
           } else Future.successful(())
-        failWork.map(_ => Left(executionFailureError(ex)))
+        // HEL-1366: terminal event only after the failed status + last-run + assertions are written.
+        publishTerminalAfter(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg), runId = Some(runId.value)), failWork())
+          .map(_ => Left(executionFailureError(ex)))
   }
 
   /** The `Success(...)` branch of `executeRun`'s original inline `transformWith` (HEL-505:
@@ -1233,19 +1246,22 @@ final class PipelineRunService(
       // statement (bypassing `updateRunTerminalInternal` entirely) -- it must never persist NULL.
       truncatedReads:   Vector[TruncatedReadResponse]
   ): Future[Unit] = {
-    publish(pidStr, RunStatusEvent("dry_run", rowCount = Some(rowCount), runId = Some(runId.value)))
-    if (pipelineRunRepo != null)
-      pipelineRunRepo
-        .insertDryRun(runId, pipelineId, startAt, rowCount, user, truncatedReadsToJson(primaryAvailableRowCount, truncatedReads))
-        .flatMap(_ => pipelineRunRepo.deleteOldDryRuns(pipelineId, user))
-        .recoverWith { case _ => Future.successful(()) }
-        // HEL-509 (419-B, design.md Decision 5): insertAssertions must be
-        // sequenced AFTER insertDryRun's own row insert completes — the FK
-        // needs the parent `pipeline_runs` row to exist first. This dry run's
-        // row is inserted above (unlike the real-run path, where insertRun
-        // already ran during preExec).
-        .flatMap(_ => persistAssertions(runId, assertionResults))
-    else Future.successful(())
+    // HEL-1366: the terminal event is published only after the dry-run record (and its assertions)
+    // is durable -- `publishTerminalAfter` wraps the whole write chain below.
+    def dryRunWrites(): Future[Unit] =
+      if (pipelineRunRepo != null)
+        pipelineRunRepo
+          .insertDryRun(runId, pipelineId, startAt, rowCount, user, truncatedReadsToJson(primaryAvailableRowCount, truncatedReads))
+          .flatMap(_ => pipelineRunRepo.deleteOldDryRuns(pipelineId, user))
+          .recoverWith { case _ => Future.successful(()) }
+          // HEL-509 (419-B, design.md Decision 5): insertAssertions must be
+          // sequenced AFTER insertDryRun's own row insert completes — the FK
+          // needs the parent `pipeline_runs` row to exist first. This dry run's
+          // row is inserted above (unlike the real-run path, where insertRun
+          // already ran during preExec).
+          .flatMap(_ => persistAssertions(runId, assertionResults))
+      else Future.successful(())
+    publishTerminalAfter(pidStr, RunStatusEvent("dry_run", rowCount = Some(rowCount), runId = Some(runId.value)), dryRunWrites())
   }
 
   /** HEL-570 (design.md Decisions 1-4, 8): computes `blockingFailures` first
@@ -1325,16 +1341,19 @@ final class PipelineRunService(
       errMsg: String
   ): Future[Unit] = {
     log.error(s"Pipeline write-back failed for pipeline ${pipelineId.value}, run ${runId.value}: $errMsg")
-    publish(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg), runId = Some(runId.value)))
-    val updateRun =
-      if (pipelineRunRepo != null)
-        pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
-      else Future.successful(())
-    updateRun.flatMap { _ =>
-      pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, truncated = Some(false))
-    }.flatMap { _ =>
-      persistAssertions(runId, assertionResults)
+    def writes(): Future[Unit] = {
+      val updateRun =
+        if (pipelineRunRepo != null)
+          pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
+        else Future.successful(())
+      updateRun.flatMap { _ =>
+        pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, truncated = Some(false))
+      }.flatMap { _ =>
+        persistAssertions(runId, assertionResults)
+      }
     }
+    // HEL-1366: terminal event only after the failed status is durable.
+    publishTerminalAfter(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg), runId = Some(runId.value)), writes())
   }
 
   /** Blocked branch (design.md Decisions 2-4): terminal status `"failed"`
@@ -1353,21 +1372,24 @@ final class PipelineRunService(
       blockingFailures: Vector[AssertionResult]
   ): Future[Option[String]] = {
     val summary = summarizeBlockingFailures(blockingFailures)
-    publish(pidStr, RunStatusEvent("failed", errorLog = Some(summary), runId = Some(runId.value)))
-    val now = Instant.now()
-    // HEL-873 (design.md Decision 2a): a blocked run is persisted as a failed run -- `[]`, never
-    // NULL.
-    val updateMeta = pipelineRepo.updateLastRun(pipelineId, "failed", now, rowCount = None, user, truncated = Some(false)).map(_ => ())
-    val updateRun =
-      if (pipelineRunRepo != null)
-        pipelineRunRepo.updateRunTerminal(runId, "failed", now, rowCount = None, errorLog = Some(summary), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)).map(_ => ())
-      else Future.successful(())
-    val assertionsInsert = persistAssertions(runId, assertionResults)
-    for {
-      _ <- updateMeta
-      _ <- updateRun
-      _ <- assertionsInsert
-    } yield Some(summary)
+    def writes(): Future[Option[String]] = {
+      val now = Instant.now()
+      // HEL-873 (design.md Decision 2a): a blocked run is persisted as a failed run -- `[]`, never
+      // NULL.
+      val updateMeta = pipelineRepo.updateLastRun(pipelineId, "failed", now, rowCount = None, user, truncated = Some(false)).map(_ => ())
+      val updateRun =
+        if (pipelineRunRepo != null)
+          pipelineRunRepo.updateRunTerminal(runId, "failed", now, rowCount = None, errorLog = Some(summary), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)).map(_ => ())
+        else Future.successful(())
+      val assertionsInsert = persistAssertions(runId, assertionResults)
+        for {
+          _ <- updateMeta
+          _ <- updateRun
+          _ <- assertionsInsert
+        } yield Some(summary)
+    }
+    // HEL-1366: terminal event only after the failed status + last-run + assertions are written.
+    publishTerminalAfter(pidStr, RunStatusEvent("failed", errorLog = Some(summary), runId = Some(runId.value)), writes())
   }
 
   /** HEL-1271: the run's Output configs in ONE query (privileged read; `outputs` was already
@@ -1394,205 +1416,211 @@ final class PipelineRunService(
       primaryAvailableRowCount: Option[Long],
       truncatedReads:     Vector[TruncatedReadResponse]
   ): Future[Option[String]] = {
-    publish(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size), runId = Some(runId.value)))
-    val now = Instant.now()
-    // HEL-905 (design.md Decisions 3, 4): a materialized node is one carrying >= 1 `outputs`
-    // row. For each materialized node, `node_snapshots` is replaced atomically (per-node, via
-    // `overwriteRows`'s existing delete-then-insert-in-one-transaction), sequenced only after the
-    // whole tree walk has already completed successfully -- cross-node atomicity is explicitly
-    // NOT provided (see design.md Decision 3): a mid-sequence failure leaves earlier nodes
-    // updated and later ones untouched.
-    val materializedWrites: Future[Unit] =
-      if (nodeSnapshotRepo != null)
-        outputRepo.listByPipelineInternal(pipelineId).flatMap(outputs => historyConfigs(outputs).map(outputs -> _)).flatMap { case (outputs, configsById) =>
-          // HEL-913 (design.md R12, task 5.8 runtime half): keyed by NodeKey, not the old
-          // `Option[String]`/`None`-means-root encoding -- a root-bound Output (`stepId = None`)
-          // keys on `RootKey(output.node.rootId)`, so it only ever matches THAT root's outcome,
-          // never silently matching "any root" the way a bare `None` used to under multi-root.
-          // An Output somehow missing BOTH `stepId` and `rootId` (pre-V98 legacy shape) is
-          // skipped rather than guessed at.
-          val outputsByNodeKey: Map[NodeKey, Vector[Output]] =
-            outputs.flatMap { o =>
-              val keyOpt: Option[NodeKey] = o.node.stepId match {
-                case Some(sid) => Some(StepKey(sid.value))
-                case None      => o.node.rootId.map(rid => RootKey(rid.value))
-              }
-              keyOpt.map(k => k -> o)
-            }.groupBy(_._1).view.mapValues(_.map(_._2).toVector).toMap
-          val materializedNodeKeys = outputsByNodeKey.keySet.intersect(nodeOutcomes.keySet)
-          // Sequenced (not parallel) so a later node's failure never races an earlier node's
-          // write -- matches design.md's "sequenced only after... completed successfully".
-          materializedNodeKeys.foldLeft(Future.successful(())) { (accF, nodeKey) =>
-            accF.flatMap { _ =>
-              val outcome = nodeOutcomes(nodeKey)
-              val nodeJsRows = outcome.rows.map { rowMap =>
-                JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
-              }.toVector
-              val (nodeStepIdOpt, explicitRootIdOpt) = nodeKey match {
-                case StepKey(sid) => (Some(sid), None)
-                case RootKey(rid) => (None, Some(rid))
-              }
-              val nodeOutputs = outputsByNodeKey.getOrElse(nodeKey, Vector.empty)
-              val replace: Future[Unit] =
-                if (outputHistoryRepo == null) nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt)
-                else {
-                  // HEL-1271 (D9): the summary insert shares this node's replace transaction -- NOT
-                  // best-effort; a failure here fails the node exactly like a snapshot-insert failure.
-                  val entries = nodeOutputs.map { o =>
-                    OutputHistoryInsert(
-                      outputId      = o.id.value,
-                      pipelineId    = pipelineId.value,
-                      nodeStepId    = nodeStepIdOpt,
-                      rootId        = explicitRootIdOpt,
-                      runId         = Some(runId.value),
-                      triggerSource = triggerSource,
-                      capturedAt    = now,
-                      rowCount      = nodeJsRows.size,
-                      summary       = OutputSummaryReducer.summarize(nodeJsRows, o.kind, configsById.getOrElse(o.id.value, JsObject.empty))
-                    )
-                  }
-                  // HEL-1276 (D9): when an Output on this node opted in, the payload insert joins the same
-                  // transaction and only the opted-in Outputs' points link to it. With no opt-in nothing
-                  // is built or measured.
-                  val optedIn = nodeOutputs.filter(o => PayloadOptIn.enabled(configsById.getOrElse(o.id.value, JsObject.empty))).map(_.id.value).toSet
-                  val historyAction: DBIO[Unit] =
-                    if (nodePayloadRepo == null || optedIn.isEmpty) outputHistoryRepo.insertAction(entries)
-                    else
-                      nodePayloadRepo
-                        .writeAction(pipelineId.value, nodeStepIdOpt, explicitRootIdOpt, Some(runId.value), triggerSource, now, nodeJsRows, payloadConfig)
-                        .flatMap(pid => outputHistoryRepo.insertAction(entries.map(e => if (optedIn(e.outputId)) e.copy(payloadId = pid) else e)))
-                  nodeSnapshotRepo.overwriteRowsWith(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt, historyAction)
+    def writesChain(): Future[Option[String]] = {
+      val now = Instant.now()
+      // HEL-905 (design.md Decisions 3, 4): a materialized node is one carrying >= 1 `outputs`
+      // row. For each materialized node, `node_snapshots` is replaced atomically (per-node, via
+      // `overwriteRows`'s existing delete-then-insert-in-one-transaction), sequenced only after the
+      // whole tree walk has already completed successfully -- cross-node atomicity is explicitly
+      // NOT provided (see design.md Decision 3): a mid-sequence failure leaves earlier nodes
+      // updated and later ones untouched.
+      val materializedWrites: Future[Unit] =
+        if (nodeSnapshotRepo != null)
+          outputRepo.listByPipelineInternal(pipelineId).flatMap(outputs => historyConfigs(outputs).map(outputs -> _)).flatMap { case (outputs, configsById) =>
+            // HEL-913 (design.md R12, task 5.8 runtime half): keyed by NodeKey, not the old
+            // `Option[String]`/`None`-means-root encoding -- a root-bound Output (`stepId = None`)
+            // keys on `RootKey(output.node.rootId)`, so it only ever matches THAT root's outcome,
+            // never silently matching "any root" the way a bare `None` used to under multi-root.
+            // An Output somehow missing BOTH `stepId` and `rootId` (pre-V98 legacy shape) is
+            // skipped rather than guessed at.
+            val outputsByNodeKey: Map[NodeKey, Vector[Output]] =
+              outputs.flatMap { o =>
+                val keyOpt: Option[NodeKey] = o.node.stepId match {
+                  case Some(sid) => Some(StepKey(sid.value))
+                  case None      => o.node.rootId.map(rid => RootKey(rid.value))
                 }
-              replace.flatMap { _ =>
-                // HEL-905 (design.md Decision 4): per-Output shallow-union schema derivation
-                // over this node's own row set. Two Outputs on the same node get independently
-                // derived (but identical) schemas -- no sharing/caching needed at this scale.
-                val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
-                val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
-                Future
-                  .sequence(nodeOutputs.map(o => outputRepo.updateSchemaInternal(o.id, schema)))
-                  .map(_ => ())
+                keyOpt.map(k => k -> o)
+              }.groupBy(_._1).view.mapValues(_.map(_._2).toVector).toMap
+            val materializedNodeKeys = outputsByNodeKey.keySet.intersect(nodeOutcomes.keySet)
+            // Sequenced (not parallel) so a later node's failure never races an earlier node's
+            // write -- matches design.md's "sequenced only after... completed successfully".
+            materializedNodeKeys.foldLeft(Future.successful(())) { (accF, nodeKey) =>
+              accF.flatMap { _ =>
+                val outcome = nodeOutcomes(nodeKey)
+                val nodeJsRows = outcome.rows.map { rowMap =>
+                  JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
+                }.toVector
+                val (nodeStepIdOpt, explicitRootIdOpt) = nodeKey match {
+                  case StepKey(sid) => (Some(sid), None)
+                  case RootKey(rid) => (None, Some(rid))
+                }
+                val nodeOutputs = outputsByNodeKey.getOrElse(nodeKey, Vector.empty)
+                val replace: Future[Unit] =
+                  if (outputHistoryRepo == null) nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt)
+                  else {
+                    // HEL-1271 (D9): the summary insert shares this node's replace transaction -- NOT
+                    // best-effort; a failure here fails the node exactly like a snapshot-insert failure.
+                    val entries = nodeOutputs.map { o =>
+                      OutputHistoryInsert(
+                        outputId      = o.id.value,
+                        pipelineId    = pipelineId.value,
+                        nodeStepId    = nodeStepIdOpt,
+                        rootId        = explicitRootIdOpt,
+                        runId         = Some(runId.value),
+                        triggerSource = triggerSource,
+                        capturedAt    = now,
+                        rowCount      = nodeJsRows.size,
+                        summary       = OutputSummaryReducer.summarize(nodeJsRows, o.kind, configsById.getOrElse(o.id.value, JsObject.empty))
+                      )
+                    }
+                    // HEL-1276 (D9): when an Output on this node opted in, the payload insert joins the same
+                    // transaction and only the opted-in Outputs' points link to it. With no opt-in nothing
+                    // is built or measured.
+                    val optedIn = nodeOutputs.filter(o => PayloadOptIn.enabled(configsById.getOrElse(o.id.value, JsObject.empty))).map(_.id.value).toSet
+                    val historyAction: DBIO[Unit] =
+                      if (nodePayloadRepo == null || optedIn.isEmpty) outputHistoryRepo.insertAction(entries)
+                      else
+                        nodePayloadRepo
+                          .writeAction(pipelineId.value, nodeStepIdOpt, explicitRootIdOpt, Some(runId.value), triggerSource, now, nodeJsRows, payloadConfig)
+                          .flatMap(pid => outputHistoryRepo.insertAction(entries.map(e => if (optedIn(e.outputId)) e.copy(payloadId = pid) else e)))
+                    nodeSnapshotRepo.overwriteRowsWith(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt, historyAction)
+                  }
+                replace.flatMap { _ =>
+                  // HEL-905 (design.md Decision 4): per-Output shallow-union schema derivation
+                  // over this node's own row set. Two Outputs on the same node get independently
+                  // derived (but identical) schemas -- no sharing/caching needed at this scale.
+                  val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
+                  val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
+                  Future
+                    .sequence(nodeOutputs.map(o => outputRepo.updateSchemaInternal(o.id, schema)))
+                    .map(_ => ())
+                }
               }
             }
           }
-        }
-      else Future.successful(())
-    // HEL-216: wire BinaryRefRepository.overwriteForNode into the one real
-    // row-write call site, generically over row shape (not gated on source
-    // kind) — see design.md Decision "BinaryRefRepository...wired into
-    // PipelineRunService.onRunSuccess". Extracted from resultRows (the
-    // post-step, final row values — not the pre-step source rows) so the
-    // refs match exactly what jsRows/rowsUpsert just wrote. HEL-904 (task
-    // 3.4): re-keyed to `(pipelineId, trunkLastStepId)` instead of the
-    // retired `dataTypeId`.
-    //
-    // HEL-905: still scoped to the trunk's last node only (not every
-    // materialized node) -- extending binary-ref extraction to tail nodes is
-    // deferred; no AC of this ticket requires it (see files-modified.md).
-    // HEL-913 (design.md R10): scoped to the LOWEST-positioned root's trunk specifically --
-    // the same root `TreeWalkResult.rows` (== `resultRows` here) is derived from, per R10's
-    // explicit "rows, trunkOf(...).lastOption, and the binary-ref key must all be derived from
-    // the same root and the same node" agreement. `trunkOfRoot` (not the ambiguous whole-
-    // pipeline `trunkOf`) is what makes this hold under multi-root.
-    val trunkLastStepIdFut: Future[Option[String]] =
-      if (binaryRefRepo != null)
+        else Future.successful(())
+      // HEL-216: wire BinaryRefRepository.overwriteForNode into the one real
+      // row-write call site, generically over row shape (not gated on source
+      // kind) — see design.md Decision "BinaryRefRepository...wired into
+      // PipelineRunService.onRunSuccess". Extracted from resultRows (the
+      // post-step, final row values — not the pre-step source rows) so the
+      // refs match exactly what jsRows/rowsUpsert just wrote. HEL-904 (task
+      // 3.4): re-keyed to `(pipelineId, trunkLastStepId)` instead of the
+      // retired `dataTypeId`.
+      //
+      // HEL-905: still scoped to the trunk's last node only (not every
+      // materialized node) -- extending binary-ref extraction to tail nodes is
+      // deferred; no AC of this ticket requires it (see files-modified.md).
+      // HEL-913 (design.md R10): scoped to the LOWEST-positioned root's trunk specifically --
+      // the same root `TreeWalkResult.rows` (== `resultRows` here) is derived from, per R10's
+      // explicit "rows, trunkOf(...).lastOption, and the binary-ref key must all be derived from
+      // the same root and the same node" agreement. `trunkOfRoot` (not the ambiguous whole-
+      // pipeline `trunkOf`) is what makes this hold under multi-root.
+      val trunkLastStepIdFut: Future[Option[String]] =
+        if (binaryRefRepo != null)
+          for {
+            steps        <- pipelineStepRepo.listByPipelineInternal(pipelineId)
+            rootIdOfStep <- pipelineStepRepo.rootIdsOf(pipelineId)
+          } yield pipelineStepRepo.trunkOfRoot(steps, rootIdOfStep, PipelineRootId(lowestRootId)).lastOption.map(_.id.value)
+        else Future.successful(None)
+      val binaryRefsUpsert =
+        if (binaryRefRepo != null)
+          trunkLastStepIdFut.flatMap { trunkLastStepId =>
+            val explicitRootId = if (trunkLastStepId.isEmpty) Some(lowestRootId) else None
+            binaryRefRepo.overwriteForNode(pipelineId.value, trunkLastStepId, extractBinaryRefs(pipelineId, trunkLastStepId, resultRows), explicitRootId)
+          }
+        else Future.successful(())
+      // HEL-466: fire alert-rule evaluation against the rows just written.
+      // Wrapped in recoverWith (matching the file's existing discipline at
+      // updateRunTerminal's preExec/insertRun handling) so an evaluation
+      // failure is logged inside AlertEvaluationService and never fails or
+      // rolls back this run — see design.md "Per-rule isolation"/"Hook
+      // placement".
+      // HEL-905 (design.md Decision 2/tasks 4; evaluation-1.md CR3): evaluate per Output of every
+      // materialized node, using THAT node's own row set (`nodeOutcomes`) rather than the trunk's
+      // final rows -- a tail Output must be evaluated against its own frame, not the trunk's
+      // terminal one. A node with NO outcome is skipped explicitly (never silently falls back to a
+      // DIFFERENT node's rows -- evaluating an Output's rules against the wrong node's data is
+      // worse than not evaluating them at all) and logged, since every node the walk actually
+      // materializes always has an outcome; a miss here means a real bug elsewhere.
+      val alertEvaluation =
+        if (alertEvaluationService != null)
+          outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
+            Future
+              .sequence(outputs.map { output =>
+                // HEL-913 (design.md R12): a root-bound Output (`stepId = None`) keys on its OWN
+                // `RootKey(rootId)` -- never a bare `None` that would ambiguously match any root.
+                val nodeKeyOpt: Option[NodeKey] = output.node.stepId match {
+                  case Some(sid) => Some(StepKey(sid.value))
+                  case None      => output.node.rootId.map(rid => RootKey(rid.value))
+                }
+                nodeKeyOpt.flatMap(nodeOutcomes.get) match {
+                  case None =>
+                    log.error(
+                      s"AlertEvaluationService.evaluateForOutput skipped for output ${output.id.value}, " +
+                        s"run ${runId.value}: no NodeOutcome for node key $nodeKeyOpt (never evaluated by the tree walk)"
+                    )
+                    Future.successful(())
+                  case Some(nodeOutcome) =>
+                    alertEvaluationService
+                      .evaluateForOutput(output.id, nodeOutcome.rows, Some(runId.value))
+                      .recoverWith { case ex =>
+                        log.error(s"AlertEvaluationService.evaluateForOutput failed for output ${output.id.value}, run ${runId.value}", ex)
+                        Future.successful(())
+                      }
+                }
+              })
+              .map(_ => ())
+          }
+        else Future.successful(())
+      // HEL-873 (design.md Decision 2/tasks 2.2/2.3): a successful run always writes a non-null
+      // value -- `[]` when nothing was truncated -- written in the SAME statement as `rowCount`/
+      // `status` on both tables.
+      val truncatedReadsJson = truncatedReadsToJson(primaryAvailableRowCount, truncatedReads)
+      val updateMeta = pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, truncated = Some(truncatedReads.nonEmpty)).map(_ => ())
+      val updateRun =
+        if (pipelineRunRepo != null)
+          pipelineRunRepo.updateRunTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user, truncatedReadsJson = Some(truncatedReadsJson)).map(_ => ())
+        else Future.successful(())
+      // HEL-509 (419-B): insertRun already ran during preExec, so the parent
+      // `pipeline_runs` row exists before this real-run success path runs —
+      // no ordering constraint here (unlike onDryRunSuccess above).
+      val assertionsInsert = persistAssertions(runId, assertionResults)
+      // HEL-462 (design D4): best-effort schema-drift baseline capture — the
+      // current source schema (same derivation `PipelineService.analyze` uses)
+      // becomes the new `last_source_schema` baseline. Only real, non-dry
+      // successes reach this method (`onDryRunSuccess` never calls it), which
+      // is exactly "a successful run" in the ticket's sense. `recoverWith`
+      // ensures a resolution/write failure here never fails or blocks the run.
+      // HEL-904 (task 4.1): derives the baseline from the source's own
+      // `inferredSchema` (mirroring `PipelineService.analyze`'s own
+      // rewiring, see task 4.3) instead of the retired
+      // `dataTypeRepo.findBySourceId` -> `deriveSourceSchema` path.
+      val baselineUpsert: Future[Unit] =
+        dataSourceRepo.findByIdOwned(sourceDataSourceId, user)
+          .map(_.map(_.inferredSchema).getOrElse(Vector.empty))
+          .flatMap { schema =>
+            pipelineRepo.updateLastSourceSchema(pipelineId, schema.toJson.compactPrint, user)
+          }
+          .recoverWith { case ex =>
+            log.warn(s"HEL-462: schema-drift baseline capture failed for pipeline ${pipelineId.value}", ex)
+            Future.successful(())
+          }
         for {
-          steps        <- pipelineStepRepo.listByPipelineInternal(pipelineId)
-          rootIdOfStep <- pipelineStepRepo.rootIdsOf(pipelineId)
-        } yield pipelineStepRepo.trunkOfRoot(steps, rootIdOfStep, PipelineRootId(lowestRootId)).lastOption.map(_.id.value)
-      else Future.successful(None)
-    val binaryRefsUpsert =
-      if (binaryRefRepo != null)
-        trunkLastStepIdFut.flatMap { trunkLastStepId =>
-          val explicitRootId = if (trunkLastStepId.isEmpty) Some(lowestRootId) else None
-          binaryRefRepo.overwriteForNode(pipelineId.value, trunkLastStepId, extractBinaryRefs(pipelineId, trunkLastStepId, resultRows), explicitRootId)
-        }
-      else Future.successful(())
-    // HEL-466: fire alert-rule evaluation against the rows just written.
-    // Wrapped in recoverWith (matching the file's existing discipline at
-    // updateRunTerminal's preExec/insertRun handling) so an evaluation
-    // failure is logged inside AlertEvaluationService and never fails or
-    // rolls back this run — see design.md "Per-rule isolation"/"Hook
-    // placement".
-    // HEL-905 (design.md Decision 2/tasks 4; evaluation-1.md CR3): evaluate per Output of every
-    // materialized node, using THAT node's own row set (`nodeOutcomes`) rather than the trunk's
-    // final rows -- a tail Output must be evaluated against its own frame, not the trunk's
-    // terminal one. A node with NO outcome is skipped explicitly (never silently falls back to a
-    // DIFFERENT node's rows -- evaluating an Output's rules against the wrong node's data is
-    // worse than not evaluating them at all) and logged, since every node the walk actually
-    // materializes always has an outcome; a miss here means a real bug elsewhere.
-    val alertEvaluation =
-      if (alertEvaluationService != null)
-        outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
-          Future
-            .sequence(outputs.map { output =>
-              // HEL-913 (design.md R12): a root-bound Output (`stepId = None`) keys on its OWN
-              // `RootKey(rootId)` -- never a bare `None` that would ambiguously match any root.
-              val nodeKeyOpt: Option[NodeKey] = output.node.stepId match {
-                case Some(sid) => Some(StepKey(sid.value))
-                case None      => output.node.rootId.map(rid => RootKey(rid.value))
-              }
-              nodeKeyOpt.flatMap(nodeOutcomes.get) match {
-                case None =>
-                  log.error(
-                    s"AlertEvaluationService.evaluateForOutput skipped for output ${output.id.value}, " +
-                      s"run ${runId.value}: no NodeOutcome for node key $nodeKeyOpt (never evaluated by the tree walk)"
-                  )
-                  Future.successful(())
-                case Some(nodeOutcome) =>
-                  alertEvaluationService
-                    .evaluateForOutput(output.id, nodeOutcome.rows, Some(runId.value))
-                    .recoverWith { case ex =>
-                      log.error(s"AlertEvaluationService.evaluateForOutput failed for output ${output.id.value}, run ${runId.value}", ex)
-                      Future.successful(())
-                    }
-              }
-            })
-            .map(_ => ())
-        }
-      else Future.successful(())
-    // HEL-873 (design.md Decision 2/tasks 2.2/2.3): a successful run always writes a non-null
-    // value -- `[]` when nothing was truncated -- written in the SAME statement as `rowCount`/
-    // `status` on both tables.
-    val truncatedReadsJson = truncatedReadsToJson(primaryAvailableRowCount, truncatedReads)
-    val updateMeta = pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, truncated = Some(truncatedReads.nonEmpty)).map(_ => ())
-    val updateRun =
-      if (pipelineRunRepo != null)
-        pipelineRunRepo.updateRunTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user, truncatedReadsJson = Some(truncatedReadsJson)).map(_ => ())
-      else Future.successful(())
-    // HEL-509 (419-B): insertRun already ran during preExec, so the parent
-    // `pipeline_runs` row exists before this real-run success path runs —
-    // no ordering constraint here (unlike onDryRunSuccess above).
-    val assertionsInsert = persistAssertions(runId, assertionResults)
-    // HEL-462 (design D4): best-effort schema-drift baseline capture — the
-    // current source schema (same derivation `PipelineService.analyze` uses)
-    // becomes the new `last_source_schema` baseline. Only real, non-dry
-    // successes reach this method (`onDryRunSuccess` never calls it), which
-    // is exactly "a successful run" in the ticket's sense. `recoverWith`
-    // ensures a resolution/write failure here never fails or blocks the run.
-    // HEL-904 (task 4.1): derives the baseline from the source's own
-    // `inferredSchema` (mirroring `PipelineService.analyze`'s own
-    // rewiring, see task 4.3) instead of the retired
-    // `dataTypeRepo.findBySourceId` -> `deriveSourceSchema` path.
-    val baselineUpsert: Future[Unit] =
-      dataSourceRepo.findByIdOwned(sourceDataSourceId, user)
-        .map(_.map(_.inferredSchema).getOrElse(Vector.empty))
-        .flatMap { schema =>
-          pipelineRepo.updateLastSourceSchema(pipelineId, schema.toJson.compactPrint, user)
-        }
-        .recoverWith { case ex =>
-          log.warn(s"HEL-462: schema-drift baseline capture failed for pipeline ${pipelineId.value}", ex)
-          Future.successful(())
-        }
-    for {
-      _ <- materializedWrites
-      _ <- binaryRefsUpsert
-      _ <- alertEvaluation
-      _ <- updateMeta
-      _ <- updateRun
-      _ <- assertionsInsert
-      _ <- baselineUpsert
-    } yield None
+          _ <- materializedWrites
+          _ <- binaryRefsUpsert
+          _ <- alertEvaluation
+          _ <- updateMeta
+          _ <- updateRun
+          _ <- assertionsInsert
+          _ <- baselineUpsert
+        } yield None
+    }
+    // HEL-1366: `succeeded` is published only after the whole chain (snapshots, run status,
+    // last-run metadata, ...) has completed, so a subscriber reading on the event sees this run's
+    // results. Edge: `for` fails fast, so if `materializedWrites` fails the event can fire while the
+    // eagerly-started `updateRun` is still in flight (write-failure path only).
+    publishTerminalAfter(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size), runId = Some(runId.value)), writesChain())
   }
 
   /** design.md Decision 2: joins each blocking failure's `kind`/`field`/

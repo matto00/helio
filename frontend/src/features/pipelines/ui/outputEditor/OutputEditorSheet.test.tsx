@@ -10,6 +10,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
 
 import { httpClient } from "../../../../services/httpClient";
 import { outputsReducer } from "../../state/outputsSlice";
@@ -228,15 +229,17 @@ describe("OutputEditorSheet -- markdown Content is literal-only (HEL-1139)", () 
   it("opens a legacy markdown Output holding fieldMapping.content in literal mode and saves an empty fieldMapping", async () => {
     const store = buildStore();
     render(
-      <Provider store={store}>
-        <OutputEditorSheet
-          open
-          onClose={jest.fn()}
-          pipelineId="p-1"
-          output={legacyOutput}
-          steps={STEPS}
-        />
-      </Provider>,
+      <MemoryRouter>
+        <Provider store={store}>
+          <OutputEditorSheet
+            open
+            onClose={jest.fn()}
+            pipelineId="p-1"
+            output={legacyOutput}
+            steps={STEPS}
+          />
+        </Provider>
+      </MemoryRouter>,
     );
 
     expect(await screen.findByRole("textbox", { name: "Content text" })).toBeInTheDocument();

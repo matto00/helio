@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { uniqueEmail } from "./support/auth";
 
 // HEL-908, Cycle 9 — the human's evidence bar for the trunk-reorder fix
 // explicitly requires "Live Playwright proof of the real DRAG interaction
@@ -14,15 +15,11 @@ import { expect, test } from "@playwright/test";
 // node's OLD slot must not inherit it.
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel908-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
 test.describe("HEL-908 trunk-to-trunk reorder — real drag gesture", () => {
   test("dragging a tailed trunk node to a new position carries its tail with it", async ({
     page,
   }) => {
-    const email = uniqueEmail("trunk-drag");
+    const email = uniqueEmail("hel908", "trunk-drag", "example.com");
     const password = "correcthorsebattery1";
 
     const registerRes = await page.request.post("/api/auth/register", {

@@ -25,6 +25,8 @@ final case class OutputSchemaFieldResponse(name: String, `type`: String)
  *  `nodeStepId` is absent -- `nodeStepId = None` alone is ambiguous under multi-root ("every
  *  root", not "the root"). Defaulted to `None` so every pre-existing construction site keeps
  *  compiling; `outputResponseFrom` below populates it from `Output.node.rootId`. */
+/** HEL-1331: `historyPayloadsAvailable` is read-only -- whether the PIPELINE OWNER's tier keeps payload
+ *  runs. `None` = not computed (omitted from the JSON). */
 final case class OutputResponse(
     id: String,
     pipelineId: String,
@@ -37,7 +39,8 @@ final case class OutputResponse(
     createdAt: String,
     updatedAt: String,
     panelCount: Option[Int] = None,
-    rootId: Option[String] = None
+    rootId: Option[String] = None,
+    historyPayloadsAvailable: Option[Boolean] = None
 )
 
 final case class OutputsResponse(items: Vector[OutputResponse])
@@ -113,7 +116,7 @@ final case class PublicOutputMetaResponse(
 
 trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val outputSchemaFieldResponseFormat: RootJsonFormat[OutputSchemaFieldResponse] = jsonFormat2(OutputSchemaFieldResponse)
-  implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat12(OutputResponse)
+  implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat13(OutputResponse)
   implicit val outputsResponseFormat: RootJsonFormat[OutputsResponse]                     = jsonFormat1(OutputsResponse)
   implicit val createOutputRequestFormat: RootJsonFormat[CreateOutputRequest]             = jsonFormat5(CreateOutputRequest)
   implicit val outputRowsResponseFormat: RootJsonFormat[OutputRowsResponse]               = jsonFormat6(OutputRowsResponse)

@@ -73,6 +73,7 @@ import {
 import { useOutputTableColumns } from "./useOutputTableColumns";
 import { useOutputColumnFormats } from "./useOutputColumnFormats";
 import { OutputPreviewPane } from "./OutputPreviewPane";
+import { HistoryPayloadsField } from "./HistoryPayloadsField";
 import "./OutputEditorSheet.css";
 
 const KIND_OPTIONS: SelectOption[] = [
@@ -131,6 +132,8 @@ export function OutputEditorSheet({
   );
   const [kind, setKind] = useState<OutputKind>((output?.kind as OutputKind) ?? "chart");
   const [name, setName] = useState(output?.name ?? "");
+  // HEL-1331 -- seeded from the stored opt-in; sent on Save only when the user changed it (below).
+  const [historyPayloads, setHistoryPayloads] = useState(output?.config?.historyPayloads === true);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [placements, setPlacements] = useState<OutputPanelPlacement[] | null>(null);
@@ -150,6 +153,7 @@ export function OutputEditorSheet({
     setNodeStepId(isCreate ? createTargetStepId : output?.nodeStepId);
     setKind((output?.kind as OutputKind) ?? "chart");
     setName(output?.name ?? "");
+    setHistoryPayloads(output?.config?.historyPayloads === true);
     setSaveError(null);
     setConfirmingDelete(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -311,6 +315,15 @@ export function OutputEditorSheet({
     });
   }
 
+  // HEL-1331 D5 -- `historyPayloads` rides on an edit Save only when the toggle is enabled AND the
+  // user changed it; otherwise the key is omitted so the server's shallow config merge preserves
+  // whatever is stored (absent, null or a stale true).
+  function withHistoryPayloads(built: Record<string, unknown>): Record<string, unknown> {
+    const seeded = output?.config?.historyPayloads === true;
+    if (output?.historyPayloadsAvailable !== true || historyPayloads === seeded) return built;
+    return { ...built, historyPayloads };
+  }
+
   async function handleSave() {
     setSaving(true);
     setSaveError(null);
@@ -337,7 +350,7 @@ export function OutputEditorSheet({
         await dispatch(
           updateOutput({
             outputId: output.id,
-            payload: { name: name.trim(), config: buildConfig() },
+            payload: { name: name.trim(), config: withHistoryPayloads(buildConfig()) },
           }),
         ).unwrap();
       }
@@ -606,6 +619,17 @@ export function OutputEditorSheet({
           />
         )}
       </div>
+
+      {!isCreate && (
+        <div className="output-editor-sheet__group output-editor-sheet__group--card">
+          <h3 className="output-editor-sheet__edit-section-heading">History</h3>
+          <HistoryPayloadsField
+            checked={historyPayloads}
+            onChange={setHistoryPayloads}
+            available={output?.historyPayloadsAvailable === true}
+          />
+        </div>
+      )}
 
       <div className="output-editor-sheet__group output-editor-sheet__group--card">
         <h3 className="output-editor-sheet__edit-section-heading">Preview</h3>

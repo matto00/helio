@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { uniqueEmail } from "./support/auth";
 
 // HEL-665 (reopened composer ticket) — live verification (ticket AC5, tasks.md 6.10). Exercises
 // the real message composer against running dev servers with a REAL `ANTHROPIC_API_KEY` (mirrors
@@ -17,16 +18,12 @@ import { expect, test } from "@playwright/test";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel665-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
 test.describe("HEL-665 message composer live verification", () => {
   test("a fresh user can start a conversation by typing, and a real Claude response renders", async ({
     page,
     request,
   }) => {
-    const email = uniqueEmail("composer");
+    const email = uniqueEmail("hel665", "composer", "example.com");
     const password = "correcthorsebattery1";
 
     await request.post("/api/auth/register", {

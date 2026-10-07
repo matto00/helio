@@ -5,6 +5,7 @@ import {
   type BrowserContext,
   type Page,
 } from "@playwright/test";
+import { uniqueEmail } from "./support/auth";
 import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-287 — httpOnly-cookie session migration, live verification (design.md
@@ -20,10 +21,6 @@ import { isolateLivePage } from "./support/isolateLivePage";
 const CSRF_HEADER = "X-Helio-Requested-With";
 const SESSION_COOKIE = "helio_session";
 const BASE_URL = `http://localhost:${process.env.DEV_PORT ?? "5173"}`;
-
-function uniqueEmail(label: string): string {
-  return `hel287-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
 
 async function sessionCookie(context: BrowserContext) {
   const cookies = await context.cookies();
@@ -45,7 +42,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     page,
     context,
   }) => {
-    const email = uniqueEmail("register");
+    const email = uniqueEmail("hel287", "register", "example.com");
     await page.goto("/register");
     await page.fill("#email", email);
     await page.fill("#password", "correcthorsebattery1");
@@ -82,7 +79,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     context,
     request,
   }) => {
-    const email = uniqueEmail("login");
+    const email = uniqueEmail("hel287", "login", "example.com");
     const password = "correcthorsebattery1";
     // Bootstrap the account directly via the API (UI registration is already covered above).
     await request.post("/api/auth/register", {
@@ -165,7 +162,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     page,
     request,
   }) => {
-    const email = uniqueEmail("getdash");
+    const email = uniqueEmail("hel287", "getdash", "example.com");
     const password = "correcthorsebattery1";
     await request.post("/api/auth/register", {
       data: { email, password },
@@ -188,7 +185,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     page,
     request,
   }) => {
-    const email = uniqueEmail("csrf");
+    const email = uniqueEmail("hel287", "csrf", "example.com");
     const password = "correcthorsebattery1";
     await request.post("/api/auth/register", {
       data: { email, password },
@@ -220,7 +217,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     context,
     request,
   }) => {
-    const email = uniqueEmail("logout");
+    const email = uniqueEmail("hel287", "logout", "example.com");
     const password = "correcthorsebattery1";
     // Use the isolated `request` fixture (not `page.request`) to bootstrap
     // the account — `page.request` shares the browser context's cookie jar,
@@ -254,7 +251,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     page,
     request,
   }) => {
-    const email = uniqueEmail("pat");
+    const email = uniqueEmail("hel287", "pat", "example.com");
     const password = "correcthorsebattery1";
     await request.post("/api/auth/register", {
       data: { email, password },
@@ -300,7 +297,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     page,
     request,
   }) => {
-    const email = uniqueEmail("sse");
+    const email = uniqueEmail("hel287", "sse", "example.com");
     const password = "correcthorsebattery1";
     // See the logout test above for why this must be the isolated `request`
     // fixture, not `page.request`.

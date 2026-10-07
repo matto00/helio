@@ -3,6 +3,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
 
 import { httpClient } from "../../../../services/httpClient";
 import { outputsReducer } from "../../state/outputsSlice";
@@ -62,9 +63,11 @@ function outputOf(kind: string, config: Record<string, unknown>): Output {
 
 function renderSheet(output: Output) {
   render(
-    <Provider store={configureStore({ reducer: { outputs: outputsReducer } })}>
-      <OutputEditorSheet open onClose={jest.fn()} pipelineId="p-1" output={output} steps={[]} />
-    </Provider>,
+    <MemoryRouter>
+      <Provider store={configureStore({ reducer: { outputs: outputsReducer } })}>
+        <OutputEditorSheet open onClose={jest.fn()} pipelineId="p-1" output={output} steps={[]} />
+      </Provider>
+    </MemoryRouter>,
   );
 }
 

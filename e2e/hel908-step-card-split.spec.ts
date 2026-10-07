@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { uniqueEmail } from "./support/auth";
 
 // HEL-908 — live verification of the HEL-682 `PipelineDetailPage.tsx` /
 // `StepCard.tsx` split (tasks 3.1/3.2), a strictly behavior-preserving
@@ -15,15 +16,11 @@ import { expect, test } from "@playwright/test";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel908-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
 test.describe("HEL-908 PipelineDetailPage/StepCard split live verification", () => {
   test("initial load fires /analyze once; reorder/duplicate/toggle/run all work", async ({
     page,
   }) => {
-    const email = uniqueEmail("split");
+    const email = uniqueEmail("hel908", "split", "example.com");
     const password = "correcthorsebattery1";
 
     // Registering here already establishes a session cookie (same as

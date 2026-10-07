@@ -150,6 +150,23 @@ describe("updateOutputHandler", () => {
     expect(calledWith).toEqual(["output-1", { name: "Renamed", config: undefined }]);
     expect(result).toBe(output);
   });
+
+  it("passes config.historyPayloads: true through to the PATCH body unchanged (HEL-1331)", async () => {
+    let calledWith: [string, unknown] | undefined;
+    const api = makeFakeApi({
+      updateOutput: async (outputId: string, req: unknown) => {
+        calledWith = [outputId, req];
+        return output;
+      },
+    });
+
+    await updateOutputHandler(api, { outputId: "output-1", config: { historyPayloads: true } });
+
+    expect(calledWith).toEqual([
+      "output-1",
+      { name: undefined, config: { historyPayloads: true } },
+    ]);
+  });
 });
 
 describe("deleteOutputHandler", () => {
