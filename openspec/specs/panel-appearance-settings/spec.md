@@ -3,7 +3,9 @@
 ## Purpose
 Defines the requirements for panel-level visual appearance settings, including how appearance data is
 represented in API responses, persisted through updates, and validated against the schema.
+
 ## Requirements
+
 ### Requirement: Panel resources expose nested appearance settings
 Panel resources MUST include a nested `appearance` object that carries panel-level visual customization settings.
 
@@ -194,8 +196,8 @@ chart field replaces the stored field's value wholesale (no merge inside `legend
 #### Scenario: Explicit null on chartType within a chart patch clears it (does not reset to the line default)
 - **GIVEN** an existing chart panel whose stored `chart.chartType` is `"bar"`
 - **WHEN** a client PATCHes the panel with `{"appearance": {"chart": {"chartType": null}}}`
-- **THEN** the panel's stored `chart.chartType` becomes absent (`None`), matching today's
-  absent-chartType-renders-as-line fallback — **not** reset to `ChartAppearance.Default.chartType`
+- **THEN** the panel's stored `chart.chartType` becomes absent (`None`), so the panel renders
+  the bound Output's `config.chartType` (else line) — **not** reset to `ChartAppearance.Default.chartType`
   (`"line"`), which is the one field-level exception to the general "null resets to Default" rule
 
 ### Requirement: Batch appearance updates use the same merge semantics as the single-item PATCH
@@ -217,4 +219,3 @@ cannot diverge.
 - **THEN** the request returns 200
 - **AND** the panel's stored `chart.chartType` becomes `"scatter"`
 - **AND** the panel's stored `chart.legend` remains unchanged
-

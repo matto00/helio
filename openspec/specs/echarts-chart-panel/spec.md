@@ -92,7 +92,7 @@ appearance at the default (today's behavior: a line chart with unset axis titles
 
 ### Requirement: Chart panel applies persisted per-type display options
 The chart panel SHALL apply `config.chartOptions` entries for the active chart type
-(`appearance.chart.chartType`, default `line`) to the rendered ECharts option via real ECharts
+(the stored `appearance.chart.chartType`, else the bound Output's `config.chartType`, else `line`) to the rendered ECharts option via real ECharts
 constructs:
 - Line: `smooth` → `series.smooth`; `showPoints` → `series.showSymbol`; `areaFill` → `series.areaStyle`.
 - Bar: `orientation: "horizontal"` → category/value axis roles swapped; `stacking: "stacked"` →
