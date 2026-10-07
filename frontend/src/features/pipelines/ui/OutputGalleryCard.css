@@ -62,7 +62,7 @@
 /* HEL-1352 -- hover stays --app-surface-raised, not DESIGN.md Ghost's --app-surface-soft: the button
  * sits on the hovered card, which is already --app-surface-soft, so that hover would be invisible.
  * Raised vs the hovered-card backdrop measures 1.122 (dark) / 1.179 (light) from rendered hover
- * screenshots (openspec/changes/output-history-view-polish/screenshots/measurements.json) against the 1.10
+ * screenshots (openspec/changes/archive/2026-10-07-output-history-view-polish/screenshots/measurements.json) against the 1.10
  * HEL-866 threshold. */
 .output-gallery-card__history:hover {
   background: var(--app-surface-raised);
