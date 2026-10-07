@@ -1,0 +1,183 @@
+Failures record (extracted from the persisted full logs; see probe-evidence.md for refs).
+Per red run: `FAIL <file>` lines, then de-duplicated failure messages with counts (jest prints each failure twice).
+
+== ablate-xhr-only/FAIL-r2.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+    createPlacement: jest 5s timeout x3
+    draftCreate: jest 5s timeout x5
+== ablate-xhr-only/FAIL-r3.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+    createPlacement: assertion (waitFor expired) x2
+    createPlacement: jest 5s timeout x5
+== ablate-xhr-only/FAIL-r4.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+    createPlacement: jest 5s timeout x1
+== ablate-xhr-only/FAIL-r9.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.test.tsx
+    test.tsx: findBy/waitFor: Unable to find x1
+== after1-timeout-only/FAIL-r5.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.test.tsx
+    createPlacement: assertion (waitFor expired) x2
+    createPlacement: findBy/waitFor: Unable to find x1
+    draftCreate: jest 5s timeout x6
+    test.tsx: jest 5s timeout x1
+== after1-timeout-only/FAIL-r6.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.test.tsx
+    createPlacement: assertion (waitFor expired) x2
+    createPlacement: findBy/waitFor: Unable to find x5
+    createPlacement: other x1
+    draftCreate: assertion (waitFor expired) x1
+    draftCreate: jest 5s timeout x3
+    test.tsx: findBy/waitFor: Unable to find x3
+    test.tsx: jest 5s timeout x1
+== after1-timeout-only/FAIL-r3.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.test.tsx
+    createPlacement: assertion (waitFor expired) x6
+    createPlacement: findBy/waitFor: Unable to find x3
+    createPlacement: other x1
+    draftCreate: assertion (waitFor expired) x2
+    draftCreate: findBy/waitFor: Unable to find x2
+    draftCreate: jest 5s timeout x2
+    test.tsx: jest 5s timeout x1
+== after1-timeout-only/FAIL-r4.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.test.tsx
+    test.tsx: jest 5s timeout x1
+== after1-timeout-only/FAIL-r19.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.creatingStep.test.tsx
+    createPlacement: findBy/waitFor: Unable to find x1
+    creatingStep: jest 5s timeout x1
+== after2/FAIL-r16.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.creatingStep.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.test.tsx
+    creatingStep: jest 5s timeout x1
+    draftCreate: jest 5s timeout x4
+    test.tsx: jest 5s timeout x2
+== after3-final/FAIL-r10.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.test.tsx
+    draftCreate: assertion (waitFor expired) x2
+    draftCreate: jest 5s timeout x3
+    test.tsx: jest 5s timeout x2
+== after3-final/FAIL-r1.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+    draftCreate: jest 5s timeout x2
+== after3-final/FAIL-r2.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+    draftCreate: jest 5s timeout x2
+== after3-final/FAIL-r9.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+    draftCreate: jest 5s timeout x3
+== before-sib1x/FAIL-r2.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.creatingStep.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.test.tsx
+    createPlacement: findBy/waitFor: Unable to find x2
+    createPlacement: jest 5s timeout x4
+    createPlacement: other x1
+    creatingStep: assertion (waitFor expired) x5
+    creatingStep: jest 5s timeout x1
+    draftCreate: jest 5s timeout x6
+    test.tsx: jest 5s timeout x2
+== before-sib1x/FAIL-r3.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+    createPlacement: jest 5s timeout x1
+    draftCreate: jest 5s timeout x2
+== before-sib1x/FAIL-r4.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.test.tsx
+    createPlacement: assertion (waitFor expired) x1
+    createPlacement: findBy/waitFor: Unable to find x1
+    createPlacement: jest 5s timeout x6
+    draftCreate: assertion (waitFor expired) x2
+    draftCreate: findBy/waitFor: Unable to find x1
+    draftCreate: jest 5s timeout x5
+    test.tsx: findBy/waitFor: Unable to find x2
+    test.tsx: jest 5s timeout x3
+== before-sib1x/FAIL-r5.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+    draftCreate: jest 5s timeout x2
+== before-sib1x/FAIL-r8.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.test.tsx
+    createPlacement: jest 5s timeout x4
+    test.tsx: jest 5s timeout x1
+== before-sib1x/FAIL-r9.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+    createPlacement: jest 5s timeout x1
+== before-sib1x/FAIL-r10.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+  FAIL src/features/pipelines/ui/PipelineDetailPage.test.tsx
+    createPlacement: assertion (waitFor expired) x2
+    createPlacement: jest 5s timeout x3
+    createPlacement: other x1
+    draftCreate: assertion (waitFor expired) x2
+    draftCreate: jest 5s timeout x5
+    test.tsx: jest 5s timeout x3
+== before-sib1-FAIL-r2.log.gz
+  FAIL src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx
+    createPlacement: jest 5s timeout x1
+
+Burner PID/kill record (inlined from the gitignored burner-kill.log files):
+== ablate-xhr-only
+burner pids: 551981 551982 551983  started 2026-10-06T23:20:28-07:00
+killed 551981
+killed 551982
+killed 551983
+== after1-timeout-only
+burner pids: 653186 653187 653188  started 2026-10-06T23:40:35-07:00
+killed 653186
+killed 653187
+killed 653188
+== after2
+burner pids: 733419 733420 733421  started 2026-10-07T00:22:57-07:00
+killed 733419
+killed 733420
+killed 733421
+== after3-final
+burner pids: 782974 782975 782976  started 2026-10-07T01:03:54-07:00
+killed 782974
+killed 782975
+killed 782976
+== before-dir1
+burner pids: 395909 395910 395911  started 2026-10-06T22:50:45-07:00
+killed 395909
+killed 395910
+killed 395911
+== before-pin1
+burner pids: 382572 382573 382574  started 2026-10-06T22:48:31-07:00
+killed 382572
+killed 382573
+killed 382574
+== before-pinned
+burner pids: 370243 370244 370245  started 2026-10-06T22:45:12-07:00
+killed 370243
+killed 370244
+killed 370245
+== before-sib1x
+burner pids: 426510 426511 426512  started 2026-10-06T22:58:00-07:00
+killed 426510
+killed 426511
+killed 426512
+== before-siblings
+burner pids: 359915 359916 359917  started 2026-10-06T22:40:23-07:00
+killed 359915
+killed 359916
+killed 359917
+== before-single
+burner pids: 350369 350370 350371  started 2026-10-06T22:38:53-07:00
+killed 350369
+killed 350370
+killed 350371

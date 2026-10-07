@@ -2,7 +2,16 @@
 // delta (`reparentedStepIds`) to local state instead of resyncing wholesale, so local-only drafts,
 // open cards and render keys survive; a gap insert anchors on a persisted step id (`parentStepId`),
 // never on an index. Every create here is held on a deferred promise so response ORDER is explicit.
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  configure,
+  fireEvent,
+  getConfig,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
@@ -52,6 +61,14 @@ jest.mock("../services/pipelineService", () => ({
   getPipelineStepCatalog: jest.fn(),
   getPipelineShapeCatalog: jest.fn(),
   listPipelinePermissions: jest.fn(),
+}));
+
+// HEL-1353: the page mounts `fetchOutputs` (outputsSlice -> outputService.listOutputs ->
+// `GET /api/pipelines/:id/outputs`), which this file never mocked, so every test opened a real
+// jsdom XMLHttpRequest socket (ECONNREFUSED, logged as `AggregateError`). Stub only that call.
+jest.mock("../services/outputService", () => ({
+  ...jest.requireActual("../services/outputService"),
+  listOutputs: async () => [],
 }));
 
 const createPipelineStepMock = jest.mocked(createPipelineStep);
@@ -262,14 +279,38 @@ const A = () => ps("A", "rename");
 const B = () => ps("B", "filter", { parent: "A" });
 const C = () => ps("C", "limit", { parent: "B" });
 
+// Every case renders the full PipelineDetailPage (real store, router, theme, overlay) and does
+// 8-15 sequential findBy/waitFor round trips, so it is CPU-bound, not waiting. HEL-1353 probe
+// (`openspec/changes/archive/2026-10-07-createplacement-test-load-timeout/probe-evidence.md`):
+// ~0.3-1.3s per case unloaded; with the CPU shared ~7 ways (3 burners + 3 workers + the jest
+// parent) a case runs up to ~19s, every phase scaling with contention (no fixed floor, no
+// unresolved promise), so jest's 5s default fails at random under load. 40s is >= 2x the worst
+// loaded observation. Every case in THIS file exceeds half the 5s default loaded (min 2.8s), so it
+// is applied file-wide here via `jest.setTimeout` (scoped to this test file only, never
+// `jest.config.cjs`) rather than as a third argument on each case, which Prettier would otherwise
+// re-indent into a ~550-line diff.
+const LOADED_CASE_TIMEOUT_MS = 40000;
+jest.setTimeout(LOADED_CASE_TIMEOUT_MS);
+// The same work also outlasts testing-library's 1000 ms `findBy*`/`waitFor` default ("Unable to
+// find role=option ..." once the 5s case timeout is lifted; a single phase reached ~2.7s loaded in
+// the probe). Applied only to this file (restored in afterAll), below the case timeout so a real
+// hang still reports the unmet assertion rather than a bare jest timeout.
+const LOADED_ASYNC_UTIL_TIMEOUT_MS = 20000;
+
 describe("PipelineDetailPage - step-create placement and the response delta (HEL-1345)", () => {
+  const originalAsyncUtilTimeout = getConfig().asyncUtilTimeout;
   beforeAll(() => {
+    configure({ asyncUtilTimeout: LOADED_ASYNC_UTIL_TIMEOUT_MS });
     HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
       this.setAttribute("open", "");
     });
     HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
       this.removeAttribute("open");
     });
+  });
+
+  afterAll(() => {
+    configure({ asyncUtilTimeout: originalAsyncUtilTimeout });
   });
 
   beforeEach(() => {
@@ -336,7 +377,7 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
       "Summarize briefly",
     );
     expect(getPipelineStepsMock).toHaveBeenCalledTimes(1);
-  }, 20000); // heaviest case: a draft insert, a second draft and an in-flight edit; ~1.9s under load
+  }); // heaviest case: a draft insert, a second draft and an in-flight edit (see LOADED_CASE_TIMEOUT_MS)
 
   // (b)
   it.each([
