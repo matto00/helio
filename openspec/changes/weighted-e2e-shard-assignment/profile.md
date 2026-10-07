@@ -15,9 +15,12 @@ every leg in all 7 CI attempts. Honest read of the numbers:
   305/317/311/364 (before, 25 runs) -> 293/337/338/348 (after): shard 4 improved by ~16 s, shards 2 and 3 got ~20-27 s
   slower, so the spread narrowed (59 s -> 45 s) but the improvement is modest, not the clean gap the ticket asked for.
 - `Run e2e` step medians are more balanced after (208/206/229/231 vs a 5-run before of 172/217/140/233) but the
-  slowest leg's step median is unchanged (~230 s): summed test seconds are not wall seconds. A parallel-mode file
-  (the contrast guard, 273 s summed) spreads across a leg's 2 workers (~137 s wall), while default-mode files are one
-  serial group each, so a leg full of default-mode files is slower than its weight suggests. See "Follow-up" below.
+  slowest leg's step median is unchanged (~230 s). Corrected cause (attempt-7 reports, identified by `stats.startTime`
+  21:07:33 / 21:14:08 / 21:07:16 / 21:07:43Z for legs 1-4): the two workers in each leg are within 0.2-6.5% of each
+  other (leg 1 210/209 s, leg 2 196/193, leg 3 222/221, leg 4 221/235), so leg wall time is about the max worker,
+  which is about summed/2. The residual imbalance is each leg's summed test time drifting from the weights:
+  419 / 389 / 443 / 456 s actual vs ~370 s weighted. (The earlier "default-mode files are serial groups" explanation
+  was refuted by these reports and is withdrawn.)
 - Whole-leg medians/maxima are dominated by `Install Playwright browsers` (apt over the Azure Ubuntu mirror), which
   was unusually slow during this measurement window (after-run install medians 30-48 s on good legs but 128-504 s
   spikes on many legs, and two legs hung until the 18-minute job timeout).
@@ -120,10 +123,7 @@ leg 4          364 / 407              348 / 372
 Every after-run leg max: leg 1 508 s (install 216), leg 2 797 s (install 504), leg 3 548 s (install 271), leg 4
 601 s (install 321). Before-25 maxima had the same cause (leg 1 860 s with install 610; leg 4 614 s with install 330).
 
-## Follow-up (out of this change's scope)
+## Follow-up
 
-1. Weight by estimated wall time, not summed test time: a parallel-mode file contributes ~sum/2 per leg (2 workers)
-   while default-mode files contribute their full sum, so legs 3/4 (default-mode heavy) run ~20-25 s longer than leg
-   1 despite equal weights. Needs a model change in `weights` mode (e.g. record per-file parallel-mode flag/wall time
-   from the reports); a design-level decision.
-2. `Install Playwright browsers` apt mirror hangs/spikes (cache browsers, retry/timeout the install step).
+The non-test overhead (~170 s per leg) and the `Install Playwright browsers` apt hangs/spikes are out of scope here and
+tracked as HEL-1368.

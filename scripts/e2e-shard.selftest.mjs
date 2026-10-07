@@ -20,6 +20,7 @@ import {
   fileSumsForRun,
   weightsFromRuns,
   filesFromList,
+  validateRunReports,
 } from "./e2e-shard.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -138,6 +139,28 @@ test("filesFromList dedupes and surfaces listing errors", () => {
     "b",
   ]);
   assert.throws(() => filesFromList({ suites: [], errors: [{ message: "boom" }] }), /boom/);
+});
+
+const rep = (shard, stats = { unexpected: 0, flaky: 0 }) => ({ shard, doc: { stats, suites: [] } });
+const four = () => ["1", "2", "3", "4"].map((s) => rep(s));
+
+test("weights guard: four clean reports pass", () => validateRunReports("runX", four()));
+
+test("RED: a runDir without exactly 4 reports is refused, naming the runDir", () => {
+  throwsNaming(() => validateRunReports("runX", four().slice(0, 3)), "runX", "found 3");
+  throwsNaming(() => validateRunReports("runX", [...four(), rep("5")]), "runX", "found 5");
+});
+
+test("RED: missing stats, unexpected > 0 and flaky > 0 are refused, naming runDir and shard", () => {
+  const noStats = four();
+  noStats[2] = { shard: "3", doc: { suites: [] } };
+  throwsNaming(() => validateRunReports("runY", noStats), "runY", "shard 3", "missing stats");
+  const bad = four();
+  bad[1] = rep("2", { unexpected: 2, flaky: 0 });
+  throwsNaming(() => validateRunReports("runY", bad), "runY", "shard 2", "unexpected=2");
+  const flaky = four();
+  flaky[3] = rep("4", { unexpected: 0, flaky: 1 });
+  throwsNaming(() => validateRunReports("runY", flaky), "runY", "shard 4", "flaky=1");
 });
 
 console.log(`${n} e2e-shard selftest cases passed`);

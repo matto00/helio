@@ -166,14 +166,35 @@ export function weightsFromRuns(runSums) {
   return new Map([...per].map(([f, v]) => [f, Math.max(1, Math.round(median(v)))]));
 }
 
+export const EXPECTED_SHARD_REPORTS = 4;
+
+/** Throws naming runDir and shard unless the run holds exactly `expected` clean reports. */
+export function validateRunReports(runDir, reports, expected = EXPECTED_SHARD_REPORTS) {
+  if (reports.length !== expected) {
+    throw new Error(
+      `${runDir}: expected exactly ${expected} shard reports, found ${reports.length} [${reports.map((r) => r.shard)}]`,
+    );
+  }
+  for (const { shard, doc } of reports) {
+    const st = doc?.stats;
+    if (!st || typeof st.unexpected !== "number" || typeof st.flaky !== "number") {
+      throw new Error(`${runDir}: shard ${shard} report has missing stats (unexpected/flaky)`);
+    }
+    if (st.unexpected > 0)
+      throw new Error(`${runDir}: shard ${shard} report has unexpected=${st.unexpected}`);
+    if (st.flaky > 0) throw new Error(`${runDir}: shard ${shard} report has flaky=${st.flaky}`);
+  }
+}
+
 function findReports(runDir) {
   const out = [];
   for (const d of readdirSync(runDir, { withFileTypes: true })) {
     const p = join(runDir, d.name, "results.json");
-    if (d.isDirectory() && existsSync(p)) out.push(JSON.parse(readFileSync(p, "utf8")));
+    if (d.isDirectory() && existsSync(p))
+      out.push({ shard: d.name, doc: JSON.parse(readFileSync(p, "utf8")) });
   }
-  if (out.length === 0) throw new Error(`no <shard>/results.json under ${runDir}`);
-  return out;
+  validateRunReports(runDir, out);
+  return out.map((r) => r.doc);
 }
 
 function playwrightJson(args) {
