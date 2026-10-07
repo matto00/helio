@@ -1,4 +1,9 @@
-import { selectChartOverlay, selectPointOverlay, type ChartOverlayContext } from "./chartOverlay";
+import {
+  chartCompareBlocker,
+  selectChartOverlay,
+  selectPointOverlay,
+  type ChartOverlayContext,
+} from "./chartOverlay";
 import { BASE_AT, makeHistory } from "./historyFixtures";
 import type { HistorySeries, OutputHistory } from "./outputHistoryService";
 
@@ -171,5 +176,39 @@ describe("selectPointOverlay", () => {
   it("allows downsampled series", () => {
     const d = series({ downsampled: true });
     expect(selectPointOverlay(d, d, "vs")).not.toBeNull();
+  });
+});
+
+describe("chartCompareBlocker (HEL-1350)", () => {
+  const clean = { fieldMapping: { xAxis: "day", yAxis: "amount" }, aggregation: null };
+  it("is null for a clean raw-rows config, and ignores chartType alone", () => {
+    expect(chartCompareBlocker(clean)).toBeNull();
+    expect(chartCompareBlocker({ ...clean, chartType: "pie" })).toBeNull();
+    expect(chartCompareBlocker({ ...clean, chartType: "scatter" })).toBeNull();
+  });
+  it.each([
+    ["aggregated", { aggregation: { groupBy: "a", agg: "sum", yField: "b" } }],
+    ["series", { fieldMapping: { xAxis: "day", yAxis: "amount", series: "r" } }],
+    ["unmapped", { fieldMapping: { category: "a", value: "b" } }],
+    ["unmapped", { fieldMapping: { xAxis: "day", yAxis: "" } }],
+    ["horizontal", { chartOptions: { bar: { orientation: "horizontal" } } }],
+    ["normalized", { chartOptions: { bar: { stacking: "normalized" } } }],
+  ])("returns %s", (expected, patch) => {
+    expect(chartCompareBlocker({ ...clean, ...patch })).toBe(expected);
+  });
+  it("returns the first blocker in order", () => {
+    expect(
+      chartCompareBlocker({
+        fieldMapping: {},
+        aggregation: { groupBy: "a" },
+        chartOptions: { bar: { orientation: "horizontal" } },
+      }),
+    ).toBe("aggregated");
+    expect(
+      chartCompareBlocker({
+        ...clean,
+        chartOptions: { bar: { orientation: "horizontal", stacking: "normalized" } },
+      }),
+    ).toBe("horizontal");
   });
 });

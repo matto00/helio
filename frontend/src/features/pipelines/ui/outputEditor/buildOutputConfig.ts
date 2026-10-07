@@ -40,9 +40,9 @@ export interface BuildOutputConfigParams {
   metricUnitState: BoundOrLiteralState;
   // HEL-876 — numeric display style, shared by metric and collection (metric baseType).
   metricFormat: string;
-  // HEL-1275 — the Compare picker's value: `"none"` or a `config.compare` token (including a
-  // pre-existing `custom:<duration>`, kept verbatim).
-  metricCompare: string;
+  // HEL-1275/HEL-1350 — the Compare picker's value (metric and chart kinds): `"none"` or a
+  // `config.compare` token (including a pre-existing `previous_run`/`custom:<duration>`, kept verbatim).
+  compare: string;
   // Markdown
   markdownContent: string;
   // Collection / Timeline
@@ -81,6 +81,7 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
           params.annotationState.mode === "literal" && params.annotationState.literalValue.trim()
             ? params.annotationState.literalValue
             : null,
+        compare: compareOrNull(params.compare),
       };
     case "table":
       return {
@@ -112,7 +113,7 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
             ? params.metricUnitState.literalValue
             : undefined,
         format: readFormatOrNull(params.metricFormat),
-        compare: compareOrNull(params.metricCompare),
+        compare: compareOrNull(params.compare),
       };
     case "markdown":
       // Literal-only: `OutputBindingSpec.Markdown` has no fieldMapping slots (HEL-1139).
@@ -173,7 +174,7 @@ export function buildAggregateTailConfigs(
     | "metricLabelState"
     | "metricUnitState"
     | "metricFormat"
-    | "metricCompare"
+    | "compare"
   >,
   capabilities: NodeCapabilities | undefined,
 ): { aggregateConfig: AggregateConfig; outputConfig: Record<string, unknown> } | null {
@@ -197,6 +198,7 @@ export function buildAggregateTailConfigs(
           params.annotationState.mode === "literal" && params.annotationState.literalValue.trim()
             ? params.annotationState.literalValue
             : null,
+        compare: compareOrNull(params.compare),
       },
     };
   }
@@ -219,7 +221,7 @@ export function buildAggregateTailConfigs(
       unit:
         params.metricUnitState.mode === "literal" ? params.metricUnitState.literalValue : undefined,
       format: readFormatOrNull(params.metricFormat),
-      compare: compareOrNull(params.metricCompare),
+      compare: compareOrNull(params.compare),
     },
   };
 }

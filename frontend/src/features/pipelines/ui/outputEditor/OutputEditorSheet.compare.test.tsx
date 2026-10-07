@@ -114,13 +114,161 @@ describe("OutputEditorSheet -- Compare picker (HEL-1275)", () => {
     );
     expect((await save()).compare).toBe("custom:P3D");
   });
+});
 
-  it("saving a chart Output omits compare so the server's shallow merge keeps it", async () => {
-    renderSheet(
-      outputOf("chart", { chartType: "bar", fieldMapping: {}, aggregation: null, compare: "30d" }),
+const CLEAN_CHART = {
+  chartType: "line",
+  fieldMapping: { xAxis: "day", yAxis: "amount" },
+  aggregation: null,
+};
+const HELP = /Adds a .vs. line or bars to dashboard charts/;
+
+describe("OutputEditorSheet -- chart Compare picker (HEL-1350)", () => {
+  it.each(["line", "bar", "pie", "scatter"])("is offered for a %s chart Output", async (t) => {
+    renderSheet(outputOf("chart", { ...CLEAN_CHART, chartType: t }));
+    expect(await screen.findByRole("combobox", { name: "Compare" })).toBeInTheDocument();
+  });
+
+  it("choosing 7 days persists compare: '7d'", async () => {
+    renderSheet(outputOf("chart", CLEAN_CHART));
+    await choose("7 days");
+    expect((await save()).compare).toBe("7d");
+  });
+
+  it("choosing None sends a literal null compare", async () => {
+    renderSheet(outputOf("chart", { ...CLEAN_CHART, compare: "7d" }));
+    await choose("None");
+    const config = await save();
+    expect("compare" in config).toBe(true);
+    expect(config.compare).toBeNull();
+  });
+
+  it("an untouched stored compare round-trips unchanged", async () => {
+    renderSheet(outputOf("chart", { ...CLEAN_CHART, compare: "30d" }));
+    expect((await save()).compare).toBe("30d");
+  });
+
+  it("keeps a stored previous_run and custom value as options", async () => {
+    renderSheet(outputOf("chart", { ...CLEAN_CHART, compare: "previous_run" }));
+    expect(await screen.findByRole("combobox", { name: "Compare" })).toHaveTextContent("Previous");
+    expect((await save()).compare).toBe("previous_run");
+  });
+
+  it("shows a stored custom value and saves it unchanged", async () => {
+    renderSheet(outputOf("chart", { ...CLEAN_CHART, compare: "custom:P3D" }));
+    expect(await screen.findByRole("combobox", { name: "Compare" })).toHaveTextContent(
+      "Custom (P3D)",
     );
-    expect(screen.queryByRole("combobox", { name: "Compare" })).toBeNull();
-    expect("compare" in (await save())).toBe(false);
+    expect((await save()).compare).toBe("custom:P3D");
+  });
+
+  it("offers no Previous option unless one is stored", async () => {
+    renderSheet(outputOf("chart", CLEAN_CHART));
+    fireEvent.click(await screen.findByRole("combobox", { name: "Compare" }));
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).queryByRole("option", { name: "Previous" })).toBeNull();
+    expect(within(listbox).getAllByRole("option")).toHaveLength(4);
+  });
+
+  it("links the fixed help text to the select", async () => {
+    renderSheet(outputOf("chart", CLEAN_CHART));
+    const select = await screen.findByRole("combobox", { name: "Compare" });
+    expect(select).toHaveAccessibleDescription(HELP);
+    expect(screen.getByText(HELP).textContent).not.toMatch(/previous/i);
+  });
+
+  it.each([
+    ["aggregated", { aggregation: { groupBy: "day", agg: "sum", yField: "amount" } }, /aggregates/],
+    ["series", { fieldMapping: { xAxis: "day", yAxis: "amount", series: "r" } }, /several series/],
+    ["unmapped", { fieldMapping: {} }, /doesn't name x and y/],
+    ["horizontal", { chartOptions: { bar: { orientation: "horizontal" } } }, /Horizontal bars/],
+    ["normalized", { chartOptions: { bar: { stacking: "normalized" } } }, /100% stacked/],
+  ])("shows the %s note when compare is set", async (_n, patch, text) => {
+    renderSheet(outputOf("chart", { ...CLEAN_CHART, ...patch, compare: "7d" }));
+    await screen.findByRole("combobox", { name: "Compare" });
+    const note = document.querySelector("#output-chart-compare-note");
+    expect(note?.textContent).toMatch(text);
+    expect(note?.textContent).not.toMatch(/previous/i);
+    expect(screen.getByRole("combobox", { name: "Compare" })).toHaveAccessibleDescription(
+      expect.stringContaining(note?.textContent ?? "missing"),
+    );
+  });
+
+  it("shows no note for a clean raw-rows line config or a pie chartType alone", async () => {
+    renderSheet(outputOf("chart", { ...CLEAN_CHART, chartType: "pie", compare: "7d" }));
+    await screen.findByRole("combobox", { name: "Compare" });
+    expect(document.querySelector("#output-chart-compare-note")).toBeNull();
+  });
+
+  it("shows no note for a clean raw-rows line Output at 7 days", async () => {
+    renderSheet(outputOf("chart", { ...CLEAN_CHART, compare: "7d" }));
+    await screen.findByRole("combobox", { name: "Compare" });
+    expect(document.querySelector("#output-chart-compare-note")).toBeNull();
+  });
+
+  const AGG = { aggregation: { groupBy: "day", agg: "sum", yField: "amount" } };
+
+  it("scatter with a leftover aggregation and a clean mapping shows no note", async () => {
+    renderSheet(outputOf("chart", { ...CLEAN_CHART, ...AGG, chartType: "scatter", compare: "7d" }));
+    await screen.findByRole("combobox", { name: "Compare" });
+    expect(document.querySelector("#output-chart-compare-note")).toBeNull();
+  });
+
+  it.each([
+    ["horizontal", { chartOptions: { bar: { orientation: "horizontal" } } }, /Horizontal bars/],
+    ["series", { fieldMapping: { xAxis: "day", yAxis: "amount", series: "r" } }, /several series/],
+    ["unmapped", { fieldMapping: {} }, /doesn't name x and y/],
+  ])(
+    "scatter with a leftover aggregation still shows the later %s note",
+    async (_n, patch, text) => {
+      renderSheet(
+        outputOf("chart", {
+          ...CLEAN_CHART,
+          ...AGG,
+          ...patch,
+          chartType: "scatter",
+          compare: "7d",
+        }),
+      );
+      await screen.findByRole("combobox", { name: "Compare" });
+      expect(document.querySelector("#output-chart-compare-note")?.textContent).toMatch(text);
+    },
+  );
+
+  it("shows no note when compare is None even if the Output is aggregated", async () => {
+    renderSheet(
+      outputOf("chart", {
+        ...CLEAN_CHART,
+        aggregation: { groupBy: "day", agg: "sum", yField: "amount" },
+      }),
+    );
+    await screen.findByRole("combobox", { name: "Compare" });
+    expect(document.querySelector("#output-chart-compare-note")).toBeNull();
+  });
+});
+
+describe("buildAggregateTailConfigs -- chart compare (HEL-1350)", () => {
+  it("a chart tail's Output config carries the picker value", () => {
+    const base = {
+      kind: "chart" as const,
+      groupBy: "day",
+      chartAggFn: "sum",
+      yField: "amount",
+      chartType: "bar" as const,
+      chartOptionsState: {},
+      annotationState: { mode: "field", literalValue: "" } as never,
+      metricField: "",
+      metricAggFn: "",
+      metricLabelState: { mode: "field" } as never,
+      metricUnitState: { mode: "field" } as never,
+      metricFormat: "number",
+    };
+    expect(
+      buildAggregateTailConfigs({ ...base, compare: "7d" }, undefined)?.outputConfig.compare,
+    ).toBe("7d");
+    expect(
+      buildAggregateTailConfigs({ ...base, compare: "none" }, undefined)?.outputConfig.compare,
+    ).toBeNull();
   });
 });
 
@@ -141,11 +289,10 @@ describe("buildAggregateTailConfigs -- compare (HEL-1275)", () => {
       metricFormat: "number",
     };
     expect(
-      buildAggregateTailConfigs({ ...base, metricCompare: "7d" }, undefined)?.outputConfig.compare,
+      buildAggregateTailConfigs({ ...base, compare: "7d" }, undefined)?.outputConfig.compare,
     ).toBe("7d");
     expect(
-      buildAggregateTailConfigs({ ...base, metricCompare: "none" }, undefined)?.outputConfig
-        .compare,
+      buildAggregateTailConfigs({ ...base, compare: "none" }, undefined)?.outputConfig.compare,
     ).toBeNull();
   });
 });

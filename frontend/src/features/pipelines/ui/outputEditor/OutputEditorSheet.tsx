@@ -41,6 +41,7 @@ import {
   selectNodeCapabilities,
   updateOutput,
 } from "../../state/outputsSlice";
+import { chartCompareBlocker } from "../../../panels/history/chartOverlay";
 import type { Output, OutputKind, OutputPanelPlacement } from "../../types/output";
 import type { AggregateConfig } from "../../types/pipelineStep";
 import { getOutputRows, listOutputPanels } from "../../services/outputService";
@@ -247,7 +248,7 @@ export function OutputEditorSheet({
     metricConfig.unit ?? "",
   );
   const [metricFormat, setMetricFormat] = useState<string>(metricConfig.format ?? "number");
-  const [metricCompare, setMetricCompare] = useState<string>(metricConfig.compare ?? "none");
+  const [compare, setCompare] = useState<string>(metricConfig.compare ?? "none");
 
   // Markdown
   // Literal-only (HEL-1139): a legacy `fieldMapping.content` is ignored on open
@@ -302,12 +303,19 @@ export function OutputEditorSheet({
       metricLabelState,
       metricUnitState,
       metricFormat,
-      metricCompare,
+      compare,
       markdownContent,
       collectionFieldMapping,
       collectionFormat,
       timelineFieldMapping,
     });
+  }
+
+  // Scatter never groups server-side (the sheet says aggregation isn't available there), so a
+  // leftover `aggregation` must not raise the "aggregated" reason; every other blocker still applies.
+  function compareBlockerInput(): Record<string, unknown> {
+    const cfg = buildConfig();
+    return chartType === "scatter" ? { ...cfg, aggregation: null } : cfg;
   }
 
   async function handleSave() {
@@ -391,7 +399,7 @@ export function OutputEditorSheet({
         metricLabelState,
         metricUnitState,
         metricFormat,
-        metricCompare,
+        compare,
       },
       capabilities,
     );
@@ -531,6 +539,9 @@ export function OutputEditorSheet({
               setChartOptionsState((prev) => ({ ...prev, scatter: { ...prev.scatter, ...patch } }))
             }
             annotationState={annotationState}
+            compareValue={compare}
+            onCompareChange={setCompare}
+            compareBlocker={chartCompareBlocker(compareBlockerInput())}
           />
         )}
         {kind === "table" && (
@@ -556,8 +567,8 @@ export function OutputEditorSheet({
             unitState={metricUnitState}
             formatValue={metricFormat}
             onFormatChange={setMetricFormat}
-            compareValue={metricCompare}
-            onCompareChange={setMetricCompare}
+            compareValue={compare}
+            onCompareChange={setCompare}
           />
         )}
         {kind === "markdown" && (
