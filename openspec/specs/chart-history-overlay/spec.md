@@ -57,10 +57,9 @@ A chart panel bound to an Output whose `config.compare` is set SHALL read that O
 
 ### Requirement: Compare picker on chart Outputs
 The Output editor SHALL offer a Compare selector on every chart Output, in both create and edit mode, regardless of
-chart type or config, with the options None, 1 day, 7 days and 30 days. Saving SHALL write `config.compare` as an
-explicit JSON `null` for None (never an omitted key) or `1d`, `7d`, `30d`; an existing `previous_run` or `custom:`
-value SHALL be shown as a selectable option and kept unchanged on save. The chart selector SHALL NOT introduce any
-"previous" or "previous run" option label or copy beyond displaying an already-stored `previous_run` value. When a
+chart type or config, with the options None, Previous, 1 day, 7 days and 30 days (the same options as metric Outputs).
+Saving SHALL write `config.compare` as an explicit JSON `null` for None (never an omitted key) or `previous_run`, `1d`,
+`7d`, `30d`; an existing `custom:` value SHALL be shown as a selectable option and kept unchanged on save. When a
 chart Output is created as an aggregate tail, its Output config SHALL carry the selector's value. The selector SHALL
 have fixed help text, programmatically associated with it, stating that the "vs" overlay does not show for Outputs
 with more than 200 rows, a panel under a viewer filter or cross-filter, or pie, scatter, multi-series, 100%-stacked or
@@ -79,6 +78,10 @@ overlay applies.
 #### Scenario: Choosing None clears a chart compare
 - **WHEN** a chart Output with `compare: "30d"` is saved with "None"
 - **THEN** the update payload's config contains `compare: null`
+
+#### Scenario: Choosing Previous on a chart Output persists
+- **WHEN** an author opens a line chart Output, selects "Previous" and saves
+- **THEN** the update payload's config contains `compare: "previous_run"`, listed once in the selector
 
 #### Scenario: Stored previous_run stays visible and clearable
 - **WHEN** a chart Output with `compare: "previous_run"` (set via API) is opened

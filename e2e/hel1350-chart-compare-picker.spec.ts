@@ -144,7 +144,8 @@ for (const theme of ["light", "dark"] as const) {
       await expect(picker).toBeVisible();
       await expect(picker).toHaveAccessibleDescription(/Adds a .vs. line or bars/);
       await picker.click();
-      await expect(page.getByRole("option", { name: "Previous" })).toHaveCount(0);
+      // HEL-1285: chart Outputs offer "Previous" (same list as metric Outputs), exactly once.
+      await expect(page.getByRole("option", { name: "Previous" })).toHaveCount(1);
       await page.getByRole("option", { name: "7 days" }).click();
       await page.screenshot({
         path: evidencePath("HEL-1350", `editor-compare-picker-${theme}.png`),

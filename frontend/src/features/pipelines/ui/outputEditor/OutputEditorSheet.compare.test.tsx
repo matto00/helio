@@ -165,12 +165,18 @@ describe("OutputEditorSheet -- chart Compare picker (HEL-1350)", () => {
     expect((await save()).compare).toBe("custom:P3D");
   });
 
-  it("offers no Previous option unless one is stored", async () => {
+  it("offers Previous exactly once, alongside the other five choices (HEL-1285)", async () => {
     renderSheet(outputOf("chart", CLEAN_CHART));
     fireEvent.click(await screen.findByRole("combobox", { name: "Compare" }));
     const listbox = await screen.findByRole("listbox");
-    expect(within(listbox).queryByRole("option", { name: "Previous" })).toBeNull();
-    expect(within(listbox).getAllByRole("option")).toHaveLength(4);
+    expect(within(listbox).getAllByRole("option", { name: "Previous" })).toHaveLength(1);
+    expect(within(listbox).getAllByRole("option")).toHaveLength(5);
+  });
+
+  it("choosing Previous persists compare: 'previous_run' (HEL-1285)", async () => {
+    renderSheet(outputOf("chart", CLEAN_CHART));
+    await choose("Previous");
+    expect((await save()).compare).toBe("previous_run");
   });
 
   it("links the fixed help text to the select", async () => {

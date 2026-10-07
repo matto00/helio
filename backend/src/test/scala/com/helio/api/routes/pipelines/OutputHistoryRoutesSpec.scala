@@ -177,7 +177,7 @@ class OutputHistoryRoutesSpec
   }
 
   "GET /outputs/:id/history -- previous_run" should {
-    "use the second-newest retained point (not the newest)" in {
+    "use the second-newest point (not the newest)" in {
       val (pid, oid) = seedMetricOutput(ownerId, Some("previous_run"))
       addPoint(oid, pid, ago(T, hours = 2), Some(10))
       addPoint(oid, pid, ago(T, hours = 1), Some(40))
