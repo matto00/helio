@@ -1,0 +1,12 @@
+--- open 1 truncated=true total /api requests=11 run-history GETs=1
+641ms GET /api/auth/me
+641ms GET /api/auth/me
+724ms GET /api/pipelines
+724ms GET /api/pipelines/8029d7db-5626-4790-a7d1-9d77db52f4c6
+726ms GET /api/pipelines/8029d7db-5626-4790-a7d1-9d77db52f4c6/steps
+726ms GET /api/pipelines/8029d7db-5626-4790-a7d1-9d77db52f4c6/analyze
+726ms GET /api/pipelines/8029d7db-5626-4790-a7d1-9d77db52f4c6/schedule
+726ms GET /api/pipelines/8029d7db-5626-4790-a7d1-9d77db52f4c6/outputs
+726ms GET /api/data-sources
+726ms GET /api/dashboards
+862ms GET /api/pipelines/8029d7db-5626-4790-a7d1-9d77db52f4c6/run-history

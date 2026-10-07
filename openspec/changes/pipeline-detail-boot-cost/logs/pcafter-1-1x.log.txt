@@ -1,0 +1,1 @@
+TTI post-create (create click -> Outputs tab shown) throttle=1x n=10 ms: min=260 p50=292 max=316 all=[260,293,285,293,292,316,306,291,295,292]

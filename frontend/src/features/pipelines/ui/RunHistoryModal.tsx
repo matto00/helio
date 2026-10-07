@@ -4,10 +4,12 @@ import "./RunHistoryModal.css";
 import type { AssertionSummary, PipelineRunRecord } from "../types/pipelineStep";
 import { Modal } from "../../../shared/ui/Modal";
 import { EmptyState } from "../../../shared/ui/EmptyState";
+import { PageStatus } from "../../../shared/ui/PageStatus";
 import { StatusChip } from "../../../shared/ui/StatusChip";
 import { TruncatedRowCountBadge } from "./TruncatedRowCountBadge";
 import { RotateCcwClock } from "lucide-react";
 import { triggerSourceLabel } from "../utils/triggerSourceLabel";
+import type { RunHistoryView } from "../hooks/useRunHistory";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
   if (!completedAt) return "—";
@@ -154,20 +156,33 @@ function RunRow({ run }: { run: PipelineRunRecord }) {
 
 interface RunHistoryModalProps {
   runs: PipelineRunRecord[];
+  /** HEL-1354: `fresh` = `runs` was loaded for this page open; otherwise the fetch is in flight
+   *  (`loading`) or has failed (`failed`) — neither may claim "No runs recorded yet". */
+  view: RunHistoryView;
+  onRetry: () => void;
   onClose: () => void;
 }
 
-export function RunHistoryModal({ runs, onClose }: RunHistoryModalProps) {
+export function RunHistoryModal({ runs, view, onRetry, onClose }: RunHistoryModalProps) {
   return (
     <Modal
       open
-      title={`Run history (${runs.length})`}
+      title={view === "fresh" ? `Run history (${runs.length})` : "Run history"}
       size="lg"
       ariaLabel="Run history"
       onClose={onClose}
     >
       <div className="run-history-modal__list">
-        {runs.length === 0 ? (
+        {view === "loading" ? (
+          <PageStatus status="loading" size="section" loadingLabel="Loading run history" />
+        ) : view === "failed" ? (
+          <PageStatus
+            status="failed"
+            size="section"
+            message="Couldn't load run history."
+            onRetry={onRetry}
+          />
+        ) : runs.length === 0 ? (
           <EmptyState
             variant="sidebar"
             icon={<RotateCcwClock />}

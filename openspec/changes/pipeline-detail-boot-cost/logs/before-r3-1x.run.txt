@@ -1,0 +1,40 @@
+
+Running 2 tests using 1 worker
+
+  ✓  1 e2e/zz-hel1354-measure.spec.ts:21:5 › outputs-tab TTI, direct goto + request count (47.0s)
+  ✘  2 e2e/zz-hel1354-measure.spec.ts:57:5 › outputs-tab TTI, post-create client navigation (6.7m)
+
+
+  1) e2e/zz-hel1354-measure.spec.ts:57:5 › outputs-tab TTI, post-create client navigation ──────────
+
+    [31mTest timeout of 400000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 400000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('tab', { name: /Outputs/ })[22m
+
+
+      80 |       `${new Date().toISOString()} label=postcreate-ui user=${s.email} pipeline=${id}\n`,
+      81 |     );
+    > 82 |     await page.getByRole("tab", { name: /Outputs/ }).click();
+         |                                                      ^
+      83 |     await expect(page.getByRole("tabpanel")).toHaveAttribute(
+      84 |       "id",
+      85 |       "pipeline-detail-page__tabpanel-outputs",
+        at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-measure.spec.ts:82:54
+
+    Error Context: test-results/zz-hel1354-measure-outputs-3b843-st-create-client-navigation/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/zz-hel1354-measure-outputs-3b843-st-create-client-navigation/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/zz-hel1354-measure-outputs-3b843-st-create-client-navigation/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  Slow test file: e2e/zz-hel1354-measure.spec.ts (7.5m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  1 failed
+    e2e/zz-hel1354-measure.spec.ts:57:5 › outputs-tab TTI, post-create client navigation ───────────
+  1 passed (7.5m)

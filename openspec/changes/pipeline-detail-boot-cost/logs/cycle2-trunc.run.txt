@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 e2e/zz-hel1354-probe.spec.ts:9:5 › boot request log (4.8s)
+
+  1 passed (5.2s)

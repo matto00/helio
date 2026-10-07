@@ -1,0 +1,3 @@
+TTI direct goto throttle=6x n=10 ms: min=4200 p50=4453 max=5710 all=[5710,4200,4540,4289,4550,4314,4453,4522,4734,4357]
+/api requests per open (to idle): [15,15,15,15,15,15,15,15,15,15]
+loadavg-end: 7.67 8.17 9.12 9/1263 698286

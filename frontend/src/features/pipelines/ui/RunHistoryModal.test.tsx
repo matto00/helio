@@ -50,7 +50,7 @@ describe("RunHistoryModal — HEL-576 assertion summary", () => {
         ],
       },
     });
-    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+    render(<RunHistoryModal runs={[run]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
 
     expect(screen.getByText(/2 passed/)).toBeInTheDocument();
     expect(screen.getByText(/1 error/)).toBeInTheDocument();
@@ -58,7 +58,7 @@ describe("RunHistoryModal — HEL-576 assertion summary", () => {
 
   it("renders no summary chip for a run with no assert steps (zero-valued summary)", () => {
     const run = makeRun({ assertions: emptyAssertions });
-    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+    render(<RunHistoryModal runs={[run]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
 
     expect(screen.queryByText(/passed/)).not.toBeInTheDocument();
   });
@@ -81,7 +81,7 @@ describe("RunHistoryModal — HEL-576 assertion summary", () => {
         ],
       },
     });
-    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+    render(<RunHistoryModal runs={[run]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
 
     expect(screen.queryByText("below minimum row count")).not.toBeInTheDocument();
 
@@ -105,7 +105,7 @@ describe("RunHistoryModal — HEL-576 assertion summary", () => {
         ],
       },
     });
-    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+    render(<RunHistoryModal runs={[run]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Show log" }));
 
@@ -116,7 +116,7 @@ describe("RunHistoryModal — HEL-576 assertion summary", () => {
 
   it("does not show an expand toggle for a succeeded run with no errorLog and no assertion failures", () => {
     const run = makeRun({ status: "succeeded", errorLog: null, assertions: emptyAssertions });
-    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+    render(<RunHistoryModal runs={[run]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
 
     expect(screen.queryByRole("button", { name: "Show log" })).not.toBeInTheDocument();
   });
@@ -124,7 +124,7 @@ describe("RunHistoryModal — HEL-576 assertion summary", () => {
 
 describe("RunHistoryModal — HEL sweep F-159/F-137", () => {
   it("renders the shared EmptyState primitive (not ad-hoc text) when there are no runs", () => {
-    render(<RunHistoryModal runs={[]} onClose={jest.fn()} />);
+    render(<RunHistoryModal runs={[]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
 
     expect(screen.getByText("No runs recorded yet")).toBeInTheDocument();
     expect(
@@ -134,7 +134,7 @@ describe("RunHistoryModal — HEL sweep F-159/F-137", () => {
 
   it("renders a sentence-cased status label via the shared StatusChip (not the raw lowercase status)", () => {
     const run = makeRun({ status: "succeeded" });
-    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+    render(<RunHistoryModal runs={[run]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
 
     expect(screen.getByText("Succeeded")).toBeInTheDocument();
     expect(screen.queryByText("succeeded")).not.toBeInTheDocument();
@@ -142,7 +142,7 @@ describe("RunHistoryModal — HEL sweep F-159/F-137", () => {
 
   it("labels a dry_run row as sentence-case 'Dry run'", () => {
     const run = makeRun({ status: "dry_run" });
-    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+    render(<RunHistoryModal runs={[run]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
 
     expect(screen.getByText("Dry run")).toBeInTheDocument();
   });
@@ -167,7 +167,14 @@ describe("RunHistoryModal — HEL-873 persisted truncation signal", () => {
       // not `null`, so this fixture matches a shape the backend can actually produce.
       truncation: { truncated: false, reads: [] },
     });
-    render(<RunHistoryModal runs={[truncatedRun, completeRun]} onClose={jest.fn()} />);
+    render(
+      <RunHistoryModal
+        runs={[truncatedRun, completeRun]}
+        view="fresh"
+        onRetry={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
 
     // Exactly one "Partial" marker -- the truncated run's, not the complete run's.
     expect(screen.getAllByText(/Partial/)).toHaveLength(1);
@@ -175,7 +182,7 @@ describe("RunHistoryModal — HEL-873 persisted truncation signal", () => {
 
   it("renders no marker for a not-recorded run (truncation absent) — never asserted as complete", () => {
     const run = makeRun({ truncation: undefined });
-    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+    render(<RunHistoryModal runs={[run]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
 
     expect(screen.queryByText(/Partial/)).not.toBeInTheDocument();
   });
@@ -189,7 +196,7 @@ describe("RunHistoryModal — HEL-873 persisted truncation signal", () => {
         notice: "cut",
       },
     });
-    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+    render(<RunHistoryModal runs={[run]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
 
     expect(
       screen.getByRole("img", { name: /Partial: this row count was truncated/ }),
@@ -205,7 +212,36 @@ describe("RunHistoryModal — trigger labels (HEL-1277)", () => {
     ["auto-run", "Auto-run"],
   ])("labels a %s run %s through the shared helper", (triggerSource, label) => {
     const run = makeRun({ triggerSource: triggerSource as PipelineRunRecord["triggerSource"] });
-    render(<RunHistoryModal runs={[run]} onClose={jest.fn()} />);
+    render(<RunHistoryModal runs={[run]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
     expect(screen.getByText(label)).toBeInTheDocument();
+  });
+});
+
+describe("RunHistoryModal — HEL-1354 loading and error states", () => {
+  it("shows a loading state with a count-free title, never 'No runs recorded yet', while fetching", () => {
+    render(<RunHistoryModal runs={[]} view="loading" onRetry={jest.fn()} onClose={jest.fn()} />);
+
+    expect(screen.getByText("Loading run history…")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Run history" })).toBeInTheDocument();
+    expect(screen.queryByText(/Run history \(/)).not.toBeInTheDocument();
+    expect(screen.queryByText("No runs recorded yet")).not.toBeInTheDocument();
+  });
+
+  it("shows an error state with Retry, a count-free title, and no 'No runs recorded yet', after a failure", () => {
+    const onRetry = jest.fn();
+    render(<RunHistoryModal runs={[]} view="failed" onRetry={onRetry} onClose={jest.fn()} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load run history.");
+    expect(screen.queryByText(/Run history \(/)).not.toBeInTheDocument();
+    expect(screen.queryByText("No runs recorded yet")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("titles a fresh list with its run count", () => {
+    render(
+      <RunHistoryModal runs={[makeRun()]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />,
+    );
+    expect(screen.getByText("Run history (1)")).toBeInTheDocument();
   });
 });

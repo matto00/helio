@@ -303,6 +303,10 @@ function makeStore(
         runError: pipelinesState.runError ?? null,
         runIsDry: pipelinesState.runIsDry ?? null,
         runHistory: pipelinesState.runHistory ?? {},
+        runHistoryStatus: {},
+        runHistoryRequestId: {},
+        runHistoryOpenId: {},
+        runHistoryLoadedOpenId: {},
         currentPipeline:
           "currentPipeline" in pipelinesState ? pipelinesState.currentPipeline : defaultPipeline,
         currentPipelineStatus: pipelinesState.currentPipelineStatus ?? "succeeded",
@@ -2165,49 +2169,53 @@ describe("PipelineDetailPage", () => {
   // THIS session — a fresh page load), the banner and the footer's partial marker must still
   // render from the PERSISTED signal (`currentPipeline.lastRunTruncated` + the most recent
   // `run-history` record's `truncation.notice`).
-  it("renders the persisted truncation banner and footer marker after a reload with empty Redux run state", () => {
+  it("renders the persisted truncation banner and footer marker after a reload with empty Redux run state", async () => {
     const persistedNotice =
       'Source "big-source" truncated: this run read the first 1000 rows returned, out of 3303 ' +
       "available, because of the 1000-row run cap.";
+    const truncatedPipeline = {
+      ...defaultPipeline,
+      lastRunStatus: "succeeded" as const,
+      lastRunAt: "2026-05-01T10:00:00Z",
+      lastRunRowCount: 1000,
+      lastRunTruncated: true,
+    };
+    // HEL-1354: the banner's history is fetched by the boot chain off THIS open's own pipeline
+    // response (`lastRunTruncated === true`), so it is mocked at the service, never seeded.
+    getPipelineByIdMock.mockResolvedValue(truncatedPipeline);
+    fetchRunHistoryMock.mockResolvedValue([
+      {
+        id: "run-1",
+        pipelineId: "pipe-1",
+        status: "succeeded",
+        startedAt: "2026-05-01T09:59:00Z",
+        completedAt: "2026-05-01T10:00:00Z",
+        rowCount: 1000,
+        errorLog: null,
+        triggerSource: "manual",
+        assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
+        truncation: {
+          truncated: true,
+          primaryAvailableRowCount: 3303,
+          reads: [{ dataSourceName: "big-source", rowsRead: 1000, availableRowCount: 3303 }],
+          notice: persistedNotice,
+        },
+      },
+    ]);
     const store = makeStore([], {
       // No live run state -- exactly what a fresh page load looks like.
       runSourceTruncated: false,
       runTruncationNotice: null,
-      currentPipeline: {
-        ...defaultPipeline,
-        lastRunStatus: "succeeded",
-        lastRunAt: "2026-05-01T10:00:00Z",
-        lastRunRowCount: 1000,
-        lastRunTruncated: true,
-      },
-      runHistory: {
-        "pipe-1": [
-          {
-            id: "run-1",
-            pipelineId: "pipe-1",
-            status: "succeeded",
-            startedAt: "2026-05-01T09:59:00Z",
-            completedAt: "2026-05-01T10:00:00Z",
-            rowCount: 1000,
-            errorLog: null,
-            triggerSource: "manual",
-            assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
-            truncation: {
-              truncated: true,
-              primaryAvailableRowCount: 3303,
-              reads: [{ dataSourceName: "big-source", rowsRead: 1000, availableRowCount: 3303 }],
-              notice: persistedNotice,
-            },
-          },
-        ],
-      },
+      currentPipeline: truncatedPipeline,
     });
     renderDetailPage("pipe-1", store);
 
     // The banner renders the recomposed, persisted notice.
-    expect(screen.getByRole("alert")).toHaveTextContent("truncated");
+    expect(await screen.findByRole("alert")).toHaveTextContent("truncated");
     // The footer's rows-written figure is marked partial.
     expect(screen.getAllByText(/Partial/).length).toBeGreaterThan(0);
+    // Exactly one history GET for this page open.
+    expect(fetchRunHistoryMock).toHaveBeenCalledTimes(1);
   });
 
   it("renders no truncation banner or marker for a not-recorded pipeline (lastRunTruncated absent)", () => {
@@ -2276,7 +2284,7 @@ describe("PipelineDetailPage", () => {
     expect(screen.getByRole("menuitem", { name: "Run history" })).toBeInTheDocument();
   });
 
-  it("run history modal shows runs from store after opening", () => {
+  it("run history modal shows runs from store after opening", async () => {
     const run: PipelineRunRecord = {
       id: "run-1",
       pipelineId: "pipe-1",
@@ -2288,13 +2296,15 @@ describe("PipelineDetailPage", () => {
       triggerSource: "manual",
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
-    renderDetailPage("pipe-1", store);
+    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    fetchRunHistoryMock.mockResolvedValue([run]);
+    renderDetailPage("pipe-1");
     openRunHistory();
+    await waitFor(() => expect(screen.queryByText("Loading run history…")).not.toBeInTheDocument());
     expect(screen.getByText("42 rows")).toBeInTheDocument();
   });
 
-  it("run history modal shows a Manual badge for a manual run", () => {
+  it("run history modal shows a Manual badge for a manual run", async () => {
     const run: PipelineRunRecord = {
       id: "run-manual-1",
       pipelineId: "pipe-1",
@@ -2306,13 +2316,15 @@ describe("PipelineDetailPage", () => {
       triggerSource: "manual",
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
-    renderDetailPage("pipe-1", store);
+    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    fetchRunHistoryMock.mockResolvedValue([run]);
+    renderDetailPage("pipe-1");
     openRunHistory();
+    await waitFor(() => expect(screen.queryByText("Loading run history…")).not.toBeInTheDocument());
     expect(screen.getByText("Manual")).toBeInTheDocument();
   });
 
-  it("run history modal shows a Scheduled badge for a scheduled run", () => {
+  it("run history modal shows a Scheduled badge for a scheduled run", async () => {
     const run: PipelineRunRecord = {
       id: "run-scheduled-1",
       pipelineId: "pipe-1",
@@ -2324,9 +2336,11 @@ describe("PipelineDetailPage", () => {
       triggerSource: "scheduled",
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
-    renderDetailPage("pipe-1", store);
+    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    fetchRunHistoryMock.mockResolvedValue([run]);
+    renderDetailPage("pipe-1");
     openRunHistory();
+    await waitFor(() => expect(screen.queryByText("Loading run history…")).not.toBeInTheDocument());
     expect(screen.getByText("Scheduled")).toBeInTheDocument();
   });
 
@@ -2342,18 +2356,21 @@ describe("PipelineDetailPage", () => {
       triggerSource: "scheduled",
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
-    renderDetailPage("pipe-1", store);
+    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    fetchRunHistoryMock.mockResolvedValue([run]);
+    renderDetailPage("pipe-1");
     openRunHistory();
+    await waitFor(() => expect(screen.queryByText("Loading run history…")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Show log" }));
     expect(screen.getByText("out of memory error")).toBeInTheDocument();
   });
 
-  it("dispatches fetchPipelineRunHistory on mount", async () => {
+  it("does not fetch run history on mount when nothing on first paint needs it", async () => {
     renderDetailPage("pipe-1");
-    await waitFor(() => {
-      expect(fetchRunHistoryMock).toHaveBeenCalledWith("pipe-1");
-    });
+    await waitFor(() => expect(getPipelineByIdMock).toHaveBeenCalledWith("pipe-1"));
+    // Let the pipeline response (and the chain that would key off it) settle.
+    await waitFor(() => expect(screen.getByText("Run pipeline")).toBeInTheDocument());
+    expect(fetchRunHistoryMock).not.toHaveBeenCalled();
   });
 
   it("meta bar is absent when currentPipeline.lastRunAt is null", () => {
@@ -3062,11 +3079,10 @@ describe("PipelineDetailPage Run button (HEL-196)", () => {
   // 2.4 — Clicking Run dispatches submitPipelineRun then fetchPipelineRunHistory
   it("clicking Run dispatches submitPipelineRun and then fetchPipelineRunHistory", async () => {
     renderDetailPage("pipe-1");
-
-    // Wait for the on-mount fetchPipelineRunHistory dispatch to settle
-    await waitFor(() => {
-      expect(fetchRunHistoryMock).toHaveBeenCalledWith("pipe-1");
-    });
+    // HEL-1354: nothing fetches run history on mount, so the post-run refresh is the first (and
+    // only) call.
+    await waitFor(() => expect(getPipelineByIdMock).toHaveBeenCalledWith("pipe-1"));
+    expect(fetchRunHistoryMock).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
 
@@ -3074,10 +3090,11 @@ describe("PipelineDetailPage Run button (HEL-196)", () => {
       expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", undefined);
     });
 
-    // fetchPipelineRunHistory should be called again after the run succeeds
+    // fetchPipelineRunHistory is called after the run succeeds
     await waitFor(() => {
-      expect(fetchRunHistoryMock).toHaveBeenCalledTimes(2);
+      expect(fetchRunHistoryMock).toHaveBeenCalledTimes(1);
     });
+    expect(fetchRunHistoryMock).toHaveBeenCalledWith("pipe-1");
   });
 });
 
@@ -3346,7 +3363,7 @@ describe("PipelineDetailPage dry-run (HEL-197)", () => {
     expect(screen.getByRole("button", { name: "Dry run" })).toBeEnabled();
   });
 
-  it("run history shows 'Dry run' badge for status=dry_run", () => {
+  it("run history shows 'Dry run' badge for status=dry_run", async () => {
     const dryRun: PipelineRunRecord = {
       id: "run-dry-1",
       pipelineId: "pipe-1",
@@ -3358,9 +3375,11 @@ describe("PipelineDetailPage dry-run (HEL-197)", () => {
       triggerSource: "manual",
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    const store = makeStore([], { runHistory: { "pipe-1": [dryRun] } });
-    renderDetailPage("pipe-1", store);
+    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    fetchRunHistoryMock.mockResolvedValue([dryRun]);
+    renderDetailPage("pipe-1");
     openRunHistory();
+    await waitFor(() => expect(screen.queryByText("Loading run history…")).not.toBeInTheDocument());
     // HEL sweep F-137: the run-history status badge is now the shared
     // `StatusChip` primitive (`.ui-status-chip--neutral.ui-status-chip--
     // dashed`), not the bespoke `.run-history-modal__status--dry_run` class.
@@ -3485,7 +3504,7 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
   });
 
   // 3.8c — history modal status badge uses --running class
-  it("history modal status badge renders with --running class for running status", () => {
+  it("history modal status badge renders with --running class for running status", async () => {
     const run = {
       id: "run-hist-1",
       pipelineId: "pipe-1",
@@ -3497,16 +3516,18 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
       triggerSource: "manual" as const,
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
-    renderDetailPage("pipe-1", store);
+    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    fetchRunHistoryMock.mockResolvedValue([run]);
+    renderDetailPage("pipe-1");
     openRunHistory();
+    await waitFor(() => expect(screen.queryByText("Loading run history…")).not.toBeInTheDocument());
     // HEL sweep F-137: shared `StatusChip` primitive, accent intent.
     const badge = screen.getByText("Running…");
     expect(badge).toHaveClass("ui-status-chip", "ui-status-chip--accent");
   });
 
   // 3.8d — history modal status badge uses --queued class
-  it("history modal status badge renders with --queued class for queued status", () => {
+  it("history modal status badge renders with --queued class for queued status", async () => {
     const run = {
       id: "run-hist-2",
       pipelineId: "pipe-1",
@@ -3518,9 +3539,11 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
       triggerSource: "manual" as const,
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    const store = makeStore([], { runHistory: { "pipe-1": [run] } });
-    renderDetailPage("pipe-1", store);
+    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    fetchRunHistoryMock.mockResolvedValue([run]);
+    renderDetailPage("pipe-1");
     openRunHistory();
+    await waitFor(() => expect(screen.queryByText("Loading run history…")).not.toBeInTheDocument());
     // HEL sweep F-137: shared `StatusChip` primitive, accent intent.
     const badge = screen.getByText("Queued…");
     expect(badge).toHaveClass("ui-status-chip", "ui-status-chip--accent");

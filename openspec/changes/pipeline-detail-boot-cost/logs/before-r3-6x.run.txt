@@ -1,0 +1,38 @@
+
+Running 2 tests using 1 worker
+
+  ✓  1 e2e/zz-hel1354-measure.spec.ts:21:5 › outputs-tab TTI, direct goto + request count (1.3m)
+  ✘  2 e2e/zz-hel1354-measure.spec.ts:57:5 › outputs-tab TTI, post-create client navigation (6.7m)
+
+
+  1) e2e/zz-hel1354-measure.spec.ts:57:5 › outputs-tab TTI, post-create client navigation ──────────
+
+    [31mTest timeout of 400000ms exceeded.[39m
+
+    Error: apiRequestContext._wrapApiCall: ENOENT: no such file or directory, copyfile '/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/.playwright-artifacts-0/traces/de72f10f9a2bb2ca2c20-c71e4b224a7e897cdfe6-recording1.network' -> '/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/.playwright-artifacts-0/traces/de72f10f9a2bb2ca2c20-c71e4b224a7e897cdfe6-recording1-pwnetcopy-1.network'
+
+    Error: locator.click: Test ended.
+    Call log:
+    [2m  - waiting for getByRole('tab', { name: /Outputs/ })[22m
+
+
+      80 |       `${new Date().toISOString()} label=postcreate-ui user=${s.email} pipeline=${id}\n`,
+      81 |     );
+    > 82 |     await page.getByRole("tab", { name: /Outputs/ }).click();
+         |                                                      ^
+      83 |     await expect(page.getByRole("tabpanel")).toHaveAttribute(
+      84 |       "id",
+      85 |       "pipeline-detail-page__tabpanel-outputs",
+        at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-measure.spec.ts:82:54
+
+    Error: ENOENT: no such file or directory, open '/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/.playwright-artifacts-0/6a2a1381bc1cbf5a1f585d4d53367b2a.zip'
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error Context: test-results/zz-hel1354-measure-outputs-3b843-st-create-client-navigation/error-context.md
+
+  Slow test file: e2e/zz-hel1354-measure.spec.ts (8.0m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  1 failed
+    e2e/zz-hel1354-measure.spec.ts:57:5 › outputs-tab TTI, post-create client navigation ───────────
+  1 passed (8.5m)

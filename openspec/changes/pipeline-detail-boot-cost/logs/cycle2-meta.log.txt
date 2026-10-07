@@ -1,0 +1,10 @@
+SHA=45c1800c5 dirty-frontend-files=0 product-sha256: 0e25d2c5adca 9121eceba287 5d2d57fb2353 dd2f08a18031 1086fb99b825 
+[requests-nontrunc] loadavg-start: 6.28 5.83 6.04 5/1111 880504
+loadavg-end: 6.26 5.84 6.04 6/1132 880734
+[requests-trunc] loadavg-start: 6.26 5.84 6.04 6/1132 880735
+loadavg-end: 6.23 5.84 6.04 5/1123 880903
+[tti-1x] loadavg-start: 6.23 5.84 6.04 5/1123 880904
+loadavg-end: 3.68 5.21 5.81 1/1035 882190
+[tti-6x] loadavg-start: 3.68 5.21 5.81 1/1035 882191
+loadavg-end: 1.93 4.32 5.45 3/1041 884964
+ALLDONE

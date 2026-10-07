@@ -1,0 +1,231 @@
+
+Running 20 tests using 2 workers
+
+  ✘   1 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (31.3s)
+  ✘   2 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (31.4s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✘   3 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (30.7s)
+  ✘   4 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (31.0s)
+  ✘   5 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (30.7s)
+  ✘   6 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (31.3s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓   7 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (27.3s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓   8 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (26.7s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓   9 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (28.3s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓  10 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (28.4s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓  11 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (29.5s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓  12 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (28.9s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓  14 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (29.0s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓  13 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (29.2s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓  15 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (28.5s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓  16 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (29.6s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓  17 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (28.9s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓  18 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (28.7s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓  19 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (29.9s)
+HEL-910 flow: 28 interactions (see file header note on the budget).
+  ✓  20 e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard (29.1s)
+
+
+  1) e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeHidden[2m()[22m failed
+
+    Locator:  getByRole('dialog', { name: 'Add panel' })
+    Expected: hidden
+    Received: visible
+
+    Call log:
+    [2m  - Expect "toBeHidden" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('dialog', { name: 'Add panel' })[22m
+    [2m    2 × locator resolved to <dialog open="" aria-label="Add panel" class="ui-modal ui-modal--lg output-picker">…</dialog>[22m
+    [2m      - unexpected value "visible"[22m
+
+
+      206 |       await expect(picker).toBeVisible();
+      207 |       await io.click(picker.getByRole("option", { name: new RegExp(`^${outputName}`) }));
+    > 208 |       await expect(picker).toBeHidden();
+          |                            ^
+      209 |     }
+      210 |
+      211 |     await expect(page.locator(".react-grid-item")).toHaveCount(3);
+        at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:208:28
+
+    Error Context: test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  locator('.react-grid-item')
+    Expected: [32m3[39m
+    Received: [31mundefined[39m
+
+    Call log:
+    [2m  - Expect "toHaveCount" with timeout 5000ms[22m
+    [2m  - waiting for locator('.react-grid-item')[22m
+
+
+      209 |     }
+      210 |
+    > 211 |     await expect(page.locator(".react-grid-item")).toHaveCount(3);
+          |                                                    ^
+      212 |
+      213 |     console.log(`HEL-910 flow: ${io.count} interactions (see file header note on the budget).`);
+      214 |     // 30 is a measured regression ceiling, NOT the design target -- see the
+        at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:211:52
+
+    Error Context: test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error Context: test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat2/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat2/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat2/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeHidden[2m()[22m failed
+
+    Locator:  getByRole('dialog', { name: 'Add panel' })
+    Expected: hidden
+    Received: undefined
+
+    Call log:
+    [2m  - Expect "toBeHidden" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('dialog', { name: 'Add panel' })[22m
+
+
+      206 |       await expect(picker).toBeVisible();
+      207 |       await io.click(picker.getByRole("option", { name: new RegExp(`^${outputName}`) }));
+    > 208 |       await expect(picker).toBeHidden();
+          |                            ^
+      209 |     }
+      210 |
+      211 |     await expect(page.locator(".react-grid-item")).toHaveCount(3);
+        at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:208:28
+
+    Error Context: test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat3/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat3/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat3/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('button', { name: 'Dashboard actions', exact: true })[22m
+
+
+      88 |   return {
+      89 |     async click(locator: import("@playwright/test").Locator) {
+    > 90 |       await locator.click();
+         |                     ^
+      91 |       count += 1;
+      92 |     },
+      93 |     async enter() {
+        at Object.click (/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:90:21)
+        at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:202:18
+
+    Error Context: test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat4/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat4/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat4/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeHidden[2m()[22m failed
+
+    Locator:  getByRole('dialog', { name: 'Add panel' })
+    Expected: hidden
+    Received: visible
+
+    Call log:
+    [2m  - Expect "toBeHidden" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('dialog', { name: 'Add panel' })[22m
+    [2m    2 × locator resolved to <dialog open="" aria-label="Add panel" class="ui-modal ui-modal--lg output-picker">…</dialog>[22m
+    [2m      - unexpected value "visible"[22m
+
+
+      206 |       await expect(picker).toBeVisible();
+      207 |       await io.click(picker.getByRole("option", { name: new RegExp(`^${outputName}`) }));
+    > 208 |       await expect(picker).toBeHidden();
+          |                            ^
+      209 |     }
+      210 |
+      211 |     await expect(page.locator(".react-grid-item")).toHaveCount(3);
+        at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:208:28
+
+    Error Context: test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat5/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat5/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat5/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6 failed
+    e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+    e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+    e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+    e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+    e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+    e2e/zz-hel1354-throttle-hel910.spec.ts:104:7 › HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) › New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard 
+  14 passed (5.0m)

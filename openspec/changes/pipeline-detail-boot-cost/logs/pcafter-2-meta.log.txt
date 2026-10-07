@@ -1,0 +1,5 @@
+[pcafter-2] frontend-diff-files=7 70b063a47
+[pcafter-2 1x] loadavg-start: 7.85 7.44 7.33 6/1176 747789
+[pcafter-2 1x] loadavg-end: 8.35 7.59 7.39 8/1168 748732
+[pcafter-2 6x] loadavg-start: 8.35 7.59 7.39 8/1168 748733
+[pcafter-2 6x] loadavg-end: 8.20 7.70 7.44 7/1149 749657

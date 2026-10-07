@@ -1,3 +1,5 @@
+import { configureStore } from "@reduxjs/toolkit";
+
 import {
   analyzePipeline,
   applyPipelineProposal,
@@ -113,6 +115,10 @@ describe("pipelinesSlice", () => {
       runError: null,
       runIsDry: null,
       runHistory: {},
+      runHistoryStatus: {},
+      runHistoryRequestId: {},
+      runHistoryOpenId: {},
+      runHistoryLoadedOpenId: {},
       currentPipeline: null,
       currentPipelineStatus: "idle" as const,
       currentPipelineError: null,
@@ -475,81 +481,153 @@ describe("fetchPipelineRunHistory", () => {
     fetchRunHistoryMock.mockReset();
   });
 
-  it("stores run history keyed by pipelineId on fulfilled", () => {
-    const nextState = pipelinesReducer(
-      undefined,
-      fetchPipelineRunHistory.fulfilled(
-        { pipelineId: "p-1", records: [sampleRun] },
-        "req-1",
-        "p-1",
-      ),
-    );
-    expect(nextState.runHistory["p-1"]).toHaveLength(1);
-    expect(nextState.runHistory["p-1"][0].id).toBe("run-1");
-    expect(nextState.runHistory["p-1"][0].rowCount).toBe(42);
-  });
+  // The thunk's `condition` reads the full `RootState`; this slice-only store is cast to the narrow
+  // surface the tests use (`dispatch` of a thunk, `getState().pipelines`).
+  function makeHistoryStore() {
+    return configureStore({ reducer: { pipelines: pipelinesReducer } }) as unknown as {
+      dispatch: (action: unknown) => Promise<unknown>;
+      getState: () => { pipelines: ReturnType<typeof pipelinesReducer> };
+    };
+  }
 
-  it("replaces existing history for the same pipeline on re-fetch", () => {
-    const initialState = pipelinesReducer(
-      undefined,
-      fetchPipelineRunHistory.fulfilled(
-        { pipelineId: "p-1", records: [sampleRun] },
-        "req-1",
-        "p-1",
-      ),
-    );
-    const updatedRun = { ...sampleRun, id: "run-2", rowCount: 99 };
-    const nextState = pipelinesReducer(
-      initialState,
-      fetchPipelineRunHistory.fulfilled(
-        { pipelineId: "p-1", records: [updatedRun] },
-        "req-2",
-        "p-1",
-      ),
-    );
-    expect(nextState.runHistory["p-1"]).toHaveLength(1);
-    expect(nextState.runHistory["p-1"][0].id).toBe("run-2");
-  });
+  /** A promise the test resolves/rejects by hand, to control response ORDER. */
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
 
-  it("does not affect runHistory on rejected", () => {
-    const nextState = pipelinesReducer(
-      undefined,
-      fetchPipelineRunHistory.rejected(null, "req-1", "p-1", "Failed to load run history."),
-    );
-    expect(nextState.runHistory).toEqual({});
-  });
-
-  it("dispatches fulfilled with records on success", async () => {
+  it("stores run history keyed by pipelineId, with its open token, on fulfilled", async () => {
     fetchRunHistoryMock.mockResolvedValueOnce([sampleRun]);
-
-    const dispatch = jest.fn();
-    const getState = jest.fn();
-    const thunk = fetchPipelineRunHistory("p-1");
-
-    await thunk(dispatch, getState, undefined);
-
-    const calls = dispatch.mock.calls as Array<[{ type: string; payload?: unknown }]>;
-    const fulfilledCall = calls.find(
-      ([action]) => action.type === "pipelines/fetchPipelineRunHistory/fulfilled",
-    );
-    expect(fulfilledCall).toBeDefined();
-    expect(fulfilledCall?.[0].payload).toEqual({ pipelineId: "p-1", records: [sampleRun] });
+    const store = makeHistoryStore();
+    await store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 7 }));
+    const state = store.getState().pipelines;
+    expect(state.runHistory["p-1"]).toHaveLength(1);
+    expect(state.runHistory["p-1"][0].rowCount).toBe(42);
+    expect(state.runHistoryStatus["p-1"]).toBe("succeeded");
+    expect(state.runHistoryLoadedOpenId["p-1"]).toBe(7);
   });
 
-  it("dispatches rejected on service error", async () => {
+  it("replaces existing history for the same pipeline on re-fetch", async () => {
+    fetchRunHistoryMock
+      .mockResolvedValueOnce([sampleRun])
+      .mockResolvedValueOnce([{ ...sampleRun, id: "run-2", rowCount: 99 }]);
+    const store = makeHistoryStore();
+    await store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    await store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    expect(fetchRunHistoryMock).toHaveBeenCalledTimes(2);
+    expect(store.getState().pipelines.runHistory["p-1"]).toHaveLength(1);
+    expect(store.getState().pipelines.runHistory["p-1"][0].id).toBe("run-2");
+  });
+
+  it("marks the pipeline failed, leaves runHistory untouched, on a service error", async () => {
     fetchRunHistoryMock.mockRejectedValueOnce(new Error("network error"));
+    const store = makeHistoryStore();
+    await store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    const state = store.getState().pipelines;
+    expect(state.runHistory).toEqual({});
+    expect(state.runHistoryStatus["p-1"]).toBe("failed");
+    expect(state.runHistoryLoadedOpenId["p-1"]).toBeUndefined();
+  });
 
-    const dispatch = jest.fn();
-    const getState = jest.fn();
-    const thunk = fetchPipelineRunHistory("p-1");
+  it("concurrent dispatches for one pipeline and one page open fetch once", async () => {
+    const d = deferred<(typeof sampleRun)[]>();
+    fetchRunHistoryMock.mockReturnValueOnce(d.promise);
+    const store = makeHistoryStore();
+    const first = store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    const second = store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    d.resolve([sampleRun]);
+    await Promise.all([first, second]);
+    expect(fetchRunHistoryMock).toHaveBeenCalledTimes(1);
+  });
 
-    await thunk(dispatch, getState, undefined);
+  it("does not dedupe across pipelines", async () => {
+    const d = deferred<(typeof sampleRun)[]>();
+    fetchRunHistoryMock.mockReturnValueOnce(d.promise).mockResolvedValueOnce([]);
+    const store = makeHistoryStore();
+    const a = store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    const b = store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-2", openId: 1 }));
+    d.resolve([sampleRun]);
+    await Promise.all([a, b]);
+    expect(fetchRunHistoryMock).toHaveBeenCalledTimes(2);
+    expect(fetchRunHistoryMock).toHaveBeenCalledWith("p-1");
+    expect(fetchRunHistoryMock).toHaveBeenCalledWith("p-2");
+  });
 
-    const calls = dispatch.mock.calls as Array<[{ type: string }]>;
-    const rejectedCall = calls.find(
-      ([action]) => action.type === "pipelines/fetchPipelineRunHistory/rejected",
+  it("does not dedupe across page opens of the same pipeline", async () => {
+    const d = deferred<(typeof sampleRun)[]>();
+    fetchRunHistoryMock.mockReturnValueOnce(d.promise).mockResolvedValueOnce([]);
+    const store = makeHistoryStore();
+    const a = store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    const b = store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 2 }));
+    d.resolve([sampleRun]);
+    await Promise.all([a, b]);
+    expect(fetchRunHistoryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("fetches again after the previous request completed", async () => {
+    fetchRunHistoryMock.mockResolvedValue([]);
+    const store = makeHistoryStore();
+    await store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    await store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    expect(fetchRunHistoryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("force bypasses the in-flight dedupe", async () => {
+    const d = deferred<(typeof sampleRun)[]>();
+    fetchRunHistoryMock.mockReturnValueOnce(d.promise).mockResolvedValueOnce([]);
+    const store = makeHistoryStore();
+    const a = store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    const b = store.dispatch(
+      fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1, force: true }),
     );
-    expect(rejectedCall).toBeDefined();
+    d.resolve([sampleRun]);
+    await Promise.all([a, b]);
+    expect(fetchRunHistoryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("an older response never overwrites a newer one", async () => {
+    const older = deferred<(typeof sampleRun)[]>();
+    const newer = deferred<(typeof sampleRun)[]>();
+    fetchRunHistoryMock.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+    const store = makeHistoryStore();
+    const a = store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    const b = store.dispatch(
+      fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1, force: true }),
+    );
+    // The newer request lands first, then the older one arrives last.
+    newer.resolve([{ ...sampleRun, id: "newer" }]);
+    await b;
+    older.resolve([{ ...sampleRun, id: "older" }]);
+    await a;
+    expect(store.getState().pipelines.runHistory["p-1"].map((r) => r.id)).toEqual(["newer"]);
+    expect(store.getState().pipelines.runHistoryStatus["p-1"]).toBe("succeeded");
+  });
+
+  it("an older response that fails never marks a newer success failed", async () => {
+    const older = deferred<(typeof sampleRun)[]>();
+    fetchRunHistoryMock.mockReturnValueOnce(older.promise).mockResolvedValueOnce([sampleRun]);
+    const store = makeHistoryStore();
+    const a = store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    await store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1, force: true }));
+    older.reject(new Error("late failure"));
+    await a;
+    expect(store.getState().pipelines.runHistoryStatus["p-1"]).toBe("succeeded");
+  });
+
+  it("a late response of an earlier page open records its own (older) open token", async () => {
+    const d = deferred<(typeof sampleRun)[]>();
+    fetchRunHistoryMock.mockReturnValueOnce(d.promise);
+    const store = makeHistoryStore();
+    const a = store.dispatch(fetchPipelineRunHistory({ pipelineId: "p-1", openId: 1 }));
+    d.resolve([sampleRun]);
+    await a;
+    // Nothing was issued for open 2, so the loaded token is open 1's: not fresh for open 2.
+    expect(store.getState().pipelines.runHistoryLoadedOpenId["p-1"]).toBe(1);
   });
 });
 
