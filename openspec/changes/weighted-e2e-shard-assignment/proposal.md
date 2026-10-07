@@ -29,7 +29,7 @@ contrast guard (18 tests at ~15 s each) lands wholly on shard 4, which carries ~
 
 ## Non-goals
 
-- The `Install Playwright browsers` (`--with-deps`, apt) duration spikes that cause the largest leg-max outliers on
+- (HEL-1368) The `Install Playwright browsers` (`--with-deps`, apt) duration spikes that cause the largest leg-max outliers on
   every shard — a separate cause, candidate follow-up.
 - Changing the leg count (capped at 4, MISTAKES.md), Playwright `workers`, or speeding up individual specs.
 - Changing a bare local `npm run e2e`.

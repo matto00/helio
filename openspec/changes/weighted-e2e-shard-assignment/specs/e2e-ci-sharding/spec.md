@@ -39,9 +39,21 @@ weight. The table SHALL be regenerable from CI artifacts by a documented command
 
 ### Requirement: e2e shard balance is measured in CI
 A change to e2e shard assignment SHALL report, from at least five sequential CI runs measured through the GitHub API,
-each leg's median and maximum duration (whole leg and test step), before and after the change. No leg's median whole-leg
-duration SHALL be near the 420 s leg target after the change.
+each leg's median and maximum duration (whole leg and test step), before and after the change, and the leg imbalance:
+the slowest leg's median test-step duration minus the mean of all legs' median test-step durations. A run counts toward
+any measured set only if every e2e leg succeeded and every leg's test report is present. The after imbalance SHALL be
+at most 15 s and SHALL be lower than both the imbalance of the 25 most recent counting runs before the change and the
+imbalance of a same-window control of at least five counting runs on other heads still using count-based sharding.
 
 #### Scenario: Before/after report
 - **WHEN** the change is delivered
 - **THEN** its profile lists per-leg medians and maxima before and after, with the run ids measured
+
+#### Scenario: Balance improves
+- **WHEN** the after runs are compared with the before runs
+- **THEN** the leg imbalance (slowest leg's median test step minus the mean of the legs' median test steps) is at most
+  15 s and lower than both the 25-run before imbalance and the same-window control imbalance
+
+#### Scenario: An incomplete run is excluded
+- **WHEN** a measured run has a leg that hung, was cancelled, failed, or produced no test report
+- **THEN** the run is recorded with its logs but excluded from weight generation and from every measured set
