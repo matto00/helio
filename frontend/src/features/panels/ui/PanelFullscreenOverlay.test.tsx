@@ -84,7 +84,6 @@ const basePanelDataProps = {
   errorKind: null,
   noData: false,
   neverMaterialized: false,
-  chartAggregate: null,
   rowsTruncated: false,
   refresh: jest.fn(),
   // HEL-572 — non-chart-eligible for this file's existing markdown/output

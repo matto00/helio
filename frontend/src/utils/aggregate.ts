@@ -89,6 +89,9 @@ export function computeAggregate(
 export interface GroupedAggregate {
   categories: string[];
   values: number[];
+  /** HEL-1351 design D4a — the plotted series' name (`<agg>(<yField>)`), so a shown legend and the
+   *  tooltip name the primary series. Absent → the series is unnamed. */
+  seriesName?: string;
 }
 
 /** Group `rows` by `groupBy` and compute one `agg(yField)` per group, using

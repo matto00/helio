@@ -42,7 +42,8 @@ import type {
   PanelPaginationState,
   SelectionDescriptor,
 } from "../types/panel";
-import { resolveChartType } from "../../../utils/chartAppearance";
+import { resolvePanelChartType } from "./resolvePanelChartType";
+import { chartAggregationSpec } from "../history/chartOverlay";
 import type { ChartClickSelection, ChartInspectConfig } from "../../../utils/chartClickSelection";
 import { GripVertical, Maximize2, RotateCw } from "lucide-react";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
@@ -85,7 +86,8 @@ export function getPanelCardStyle(
 // hook itself, so both callers share one `inFlightRef`/`refreshToken` state
 // tree per panel instead of racing two independent ones.
 
-interface PanelCardBodyProps extends Omit<PanelDataResult, "isRefreshing"> {
+// `paginationRows` is omitted: the body reads its own `paginationEntry` (see below).
+interface PanelCardBodyProps extends Omit<PanelDataResult, "isRefreshing" | "paginationRows"> {
   panel: Panel;
   /** When true the body short-circuits and renders nothing (drag-freeze). */
   frozen: boolean;
@@ -139,7 +141,6 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   errorKind,
   noData,
   neverMaterialized,
-  chartAggregate,
   rowsTruncated,
   refresh,
   compact,
@@ -334,7 +335,6 @@ export const PanelCardBody = React.memo(function PanelCardBody({
         // or the inversion this task fixes just relocates to the surface
         // whichever call site is missed.
         rowsTruncated={rowsTruncated}
-        chartAggregate={chartAggregate}
         compact={compact}
         onDataPointSelect={onDataPointSelect}
         onSortChange={handleSortChange}
@@ -458,12 +458,20 @@ export const PanelCard = React.memo(function PanelCard({
   const chartInspectConfig: ChartInspectConfig | null = useMemo(() => {
     if (output?.kind !== "chart") return null;
     const cfg = readChartConfig(output.config);
+    // HEL-1351 design D7 — the same resolver `ChartOutputPanel` renders with, so click mapping and
+    // Inspect filtering agree with what is drawn; D3 — a scatter-resolved panel renders raw rows.
+    const chartType = resolvePanelChartType(panel.appearance.chart, output.config);
     return {
-      chartType: resolveChartType(panel.appearance.chart),
+      chartType,
       fieldMapping: cfg.fieldMapping,
       scatterOptions: cfg.chartOptions?.scatter,
+      // Only while the chart actually plots the grouped aggregate (it needs the loaded records).
+      aggregation:
+        chartType === "scatter" || !panelData.paginationRows
+          ? null
+          : chartAggregationSpec(output.config),
     };
-  }, [output, panel.appearance.chart]);
+  }, [output, panel.appearance.chart, panelData.paginationRows]);
 
   // HEL-588 design.md D4 / evaluation-1.md CR1 (cycle 2) / skeptic-final-1.md
   // CR1 (cycle 3) / evaluation-3.md CR1 (cycle 3) — the ALREADY
@@ -503,8 +511,18 @@ export const PanelCard = React.memo(function PanelCard({
   // ONLY on the fallback: on the server path the shared paginationState is already narrowed) and
   // threaded to the fullscreen overlay, which never resolves an Output itself.
   const { mode: crossFilterMode } = useCrossFilterServerOps(panel, output);
-  const { rawRows: crossFilteredRawRows, headers: crossFilteredHeaders } =
-    useCrossFilteredPanelData(panel, panelData.rawRows, panelData.headers, output, crossFilterMode);
+  const {
+    rawRows: crossFilteredRawRows,
+    headers: crossFilteredHeaders,
+    records: crossFilteredRecords,
+  } = useCrossFilteredPanelData(
+    panel,
+    panelData.rawRows,
+    panelData.headers,
+    output,
+    crossFilterMode,
+    panelData.paginationRows,
+  );
 
   const [isInspectOpen, setIsInspectOpen] = useState(false);
   const handleDataPointSelect = useCallback(
@@ -726,7 +744,6 @@ export const PanelCard = React.memo(function PanelCard({
         errorKind={panelData.errorKind}
         noData={panelData.noData}
         neverMaterialized={panelData.neverMaterialized}
-        chartAggregate={panelData.chartAggregate}
         rowsTruncated={panelData.rowsTruncated}
         refresh={panelData.refresh}
         onDataPointSelect={handleDataPointSelect}
@@ -747,6 +764,7 @@ export const PanelCard = React.memo(function PanelCard({
           onClear={handleClearInspect}
           rawRows={crossFilteredRawRows}
           headers={crossFilteredHeaders}
+          records={crossFilteredRecords}
           chartInspectConfig={chartInspectConfig}
           rowsTruncated={panelData.rowsTruncated}
           variant="preview"
@@ -800,7 +818,8 @@ export const PanelCard = React.memo(function PanelCard({
           errorKind={panelData.errorKind}
           noData={panelData.noData}
           neverMaterialized={panelData.neverMaterialized}
-          chartAggregate={panelData.chartAggregate}
+          paginationRows={panelData.paginationRows}
+          inspectRecords={crossFilteredRecords}
           rowsTruncated={panelData.rowsTruncated}
           refresh={panelData.refresh}
           chartInspectConfig={chartInspectConfig}

@@ -74,7 +74,6 @@ function MobileStackPanelBody({ panel, compact }: { panel: Panel; compact?: bool
       errorKind={panelData.errorKind}
       noData={panelData.noData}
       neverMaterialized={panelData.neverMaterialized}
-      chartAggregate={panelData.chartAggregate}
       rowsTruncated={panelData.rowsTruncated}
       refresh={panelData.refresh}
     />

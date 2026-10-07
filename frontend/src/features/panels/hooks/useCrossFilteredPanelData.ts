@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import { useAppSelector } from "../../../hooks/reduxHooks";
 import {
+  filterRecordRowsByDimension,
   filterRowsByDimension,
   isPanelFilterableByDimension,
 } from "../../../utils/crossFilterRows";
@@ -12,6 +13,9 @@ import type { CrossFilterMode } from "./useCrossFilterServerOps";
 export interface CrossFilteredPanelData {
   rawRows: string[][] | null;
   headers: string[] | null;
+  /** HEL-1351 design D3 — the loaded row records, narrowed by the SAME decision as `rawRows`, so
+   *  Inspect on an aggregated chart lists exactly the rows the chart grouped over. */
+  records: Record<string, unknown>[] | null;
   /** True when `rawRows` above was actually narrowed by the dashboard's
    *  active cross-filter — always `false` for the originating panel, a panel
    *  whose kind-appropriate field mapping doesn't reference the filter's
@@ -50,6 +54,7 @@ export function useCrossFilteredPanelData(
   // panel whose contract can't take the server `eq`; on `"server"` the shared paginationState the
   // rows come from is already narrowed, and `"none"` means the filter doesn't touch this panel.
   crossFilterMode: CrossFilterMode,
+  records: Record<string, unknown>[] | null = null,
 ): CrossFilteredPanelData {
   const crossFilter = useAppSelector((state) => state.panels.crossFilter);
 
@@ -57,6 +62,7 @@ export function useCrossFilteredPanelData(
     const notFiltered: CrossFilteredPanelData = {
       rawRows,
       headers,
+      records,
       isCrossFiltered: false,
       loadedRowCount: rawRows?.length ?? 0,
     };
@@ -80,6 +86,11 @@ export function useCrossFilteredPanelData(
     return {
       rawRows: filtered,
       headers,
+      // The same no-op rule as `rawRows`: a dimension absent from `headers` narrows nothing.
+      records:
+        records && filtered !== rawRows
+          ? filterRecordRowsByDimension(records, crossFilter.dimension, crossFilter.value)
+          : records,
       // `filterRowsByDimension` returns the SAME reference (a safe no-op)
       // when `dimension` isn't actually present in `headers` — a headers/
       // fieldMapping drift case `isPanelFilterableByDimension` alone can't
@@ -88,5 +99,5 @@ export function useCrossFilteredPanelData(
       isCrossFiltered: filtered !== rawRows,
       loadedRowCount: rawRows.length,
     };
-  }, [panel.id, rawRows, headers, output, crossFilter, crossFilterMode]);
+  }, [panel.id, rawRows, headers, records, output, crossFilter, crossFilterMode]);
 }

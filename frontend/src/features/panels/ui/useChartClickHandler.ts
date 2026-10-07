@@ -6,7 +6,11 @@ import { resolveChartType } from "../../../utils/chartAppearance";
 // header comment) so `PanelCard.tsx`/`PanelFullscreenOverlay.tsx` can reuse
 // the row-filter half without pulling this file's lazy-loaded echarts chunk
 // into the main bundle (HEL-512).
-import { mapChartClickToSelection } from "../../../utils/chartClickSelection";
+import {
+  mapAggregateClickToSelection,
+  mapChartClickToSelection,
+} from "../../../utils/chartClickSelection";
+import type { ChartAggregationSpec } from "../history/chartOverlay";
 import type { ChartClickParams, ChartClickSelection } from "../../../utils/chartClickSelection";
 
 /** The slice of ECharts' own click-callback `params` shape this component's
@@ -25,6 +29,10 @@ export interface UseChartClickHandlerParams {
   headers?: string[] | null;
   fieldMapping?: Record<string, string> | null;
   chartOptions?: ChartTypeOptionsMap | null;
+  /** HEL-1351 design D3 — set only while the chart is AGGREGATE-rendered; a bar/line/pie click then
+   *  selects on the aggregation's `groupBy`. Handed down by `ChartOutputPanel`, never read from
+   *  `ChartInspectConfig`. */
+  aggregationSpec?: ChartAggregationSpec | null;
   /** HEL-572 design.md D2 — invoked with the click-resolved selection
    *  (design.md D3) whenever the user clicks a genuine chart series element
    *  (a bar, line point, pie slice, or scatter point) — never the legend,
@@ -47,6 +55,7 @@ export function useChartClickHandler({
   headers,
   fieldMapping,
   chartOptions,
+  aggregationSpec,
   onDataPointSelect,
 }: UseChartClickHandlerParams): { onEvents: { click: (params: EChartsClickEventParams) => void } } {
   // HEL-572 design.md D2 — bails out (does nothing) unless the click landed
@@ -66,17 +75,20 @@ export function useChartClickHandler({
       params.event?.event?.stopPropagation?.();
       if (!onDataPointSelect || !rawRows || !headers || headers.length === 0) return;
       const chartType = resolveChartType(appearance?.chart);
-      const selection = mapChartClickToSelection(
-        params,
-        chartType,
-        fieldMapping,
-        headers,
-        rawRows,
-        chartOptions?.scatter,
-      );
+      const selection =
+        aggregationSpec && chartType !== "scatter"
+          ? mapAggregateClickToSelection(params, aggregationSpec)
+          : mapChartClickToSelection(
+              params,
+              chartType,
+              fieldMapping,
+              headers,
+              rawRows,
+              chartOptions?.scatter,
+            );
       if (selection) onDataPointSelect(selection);
     },
-    [onDataPointSelect, rawRows, headers, fieldMapping, chartOptions, appearance],
+    [onDataPointSelect, rawRows, headers, fieldMapping, chartOptions, aggregationSpec, appearance],
   );
 
   const chartOnEvents = useMemo(() => ({ click: handleChartClick }), [handleChartClick]);

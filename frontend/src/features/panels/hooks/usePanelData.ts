@@ -40,10 +40,9 @@ export interface PanelDataResult {
    *  SAME `paginationEntry`, so this is true on either branch. See
    *  `PanelDetailModal.tsx`/`PanelCard.tsx`'s `rowsTruncated` wiring. */
   rowsTruncated: boolean;
-  /** Retained for renderer-compatibility during the HEL-909 migration; the
-   *  Output itself now owns any groupBy aggregation, so this is always
-   *  `null`. */
-  chartAggregate: null;
+  /** HEL-1351 design D2 — the loaded row RECORDS `rawRows` is derived from (typed values, `null`
+   *  kept), for an aggregated chart Output to group client-side. `null` while nothing is loaded. */
+  paginationRows?: Record<string, unknown>[] | null;
   /** Reset the fetch-deduplication key and trigger a fresh data fetch. A
    *  no-op while a fetch for the current key is already in flight (design.md
    *  D2) — guards the manual-refresh, poll, and SSE-fan-out callers uniformly
@@ -237,7 +236,7 @@ export function usePanelData(
       errorKind: null,
       noData: false,
       neverMaterialized: false,
-      chartAggregate: null,
+      paginationRows: null,
       rowsTruncated: false,
       refresh,
       isRefreshing: false,
@@ -266,7 +265,7 @@ export function usePanelData(
     errorKind,
     noData,
     neverMaterialized,
-    chartAggregate: null,
+    paginationRows: rows.length > 0 ? rows : null,
     rowsTruncated: paginationEntry?.hasMore ?? false,
     refresh,
     isRefreshing,

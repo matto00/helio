@@ -97,7 +97,8 @@ describe("usePanelData", () => {
     expect(result.current.rawRows).toEqual([["west", "10"]]);
     expect(result.current.headers).toEqual(["region", "amount"]);
     expect(result.current.noData).toBe(false);
-    expect(result.current.chartAggregate).toBeNull();
+    // HEL-1351 design D2 -- the typed record rows `rawRows` is derived from.
+    expect(result.current.paginationRows).toEqual([{ region: "west", amount: 10 }]);
   });
 
   it("reports noData when the Output has no rows", async () => {

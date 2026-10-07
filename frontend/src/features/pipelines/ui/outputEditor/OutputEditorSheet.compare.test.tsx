@@ -175,10 +175,11 @@ describe("OutputEditorSheet -- chart Compare picker (HEL-1350)", () => {
     const select = await screen.findByRole("combobox", { name: "Compare" });
     expect(select).toHaveAccessibleDescription(HELP);
     expect(screen.getByText(HELP).textContent).not.toMatch(/previous/i);
+    expect(screen.getByText(HELP).textContent).not.toMatch(/aggregated/i);
+    expect(screen.getByText(HELP).textContent).toMatch(/more than 200 rows/);
   });
 
   it.each([
-    ["aggregated", { aggregation: { groupBy: "day", agg: "sum", yField: "amount" } }, /aggregates/],
     ["series", { fieldMapping: { xAxis: "day", yAxis: "amount", series: "r" } }, /several series/],
     ["unmapped", { fieldMapping: {} }, /doesn't name x and y/],
     ["horizontal", { chartOptions: { bar: { orientation: "horizontal" } } }, /Horizontal bars/],
@@ -192,6 +193,20 @@ describe("OutputEditorSheet -- chart Compare picker (HEL-1350)", () => {
     expect(screen.getByRole("combobox", { name: "Compare" })).toHaveAccessibleDescription(
       expect.stringContaining(note?.textContent ?? "missing"),
     );
+  });
+
+  it("shows no note for an aggregated config, even with a series mapping or no x/y (HEL-1351)", async () => {
+    renderSheet(
+      outputOf("chart", {
+        chartType: "bar",
+        fieldMapping: { series: "region" },
+        aggregation: { groupBy: "day", agg: "sum", yField: "amount" },
+        compare: "7d",
+      }),
+    );
+    await screen.findByRole("combobox", { name: "Compare" });
+    expect(document.querySelector("#output-chart-compare-note")).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Compare" })).toHaveAccessibleDescription(HELP);
   });
 
   it("shows no note for a clean raw-rows line config or a pie chartType alone", async () => {

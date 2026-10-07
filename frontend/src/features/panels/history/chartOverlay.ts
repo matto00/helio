@@ -1,6 +1,8 @@
 import { compareLabel, configCompare } from "./metricHistoryView";
 import { formatCaptureTime } from "./formatCaptureTime";
 import type { HistorySeries, OutputHistory } from "./outputHistoryService";
+import { isAggFn } from "../../pipelines/ui/outputEditor/outputConfigTypes";
+import type { AggFn } from "../types/panel";
 
 /** HEL-1277 — a labelled "vs" series handed to `buildChartOption`: x/y points of a comparison. */
 export interface ChartOverlay {
@@ -28,15 +30,29 @@ export interface ChartOverlayContext {
   headers: string[] | null | undefined;
 }
 
-/** HEL-1350 design D5 — what in an Output's OWN config rules the dashboard overlay out. A
- *  conservative superset of the runtime rules; never reads `config.chartType` (the panel's chart
- *  kind decides that), so bar-option blockers apply whatever the Output's chartType is. */
-export type ChartCompareBlocker =
-  | "aggregated"
-  | "series"
-  | "unmapped"
-  | "horizontal"
-  | "normalized";
+/** HEL-1351 design D1 — the one notion of "this chart Output is aggregated", shared by the editor
+ *  preview, the dashboard's client-side grouping, the overlay selector and the Compare blocker so
+ *  they cannot drift. Mirrors the server's `OutputSummaryReducer.series` grouped-mode condition. */
+export interface ChartAggregationSpec {
+  groupBy: string;
+  agg: AggFn;
+  yField: string;
+}
+
+export function chartAggregationSpec(config: Record<string, unknown>): ChartAggregationSpec | null {
+  if (config.chartType === "scatter") return null;
+  const agg = asRecord(config.aggregation);
+  const { groupBy, yField } = agg;
+  if (!nonEmptyString(groupBy) || !nonEmptyString(yField)) return null;
+  if (typeof agg.agg !== "string" || !isAggFn(agg.agg)) return null;
+  return { groupBy: groupBy as string, agg: agg.agg, yField: yField as string };
+}
+
+/** HEL-1350 design D5 / HEL-1351 D5 — what in an Output's OWN config rules the dashboard overlay
+ *  out. A conservative superset of the runtime rules; bar-option blockers apply whatever the
+ *  Output's chartType is. An aggregated Output (see `chartAggregationSpec`) overlays its grouped
+ *  baseline, so it never blocks on aggregation, series or unmapped x/y. */
+export type ChartCompareBlocker = "series" | "unmapped" | "horizontal" | "normalized";
 
 function nonEmptyString(v: unknown): boolean {
   return typeof v === "string" && v !== "";
@@ -49,16 +65,17 @@ function asRecord(v: unknown): Record<string, unknown> {
 export function chartCompareBlocker(config: Record<string, unknown>): ChartCompareBlocker | null {
   const mapping = asRecord(config.fieldMapping);
   const bar = asRecord(asRecord(config.chartOptions).bar);
-  if (config.aggregation !== null && typeof config.aggregation === "object") return "aggregated";
-  if (nonEmptyString(mapping.series)) return "series";
-  if (!nonEmptyString(mapping.xAxis) || !nonEmptyString(mapping.yAxis)) return "unmapped";
+  if (chartAggregationSpec(config) === null) {
+    if (nonEmptyString(mapping.series)) return "series";
+    if (!nonEmptyString(mapping.xAxis) || !nonEmptyString(mapping.yAxis)) return "unmapped";
+  }
   if (bar.orientation === "horizontal") return "horizontal";
   if (bar.stacking === "normalized") return "normalized";
   return null;
 }
 
 /** HEL-1277 design D9 — the dashboard chart overlay: the `config.compare` baseline's stored series,
- *  drawn only when it is exactly what the dashboard plots (raw rows, same x/y), the panel's rows are
+ *  drawn only when it is exactly what the dashboard plots (raw rows with the same x/y, or the grouped aggregate with the same groupBy/yField/agg), the panel's rows are
  *  known to be the Output's complete set, and nothing narrows them. Every omission returns `null`. */
 export function selectChartOverlay(
   history: OutputHistory | null,
@@ -72,19 +89,30 @@ export function selectChartOverlay(
   const series = baseline?.series;
   if (!baseline || !series || series.downsampled) return null;
 
-  const mapping =
-    config.fieldMapping !== null && typeof config.fieldMapping === "object"
-      ? (config.fieldMapping as Record<string, unknown>)
-      : {};
-  const xField = typeof mapping.xAxis === "string" ? mapping.xAxis : null;
-  const yField = typeof mapping.yAxis === "string" ? mapping.yAxis : null;
-  if (series.mode !== "rows" || xField === null || yField === null) return null;
-  if (series.x !== xField || series.y !== yField) return null;
-  if (hasRepeatedX(series.points.map((p) => p[0]))) return null;
+  const spec = chartAggregationSpec(config);
+  if (spec !== null) {
+    // Aggregated Output: the dashboard plots one value per group, so only the server's grouped
+    // series for the same groupBy/yField/agg describes it. Categories are unique by construction.
+    // Known harmless gap: the server truncates category strings over `MaxXStringChars`, so such a
+    // category simply gets no overlay point.
+    if (series.mode !== "grouped") return null;
+    if (series.x !== spec.groupBy || series.y !== spec.yField) return null;
+    if ((series.agg ?? null) !== spec.agg) return null;
+  } else {
+    const mapping =
+      config.fieldMapping !== null && typeof config.fieldMapping === "object"
+        ? (config.fieldMapping as Record<string, unknown>)
+        : {};
+    const xField = typeof mapping.xAxis === "string" ? mapping.xAxis : null;
+    const yField = typeof mapping.yAxis === "string" ? mapping.yAxis : null;
+    if (series.mode !== "rows" || xField === null || yField === null) return null;
+    if (series.x !== xField || series.y !== yField) return null;
+    if (hasRepeatedX(series.points.map((p) => p[0]))) return null;
 
-  const xCol = ctx.headers ? ctx.headers.indexOf(xField) : -1;
-  if (xCol === -1 || !ctx.rawRows) return null;
-  if (hasRepeatedX(ctx.rawRows.map((r) => r[xCol] ?? ""))) return null;
+    const xCol = ctx.headers ? ctx.headers.indexOf(xField) : -1;
+    if (xCol === -1 || !ctx.rawRows) return null;
+    if (hasRepeatedX(ctx.rawRows.map((r) => r[xCol] ?? ""))) return null;
+  }
 
   const base = compareLabel(compare);
   const label = base === "custom" ? `vs ${formatCaptureTime(baseline.capturedAt)}` : `vs ${base}`;

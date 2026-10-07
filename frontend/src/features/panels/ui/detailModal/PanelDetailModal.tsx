@@ -207,7 +207,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     errorKind,
     noData,
     neverMaterialized,
-    chartAggregate,
+    paginationRows,
     rowsTruncated,
     refresh,
   } = usePanelData(panel, controlFilterOps, crossFilterEq);
@@ -500,7 +500,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
               onGoToPipeline={
                 viewOutput ? () => navigate(`/pipelines/${viewOutput.pipelineId}`) : undefined
               }
-              chartAggregate={chartAggregate}
+              paginationRows={paginationRows}
               // HEL-451 design D4/task 4.0: the detail modal has NO
               // pagination props (`rawRows`/`headers` only), so this is the
               // surface where `usingPagination && paginationHasMore` was
