@@ -1,1 +1,0 @@
-- `backend/src/test/scala/com/helio/services/telemetry/ProductEventRollupServiceSpec.scala` — backfill fixture moved to reserved @backfill.invalid domain, bf-UUID decoy user and survivor guard added
