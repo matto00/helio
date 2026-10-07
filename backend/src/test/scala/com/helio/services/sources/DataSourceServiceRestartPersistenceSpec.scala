@@ -23,6 +23,7 @@ import spray.json.{JsNumber, JsString, JsValue}
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -130,7 +131,7 @@ class DataSourceServiceRestartPersistenceSpec
       // SourceService.createSqlSource ultimately writes (HEL-904 task 4.3:
       // `upsertInferredSchema` directly on the source, no companion DataType).
       val (_, dataSourceRepo1) = buildServices(newTempDir("helio-restart-sql"))
-      val now                     = java.time.Instant.now()
+      val now                     = Instant.now()
       val srcId                   = DataSourceId(UUID.randomUUID().toString)
       val sqlSource = SqlSource(
         id        = srcId,

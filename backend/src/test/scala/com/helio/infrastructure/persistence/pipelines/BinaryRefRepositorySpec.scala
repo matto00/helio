@@ -13,6 +13,7 @@ import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -27,7 +28,7 @@ class BinaryRefRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
   private var db: JdbcBackend.Database           = _
   private var repo: BinaryRefRepository           = _
 
-  private val ownerId = java.util.UUID.randomUUID().toString
+  private val ownerId = UUID.randomUUID().toString
 
   override def beforeAll(): Unit = {
     embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
@@ -50,9 +51,9 @@ class BinaryRefRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
 
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
-  private val pipelineId  = "pipeline-binref-spec-" + java.util.UUID.randomUUID().toString
-  private val pipelineId2 = "pipeline-binref-spec2-" + java.util.UUID.randomUUID().toString
-  private val stepId      = "step-binref-spec-" + java.util.UUID.randomUUID().toString
+  private val pipelineId  = "pipeline-binref-spec-" + UUID.randomUUID().toString
+  private val pipelineId2 = "pipeline-binref-spec2-" + UUID.randomUUID().toString
+  private val stepId      = "step-binref-spec-" + UUID.randomUUID().toString
 
   /** Minimal source/data-type/pipeline fixture just deep enough to satisfy the still-live
    *  `pipelines.source_data_source_id`/`output_data_type_id` NOT NULL FKs (unrelated to this
@@ -62,10 +63,10 @@ class BinaryRefRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
              VALUES ($sourceId, 'binref-spec-source', 'csv', '{}', $ownerId::uuid, now(), now())"""
     )
-    val srcA = "source-binref-spec-a-" + java.util.UUID.randomUUID().toString
-    val dtA  = "dt-binref-spec-a-" + java.util.UUID.randomUUID().toString
-    val srcB = "source-binref-spec-b-" + java.util.UUID.randomUUID().toString
-    val dtB  = "dt-binref-spec-b-" + java.util.UUID.randomUUID().toString
+    val srcA = "source-binref-spec-a-" + UUID.randomUUID().toString
+    val dtA  = "dt-binref-spec-a-" + UUID.randomUUID().toString
+    val srcB = "source-binref-spec-b-" + UUID.randomUUID().toString
+    val dtB  = "dt-binref-spec-b-" + UUID.randomUUID().toString
     DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, 'binref-spec@test.local', now())""",
       sourceAndType(srcA, dtA),
@@ -86,7 +87,7 @@ class BinaryRefRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
 
   private def makeRef(pipelineId: String, nodeStepId: Option[String], rowIndex: Int, fieldName: String, key: String): BinaryRef =
     BinaryRef(
-      id = java.util.UUID.randomUUID().toString,
+      id = UUID.randomUUID().toString,
       pipelineId = pipelineId,
       nodeStepId = nodeStepId,
       rowIndex = rowIndex,

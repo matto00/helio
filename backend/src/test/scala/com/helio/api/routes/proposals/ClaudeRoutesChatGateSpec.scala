@@ -46,6 +46,8 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.DurationInt
@@ -198,7 +200,7 @@ class ClaudeRoutesChatGateSpec
   }
 
   private def usage(f: Fixture): Option[Int] = {
-    val today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString
+    val today = LocalDate.now(ZoneOffset.UTC).toString
     await(db.run(sql"""SELECT message_count FROM assistant_daily_usage WHERE user_id = ${f.user.id.value}::uuid AND usage_date = $today::date""".as[Int].headOption))
   }
 

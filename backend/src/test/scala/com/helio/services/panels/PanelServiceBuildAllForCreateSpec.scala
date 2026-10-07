@@ -15,6 +15,7 @@ import spray.json.{JsObject, JsString}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -116,7 +117,7 @@ class PanelServiceBuildAllForCreateSpec extends AnyWordSpec with Matchers {
       // HEL-1295: the outputId check is no longer skippable for lack of a repository, so the
       // double must resolve "out-1" for the SAME assertions below to keep holding (this test
       // passed before only because a null repository skipped the check -- see files-modified.md).
-      val now        = java.time.Instant.now()
+      val now        = Instant.now()
       val output     = Output(OutputId("out-1"), "Out", user.id, NodeRef(PipelineId(UUID.randomUUID().toString), None), OutputKind.Table, createdAt = now, updatedAt = now)
       val outputRepo = mock(classOf[OutputRepository])
       when(outputRepo.findByIdOwned(OutputId("out-1"), user)).thenReturn(Future.successful(Some(output)))

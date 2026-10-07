@@ -9,6 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
+import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -87,8 +88,8 @@ class DbContextSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
      *  used instead of `set_config(..., true)` (= `SET LOCAL`) the value would
      *  persist and this test would fail. */
     "set app.current_user_id inside the transaction and clear it at commit" in {
-      val userA = "user-a-" + java.util.UUID.randomUUID().toString
-      val userB = "user-b-" + java.util.UUID.randomUUID().toString
+      val userA = "user-a-" + UUID.randomUUID().toString
+      val userB = "user-b-" + UUID.randomUUID().toString
 
       val insideTxA = await(ctx.withUserContext(userA)(readUserIdVar))
       insideTxA shouldBe userA
@@ -102,8 +103,8 @@ class DbContextSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
     /** Rollback variant: even when the action fails and the transaction rolls
      *  back, the session variable must not remain set on the pooled connection. */
     "not leak app.current_user_id to the pool after a rolled-back transaction" in {
-      val userId = "rollback-spec-" + java.util.UUID.randomUUID().toString
-      val nextUser = "next-user-" + java.util.UUID.randomUUID().toString
+      val userId = "rollback-spec-" + UUID.randomUUID().toString
+      val nextUser = "next-user-" + UUID.randomUUID().toString
 
       val failingAction: DBIO[String] = readUserIdVar.andThen(
         DBIO.failed(new RuntimeException("intentional rollback"))
@@ -159,7 +160,7 @@ class DbContextSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
     }
 
     "route withUserContext to the non-privileged pool (not helio_privileged role)" in {
-      val userId = "rls-user-ctx-" + java.util.UUID.randomUUID().toString
+      val userId = "rls-user-ctx-" + UUID.randomUUID().toString
       val roleInUserCtx = await(ctx.withUserContext(userId)(
         sql"SELECT current_role".as[String].head
       ))
@@ -169,7 +170,7 @@ class DbContextSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
     }
 
     "withUserContext still sets app.current_user_id for the policy to evaluate" in {
-      val userId = "rls-var-check-" + java.util.UUID.randomUUID().toString
+      val userId = "rls-var-check-" + UUID.randomUUID().toString
       val observed = await(ctx.withUserContext(userId)(
         sql"SELECT current_setting('app.current_user_id', true)".as[String].head
       ))

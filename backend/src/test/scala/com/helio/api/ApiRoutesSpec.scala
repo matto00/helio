@@ -33,6 +33,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.LoggerFactory
 import slick.jdbc.JdbcBackend
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
@@ -364,7 +365,7 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.OK
         val items      = responseAs[PagedResult[DashboardResponse]].items
         items should have size 2
-        val timestamps = items.map(d => java.time.Instant.parse(d.meta.lastUpdated))
+        val timestamps = items.map(d => Instant.parse(d.meta.lastUpdated))
         timestamps shouldEqual timestamps.sortWith(_.isAfter(_))
       }
     }
@@ -388,7 +389,7 @@ class ApiRoutesSpec
         status shouldBe StatusCodes.OK
         val items      = responseAs[PagedResult[PanelResponse]].items
         items should have size 2
-        val timestamps = items.map(p => java.time.Instant.parse(p.meta.lastUpdated))
+        val timestamps = items.map(p => Instant.parse(p.meta.lastUpdated))
         timestamps shouldEqual timestamps.sortWith(_.isAfter(_))
       }
     }
@@ -1061,7 +1062,6 @@ class ApiRoutesSpec
     "POST /api/sources/:id/refresh updates the source's inferredSchema" in {
       cleanDb()
       import com.helio.domain.model._
-      import java.time.Instant
       import java.util.UUID
       import spray.json._
 
@@ -1097,7 +1097,6 @@ class ApiRoutesSpec
     "GET /api/sources/:id/preview returns up to 10 rows" in {
       cleanDb()
       import com.helio.domain.model._
-      import java.time.Instant
       import java.util.UUID
       import spray.json._
 
@@ -2471,7 +2470,7 @@ class ApiRoutesSpec
     "round-trip createSession / findSession / deleteSession / findValidSession by hashing the raw token at every lookup" in {
       cleanDb()
       val userId    = UserId(testUserId)
-      val now       = java.time.Instant.now()
+      val now       = Instant.now()
       val rawToken  = "repo-roundtrip-raw-token"
       val session   = UserSession(token = rawToken, userId = userId, createdAt = now, expiresAt = now.plusSeconds(3600))
 
@@ -2623,7 +2622,6 @@ class ApiRoutesSpec
     "GET /api/data-sources returns only sources owned by the authenticated user" in {
       cleanDb()
       import com.helio.domain.model._
-      import java.time.Instant
       import java.util.UUID
 
       // testUser creates a source via the API
@@ -2655,7 +2653,6 @@ class ApiRoutesSpec
     "DELETE /api/data-sources/:id returns 404 when caller does not own the source (HEL-265 CS3)" in {
       cleanDb()
       import com.helio.domain._
-      import java.time.Instant
       import java.util.UUID
 
       var sourceId = ""

@@ -4,6 +4,8 @@ import com.helio.api.protocols.pipelines.{PipelineProposal, ProposalOutputSummar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.LocalDate
+
 class FirstRunPlannerSpec extends AnyWordSpec with Matchers {
 
   private def kindsOf(headers: Vector[String], rows: Vector[Vector[String]]): Map[String, ColumnKind] =
@@ -81,7 +83,7 @@ class FirstRunPlannerSpec extends AnyWordSpec with Matchers {
 
     "bucket by day for few distinct dates and by month for many" in {
       def granularityFor(n: Int): String = {
-        val rows = (0 until n).map(i => Vector(java.time.LocalDate.of(2025, 1, 1).plusDays(i.toLong).toString, "1")).toVector
+        val rows = (0 until n).map(i => Vector(LocalDate.of(2025, 1, 1).plusDays(i.toLong).toString, "1")).toVector
         plan(Vector("day", "amount"), rows).steps.find(_.`type` == "datebucket").get.config.fields("granularity").toString
       }
       granularityFor(90) shouldBe "\"day\""

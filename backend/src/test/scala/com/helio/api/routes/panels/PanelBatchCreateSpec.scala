@@ -4,6 +4,8 @@ import com.helio.api.routes.proposals.ApplyProposalSpecBase
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import spray.json._
 
+import java.util.UUID
+
 /** Route-level coverage for `POST /api/panels/batch` (HEL-370) — atomic,
  *  all-or-nothing create of N NEW panels on ONE existing dashboard. Shares
  *  the fixture (real RLS, seeded users/DataTypes) via `ApplyProposalSpecBase`,
@@ -116,7 +118,7 @@ class PanelBatchCreateSpec extends ApplyProposalSpecBase {
       val body =
         s"""{"dashboardId":"$dashboardId","panels":[
            |  {"title":"Good","type":"text"},
-           |  {"title":"Bad","type":"output","config":{"outputId":"${java.util.UUID.randomUUID()}"}}
+           |  {"title":"Bad","type":"output","config":{"outputId":"${UUID.randomUUID()}"}}
            |]}""".stripMargin
       batchCreate(body) ~> routes ~> check {
         status shouldBe StatusCodes.NotFound

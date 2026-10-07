@@ -233,7 +233,7 @@ npm run check:no-credential-leak # Credential-shaped strings in agent/delivery s
 npm test                   # Frontend Jest suite
 ```
 
-The `check:scala-quality` script enforces the **Imports & Qualifiers** rule mechanically — any inline `com.helio.X`, `spray.json.X`, `java.util.UUID`, `org.apache.pekko.X`, etc. that isn't a top-of-file `import` or a `package` declaration will fail the commit. File-size warnings (~250 lines per source, ~80 for aggregators) are informational only.
+The `check:scala-quality` script enforces the **Imports & Qualifiers** rule mechanically — any inline `com.helio.X`, `spray.json.X`, `java.sql.X`, `java.time.X`, `java.util.X` (e.g. `java.util.UUID`), `scala.annotation.X`, `org.apache.pekko.X`, etc. that isn't a top-of-file `import` or a `package` declaration will fail the commit. File-size warnings (~250 lines per source, ~80 for aggregators) are informational only.
 
 Backend tests are not in the Husky chain by default — run them yourself before pushing backend changes:
 

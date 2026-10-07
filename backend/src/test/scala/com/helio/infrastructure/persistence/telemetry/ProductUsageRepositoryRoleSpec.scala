@@ -13,6 +13,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.Instant
+import java.time.LocalDate
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -110,9 +111,9 @@ class ProductUsageRepositoryRoleSpec extends AnyWordSpec with Matchers with Befo
 
     "fail once the GRANT is revoked (the grant is the access path, not a superuser/RLS accident)" in {
       await(ownerDb.run(sqlu"REVOKE SELECT ON product_event_daily FROM helio_privileged"))
-      try an[Exception] should be thrownBy await(repo().eventDaily(java.time.LocalDate.parse("2026-04-12"), java.time.LocalDate.parse("2026-04-12"), Seq("signup_completed")))
+      try an[Exception] should be thrownBy await(repo().eventDaily(LocalDate.parse("2026-04-12"), LocalDate.parse("2026-04-12"), Seq("signup_completed")))
       finally await(ownerDb.run(sqlu"GRANT SELECT ON product_event_daily TO helio_privileged"))
-      await(repo().eventDaily(java.time.LocalDate.parse("2026-04-12"), java.time.LocalDate.parse("2026-04-12"), Seq("signup_completed"))).size shouldBe 1
+      await(repo().eventDaily(LocalDate.parse("2026-04-12"), LocalDate.parse("2026-04-12"), Seq("signup_completed"))).size shouldBe 1
     }
   }
 }

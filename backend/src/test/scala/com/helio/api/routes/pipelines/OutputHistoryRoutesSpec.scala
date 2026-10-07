@@ -15,6 +15,7 @@ import spray.json._
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.time.{Duration => JDuration}
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
@@ -128,10 +129,10 @@ class OutputHistoryRoutesSpec
     "pick a point exactly at latest - w (microsecond-exact), not the 1us-earlier decoy nor the 1us-later point" in {
       // Microsecond-exact: Postgres timestamptz stores micros, so every seeded instant has getNano % 1000 == 0
       // and a non-millisecond micro component; the wire read-back below proves nothing was rounded.
-      val latest   = T.minus(java.time.Duration.ofDays(1)).plus(java.time.Duration.ofNanos(123_456_000L))
-      val boundary = latest.minus(java.time.Duration.ofDays(7))
-      val before   = boundary.minus(java.time.Duration.ofNanos(1000))
-      val after    = boundary.plus(java.time.Duration.ofNanos(1000))
+      val latest   = T.minus(JDuration.ofDays(1)).plus(JDuration.ofNanos(123_456_000L))
+      val boundary = latest.minus(JDuration.ofDays(7))
+      val before   = boundary.minus(JDuration.ofNanos(1000))
+      val after    = boundary.plus(JDuration.ofNanos(1000))
       Seq(latest, boundary, before, after).foreach(_.getNano % 1000 shouldBe 0)
       boundary.getNano % 1000000 should not be 0
       val (pid, oid) = seedMetricOutput(ownerId, Some("7d"))

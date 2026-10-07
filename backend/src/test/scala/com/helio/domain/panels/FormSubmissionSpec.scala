@@ -6,6 +6,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
+import java.time.Instant
+
 /** HEL-1087 tasks.md 3.1 — unit coverage for `FormSubmission.buildRow` against every rule in
  *  design.md D3 (i)-(viii). */
 class FormSubmissionSpec extends AnyWordSpec with Matchers {
@@ -262,7 +264,7 @@ class FormSubmissionSpec extends AnyWordSpec with Matchers {
         decl("value", DataFieldType.IntegerType, required = false)
       )
       val cfg = config(field("delta", "counter"))
-      val now = java.time.Instant.parse("2026-09-18T00:00:00Z")
+      val now = Instant.parse("2026-09-18T00:00:00Z")
       val result = FormSubmission.buildRow(cfg, declaration, Map("delta" -> JsNumber(0)), now)
       result shouldBe Right(Vector(JsNumber(0), JsString(now.toString), JsNull))
     }
@@ -274,7 +276,7 @@ class FormSubmissionSpec extends AnyWordSpec with Matchers {
         decl("value", DataFieldType.IntegerType, required = false)
       )
       val cfg = config(field("delta", "counter"))
-      val now = java.time.Instant.parse("2026-09-18T00:00:00Z")
+      val now = Instant.parse("2026-09-18T00:00:00Z")
       val spoofed = "1999-01-01T00:00:00Z"
       val result = FormSubmission.buildRow(cfg, declaration, Map("delta" -> JsNumber(1), "occurred_at" -> JsString(spoofed)), now)
       result shouldBe Right(Vector(JsNumber(1), JsString(now.toString), JsNull))
@@ -287,7 +289,7 @@ class FormSubmissionSpec extends AnyWordSpec with Matchers {
         decl("value", DataFieldType.IntegerType, required = false)
       )
       val cfg = config(field("delta", "counter"))
-      val now = java.time.Instant.parse("2026-09-18T00:00:00Z")
+      val now = Instant.parse("2026-09-18T00:00:00Z")
       val result = FormSubmission.buildRow(cfg, declaration, Map("delta" -> JsNumber(1), "value" -> JsNumber(42)), now)
       result shouldBe Right(Vector(JsNumber(1), JsString(now.toString), JsNumber(42)))
     }

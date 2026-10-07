@@ -6,6 +6,8 @@ import org.flywaydb.core.api.MigrationVersion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.sql.DriverManager
+import java.sql.ResultSet
 import java.sql.{Connection, SQLException}
 import scala.io.Source
 
@@ -20,13 +22,13 @@ class V114BackfillSignupEventsSpec extends AnyWordSpec with Matchers {
   private final class Fixture(val pg: EmbeddedPostgres) {
     val url: String = pg.getJdbcUrl("helio_migration_test", "postgres")
     def superConn(): Connection = pg.getPostgresDatabase.getConnection
-    def roleConn(): Connection  = java.sql.DriverManager.getConnection(url + "&stringtype=unspecified", "helio_migration_test", "test")
+    def roleConn(): Connection  = DriverManager.getConnection(url + "&stringtype=unspecified", "helio_migration_test", "test")
 
     def exec(sql: String): Unit = {
       val c = superConn()
       try { val s = c.createStatement(); try s.execute(sql) finally s.close() } finally c.close()
     }
-    def query[T](sql: String)(read: java.sql.ResultSet => T): T = {
+    def query[T](sql: String)(read: ResultSet => T): T = {
       val c = superConn()
       try {
         val s = c.createStatement()

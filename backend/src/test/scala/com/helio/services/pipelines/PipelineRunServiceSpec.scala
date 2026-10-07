@@ -2473,8 +2473,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       // `backfillOutputNode`'s `hasSucceededOnce` gate is true and it actually reaches
       // `evaluateNodeRowsForBackfill`.
       val runId = PipelineRunId(UUID.randomUUID().toString)
-      await(pipelineRunRepo.insertRunInternal(runId, pid, java.time.Instant.now(), TriggerSource.Manual, None))
-      await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", java.time.Instant.now(), rowCount = Some(1), errorLog = None, truncatedReadsJson = None))
+      await(pipelineRunRepo.insertRunInternal(runId, pid, Instant.now(), TriggerSource.Manual, None))
+      await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", Instant.now(), rowCount = Some(1), errorLog = None, truncatedReadsJson = None))
       seedOutputAtTrunkLast(pid)
       spyAiClient.lastOwnerUserId = None
 

@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory
 import slick.jdbc.JdbcBackend
 import spray.json._
 
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{Await, Future}
@@ -121,7 +122,7 @@ class GoogleOAuthRoutesSpec
    *  honor). Mirrors `AuditMutationInstrumentationSpec.allAuditRows`. */
   private def allAuditRows(): Seq[AuditEvent] = {
     import slick.jdbc.PostgresProfile.api._
-    val rows = await(db.run(sql"""SELECT id, actor_user_id, actor_token_id, source, action, resource_type, resource_id, metadata, created_at FROM audit_events""".as[(String, Option[String], Option[String], String, String, String, Option[String], String, java.sql.Timestamp)]))
+    val rows = await(db.run(sql"""SELECT id, actor_user_id, actor_token_id, source, action, resource_type, resource_id, metadata, created_at FROM audit_events""".as[(String, Option[String], Option[String], String, String, String, Option[String], String, Timestamp)]))
     rows.map { case (id, actor, token, source, action, resourceType, resourceId, metadata, createdAt) =>
       AuditEvent(
         id           = AuditEventId(id),

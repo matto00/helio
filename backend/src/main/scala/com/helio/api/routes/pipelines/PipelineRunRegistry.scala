@@ -10,6 +10,7 @@ import org.apache.pekko.util.ByteString
 import spray.json._
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.{Set => JSet}
 import scala.jdk.CollectionConverters._
 
 
@@ -78,7 +79,7 @@ final class PipelineRunRegistry(eventBus: PipelineRunNotifyBus = null)(implicit 
   private implicit val mat: Materializer = Materializer(system.classicSystem)
 
   // pipelineId -> the set of actor refs from every currently-subscribed Source.actorRef.
-  private val refs = new ConcurrentHashMap[String, java.util.Set[ActorRef]]()
+  private val refs = new ConcurrentHashMap[String, JSet[ActorRef]]()
 
   // HEL-1168 design.md D6: registering here (rather than the bus polling the registry) keeps
   // PipelineRunNotifyBus ignorant of PipelineRunRegistry's existence -- the bus only knows how

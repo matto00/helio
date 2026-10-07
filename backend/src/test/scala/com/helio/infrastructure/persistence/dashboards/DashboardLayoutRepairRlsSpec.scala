@@ -17,6 +17,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -142,7 +143,7 @@ class DashboardLayoutRepairRlsSpec extends AnyWordSpec with Matchers with Before
     "write only the layout: a rename and lastUpdated survive" in {
       val id       = seedDashboard(badXs, 2)
       val expected = layoutOf(id)
-      val renamed  = await(repo.updateName(id, "renamed-meanwhile", java.time.Instant.parse("2031-01-01T00:00:00Z"))).get
+      val renamed  = await(repo.updateName(id, "renamed-meanwhile", Instant.parse("2031-01-01T00:00:00Z"))).get
       await(repo.updateLayoutIfUnchanged(id, owner, expected, layoutFromJson(fixedXs))) shouldBe true
       val after = await(repo.findByIdInternal(id)).get
       after.name shouldBe "renamed-meanwhile"

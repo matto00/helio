@@ -39,6 +39,7 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.net.InetAddress
 import java.nio.file.Files
+import java.sql.Timestamp
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
@@ -1733,7 +1734,7 @@ class DataSourceRoutesSpec
         responseSourceUpdatedAt = resp.updatedAt
       }
 
-      val storedUpdatedAt = await(db.run(sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head))
+      val storedUpdatedAt = await(db.run(sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[Timestamp].head))
       responseRowUpdatedAt shouldBe storedUpdatedAt.toInstant.toString
       responseRowUpdatedAt shouldBe responseSourceUpdatedAt
     }
@@ -2242,7 +2243,7 @@ class DataSourceRoutesSpec
         responseSourceUpdatedAt = resp.updatedAt
       }
 
-      val storedUpdatedAt = await(db.run(sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head))
+      val storedUpdatedAt = await(db.run(sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[Timestamp].head))
       responseRowUpdatedAt shouldBe storedUpdatedAt.toInstant.toString
       responseRowUpdatedAt shouldBe responseSourceUpdatedAt
     }
@@ -2342,7 +2343,7 @@ class DataSourceRoutesSpec
       }))
       val existingUpdatedAt = await(db.run({
         import slick.jdbc.PostgresProfile.api._
-        sql"SELECT updated_at FROM dataset_rows WHERE id = $existingRowId".as[java.sql.Timestamp].head
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $existingRowId".as[Timestamp].head
       })).toInstant.toString
 
       Patch(
@@ -2436,7 +2437,7 @@ class DataSourceRoutesSpec
       }))
       val updatedAt = await(db.run({
         import slick.jdbc.PostgresProfile.api._
-        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[Timestamp].head
       })).toInstant.toString
 
       Patch(
@@ -2461,7 +2462,7 @@ class DataSourceRoutesSpec
       }))
       val updatedAt = await(db.run({
         import slick.jdbc.PostgresProfile.api._
-        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[Timestamp].head
       })).toInstant.toString
 
       Patch(
@@ -2482,7 +2483,7 @@ class DataSourceRoutesSpec
       }))
       val updatedAt = await(db.run({
         import slick.jdbc.PostgresProfile.api._
-        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[java.sql.Timestamp].head
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowId".as[Timestamp].head
       })).toInstant.toString
 
       Patch(
@@ -2518,7 +2519,7 @@ class DataSourceRoutesSpec
       }))
       val rowBUpdatedAt = await(db.run({
         import slick.jdbc.PostgresProfile.api._
-        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowBId".as[java.sql.Timestamp].head
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowBId".as[Timestamp].head
       })).toInstant.toString
 
       // Attempt to patch source B's row through source A's URL.
@@ -2605,7 +2606,7 @@ class DataSourceRoutesSpec
       }))
       val updatedAt = await(db.run({
         import slick.jdbc.PostgresProfile.api._
-        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowToRemove".as[java.sql.Timestamp].head
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowToRemove".as[Timestamp].head
       })).toInstant.toString
 
       Delete(s"/api/data-sources/$sourceId/rows/$rowToRemove?updatedAt=$updatedAt") ~> routes() ~> check {
@@ -2670,7 +2671,7 @@ class DataSourceRoutesSpec
       }))
       val rowBUpdatedAt = await(db.run({
         import slick.jdbc.PostgresProfile.api._
-        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowBId".as[java.sql.Timestamp].head
+        sql"SELECT updated_at FROM dataset_rows WHERE id = $rowBId".as[Timestamp].head
       })).toInstant.toString
 
       Delete(s"/api/data-sources/$sourceA/rows/$rowBId?updatedAt=$rowBUpdatedAt") ~> routes() ~> check {

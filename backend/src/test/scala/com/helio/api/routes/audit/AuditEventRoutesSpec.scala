@@ -19,6 +19,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json._
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -168,9 +169,9 @@ class AuditEventRoutesSpec
 
     "filter by time range (from/to)" in {
       val user = AuthenticatedUser(seedUser())
-      val before = java.time.Instant.now().minusSeconds(3600)
+      val before = Instant.now().minusSeconds(3600)
       val idMatch = seedEvent(user.id)
-      val after = java.time.Instant.now().plusSeconds(3600)
+      val after = Instant.now().plusSeconds(3600)
 
       Get(s"/audit-events?from=$before&to=$after") ~> routesFor(user) ~> check {
         status shouldBe StatusCodes.OK
@@ -178,7 +179,7 @@ class AuditEventRoutesSpec
         body.items.map(_.id) should contain(idMatch.value)
       }
 
-      val farFuture = java.time.Instant.now().plusSeconds(7200)
+      val farFuture = Instant.now().plusSeconds(7200)
       Get(s"/audit-events?from=$farFuture") ~> routesFor(user) ~> check {
         status shouldBe StatusCodes.OK
         val body = responseAs[PagedResult[AuditEventResponse]]

@@ -22,6 +22,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json.{JsString, JsValue}
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -200,7 +201,7 @@ class DataSourceServiceDeniedPipelinesSpec
       val dsId  = seedDataset(AuthenticatedUser(owner))
       val pid   = seedDeniedPipeline(owner, dsId)
 
-      val build = (_: Vector[DatasetFieldDeclaration], _: java.time.Instant) => Right(Vector[JsValue](JsString("form-row")))
+      val build = (_: Vector[DatasetFieldDeclaration], _: Instant) => Right(Vector[JsValue](JsString("form-row")))
       val result = await(service.appendFormRow(dsId, build, PanelId(UUID.randomUUID().toString), AuthenticatedUser(owner)))
         .getOrElse(fail("expected Right"))
       deniedIn(result.deniedPipelines, pid) shouldBe defined

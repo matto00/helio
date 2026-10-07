@@ -20,6 +20,7 @@ import slick.jdbc.PostgresProfile.api._
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.net.URI
 import java.security.SecureRandom
+import java.time.Instant
 import java.util.{Base64, UUID}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -347,8 +348,8 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
         id        = DataSourceId(UUID.randomUUID().toString),
         name      = "dependent-source",
         ownerId   = owner,
-        createdAt = java.time.Instant.now(),
-        updatedAt = java.time.Instant.now(),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
         config    = RestApiConfig(connectorId = connector.id.value, endpoint = "/data")
       )
       await(dsRepo.insert(source, user))
@@ -373,8 +374,8 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
         id        = DataSourceId(UUID.randomUUID().toString),
         name      = "dependent-source-2",
         ownerId   = owner,
-        createdAt = java.time.Instant.now(),
-        updatedAt = java.time.Instant.now(),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
         config    = RestApiConfig(connectorId = connector.id.value, endpoint = "/data")
       )
       await(dsRepo.insert(source, user))
@@ -394,7 +395,7 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       val connectorB = await(repo.create(ownerId = owner, name = "B", kind = "rest_api", baseUrl = "https://b.test", config = "{}", credentialPlaintext = "", credentialName = "B cred"))
       await(dsRepo.insert(
         RestSource(
-          DataSourceId(UUID.randomUUID().toString), "src-a", owner, java.time.Instant.now(), java.time.Instant.now(),
+          DataSourceId(UUID.randomUUID().toString), "src-a", owner, Instant.now(), Instant.now(),
           RestApiConfig(connectorId = connectorA.id.value)
         ),
         user
@@ -549,8 +550,8 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
         id        = DataSourceId(UUID.randomUUID().toString),
         name      = "dependent-source-rotation",
         ownerId   = owner,
-        createdAt = java.time.Instant.now(),
-        updatedAt = java.time.Instant.now(),
+        createdAt = Instant.now(),
+        updatedAt = Instant.now(),
         config    = RestApiConfig(connectorId = connector.id.value, endpoint = "/data")
       )
       await(dsRepo.insert(source, user))

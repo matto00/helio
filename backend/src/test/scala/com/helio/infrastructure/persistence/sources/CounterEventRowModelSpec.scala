@@ -14,6 +14,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -96,7 +97,7 @@ class CounterEventRowModelSpec extends AnyWordSpec with Matchers with BeforeAndA
   private def rows(id: DataSourceId): Seq[(String, Long, String, Instant)] =
     await(ctx.withSystemContext(
       sql"""SELECT id, seq, data, updated_at FROM dataset_rows WHERE data_source_id = ${id.value} ORDER BY seq"""
-        .as[(String, Long, String, java.sql.Timestamp)]
+        .as[(String, Long, String, Timestamp)]
     )).map { case (rid, seq, data, ts) => (rid, seq, data, ts.toInstant) }
 
   "counter event-row model — append not mutate" should {

@@ -8,6 +8,7 @@ import com.helio.domain.model._
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -119,8 +120,8 @@ class AuthoringConversationRepository(ctx: DbContext)(implicit ec: ExecutionCont
 
 object AuthoringConversationRepository {
   implicit val instantColumnType: BaseColumnType[Instant] =
-    MappedColumnType.base[Instant, java.sql.Timestamp](
-      instant => java.sql.Timestamp.from(instant),
+    MappedColumnType.base[Instant, Timestamp](
+      instant => Timestamp.from(instant),
       ts      => ts.toInstant
     )
 

@@ -40,7 +40,9 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json._
 
+import java.sql.SQLException
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -702,7 +704,7 @@ class OutputRoutesSpec
     "200 with an empty page and materialized=true when a successful run completed after the Output was created" in {
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-5", OutputKind.Table, explicitRootId = None))
-      val runId = PipelineRunId(java.util.UUID.randomUUID().toString)
+      val runId = PipelineRunId(UUID.randomUUID().toString)
       await(pipelineRunRepo.insertRunInternal(runId, pipelineId, Instant.now()))
       await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", Instant.now().plusSeconds(1), Some(0), errorLog = None, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
 
@@ -914,7 +916,7 @@ class OutputRoutesSpec
         val hostileValue = s"x'; DROP TABLE $probeTable; --"
         val naiveSql = s"SELECT '$hostileValue'"
         val naiveStmt = conn.createStatement()
-        try naiveStmt.execute(naiveSql) catch { case _: java.sql.SQLException => () }
+        try naiveStmt.execute(naiveSql) catch { case _: SQLException => () }
 
         val checkStmt = conn.createStatement()
         val rs = checkStmt.executeQuery(
@@ -1183,7 +1185,7 @@ class OutputRoutesSpec
         explicitRootId = None
       ))
       val fixtureRows = (0 until 60).map { i =>
-        val date   = java.time.LocalDate.of(2026, 1, 1).plusDays(i.toLong).toString
+        val date   = LocalDate.of(2026, 1, 1).plusDays(i.toLong).toString
         val region = i % 3 match { case 0 => "US"; case 1 => "EU"; case _ => "APAC" }
         (date, region)
       }
@@ -1388,7 +1390,7 @@ class OutputRoutesSpec
         schema = Vector(SchemaField("region", "string"), SchemaField("notes", "string")),
         explicitRootId = None
       ))
-      val regionRows = Seq("US", "US", "US", "EU", "APAC").map(r => JsObject("region" -> JsString(r), "notes" -> JsString(java.util.UUID.randomUUID().toString)))
+      val regionRows = Seq("US", "US", "US", "EU", "APAC").map(r => JsObject("region" -> JsString(r), "notes" -> JsString(UUID.randomUUID().toString)))
       // Pad with enough distinct `notes` values to push it over the eq/in cardinality cap, while
       // keeping every one of these rows' `region` at "US" (so `region`'s own cardinality stays low).
       val extraNotes = (0 until 55).map(i => JsObject("region" -> JsString("US"), "notes" -> JsString(s"note-$i")))

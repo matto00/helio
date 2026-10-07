@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json.{JsString, JsValue}
 
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -157,7 +158,7 @@ class DatasetWriteSubmitLatencySpec
    *  returns the denied pipelines folded into that write's response. */
   private final case class Fixture(write: () => Vector[EvaluatedPipeline.Denied], aiPipelineIds: Vector[PipelineId])
 
-  private val build = (_: Vector[DatasetFieldDeclaration], _: java.time.Instant) => Right(Vector[JsValue](JsString("v")))
+  private val build = (_: Vector[DatasetFieldDeclaration], _: Instant) => Right(Vector[JsValue](JsString("v")))
 
   private def fixture(kind: String, service: DataSourceService): Fixture = {
     val owner = seedUser()

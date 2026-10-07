@@ -4,6 +4,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.domain.model.UserId
 import slick.jdbc.PostgresProfile.api._
 
+import java.sql.Timestamp
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -50,7 +51,7 @@ class PipelineRunGuardRepository(ctx: DbContext)(implicit ec: ExecutionContext) 
     else {
       val action =
         sql"""INSERT INTO pipeline_run_rate_window (user_id, window_start, request_count)
-              VALUES (${userId.value}::uuid, ${java.sql.Timestamp.from(windowStart)}, 1)
+              VALUES (${userId.value}::uuid, ${Timestamp.from(windowStart)}, 1)
               ON CONFLICT (user_id, window_start)
               DO UPDATE SET request_count = pipeline_run_rate_window.request_count + 1
               WHERE pipeline_run_rate_window.request_count < $limit
