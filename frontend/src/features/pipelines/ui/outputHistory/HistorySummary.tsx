@@ -1,6 +1,6 @@
 import { DataGrid, StatusChip } from "../../../../shared/ui";
 import { formatMetricValue } from "../../../panels/ui/renderers/MetricRenderer";
-import { formatCaptureTime, sameMinute } from "../../../panels/history/formatCaptureTime";
+import { formatCapturePair } from "../../../panels/history/formatCaptureTime";
 import type { HistoryPoint } from "../../../panels/history/outputHistoryService";
 import type { Output } from "../../types/output";
 import { isMetricFormat } from "../outputEditor/outputConfigTypes";
@@ -31,7 +31,7 @@ const STATS_COLUMNS = [
  *  row count, the headline metric beside the comparison point's, and the per-column stats. Needs no
  *  payload. */
 export function HistorySummary({ output, selected, comparison }: HistorySummaryProps) {
-  const secs = comparison !== null && sameMinute(selected.capturedAt, comparison.capturedAt);
+  const labels = formatCapturePair(selected.capturedAt, comparison?.capturedAt ?? null);
   const headline = metricText(selected, output);
   const baseline = metricText(comparison, output);
   const columns = selected.summary.columns ?? {};
@@ -45,18 +45,14 @@ export function HistorySummary({ output, selected, comparison }: HistorySummaryP
   return (
     <section className="output-history__summary" aria-label="Selected run summary">
       <div className="output-history__point-header">
-        <h3 className="output-history__point-time">
-          {formatCaptureTime(selected.capturedAt, secs)}
-        </h3>
+        <h3 className="output-history__point-time">{labels.selected}</h3>
         <StatusChip intent="neutral">{triggerSourceLabel(selected.triggerSource)}</StatusChip>
         <span className="output-history__muted">
           {selected.rowCount.toLocaleString()} {selected.rowCount === 1 ? "row" : "rows"}
         </span>
       </div>
       {comparison ? (
-        <p className="output-history__caption">
-          vs {formatCaptureTime(comparison.capturedAt, secs)}
-        </p>
+        <p className="output-history__caption">vs {labels.comparison}</p>
       ) : (
         <p className="output-history__caption">Oldest recorded run: nothing to compare against.</p>
       )}
@@ -66,7 +62,7 @@ export function HistorySummary({ output, selected, comparison }: HistorySummaryP
           {comparison && baseline !== null && (
             <span className="output-history__muted">
               {" "}
-              vs {formatCaptureTime(comparison.capturedAt, secs)}: {baseline}
+              vs {labels.comparison}: {baseline}
             </span>
           )}
         </p>

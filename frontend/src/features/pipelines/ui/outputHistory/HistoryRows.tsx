@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import { Spinner } from "../../../../shared/ui";
 import type { ColumnDef } from "../../../../shared/ui";
-import { formatCaptureTime, sameMinute } from "../../../panels/history/formatCaptureTime";
+import { formatCapturePair } from "../../../panels/history/formatCaptureTime";
 import type { HistoryPoint } from "../../../panels/history/outputHistoryService";
 import { TableRenderer } from "../../../panels/ui/renderers/TableRenderer";
 import { diffRows, type HistoryRow } from "../../utils/diffRows";
@@ -80,17 +80,16 @@ export function HistoryRows({
   let comparisonNote: string | null = null;
   let comparisonError: string | null = null;
   if (comparison) {
-    const when = formatCaptureTime(
-      comparison.capturedAt,
-      sameMinute(selected.capturedAt, comparison.capturedAt),
-    );
+    const when = formatCapturePair(selected.capturedAt, comparison.capturedAt).comparison;
     if (comparisonRows?.status === "error") {
       comparisonError = `Couldn’t load the stored rows from ${when} to compare.`;
     } else if (diff) {
       comparisonNote =
         diff.noLongerPresent > 0
           ? `${diff.noLongerPresent.toLocaleString()} ${diff.noLongerPresent === 1 ? "row" : "rows"} from ${when} no longer present`
-          : null;
+          : diff.changed.size === 0
+            ? `No row changes vs ${when}`
+            : null;
     } else if (comparisonRows?.status === "loading") {
       comparisonNote = "Comparing rows…";
     } else {

@@ -218,6 +218,7 @@ describe("OutputHistoryModal (HEL-1277)", () => {
       expect(await screen.findByText(/Row comparison unavailable/)).toBeInTheDocument();
       expect(screen.queryByText("New or changed")).toBeNull();
       expect(screen.queryByText(/no longer present/)).toBeNull();
+      expect(screen.queryByText(/No row changes/)).toBeNull();
       expect(fetchRows).toHaveBeenCalledTimes(1);
       expect(fetchRows).toHaveBeenCalledWith("out-1", "a");
     });
@@ -259,6 +260,52 @@ describe("OutputHistoryModal (HEL-1277)", () => {
       const caption = screen.getByText(/^vs /);
       expect(caption.textContent).toMatch(/:10/);
       expect(document.querySelector(".output-history__point-time")?.textContent).toMatch(/:40/);
+    });
+
+    it("states 'No row changes vs <time>' when both payloads are identical", async () => {
+      fetchRows.mockResolvedValue({ rows: [{ a: 1 }, { a: 2 }], rowCount: 2 });
+      render([point("a", NEW_AT, { hasPayload: true }), point("b", OLD_AT, { hasPayload: true })]);
+      expect(await screen.findByText(/^No row changes vs /)).toBeInTheDocument();
+      expect(screen.queryByText("New or changed")).toBeNull();
+      expect(screen.queryByText(/no longer present/)).toBeNull();
+    });
+
+    it("tells same-second runs apart by their milliseconds in the header and the vs label", async () => {
+      render([point("a", "2026-10-05T14:02:05.742Z"), point("b", "2026-10-05T14:02:05.318Z")]);
+      await screen.findByRole("slider");
+      const header = document.querySelector(".output-history__point-time")?.textContent ?? "";
+      const vs = screen.getByText(/^vs /).textContent ?? "";
+      expect(header).toContain("742");
+      expect(vs).toContain("318");
+      expect(vs).not.toContain(header);
+    });
+
+    it("marks an identical-instant comparison as the older capture", async () => {
+      render([point("a", "2026-10-05T14:02:05.742Z"), point("b", "2026-10-05T14:02:05.742Z")]);
+      await screen.findByRole("slider");
+      expect(screen.getByText(/^vs .*\(older capture\)$/)).toBeInTheDocument();
+    });
+
+    it("never says 'No row changes' when rows changed but none were removed", async () => {
+      fetchRows.mockImplementation(async (_o, pointId) =>
+        pointId === "a"
+          ? { rows: [{ a: 1 }, { a: 1 }], rowCount: 2 }
+          : { rows: [{ a: 1 }], rowCount: 1 },
+      );
+      render([point("a", NEW_AT, { hasPayload: true }), point("b", OLD_AT, { hasPayload: true })]);
+      expect(await screen.findByText("New or changed")).toBeInTheDocument();
+      expect(screen.queryByText(/no longer present/)).toBeNull();
+      expect(screen.queryByText(/No row changes/)).toBeNull();
+    });
+
+    it("labels the rows comparison note with milliseconds for a same-second pair", async () => {
+      fetchRows.mockResolvedValue({ rows: [{ a: 1 }], rowCount: 1 });
+      render([
+        point("a", "2026-10-05T14:02:05.742Z", { hasPayload: true }),
+        point("b", "2026-10-05T14:02:05.318Z", { hasPayload: true }),
+      ]);
+      const note = await screen.findByText(/^No row changes vs /);
+      expect(note.textContent).toContain("318");
     });
 
     it("ignores a late payload for a point that is no longer selected", async () => {
@@ -312,6 +359,19 @@ describe("OutputHistoryModal (HEL-1277)", () => {
       const chart = await screen.findByTestId("history-chart");
       expect(chart.textContent).toMatch(/^vs /);
       expect(overlays.at(-1)?.points).toEqual([["Mon", 5]]);
+    });
+
+    it("labels the chart overlay with milliseconds for a same-second pair", async () => {
+      render(
+        [
+          point("a", "2026-10-05T14:02:05.742Z", {}, { series: base }),
+          point("b", "2026-10-05T14:02:05.318Z", {}, { series: { ...base, points: [["Mon", 5]] } }),
+        ],
+        chartOutput,
+      );
+      const chart = await screen.findByTestId("history-chart");
+      expect(chart.textContent).toMatch(/^vs /);
+      expect(chart.textContent).toContain("318");
     });
 
     it("draws no overlay when the comparison series plots a different y", async () => {

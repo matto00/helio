@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 
 import { defaultChartAppearance, defaultPanelAppearance } from "../../../../theme/appearance";
-import { formatCaptureTime, sameMinute } from "../../../panels/history/formatCaptureTime";
+import { formatCapturePair } from "../../../panels/history/formatCaptureTime";
 import { selectPointOverlay } from "../../../panels/history/chartOverlay";
 import type { HistoryPoint } from "../../../panels/history/outputHistoryService";
 import { ChartRenderer } from "../../../panels/ui/renderers/ChartRenderer";
@@ -33,7 +33,7 @@ export function HistoryChart({ output, selected, comparison }: HistoryChartProps
         ? selectPointOverlay(
             series,
             comparison.summary.series ?? null,
-            `vs ${formatCaptureTime(comparison.capturedAt, sameMinute(selected.capturedAt, comparison.capturedAt))}`,
+            `vs ${formatCapturePair(selected.capturedAt, comparison.capturedAt).comparison}`,
           )
         : null,
     [series, comparison, selected.capturedAt],
