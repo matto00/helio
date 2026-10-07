@@ -10,7 +10,7 @@ import scala.jdk.CollectionConverters._
  *  a fixed sleep.
  *
  *  - Positive observation: [[awaitAccepted]] is a bounded state wait (ends the moment the count holds).
- *  - Negative observation: [[assertNothingAcceptedBeforeSentinel]] opens one sentinel connection and
+ *  - Negative observation: [[acceptedThroughSentinel]] opens one sentinel connection and
  *    waits until the acceptor has taken it. A single acceptor drains the kernel backlog in arrival
  *    order, and any stray connection was established before its `connect()` returned, so it precedes
  *    the sentinel in the list; the accepted list must be exactly `[sentinelPort]`. Waiting on a bare
@@ -38,8 +38,11 @@ final class AcceptRecordingListener private () {
   def awaitAccepted(n: Int): Boolean =
     AcceptRecordingListener.awaitCondition(AcceptRecordingListener.AcceptStateWaitDeadline)(accepted.size >= n)
 
-  /** The negative-observation barrier: true iff the accepted list is exactly the sentinel's port. */
-  def assertNothingAcceptedBeforeSentinel(): (List[Int], Int) = {
+  /** The negative-observation barrier: opens the sentinel connection, waits (bounded) until it is accepted, and
+   *  returns the accepted ports up to and including the sentinel plus the sentinel's port. It does NOT assert:
+   *  the caller asserts the list is exactly `List(sentinelPort)` (a sentinel never accepted is absent from the
+   *  list, so that assertion fails). */
+  def acceptedThroughSentinel(): (List[Int], Int) = {
     val sentinel = new Socket(InetAddress.getLoopbackAddress, port)
     try {
       val sentinelPort = sentinel.getLocalPort
