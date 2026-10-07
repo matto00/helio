@@ -1,0 +1,33 @@
+--- open 1 truncated=false total /api requests=10 run-history GETs=0
+569ms GET /api/auth/me
+569ms GET /api/auth/me
+659ms GET /api/pipelines
+659ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8
+660ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/steps
+660ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/analyze
+660ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/schedule
+660ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/outputs
+660ms GET /api/data-sources
+660ms GET /api/dashboards
+--- open 2 truncated=false total /api requests=10 run-history GETs=0
+534ms GET /api/auth/me
+534ms GET /api/auth/me
+625ms GET /api/pipelines
+625ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8
+625ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/steps
+625ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/analyze
+625ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/schedule
+625ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/outputs
+625ms GET /api/data-sources
+625ms GET /api/dashboards
+--- open 3 truncated=false total /api requests=10 run-history GETs=0
+520ms GET /api/auth/me
+520ms GET /api/auth/me
+596ms GET /api/pipelines
+596ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8
+596ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/steps
+596ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/analyze
+596ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/schedule
+596ms GET /api/pipelines/d3cfdfa4-80d7-451e-a715-7f85a1094ba8/outputs
+596ms GET /api/data-sources
+597ms GET /api/dashboards

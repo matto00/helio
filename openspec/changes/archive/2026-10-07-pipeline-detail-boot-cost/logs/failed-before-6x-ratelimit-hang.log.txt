@@ -1,0 +1,3 @@
+batch throttle=6 loadavg-start: 10.81 10.91 9.27 10/1302 495199
+TTI post-create (create click -> Outputs tab shown) throttle=6x n=10 ms: min=2344 p50=2540 max=7689 all=[2344,2469,2626,2627,2500,2540,2573,7689,3970,2481]
+batch loadavg-end: 17.87 12.10 10.14 8/1277 547235

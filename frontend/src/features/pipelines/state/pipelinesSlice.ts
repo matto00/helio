@@ -82,6 +82,14 @@ interface PipelinesState {
   runError: string | null;
   runIsDry: boolean | null;
   runHistory: Record<string, PipelineRunRecord[]>;
+  // HEL-1354: per-pipeline bookkeeping for the run-history fetch (see `fetchPipelineRunHistory`).
+  // `RequestId`/`OpenId` describe the LATEST request issued for the pipeline (latest-wins);
+  // `LoadedOpenId` is the page-open token of the latest request that fulfilled — a record is
+  // "fresh" for a page open only when it equals that open's token.
+  runHistoryStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
+  runHistoryRequestId: Record<string, string>;
+  runHistoryOpenId: Record<string, number>;
+  runHistoryLoadedOpenId: Record<string, number>;
   currentPipeline: PipelineSummary | null;
   currentPipelineStatus: "idle" | "loading" | "succeeded" | "failed";
   currentPipelineError: string | null;
@@ -132,6 +140,10 @@ const initialState: PipelinesState = {
   runError: null,
   runIsDry: null,
   runHistory: {},
+  runHistoryStatus: {},
+  runHistoryRequestId: {},
+  runHistoryOpenId: {},
+  runHistoryLoadedOpenId: {},
   currentPipeline: null,
   currentPipelineStatus: "idle",
   currentPipelineError: null,
@@ -255,18 +267,45 @@ export const submitPipelineRun = createAsyncThunk<
   }
 });
 
+/** `openId` identifies one page open (see `useRunHistory`); `force` bypasses the in-flight dedupe. */
+export interface FetchRunHistoryArg {
+  pipelineId: string;
+  openId: number;
+  force?: boolean;
+}
+
+/**
+ * HEL-1354: dedupes on (pipelineId, openId). A request for the SAME pipeline and the SAME page open
+ * that is already in flight is skipped, which collapses React StrictMode's dev-only effect
+ * double-invoke into one GET; a different pipeline or a different page open is never deduped
+ * against it. `force` (post-run refreshes) always goes out. `fulfilled`/`rejected` apply only when
+ * their request is the latest one issued for the pipeline, so an older response can never overwrite
+ * a newer one.
+ */
 export const fetchPipelineRunHistory = createAsyncThunk<
   { pipelineId: string; records: PipelineRunRecord[] },
-  string,
-  { rejectValue: string }
->("pipelines/fetchPipelineRunHistory", async (pipelineId, { rejectWithValue }) => {
-  try {
-    const records = await fetchRunHistory(pipelineId);
-    return { pipelineId, records };
-  } catch {
-    return rejectWithValue("Failed to load run history.");
-  }
-});
+  FetchRunHistoryArg,
+  { state: RootState; rejectValue: string }
+>(
+  "pipelines/fetchPipelineRunHistory",
+  async ({ pipelineId }, { rejectWithValue }) => {
+    try {
+      const records = await fetchRunHistory(pipelineId);
+      return { pipelineId, records };
+    } catch {
+      return rejectWithValue("Failed to load run history.");
+    }
+  },
+  {
+    condition: ({ pipelineId, openId, force }, { getState }) => {
+      if (force === true) return true;
+      const { runHistoryStatus, runHistoryOpenId } = getState().pipelines;
+      return !(
+        runHistoryStatus[pipelineId] === "loading" && runHistoryOpenId[pipelineId] === openId
+      );
+    },
+  },
+);
 
 export const createPipeline = createAsyncThunk<
   PipelineSummary,
@@ -534,8 +573,23 @@ const pipelinesSlice = createSlice({
         state.runIsDry = null;
         state.runError = action.payload ?? "Failed to start pipeline run.";
       })
+      .addCase(fetchPipelineRunHistory.pending, (state, action) => {
+        const { pipelineId, openId } = action.meta.arg;
+        state.runHistoryStatus[pipelineId] = "loading";
+        state.runHistoryRequestId[pipelineId] = action.meta.requestId;
+        state.runHistoryOpenId[pipelineId] = openId;
+      })
       .addCase(fetchPipelineRunHistory.fulfilled, (state, action) => {
-        state.runHistory[action.payload.pipelineId] = action.payload.records;
+        const { pipelineId, openId } = action.meta.arg;
+        if (state.runHistoryRequestId[pipelineId] !== action.meta.requestId) return;
+        state.runHistory[pipelineId] = action.payload.records;
+        state.runHistoryStatus[pipelineId] = "succeeded";
+        state.runHistoryLoadedOpenId[pipelineId] = openId;
+      })
+      .addCase(fetchPipelineRunHistory.rejected, (state, action) => {
+        const { pipelineId } = action.meta.arg;
+        if (state.runHistoryRequestId[pipelineId] !== action.meta.requestId) return;
+        state.runHistoryStatus[pipelineId] = "failed";
       })
       .addCase(analyzePipeline.pending, (state, action) => {
         const pid = action.meta.arg;

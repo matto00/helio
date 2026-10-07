@@ -1,0 +1,8 @@
+SHA=70b063a47 side=after-a dirty-frontend-files=9
+[after-a requests] loadavg-start: 6.61 6.97 8.22 10/1160 708444
+[after-a requests] loadavg-end: 7.95 7.25 8.30 7/1148 708741
+[after-a TTI 1x] loadavg-start: 7.95 7.25 8.30 7/1148 708742
+[after-a TTI 1x] loadavg-end: 7.19 7.21 8.20 6/1177 710231
+[after-a TTI 6x] loadavg-start: 7.19 7.21 8.20 6/1177 710232
+[after-a TTI 6x] loadavg-end: 8.12 7.54 8.19 15/1179 713620
+ALLDONE

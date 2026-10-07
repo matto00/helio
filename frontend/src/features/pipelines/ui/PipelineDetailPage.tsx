@@ -15,7 +15,6 @@ import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 
 import "./PipelineDetailPage.css";
-import { fetchPipelineById } from "../state/pipelinesSlice";
 import { usePipelineDetailPage } from "../hooks/usePipelineDetailPage";
 
 type DetailTab = "steps" | "outputs";
@@ -28,7 +27,6 @@ type DetailTab = "steps" | "outputs";
 export function PipelineDetailPage() {
   const {
     id,
-    dispatch,
     steps,
     dropdownOpenAt,
     setDropdownOpenAt,
@@ -38,7 +36,11 @@ export function PipelineDetailPage() {
     editingOutputName,
     setEditingOutputName,
     historyOpen,
-    setHistoryOpen,
+    openRunHistory,
+    closeRunHistory,
+    retryRunHistory,
+    runHistoryView,
+    retryPipelineLoad,
     shareOpen,
     setShareOpen,
     scheduleOpen,
@@ -137,9 +139,7 @@ export function PipelineDetailPage() {
           icon={<Icon />}
           title="Couldn't load this pipeline"
           message={description}
-          onRetry={
-            kind === "error" && id !== undefined ? () => dispatch(fetchPipelineById(id)) : undefined
-          }
+          onRetry={kind === "error" && id !== undefined ? retryPipelineLoad : undefined}
           retrying={currentPipelineStatus === "loading"}
         />
       </PageShell>
@@ -171,7 +171,7 @@ export function PipelineDetailPage() {
         schedule={pipelineSchedule}
         onEditSchedule={() => setScheduleOpen(true)}
         onToggleScheduleEnabled={handleToggleScheduleEnabled}
-        onOpenHistory={() => setHistoryOpen(true)}
+        onOpenHistory={openRunHistory}
         isOwner={isOwner}
         onOpenShare={() => setShareOpen(true)}
       />
@@ -385,7 +385,14 @@ export function PipelineDetailPage() {
       />
 
       {/* ── Run history modal (opened from the header's actions menu) ── */}
-      {historyOpen && <RunHistoryModal runs={runs} onClose={() => setHistoryOpen(false)} />}
+      {historyOpen && (
+        <RunHistoryModal
+          runs={runs}
+          view={runHistoryView}
+          onRetry={retryRunHistory}
+          onClose={closeRunHistory}
+        />
+      )}
 
       {/* ── Share dialog (owner-only) ── */}
       {id && (

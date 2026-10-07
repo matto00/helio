@@ -1,0 +1,8 @@
+SHA=70b063a47 side=before-r2 dirty-frontend-files=9
+[before-r2 requests] loadavg-start: 13.66 12.65 10.36 18/1211 684485
+[before-r2 requests] loadavg-end: 18.20 13.95 10.87 7/1326 685287
+[before-r2 TTI 1x] loadavg-start: 18.20 13.95 10.87 7/1326 685288
+[before-r2 TTI 1x] loadavg-end: 6.80 8.32 9.26 6/1155 695669
+[before-r2 TTI 6x] loadavg-start: 6.80 8.32 9.26 6/1155 695670
+[before-r2 TTI 6x] loadavg-end: 6.61 6.97 8.22 12/1160 708417
+ALLDONE

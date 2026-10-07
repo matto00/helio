@@ -1,0 +1,4 @@
+TTI direct goto throttle=1x n=10 ms: min=880 p50=910 max=920 all=[917,918,898,910,898,920,895,910,911,880]
+/api requests per open (to idle): [12,12,12,12,12,12,12,12,12,12]
+loadavg-end: 7.82 7.33 8.27 8/1272 709815
+TTI post-create (create click -> Outputs tab shown) throttle=1x n=10 ms: min=269 p50=287 max=311 all=[269,276,309,294,275,311,287,287,291,290]

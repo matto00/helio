@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 e2e/zz-hel1354-measure.spec.ts:13:5 › outputs-tab TTI, direct goto + request count (1.3m)
+
+  1 passed (1.3m)

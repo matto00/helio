@@ -1,0 +1,26 @@
+tti=4352ms total-sampled=4367ms (6x throttle)
+  1441ms ((program))
+   582ms ((idle))
+   540ms /node_modules/.vite/deps/react_jsx-dev-runtime.js
+   483ms /node_modules/.vite/deps/react-dom_client.js
+   265ms /node_modules/.vite/deps/react.js
+   213ms /src/features/pipelines/ui/schedule/PipelineScheduleDialog.tsx
+    75ms ((garbage collector))
+    70ms /node_modules/.vite/deps/axios.js
+    66ms /node_modules/.vite/deps/@reduxjs_toolkit.js
+    54ms (visitNode)
+    50ms (createTask)
+    48ms /node_modules/.vite/deps/react-router-dom.js
+    40ms (scrollIntoView)
+    35ms /node_modules/.vite/deps/lucide-react.js
+    34ms (insertAdjacentElement)
+    20ms /node_modules/.vite/deps/chunk-B-1-B7_t.js
+    18ms /src/shared/ui/DataGrid.tsx
+    16ms /src/utils/chartAppearance.ts
+    14ms (query)
+    14ms /node_modules/.vite/deps/react-redux.js
+    12ms (setAttribute)
+    11ms /src/app/App.tsx
+    11ms /src/features/pipelines/hooks/usePipelineDetailPage.ts
+    11ms ()
+    11ms /@vite/client

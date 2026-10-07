@@ -1,0 +1,16 @@
+0a1
+> import { appendFileSync } from "node:fs";
+47a49,56
+> // HEL-1354 throwaway: HEL-1298's exact 8x hook (CDP Emulation.setCPUThrottlingRate), nothing else changed.
+> test.beforeEach(async ({ page }) => {
+>   const cdp = await page.context().newCDPSession(page);
+>   await cdp.send("Emulation.setCPUThrottlingRate", {
+>     rate: Number(process.env.HEL1298_THROTTLE ?? "1"),
+>   });
+> });
+> 
+61a71,74
+>   appendFileSync(
+>     "openspec/changes/pipeline-detail-boot-cost/logs/created-ids.log",
+>     `${new Date().toISOString()} label=hel910-batch user-email=${email}\n`,
+>   ); // HEL-1354 residue record

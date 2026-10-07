@@ -1,0 +1,987 @@
+{
+  "config": {
+    "configFile": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/playwright.config.ts",
+    "rootDir": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 2
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "json"
+      ],
+      [
+        "list"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results",
+        "repeatEach": 20,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e",
+        "testIgnore": [
+          "**/*.regression.spec.ts",
+          "**/hel665-message-composer.spec.ts",
+          "**/hel666-single-assistant-entry.spec.ts",
+          "**/hel716-panel-detail-tall-viewport-footer.spec.ts",
+          "**/hel908-tail-attach.spec.ts",
+          "**/hel909-output-picker-panel-sheet.spec.ts",
+          "**/hel908-full-flow.spec.ts",
+          "**/hel968-multi-root-editor-flow.spec.ts",
+          "**/hel912-lanes-rejoin.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.55.1",
+    "workers": 2,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "zz-hel1354-throttle-hel910.spec.ts",
+      "file": "zz-hel1354-throttle-hel910.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof)",
+          "file": "zz-hel1354-throttle-hel910.spec.ts",
+          "line": 103,
+          "column": 6,
+          "specs": [
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 31264,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts",
+                            "column": 28,
+                            "line": 208
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeHidden\u001b[2m()\u001b[22m failed\n\nLocator:  getByRole('dialog', { name: 'Add panel' })\nExpected: hidden\nReceived: visible\n\nCall log:\n\u001b[2m  - Expect \"toBeHidden\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: 'Add panel' })\u001b[22m\n\u001b[2m    2 × locator resolved to <dialog open=\"\" aria-label=\"Add panel\" class=\"ui-modal ui-modal--lg output-picker\">…</dialog>\u001b[22m\n\u001b[2m      - unexpected value \"visible\"\u001b[22m\n\n\n  206 |       await expect(picker).toBeVisible();\n  207 |       await io.click(picker.getByRole(\"option\", { name: new RegExp(`^${outputName}`) }));\n> 208 |       await expect(picker).toBeHidden();\n      |                            ^\n  209 |     }\n  210 |\n  211 |     await expect(page.locator(\".react-grid-item\")).toHaveCount(3);\n    at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:208:28"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:01:41.959Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-5fb81aba5ae395586d1c",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "timedOut",
+                      "duration": 31433,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts",
+                            "column": 52,
+                            "line": 211
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveCount\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('.react-grid-item')\nExpected: \u001b[32m3\u001b[39m\nReceived: \u001b[31mundefined\u001b[39m\n\nCall log:\n\u001b[2m  - Expect \"toHaveCount\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.react-grid-item')\u001b[22m\n\n\n  209 |     }\n  210 |\n> 211 |     await expect(page.locator(\".react-grid-item\")).toHaveCount(3);\n      |                                                    ^\n  212 |\n  213 |     console.log(`HEL-910 flow: ${io.count} interactions (see file header note on the budget).`);\n  214 |     // 30 is a measured regression ceiling, NOT the design target -- see the\n    at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:211:52"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:01:41.967Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat1/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat1/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-bfcbf64b99af8d54b809",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30664,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:02:13.879Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat2/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat2/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-b64a255372f6d9510930",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 1,
+                      "status": "timedOut",
+                      "duration": 30973,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts",
+                            "column": 28,
+                            "line": 208
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeHidden\u001b[2m()\u001b[22m failed\n\nLocator:  getByRole('dialog', { name: 'Add panel' })\nExpected: hidden\nReceived: undefined\n\nCall log:\n\u001b[2m  - Expect \"toBeHidden\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: 'Add panel' })\u001b[22m\n\n\n  206 |       await expect(picker).toBeVisible();\n  207 |       await io.click(picker.getByRole(\"option\", { name: new RegExp(`^${outputName}`) }));\n> 208 |       await expect(picker).toBeHidden();\n      |                            ^\n  209 |     }\n  210 |\n  211 |     await expect(page.locator(\".react-grid-item\")).toHaveCount(3);\n    at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:208:28"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:02:14.049Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat3/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat3/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-2fd4653749cc7385bb40",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30677,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts",
+                            "column": 21,
+                            "line": 90
+                          },
+                          "message": "Error: locator.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Dashboard actions', exact: true })\u001b[22m\n\n\n  88 |   return {\n  89 |     async click(locator: import(\"@playwright/test\").Locator) {\n> 90 |       await locator.click();\n     |                     ^\n  91 |       count += 1;\n  92 |     },\n  93 |     async enter() {\n    at Object.click (/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:90:21)\n    at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:202:18"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:02:45.343Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat4/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat4/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-e1b00268467eb977d397",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 1,
+                      "status": "timedOut",
+                      "duration": 31329,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts",
+                            "column": 28,
+                            "line": 208
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeHidden\u001b[2m()\u001b[22m failed\n\nLocator:  getByRole('dialog', { name: 'Add panel' })\nExpected: hidden\nReceived: visible\n\nCall log:\n\u001b[2m  - Expect \"toBeHidden\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('dialog', { name: 'Add panel' })\u001b[22m\n\u001b[2m    2 × locator resolved to <dialog open=\"\" aria-label=\"Add panel\" class=\"ui-modal ui-modal--lg output-picker\">…</dialog>\u001b[22m\n\u001b[2m      - unexpected value \"visible\"\u001b[22m\n\n\n  206 |       await expect(picker).toBeVisible();\n  207 |       await io.click(picker.getByRole(\"option\", { name: new RegExp(`^${outputName}`) }));\n> 208 |       await expect(picker).toBeHidden();\n      |                            ^\n  209 |     }\n  210 |\n  211 |     await expect(page.locator(\".react-grid-item\")).toHaveCount(3);\n    at /home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/e2e/zz-hel1354-throttle-hel910.spec.ts:208:28"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:02:46.066Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat5/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/matt/Development/helio/.claude/worktrees/task/pipeline-detail-boot-cost/HEL-1354/test-results/zz-hel1354-throttle-hel910-1d1e3---all-placed-on-a-dashboard-repeat5/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-d46851d1952e3d86dba8",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 27321,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:03:16.720Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-58ac133d122a7e5278f2",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 26658,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:03:18.015Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-b54c9381fdf82cb61643",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 28333,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:03:44.413Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-aa6ffaebe9caa5027a77",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 28405,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:03:45.046Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-5371a8ace24c5cf83ad0",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 29543,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:04:13.128Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-e500871deb9abf707102",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 28876,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:04:13.821Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-4f31cf9293bc987847a5",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 12,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 29036,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:04:43.081Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-8b9c170ac048c1f69b21",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 29172,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:04:43.080Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-805883fa1ca923d99f16",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 14,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 28452,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:05:12.506Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-4e9221d4ee3ecb994b3b",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 29626,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:05:12.647Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-6403bacbb18b95d7b925",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 28854,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:05:41.320Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-2925604360b4a676f8cd",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 28694,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:05:42.692Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-a482bfa3409ecbc2b5c0",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 18,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 29917,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:06:10.545Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-9b62c5de34b919417bf9",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            },
+            {
+              "title": "New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 19,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 29060,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "HEL-910 flow: 28 interactions (see file header note on the budget).\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-07T08:06:11.790Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "27b45b6a45dec6c1ff43-b1c9041b0cd59ded6265",
+              "file": "zz-hel1354-throttle-hel910.spec.ts",
+              "line": 104,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-07T08:01:41.598Z",
+    "duration": 299339.6,
+    "expected": 14,
+    "skipped": 0,
+    "unexpected": 6,
+    "flaky": 0
+  }
+}

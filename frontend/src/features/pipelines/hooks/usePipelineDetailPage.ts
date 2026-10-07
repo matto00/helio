@@ -6,12 +6,12 @@ import { fetchSources } from "../../sources/state/sourcesSlice";
 import type { DataSource } from "../../sources/types/dataSource";
 import { useRunToUpdate } from "./useRunToUpdate";
 import { usePipelineStepCreation } from "./usePipelineStepCreation";
+import { useRunHistory } from "./useRunHistory";
 import type { PendingDraftMeta } from "./usePipelineStepCreation";
 import {
   analyzePipeline,
   clearRunState,
   fetchPipelineById,
-  fetchPipelineRunHistory,
   fetchPipelineSchedule,
   fetchPipelineSteps,
   savePipelineSchedule,
@@ -105,7 +105,6 @@ export function usePipelineDetailPage() {
   const {
     runStatus,
     runError,
-    runHistory,
     runIsDry,
     runResult,
     runStepRowCounts,
@@ -145,7 +144,6 @@ export function usePipelineDetailPage() {
     id ? (state.pipelines.schedule?.[id] ?? null) : null,
   );
 
-  const runs = id ? (runHistory[id] ?? []) : [];
   const persistedSteps = id ? (reduxSteps[id] ?? []) : [];
 
   const [steps, setSteps] = useState<Step[]>([]);
@@ -230,7 +228,18 @@ export function usePipelineDetailPage() {
   const stepsFingerprintRef = useRef("");
   const [outputName, setOutputName] = useState("");
   const [editingOutputName, setEditingOutputName] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  // HEL-1354: run history is loaded on demand (modal open, truncated-banner boot, post-run
+  // refresh) rather than on every page open; see `useRunHistory`.
+  const {
+    historyOpen,
+    openRunHistory,
+    closeRunHistory,
+    retryRunHistory,
+    runs,
+    runHistoryView,
+    refreshRunHistoryAfterRun,
+    loadRunHistoryWhenTruncated,
+  } = useRunHistory(id);
   const [shareOpen, setShareOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   // Track which pipeline id the outputName was last initialized from
@@ -268,7 +277,7 @@ export function usePipelineDetailPage() {
           void dispatch(previewOutput({ pipelineId: id, outputId: output.id }));
         }
       }
-      if (id) void dispatch(fetchPipelineRunHistory(id));
+      refreshRunHistoryAfterRun();
       // HEL-242's DataType-row-invalidation dispatch (`markDataTypeRowsStale`)
       // was removed here as evaluation-1 cycle-2 CR3: the backend no longer
       // serves `outputDataTypeId` on `PipelineSummaryResponse` (that field is
@@ -307,7 +316,7 @@ export function usePipelineDetailPage() {
     // Already dispatched for this exact pipeline id in this render cycle
     if (lastFetchedIdRef.current === id) return;
     lastFetchedIdRef.current = id;
-    void dispatch(fetchPipelineById(id));
+    loadRunHistoryWhenTruncated(id, dispatch(fetchPipelineById(id)));
     void dispatch(fetchPipelineSteps(id));
     void dispatch(analyzePipeline(id));
     void dispatch(fetchPipelineSchedule(id));
@@ -315,13 +324,26 @@ export function usePipelineDetailPage() {
     // detail/steps fetch, NOT embedded in `PipelineSummaryResponse` (verified:
     // that response carries no `outputs` field).
     void dispatch(fetchOutputs({ pipelineId: id }));
-  }, [dispatch, id, currentPipelineStatus, currentPipelineId]);
+  }, [dispatch, id, currentPipelineStatus, currentPipelineId, loadRunHistoryWhenTruncated]);
 
+  // HEL-1354: the status stays "idle" until the thunk's `pending` lands, so React StrictMode's
+  // dev-only effect double-invoke saw "idle" twice and issued two `GET /api/data-sources`. A
+  // per-mount ref makes the second run a no-op; it never blocks a later legitimate refetch,
+  // which other callers issue directly.
+  const sourcesRequestedRef = useRef(false);
   useEffect(() => {
-    if (sourcesStatus === "idle") {
+    if (sourcesStatus === "idle" && !sourcesRequestedRef.current) {
+      sourcesRequestedRef.current = true;
       void dispatch(fetchSources());
     }
   }, [dispatch, sourcesStatus]);
+
+  // The error state's Retry: re-issues the pipeline fetch only (today's retry scope) plus the same
+  // truncated-banner history chain boot uses, so a retried open behaves exactly like a first open.
+  const retryPipelineLoad = useCallback(() => {
+    if (!id) return;
+    loadRunHistoryWhenTruncated(id, dispatch(fetchPipelineById(id)));
+  }, [dispatch, id, loadRunHistoryWhenTruncated]);
 
   // Re-run /analyze whenever the steps change (add / remove / config edit) so
   // each StepCard's inputSchema (and the available-fields hints inside the op
@@ -460,12 +482,6 @@ export function usePipelineDetailPage() {
     forceDeferredAnalyze,
     clearDeferWatchdog,
   ]);
-
-  useEffect(() => {
-    if (id) {
-      void dispatch(fetchPipelineRunHistory(id));
-    }
-  }, [dispatch, id]);
 
   // Clear run state when navigating to a different pipeline
   useEffect(() => {
@@ -1255,26 +1271,26 @@ export function usePipelineDetailPage() {
     setSseActive(true);
     try {
       await dispatch(submitPipelineRun({ pipelineId: id })).unwrap();
-      void dispatch(fetchPipelineRunHistory(id));
+      refreshRunHistoryAfterRun();
       refreshVisibleOutputPreviews(id);
     } catch {
       setSseActive(false);
       // runError is displayed via Redux state
     }
-  }, [dispatch, id, refreshVisibleOutputPreviews]);
+  }, [dispatch, id, refreshVisibleOutputPreviews, refreshRunHistoryAfterRun]);
 
   const handleDryRun = useCallback(async () => {
     if (!id) return;
     setSseActive(true);
     try {
       await dispatch(submitPipelineRun({ pipelineId: id, dryRun: true })).unwrap();
-      void dispatch(fetchPipelineRunHistory(id));
+      refreshRunHistoryAfterRun();
       refreshVisibleOutputPreviews(id);
     } catch {
       setSseActive(false);
       // runError is displayed via Redux state
     }
-  }, [dispatch, id, refreshVisibleOutputPreviews]);
+  }, [dispatch, id, refreshVisibleOutputPreviews, refreshRunHistoryAfterRun]);
 
   // HEL-1096 design.md D5/D7 — the denial block's own "Run to update" control, shown when
   // `costVerdict.autoRunnable` is false and `costVerdict.canRun` is true (see the returned
@@ -1328,7 +1344,11 @@ export function usePipelineDetailPage() {
     editingOutputName,
     setEditingOutputName,
     historyOpen,
-    setHistoryOpen,
+    openRunHistory,
+    closeRunHistory,
+    retryRunHistory,
+    runHistoryView,
+    retryPipelineLoad,
     shareOpen,
     setShareOpen,
     scheduleOpen,

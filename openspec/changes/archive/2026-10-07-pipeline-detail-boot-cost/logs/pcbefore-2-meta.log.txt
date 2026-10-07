@@ -1,0 +1,5 @@
+[pcbefore-2] frontend-diff-files=3 70b063a47
+[pcbefore-2 1x] loadavg-start: 7.99 7.23 7.26 7/1153 746381
+[pcbefore-2 1x] loadavg-end: 8.54 7.44 7.33 9/1176 746839
+[pcbefore-2 6x] loadavg-start: 8.54 7.44 7.33 9/1176 746840
+[pcbefore-2 6x] loadavg-end: 7.75 7.42 7.33 5/1169 747669

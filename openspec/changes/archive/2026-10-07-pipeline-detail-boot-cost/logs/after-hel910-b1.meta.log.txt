@@ -1,0 +1,7 @@
+tag=after-hel910-b1 port=6786 sha=1a4c07dce dirty-frontend=0 started=2026-10-07T01:06:40-07:00
+load gate passed after 2090s; loadavg-before: 1.98 5.22 6.41 1/1081 840997
+burner PIDs: 840998 840999 841000
+sampler PID: 841001
+playwright exit=1
+loadavg-after: 7.53 7.12 6.95 2/1120 851772 finished=2026-10-07T01:46:30-07:00
+ALLDONE
