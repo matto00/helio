@@ -1,3 +1,0 @@
-- `backend/src/main/scala/com/helio/services/pipelines/OutputService.scala` — defaulted no-op `backfillObserver` completion hook, invoked from `triggerBackfill` (NonFatal-guarded)
-- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputRoutesSpec.scala` — never-run test seeds rows, awaits recorded backfill Future instead of sleep(200)
-- `openspec/changes/backfill-completion-hook/**` — tasks ticked, mutation evidence logs
