@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1003 — regression guard for programmatic-focus-restore onto the resting
 // dashboard-row ActionsMenu trigger, desktop width only (defect (a); see
@@ -10,33 +11,10 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 // three scratch premise-probes from earlier rounds are deleted and must not
 // be revived.
 
-const CSRF_HEADER = "X-Helio-Requested-With";
-
-function uniqueEmail(label: string): string {
-  return `hel1003-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-1003 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1030 — same precondition wait as `hel510-keyboard-shortcuts.spec.ts`'s
-  // `registerAndLogin`: hold until the authenticated shell has actually committed (rather than
-  // just navigated) before any test proceeds to act on it. This file's own actions are
-  // locator-driven clicks/evaluates that already auto-wait for their target, so this file hasn't
-  // been observed to hit the mount race those raw `keyboard.press` calls did — but the
-  // precondition is identical, so the wait belongs here too rather than relying on each
-  // downstream action's own implicit retry to paper over it.
-  await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
-}
+// HEL-1030 — `waitForShell`: hold until the authenticated shell (and every `useShortcut` consumer
+// mounted alongside it) has committed, before the first interaction. A precondition wait on a real,
+// always-present post-mount element, not a retry/timeout loosening.
+const AUTH = { prefix: "hel1003", displayName: "HEL-1003", waitForShell: true } as const;
 
 async function createDashboard(page: Page, name: string) {
   await page.getByRole("button", { name: "Add dashboard" }).click();
@@ -54,7 +32,7 @@ test.describe("HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop
   }) => {
     // D0d — before trusting the probe against a real row, confirm it can
     // report the negative result against a row that does not exist.
-    await registerAndLogin(page, request, "negctrl");
+    await registerAndLogin(page, request, { ...AUTH, label: "negctrl" });
     const missingTrigger = page.locator(
       'button[aria-label="Definitely Not A Real Dashboard actions"]',
     );
@@ -65,7 +43,7 @@ test.describe("HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "focus");
+    await registerAndLogin(page, request, { ...AUTH, label: "focus" });
     const dashboardName = `HEL-1003 Focus ${Date.now()}`;
     await createDashboard(page, dashboardName);
 
@@ -102,7 +80,7 @@ test.describe("HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "geometry");
+    await registerAndLogin(page, request, { ...AUTH, label: "geometry" });
     const dashboardName = `HEL-1003 Geometry ${Date.now()}`;
     await createDashboard(page, dashboardName);
 
@@ -165,7 +143,7 @@ test.describe("HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop
     // programmatic-focus sentinel. This test drives real `Tab` keypresses
     // (not `.focus()`) so it actually exercises AC 2's Tab/arrow-key path,
     // rather than duplicating test 2's axis under a different name.
-    await registerAndLogin(page, request, "keyboard");
+    await registerAndLogin(page, request, { ...AUTH, label: "keyboard" });
     const dashboardName = `HEL-1003 Keyboard ${Date.now()}`;
     await createDashboard(page, dashboardName);
 

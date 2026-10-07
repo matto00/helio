@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
 // own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
@@ -67,22 +68,7 @@ const it = (panelId: string, x: number, y: number, w: number, h: number): Item =
   h,
 });
 
-async function registerAndLogin(page: Page, request: APIRequestContext) {
-  const email = `hel1023-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: "HEL-1023 e2e" },
-    headers: CSRF_HEADER,
-  });
-  expect(res.status()).toBe(201);
-  // Logged per registration (was an `afterAll` summary, which would forbid parallel mode).
-  console.log(`[HEL-1023 e2e] throwaway user registered: ${email}`);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-}
+const AUTH = { prefix: "hel1023", displayName: "HEL-1023 e2e", logEmail: false } as const;
 
 async function postJson<T>(request: APIRequestContext, url: string, data: unknown): Promise<T> {
   const res = await request.post(url, { data, headers: CSRF_HEADER });
@@ -376,7 +362,9 @@ test.describe("HEL-1023 derive/repair the breakpoint layout at render", () => {
   let layouts: Record<string, Layout>;
 
   test.beforeEach(async ({ page, request }) => {
-    await registerAndLogin(page, request);
+    const { email } = await registerAndLogin(page, request, AUTH);
+    // Logged per registration (was an `afterAll` summary, which would forbid parallel mode).
+    console.log(`[HEL-1023 e2e] throwaway user registered: ${email}`);
     // HEL-1300: seeding below must not race the live post-login `/` (its mount fetches and the
     // owner layout repair); the first app load is then openAt's goto.
     await isolateLivePage(page);

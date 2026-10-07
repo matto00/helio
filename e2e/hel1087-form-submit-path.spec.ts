@@ -1,5 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1087 design.md D10 — live-browser proof of the submit path: server-side enforcement via
 // API-bypass, the announced/associated/preserved-input rejection states (C1: jsdom cannot measure
@@ -9,27 +10,7 @@ import { isolateLivePage } from "./support/isolateLivePage";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel1087-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-1087 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  expect(res.status()).toBe(201);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
-  await isolateLivePage(page);
-}
+const AUTH = { prefix: "hel1087", displayName: "HEL-1087", isolate: true } as const;
 
 interface Created {
   id: string;
@@ -117,7 +98,7 @@ test.describe("HEL-1087 form submit path (real backend)", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "api-bypass");
+    await registerAndLogin(page, request, { ...AUTH, label: "api-bypass" });
     const sourceA = await seedDataset(request, "HEL-1087 e2e Source A (bypass)");
     let dashboard: Created | undefined;
     try {
@@ -149,7 +130,7 @@ test.describe("HEL-1087 form submit path (real backend)", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "server-rejection");
+    await registerAndLogin(page, request, { ...AUTH, label: "server-rejection" });
     const sourceA = await seedDataset(request, "HEL-1087 e2e Source A (reject)");
     let dashboard: Created | undefined;
     try {
@@ -207,7 +188,7 @@ test.describe("HEL-1087 form submit path (real backend)", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "transport");
+    await registerAndLogin(page, request, { ...AUTH, label: "transport" });
     const sourceA = await seedDataset(request, "HEL-1087 e2e Source A (transport)");
     let dashboard: Created | undefined;
     try {
@@ -247,7 +228,7 @@ test.describe("HEL-1087 form submit path (real backend)", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "success");
+    await registerAndLogin(page, request, { ...AUTH, label: "success" });
     const sourceA = await seedDataset(request, "HEL-1087 e2e Source A (success)");
     const sourceB = await seedDataset(request, "HEL-1087 e2e Source B (unchanged)");
     let dashboard: Created | undefined;

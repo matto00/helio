@@ -1,5 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1090 — the epic's final leaf: audit the ASSEMBLED form panel (every field type in one
 // panel, not isolated per-field jsdom coverage like HEL-1083..1089) against a running instance.
@@ -9,27 +10,7 @@ import { isolateLivePage } from "./support/isolateLivePage";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel1090-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-1090 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  expect(res.status()).toBe(201);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
-  await isolateLivePage(page);
-}
+const AUTH = { prefix: "hel1090", displayName: "HEL-1090", isolate: true } as const;
 
 interface Created {
   id: string;
@@ -152,7 +133,7 @@ test.describe("HEL-1090 assembled form panel — keyboard + screen-reader audit 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "tab-order");
+    await registerAndLogin(page, request, { ...AUTH, label: "tab-order" });
     const source = await seedDataset(request, "HEL-1090 e2e Source (tab-order)");
     let dashboard: Created | undefined;
     try {
@@ -256,7 +237,7 @@ test.describe("HEL-1090 assembled form panel — keyboard + screen-reader audit 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "focus-management");
+    await registerAndLogin(page, request, { ...AUTH, label: "focus-management" });
     const source = await seedDataset(request, "HEL-1090 e2e Source (focus)");
     let dashboard: Created | undefined;
     try {
@@ -331,7 +312,7 @@ test.describe("HEL-1090 assembled form panel — keyboard + screen-reader audit 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "panel-role");
+    await registerAndLogin(page, request, { ...AUTH, label: "panel-role" });
     const source = await seedDataset(request, "HEL-1090 e2e Source (role)");
     let dashboard: Created | undefined;
     try {
@@ -376,7 +357,7 @@ test.describe("HEL-1090 assembled form panel — keyboard + screen-reader audit 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "live-region");
+    await registerAndLogin(page, request, { ...AUTH, label: "live-region" });
     const source = await seedDataset(request, "HEL-1090 e2e Source (live-region)");
     let dashboard: Created | undefined;
     try {
@@ -432,7 +413,7 @@ test.describe("HEL-1090 assembled form panel — keyboard + screen-reader audit 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "hel1158-remeasure");
+    await registerAndLogin(page, request, { ...AUTH, label: "hel1158-remeasure" });
     const source = await seedDataset(request, "HEL-1090 e2e Source (hel1158)");
     let dashboard: Created | undefined;
     try {

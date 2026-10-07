@@ -1,5 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
 // own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
@@ -19,24 +20,7 @@ test.describe.configure({ mode: "parallel" });
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel773-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-773 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-}
+const AUTH = { prefix: "hel773", displayName: "HEL-773", domain: "example.com" } as const;
 
 /** Opens the sheet and, unless `settleMs` is 0, waits for the entrance
  *  animation (--transition-slow, ~0.28s) to finish before returning — every
@@ -63,7 +47,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "safearea");
+    await registerAndLogin(page, request, { ...AUTH, label: "safearea" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
@@ -116,7 +100,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "44px");
+    await registerAndLogin(page, request, { ...AUTH, label: "44px" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
@@ -218,7 +202,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "iconsize");
+    await registerAndLogin(page, request, { ...AUTH, label: "iconsize" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
@@ -260,7 +244,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "stacking");
+    await registerAndLogin(page, request, { ...AUTH, label: "stacking" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
@@ -313,7 +297,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "clearance");
+    await registerAndLogin(page, request, { ...AUTH, label: "clearance" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     for (let i = 0; i < 8; i++) {
@@ -349,7 +333,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await registerAndLogin(page, request, "reducedmotion");
+    await registerAndLogin(page, request, { ...AUTH, label: "reducedmotion" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
@@ -389,7 +373,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "reopen");
+    await registerAndLogin(page, request, { ...AUTH, label: "reopen" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
@@ -465,7 +449,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
         request,
       }) => {
         await page.setViewportSize({ width, height: 900 });
-        await registerAndLogin(page, request, `matrix-${width}-${theme}`);
+        await registerAndLogin(page, request, { ...AUTH, label: `matrix-${width}-${theme}` });
         await page.evaluate((t) => localStorage.setItem("helio-theme", t), theme);
         // HEL-1300: the theme step needs the app origin, so isolate after it and before the seed.
         await isolateLivePage(page);

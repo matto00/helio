@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { waitForSettingsAuditTable } from "./support/settingsReady";
 
@@ -8,6 +8,7 @@ import {
   measureBox,
   sweepSurface,
 } from "./support/touchTargetProbe";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
 // own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
@@ -31,24 +32,7 @@ test.describe.configure({ mode: "parallel" });
 const CSRF_HEADER = "X-Helio-Requested-With";
 const WIDTHS = [430, 768] as const;
 
-function uniqueEmail(label: string): string {
-  return `hel813-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-813 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-}
+const AUTH = { prefix: "hel813", displayName: "HEL-813", domain: "example.com" } as const;
 
 /** Mirrors hel773's `openSheet` — opens the mobile nav sheet and waits for
  *  the entrance animation to settle before returning, so callers measure
@@ -102,7 +86,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       // are swept for a real, non-zero visible-floored match.
       test("surface 1: mobile nav sheet / command bar", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
-        await registerAndLogin(page, request, `nav-${width}`);
+        await registerAndLogin(page, request, { ...AUTH, label: `nav-${width}` });
         // HEL-1300: seeding below must not race the live post-login `/`.
         await isolateLivePage(page);
         const dashboardRes = await page.request.post("/api/dashboards", {
@@ -148,7 +132,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
         request,
       }) => {
         await page.setViewportSize({ width, height: 900 });
-        await registerAndLogin(page, request, `settings-${width}`);
+        await registerAndLogin(page, request, { ...AUTH, label: `settings-${width}` });
         await page.goto("/settings");
         await waitForSettingsAuditTable(page);
         await page.getByRole("button", { name: "Add color" }).click();
@@ -177,7 +161,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       test("surface 3: toast dismiss control", async ({ page, request, context }) => {
         await context.grantPermissions(["clipboard-read", "clipboard-write"]);
         await page.setViewportSize({ width, height: 900 });
-        await registerAndLogin(page, request, `toast-${width}`);
+        await registerAndLogin(page, request, { ...AUTH, label: `toast-${width}` });
         await page.goto("/settings");
         await waitForSettingsAuditTable(page);
 
@@ -193,7 +177,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       // shared chrome, HEL-319/548). A fresh account has zero data sources.
       test("surface 4: empty-state CTA", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
-        await registerAndLogin(page, request, `emptystate-${width}`);
+        await registerAndLogin(page, request, { ...AUTH, label: `emptystate-${width}` });
         await page.goto("/sources");
         // Scoped to the main content region — `.ui-empty-state__cta` is NOT
         // unique to it: the desktop `SidebarItemList` renders the identical
@@ -248,7 +232,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       //   real defect (there isn't one in the component's own CSS).
       test("surface 5: ui-select trigger + option list", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
-        await registerAndLogin(page, request, `uiselect-${width}`);
+        await registerAndLogin(page, request, { ...AUTH, label: `uiselect-${width}` });
         // HEL-1300: seeding below must not race the live post-login `/`.
         await isolateLivePage(page);
         const sourceRes = await page.request.post("/api/data-sources", {
@@ -283,7 +267,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       // longer exists, so it cannot be the surface's anchor any more.
       test("surface 6: panel-list zoom + dashboard-actions controls", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
-        await registerAndLogin(page, request, `panellist-${width}`);
+        await registerAndLogin(page, request, { ...AUTH, label: `panellist-${width}` });
         // HEL-1300: seeding below must not race the live post-login `/`.
         await isolateLivePage(page);
         const dashboardRes = await page.request.post("/api/dashboards", {
@@ -313,7 +297,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       // exists.
       test("surface 7: Connectors page", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
-        await registerAndLogin(page, request, `connectors-${width}`);
+        await registerAndLogin(page, request, { ...AUTH, label: `connectors-${width}` });
         await page.goto("/connectors");
 
         const main = page.locator("#app-main-content");

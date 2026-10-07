@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 
 import { backdateHistory, historyRowCount } from "./support/historySeed";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1275 — exit criterion of the metric history UI: a metric panel reads "1,204 ▲ 12% vs 7d" with
 // a sparkline, from REAL history. Two real pipeline runs write the history (sum 1075, then sum
@@ -25,23 +26,7 @@ const SHOTS = resolve(
   "../openspec/changes/archive/2026-10-05-metric-delta-sparkline-ui/screenshots",
 );
 
-async function registerAndLogin(page: Page, request: APIRequestContext): Promise<string> {
-  const email = `hel1275-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: "HEL-1275" },
-    headers: CSRF,
-  });
-  expect(res.status()).toBe(201);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  const me = await request.get("/api/auth/me");
-  expect(me.status()).toBe(200);
-  return ((await me.json()) as { id: string }).id;
-}
+const AUTH = { prefix: "hel1275", displayName: "HEL-1275" } as const;
 
 async function postJson<T>(
   request: APIRequestContext,
@@ -107,7 +92,10 @@ for (const theme of ["light", "dark"] as const) {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
-    const userId = await registerAndLogin(page, request);
+    await registerAndLogin(page, request, AUTH);
+    const me = await request.get("/api/auth/me");
+    expect(me.status()).toBe(200);
+    const userId = ((await me.json()) as { id: string }).id;
     console.log(`[HEL-1275 e2e] user id: ${userId}`);
     // The post-login page is live on `/`; idle it so its mount fetches cannot race the API seeding
     // (HEL-1289).

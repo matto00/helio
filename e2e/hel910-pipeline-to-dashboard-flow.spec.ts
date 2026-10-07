@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { registerUser } from "./support/auth";
 
 // HEL-910 task 6.1/6.2 -- the P1.7 sweep's own "end-to-end proof" AC
 // (ticket.md, design.md decision 8): source -> pipeline -> three Outputs ->
@@ -47,25 +48,13 @@ import { expect, test, type Page } from "@playwright/test";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel910-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
 // HEL-1298: sign in through the API on the PAGE's own request context (`page.request` shares the
 // browser context's cookie jar, so the register response's session cookie authenticates both the
 // seeding calls and the first `page.goto`). The previous UI login spent a full app boot (login
 // page, submit, redirect, live `/` render) of unmeasured wall-clock inside the 30s test budget --
 // ~4.5-5.5s under CPU contention -- without being part of the scenario under test. Seeding now
 // also happens BEFORE the first page load, so no page is live on `/` while the API seeds.
-async function registerAndLogin(page: Page, label: string) {
-  const email = uniqueEmail(label);
-  const password = "correcthorsebattery1";
-  const res = await page.request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-910 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  expect(res.status()).toBe(201);
-}
+const AUTH = { prefix: "hel910", displayName: "HEL-910", domain: "example.com" } as const;
 
 /** Design.md decision 8's exact click-counting helper: wraps every real
  *  `page.click`/`page.keyboard.press("Enter")` dispatch and counts them.
@@ -92,7 +81,7 @@ test.describe("HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof
     page,
   }) => {
     const request = page.request;
-    await registerAndLogin(page, "full-flow");
+    await registerUser(request, { ...AUTH, label: "full-flow" });
     const io = makeInteractionCounter(page);
 
     // ── Seed a dashboard to place Outputs onto (dashboard creation itself
@@ -209,7 +198,7 @@ test.describe("HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof
 test.describe("HEL-910 place an already-existing Output on a dashboard (<= 2 interactions)", () => {
   test("empty-state 'Add panel' CTA -> click the Output card places it", async ({ page }) => {
     const request = page.request;
-    await registerAndLogin(page, "existing-output");
+    await registerUser(request, { ...AUTH, label: "existing-output" });
     const io = makeInteractionCounter(page);
 
     const dashRes = await request.post("/api/dashboards", {

@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
 // own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
@@ -25,23 +26,7 @@ interface Box {
   height: number;
 }
 
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = `hel1028-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-1028 ${label}` },
-    headers: CSRF_HEADER,
-  });
-  expect(res.status()).toBe(201);
-  // Registered users have no delete API; log each so residue is traceable by exact email
-  // (was an `afterAll` summary, which would forbid parallel mode).
-  console.log(`[HEL-1028 e2e] throwaway user registered: ${email}`);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-}
+const AUTH = { prefix: "hel1028", displayName: "HEL-1028", logEmail: false } as const;
 
 async function seedDashboard(request: APIRequestContext): Promise<string> {
   const dash = await request.post("/api/dashboards", {
@@ -173,7 +158,12 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
           request,
         }) => {
           await page.setViewportSize({ width: vp.width, height: vp.height });
-          await registerAndLogin(page, request, `${vp.name}-${theme}-${via}`);
+          const { email } = await registerAndLogin(page, request, {
+            ...AUTH,
+            label: `${vp.name}-${theme}-${via}`,
+          });
+          // Registered users have no delete API; log each so residue is traceable by exact email.
+          console.log(`[HEL-1028 e2e] throwaway user registered: ${email}`);
           // HEL-1300: seeding below must not race the live post-login `/`.
           await isolateLivePage(page);
           const dashboardId = await seedDashboard(request);
@@ -228,7 +218,12 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
 
     test(`${vp.name}: drag, undo, flush sends no layout PATCH`, async ({ page, request }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
-      await registerAndLogin(page, request, `${vp.name}-noop`);
+      const { email } = await registerAndLogin(page, request, {
+        ...AUTH,
+        label: `${vp.name}-noop`,
+      });
+      // Registered users have no delete API; log each so residue is traceable by exact email.
+      console.log(`[HEL-1028 e2e] throwaway user registered: ${email}`);
       // HEL-1300: seeding below must not race the live post-login `/`.
       await isolateLivePage(page);
       const dashboardId = await seedDashboard(request);
@@ -256,7 +251,12 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
 
     test(`${vp.name}: resize, immediate undo, redo (keyboard)`, async ({ page, request }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
-      await registerAndLogin(page, request, `${vp.name}-resize`);
+      const { email } = await registerAndLogin(page, request, {
+        ...AUTH,
+        label: `${vp.name}-resize`,
+      });
+      // Registered users have no delete API; log each so residue is traceable by exact email.
+      console.log(`[HEL-1028 e2e] throwaway user registered: ${email}`);
       // HEL-1300: seeding below must not race the live post-login `/`.
       await isolateLivePage(page);
       const dashboardId = await seedDashboard(request);
@@ -281,7 +281,9 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
     request,
   }) => {
     await page.setViewportSize({ width: 430, height: 900 });
-    await registerAndLogin(page, request, "xs");
+    const { email } = await registerAndLogin(page, request, { ...AUTH, label: "xs" });
+    // Registered users have no delete API; log each so residue is traceable by exact email.
+    console.log(`[HEL-1028 e2e] throwaway user registered: ${email}`);
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     const dashboardId = await seedDashboard(request);
