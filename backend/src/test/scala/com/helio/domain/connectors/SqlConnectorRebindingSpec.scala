@@ -46,7 +46,7 @@ class SqlConnectorRebindingSpec extends AnyWordSpec with Matchers with BeforeAnd
         val result = Try(SqlConnectorDriver.connect(config("mysql", listener.port), publicOnFirstLookup))
         result.foreach(_.close())
         // HEL-1341 D4: sentinel-identified barrier -- nothing but the sentinel was ever accepted.
-        val (accepted, sentinelPort) = listener.assertNothingAcceptedBeforeSentinel()
+        val (accepted, sentinelPort) = listener.acceptedThroughSentinel()
         accepted shouldBe List(sentinelPort)
         result.failed.toOption.collect { case e: SqlEgressRefusedException => e } should not be empty
       } finally listener.close()
@@ -81,7 +81,7 @@ class SqlConnectorRebindingSpec extends AnyWordSpec with Matchers with BeforeAnd
         )
         result.foreach(_.close())
         // HEL-1341 D4: sentinel-identified barrier -- nothing but the sentinel was ever accepted.
-        val (accepted, sentinelPort) = listener.assertNothingAcceptedBeforeSentinel()
+        val (accepted, sentinelPort) = listener.acceptedThroughSentinel()
         accepted shouldBe List(sentinelPort)
         result.failed.toOption.collect { case e: SqlEgressRefusedException => e } should not be empty
       } finally listener.close()
