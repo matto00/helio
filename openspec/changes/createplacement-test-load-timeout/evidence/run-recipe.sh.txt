@@ -1,0 +1,25 @@
+#!/bin/bash
+# usage: run.sh <label> <nruns> <fileset: single|siblings>
+W=/home/matt/Development/helio/.claude/worktrees/bug/createplacement-test-timeout-under-load/HEL-1353
+S=/tmp/claude-1000/-home-matt-Development-helio/7c91d5de-7eee-4b42-a6c7-dffd6f7b4dc2/scratchpad
+E=$W/openspec/changes/createplacement-test-load-timeout/evidence
+export npm_config_cache=$S/npm-cache
+label=$1; n=$2; set_=$3
+mkdir -p $E/$label $S/out/$label
+PIDF=$S/out/$label/burners.pid; : > $PIDF
+killb() { while read p; do [ -n "$p" ] && kill "$p" 2>&1 && echo "killed $p" >> $E/$label/burner-kill.log; done < $PIDF; }
+trap killb EXIT
+for i in 1 2 3; do $PIN nice -n 19 sh -c 'while :; do :; done' & echo $! >> $PIDF; done
+echo "burner pids: $(tr '\n' ' ' < $PIDF) started $(date -Is)" > $E/$label/burner-kill.log
+cd $W/frontend
+if [ "$set_" = single ]; then FILES="src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx"
+elif [ "$set_" = dir ]; then FILES="src/features/pipelines"; else FILES="src/features/pipelines/ui/PipelineDetailPage"; fi
+fails=0
+for r in $(seq 1 $n); do
+  rm -f $S/out/$label/r$r.jsonl
+  PROBE_OUT=$S/out/$label/r$r.jsonl $PIN nice -n 19 npx jest $FILES --maxWorkers=3 --verbose > $S/out/$label/r$r.log 2>&1
+  rc=$?
+  echo "run $r rc=$rc $(grep -E '^Tests:|^Time:' $S/out/$label/r$r.log | tr '\n' ' ')" | tee -a $E/$label/summary.txt
+  if [ $rc -ne 0 ]; then fails=$((fails+1)); cp $S/out/$label/r$r.log $E/$label/FAIL-r$r.log; fi
+done
+echo "FAILS=$fails / $n" | tee -a $E/$label/summary.txt

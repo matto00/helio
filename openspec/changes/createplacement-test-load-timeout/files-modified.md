@@ -1,0 +1,3 @@
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx` — mock `outputService.listOutputs` (escaped XHR), file-scoped `jest.setTimeout(40000)` with measured-reason comment, scoped `asyncUtilTimeout` 20 s; test-only, no product file touched
+- `openspec/changes/createplacement-test-load-timeout/probe-evidence.md` — probe classification, BEFORE/AFTER, PanelCard note
+- `openspec/changes/createplacement-test-load-timeout/evidence/**` — run logs, burner PID/kill logs, instrumented probe copy (.txt), runner recipe

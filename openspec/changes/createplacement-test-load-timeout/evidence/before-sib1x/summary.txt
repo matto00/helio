@@ -1,0 +1,11 @@
+run 1 rc=0 Tests:       167 passed, 167 total Time:        113.31 s, estimated 117 s 
+run 2 rc=1 Tests:       18 failed, 149 passed, 167 total Time:        152.646 s 
+run 3 rc=1 Tests:       3 failed, 164 passed, 167 total Time:        125.987 s, estimated 150 s 
+run 4 rc=1 Tests:       21 failed, 146 passed, 167 total Time:        157.737 s 
+run 5 rc=1 Tests:       2 failed, 165 passed, 167 total Time:        116.495 s, estimated 155 s 
+run 6 rc=0 Tests:       167 passed, 167 total Time:        117.588 s 
+run 7 rc=0 Tests:       167 passed, 167 total Time:        128.31 s 
+run 8 rc=1 Tests:       5 failed, 162 passed, 167 total Time:        122.95 s, estimated 126 s 
+run 9 rc=1 Tests:       1 failed, 166 passed, 167 total Time:        112.843 s, estimated 119 s 
+run 10 rc=1 Tests:       16 failed, 151 passed, 167 total Time:        132.842 s 
+FAILS=7 / 10

@@ -1,0 +1,11 @@
+run 1 rc=0 Tests:       12 passed, 12 total Time:        7.753 s, estimated 9 s 
+run 2 rc=0 Tests:       12 passed, 12 total Time:        7.758 s, estimated 8 s 
+run 3 rc=0 Tests:       12 passed, 12 total Time:        7.778 s, estimated 8 s 
+run 4 rc=0 Tests:       12 passed, 12 total Time:        8.568 s 
+run 5 rc=0 Tests:       12 passed, 12 total Time:        8.235 s, estimated 9 s 
+run 6 rc=0 Tests:       12 passed, 12 total Time:        8.036 s 
+run 7 rc=0 Tests:       12 passed, 12 total Time:        7.691 s, estimated 8 s 
+run 8 rc=0 Tests:       12 passed, 12 total Time:        8.709 s 
+run 9 rc=0 Tests:       12 passed, 12 total Time:        7.788 s, estimated 9 s 
+run 10 rc=0 Tests:       12 passed, 12 total Time:        8.194 s 
+FAILS=0 / 10
