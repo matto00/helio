@@ -53,12 +53,13 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
 const outputKindSchema = z.enum(["table", "metric", "chart", "collection", "timeline", "markdown"]);
 
 /** Shared `config.compare` documentation (HEL-1274), appended to every Output-config write tool
- *  that accepts it. One constant so the wording changes in one place when the `previous_run`
- *  semantics are settled (HEL-1285). The backend is the sole validator. */
+ *  that accepts it. One constant so the wording changes in one place (`previous_run` semantics settled in HEL-1285). The backend is the sole validator. */
 export const COMPARE_CONFIG_DOC =
   "Optional `config.compare` (HEL-1273) selects the history baseline get_output_history " +
-  "resolves for this Output: `previous_run` (the second-newest RETAINED history point — older " +
-  "history is thinned, so this can be earlier than the last run), `1d`, `7d`, `30d`, " +
+  "resolves for this Output: `previous_run` (the immediately previous recorded run: thinning " +
+  "never deletes an Output's newest 101 points), `1d`, `7d`, `30d` (the nearest surviving " +
+  "point at or before latest minus the window; older history is thinned, so it can be earlier " +
+  "than the exact target by up to one thinning bucket: 5 minutes, 1 hour or 1 day by age), " +
   "`custom:<ISO-8601 duration>` (positive, days/hours/minutes/seconds, e.g. `custom:P2D` or " +
   "`custom:PT6H`, at most 365 days), or null for none. Anything else is rejected by the " +
   "backend with a 400; this tool does not validate it.";
@@ -243,8 +244,10 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         "`includeSummaries: true` for each point's stored `summary` (and the resolved " +
         "`current`/`baseline` chart `series`), which are dropped by " +
         "default because they are bulky. History is thinned as it ages (about one point per 5 " +
-        "minutes within 24h, per hour to 7 days, per day beyond), so a `previous_run` baseline " +
-        "is the second-newest RETAINED point and may be older than the last run. `baseline` " +
+        "minutes within 24h, per hour to 7 days, per day beyond) but never an Output's newest " +
+        "101 points, so a `previous_run` baseline is the immediately previous recorded run, " +
+        "while a 1d/7d/30d window baseline is the nearest surviving point at or before the " +
+        "target and may be up to one thinning bucket earlier. `baseline` " +
         "null with `availableFrom` set means the compare window is not yet covered. `limit` is " +
         "an integer 1..100 (default 30; never clamped); `since` is an ISO-8601 instant that " +
         "narrows the newest `limit` points — it does not page further back. Status codes: 400 " +

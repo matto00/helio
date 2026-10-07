@@ -207,7 +207,7 @@ class RetentionLockGuardSpec extends AnyWordSpec with Matchers with BeforeAndAft
         awaitCondition("the run holds a granted shared advisory lock on the retention key")(sharedKeyHeld())
 
         // The run's open transaction holds the shared key: both parts skip immediately.
-        Await.result(outputRepo.thinAndPurge(t0, policy, caps), bound) shouldBe RetentionPassOutcome.LockBusy
+        Await.result(outputRepo.thinAndPurge(t0, policy, caps, protectedNewest = 0), bound) shouldBe RetentionPassOutcome.LockBusy
         Await.result(payloadRepo.purge(t0, cfg10), bound) shouldBe RetentionPassOutcome.LockBusy
         pointIds(oid) shouldBe Set(a, b1, b2, c)
         payloadIds(pid) shouldBe Set(pAged, pThin, pKeep, pOrph)
@@ -222,7 +222,7 @@ class RetentionLockGuardSpec extends AnyWordSpec with Matchers with BeforeAndAft
       runPayload should not be empty
 
       // Committed: the key is free; both parts now run to the exact hand-derived result.
-      Await.result(outputRepo.thinAndPurge(t0, policy, caps), bound) shouldBe RetentionPassOutcome.Purged(2) // A (age) + B1 (thin)
+      Await.result(outputRepo.thinAndPurge(t0, policy, caps, protectedNewest = 0), bound) shouldBe RetentionPassOutcome.Purged(2) // A (age) + B1 (thin)
       pointIds(oid) shouldBe Set(b2, c)
       Await.result(payloadRepo.purge(t0, cfg10), bound) shouldBe RetentionPassOutcome.Purged(3) // pAged (age) + pThin + pOrph (unreferenced)
       payloadIds(pid) shouldBe Set(pKeep)
@@ -257,7 +257,7 @@ class RetentionLockGuardSpec extends AnyWordSpec with Matchers with BeforeAndAft
       var writeCompleted = false
       try {
         holder.createStatement().executeQuery(s"SELECT id FROM output_snapshot_history WHERE id = '$x'::uuid FOR UPDATE").next() shouldBe true
-        retention = outputRepo.thinAndPurge(t0, policy, caps)
+        retention = outputRepo.thinAndPurge(t0, policy, caps, protectedNewest = 0)
         awaitCondition("thinAndPurge holds the key and waits on X's row lock")(retentionParkedOnRowLock())
 
         write = ctx.withSystemContext(payloadRepo.writeAction(pid, None, Some(pid), Some("r"), "manual", Instant.now(), rowsOf, cfg1))

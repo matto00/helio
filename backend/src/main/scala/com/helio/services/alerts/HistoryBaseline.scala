@@ -1,7 +1,7 @@
 package com.helio.services.alerts
 
 import com.helio.domain.engine.PipelineRowJson
-import com.helio.domain.history.OutputSummaryReducer
+import com.helio.domain.history.{HistoryBaselineLimits, OutputSummaryReducer}
 import com.helio.domain.model.OutputKind
 import com.helio.infrastructure.persistence.pipelines.OutputHistoryPoint
 import spray.json._
@@ -29,7 +29,7 @@ object HistoryBaseline {
 
   final case class Baseline(kind: Kind, mode: Mode)
 
-  val MaxRollingN: Int = 100
+  val MaxRollingN: Int = HistoryBaselineLimits.MaxRollingN
 
   private val Keys = Seq("baseline", "n", "mode")
 

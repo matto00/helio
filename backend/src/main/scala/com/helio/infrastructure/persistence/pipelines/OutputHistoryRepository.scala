@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence.pipelines
 
+import com.helio.domain.history.HistoryBaselineLimits
 import com.helio.domain.model.UserTier
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.OutputRepository.jsObjectColumnType
@@ -43,6 +44,7 @@ final case class OutputHistoryPoint(
 
 /** Age-dependent bucket widths for thinning (owner ruling D4): within `recentWindow` keep at most
  *  one point per `recentBucket`, within `midWindow` one per `midBucket`, older one per `oldBucket`.
+ *  These widths apply only to points older than an Output's newest 101 (HEL-1285; see `thinAndPurge`).
  *  Env loading and scheduling belong to the retention leaf, not here. */
 final case class HistoryThinningPolicy(
     recentWindow: Duration = Duration.ofHours(24),
@@ -100,10 +102,26 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  `outputs.owner_id`, which is the acting Editor grantee on a shared pipeline). A tier absent
    *  from `maxAgeByTier` (including any tier unknown to this code) uses the strictest (shortest)
    *  supplied cap, so a partial map fails toward bounded storage; an empty map applies no age purge.
+   *
+   *  HEL-1285 baseline guarantee: thinning NEVER deletes an Output's newest `protectedNewest` points
+   *  (default [[HistoryBaselineLimits.ProtectedNewestPoints]] = 101, ordered `captured_at DESC, id DESC`
+   *  exactly like `listRecent`), so an alert `previous`/`rolling_avg` baseline (at most 100 runs plus the
+   *  triggering run) and a `previous_run` compare always see the literal most recent runs. Bucketing
+   *  applies only to the older points, each bucket keeping its newest unprotected point. In practice at
+   *  least 102 points survive (the protected 101 plus the head of the bucket straddling the boundary).
+   *  The tier max-age purge runs first and is unconditional: a protected point older than the cap is
+   *  still deleted. Window compares are unchanged and may land up to one bucket width before
+   *  `latest - window`.
+   *
    *  One transaction; idempotent. Buckets are epoch-aligned and partitioned by age class, so a
    *  coarse bucket straddling a window boundary may briefly keep two points until a later pass.
    *  Returns `Purged(deleted)`, or `LockBusy` (nothing run) when another session holds the purge lock. */
-  def thinAndPurge(now: Instant, policy: HistoryThinningPolicy, maxAgeByTier: Map[UserTier, Duration]): Future[RetentionPassOutcome] = {
+  def thinAndPurge(
+      now: Instant,
+      policy: HistoryThinningPolicy,
+      maxAgeByTier: Map[UserTier, Duration],
+      protectedNewest: Int = HistoryBaselineLimits.ProtectedNewestPoints
+  ): Future[RetentionPassOutcome] = {
     val strictest = if (maxAgeByTier.isEmpty) None else Some(maxAgeByTier.values.min)
     val named = maxAgeByTier.toSeq.map { case (tier, maxAge) =>
       val tierName = UserTier.asString(tier)
@@ -145,7 +163,12 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
                           CASE WHEN extract(epoch FROM ($nowTs::timestamptz - captured_at)) < $recentSecs THEN $recentBucket
                                WHEN extract(epoch FROM ($nowTs::timestamptz - captured_at)) < $midSecs THEN $midBucket
                                ELSE $oldBucket END AS bucket_secs
-                   FROM output_snapshot_history
+                   FROM (
+                     SELECT id, output_id, captured_at,
+                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+                     FROM output_snapshot_history
+                   ) recent
+                   WHERE recency > $protectedNewest
                  ) classed
                ) ranked WHERE rn > 1)"""
 

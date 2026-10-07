@@ -89,7 +89,7 @@ class OutputHistoryRetentionPrivilegedSpec extends AnyWordSpec with Matchers wit
 
       val (_, oid) = seedAged()
       val repo = new OutputHistoryRepository(new DbContext(appDb, privilegedDb))
-      val svc  = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), FixedClock, new NodePayloadHistoryRepository(new DbContext(appDb, privilegedDb)), PayloadHistoryConfig.Defaults)
+      val svc  = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), FixedClock, new NodePayloadHistoryRepository(new DbContext(appDb, privilegedDb)), PayloadHistoryConfig.Defaults, protectedNewest = 0)
       // one aged-out + one thinned duplicate
       awaitDb(svc.purgeIfDue(now)) shouldBe Some(2)
       historyCount(oid) shouldBe 2

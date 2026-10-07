@@ -84,7 +84,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
       seedPoints(oF, pF); seedPoints(oO, pO)
       historyCount(oF) shouldBe 1923
       val clock = new FakeClock(now)
-      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock, new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults)
+      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock, new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, protectedNewest = 0)
 
       val started = System.nanoTime()
       awaitDb(svc.tickAt(now))
@@ -106,7 +106,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
       awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
       val (pid, oid) = seedPipelineWithOutput(seedUser("free"))
       val clock = new FakeClock(now)
-      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock, new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults)
+      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock, new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, protectedNewest = 0)
       awaitDb(svc.purgeIfDue(now)) shouldBe Some(0)
 
       // New thinnable points AFTER the first purge: two in one [now+10m, now+15m) bucket.
@@ -124,7 +124,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
 
     "allow only one of several concurrent due callers to run the purge" in {
       awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
-      val svc = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults)
+      val svc = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, protectedNewest = 0)
       val results = awaitDb(Future.sequence((1 to 8).map(_ => Future(svc.purgeIfDue(now)).flatten)))
       results.count(_.isDefined) shouldBe 1
     }
@@ -138,7 +138,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
       val config = OutputHistoryRetentionConfig.fromEnv(Map.empty)
       val retry  = config.lockRetry
       retry shouldBe Duration.ofSeconds(120)
-      val svc = new OutputHistoryRetentionService(repo, config, new FakeClock(now), new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults)
+      val svc = new OutputHistoryRetentionService(repo, config, new FakeClock(now), new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, protectedNewest = 0)
 
       val holder = embeddedPostgres.getPostgresDatabase.getConnection
       try {
@@ -174,7 +174,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
     val payloadCalls = new AtomicInteger(0)
     private val c = new DbContext(db, db)
     val historyRepo: OutputHistoryRepository = new OutputHistoryRepository(c) {
-      override def thinAndPurge(n: Instant, p: HistoryThinningPolicy, caps: Map[UserTier, Duration]): Future[RetentionPassOutcome] = {
+      override def thinAndPurge(n: Instant, p: HistoryThinningPolicy, caps: Map[UserTier, Duration], protectedNewest: Int): Future[RetentionPassOutcome] = {
         historyCalls.incrementAndGet()
         Future(history())
       }
@@ -186,7 +186,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
       }
     }
     def service: OutputHistoryRetentionService =
-      new OutputHistoryRetentionService(historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), payloadRepo, PayloadHistoryConfig.Defaults)
+      new OutputHistoryRetentionService(historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), payloadRepo, PayloadHistoryConfig.Defaults, protectedNewest = 0)
     def counts: (Int, Int) = (historyCalls.get, payloadCalls.get)
   }
 

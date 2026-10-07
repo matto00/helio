@@ -321,6 +321,8 @@ describe("HEL-1274 get_output_history + compare documentation", () => {
 
     expect(d).toMatch(/non-null ONLY for metric/);
     expect(d).toMatch(/thinned/);
+    expect(d).toMatch(/never an Output's newest 101 points/);
+    expect(d).not.toMatch(/RETAINED/);
     expect(d.toLowerCase()).not.toContain("previous run");
   });
 

@@ -1,7 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.domain.util.Clock
-import com.helio.domain.history.PayloadHistoryConfig
+import com.helio.domain.history.{HistoryBaselineLimits, PayloadHistoryConfig}
 import com.helio.infrastructure.persistence.pipelines.RetentionPassOutcome.{LockBusy, Purged}
 import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryRepository}
 import OutputHistoryRetentionService.PartResult
@@ -32,7 +32,9 @@ class OutputHistoryRetentionService(
     config: OutputHistoryRetentionConfig,
     clock: Clock,
     payloadRepo: NodePayloadHistoryRepository,
-    payloadConfig: PayloadHistoryConfig
+    payloadConfig: PayloadHistoryConfig,
+    /** HEL-1285: newest points per Output thinning never deletes. Fixed by default; tests pass a smaller value. */
+    protectedNewest: Int = HistoryBaselineLimits.ProtectedNewestPoints
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -54,7 +56,7 @@ class OutputHistoryRetentionService(
     claim(now) match {
       case None => Future.successful(None)
       case Some(claimed) =>
-        Future.delegate(repo.thinAndPurge(now, config.policy, config.maxAgeByTier))
+        Future.delegate(repo.thinAndPurge(now, config.policy, config.maxAgeByTier, protectedNewest))
           .map { outcome =>
             outcome match {
               case Purged(deleted) =>

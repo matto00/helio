@@ -107,6 +107,10 @@ final class OutputHistoryService(
   private def rawCompare(config: JsObject): String =
     config.fields.get("compare").collect { case JsString(s) => s }.getOrElse("")
 
+  /** HEL-1285: `previous_run` is the literal previous recorded run, because thinning never deletes an
+   *  Output's newest 101 points (`recent` is `listRecent`, the same ordering the protection uses). A window
+   *  compare is owner ruling D6 unchanged: the nearest SURVIVING point at or before `latest - window`, which
+   *  after thinning may be up to one bucket width (5 minutes, 1 hour or 1 day by age) earlier than the target. */
   private def resolveBaseline(
       id: String,
       head: OutputHistoryPoint,
