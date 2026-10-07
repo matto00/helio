@@ -17,4 +17,22 @@ describe("History view CSS guards", () => {
     const text = readFileSync(join(__dirname, "../OutputGalleryCard.css"), "utf8");
     expect(text).toMatch(/\.output-gallery-card__history \{[^}]*height: var\(--control-sm\);/);
   });
+
+  it("styles the History button as DESIGN.md §5 Ghost (radius-sm, medium weight after font shorthand, raised hover)", () => {
+    const text = readFileSync(join(__dirname, "../OutputGalleryCard.css"), "utf8");
+    const rule = /\.output-gallery-card__history \{([^}]*)\}/.exec(text)?.[1] ?? "";
+    expect(rule).toMatch(/border-radius: var\(--app-radius-sm\);/);
+    expect(rule).toMatch(/font-weight: var\(--weight-medium\);/);
+    expect(rule.indexOf("font-weight:")).toBeGreaterThan(rule.indexOf("font: inherit;"));
+    expect(text).toMatch(
+      /\.output-gallery-card__history:hover \{[^}]*background: var\(--app-surface-raised\);/,
+    );
+  });
+
+  it("sizes the rows table to its content, capped at 360px", () => {
+    const rule =
+      /\.output-history__table \{([^}]*)\}/.exec(css("OutputHistoryModal.css"))?.[1] ?? "";
+    expect(rule).toMatch(/max-height: 360px;/);
+    expect(rule).not.toMatch(/(^|[^-])height: 360px/);
+  });
 });

@@ -1,0 +1,154 @@
+{
+ "light": {
+  "rest": {
+   "fontWeight": "500",
+   "radius": "6px",
+   "bg": "rgba(0, 0, 0, 0)"
+  },
+  "btnBox": {
+   "x": 727,
+   "y": 442,
+   "width": 79,
+   "height": 28
+  },
+  "cardBox": {
+   "x": 710,
+   "y": 199,
+   "width": 260,
+   "height": 288
+  },
+  "small": {
+   "tableH": 157,
+   "gridH": 104,
+   "gridScrollH": 104,
+   "gridClientH": 104,
+   "renderedRows": 2,
+   "note": "No row changes vs Oct 7, 09:57:54.481 AM",
+   "noteGap": 8,
+   "header": "Oct 7, 09:57:54.561 AM",
+   "vs": "vs Oct 7, 09:57:54.481 AM"
+  },
+  "mid": {
+   "tableH": 360,
+   "gridH": 307,
+   "gridScrollH": 2134,
+   "gridClientH": 307,
+   "renderedRows": 60,
+   "note": "No row changes vs Oct 7, 09:57:54.843 AM",
+   "noteGap": 8,
+   "header": "Oct 7, 09:57:54.912 AM",
+   "vs": "vs Oct 7, 09:57:54.843 AM"
+  },
+  "big": {
+   "tableH": 360,
+   "gridH": 307,
+   "gridScrollH": 7009,
+   "gridClientH": 307,
+   "renderedRows": 30,
+   "note": "No row changes vs Oct 7, 09:57:55.179 AM",
+   "noteGap": 8,
+   "header": "Oct 7, 09:57:55.251 AM",
+   "vs": "vs Oct 7, 09:57:55.179 AM",
+   "bottom": {
+    "lastRow": "r199199",
+    "tableH": 360,
+    "gridH": 307,
+    "scrollTop": 6701,
+    "scrollH": 7008,
+    "clientH": 307
+   }
+  },
+  "hoverContrast": {
+   "screenshot": "button-hover-light.png",
+   "sampledAfterTransitionsSettled": true,
+   "hoveredButtonPixel": [
+    255,
+    255,
+    255
+   ],
+   "hoveredCardPixel": [
+    239,
+    236,
+    230
+   ],
+   "ratio": 1.179,
+   "threshold": 1.1
+  }
+ },
+ "dark": {
+  "rest": {
+   "fontWeight": "500",
+   "radius": "6px",
+   "bg": "rgba(0, 0, 0, 0)"
+  },
+  "btnBox": {
+   "x": 727,
+   "y": 442,
+   "width": 79,
+   "height": 28
+  },
+  "cardBox": {
+   "x": 710,
+   "y": 199,
+   "width": 260,
+   "height": 288
+  },
+  "small": {
+   "tableH": 157,
+   "gridH": 104,
+   "gridScrollH": 104,
+   "gridClientH": 104,
+   "renderedRows": 2,
+   "note": "No row changes vs Oct 7, 09:57:54.481 AM",
+   "noteGap": 8,
+   "header": "Oct 7, 09:57:54.561 AM",
+   "vs": "vs Oct 7, 09:57:54.481 AM"
+  },
+  "mid": {
+   "tableH": 360,
+   "gridH": 307,
+   "gridScrollH": 2134,
+   "gridClientH": 307,
+   "renderedRows": 60,
+   "note": "No row changes vs Oct 7, 09:57:54.843 AM",
+   "noteGap": 8,
+   "header": "Oct 7, 09:57:54.912 AM",
+   "vs": "vs Oct 7, 09:57:54.843 AM"
+  },
+  "big": {
+   "tableH": 360,
+   "gridH": 307,
+   "gridScrollH": 7022,
+   "gridClientH": 307,
+   "renderedRows": 30,
+   "note": "No row changes vs Oct 7, 09:57:55.179 AM",
+   "noteGap": 8,
+   "header": "Oct 7, 09:57:55.251 AM",
+   "vs": "vs Oct 7, 09:57:55.179 AM",
+   "bottom": {
+    "lastRow": "r199199",
+    "tableH": 360,
+    "gridH": 307,
+    "scrollTop": 6714,
+    "scrollH": 7021,
+    "clientH": 307
+   }
+  },
+  "hoverContrast": {
+   "screenshot": "button-hover-dark.png",
+   "sampledAfterTransitionsSettled": true,
+   "hoveredButtonPixel": [
+    35,
+    32,
+    25
+   ],
+   "hoveredCardPixel": [
+    22,
+    21,
+    20
+   ],
+   "ratio": 1.122,
+   "threshold": 1.1
+  }
+ }
+}

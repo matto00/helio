@@ -103,7 +103,7 @@
 }
 
 .output-history__table {
-  height: 360px;
+  max-height: 360px;
   min-width: 0;
   display: flex;
   flex-direction: column;
