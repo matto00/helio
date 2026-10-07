@@ -27,7 +27,7 @@ class SqlEgressSocketFactoriesSpec extends AnyWordSpec with Matchers {
         }
         socket.isClosed shouldBe true
         // HEL-1341 D4: sentinel-identified barrier -- nothing but the sentinel was ever accepted.
-        val (accepted, sentinelPort) = listener.assertNothingAcceptedBeforeSentinel()
+        val (accepted, sentinelPort) = listener.acceptedThroughSentinel()
         accepted shouldBe List(sentinelPort)
       } finally listener.close()
     }

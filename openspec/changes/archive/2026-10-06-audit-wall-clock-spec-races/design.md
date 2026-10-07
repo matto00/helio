@@ -34,8 +34,10 @@ asynchrony.
 | 19 | infrastructure/persistence/NodePayloadTrimPurgeLockOrderSpec:239; infrastructure/persistence/RetentionLockGuardSpec:264; api/routes/sources/CsvUploadLimitsRoutesSpec:268 | 5 s / 10 s / 5 s bounded Await or state wait | Lock-ordered DB work / upload | F only past the deadline | Leave (state waits, row 12-15 class) |
 | 20 | domain/steps/AssertStepSpec:119, :140 | 1 s Await | In-memory step evaluation, no I/O | F only past 1 s of pure CPU | Leave; low risk |
 | 21 | OutputHistoryRetentionServiceSpec:89; ProductEventRollupServiceSpec:90; OutputHistoryCostMeasurementSpec:125, :141 | nanoTime timings | Reported via `info(...)`, never asserted | - | Leave |
+| 22 | services/pipelines/PipelineShapeServiceSpec:29, :35, :45 (added by HEL-1357) | `whenReady` on ScalaTest default patience (150 ms) | `PipelineShapeService.expand` returns `Future.successful`, so the future is complete before `whenReady` polls | - | Leave |
+| 23 | spark/SparkJobSubmitterSpec:345 (added by HEL-1357) | `eventually` 30 s timeout / 50 ms interval in `awaitRunPersisted`; also 30 s bounded `Await.result` (:165, :337) | Un-awaited terminal writes for the background Spark job | F only past 30 s | Leave (state wait, rows 12-15 class) |
 
-Fix count: rows 1-8 are 9 sites in 7 spec files; with row 8a (`OutputRoutesSpec:756`, D9), 10 sites in 8 spec files, plus at most one shared D4 test helper. That is 8 spec files, below the ~10-spec escalation threshold. The only `eventually` on the 150 ms default is row 8a; every other `eventually` sets an explicit timeout or patience. Rows 12-15 are state waits. A deadline
+Fix count: rows 1-8 are 9 sites in 7 spec files; with row 8a (`OutputRoutesSpec:756`, D9), 10 sites in 8 spec files, plus at most one shared D4 test helper. That is 8 spec files, below the ~10-spec escalation threshold. At 469f4ea93 the only `eventually` on the 150 ms default was row 8a; every other `eventually` set an explicit timeout or patience. (HEL-1357 correction, at 575a58b1f: no `eventually` remains on the default, and the only default-patience `whenReady`/ScalaFutures use is PipelineShapeServiceSpec, row 22, which never waits.) Rows 12-15 are state waits. A deadline
 there bounds how long the spec waits for a state; it is not a race window. These rows are left as they are, because
 lengthening a window is forbidden.
 

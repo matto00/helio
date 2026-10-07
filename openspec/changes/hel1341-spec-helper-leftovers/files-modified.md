@@ -1,0 +1,7 @@
+- `backend/src/test/scala/com/helio/testsupport/AcceptRecordingListener.scala` — rename helper to acceptedThroughSentinel; fix scaladoc
+- `backend/src/test/scala/com/helio/domain/connectors/SqlConnectorRebindingSpec.scala` — call-site rename (x2)
+- `backend/src/test/scala/com/helio/domain/connectors/SqlConnectorConfigShapeSpec.scala` — call-site rename
+- `backend/src/test/scala/com/helio/domain/connectors/SqlEgressSocketFactoriesSpec.scala` — call-site rename
+- `backend/src/test/scala/com/helio/services/pipelines/DatasetWriteAutoRunEndToEndSpec.scala` — real-clock test description matches what it checks
+- `openspec/changes/archive/2026-10-06-audit-wall-clock-spec-races/design.md` — inventory rows 22/23 and default-patience sentence corrected
+- `openspec/changes/hel1341-spec-helper-leftovers/` — tasks ticked, evidence logs
