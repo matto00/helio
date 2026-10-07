@@ -21,11 +21,14 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  rmdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { IGNORED_TOP_LEVEL } from "./check-no-credential-in-agent-surface.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const scriptPath = join(repoRoot, "scripts/check-no-credential-in-agent-surface.mjs");
@@ -283,6 +286,70 @@ function runMutatedScript(find, replace, destPath = mutatedScriptPath) {
   return spawnSync("node", [destPath], { cwd: repoRoot, encoding: "utf8" });
 }
 
+// HEL-1369 additions — the gitignored `e2e-evidence/` directory (written by
+// e2e/support/evidencePath.ts) may hold a lane's REAL screenshots, so this
+// self-test never deletes it recursively (standing constraint C1): it plants
+// the directory only when absent, tags it with a marker file, and cleanup
+// removes only its own marker/placeholder files and then `rmdir`s the
+// directory only if that leaves it empty.
+const e2eEvidenceDir = join(repoRoot, "e2e-evidence");
+const e2eMarkerFile = join(e2eEvidenceDir, ".hel1369-selftest-marker");
+const e2ePlaceholderFile = join(e2eEvidenceDir, ".hel1369-selftest-placeholder");
+const mutatedIgnoreSetScriptPath = join(
+  repoRoot,
+  "scripts/.hel1369-selftest-mutated-ignore-set.mjs",
+);
+// The self-test's own probe directories that `.gitignore` lists on purpose and
+// that must stay classifiable-as-drift (HEL-956 cases 2/3), so they are
+// exempt from the `.gitignore` <-> IGNORED_TOP_LEVEL consistency check.
+const SELFTEST_PROBE_DIRS = new Set([
+  "hel956-selftest-drift-probe",
+  "helio-mcp-hel956-selftest-moved",
+]);
+
+/** Removes only the self-test's own marker/placeholder files from
+ *  `e2e-evidence/`, then removes the directory itself only if empty (C1).
+ *  Never recursive; a no-op for a directory the self-test does not own. */
+function removeE2eEvidencePlant() {
+  const ownedByUs = existsSync(e2eMarkerFile);
+  for (const f of [e2eMarkerFile, e2ePlaceholderFile]) {
+    if (existsSync(f)) rmSync(f);
+  }
+  // rmdir only a directory this self-test planted (marker was present), so a
+  // pre-existing empty e2e-evidence/ is never removed.
+  if (ownedByUs && readdirSync(e2eEvidenceDir).length === 0) {
+    rmdirSync(e2eEvidenceDir);
+  }
+}
+
+function removeMutatedIgnoreSetScript() {
+  if (existsSync(mutatedIgnoreSetScriptPath)) rmSync(mutatedIgnoreSetScriptPath);
+}
+
+/** Extracts the root-level directory names `.gitignore` ignores, using only
+ *  the simple shapes this repo uses: `name/` or `/name/`, no other `/`, no
+ *  glob characters, not dot-prefixed, not negated. A future globbed root
+ *  pattern would be a false negative here (documented limit, HEL-1369). */
+function parseRootIgnoredDirs(gitignoreText) {
+  const names = new Set();
+  for (const raw of gitignoreText.split("\n")) {
+    const line = raw.trim();
+    if (line === "" || line.startsWith("#") || line.startsWith("!")) continue;
+    const m = /^\/?([^/*?[\]\\]+)\/$/.exec(line);
+    if (m && !m[1].startsWith(".")) names.add(m[1]);
+  }
+  return names;
+}
+
+/** Root-level `.gitignore` directory names the gate's IGNORED_TOP_LEVEL does
+ *  not exclude (minus the self-test's own probe dirs). Shared by the real
+ *  consistency check and its non-vacuity probe. */
+function rootDirsMissingFromIgnoreSet(gitignoreText) {
+  return [...parseRootIgnoredDirs(gitignoreText)].filter(
+    (n) => !IGNORED_TOP_LEVEL.has(n) && !SELFTEST_PROBE_DIRS.has(n),
+  );
+}
+
 // Startup cleanup (idempotent) — see design.md Decision 5 / Gate-Chain
 // checklist: a crashed prior run must not poison this one.
 removeMcpPlantedSecret();
@@ -298,6 +365,9 @@ removeHel993LockedDir();
 removeHel993MutatedEntryScript();
 removeHel846Plants();
 removeHel846MutatedScripts();
+removeMutatedIgnoreSetScript();
+// Only ever touches marker-owned files in e2e-evidence/ (C1).
+removeE2eEvidencePlant();
 
 try {
   // Baseline: the real tree (this planted file absent) must already be
@@ -1114,6 +1184,65 @@ try {
       forcedSkipNoCiResult.stdout,
     );
   }
+
+  // ── HEL-1369: gitignored e2e-evidence/ must not trip the drift guard ────
+  // Runs last, after every earlier probe case has removed its directory, so a
+  // leftover probe cannot make these red for the wrong reason (and every
+  // assertion names `e2e-evidence` specifically).
+  console.log("case: e2e-evidence/ present (planted only if absent) -> real gate PASS");
+  const e2eAlreadyPresent = existsSync(e2eEvidenceDir);
+  if (!e2eAlreadyPresent) {
+    mkdirSync(e2eEvidenceDir);
+    writeFileSync(e2eMarkerFile, "hel1369 selftest marker\n");
+    writeFileSync(e2ePlaceholderFile, "hel1369 selftest placeholder\n");
+  }
+  const e2eReal = runScript();
+  check("real gate exits 0 with e2e-evidence/ present", e2eReal.status === 0, e2eReal.stderr);
+  check(
+    "real gate does not mention e2e-evidence",
+    !e2eReal.stderr.includes("e2e-evidence"),
+    e2eReal.stderr,
+  );
+
+  console.log("case: mutated gate without the e2e-evidence entry -> FAIL (pre-fix behavior)");
+  const e2eMutated = runMutatedScript(
+    '  "test-results",\n  "e2e-evidence",\n]);',
+    '  "test-results",\n]);',
+    mutatedIgnoreSetScriptPath,
+  );
+  check("mutated gate exits 1", e2eMutated.status === 1, e2eMutated.stderr);
+  check(
+    "mutated gate names COVERAGE DRIFT for e2e-evidence",
+    e2eMutated.stderr.includes('COVERAGE DRIFT: top-level directory "e2e-evidence"'),
+    e2eMutated.stderr,
+  );
+  removeMutatedIgnoreSetScript();
+  removeE2eEvidencePlant();
+
+  // ── HEL-1369: .gitignore root-dir patterns vs IGNORED_TOP_LEVEL ─────────
+  console.log("case: .gitignore root directory patterns match IGNORED_TOP_LEVEL");
+  const gitignoreText = readFileSync(join(repoRoot, ".gitignore"), "utf8");
+  const missingFromSet = rootDirsMissingFromIgnoreSet(gitignoreText);
+  check(
+    "every root-level .gitignore directory is in IGNORED_TOP_LEVEL",
+    missingFromSet.length === 0,
+    `not excluded by the gate: ${missingFromSet.join(", ")}`,
+  );
+  const parsedRoot = parseRootIgnoredDirs(gitignoreText);
+  const missingFromGitignore = [...IGNORED_TOP_LEVEL].filter((n) => !parsedRoot.has(n));
+  check(
+    "every IGNORED_TOP_LEVEL name is a root-level .gitignore directory pattern",
+    missingFromGitignore.length === 0,
+    `not in .gitignore: ${missingFromGitignore.join(", ")}`,
+  );
+
+  // Non-vacuity: the parser must actually report an extra root pattern.
+  const syntheticMissing = rootDirsMissingFromIgnoreSet(gitignoreText + "\n/zz-probe/\n");
+  check(
+    "parser reports a synthetic extra root pattern (check is not vacuous)",
+    syntheticMissing.includes("zz-probe"),
+    JSON.stringify(syntheticMissing),
+  );
 } finally {
   removePlanted();
   removeMcpPlantedSecret();
@@ -1129,6 +1258,8 @@ try {
   removeHel993MutatedEntryScript();
   removeHel846Plants();
   removeHel846MutatedScripts();
+  removeMutatedIgnoreSetScript();
+  removeE2eEvidencePlant();
 }
 
 if (failures > 0) {
