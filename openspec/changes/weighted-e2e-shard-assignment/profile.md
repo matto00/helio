@@ -127,3 +127,34 @@ Every after-run leg max: leg 1 508 s (install 216), leg 2 797 s (install 504), l
 
 The non-test overhead (~170 s per leg) and the `Install Playwright browsers` apt hangs/spikes are out of scope here and
 tracked as HEL-1368.
+
+## Post-merge measurement (owner ruling ship-restated): STOPPED, counting runs unattainable
+
+Merged head `b55687a75d44056e10e17444b3064b978ab319b2` (PR #822), which contains origin/main
+`96712881e54e32f7ca7daebec7c52a20ea7ded68` (merge's 2nd parent). CI run `37703648758`, full reruns only, one at a
+time, each attempt's 4 JSON artifacts downloaded before the next rerun.
+
+Counting stopped, by orchestrator instruction, because main has been red on
+`e2e/hel1350-chart-compare-picker.spec.ts` (dark) since `96712881e` (HEL-1285) under the old count-based sharding:
+main runs `37703155327` and `37703350572` failed with the same error as attempt 1 below. This is not caused by this
+change. The counting rules are unchanged; nothing is substituted or dropped.
+
+| Attempt | run_started_at | e2e legs | Counts? | Notes |
+|---|---|---|---|---|
+| 1 | 2026-10-07T23:41:06Z | e2e (4) failure, 1-3 success | no | `hel1350-chart-compare-picker.spec.ts:34` (dark): test timeout 150000 ms, then `apiRequestContext.delete: Target page, context or browser has been closed`; log `ci-logs/run37703648758-attempt1-e2e4-FAILED.log` |
+| 2 | 2026-10-07T23:51:31Z | all 4 success | yes (1 of 5) | runDir `37703648758-a2` |
+
+Report authentication (`stats.startTime` of each report vs the jobs-API `Run e2e` step `started_at`, attempt 2):
+
+| Leg | stats.startTime | step started_at |
+|---|---|---|
+| 1 | 23:54:18.558Z | 23:54:13Z |
+| 2 | 23:53:56.580Z | 23:53:52Z |
+| 3 | 23:54:07.335Z | 23:54:02Z |
+| 4 | 23:54:03.148Z | 23:53:59Z |
+
+Attempt 2 raw rows (leg_s, `Run e2e` step_s, install_s): leg 1 387/215/35, leg 2 345/199/42, leg 3 381/223/31,
+leg 4 350/197/42. `e2e/shard-weights.tsv` was NOT regenerated (still the 5 pre-merge baseline runs; the two merged-in
+specs `hel1331-history-payloads-toggle` and `hel1351-aggregated-chart-overlay` run as `defaulted`), and the after set
+and control were NOT measured. Pass/fail lines (a) <= 15 s, (b) < 25.5 s, (c) < control: NOT EVALUATED (fewer than 5
+counting runs).
