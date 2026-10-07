@@ -42,6 +42,24 @@ class NodePayloadHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext
       _.flatMap(t => UserTier.fromString(t).toOption).map(config.limitFor)
     }
 
+  /** HEL-1331: whether each pipeline's OWNER keeps at least one payload run (the same
+   *  `pipelines`->`users` join and `PayloadTierLimit.allowsPayloads` the writer uses, so the flag
+   *  and the writer cannot disagree). One batched query on the privileged pool. An unknown
+   *  pipeline or an unparseable tier maps to false, never throws. Callers pass only pipeline ids of
+   *  Outputs they have already authorized, so nothing leaks. */
+  def payloadsAvailableFor(pipelineIds: Set[String], config: PayloadHistoryConfig): Future[Map[String, Boolean]] =
+    if (pipelineIds.isEmpty) Future.successful(Map.empty)
+    else {
+      val inList = pipelineIds.toSeq.map(i => sql"$i").reduce((a, b) => a.concat(sql", ").concat(b))
+      val query = sql"SELECT p.id, u.tier FROM pipelines p JOIN users u ON u.id = p.owner_id WHERE p.id IN (".concat(inList).concat(sql")")
+      ctx.withSystemContext(query.as[(String, String)]).map { rows =>
+        val found = rows.map { case (id, tier) =>
+          id -> UserTier.fromString(tier).toOption.exists(t => config.limitFor(t).allowsPayloads)
+        }.toMap
+        pipelineIds.map(id => id -> found.getOrElse(id, false)).toMap
+      }
+    }
+
   /** Stores this node's payload when the owner's tier allows it and the rows are within BOTH caps,
    *  then trims at most ONE payload (the single oldest beyond the node's newest N) so the run
    *  transaction never multi-row deletes. The trim runs only if the transaction can take the HEL-1272

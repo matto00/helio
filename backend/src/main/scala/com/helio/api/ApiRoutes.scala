@@ -937,7 +937,7 @@ final class ApiRoutes(
                   new PipelineRoutes(pipelineService, authenticatedUser).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
                   // HEL-906: `/api/pipelines/:id/outputs` + `/api/outputs/:id`.
-                  new OutputRoutes(outputService, authenticatedUser, Some(outputHistoryService)).routes,
+                  new OutputRoutes(outputService, authenticatedUser, Some(outputHistoryService), Some((resolvedNodePayloadHistoryRepo, payloadHistoryConfig))).routes,
                   provenanceServiceOpt.fold(reject: Route)(svc => new ProvenanceRoutes(svc, authenticatedUser).routes),
                   new PipelineProposalRoutes(pipelineProposalService, authenticatedUser).routes,
                   // HEL-387: brand-new top-level `proposals` prefix (design.md

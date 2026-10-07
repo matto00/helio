@@ -202,6 +202,8 @@ export interface OutputResponse {
    *  precisely the null-means-root encoding R12/R15 ban; see
    *  `scripts/check-node-root-encoding.mjs` (Scala) and its TypeScript sibling. */
   rootId?: string;
+  /** HEL-1331: read-only; whether the pipeline owner's tier keeps any history payload runs. */
+  historyPayloadsAvailable?: boolean;
 }
 
 export interface OutputsResponse {

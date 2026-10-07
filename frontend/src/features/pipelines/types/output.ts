@@ -51,6 +51,9 @@ export interface Output {
    *  on single-resource endpoints (`GET/PATCH /api/outputs/:id`), which
    *  don't compute it. */
   panelCount?: number;
+  /** HEL-1331: read-only. True when the PIPELINE OWNER's tier keeps at least one payload run
+   *  (never the viewer's tier). Absent or false means the History toggle renders disabled. */
+  historyPayloadsAvailable?: boolean;
 }
 
 export interface CreateOutputPayload {
