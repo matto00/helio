@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
 // own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
@@ -16,28 +17,10 @@ test.describe.configure({ mode: "parallel" });
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel519-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-// tasks.md 6.2 — this file's OWN copy of the post-mount precondition wait, not a shared helper.
-// `c317e244` fixed only 2 of 8 duplicated copies across the suite; omitting it here reintroduces
-// the mount-timing race that took main red (a global shortcut fired before `useShortcut`'s
-// window listener attaches, immediately post-navigation).
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-519 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
-}
+// tasks.md 6.2 — `waitForShell` is the post-mount precondition wait; omitting it reintroduces the
+// mount-timing race that took main red (a global shortcut fired before `useShortcut`'s window
+// listener attaches, immediately post-navigation).
+const AUTH = { prefix: "hel519", displayName: "HEL-519", waitForShell: true } as const;
 
 async function createStaticSource(request: APIRequestContext, name: string) {
   const res = await request.post("/api/data-sources", {
@@ -88,7 +71,7 @@ async function navigateViaSidebar(page: Page, linkName: string) {
 test.describe("HEL-519 recent navigation — recording fires in a real browser", () => {
   // Matrix cell: source, list click.
   test("visiting a source from its list records it under Recent", async ({ page, request }) => {
-    await registerAndLogin(page, request, "source-list");
+    await registerAndLogin(page, request, { ...AUTH, label: "source-list" });
     const source = await createStaticSource(request, "HEL-519 Source Alpha");
 
     await page.goto("/sources");
@@ -110,7 +93,7 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "pipeline-url");
+    await registerAndLogin(page, request, { ...AUTH, label: "pipeline-url" });
     const source = await createStaticSource(request, "HEL-519 Source For Pipeline");
     const pipeline = await createPipeline(request, "HEL-519 Pipeline Direct", source.id);
 
@@ -128,7 +111,7 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "pipeline-bf");
+    await registerAndLogin(page, request, { ...AUTH, label: "pipeline-bf" });
     const source = await createStaticSource(request, "HEL-519 Source BF");
     const pipelineA = await createPipeline(request, "HEL-519 Pipeline BF A", source.id);
     const pipelineB = await createPipeline(request, "HEL-519 Pipeline BF B", source.id);
@@ -152,7 +135,7 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "dashboard-reload");
+    await registerAndLogin(page, request, { ...AUTH, label: "dashboard-reload" });
     const dashRes = await request.post("/api/dashboards", {
       data: { name: "HEL-519 Reload Dashboard" },
       headers: { [CSRF_HEADER]: "1" },
@@ -174,7 +157,7 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "persist");
+    await registerAndLogin(page, request, { ...AUTH, label: "persist" });
     const source = await createStaticSource(request, "HEL-519 Persisted Source");
     await page.goto("/sources");
     await page.locator(".source-list-table__name", { hasText: source.name }).click();
@@ -205,7 +188,7 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "fresh");
+    await registerAndLogin(page, request, { ...AUTH, label: "fresh" });
     await openPalette(page);
     await expect(recentGroupLabel(page)).toHaveCount(0);
     await expect(
@@ -216,7 +199,7 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
   // Typing a query leaves recents behind — the palette-level half of design.md D5, proven in a
   // real browser rather than only in the jsdom-driven CommandPalette.test.tsx.
   test("typing a query hides the Recent section", async ({ page, request }) => {
-    await registerAndLogin(page, request, "typing");
+    await registerAndLogin(page, request, { ...AUTH, label: "typing" });
     const source = await createStaticSource(request, "HEL-519 Typed Away");
     await page.goto("/sources");
     await page.locator(".source-list-table__name", { hasText: source.name }).click();
@@ -244,7 +227,7 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "root-landing");
+    await registerAndLogin(page, request, { ...AUTH, label: "root-landing" });
     const source = await createStaticSource(request, "HEL-519 Root Landing Source");
     await page.goto("/sources");
     await page.locator(".source-list-table__name", { hasText: source.name }).click();
@@ -260,7 +243,7 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     await expect(page.getByRole("heading", { name: source.name, exact: true })).toBeVisible();
 
     // A fresh registered account has no dashboards, so "Active dashboard" never appears here —
-    // this file's own post-mount precondition wait ("Add dashboard" — see `registerAndLogin`
+    // this file's own post-mount precondition wait ("Add dashboard" — see `waitForShell` in
     // above) is what a full reload of `/` genuinely settles on for this account.
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();

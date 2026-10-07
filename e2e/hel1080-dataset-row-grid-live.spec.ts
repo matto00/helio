@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page, type Request } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1080 skeptic-final-3.md CR-G — the owner condition this round attached: real Playwright
 // e2e specs driving the ACTUAL backend (not a jest mock), for the three cases round 2's evaluator
@@ -8,27 +9,12 @@ import { isolateLivePage } from "./support/isolateLivePage";
 // failure) — no shared fixture, no cross-test state.
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel1080-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-1080 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
-  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
-  await isolateLivePage(page);
-}
+const AUTH = {
+  prefix: "hel1080",
+  displayName: "HEL-1080",
+  waitForShell: true,
+  isolate: true,
+} as const;
 
 interface CreatedSource {
   id: string;
@@ -68,7 +54,7 @@ test.describe("HEL-1080 dataset row grid — real backend (skeptic-final-3.md CR
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "concurrent-delete");
+    await registerAndLogin(page, request, { ...AUTH, label: "concurrent-delete" });
     const source = await createDatasetSource(
       request,
       "HEL-1080 e2e concurrent-delete",
@@ -132,7 +118,7 @@ test.describe("HEL-1080 dataset row grid — real backend (skeptic-final-3.md CR
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "add-row-required");
+    await registerAndLogin(page, request, { ...AUTH, label: "add-row-required" });
     const source = await createDatasetSource(
       request,
       "HEL-1080 e2e add-row-required",
@@ -213,7 +199,7 @@ test.describe("HEL-1080 dataset row grid — real backend (skeptic-final-3.md CR
   // Case (c): pager state (the "Page N" label, Prev/Next enabled-state) must stay consistent
   // with the page actually rendered after an add-row on a multi-page dataset.
   test("pager state stays correct after an add-row lands on page 2", async ({ page, request }) => {
-    await registerAndLogin(page, request, "pager-after-add");
+    await registerAndLogin(page, request, { ...AUTH, label: "pager-after-add" });
     const rows = Array.from({ length: 100 }, (_, i) => [`p${i}`, i]);
     const source = await createDatasetSource(
       request,
@@ -268,7 +254,7 @@ test.describe("HEL-1080 dataset row grid — real backend (skeptic-final-3.md CR
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "add-row-latency");
+    await registerAndLogin(page, request, { ...AUTH, label: "add-row-latency" });
     const source = await createDatasetSource(
       request,
       "HEL-1080 e2e add-row-latency",

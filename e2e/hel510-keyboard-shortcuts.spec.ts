@@ -1,42 +1,15 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-510 — real-browser proof for the keyboard-shortcut help overlay and its guards
 // (design.md Risks: "jsdom-vacuous keyboard/focus assertions" is the central hazard for this
 // ticket; every claim below is measured against a real running dev server, never asserted from
 // jsdom). Follows the shape of e2e/hel1003-actions-menu-keyboard-reach.spec.ts.
 
-const CSRF_HEADER = "X-Helio-Requested-With";
-
-function uniqueEmail(label: string): string {
-  return `hel510-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-510 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1030 — every test in this file presses a global keyboard shortcut ("?"/Cmd+K) as its
-  // very first interaction with the authenticated shell. The listener those shortcuts dispatch
-  // through (`useShortcut`'s window `keydown` registration) attaches lazily in a passive effect
-  // that commits strictly after the shell's first render — a real, if narrow, race that exists
-  // for ANY global-shortcut trigger fired immediately post-navigation (confirmed present, at a
-  // comparable or higher rate, on `0638f749` — the commit before this ticket's shortcut registry
-  // shipped — via a throwaway Cmd+K probe run at the same worker count; this file's tests merely
-  // draw against that same pre-existing race far more often because five of its eight tests all
-  // share this exact precondition). Waiting on a real, always-present post-mount element (rather
-  // than a bare timeout) is a precondition wait, not a retry/timeout loosening: it holds until
-  // the shell — and therefore every `useShortcut` consumer mounted alongside it — has actually
-  // committed, which is the one thing every failure observed under load had in common.
-  await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
-}
+// HEL-1030 — `waitForShell`: hold until the authenticated shell (and every `useShortcut` consumer
+// mounted alongside it) has committed, before the first interaction. A precondition wait on a real,
+// always-present post-mount element, not a retry/timeout loosening.
+const AUTH = { prefix: "hel510", displayName: "HEL-510", waitForShell: true } as const;
 
 function helpOverlayDialog(page: Page) {
   return page.locator(".help-overlay");
@@ -45,7 +18,7 @@ function helpOverlayDialog(page: Page) {
 test.describe("HEL-510 keyboard-shortcut help overlay", () => {
   // (a) `?` opens the overlay from an authenticated route.
   test("? opens the help overlay from an authenticated route", async ({ page, request }) => {
-    await registerAndLogin(page, request, "open");
+    await registerAndLogin(page, request, { ...AUTH, label: "open" });
     await page.locator("body").click({ position: { x: 5, y: 5 } });
 
     await page.keyboard.press("?");
@@ -63,7 +36,7 @@ test.describe("HEL-510 keyboard-shortcut help overlay", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "listreset");
+    await registerAndLogin(page, request, { ...AUTH, label: "listreset" });
     await page.locator("body").click({ position: { x: 5, y: 5 } });
 
     await page.keyboard.press("?");
@@ -112,7 +85,7 @@ test.describe("HEL-510 keyboard-shortcut help overlay", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "escfocus");
+    await registerAndLogin(page, request, { ...AUTH, label: "escfocus" });
 
     const trigger = page.getByRole("button", { name: "Add dashboard" });
     await trigger.focus();
@@ -128,7 +101,7 @@ test.describe("HEL-510 keyboard-shortcut help overlay", () => {
 
   // (d) Tab/Shift+Tab stay inside the overlay.
   test("Tab/Shift+Tab stay inside the overlay", async ({ page, request }) => {
-    await registerAndLogin(page, request, "trap");
+    await registerAndLogin(page, request, { ...AUTH, label: "trap" });
     await page.locator("body").click({ position: { x: 5, y: 5 } });
 
     await page.keyboard.press("?");
@@ -166,7 +139,7 @@ test.describe("HEL-510 keyboard-shortcut help overlay", () => {
 
   // (e) `?` does nothing while focus is in a text input.
   test("? does nothing while focus is in a text input", async ({ page, request }) => {
-    await registerAndLogin(page, request, "typing");
+    await registerAndLogin(page, request, { ...AUTH, label: "typing" });
 
     const searchInput = page.getByLabel("Filter dashboards by name");
     await searchInput.click();
@@ -178,7 +151,7 @@ test.describe("HEL-510 keyboard-shortcut help overlay", () => {
 
   // (f) `?` does nothing while another modal is open.
   test("? does nothing while the command palette is already open", async ({ page, request }) => {
-    await registerAndLogin(page, request, "guard");
+    await registerAndLogin(page, request, { ...AUTH, label: "guard" });
     await page.locator("body").click({ position: { x: 5, y: 5 } });
 
     const isMac = process.platform === "darwin";
@@ -198,7 +171,7 @@ test.describe("HEL-510 keyboard-shortcut help overlay", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "paletteguard");
+    await registerAndLogin(page, request, { ...AUTH, label: "paletteguard" });
     await page.locator("body").click({ position: { x: 5, y: 5 } });
 
     const isMac = process.platform === "darwin";

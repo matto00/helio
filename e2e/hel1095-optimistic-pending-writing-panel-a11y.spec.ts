@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1095 design.md D8/D9 — live-browser proof of the compact counter's pending affordance
 // (`aria-busy`) and rollback-error state, read from the computed accessibility tree (never DOM
@@ -12,27 +13,7 @@ import { isolateLivePage } from "./support/isolateLivePage";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel1095-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-1095 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  expect(res.status()).toBe(201);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
-  await isolateLivePage(page);
-}
+const AUTH = { prefix: "hel1095", displayName: "HEL-1095", isolate: true } as const;
 
 interface Created {
   id: string;
@@ -127,7 +108,7 @@ test.describe("HEL-1095 optimistic pending/rollback ARIA state (real backend)", 
       page,
       request,
     }) => {
-      await registerAndLogin(page, request, `busy-${theme}`);
+      await registerAndLogin(page, request, { ...AUTH, label: `busy-${theme}` });
       const source = await seedCounterDataset(request, `HEL-1095 e2e Widgets (${theme})`);
       let dashboard: Created | undefined;
       try {
@@ -205,7 +186,7 @@ test.describe("HEL-1095 optimistic pending/rollback ARIA state (real backend)", 
       page,
       request,
     }) => {
-      await registerAndLogin(page, request, `rollback-${theme}`);
+      await registerAndLogin(page, request, { ...AUTH, label: `rollback-${theme}` });
       const source = await seedCounterDataset(request, `HEL-1095 e2e Rollback (${theme})`);
       let dashboard: Created | undefined;
       try {

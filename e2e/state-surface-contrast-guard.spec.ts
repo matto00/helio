@@ -18,6 +18,8 @@ import { INTERACTIVE_SELECTOR } from "./support/stateContrastProbe";
 import { forceFocusVisible } from "./support/forceFocusVisible";
 import { waitForSettingsAuditTable } from "./support/settingsReady";
 import { settleTransitions } from "./support/settleTransitions";
+import { isolateLivePage } from "./support/isolateLivePage";
+import { registerUser } from "./support/auth";
 
 // HEL-866 — the mechanical, RENDERED state-surface contrast guard (AC5,
 // design.md D4). Walks the RUNNING app (not a static parse of theme.css or
@@ -69,21 +71,7 @@ import { settleTransitions } from "./support/settleTransitions";
 const CSRF_HEADER = "X-Helio-Requested-With";
 const MAX_ELEMENTS_PER_VIEW = 24;
 
-function uniqueEmail(label: string): string {
-  return `hel866-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-/** Registers a fresh user over the API; the session cookie lands on `request`'s context. */
-async function registerUser(request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-866 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  expect(res.status()).toBe(201);
-  return { email, password };
-}
+const AUTH = { prefix: "hel866", displayName: "HEL-866" } as const;
 
 interface Backdrop {
   layers: { bg: string }[];
@@ -555,6 +543,11 @@ type Counts = {
 const CHROME_EXCLUDE = "main, .app-sidebar > :not(.app-sidebar__nav-row)";
 
 async function newCell(page: Page, request: APIRequestContext, theme: Theme) {
+  // HEL-1330: idle the page on about:blank before any API seeding. A fresh page already is, and the
+  // seed below runs before this cell's first app `goto`; stating it keeps a future earlier `goto`
+  // from reintroducing the seed-while-`/`-is-live race (HEL-1289). The theme stays an
+  // `addInitScript`, never an `evaluate`: there is no live app page to evaluate on (C3).
+  await isolateLivePage(page);
   const client = await page.context().newCDPSession(page);
   await client.send("DOM.enable");
   await client.send("CSS.enable");
@@ -562,7 +555,7 @@ async function newCell(page: Page, request: APIRequestContext, theme: Theme) {
   // HEL-1288 cycle 4: seeding is API-only (register, dashboard, source, pipeline, step), replacing
   // three UI clicks per cell. Each
   // cell still has its own fresh user and data; the per-view population lines must equal main's.
-  const creds = await registerUser(request, "guard");
+  const creds = await registerUser(request, { ...AUTH, label: "guard" });
   const dashRes = await request.post("/api/dashboards", {
     data: { name: DASH_NAME },
     headers: { [CSRF_HEADER]: "1" },

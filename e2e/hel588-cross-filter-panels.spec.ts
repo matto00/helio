@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
 // own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
@@ -19,27 +20,12 @@ test.describe.configure({ mode: "parallel" });
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel588-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-588 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  expect(res.status()).toBe(201);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
-  await isolateLivePage(page);
-}
+const AUTH = {
+  prefix: "hel588",
+  displayName: "HEL-588",
+  domain: "example.com",
+  isolate: true,
+} as const;
 
 interface SeededDashboard {
   chartPanelTitle: string;
@@ -250,7 +236,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "table-narrow");
+    await registerAndLogin(page, request, { ...AUTH, label: "table-narrow" });
     const { chartPanelTitle, tablePanelTitle, unrelatedPanelTitle } = await seedDashboard(
       page,
       request,
@@ -330,7 +316,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "cr3-sweep");
+    await registerAndLogin(page, request, { ...AUTH, label: "cr3-sweep" });
     const { chartPanelTitle, tablePanelTitle } = await seedDashboard(page, request);
     // Deliberately at the DEFAULT test viewport for the click itself (matches
     // the CR1/CR2 spec above, whose pie-slice click is proven reliable there)
@@ -410,7 +396,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "truncation");
+    await registerAndLogin(page, request, { ...AUTH, label: "truncation" });
 
     const dashboardRes = await request.post("/api/dashboards", {
       data: { name: "HEL-588 truncation" },
@@ -598,7 +584,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "dim-mismatch");
+    await registerAndLogin(page, request, { ...AUTH, label: "dim-mismatch" });
 
     const dashboardRes = await request.post("/api/dashboards", {
       data: { name: "HEL-588 dimension mismatch" },

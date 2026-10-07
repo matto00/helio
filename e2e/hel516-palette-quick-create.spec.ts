@@ -1,5 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
 // own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
@@ -16,32 +17,10 @@ test.describe.configure({ mode: "parallel" });
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel516-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-516 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1030 (c317e244) — every test in this file's first interaction with the authenticated
-  // shell is a global keyboard shortcut (Cmd/Ctrl+K), fired through `useShortcut`'s window
-  // `keydown` listener, which attaches lazily in a passive effect that commits strictly after
-  // the shell's first render. Without this precondition wait, a shortcut pressed immediately
-  // post-navigation can race that mount and silently no-op — exactly the flake that broke main's
-  // CI after HEL-510 (PR #596). A precondition wait on a real, always-present post-mount
-  // element, not a retry/timeout loosening.
-  await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
-}
+// HEL-1030 — `waitForShell`: hold until the authenticated shell (and every `useShortcut` consumer
+// mounted alongside it) has committed, before the first interaction. A precondition wait on a real,
+// always-present post-mount element, not a retry/timeout loosening.
+const AUTH = { prefix: "hel516", displayName: "HEL-516", waitForShell: true } as const;
 
 async function openPalette(page: Page) {
   // Blur any currently-focused control (e.g. a just-clicked nav link) without hitting the
@@ -70,7 +49,7 @@ test.describe("HEL-516 palette quick-create — reach", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "source-reach");
+    await registerAndLogin(page, request, { ...AUTH, label: "source-reach" });
     await page.goto("/pipelines");
 
     await runPaletteAction(page, "Add source");
@@ -88,7 +67,7 @@ test.describe("HEL-516 palette quick-create — reach", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "panel-reach");
+    await registerAndLogin(page, request, { ...AUTH, label: "panel-reach" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     await request.post("/api/dashboards", {
@@ -112,7 +91,7 @@ test.describe("HEL-516 palette quick-create — reach", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "pipeline-reach");
+    await registerAndLogin(page, request, { ...AUTH, label: "pipeline-reach" });
     await page.goto("/sources");
 
     await runPaletteAction(page, "New pipeline");
@@ -127,7 +106,7 @@ test.describe("HEL-516 palette quick-create — reach", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "dashboard-reach");
+    await registerAndLogin(page, request, { ...AUTH, label: "dashboard-reach" });
     await page.goto("/pipelines");
 
     await runPaletteAction(page, "New dashboard");
@@ -143,7 +122,7 @@ test.describe("HEL-516 palette quick-create — never presented twice", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "source-owning");
+    await registerAndLogin(page, request, { ...AUTH, label: "source-owning" });
     await page.goto("/sources");
 
     await runPaletteAction(page, "Add source");
@@ -155,7 +134,7 @@ test.describe("HEL-516 palette quick-create — never presented twice", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "panel-owning");
+    await registerAndLogin(page, request, { ...AUTH, label: "panel-owning" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     await request.post("/api/dashboards", {
@@ -179,7 +158,7 @@ test.describe("HEL-516 palette quick-create — never presented twice", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "source-nested");
+    await registerAndLogin(page, request, { ...AUTH, label: "source-nested" });
     await page.goto("/sources"); // off /pipelines, so CreatePipelineModal is the SHELL instance
 
     await runPaletteAction(page, "New pipeline");
@@ -222,7 +201,7 @@ test.describe("HEL-516 design.md D3a — the StrictMode-masked production defect
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "strictmode-positive");
+    await registerAndLogin(page, request, { ...AUTH, label: "strictmode-positive" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     await request.post("/api/data-sources", {
@@ -264,7 +243,7 @@ test.describe("HEL-516 palette quick-create — section order determinism", () =
       // from the PREVIOUS iteration makes `PublicOnlyRoute` redirect `/login` straight back to
       // `/`, unmounting the login form mid-interaction.
       await page.context().clearCookies();
-      await registerAndLogin(page, request, `order-${i}`);
+      await registerAndLogin(page, request, { ...AUTH, label: `order-${i}` });
       await openPalette(page);
       const order = await page.locator(".command-palette__group-label").allTextContents();
       orders.push(order);

@@ -22,8 +22,8 @@ export async function isolateLivePage(page: Page): Promise<void> {
   await page.goto("about:blank");
 }
 
-/** The standard UI form login: `/login`, fill, submit, wait for the post-login `/`. */
-export async function loginThenIsolate(
+/** The standard UI form login: `/login`, fill, submit, wait for the post-login `/`. Never isolates. */
+export async function uiLogin(
   page: Page,
   credentials: { email: string; password: string },
 ): Promise<void> {
@@ -32,5 +32,13 @@ export async function loginThenIsolate(
   await page.fill("#password", credentials.password);
   await page.click("button[type=submit]");
   await page.waitForURL("/");
+}
+
+/** The UI login (`uiLogin`), then idle the post-login `/` on `about:blank`. */
+export async function loginThenIsolate(
+  page: Page,
+  credentials: { email: string; password: string },
+): Promise<void> {
+  await uiLogin(page, credentials);
   await isolateLivePage(page);
 }

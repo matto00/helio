@@ -1,5 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1230 — a drag followed by a panel create before the flush must not be lost: the dragged position
 // is still PATCHed by Save now. The drag moves RIGHT (x only) so it cannot land on the cell the
@@ -9,24 +10,7 @@ import { isolateLivePage } from "./support/isolateLivePage";
 
 const CSRF = { "X-Helio-Requested-With": "1" };
 
-async function registerAndLogin(page: Page, request: APIRequestContext) {
-  const email = `hel1230-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: "HEL-1230" },
-    headers: CSRF,
-  });
-  expect(res.status()).toBe(201);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
-  await isolateLivePage(page);
-  return email;
-}
+const AUTH = { prefix: "hel1230", displayName: "HEL-1230", isolate: true } as const;
 
 async function seed(request: APIRequestContext) {
   const dash = await request.post("/api/dashboards", {
@@ -85,7 +69,7 @@ test("drag, then add a panel, then Save now PATCHes the dragged position", async
 }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1920, height: 1200 });
-  await registerAndLogin(page, request);
+  await registerAndLogin(page, request, AUTH);
   const ids = await seed(request);
   try {
     const layoutPatches: string[] = [];
