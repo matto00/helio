@@ -117,31 +117,35 @@
 // Two categories are skipped before classification (never require an
 // entry): dot-prefixed directories, and a hardcoded `IGNORED_TOP_LEVEL` set
 // of names that are never committed. `IGNORED_TOP_LEVEL` is a hand-derived
-// duplicate of the UNANCHORED (root-matching) directory patterns in
-// `.gitignore` — deliberately hardcoded rather than parsed from
+// duplicate of the root-matching directory patterns in `.gitignore` --
+// both UNANCHORED (`name/`) and ANCHORED (`/name/`) forms match a root-level
+// directory, so both count -- deliberately hardcoded rather than parsed from
 // `.gitignore` or resolved via `git check-ignore`, because both of those
 // require either fragile ad-hoc gitignore-semantics parsing (anchoring,
 // negation, globs) or a git invocation this gate otherwise has no need for.
 // That is an accepted trade-off: a *committed* directory sharing one of
-// these six names would be skipped, but since each is an unanchored
-// `.gitignore` entry, that can't happen without someone first
-// force-committing a directory the repo already ignores.
+// these seven names would be skipped, but since each is a `.gitignore`
+// entry, that can't happen without someone first force-committing a
+// directory the repo already ignores. The duplication is checked
+// mechanically instead: the self-test (HEL-1369) parses `.gitignore` and
+// fails in either direction of mismatch.
 //
 //   name                | .gitignore line
 //   --------------------|----------------
-//   node_modules        | 6  (node_modules/)
-//   dist                | 8  (dist/)
-//   build               | 10 (build/)
-//   coverage            | 17 (coverage/)
-//   playwright-report   | 18 (playwright-report/)
-//   test-results        | 19 (test-results/)
+//   node_modules        | 6   (node_modules/)
+//   dist                | 8   (dist/)
+//   build               | 10  (build/)
+//   coverage            | 23  (coverage/)
+//   playwright-report   | 24  (playwright-report/)
+//   test-results        | 25  (test-results/)
+//   e2e-evidence        | 107 (/e2e-evidence/, HEL-1363)
 //
 // `target` and `out` are deliberately EXCLUDED from this set: `.gitignore`
 // line 11 is the ANCHORED `backend/target/` (does not ignore a root-level
 // `target/`), and `out` does not appear in `.gitignore` at all — a
 // root-level `target/` or `out/` SHOULD trip the drift guard.
 //
-// Whenever a new unanchored root-directory pattern is added to `.gitignore`,
+// Whenever a new root-directory pattern is added to `.gitignore`,
 // add it to `IGNORED_TOP_LEVEL` in the same commit, or the drift guard will
 // (correctly) start failing on that directory's presence.
 //
@@ -756,16 +760,18 @@ function runChecksForSurface(surface, files, textByFile, accessErrors, errors) {
 
 // ── Coverage-drift guard (design.md Decision 1/1a/1b) ───────────────────────
 
-// Hardcoded duplicate of the UNANCHORED (root-matching) directory patterns
-// in `.gitignore` — see the header comment above for the full table and the
-// rationale for why this isn't derived at runtime.
-const IGNORED_TOP_LEVEL = new Set([
+// Hardcoded duplicate of the root-matching directory patterns in
+// `.gitignore` — see the header comment above for the full table and the
+// rationale for why this isn't derived at runtime. Exported read-only for the
+// self-test's `.gitignore` consistency check (HEL-1369).
+export const IGNORED_TOP_LEVEL = new Set([
   "node_modules",
   "dist",
   "build",
   "coverage",
   "playwright-report",
   "test-results",
+  "e2e-evidence",
 ]);
 
 // PARTIAL: a declared surface root is beneath this top-level directory, but

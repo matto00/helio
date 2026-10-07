@@ -89,6 +89,10 @@ frontend/src/features/assistant/.hel993-locked-dir/
 /scripts/.hel846-selftest-mutated-surfaces.mjs
 /scripts/.hel846-selftest-mutated-checks.mjs
 
+# HEL-1369 self-test mutated copy of the credential gate (check-no-credential-in-agent-surface.selftest.mjs) —
+# a crashed run must not leave a committable artifact behind.
+/scripts/.hel1369-selftest-mutated-ignore-set.mjs
+
 # Concertino
 .concertino/
 # Stray render artifacts leaked from a dirty upstream Concertino checkout
