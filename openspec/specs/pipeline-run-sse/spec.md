@@ -51,7 +51,10 @@ events as the tree-walk engine completes each node (trunk and tails alike), and 
 completes without exception but is blocked by an error-severity assertion failure (see
 `pipeline-assert-fail-policy`) SHALL publish `failed`, not `succeeded`, with `errorLog` naming the
 failing rule(s) — this is a terminal-status outcome distinct from an execution exception, but uses the
-same `failed` event kind. `node-progress` is NOT a terminal status — the stream SHALL remain open
+same `failed` event kind. A terminal event (`succeeded`, `failed`, `dry_run`) SHALL be published only after
+that run's terminal writes have completed, so that any subscriber reacting to it reads the run's terminal status
+from `GET /api/pipelines/:id/runs/latest` and, for `succeeded`, the run's materialized Output rows. Exactly one
+terminal event SHALL still be published per run when a terminal write fails. `node-progress` is NOT a terminal status — the stream SHALL remain open
 across it. Events SHALL be ephemeral — not persisted to the database.
 
 #### Scenario: Queued event published before engine starts
@@ -83,6 +86,16 @@ across it. Events SHALL be ephemeral — not persisted to the database.
 #### Scenario: node-progress event does not close the stream
 - **WHEN** a `node-progress` event is published for a pipeline run
 - **THEN** the SSE stream remains open and continues to accept further events
+
+#### Scenario: Succeeded event is published only after the run's results are durable
+- **WHEN** a subscriber receives a `succeeded` event for a run that has a persisted run record and immediately reads that pipeline's latest run and
+  the run's materialized Output rows
+- **THEN** the latest run is that run with status `succeeded`, and the Output rows are the ones that run produced
+
+#### Scenario: Failed and dry_run events are published only after the terminal status is durable
+- **WHEN** a subscriber receives a `failed` or `dry_run` event for a run that has a persisted run record and
+  immediately reads that pipeline's run record for that run
+- **THEN** the record already carries that terminal status
 
 ### Requirement: SSE subscriber receives events published after connection opens
 A client that connects to `run-events` before a run is posted SHALL receive all subsequent

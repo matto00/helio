@@ -63,6 +63,13 @@ export async function registerUser(
   return { email, password };
 }
 
+/** The id of the user the session cookie on `request` belongs to (`GET /api/auth/me`, asserts 200). */
+export async function currentUserId(request: APIRequestContext): Promise<string> {
+  const me = await request.get("/api/auth/me");
+  expect(me.status()).toBe(200);
+  return ((await me.json()) as { id: string }).id;
+}
+
 /**
  * Register -> UI login -> (`waitForShell`) wait for "Add dashboard" -> (`isolate`) idle on
  * about:blank. The order is fixed: isolate-then-wait is impossible (blank page). Pass `isolate`

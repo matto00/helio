@@ -1,7 +1,8 @@
-import { expect, test, type APIRequestContext, type Page, type Request } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Request } from "@playwright/test";
 
 import { evidencePath } from "./support/evidencePath";
 import { backdateHistory, historyRowCount } from "./support/historySeed";
+import { currentUserId, registerUser } from "./support/auth";
 import { loginThenIsolate } from "./support/isolateLivePage";
 
 // HEL-1350 — a chart Output's Compare picker (Output editor) turns on the dashboard "vs" overlay.
@@ -29,22 +30,6 @@ async function runPipeline(request: APIRequestContext, pipelineId: string) {
   expect(res.status(), await res.text()).toBe(200);
 }
 
-async function registerThenLogin(page: Page, request: APIRequestContext, theme: string) {
-  const email = `hel1350-${theme}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: "HEL-1350" },
-    headers: CSRF,
-  });
-  expect(res.status()).toBe(201);
-  const me = await request.get("/api/auth/me");
-  expect(me.status()).toBe(200);
-  const userId = ((await me.json()) as { id: string }).id;
-  console.log(`[HEL-1350 e2e] created user ${userId}`);
-  await loginThenIsolate(page, { email, password });
-  return userId;
-}
-
 for (const theme of ["light", "dark"] as const) {
   test(`chart Compare picker sets compare and the dashboard draws the "vs 7d" overlay (${theme})`, async ({
     page,
@@ -53,7 +38,14 @@ for (const theme of ["light", "dark"] as const) {
     test.setTimeout(150_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
-    const userId = await registerThenLogin(page, request, theme);
+    const credentials = await registerUser(request, {
+      prefix: `hel1350-${theme}`,
+      displayName: "HEL-1350",
+      logEmail: false,
+    });
+    const userId = await currentUserId(request);
+    console.log(`[HEL-1350 e2e] created user ${userId}`);
+    await loginThenIsolate(page, credentials);
 
     const created: { source?: string; pipeline?: string; dashboard?: string } = {};
     try {
