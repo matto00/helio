@@ -99,9 +99,11 @@ findings are already stripped from the JSON by osv-scanner itself before this
 filter runs, so a suppression fully removes an entry from the gate, not just
 from the visible failure count.
 
-**Frontend:** `audit-ci` wraps `npm audit` for both the root and `frontend/`
-lockfiles against `.audit-ci.jsonc` / `frontend/.audit-ci.jsonc`, both
-currently configured `"high": true` with an empty `allowlist`.
+**Frontend:** `audit-ci` wraps `npm audit` for the root, `frontend/` and
+`helio-mcp/` lockfiles. The root (`.audit-ci.jsonc`) is configured `"high": true`
+with one path-scoped allowlist entry (HEL-1246); `frontend/.audit-ci.jsonc`
+(HEL-1320) and `helio-mcp/.audit-ci.jsonc` (HEL-1204) are configured
+`"moderate": true` with an empty `allowlist`.
 
 Source: `.github/workflows/ci.yml` (`security` job), `backend/osv-scanner.toml`,
 `.audit-ci.jsonc`, `frontend/.audit-ci.jsonc`.
@@ -136,7 +138,8 @@ code >= 127, so a future typo fails closed (loud CI break) rather than open
 (silent permanent suppression).
 
 **Frontend** — `.audit-ci.jsonc` / `frontend/.audit-ci.jsonc`, `allowlist`
-array. Both are currently empty. The same manual-convention caveat still
+array. The root carries one path-scoped entry (HEL-1246); `frontend/` is
+empty. The same manual-convention caveat still
 applies here: any future entry should carry an inline comment with the ticket
 and a review-by date, but `audit-ci` does not enforce expiry — this frontend
 gap is unchanged by HEL-839, which only addressed the backend.

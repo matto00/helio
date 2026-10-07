@@ -225,11 +225,12 @@ tags have no Release because of exactly this. Verify with
 `scripts/release/audit-releases.sh`; **a successful deploy is not evidence the
 release was cut correctly, the audit is.**
 
-### The security gate is unconditional on high/critical (moderate for helio-mcp)
+### The security gate is unconditional on high/critical (moderate for frontend/ and helio-mcp)
 
-`audit-ci` runs with `"high": true` in the root and `frontend/` trees, and with
-`"moderate": true` in `helio-mcp/` (HEL-1204: its advisories were all moderate,
-so a `"high"` gate there would be green on a vulnerable lockfile). The
+`audit-ci` runs with `"high": true` in the root tree, and with
+`"moderate": true` in `frontend/` (HEL-1320) and `helio-mcp/` (HEL-1204: its
+advisories were all moderate, so a `"high"` gate there would be green on a
+vulnerable lockfile). The
 `frontend/` and `helio-mcp/` allowlists are empty; the root allowlist carries one
 path-scoped entry (HEL-1246, `GHSA-vfj7-8cjw-p6xm|*micromatch>braces*`, dev-only,
 no patched version, review-by 2026-11-02). A newly-published advisory turns every open PR red with no
