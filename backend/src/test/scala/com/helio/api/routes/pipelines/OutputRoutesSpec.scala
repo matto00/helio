@@ -45,6 +45,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** HEL-906 (P1.3) — HTTP-layer ACL coverage for `GET/POST
@@ -61,6 +62,12 @@ class OutputRoutesSpec
 
   /** Give-up bound only (C6): the poll ends the moment the backfilled rows are materialized. */
   private val BackfillMaterializedStateWaitDeadline = 5.seconds
+
+  /** Give-up bound only (HEL-1356): the await returns the moment the backfill Future completes. */
+  private val BackfillCompletionDeadline = 10.seconds
+
+  /** HEL-1356: the Future `OutputService` hands to its `backfillObserver`, keyed by Output id. */
+  private val backfillFutures = new TrieMap[OutputId, Future[Unit]]()
 
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
@@ -152,7 +159,8 @@ class OutputRoutesSpec
     pipelineRootRepo = new PipelineRootRepository(ctx)(routeEc)
     outputService = new OutputService(
       outputRepo, panelRepo, accessChecker, auditService = null, pipelineRunRepo, nodeSnapshotRepo,
-      pipelineRunService = sharedRunService, pipelineRootRepo = pipelineRootRepo
+      pipelineRunService = sharedRunService, pipelineRootRepo = pipelineRootRepo,
+      backfillObserver = (id, done) => backfillFutures.put(id, done)
     )(routeEc)
     dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)(routeEc)
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, null, outputRepo)(routeEc)
@@ -774,15 +782,35 @@ class OutputRoutesSpec
     // pre-HEL-947. Guards against a regression where the fire-and-forget trigger fires
     // unconditionally regardless of run history.
     "does not backfill and stays materialized=false for an Output created on a node that has never run" in {
-      val pipelineId = newSharedPipeline()
+      import PostgresProfile.api._
+      // Real dataset rows are seeded (as in the positive test above) so that a forbidden
+      // backfill WOULD write snapshot rows and flip materialized -- on an empty source it
+      // writes nothing and the negative check could never fail. The pipeline is never run.
+      val dsId = UUID.randomUUID().toString
+      val dsConfig = """{"columns":[{"name":"name","type":"string"}],"rows":[["alice"],["bob"]]}"""
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO data_sources
+          (id, name, source_type, config, owner_id, created_at, updated_at)
+          VALUES ($dsId, 'ds-never-run', 'dataset', '{}', $ownerId::uuid, now(), now())""",
+        DatasetRowsTestSupport.seedActionsFromRaw(dsId, dsConfig)
+      )))
+      val pipeline = await(pipelineRepo.create("never-run-pipe", Vector(DataSourceId(dsId)), owner)).getOrElse(
+        throw new IllegalStateException("never-run fixture: pipeline create failed")
+      )
+      val pipelineId = PipelineId(pipeline.id)
       var outputId = ""
       Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "table", "never-run-output", None)) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.Created
         outputId = responseAs[JsObject].fields("id").convertTo[String]
       }
 
-      // Give the fire-and-forget trigger a moment to have run (it must find nothing to do).
-      Thread.sleep(200)
+      // HEL-1356: wait on the production completion hook, not a sleep. Fail loudly if the hook
+      // never recorded a Future, so a broken hook cannot make this negative check vacuous.
+      val backfillDone = backfillFutures.getOrElse(
+        OutputId(outputId),
+        fail("no backfill Future recorded for the created Output: completion hook not invoked")
+      )
+      Await.result(backfillDone, BackfillCompletionDeadline)
 
       Get(s"/outputs/$outputId/rows") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
