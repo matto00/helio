@@ -276,7 +276,7 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
       runCount(pid) shouldBe 1
     }
 
-    "reports the observed elapsed time from the last write to the run appearing in pipeline_runs" in {
+    "fire a debounced auto-run through the real system clock, creating exactly one run" in {
       cleanDb()
       val owner = seedUser()
       val dsId  = seedDataset(owner, Vector(DatasetFieldDeclaration("name", DataFieldType.StringType)))
