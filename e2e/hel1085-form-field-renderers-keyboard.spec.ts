@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
@@ -208,7 +209,7 @@ test.describe("HEL-1085 form field renderers — keyboard completion (real backe
           await page.waitForTimeout(400); // let the theme-switch color transition settle
         }
         await page.screenshot({
-          path: `.concertino/runs/HEL-1085/evidence/form-panel-fields-${theme}.png`,
+          path: evidencePath("HEL-1085", `form-panel-fields-${theme}.png`),
         });
       }
     } finally {

@@ -1,0 +1,3 @@
+MUTATION cycle3: spread check disabled
+FAIL: red: spread in screenshot options — status=0 stderr=
+15 passed, 1 failed, 16 total

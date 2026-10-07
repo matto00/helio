@@ -401,6 +401,54 @@ function caseInvalidThreshold() {
   );
 }
 
+function caseGitignoredOnlyDir() {
+  // HEL-1363: a no-tasks change dir holding only gitignored files is local debris, not a change.
+  const repo = makeRepo();
+  ensureArchiveDir(repo);
+  writeFileSync(join(repo, ".gitignore"), "*.png\n");
+  seedMain(repo);
+  const ghost = join(repo, "openspec/changes/ghost-shots/screenshots");
+  mkdirSync(ghost, { recursive: true });
+  writeFileSync(join(ghost, "a.png"), "x");
+  const res = runScript(repo);
+  record("HEL-1363 gitignored-only no-tasks dir: exits 0", res.status === 0, evidence(res));
+  record(
+    "HEL-1363 gitignored-only no-tasks dir: stderr notice names the directory",
+    /openspec\/changes\/ghost-shots holds only gitignored files/.test(res.stderr),
+    evidence(res),
+  );
+}
+
+function caseCommittableNoTasksDir() {
+  const repo = makeRepo();
+  ensureArchiveDir(repo);
+  writeFileSync(join(repo, ".gitignore"), "*.png\n");
+  seedMain(repo);
+  const dir = join(repo, "openspec/changes/real-proposal");
+  mkdirSync(join(dir, "screenshots"), { recursive: true });
+  writeFileSync(join(dir, "screenshots/a.png"), "x");
+  writeFileSync(join(dir, "proposal.md"), "## Why\ntest\n");
+  const res = runScript(repo);
+  record(
+    "HEL-1363 no-tasks dir with a committable file: still fails",
+    res.status === 1 && /change "real-proposal" has no tasks/.test(res.stderr),
+    evidence(res),
+  );
+}
+
+function caseGitignoredOnlyDirWithoutGit() {
+  const dir = makePlainDir();
+  mkdirSync(join(dir, "openspec/changes/archive"), { recursive: true });
+  mkdirSync(join(dir, "openspec/changes/ghost-shots/screenshots"), { recursive: true });
+  writeFileSync(join(dir, "openspec/changes/ghost-shots/screenshots/a.png"), "x");
+  const res = runScript(dir);
+  record(
+    "HEL-1363 no-tasks dir without git: fails closed",
+    res.status === 1 && /change "ghost-shots" has no tasks/.test(res.stderr),
+    evidence(res),
+  );
+}
+
 function main() {
   const start = Date.now();
   console.log("check-openspec-hygiene.selftest: running fixture cases against a real subprocess\n");
@@ -419,6 +467,9 @@ function main() {
     caseNoArchiveDir();
     caseNoCompleteChange();
     caseInvalidThreshold();
+    caseGitignoredOnlyDir();
+    caseCommittableNoTasksDir();
+    caseGitignoredOnlyDirWithoutGit();
   } finally {
     for (const dir of fixtures) {
       try {

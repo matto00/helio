@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
@@ -143,7 +144,7 @@ test.describe("HEL-1169 network-vs-rejection reconcile ARIA state (real backend)
         await expect(control).toHaveAccessibleDescription(/delta must be positive/i);
 
         await page.screenshot({
-          path: `.concertino/runs/HEL-1169/evidence/definite-rejection-${theme}.png`,
+          path: evidencePath("HEL-1169", `definite-rejection-${theme}.png`),
         });
       } finally {
         if (dashboard) await deleteDashboard(request, dashboard.id);
@@ -198,7 +199,7 @@ test.describe("HEL-1169 network-vs-rejection reconcile ARIA state (real backend)
         await expect(alert).not.toHaveText(/delta must be positive/i);
 
         await page.screenshot({
-          path: `.concertino/runs/HEL-1169/evidence/indeterminate-unconfirmed-${theme}.png`,
+          path: evidencePath("HEL-1169", `indeterminate-unconfirmed-${theme}.png`),
         });
       } finally {
         if (dashboard) await deleteDashboard(request, dashboard.id);

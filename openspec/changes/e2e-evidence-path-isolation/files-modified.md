@@ -1,0 +1,20 @@
+<!-- Rewritten by the orchestrator at Delivery: same file set as the executor's declaration, expanded to full paths for squash-branch.sh. -->
+- `.github/workflows/ci.yml`
+- `.gitignore`
+- `.husky/pre-commit`
+- `e2e/hel1085-form-field-renderers-keyboard.spec.ts`
+- `e2e/hel1087-form-submit-path.spec.ts`
+- `e2e/hel1088-compact-counter-chrome.spec.ts`
+- `e2e/hel1095-optimistic-pending-writing-panel-a11y.spec.ts`
+- `e2e/hel1169-network-vs-rejection-reconcile-a11y.spec.ts`
+- `e2e/hel1275-metric-delta-sparkline.spec.ts`
+- `e2e/hel1277-output-history-scrubber.spec.ts`
+- `e2e/hel1350-chart-compare-picker.spec.ts`
+- `e2e/hel1351-aggregated-chart-overlay.spec.ts`
+- `e2e/hel588-cross-filter-panels.spec.ts`
+- `e2e/support/evidencePath.ts`
+- `package.json`
+- `scripts/check-e2e-evidence-paths.mjs`
+- `scripts/check-e2e-evidence-paths.selftest.mjs`
+- `scripts/check-openspec-hygiene.mjs`
+- `scripts/check-openspec-hygiene.selftest.mjs`
