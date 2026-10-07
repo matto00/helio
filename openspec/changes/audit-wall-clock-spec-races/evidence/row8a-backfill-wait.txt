@@ -1,0 +1,89 @@
+=== Row 8a P: OLD form (150 ms default eventually) + 300 ms delay in backfill (expect RED) ===
+Edit applied (temporary, reverted afterwards): OLD spec from 469f4ea93; OutputService.triggerBackfill delays 300 ms before backfillOutputNode
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala b/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala
+index 5954a53b5..2399f0f49 100644
+--- a/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala
++++ b/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala
+@@ -65,3 +65,3 @@ final class OutputService(
+       // one -- see PipelineRunService.backfillOutputNode's doc.
+-      pipelineRunService.backfillOutputNode(output.node.pipelineId, output.node.stepId, user, output.node.rootId)
++      scala.concurrent.Future(Thread.sleep(300))(scala.concurrent.ExecutionContext.global).flatMap(_ => pipelineRunService.backfillOutputNode(output.node.pipelineId, output.node.stepId, user, output.node.rootId))(scala.concurrent.ExecutionContext.global) // PROBE: 300 ms delay in backfill
+ 
+diff --git a/backend/src/test/scala/com/helio/api/routes/pipelines/OutputRoutesSpec.scala b/backend/src/test/scala/com/helio/api/routes/pipelines/OutputRoutesSpec.scala
+index 1e8083d84..68742e458 100644
+--- a/backend/src/test/scala/com/helio/api/routes/pipelines/OutputRoutesSpec.scala
++++ b/backend/src/test/scala/com/helio/api/routes/pipelines/OutputRoutesSpec.scala
+@@ -61,5 +61,2 @@ class OutputRoutesSpec
+ 
+-  /** Give-up bound only (C6): the poll ends the moment the backfilled rows are materialized. */
+-  private val BackfillMaterializedStateWaitDeadline = 5.seconds
+-
+   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
+@@ -757,6 +754,4 @@ class OutputRoutesSpec
+ 
+-      // No second run. The backfill fires off the request path -- poll until it lands. HEL-1341 D9:
+-      // an explicit state wait with a NAMED give-up deadline (the bare `eventually` used
+-      // ScalaTest's 150 ms default patience, which a slow backfill + HTTP/DB round trip overran).
+-      eventually(timeout(BackfillMaterializedStateWaitDeadline), interval(50.millis)) {
++      // No second run. The backfill fires off the request path -- poll until it lands.
++      eventually {
+         Get(s"/outputs/$outputId/rows") ~> routesFor(owner) ~> check {
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *OutputRoutesSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should 200 with real rows and materialized=true for an Output created AFTER its node already ran successfully, with no re-run *** FAILED ***
+[info]   The code passed to eventually never returned normally. Attempted 6 times over 154.424164 milliseconds. Last failure message: false was not equal to true. (OutputRoutesSpec.scala:756)
+[info] - should does not backfill and stays materialized=false for an Output created on a node that has never run
+[info] - should 200 with real rows and materialized=true for an Output created AFTER its node already ran successfully, with no re-run *** FAILED ***
+[info]   The code passed to eventually never returned normally. Attempted 6 times over 154.424164 milliseconds. Last failure message: false was not equal to true. (OutputRoutesSpec.scala:756)
+[info] - should does not backfill and stays materialized=false for an Output created on a node that has never run
+[info] Tests: succeeded 98, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.OutputRoutesSpec
+sbt exit code: 1
+=== Row 8a P: NEW form + same 300 ms backfill delay (expect GREEN) ===
+Edit applied (temporary, reverted afterwards): OutputService.triggerBackfill delays 300 ms before backfillOutputNode
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala b/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala
+index 5954a53b5..2399f0f49 100644
+--- a/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala
++++ b/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala
+@@ -65,3 +65,3 @@ final class OutputService(
+       // one -- see PipelineRunService.backfillOutputNode's doc.
+-      pipelineRunService.backfillOutputNode(output.node.pipelineId, output.node.stepId, user, output.node.rootId)
++      scala.concurrent.Future(Thread.sleep(300))(scala.concurrent.ExecutionContext.global).flatMap(_ => pipelineRunService.backfillOutputNode(output.node.pipelineId, output.node.stepId, user, output.node.rootId))(scala.concurrent.ExecutionContext.global) // PROBE: 300 ms delay in backfill
+ 
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *OutputRoutesSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should 200 with real rows and materialized=true for an Output created AFTER its node already ran successfully, with no re-run
+[info] - should does not backfill and stays materialized=false for an Output created on a node that has never run
+[info] safe_numeric / safe_timestamptz (V111, HEL-1027 task 1.1)
+[info] Tests: succeeded 99, failed 0, canceled 0, ignored 0, pending 0
+sbt exit code: 0
+=== Row 8a M: NEW form + backfill disabled (expect RED after the 5 s give-up deadline) ===
+Edit applied (temporary, reverted afterwards): OutputService.triggerBackfill disabled
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala b/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala
+index 5954a53b5..71b443e12 100644
+--- a/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala
++++ b/backend/src/main/scala/com/helio/services/pipelines/OutputService.scala
+@@ -61,3 +61,3 @@ final class OutputService(
+   private def triggerBackfill(output: Output, user: AuthenticatedUser): Unit =
+-    if (pipelineRunService != null)
++    if (false /* MUTATION: backfill disabled */ && pipelineRunService != null)
+       // HEL-913 task 5.10: threads the Output's OWN root id through so a root-bound backfill
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *OutputRoutesSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should 200 with real rows and materialized=true for an Output created AFTER its node already ran successfully, with no re-run *** FAILED ***
+[info]   The code passed to eventually never returned normally. Attempted 82 times over 5.029306084 seconds. Last failure message: false was not equal to true. (OutputRoutesSpec.scala:761)
+[info] - should does not backfill and stays materialized=false for an Output created on a node that has never run
+[info] - should 200 with real rows and materialized=true for an Output created AFTER its node already ran successfully, with no re-run *** FAILED ***
+[info]   The code passed to eventually never returned normally. Attempted 82 times over 5.029306084 seconds. Last failure message: false was not equal to true. (OutputRoutesSpec.scala:761)
+[info] - should does not backfill and stays materialized=false for an Output created on a node that has never run
+[info] Tests: succeeded 98, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.OutputRoutesSpec
+sbt exit code: 1

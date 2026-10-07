@@ -472,6 +472,9 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
     // two writes..." test above makes it FAIL with `List() had size 0 instead of expected size
     // 1` -- both writes succeed instead of one being rejected -- confirming the lock is
     // load-bearing, not incidental, to that test's outcome.
+    // Give-up bound only (C6): the wait ends the moment tx2 is seen blocked.
+    val AdvisoryWaiterStateWaitDeadline = 10.seconds
+
     "the SAME advisory lock key genuinely blocks a second transaction until the first commits" in {
       import PostgresProfile.api._
       val key = PipelineCycleValidator.AdvisoryLockKey
@@ -483,23 +486,50 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
           finalTs    <- sql"select clock_timestamp()".as[Timestamp].head
         } yield (acquiredAt, finalTs)
 
-      // tx1 grabs the lock first and holds it (inside one open transaction) for 800ms.
-      val tx1 = db.run(acquireHoldRelease(0.8).transactionally)
-      // Give tx1 a head start so it wins the race for the lock deterministically.
-      Thread.sleep(150)
-      // tx2 starts concurrently, while tx1 still holds the lock -- its own `pg_advisory_xact_lock`
-      // call must BLOCK at the database level until tx1's transaction commits.
-      val tx2 = db.run(acquireHoldRelease(0.0).transactionally)
+      // HEL-1341 D2: tx1 is a test-owned raw JDBC transaction that takes the lock and holds it until
+      // the test releases it -- no fixed hold, no head start, no wall-clock window to overrun.
+      val tx1Conn = embeddedPostgres.getPostgresDatabase.getConnection
+      val (tx1ReleasedAt, tx2AcquiredAt) =
+        try {
+          tx1Conn.setAutoCommit(false)
+          val st = tx1Conn.createStatement()
+          st.execute(s"select pg_advisory_xact_lock($key)")
 
-      val (_, tx1ReleasedAt) = await(tx1)
-      val (tx2AcquiredAt, _) = await(tx2)
+          // tx2 starts while tx1 holds the lock -- its own `pg_advisory_xact_lock` call must BLOCK
+          // at the database level until tx1's transaction commits.
+          val tx2 = db.run(acquireHoldRelease(0.0).transactionally)
+
+          // Mandatory: wait until tx2 is genuinely an ungranted advisory waiter on this key (the
+          // key is below 2^32, so classid = key >> 32 = 0 and objid = key & 0xFFFFFFFF; objsubid 1
+          // is the bigint-key form), bounded by a state-wait deadline.
+          val waiterSql =
+            sql"""SELECT count(*) FROM pg_locks
+                  WHERE locktype = 'advisory' AND NOT granted AND objsubid = 1
+                    AND classid = (#$key::bigint >> 32)::oid
+                    AND objid = (#$key::bigint & x'FFFFFFFF'::bigint)::oid""".as[Int].head
+          val deadline = System.nanoTime() + AdvisoryWaiterStateWaitDeadline.toNanos
+          var waiting = false
+          while (!waiting && System.nanoTime() < deadline) {
+            waiting = await(db.run(waiterSql)) >= 1
+            if (!waiting) Thread.onSpinWait()
+          }
+          withClue("tx2 never appeared as an ungranted advisory waiter on the cycle-validator key: ") {
+            waiting shouldBe true
+          }
+
+          // Only now record tx1's release instant and commit.
+          val rs = st.executeQuery("select clock_timestamp()")
+          rs.next() shouldBe true
+          val releasedAt = rs.getTimestamp(1)
+          tx1Conn.commit()
+          (releasedAt, await(tx2)._1)
+        } finally tx1Conn.close()
 
       // tx2 could only have ACQUIRED the lock after tx1's transaction ended (COMMIT releases an
       // xact-scoped advisory lock) -- i.e. tx2's acquisition timestamp must not precede tx1's
-      // own final (pre-commit) timestamp. A small tolerance absorbs clock/measurement noise;
-      // without real blocking, tx2 would acquire the (unheld) lock almost immediately after
-      // tx1 started, well BEFORE tx1's 800ms hold elapses -- this assertion would then fail.
-      tx2AcquiredAt.getTime should be >= (tx1ReleasedAt.getTime - 50)
+      // release timestamp. Without real blocking, tx2 would have acquired the (unheld) lock
+      // before tx1 released it -- this assertion would then fail.
+      tx2AcquiredAt.getTime should be >= tx1ReleasedAt.getTime
     }
   }
 

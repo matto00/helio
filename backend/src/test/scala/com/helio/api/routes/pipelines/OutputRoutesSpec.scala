@@ -59,6 +59,9 @@ class OutputRoutesSpec
     with BeforeAndAfterAll
     with Eventually with TempDirectorySupport {
 
+  /** Give-up bound only (C6): the poll ends the moment the backfilled rows are materialized. */
+  private val BackfillMaterializedStateWaitDeadline = 5.seconds
+
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContext                   = typedSystem.executionContext
 
@@ -752,8 +755,10 @@ class OutputRoutesSpec
         outputId = responseAs[JsObject].fields("id").convertTo[String]
       }
 
-      // No second run. The backfill fires off the request path -- poll until it lands.
-      eventually {
+      // No second run. The backfill fires off the request path -- poll until it lands. HEL-1341 D9:
+      // an explicit state wait with a NAMED give-up deadline (the bare `eventually` used
+      // ScalaTest's 150 ms default patience, which a slow backfill + HTTP/DB round trip overran).
+      eventually(timeout(BackfillMaterializedStateWaitDeadline), interval(50.millis)) {
         Get(s"/outputs/$outputId/rows") ~> routesFor(owner) ~> check {
           status shouldBe StatusCodes.OK
           val paged = responseAs[JsObject]

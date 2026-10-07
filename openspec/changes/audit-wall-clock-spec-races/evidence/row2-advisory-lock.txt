@@ -1,0 +1,155 @@
+=== Row 2 P: OLD form + 300 ms delay before tx1 takes the lock (expect RED: tx2 wins) ===
+Edit applied (temporary, reverted afterwards): OLD spec restored from 469f4ea93; tx1 preceded by pg_sleep(0.3) in the same transaction
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala b/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
+index 3241fd2b0..b1b265bb5 100644
+--- a/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
++++ b/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
+@@ -474,5 +474,2 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
+     // load-bearing, not incidental, to that test's outcome.
+-    // Give-up bound only (C6): the wait ends the moment tx2 is seen blocked.
+-    val AdvisoryWaiterStateWaitDeadline = 10.seconds
+-
+     "the SAME advisory lock key genuinely blocks a second transaction until the first commits" in {
+@@ -488,40 +485,12 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
+ 
+-      // HEL-1341 D2: tx1 is a test-owned raw JDBC transaction that takes the lock and holds it until
+-      // the test releases it -- no fixed hold, no head start, no wall-clock window to overrun.
+-      val tx1Conn = embeddedPostgres.getPostgresDatabase.getConnection
+-      val (tx1ReleasedAt, tx2AcquiredAt) =
+-        try {
+-          tx1Conn.setAutoCommit(false)
+-          val st = tx1Conn.createStatement()
+-          st.execute(s"select pg_advisory_xact_lock($key)")
+-
+-          // tx2 starts while tx1 holds the lock -- its own `pg_advisory_xact_lock` call must BLOCK
+-          // at the database level until tx1's transaction commits.
+-          val tx2 = db.run(acquireHoldRelease(0.0).transactionally)
+-
+-          // Mandatory: wait until tx2 is genuinely an ungranted advisory waiter on this key (the
+-          // key is below 2^32, so classid = key >> 32 = 0 and objid = key & 0xFFFFFFFF; objsubid 1
+-          // is the bigint-key form), bounded by a state-wait deadline.
+-          val waiterSql =
+-            sql"""SELECT count(*) FROM pg_locks
+-                  WHERE locktype = 'advisory' AND NOT granted AND objsubid = 1
+-                    AND classid = (#$key::bigint >> 32)::oid
+-                    AND objid = (#$key::bigint & x'FFFFFFFF'::bigint)::oid""".as[Int].head
+-          val deadline = System.nanoTime() + AdvisoryWaiterStateWaitDeadline.toNanos
+-          var waiting = false
+-          while (!waiting && System.nanoTime() < deadline) {
+-            waiting = await(db.run(waiterSql)) >= 1
+-            if (!waiting) Thread.onSpinWait()
+-          }
+-          withClue("tx2 never appeared as an ungranted advisory waiter on the cycle-validator key: ") {
+-            waiting shouldBe true
+-          }
+-
+-          // Only now record tx1's release instant and commit.
+-          val rs = st.executeQuery("select clock_timestamp()")
+-          rs.next() shouldBe true
+-          val releasedAt = rs.getTimestamp(1)
+-          tx1Conn.commit()
+-          (releasedAt, await(tx2)._1)
+-        } finally tx1Conn.close()
++      // tx1 grabs the lock first and holds it (inside one open transaction) for 800ms.
++      val tx1 = db.run(sql"select pg_sleep(0.3)::text".as[String].andThen(acquireHoldRelease(0.8)).transactionally) // PROBE: tx1 starts 300 ms late
++      // Give tx1 a head start so it wins the race for the lock deterministically.
++      Thread.sleep(150)
++      // tx2 starts concurrently, while tx1 still holds the lock -- its own `pg_advisory_xact_lock`
++      // call must BLOCK at the database level until tx1's transaction commits.
++      val tx2 = db.run(acquireHoldRelease(0.0).transactionally)
++
++      val (_, tx1ReleasedAt) = await(tx1)
++      val (tx2AcquiredAt, _) = await(tx2)
+ 
+@@ -529,5 +498,6 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
+       // xact-scoped advisory lock) -- i.e. tx2's acquisition timestamp must not precede tx1's
+-      // release timestamp. Without real blocking, tx2 would have acquired the (unheld) lock
+-      // before tx1 released it -- this assertion would then fail.
+-      tx2AcquiredAt.getTime should be >= tx1ReleasedAt.getTime
++      // own final (pre-commit) timestamp. A small tolerance absorbs clock/measurement noise;
++      // without real blocking, tx2 would acquire the (unheld) lock almost immediately after
++      // tx1 started, well BEFORE tx1's 800ms hold elapses -- this assertion would then fail.
++      tx2AcquiredAt.getTime should be >= (tx1ReleasedAt.getTime - 50)
+     }
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *PipelineCycleDetectionServiceSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should the SAME advisory lock key genuinely blocks a second transaction until the first commits *** FAILED ***
+[info]   1791353046288 was not greater than or equal to 1791353047194 (PipelineCycleDetectionServiceSpec.scala:502)
+[info] PipelineService.create / addStep (API-level, upsertsource now registered, HEL-1100 task 3.9)
+[info] - should the SAME advisory lock key genuinely blocks a second transaction until the first commits *** FAILED ***
+[info]   1791353046288 was not greater than or equal to 1791353047194 (PipelineCycleDetectionServiceSpec.scala:502)
+[info] PipelineService.create / addStep (API-level, upsertsource now registered, HEL-1100 task 3.9)
+[info] Tests: succeeded 24, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.PipelineCycleDetectionServiceSpec
+sbt exit code: 1
+=== Row 2 P: NEW form + same 300 ms delay before tx1 takes the lock (expect GREEN) ===
+Edit applied (temporary, reverted afterwards): Thread.sleep(300) before tx1's pg_advisory_xact_lock
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala b/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
+index 3241fd2b0..a9aad68f1 100644
+--- a/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
++++ b/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
+@@ -495,2 +495,3 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
+           val st = tx1Conn.createStatement()
++          Thread.sleep(300) // PROBE: tx1 starts 300 ms late
+           st.execute(s"select pg_advisory_xact_lock($key)")
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *PipelineCycleDetectionServiceSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should the SAME advisory lock key genuinely blocks a second transaction until the first commits
+[info] PipelineService.create / addStep (API-level, upsertsource now registered, HEL-1100 task 3.9)
+[info] - should reject a create() request whose roots + upsertsource step targeting one of those SAME roots form a direct self-cycle
+[info] Tests: succeeded 25, failed 0, canceled 0, ignored 0, pending 0
+sbt exit code: 0
+=== Row 2 M (TEST-SIDE substitute, no production code reached): NEW form, tx2 locks a different key (expect RED: waiter wait times out) ===
+Edit applied (temporary, reverted afterwards): acquireHoldRelease locks key+1 instead of key
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala b/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
+index 3241fd2b0..00572b1a8 100644
+--- a/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
++++ b/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
+@@ -483,3 +483,3 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
+         for {
+-          acquiredAt <- sql"select pg_advisory_xact_lock($key)::text".as[String].andThen(sql"select clock_timestamp()".as[Timestamp].head)
++          acquiredAt <- sql"select pg_advisory_xact_lock(${key + 1})::text".as[String].andThen(sql"select clock_timestamp()".as[Timestamp].head)
+           _          <- sql"select pg_sleep($holdSeconds)::text".as[String]
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *PipelineCycleDetectionServiceSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should the SAME advisory lock key genuinely blocks a second transaction until the first commits *** FAILED ***
+[info]   tx2 never appeared as an ungranted advisory waiter on the cycle-validator key: false was not equal to true (PipelineCycleDetectionServiceSpec.scala:517)
+[info] PipelineService.create / addStep (API-level, upsertsource now registered, HEL-1100 task 3.9)
+[info] - should the SAME advisory lock key genuinely blocks a second transaction until the first commits *** FAILED ***
+[info]   tx2 never appeared as an ungranted advisory waiter on the cycle-validator key: false was not equal to true (PipelineCycleDetectionServiceSpec.scala:517)
+[info] PipelineService.create / addStep (API-level, upsertsource now registered, HEL-1100 task 3.9)
+[info] Tests: succeeded 24, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.PipelineCycleDetectionServiceSpec
+sbt exit code: 1
+=== Row 2 M (TEST-SIDE substitute): NEW form, tx1 released before tx2 is seen waiting (expect RED) ===
+Edit applied (temporary, reverted afterwards): tx1Conn.commit() moved before tx2 starts
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala b/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
+index 3241fd2b0..bac233974 100644
+--- a/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
++++ b/backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala
+@@ -499,2 +499,3 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
+           // at the database level until tx1's transaction commits.
++          tx1Conn.commit() // MUTATION: lock released BEFORE tx2 starts
+           val tx2 = db.run(acquireHoldRelease(0.0).transactionally)
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *PipelineCycleDetectionServiceSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should the SAME advisory lock key genuinely blocks a second transaction until the first commits *** FAILED ***
+[info]   tx2 never appeared as an ungranted advisory waiter on the cycle-validator key: false was not equal to true (PipelineCycleDetectionServiceSpec.scala:518)
+[info] PipelineService.create / addStep (API-level, upsertsource now registered, HEL-1100 task 3.9)
+[info] - should the SAME advisory lock key genuinely blocks a second transaction until the first commits *** FAILED ***
+[info]   tx2 never appeared as an ungranted advisory waiter on the cycle-validator key: false was not equal to true (PipelineCycleDetectionServiceSpec.scala:518)
+[info] PipelineService.create / addStep (API-level, upsertsource now registered, HEL-1100 task 3.9)
+[info] Tests: succeeded 24, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.PipelineCycleDetectionServiceSpec
+sbt exit code: 1
