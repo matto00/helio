@@ -1,0 +1,11 @@
+- `frontend/src/features/panels/history/chartOverlay.ts` — add `chartCompareBlocker` predicate (D5)
+- `frontend/src/features/panels/history/chartOverlay.test.ts` — unit tests for the predicate
+- `frontend/src/features/pipelines/ui/outputEditor/ChartCompareField.tsx` — chart Compare select, help text, Output-level note
+- `frontend/src/features/pipelines/ui/outputEditor/compareOptions.ts` — shared metric/chart compare options, generalised `compareOptions`
+- `frontend/src/features/pipelines/ui/outputEditor/OutputKindFields.tsx` — renders `ChartCompareField`; imports shared options
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx` — shared `compare` state (rename), wiring; scatter clears `aggregation` in the blocker input
+- `frontend/src/features/pipelines/ui/outputEditor/buildOutputConfig.ts` — rename `metricCompare`->`compare`; chart + chart tail write `compare`
+- `frontend/src/features/pipelines/ui/outputEditor/buildOutputConfig.test.ts` — rename
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.compare.test.tsx` — chart picker RTL tests
+- `e2e/hel1350-chart-compare-picker.spec.ts` — editor sets compare -> dashboard overlay, both themes
+- `openspec/changes/chart-output-compare-picker/` — change artifacts and screenshots

@@ -23,8 +23,13 @@ import type {
   PieChartOptions,
   ScatterChartOptions,
 } from "../../../panels/types/panel";
+import type { ChartCompareBlocker } from "../../../panels/history/chartOverlay";
+import { ChartCompareField } from "./ChartCompareField";
+import { METRIC_COMPARE_OPTIONS, compareOptions } from "./compareOptions";
 import type { TableColumnRow } from "./useOutputTableColumns";
 import type { ColumnFormatSelection } from "./useOutputColumnFormats";
+
+export { METRIC_COMPARE_OPTIONS };
 
 const CHART_TYPE_OPTIONS: SelectOption[] = [
   { value: "line", label: "Line" },
@@ -52,6 +57,11 @@ interface ChartKindFieldsProps {
   scatter: ScatterChartOptions;
   onScatterChange: (patch: Partial<ScatterChartOptions>) => void;
   annotationState: BoundOrLiteralState;
+  /** HEL-1350 — `"none"` or a `config.compare` token. */
+  compareValue: string;
+  onCompareChange: (v: string) => void;
+  /** HEL-1350 — what in THIS Output's config rules the dashboard "vs" overlay out, if anything. */
+  compareBlocker: ChartCompareBlocker | null;
 }
 
 export function ChartKindFields({
@@ -73,6 +83,9 @@ export function ChartKindFields({
   scatter,
   onScatterChange,
   annotationState,
+  compareValue,
+  onCompareChange,
+  compareBlocker,
 }: ChartKindFieldsProps) {
   return (
     <>
@@ -119,6 +132,7 @@ export function ChartKindFields({
         isBound={fieldOptions.length > 0}
         annotationState={annotationState}
       />
+      <ChartCompareField value={compareValue} onChange={onCompareChange} blocker={compareBlocker} />
     </>
   );
 }
@@ -174,22 +188,6 @@ export const METRIC_FORMAT_OPTIONS: SelectOption[] = [
   { value: "currency", label: "Currency ($)" },
   { value: "percent", label: "Percent (%)" },
 ];
-
-/** HEL-1275 design.md D7 — `config.compare` choices. A pre-existing `custom:<duration>` value is
- *  appended as its own option by `compareOptions` so opening and saving never silently drops it. */
-export const METRIC_COMPARE_OPTIONS: SelectOption[] = [
-  { value: "none", label: "None" },
-  { value: "previous_run", label: "Previous" },
-  { value: "1d", label: "1 day" },
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-];
-
-function compareOptions(value: string): SelectOption[] {
-  return value.startsWith("custom:")
-    ? [...METRIC_COMPARE_OPTIONS, { value, label: `Custom (${value.slice("custom:".length)})` }]
-    : METRIC_COMPARE_OPTIONS;
-}
 
 interface MetricKindFieldsProps {
   fieldOptions: SelectOption[];

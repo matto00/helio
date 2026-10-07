@@ -28,6 +28,35 @@ export interface ChartOverlayContext {
   headers: string[] | null | undefined;
 }
 
+/** HEL-1350 design D5 — what in an Output's OWN config rules the dashboard overlay out. A
+ *  conservative superset of the runtime rules; never reads `config.chartType` (the panel's chart
+ *  kind decides that), so bar-option blockers apply whatever the Output's chartType is. */
+export type ChartCompareBlocker =
+  | "aggregated"
+  | "series"
+  | "unmapped"
+  | "horizontal"
+  | "normalized";
+
+function nonEmptyString(v: unknown): boolean {
+  return typeof v === "string" && v !== "";
+}
+
+function asRecord(v: unknown): Record<string, unknown> {
+  return v !== null && typeof v === "object" ? (v as Record<string, unknown>) : {};
+}
+
+export function chartCompareBlocker(config: Record<string, unknown>): ChartCompareBlocker | null {
+  const mapping = asRecord(config.fieldMapping);
+  const bar = asRecord(asRecord(config.chartOptions).bar);
+  if (config.aggregation !== null && typeof config.aggregation === "object") return "aggregated";
+  if (nonEmptyString(mapping.series)) return "series";
+  if (!nonEmptyString(mapping.xAxis) || !nonEmptyString(mapping.yAxis)) return "unmapped";
+  if (bar.orientation === "horizontal") return "horizontal";
+  if (bar.stacking === "normalized") return "normalized";
+  return null;
+}
+
 /** HEL-1277 design D9 — the dashboard chart overlay: the `config.compare` baseline's stored series,
  *  drawn only when it is exactly what the dashboard plots (raw rows, same x/y), the panel's rows are
  *  known to be the Output's complete set, and nothing narrows them. Every omission returns `null`. */
