@@ -56,6 +56,10 @@ jobs:
       - run: npm run check:dependabot:selftest
       - run: npm run check:cloud-run-cpu
       - run: npm run check:cloud-run-cpu:selftest
+      # HEL-1339: static guard -- the CI sbt diagnostics/cleanup path may only use recorded PIDs/PGIDs, never a
+      # process-name lookup or kill. CI-only (JDK-free, node built-ins), like the guards above.
+      - run: npm run check:ci-sbt-guard
+      - run: npm run check:ci-sbt-guard:selftest
       # HEL-846: check:no-credential-leak[:selftest] existed as runnable npm scripts, wired only
       # into .husky/pre-commit -- bypassable with `git commit -n` (as happened once already, per
       # the HEL-913 precedent comment above), and `npm test` inside the hook is vacuous in the
@@ -199,19 +203,28 @@ jobs:
             !backend/target/out/**/test-reports
           key: backend-compile-v3-${{ runner.os }}-${{ hashFiles('backend/src/**', 'backend/build.sbt', 'backend/project/*.scala', 'backend/project/*.sbt', 'backend/project/build.properties') }}
           restore-keys: backend-compile-v3-${{ runner.os }}-
+      # HEL-1339: the diagnostics helper's own selftest needs a JDK (jcmd), so it runs here, in shard 0 only
+      # (node built-ins only: this job has no setup-node). CI-only, like the other selftests (no `.husky/**` change).
+      - name: Selftest sbt hang diagnostics (shard 0)
+        if: matrix.shard == 0
+        run: time npm run selftest:ci-sbt
       - name: Compile and test
+        # HEL-1339: sbt runs through scripts/ci-sbt.sh: `--server` (one foreground JVM, no sbtn -> background-server
+        # handoff, the suspect in two silent hangs) plus an in-step deadline (660 s; step bound 13 min) that captures
+        # a thread dump of the recorded sbt JVM, uploaded as an artifact, before failing. 660 + 25 capture + 5 grace
+        # < 780 s step bound; 780 s + pre-steps (25-40 s) < 900 s job bound.
+        timeout-minutes: 13
         # HEL-1018: one quoted command -- sbt 2's thin client joins unquoted args into a single
         # (unparseable) command; testFull never serves a cached result.
         # HEL-1273: the sbt server's heap was 1.00GB here; main's base ran at ~97% of it (85-97% GC)
         # and PR #769's test compile hit `java.lang.OutOfMemoryError: Java heap space`. A first try
         # (`sbt -J-Xmx3g` via the thin client) still printed 1073741824 on this runner although it
-        # gave 3221225472 locally, so the heap is now set two ways at once with `-batch` (the log still
-        # prints "entering thin client", so this does not prove there is no background server): a CI-only
-        # `.jvmopts` (untracked; backend/.sbtopts is
-        # untouched) and `-J-Xmx3g`. The leading `eval` prints the JVM's real max heap into this log.
+        # gave 3221225472 locally, so the heap is set two ways at once (a CI-only `.jvmopts`, untracked;
+        # backend/.sbtopts is untouched, and `-J-Xmx3g`). The leading `eval` prints the JVM's real max heap into
+        # this log -- keep it: it is the heap proof for whichever client mode is in use.
         run: |
           printf '%s\n' -Xmx3g > .jvmopts
-          sbt -batch -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile; testFull"
+          "$GITHUB_WORKSPACE/scripts/ci-sbt.sh" --deadline 660 --dir . -- -batch -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile; testFull"
         working-directory: backend
       - name: Save backend compile output (main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.shard == 0 && steps.compile-cache.outputs.cache-hit != 'true'
@@ -230,6 +243,14 @@ jobs:
           name: backend-junit-reports-shard-${{ matrix.shard }}
           path: backend/target/**/test-reports/*.xml
           if-no-files-found: warn
+          retention-days: 14
+      - name: Upload sbt hang diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbt-diagnostics-backend-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/sbt-diagnostics
+          if-no-files-found: ignore
           retention-days: 14
 
   # HEL-459: fails the build on a new high/critical CVE. Backend: a small sbt task
@@ -285,12 +306,14 @@ jobs:
         run: npm --prefix frontend ci
 
       # HEL-1296: bounded (measured ~20 s); a hung step fails at 2 min so the npm audits still fit the job timeout.
+      # HEL-1339: via scripts/ci-sbt.sh -- `--server` (no sbtn handoff) and a 75 s in-step deadline that captures a
+      # thread dump first: 75 + 25 capture + 5 grace = 105 s < the 2-minute step bound.
       - name: Generate backend SBOM
         id: sbom
         if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.setup-sbt.outcome == 'success' }}
         timeout-minutes: 2
         working-directory: backend
-        run: sbt -batch generateSbom
+        run: '"$GITHUB_WORKSPACE/scripts/ci-sbt.sh" --deadline 75 --dir . -- -batch generateSbom'
 
       - name: Backend SBOM positive control
         id: sbom-control
@@ -304,18 +327,23 @@ jobs:
             exit 1
           fi
 
+      # HEL-1339: measured 0-1 s in 20 distinct successful security jobs sampled (ci-evidence.md) -> 1 minute (the floor; 2.5 x the 1 s max rounds up to 1). curl's own
+      # --max-time 45 sits below the 60 s step bound so its error message surfaces first.
       - name: Install osv-scanner
         id: osv-install
         if: ${{ !cancelled() && steps.sbom-control.outcome == 'success' }}
+        timeout-minutes: 1
         run: |
-          curl -sL -o /usr/local/bin/osv-scanner \
+          curl -fsSL --connect-timeout 15 --max-time 45 -o /usr/local/bin/osv-scanner \
             https://github.com/google/osv-scanner/releases/download/v2.5.1/osv-scanner_linux_amd64
           chmod +x /usr/local/bin/osv-scanner
           osv-scanner --version
 
+      # HEL-1339: measured 0-1 s -> 1 minute floor; a stalled scan fails here and the CVSS step is skipped.
       - name: Scan backend SBOM (osv-scanner)
         id: osv-scan
         if: ${{ !cancelled() && steps.osv-install.outcome == 'success' }}
+        timeout-minutes: 1
         working-directory: backend
         run: |
           set +e
@@ -390,6 +418,15 @@ jobs:
       - name: helio-mcp audit (helio-mcp/)
         if: ${{ !cancelled() && steps.npm-ci-root.outcome == 'success' }}
         run: npx audit-ci --config helio-mcp/.audit-ci.jsonc --directory helio-mcp
+
+      - name: Upload sbt hang diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbt-diagnostics-security
+          path: ${{ runner.temp }}/sbt-diagnostics
+          if-no-files-found: ignore
+          retention-days: 14
 
   # HEL-951 — this job runs Playwright by GLOB (`npx playwright test`, no
   # per-file arguments), so discovery is governed entirely by
@@ -547,6 +584,14 @@ jobs:
         with:
           name: playwright-json-shard-${{ matrix.shard }}
           path: test-results/results.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload sbt hang diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbt-diagnostics-e2e-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/sbt-diagnostics
           if-no-files-found: ignore
           retention-days: 14
       - name: Upload Playwright report on failure

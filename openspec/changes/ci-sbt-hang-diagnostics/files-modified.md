@@ -1,0 +1,9 @@
+- `.github/workflows/ci.yml` — backend/security sbt via `scripts/ci-sbt.sh` (`--server`, in-step deadline), backend step timeout 13, shard-0 selftest step, osv steps `timeout-minutes: 1` + curl `--fail --connect-timeout 15 --max-time 45`, `sbt-diagnostics-*` artifact uploads (backend/security/e2e), `check:ci-sbt-guard[:selftest]` in the frontend job
+- `scripts/ci-sbt.sh` — new: pinned `setsid ... & pid=$!` launch, mode line, deadline, capture then group stop
+- `scripts/lib/ci-sbt-diag.sh` — new: recorded-PID/PGID/active.json candidates, java+cwd verification, 25 s capture budget, group stop
+- `scripts/e2e-backend.sh` — `start` adds `--server`; `die` captures a thread dump from the recorded PGID before dumping the log; mode line in `wait`
+- `scripts/ci-sbt.selftest.mjs` — new: cases (a)-(d) incl. e2e die path, node built-ins only
+- `scripts/check-ci-sbt-no-pattern-kill.mjs` — new static guard (helper scripts + ci.yml, comments skipped)
+- `scripts/check-ci-sbt-no-pattern-kill.selftest.mjs` — new guard selftest
+- `package.json` — `selftest:ci-sbt`, `check:ci-sbt-guard`, `check:ci-sbt-guard:selftest`
+- `openspec/changes/ci-sbt-hang-diagnostics/ci-evidence.md`, `ci-logs/**` — CI evidence, failing-run logs (credential-shaped CI-only values elided), control artifact
