@@ -2,45 +2,34 @@ package com.helio.domain.connectors
 
 import com.helio.domain.model.SqlSourceConfig
 import com.helio.services.sources.ContentSourceSupport
+import com.helio.testsupport.AcceptRecordingListener
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.{File, IOException}
-import java.net.{InetAddress, InetSocketAddress, ServerSocket, SocketException}
+import java.net.{InetAddress, InetSocketAddress, SocketException}
 import java.nio.file.{Files, Paths}
-import java.util.concurrent.atomic.AtomicInteger
 import scala.jdk.CollectionConverters._
 
 class SqlEgressSocketFactoriesSpec extends AnyWordSpec with Matchers {
-
-  private def listener(): (ServerSocket, AtomicInteger) = {
-    val server  = new ServerSocket(0, 50, InetAddress.getLoopbackAddress)
-    val accepts = new AtomicInteger(0)
-    val t = new Thread(() =>
-      try while (true) { server.accept().close(); accepts.incrementAndGet() }
-      catch { case _: SocketException => () }
-    )
-    t.setDaemon(true)
-    t.start()
-    (server, accepts)
-  }
 
   private val blockedByPolicy: InetAddress => Boolean = ContentSourceSupport.isBlockedAddress
 
   "EgressValidatingSocket" should {
 
     "refuse a loopback address without connecting, and close itself" in {
-      val (server, accepts) = listener()
+      val listener = AcceptRecordingListener.start()
       try {
         val socket = new EgressValidatingSocket
         EgressConnectGuard.withPredicate(blockedByPolicy) {
-          val ex = intercept[EgressConnectRefusedException](socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, server.getLocalPort), 1000))
+          val ex = intercept[EgressConnectRefusedException](socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, listener.port), 1000))
           ex.getCause shouldBe a[SqlEgressRefusedException]
         }
         socket.isClosed shouldBe true
-        Thread.sleep(200)
-        accepts.get() shouldBe 0
-      } finally server.close()
+        // HEL-1341 D4: sentinel-identified barrier -- nothing but the sentinel was ever accepted.
+        val (accepted, sentinelPort) = listener.assertNothingAcceptedBeforeSentinel()
+        accepted shouldBe List(sentinelPort)
+      } finally listener.close()
     }
 
     "refuse a link-local metadata address" in {
@@ -59,15 +48,16 @@ class SqlEgressSocketFactoriesSpec extends AnyWordSpec with Matchers {
     }
 
     "connect when the address is allowed" in {
-      val (server, accepts) = listener()
+      val listener = AcceptRecordingListener.start()
       try {
         val socket = new EgressValidatingSocket
-        EgressConnectGuard.withPredicate(_ => false)(socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, server.getLocalPort), 1000))
+        EgressConnectGuard.withPredicate(_ => false)(socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, listener.port), 1000))
         socket.isConnected shouldBe true
         socket.close()
-        Thread.sleep(200)
-        accepts.get() shouldBe 1
-      } finally server.close()
+        // HEL-1341 D3: bounded state wait (AcceptStateWaitDeadline) instead of a fixed sleep.
+        listener.awaitAccepted(1) shouldBe true
+        listener.acceptedPorts should have size 1
+      } finally listener.close()
     }
 
     "use the production denylist when no predicate is set" in {

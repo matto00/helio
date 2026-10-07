@@ -1,0 +1,5 @@
+command: cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt testFull   (exit 0); full log kept at /tmp/claude-1000/scratch/testfull.log
+[info] Total number of tests run: 6085
+[info] Suites: completed 436, aborted 0
+[info] Tests: succeeded 6085, failed 0, canceled 4, ignored 0, pending 0
+[info] All tests passed.

@@ -405,6 +405,30 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
   }
 
 
+  /** Give-up bound only (C6): the wait ends as soon as the delete is seen lock-waiting. */
+  private val RotationBlockedStateWaitDeadline = 10.seconds
+
+  /** True once some backend is waiting on a lock while running the `connector_credentials` delete. */
+  private def awaitDeleteBlockedOnLock(): Boolean = {
+    val probe = embeddedPostgres.getPostgresDatabase.getConnection
+    try {
+      val stmt = probe.prepareStatement(
+        """SELECT count(*) FROM pg_stat_activity
+          |WHERE wait_event_type = 'Lock' AND query ~* 'delete\s+from\s+"?connector_credentials'""".stripMargin
+      )
+      val deadline = System.nanoTime() + RotationBlockedStateWaitDeadline.toNanos
+      var blocked = false
+      while (!blocked && System.nanoTime() < deadline) {
+        val rs = stmt.executeQuery()
+        rs.next()
+        blocked = rs.getInt(1) >= 1
+        rs.close()
+        if (!blocked) Thread.onSpinWait()
+      }
+      blocked
+    } finally probe.close()
+  }
+
   "rotateCredential" should {
     "replaces the plaintext resolvable via decryptForUse and makes the old credential id unresolvable" in {
       val owner     = freshUser()
@@ -452,6 +476,13 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
         lockStmt.close()
 
         val rotation = repo.rotateCredential(connector.id, "new-secret", "rotated", user)
+
+        // HEL-1341 D5: first wait until the delete is GENUINELY blocked on the row lock, so the
+        // pending-window below covers a blocked delete rather than pre-delete work. A state wait
+        // (ends the moment the backend shows as Lock-waiting), bounded by a named give-up deadline.
+        withClue("the old-credential delete never appeared blocked on a lock: ") {
+          awaitDeleteBlockedOnLock() shouldBe true
+        }
 
         // Bounded poll (not a bare sleep): rotation must stay pending for the whole window.
         val deadline = System.nanoTime() + 1500L * 1000000L

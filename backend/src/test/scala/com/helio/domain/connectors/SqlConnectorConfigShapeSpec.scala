@@ -1,11 +1,11 @@
 package com.helio.domain.connectors
 
 import com.helio.domain.model.SqlSourceConfig
+import com.helio.testsupport.AcceptRecordingListener
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.net.{InetAddress, ServerSocket, SocketException}
-import java.util.concurrent.atomic.AtomicInteger
+import java.net.InetAddress
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.{Success, Try}
@@ -53,19 +53,16 @@ class SqlConnectorConfigShapeSpec extends AnyWordSpec with Matchers {
 
   "SqlConnectorDriver.connect" should {
     "refuse an unknown dialect with a typed refusal and open no connection" in {
-      val server  = new ServerSocket(0, 50, InetAddress.getLoopbackAddress)
-      val accepts = new AtomicInteger(0)
-      val t = new Thread(() => try while (true) { server.accept().close(); accepts.incrementAndGet() } catch { case _: SocketException => () })
-      t.setDaemon(true)
-      t.start()
+      val listener = AcceptRecordingListener.start()
       try {
         val ex = intercept[SqlConfigRefusedException](
-          SqlConnectorDriver.connect(cfg(dialect = "oracle", host = "localhost", port = server.getLocalPort), publicResolver, (_, _) => false)
+          SqlConnectorDriver.connect(cfg(dialect = "oracle", host = "localhost", port = listener.port), publicResolver, (_, _) => false)
         )
         ex.getMessage should include("postgresql, mysql")
-        Thread.sleep(300)
-        accepts.get() shouldBe 0
-      } finally server.close()
+        // HEL-1341 D4: sentinel-identified barrier -- nothing but the sentinel was ever accepted.
+        val (accepted, sentinelPort) = listener.assertNothingAcceptedBeforeSentinel()
+        accepted shouldBe List(sentinelPort)
+      } finally listener.close()
     }
 
     "surface the dialect refusal verbatim from execute and testConnection" in {

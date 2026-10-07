@@ -1,0 +1,119 @@
+=== Row 8 P (vacuity): OLD form + echo guard removed + self-echo delivery delayed 1500 ms (expect GREEN = vacuous pass) ===
+Edit applied (temporary, reverted afterwards): OLD spec from 469f4ea93; PipelineRunNotifyBus.handleNotification: guard removed, own-origin notification delayed 1500 ms
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala b/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala
+index 67892ad14..1c7039d55 100644
+--- a/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala
++++ b/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala
+@@ -205,3 +205,4 @@ final class PipelineRunNotifyBus(
+     decodePayload(n.getParameter).foreach { case (originInstanceId, pipelineId, event) =>
+-      if (originInstanceId != instanceId) {
++      if (originInstanceId == instanceId) Thread.sleep(1500) /* PROBE: delayed LISTEN delivery of the self-echo */
++      if (true /* MUTATION: echo guard removed */) {
+         handler.get().foreach(_.apply(pipelineId, event))
+diff --git a/backend/src/test/scala/com/helio/api/routes/pipelines/PipelineRunCrossInstanceSpec.scala b/backend/src/test/scala/com/helio/api/routes/pipelines/PipelineRunCrossInstanceSpec.scala
+index b79f7a87f..e2ba8a1a3 100644
+--- a/backend/src/test/scala/com/helio/api/routes/pipelines/PipelineRunCrossInstanceSpec.scala
++++ b/backend/src/test/scala/com/helio/api/routes/pipelines/PipelineRunCrossInstanceSpec.scala
+@@ -15,3 +15,2 @@ import java.nio.charset.StandardCharsets
+ import java.util.UUID
+-import java.util.concurrent.ConcurrentLinkedQueue
+ import java.util.concurrent.TimeoutException
+@@ -19,3 +18,2 @@ import scala.concurrent.duration.DurationInt
+ import scala.concurrent.{Await, ExecutionContext}
+-import scala.jdk.CollectionConverters._
+ 
+@@ -54,6 +52,2 @@ class PipelineRunCrossInstanceSpec
+ 
+-  /** Give-up bound only (C6): the self-echo wait ends the moment A's subscriber has the marker. */
+-  private val SelfEchoMarkerStateWaitDeadline = 10.seconds
+-  private val MarkerStatus                    = "running"
+-
+   private def newBus(): PipelineRunNotifyBus =
+@@ -145,4 +139,4 @@ class PipelineRunCrossInstanceSpec
+ 
+-        val capturedA = new ConcurrentLinkedQueue[RunStatusEvent]()
+-        registryA.subscribe(pid).runForeach(capturedA.add(_))(Materializer(system))
++        val capturedA = scala.collection.mutable.Buffer[RunStatusEvent]()
++        registryA.subscribe(pid).runForeach(capturedA += _)(Materializer(system))
+         val witnessFuture = registryB.subscribe(pid).take(1).runWith(Sink.seq)(Materializer(system))
+@@ -152,14 +146,9 @@ class PipelineRunCrossInstanceSpec
+         Await.result(witnessFuture, 10.seconds)
++        // Headroom past the witness's own receipt for A's dedicated LISTEN connection to have
++        // received (and, if unguarded, re-delivered) its own echo -- Postgres broadcasts a NOTIFY
++        // to every listening session at essentially the same time, so B's receipt is already
++        // strong evidence the echo reached A too; this just avoids a hair-trigger race.
++        Thread.sleep(500)
+ 
+-        // HEL-1341 D6: ordered marker barrier instead of a fixed sleep. Postgres delivers NOTIFYs to
+-        // a listening session in commit order, and A's own `queued` NOTIFY committed BEFORE the
+-        // marker B publishes now (B already received `queued`). So once A's subscriber has the
+-        // marker, an unguarded echo of `queued` would already be in `capturedA` ahead of it. The
+-        // marker is a non-terminal status, awaited by content (not size) as the stream thread
+-        // appends concurrently; the deadline is only a give-up bound.
+-        registryB.publish(pid, RunStatusEvent(MarkerStatus))
+-        val deadline = System.nanoTime() + SelfEchoMarkerStateWaitDeadline.toNanos
+-        while (System.nanoTime() < deadline && !capturedA.asScala.exists(_.status == MarkerStatus)) Thread.onSpinWait()
+-
+-        capturedA.asScala.toList.map(_.status) shouldBe List("queued", MarkerStatus)
++        capturedA.toList.map(_.status) shouldBe List("queued")
+       } finally {
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *PipelineRunCrossInstanceSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should self-echo guard: instance A's own local subscriber receives its own published event exactly once
+[info] NOTIFY payload size guard (design.md D9)
+[info] - should keeps the encoded payload under Postgres's 8000-byte NOTIFY limit for an oversized ASCII errorLog
+[info] Tests: succeeded 6, failed 0, canceled 0, ignored 0, pending 0
+sbt exit code: 0
+=== Row 8 P: NEW form + same probe (expect RED: [queued, queued, running]) ===
+Edit applied (temporary, reverted afterwards): same production edit
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala b/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala
+index 67892ad14..1c7039d55 100644
+--- a/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala
++++ b/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala
+@@ -205,3 +205,4 @@ final class PipelineRunNotifyBus(
+     decodePayload(n.getParameter).foreach { case (originInstanceId, pipelineId, event) =>
+-      if (originInstanceId != instanceId) {
++      if (originInstanceId == instanceId) Thread.sleep(1500) /* PROBE: delayed LISTEN delivery of the self-echo */
++      if (true /* MUTATION: echo guard removed */) {
+         handler.get().foreach(_.apply(pipelineId, event))
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *PipelineRunCrossInstanceSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should self-echo guard: instance A's own local subscriber receives its own published event exactly once *** FAILED ***
+[info]   List("queued", "queued", "running") was not equal to List("queued", "running") (PipelineRunCrossInstanceSpec.scala:164)
+[info] NOTIFY payload size guard (design.md D9)
+[info] - should self-echo guard: instance A's own local subscriber receives its own published event exactly once *** FAILED ***
+[info]   List("queued", "queued", "running") was not equal to List("queued", "running") (PipelineRunCrossInstanceSpec.scala:164)
+[info] NOTIFY payload size guard (design.md D9)
+[info] Tests: succeeded 5, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.PipelineRunCrossInstanceSpec
+sbt exit code: 1
+=== Row 8 M: NEW form + echo guard removed, no delay (expect RED) ===
+Edit applied (temporary, reverted afterwards): PipelineRunNotifyBus.handleNotification: originInstanceId check removed
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala b/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala
+index 67892ad14..6adee9685 100644
+--- a/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala
++++ b/backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala
+@@ -205,3 +205,3 @@ final class PipelineRunNotifyBus(
+     decodePayload(n.getParameter).foreach { case (originInstanceId, pipelineId, event) =>
+-      if (originInstanceId != instanceId) {
++      if (true /* MUTATION: echo guard removed */) {
+         handler.get().foreach(_.apply(pipelineId, event))
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *PipelineRunCrossInstanceSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should self-echo guard: instance A's own local subscriber receives its own published event exactly once *** FAILED ***
+[info]   List("queued", "queued", "running") was not equal to List("queued", "running") (PipelineRunCrossInstanceSpec.scala:164)
+[info] NOTIFY payload size guard (design.md D9)
+[info] - should self-echo guard: instance A's own local subscriber receives its own published event exactly once *** FAILED ***
+[info]   List("queued", "queued", "running") was not equal to List("queued", "running") (PipelineRunCrossInstanceSpec.scala:164)
+[info] NOTIFY payload size guard (design.md D9)
+[info] Tests: succeeded 5, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.PipelineRunCrossInstanceSpec
+sbt exit code: 1

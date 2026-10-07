@@ -1,0 +1,122 @@
+=== Row 7 P (vacuity): OLD form + not-awaited mutation + 2 s delay on the rotation future's own path before the delete (expect GREEN = vacuous pass) ===
+Edit applied (temporary, reverted afterwards): OLD spec from 469f4ea93; ConnectorRepository.rotateCredential: pg_sleep(2) then fire-and-forget delete (separate session)
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala
+index 2cadecdbf..1a726cad6 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala
+@@ -251,3 +251,4 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
+                     _ <- table.filter(_.id === connectorUuid).map(r => (r.credentialId, r.updatedAt)).update((Some(newCredUuid), now))
+-                    _ <- credentialRepo.deleteAction(oldCredentialId)
++                    _ <- sql"select pg_sleep(2)::text".as[String] // PROBE: >1500 ms delay on the rotation's own path BEFORE it issues the delete
++                    _ = ctx.withSystemContext(credentialRepo.deleteAction(oldCredentialId)) // MUTATION: delete not awaited inside the rotation transaction
+                   } yield Right(rowToDomain(locked).copy(credentialId = Some(newCredentialMeta.id), updatedAt = now)): Either[ConnectorRotationRefusal, Connector]
+diff --git a/backend/src/test/scala/com/helio/infrastructure/persistence/sources/ConnectorRepositorySpec.scala b/backend/src/test/scala/com/helio/infrastructure/persistence/sources/ConnectorRepositorySpec.scala
+index bee95a82f..244cad3ac 100644
+--- a/backend/src/test/scala/com/helio/infrastructure/persistence/sources/ConnectorRepositorySpec.scala
++++ b/backend/src/test/scala/com/helio/infrastructure/persistence/sources/ConnectorRepositorySpec.scala
+@@ -407,26 +407,2 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
+ 
+-  /** Give-up bound only (C6): the wait ends as soon as the delete is seen lock-waiting. */
+-  private val RotationBlockedStateWaitDeadline = 10.seconds
+-
+-  /** True once some backend is waiting on a lock while running the `connector_credentials` delete. */
+-  private def awaitDeleteBlockedOnLock(): Boolean = {
+-    val probe = embeddedPostgres.getPostgresDatabase.getConnection
+-    try {
+-      val stmt = probe.prepareStatement(
+-        """SELECT count(*) FROM pg_stat_activity
+-          |WHERE wait_event_type = 'Lock' AND query ~* 'delete\s+from\s+"?connector_credentials'""".stripMargin
+-      )
+-      val deadline = System.nanoTime() + RotationBlockedStateWaitDeadline.toNanos
+-      var blocked = false
+-      while (!blocked && System.nanoTime() < deadline) {
+-        val rs = stmt.executeQuery()
+-        rs.next()
+-        blocked = rs.getInt(1) >= 1
+-        rs.close()
+-        if (!blocked) Thread.onSpinWait()
+-      }
+-      blocked
+-    } finally probe.close()
+-  }
+-
+   "rotateCredential" should {
+@@ -479,9 +455,2 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
+ 
+-        // HEL-1341 D5: first wait until the delete is GENUINELY blocked on the row lock, so the
+-        // pending-window below covers a blocked delete rather than pre-delete work. A state wait
+-        // (ends the moment the backend shows as Lock-waiting), bounded by a named give-up deadline.
+-        withClue("the old-credential delete never appeared blocked on a lock: ") {
+-          awaitDeleteBlockedOnLock() shouldBe true
+-        }
+-
+         // Bounded poll (not a bare sleep): rotation must stay pending for the whole window.
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *ConnectorRepositorySpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should does not return success until the old credential is actually deleted (HEL-1338)
+[info] - should rolls the whole rotation back when the old-credential delete fails (HEL-1338) *** FAILED ***
+[info]   Expected exception java.lang.RuntimeException to be thrown, but no exception was thrown (ConnectorRepositorySpec.scala:492)
+[info] - should rolls the whole rotation back when the old-credential delete fails (HEL-1338) *** FAILED ***
+[info]   Expected exception java.lang.RuntimeException to be thrown, but no exception was thrown (ConnectorRepositorySpec.scala:492)
+[info] - should returns not-found for another user's Connector, performing no write
+[info] Tests: succeeded 17, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.infrastructure.persistence.sources.ConnectorRepositorySpec
+sbt exit code: 1
+=== Row 7 P: NEW form + same delay + not-awaited mutation (expect RED) ===
+Edit applied (temporary, reverted afterwards): same production edit
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala
+index 2cadecdbf..1a726cad6 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala
+@@ -251,3 +251,4 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
+                     _ <- table.filter(_.id === connectorUuid).map(r => (r.credentialId, r.updatedAt)).update((Some(newCredUuid), now))
+-                    _ <- credentialRepo.deleteAction(oldCredentialId)
++                    _ <- sql"select pg_sleep(2)::text".as[String] // PROBE: >1500 ms delay on the rotation's own path BEFORE it issues the delete
++                    _ = ctx.withSystemContext(credentialRepo.deleteAction(oldCredentialId)) // MUTATION: delete not awaited inside the rotation transaction
+                   } yield Right(rowToDomain(locked).copy(credentialId = Some(newCredentialMeta.id), updatedAt = now)): Either[ConnectorRotationRefusal, Connector]
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *ConnectorRepositorySpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should does not return success until the old credential is actually deleted (HEL-1338) *** FAILED ***
+[info]   rotation reported success while the old credential's delete was still blocked: true was not equal to false (ConnectorRepositorySpec.scala:491)
+[info] - should rolls the whole rotation back when the old-credential delete fails (HEL-1338) *** FAILED ***
+[info] - should does not return success until the old credential is actually deleted (HEL-1338) *** FAILED ***
+[info]   rotation reported success while the old credential's delete was still blocked: true was not equal to false (ConnectorRepositorySpec.scala:491)
+[info] - should rolls the whole rotation back when the old-credential delete fails (HEL-1338) *** FAILED ***
+[info]   Expected exception java.lang.RuntimeException to be thrown, but no exception was thrown (ConnectorRepositorySpec.scala:523)
+[info] - should returns not-found for another user's Connector, performing no write
+[info] Tests: succeeded 16, failed 2, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.infrastructure.persistence.sources.ConnectorRepositorySpec
+sbt exit code: 1
+=== Row 7 M: NEW form + not-awaited mutation, no delay (expect RED) ===
+Edit applied (temporary, reverted afterwards): ConnectorRepository.rotateCredential: delete fire-and-forget on a separate session, no delay
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala
+index 2cadecdbf..e34dc7148 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala
+@@ -251,3 +251,3 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
+                     _ <- table.filter(_.id === connectorUuid).map(r => (r.credentialId, r.updatedAt)).update((Some(newCredUuid), now))
+-                    _ <- credentialRepo.deleteAction(oldCredentialId)
++                    _ = ctx.withSystemContext(credentialRepo.deleteAction(oldCredentialId)) // MUTATION: delete not awaited inside the rotation transaction
+                   } yield Right(rowToDomain(locked).copy(credentialId = Some(newCredentialMeta.id), updatedAt = now)): Either[ConnectorRotationRefusal, Connector]
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *ConnectorRepositorySpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should does not return success until the old credential is actually deleted (HEL-1338) *** FAILED ***
+[info]   rotation reported success while the old credential's delete was still blocked: true was not equal to false (ConnectorRepositorySpec.scala:491)
+[info] - should rolls the whole rotation back when the old-credential delete fails (HEL-1338) *** FAILED ***
+[info] - should does not return success until the old credential is actually deleted (HEL-1338) *** FAILED ***
+[info]   rotation reported success while the old credential's delete was still blocked: true was not equal to false (ConnectorRepositorySpec.scala:491)
+[info] - should rolls the whole rotation back when the old-credential delete fails (HEL-1338) *** FAILED ***
+[info]   Expected exception java.lang.RuntimeException to be thrown, but no exception was thrown (ConnectorRepositorySpec.scala:523)
+[info] - should returns not-found for another user's Connector, performing no write
+[info] Tests: succeeded 16, failed 2, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.infrastructure.persistence.sources.ConnectorRepositorySpec
+sbt exit code: 1

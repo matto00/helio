@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
-import com.helio.domain.util.SystemClock
+import com.helio.domain.util.{Clock, SystemClock}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -23,6 +23,7 @@ import spray.json.JsString
 
 import java.nio.file.Paths
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -141,9 +142,14 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
       outputRepo = new OutputRepository(ctx)
     )
 
-  private def newScheduler(runService: PipelineRunService): PipelineSchedulerService =
+  private class FakeClock(@volatile private var instant: Instant) extends Clock {
+    def set(i: Instant): Unit   = instant = i
+    override def now(): Instant = instant
+  }
+
+  private def newScheduler(runService: PipelineRunService, clock: Clock = SystemClock): PipelineSchedulerService =
     new PipelineSchedulerService(
-      scheduleRepo, pipelineRepo, pipelineRunRepo, runService, SystemClock,
+      scheduleRepo, pipelineRepo, pipelineRunRepo, runService, clock,
       autoRunDebounceRepo = debounceRepo, staleClaimAfterSeconds = 300L
     )
 
@@ -242,7 +248,33 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
     }
   }
 
-  "real measured write-to-run latency (HEL-1093 tasks.md 3.9, design.md Decision 5)" should {
+  "write-to-run latency (HEL-1093 tasks.md 3.9, design.md Decision 5; HEL-1341 D1)" should {
+
+    // HEL-1341 D1: the debounce boundary is proven on an injected clock, so no wall-clock window
+    // exists for a slow DB round trip to overrun. t0 is a whole second because fire_at is stored
+    // at microsecond precision.
+    "fires nothing 1ms before the debounce elapses and exactly once when it elapses (FakeClock)" in {
+      cleanDb()
+      val owner = seedUser()
+      val dsId  = seedDataset(owner, Vector(DatasetFieldDeclaration("name", DataFieldType.StringType)))
+      val pid   = seedPipeline(owner, dsId)
+
+      val t0    = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+      val clock = new FakeClock(t0)
+      val triggerService = newTriggerService(debounceSeconds = 1L)
+      val runService = newRunService(PipelineRunGuardConfig(rateLimitPerWindow = 100, rateWindowSeconds = 60, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
+      val scheduler = newScheduler(runService, clock)
+
+      await(triggerService.triggerAutoRun(dsId, AuthenticatedUser(owner), t0))
+
+      clock.set(t0.plusMillis(999))
+      await(scheduler.tick())
+      runCount(pid) shouldBe 0
+
+      clock.set(t0.plusMillis(1000))
+      await(scheduler.tick())
+      runCount(pid) shouldBe 1
+    }
 
     "reports the observed elapsed time from the last write to the run appearing in pipeline_runs" in {
       cleanDb()
@@ -251,12 +283,11 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
       val pid   = seedPipeline(owner, dsId)
 
       // A short-but-real debounce window (1s) -- the actual configured production default is 5s
-      // (DATASET_WRITE_DEBOUNCE_SECONDS); this measures the SAME mechanism (debounce elapse +
-      // next scheduler tick observing it) with a real, non-mocked clock, polling tick() the way
-      // PipelineSchedulerActor's real timer would, every 50ms rather than the production 30s
-      // SCHEDULER_TICK_INTERVAL_SECONDS cadence (polling faster does not change what's being
-      // measured -- the debounce-to-claimed-and-fired mechanism itself -- only how promptly THIS
-      // TEST observes it).
+      // (DATASET_WRITE_DEBOUNCE_SECONDS); this exercises the SAME mechanism (debounce elapse +
+      // next scheduler tick observing it) with the real SystemClock, polling tick() the way
+      // PipelineSchedulerActor's real timer would, every 50ms. It is CI's only end-to-end proof
+      // that the production clock wiring fires a debounced auto-run, so it stays unconditional --
+      // as a state wait (pollUntil with a 10s give-up bound), NOT a wall-clock assertion.
       val triggerService = newTriggerService(debounceSeconds = 1L)
       val runService = newRunService(PipelineRunGuardConfig(rateLimitPerWindow = 100, rateWindowSeconds = 60, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
       val scheduler = newScheduler(runService)
@@ -269,14 +300,13 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
       val elapsed = (System.nanoTime() - startNanos).nanos
 
       runCount(pid) shouldBe 1
-      // Real, measured latency for THIS mechanism (1s debounce + fast local polling): reported
-      // for the record, not asserted against a tight bound (this is an observational probe, not
-      // a performance regression gate -- see design.md Decision 5 / Risks).
-      println(s"HEL-1093 tasks.md 3.9: observed debounce-to-fire latency (1s configured debounce, " +
-        s"fast local polling) = ${elapsed.toMillis}ms. Production worst case with the real " +
-        s"defaults is DATASET_WRITE_DEBOUNCE_SECONDS (5s) + up to SCHEDULER_TICK_INTERVAL_SECONDS " +
-        s"(30s) ~= 35s from the last write to submission.")
-      elapsed.toMillis should be >= 1000L
+      // HEL-1341 D1: the elapsed time is report-only (HELIO_MEASURE=1), never asserted -- it is
+      // ~1s minus the trigger's own DB round trip, so a lower bound is a race under contention.
+      if (sys.env.get("HELIO_MEASURE").contains("1"))
+        println(s"HEL-1093 tasks.md 3.9: observed debounce-to-fire latency (1s configured debounce, " +
+          s"fast local polling) = ${elapsed.toMillis}ms. Production worst case with the real " +
+          s"defaults is DATASET_WRITE_DEBOUNCE_SECONDS (5s) + up to SCHEDULER_TICK_INTERVAL_SECONDS " +
+          s"(30s) ~= 35s from the last write to submission.")
     }
   }
 }

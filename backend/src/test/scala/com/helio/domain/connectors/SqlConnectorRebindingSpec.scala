@@ -1,14 +1,14 @@
 package com.helio.domain.connectors
 
 import com.helio.domain.model.SqlSourceConfig
+import com.helio.testsupport.AcceptRecordingListener
 import com.helio.services.sources.ContentSourceSupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.net.{InetAddress, ServerSocket, SocketException}
-import java.util.concurrent.atomic.AtomicInteger
+import java.net.InetAddress
 import scala.util.{Success, Try}
 
 /** HEL-998: the guard's lookup sees a public address for the host while the JDBC driver's own,
@@ -32,18 +32,6 @@ class SqlConnectorRebindingSpec extends AnyWordSpec with Matchers with BeforeAnd
   private def config(dialect: String, port: Int): SqlSourceConfig =
     SqlSourceConfig(dialect, "localhost", port, "postgres", "postgres", "postgres", "SELECT 1")
 
-  private def countingListener(): (ServerSocket, AtomicInteger) = {
-    val server  = new ServerSocket(0, 50, InetAddress.getLoopbackAddress)
-    val accepts = new AtomicInteger(0)
-    val t = new Thread(() =>
-      try while (true) { server.accept().close(); accepts.incrementAndGet() }
-      catch { case _: SocketException => () }
-    )
-    t.setDaemon(true)
-    t.start()
-    (server, accepts)
-  }
-
   "SqlConnectorDriver.connect with a rebinding resolver (public for the guard, loopback for the driver)" should {
 
     "never reach the internal address for postgresql" in {
@@ -53,14 +41,15 @@ class SqlConnectorRebindingSpec extends AnyWordSpec with Matchers with BeforeAnd
     }
 
     "never reach the internal address for mysql" in {
-      val (server, accepts) = countingListener()
+      val listener = AcceptRecordingListener.start()
       try {
-        val result = Try(SqlConnectorDriver.connect(config("mysql", server.getLocalPort), publicOnFirstLookup))
+        val result = Try(SqlConnectorDriver.connect(config("mysql", listener.port), publicOnFirstLookup))
         result.foreach(_.close())
-        Thread.sleep(300)
-        accepts.get() shouldBe 0
+        // HEL-1341 D4: sentinel-identified barrier -- nothing but the sentinel was ever accepted.
+        val (accepted, sentinelPort) = listener.assertNothingAcceptedBeforeSentinel()
+        accepted shouldBe List(sentinelPort)
         result.failed.toOption.collect { case e: SqlEgressRefusedException => e } should not be empty
-      } finally server.close()
+      } finally listener.close()
     }
   }
 
@@ -80,21 +69,22 @@ class SqlConnectorRebindingSpec extends AnyWordSpec with Matchers with BeforeAnd
     }
 
     "refuse loopback for mysql when only the hook is strict, without a connection attempt" in {
-      val (server, accepts) = countingListener()
+      val listener = AcceptRecordingListener.start()
       try {
         val result = Try(
           SqlConnectorDriver.connect(
-            config("mysql", server.getLocalPort),
+            config("mysql", listener.port),
             resolveHost      = publicOnFirstLookup,
             isBlocked        = (_, _) => false,
             connectIsBlocked = Some(addr => ContentSourceSupport.isBlockedAddress(addr))
           )
         )
         result.foreach(_.close())
-        Thread.sleep(300)
-        accepts.get() shouldBe 0
+        // HEL-1341 D4: sentinel-identified barrier -- nothing but the sentinel was ever accepted.
+        val (accepted, sentinelPort) = listener.assertNothingAcceptedBeforeSentinel()
+        accepted shouldBe List(sentinelPort)
         result.failed.toOption.collect { case e: SqlEgressRefusedException => e } should not be empty
-      } finally server.close()
+      } finally listener.close()
     }
 
     "connect and run a query when the hook admits the address" in {

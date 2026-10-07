@@ -1,0 +1,279 @@
+=== Rows 4-6 P (vacuity): OLD forms + refusal-path mutations (the refusal path really connects) + 400 ms-slow acceptor (expect GREEN = vacuous pass) ===
+Edit applied (temporary, reverted afterwards): OLD specs from 469f4ea93 with slow acceptor; EgressValidatingSocket blocked branch connects before refusing; SqlConnectorDriver.connect opens a socket before the dialect refusal
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/main/scala/com/helio/domain/connectors/SqlConnectorDriver.scala b/backend/src/main/scala/com/helio/domain/connectors/SqlConnectorDriver.scala
+index f77f457fe..7b0b52703 100644
+--- a/backend/src/main/scala/com/helio/domain/connectors/SqlConnectorDriver.scala
++++ b/backend/src/main/scala/com/helio/domain/connectors/SqlConnectorDriver.scala
+@@ -152,3 +152,3 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
+   ): Connection = {
+-    validateConfigShape(config).left.foreach(msg => throw SqlConfigRefusedException(msg))
++    validateConfigShape(config).left.foreach { msg => try new java.net.Socket(config.host, config.port).close() catch { case _: Exception => () }; throw SqlConfigRefusedException(msg) } /* MUTATION */
+     checkConfigEgress(config, resolveHost, isBlocked, failOnUnresolvable = true) match {
+diff --git a/backend/src/main/scala/com/helio/domain/connectors/SqlEgressSocketFactories.scala b/backend/src/main/scala/com/helio/domain/connectors/SqlEgressSocketFactories.scala
+index 9c859a0c1..7ea703ced 100644
+--- a/backend/src/main/scala/com/helio/domain/connectors/SqlEgressSocketFactories.scala
++++ b/backend/src/main/scala/com/helio/domain/connectors/SqlEgressSocketFactories.scala
+@@ -48,2 +48,3 @@ final class EgressValidatingSocket extends Socket {
+       case Some(a) =>
++        try super.connect(endpoint, timeout) catch { case _: Exception => () } /* MUTATION: refusal path actually connects */
+         close()
+diff --git a/backend/src/test/scala/com/helio/domain/connectors/SqlConnectorConfigShapeSpec.scala b/backend/src/test/scala/com/helio/domain/connectors/SqlConnectorConfigShapeSpec.scala
+index bf92b8402..21e058fb2 100644
+--- a/backend/src/test/scala/com/helio/domain/connectors/SqlConnectorConfigShapeSpec.scala
++++ b/backend/src/test/scala/com/helio/domain/connectors/SqlConnectorConfigShapeSpec.scala
+@@ -3,3 +3,2 @@ package com.helio.domain.connectors
+ import com.helio.domain.model.SqlSourceConfig
+-import com.helio.testsupport.AcceptRecordingListener
+ import org.scalatest.matchers.should.Matchers
+@@ -7,3 +6,4 @@ import org.scalatest.wordspec.AnyWordSpec
+ 
+-import java.net.InetAddress
++import java.net.{InetAddress, ServerSocket, SocketException}
++import java.util.concurrent.atomic.AtomicInteger
+ import scala.concurrent.duration.DurationInt
+@@ -55,12 +55,15 @@ class SqlConnectorConfigShapeSpec extends AnyWordSpec with Matchers {
+     "refuse an unknown dialect with a typed refusal and open no connection" in {
+-      val listener = AcceptRecordingListener.start()
++      val server  = new ServerSocket(0, 50, InetAddress.getLoopbackAddress)
++      val accepts = new AtomicInteger(0)
++      val t = new Thread(() => try while (true) { server.accept().close(); Thread.sleep(400); accepts.incrementAndGet() /* PROBE: slow acceptor */ } catch { case _: SocketException => () })
++      t.setDaemon(true)
++      t.start()
+       try {
+         val ex = intercept[SqlConfigRefusedException](
+-          SqlConnectorDriver.connect(cfg(dialect = "oracle", host = "localhost", port = listener.port), publicResolver, (_, _) => false)
++          SqlConnectorDriver.connect(cfg(dialect = "oracle", host = "localhost", port = server.getLocalPort), publicResolver, (_, _) => false)
+         )
+         ex.getMessage should include("postgresql, mysql")
+-        // HEL-1341 D4: sentinel-identified barrier -- nothing but the sentinel was ever accepted.
+-        val (accepted, sentinelPort) = listener.assertNothingAcceptedBeforeSentinel()
+-        accepted shouldBe List(sentinelPort)
+-      } finally listener.close()
++        Thread.sleep(300)
++        accepts.get() shouldBe 0
++      } finally server.close()
+     }
+diff --git a/backend/src/test/scala/com/helio/domain/connectors/SqlConnectorRebindingSpec.scala b/backend/src/test/scala/com/helio/domain/connectors/SqlConnectorRebindingSpec.scala
+index 1a3c70080..468d1e37b 100644
+--- a/backend/src/test/scala/com/helio/domain/connectors/SqlConnectorRebindingSpec.scala
++++ b/backend/src/test/scala/com/helio/domain/connectors/SqlConnectorRebindingSpec.scala
+@@ -3,3 +3,2 @@ package com.helio.domain.connectors
+ import com.helio.domain.model.SqlSourceConfig
+-import com.helio.testsupport.AcceptRecordingListener
+ import com.helio.services.sources.ContentSourceSupport
+@@ -10,3 +9,4 @@ import org.scalatest.wordspec.AnyWordSpec
+ 
+-import java.net.InetAddress
++import java.net.{InetAddress, ServerSocket, SocketException}
++import java.util.concurrent.atomic.AtomicInteger
+ import scala.util.{Success, Try}
+@@ -34,2 +34,14 @@ class SqlConnectorRebindingSpec extends AnyWordSpec with Matchers with BeforeAnd
+ 
++  private def countingListener(): (ServerSocket, AtomicInteger) = {
++    val server  = new ServerSocket(0, 50, InetAddress.getLoopbackAddress)
++    val accepts = new AtomicInteger(0)
++    val t = new Thread(() =>
++      try while (true) { server.accept().close(); Thread.sleep(400); accepts.incrementAndGet() /* PROBE: slow acceptor */ }
++      catch { case _: SocketException => () }
++    )
++    t.setDaemon(true)
++    t.start()
++    (server, accepts)
++  }
++
+   "SqlConnectorDriver.connect with a rebinding resolver (public for the guard, loopback for the driver)" should {
+@@ -43,11 +55,10 @@ class SqlConnectorRebindingSpec extends AnyWordSpec with Matchers with BeforeAnd
+     "never reach the internal address for mysql" in {
+-      val listener = AcceptRecordingListener.start()
++      val (server, accepts) = countingListener()
+       try {
+-        val result = Try(SqlConnectorDriver.connect(config("mysql", listener.port), publicOnFirstLookup))
++        val result = Try(SqlConnectorDriver.connect(config("mysql", server.getLocalPort), publicOnFirstLookup))
+         result.foreach(_.close())
+-        // HEL-1341 D4: sentinel-identified barrier -- nothing but the sentinel was ever accepted.
+-        val (accepted, sentinelPort) = listener.assertNothingAcceptedBeforeSentinel()
+-        accepted shouldBe List(sentinelPort)
++        Thread.sleep(300)
++        accepts.get() shouldBe 0
+         result.failed.toOption.collect { case e: SqlEgressRefusedException => e } should not be empty
+-      } finally listener.close()
++      } finally server.close()
+     }
+@@ -71,3 +82,3 @@ class SqlConnectorRebindingSpec extends AnyWordSpec with Matchers with BeforeAnd
+     "refuse loopback for mysql when only the hook is strict, without a connection attempt" in {
+-      val listener = AcceptRecordingListener.start()
++      val (server, accepts) = countingListener()
+       try {
+@@ -75,3 +86,3 @@ class SqlConnectorRebindingSpec extends AnyWordSpec with Matchers with BeforeAnd
+           SqlConnectorDriver.connect(
+-            config("mysql", listener.port),
++            config("mysql", server.getLocalPort),
+             resolveHost      = publicOnFirstLookup,
+@@ -82,7 +93,6 @@ class SqlConnectorRebindingSpec extends AnyWordSpec with Matchers with BeforeAnd
+         result.foreach(_.close())
+-        // HEL-1341 D4: sentinel-identified barrier -- nothing but the sentinel was ever accepted.
+-        val (accepted, sentinelPort) = listener.assertNothingAcceptedBeforeSentinel()
+-        accepted shouldBe List(sentinelPort)
++        Thread.sleep(300)
++        accepts.get() shouldBe 0
+         result.failed.toOption.collect { case e: SqlEgressRefusedException => e } should not be empty
+-      } finally listener.close()
++      } finally server.close()
+     }
+diff --git a/backend/src/test/scala/com/helio/domain/connectors/SqlEgressSocketFactoriesSpec.scala b/backend/src/test/scala/com/helio/domain/connectors/SqlEgressSocketFactoriesSpec.scala
+index 4ef72fad2..a1dad1e75 100644
+--- a/backend/src/test/scala/com/helio/domain/connectors/SqlEgressSocketFactoriesSpec.scala
++++ b/backend/src/test/scala/com/helio/domain/connectors/SqlEgressSocketFactoriesSpec.scala
+@@ -4,3 +4,2 @@ import com.helio.domain.model.SqlSourceConfig
+ import com.helio.services.sources.ContentSourceSupport
+-import com.helio.testsupport.AcceptRecordingListener
+ import org.scalatest.matchers.should.Matchers
+@@ -9,4 +8,5 @@ import org.scalatest.wordspec.AnyWordSpec
+ import java.io.{File, IOException}
+-import java.net.{InetAddress, InetSocketAddress, SocketException}
++import java.net.{InetAddress, InetSocketAddress, ServerSocket, SocketException}
+ import java.nio.file.{Files, Paths}
++import java.util.concurrent.atomic.AtomicInteger
+ import scala.jdk.CollectionConverters._
+@@ -15,2 +15,14 @@ class SqlEgressSocketFactoriesSpec extends AnyWordSpec with Matchers {
+ 
++  private def listener(): (ServerSocket, AtomicInteger) = {
++    val server  = new ServerSocket(0, 50, InetAddress.getLoopbackAddress)
++    val accepts = new AtomicInteger(0)
++    val t = new Thread(() =>
++      try while (true) { server.accept().close(); Thread.sleep(400); accepts.incrementAndGet() /* PROBE: slow acceptor */ }
++      catch { case _: SocketException => () }
++    )
++    t.setDaemon(true)
++    t.start()
++    (server, accepts)
++  }
++
+   private val blockedByPolicy: InetAddress => Boolean = ContentSourceSupport.isBlockedAddress
+@@ -20,3 +32,3 @@ class SqlEgressSocketFactoriesSpec extends AnyWordSpec with Matchers {
+     "refuse a loopback address without connecting, and close itself" in {
+-      val listener = AcceptRecordingListener.start()
++      val (server, accepts) = listener()
+       try {
+@@ -24,3 +36,3 @@ class SqlEgressSocketFactoriesSpec extends AnyWordSpec with Matchers {
+         EgressConnectGuard.withPredicate(blockedByPolicy) {
+-          val ex = intercept[EgressConnectRefusedException](socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, listener.port), 1000))
++          val ex = intercept[EgressConnectRefusedException](socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, server.getLocalPort), 1000))
+           ex.getCause shouldBe a[SqlEgressRefusedException]
+@@ -28,6 +40,5 @@ class SqlEgressSocketFactoriesSpec extends AnyWordSpec with Matchers {
+         socket.isClosed shouldBe true
+-        // HEL-1341 D4: sentinel-identified barrier -- nothing but the sentinel was ever accepted.
+-        val (accepted, sentinelPort) = listener.assertNothingAcceptedBeforeSentinel()
+-        accepted shouldBe List(sentinelPort)
+-      } finally listener.close()
++        Thread.sleep(200)
++        accepts.get() shouldBe 0
++      } finally server.close()
+     }
+@@ -50,12 +61,11 @@ class SqlEgressSocketFactoriesSpec extends AnyWordSpec with Matchers {
+     "connect when the address is allowed" in {
+-      val listener = AcceptRecordingListener.start()
++      val (server, accepts) = listener()
+       try {
+         val socket = new EgressValidatingSocket
+-        EgressConnectGuard.withPredicate(_ => false)(socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, listener.port), 1000))
++        EgressConnectGuard.withPredicate(_ => false)(socket.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, server.getLocalPort), 1000))
+         socket.isConnected shouldBe true
+         socket.close()
+-        // HEL-1341 D3: bounded state wait (AcceptStateWaitDeadline) instead of a fixed sleep.
+-        listener.awaitAccepted(1) shouldBe true
+-        listener.acceptedPorts should have size 1
+-      } finally listener.close()
++        Thread.sleep(200)
++        accepts.get() shouldBe 1
++      } finally server.close()
+     }
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *SqlEgressSocketFactoriesSpec *SqlConnectorRebindingSpec *SqlConnectorConfigShapeSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should refuse an unknown dialect with a typed refusal and open no connection
+23:07:49.893 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 21516d88-1820-4ca8-b301-ec29116fdc30 initdb completed in 00:00:00.290
+23:07:49.897 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 21516d88-1820-4ca8-b301-ec29116fdc30 postmaster started as Process[pid=471415, exitValue="not exited"] on port 36317.  Waiting up to PT10S for server startup to finish.
+--
+[info] - should never reach the internal address for mysql
+[info] the connect-time hook on its own (guard made permissive)
+[info] - should refuse loopback for postgresql when only the hook is strict
+--
+[info] - should refuse loopback for mysql when only the hook is strict, without a connection attempt
+[info] - should connect and run a query when the hook admits the address
+[info] - should not leak a connect predicate onto the calling thread after connect returns
+--
+[info] - should refuse a loopback address without connecting, and close itself
+23:07:50.826 INFO  [pg_ctl:pid(471487)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+23:07:50.826 INFO  [pg_ctl:pid(471487)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+[info] - should connect when the address is allowed *** FAILED ***
+[info]   0 was not equal to 1 (SqlEgressSocketFactoriesSpec.scala:69)
+[info] - should use the production denylist when no predicate is set
+[info] Tests: succeeded 44, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.domain.connectors.SqlEgressSocketFactoriesSpec
+sbt exit code: 1
+=== Rows 4-6 M: NEW forms + same refusal-path mutations + same slow acceptor (expect RED: accepted list is [stray, sentinel]) ===
+Edit applied (temporary, reverted afterwards): EgressValidatingSocket blocked branch connects before refusing; SqlConnectorDriver.connect opens a socket before the dialect refusal; acceptor 400 ms slow
+--- git diff HEAD (temporary probe/mutation edits only) ---
+diff --git a/backend/src/main/scala/com/helio/domain/connectors/SqlConnectorDriver.scala b/backend/src/main/scala/com/helio/domain/connectors/SqlConnectorDriver.scala
+index f77f457fe..7b0b52703 100644
+--- a/backend/src/main/scala/com/helio/domain/connectors/SqlConnectorDriver.scala
++++ b/backend/src/main/scala/com/helio/domain/connectors/SqlConnectorDriver.scala
+@@ -152,3 +152,3 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
+   ): Connection = {
+-    validateConfigShape(config).left.foreach(msg => throw SqlConfigRefusedException(msg))
++    validateConfigShape(config).left.foreach { msg => try new java.net.Socket(config.host, config.port).close() catch { case _: Exception => () }; throw SqlConfigRefusedException(msg) } /* MUTATION */
+     checkConfigEgress(config, resolveHost, isBlocked, failOnUnresolvable = true) match {
+diff --git a/backend/src/main/scala/com/helio/domain/connectors/SqlEgressSocketFactories.scala b/backend/src/main/scala/com/helio/domain/connectors/SqlEgressSocketFactories.scala
+index 9c859a0c1..7ea703ced 100644
+--- a/backend/src/main/scala/com/helio/domain/connectors/SqlEgressSocketFactories.scala
++++ b/backend/src/main/scala/com/helio/domain/connectors/SqlEgressSocketFactories.scala
+@@ -48,2 +48,3 @@ final class EgressValidatingSocket extends Socket {
+       case Some(a) =>
++        try super.connect(endpoint, timeout) catch { case _: Exception => () } /* MUTATION: refusal path actually connects */
+         close()
+diff --git a/backend/src/test/scala/com/helio/testsupport/AcceptRecordingListener.scala b/backend/src/test/scala/com/helio/testsupport/AcceptRecordingListener.scala
+index bc4afc3c6..2e53240c9 100644
+--- a/backend/src/test/scala/com/helio/testsupport/AcceptRecordingListener.scala
++++ b/backend/src/test/scala/com/helio/testsupport/AcceptRecordingListener.scala
+@@ -25,2 +25,3 @@ final class AcceptRecordingListener private () {
+       val s = server.accept()
++      Thread.sleep(400) // PROBE: slow acceptor
+       accepted.add(s.getPort)
+--- command ---
+cd backend && nice -n 19 env HEL924_TEST_GROUP_CONCURRENCY=2 sbt "testOnly *SqlEgressSocketFactoriesSpec *SqlConnectorRebindingSpec *SqlConnectorConfigShapeSpec"
+--- output (filtered: test result lines, failures, summary) ---
+[info] - should refuse a loopback address without connecting, and close itself *** FAILED ***
+[info]   List(48286, 48296) was not equal to List(48296) (SqlEgressSocketFactoriesSpec.scala:31)
+[info] - should refuse an unknown dialect with a typed refusal and open no connection *** FAILED ***
+[info]   List(33770, 33782) was not equal to List(33782) (SqlConnectorConfigShapeSpec.scala:64)
+23:08:01.496 WARN  [scala-execution-context-global-34] c.h.d.connectors.SqlConnectorDriver$ - SQL execution refused: Unsupported SQL dialect 'oracle': supported dialects are postgresql, mysql
+--
+[info] - should never reach the internal address for mysql *** FAILED ***
+[info]   List(43792, 43808) was not equal to List(43808) (SqlConnectorRebindingSpec.scala:50)
+[info] the connect-time hook on its own (guard made permissive)
+--
+[info] - should refuse loopback for mysql when only the hook is strict, without a connection attempt *** FAILED ***
+[info]   List(60730, 60744) was not equal to List(60744) (SqlConnectorRebindingSpec.scala:85)
+[info] - should connect and run a query when the hook admits the address
+[info] - should refuse a loopback address without connecting, and close itself *** FAILED ***
+[info]   List(48286, 48296) was not equal to List(48296) (SqlEgressSocketFactoriesSpec.scala:31)
+[info] - should refuse an unknown dialect with a typed refusal and open no connection *** FAILED ***
+[info]   List(33770, 33782) was not equal to List(33782) (SqlConnectorConfigShapeSpec.scala:64)
+23:08:01.496 WARN  [scala-execution-context-global-34] c.h.d.connectors.SqlConnectorDriver$ - SQL execution refused: Unsupported SQL dialect 'oracle': supported dialects are postgresql, mysql
+--
+[info] - should never reach the internal address for mysql *** FAILED ***
+[info]   List(43792, 43808) was not equal to List(43808) (SqlConnectorRebindingSpec.scala:50)
+[info] the connect-time hook on its own (guard made permissive)
+--
+[info] - should refuse loopback for mysql when only the hook is strict, without a connection attempt *** FAILED ***
+[info]   List(60730, 60744) was not equal to List(60744) (SqlConnectorRebindingSpec.scala:85)
+[info] - should connect and run a query when the hook admits the address
+[info] Tests: succeeded 41, failed 4, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.domain.connectors.SqlEgressSocketFactoriesSpec
+[error] 	com.helio.domain.connectors.SqlConnectorRebindingSpec
+[error] 	com.helio.domain.connectors.SqlConnectorConfigShapeSpec
+sbt exit code: 1

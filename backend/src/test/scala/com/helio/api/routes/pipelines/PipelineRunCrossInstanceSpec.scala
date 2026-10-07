@@ -13,9 +13,11 @@ import slick.jdbc.JdbcBackend
 
 import java.nio.charset.StandardCharsets
 import java.util.UUID
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
+import scala.jdk.CollectionConverters._
 
 /** HEL-1168 (ticket "Must hold"; design.md D1-D4, D7, D9): proves cross-instance delivery over
  *  Postgres LISTEN/NOTIFY using TWO separate `PipelineRunRegistry` + `PipelineRunNotifyBus` pairs
@@ -49,6 +51,10 @@ class PipelineRunCrossInstanceSpec
     if (embeddedPostgres != null) embeddedPostgres.close()
     super.afterAll()
   }
+
+  /** Give-up bound only (C6): the self-echo wait ends the moment A's subscriber has the marker. */
+  private val SelfEchoMarkerStateWaitDeadline = 10.seconds
+  private val MarkerStatus                    = "running"
 
   private def newBus(): PipelineRunNotifyBus =
     new PipelineRunNotifyBus(db, jdbcUrl, "postgres", "postgres")(ec)
@@ -137,20 +143,25 @@ class PipelineRunCrossInstanceSpec
         val registryA = new PipelineRunRegistry(eventBus = busA)(typedSystem)
         val registryB = new PipelineRunRegistry(eventBus = busB)(typedSystem)
 
-        val capturedA = scala.collection.mutable.Buffer[RunStatusEvent]()
-        registryA.subscribe(pid).runForeach(capturedA += _)(Materializer(system))
+        val capturedA = new ConcurrentLinkedQueue[RunStatusEvent]()
+        registryA.subscribe(pid).runForeach(capturedA.add(_))(Materializer(system))
         val witnessFuture = registryB.subscribe(pid).take(1).runWith(Sink.seq)(Materializer(system))
 
         registryA.publish(pid, RunStatusEvent("queued"))
 
         Await.result(witnessFuture, 10.seconds)
-        // Headroom past the witness's own receipt for A's dedicated LISTEN connection to have
-        // received (and, if unguarded, re-delivered) its own echo -- Postgres broadcasts a NOTIFY
-        // to every listening session at essentially the same time, so B's receipt is already
-        // strong evidence the echo reached A too; this just avoids a hair-trigger race.
-        Thread.sleep(500)
 
-        capturedA.toList.map(_.status) shouldBe List("queued")
+        // HEL-1341 D6: ordered marker barrier instead of a fixed sleep. Postgres delivers NOTIFYs to
+        // a listening session in commit order, and A's own `queued` NOTIFY committed BEFORE the
+        // marker B publishes now (B already received `queued`). So once A's subscriber has the
+        // marker, an unguarded echo of `queued` would already be in `capturedA` ahead of it. The
+        // marker is a non-terminal status, awaited by content (not size) as the stream thread
+        // appends concurrently; the deadline is only a give-up bound.
+        registryB.publish(pid, RunStatusEvent(MarkerStatus))
+        val deadline = System.nanoTime() + SelfEchoMarkerStateWaitDeadline.toNanos
+        while (System.nanoTime() < deadline && !capturedA.asScala.exists(_.status == MarkerStatus)) Thread.onSpinWait()
+
+        capturedA.asScala.toList.map(_.status) shouldBe List("queued", MarkerStatus)
       } finally {
         busA.shutdown()
         busB.shutdown()
