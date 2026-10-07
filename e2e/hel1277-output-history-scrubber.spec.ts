@@ -1,7 +1,7 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 
+import { evidencePath } from "./support/evidencePath";
+import { currentUserId, registerUser } from "./support/auth";
 import { loginThenIsolate } from "./support/isolateLivePage";
 import { setUserTierForTest } from "./support/historySeed";
 
@@ -14,13 +14,9 @@ import { setUserTierForTest } from "./support/historySeed";
 //   * a chart Output with `config.compare` ("previous_run") on a dashboard panel.
 // Login happens through the UI, then `isolateLivePage` idles the page on about:blank BEFORE any API
 // seeding (HEL-1289). Every created id is logged; resources are deleted by exact id in `finally`.
-// Screenshots land in the change dir, both themes.
+// Screenshots land in e2e-evidence/HEL-1277/ (support/evidencePath.ts), both themes.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
-const SHOTS = resolve(
-  __dirname,
-  "../openspec/changes/archive/2026-10-06-output-history-scrubber-diff/screenshots",
-);
 
 async function postJson<T>(
   request: APIRequestContext,
@@ -56,25 +52,6 @@ async function patchConfig(
   expect(res.status(), await res.text()).toBe(200);
 }
 
-async function registerThenLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = `hel1277-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: "HEL-1277" },
-    headers: CSRF,
-  });
-  expect(res.status()).toBe(201);
-  const me = await request.get("/api/auth/me");
-  expect(me.status()).toBe(200);
-  const userId = ((await me.json()) as { id: string }).id;
-  // Payload tier caps are per pipeline-owner tier (free = 0); set ONLY this user's, by exact id.
-  console.log(
-    `[HEL-1277 e2e] created user ${userId}; tier set for ${setUserTierForTest(userId, "beta")}`,
-  );
-  await loginThenIsolate(page, { email, password });
-  return userId;
-}
-
 for (const theme of ["light", "dark"] as const) {
   test(`History view: scrub, changed-rows highlight, summary-only point (${theme})`, async ({
     page,
@@ -83,7 +60,17 @@ for (const theme of ["light", "dark"] as const) {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
-    await registerThenLogin(page, request, `table-${theme}`);
+    const credentials = await registerUser(request, {
+      prefix: `hel1277-table-${theme}`,
+      displayName: "HEL-1277",
+      logEmail: false,
+    });
+    const userId = await currentUserId(request);
+    // Payload tier caps are per pipeline-owner tier (free = 0); set ONLY this user's, by exact id.
+    console.log(
+      `[HEL-1277 e2e] created user ${userId}; tier set for ${setUserTierForTest(userId, "beta")}`,
+    );
+    await loginThenIsolate(page, credentials);
 
     const created: { source?: string; pipeline?: string; output?: string } = {};
     try {
@@ -180,8 +167,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(flagged).toHaveCount(2);
       await expect(flagged.filter({ hasText: "east" })).toHaveCount(0);
 
-      mkdirSync(SHOTS, { recursive: true });
-      await dialog.screenshot({ path: resolve(SHOTS, `history-view-diff-${theme}.png`) });
+      await dialog.screenshot({ path: evidencePath("HEL-1277", `history-view-diff-${theme}.png`) });
 
       // Touch floor (DESIGN.md §3): at phone width the scrubber range is a 44px-high target.
       await page.setViewportSize({ width: 375, height: 812 });
@@ -214,7 +200,17 @@ for (const theme of ["light", "dark"] as const) {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
-    await registerThenLogin(page, request, `chart-${theme}`);
+    const credentials = await registerUser(request, {
+      prefix: `hel1277-chart-${theme}`,
+      displayName: "HEL-1277",
+      logEmail: false,
+    });
+    const userId = await currentUserId(request);
+    // Payload tier caps are per pipeline-owner tier (free = 0); set ONLY this user's, by exact id.
+    console.log(
+      `[HEL-1277 e2e] created user ${userId}; tier set for ${setUserTierForTest(userId, "beta")}`,
+    );
+    await loginThenIsolate(page, credentials);
 
     const created: { source?: string; pipeline?: string; dashboard?: string } = {};
     try {
@@ -322,8 +318,7 @@ for (const theme of ["light", "dark"] as const) {
       // Settle the hover emphasis before the screenshot so it shows the resting colours.
       await page.mouse.move(0, 0);
       await page.waitForTimeout(800);
-      mkdirSync(SHOTS, { recursive: true });
-      await card.screenshot({ path: resolve(SHOTS, `chart-overlay-panel-${theme}.png`) });
+      await card.screenshot({ path: evidencePath("HEL-1277", `chart-overlay-panel-${theme}.png`) });
     } finally {
       if (created.dashboard)
         await request.delete(`/api/dashboards/${created.dashboard}`, { headers: CSRF });

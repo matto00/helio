@@ -1,5 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-968 task 11 / AC1 (HEL-913's original AC5, verbatim): add a second
 // root via pasted table, join it to the first lane, place the resulting
@@ -19,32 +20,14 @@ import { isolateLivePage } from "./support/isolateLivePage";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel968-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-968 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  expect(res.status()).toBe(201);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-}
+const AUTH = { prefix: "hel968", displayName: "HEL-968", domain: "example.com" } as const;
 
 test.describe("HEL-968 multi-root editor (live UI proof)", () => {
   test("add a second root via pasted table, join it to the first lane, place the resulting table Output", async ({
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "multi-root");
+    await registerAndLogin(page, request, { ...AUTH, label: "multi-root" });
 
     // ── New pipeline with a single-root pasted table (root 0). ──
     await page.goto("/pipelines");
@@ -195,7 +178,7 @@ test.describe("HEL-968 mobile touch targets (task 10.2)", () => {
       request,
     }) => {
       await page.setViewportSize({ width, height: 800 });
-      await registerAndLogin(page, request, `touch-target-${width}`);
+      await registerAndLogin(page, request, { ...AUTH, label: `touch-target-${width}` });
       // HEL-1300: seeding below must not race the live post-login `/`.
       await isolateLivePage(page);
 

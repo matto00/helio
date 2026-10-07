@@ -1,4 +1,8 @@
-import { formatCaptureTime, formatCapturePair } from "./formatCaptureTime";
+import {
+  distinctCapturePrecision,
+  formatCaptureTime,
+  formatCapturePair,
+} from "./formatCaptureTime";
 
 describe("formatCaptureTime (HEL-1277)", () => {
   it("renders seconds only on request", () => {
@@ -42,5 +46,44 @@ describe("formatCapturePair (HEL-1352)", () => {
       selected: formatCaptureTime("2026-10-05T14:02:05Z"),
       comparison: null,
     });
+  });
+});
+
+describe("distinctCapturePrecision (HEL-1359)", () => {
+  const T = "2026-10-05T14:02:05.742Z";
+
+  it("stays at minute precision with no neighbours", () => {
+    expect(distinctCapturePrecision(T, [])).toEqual({ precision: "minute", identical: false });
+  });
+
+  it("stays at minute precision when every neighbour is in another minute", () => {
+    expect(distinctCapturePrecision(T, ["2026-10-05T14:03:05Z", "2026-10-05T14:01:05Z"])).toEqual({
+      precision: "minute",
+      identical: false,
+    });
+  });
+
+  it("escalates to seconds for a same-minute neighbour", () => {
+    expect(distinctCapturePrecision(T, ["2026-10-05T14:02:45Z"])).toEqual({
+      precision: "second",
+      identical: false,
+    });
+  });
+
+  it("escalates to milliseconds for a same-second neighbour", () => {
+    expect(distinctCapturePrecision(T, ["2026-10-05T14:02:05.318Z"])).toEqual({
+      precision: "millisecond",
+      identical: false,
+    });
+  });
+
+  it("uses the highest precision any one of two neighbours demands", () => {
+    expect(
+      distinctCapturePrecision(T, ["2026-10-05T14:09:00Z", "2026-10-05T14:02:05.100Z"]),
+    ).toEqual({ precision: "millisecond", identical: false });
+  });
+
+  it("flags an identical instant", () => {
+    expect(distinctCapturePrecision(T, [T])).toEqual({ precision: "millisecond", identical: true });
   });
 });

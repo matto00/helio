@@ -1,0 +1,5 @@
+MUTATION CR2: rule (a) reverted to /openspec\/changes/g
+FAIL: red: mkdirSync under openspec/specs — status=0 stderr=
+FAIL: red: writeFileSync under openspec/specs — status=0 stderr=
+FAIL: red: openspec as a standalone path segment — status=0 stderr=
+12 passed, 3 failed, 15 total

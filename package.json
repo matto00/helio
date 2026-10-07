@@ -30,6 +30,8 @@
     "check:scala-quality:selftest": "node scripts/check-scala-quality.selftest.mjs",
     "check:test-temp-dir-hygiene": "node scripts/check-test-temp-dir-hygiene.mjs",
     "check:test-temp-dir-hygiene:selftest": "node scripts/check-test-temp-dir-hygiene.selftest.mjs",
+    "check:e2e-evidence-paths": "node scripts/check-e2e-evidence-paths.mjs",
+    "check:e2e-evidence-paths:selftest": "node scripts/check-e2e-evidence-paths.selftest.mjs",
     "check:node-root-encoding": "node scripts/check-node-root-encoding.mjs",
     "check:node-root-encoding:selftest": "node scripts/check-node-root-encoding.selftest.mjs",
     "check:node-root-encoding:ts": "node scripts/check-node-root-encoding.ts.mjs",

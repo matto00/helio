@@ -1,3 +1,4 @@
+import { type ReactElement, StrictMode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { Modal } from "./Modal";
@@ -366,6 +367,62 @@ describe("Modal", () => {
       // body.focus()` fallback), which would move focus even when the
       // captured element can no longer receive it.
       expect(document.activeElement).toBe(closeButton);
+    });
+  });
+
+  // HEL-1359 -- focus return when the modal is closed by UNMOUNTING it while `open` is still true
+  // (the conditional-mount pattern, e.g. PipelineDetailPage's History view) and under
+  // React.StrictMode (dev double-invoke of the `[open]` effect, constraint C1). The file's
+  // `showModal()` stub moves focus into the dialog like real Chromium, which is what makes the
+  // StrictMode cases meaningful: without it, a re-capture would see the trigger again and pass
+  // vacuously.
+  describe("focus return on unmount and under StrictMode (HEL-1359)", () => {
+    function setup(wrap: (node: ReactElement) => ReactElement) {
+      render(<button>Trigger</button>);
+      const trigger = screen.getByRole("button", { name: "Trigger" });
+      trigger.focus();
+      const onClose = jest.fn();
+      const modal = (open: boolean) =>
+        wrap(
+          <Modal open={open} title="T" onClose={onClose}>
+            <button>Inner</button>
+          </Modal>,
+        );
+      const view = render(modal(true));
+      // Focus really left the trigger while open.
+      expect(document.activeElement).not.toBe(trigger);
+      return { trigger, view, modal };
+    }
+    const plain = (n: ReactElement) => n;
+    const strict = (n: ReactElement) => <StrictMode>{n}</StrictMode>;
+
+    it("(i) restores focus to the trigger when unmounted while open", () => {
+      const { trigger, view } = setup(plain);
+      view.unmount();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("(ii) restores focus to the trigger when unmounted while open under StrictMode", () => {
+      const { trigger, view } = setup(strict);
+      view.unmount();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("(iii) restores focus to the trigger on open -> false under StrictMode", () => {
+      const { trigger, view, modal } = setup(strict);
+      view.rerender(modal(false));
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("(iv) does not restore twice, or steal focus moved elsewhere afterwards", () => {
+      const { trigger, view, modal } = setup(plain);
+      view.rerender(modal(false));
+      expect(document.activeElement).toBe(trigger);
+      render(<button>Elsewhere</button>);
+      const elsewhere = screen.getByRole("button", { name: "Elsewhere" });
+      elsewhere.focus();
+      view.unmount();
+      expect(document.activeElement).toBe(elsewhere);
     });
   });
 });

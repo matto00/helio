@@ -114,3 +114,32 @@ rule for adding it: every test registers its own user and seeds its own data, an
 contrast/focus guards (`state-surface-contrast-guard`, `focus-presence-guard`) are one test per theme x view cell for
 the same reason; the per-view `[HEL-866 guard] view ...` / `[HEL-520 focus-presence guard] view ...` log lines are the
 population contract (compare them to a green main run when touching a guard).
+
+## Auth and live-page isolation helpers (HEL-1300 / HEL-1330)
+
+**The race.** After a UI login the page stays live on `/`: it fetches dashboards, auto-selects the newest one and
+runs its mount effects (layout repair, recent-visit recorder, SSE, and for a user with no dashboard the
+onboarding fetch). A spec that then seeds data through the API races those effects, so it can pass or fail for
+reasons unrelated to what it asserts (HEL-1289).
+
+**`isolateLivePage(page)`** (`support/isolateLivePage.ts`) idles the page on `about:blank` so the spec's own next
+`page.goto(<app route>)` is the first app load that can see the seed. Call it after login and before seeding.
+Hazard: never `page.reload()`, `page.evaluate` or touch localStorage between it and the next app-origin
+`page.goto` (a blank page has no app origin). `loginThenIsolate(page, creds)` is the UI login plus the isolate in
+one call, for new specs.
+
+**`support/auth.ts`** is the one shared register/login helper (it replaced ~32 local copies):
+
+- `registerUser(request, { prefix, displayName, label?, domain? })` registers over the API (asserts 201, logs the
+  throwaway email as `[HEL-1300 e2e] throwaway user: <email>`, returns `{ email, password }`).
+- `registerAndLogin(page, request, { ...registerUser opts, waitForShell?, isolate? })` registers, logs in through
+  the UI form, optionally waits for the "Add dashboard" button, then optionally isolates. Declare
+  `const AUTH = { prefix: "hel123", displayName: "HEL-123", isolate: true }` once per file and call
+  `registerAndLogin(page, request, { ...AUTH, label })`. Use `isolate: true` whenever the test seeds over the API
+  right after login. `uniqueEmail(prefix, label?, domain?)` builds the email.
+
+**Guard ordering.** The two guard specs register with `registerUser` and hand the session cookie to the page
+(they never test login, and a UI login would add an `auth.login` audit row to `/settings` and change the
+measured population). `focus-presence-guard` runs: register -> cookie -> `/` -> `isolateLivePage` -> seed ->
+`goto("/")` -> theme `evaluate` -> `goto(route)`. `state-surface-contrast-guard` seeds before its first `goto` and
+sets the theme with `addInitScript` (there is no live app page to `evaluate` on).

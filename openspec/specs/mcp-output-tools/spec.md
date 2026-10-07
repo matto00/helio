@@ -147,9 +147,10 @@ one `GET /api/outputs/:id/history` request, forwarding `limit`/`since` as query 
 return that route's response unchanged, except that when `includeSummaries` is not true each `points[]` entry omits
 its `summary` field and the resolved `current` and `baseline` objects (when non-null) omit their `series` field. The tool SHALL NOT compute baselines, deltas, percentages or values itself.
 
-The tool description SHALL state that a value is non-null only for metric-kind Outputs. It SHALL state that a
-`previous_run` baseline is the second-newest retained history point, which may be older than the immediately
-preceding run because older history is thinned. The description SHALL NOT claim the baseline is the previous run.
+The tool description SHALL state that a value is non-null only for metric-kind Outputs. It SHALL state that history is
+thinned as it ages but never an Output's newest 101 points, so a `previous_run` baseline is the immediately previous
+recorded run, while a `1d`/`7d`/`30d` window baseline is the nearest surviving point at or before the target and may be
+up to one thinning bucket earlier. The description SHALL NOT contain the phrase "previous run".
 
 #### Scenario: Last 30 values in one call
 
@@ -199,3 +200,20 @@ document or accept `compare`. The MCP layer SHALL NOT validate `compare` itself;
 
 - **WHEN** `add_output` is called with `config: {compare: "7d"}`
 - **THEN** the create request body carries `config.compare` equal to `"7d"`, unchanged
+
+### Requirement: update_output documents the history-payloads opt-in
+The helio-mcp `update_output` tool description SHALL document `config.historyPayloads`: it is a boolean opt-in to keep
+each real run's full rows; a run over 1,000 rows or 1 MiB keeps only its summary; rows are kept only when the
+pipeline owner's tier allows it (free keeps none), and the Output's `historyPayloadsAvailable` field reports that; and
+turning it off stops storing rows while stored rows expire on the normal schedule. Sending
+`config: {"historyPayloads": true}` through `update_output` SHALL reach `PATCH /api/outputs/:id` unchanged.
+
+#### Scenario: Agent enables payloads
+- **WHEN** an agent calls `update_output` with `config: {"historyPayloads": true}`
+- **THEN** the PATCH body sent to `/api/outputs/:id` carries `config.historyPayloads === true`, and the updated Output is
+  returned
+
+#### Scenario: Description is discoverable
+- **WHEN** a client lists tools
+- **THEN** `update_output`'s description mentions `historyPayloads`, the 1,000-row / 1 MiB caps, and
+  `historyPayloadsAvailable`

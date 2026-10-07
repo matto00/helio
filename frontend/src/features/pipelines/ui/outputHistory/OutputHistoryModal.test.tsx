@@ -1,3 +1,4 @@
+import { StrictMode, useState } from "react";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { renderWithStore } from "../../../../test/renderWithStore";
@@ -286,6 +287,77 @@ describe("OutputHistoryModal (HEL-1277)", () => {
       expect(screen.getByText(/^vs .*\(older capture\)$/)).toBeInTheDocument();
     });
 
+    it("names adjacent scrubber points distinctly: minutes, seconds, milliseconds, identical (HEL-1359)", async () => {
+      const slider = () => screen.getByRole("slider", { name: "Recorded runs" });
+      // Different minutes: minute precision, no seconds.
+      const { unmount } = render([
+        point("a", "2026-10-05T14:03:05Z"),
+        point("b", "2026-10-05T14:02:05Z"),
+      ]);
+      await screen.findByRole("slider");
+      const diffMinute = slider().getAttribute("aria-valuetext");
+      unmount();
+
+      // Same minute: seconds, and the two points' names differ.
+      const sameMinute = render([
+        point("a", "2026-10-05T14:02:40Z"),
+        point("b", "2026-10-05T14:02:10Z"),
+      ]);
+      await screen.findByRole("slider");
+      const newestMinute = slider().getAttribute("aria-valuetext");
+      scrubTo(0);
+      await waitFor(() => expect(slider().getAttribute("aria-valuetext")).not.toBe(newestMinute));
+      expect(newestMinute).toMatch(/:40/);
+      expect(slider().getAttribute("aria-valuetext")).toMatch(/:10/);
+      expect(newestMinute).not.toBe(diffMinute);
+      sameMinute.unmount();
+
+      // Same second: milliseconds.
+      const sameSecond = render([
+        point("a", "2026-10-05T14:02:05.742Z"),
+        point("b", "2026-10-05T14:02:05.318Z"),
+      ]);
+      await screen.findByRole("slider");
+      expect(slider().getAttribute("aria-valuetext")).toContain("742");
+      scrubTo(0);
+      await waitFor(() => expect(slider().getAttribute("aria-valuetext")).toContain("318"));
+      sameSecond.unmount();
+
+      // Identical instant: a position suffix on both, so they still differ.
+      render([point("a", "2026-10-05T14:02:05.742Z"), point("b", "2026-10-05T14:02:05.742Z")]);
+      await screen.findByRole("slider");
+      expect(slider().getAttribute("aria-valuetext")).toMatch(/run 2 of 2/);
+      scrubTo(0);
+      await waitFor(() => expect(slider().getAttribute("aria-valuetext")).toMatch(/run 1 of 2/));
+    });
+
+    it("shows the metric baseline 'vs <time>: <baseline>' with milliseconds for a same-second pair (HEL-1359)", async () => {
+      render(
+        [
+          point(
+            "a",
+            "2026-10-05T14:02:05.742Z",
+            {},
+            { metric: { field: "amount", agg: "sum", value: 30 } },
+          ),
+          point(
+            "b",
+            "2026-10-05T14:02:05.318Z",
+            {},
+            { metric: { field: "amount", agg: "sum", value: 25 } },
+          ),
+        ],
+        makeOutput({ kind: "metric", config: { format: "integer" } }),
+      );
+      await screen.findByRole("slider");
+      const metric = document.querySelector(".output-history__metric");
+      const baseline = metric?.querySelector(".output-history__muted")?.textContent ?? "";
+      expect(baseline).toMatch(/^\s*vs .*318.*: 25$/);
+      const header = document.querySelector(".output-history__point-time")?.textContent ?? "";
+      expect(header).toContain("742");
+      expect(baseline).not.toContain(header);
+    });
+
     it("never says 'No row changes' when rows changed but none were removed", async () => {
       fetchRows.mockImplementation(async (_o, pointId) =>
         pointId === "a"
@@ -398,5 +470,72 @@ describe("OutputHistoryModal (HEL-1277)", () => {
     const dialog = screen.getByRole("dialog", { hidden: true });
     expect(within(dialog).queryByText(/previous run/i)).toBeNull();
     expect(document.body.textContent).not.toMatch(/previous run/i);
+  });
+});
+
+// HEL-1359 -- the History view is mounted conditionally by its page (PipelineDetailPage mounts it
+// while `historyOutput` is set and `open` is constantly true), so closing it unmounts the Modal
+// while still open. Closing by Escape or by Close must put focus back on the History button.
+describe("OutputHistoryModal focus return (HEL-1359)", () => {
+  const FOCUSABLE =
+    "button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1'])";
+  beforeEach(() => {
+    // Real showModal() moves focus into the dialog; the file's default stub does not.
+    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+      this.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    });
+  });
+
+  function Host() {
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <button onClick={() => setOpen(true)}>History</button>
+        {open && <OutputHistoryModal output={makeOutput()} onClose={() => setOpen(false)} />}
+      </>
+    );
+  }
+
+  async function openFromButton(strict: boolean) {
+    fetchHistory.mockResolvedValue(history([point("a", NEW_AT)]));
+    renderWithStore(
+      strict ? (
+        <StrictMode>
+          <Host />
+        </StrictMode>
+      ) : (
+        <Host />
+      ),
+    );
+    const button = screen.getByRole("button", { name: "History" });
+    button.focus();
+    fireEvent.click(button);
+    await screen.findByRole("slider", { name: "Recorded runs" });
+    expect(document.activeElement).not.toBe(button);
+    return button;
+  }
+
+  it.each([
+    ["single mount", false],
+    ["StrictMode", true],
+  ])("Escape returns focus to the History button (%s)", async (_label, strict) => {
+    const button = await openFromButton(strict);
+    fireEvent(
+      screen.getByRole("dialog", { hidden: true }),
+      new Event("cancel", { cancelable: true }),
+    );
+    expect(screen.queryByRole("dialog", { hidden: true })).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it.each([
+    ["single mount", false],
+    ["StrictMode", true],
+  ])("Close returns focus to the History button (%s)", async (_label, strict) => {
+    const button = await openFromButton(strict);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog", { hidden: true })).toBeNull();
+    expect(document.activeElement).toBe(button);
   });
 });

@@ -131,3 +131,9 @@
   overflow: auto;
   max-height: 240px;
 }
+
+.output-editor-sheet__upsell-link {
+  color: var(--app-accent-text);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+}

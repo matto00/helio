@@ -2,7 +2,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { IconButton } from "../../../../shared/ui";
 import { ICON_SIZE } from "../../../../shared/ui/iconSize";
-import { formatCaptureTime } from "../../../panels/history/formatCaptureTime";
+import {
+  distinctCapturePrecision,
+  formatCaptureTime,
+} from "../../../panels/history/formatCaptureTime";
 import type { HistoryPoint } from "../../../panels/history/outputHistoryService";
 
 interface HistoryScrubberProps {
@@ -13,8 +16,18 @@ interface HistoryScrubberProps {
   onSelect: (index: number) => void;
 }
 
-function describe(point: HistoryPoint): string {
-  return `${formatCaptureTime(point.capturedAt)}, ${point.rowCount.toLocaleString()} rows`;
+/** HEL-1359 -- the spoken value of `points[index]`. Its capture time escalates (minute -> second ->
+ *  millisecond, the HEL-1352 rule) until it differs from both adjacent points' at that precision;
+ *  an identical-instant neighbour gets a ", run k of n" position suffix (oldest = 1, the range's
+ *  left-to-right order) on both points of the pair. */
+function describe(points: HistoryPoint[], index: number): string {
+  const point = points[index];
+  const neighbours = [points[index - 1], points[index + 1]]
+    .filter((p): p is HistoryPoint => p !== undefined)
+    .map((p) => p.capturedAt);
+  const { precision, identical } = distinctCapturePrecision(point.capturedAt, neighbours);
+  const position = identical ? `, run ${points.length - index} of ${points.length}` : "";
+  return `${formatCaptureTime(point.capturedAt, precision)}${position}, ${point.rowCount.toLocaleString()} rows`;
 }
 
 /** HEL-1277 design D4 — a native range input (oldest at the left, newest at the right) with
@@ -42,7 +55,7 @@ export function HistoryScrubber({ points, selectedIndex, onSelect }: HistoryScru
         max={last}
         step={1}
         value={value}
-        aria-valuetext={selected ? describe(selected) : undefined}
+        aria-valuetext={selected ? describe(points, selectedIndex) : undefined}
         disabled={last === 0}
         onChange={(e) => onSelect(last - Number(e.target.value))}
       />

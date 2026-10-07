@@ -1,19 +1,18 @@
-import { expect, test, type APIRequestContext, type Page, type Request } from "@playwright/test";
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { expect, test, type APIRequestContext, type Request } from "@playwright/test";
 
+import { evidencePath } from "./support/evidencePath";
 import { backdateHistory, historyRowCount } from "./support/historySeed";
+import { currentUserId, registerUser } from "./support/auth";
 import { loginThenIsolate } from "./support/isolateLivePage";
 
 // HEL-1350 — a chart Output's Compare picker (Output editor) turns on the dashboard "vs" overlay.
 // The comparison is chosen through the editor UI (never seeded): picker -> PATCH body -> dashboard
 // overlay, in one chain, from REAL history (run 1, backdated 7d1h, then run 2). The overlay is
 // canvas-rendered, so "vs 7d" is read from the DOM axis tooltip on hover (as hel1277 does).
-// Both themes; screenshots land in the change dir. Every created id is logged and deleted by
+// Both themes; screenshots land in e2e-evidence/<ticket>/ (support/evidencePath.ts). Every created id is logged and deleted by
 // exact id in `finally`.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
-const SHOTS = resolve(__dirname, "../openspec/changes/chart-output-compare-picker/screenshots");
 
 async function postJson<T>(
   request: APIRequestContext,
@@ -31,22 +30,6 @@ async function runPipeline(request: APIRequestContext, pipelineId: string) {
   expect(res.status(), await res.text()).toBe(200);
 }
 
-async function registerThenLogin(page: Page, request: APIRequestContext, theme: string) {
-  const email = `hel1350-${theme}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: "HEL-1350" },
-    headers: CSRF,
-  });
-  expect(res.status()).toBe(201);
-  const me = await request.get("/api/auth/me");
-  expect(me.status()).toBe(200);
-  const userId = ((await me.json()) as { id: string }).id;
-  console.log(`[HEL-1350 e2e] created user ${userId}`);
-  await loginThenIsolate(page, { email, password });
-  return userId;
-}
-
 for (const theme of ["light", "dark"] as const) {
   test(`chart Compare picker sets compare and the dashboard draws the "vs 7d" overlay (${theme})`, async ({
     page,
@@ -55,7 +38,14 @@ for (const theme of ["light", "dark"] as const) {
     test.setTimeout(150_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
-    const userId = await registerThenLogin(page, request, theme);
+    const credentials = await registerUser(request, {
+      prefix: `hel1350-${theme}`,
+      displayName: "HEL-1350",
+      logEmail: false,
+    });
+    const userId = await currentUserId(request);
+    console.log(`[HEL-1350 e2e] created user ${userId}`);
+    await loginThenIsolate(page, credentials);
 
     const created: { source?: string; pipeline?: string; dashboard?: string } = {};
     try {
@@ -154,10 +144,12 @@ for (const theme of ["light", "dark"] as const) {
       await expect(picker).toBeVisible();
       await expect(picker).toHaveAccessibleDescription(/Adds a .vs. line or bars/);
       await picker.click();
-      await expect(page.getByRole("option", { name: "Previous" })).toHaveCount(0);
+      // HEL-1285: chart Outputs offer "Previous" (same list as metric Outputs), exactly once.
+      await expect(page.getByRole("option", { name: "Previous" })).toHaveCount(1);
       await page.getByRole("option", { name: "7 days" }).click();
-      mkdirSync(SHOTS, { recursive: true });
-      await page.screenshot({ path: resolve(SHOTS, `editor-compare-picker-${theme}.png`) });
+      await page.screenshot({
+        path: evidencePath("HEL-1350", `editor-compare-picker-${theme}.png`),
+      });
 
       // No-reload proof: window sentinel + main-frame document requests (HEL-1327).
       const sentinel = `hel1350-${Math.random().toString(36).slice(2)}`;
@@ -205,7 +197,7 @@ for (const theme of ["light", "dark"] as const) {
       // Settle the hover emphasis before the screenshot so it shows the resting colours.
       await page.mouse.move(0, 0);
       await page.waitForTimeout(800);
-      await card.screenshot({ path: resolve(SHOTS, `chart-overlay-panel-${theme}.png`) });
+      await card.screenshot({ path: evidencePath("HEL-1350", `chart-overlay-panel-${theme}.png`) });
     } finally {
       console.log(
         `[HEL-1350 e2e] deleting dashboard ${created.dashboard} pipeline ${created.pipeline} source ${created.source}`,

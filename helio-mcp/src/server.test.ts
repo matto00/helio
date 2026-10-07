@@ -321,6 +321,8 @@ describe("HEL-1274 get_output_history + compare documentation", () => {
 
     expect(d).toMatch(/non-null ONLY for metric/);
     expect(d).toMatch(/thinned/);
+    expect(d).toMatch(/never an Output's newest 101 points/);
+    expect(d).not.toMatch(/RETAINED/);
     expect(d.toLowerCase()).not.toContain("previous run");
   });
 
@@ -332,5 +334,21 @@ describe("HEL-1274 get_output_history + compare documentation", () => {
       expect(all[tool]).toContain("previous_run");
     }
     expect(all.place_outputs).not.toContain("compare");
+  });
+});
+
+// HEL-1331: `update_output` is the MCP path to `config.historyPayloads`; the description is the
+// only place an agent learns the key, the caps, the tier rule and the opt-out behaviour.
+describe("update_output description documents config.historyPayloads (HEL-1331)", () => {
+  it("names the key, both caps, the tier rule, historyPayloadsAvailable and the no-purge opt-out", async () => {
+    const tools = await listRegisteredTools();
+    const description = tools.find((t) => t.name === "update_output")?.description ?? "";
+
+    expect(description).toContain("historyPayloads");
+    expect(description).toContain("1,000 rows");
+    expect(description).toContain("1 MiB");
+    expect(description).toContain("historyPayloadsAvailable");
+    expect(description).toContain("free keeps none");
+    expect(description).toContain("does not purge");
   });
 });

@@ -6,13 +6,15 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.IdParsing.{OutputIdSegment, PipelineIdSegment}
-import com.helio.api.protocols.pipelines.{CreateOutputRequest, OutputsResponse, UpdateOutputRequest}
+import com.helio.api.protocols.pipelines.{CreateOutputRequest, OutputResponse, OutputsResponse, UpdateOutputRequest}
+import com.helio.domain.history.PayloadHistoryConfig
+import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
 import com.helio.domain.model.{AuthenticatedUser, Page, PagedResult}
 import com.helio.services.pipelines.{OutputHistoryService, OutputService}
 import com.helio.api.protocols.pipelines.OutputHistoryResponses
 import spray.json.JsObject
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Thin HTTP shell for `/api/pipelines/:id/outputs` and `/api/outputs/:id`
  *  (HEL-906, P1.3 of the Pipelines & Outputs remodel). All logic in
@@ -27,9 +29,23 @@ class OutputRoutes(
     user:          AuthenticatedUser,
     // HEL-1273: optional so fixtures without a DbContext (no history repository) simply don't
     // serve `GET /api/outputs/:id/history`.
-    historyService: Option[OutputHistoryService] = None
+    historyService: Option[OutputHistoryService] = None,
+    // HEL-1331: when present, every REST Output response carries `historyPayloadsAvailable`
+    // (pipeline owner's tier). Absent in bare fixtures, which then omit the field.
+    payloadAvailability: Option[(NodePayloadHistoryRepository, PayloadHistoryConfig)] = None
 )(implicit ec: ExecutionContext)
     extends JsonProtocols {
+
+  /** Stamps `historyPayloadsAvailable` on already-authorized responses with one batched lookup
+   *  (never the requesting user's tier). */
+  private def withAvailability(responses: Vector[OutputResponse]): Future[Vector[OutputResponse]] =
+    payloadAvailability match {
+      case None => Future.successful(responses)
+      case Some((repo, config)) =>
+        repo.payloadsAvailableFor(responses.map(_.pipelineId).toSet, config).map { available =>
+          responses.map(r => r.copy(historyPayloadsAvailable = Some(available.getOrElse(r.pipelineId, false))))
+        }
+    }
 
   /** `GET/POST /api/pipelines/:id/outputs` */
   val nestedRoutes: Route =
@@ -40,15 +56,19 @@ class OutputRoutes(
             parameter("nodeStepId".optional) { nodeStepId =>
               ServiceResponse.runWith(outputService.listByPipeline(pipelineId, nodeStepId, user)) { outputs =>
                 onSuccess(outputService.configsFor(outputs)) { configs =>
-                  complete(OutputsResponse(outputs.map(o => outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty)))))
+                  onSuccess(withAvailability(outputs.map(o => outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty))))) { items =>
+                    complete(OutputsResponse(items))
+                  }
                 }
               }
             }
           },
           post {
             entity(as[CreateOutputRequest]) { req =>
-              ServiceResponse.run(outputService.create(pipelineId, req, user)) { case (output, config) =>
-                StatusCodes.Created -> outputResponseFrom(output, config)
+              ServiceResponse.runWith(outputService.create(pipelineId, req, user)) { case (output, config) =>
+                onSuccess(withAvailability(Vector(outputResponseFrom(output, config)))) { items =>
+                  complete(StatusCodes.Created -> items.head)
+                }
               }
             }
           }
@@ -63,14 +83,14 @@ class OutputRoutes(
         pathEndOrSingleSlash {
           concat(
             get {
-              ServiceResponse.run(outputService.findById(outputId, user)) { case (output, config) =>
-                outputResponseFrom(output, config)
+              ServiceResponse.runWith(outputService.findById(outputId, user)) { case (output, config) =>
+                onSuccess(withAvailability(Vector(outputResponseFrom(output, config)))) { items => complete(items.head) }
               }
             },
             patch {
               entity(as[UpdateOutputRequest]) { req =>
-                ServiceResponse.run(outputService.update(outputId, req, user)) { case (output, config) =>
-                  outputResponseFrom(output, config)
+                ServiceResponse.runWith(outputService.update(outputId, req, user)) { case (output, config) =>
+                  onSuccess(withAvailability(Vector(outputResponseFrom(output, config)))) { items => complete(items.head) }
                 }
               }
             },
@@ -183,10 +203,12 @@ class OutputRoutes(
               onSuccess(outputService.listAll(user, page)) { result =>
                 onSuccess(outputService.panelCountsFor(result.items)) { counts =>
                   onSuccess(outputService.configsFor(result.items)) { configs =>
-                    val items = result.items.map(o =>
+                    val built = result.items.map(o =>
                       outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty), Some(counts.getOrElse(o.id.value, 0)))
                     )
-                    complete(PagedResult(items, result.total, result.offset, result.limit))
+                    onSuccess(withAvailability(built)) { items =>
+                      complete(PagedResult(items, result.total, result.offset, result.limit))
+                    }
                   }
                 }
               }

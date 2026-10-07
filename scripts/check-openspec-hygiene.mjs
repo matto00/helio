@@ -87,6 +87,20 @@ function runGit(args) {
   }
 }
 
+// True only when git ran successfully and lists no cached or untracked-not-ignored file under the
+// change directory (an empty directory therefore also qualifies).
+function holdsOnlyGitignoredFiles(name) {
+  const r = runGit([
+    "ls-files",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+    "--",
+    `openspec/changes/${name}`,
+  ]);
+  return r.ok && r.stdout.trim() === "";
+}
+
 function isGitRepo() {
   const r = runGit(["rev-parse", "--is-inside-work-tree"]);
   return r.ok && r.stdout.trim() === "true";
@@ -233,6 +247,15 @@ function main() {
 
   for (const change of listJson.changes ?? []) {
     if (change.status === "no-tasks") {
+      // HEL-1363: a directory holding only gitignored files can never be committed, so it is local
+      // debris rather than an unfinished proposal. Fail closed: no git, a git failure, or any
+      // tracked/committable file keeps the error.
+      if (gitOk && holdsOnlyGitignoredFiles(change.name)) {
+        notices.push(
+          `openspec-hygiene: openspec/changes/${change.name} holds only gitignored files (not a change; safe to remove) — skipped`,
+        );
+        continue;
+      }
       errors.push(
         `change "${change.name}" has no tasks — finish the proposal or remove the directory`,
       );

@@ -1,5 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1169 tasks.md 3.3 — live-browser proof that a definite rejection and an indeterminate
 // (no-response) failure produce visually and textually DISTINCT states, and that a definite
@@ -14,27 +16,7 @@ import { isolateLivePage } from "./support/isolateLivePage";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel1169-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-1169 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  expect(res.status()).toBe(201);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
-  await isolateLivePage(page);
-}
+const AUTH = { prefix: "hel1169", displayName: "HEL-1169", isolate: true } as const;
 
 interface Created {
   id: string;
@@ -114,7 +96,7 @@ test.describe("HEL-1169 network-vs-rejection reconcile ARIA state (real backend)
       page,
       request,
     }) => {
-      await registerAndLogin(page, request, `definite-${theme}`);
+      await registerAndLogin(page, request, { ...AUTH, label: `definite-${theme}` });
       const source = await seedCounterDataset(request, `HEL-1169 e2e Definite (${theme})`);
       let dashboard: Created | undefined;
       try {
@@ -162,7 +144,7 @@ test.describe("HEL-1169 network-vs-rejection reconcile ARIA state (real backend)
         await expect(control).toHaveAccessibleDescription(/delta must be positive/i);
 
         await page.screenshot({
-          path: `.concertino/runs/HEL-1169/evidence/definite-rejection-${theme}.png`,
+          path: evidencePath("HEL-1169", `definite-rejection-${theme}.png`),
         });
       } finally {
         if (dashboard) await deleteDashboard(request, dashboard.id);
@@ -174,7 +156,7 @@ test.describe("HEL-1169 network-vs-rejection reconcile ARIA state (real backend)
       page,
       request,
     }) => {
-      await registerAndLogin(page, request, `indeterminate-${theme}`);
+      await registerAndLogin(page, request, { ...AUTH, label: `indeterminate-${theme}` });
       const source = await seedCounterDataset(request, `HEL-1169 e2e Indeterminate (${theme})`);
       let dashboard: Created | undefined;
       try {
@@ -217,7 +199,7 @@ test.describe("HEL-1169 network-vs-rejection reconcile ARIA state (real backend)
         await expect(alert).not.toHaveText(/delta must be positive/i);
 
         await page.screenshot({
-          path: `.concertino/runs/HEL-1169/evidence/indeterminate-unconfirmed-${theme}.png`,
+          path: evidencePath("HEL-1169", `indeterminate-unconfirmed-${theme}.png`),
         });
       } finally {
         if (dashboard) await deleteDashboard(request, dashboard.id);

@@ -17,6 +17,7 @@ import { fetchAgentMemory, fetchApiTokens, fetchPreferences } from "../state/set
 import { AgentMemoryList } from "./AgentMemoryList";
 import { ApiTokensSection } from "./ApiTokensSection";
 import { BetaAccessSection } from "./BetaAccessSection";
+import { useScrollToHashSection } from "./useScrollToHashSection";
 import { MfaSecuritySection } from "./MfaSecuritySection";
 import { PreferencesEditor } from "./PreferencesEditor";
 import { PageHeader } from "../../../shared/ui/PageHeader";
@@ -42,6 +43,8 @@ export function SettingsPage() {
   const preferencesLoading = preferences.status === "idle" || preferences.status === "loading";
   const agentMemoryLoading = agentMemory.status === "idle" || agentMemory.status === "loading";
   const apiTokensLoading = apiTokens.status === "idle" || apiTokens.status === "loading";
+
+  useScrollToHashSection("beta-access", [preferencesLoading, agentMemoryLoading, apiTokensLoading]);
 
   return (
     <PageShell className="settings-page">
@@ -126,7 +129,7 @@ export function SettingsPage() {
           {!apiTokensLoading && !apiTokens.error && <ApiTokensSection tokens={apiTokens.items} />}
         </section>
 
-        <section className="settings-page__section">
+        <section id="beta-access" className="settings-page__section">
           <h2 className="settings-page__section-heading">Beta access</h2>
           <BetaAccessSection />
         </section>

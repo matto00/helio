@@ -18,6 +18,8 @@ npm run check:cloud-run-cpu:selftest
 npm run check:scala-quality
 npm run check:test-temp-dir-hygiene
 npm run check:test-temp-dir-hygiene:selftest
+npm run check:e2e-evidence-paths
+npm run check:e2e-evidence-paths:selftest
 npm run check:no-credential-leak
 npm run check:no-credential-leak:selftest
 npm run check:tokens

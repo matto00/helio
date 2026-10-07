@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { uniqueEmail } from "./support/auth";
 
 // HEL-908, task 9.3 — the end-to-end flow the resume brief asked for: a
 // paste-table pipeline -> a filter step -> a metric Output attached via the
@@ -19,13 +20,9 @@ import { expect, test } from "@playwright/test";
 // would misrepresent what this spec covers.
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel908-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
 test.describe("HEL-908 full flow: filter -> aggregate-tail metric Output -> chart Output -> dry-run -> live thumbnails -> sheet preview", () => {
   test("builds a pipeline end to end on one page", async ({ page }) => {
-    const email = uniqueEmail("full-flow");
+    const email = uniqueEmail("hel908", "full-flow", "example.com");
     const password = "correcthorsebattery1";
     let interactionCount = 0;
 

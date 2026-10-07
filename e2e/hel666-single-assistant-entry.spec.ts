@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { uniqueEmail } from "./support/auth";
 import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-666 — live verification (tasks.md 3.3/3.4, AC1/AC2). Both the quick-launcher (HEL-665) and
@@ -11,16 +12,12 @@ import { isolateLivePage } from "./support/isolateLivePage";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel666-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
 test.describe("HEL-666 single assistant entry point live verification", () => {
   test("every authenticated route shows exactly one way to reach the assistant; the old per-feature button is gone", async ({
     page,
     request,
   }) => {
-    const email = uniqueEmail("entrypoints");
+    const email = uniqueEmail("hel666", "entrypoints", "example.com");
     console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
     const password = "correcthorsebattery1";
     await request.post("/api/auth/register", {
@@ -79,7 +76,7 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     page,
     request,
   }) => {
-    const email = uniqueEmail("proposal");
+    const email = uniqueEmail("hel666", "proposal", "example.com");
     console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
     const password = "correcthorsebattery1";
     await request.post("/api/auth/register", {

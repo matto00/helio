@@ -1,0 +1,4 @@
+MUTATION 3.2: exemption applied unconditionally (if (true))
+  FAIL  HEL-1363 no-tasks dir with a committable file: still fails
+  FAIL  HEL-1363 no-tasks dir without git: fails closed
+19 passed, 2 failed, 21 total (3180ms)

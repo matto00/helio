@@ -98,3 +98,6 @@ scripts/concertino/report-cost.sh
 
 # Rendered by `concertino sync`; machine-local, never committed (CON-210)
 scripts/concertino/.instrumentation-manifest.json
+
+# E2E evidence screenshots (HEL-1363): one per-worktree dir written by e2e/support/evidencePath.ts
+/e2e-evidence/

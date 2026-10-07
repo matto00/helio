@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-909 — live verification of the OutputPicker/Panel-sheet replacement for
 // the retired shape-instantiate wizard (`PanelCreationModal`, deleted this
@@ -14,26 +15,12 @@ import { isolateLivePage } from "./support/isolateLivePage";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel909-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-909 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
-  await isolateLivePage(page);
-}
+const AUTH = {
+  prefix: "hel909",
+  displayName: "HEL-909",
+  domain: "example.com",
+  isolate: true,
+} as const;
 
 /** Seeds a dashboard, a static data source, a pipeline off it, and two named
  *  chart-kind Outputs at the pipeline root ("Throughput" -- the one the
@@ -104,7 +91,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "desktop");
+    await registerAndLogin(page, request, { ...AUTH, label: "desktop" });
     const { latencyId } = await seedThroughputOutput(page, request);
 
     await page.goto("/");
@@ -178,7 +165,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
       request,
     }) => {
       await page.setViewportSize({ width, height: 900 });
-      await registerAndLogin(page, request, `mobile-${width}`);
+      await registerAndLogin(page, request, { ...AUTH, label: `mobile-${width}` });
       await seedThroughputOutput(page, request);
 
       await page.goto("/");
@@ -217,7 +204,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "kbnav");
+    await registerAndLogin(page, request, { ...AUTH, label: "kbnav" });
     const { throughputId } = await seedThroughputOutput(page, request);
 
     await page.goto("/");

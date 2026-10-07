@@ -53,15 +53,30 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
 const outputKindSchema = z.enum(["table", "metric", "chart", "collection", "timeline", "markdown"]);
 
 /** Shared `config.compare` documentation (HEL-1274), appended to every Output-config write tool
- *  that accepts it. One constant so the wording changes in one place when the `previous_run`
- *  semantics are settled (HEL-1285). The backend is the sole validator. */
+ *  that accepts it. One constant so the wording changes in one place (`previous_run` semantics settled in HEL-1285). The backend is the sole validator. */
 export const COMPARE_CONFIG_DOC =
   "Optional `config.compare` (HEL-1273) selects the history baseline get_output_history " +
-  "resolves for this Output: `previous_run` (the second-newest RETAINED history point — older " +
-  "history is thinned, so this can be earlier than the last run), `1d`, `7d`, `30d`, " +
+  "resolves for this Output: `previous_run` (the immediately previous recorded run: thinning " +
+  "never deletes an Output's newest 101 points), `1d`, `7d`, `30d` (the nearest surviving " +
+  "point at or before latest minus the window; older history is thinned, so it can be earlier " +
+  "than the exact target by up to one thinning bucket: 5 minutes, 1 hour or 1 day by age), " +
   "`custom:<ISO-8601 duration>` (positive, days/hours/minutes/seconds, e.g. `custom:P2D` or " +
   "`custom:PT6H`, at most 365 days), or null for none. Anything else is rejected by the " +
   "backend with a 400; this tool does not validate it.";
+
+/** `config.historyPayloads` documentation (HEL-1331), appended to `update_output`. The caps and
+ *  retention mirror the backend defaults (`PayloadHistoryConfig.Defaults`); the backend is the sole
+ *  validator (a non-boolean value is a 400). */
+export const HISTORY_PAYLOADS_CONFIG_DOC =
+  "Optional `config.historyPayloads` (boolean, off by default) opts this Output into keeping the " +
+  "full rows of each real run, taking effect from the next run on, so History can show what " +
+  "changed. A run over 1,000 rows or 1 MiB keeps only its summary (no rows are stored). Rows are " +
+  "kept only when the PIPELINE OWNER's tier allows it: free keeps none; beta keeps the last 10 " +
+  "runs for 7 days; owner keeps 30 runs for 30 days. The Output's read-only " +
+  "`historyPayloadsAvailable` field (on get_output/list_outputs/update_output results) reports " +
+  "whether that tier keeps any rows; when false the setting is accepted but stores nothing. " +
+  "Setting it to false stops storing rows but does not purge: rows already kept expire on the " +
+  "normal schedule. Omit the key to leave the stored value unchanged.";
 
 export function registerOutputTools(server: McpServer, api: HelioApi): void {
   server.registerTool(
@@ -108,6 +123,8 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         "replaced outright — including `compare`, which is replaced, never deep-merged; sending " +
         "`compare: null` clears it. " +
         COMPARE_CONFIG_DOC +
+        " " +
+        HISTORY_PAYLOADS_CONFIG_DOC +
         " Absent fields are left unchanged. Returns the updated Output.",
       inputSchema: {
         outputId: z.string().min(1),
@@ -243,8 +260,10 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         "`includeSummaries: true` for each point's stored `summary` (and the resolved " +
         "`current`/`baseline` chart `series`), which are dropped by " +
         "default because they are bulky. History is thinned as it ages (about one point per 5 " +
-        "minutes within 24h, per hour to 7 days, per day beyond), so a `previous_run` baseline " +
-        "is the second-newest RETAINED point and may be older than the last run. `baseline` " +
+        "minutes within 24h, per hour to 7 days, per day beyond) but never an Output's newest " +
+        "101 points, so a `previous_run` baseline is the immediately previous recorded run, " +
+        "while a 1d/7d/30d window baseline is the nearest surviving point at or before the " +
+        "target and may be up to one thinning bucket earlier. `baseline` " +
         "null with `availableFrom` set means the compare window is not yet covered. `limit` is " +
         "an integer 1..100 (default 30; never clamped); `since` is an ISO-8601 instant that " +
         "narrows the newest `limit` points — it does not page further back. Status codes: 400 " +

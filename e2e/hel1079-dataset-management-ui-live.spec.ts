@@ -1,5 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1079 tasks.md 4.1-4.4 — real Playwright e2e driving the ACTUAL backend (not a jest mock),
 // mirroring HEL-1080's own template (e2e/hel1080-dataset-row-grid-live.spec.ts). Each test
@@ -7,25 +8,7 @@ import { isolateLivePage } from "./support/isolateLivePage";
 // tears down what it created in a `finally`.
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel1079-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-1079 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
-}
+const AUTH = { prefix: "hel1079", displayName: "HEL-1079", waitForShell: true } as const;
 
 async function deleteSource(request: APIRequestContext, id: string): Promise<void> {
   await request.delete(`/api/data-sources/${id}`, { headers: { [CSRF_HEADER]: "1" } });
@@ -58,7 +41,7 @@ test.describe("HEL-1079 dataset management UI — real backend", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "create");
+    await registerAndLogin(page, request, { ...AUTH, label: "create" });
     const datasetName = `HEL-1079 e2e create ${Date.now()}`;
     let createdId: string | null = null;
 
@@ -115,7 +98,7 @@ test.describe("HEL-1079 dataset management UI — real backend", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "retype-reject");
+    await registerAndLogin(page, request, { ...AUTH, label: "retype-reject" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     const source = await createDatasetSourceViaApi(
@@ -147,7 +130,7 @@ test.describe("HEL-1079 dataset management UI — real backend", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "drop-confirm");
+    await registerAndLogin(page, request, { ...AUTH, label: "drop-confirm" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     const source = await createDatasetSourceViaApi(
@@ -204,7 +187,7 @@ test.describe("HEL-1079 dataset management UI — real backend", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "block-required");
+    await registerAndLogin(page, request, { ...AUTH, label: "block-required" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     const source = await createDatasetSourceViaApi(
@@ -246,7 +229,7 @@ test.describe("HEL-1079 dataset management UI — real backend", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "combined-retype-drop-reject");
+    await registerAndLogin(page, request, { ...AUTH, label: "combined-retype-drop-reject" });
     // HEL-1300: seeding below must not race the live post-login `/`.
     await isolateLivePage(page);
     const source = await createDatasetSourceViaApi(

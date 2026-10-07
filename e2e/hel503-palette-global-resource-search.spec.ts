@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-503 — real-browser proof that resource search works on `/` with NO prior navigation
 // (the ticket's PRIMARY acceptance criterion), across all four kinds (dashboard/source/
@@ -7,14 +7,8 @@ import { isolateLivePage } from "./support/isolateLivePage";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel503-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
+const AUTH = { prefix: "hel503", displayName: "HEL-503", isolate: true } as const;
 
-// tasks.md 5.4 — this file's OWN copy of the post-mount precondition wait, not a shared helper
-// (`c317e244` fixed only 2 of 8 duplicated copies — omitting it here reintroduces the mount-
-// timing race that took main red).
-//
 // tasks.md 5.1 (skeptic CR4) — the account this creates is given a dashboard IMMEDIATELY
 // (before any navigation), so `useOnboardingHost.ts`'s auto-activation
 // (`dashboards.status === "succeeded" && items.length === 0`) never fires and never fetches
@@ -25,20 +19,7 @@ async function registerAndLoginWithDashboard(
   request: APIRequestContext,
   label: string,
 ) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-503 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1300: idle the post-login `/` so the seeding below races none of its mount effects.
-  await isolateLivePage(page);
+  await registerAndLogin(page, request, { ...AUTH, label });
 
   const dashRes = await request.post("/api/dashboards", {
     data: { name: `HEL-503 ${label} Dashboard` },

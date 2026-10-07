@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1260 — the owner of a dashboard holding a panel with NO stored layout item (an orphan, which
 // the API itself can no longer produce, so it is made by clearing the stored layout) triggers exactly
@@ -9,21 +10,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 const CSRF = { "X-Helio-Requested-With": "1" };
 const BREAKPOINTS = ["lg", "md", "sm", "xs"] as const;
 
-async function registerAndLogin(page: Page, request: APIRequestContext) {
-  const email = `hel1260-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: "HEL-1260" },
-    headers: CSRF,
-  });
-  expect(res.status()).toBe(201);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  return email;
-}
+const AUTH = { prefix: "hel1260", displayName: "HEL-1260", logEmail: false } as const;
 
 async function storedLayout(request: APIRequestContext, dashboardId: string) {
   const res = await request.get("/api/dashboards");
@@ -52,7 +39,7 @@ for (const theme of ["light", "dark"] as const) {
       if (r.method() === "PATCH" && r.url().includes("/api/dashboards/"))
         layoutPatches.push(r.url());
     });
-    const email = await registerAndLogin(page, request);
+    const { email } = await registerAndLogin(page, request, AUTH);
     console.log(`[HEL-1260 e2e] throwaway user: ${email}`);
     // After login the page is live on `/`, whose mount fetches race the API seeding below and can
     // observe the orphan and repair it there. Idle the page so the explicit open is the only app load.
@@ -129,7 +116,7 @@ for (const theme of ["light", "dark"] as const) {
     page.on("request", (r) => {
       if (r.method() === "POST" && r.url().endsWith("/layout/repair")) repairPosts.push(r.url());
     });
-    const email = await registerAndLogin(page, request);
+    const { email } = await registerAndLogin(page, request, AUTH);
     console.log(`[HEL-1260 e2e] throwaway user: ${email}`);
     // Idle the page so no app code runs while the dashboard is seeded (see the orphan test).
     await page.goto("about:blank");

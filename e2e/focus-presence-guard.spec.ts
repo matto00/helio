@@ -1,9 +1,11 @@
-import { expect, test, type APIRequestContext, type CDPSession, type Page } from "@playwright/test";
+import { expect, test, type CDPSession, type Page } from "@playwright/test";
 
 import { FOCUSABLE_SELECTOR } from "./support/stateContrastProbe";
 import { forceFocusVisible } from "./support/forceFocusVisible";
 import { waitForSettingsAuditTable } from "./support/settingsReady";
 import { settleTransitions } from "./support/settleTransitions";
+import { registerUser } from "./support/auth";
+import { isolateLivePage } from "./support/isolateLivePage";
 import {
   readIndicatorSnapshot,
   measureOneElement,
@@ -38,24 +40,7 @@ import {
 // (design.md D1d).
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel520-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-520 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  // HEL-1288: `register` already set the session cookie on `request`'s context; hand it to the
-  // page's context and open `/`, instead of re-doing the same login through the UI form in every
-  // cell (the guards never test login, and the sessions are identical: same httpOnly cookie).
-  await page.context().addCookies((await request.storageState()).cookies);
-  await page.goto("/");
-  await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
-}
+const AUTH = { prefix: "hel520", displayName: "HEL-520" } as const;
 
 // CR5 (evaluation-1.md) — the coverage claim must be SELF-CHECKING, not
 // merely `totalMeasured > 0` (a headline total that seven empty views
@@ -158,7 +143,17 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
         await client.send("DOM.enable");
         await client.send("CSS.enable");
 
-        await registerAndLogin(page, request, "focus-presence");
+        // HEL-1330 order: register -> cookie login -> `/` -> isolate -> seed -> `goto("/")` -> theme
+        // `evaluate` (on an app origin) -> `goto(route)`. Seeding while the post-login `/` is live
+        // races its mount effects (auto-select, recent-visit recorder, onboarding fetch).
+        await registerUser(request, { ...AUTH, label: "focus-presence" });
+        // HEL-1288: `register` already set the session cookie on `request`'s context; hand it to the
+        // page's context and open `/`, instead of re-doing the same login through the UI form in every
+        // cell (the guards never test login, and the sessions are identical: same httpOnly cookie).
+        await page.context().addCookies((await request.storageState()).cookies);
+        await page.goto("/");
+        await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
+        await isolateLivePage(page);
 
         // Same minimal seed shape as the sibling HEL-866 guard — a real
         // dashboard, source, and pipeline so /sources, /pipelines and the
@@ -232,6 +227,11 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
           },
         };
 
+        // HEL-1330: load `/` fresh (the seed is complete, nothing was live), wait for the seeded
+        // dashboard, and only then write the theme: the `evaluate` runs on an app origin, never
+        // on the isolated `about:blank` page.
+        await page.goto("/");
+        await ROUTE_READY_MARKERS["/"](page);
         // HEL-1288: the theme is stored and then applied by the route's own load (a separate
         // reload on `/` first only re-did that work); the `data-theme` assertion proves it took.
         await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);

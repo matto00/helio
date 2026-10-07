@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory
 import spray.json.{JsObject, JsString, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 /** Business logic for `GET/POST /api/pipelines/:id/outputs` and
  *  `GET/PATCH/DELETE /api/outputs/:id` (HEL-906, P1.3 of the Pipelines &
@@ -46,7 +47,14 @@ final class OutputService(
     // above -- a fixture that doesn't pass a PipelineRootRepository simply cannot validate a
     // caller-supplied `rootId` and falls back to the pipeline's auto-resolved first root
     // (Stage-1/2 behavior), never an NPE.
-    pipelineRootRepo: PipelineRootRepository = null
+    pipelineRootRepo: PipelineRootRepository = null,
+    // HEL-1356: completion hook. Receives the Output id and the Future returned by
+    // `PipelineRunService.backfillOutputNode` (completes once the whole backfill chain has
+    // finished; never fails). Called synchronously inside `create`/`update`, so it has run
+    // before the HTTP response exists. Not called when `pipelineRunService` is null. Covers
+    // exactly what `backfillOutputNode`'s returned Future covers -- work it detaches is not
+    // observable. Default is a no-op; production never awaits it.
+    backfillObserver: (OutputId, Future[Unit]) => Unit = OutputService.NoBackfillObserver
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -63,7 +71,12 @@ final class OutputService(
       // HEL-913 task 5.10: threads the Output's OWN root id through so a root-bound backfill
       // evaluates the root this Output is actually attached to, not always the lowest-positioned
       // one -- see PipelineRunService.backfillOutputNode's doc.
-      pipelineRunService.backfillOutputNode(output.node.pipelineId, output.node.stepId, user, output.node.rootId)
+      {
+        val done = pipelineRunService.backfillOutputNode(output.node.pipelineId, output.node.stepId, user, output.node.rootId)
+        // The observer must never fail create/update.
+        try backfillObserver(output.id, done)
+        catch { case NonFatal(e) => log.warn(s"backfillObserver threw for output ${output.id.value}", e) }
+      }
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)
@@ -432,6 +445,9 @@ final class OutputService(
 }
 
 object OutputService {
+
+  /** Default `backfillObserver` (HEL-1356): does nothing. */
+  val NoBackfillObserver: (OutputId, Future[Unit]) => Unit = (_, _) => ()
 
   /** Extracts `config.fieldMapping` (a `{slot: columnName}` object, when present) and
    *  validates its KEYS against `kind`'s own `requiredSlots ++ optionalSlots` (HEL-892,

@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 
 import {
@@ -10,6 +10,7 @@ import {
   DEFAULT_MIN_PX,
   RENDERED_BOX_EPSILON_PX,
 } from "./support/touchTargetProbe";
+import { registerAndLogin } from "./support/auth";
 
 const FLOOR = DEFAULT_MIN_PX - RENDERED_BOX_EPSILON_PX;
 
@@ -31,24 +32,11 @@ test.skip(!process.env.HEL813_REGRESSION, "opt-in only - see e2e/README.md");
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel813reg-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-813 Regression ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-}
+const AUTH = {
+  prefix: "hel813reg",
+  displayName: "HEL-813 Regression",
+  domain: "example.com",
+} as const;
 
 /** Writes `content` to `filePath` and gives Vite's dev-server file watcher
  *  time to pick up the change and push an HMR update before the caller
@@ -190,7 +178,7 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
 
     try {
       await page.setViewportSize({ width: 430, height: 900 });
-      await registerAndLogin(page, request, "caseA");
+      await registerAndLogin(page, request, { ...AUTH, label: "caseA" });
       await page.goto("/settings");
       await page.fill("#api-token-name", "HEL-813 Regression Token");
       await page.getByRole("button", { name: "Create token" }).click();
@@ -260,7 +248,7 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
 
     try {
       await page.setViewportSize({ width: 430, height: 900 });
-      await registerAndLogin(page, request, "caseB");
+      await registerAndLogin(page, request, { ...AUTH, label: "caseB" });
       // HEL-1300: seeding below must not race the live post-login `/`.
       await isolateLivePage(page);
       const dashboardRes = await page.request.post("/api/dashboards", {

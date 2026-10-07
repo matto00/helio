@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1189 tasks.md 4.5 — live verification of the "Controls" section
 // (`OutputControlsEditor`): an author adds a date-range control to an Output
@@ -9,26 +10,12 @@ import { isolateLivePage } from "./support/isolateLivePage";
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel1189-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-1189 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  // HEL-1300: idle the post-login `/` so the API seeding below races none of its mount effects.
-  await isolateLivePage(page);
-}
+const AUTH = {
+  prefix: "hel1189",
+  displayName: "HEL-1189",
+  domain: "example.com",
+  isolate: true,
+} as const;
 
 /** Seeds a dashboard, a static source with a timestamp column, a pipeline off
  *  it, and a `table`-kind Output at the pipeline root ("Orders") whose
@@ -118,7 +105,7 @@ test.describe("HEL-1189 output panel controls — live verification", () => {
         await page.addInitScript(() => window.localStorage.setItem("helio-theme", "light"));
       }
 
-      await registerAndLogin(page, request, `${theme}`);
+      await registerAndLogin(page, request, { ...AUTH, label: `${theme}` });
       await seedOrdersOutput(page, request);
 
       await page.goto("/");

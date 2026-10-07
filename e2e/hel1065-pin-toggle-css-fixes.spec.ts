@@ -1,9 +1,10 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 
 import { forceFocusVisible } from "./support/forceFocusVisible";
 import { readIndicatorSnapshot } from "./support/focusPresenceProbe";
 import { measureBox } from "./support/touchTargetProbe";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1065 (design.md D5) — rendered-geometry proof that HEL-465's two
 // documented-but-inert pin-toggle CSS fixes actually have an effect, on the
@@ -31,25 +32,7 @@ const CSRF_HEADER = "X-Helio-Requested-With";
 // rendered header row.
 const LONG_COLUMN_LABEL = "aSupercalifragilisticexpialidociousmetricvalue";
 
-function uniqueEmail(label: string): string {
-  return `hel1065-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-1065 ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  expect(res.status()).toBe(201);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-}
+const AUTH = { prefix: "hel1065", displayName: "HEL-1065", domain: "example.com" } as const;
 
 /** Seeds source -> pipeline -> table Output -> panel-on-dashboard via the
  *  API (hel910 pattern), with 5 string columns (the first genuinely
@@ -202,7 +185,7 @@ test.describe("HEL-1065 pin-toggle CSS fixes (rendered geometry)", () => {
       page,
       request,
     }) => {
-      await registerAndLogin(page, request, `overlap-${theme}`);
+      await registerAndLogin(page, request, { ...AUTH, label: `overlap-${theme}` });
       await seedPinnableTablePanel(page, `overlap-${theme}`);
       await setTheme(page, theme);
       await pinLeadingColumns(page);
@@ -227,7 +210,7 @@ test.describe("HEL-1065 pin-toggle CSS fixes (rendered geometry)", () => {
       request,
       context,
     }) => {
-      await registerAndLogin(page, request, `coarse-${theme}`);
+      await registerAndLogin(page, request, { ...AUTH, label: `coarse-${theme}` });
       await seedPinnableTablePanel(page, `coarse-${theme}`);
       await setTheme(page, theme);
       await pinLeadingColumns(page);
@@ -291,7 +274,7 @@ test.describe("HEL-1065 pin-toggle CSS fixes (rendered geometry)", () => {
     page,
     request,
   }) => {
-    await registerAndLogin(page, request, "desktop-control");
+    await registerAndLogin(page, request, { ...AUTH, label: "desktop-control" });
     await seedPinnableTablePanel(page, "desktop-control");
     await page.setViewportSize({ width: 1280, height: 900 });
 

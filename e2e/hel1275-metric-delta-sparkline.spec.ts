@@ -6,42 +6,22 @@ import {
   type Page,
   type Request,
 } from "@playwright/test";
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
 
+import { evidencePath } from "./support/evidencePath";
 import { backdateHistory, historyRowCount } from "./support/historySeed";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-1275 — exit criterion of the metric history UI: a metric panel reads "1,204 ▲ 12% vs 7d" with
 // a sparkline, from REAL history. Two real pipeline runs write the history (sum 1075, then sum
 // 1204); only the first run's `captured_at` is moved back 7d1h (support/historySeed.ts, selected by
 // this test's own output_id, ids recorded). The 7-day comparison is chosen through the Output
 // editor UI — never seeded — so the picker, the PATCH and the render are proven as one chain.
-// Run in both themes; screenshots land in the change dir. Cleans up by exact recorded ids.
+// Run in both themes; screenshots land in e2e-evidence/<ticket>/ (support/evidencePath.ts). Cleans up by exact recorded ids.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
-const SHOTS = resolve(
-  __dirname,
-  "../openspec/changes/archive/2026-10-05-metric-delta-sparkline-ui/screenshots",
-);
 
-async function registerAndLogin(page: Page, request: APIRequestContext): Promise<string> {
-  const email = `hel1275-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-  const password = "correcthorsebattery1";
-  const res = await request.post("/api/auth/register", {
-    data: { email, password, displayName: "HEL-1275" },
-    headers: CSRF,
-  });
-  expect(res.status()).toBe(201);
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-  const me = await request.get("/api/auth/me");
-  expect(me.status()).toBe(200);
-  return ((await me.json()) as { id: string }).id;
-}
+const AUTH = { prefix: "hel1275", displayName: "HEL-1275" } as const;
 
 async function postJson<T>(
   request: APIRequestContext,
@@ -107,7 +87,10 @@ for (const theme of ["light", "dark"] as const) {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
-    const userId = await registerAndLogin(page, request);
+    await registerAndLogin(page, request, AUTH);
+    const me = await request.get("/api/auth/me");
+    expect(me.status()).toBe(200);
+    const userId = ((await me.json()) as { id: string }).id;
     console.log(`[HEL-1275 e2e] user id: ${userId}`);
     // The post-login page is live on `/`; idle it so its mount fetches cannot race the API seeding
     // (HEL-1289).
@@ -283,8 +266,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(page.getByRole("dialog", { name: /Data provenance/ })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Compared with" })).toHaveCount(0);
       await page.keyboard.press("Escape");
-      mkdirSync(SHOTS, { recursive: true });
-      await filtered.screenshot({ path: resolve(SHOTS, `metric-filtered-${theme}.png`) });
+      await filtered.screenshot({ path: evidencePath("HEL-1275", `metric-filtered-${theme}.png`) });
 
       // Editor -> back within the app (NO reload): a compare saved while the dashboard's history
       // is cached must show up without a full page load. 7d -> 1 day.
@@ -327,10 +309,14 @@ for (const theme of ["light", "dark"] as const) {
         ),
         "window sentinel lost: a full document load replaced the page",
       ).toBe(sentinel);
-      await switched.screenshot({ path: resolve(SHOTS, `metric-compare-switch-${theme}.png`) });
+      await switched.screenshot({
+        path: evidencePath("HEL-1275", `metric-compare-switch-${theme}.png`),
+      });
 
-      await card.screenshot({ path: resolve(SHOTS, `metric-delta-sparkline-${theme}.png`) });
-      await page.screenshot({ path: resolve(SHOTS, `dashboard-${theme}.png`) });
+      await card.screenshot({
+        path: evidencePath("HEL-1275", `metric-delta-sparkline-${theme}.png`),
+      });
+      await page.screenshot({ path: evidencePath("HEL-1275", `dashboard-${theme}.png`) });
     } finally {
       if (created.dashboard)
         await request.delete(`/api/dashboards/${created.dashboard}`, { headers: CSRF });

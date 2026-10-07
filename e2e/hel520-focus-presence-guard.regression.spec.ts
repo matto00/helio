@@ -1,18 +1,12 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type CDPSession,
-  type Locator,
-  type Page,
-} from "@playwright/test";
+import { expect, test, type CDPSession, type Locator, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 
 import { forceFocusVisible } from "./support/forceFocusVisible";
 import { readIndicatorSnapshot, measureOneElement } from "./support/focusPresenceProbe";
+import { registerAndLogin } from "./support/auth";
 
 // HEL-520 §7 (design.md D6) — one-shot, NOT-CI-gated demonstrated-RED
 // regression harness for the AC2 focus-presence guard, on the
@@ -44,24 +38,7 @@ test.skip(!process.env.HEL520_REGRESSION, "opt-in only - see e2e/README.md");
 
 const CSRF_HEADER = "X-Helio-Requested-With";
 
-function uniqueEmail(label: string): string {
-  return `hel520reg-${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.test`;
-}
-
-async function registerAndLogin(page: Page, request: APIRequestContext, label: string) {
-  const email = uniqueEmail(label);
-  console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
-  const password = "correcthorsebattery1";
-  await request.post("/api/auth/register", {
-    data: { email, password, displayName: `HEL-520 Regression ${label}` },
-    headers: { [CSRF_HEADER]: "1" },
-  });
-  await page.goto("/login");
-  await page.fill("#email", email);
-  await page.fill("#password", password);
-  await page.click("button[type=submit]");
-  await page.waitForURL("/");
-}
+const AUTH = { prefix: "hel520reg", displayName: "HEL-520 Regression" } as const;
 
 async function writeAndSettle(filePath: string, content: string): Promise<void> {
   await fs.writeFile(filePath, content, "utf8");
@@ -268,7 +245,7 @@ test.describe("HEL-520 demonstrated-RED regression harness", () => {
       await client.send("DOM.enable");
       await client.send("CSS.enable");
 
-      await registerAndLogin(page, request, "caseB");
+      await registerAndLogin(page, request, { ...AUTH, label: "caseB" });
       // HEL-1300: seeding below must not race the live post-login `/`.
       await isolateLivePage(page);
       const sourceRes = await page.request.post("/api/data-sources", {
