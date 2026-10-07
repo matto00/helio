@@ -104,8 +104,14 @@ export function Modal({
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (open) {
-      previouslyFocusedRef.current =
-        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      // HEL-1359 -- capture only an element OUTSIDE the dialog. Under React.StrictMode the effect
+      // is set up, torn down and set up again; if the first setup's `showModal()` already moved
+      // focus into the dialog, re-capturing here would record a dialog-internal element and the
+      // eventual restore would focus that instead of the real trigger.
+      if (!dialog.contains(document.activeElement)) {
+        previouslyFocusedRef.current =
+          document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      }
       if (!dialog.open) dialog.showModal();
     } else {
       if (dialog.open) dialog.close();
@@ -116,6 +122,25 @@ export function Modal({
       previouslyFocusedRef.current = null;
     }
   }, [open]);
+
+  // HEL-1359 -- closing by unmounting the Modal while `open` is still true (the conditional-mount
+  // pattern, e.g. a page rendering `{thing && <XModal open />}`) never reaches the `open === false`
+  // branch above, so focus was left on <body>. Restore it on unmount. Uses the effect-local
+  // `dialog`, not `dialogRef.current` (React has already nulled the ref when this cleanup runs),
+  // and closes the dialog first so the trigger is no longer inert when it is focused. A detached
+  // dialog keeps its `open` attribute, so `dialog.open` is still a valid "was open" check here.
+  // Also runs in StrictMode's simulated unmount; the `[open]` effect then re-captures the trigger
+  // and re-shows the dialog. Declared after the `[open]` effect, which must stay after the
+  // `titleKey` effect.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    return () => {
+      if (!dialog || !dialog.open) return;
+      dialog.close();
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
+    };
+  }, []);
 
   // Intercept Escape (native `cancel` event) so it routes through onClose instead of
   // closing the dialog immediately — lets a consumer veto the close (e.g. unsaved changes).
