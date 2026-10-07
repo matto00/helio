@@ -1,0 +1,1228 @@
+﻿2026-10-07T06:51:01.0714241Z Current runner version: '2.337.0'
+2026-10-07T06:51:01.0739397Z ##[group]Runner Image Provisioner
+2026-10-07T06:51:01.0740294Z Hosted Compute Agent
+2026-10-07T06:51:01.0740941Z Version: 20260901.588
+2026-10-07T06:51:01.0741702Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+2026-10-07T06:51:01.0742453Z Build Date: 2026-09-01T19:56:44Z
+2026-10-07T06:51:01.0743216Z Worker ID: {02bfc2f0-cab5-40d6-a929-ac8d1cccc389}
+2026-10-07T06:51:01.0743971Z Azure Region: westus2
+2026-10-07T06:51:01.0744589Z ##[endgroup]
+2026-10-07T06:51:01.0746128Z ##[group]Operating System
+2026-10-07T06:51:01.0746788Z Ubuntu
+2026-10-07T06:51:01.0747292Z 24.04.5
+2026-10-07T06:51:01.0747899Z LTS
+2026-10-07T06:51:01.0748724Z ##[endgroup]
+2026-10-07T06:51:01.0749379Z ##[group]Runner Image
+2026-10-07T06:51:01.0750001Z Image: ubuntu-24.04
+2026-10-07T06:51:01.0750559Z Version: 20260927.320.1
+2026-10-07T06:51:01.0751901Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-07T06:51:01.0753548Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260927.320
+2026-10-07T06:51:01.0754552Z ##[endgroup]
+2026-10-07T06:51:01.0755703Z ##[group]GITHUB_TOKEN Permissions
+2026-10-07T06:51:01.0757646Z Contents: read
+2026-10-07T06:51:01.0758530Z Metadata: read
+2026-10-07T06:51:01.0759223Z ##[endgroup]
+2026-10-07T06:51:01.0761349Z Secret source: Actions
+2026-10-07T06:51:01.0762436Z Cache mode: write
+2026-10-07T06:51:01.0763194Z Prepare workflow directory
+2026-10-07T06:51:01.1099416Z Prepare all required actions
+2026-10-07T06:51:01.1148606Z Getting action download info
+2026-10-07T06:51:01.4922530Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-07T06:51:01.5793510Z Download action repository 'actions/setup-java@v6' (SHA:de7274f081f381c8f8158605e0321c36c376e2e6)
+2026-10-07T06:51:01.9211532Z Download action repository 'sbt/setup-sbt@v1' (SHA:6158cb0903b8ceeae04f830055f3155e1b6a5ad7)
+2026-10-07T06:51:02.0772701Z Download action repository 'actions/cache@v6' (SHA:55cc8345863c7cc4c66a329aec7e433d2d1c52a9)
+2026-10-07T06:51:02.1825853Z Download action repository 'actions/setup-node@v7' (SHA:820762786026740c76f36085b0efc47a31fe5020)
+2026-10-07T06:51:02.2666651Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-10-07T06:51:02.5249663Z Getting action download info
+2026-10-07T06:51:02.6674141Z Download action repository 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9' (SHA:55cc8345863c7cc4c66a329aec7e433d2d1c52a9)
+2026-10-07T06:51:02.7748478Z Download action repository 'carabiner-dev/actions@32587e82f960d49b36101e8c45d1956e511965d3' (SHA:32587e82f960d49b36101e8c45d1956e511965d3)
+2026-10-07T06:51:02.9550600Z Getting action download info
+2026-10-07T06:51:03.0928760Z Download action repository 'carabiner-dev/actions@d6d91c5c88723021a8798392cb9780c89ff6fdad' (SHA:d6d91c5c88723021a8798392cb9780c89ff6fdad)
+2026-10-07T06:51:03.2369657Z Download action repository 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+2026-10-07T06:51:03.3154394Z Getting action download info
+2026-10-07T06:51:03.4506796Z Download action repository 'carabiner-dev/actions@2fec8bd8e1dcfdea26080648070b4827f1fa0584' (SHA:2fec8bd8e1dcfdea26080648070b4827f1fa0584)
+2026-10-07T06:51:03.6173756Z Getting action download info
+2026-10-07T06:51:03.7498513Z Download action repository 'carabiner-dev/actions@16009dca48ac369882d4333f1d15d7cd3a4ded31' (SHA:16009dca48ac369882d4333f1d15d7cd3a4ded31)
+2026-10-07T06:51:03.9419104Z Getting action download info
+2026-10-07T06:51:04.0888165Z Getting action download info
+2026-10-07T06:51:04.3186893Z Complete job name: security
+2026-10-07T06:51:04.4059039Z ##[group]Run actions/checkout@v7
+2026-10-07T06:51:04.4060008Z with:
+2026-10-07T06:51:04.4060534Z   repository: matto00/helio
+2026-10-07T06:51:04.4063706Z   token: ***
+2026-10-07T06:51:04.4064201Z   ssh-strict: true
+2026-10-07T06:51:04.4064703Z   ssh-user: git
+2026-10-07T06:51:04.4065481Z   persist-credentials: true
+2026-10-07T06:51:04.4066026Z   clean: true
+2026-10-07T06:51:04.4066569Z   sparse-checkout-cone-mode: true
+2026-10-07T06:51:04.4067126Z   fetch-depth: 1
+2026-10-07T06:51:04.4067627Z   fetch-tags: false
+2026-10-07T06:51:04.4068398Z   show-progress: true
+2026-10-07T06:51:04.4068911Z   lfs: false
+2026-10-07T06:51:04.4069401Z   submodules: false
+2026-10-07T06:51:04.4069924Z   set-safe-directory: true
+2026-10-07T06:51:04.4070510Z   allow-unsafe-pr-checkout: false
+2026-10-07T06:51:04.4071409Z ##[endgroup]
+2026-10-07T06:51:04.5098585Z Syncing repository: matto00/helio
+2026-10-07T06:51:04.5101345Z ##[group]Getting Git version info
+2026-10-07T06:51:04.5102637Z Working directory is '/home/runner/work/helio/helio'
+2026-10-07T06:51:04.5104453Z [command]/usr/bin/git version
+2026-10-07T06:51:04.5148651Z git version 2.55.0
+2026-10-07T06:51:04.5171919Z ##[endgroup]
+2026-10-07T06:51:04.5181842Z Temporarily overriding HOME='/home/runner/work/_temp/07413cb4-e14f-41b0-a1bb-631bec5b7994' before making global git config changes
+2026-10-07T06:51:04.5184124Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-07T06:51:04.5188359Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/helio/helio
+2026-10-07T06:51:04.5247654Z Deleting the contents of '/home/runner/work/helio/helio'
+2026-10-07T06:51:04.5251793Z ##[group]Determining repository object format
+2026-10-07T06:51:04.5253907Z ##[endgroup]
+2026-10-07T06:51:04.5255469Z ##[group]Initializing the repository
+2026-10-07T06:51:04.5258688Z [command]/usr/bin/git init /home/runner/work/helio/helio
+2026-10-07T06:51:04.5369631Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-07T06:51:04.5371574Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-07T06:51:04.5373284Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-07T06:51:04.5374696Z hint: call:
+2026-10-07T06:51:04.5375730Z hint:
+2026-10-07T06:51:04.5376921Z hint: 	git config --global init.defaultBranch <name>
+2026-10-07T06:51:04.5378312Z hint:
+2026-10-07T06:51:04.5379538Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-07T06:51:04.5381248Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-07T06:51:04.5382630Z hint:
+2026-10-07T06:51:04.5383602Z hint: 	git branch -m <name>
+2026-10-07T06:51:04.5385009Z hint:
+2026-10-07T06:51:04.5386610Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-07T06:51:04.5388894Z Initialized empty Git repository in /home/runner/work/helio/helio/.git/
+2026-10-07T06:51:04.5393164Z [command]/usr/bin/git remote add origin https://github.com/matto00/helio
+2026-10-07T06:51:04.5434371Z ##[endgroup]
+2026-10-07T06:51:04.5435882Z ##[group]Disabling automatic garbage collection
+2026-10-07T06:51:04.5438481Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-07T06:51:04.5472671Z ##[endgroup]
+2026-10-07T06:51:04.5474862Z ##[group]Setting up auth
+2026-10-07T06:51:04.5476186Z Removing SSH command configuration
+2026-10-07T06:51:04.5479011Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-07T06:51:04.5517829Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-07T06:51:04.5863296Z Removing HTTP extra header
+2026-10-07T06:51:04.5867839Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-07T06:51:04.5911169Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-07T06:51:04.6141564Z Removing includeIf entries pointing to credentials config files
+2026-10-07T06:51:04.6145548Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-07T06:51:04.6181342Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-07T06:51:04.6406183Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-56e413d8-495d-46a0-a28f-e15ab0599700.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-07T06:51:04.6445994Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/helio/helio/.git.path /home/runner/work/_temp/git-credentials-56e413d8-495d-46a0-a28f-e15ab0599700.config
+2026-10-07T06:51:04.6479660Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-56e413d8-495d-46a0-a28f-e15ab0599700.config
+2026-10-07T06:51:04.6516873Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-56e413d8-495d-46a0-a28f-e15ab0599700.config
+2026-10-07T06:51:04.6552133Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-56e413d8-495d-46a0-a28f-e15ab0599700.config
+2026-10-07T06:51:04.6584010Z ##[endgroup]
+2026-10-07T06:51:04.6585420Z ##[group]Fetching the repository
+2026-10-07T06:51:04.6589442Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +653024cfc84200bbb3f123e3c16a192ffd03c900:refs/remotes/pull/812/merge
+2026-10-07T06:51:07.0532324Z From https://github.com/matto00/helio
+2026-10-07T06:51:07.0535314Z  * [new ref]         653024cfc84200bbb3f123e3c16a192ffd03c900 -> pull/812/merge
+2026-10-07T06:51:07.0537332Z ##[endgroup]
+2026-10-07T06:51:07.0538254Z ##[group]Determining the checkout info
+2026-10-07T06:51:07.0539341Z ##[endgroup]
+2026-10-07T06:51:07.0543325Z [command]/usr/bin/git sparse-checkout disable
+2026-10-07T06:51:07.0598657Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-07T06:51:07.0632519Z ##[group]Checking out the ref
+2026-10-07T06:51:07.0637359Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/812/merge
+2026-10-07T06:51:07.9066974Z Note: switching to 'refs/remotes/pull/812/merge'.
+2026-10-07T06:51:07.9067481Z 
+2026-10-07T06:51:07.9067837Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-07T06:51:07.9068953Z changes and commit them, and you can discard any commits you make in this
+2026-10-07T06:51:07.9069771Z state without impacting any branches by switching back to a branch.
+2026-10-07T06:51:07.9070394Z 
+2026-10-07T06:51:07.9079575Z If you want to create a new branch to retain commits you create, you may
+2026-10-07T06:51:07.9080536Z do so (now or later) by using -c with the switch command. Example:
+2026-10-07T06:51:07.9081098Z 
+2026-10-07T06:51:07.9081522Z   git switch -c <new-branch-name>
+2026-10-07T06:51:07.9081822Z 
+2026-10-07T06:51:07.9082116Z Or undo this operation with:
+2026-10-07T06:51:07.9082421Z 
+2026-10-07T06:51:07.9082712Z   git switch -
+2026-10-07T06:51:07.9083095Z 
+2026-10-07T06:51:07.9083687Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-07T06:51:07.9084200Z 
+2026-10-07T06:51:07.9084875Z HEAD is now at 653024c Merge ef58730549a91f85b425d9d4ad19dc1e8ccbfcd6 into 469f4ea9377729f90d32e640a22b61be3c487439
+2026-10-07T06:51:07.9091967Z ##[endgroup]
+2026-10-07T06:51:07.9152035Z [command]/usr/bin/git log -1 --format=%H
+2026-10-07T06:51:07.9184848Z 653024cfc84200bbb3f123e3c16a192ffd03c900
+2026-10-07T06:51:07.9538400Z ##[group]Run actions/setup-java@v6
+2026-10-07T06:51:07.9538732Z with:
+2026-10-07T06:51:07.9538946Z   distribution: temurin
+2026-10-07T06:51:07.9539171Z   java-version: 21
+2026-10-07T06:51:07.9539380Z   java-package: jdk
+2026-10-07T06:51:07.9539599Z   check-latest: false
+2026-10-07T06:51:07.9539824Z   force-download: false
+2026-10-07T06:51:07.9540080Z   set-default: true
+2026-10-07T06:51:07.9540279Z   server-id: github
+2026-10-07T06:51:07.9540706Z   mvn-repositories-include-central: true
+2026-10-07T06:51:07.9541022Z   mvn-repositories-prioritize-central: true
+2026-10-07T06:51:07.9541336Z   overwrite-settings: true
+2026-10-07T06:51:07.9541582Z   cache-read-only: false
+2026-10-07T06:51:07.9541808Z   job-status: success
+2026-10-07T06:51:07.9563250Z   token: ***
+2026-10-07T06:51:07.9563529Z   show-download-progress: false
+2026-10-07T06:51:07.9563805Z   problem-matcher: true
+2026-10-07T06:51:07.9564034Z ##[endgroup]
+2026-10-07T06:51:08.0298265Z ##[group]Installed distributions
+2026-10-07T06:51:08.0431696Z Resolved Java 21.0.12+1 from tool-cache
+2026-10-07T06:51:08.0432196Z Setting Java 21.0.12+1 as the default
+2026-10-07T06:51:08.0440267Z 
+2026-10-07T06:51:08.0440682Z Java configuration:
+2026-10-07T06:51:08.0440949Z   Distribution: temurin
+2026-10-07T06:51:08.0441336Z   Version: 21.0.12+1
+2026-10-07T06:51:08.0441731Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:08.0442022Z 
+2026-10-07T06:51:08.0442630Z ##[endgroup]
+2026-10-07T06:51:08.0468867Z Creating settings.xml with server-id: github
+2026-10-07T06:51:08.0469641Z Creating toolchains.xml for JDK version 21 from temurin
+2026-10-07T06:51:08.0472509Z Writing to /home/runner/.m2/settings.xml
+2026-10-07T06:51:08.0482932Z Writing to /home/runner/.m2/toolchains.xml
+2026-10-07T06:51:08.0490999Z Configured MAVEN_ARGS to include -ntp to suppress Maven transfer progress logs. Set 'show-download-progress: true' to keep the download progress output.
+2026-10-07T06:51:08.0899836Z ##[group]Run sbt/setup-sbt@v1
+2026-10-07T06:51:08.0900152Z with:
+2026-10-07T06:51:08.0900390Z   sbt-runner-version: 2.0.9
+2026-10-07T06:51:08.0900866Z   disk-cache: true
+2026-10-07T06:51:08.0901080Z env:
+2026-10-07T06:51:08.0901393Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:08.0901886Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:08.0902673Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:08.0903013Z ##[endgroup]
+2026-10-07T06:51:08.0969723Z ##[start-action display=Set up cache paths;id=setup-sbt.cache-paths]
+2026-10-07T06:51:08.1007347Z ##[group]Run JDK_VERSION=0
+2026-10-07T06:51:08.1007783Z [36;1mJDK_VERSION=0[0m
+2026-10-07T06:51:08.1008469Z [36;1mif [[ -x "$(command -v java)" ]]; then[0m
+2026-10-07T06:51:08.1008983Z [36;1m  JDK_VERSION=$(java -version 2>&1 | head -n 1 | sed -e 's/.*"\(.*\)"\(.*\)/\1/; 1q')[0m
+2026-10-07T06:51:08.1009409Z [36;1mfi[0m
+2026-10-07T06:51:08.1009676Z [36;1mif [[ "$RUNNER_OS" == "Windows" ]]; then[0m
+2026-10-07T06:51:08.1010135Z [36;1m  echo "sbt_toolpath=$RUNNER_TOOL_CACHE\\sbt\\$SBT_RUNNER_VERSION" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1010663Z [36;1m  echo "sbt_downloadpath=$RUNNER_TEMP\\_sbt" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1011104Z [36;1m  echo "sbt_diskcache=$LOCALAPPDATA\\sbt" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1011564Z [36;1m  echo "sbt_monday=$(date -d "last Monday" +%Y-%m-%d)" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1011971Z [36;1melif [[ "$RUNNER_OS" == "macOS" ]]; then[0m
+2026-10-07T06:51:08.1012754Z [36;1m  echo "sbt_toolpath=$RUNNER_TOOL_CACHE/sbt/$SBT_RUNNER_VERSION" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1013282Z [36;1m  echo "sbt_downloadpath=$RUNNER_TEMP/_sbt" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1013734Z [36;1m  echo "sbt_diskcache=$HOME/Library/Caches/sbt" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1014217Z [36;1m  echo "sbt_monday=$(date -v-monday -v+0d +%Y-%m-%d)" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1014585Z [36;1melse[0m
+2026-10-07T06:51:08.1014936Z [36;1m  echo "sbt_toolpath=$RUNNER_TOOL_CACHE/sbt/$SBT_RUNNER_VERSION" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1015618Z [36;1m  echo "sbt_downloadpath=$RUNNER_TEMP/_sbt" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1016040Z [36;1m  echo "sbt_diskcache=$HOME/.cache/sbt" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1016502Z [36;1m  echo "sbt_monday=$(date -d "last Monday" +%Y-%m-%d)" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1016878Z [36;1mfi[0m
+2026-10-07T06:51:08.1017572Z [36;1mecho "sbt_cachekey=$RUNNER_OS-$RUNNER_ARCH-sbt-runner-$SBT_RUNNER_VERSION-$SBT_CACHE_KEY_VERSION" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1018581Z [36;1mecho "sbt_diskcachekey=$RUNNER_OS-$RUNNER_ARCH-java$JDK_VERSION-sbt-diskcache-$SBT_CACHE_KEY_VERSION" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:08.1272891Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-07T06:51:08.1273404Z env:
+2026-10-07T06:51:08.1273816Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:08.1274465Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:08.1274967Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:08.1275241Z   SBT_RUNNER_VERSION: 2.0.9
+2026-10-07T06:51:08.1275549Z   SBT_CACHE_KEY_VERSION: 1.5.3
+2026-10-07T06:51:08.1275847Z ##[endgroup]
+2026-10-07T06:51:09.3624585Z ##[end-action id=setup-sbt.cache-paths;outcome=success;conclusion=success;duration_ms=1265]
+2026-10-07T06:51:09.3628962Z ##[start-action display=Check tool cache;id=setup-sbt.cache-tool-dir]
+2026-10-07T06:51:09.3649653Z ##[group]Run if [[ -f "$SBT_TOOLPATH/sbt/bin/sbt" ]]; then
+2026-10-07T06:51:09.3650067Z [36;1mif [[ -f "$SBT_TOOLPATH/sbt/bin/sbt" ]]; then[0m
+2026-10-07T06:51:09.3650419Z [36;1m  echo "cache-hit=true" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:09.3650705Z [36;1melse[0m
+2026-10-07T06:51:09.3650920Z [36;1m  mkdir -p "$SBT_TOOLPATH"[0m
+2026-10-07T06:51:09.3651428Z [36;1m  echo "cache-hit=false" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:09.3651730Z [36;1mfi[0m
+2026-10-07T06:51:09.3713320Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-07T06:51:09.3713662Z env:
+2026-10-07T06:51:09.3713967Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:09.3714462Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:09.3714848Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:09.3715099Z   SBT_TOOLPATH: /opt/hostedtoolcache/sbt/2.0.9
+2026-10-07T06:51:09.3715401Z ##[endgroup]
+2026-10-07T06:51:09.3821442Z ##[end-action id=setup-sbt.cache-tool-dir;outcome=success;conclusion=success;duration_ms=19]
+2026-10-07T06:51:09.3823755Z ##[start-action display=Cache sbt distribution;id=setup-sbt.cache-dir]
+2026-10-07T06:51:09.3886600Z ##[group]Run actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+2026-10-07T06:51:09.3886945Z with:
+2026-10-07T06:51:09.3887160Z   path: /opt/hostedtoolcache/sbt/2.0.9
+2026-10-07T06:51:09.3887458Z   key: Linux-X64-sbt-runner-2.0.9-1.5.3
+2026-10-07T06:51:09.3887744Z   enableCrossOsArchive: false
+2026-10-07T06:51:09.3888324Z   fail-on-cache-miss: false
+2026-10-07T06:51:09.3888582Z   lookup-only: false
+2026-10-07T06:51:09.3888794Z   save-always: false
+2026-10-07T06:51:09.3888997Z env:
+2026-10-07T06:51:09.3889295Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:09.3889783Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:09.3890173Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:09.3890390Z ##[endgroup]
+2026-10-07T06:51:09.7534502Z Cache hit for: Linux-X64-sbt-runner-2.0.9-1.5.3
+2026-10-07T06:51:11.0577687Z Received 0 of 56531573 (0.0%), 0.0 MBs/sec
+2026-10-07T06:51:11.5975897Z Received 56531573 of 56531573 (100.0%), 35.0 MBs/sec
+2026-10-07T06:51:11.5979122Z Cache Size: ~54 MB (56531573 B)
+2026-10-07T06:51:11.6043259Z [command]/usr/bin/tar -xf /home/runner/work/_temp/d18a08af-946f-429f-91c6-740f9050c7a8/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+2026-10-07T06:51:11.8729040Z Cache restored successfully
+2026-10-07T06:51:11.8839892Z Cache restored from key: Linux-X64-sbt-runner-2.0.9-1.5.3
+2026-10-07T06:51:11.8921150Z ##[end-action id=setup-sbt.cache-dir;outcome=success;conclusion=success;duration_ms=2509]
+2026-10-07T06:51:11.8924761Z ##[start-action display=Check runner cache;id=setup-sbt.cache-tool-dir2]
+2026-10-07T06:51:11.8944025Z ##[group]Run # actions/cache seems to be buggy on Windows, so double check if restore worked
+2026-10-07T06:51:11.8944806Z [36;1m# actions/cache seems to be buggy on Windows, so double check if restore worked[0m
+2026-10-07T06:51:11.8945272Z [36;1mif [[ -f "$SBT_TOOLPATH/sbt/bin/sbt" ]]; then[0m
+2026-10-07T06:51:11.8945631Z [36;1m  echo "cache-hit=true" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:11.8945926Z [36;1melse[0m
+2026-10-07T06:51:11.8946171Z [36;1m  echo "cache-hit=false" >> "$GITHUB_OUTPUT"[0m
+2026-10-07T06:51:11.8946464Z [36;1mfi[0m
+2026-10-07T06:51:11.9008399Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-07T06:51:11.9008751Z env:
+2026-10-07T06:51:11.9009070Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:11.9009592Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:11.9009998Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:11.9010246Z   SBT_TOOLPATH: /opt/hostedtoolcache/sbt/2.0.9
+2026-10-07T06:51:11.9010538Z ##[endgroup]
+2026-10-07T06:51:11.9099439Z ##[end-action id=setup-sbt.cache-tool-dir2;outcome=success;conclusion=success;duration_ms=17]
+2026-10-07T06:51:11.9101553Z ##[start-action display=sbt 2.x disk cache;id=setup-sbt.disk-cache]
+2026-10-07T06:51:13.2333797Z ##[group]Run actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+2026-10-07T06:51:13.2334158Z with:
+2026-10-07T06:51:13.2334381Z   path: /home/runner/.cache/sbt
+2026-10-07T06:51:13.2335162Z   key: Linux-X64-java21.0.12.1-sbt-diskcache-1.5.3-2026-10-05-782450eba80c169f88e2bebe30a7cf296168d05f9d21c064e8bd899910793709
+2026-10-07T06:51:13.2335836Z   restore-keys: Linux-X64-java21.0.12.1-sbt-diskcache-1.5.3
+2026-10-07T06:51:13.2336194Z   enableCrossOsArchive: false
+2026-10-07T06:51:13.2336451Z   fail-on-cache-miss: false
+2026-10-07T06:51:13.2336683Z   lookup-only: false
+2026-10-07T06:51:13.2336896Z   save-always: false
+2026-10-07T06:51:13.2337098Z env:
+2026-10-07T06:51:13.2337398Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:13.2337882Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:13.2338560Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:13.2338774Z ##[endgroup]
+2026-10-07T06:51:13.5992625Z Cache hit for: Linux-X64-java21.0.12.1-sbt-diskcache-1.5.3-2026-10-05-782450eba80c169f88e2bebe30a7cf296168d05f9d21c064e8bd899910793709
+2026-10-07T06:51:14.3002527Z Received 32112 of 32112 (100.0%), 0.1 MBs/sec
+2026-10-07T06:51:14.3003411Z Cache Size: ~0 MB (32112 B)
+2026-10-07T06:51:14.3036985Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ccf9eeb9-cf87-4d00-a723-781c40e5904f/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+2026-10-07T06:51:14.3101326Z Cache restored successfully
+2026-10-07T06:51:14.3178659Z Cache restored from key: Linux-X64-java21.0.12.1-sbt-diskcache-1.5.3-2026-10-05-782450eba80c169f88e2bebe30a7cf296168d05f9d21c064e8bd899910793709
+2026-10-07T06:51:14.3245398Z ##[end-action id=setup-sbt.disk-cache;outcome=success;conclusion=success;duration_ms=2414]
+2026-10-07T06:51:14.3250370Z ##[start-action display=Download and Install sbt;id=setup-sbt.__run]
+2026-10-07T06:51:14.3256485Z ##[end-action id=setup-sbt.__run;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-10-07T06:51:14.3258869Z ##[start-action display=Verify the sbt distribution signature;id=setup-sbt.ampel-verify]
+2026-10-07T06:51:14.3264742Z ##[end-action id=setup-sbt.ampel-verify;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-10-07T06:51:14.3267268Z ##[start-action display=Setup PATH;id=setup-sbt.__run_2]
+2026-10-07T06:51:14.3285544Z ##[group]Run cd "$SBT_TOOLPATH"
+2026-10-07T06:51:14.3285850Z [36;1mcd "$SBT_TOOLPATH"[0m
+2026-10-07T06:51:14.3286103Z [36;1mls sbt/bin/sbt[0m
+2026-10-07T06:51:14.3286359Z [36;1mif [[ "$RUNNER_OS" == "Windows" ]]; then[0m
+2026-10-07T06:51:14.3286694Z [36;1m  echo "$PWD\\sbt\\bin" >> "$GITHUB_PATH"[0m
+2026-10-07T06:51:14.3286993Z [36;1melse[0m
+2026-10-07T06:51:14.3287229Z [36;1m  echo "$PWD/sbt/bin" >> "$GITHUB_PATH"[0m
+2026-10-07T06:51:14.3287520Z [36;1mfi[0m
+2026-10-07T06:51:14.3349606Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-07T06:51:14.3350135Z env:
+2026-10-07T06:51:14.3350452Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:14.3350960Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:14.3351360Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:14.3351614Z   SBT_TOOLPATH: /opt/hostedtoolcache/sbt/2.0.9
+2026-10-07T06:51:14.3351917Z ##[endgroup]
+2026-10-07T06:51:14.3439884Z sbt/bin/sbt
+2026-10-07T06:51:14.3449980Z ##[end-action id=setup-sbt.__run_2;outcome=success;conclusion=success;duration_ms=18]
+2026-10-07T06:51:15.5930946Z ##[group]Run actions/cache@v6
+2026-10-07T06:51:15.5931242Z with:
+2026-10-07T06:51:15.5931488Z   path: ~/.sbt
+~/.ivy2/cache
+~/.cache/coursier
+
+2026-10-07T06:51:15.5931937Z   key: sbt-<hash-elided>
+2026-10-07T06:51:15.5932350Z   restore-keys: sbt-
+2026-10-07T06:51:15.5932592Z   enableCrossOsArchive: false
+2026-10-07T06:51:15.5932861Z   fail-on-cache-miss: false
+2026-10-07T06:51:15.5933117Z   lookup-only: false
+2026-10-07T06:51:15.5933337Z   save-always: false
+2026-10-07T06:51:15.5933538Z env:
+2026-10-07T06:51:15.5933838Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:15.5934335Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:15.5934718Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:15.5934937Z ##[endgroup]
+2026-10-07T06:51:15.9532853Z Cache hit for: sbt-4d38ac7e3febbf8d90a30f2595922699129842053babcd360c4f53cfa9f11c7e
+2026-10-07T06:51:17.2602221Z Received 0 of 955541752 (0.0%), 0.0 MBs/sec
+2026-10-07T06:51:18.2588864Z Received 100663296 of 955541752 (10.5%), 48.0 MBs/sec
+2026-10-07T06:51:19.2635937Z Received 234881024 of 955541752 (24.6%), 74.6 MBs/sec
+2026-10-07T06:51:20.2607757Z Received 310378496 of 955541752 (32.5%), 73.9 MBs/sec
+2026-10-07T06:51:21.2647782Z Received 444596224 of 955541752 (46.5%), 84.7 MBs/sec
+2026-10-07T06:51:22.2631290Z Received 578813952 of 955541752 (60.6%), 91.9 MBs/sec
+2026-10-07T06:51:23.2632726Z Received 700448768 of 955541752 (73.3%), 95.3 MBs/sec
+2026-10-07T06:51:24.2633691Z Received 809500672 of 955541752 (84.7%), 96.4 MBs/sec
+2026-10-07T06:51:25.2634583Z Received 939524096 of 955541752 (98.3%), 99.5 MBs/sec
+2026-10-07T06:51:25.5339201Z Received 955541752 of 955541752 (100.0%), 98.2 MBs/sec
+2026-10-07T06:51:25.5341806Z Cache Size: ~911 MB (955541752 B)
+2026-10-07T06:51:25.5446511Z [command]/usr/bin/tar -xf /home/runner/work/_temp/b6a39a4e-d715-4ee1-a698-b12c5eec89c8/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+2026-10-07T06:51:27.3320259Z Cache restored successfully
+2026-10-07T06:51:27.3841428Z Cache restored from key: sbt-<hash-elided>
+2026-10-07T06:51:27.4666597Z ##[group]Run actions/setup-node@v7
+2026-10-07T06:51:27.4666901Z with:
+2026-10-07T06:51:27.4667114Z   node-version: 22
+2026-10-07T06:51:27.4667333Z   cache: npm
+2026-10-07T06:51:27.4667767Z   cache-dependency-path: package-lock.json
+frontend/package-lock.json
+helio-mcp/package-lock.json
+
+2026-10-07T06:51:27.4668466Z   check-latest: false
+2026-10-07T06:51:27.4670991Z   token: ***
+2026-10-07T06:51:27.4671231Z   package-manager-cache: true
+2026-10-07T06:51:27.4671488Z env:
+2026-10-07T06:51:27.4671800Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:27.4672320Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:27.4672731Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:27.4672961Z ##[endgroup]
+2026-10-07T06:51:27.5987017Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+2026-10-07T06:51:27.5990658Z ##[group]Environment details
+2026-10-07T06:51:28.0071099Z node: v22.23.3
+2026-10-07T06:51:28.0071646Z npm: 10.9.9
+2026-10-07T06:51:28.0072010Z yarn: 1.22.22
+2026-10-07T06:51:28.0072785Z ##[endgroup]
+2026-10-07T06:51:28.0091208Z [command]/opt/hostedtoolcache/node/22.23.3/x64/bin/npm config get cache
+2026-10-07T06:51:28.1205407Z /home/runner/.npm
+2026-10-07T06:51:28.3714911Z Cache hit for: node-cache-Linux-x64-npm-4f849c1aa9ab9c48ecc941b4e9d49959823ac8a941581ac1c26a618df0423580
+2026-10-07T06:51:29.6823903Z Received 0 of 115498799 (0.0%), 0.0 MBs/sec
+2026-10-07T06:51:30.6860036Z Received 111304495 of 115498799 (96.4%), 53.0 MBs/sec
+2026-10-07T06:51:30.7636774Z Received 115498799 of 115498799 (100.0%), 52.9 MBs/sec
+2026-10-07T06:51:30.7637548Z Cache Size: ~110 MB (115498799 B)
+2026-10-07T06:51:30.7676089Z [command]/usr/bin/tar -xf /home/runner/work/_temp/78e22164-9bd2-4123-a705-46afa85a9229/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+2026-10-07T06:51:31.1198801Z Cache restored successfully
+2026-10-07T06:51:31.1256804Z Cache restored from key: node-cache-Linux-x64-npm-<hash-elided>
+2026-10-07T06:51:31.1418845Z ##[group]Run npm ci
+2026-10-07T06:51:31.1419225Z [36;1mnpm ci[0m
+2026-10-07T06:51:31.1486718Z shell: /usr/bin/bash -e {0}
+2026-10-07T06:51:31.1487008Z env:
+2026-10-07T06:51:31.1487341Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:31.1487883Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:31.1488640Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:31.1488869Z ##[endgroup]
+2026-10-07T06:51:33.3624995Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-10-07T06:51:33.5557288Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-10-07T06:51:34.5538241Z npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-10-07T06:51:36.5802782Z 
+2026-10-07T06:51:36.5803434Z > helio@0.7.4 prepare
+2026-10-07T06:51:36.5803982Z > husky
+2026-10-07T06:51:36.5804182Z 
+2026-10-07T06:51:36.6361084Z 
+2026-10-07T06:51:36.6362157Z added 623 packages, and audited 624 packages in 5s
+2026-10-07T06:51:36.6362660Z 
+2026-10-07T06:51:36.6362991Z 229 packages are looking for funding
+2026-10-07T06:51:36.6363550Z   run `npm fund` for details
+2026-10-07T06:51:36.6902304Z 
+2026-10-07T06:51:36.6903476Z 32 vulnerabilities (5 moderate, 27 high)
+2026-10-07T06:51:36.6903809Z 
+2026-10-07T06:51:36.6903985Z To address all issues, run:
+2026-10-07T06:51:36.6904310Z   npm audit fix
+2026-10-07T06:51:36.6904473Z 
+2026-10-07T06:51:36.6904663Z Run `npm audit` for details.
+2026-10-07T06:51:36.7589512Z ##[group]Run npm --prefix frontend ci
+2026-10-07T06:51:36.7589884Z [36;1mnpm --prefix frontend ci[0m
+2026-10-07T06:51:36.7652556Z shell: /usr/bin/bash -e {0}
+2026-10-07T06:51:36.7652836Z env:
+2026-10-07T06:51:36.7653169Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:36.7653713Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:36.7654130Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:36.7654355Z ##[endgroup]
+2026-10-07T06:51:40.0379823Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-10-07T06:51:40.2771380Z npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+2026-10-07T06:51:40.2964780Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-10-07T06:51:40.8099652Z npm warn deprecated source-map@0.8.0-beta.0: The work that was done in this beta branch won't be included in future versions
+2026-10-07T06:51:41.8399829Z npm warn deprecated glob@11.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-10-07T06:51:41.8448607Z npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-10-07T06:51:45.2550748Z 
+2026-10-07T06:51:45.2551715Z added 922 packages, and audited 923 packages in 8s
+2026-10-07T06:51:45.2552379Z 
+2026-10-07T06:51:45.2552962Z 265 packages are looking for funding
+2026-10-07T06:51:45.2553758Z   run `npm fund` for details
+2026-10-07T06:51:45.2858479Z 
+2026-10-07T06:51:45.2859007Z 20 moderate severity vulnerabilities
+2026-10-07T06:51:45.2859447Z 
+2026-10-07T06:51:45.2859888Z To address issues that do not require attention, run:
+2026-10-07T06:51:45.2860544Z   npm audit fix
+2026-10-07T06:51:45.2860815Z 
+2026-10-07T06:51:45.2861252Z To address all issues (including breaking changes), run:
+2026-10-07T06:51:45.2861941Z   npm audit fix --force
+2026-10-07T06:51:45.2862240Z 
+2026-10-07T06:51:45.2862490Z Run `npm audit` for details.
+2026-10-07T06:51:45.3440673Z ##[group]Run "$GITHUB_WORKSPACE/scripts/ci-sbt.sh" --deadline 60 --dir . -- -batch "eval Thread.sleep(600000)"
+2026-10-07T06:51:45.3441498Z [36;1m"$GITHUB_WORKSPACE/scripts/ci-sbt.sh" --deadline 60 --dir . -- -batch "eval Thread.sleep(600000)"[0m
+2026-10-07T06:51:45.3504128Z shell: /usr/bin/bash -e {0}
+2026-10-07T06:51:45.3504415Z env:
+2026-10-07T06:51:45.3504746Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:45.3505285Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:51:45.3505689Z   MAVEN_ARGS: -ntp
+2026-10-07T06:51:45.3505910Z ##[endgroup]
+2026-10-07T06:51:45.3665980Z ci-sbt: mode=server pid=2564 exe=/usr/bin/bash deadline=60s
+2026-10-07T06:51:45.7847930Z ci-sbt: mode=server pid=2564 exe=/usr/lib/jvm/temurin-21-jdk-amd64/bin/java deadline=60s
+2026-10-07T06:51:47.5191201Z [0m[[0m[0minfo[0m] [0m[0mwelcome to sbt 2.0.9 (Eclipse Adoptium Java 21.0.12.1)[0m
+2026-10-07T06:51:52.0344161Z [0m[[0m[0minfo[0m] [0m[0mloading project definition from /home/runner/work/helio/helio/backend/project[0m
+2026-10-07T06:51:56.2860507Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:233:8 --------------[0m[0m
+2026-10-07T06:51:56.2894631Z [33m233 |[0m        exclude([32m"org.apache.pekko"[0m, [32m"*"[0m)
+2026-10-07T06:51:56.2895565Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.2919999Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.2939290Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.2959666Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:51:56.2975814Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:234:8 --------------[0m[0m
+2026-10-07T06:51:56.2999759Z [33m234 |[0m        exclude([32m"com.typesafe.akka"[0m, [32m"akka-actor_2.13"[0m)
+2026-10-07T06:51:56.3000880Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.3002425Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.3004171Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.3005760Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:51:56.3007868Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:235:8 --------------[0m[0m
+2026-10-07T06:51:56.3009651Z [33m235 |[0m        exclude([32m"com.typesafe.akka"[0m, [32m"akka-stream_2.13"[0m)
+2026-10-07T06:51:56.3010731Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.3012175Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.3013933Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.3015452Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:51:56.3017063Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:236:8 --------------[0m[0m
+2026-10-07T06:51:56.3018745Z [33m236 |[0m        exclude([32m"com.typesafe.akka"[0m, [32m"akka-slf4j_2.13"[0m)
+2026-10-07T06:51:56.3019808Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.3021211Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.3022832Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.3024434Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:51:56.3026143Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:237:8 --------------[0m[0m
+2026-10-07T06:51:56.3028259Z [33m237 |[0m        exclude([32m"org.slf4j"[0m, [32m"slf4j-log4j12"[0m)
+2026-10-07T06:51:56.3029439Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.3030945Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.3032678Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.3034301Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:51:56.3036175Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:238:8 --------------[0m[0m
+2026-10-07T06:51:56.3038166Z [33m238 |[0m        exclude([32m"org.apache.logging.log4j"[0m, [32m"log4j-slf4j2-impl"[0m),
+2026-10-07T06:51:56.3063538Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.3065124Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.3066846Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.3068800Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:51:56.3070493Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:240:8 --------------[0m[0m
+2026-10-07T06:51:56.3071876Z [33m240 |[0m        exclude([32m"org.apache.pekko"[0m, [32m"*"[0m)
+2026-10-07T06:51:56.3072857Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.3074246Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.3075842Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.3077332Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:51:56.3079131Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:241:8 --------------[0m[0m
+2026-10-07T06:51:56.3080587Z [33m241 |[0m        exclude([32m"com.typesafe.akka"[0m, [32m"akka-actor_2.13"[0m)
+2026-10-07T06:51:56.3081598Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.3082964Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.3084539Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.3086473Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:51:56.3092072Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:242:8 --------------[0m[0m
+2026-10-07T06:51:56.3093675Z [33m242 |[0m        exclude([32m"com.typesafe.akka"[0m, [32m"akka-stream_2.13"[0m)
+2026-10-07T06:51:56.3094814Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.3096295Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.3098294Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.3100024Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:51:56.3101692Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:243:8 --------------[0m[0m
+2026-10-07T06:51:56.3103248Z [33m243 |[0m        exclude([32m"com.typesafe.akka"[0m, [32m"akka-slf4j_2.13"[0m)
+2026-10-07T06:51:56.3104340Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.3105819Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.3107515Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.3109355Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:51:56.3111622Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:244:8 --------------[0m[0m
+2026-10-07T06:51:56.3113218Z [33m244 |[0m        exclude([32m"org.slf4j"[0m, [32m"slf4j-log4j12"[0m)
+2026-10-07T06:51:56.3114268Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.3115733Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.3117412Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.3119199Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:51:56.3120923Z [33m[33m-- Warning: /home/runner/work/helio/helio/backend/build.sbt:245:8 --------------[0m[0m
+2026-10-07T06:51:56.3122663Z [33m245 |[0m        exclude([32m"org.apache.logging.log4j"[0m, [32m"log4j-slf4j2-impl"[0m)
+2026-10-07T06:51:56.3123860Z [33m[33m    |[0m        ^^^^^^^[0m
+2026-10-07T06:51:56.3125402Z [33m    |[0mAlphanumeric method exclude is not declared [33minfix[0m; it should not be used as infix operator.
+2026-10-07T06:51:56.3127161Z [33m    |[0mInstead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2026-10-07T06:51:56.3128949Z [33m    |[0mThe latter can be rewritten automatically under -rewrite -source 3.4-migration.
+2026-10-07T06:52:01.1980501Z [0m[[0m[0minfo[0m] [0m[0mset current project to helio-backend (in build file:/home/runner/work/helio/helio/backend/)[0m
+2026-10-07T06:52:45.0447290Z ##[group]ci-sbt: deadline 60s exceeded -- capturing diagnostics
+2026-10-07T06:52:45.7403438Z ci-sbt-diag: candidate pid=2564 source=launch -> thread dump via jcmd (722 lines) -> threads-2564.txt
+2026-10-07T06:52:46.0197650Z ci-sbt-diag: capture finished in 1s (budget 25s), artifacts in /home/runner/work/_temp/sbt-diagnostics
+2026-10-07T06:52:47.5236908Z ##[endgroup]
+2026-10-07T06:52:47.5258506Z ##[error]ci-sbt: sbt did not finish within its 60s in-step deadline; thread dump captured; see the sbt-diagnostics artifact for this job (sbt.log, threads-<pid>.txt)
+2026-10-07T06:52:47.5267651Z ##[error]Process completed with exit code 1.
+2026-10-07T06:52:47.5350697Z ##[group]Run npx audit-ci --config .audit-ci.jsonc
+2026-10-07T06:52:47.5351389Z [36;1mnpx audit-ci --config .audit-ci.jsonc[0m
+2026-10-07T06:52:47.5415813Z shell: /usr/bin/bash -e {0}
+2026-10-07T06:52:47.5416095Z env:
+2026-10-07T06:52:47.5416424Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:52:47.5417141Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:52:47.5417558Z   MAVEN_ARGS: -ntp
+2026-10-07T06:52:47.5417786Z ##[endgroup]
+2026-10-07T06:52:48.7605836Z [36mNPM audit report results:[0m
+2026-10-07T06:52:48.7606518Z {
+2026-10-07T06:52:48.7606922Z   "advisories": {
+2026-10-07T06:52:48.7607349Z     "@jest/console": {
+2026-10-07T06:52:48.7608227Z       "name": "@jest/console",
+2026-10-07T06:52:48.7608782Z       "severity": "high",
+2026-10-07T06:52:48.7609274Z       "isDirect": false,
+2026-10-07T06:52:48.7609720Z       "via": [
+2026-10-07T06:52:48.7610134Z         "jest-message-util"
+2026-10-07T06:52:48.7610647Z       ],
+2026-10-07T06:52:48.7611026Z       "effects": [
+2026-10-07T06:52:48.7611458Z         "@jest/core",
+2026-10-07T06:52:48.7611919Z         "@jest/reporters",
+2026-10-07T06:52:48.7612413Z         "@jest/test-result",
+2026-10-07T06:52:48.7612881Z         "jest-runner"
+2026-10-07T06:52:48.7613304Z       ],
+2026-10-07T06:52:48.7613730Z       "range": "25.4.0 - 30.2.0",
+2026-10-07T06:52:48.7614200Z       "nodes": [
+2026-10-07T06:52:48.7614649Z         "node_modules/@jest/console"
+2026-10-07T06:52:48.7615130Z       ],
+2026-10-07T06:52:48.7615515Z       "fixAvailable": true
+2026-10-07T06:52:48.7615950Z     },
+2026-10-07T06:52:48.7616304Z     "@jest/core": {
+2026-10-07T06:52:48.7616710Z       "name": "@jest/core",
+2026-10-07T06:52:48.7617158Z       "severity": "high",
+2026-10-07T06:52:48.7617589Z       "isDirect": false,
+2026-10-07T06:52:48.7618291Z       "via": [
+2026-10-07T06:52:48.7618702Z         "@jest/console",
+2026-10-07T06:52:48.7619218Z         "@jest/reporters",
+2026-10-07T06:52:48.7619681Z         "@jest/test-result",
+2026-10-07T06:52:48.7620137Z         "@jest/transform",
+2026-10-07T06:52:48.7620564Z         "jest-config",
+2026-10-07T06:52:48.7620992Z         "jest-haste-map",
+2026-10-07T06:52:48.7621432Z         "jest-message-util",
+2026-10-07T06:52:48.7621884Z         "jest-resolve",
+2026-10-07T06:52:48.7622385Z         "jest-resolve-dependencies",
+2026-10-07T06:52:48.7622897Z         "jest-runner",
+2026-10-07T06:52:48.7623301Z         "jest-runtime",
+2026-10-07T06:52:48.7623565Z         "jest-snapshot",
+2026-10-07T06:52:48.7623822Z         "jest-watcher",
+2026-10-07T06:52:48.7624058Z         "micromatch"
+2026-10-07T06:52:48.7624294Z       ],
+2026-10-07T06:52:48.7624512Z       "effects": [
+2026-10-07T06:52:48.7624739Z         "jest",
+2026-10-07T06:52:48.7624960Z         "jest-cli"
+2026-10-07T06:52:48.7625177Z       ],
+2026-10-07T06:52:48.7625396Z       "range": "<=30.2.0",
+2026-10-07T06:52:48.7625656Z       "nodes": [
+2026-10-07T06:52:48.7625920Z         "node_modules/@jest/core"
+2026-10-07T06:52:48.7626206Z       ],
+2026-10-07T06:52:48.7626433Z       "fixAvailable": true
+2026-10-07T06:52:48.7626684Z     },
+2026-10-07T06:52:48.7626902Z     "@jest/environment": {
+2026-10-07T06:52:48.7627193Z       "name": "@jest/environment",
+2026-10-07T06:52:48.7628696Z       "severity": "high",
+2026-10-07T06:52:48.7629212Z       "isDirect": false,
+2026-10-07T06:52:48.7629699Z       "via": [
+2026-10-07T06:52:48.7630153Z         "@jest/fake-timers"
+2026-10-07T06:52:48.7630629Z       ],
+2026-10-07T06:52:48.7631009Z       "effects": [
+2026-10-07T06:52:48.7631464Z         "@jest/globals",
+2026-10-07T06:52:48.7631917Z         "jest-circus",
+2026-10-07T06:52:48.7632380Z         "jest-runner"
+2026-10-07T06:52:48.7632735Z       ],
+2026-10-07T06:52:48.7632990Z       "range": "<=30.2.0",
+2026-10-07T06:52:48.7633274Z       "nodes": [
+2026-10-07T06:52:48.7633589Z         "node_modules/@jest/environment"
+2026-10-07T06:52:48.7633901Z       ],
+2026-10-07T06:52:48.7634130Z       "fixAvailable": true
+2026-10-07T06:52:48.7634753Z     },
+2026-10-07T06:52:48.7635040Z     "@jest/expect": {
+2026-10-07T06:52:48.7635332Z       "name": "@jest/expect",
+2026-10-07T06:52:48.7635647Z       "severity": "high",
+2026-10-07T06:52:48.7635955Z       "isDirect": false,
+2026-10-07T06:52:48.7636236Z       "via": [
+2026-10-07T06:52:48.7636483Z         "expect",
+2026-10-07T06:52:48.7636946Z         "jest-snapshot"
+2026-10-07T06:52:48.7637229Z       ],
+2026-10-07T06:52:48.7637458Z       "effects": [
+2026-10-07T06:52:48.7637718Z         "@jest/globals",
+2026-10-07T06:52:48.7638257Z         "jest-circus"
+2026-10-07T06:52:48.7638538Z       ],
+2026-10-07T06:52:48.7638811Z       "range": "<=30.2.0",
+2026-10-07T06:52:48.7639090Z       "nodes": [
+2026-10-07T06:52:48.7639385Z         "node_modules/@jest/expect"
+2026-10-07T06:52:48.7639681Z       ],
+2026-10-07T06:52:48.7639926Z       "fixAvailable": true
+2026-10-07T06:52:48.7640198Z     },
+2026-10-07T06:52:48.7640443Z     "@jest/fake-timers": {
+2026-10-07T06:52:48.7640762Z       "name": "@jest/fake-timers",
+2026-10-07T06:52:48.7641088Z       "severity": "high",
+2026-10-07T06:52:48.7641372Z       "isDirect": false,
+2026-10-07T06:52:48.7641643Z       "via": [
+2026-10-07T06:52:48.7641894Z         "jest-message-util"
+2026-10-07T06:52:48.7642164Z       ],
+2026-10-07T06:52:48.7642399Z       "effects": [
+2026-10-07T06:52:48.7642663Z         "@jest/environment",
+2026-10-07T06:52:48.7642990Z         "jest-environment-node",
+2026-10-07T06:52:48.7643285Z         "jest-runtime"
+2026-10-07T06:52:48.7643546Z       ],
+2026-10-07T06:52:48.7643759Z       "range": "<=30.2.0",
+2026-10-07T06:52:48.7644010Z       "nodes": [
+2026-10-07T06:52:48.7644435Z         "node_modules/@jest/fake-timers"
+2026-10-07T06:52:48.7645123Z       ],
+2026-10-07T06:52:48.7645520Z       "fixAvailable": true
+2026-10-07T06:52:48.7645972Z     },
+2026-10-07T06:52:48.7646480Z     "@jest/globals": {
+2026-10-07T06:52:48.7646922Z       "name": "@jest/globals",
+2026-10-07T06:52:48.7647220Z       "severity": "high",
+2026-10-07T06:52:48.7647540Z       "isDirect": false,
+2026-10-07T06:52:48.7647823Z       "via": [
+2026-10-07T06:52:48.7648421Z         "@jest/environment",
+2026-10-07T06:52:48.7648702Z         "@jest/expect"
+2026-10-07T06:52:48.7648931Z       ],
+2026-10-07T06:52:48.7649147Z       "effects": [
+2026-10-07T06:52:48.7649376Z         "jest-runtime"
+2026-10-07T06:52:48.7649615Z       ],
+2026-10-07T06:52:48.7649834Z       "range": "<=30.2.0",
+2026-10-07T06:52:48.7650089Z       "nodes": [
+2026-10-07T06:52:48.7650351Z         "node_modules/@jest/globals"
+2026-10-07T06:52:48.7650634Z       ],
+2026-10-07T06:52:48.7650859Z       "fixAvailable": true
+2026-10-07T06:52:48.7651108Z     },
+2026-10-07T06:52:48.7651323Z     "@jest/reporters": {
+2026-10-07T06:52:48.7651604Z       "name": "@jest/reporters",
+2026-10-07T06:52:48.7651881Z       "severity": "high",
+2026-10-07T06:52:48.7652130Z       "isDirect": false,
+2026-10-07T06:52:48.7652373Z       "via": [
+2026-10-07T06:52:48.7652598Z         "@jest/console",
+2026-10-07T06:52:48.7652866Z         "@jest/test-result",
+2026-10-07T06:52:48.7653146Z         "@jest/transform",
+2026-10-07T06:52:48.7653413Z         "jest-message-util"
+2026-10-07T06:52:48.7653656Z       ],
+2026-10-07T06:52:48.7653864Z       "effects": [
+2026-10-07T06:52:48.7654095Z         "@jest/core"
+2026-10-07T06:52:48.7654324Z       ],
+2026-10-07T06:52:48.7654836Z       "range": "<=30.2.0",
+2026-10-07T06:52:48.7655305Z       "nodes": [
+2026-10-07T06:52:48.7655798Z         "node_modules/@jest/reporters"
+2026-10-07T06:52:48.7656308Z       ],
+2026-10-07T06:52:48.7656705Z       "fixAvailable": true
+2026-10-07T06:52:48.7657150Z     },
+2026-10-07T06:52:48.7657463Z     "@jest/test-result": {
+2026-10-07T06:52:48.7657762Z       "name": "@jest/test-result",
+2026-10-07T06:52:48.7658405Z       "severity": "high",
+2026-10-07T06:52:48.7658672Z       "isDirect": false,
+2026-10-07T06:52:48.7658919Z       "via": [
+2026-10-07T06:52:48.7659143Z         "@jest/console"
+2026-10-07T06:52:48.7659371Z       ],
+2026-10-07T06:52:48.7659578Z       "effects": [
+2026-10-07T06:52:48.7660048Z         "@jest/test-sequencer",
+2026-10-07T06:52:48.7660343Z         "jest-circus",
+2026-10-07T06:52:48.7660580Z         "jest-cli",
+2026-10-07T06:52:48.7660814Z         "jest-runtime",
+2026-10-07T06:52:48.7661055Z         "jest-watcher"
+2026-10-07T06:52:48.7661280Z       ],
+2026-10-07T06:52:48.7661515Z       "range": "25.4.0 - 30.2.0",
+2026-10-07T06:52:48.7661975Z       "nodes": [
+2026-10-07T06:52:48.7662247Z         "node_modules/@jest/test-result"
+2026-10-07T06:52:48.7662527Z       ],
+2026-10-07T06:52:48.7662747Z       "fixAvailable": true
+2026-10-07T06:52:48.7662994Z     },
+2026-10-07T06:52:48.7663218Z     "@jest/test-sequencer": {
+2026-10-07T06:52:48.7663521Z       "name": "@jest/test-sequencer",
+2026-10-07T06:52:48.7663829Z       "severity": "high",
+2026-10-07T06:52:48.7664093Z       "isDirect": false,
+2026-10-07T06:52:48.7664343Z       "via": [
+2026-10-07T06:52:48.7664575Z         "@jest/test-result",
+2026-10-07T06:52:48.7664851Z         "jest-haste-map"
+2026-10-07T06:52:48.7665091Z       ],
+2026-10-07T06:52:48.7665308Z       "effects": [
+2026-10-07T06:52:48.7665577Z         "jest-config"
+2026-10-07T06:52:48.7665805Z       ],
+2026-10-07T06:52:48.7666027Z       "range": "<=30.2.0",
+2026-10-07T06:52:48.7666272Z       "nodes": [
+2026-10-07T06:52:48.7666548Z         "node_modules/@jest/test-sequencer"
+2026-10-07T06:52:48.7666848Z       ],
+2026-10-07T06:52:48.7667069Z       "fixAvailable": true
+2026-10-07T06:52:48.7667343Z     },
+2026-10-07T06:52:48.7667578Z     "@jest/transform": {
+2026-10-07T06:52:48.7667869Z       "name": "@jest/transform",
+2026-10-07T06:52:48.7668402Z       "severity": "high",
+2026-10-07T06:52:48.7668656Z       "isDirect": false,
+2026-10-07T06:52:48.7668898Z       "via": [
+2026-10-07T06:52:48.7669163Z         "babel-plugin-istanbul",
+2026-10-07T06:52:48.7669448Z         "jest-haste-map",
+2026-10-07T06:52:48.7669695Z         "micromatch"
+2026-10-07T06:52:48.7669926Z       ],
+2026-10-07T06:52:48.7670133Z       "effects": [
+2026-10-07T06:52:48.7670363Z         "@jest/reporters",
+2026-10-07T06:52:48.7670623Z         "babel-jest",
+2026-10-07T06:52:48.7670865Z         "jest-runner",
+2026-10-07T06:52:48.7671110Z         "jest-runtime",
+2026-10-07T06:52:48.7671354Z         "jest-snapshot"
+2026-10-07T06:52:48.7671586Z       ],
+2026-10-07T06:52:48.7671796Z       "range": "*",
+2026-10-07T06:52:48.7672027Z       "nodes": [
+2026-10-07T06:52:48.7672294Z         "node_modules/@jest/transform"
+2026-10-07T06:52:48.7672579Z       ],
+2026-10-07T06:52:48.7672801Z       "fixAvailable": true
+2026-10-07T06:52:48.7673071Z     },
+2026-10-07T06:52:48.7673283Z     "babel-jest": {
+2026-10-07T06:52:48.7673527Z       "name": "babel-jest",
+2026-10-07T06:52:48.7673790Z       "severity": "high",
+2026-10-07T06:52:48.7674044Z       "isDirect": false,
+2026-10-07T06:52:48.7674285Z       "via": [
+2026-10-07T06:52:48.7674510Z         "@jest/transform",
+2026-10-07T06:52:48.7674799Z         "babel-plugin-istanbul"
+2026-10-07T06:52:48.7675061Z       ],
+2026-10-07T06:52:48.7675272Z       "effects": [
+2026-10-07T06:52:48.7675513Z         "jest-config"
+2026-10-07T06:52:48.7675745Z       ],
+2026-10-07T06:52:48.7675981Z       "range": ">=24.2.0-alpha.0",
+2026-10-07T06:52:48.7676260Z       "nodes": [
+2026-10-07T06:52:48.7676522Z         "node_modules/babel-jest"
+2026-10-07T06:52:48.7676784Z       ],
+2026-10-07T06:52:48.7677005Z       "fixAvailable": true
+2026-10-07T06:52:48.7677254Z     },
+2026-10-07T06:52:48.7677461Z     "braces": {
+2026-10-07T06:52:48.7677685Z       "name": "braces",
+2026-10-07T06:52:48.7678112Z       "severity": "high",
+2026-10-07T06:52:48.7678529Z       "isDirect": false,
+2026-10-07T06:52:48.7678782Z       "via": [
+2026-10-07T06:52:48.7678992Z         {
+2026-10-07T06:52:48.7679214Z           "source": 1240992,
+2026-10-07T06:52:48.7679483Z           "name": "braces",
+2026-10-07T06:52:48.7679772Z           "dependency": "braces",
+2026-10-07T06:52:48.7680338Z           "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+2026-10-07T06:52:48.7681144Z           "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+2026-10-07T06:52:48.7681547Z           "severity": "high",
+2026-10-07T06:52:48.7681841Z           "cwe": [
+2026-10-07T06:52:48.7682096Z             "CWE-674"
+2026-10-07T06:52:48.7682329Z           ],
+2026-10-07T06:52:48.7682551Z           "cvss": {
+2026-10-07T06:52:48.7682790Z             "score": 7.5,
+2026-10-07T06:52:48.7683378Z             "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+2026-10-07T06:52:48.7683761Z           },
+2026-10-07T06:52:48.7683986Z           "range": "<=3.0.3"
+2026-10-07T06:52:48.7684229Z         }
+2026-10-07T06:52:48.7684432Z       ],
+2026-10-07T06:52:48.7684641Z       "effects": [
+2026-10-07T06:52:48.7684871Z         "micromatch"
+2026-10-07T06:52:48.7685095Z       ],
+2026-10-07T06:52:48.7685304Z       "range": "*",
+2026-10-07T06:52:48.7685532Z       "nodes": [
+2026-10-07T06:52:48.7685767Z         "node_modules/braces"
+2026-10-07T06:52:48.7686014Z       ],
+2026-10-07T06:52:48.7686234Z       "fixAvailable": true
+2026-10-07T06:52:48.7686489Z     },
+2026-10-07T06:52:48.7686696Z     "expect": {
+2026-10-07T06:52:48.7686929Z       "name": "expect",
+2026-10-07T06:52:48.7687181Z       "severity": "high",
+2026-10-07T06:52:48.7687433Z       "isDirect": false,
+2026-10-07T06:52:48.7687669Z       "via": [
+2026-10-07T06:52:48.7688106Z         "jest-message-util"
+2026-10-07T06:52:48.7688491Z       ],
+2026-10-07T06:52:48.7688705Z       "effects": [
+2026-10-07T06:52:48.7688936Z         "@jest/expect",
+2026-10-07T06:52:48.7689185Z         "jest-snapshot"
+2026-10-07T06:52:48.7689415Z       ],
+2026-10-07T06:52:48.7689662Z       "range": "21.0.0-beta.1 - 30.2.0",
+2026-10-07T06:52:48.7689945Z       "nodes": [
+2026-10-07T06:52:48.7690177Z         "node_modules/expect"
+2026-10-07T06:52:48.7690432Z       ],
+2026-10-07T06:52:48.7690646Z       "fixAvailable": true
+2026-10-07T06:52:48.7690891Z     },
+2026-10-07T06:52:48.7691096Z     "jest": {
+2026-10-07T06:52:48.7691318Z       "name": "jest",
+2026-10-07T06:52:48.7691555Z       "severity": "high",
+2026-10-07T06:52:48.7691817Z       "isDirect": true,
+2026-10-07T06:52:48.7692056Z       "via": [
+2026-10-07T06:52:48.7692278Z         "@jest/core",
+2026-10-07T06:52:48.7692507Z         "jest-cli"
+2026-10-07T06:52:48.7692723Z       ],
+2026-10-07T06:52:48.7692933Z       "effects": [],
+2026-10-07T06:52:48.7693200Z       "range": "24.2.0-alpha.0 - 30.2.0",
+2026-10-07T06:52:48.7693506Z       "nodes": [
+2026-10-07T06:52:48.7693742Z         "node_modules/jest"
+2026-10-07T06:52:48.7693988Z       ],
+2026-10-07T06:52:48.7694203Z       "fixAvailable": true
+2026-10-07T06:52:48.7694450Z     },
+2026-10-07T06:52:48.7694666Z     "jest-circus": {
+2026-10-07T06:52:48.7694914Z       "name": "jest-circus",
+2026-10-07T06:52:48.7695174Z       "severity": "high",
+2026-10-07T06:52:48.7695428Z       "isDirect": false,
+2026-10-07T06:52:48.7695671Z       "via": [
+2026-10-07T06:52:48.7695897Z         "@jest/environment",
+2026-10-07T06:52:48.7696151Z         "@jest/expect",
+2026-10-07T06:52:48.7696407Z         "@jest/test-result",
+2026-10-07T06:52:48.7696677Z         "jest-message-util",
+2026-10-07T06:52:48.7696937Z         "jest-runtime",
+2026-10-07T06:52:48.7697178Z         "jest-snapshot"
+2026-10-07T06:52:48.7697405Z       ],
+2026-10-07T06:52:48.7697611Z       "effects": [
+2026-10-07T06:52:48.7697835Z         "jest-config"
+2026-10-07T06:52:48.7698282Z       ],
+2026-10-07T06:52:48.7698547Z       "range": "20.1.0-alpha.1 - 30.2.0",
+2026-10-07T06:52:48.7698840Z       "nodes": [
+2026-10-07T06:52:48.7699094Z         "node_modules/jest-circus"
+2026-10-07T06:52:48.7699502Z       ],
+2026-10-07T06:52:48.7699734Z       "fixAvailable": true
+2026-10-07T06:52:48.7699981Z     },
+2026-10-07T06:52:48.7700186Z     "jest-cli": {
+2026-10-07T06:52:48.7700420Z       "name": "jest-cli",
+2026-10-07T06:52:48.7700672Z       "severity": "high",
+2026-10-07T06:52:48.7700917Z       "isDirect": false,
+2026-10-07T06:52:48.7701159Z       "via": [
+2026-10-07T06:52:48.7701379Z         "@jest/core",
+2026-10-07T06:52:48.7701620Z         "@jest/test-result",
+2026-10-07T06:52:48.7702027Z         "jest-config"
+2026-10-07T06:52:48.7702263Z       ],
+2026-10-07T06:52:48.7702471Z       "effects": [
+2026-10-07T06:52:48.7702695Z         "jest"
+2026-10-07T06:52:48.7702901Z       ],
+2026-10-07T06:52:48.7703138Z       "range": "23.5.0 - 30.2.0",
+2026-10-07T06:52:48.7703407Z       "nodes": [
+2026-10-07T06:52:48.7703782Z         "node_modules/jest-cli"
+2026-10-07T06:52:48.7704042Z       ],
+2026-10-07T06:52:48.7704259Z       "fixAvailable": true
+2026-10-07T06:52:48.7704502Z     },
+2026-10-07T06:52:48.7704709Z     "jest-config": {
+2026-10-07T06:52:48.7704952Z       "name": "jest-config",
+2026-10-07T06:52:48.7705209Z       "severity": "high",
+2026-10-07T06:52:48.7705459Z       "isDirect": false,
+2026-10-07T06:52:48.7705696Z       "via": [
+2026-10-07T06:52:48.7705962Z         "@jest/test-sequencer",
+2026-10-07T06:52:48.7706228Z         "babel-jest",
+2026-10-07T06:52:48.7706465Z         "jest-circus",
+2026-10-07T06:52:48.7706735Z         "jest-environment-node",
+2026-10-07T06:52:48.7707020Z         "jest-resolve",
+2026-10-07T06:52:48.7707264Z         "jest-runner",
+2026-10-07T06:52:48.7707497Z         "micromatch"
+2026-10-07T06:52:48.7707723Z       ],
+2026-10-07T06:52:48.7708222Z       "effects": [
+2026-10-07T06:52:48.7708515Z         "jest-cli"
+2026-10-07T06:52:48.7708733Z       ],
+2026-10-07T06:52:48.7709136Z       "range": "18.1.0 - 19.0.4 || 23.5.0 - 30.2.0",
+2026-10-07T06:52:48.7709703Z       "nodes": [
+2026-10-07T06:52:48.7710187Z         "node_modules/jest-config"
+2026-10-07T06:52:48.7710770Z       ],
+2026-10-07T06:52:48.7711222Z       "fixAvailable": true
+2026-10-07T06:52:48.7711635Z     },
+2026-10-07T06:52:48.7711973Z     "jest-environment-node": {
+2026-10-07T06:52:48.7712342Z       "name": "jest-environment-node",
+2026-10-07T06:52:48.7712672Z       "severity": "high",
+2026-10-07T06:52:48.7712935Z       "isDirect": false,
+2026-10-07T06:52:48.7713173Z       "via": [
+2026-10-07T06:52:48.7713405Z         "@jest/environment",
+2026-10-07T06:52:48.7713671Z         "@jest/fake-timers"
+2026-10-07T06:52:48.7713927Z       ],
+2026-10-07T06:52:48.7714132Z       "effects": [
+2026-10-07T06:52:48.7714361Z         "jest-runner"
+2026-10-07T06:52:48.7714587Z       ],
+2026-10-07T06:52:48.7714836Z       "range": "24.2.0-alpha.0 - 30.2.0",
+2026-10-07T06:52:48.7715120Z       "nodes": [
+2026-10-07T06:52:48.7715399Z         "node_modules/jest-environment-node"
+2026-10-07T06:52:48.7715702Z       ],
+2026-10-07T06:52:48.7715921Z       "fixAvailable": true
+2026-10-07T06:52:48.7716173Z     },
+2026-10-07T06:52:48.7716391Z     "jest-haste-map": {
+2026-10-07T06:52:48.7716672Z       "name": "jest-haste-map",
+2026-10-07T06:52:48.7716943Z       "severity": "high",
+2026-10-07T06:52:48.7717197Z       "isDirect": false,
+2026-10-07T06:52:48.7717440Z       "via": [
+2026-10-07T06:52:48.7717665Z         "micromatch"
+2026-10-07T06:52:48.7717886Z       ],
+2026-10-07T06:52:48.7718392Z       "effects": [
+2026-10-07T06:52:48.7718659Z         "@jest/test-sequencer",
+2026-10-07T06:52:48.7718931Z         "jest-resolve",
+2026-10-07T06:52:48.7719214Z         "jest-runtime"
+2026-10-07T06:52:48.7719445Z       ],
+2026-10-07T06:52:48.7719682Z       "range": "18.1.0 - 30.2.0",
+2026-10-07T06:52:48.7719946Z       "nodes": [
+2026-10-07T06:52:48.7720217Z         "node_modules/jest-haste-map"
+2026-10-07T06:52:48.7720529Z       ],
+2026-10-07T06:52:48.7720746Z       "fixAvailable": true
+2026-10-07T06:52:48.7720990Z     },
+2026-10-07T06:52:48.7721211Z     "jest-message-util": {
+2026-10-07T06:52:48.7721500Z       "name": "jest-message-util",
+2026-10-07T06:52:48.7721791Z       "severity": "high",
+2026-10-07T06:52:48.7722040Z       "isDirect": false,
+2026-10-07T06:52:48.7722284Z       "via": [
+2026-10-07T06:52:48.7722509Z         "micromatch"
+2026-10-07T06:52:48.7722738Z       ],
+2026-10-07T06:52:48.7722938Z       "effects": [
+2026-10-07T06:52:48.7723193Z         "@jest/console",
+2026-10-07T06:52:48.7723453Z         "@jest/fake-timers",
+2026-10-07T06:52:48.7723714Z         "@jest/reporters",
+2026-10-07T06:52:48.7723966Z         "expect",
+2026-10-07T06:52:48.7724366Z         "jest-circus",
+2026-10-07T06:52:48.7724630Z         "jest-runner",
+2026-10-07T06:52:48.7724921Z         "jest-runtime",
+2026-10-07T06:52:48.7725167Z         "jest-snapshot"
+2026-10-07T06:52:48.7725397Z       ],
+2026-10-07T06:52:48.7725666Z       "range": "18.5.0-alpha.7da3df39 - 30.2.0",
+2026-10-07T06:52:48.7725976Z       "nodes": [
+2026-10-07T06:52:48.7726387Z         "node_modules/jest-message-util"
+2026-10-07T06:52:48.7726679Z       ],
+2026-10-07T06:52:48.7727014Z       "fixAvailable": true
+2026-10-07T06:52:48.7727414Z     },
+2026-10-07T06:52:48.7727768Z     "jest-resolve": {
+2026-10-07T06:52:48.7728378Z       "name": "jest-resolve",
+2026-10-07T06:52:48.7728835Z       "severity": "high",
+2026-10-07T06:52:48.7729266Z       "isDirect": false,
+2026-10-07T06:52:48.7729672Z       "via": [
+2026-10-07T06:52:48.7730051Z         "jest-haste-map"
+2026-10-07T06:52:48.7730449Z       ],
+2026-10-07T06:52:48.7730801Z       "effects": [
+2026-10-07T06:52:48.7731183Z         "@jest/core",
+2026-10-07T06:52:48.7731590Z         "jest-config",
+2026-10-07T06:52:48.7731987Z         "jest-runner",
+2026-10-07T06:52:48.7732384Z         "jest-runtime"
+2026-10-07T06:52:48.7746670Z       ],
+2026-10-07T06:52:48.7747271Z       "range": "18.1.0 - 19.0.2 || 24.2.0-alpha.0 - 24.5.0 || 27.1.0 - 30.2.0",
+2026-10-07T06:52:48.7747887Z       "nodes": [
+2026-10-07T06:52:48.7748552Z         "node_modules/jest-resolve"
+2026-10-07T06:52:48.7748995Z       ],
+2026-10-07T06:52:48.7749350Z       "fixAvailable": true
+2026-10-07T06:52:48.7749750Z     },
+2026-10-07T06:52:48.7750151Z     "jest-resolve-dependencies": {
+2026-10-07T06:52:48.7750684Z       "name": "jest-resolve-dependencies",
+2026-10-07T06:52:48.7751165Z       "severity": "high",
+2026-10-07T06:52:48.7751581Z       "isDirect": false,
+2026-10-07T06:52:48.7751974Z       "via": [
+2026-10-07T06:52:48.7752332Z         "jest-snapshot"
+2026-10-07T06:52:48.7752699Z       ],
+2026-10-07T06:52:48.7753037Z       "effects": [],
+2026-10-07T06:52:48.7753450Z       "range": "23.3.0 - 30.2.0",
+2026-10-07T06:52:48.7753870Z       "nodes": [
+2026-10-07T06:52:48.7754330Z         "node_modules/jest-resolve-dependencies"
+2026-10-07T06:52:48.7754817Z       ],
+2026-10-07T06:52:48.7755167Z       "fixAvailable": true
+2026-10-07T06:52:48.7755556Z     },
+2026-10-07T06:52:48.7755892Z     "jest-runner": {
+2026-10-07T06:52:48.7756289Z       "name": "jest-runner",
+2026-10-07T06:52:48.7756716Z       "severity": "high",
+2026-10-07T06:52:48.7757118Z       "isDirect": false,
+2026-10-07T06:52:48.7757503Z       "via": [
+2026-10-07T06:52:48.7757861Z         "@jest/console",
+2026-10-07T06:52:48.7758434Z         "@jest/environment",
+2026-10-07T06:52:48.7758842Z         "@jest/test-result",
+2026-10-07T06:52:48.7759259Z         "@jest/transform",
+2026-10-07T06:52:48.7759725Z         "jest-environment-node",
+2026-10-07T06:52:48.7760178Z         "jest-haste-map",
+2026-10-07T06:52:48.7760600Z         "jest-message-util",
+2026-10-07T06:52:48.7761034Z         "jest-resolve",
+2026-10-07T06:52:48.7761481Z         "jest-runtime",
+2026-10-07T06:52:48.7761899Z         "jest-watcher"
+2026-10-07T06:52:48.7762290Z       ],
+2026-10-07T06:52:48.7762642Z       "effects": [
+2026-10-07T06:52:48.7763028Z         "jest-config"
+2026-10-07T06:52:48.7763401Z       ],
+2026-10-07T06:52:48.7763818Z       "range": "21.0.0-alpha.1 - 30.2.0",
+2026-10-07T06:52:48.7764300Z       "nodes": [
+2026-10-07T06:52:48.7764739Z         "node_modules/jest-runner"
+2026-10-07T06:52:48.7765176Z       ],
+2026-10-07T06:52:48.7765538Z       "fixAvailable": true
+2026-10-07T06:52:48.7765943Z     },
+2026-10-07T06:52:48.7766285Z     "jest-runtime": {
+2026-10-07T06:52:48.7766711Z       "name": "jest-runtime",
+2026-10-07T06:52:48.7767160Z       "severity": "high",
+2026-10-07T06:52:48.7767586Z       "isDirect": false,
+2026-10-07T06:52:48.7768143Z       "via": [
+2026-10-07T06:52:48.7768535Z         "@jest/environment",
+2026-10-07T06:52:48.7768975Z         "@jest/fake-timers",
+2026-10-07T06:52:48.7769405Z         "@jest/globals",
+2026-10-07T06:52:48.7769817Z         "@jest/test-result",
+2026-10-07T06:52:48.7770464Z         "@jest/transform",
+2026-10-07T06:52:48.7770909Z         "jest-haste-map",
+2026-10-07T06:52:48.7771345Z         "jest-message-util",
+2026-10-07T06:52:48.7771774Z         "jest-resolve",
+2026-10-07T06:52:48.7772181Z         "jest-snapshot"
+2026-10-07T06:52:48.7772564Z       ],
+2026-10-07T06:52:48.7773071Z       "effects": [
+2026-10-07T06:52:48.7773457Z         "jest-circus",
+2026-10-07T06:52:48.7773859Z         "jest-runner"
+2026-10-07T06:52:48.7774238Z       ],
+2026-10-07T06:52:48.7774629Z       "range": "18.1.0 - 30.2.0",
+2026-10-07T06:52:48.7775076Z       "nodes": [
+2026-10-07T06:52:48.7775516Z         "node_modules/jest-runtime"
+2026-10-07T06:52:48.7775968Z       ],
+2026-10-07T06:52:48.7776332Z       "fixAvailable": true
+2026-10-07T06:52:48.7776749Z     },
+2026-10-07T06:52:48.7777108Z     "jest-snapshot": {
+2026-10-07T06:52:48.7777570Z       "name": "jest-snapshot",
+2026-10-07T06:52:48.7778196Z       "severity": "high",
+2026-10-07T06:52:48.7778632Z       "isDirect": false,
+2026-10-07T06:52:48.7779049Z       "via": [
+2026-10-07T06:52:48.7779416Z         "@jest/transform",
+2026-10-07T06:52:48.7779838Z         "expect",
+2026-10-07T06:52:48.7780285Z         "jest-message-util"
+2026-10-07T06:52:48.7780738Z       ],
+2026-10-07T06:52:48.7781089Z       "effects": [
+2026-10-07T06:52:48.7781455Z         "jest-circus",
+2026-10-07T06:52:48.7781907Z         "jest-resolve-dependencies",
+2026-10-07T06:52:48.7782380Z         "jest-runtime"
+2026-10-07T06:52:48.7782783Z       ],
+2026-10-07T06:52:48.7783182Z       "range": "23.3.0 - 30.2.0",
+2026-10-07T06:52:48.7783622Z       "nodes": [
+2026-10-07T06:52:48.7784078Z         "node_modules/jest-snapshot"
+2026-10-07T06:52:48.7784427Z       ],
+2026-10-07T06:52:48.7784659Z       "fixAvailable": true
+2026-10-07T06:52:48.7784911Z     },
+2026-10-07T06:52:48.7785122Z     "jest-watcher": {
+2026-10-07T06:52:48.7785377Z       "name": "jest-watcher",
+2026-10-07T06:52:48.7785652Z       "severity": "high",
+2026-10-07T06:52:48.7785912Z       "isDirect": false,
+2026-10-07T06:52:48.7786186Z       "via": [
+2026-10-07T06:52:48.7786428Z         "@jest/test-result"
+2026-10-07T06:52:48.7787020Z       ],
+2026-10-07T06:52:48.7787403Z       "effects": [
+2026-10-07T06:52:48.7787796Z         "jest-runner"
+2026-10-07T06:52:48.7788392Z       ],
+2026-10-07T06:52:48.7788795Z       "range": "25.4.0 - 30.2.0",
+2026-10-07T06:52:48.7789166Z       "nodes": [
+2026-10-07T06:52:48.7789433Z         "node_modules/jest-watcher"
+2026-10-07T06:52:48.7789705Z       ],
+2026-10-07T06:52:48.7789927Z       "fixAvailable": true
+2026-10-07T06:52:48.7790180Z     },
+2026-10-07T06:52:48.7790388Z     "micromatch": {
+2026-10-07T06:52:48.7790633Z       "name": "micromatch",
+2026-10-07T06:52:48.7790893Z       "severity": "high",
+2026-10-07T06:52:48.7791147Z       "isDirect": false,
+2026-10-07T06:52:48.7791391Z       "via": [
+2026-10-07T06:52:48.7791607Z         "braces"
+2026-10-07T06:52:48.7791821Z       ],
+2026-10-07T06:52:48.7792028Z       "effects": [
+2026-10-07T06:52:48.7792259Z         "@jest/core",
+2026-10-07T06:52:48.7792500Z         "@jest/transform",
+2026-10-07T06:52:48.7792753Z         "jest-config",
+2026-10-07T06:52:48.7792999Z         "jest-haste-map",
+2026-10-07T06:52:48.7793257Z         "jest-message-util"
+2026-10-07T06:52:48.7793498Z       ],
+2026-10-07T06:52:48.7793712Z       "range": ">=0.2.0",
+2026-10-07T06:52:48.7793956Z       "nodes": [
+2026-10-07T06:52:48.7794208Z         "node_modules/micromatch"
+2026-10-07T06:52:48.7794475Z       ],
+2026-10-07T06:52:48.7794687Z       "fixAvailable": true
+2026-10-07T06:52:48.7794929Z     }
+2026-10-07T06:52:48.7795118Z   },
+2026-10-07T06:52:48.7795321Z   "metadata": {
+2026-10-07T06:52:48.7795556Z     "vulnerabilities": {
+2026-10-07T06:52:48.7795801Z       "info": 0,
+2026-10-07T06:52:48.7796010Z       "low": 0,
+2026-10-07T06:52:48.7796225Z       "moderate": 5,
+2026-10-07T06:52:48.7796450Z       "high": 27,
+2026-10-07T06:52:48.7796666Z       "critical": 0,
+2026-10-07T06:52:48.7796903Z       "total": 32
+2026-10-07T06:52:48.7797117Z     },
+2026-10-07T06:52:48.7797491Z     "dependencies": {
+2026-10-07T06:52:48.7797752Z       "prod": 83,
+2026-10-07T06:52:48.7798222Z       "dev": 562,
+2026-10-07T06:52:48.7798614Z       "optional": 28,
+2026-10-07T06:52:48.7798857Z       "peer": 3,
+2026-10-07T06:52:48.7799090Z       "peerOptional": 0,
+2026-10-07T06:52:48.7799343Z       "total": 647
+2026-10-07T06:52:48.7799720Z     }
+2026-10-07T06:52:48.7799920Z   }
+2026-10-07T06:52:48.7800112Z }
+2026-10-07T06:52:48.7800542Z [32mPassed npm security audit.[0m
+2026-10-07T06:52:48.7847280Z ##[group]Run npx audit-ci --config .audit-ci.jsonc
+2026-10-07T06:52:48.7848470Z [36;1mnpx audit-ci --config .audit-ci.jsonc[0m
+2026-10-07T06:52:48.7911594Z shell: /usr/bin/bash -e {0}
+2026-10-07T06:52:48.7911873Z env:
+2026-10-07T06:52:48.7912207Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:52:48.7912739Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:52:48.7913144Z   MAVEN_ARGS: -ntp
+2026-10-07T06:52:48.7913377Z ##[endgroup]
+2026-10-07T06:52:49.8817525Z [36mNPM audit report results:[0m
+2026-10-07T06:52:49.8818424Z {
+2026-10-07T06:52:49.8818814Z   "advisories": {},
+2026-10-07T06:52:49.8819263Z   "metadata": {
+2026-10-07T06:52:49.8819704Z     "vulnerabilities": {
+2026-10-07T06:52:49.8820169Z       "info": 0,
+2026-10-07T06:52:49.8820580Z       "low": 0,
+2026-10-07T06:52:49.8821032Z       "moderate": 20,
+2026-10-07T06:52:49.8821466Z       "high": 0,
+2026-10-07T06:52:49.8821914Z       "critical": 0,
+2026-10-07T06:52:49.8822331Z       "total": 20
+2026-10-07T06:52:49.8822732Z     },
+2026-10-07T06:52:49.8823130Z     "dependencies": {
+2026-10-07T06:52:49.8823599Z       "prod": 166,
+2026-10-07T06:52:49.8824022Z       "dev": 843,
+2026-10-07T06:52:49.8824459Z       "optional": 106,
+2026-10-07T06:52:49.8824917Z       "peer": 0,
+2026-10-07T06:52:49.8825366Z       "peerOptional": 0,
+2026-10-07T06:52:49.8825817Z       "total": 1008
+2026-10-07T06:52:49.8826250Z     }
+2026-10-07T06:52:49.8826614Z   }
+2026-10-07T06:52:49.8826965Z }
+2026-10-07T06:52:49.8832191Z [32mPassed npm security audit.[0m
+2026-10-07T06:52:49.9002627Z ##[group]Run npx audit-ci --config helio-mcp/.audit-ci.jsonc --directory helio-mcp
+2026-10-07T06:52:49.9003246Z [36;1mnpx audit-ci --config helio-mcp/.audit-ci.jsonc --directory helio-mcp[0m
+2026-10-07T06:52:49.9065922Z shell: /usr/bin/bash -e {0}
+2026-10-07T06:52:49.9066206Z env:
+2026-10-07T06:52:49.9066545Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:52:49.9067078Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:52:49.9067497Z   MAVEN_ARGS: -ntp
+2026-10-07T06:52:49.9067740Z ##[endgroup]
+2026-10-07T06:52:50.6216095Z [36mNPM audit report results:[0m
+2026-10-07T06:52:50.6216711Z {
+2026-10-07T06:52:50.6217086Z   "advisories": {},
+2026-10-07T06:52:50.6217506Z   "metadata": {
+2026-10-07T06:52:50.6218122Z     "vulnerabilities": {
+2026-10-07T06:52:50.6218589Z       "info": 0,
+2026-10-07T06:52:50.6218966Z       "low": 0,
+2026-10-07T06:52:50.6219340Z       "moderate": 0,
+2026-10-07T06:52:50.6219801Z       "high": 0,
+2026-10-07T06:52:50.6220059Z       "critical": 0,
+2026-10-07T06:52:50.6220310Z       "total": 0
+2026-10-07T06:52:50.6220538Z     },
+2026-10-07T06:52:50.6220760Z     "dependencies": {
+2026-10-07T06:52:50.6221016Z       "prod": 94,
+2026-10-07T06:52:50.6221258Z       "dev": 32,
+2026-10-07T06:52:50.6221483Z       "optional": 27,
+2026-10-07T06:52:50.6221717Z       "peer": 0,
+2026-10-07T06:52:50.6222040Z       "peerOptional": 0,
+2026-10-07T06:52:50.6222488Z       "total": 125
+2026-10-07T06:52:50.6222863Z     }
+2026-10-07T06:52:50.6223192Z   }
+2026-10-07T06:52:50.6223514Z }
+2026-10-07T06:52:50.6224069Z [32mPassed npm security audit.[0m
+2026-10-07T06:52:50.6441086Z ##[group]Run actions/upload-artifact@v4
+2026-10-07T06:52:50.6441438Z with:
+2026-10-07T06:52:50.6441665Z   name: sbt-diagnostics-security
+2026-10-07T06:52:50.6442001Z   path: /home/runner/work/_temp/sbt-diagnostics
+2026-10-07T06:52:50.6442348Z   if-no-files-found: ignore
+2026-10-07T06:52:50.6442602Z   retention-days: 14
+2026-10-07T06:52:50.6442834Z   compression-level: 6
+2026-10-07T06:52:50.6443066Z   overwrite: false
+2026-10-07T06:52:50.6443292Z   include-hidden-files: false
+2026-10-07T06:52:50.6443548Z env:
+2026-10-07T06:52:50.6443867Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:52:50.6444584Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-07T06:52:50.6444998Z   MAVEN_ARGS: -ntp
+2026-10-07T06:52:50.6445227Z ##[endgroup]
+2026-10-07T06:52:50.8066383Z (node:4603) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-07T06:52:50.8067796Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-07T06:52:50.8132049Z With the provided path, there will be 6 files uploaded
+2026-10-07T06:52:50.8137462Z Artifact name is valid!
+2026-10-07T06:52:50.8138543Z Root directory input is valid!
+2026-10-07T06:52:51.1768212Z Beginning upload of artifact content to blob storage
+2026-10-07T06:52:51.2070024Z (node:4603) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-07T06:52:51.4804958Z Uploaded bytes 7592
+2026-10-07T06:52:51.5566273Z Finished uploading artifact content to blob storage!
+2026-10-07T06:52:51.5567852Z SHA256 digest of uploaded artifact zip is 48fa057837e98e43dcfa64197f8504227be8b4278046bd04a425d25a91344060
+2026-10-07T06:52:51.5569258Z Finalizing artifact upload
+2026-10-07T06:52:51.8702142Z Artifact sbt-diagnostics-security.zip successfully finalized. Artifact ID 11465157637
+2026-10-07T06:52:51.8703615Z Artifact sbt-diagnostics-security has been successfully uploaded! Final size is 7592 bytes. Artifact ID is 11465157637
+2026-10-07T06:52:51.8709154Z Artifact download URL: https://github.com/matto00/helio/actions/runs/37583797617/artifacts/11465157637
+2026-10-07T06:52:51.9068477Z Post job cleanup.
+2026-10-07T06:52:51.9072544Z ##[start-action display=sbt 2.x disk cache;id=__a0790591-5728-4772-a599-87af3c4b2dc6.disk-cache]
+2026-10-07T06:52:51.9074887Z ##[end-action id=__a0790591-5728-4772-a599-87af3c4b2dc6.disk-cache;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-10-07T06:52:51.9076938Z ##[start-action display=Cache sbt distribution;id=__a0790591-5728-4772-a599-87af3c4b2dc6.cache-dir]
+2026-10-07T06:52:51.9079260Z ##[end-action id=__a0790591-5728-4772-a599-87af3c4b2dc6.cache-dir;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-10-07T06:52:51.9161148Z Post job cleanup.
+2026-10-07T06:52:51.9976177Z Post job cleanup.
+2026-10-07T06:52:52.0840464Z [command]/usr/bin/git version
+2026-10-07T06:52:52.0928924Z git version 2.55.0
+2026-10-07T06:52:52.0957102Z Temporarily overriding HOME='/home/runner/work/_temp/541aef27-c6ce-46b1-8a8e-1d452e5d74b9' before making global git config changes
+2026-10-07T06:52:52.0971905Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-07T06:52:52.0973131Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/helio/helio
+2026-10-07T06:52:52.1039643Z Removing SSH command configuration
+2026-10-07T06:52:52.1069305Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-07T06:52:52.1106731Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-07T06:52:52.1359851Z Removing HTTP extra header
+2026-10-07T06:52:52.1367363Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-07T06:52:52.1408532Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-07T06:52:52.1699756Z Removing includeIf entries pointing to credentials config files
+2026-10-07T06:52:52.1705262Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-07T06:52:52.1739888Z includeif.gitdir:/home/runner/work/helio/helio/.git.path
+2026-10-07T06:52:52.1741022Z includeif.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path
+2026-10-07T06:52:52.1742612Z includeif.gitdir:/github/workspace/.git.path
+2026-10-07T06:52:52.1743778Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-07T06:52:52.1750238Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/helio/helio/.git.path
+2026-10-07T06:52:52.1774392Z /home/runner/work/_temp/git-credentials-56e413d8-495d-46a0-a28f-e15ab0599700.config
+2026-10-07T06:52:52.1786157Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/helio/helio/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-56e413d8\-495d\-46a0\-a28f\-e15ab0599700\.config
+2026-10-07T06:52:52.1859323Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path
+2026-10-07T06:52:52.1894115Z /home/runner/work/_temp/git-credentials-56e413d8-495d-46a0-a28f-e15ab0599700.config
+2026-10-07T06:52:52.1903977Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-56e413d8\-495d\-46a0\-a28f\-e15ab0599700\.config
+2026-10-07T06:52:52.1945305Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-07T06:52:52.1974004Z /github/runner_temp/git-credentials-56e413d8-495d-46a0-a28f-e15ab0599700.config
+2026-10-07T06:52:52.1982229Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-56e413d8\-495d\-46a0\-a28f\-e15ab0599700\.config
+2026-10-07T06:52:52.2025877Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-07T06:52:52.2058144Z /github/runner_temp/git-credentials-56e413d8-495d-46a0-a28f-e15ab0599700.config
+2026-10-07T06:52:52.2068839Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-56e413d8\-495d\-46a0\-a28f\-e15ab0599700\.config
+2026-10-07T06:52:52.2108281Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-07T06:52:52.2355239Z Removing credentials config '/home/runner/work/_temp/git-credentials-56e413d8-495d-46a0-a28f-e15ab0599700.config'
+2026-10-07T06:52:52.2495855Z Cleaning up orphan processes
+2026-10-07T06:52:52.2781458Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
