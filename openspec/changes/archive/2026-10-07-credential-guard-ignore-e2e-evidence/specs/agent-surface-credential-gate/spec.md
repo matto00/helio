@@ -7,9 +7,9 @@ a declared surface root at, inside, or beneath it; partially covered, requiring 
 subtree and why the remainder is not scanned; or acknowledged unscanned, requiring a recorded one-line reason. The
 gate SHALL fail when it finds a top-level directory in none of the three states. Directories that are never
 committed — build and tooling output, and dot-prefixed directories — SHALL be excluded from classification, and the
-basis for that exclusion SHALL be documented in the script. Every directory that `.gitignore` ignores at the
-repository root SHALL be in that exclusion, and the self-test SHALL fail when a root-level directory pattern in
-`.gitignore` is not excluded, other than the self-test's own probe directories that are meant to trip the guard.
+basis for that exclusion SHALL be documented in the script. Every non-dot directory that `.gitignore` ignores at
+the repository root, other than the self-test's own probe directories that are meant to trip the guard, SHALL be in
+that exclusion, and the self-test SHALL fail when such a root-level directory pattern in `.gitignore` is not excluded.
 
 #### Scenario: A new top-level directory appears
 

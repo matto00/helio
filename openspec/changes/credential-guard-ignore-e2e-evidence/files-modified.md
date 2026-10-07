@@ -1,3 +1,0 @@
-- `scripts/check-no-credential-in-agent-surface.mjs` — add `e2e-evidence` to exported `IGNORED_TOP_LEVEL`; refresh header table
-- `scripts/check-no-credential-in-agent-surface.selftest.mjs` — e2e-evidence red/green cases (C1-safe), `.gitignore` consistency check with non-vacuity probe
-- `.gitignore` — ignore the new self-test mutated-script path
