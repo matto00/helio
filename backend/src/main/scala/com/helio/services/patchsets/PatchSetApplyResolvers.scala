@@ -570,9 +570,18 @@ private[services] object PatchSetApplyResolvers {
                 case None => loop(rest)
               }
           }
+          // HEL-1402: same strict step-config check `PipelineService.create` applies, surfaced at
+          // resolve time (422, nothing applied) like a pipelineStep update edit, instead of a
+          // forward-apply failure reported as HTTP 200.
+          val stepConfigError: Option[ServiceError] = request.steps.iterator.flatMap { step =>
+            PipelineStep.companionFor(step.`type`).toOption
+              .flatMap(_.validateRawConfig(step.config.compactPrint))
+              .map(msg => ServiceError.UnprocessableEntity(s"edit $index: Step '${step.clientId}': $msg"): ServiceError)
+          }.nextOption()
           loop(request.roots.toList).map {
             case Left(err) => Left(err)
-            case Right(()) => Right(ResolvedEdit(index, "pipeline", "create", None, ResolvedAction.PipelineCreate(request)))
+            case Right(()) =>
+              stepConfigError.toLeft(ResolvedEdit(index, "pipeline", "create", None, ResolvedAction.PipelineCreate(request)))
           }
         }
     }

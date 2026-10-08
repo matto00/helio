@@ -163,6 +163,20 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
       apply(body) ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       allCounts() shouldBe before
     }
+
+    // Regression pin, not red-first: `PipelineProposalService.validateSteps` already refuses this
+    // before `create` runs; HEL-1402 adds the same check inside `create` as a backstop.
+    "reject a compute step calling an unknown function with 422, creating nothing" in {
+      val before = allCounts()
+      val body =
+        s"""{"pipelineName":"P","roots":[{"sourceId":"$existingSourceId"}],
+           |"steps":[{"clientId":"s1","type":"compute","config":{"column":"c","expression":"nosuchfn(1)"}}]}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[String] should include("nosuchfn")
+      }
+      allCounts() shouldBe before
+    }
   }
 
   /** Sum of the four resource counts the atomicity contract covers — a single
