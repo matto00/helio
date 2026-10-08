@@ -162,6 +162,11 @@ describe("appearanceToEChartsOption", () => {
       });
     });
 
+    it("tags the tooltip element with the chart-tooltip class for DOM-scoped reads", () => {
+      const { option } = appearanceToEChartsOption(baseChart);
+      expect((option.tooltip as { className?: string }).className).toBe("chart-tooltip");
+    });
+
     // HEL-566 — the tooltip's DOM box (shadow/radius) isn't reachable through
     // ECharts' typed tooltip props; it has to go through `extraCssText`
     // (Decision 1).

@@ -143,9 +143,40 @@ for (const theme of ["light", "dark"] as const) {
       const picker = page.getByRole("combobox", { name: "Compare" });
       await expect(picker).toBeVisible();
       await expect(picker).toHaveAccessibleDescription(/Adds a .vs. line or bars/);
+      // HEL-1373 — put the trigger at the bottom of the sheet's scroll area, the placement CI's
+      // click retry (Playwright re-aligns after "element is not stable") produced and the one that
+      // pushed "7 days" below a 900px viewport. The listbox must still fit (flip/cap), never be
+      // reached by force-click or a bigger viewport.
+      // The sheet's preview lays out after open and shifts the content, so re-align until the
+      // trigger holds still in the lower part of the viewport.
+      let lastY = -1;
+      await expect
+        .poll(
+          async () => {
+            await picker.evaluate((el) => el.scrollIntoView({ block: "end" }));
+            const y = (await picker.boundingBox())?.y ?? 0;
+            const settled = y > 700 && y === lastY;
+            lastY = y;
+            return settled;
+          },
+          {
+            message: "Compare trigger holds still in the lower part of the viewport",
+            intervals: [300],
+          },
+        )
+        .toBe(true);
       await picker.click();
       // HEL-1285: chart Outputs offer "Previous" (same list as metric Outputs), exactly once.
       await expect(page.getByRole("option", { name: "Previous" })).toHaveCount(1);
+      const listbox = page.getByRole("listbox");
+      const listBox = (await listbox.boundingBox())!;
+      expect(listBox.y, "listbox top inside the viewport").toBeGreaterThanOrEqual(0);
+      expect(listBox.y + listBox.height, "listbox bottom inside the viewport").toBeLessThanOrEqual(
+        900,
+      );
+      await page.screenshot({
+        path: evidencePath("HEL-1373", `compare-listbox-open-${theme}.png`),
+      });
       await page.getByRole("option", { name: "7 days" }).click();
       await page.screenshot({
         path: evidencePath("HEL-1350", `editor-compare-picker-${theme}.png`),
