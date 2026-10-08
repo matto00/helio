@@ -1,5 +1,0 @@
-- `backend/src/main/scala/com/helio/services/dashboards/DashboardService.scala` — 473 -> 291 lines; write bodies delegated to three private modules, ACL/Forbidden/audit stay
-- `backend/src/main/scala/com/helio/services/dashboards/DashboardWrites.scala` — new: insertNew/applyUpdate/writeUpdate verbatim
-- `backend/src/main/scala/com/helio/services/dashboards/DashboardLayoutRepairWrite.scala` — new: repairLayout post-ownership tail verbatim
-- `backend/src/main/scala/com/helio/services/dashboards/DashboardSnapshotImport.scala` — new: importSnapshot body + validateImportPanels verbatim
-- `backend/src/main/scala/com/helio/services/dashboards/README.md` — Holds list updated
