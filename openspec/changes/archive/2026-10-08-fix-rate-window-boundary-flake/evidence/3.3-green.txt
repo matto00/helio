@@ -1,0 +1,12 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/task/fix-rate-window-flake/HEL-1374/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/task/fix-rate-window-flake/HEL-1374/backend/)
+... trimmed ...
+02:05:53.326 INFO  [pipeline-run-guard-integration-spec-pekko.actor.default-dispatcher-3] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] Run completed in 28 seconds, 531 milliseconds.
+[info] Total number of tests run: 42
+[info] Suites: completed 7, aborted 0
+[info] Tests: succeeded 42, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 29 s, cache 78%, 29 disk cache hits, 8 onsite tasks
+exit=0
