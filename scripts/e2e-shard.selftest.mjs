@@ -110,7 +110,7 @@ test("file arg is anchored, escaped, in /re/ form without g", () => {
   assert.ok(!re.test("/repo/e2e/hel1-xyspec.ts")); // dot is literal
 });
 
-test("empty shard: CLI refuses and never reaches Playwright", () => {
+test("out-of-range leg index: CLI refuses with usage and never reaches Playwright", () => {
   const r = spawnSync("node", [join(here, "e2e-shard.mjs"), "run", "5", "4"], { encoding: "utf8" });
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /usage: run <index 1\.\.count>/);

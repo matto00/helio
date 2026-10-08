@@ -276,8 +276,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const [mode, ...rest] = process.argv.slice(2);
   try {
     if (mode === "run") await run(Number(rest[0]), Number(rest[1]));
-    else if (mode === "plan") printPlan(plan(Number(rest[0] ?? 4)));
-    else if (mode === "weights") weightsMode(rest);
+    else if (mode === "plan") {
+      const n = Number(rest[0] ?? 4);
+      if (!Number.isInteger(n) || n < 1) throw new Error("usage: plan <count >= 1>");
+      printPlan(plan(n));
+    } else if (mode === "weights") weightsMode(rest);
     else
       throw new Error(
         "usage: e2e-shard.mjs run <index> <count> | plan <count> | weights <runDir>...",

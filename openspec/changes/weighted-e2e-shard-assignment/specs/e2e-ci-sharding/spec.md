@@ -54,6 +54,10 @@ imbalance of a same-window control of at least five counting runs on other heads
 - **THEN** the leg imbalance (slowest leg's median test step minus the mean of the legs' median test steps) is at most
   15 s and lower than both the 25-run before imbalance and the same-window control imbalance
 
+> Delivery note (HEL-1361): measured after imbalance was 20.5 s. It meets the before-25 line (25.5 s) but misses
+> <= 15 s and is not below the same-window control (20.0 s). The owner accepted the partial result on 2026-10-08;
+> the remaining per-leg wall-time drift is HEL-1368 scope (see profile.md).
+
 #### Scenario: An incomplete run is excluded
 - **WHEN** a measured run has a leg that hung, was cancelled, failed, or produced no test report
 - **THEN** the run is recorded with its logs but excluded from weight generation and from every measured set

@@ -1,0 +1,1400 @@
+e2e (4)	Set up job	﻿2026-10-08T00:13:47.5083610Z Current runner version: '2.337.0'
+e2e (4)	Set up job	2026-10-08T00:13:47.5111538Z ##[group]Runner Image Provisioner
+e2e (4)	Set up job	2026-10-08T00:13:47.5112611Z Hosted Compute Agent
+e2e (4)	Set up job	2026-10-08T00:13:47.5113250Z Version: 20260901.588
+e2e (4)	Set up job	2026-10-08T00:13:47.5113948Z Commit: <elided>
+e2e (4)	Set up job	2026-10-08T00:13:47.5114767Z Build Date: 2026-09-01T19:56:44Z
+e2e (4)	Set up job	2026-10-08T00:13:47.5115487Z Worker ID: {2554809e-c85e-4b12-b7c0-ae409766b8ef}
+e2e (4)	Set up job	2026-10-08T00:13:47.5116306Z Azure Region: northcentralus
+e2e (4)	Set up job	2026-10-08T00:13:47.5116964Z ##[endgroup]
+e2e (4)	Set up job	2026-10-08T00:13:47.5118387Z ##[group]Operating System
+e2e (4)	Set up job	2026-10-08T00:13:47.5119052Z Ubuntu
+e2e (4)	Set up job	2026-10-08T00:13:47.5119638Z 24.04.5
+e2e (4)	Set up job	2026-10-08T00:13:47.5120516Z LTS
+e2e (4)	Set up job	2026-10-08T00:13:47.5121072Z ##[endgroup]
+e2e (4)	Set up job	2026-10-08T00:13:47.5121632Z ##[group]Runner Image
+e2e (4)	Set up job	2026-10-08T00:13:47.5122373Z Image: ubuntu-24.04
+e2e (4)	Set up job	2026-10-08T00:13:47.5123015Z Version: 20260927.320.1
+e2e (4)	Set up job	2026-10-08T00:13:47.5124162Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/Ubuntu2404-Readme.md
+e2e (4)	Set up job	2026-10-08T00:13:47.5125876Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260927.320
+e2e (4)	Set up job	2026-10-08T00:13:47.5126990Z ##[endgroup]
+e2e (4)	Set up job	2026-10-08T00:13:47.5130783Z Contents: read
+e2e (4)	Set up job	2026-10-08T00:13:47.5131437Z Metadata: read
+e2e (4)	Set up job	2026-10-08T00:13:47.5132109Z ##[endgroup]
+e2e (4)	Set up job	2026-10-08T00:13:47.5135347Z Cache mode: write
+e2e (4)	Set up job	2026-10-08T00:13:47.5136069Z Prepare workflow directory
+e2e (4)	Set up job	2026-10-08T00:13:47.5714419Z Prepare all required actions
+e2e (4)	Set up job	2026-10-08T00:13:47.5782188Z Getting action download info
+e2e (4)	Set up job	2026-10-08T00:13:47.8192376Z Download action repository 'actions/checkout@v7' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:47.9388166Z Download action repository 'actions/setup-java@v6' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:48.4476341Z Download action repository 'sbt/setup-sbt@v1' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:48.5847715Z Download action repository 'actions/cache@v6' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:48.7655423Z Download action repository 'actions/setup-node@v7' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:48.8946253Z Download action repository 'actions/upload-artifact@v7' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:49.2542817Z Download action repository 'actions/upload-artifact@v4' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:49.5139937Z Getting action download info
+e2e (4)	Set up job	2026-10-08T00:13:49.6057985Z Download action repository 'actions/cache@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:49.7204357Z Download action repository 'carabiner-dev/actions@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:49.9237397Z Getting action download info
+e2e (4)	Set up job	2026-10-08T00:13:50.0033043Z Download action repository 'carabiner-dev/actions@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:50.1874505Z Download action repository 'actions/upload-artifact@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:50.3119300Z Getting action download info
+e2e (4)	Set up job	2026-10-08T00:13:50.3884854Z Download action repository 'carabiner-dev/actions@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:50.6595209Z Getting action download info
+e2e (4)	Set up job	2026-10-08T00:13:50.7338431Z Download action repository 'carabiner-dev/actions@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-08T00:13:50.9342128Z Getting action download info
+e2e (4)	Set up job	2026-10-08T00:13:51.0265065Z Getting action download info
+e2e (4)	Set up job	2026-10-08T00:13:51.1975676Z Complete job name: e2e (4)
+e2e (4)	Initialize containers	﻿2026-10-08T00:13:51.2488110Z ##[group]Checking docker version
+e2e (4)	Initialize containers	2026-10-08T00:13:51.2501587Z ##[command]/usr/bin/docker version --format '{{.Server.APIVersion}}'
+e2e (4)	Initialize containers	2026-10-08T00:13:52.4585780Z '1.48'
+e2e (4)	Initialize containers	2026-10-08T00:13:52.4601738Z Docker daemon API version: '1.48'
+e2e (4)	Initialize containers	2026-10-08T00:13:52.4602397Z ##[command]/usr/bin/docker version --format '{{.Client.APIVersion}}'
+e2e (4)	Initialize containers	2026-10-08T00:13:52.4858066Z '1.48'
+e2e (4)	Initialize containers	2026-10-08T00:13:52.4871842Z Docker client API version: '1.48'
+e2e (4)	Initialize containers	2026-10-08T00:13:52.4876586Z ##[endgroup]
+e2e (4)	Initialize containers	2026-10-08T00:13:52.4880168Z ##[group]Clean up resources from previous jobs
+e2e (4)	Initialize containers	2026-10-08T00:13:52.4885436Z ##[command]/usr/bin/docker ps --all --quiet --no-trunc --filter "label=25227a"
+e2e (4)	Initialize containers	2026-10-08T00:13:52.5234050Z ##[command]/usr/bin/docker network prune --force --filter "label=25227a"
+e2e (4)	Initialize containers	2026-10-08T00:13:52.5368599Z ##[endgroup]
+e2e (4)	Initialize containers	2026-10-08T00:13:52.5368961Z ##[group]Create local container network
+e2e (4)	Initialize containers	2026-10-08T00:13:52.5378394Z ##[command]/usr/bin/docker network create --label 25227a github_network_<elided>
+e2e (4)	Initialize containers	2026-10-08T00:13:52.5910101Z <elided>
+e2e (4)	Initialize containers	2026-10-08T00:13:52.5929471Z ##[endgroup]
+e2e (4)	Initialize containers	2026-10-08T00:13:52.5954552Z ##[group]Starting postgres service container
+e2e (4)	Initialize containers	2026-10-08T00:13:52.5975452Z ##[command]/usr/bin/docker pull postgres:16
+e2e (4)	Initialize containers	2026-10-08T00:13:53.0755221Z 16: Pulling from library/postgres
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2067969Z ecc510c1e359: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2068539Z 79faf13a8736: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2068828Z 6456bfbf35e7: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2069110Z b353db459ed1: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2069508Z 99f49de4fe2b: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2070057Z 83d1a2a3917c: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2070425Z 715ea0948cb1: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2070784Z 486e8305f56f: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2071149Z e7d675f11ded: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2071527Z c49864c27f35: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2071885Z 770ef8b308ea: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2072252Z 50c25daa0302: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2072662Z 8309db3ae5b6: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2073019Z 9731e27f2541: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2073383Z b353db459ed1: Waiting
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2073710Z e7d675f11ded: Waiting
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2074034Z 99f49de4fe2b: Waiting
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2074543Z 83d1a2a3917c: Waiting
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2074841Z 715ea0948cb1: Waiting
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2075041Z c49864c27f35: Waiting
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2075253Z 770ef8b308ea: Waiting
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2075450Z 486e8305f56f: Waiting
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2075650Z 50c25daa0302: Waiting
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2075847Z 9731e27f2541: Waiting
+e2e (4)	Initialize containers	2026-10-08T00:13:53.2076054Z 8309db3ae5b6: Waiting
+e2e (4)	Initialize containers	2026-10-08T00:13:53.3068833Z 79faf13a8736: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.3407007Z 6456bfbf35e7: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:53.3409493Z 6456bfbf35e7: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.3983174Z b353db459ed1: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:53.3985824Z b353db459ed1: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.4095118Z ecc510c1e359: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:53.4095881Z ecc510c1e359: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.4707146Z 99f49de4fe2b: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:53.4707710Z 99f49de4fe2b: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.4897008Z 83d1a2a3917c: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:53.4898192Z 83d1a2a3917c: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.4934064Z 715ea0948cb1: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:53.4936557Z 715ea0948cb1: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.5495276Z 486e8305f56f: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:53.5503878Z 486e8305f56f: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.5668268Z c49864c27f35: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:53.5668746Z c49864c27f35: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.6276425Z 770ef8b308ea: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:53.6276928Z 770ef8b308ea: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.6513496Z 50c25daa0302: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:53.6514920Z 50c25daa0302: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.7160324Z 8309db3ae5b6: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:53.7252590Z 9731e27f2541: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:53.7253100Z 9731e27f2541: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:54.0985327Z e7d675f11ded: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-08T00:13:54.0985895Z e7d675f11ded: Download complete
+e2e (4)	Initialize containers	2026-10-08T00:13:54.4582712Z ecc510c1e359: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:13:57.1221833Z 79faf13a8736: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:13:57.2882432Z 6456bfbf35e7: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:13:57.3256158Z b353db459ed1: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:13:57.6196524Z 99f49de4fe2b: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:13:57.6877499Z 83d1a2a3917c: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:13:57.6943249Z 715ea0948cb1: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:13:57.7053077Z 486e8305f56f: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:14:00.7370318Z e7d675f11ded: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:14:00.7496650Z c49864c27f35: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:14:00.7605758Z 770ef8b308ea: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:14:00.7690092Z 50c25daa0302: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:14:00.7758653Z 8309db3ae5b6: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:14:00.7837842Z 9731e27f2541: Pull complete
+e2e (4)	Initialize containers	2026-10-08T00:14:00.7878396Z Status: Downloaded newer image for postgres:16
+e2e (4)	Initialize containers	2026-10-08T00:14:00.7886432Z docker.io/library/postgres:16
+e2e (4)	Initialize containers	2026-10-08T00:14:00.8183353Z <elided>
+e2e (4)	Initialize containers	2026-10-08T00:14:00.8204873Z ##[command]/usr/bin/docker start <elided>
+e2e (4)	Initialize containers	2026-10-08T00:14:01.6181190Z <elided>
+e2e (4)	Initialize containers	2026-10-08T00:14:01.6193078Z ##[command]/usr/bin/docker ps --all --filter id=<elided> --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+e2e (4)	Initialize containers	2026-10-08T00:14:01.6338566Z <elided> Up Less than a second (health: starting)
+e2e (4)	Initialize containers	2026-10-08T00:14:01.6362990Z ##[command]/usr/bin/docker port <elided>
+e2e (4)	Initialize containers	2026-10-08T00:14:01.6506503Z 5432/tcp -> 0.0.0.0:5432
+e2e (4)	Initialize containers	2026-10-08T00:14:01.6507149Z 5432/tcp -> [::]:5432
+e2e (4)	Initialize containers	2026-10-08T00:14:01.6553718Z ##[endgroup]
+e2e (4)	Initialize containers	2026-10-08T00:14:01.6563118Z ##[group]Waiting for all services to be ready
+e2e (4)	Initialize containers	2026-10-08T00:14:01.6576390Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" <elided>
+e2e (4)	Initialize containers	2026-10-08T00:14:01.6713519Z starting
+e2e (4)	Initialize containers	2026-10-08T00:14:01.6736001Z postgres service is starting, waiting 2 seconds before checking again.
+e2e (4)	Initialize containers	2026-10-08T00:14:03.6733374Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" <elided>
+e2e (4)	Initialize containers	2026-10-08T00:14:03.6859332Z starting
+e2e (4)	Initialize containers	2026-10-08T00:14:03.6875042Z postgres service is starting, waiting 3 seconds before checking again.
+e2e (4)	Initialize containers	2026-10-08T00:14:07.4417127Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" <elided>
+e2e (4)	Initialize containers	2026-10-08T00:14:07.4544024Z starting
+e2e (4)	Initialize containers	2026-10-08T00:14:07.4557401Z postgres service is starting, waiting 7 seconds before checking again.
+e2e (4)	Initialize containers	2026-10-08T00:14:15.2819489Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" <elided>
+e2e (4)	Initialize containers	2026-10-08T00:14:15.2951268Z healthy
+e2e (4)	Initialize containers	2026-10-08T00:14:15.2972459Z postgres service is healthy.
+e2e (4)	Initialize containers	2026-10-08T00:14:15.2973248Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	﻿2026-10-08T00:14:15.3297400Z ##[group]Run actions/checkout@v7
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3297915Z with:
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3298365Z   repository: matto00/helio
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3301463Z   ssh-strict: true
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3301675Z   ssh-user: git
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3301895Z   persist-credentials: true
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3302131Z   clean: true
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3302347Z   sparse-checkout-cone-mode: true
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3302604Z   fetch-depth: 1
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3302809Z   fetch-tags: false
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3303020Z   show-progress: true
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3303234Z   lfs: false
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3303432Z   submodules: false
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3303640Z   set-safe-directory: true
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3303888Z   allow-unsafe-pr-checkout: false
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3304356Z env:
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3304630Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3304947Z   DB_USER: helio
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3305358Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3305652Z   DEV_PORT: 5173
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3305850Z   BACKEND_PORT: 8080
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3306066Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3306636Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.3307741Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4356327Z Syncing repository: matto00/helio
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4358204Z ##[group]Getting Git version info
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4358754Z Working directory is '/home/runner/work/helio/helio'
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4359582Z [command]/usr/bin/git version
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4376429Z git version 2.55.0
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4396238Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4406955Z Temporarily overriding HOME='/home/runner/work/_temp/7c8f04c8-f8ed-4b9d-96c5-1293f6516c52' before making global git config changes
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4408317Z Adding repository directory to the temporary git global config as a safe directory
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4412672Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/helio/helio
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4456080Z Deleting the contents of '/home/runner/work/helio/helio'
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4464036Z ##[group]Determining repository object format
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4464783Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4465340Z ##[group]Initializing the repository
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4466290Z [command]/usr/bin/git init /home/runner/work/helio/helio
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4556383Z hint: Using 'master' as the name for the initial branch. This default branch name
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4557296Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4558120Z hint: to use in all of your new repositories, which will suppress this warning,
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4558733Z hint: call:
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4559081Z hint:
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4559514Z hint: 	git config --global init.defaultBranch <name>
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4562961Z hint:
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4563465Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4564283Z hint: 'development'. The just-created branch can be renamed via this command:
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4564896Z hint:
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4565209Z hint: 	git branch -m <name>
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4565574Z hint:
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4566083Z hint: Disable this message with "git config set advice.defaultBranchName false"
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4566908Z Initialized empty Git repository in /home/runner/work/helio/helio/.git/
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4568412Z [command]/usr/bin/git remote add origin https://github.com/matto00/helio
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4611431Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4612137Z ##[group]Disabling automatic garbage collection
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4614990Z [command]/usr/bin/git config --local gc.auto 0
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4647190Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4648143Z ##[group]Setting up auth
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4648573Z Removing SSH command configuration
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4653384Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.4687163Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5024510Z Removing HTTP extra header
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5030633Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5075162Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5343903Z Removing includeIf entries pointing to credentials config files
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5350999Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5390036Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5635615Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-b94db1b9-6519-4e19-90f9-85b315a288eb.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5677405Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/helio/helio/.git.path /home/runner/work/_temp/git-credentials-b94db1b9-6519-4e19-90f9-85b315a288eb.config
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5714889Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-b94db1b9-6519-4e19-90f9-85b315a288eb.config
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5754150Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-b94db1b9-6519-4e19-90f9-85b315a288eb.config
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5792654Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-b94db1b9-6519-4e19-90f9-85b315a288eb.config
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5825014Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5825488Z ##[group]Fetching the repository
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:15.5831676Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin <elided>:refs/remotes/pull/822/merge
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:16.7710365Z From https://github.com/matto00/helio
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:16.7711143Z  * [new ref]         <elided> -> pull/822/merge
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:16.7715734Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:16.7716342Z ##[group]Determining the checkout info
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:16.7716987Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:16.7722505Z [command]/usr/bin/git sparse-checkout disable
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:16.7781806Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:16.7818785Z ##[group]Checking out the ref
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:16.7823448Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/822/merge
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6760710Z Note: switching to 'refs/remotes/pull/822/merge'.
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6761158Z 
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6761468Z You are in 'detached HEAD' state. You can look around, make experimental
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6762028Z changes and commit them, and you can discard any commits you make in this
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6762505Z state without impacting any branches by switching back to a branch.
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6762789Z 
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6762976Z If you want to create a new branch to retain commits you create, you may
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6763430Z do so (now or later) by using -c with the switch command. Example:
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6763681Z 
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6763800Z   git switch -c <new-branch-name>
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6763973Z 
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6764084Z Or undo this operation with:
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6764249Z 
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6764693Z   git switch -
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6764861Z 
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6765229Z Turn off this advice by setting config variable advice.detachedHead to false
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6765535Z 
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6765875Z HEAD is now at a962b2b Merge <elided> into <elided>
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6833739Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6837132Z [command]/usr/bin/git log -1 --format=%H
+e2e (4)	Run actions/checkout@v7	2026-10-08T00:14:17.6869507Z <elided>
+e2e (4)	Run actions/setup-java@v6	﻿2026-10-08T00:14:17.7156485Z ##[group]Run actions/setup-java@v6
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7156791Z with:
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7157008Z   distribution: temurin
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7157242Z   java-version: 21
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7157464Z   java-package: jdk
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7157686Z   check-latest: false
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7157922Z   force-download: false
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7158149Z   set-default: true
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7158357Z   server-id: github
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7158601Z   mvn-repositories-include-central: true
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7158926Z   mvn-repositories-prioritize-central: true
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7159258Z   overwrite-settings: true
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7159507Z   cache-read-only: false
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7159737Z   job-status: success
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7163814Z   show-download-progress: false
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7164164Z   problem-matcher: true
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7164470Z env:
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7164821Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7165366Z   DB_USER: helio
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7166019Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7166321Z   DEV_PORT: 5173
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7166527Z   BACKEND_PORT: 8080
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7166752Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7167344Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7168508Z ##[endgroup]
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.7972855Z ##[group]Installed distributions
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8099401Z Resolved Java 21.0.12+1 from tool-cache
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8100029Z Setting Java 21.0.12+1 as the default
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8107491Z 
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8107823Z Java configuration:
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8108206Z   Distribution: temurin
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8108543Z   Version: 21.0.12+1
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8109075Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8109369Z 
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8110561Z ##[endgroup]
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8160627Z Creating settings.xml with server-id: github
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8161304Z Creating toolchains.xml for JDK version 21 from temurin
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8161838Z Writing to /home/runner/.m2/settings.xml
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8162296Z Writing to /home/runner/.m2/toolchains.xml
+e2e (4)	Run actions/setup-java@v6	2026-10-08T00:14:17.8171737Z Configured MAVEN_ARGS to include -ntp to suppress Maven transfer progress logs. Set 'show-download-progress: true' to keep the download progress output.
+e2e (4)	Run sbt/setup-sbt@v1	﻿2026-10-08T00:14:17.8444677Z ##[group]Run sbt/setup-sbt@v1
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8444990Z with:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8445206Z   sbt-runner-version: 2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8445458Z   disk-cache: true
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8445668Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8445979Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8446326Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8446767Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8447012Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8447214Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8447587Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8448591Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8450934Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8451744Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8452375Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8452752Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8553512Z ##[start-action display=Set up cache paths;id=__sbt_setup-sbt.cache-paths]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8593425Z ##[group]Run JDK_VERSION=0
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8593786Z ^[[36;1mJDK_VERSION=0^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8594082Z ^[[36;1mif [[ -x "$(command -v java)" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8594555Z ^[[36;1m  JDK_VERSION=$(java -version 2>&1 | head -n 1 | sed -e 's/.*"\(.*\)"\(.*\)/\1/; 1q')^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8594963Z ^[[36;1mfi^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8595200Z ^[[36;1mif [[ "$RUNNER_OS" == "Windows" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8595676Z ^[[36;1m  echo "sbt_toolpath=$RUNNER_TOOL_CACHE\\sbt\\$SBT_RUNNER_VERSION" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8596218Z ^[[36;1m  echo "sbt_downloadpath=$RUNNER_TEMP\\_sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8596658Z ^[[36;1m  echo "sbt_diskcache=$LOCALAPPDATA\\sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8597143Z ^[[36;1m  echo "sbt_monday=$(date -d "last Monday" +%Y-%m-%d)" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8597555Z ^[[36;1melif [[ "$RUNNER_OS" == "macOS" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8597999Z ^[[36;1m  echo "sbt_toolpath=$RUNNER_TOOL_CACHE/sbt/$SBT_RUNNER_VERSION" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8598498Z ^[[36;1m  echo "sbt_downloadpath=$RUNNER_TEMP/_sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8598962Z ^[[36;1m  echo "sbt_diskcache=$HOME/Library/Caches/sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8599438Z ^[[36;1m  echo "sbt_monday=$(date -v-monday -v+0d +%Y-%m-%d)" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8600077Z ^[[36;1melse^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8600504Z ^[[36;1m  echo "sbt_toolpath=$RUNNER_TOOL_CACHE/sbt/$SBT_RUNNER_VERSION" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8601004Z ^[[36;1m  echo "sbt_downloadpath=$RUNNER_TEMP/_sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8601490Z ^[[36;1m  echo "sbt_diskcache=$HOME/.cache/sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8602050Z ^[[36;1m  echo "sbt_monday=$(date -d "last Monday" +%Y-%m-%d)" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8602557Z ^[[36;1mfi^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8795597Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8795967Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8796257Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8796582Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8797033Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8797292Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8797492Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8797745Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8798614Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8800028Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8800525Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8800903Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8801123Z   SBT_RUNNER_VERSION: 2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:17.8801600Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3838388Z ##[end-action id=__sbt_setup-sbt.cache-paths;outcome=success;conclusion=success;duration_ms=1528]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3842999Z ##[start-action display=Check tool cache;id=__sbt_setup-sbt.cache-tool-dir]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3863776Z ##[group]Run if [[ -f "$SBT_TOOLPATH/sbt/bin/sbt" ]]; then
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3864189Z ^[[36;1mif [[ -f "$SBT_TOOLPATH/sbt/bin/sbt" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3864532Z ^[[36;1m  echo "cache-hit=true" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3864825Z ^[[36;1melse^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3865053Z ^[[36;1m  mkdir -p "$SBT_TOOLPATH"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3865371Z ^[[36;1m  echo "cache-hit=false" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3865662Z ^[[36;1mfi^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3935815Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3936181Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3936473Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3936807Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3937251Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3937496Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3937720Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3937949Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3938548Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3940045Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3940595Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3940985Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3941237Z   SBT_TOOLPATH: /opt/hostedtoolcache/sbt/2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.3941530Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4054361Z ##[end-action id=__sbt_setup-sbt.cache-tool-dir;outcome=success;conclusion=success;duration_ms=21]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4056707Z ##[start-action display=Cache sbt distribution;id=__sbt_setup-sbt.cache-dir]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4103370Z ##[group]Run actions/cache@<elided>
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4103742Z with:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4103962Z   path: /opt/hostedtoolcache/sbt/2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4104545Z   enableCrossOsArchive: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4104810Z   fail-on-cache-miss: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4105049Z   lookup-only: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4105266Z   save-always: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4105468Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4105738Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4106062Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4106491Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4106731Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4106938Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4107158Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4107742Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4109148Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4109622Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4110201Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.4110424Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:19.6659165Z Cache hit for: Linux-X64-sbt-runner-2.0.9-1.5.3
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.4410679Z Received 56531573 of 56531573 (100.0%), 82.1 MBs/sec
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.4411307Z Cache Size: ~54 MB (56531573 B)
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.4437206Z [command]/usr/bin/tar -xf /home/runner/work/_temp/5139730e-8eca-47d4-b7f4-95b96915dee6/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7123020Z Cache restored successfully
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7328623Z ##[end-action id=__sbt_setup-sbt.cache-dir;outcome=success;conclusion=success;duration_ms=1327]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7334274Z ##[start-action display=Check runner cache;id=__sbt_setup-sbt.cache-tool-dir2]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7355095Z ##[group]Run # actions/cache seems to be buggy on Windows, so double check if restore worked
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7355709Z ^[[36;1m# actions/cache seems to be buggy on Windows, so double check if restore worked^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7356170Z ^[[36;1mif [[ -f "$SBT_TOOLPATH/sbt/bin/sbt" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7356531Z ^[[36;1m  echo "cache-hit=true" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7356829Z ^[[36;1melse^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7357089Z ^[[36;1m  echo "cache-hit=false" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7357381Z ^[[36;1mfi^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7426567Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7426926Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7427239Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7427610Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7428084Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7428344Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7428552Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7428784Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7429394Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7430761Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7431261Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7431649Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7431905Z   SBT_TOOLPATH: /opt/hostedtoolcache/sbt/2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7432205Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7531649Z ##[end-action id=__sbt_setup-sbt.cache-tool-dir2;outcome=success;conclusion=success;duration_ms=19]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:20.7533899Z ##[start-action display=sbt 2.x disk cache;id=__sbt_setup-sbt.disk-cache]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8652264Z ##[group]Run actions/cache@<elided>
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8652655Z with:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8652880Z   path: /home/runner/.cache/sbt
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8654518Z   enableCrossOsArchive: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8654792Z   fail-on-cache-miss: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8655032Z   lookup-only: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8655256Z   save-always: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8655463Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8655740Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8656103Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8656784Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8657037Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8657251Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8657484Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8658086Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8659330Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8660048Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8660457Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:21.8660679Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.0916019Z Cache hit for: Linux-X64-java21.0.12.1-sbt-diskcache-1.5.3-2026-10-05-<elided>
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3528896Z Received 51360 of 51360 (100.0%), 0.4 MBs/sec
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3529969Z Cache Size: ~0 MB (51360 B)
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3555184Z [command]/usr/bin/tar -xf /home/runner/work/_temp/5ec6a7be-9660-4017-a1e3-19d9beeae56c/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3628766Z Cache restored successfully
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3773908Z ##[end-action id=__sbt_setup-sbt.disk-cache;outcome=success;conclusion=success;duration_ms=1623]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3778273Z ##[start-action display=Download and Install sbt;id=__sbt_setup-sbt.__run]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3785205Z ##[end-action id=__sbt_setup-sbt.__run;outcome=skipped;conclusion=skipped;duration_ms=0]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3787306Z ##[start-action display=Verify the sbt distribution signature;id=__sbt_setup-sbt.ampel-verify]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3793827Z ##[end-action id=__sbt_setup-sbt.ampel-verify;outcome=skipped;conclusion=skipped;duration_ms=0]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3796102Z ##[start-action display=Setup PATH;id=__sbt_setup-sbt.__run_2]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3815557Z ##[group]Run cd "$SBT_TOOLPATH"
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3815873Z ^[[36;1mcd "$SBT_TOOLPATH"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3816143Z ^[[36;1mls sbt/bin/sbt^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3816411Z ^[[36;1mif [[ "$RUNNER_OS" == "Windows" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3816763Z ^[[36;1m  echo "$PWD\\sbt\\bin" >> "$GITHUB_PATH"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3817067Z ^[[36;1melse^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3817317Z ^[[36;1m  echo "$PWD/sbt/bin" >> "$GITHUB_PATH"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3817618Z ^[[36;1mfi^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3886999Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3887377Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3887676Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3888031Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3888513Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3888776Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3888994Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3889234Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3890057Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3891335Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3891840Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3892231Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3892499Z   SBT_TOOLPATH: /opt/hostedtoolcache/sbt/2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3892809Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.3994880Z sbt/bin/sbt
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-08T00:14:22.4007335Z ##[end-action id=__sbt_setup-sbt.__run_2;outcome=success;conclusion=success;duration_ms=21]
+e2e (4)	Cache sbt	﻿2026-10-08T00:14:23.3848205Z ##[group]Run actions/cache@v6
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3848699Z with:
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3849148Z   path: ~/.sbt
+e2e (4)	Cache sbt	~/.ivy2/cache
+e2e (4)	Cache sbt	~/.cache/coursier
+e2e (4)	Cache sbt	
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3851017Z   enableCrossOsArchive: false
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3851453Z   fail-on-cache-miss: false
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3851910Z   lookup-only: false
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3852289Z   save-always: false
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3852669Z env:
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3853154Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3853655Z   DB_USER: helio
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3854460Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3854913Z   DEV_PORT: 5173
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3855558Z   BACKEND_PORT: 8080
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3855915Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3856988Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3858686Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3859178Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3859566Z   MAVEN_ARGS: -ntp
+e2e (4)	Cache sbt	2026-10-08T00:14:23.3859984Z ##[endgroup]
+e2e (4)	Cache sbt	2026-10-08T00:14:23.6018421Z Cache hit for: sbt-<elided>
+e2e (4)	Cache sbt	2026-10-08T00:14:24.7504361Z Received 134217728 of 956400531 (14.0%), 124.5 MBs/sec
+e2e (4)	Cache sbt	2026-10-08T00:14:25.7531626Z Received 381681664 of 956400531 (39.9%), 179.4 MBs/sec
+e2e (4)	Cache sbt	2026-10-08T00:14:26.7539931Z Received 641728512 of 956400531 (67.1%), 201.9 MBs/sec
+e2e (4)	Cache sbt	2026-10-08T00:14:27.7593537Z Received 876609536 of 956400531 (91.7%), 207.2 MBs/sec
+e2e (4)	Cache sbt	2026-10-08T00:14:28.1677761Z Received 956400531 of 956400531 (100.0%), 205.4 MBs/sec
+e2e (4)	Cache sbt	2026-10-08T00:14:28.1678480Z Cache Size: ~912 MB (956400531 B)
+e2e (4)	Cache sbt	2026-10-08T00:14:28.1736396Z [command]/usr/bin/tar -xf /home/runner/work/_temp/b48bee6b-c4d9-4c9e-8ea6-5103c9e2fa34/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+e2e (4)	Cache sbt	2026-10-08T00:14:30.0328659Z Cache restored successfully
+e2e (4)	Start backend (sbt run, background)	﻿2026-10-08T00:14:30.2349440Z ##[group]Run scripts/e2e-backend.sh start
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2350149Z ^[[36;1mscripts/e2e-backend.sh start^[[0m
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2421498Z shell: /usr/bin/bash -e {0}
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2421791Z env:
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2422102Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2422497Z   DB_USER: helio
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2422988Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2423249Z   DEV_PORT: 5173
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2423471Z   BACKEND_PORT: 8080
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2423707Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2424338Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2425653Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2426226Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2426636Z   MAVEN_ARGS: -ntp
+e2e (4)	Start backend (sbt run, background)	2026-10-08T00:14:30.2426873Z ##[endgroup]
+e2e (4)	Run actions/setup-node@v7	﻿2026-10-08T00:14:30.3389186Z ##[group]Run actions/setup-node@v7
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3389494Z with:
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3389734Z   node-version: 22
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3390235Z   cache: npm
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3390591Z   cache-dependency-path: package-lock.json
+e2e (4)	Run actions/setup-node@v7	frontend/package-lock.json
+e2e (4)	Run actions/setup-node@v7	
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3391001Z   check-latest: false
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3393882Z   package-manager-cache: true
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3394157Z env:
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3394447Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3394791Z   DB_USER: helio
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3395272Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3395541Z   DEV_PORT: 5173
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3396342Z   BACKEND_PORT: 8080
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3396689Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3397534Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3400102Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3400814Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3401442Z   MAVEN_ARGS: -ntp
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.3401787Z ##[endgroup]
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.5147453Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:30.5150879Z ##[group]Environment details
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:33.8196933Z node: v22.23.3
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:33.8197471Z npm: 10.9.9
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:33.8198186Z yarn: 1.22.22
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:33.8198893Z ##[endgroup]
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:33.8218129Z [command]/opt/hostedtoolcache/node/22.23.3/x64/bin/npm config get cache
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:34.1817931Z /home/runner/.npm
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:34.3237921Z Cache hit for: node-cache-Linux-x64-npm-<elided>
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:35.4731618Z Received 83886080 of 115458366 (72.7%), 79.8 MBs/sec
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:35.6701205Z Received 115458366 of 115458366 (100.0%), 91.8 MBs/sec
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:35.6721009Z Cache Size: ~110 MB (115458366 B)
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:35.6891840Z [command]/usr/bin/tar -xf /home/runner/work/_temp/7067ed9a-359b-47bf-834c-0eb8fc03cdc3/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+e2e (4)	Run actions/setup-node@v7	2026-10-08T00:14:36.2691082Z Cache restored successfully
+e2e (4)	Run npm ci	﻿2026-10-08T00:14:36.3073952Z ##[group]Run npm ci
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3074410Z ^[[36;1mnpm ci^[[0m
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3237792Z shell: /usr/bin/bash -e {0}
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3238284Z env:
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3238765Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3239368Z   DB_USER: helio
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3240310Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3240757Z   DEV_PORT: 5173
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3241154Z   BACKEND_PORT: 8080
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3241544Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3242578Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3244755Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3245622Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3246384Z   MAVEN_ARGS: -ntp
+e2e (4)	Run npm ci	2026-10-08T00:14:36.3246759Z ##[endgroup]
+e2e (4)	Run npm ci	2026-10-08T00:14:41.5693148Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+e2e (4)	Run npm ci	2026-10-08T00:14:43.3823057Z npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+e2e (4)	Run npm ci	2026-10-08T00:14:47.4229608Z 
+e2e (4)	Run npm ci	2026-10-08T00:14:47.4240860Z > helio@0.7.4 prepare
+e2e (4)	Run npm ci	2026-10-08T00:14:47.4270556Z > husky
+e2e (4)	Run npm ci	2026-10-08T00:14:47.4300083Z 
+e2e (4)	Run npm ci	2026-10-08T00:14:47.5587987Z 
+e2e (4)	Run npm ci	2026-10-08T00:14:47.5601396Z added 623 packages, and audited 624 packages in 11s
+e2e (4)	Run npm ci	2026-10-08T00:14:47.5660172Z 
+e2e (4)	Run npm ci	2026-10-08T00:14:47.5690823Z 229 packages are looking for funding
+e2e (4)	Run npm ci	2026-10-08T00:14:47.5720726Z   run `npm fund` for details
+e2e (4)	Run npm ci	2026-10-08T00:14:47.7202434Z 
+e2e (4)	Run npm ci	2026-10-08T00:14:47.7231277Z 32 vulnerabilities (5 moderate, 27 high)
+e2e (4)	Run npm ci	2026-10-08T00:14:47.7290340Z 
+e2e (4)	Run npm ci	2026-10-08T00:14:47.7320809Z To address all issues, run:
+e2e (4)	Run npm ci	2026-10-08T00:14:47.7380848Z   npm audit fix
+e2e (4)	Run npm ci	2026-10-08T00:14:47.7410061Z 
+e2e (4)	Run npm ci	2026-10-08T00:14:47.7440479Z Run `npm audit` for details.
+e2e (4)	Run npm --prefix frontend ci	﻿2026-10-08T00:14:47.9187787Z ##[group]Run npm --prefix frontend ci
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9188369Z ^[[36;1mnpm --prefix frontend ci^[[0m
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9372452Z shell: /usr/bin/bash -e {0}
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9372925Z env:
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9373403Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9373972Z   DB_USER: helio
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9374730Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9375147Z   DEV_PORT: 5173
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9375484Z   BACKEND_PORT: 8080
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9375861Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9376881Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9378998Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9430223Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9431042Z   MAVEN_ARGS: -ntp
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:47.9431439Z ##[endgroup]
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:55.0732839Z npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:55.1052986Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:55.7014804Z npm warn deprecated source-map@0.8.0-beta.0: The work that was done in this beta branch won't be included in future versions
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:56.5546855Z npm warn deprecated glob@11.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:14:56.5552847Z npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:15:02.3643808Z 
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:15:02.3661195Z added 920 packages, and audited 921 packages in 14s
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:15:02.3661807Z 
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:15:02.3662192Z 266 packages are looking for funding
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:15:02.3710896Z   run `npm fund` for details
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:15:02.3721450Z 
+e2e (4)	Run npm --prefix frontend ci	2026-10-08T00:15:02.3791039Z found 0 vulnerabilities
+e2e (4)	Install Playwright browsers	﻿2026-10-08T00:15:02.4617520Z ##[group]Run npx playwright install --with-deps chromium
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4618224Z ^[[36;1mnpx playwright install --with-deps chromium^[[0m
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4813289Z shell: /usr/bin/bash -e {0}
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4813789Z env:
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4814275Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4814877Z   DB_USER: helio
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4815638Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4816054Z   DEV_PORT: 5173
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4816409Z   BACKEND_PORT: 8080
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4816800Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4818221Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4820519Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4821399Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4822082Z   MAVEN_ARGS: -ntp
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:02.4822456Z ##[endgroup]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:03.7865787Z Installing dependencies...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:03.8041855Z Switching to root user to install dependencies...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:03.9267333Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:03.9821849Z Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.0132357Z Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.0166899Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.0237110Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.0377600Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.1411633Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [463 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.1659020Z Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main armhf Packages [12.6 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.1821522Z Get:9 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [519 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.3361725Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1375 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.3652098Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [306 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.3711304Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [181 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.3755362Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1702 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.4008755Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [341 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.4083032Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [388 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.4152388Z Get:16 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1730 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.4431698Z Get:17 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [396 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.4481535Z Get:18 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse Translation-en [13.3 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.4485046Z Get:19 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.5492656Z Get:20 http://azure.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [5752 B]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.5531158Z Get:21 http://azure.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [12.6 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.6111764Z Get:22 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1073 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.6231669Z Get:23 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [223 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.6291250Z Get:24 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Components [46.4 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.6321206Z Get:25 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1218 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.6532686Z Get:26 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [245 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.6578566Z Get:27 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Components [76.3 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.6661850Z Get:28 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1566 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.6784962Z Get:29 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [361 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:04.6841176Z Get:30 http://azure.archive.ubuntu.com/ubuntu noble-security/multiverse Translation-en [11.6 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:12.1171287Z Fetched 12.6 MB in 2s (6120 kB/s)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:13.6771533Z Reading package lists...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:13.7151319Z Reading package lists...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.0690987Z Building dependency tree...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.0691735Z Reading state information...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3629959Z libasound2t64 is already the newest version (1.2.11-1ubuntu0.3).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3652172Z libasound2t64 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3653164Z libatk-bridge2.0-0t64 is already the newest version (2.52.0-1build1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3654017Z libatk-bridge2.0-0t64 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3654810Z libatk1.0-0t64 is already the newest version (2.52.0-1build1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3655524Z libatk1.0-0t64 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3656265Z libatspi2.0-0t64 is already the newest version (2.52.0-1build1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3657045Z libatspi2.0-0t64 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3657749Z libcairo2 is already the newest version (1.18.0-3build1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3658401Z libcairo2 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3659146Z libcups2t64 is already the newest version (2.4.7-1.2ubuntu7.14).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3660050Z libcups2t64 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3660744Z libdbus-1-3 is already the newest version (1.14.10-4ubuntu4.1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3661413Z libdbus-1-3 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3662106Z libdrm2 is already the newest version (2.4.125-1ubuntu0.1~24.04.2).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3662798Z libdrm2 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3663467Z libglib2.0-0t64 is already the newest version (2.80.0-6ubuntu3.9).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3664186Z libglib2.0-0t64 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3664926Z libnspr4 is already the newest version (2:4.35-1.1build1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3665585Z libnspr4 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3666200Z libnss3 is already the newest version (2:3.98-1ubuntu0.2).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3666789Z libnss3 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3667503Z libpango-1.0-0 is already the newest version (1.52.1+ds-1build1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3668164Z libpango-1.0-0 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3668855Z libx11-6 is already the newest version (2:1.8.7-1build1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3669501Z libx11-6 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3670355Z libxcb1 is already the newest version (1.15-1ubuntu2).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3671016Z libxcb1 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3671719Z libxcomposite1 is already the newest version (1:0.4.5-1build3).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3672449Z libxcomposite1 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3673182Z libxdamage1 is already the newest version (1:1.1.6-1build1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3673807Z libxdamage1 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3674451Z libxext6 is already the newest version (2:1.3.4-1build2).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3675086Z libxext6 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3675779Z libxfixes3 is already the newest version (1:6.0.0-2build1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3676415Z libxfixes3 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3677039Z libxkbcommon0 is already the newest version (1.6.0-1build1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3678175Z libxkbcommon0 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3678836Z libxrandr2 is already the newest version (2:1.5.2-2build1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3679460Z libxrandr2 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3700642Z xvfb is already the newest version (2:21.1.12-1ubuntu1.8).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3701659Z fonts-noto-color-emoji is already the newest version (2.047-0ubuntu0.24.04.1).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3702634Z libfontconfig1 is already the newest version (2.15.0-1.1ubuntu2).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3703373Z libfontconfig1 set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3704121Z fonts-liberation is already the newest version (1:2.1.5-3).
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3705226Z fonts-liberation set to manually installed.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3705970Z The following additional packages will be installed:
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3706852Z   libgl1-mesa-dri libglx-mesa0 mesa-libgallium xfonts-encodings xfonts-utils
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3707575Z Recommended packages:
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.3708078Z   fonts-ipafont-mincho fonts-tlwg-loma
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.4151466Z The following NEW packages will be installed:
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.4181246Z   fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.4182852Z   fonts-wqy-zenhei xfonts-cyrillic xfonts-encodings xfonts-scalable
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.4210914Z   xfonts-utils
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.4241000Z The following packages will be upgraded:
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.4270890Z   libfreetype6 libgbm1 libgl1-mesa-dri libglx-mesa0 mesa-libgallium
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.4656829Z 5 upgraded, 9 newly installed, 0 to remove and 25 not upgraded.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.4681049Z Need to get 32.5 MB of archives.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.4682119Z After this operation, 79.5 MB of additional disk space will be used.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.4686782Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.5232196Z Get:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-ipafont-gothic all 00303-21ubuntu1 [3513 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.6025356Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 fonts-freefont-ttf all 20211204+svn4273-2 [5641 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.7019551Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-tlwg-loma-otf all 1:0.7.3-1 [107 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.7230355Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-unifont all 1:15.1.01-1build1 [2993 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.8001874Z Get:6 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-wqy-zenhei all 0.9.45-8 [7472 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.9263731Z Get:7 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libfreetype6 amd64 2.13.2+dfsg-1ubuntu0.2 [403 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.9533606Z Get:8 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libgl1-mesa-dri amd64 25.2.8-0ubuntu0.24.04.4 [38.0 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:14.9759146Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libglx-mesa0 amd64 25.2.8-0ubuntu0.24.04.4 [110 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:15.0027272Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libgbm1 amd64 25.2.8-0ubuntu0.24.04.4 [34.2 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:15.0832008Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 mesa-libgallium amd64 25.2.8-0ubuntu0.24.04.4 [10.8 MB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:15.3157295Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-encodings all 1:1.0.5-0ubuntu2 [578 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:15.3522123Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-utils amd64 1:7.7+6build3 [94.4 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:15.3784414Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 xfonts-cyrillic all 1:1.0.5+nmu1 [384 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:15.4141522Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-scalable all 1:1.0.3-1.3 [304 kB]
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:15.9662866Z Fetched 32.5 MB in 1s (33.4 MB/s)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0116357Z Selecting previously unselected package fonts-ipafont-gothic.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0593339Z (Reading database ... 
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0619445Z (Reading database ... 5%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0624023Z (Reading database ... 10%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0624823Z (Reading database ... 15%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0625991Z (Reading database ... 20%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0626459Z (Reading database ... 25%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0665888Z (Reading database ... 30%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0666394Z (Reading database ... 35%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0666869Z (Reading database ... 40%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0667275Z (Reading database ... 45%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0667686Z (Reading database ... 50%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.0668106Z (Reading database ... 55%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.2279932Z (Reading database ... 60%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.4344422Z (Reading database ... 65%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.6253496Z (Reading database ... 70%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.7971083Z (Reading database ... 75%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:16.9706455Z (Reading database ... 80%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:17.1758659Z (Reading database ... 85%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:17.3850597Z (Reading database ... 90%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:17.5521553Z (Reading database ... 95%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:17.5540915Z (Reading database ... 100%
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:17.5571018Z (Reading database ... 202296 files and directories currently installed.)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:17.5598520Z Preparing to unpack .../00-fonts-ipafont-gothic_00303-21ubuntu1_all.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:17.5743074Z Unpacking fonts-ipafont-gothic (00303-21ubuntu1) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:17.9231461Z Selecting previously unselected package fonts-freefont-ttf.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:17.9403069Z Preparing to unpack .../01-fonts-freefont-ttf_20211204+svn4273-2_all.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:17.9441032Z Unpacking fonts-freefont-ttf (20211204+svn4273-2) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:18.1161570Z Selecting previously unselected package fonts-tlwg-loma-otf.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:18.1496413Z Preparing to unpack .../02-fonts-tlwg-loma-otf_1%3a0.7.3-1_all.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:18.1497517Z Unpacking fonts-tlwg-loma-otf (1:0.7.3-1) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:18.1841457Z Selecting previously unselected package fonts-unifont.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:18.2024651Z Preparing to unpack .../03-fonts-unifont_1%3a15.1.01-1build1_all.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:18.2046802Z Unpacking fonts-unifont (1:15.1.01-1build1) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:18.3702554Z Selecting previously unselected package fonts-wqy-zenhei.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:18.3931948Z Preparing to unpack .../04-fonts-wqy-zenhei_0.9.45-8_all.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:18.4036029Z Unpacking fonts-wqy-zenhei (0.9.45-8) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.0721913Z Preparing to unpack .../05-libfreetype6_2.13.2+dfsg-1ubuntu0.2_amd64.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.0801065Z Unpacking libfreetype6:amd64 (2.13.2+dfsg-1ubuntu0.2) over (2.13.2+dfsg-1ubuntu0.1) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.1411570Z Preparing to unpack .../06-libgl1-mesa-dri_25.2.8-0ubuntu0.24.04.4_amd64.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.1566529Z Unpacking libgl1-mesa-dri:amd64 (25.2.8-0ubuntu0.24.04.4) over (25.2.8-0ubuntu0.24.04.2) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.2221758Z Preparing to unpack .../07-libglx-mesa0_25.2.8-0ubuntu0.24.04.4_amd64.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.2241238Z Unpacking libglx-mesa0:amd64 (25.2.8-0ubuntu0.24.04.4) over (25.2.8-0ubuntu0.24.04.2) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.2706788Z Preparing to unpack .../08-libgbm1_25.2.8-0ubuntu0.24.04.4_amd64.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.2741176Z Unpacking libgbm1:amd64 (25.2.8-0ubuntu0.24.04.4) over (25.2.8-0ubuntu0.24.04.2) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.3341895Z Preparing to unpack .../09-mesa-libgallium_25.2.8-0ubuntu0.24.04.4_amd64.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.3397331Z Unpacking mesa-libgallium:amd64 (25.2.8-0ubuntu0.24.04.4) over (25.2.8-0ubuntu0.24.04.2) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.6107974Z Selecting previously unselected package xfonts-encodings.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.6296924Z Preparing to unpack .../10-xfonts-encodings_1%3a1.0.5-0ubuntu2_all.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.6312664Z Unpacking xfonts-encodings (1:1.0.5-0ubuntu2) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.6693263Z Selecting previously unselected package xfonts-utils.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.6831409Z Preparing to unpack .../11-xfonts-utils_1%3a7.7+6build3_amd64.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.6841042Z Unpacking xfonts-utils (1:7.7+6build3) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.7200531Z Selecting previously unselected package xfonts-cyrillic.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.7336460Z Preparing to unpack .../12-xfonts-cyrillic_1%3a1.0.5+nmu1_all.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.7343246Z Unpacking xfonts-cyrillic (1:1.0.5+nmu1) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.7832979Z Selecting previously unselected package xfonts-scalable.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.8021190Z Preparing to unpack .../13-xfonts-scalable_1%3a1.0.3-1.3_all.deb ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.8041518Z Unpacking xfonts-scalable (1:1.0.3-1.3) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.8761566Z Setting up mesa-libgallium:amd64 (25.2.8-0ubuntu0.24.04.4) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.8796157Z Setting up libgbm1:amd64 (25.2.8-0ubuntu0.24.04.4) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.8821108Z Setting up libgl1-mesa-dri:amd64 (25.2.8-0ubuntu0.24.04.4) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.8961056Z Setting up fonts-wqy-zenhei (0.9.45-8) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.9152804Z Setting up fonts-freefont-ttf (20211204+svn4273-2) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.9173767Z Setting up fonts-tlwg-loma-otf (1:0.7.3-1) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.9193072Z Setting up libfreetype6:amd64 (2.13.2+dfsg-1ubuntu0.2) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.9215393Z Setting up xfonts-encodings (1:1.0.5-0ubuntu2) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.9252926Z Setting up fonts-ipafont-gothic (00303-21ubuntu1) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.9347132Z update-alternatives: using <elided>-gothic/ipag.ttf to provide /usr/share/fonts/truetype/fonts-japanese-gothic.ttf (fonts-japanese-gothic.ttf) in auto mode
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.9362003Z Setting up fonts-unifont (1:15.1.01-1build1) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.9383657Z Setting up libglx-mesa0:amd64 (25.2.8-0ubuntu0.24.04.4) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.9391493Z Setting up xfonts-utils (1:7.7+6build3) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:19.9450565Z Setting up xfonts-cyrillic (1:1.0.5+nmu1) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:20.0149621Z Setting up xfonts-scalable (1:1.0.3-1.3) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:20.0858997Z Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:20.1318327Z Processing triggers for man-db (2.12.0-4build2) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:20.1342820Z Not building database; man-db/auto-update is not 'true'.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:20.1359646Z Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:21.0850521Z 
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:21.0891125Z Running kernel seems to be up-to-date.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:21.0910243Z 
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:21.0940719Z Restarting services...
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:21.1020836Z  systemctl restart php8.3-fpm.service
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:21.2690409Z 
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:21.2700999Z No containers need to be restarted.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:21.2740386Z 
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:21.2760840Z No user sessions are running outdated binaries.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:21.2761584Z 
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:21.2762410Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:22.8382140Z Downloading Chromium 140.0.7339.186 (playwright build v1193) from https://cdn.playwright.<elided>-linux.zip
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:23.1024670Z |                                                                                |   0% of 173.8 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:23.5451774Z |■■■■■■■■                                                                        |  10% of 173.8 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:23.7795828Z |■■■■■■■■■■■■■■■■                                                                |  20% of 173.8 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:23.9947439Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 173.8 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:24.1922493Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 173.8 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:24.3504651Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 173.8 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:24.5400321Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 173.8 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:24.6591873Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 173.8 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:24.8270826Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 173.8 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:25.0091796Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 173.8 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:25.1801350Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 173.8 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.2032589Z Chromium 140.0.7339.186 (playwright build v1193) downloaded to /home/runner/.cache/ms-playwright/chromium-1193
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.2061259Z Downloading FFMPEG playwright build v1011 from https://cdn.playwright.<elided>-linux.zip
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.5105211Z |                                                                                |   0% of 2.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.5520122Z |■■■■■■■■                                                                        |  10% of 2.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.5803585Z |■■■■■■■■■■■■■■■■                                                                |  20% of 2.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.5908758Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 2.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.6068770Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 2.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.6204724Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 2.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.6279023Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 2.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.6379567Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 2.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.6451387Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 2.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.6531539Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 2.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.6588611Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 2.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.7524199Z FFMPEG playwright build v1011 downloaded to /home/runner/.cache/ms-playwright/ffmpeg-1011
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:31.7550309Z Downloading Chromium Headless Shell 140.0.7339.186 (playwright build v1193) from https://cdn.playwright.<elided>-headless-shell-linux.zip
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.0136151Z |                                                                                |   0% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.1621502Z Error: Download failed: server closed connection. URL: https://cdn.playwright.<elided>-headless-shell-linux.zip
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.1641898Z     at IncomingMessage.<anonymous> (<elided>_modules/playwright-<elided>.js:82:24)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.1650922Z     at IncomingMessage.emit (node:events:519:28)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.1651809Z     at emitErrorNT (node:internal/streams/destroy:170:8)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.1652790Z     at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.1654522Z     at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.1716339Z Downloading Chromium Headless Shell 140.0.7339.186 (playwright build v1193) from https://playwright.download.prss.microsoft.<elided>-headless-shell-linux.zip
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.4626344Z |                                                                                |   0% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.6036564Z Error: Download failed: server closed connection. URL: https://playwright.download.prss.microsoft.<elided>-headless-shell-linux.zip
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.6043480Z     at IncomingMessage.<anonymous> (<elided>_modules/playwright-<elided>.js:82:24)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.6045729Z     at IncomingMessage.emit (node:events:519:28)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.6046721Z     at emitErrorNT (node:internal/streams/destroy:170:8)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.6048179Z     at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.6049280Z     at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.6156586Z Downloading Chromium Headless Shell 140.0.7339.186 (playwright build v1193) from https://cdn.playwright.<elided>-headless-shell-linux.zip
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:32.8101497Z |                                                                                |   0% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:33.0582848Z |■■■■■■■■                                                                        |  10% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:33.2046358Z |■■■■■■■■■■■■■■■■                                                                |  20% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:33.3445040Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:33.4658455Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:33.6002555Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:33.7276829Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:33.8058011Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:33.9532803Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:34.0832703Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:34.2562394Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 104.3 MiB
+e2e (4)	Install Playwright browsers	2026-10-08T00:15:37.7058037Z Chromium Headless Shell 140.0.7339.186 (playwright build v1193) downloaded to /home/runner/.cache/ms-playwright/chromium_headless_shell-1193
+e2e (4)	Wait for backend health	﻿2026-10-08T00:15:37.8539520Z ##[group]Run scripts/e2e-backend.sh wait
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8546569Z ^[[36;1mscripts/e2e-backend.sh wait^[[0m
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8746383Z shell: /usr/bin/bash -e {0}
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8746860Z env:
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8747324Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8747903Z   DB_USER: helio
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8748649Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8749059Z   DEV_PORT: 5173
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8749406Z   BACKEND_PORT: 8080
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8778779Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8780627Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8782708Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8783604Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8784254Z   MAVEN_ARGS: -ntp
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.8784627Z ##[endgroup]
+e2e (4)	Wait for backend health	2026-10-08T00:15:37.9131411Z e2e-backend: mode=server pgid=2896 exe=/usr/lib/jvm/temurin-21-jdk-amd64/bin/java
+e2e (4)	Wait for backend health	2026-10-08T00:16:18.3393685Z backend healthy after 41s
+e2e (4)	Wait for backend health	2026-10-08T00:16:18.3417022Z e2e-backend: mode=server pgid=2896 exe=/usr/lib/jvm/temurin-21-jdk-amd64/bin/java
+e2e (4)	Start frontend (Vite dev server)	﻿2026-10-08T00:16:18.3466268Z ##[group]Run nohup npx vite --port 5173 > /tmp/frontend.log 2>&1 &
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3467051Z ^[[36;1mnohup npx vite --port 5173 > /tmp/frontend.log 2>&1 &^[[0m
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3467638Z ^[[36;1mfor i in $(seq 1 30); do^[[0m
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3468166Z ^[[36;1m  curl -sf http://localhost:5173/ && exit 0^[[0m
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3468657Z ^[[36;1m  sleep 2^[[0m
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3468984Z ^[[36;1mdone^[[0m
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3469392Z ^[[36;1mecho "frontend did not become healthy" >&2^[[0m
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3470300Z ^[[36;1mcat /tmp/frontend.log^[[0m
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3470725Z ^[[36;1mexit 1^[[0m
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3544587Z shell: /usr/bin/bash -e {0}
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3544891Z env:
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3545204Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3545582Z   DB_USER: helio
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3546083Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3546368Z   DEV_PORT: 5173
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3546593Z   BACKEND_PORT: 8080
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3546894Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3547560Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3548939Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3549449Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3550146Z   MAVEN_ARGS: -ntp
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:18.3550397Z ##[endgroup]
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4101041Z <!doctype html>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4101538Z <html lang="en">
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4101881Z   <head>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4102549Z     <script type="module">import { injectIntoGlobalHook } from "/@react-refresh";
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4103258Z injectIntoGlobalHook(window);
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4103779Z window.$RefreshReg$ = () => {};
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4104410Z window.$RefreshSig$ = () => (type) => type;</script>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4104822Z 
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4105118Z     <script type="module" src="/@vite/client"></script>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4105486Z 
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4105650Z     <meta charset="UTF-8" />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4106448Z     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4107215Z     <title>Helio Dashboard</title>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4107844Z     <link rel="icon" type="image/svg+xml" href="/orbit-mark.svg" />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4108291Z 
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4108718Z     <!-- PWA / iOS installability (HEL-300, notes/mobile-pwa-handoff.md W1).
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4109590Z          Colours are literal copies of theme.css's --app-bg; see vite.config.ts
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4111060Z     <meta name="mobile-web-app-capable" content="yes" />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4111542Z     <meta name="apple-mobile-web-app-capable" content="yes" />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4112624Z     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4113350Z     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4114319Z     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f2ed" />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4115303Z     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121110" />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4115840Z 
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4116211Z     <link rel="preconnect" href="https://fonts.googleapis.com" />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4117047Z     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4117938Z     <!-- Loaded non-blocking: `media="print"` keeps this stylesheet out of the
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4118836Z          critical rendering path, and the onload handler promotes it to `all`
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4119675Z          once it arrives. A plain `rel="stylesheet"` here is render-blocking, so
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4120807Z          an unreachable fonts.googleapis.com/fonts.gstatic.com stalls the whole
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4121380Z          app -- prod AND the local dev server -- until the TCP timeout rather
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4121937Z          than degrading to the fallback stack in theme.css. Text paints
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4122477Z          immediately in the fallback face and swaps when (or if) the webfonts
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4122992Z          land; `display=swap` is what makes that swap flicker-free.
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4123493Z          The <noscript> copy preserves the blocking load for no-JS agents,
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4123977Z          which is the standard pairing for this pattern. -->
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4124330Z     <link
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4125357Z       href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4126419Z       rel="stylesheet"
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4126694Z       media="print"
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4126950Z       onload="
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4127204Z         this.media = 'all';
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4127490Z         this.onload = null;
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4127836Z       "
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4128096Z     />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4128329Z     <noscript>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4128560Z       <link
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4129705Z         href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4130834Z         rel="stylesheet"
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4131101Z       />
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4131324Z     </noscript>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4131554Z   </head>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4131772Z   <body>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4132002Z     <div id="root"></div>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4132468Z     <script type="module" src="/src/main.tsx"></script>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4132875Z   </body>
+e2e (4)	Start frontend (Vite dev server)	2026-10-08T00:16:20.4133093Z </html>
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	﻿2026-10-08T00:16:20.4184967Z ##[group]Run node scripts/e2e-shard.mjs run 4 4
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4185744Z ^[[36;1mnode scripts/e2e-shard.mjs run 4 4^[[0m
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4285556Z shell: /usr/bin/bash -e {0}
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4285878Z env:
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4286211Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4286597Z   DB_USER: helio
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4287112Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4287395Z   DEV_PORT: 5173
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4287647Z   BACKEND_PORT: 8080
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4287923Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4288606Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4290416Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4290998Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4291428Z   MAVEN_ARGS: -ntp
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:20.4291695Z ##[endgroup]
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8972651Z leg 4/4: 11 files, 376s weighted
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8973894Z      6s  hel1007-multi-root-reorder.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8974638Z     72s  hel1023-breakpoint-layout-derivation.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8975379Z     80s  hel1028-layout-undo-redo-visual-revert.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8976093Z     43s  hel1079-dataset-management-ui-live.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8976900Z     20s  hel1095-optimistic-pending-writing-panel-a11y.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8977659Z     15s  hel1096-run-to-update-affordance.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8978389Z     26s  hel1169-network-vs-rejection-reconcile-a11y.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8979099Z     35s  hel1260-orphan-owner-repair.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8979965Z      9s  hel1345-rootid-step-placement.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8980603Z     23s  hel1350-chart-compare-picker.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8981149Z     47s  hel519-recent-navigation.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:22.8982269Z defaulted (no weight row): hel1331-history-payloads-toggle.spec.ts, hel1351-aggregated-chart-overlay.spec.ts
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:25.3598818Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:25.3599670Z Running 49 tests using 2 workers
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:25.3600286Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:29.2609235Z [HEL-1023 e2e] throwaway user registered: hel1023-1791418586488-71374@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:29.5243303Z HEL1007-IDS {"email":"hel1007-1791418586467-56333@example.com","pipeline":"6ca24478-3f50-43bd-841f-3d0495de8c60","sources":["ced09a99-bdf6-434a-b675-e5e1c406adb0","e5be2f9f-1f8b-4f0f-8d5b-37bdb987ead7"],"rootA":"0ac2f12b-d994-42b3-9381-a5e4c5aee8e1","rootB":"e64d651d-96d1-4f14-b653-b0d035b289b7"}
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:30.6353191Z HEL1007-STEPS ["4b6c1a96-144f-404d-ab19-65ba46f91de1","afafc699-0204-4032-9a86-f68e60e35e30","dd78ecd8-7efc-4e31-bda1-3c165720d5ce","549c0398-5ada-4ef5-a7b1-3ffb241135cd","16ad2ddb-0c63-42fc-b7e2-16053aeb7428","4df07b6c-142b-4109-851c-71dfb30ce737"]
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:42.9744209Z [HEL-1023 e2e] throwaway user registered: hel1023-1791418599711-92247@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:48.8822459Z   ✓   2 e2e/hel1023-breakpoint-layout-derivation.spec.ts:394:9 › HEL-1023 derive/repair the breakpoint layout at render › A_lg_only: no overlap, inside the container, no PATCH on view, at every width (22.5s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:16:52.0152884Z [HEL-1023 e2e] throwaway user registered: hel1023-1791418608962-54463@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:01.3455626Z   ✓   3 e2e/hel1023-breakpoint-layout-derivation.spec.ts:394:9 › HEL-1023 derive/repair the breakpoint layout at render › B_partial: no overlap, inside the container, no PATCH on view, at every width (21.7s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:04.5941709Z [HEL-1023 e2e] throwaway user registered: hel1023-1791418621409-68091@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:09.9575307Z   ✓   4 e2e/hel1023-breakpoint-layout-derivation.spec.ts:394:9 › HEL-1023 derive/repair the breakpoint layout at render › C_lg_coords_everywhere: no overlap, inside the container, no PATCH on view, at every width (21.0s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:13.0113173Z [HEL-1023 e2e] throwaway user registered: hel1023-1791418630175-94479@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:20.8183083Z   ✓   5 e2e/hel1023-breakpoint-layout-derivation.spec.ts:394:9 › HEL-1023 derive/repair the breakpoint layout at render › D_md_overlap: no overlap, inside the container, no PATCH on view, at every width (19.4s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:25.7167632Z   ✓   6 e2e/hel1023-breakpoint-layout-derivation.spec.ts:486:7 › HEL-1023 derive/repair the breakpoint layout at render › V_valid_with_gaps: a valid authored layout renders exactly as saved at every breakpoint (15.7s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:28.8680275Z [HEL-1028 e2e] throwaway user registered: hel1028-lg-light-button-1791418645847-43575@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:35.4789736Z   ✓   8 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:156:13 › HEL-1028 layout undo/redo visually reverts the grid › lg light: drag, immediate undo, redo via button (9.7s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:38.5845357Z [HEL-1028 e2e] throwaway user registered: hel1028-lg-dark-button-1791418655610-6315@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:42.9862759Z [HEL-1028 e2e] throwaway user registered: hel1028-lg-noop-1791418660621-49717@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:44.3058043Z   ✓  10 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:156:13 › HEL-1028 layout undo/redo visually reverts the grid › lg dark: drag, immediate undo, redo via button (8.8s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:46.8790136Z [HEL-1028 e2e] throwaway user registered: hel1028-lg-resize-1791418664414-77511@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:47.2042767Z   ✓  11 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:219:9 › HEL-1028 layout undo/redo visually reverts the grid › lg: drag, undo, flush sends no layout PATCH (6.6s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:53.6402085Z [HEL-1028 e2e] throwaway user registered: hel1028-sm-light-button-1791418671110-67603@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:17:59.5062485Z   ✓  14 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:156:13 › HEL-1028 layout undo/redo visually reverts the grid › sm light: drag, immediate undo, redo via button (8.4s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:02.0105260Z [HEL-1028 e2e] throwaway user registered: hel1028-sm-dark-button-1791418679582-68555@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:06.6463075Z [HEL-1028 e2e] throwaway user registered: hel1028-sm-noop-1791418684346-95139@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:07.9748023Z   ✓  16 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:156:13 › HEL-1028 layout undo/redo visually reverts the grid › sm dark: drag, immediate undo, redo via button (8.5s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:10.5130884Z [HEL-1028 e2e] throwaway user registered: hel1028-sm-resize-1791418688073-89095@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:10.8598039Z   ✓  17 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:219:9 › HEL-1028 layout undo/redo visually reverts the grid › sm: drag, undo, flush sends no layout PATCH (6.6s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:13.7068299Z [HEL-1028 e2e] throwaway user registered: hel1028-xs-1791418690958-78575@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:14.7387418Z [HEL-1300 e2e] throwaway user: hel1079-create-1791418694738-37336@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:15.0636638Z   ✓  19 e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:279:7 › HEL-1028 layout undo/redo visually reverts the grid › xs: a container under 768px renders the mobile stack with no RGL grid to revert (4.2s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:15.1295738Z [HEL-1300 e2e] throwaway user: hel1095-busy-dark-1791418695126-26600@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:21.6125913Z   ✓  21 e2e/hel1095-optimistic-pending-writing-panel-a11y.spec.ts:108:9 › HEL-1095 optimistic pending/rollback ARIA state (real backend) › aria-busy is true while pending and clears on reconciliation (dark theme) (6.5s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:21.6815261Z [HEL-1300 e2e] throwaway user: hel1095-rollback-dark-1791418701679-39613@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:21.7537907Z [HEL-1300 e2e] throwaway user: hel1079-retype-reject-1791418701752-11404@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:27.8392333Z   ✓  23 e2e/hel1079-dataset-management-ui-live.spec.ts:97:7 › HEL-1079 dataset management UI — real backend › retyping a field to an incompatible type surfaces the 409 reason inline, editor stays open (6.1s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:27.9101481Z [HEL-1300 e2e] throwaway user: hel1079-drop-confirm-1791418707909-15386@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:28.0409000Z   ✓  22 e2e/hel1095-optimistic-pending-writing-panel-a11y.spec.ts:186:9 › HEL-1095 optimistic pending/rollback ARIA state (real backend) › rejected submit rolls back with an announced error, computed ARIA only (dark theme) (6.4s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:28.0922789Z [HEL-1300 e2e] throwaway user: hel1095-busy-light-1791418708091-8420@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:34.5592545Z   ✓  24 e2e/hel1079-dataset-management-ui-live.spec.ts:129:7 › HEL-1079 dataset management UI — real backend › dropping a field on a non-empty dataset requires confirmation, then the field's data is gone (6.7s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:34.6211751Z [HEL-1300 e2e] throwaway user: hel1079-block-required-1791418714619-55600@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:36.1843384Z   ✓  25 e2e/hel1095-optimistic-pending-writing-panel-a11y.spec.ts:108:9 › HEL-1095 optimistic pending/rollback ARIA state (real backend) › aria-busy is true while pending and clears on reconciliation (light theme) (8.1s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:36.2417024Z [HEL-1300 e2e] throwaway user: hel1095-rollback-light-1791418716241-86948@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:40.8719100Z   ✓  26 e2e/hel1079-dataset-management-ui-live.spec.ts:186:7 › HEL-1079 dataset management UI — real backend › adding a required field with no default to a non-empty dataset blocks submit, no request sent (6.3s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:40.9670686Z [HEL-1300 e2e] throwaway user: hel1079-combined-retype-drop-reject-1791418720965-11415@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:43.4278942Z   ✓  27 e2e/hel1095-optimistic-pending-writing-panel-a11y.spec.ts:186:9 › HEL-1095 optimistic pending/rollback ARIA state (real backend) › rejected submit rolls back with an announced error, computed ARIA only (light theme) (7.2s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:43.5098349Z [HEL-1300 e2e] throwaway user: hel1096-success-1791418723508-54244@example.com
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:46.8982802Z   ✓  28 e2e/hel1079-dataset-management-ui-live.spec.ts:228:7 › HEL-1079 dataset management UI — real backend › a confirmed drop combined with a rejected retype in the same submission leaves BOTH fields on screen (6.0s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:46.9619560Z [HEL-1300 e2e] throwaway user: hel1169-definite-dark-1791418726961-89097@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:52.6057205Z   ✓  29 e2e/hel1096-run-to-update-affordance.spec.ts:132:7 › HEL-1096 run-to-update affordance (real backend) › a denied form submit shows the specific-rule toast; clicking 'Run to update' submits a real run that refreshes the bound panel via the existing SSE fan-out (9.2s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:52.6510556Z [HEL-1300 e2e] throwaway user: hel1096-guard-429-1791418732650-5951@example.com
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:52.8798343Z   ✓  30 e2e/hel1169-network-vs-rejection-reconcile-a11y.spec.ts:95:9 › HEL-1169 network-vs-rejection reconcile ARIA state (real backend) › a definite (400) rejection rolls back, marks the control invalid, and survives its own successful reconciliation (dark theme) (6.0s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:52.9343637Z [HEL-1300 e2e] throwaway user: hel1169-indeterminate-dark-1791418732934-98888@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:58.5710074Z   ✓  32 e2e/hel1169-network-vs-rejection-reconcile-a11y.spec.ts:155:9 › HEL-1169 network-vs-rejection reconcile ARIA state (real backend) › an indeterminate failure whose reconciliation also fails does not roll back and announces "couldn't confirm", distinct from a rejection (dark theme) (5.7s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:18:58.6877154Z [HEL-1300 e2e] throwaway user: hel1169-definite-light-1791418738687-8859@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:01.9733503Z   ✓  31 e2e/hel1096-run-to-update-affordance.spec.ts:188:7 › HEL-1096 run-to-update affordance (real backend) › a guard-rejected 'Run to update' (429) shows a distinct rate/concurrency-limited message, never the gate-denial copy (9.4s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:04.9243584Z [HEL-1260 e2e] throwaway user: hel1260-1791418742084-8421@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:06.2383367Z   ✓  33 e2e/hel1169-network-vs-rejection-reconcile-a11y.spec.ts:95:9 › HEL-1169 network-vs-rejection reconcile ARIA state (real backend) › a definite (400) rejection rolls back, marks the control invalid, and survives its own successful reconciliation (light theme) (7.6s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:06.3431756Z [HEL-1300 e2e] throwaway user: hel1169-indeterminate-light-1791418746340-34707@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:09.6545251Z   ✓  34 e2e/hel1260-orphan-owner-repair.spec.ts:24:7 › owner open of an orphaned text panel sends one repair POST and stores every breakpoint (light) (7.7s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:12.4044126Z [HEL-1260 e2e] throwaway user: hel1260-1791418749766-96385@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:13.2671042Z   ✓  35 e2e/hel1169-network-vs-rejection-reconcile-a11y.spec.ts:155:9 › HEL-1169 network-vs-rejection reconcile ARIA state (real backend) › an indeterminate failure whose reconciliation also fails does not roll back and announces "couldn't confirm", distinct from a rejection (light theme) (7.0s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:13.7850647Z HEL1345-IDS {"userEmail":"hel1345-e2e-1791418753270-7920@example.com","userId":"5af62ddf-814c-4d5d-93fa-7e4635998a6c"}
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:13.9101358Z HEL1345-IDS {"userEmail":"hel1345-e2e-1791418753270-7920@example.com","userId":"5af62ddf-814c-4d5d-93fa-7e4635998a6c","sourceId":"c0f7e590-1e16-449c-9343-0f857db76e9a"}
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:14.0074851Z HEL1345-IDS {"userEmail":"hel1345-e2e-1791418753270-7920@example.com","userId":"5af62ddf-814c-4d5d-93fa-7e4635998a6c","sourceId":"c0f7e590-1e16-449c-9343-0f857db76e9a","pipelineId":"189ac774-bc58-4848-a095-56113b4c5101"}
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:17.3818172Z   ✓  36 e2e/hel1260-orphan-owner-repair.spec.ts:24:7 › owner open of an orphaned text panel sends one repair POST and stores every breakpoint (dark) (7.7s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:20.5206813Z [HEL-1260 e2e] throwaway user: hel1260-1791418757462-12351@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:21.8759640Z   ✓  37 e2e/hel1345-rootid-step-placement.spec.ts:44:7 › HEL-1345 — rootId step create placement persists › append then insert, reload: persisted order equals the displayed order (7.9s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:22.4565344Z [HEL-1350 e2e] created user 88cde48e-2192-4628-8879-cd327ee26432
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:24.9956773Z [HEL-1350 e2e] created source f7ea7800-57e6-456f-826b-29cc41404919 pipeline daccbae0-cefc-4b49-b196-12ab30ea6056 output 45f98759-34d4-4e3d-88e3-e8748415a1c1 dashboard 0b3c233a-248e-4465-8955-6bf88cc6a456
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:25.4340289Z [HEL-1350 e2e] backdated history row ids: 243a926f-c46d-4a43-afe9-3f552264728d
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:26.7466527Z   ✓  38 e2e/hel1260-orphan-owner-repair.spec.ts:108:7 › creating a text panel through the UI stores an item in every breakpoint and the position survives a reload (light) (9.3s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:29.9621534Z [HEL-1260 e2e] throwaway user: hel1260-1791418766862-58816@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:32.6425315Z [HEL-1350 e2e] deleting dashboard 0b3c233a-248e-4465-8955-6bf88cc6a456 pipeline daccbae0-cefc-4b49-b196-12ab30ea6056 source f7ea7800-57e6-456f-826b-29cc41404919
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:32.8842415Z   ✓  39 e2e/hel1350-chart-compare-picker.spec.ts:34:7 › chart Compare picker sets compare and the dashboard draws the "vs 7d" overlay (light) (11.0s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:33.4126110Z [HEL-1350 e2e] created user 500133ff-0614-4be4-8c8a-27b8b1a50be2
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:36.0573951Z [HEL-1350 e2e] created source 5ab89a35-dd8e-485e-bbb6-2f5a2e8e811e pipeline 69166b0a-f6fc-41a8-8955-025e6fef9cc8 output fcb8b6cf-a7ac-4810-aa09-c3618a3715c1 dashboard 3a726a29-d3d9-4049-8f66-e5609cb07357
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:36.2254497Z [HEL-1350 e2e] backdated history row ids: 39db5142-601a-43ab-b431-4af008825973
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:36.4542497Z   ✓  40 e2e/hel1260-orphan-owner-repair.spec.ts:108:7 › creating a text panel through the UI stores an item in every breakpoint and the position survives a reload (dark) (9.7s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:36.5311940Z [HEL-1300 e2e] throwaway user: hel519-source-list-1791418776529-56666@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:41.9835762Z   ✓  42 e2e/hel519-recent-navigation.spec.ts:73:7 › HEL-519 recent navigation — recording fires in a real browser › visiting a source from its list records it under Recent (5.5s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:42.0321546Z [HEL-1300 e2e] throwaway user: hel519-pipeline-url-1791418782030-90453@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:47.3432530Z   ✓  43 e2e/hel519-recent-navigation.spec.ts:92:7 › HEL-519 recent navigation — recording fires in a real browser › arriving at a pipeline via direct URL records it under Recent (5.3s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:47.3985926Z [HEL-1300 e2e] throwaway user: hel519-pipeline-bf-1791418787397-77241@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:54.0793380Z   ✓  44 e2e/hel519-recent-navigation.spec.ts:110:7 › HEL-519 recent navigation — recording fires in a real browser › back/forward between two pipelines records BOTH under Recent (6.7s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:54.1286204Z [HEL-1300 e2e] throwaway user: hel519-dashboard-reload-1791418794127-35899@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:59.0857261Z   ✓  45 e2e/hel519-recent-navigation.spec.ts:134:7 › HEL-519 recent navigation — recording fires in a real browser › a full reload's auto-selected dashboard is recorded under Recent (5.0s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:19:59.1386338Z [HEL-1300 e2e] throwaway user: hel519-persist-1791418799138-26797@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:20:05.8554508Z   ✓  46 e2e/hel519-recent-navigation.spec.ts:156:7 › HEL-519 recent navigation — recording fires in a real browser › selecting a recent entry from the palette navigates, and persists across reload (6.8s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:20:05.9024149Z [HEL-1300 e2e] throwaway user: hel519-fresh-1791418805902-13525@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:20:08.4092789Z   ✓  47 e2e/hel519-recent-navigation.spec.ts:187:7 › HEL-519 recent navigation — recording fires in a real browser › a fresh profile shows no Recent section, and the default sections still render (2.5s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:20:08.4875869Z [HEL-1300 e2e] throwaway user: hel519-typing-1791418808487-77234@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:20:12.7852725Z   ✓  48 e2e/hel519-recent-navigation.spec.ts:201:7 › HEL-519 recent navigation — recording fires in a real browser › typing a query hides the Recent section (4.4s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:20:12.8486651Z [HEL-1300 e2e] throwaway user: hel519-root-landing-1791418812848-37402@example.test
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:20:18.1873638Z   ✓  49 e2e/hel519-recent-navigation.spec.ts:226:7 › HEL-519 recent navigation — recording fires in a real browser › a source visited earlier renders under Recent on / after a full reload (5.4s)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.1682134Z [HEL-1350 e2e] deleting dashboard 3a726a29-d3d9-4049-8f66-e5609cb07357 pipeline 69166b0a-f6fc-41a8-8955-025e6fef9cc8 source 5ab89a35-dd8e-485e-bbb6-2f5a2e8e811e
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.3522569Z   ✘  41 e2e/hel1350-chart-compare-picker.spec.ts:34:7 › chart Compare picker sets compare and the dashboard draws the "vs 7d" overlay (dark) (2.5m)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4747890Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4753007Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4764864Z   1) e2e/hel1350-chart-compare-picker.spec.ts:34:7 › chart Compare picker sets compare and the dashboard draws the "vs 7d" overlay (dark) 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4765881Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4766290Z     ^[[31mTest timeout of 150000ms exceeded.^[[39m
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4766660Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4767177Z     Error: apiRequestContext.delete: Target page, context or browser has been closed
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4767768Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4767935Z       204 |       );
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4768393Z       205 |       if (created.dashboard)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4769249Z     > 206 |         await request.delete(`/api/dashboards/${created.dashboard}`, { headers: CSRF });
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4770310Z           |                             ^
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4770846Z       207 |       if (created.pipeline)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4771684Z       208 |         await request.delete(`/api/pipelines/${created.pipeline}`, { headers: CSRF });
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4772492Z       209 |       if (created.source)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4773302Z         at <elided>-chart-compare-picker.spec.ts:206:29
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4773902Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4774536Z     Error Context: test-results/hel1350-chart-compare-pick-0acd3-aws-the-vs-7d-overlay-dark-/error-context.md
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4775208Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4775907Z     attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4776993Z     test-results/hel1350-chart-compare-pick-0acd3-aws-the-vs-7d-overlay-dark-/trace.zip
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4777720Z     Usage:
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4777887Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4778610Z         npx playwright show-trace test-results/hel1350-chart-compare-pick-0acd3-aws-the-vs-7d-overlay-dark-/trace.zip
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4779351Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4780250Z     ────────────────────────────────────────────────────────────────────────────────────────────────
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4780758Z 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4780899Z   1 failed
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4782079Z     e2e/hel1350-chart-compare-picker.spec.ts:34:7 › chart Compare picker sets compare and the dashboard draws the "vs 7d" overlay (dark) 
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.4783065Z   48 passed (5.6m)
+e2e (4)	Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)	2026-10-08T00:22:03.5143185Z ##[error]Process completed with exit code 1.
+e2e (4)	Upload Playwright JSON report (per-test durations)	﻿2026-10-08T00:22:03.5213479Z ##[group]Run actions/upload-artifact@v7
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5213812Z with:
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5214052Z   name: playwright-json-shard-4
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5214346Z   path: test-results/results.json
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5214646Z   if-no-files-found: ignore
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5214916Z   retention-days: 14
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5215162Z   compression-level: 6
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5215411Z   overwrite: false
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5215656Z   include-hidden-files: false
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5215919Z   archive: true
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5216144Z env:
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5216440Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5216784Z   DB_USER: helio
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5217458Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5217727Z   DEV_PORT: 5173
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5217950Z   BACKEND_PORT: 8080
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5218191Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5218862Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5220442Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5220957Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5221366Z   MAVEN_ARGS: -ntp
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.5221613Z ##[endgroup]
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.6618748Z With the provided path, there will be 1 file uploaded
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.6639199Z Artifact name is valid!
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.6640421Z Root directory input is valid!
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.9067538Z Uploading artifact: playwright-json-shard-4.zip
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:03.9120841Z Beginning upload of artifact content to blob storage
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:04.0752609Z Uploaded bytes 56679
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:04.1052312Z Finished uploading artifact content to blob storage!
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:04.1054543Z Finalizing artifact upload
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:04.3407031Z Artifact playwright-json-shard-4 successfully finalized. Artifact ID 11519847931
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:04.3408651Z Artifact playwright-json-shard-4 has been successfully uploaded! Final size is 56679 bytes. Artifact ID is 11519847931
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-08T00:22:04.3411807Z Artifact download URL: https://github.<elided>
+e2e (4)	Upload sbt hang diagnostics	﻿2026-10-08T00:22:04.3564456Z ##[group]Run actions/upload-artifact@v4
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3564801Z with:
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3565050Z   name: sbt-diagnostics-e2e-shard-4
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3565409Z   path: /home/runner/work/_temp/sbt-diagnostics
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3565753Z   if-no-files-found: ignore
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3566022Z   retention-days: 14
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3566270Z   compression-level: 6
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3566516Z   overwrite: false
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3566759Z   include-hidden-files: false
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3567027Z env:
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3567315Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3567655Z   DB_USER: helio
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3568125Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3568390Z   DEV_PORT: 5173
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3590525Z   BACKEND_PORT: 8080
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3590876Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3591552Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3592926Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3593453Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3593854Z   MAVEN_ARGS: -ntp
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.3594091Z ##[endgroup]
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.5244140Z (node:6464) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.5245554Z (Use `node --trace-deprecation ...` to show where the warning was created)
+e2e (4)	Upload sbt hang diagnostics	2026-10-08T00:22:04.5260739Z No files were found with the provided path: /home/runner/work/_temp/sbt-diagnostics. No artifacts will be uploaded.
+e2e (4)	Upload Playwright report on failure	﻿2026-10-08T00:22:04.5470777Z ##[group]Run actions/upload-artifact@v7
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5471284Z with:
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5471656Z   name: playwright-report-shard-4
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5472226Z   path: test-results/
+e2e (4)	Upload Playwright report on failure	/tmp/backend.log
+e2e (4)	Upload Playwright report on failure	/tmp/frontend.log
+e2e (4)	Upload Playwright report on failure	
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5473039Z   retention-days: 7
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5473424Z   if-no-files-found: warn
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5473831Z   compression-level: 6
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5474212Z   overwrite: false
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5474589Z   include-hidden-files: false
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5475004Z   archive: true
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5475343Z env:
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5475791Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5476341Z   DB_USER: helio
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5477077Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5477493Z   DEV_PORT: 5173
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5477841Z   BACKEND_PORT: 8080
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5478224Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5479279Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5481607Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5482444Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5483108Z   MAVEN_ARGS: -ntp
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.5483467Z ##[endgroup]
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.7018645Z Multiple search paths detected. Calculating the least common ancestor of all paths
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.7021739Z The least common ancestor is /. This will be the root directory of the artifact
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.7023074Z With the provided path, there will be 5 files uploaded
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.7030613Z Artifact name is valid!
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.7031490Z Root directory input is valid!
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.9184338Z Uploading artifact: playwright-report-shard-4.zip
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:04.9225589Z Beginning upload of artifact content to blob storage
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:05.2378255Z Uploaded bytes 1567088
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:05.2664065Z Finished uploading artifact content to blob storage!
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:05.2666215Z Finalizing artifact upload
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:05.5497529Z Artifact playwright-report-shard-4 successfully finalized. Artifact ID 11519403934
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:05.5498519Z Artifact playwright-report-shard-4 has been successfully uploaded! Final size is 1567088 bytes. Artifact ID is 11519403934
+e2e (4)	Upload Playwright report on failure	2026-10-08T00:22:05.5502215Z Artifact download URL: https://github.<elided>
+e2e (4)	Post Run sbt/setup-sbt@v1	﻿2026-10-08T00:22:05.5796208Z Post job cleanup.
+e2e (4)	Post Run sbt/setup-sbt@v1	2026-10-08T00:22:05.5800526Z ##[start-action display=sbt 2.x disk cache;id=__fd22d06c-0476-4ebf-b00c-98c4a9d6754c.disk-cache]
+e2e (4)	Post Run sbt/setup-sbt@v1	2026-10-08T00:22:05.5803057Z ##[end-action id=__fd22d06c-0476-4ebf-b00c-98c4a9d6754c.disk-cache;outcome=skipped;conclusion=skipped;duration_ms=0]
+e2e (4)	Post Run sbt/setup-sbt@v1	2026-10-08T00:22:05.5805114Z ##[start-action display=Cache sbt distribution;id=__fd22d06c-0476-4ebf-b00c-98c4a9d6754c.cache-dir]
+e2e (4)	Post Run sbt/setup-sbt@v1	2026-10-08T00:22:05.5807138Z ##[end-action id=__fd22d06c-0476-4ebf-b00c-98c4a9d6754c.cache-dir;outcome=skipped;conclusion=skipped;duration_ms=0]
+e2e (4)	Post Run actions/setup-java@v6	﻿2026-10-08T00:22:05.5889353Z Post job cleanup.
+e2e (4)	Post Run actions/checkout@v7	﻿2026-10-08T00:22:05.6730715Z Post job cleanup.
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.7666187Z [command]/usr/bin/git version
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.7737077Z git version 2.55.0
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.7784996Z Temporarily overriding HOME='/home/runner/work/_temp/e81f7062-44a2-4614-a98f-5b26d173054b' before making global git config changes
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.7788302Z Adding repository directory to the temporary git global config as a safe directory
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.7792054Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/helio/helio
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.7842042Z Removing SSH command configuration
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.7844443Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.7893263Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8204657Z Removing HTTP extra header
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8211676Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8252073Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8549537Z Removing includeIf entries pointing to credentials config files
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8559965Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8601436Z includeif.gitdir:/home/runner/work/helio/helio/.git.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8602370Z includeif.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8603054Z includeif.gitdir:/github/workspace/.git.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8603693Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8612872Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/helio/helio/.git.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8642857Z /home/runner/work/_temp/git-credentials-b94db1b9-6519-4e19-90f9-85b315a288eb.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8655127Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/helio/helio/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-b94db1b9\-6519\-4e19\-90f9\-85b315a288eb\.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8714486Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8747362Z /home/runner/work/_temp/git-credentials-b94db1b9-6519-4e19-90f9-85b315a288eb.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8757824Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-b94db1b9\-6519\-4e19\-90f9\-85b315a288eb\.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8801470Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8832858Z /github/runner_temp/git-credentials-b94db1b9-6519-4e19-90f9-85b315a288eb.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8840972Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-b94db1b9\-6519\-4e19\-90f9\-85b315a288eb\.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8880160Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8908630Z /github/runner_temp/git-credentials-b94db1b9-6519-4e19-90f9-85b315a288eb.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8917719Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-b94db1b9\-6519\-4e19\-90f9\-85b315a288eb\.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.8959634Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+e2e (4)	Post Run actions/checkout@v7	2026-10-08T00:22:05.9243128Z Removing credentials config '/home/runner/work/_temp/git-credentials-b94db1b9-6519-4e19-90f9-85b315a288eb.config'
+e2e (4)	Stop containers	﻿2026-10-08T00:22:05.9378115Z Print service container logs: <elided>_postgres16_0020fd
+e2e (4)	Stop containers	2026-10-08T00:22:05.9383505Z ##[command]/usr/bin/docker logs --details <elided>
+e2e (4)	Stop containers	2026-10-08T00:22:05.9520738Z  The files belonging to this database system will be owned by user "postgres".
+e2e (4)	Stop containers	2026-10-08T00:22:05.9521496Z  This user must also own the server process.
+e2e (4)	Stop containers	2026-10-08T00:22:05.9521844Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9522207Z  The database cluster will be initialized with locale "en_US.utf8".
+e2e (4)	Stop containers	2026-10-08T00:22:05.9522775Z  The default database encoding has accordingly been set to "UTF8".
+e2e (4)	Stop containers	2026-10-08T00:22:05.9523346Z  The default text search configuration will be set to "english".
+e2e (4)	Stop containers	2026-10-08T00:22:05.9523711Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9524457Z  Data page checksums are disabled.
+e2e (4)	Stop containers	2026-10-08T00:22:05.9524906Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9525346Z  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+e2e (4)	Stop containers	2026-10-08T00:22:05.9525921Z  creating subdirectories ... ok
+e2e (4)	Stop containers	2026-10-08T00:22:05.9526492Z  selecting dynamic shared memory implementation ... posix
+e2e (4)	Stop containers	2026-10-08T00:22:05.9527057Z  selecting default max_connections ... 100
+e2e (4)	Stop containers	2026-10-08T00:22:05.9527548Z  selecting default shared_buffers ... 128MB
+e2e (4)	Stop containers	2026-10-08T00:22:05.9528037Z  selecting default time zone ... Etc/UTC
+e2e (4)	Stop containers	2026-10-08T00:22:05.9528506Z  creating configuration files ... ok
+e2e (4)	Stop containers	2026-10-08T00:22:05.9528959Z  running bootstrap script ... ok
+e2e (4)	Stop containers	2026-10-08T00:22:05.9529479Z  performing post-bootstrap initialization ... ok
+e2e (4)	Stop containers	2026-10-08T00:22:05.9530224Z  syncing data to disk ... ok
+e2e (4)	Stop containers	2026-10-08T00:22:05.9530626Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9530920Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9531328Z  Success. You can now start the database server using:
+e2e (4)	Stop containers	2026-10-08T00:22:05.9531842Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9532261Z      pg_ctl -D /var/lib/postgresql/data -l logfile start
+e2e (4)	Stop containers	2026-10-08T00:22:05.9532780Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9533792Z  waiting for server to start....2026-10-08 00:14:02.227 UTC [48] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+e2e (4)	Stop containers	2026-10-08T00:22:05.9535149Z  2026-10-08 00:14:02.228 UTC [48] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+e2e (4)	Stop containers	2026-10-08T00:22:05.9536088Z  2026-10-08 00:14:02.230 UTC [51] LOG:  database system was shut down at 2026-10-08 00:14:02 UTC
+e2e (4)	Stop containers	2026-10-08T00:22:05.9536913Z  2026-10-08 00:14:02.234 UTC [48] LOG:  database system is ready to accept connections
+e2e (4)	Stop containers	2026-10-08T00:22:05.9537533Z   done
+e2e (4)	Stop containers	2026-10-08T00:22:05.9537853Z  server started
+e2e (4)	Stop containers	2026-10-08T00:22:05.9538197Z  CREATE DATABASE
+e2e (4)	Stop containers	2026-10-08T00:22:05.9538582Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9538880Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9539415Z  /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+e2e (4)	Stop containers	2026-10-08T00:22:05.9540236Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9540849Z  waiting for server to shut down...2026-10-08 00:14:02.411 UTC [48] LOG:  received fast shutdown request
+e2e (4)	Stop containers	2026-10-08T00:22:05.9541758Z  .2026-10-08 00:14:02.412 UTC [48] LOG:  aborting any active transactions
+e2e (4)	Stop containers	2026-10-08T00:22:05.9544996Z  initdb: warning: enabling "trust" authentication for local connections
+e2e (4)	Stop containers	2026-10-08T00:22:05.9546195Z  initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+e2e (4)	Stop containers	2026-10-08T00:22:05.9547704Z  2026-10-08 00:14:02.533 UTC [1] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+e2e (4)	Stop containers	2026-10-08T00:22:05.9548630Z  2026-10-08 00:14:02.533 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+e2e (4)	Stop containers	2026-10-08T00:22:05.9549162Z  2026-10-08 00:14:02.533 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+e2e (4)	Stop containers	2026-10-08T00:22:05.9549722Z  2026-10-08 00:14:02.534 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+e2e (4)	Stop containers	2026-10-08T00:22:05.9550601Z  2026-10-08 00:14:02.537 UTC [64] LOG:  database system was shut down at 2026-10-08 00:14:02 UTC
+e2e (4)	Stop containers	2026-10-08T00:22:05.9551171Z  2026-10-08 00:14:02.541 UTC [1] LOG:  database system is ready to accept connections
+e2e (4)	Stop containers	2026-10-08T00:22:05.9552038Z  2026-10-08 00:14:11.682 UTC [75] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9552461Z  2026-10-08 00:14:21.760 UTC [83] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9552857Z  2026-10-08 00:14:31.846 UTC [90] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9553253Z  2026-10-08 00:14:41.940 UTC [98] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9553660Z  2026-10-08 00:14:52.211 UTC [106] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9554076Z  2026-10-08 00:15:02.305 UTC [114] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9554478Z  2026-10-08 00:15:12.411 UTC [124] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9554922Z  2026-10-08 00:15:22.498 UTC [132] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9555478Z  2026-10-08 00:15:32.597 UTC [140] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9555876Z  2026-10-08 00:15:42.690 UTC [149] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9556278Z  2026-10-08 00:15:52.800 UTC [157] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9556682Z  2026-10-08 00:16:02.899 UTC [166] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9557094Z  2026-10-08 00:16:12.971 UTC [174] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9557511Z  2026-10-08 00:16:23.044 UTC [189] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9557918Z  2026-10-08 00:16:33.156 UTC [198] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9558317Z  2026-10-08 00:16:43.257 UTC [208] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9558717Z  2026-10-08 00:16:53.348 UTC [218] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9559118Z  2026-10-08 00:17:03.441 UTC [226] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9559521Z  2026-10-08 00:17:13.532 UTC [235] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9560210Z  2026-10-08 00:17:23.651 UTC [243] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9560623Z  2026-10-08 00:17:33.750 UTC [251] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9561036Z  2026-10-08 00:17:43.883 UTC [259] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9561434Z  2026-10-08 00:17:53.974 UTC [270] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9561834Z  2026-10-08 00:18:04.059 UTC [278] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9562233Z  2026-10-08 00:18:14.157 UTC [287] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9562629Z  2026-10-08 00:18:24.254 UTC [295] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9563024Z  2026-10-08 00:18:34.388 UTC [304] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9563421Z  2026-10-08 00:18:44.693 UTC [312] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9563819Z  2026-10-08 00:18:54.797 UTC [324] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9564337Z  2026-10-08 00:19:02.636 UTC [62] LOG:  checkpoint starting: time
+e2e (4)	Stop containers	2026-10-08T00:22:05.9564754Z  2026-10-08 00:19:04.888 UTC [331] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9565160Z  2026-10-08 00:19:15.032 UTC [340] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9565558Z  2026-10-08 00:19:25.145 UTC [348] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9565957Z  2026-10-08 00:19:35.271 UTC [360] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9566352Z  2026-10-08 00:19:45.375 UTC [371] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9567387Z  2026-10-08 00:19:53.193 UTC [62] LOG:  checkpoint complete: wrote 508 buffers (3.1%); 1 WAL file(s) added, 0 removed, 0 recycled; write=50.537 s, sync=0.006 s, total=50.558 s; sync files=425, longest=0.002 s, average=0.001 s; distance=3419 kB, estimate=3419 kB; lsn=0/1CDC880, redo lsn=0/1C75DB8
+e2e (4)	Stop containers	2026-10-08T00:22:05.9568462Z  2026-10-08 00:19:55.455 UTC [380] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9568903Z  2026-10-08 00:20:05.566 UTC [388] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9569309Z  2026-10-08 00:20:15.669 UTC [397] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9570086Z  2026-10-08 00:20:25.734 UTC [405] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9570505Z  2026-10-08 00:20:35.795 UTC [414] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9570906Z  2026-10-08 00:20:45.858 UTC [422] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9571307Z  2026-10-08 00:20:55.919 UTC [431] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9571707Z  2026-10-08 00:21:05.981 UTC [439] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9572111Z  2026-10-08 00:21:16.045 UTC [448] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9572509Z  2026-10-08 00:21:26.107 UTC [456] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9572905Z  2026-10-08 00:21:36.171 UTC [465] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9573457Z  2026-10-08 00:21:46.233 UTC [473] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9573855Z  2026-10-08 00:21:56.294 UTC [482] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-08T00:22:05.9574438Z  2026-10-08 00:14:02.413 UTC [48] LOG:  background worker "logical replication launcher" (PID 54) exited with exit code 1
+e2e (4)	Stop containers	2026-10-08T00:22:05.9575023Z  2026-10-08 00:14:02.415 UTC [49] LOG:  shutting down
+e2e (4)	Stop containers	2026-10-08T00:22:05.9575447Z  2026-10-08 00:14:02.415 UTC [49] LOG:  checkpoint starting: shutdown immediate
+e2e (4)	Stop containers	2026-10-08T00:22:05.9576510Z  2026-10-08 00:14:02.428 UTC [49] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.012 s, sync=0.002 s, total=0.014 s; sync files=301, longest=0.001 s, average=0.001 s; distance=4273 kB, estimate=4273 kB; lsn=0/191F0E0, redo lsn=0/191F0E0
+e2e (4)	Stop containers	2026-10-08T00:22:05.9577539Z  2026-10-08 00:14:02.435 UTC [48] LOG:  database system is shut down
+e2e (4)	Stop containers	2026-10-08T00:22:05.9577891Z   done
+e2e (4)	Stop containers	2026-10-08T00:22:05.9578119Z  server stopped
+e2e (4)	Stop containers	2026-10-08T00:22:05.9578354Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9578629Z  PostgreSQL init process complete; ready for start up.
+e2e (4)	Stop containers	2026-10-08T00:22:05.9578971Z  
+e2e (4)	Stop containers	2026-10-08T00:22:05.9584509Z Stop and remove container: <elided>_postgres16_0020fd
+e2e (4)	Stop containers	2026-10-08T00:22:05.9589024Z ##[command]/usr/bin/docker rm --force <elided>
+e2e (4)	Stop containers	2026-10-08T00:22:06.0858388Z <elided>
+e2e (4)	Stop containers	2026-10-08T00:22:06.0887644Z Remove container network: github_network_<elided>
+e2e (4)	Stop containers	2026-10-08T00:22:06.0892271Z ##[command]/usr/bin/docker network rm github_network_<elided>
+e2e (4)	Stop containers	2026-10-08T00:22:06.2339492Z github_network_<elided>
+e2e (4)	Complete job	﻿2026-10-08T00:22:06.2412430Z Cleaning up orphan processes
+e2e (4)	Complete job	2026-10-08T00:22:06.2813778Z Terminate orphan process: pid (2896) (java)
+e2e (4)	Complete job	2026-10-08T00:22:06.2879423Z Terminate orphan process: pid (4337) (java)
+e2e (4)	Complete job	2026-10-08T00:22:06.2918932Z Terminate orphan process: pid (4459) (npm exec vite --port 5173)
+e2e (4)	Complete job	2026-10-08T00:22:06.2964242Z Terminate orphan process: pid (4474) (sh)
+e2e (4)	Complete job	2026-10-08T00:22:06.3007962Z Terminate orphan process: pid (4475) (node)
+e2e (4)	Complete job	2026-10-08T00:22:06.3076098Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

@@ -6,6 +6,9 @@ reproduced below; the per-run tables were computed by `actions/runs/<id>/attempt
 
 ## Summary
 
+> HISTORICAL: this summary describes the pre-merge measurement (run 37676655366). It is superseded by the final
+> measurement (head 4b8f9f71b, run 37748264806) and the owner accept-partial ruling at the end of this file.
+
 Weighted shard assignment (`scripts/e2e-shard.mjs`, `e2e/shard-weights.tsv`) is in place and exact-once verified on
 every leg in all 7 CI attempts. Honest read of the numbers:
 
