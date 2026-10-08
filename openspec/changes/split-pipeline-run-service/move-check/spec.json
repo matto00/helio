@@ -1,0 +1,1284 @@
+{
+ "PipelineRunSupport.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.TruncatedReadResponse",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{DataSource, Pipeline, PipelineId, TruncatedRead, TruncationSink}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{InProcessPipelineEngine, SourceReadStats, StepExecutionException}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.PipelineRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Shared helpers for the run-lifecycle collaborators: execution-failure logging/translation, run-truncation",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": " *  field assembly and serialization, and root DataSource resolution. Split out of `PipelineRunService` (HEL-1371). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineRunSupport(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  private val log = LoggerFactory.getLogger(classOf[PipelineRunService])",
+   "cat": "logger"
+  },
+  {
+   "member": "logExecutionFailure",
+   "range": [
+    120,
+    128
+   ],
+   "subst": {
+    "124": "  private[pipelines] def logExecutionFailure(context: String, ex: Throwable): Unit = ex match {"
+   }
+  },
+  {
+   "member": "executionFailureError",
+   "range": [
+    130,
+    138
+   ],
+   "subst": {
+    "133": "  private[pipelines] def executionFailureError(ex: Throwable): ServiceError = ex match {"
+   }
+  },
+  {
+   "member": "truncationFields",
+   "range": [
+    173,
+    201
+   ],
+   "subst": {
+    "179": "  private[pipelines] def truncationFields("
+   }
+  },
+  {
+   "member": "truncatedReadsToJson",
+   "range": [
+    203,
+    226
+   ],
+   "subst": {
+    "216": "  private[pipelines] def truncatedReadsToJson(primaryAvailableRowCount: Option[Long], reads: Vector[TruncatedReadResponse]): String ="
+   }
+  },
+  {
+   "member": "resolvePrimaryDataSourceInternal",
+   "range": [
+    315,
+    327
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveAllRootDataSourcesInternal",
+   "range": [
+    329,
+    341
+   ],
+   "subst": {
+    "336": "  private[pipelines] def resolveAllRootDataSourcesInternal(pipelineId: PipelineId): Future[Vector[(String, DataSource)]] ="
+   }
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineRunTerminalWrites.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{RunResultResponse, TruncatedReadResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AssertionResult, AssertionSink, AuthenticatedUser, Pipeline, PipelineId, PipelineRunId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.StepExecutionException",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import java.time.Instant",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** The terminal persist-then-publish paths: the HEL-1366 `publishTerminalAfter` primitive and the failed,",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": " *  dry_run, write-back-failed and blocked terminal paths that publish through it. Split out of",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": " *  `PipelineRunService` (HEL-1371). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineRunTerminalWrites(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRunRepo: PipelineRunRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    registry: PipelineRunRegistry,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineRunSupport",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  private val log = LoggerFactory.getLogger(classOf[PipelineRunService])",
+   "cat": "logger"
+  },
+  {
+   "scaffold": "  import support.{executionFailureError, logExecutionFailure, truncatedReadsToJson}",
+   "cat": "member-import"
+  },
+  {
+   "member": "publish",
+   "range": [
+    990,
+    991
+   ],
+   "subst": {
+    "990": "  private[pipelines] def publish(pipelineId: String, event: RunStatusEvent): Unit ="
+   }
+  },
+  {
+   "member": "publishTerminalAfter",
+   "range": [
+    993,
+    1003
+   ],
+   "subst": {
+    "997": "  private[pipelines] def publishTerminalAfter[T](pipelineId: String, event: RunStatusEvent, writes: => Future[T]): Future[T] ="
+   }
+  },
+  {
+   "member": "executeRunFailure",
+   "range": [
+    1120,
+    1168
+   ],
+   "subst": {
+    "1123": "  private[pipelines] def executeRunFailure("
+   }
+  },
+  {
+   "member": "persistAssertions",
+   "range": [
+    1230,
+    1243
+   ],
+   "subst": {
+    "1240": "  private[pipelines] def persistAssertions(runId: PipelineRunId, results: Vector[AssertionResult]): Future[Unit] ="
+   }
+  },
+  {
+   "member": "onDryRunSuccess",
+   "range": [
+    1245,
+    1276
+   ],
+   "subst": {
+    "1245": "  private[pipelines] def onDryRunSuccess("
+   }
+  },
+  {
+   "member": "onWriteBackFailure",
+   "range": [
+    1348,
+    1376
+   ],
+   "subst": {
+    "1354": "  private[pipelines] def onWriteBackFailure("
+   }
+  },
+  {
+   "member": "onBlockedRun",
+   "range": [
+    1378,
+    1412
+   ],
+   "subst": {
+    "1385": "  private[pipelines] def onBlockedRun("
+   }
+  },
+  {
+   "member": "summarizeBlockingFailures",
+   "range": [
+    1645,
+    1656
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineRunSucceededWrites.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.alerts.AlertEvaluationService",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.TruncatedReadResponse",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.routes.pipelines.RunStatusEvent",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AssertionResult, AuthenticatedUser, BinaryRef, DataFieldType, DataSourceId, Output, PipelineId, PipelineRootId, PipelineRunId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, StepKey}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.history.{OutputSummaryReducer, PayloadHistoryConfig, PayloadOptIn}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputHistoryInsert, NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import slick.dbio.DBIO",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json.DefaultJsonProtocol._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import java.time.Instant",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import java.util.UUID",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** The unblocked-success materialization chain (node snapshots, history, binary refs, alert evaluation) and its",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": " *  terminal `succeeded` publish through [[PipelineRunTerminalWrites.publishTerminalAfter]]. Split out of",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": " *  `PipelineRunService` (HEL-1371). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineRunSucceededWrites(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineStepRepo: PipelineStepRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRunRepo: PipelineRunRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    binaryRefRepo: BinaryRefRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    alertEvaluationService: AlertEvaluationService,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    outputRepo: OutputRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    nodeSnapshotRepo: NodeSnapshotRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    outputHistoryRepo: OutputHistoryRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    nodePayloadRepo: NodePayloadHistoryRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    payloadConfig: PayloadHistoryConfig,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineRunSupport,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    terminal: PipelineRunTerminalWrites",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  private val log = LoggerFactory.getLogger(classOf[PipelineRunService])",
+   "cat": "logger"
+  },
+  {
+   "scaffold": "  import support.truncatedReadsToJson",
+   "cat": "member-import"
+  },
+  {
+   "scaffold": "  import terminal.{persistAssertions, publishTerminalAfter}",
+   "cat": "member-import"
+  },
+  {
+   "member": "historyConfigs",
+   "range": [
+    1414,
+    1419
+   ],
+   "subst": {}
+  },
+  {
+   "member": "onUnblockedRunSuccess",
+   "range": [
+    1421,
+    1643
+   ],
+   "subst": {
+    "1423": "  private[pipelines] def onUnblockedRunSuccess("
+   }
+  },
+  {
+   "member": "extractBinaryRefs",
+   "range": [
+    1658,
+    1687
+   ],
+   "subst": {}
+  },
+  {
+   "member": "isBinaryRefShape",
+   "range": [
+    1689,
+    1693
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineRunExecutor.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{RunResultResponse, TruncatedReadResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.routes.pipelines.RunStatusEvent",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AssertionResult, AssertionSink, AuthenticatedUser, DataSource, DataSourceId, Pipeline, PipelineId, PipelineRunId, PipelineStep, PipelineStepKind, TruncationSink, UserId, WriteBackSink}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.sources.DataSourceService",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, SourceReadStats, StepKey}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.util.Clock",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import java.time.Instant",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import java.util.UUID",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.{Failure, Success}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.control.NonFatal",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Submit-time run execution: the guard/pre-exec chain, the engine call and the dispatch of its success and",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": " *  failure outcomes to the terminal collaborators. Split out of `PipelineRunService` (HEL-1371). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineRunExecutor(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineStepRepo: PipelineStepRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRunRepo: PipelineRunRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRunGuardRepo: PipelineRunGuardRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    guardConfig: PipelineRunGuardConfig,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    guardClock: Clock,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    backend: PipelineExecutionBackend,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineRunSupport,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    terminal: PipelineRunTerminalWrites,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    succeeded: PipelineRunSucceededWrites",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  private val log = LoggerFactory.getLogger(classOf[PipelineRunService])",
+   "cat": "logger"
+  },
+  {
+   "scaffold": "  import support.{resolveAllRootDataSourcesInternal, truncationFields}",
+   "cat": "member-import"
+  },
+  {
+   "scaffold": "  import terminal.{executeRunFailure, onBlockedRun, onDryRunSuccess, onWriteBackFailure, publish}",
+   "cat": "member-import"
+  },
+  {
+   "scaffold": "  import succeeded.onUnblockedRunSuccess",
+   "cat": "member-import"
+  },
+  {
+   "member": "runPipeline",
+   "range": [
+    343,
+    387
+   ],
+   "subst": {
+    "343": "  private[pipelines] def runPipeline("
+   }
+  },
+  {
+   "member": "executeRun",
+   "range": [
+    1005,
+    1118
+   ],
+   "subst": {}
+  },
+  {
+   "member": "executeRunSuccess",
+   "range": [
+    1170,
+    1228
+   ],
+   "subst": {}
+  },
+  {
+   "member": "onRunSuccess",
+   "range": [
+    1278,
+    1329
+   ],
+   "subst": {}
+  },
+  {
+   "member": "applyPendingWriteBacks",
+   "range": [
+    1331,
+    1346
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineRunBackfill.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AssertionSink, AuthenticatedUser, DataFieldType, PipelineId, PipelineRootId, PipelineStepId, TruncationSink}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{NodeDependencyClosure, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, StepKey}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Targeted single-node Output backfill (HEL-947). Split out of `PipelineRunService` (HEL-1371). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineRunBackfill(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineStepRepo: PipelineStepRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRunRepo: PipelineRunRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    outputRepo: OutputRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    nodeSnapshotRepo: NodeSnapshotRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    backend: PipelineExecutionBackend,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineRunSupport",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  private val log = LoggerFactory.getLogger(classOf[PipelineRunService])",
+   "cat": "logger"
+  },
+  {
+   "scaffold": "  import support.{logExecutionFailure, resolveAllRootDataSourcesInternal}",
+   "cat": "member-import"
+  },
+  {
+   "member": "backfillOutputNode",
+   "range": [
+    665,
+    727
+   ],
+   "subst": {}
+  },
+  {
+   "member": "evaluateNodeRowsForBackfill",
+   "range": [
+    729,
+    789
+   ],
+   "subst": {}
+  },
+  {
+   "member": "persistBackfilledRows",
+   "range": [
+    791,
+    809
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineRunQueries.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionSummary, LatestRunResponse, PipelineRunRecord, RunTruncationRecord, TruncatedReadResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, Pipeline, PipelineId, PipelineRunId, TruncatedRead}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{InProcessPipelineEngine, PipelineRowJson}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.PipelineRunAssertionRow",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.spark.PipelineRunCache",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json.DefaultJsonProtocol._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.{Failure, Success, Try}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Run-history reads: latest run, cached run status and persisted run history. Split out of",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": " *  `PipelineRunService` (HEL-1371). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineRunQueries(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRunRepo: PipelineRunRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    cache: PipelineRunCache",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  private val log = LoggerFactory.getLogger(classOf[PipelineRunService])",
+   "cat": "logger"
+  },
+  {
+   "member": "latestRun",
+   "range": [
+    811,
+    841
+   ],
+   "subst": {}
+  },
+  {
+   "member": "runStatus",
+   "range": [
+    843,
+    863
+   ],
+   "subst": {}
+  },
+  {
+   "member": "RunStatusNotFound",
+   "range": [
+    865,
+    865
+   ],
+   "subst": {}
+  },
+  {
+   "member": "history",
+   "range": [
+    867,
+    903
+   ],
+   "subst": {}
+  },
+  {
+   "member": "parseTruncationRecord",
+   "range": [
+    905,
+    961
+   ],
+   "subst": {}
+  },
+  {
+   "member": "summarizeAssertions",
+   "range": [
+    963,
+    973
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineRunService.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.domain.ai.AiStepClient",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.alerts.AlertEvaluationService",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.audit.AuditService",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{LatestRunResponse, OutputPreviewEntry, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.routes.pipelines.PipelineRunRegistry",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AssertionSink, AuthenticatedUser, DataSource, Output, OutputId, Pipeline, PipelineId, PipelineRootId, PipelineRunId, PipelineStepId, TruncatedRead, TruncationSink}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeDependencyClosure, PipelineCostEstimator, PipelineExecutionBackend, PipelineRowJson, StepKey}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.connectors.RestApiConnectorDriver",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.util.{Clock, SystemClock}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.apache.pekko.actor.typed.ActorSystem",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.history.PayloadHistoryConfig",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.storage.FileSystem",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.spark.PipelineRunCache",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import java.net.InetAddress",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import java.time.Instant",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import java.util.UUID",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.Try",
+   "cat": "imports"
+  },
+  {
+   "member": "<class-header>",
+   "range": [
+    35,
+    118
+   ],
+   "subst": {}
+  },
+  {
+   "member": "urlFetchSeam",
+   "range": [
+    140,
+    161
+   ],
+   "subst": {}
+  },
+  {
+   "member": "engine",
+   "range": [
+    163,
+    166
+   ],
+   "subst": {}
+  },
+  {
+   "member": "backend",
+   "range": [
+    168,
+    171
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "  // HEL-1371: concern-focused collaborators, built after `backend` (eagerly initialised) and in dependency order.",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val support   = new PipelineRunSupport(pipelineRepo, dataSourceRepo)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val terminal  = new PipelineRunTerminalWrites(pipelineRepo, pipelineRunRepo, registry, support)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val succeeded = new PipelineRunSucceededWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, binaryRefRepo, alertEvaluationService, outputRepo, nodeSnapshotRepo, outputHistoryRepo, nodePayloadRepo, payloadConfig, support, terminal)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val executor  = new PipelineRunExecutor(pipelineStepRepo, dataSourceRepo, pipelineRunRepo, pipelineRunGuardRepo, guardConfig, guardClock, backend, support, terminal, succeeded)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val backfill  = new PipelineRunBackfill(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, outputRepo, nodeSnapshotRepo, backend, support)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val queries   = new PipelineRunQueries(pipelineRepo, pipelineRunRepo, cache)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  import support.{executionFailureError, logExecutionFailure, resolveAllRootDataSourcesInternal, truncationFields}",
+   "cat": "member-import"
+  },
+  {
+   "scaffold": "  import executor.runPipeline",
+   "cat": "member-import"
+  },
+  {
+   "member": "auditSubmit",
+   "range": [
+    228,
+    233
+   ],
+   "subst": {}
+  },
+  {
+   "member": "submit",
+   "range": [
+    235,
+    277
+   ],
+   "subst": {}
+  },
+  {
+   "member": "recordUnrunnable",
+   "range": [
+    279,
+    313
+   ],
+   "subst": {}
+  },
+  {
+   "member": "previewStep",
+   "range": [
+    389,
+    397
+   ],
+   "subst": {}
+  },
+  {
+   "member": "previewOutputs",
+   "range": [
+    399,
+    471
+   ],
+   "subst": {}
+  },
+  {
+   "member": "previewAtNode",
+   "range": [
+    473,
+    662
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "  /** Delegates to [[PipelineRunBackfill.backfillOutputNode]], where the method and its documentation live. */",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def backfillOutputNode(",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "      pipelineId: PipelineId,",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "      nodeStepId: Option[PipelineStepId],",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "      user: AuthenticatedUser,",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "      // HEL-913 task 5.10: names WHICH root when `nodeStepId` is `None` (a root-bound Output) --",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "      // without it, the backfill always evaluates the LOWEST-positioned root regardless of which",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "      // root the Output is actually bound to (`OutputRepository.rootIdOpt`'s job at write time;",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "      // this is the corresponding read/backfill-time thread-through). Defaulted to `None` so",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "      // every pre-existing call site (and the single-root case, where there is only one root to",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "      // mean anyway) is unaffected.",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "      explicitRootId: Option[PipelineRootId]",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "  ): Future[Unit] =",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "    backfill.backfillOutputNode(pipelineId, nodeStepId, user, explicitRootId)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  /** Delegates to [[PipelineRunQueries.latestRun]], where the method and its documentation live. */",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def latestRun(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, LatestRunResponse]] =",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "    queries.latestRun(pipelineId, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  /** Delegates to [[PipelineRunQueries.runStatus]], where the method and its documentation live. */",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def runStatus(pipelineId: PipelineId, runId: String, user: AuthenticatedUser): Future[Either[ServiceError, CachedRunStatus]] =",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "    queries.runStatus(pipelineId, runId, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  /** Delegates to [[PipelineRunQueries.history]], where the method and its documentation live. */",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def history(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineRunRecord]]] =",
+   "cat": "delegation-signature"
+  },
+  {
+   "scaffold": "    queries.history(pipelineId, user)",
+   "cat": "delegation"
+  },
+  {
+   "member": "eventRegistry",
+   "range": [
+    975,
+    977
+   ],
+   "subst": {}
+  },
+  {
+   "member": "pipelineExists",
+   "range": [
+    979,
+    981
+   ],
+   "subst": {}
+  },
+  {
+   "member": "pipelineExistsShared",
+   "range": [
+    983,
+    987
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  },
+  {
+   "member": "<companion-and-siblings>",
+   "range": [
+    1697,
+    1770
+   ],
+   "subst": {}
+  }
+ ]
+}
