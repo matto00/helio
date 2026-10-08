@@ -1,0 +1,9 @@
+- `backend/src/main/scala/com/helio/services/panels/PanelService.scala` — entry point only (709 -> 321 lines): constructor, `require`, ACL/Forbidden/404 preambles, `audit`, delegates; bodies moved out
+- `backend/src/main/scala/com/helio/services/panels/ResolvedPanelPatch.scala` — new, `ResolvedPanelPatch` moved verbatim
+- `backend/src/main/scala/com/helio/services/panels/PanelFormFileSubmission.scala` — new, HEL-1086 file-attached submit path moved verbatim
+- `backend/src/main/scala/com/helio/services/panels/PanelBindingChecks.scala` — new, binding-existence/form-consistency checks, defaultSizesFor, pure extractors moved verbatim
+- `backend/src/main/scala/com/helio/services/panels/PanelCreateBuilder.scala` — new, buildForCreate/buildAllForCreate moved verbatim
+- `backend/src/main/scala/com/helio/services/panels/PanelUpdateValidation.scala` — new, update's post-authorize validation chain
+- `backend/src/main/scala/com/helio/services/panels/PanelBatchWrites.scala` — new, batchUpdate/batchCreate post-ACL bodies
+- `backend/src/main/scala/com/helio/services/panels/PanelLifecycleWrites.scala` — new, create/delete/duplicate post-ACL tails
+- `backend/src/main/scala/com/helio/services/panels/README.md` — Holds list names each new module
