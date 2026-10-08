@@ -1,1 +1,0 @@
-- `frontend/src/features/panels/ui/PanelCard.test.tsx` — deterministic settle (identical-props rerender in act) before baseline sample
