@@ -27,6 +27,10 @@ submission. Dry-run submissions count toward this rate limit identically to real
 - **WHEN** a user's submissions are handled by different backend instances within the same window
 - **THEN** the combined count across all instances is what the limit is enforced against, not each instance's own count independently
 
+#### Scenario: Windows are fixed and aligned to the epoch
+- **WHEN** a user reached the configured limit in one window and submits again after the next epoch-aligned window boundary (a whole multiple of the configured window duration since the Unix epoch)
+- **THEN** the submission counts against a fresh budget for the new window, even if only seconds have passed since the previous submission
+
 ### Requirement: Pipeline-run submission enforces a per-user concurrency cap
 The system SHALL reject a real (non-dry) pipeline-run submission with HTTP 429, a `Retry-After`
 header, and a JSON `ErrorResponse` body when the submitting user already has the configured
