@@ -605,6 +605,15 @@ describe("PanelCardBody — HEL-579 prop reference stability across an unrelated
       await Promise.resolve();
       await Promise.resolve();
     });
+    // HEL-1215 — the flush above only guarantees the `setIsLoading(true)` microtask has RUN. It
+    // was scheduled outside an act scope (while `waitFor` had the act environment off), so the
+    // resulting bail-out render sits on React's real Scheduler (a MessageChannel macrotask) and
+    // whether it lands before or after the baseline sample below depended on event-loop timing
+    // under load (CI: baseline 2, then 3 once the task ran during `rerender`). Re-rendering the
+    // root with IDENTICAL props inside act makes React process every pending lane synchronously,
+    // so any such deferred mount-time render is absorbed here, deterministically, rather than
+    // being left to race the title-edit re-render this test actually measures.
+    rerender(<PanelCard panel={panel} {...noopProps} isEditingTitle={false} />);
     const callsBeforeRerender = mockUsePanelPolling.mock.calls.length;
     expect(callsBeforeRerender).toBeGreaterThan(0);
 
