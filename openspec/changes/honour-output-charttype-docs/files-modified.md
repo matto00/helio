@@ -1,0 +1,8 @@
+- `backend/src/main/scala/com/helio/domain/model/model.scala` — D1: chartless chart-patch merge base has chartType absent; scaladocs
+- `backend/src/test/scala/com/helio/domain/model/PanelAppearanceMergeSpec.scala` — legend-only patch on chartless panel stores no chartType (red first)
+- `helio-mcp/src/tools/placements.ts` — place_outputs description states chartType precedence
+- `helio-mcp/src/tools/write.ts` — update_panel_appearance description: null chartType renders the Output's type
+- `helio-mcp/src/tools/chartTypeDescriptions.test.ts` — asserts both descriptions
+- `frontend/src/utils/chartAppearance.ts` — resolveChartType docstring correction
+- `frontend/src/utils/chartClickSelection.ts` — docstring correction
+- `e2e/hel1304-output-charttype-render.spec.ts` — live series[].type for batch-placed bar/pie, panel override, legend-only patch

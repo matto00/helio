@@ -724,8 +724,9 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "seriesColors/legend/tooltip/axisLabels untouched (previously a partial chart object was " +
         "rejected with 400; it is now accepted). To clear a field back to its default, send it as " +
         "`null` explicitly (e.g. {background: null}); {chart: null} clears the whole chart " +
-        "sub-object. The one exception: {chart: {chartType: null}} clears just chartType (renders " +
-        "as the line default) rather than resetting the rest of chart.",
+        "sub-object. The one exception: {chart: {chartType: null}} clears just chartType (the panel " +
+        "then renders its Output's config.chartType, else line) rather than resetting the rest " +
+        "of chart. A panel's chartType, when set, overrides the Output's config.chartType.",
       inputSchema: {
         panelId: z.string().min(1),
         appearance: z.record(z.string(), z.unknown()),

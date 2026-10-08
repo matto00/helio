@@ -107,15 +107,15 @@ export function formatChartNumber(value: unknown): string {
   return Number.isFinite(n) ? chartNumberFormat.format(n) : String(value);
 }
 
-/** HEL-572 — the chart type a panel actually renders is `appearance.chart.
- *  chartType`, defaulting `"line"` when unset (mirrors
- *  `appearanceToEChartsOption`'s own derivation, which is the only other
- *  place this was previously computed inline). Exported so `ChartPanel`'s
- *  click handler and `PanelCard`/`PanelFullscreenOverlay`'s inspect-view
- *  mounting (which never call `appearanceToEChartsOption` — that also
- *  builds a full ECharts option object, wasted work for a value this small)
- *  resolve the SAME chart type without a second, divergence-prone copy of
- *  this fallback. */
+/** HEL-572 — the chart type of an APPEARANCE: `appearance.chart.chartType`,
+ *  defaulting `"line"` when unset. This reads the panel appearance ONLY. It is
+ *  not the dashboard's precedence: `ChartOutputPanel` and `PanelCard` resolve
+ *  stored chartType -> bound Output `config.chartType` -> line with
+ *  `resolvePanelChartType` (HEL-1351, HEL-1304) and hand this an appearance
+ *  that already carries the resolved type. Mirrors
+ *  `appearanceToEChartsOption`'s own derivation; exported so the click
+ *  handler (`useChartClickHandler`) reads the SAME type from that resolved
+ *  appearance without a second, divergence-prone copy of this fallback. */
 export function resolveChartType(chart: ChartAppearance | undefined): ChartType {
   return (chart?.chartType as ChartType | undefined) ?? "line";
 }
