@@ -1,8 +1,9 @@
 package com.helio.api
 
 import com.helio.api.http.{AuthDirectives, SessionCookies}
+import com.helio.api.protocols.pipelines.{OutputProtocol, OutputResponse}
 import com.helio.domain.connectors.RestApiConnectorDriver
-import com.helio.domain.history.PayloadHistoryConfig
+import com.helio.domain.history.{PayloadHistoryConfig, PayloadTierLimit}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.auth.{UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
@@ -22,6 +23,7 @@ import slick.jdbc.PostgresProfile.api._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
+import java.time.Duration
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -54,13 +56,17 @@ class OutputHistoryPayloadsAvailableSpec extends AnyWordSpec with Matchers with 
     startHarness()
     freeId = seedUser("free"); betaId = seedUser("beta"); ownerTierId = seedUser("owner"); freeEditorId = seedUser("free")
     tokens = Seq(freeId, betaId, ownerTierId, freeEditorId).map(id => s"tok-$id" -> id).toMap
-    api = new ApiRoutes(
+    api = buildApi(PayloadHistoryConfig.fromEnv())
+  }
+
+  private def buildApi(config: PayloadHistoryConfig): Route =
+    new ApiRoutes(
       dashboardRepo, panelRepo, dataSourceRepo, permissionRepo, stubFs, new RestApiConnectorDriver(Some(_ => Future.successful(Left("no HTTP")))),
       new UserRepository(db)(harnessEc), stubSessions, new UserPreferenceRepository(db)(harnessEc), pipelineRepo, stepRepo,
       new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(harnessEc),
-      dbContext = ctx
+      dbContext = ctx,
+      payloadHistoryConfig = config
     ).routes
-  }
   override def afterAll(): Unit = { stopHarness(); super.afterAll() }
 
   private def as(userId: String)(req: HttpRequest) =
@@ -173,6 +179,77 @@ class OutputHistoryPayloadsAvailableSpec extends AnyWordSpec with Matchers with 
           flag(responseAs[String].parseJson.asJsObject) shouldBe Some(JsBoolean(want))
         }
       }
+    }
+  }
+
+  // HEL-1372: `historyPayloadLimits` mirrors the running server's PayloadHistoryConfig.
+  private def limits(js: JsObject): Option[JsValue] = js.fields.get("historyPayloadLimits")
+
+  private val defaultLimitsJson: JsValue =
+    """{"maxRows":1000,"maxBytes":1048576,"tiers":{"free":{"maxRuns":0,"maxAgeDays":0},"beta":{"maxRuns":10,"maxAgeDays":7},"owner":{"maxRuns":30,"maxAgeDays":30}}}""".parseJson
+
+  private val overriddenConfig: PayloadHistoryConfig =
+    PayloadHistoryConfig.Defaults.copy(
+      maxRows = 500,
+      beta = PayloadTierLimit(5, Duration.ofDays(3))
+    )
+
+  private val overriddenLimitsJson: JsValue =
+    """{"maxRows":500,"maxBytes":1048576,"tiers":{"free":{"maxRuns":0,"maxAgeDays":0},"beta":{"maxRuns":5,"maxAgeDays":3},"owner":{"maxRuns":30,"maxAgeDays":30}}}""".parseJson
+
+  /** Every REST site (list, get, GET /api/outputs, POST, PATCH) must carry `want` for the owner. */
+  private def assertLimitsAtAllSites(route: Route, viewer: String, fx: PayloadFx, want: JsValue): Unit = {
+    as(viewer)(Get(s"/api/pipelines/${fx.pid.value}/outputs")) ~> route ~> check {
+      status shouldBe StatusCodes.OK
+      val items = responseAs[String].parseJson.asJsObject.fields("items").convertTo[Vector[JsObject]]
+      items should not be empty
+      items.map(limits).distinct shouldBe Vector(Some(want))
+    }
+    as(viewer)(Get(s"/api/outputs/${fx.optedOutput}")) ~> route ~> check {
+      limits(responseAs[String].parseJson.asJsObject) shouldBe Some(want)
+    }
+    as(viewer)(Get("/api/outputs?limit=100")) ~> route ~> check {
+      val items = responseAs[String].parseJson.asJsObject.fields("items").convertTo[Vector[JsObject]]
+      val mine  = items.filter(_.fields("pipelineId") == JsString(fx.pid.value)).map(limits).distinct
+      mine shouldBe Vector(Some(want))
+    }
+    as(viewer)(Post(s"/api/pipelines/${fx.pid.value}/outputs", json(
+      s"""{"nodeStepId":"${fx.stepId.value}","kind":"table","name":"limits out"}"""))) ~> route ~> check {
+      status shouldBe StatusCodes.Created
+      limits(responseAs[String].parseJson.asJsObject) shouldBe Some(want)
+    }
+    as(viewer)(Patch(s"/api/outputs/${fx.plainOutput}", json("""{"name":"renamed-limits"}"""))) ~> route ~> check {
+      status shouldBe StatusCodes.OK
+      limits(responseAs[String].parseJson.asJsObject) shouldBe Some(want)
+    }
+  }
+
+  "historyPayloadLimits on Output responses" should {
+    "report the default limits at every site, for free and beta owners alike" in {
+      assertLimitsAtAllSites(api, betaId, seedPayloadPipeline(betaId), defaultLimitsJson)
+      assertLimitsAtAllSites(api, freeId, seedPayloadPipeline(freeId), defaultLimitsJson)
+    }
+
+    "report an overridden config at every site" in {
+      val overridden = buildApi(overriddenConfig)
+      assertLimitsAtAllSites(overridden, betaId, seedPayloadPipeline(betaId), overriddenLimitsJson)
+    }
+
+    "not let a client-sent config.historyPayloadLimits affect the top-level field" in {
+      val fx = seedPayloadPipeline(betaId)
+      as(betaId)(Patch(s"/api/outputs/${fx.plainOutput}", json(
+        """{"config":{"historyPayloadLimits":{"maxRows":1,"maxBytes":1,"tiers":{}}}}"""))) ~> api ~> check {
+        val js = responseAs[String].parseJson.asJsObject
+        limits(js) shouldBe Some(defaultLimitsJson)
+      }
+    }
+
+    "be omitted when the availability pair is not wired" in {
+      val resp = OutputResponse(
+        "id", "pid", None, "owner", "n", "table", JsObject.empty, Vector.empty, "t", "t"
+      )
+      val proto = new OutputProtocol {}
+      resp.toJson(proto.outputResponseFormat).asJsObject.fields.keySet should not contain "historyPayloadLimits"
     }
   }
 }

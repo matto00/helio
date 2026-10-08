@@ -169,6 +169,25 @@ describe("updateOutputHandler", () => {
   });
 });
 
+describe("updateOutputHandler historyPayloadLimits passthrough (HEL-1372)", () => {
+  it("returns the backend's historyPayloadLimits untouched", async () => {
+    const limits = {
+      maxRows: 500,
+      maxBytes: 1048576,
+      tiers: {
+        free: { maxRuns: 0, maxAgeDays: 0 },
+        beta: { maxRuns: 5, maxAgeDays: 3 },
+        owner: { maxRuns: 30, maxAgeDays: 30 },
+      },
+    };
+    const api = makeFakeApi({
+      updateOutput: async () => ({ ...output, historyPayloadLimits: limits }),
+    });
+    const result = await updateOutputHandler(api, { outputId: "output-1", name: "x" });
+    expect((result as { historyPayloadLimits?: unknown }).historyPayloadLimits).toEqual(limits);
+  });
+});
+
 describe("deleteOutputHandler", () => {
   it("calls api.deleteOutput and returns its result", async () => {
     const response: DeleteOutputResponse = { removedPanelIds: ["panel-1", "panel-2"] };

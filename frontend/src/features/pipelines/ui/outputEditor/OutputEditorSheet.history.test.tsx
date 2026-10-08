@@ -11,7 +11,7 @@ import { authReducer } from "../../../auth/state/authSlice";
 import { outputsReducer } from "../../state/outputsSlice";
 import { OutputEditorSheet } from "./OutputEditorSheet";
 import type { UserTier } from "../../../auth/types/user";
-import type { Output } from "../../types/output";
+import type { HistoryPayloadLimits, Output } from "../../types/output";
 
 jest.mock("../../../../services/httpClient", () => ({
   httpClient: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
@@ -50,7 +50,21 @@ beforeEach(() => {
 
 const METRIC = { fieldMapping: {}, aggregation: { value: "amount", agg: "sum" } };
 
-function outputOf(config: Record<string, unknown>, available?: boolean): Output {
+const DEFAULT_LIMITS: HistoryPayloadLimits = {
+  maxRows: 1000,
+  maxBytes: 1048576,
+  tiers: {
+    free: { maxRuns: 0, maxAgeDays: 0 },
+    beta: { maxRuns: 10, maxAgeDays: 7 },
+    owner: { maxRuns: 30, maxAgeDays: 30 },
+  },
+};
+
+function outputOf(
+  config: Record<string, unknown>,
+  available?: boolean,
+  limits: HistoryPayloadLimits | null = DEFAULT_LIMITS,
+): Output {
   return {
     id: "o-1",
     pipelineId: "p-1",
@@ -63,6 +77,7 @@ function outputOf(config: Record<string, unknown>, available?: boolean): Output 
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
     ...(available === undefined ? {} : { historyPayloadsAvailable: available }),
+    ...(limits === null ? {} : { historyPayloadLimits: limits }),
   };
 }
 
@@ -123,6 +138,28 @@ describe("OutputEditorSheet -- History section (HEL-1331)", () => {
     expect(screen.queryByText("Free stores run summaries only")).not.toBeInTheDocument();
   });
 
+  it("renders overridden figures from the response and no default figure (HEL-1372)", () => {
+    renderSheet(
+      outputOf(METRIC, true, {
+        maxRows: 500,
+        maxBytes: 2097152,
+        tiers: { ...DEFAULT_LIMITS.tiers, beta: { maxRuns: 1, maxAgeDays: 1 } },
+      }),
+    );
+    const help = document.getElementById("output-history-payloads-help")?.textContent ?? "";
+    expect(help).toContain("A run over 500 rows or 2 MiB keeps only its summary.");
+    expect(help).toContain("Beta keeps the last 1 run for 1 day;");
+    expect(help).not.toMatch(/1,000|1 MiB|10 runs|7 days/);
+  });
+
+  it("omits figures rather than guessing when the response carries no limits (HEL-1372)", () => {
+    renderSheet(outputOf(METRIC, true, null));
+    const help = document.getElementById("output-history-payloads-help")?.textContent ?? "";
+    expect(help).toContain("Stores the full rows of every run from the next run on");
+    expect(help).toContain("Turning this off stops storing rows");
+    expect(help).not.toMatch(/\d/);
+  });
+
   it("an enabled switch turned on sends historyPayloads: true", async () => {
     renderSheet(outputOf(METRIC, true));
     expect(toggle()).not.toBeChecked();
@@ -158,17 +195,26 @@ describe("OutputEditorSheet -- History section (HEL-1331)", () => {
     expect(toggle()).toBeDisabled();
     expect(toggle()).toBeChecked(); // a stored true still shows as on
     expect(screen.getByText("Free stores run summaries only")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Request Beta access" })).toHaveAttribute(
-      "href",
-      "/settings#beta-access",
-    );
+    const link = screen.getByRole("link", { name: "Request Beta access (opens in a new tab)" });
+    expect(link).toHaveAttribute("href", "/settings#beta-access");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(Object.keys(await save())).not.toContain("historyPayloads");
+  });
+
+  it("the disabled note shares the help text's style class (HEL-1372)", () => {
+    renderSheet(outputOf(METRIC, false));
+    const help = document.getElementById("output-history-payloads-help");
+    const note = document.getElementById("output-history-payloads-note");
+    expect(note).toHaveClass("output-editor-sheet__field-hint");
+    expect(note).not.toHaveClass("output-editor-sheet__type-hint");
+    expect(help).toHaveClass("output-editor-sheet__field-hint");
   });
 
   it("fails closed when the response carries no flag", () => {
     renderSheet(outputOf(METRIC));
     expect(toggle()).toBeDisabled();
-    expect(screen.getByRole("link", { name: "Request Beta access" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^Request Beta access/ })).toBeInTheDocument();
   });
 
   it("gates on the pipeline owner, not the viewer: a beta viewer on a free-owned pipeline sees it disabled", () => {

@@ -204,6 +204,23 @@ export interface OutputResponse {
   rootId?: string;
   /** HEL-1331: read-only; whether the pipeline owner's tier keeps any history payload runs. */
   historyPayloadsAvailable?: boolean;
+  /** HEL-1372: read-only; the payload-history limits the server enforces (env overrides included). */
+  historyPayloadLimits?: HistoryPayloadLimits;
+}
+
+export interface HistoryPayloadTierLimit {
+  maxRuns: number;
+  maxAgeDays: number;
+}
+
+export interface HistoryPayloadLimits {
+  maxRows: number;
+  maxBytes: number;
+  tiers: {
+    free: HistoryPayloadTierLimit;
+    beta: HistoryPayloadTierLimit;
+    owner: HistoryPayloadTierLimit;
+  };
 }
 
 export interface OutputsResponse {

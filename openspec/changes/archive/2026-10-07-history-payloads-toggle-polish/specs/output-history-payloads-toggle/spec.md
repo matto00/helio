@@ -1,10 +1,4 @@
-# output-history-payloads-toggle Specification
-
-## Purpose
-Lets a pipeline's Output be opted into keeping each run's full rows from the Output editor, with caps, tier rules and
-retention stated at the point of choice.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Output editor offers a keep-rows toggle
 The Output editor SHALL show, for an existing Output, a History section containing a switch labelled
@@ -62,11 +56,3 @@ help text above it. Saving SHALL NOT change the stored `historyPayloads` value.
 #### Scenario: Viewer's own tier is irrelevant
 - **WHEN** a beta-tier user edits their own Output on a free-owned shared pipeline
 - **THEN** the switch is disabled with the free-tier note, because availability follows the pipeline owner
-
-### Requirement: Toggle is legible in both themes
-The History section SHALL use the shared design-system switch and tokens, and SHALL be legible with visible focus in
-both light and dark themes.
-
-#### Scenario: Theme check
-- **WHEN** the editor is viewed in light and in dark theme, enabled and disabled
-- **THEN** the label, help text, note, link and switch state are all legible, and the disabled state is distinguishable

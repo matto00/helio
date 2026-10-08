@@ -46,6 +46,51 @@
       "type": "boolean",
       "readOnly": true,
       "description": "HEL-1331: read-only. True exactly when the owner of this Output's PIPELINE is on a tier whose payload retention keeps at least one run (runs > 0 and age > 0), so `config.historyPayloads` can take effect. Derived from the pipeline owner's tier, never the requesting user's; not client-settable. Present on every Output REST response (`GET/POST /api/pipelines/:id/outputs`, `GET/PATCH /api/outputs/:id`, `GET /api/outputs`); omitted on patch-set projections."
+    },
+    "historyPayloadLimits": {
+      "type": "object",
+      "readOnly": true,
+      "description": "HEL-1372: read-only. The payload-history limits the running server enforces (`PayloadHistoryConfig`, env overrides included): per-run row/byte caps and per-tier retention (runs kept, max age in days; a tier with 0 runs or 0 days keeps no rows). Present wherever `historyPayloadsAvailable` is; not client-settable.",
+      "properties": {
+        "maxRows": { "type": "integer", "minimum": 1 },
+        "maxBytes": { "type": "integer", "minimum": 1 },
+        "tiers": {
+          "type": "object",
+          "properties": {
+            "free": {
+              "type": "object",
+              "properties": {
+                "maxRuns": { "type": "integer", "minimum": 0 },
+                "maxAgeDays": { "type": "integer", "minimum": 0 }
+              },
+              "required": ["maxRuns", "maxAgeDays"],
+              "additionalProperties": false
+            },
+            "beta": {
+              "type": "object",
+              "properties": {
+                "maxRuns": { "type": "integer", "minimum": 0 },
+                "maxAgeDays": { "type": "integer", "minimum": 0 }
+              },
+              "required": ["maxRuns", "maxAgeDays"],
+              "additionalProperties": false
+            },
+            "owner": {
+              "type": "object",
+              "properties": {
+                "maxRuns": { "type": "integer", "minimum": 0 },
+                "maxAgeDays": { "type": "integer", "minimum": 0 }
+              },
+              "required": ["maxRuns", "maxAgeDays"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["free", "beta", "owner"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["maxRows", "maxBytes", "tiers"],
+      "additionalProperties": false
     }
   },
   "additionalProperties": false
