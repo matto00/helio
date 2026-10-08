@@ -17,7 +17,7 @@ import {
   isOutputPanel,
   isTextPanel,
 } from "../../state/panelNarrowing";
-import { useAppDispatch } from "../../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { usePanelData } from "../../hooks/usePanelData";
 import { useOutputMeta } from "../../hooks/useOutputMeta";
 import { useCrossFilterServerOps } from "../../hooks/useCrossFilterServerOps";
@@ -211,6 +211,8 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     rowsTruncated,
     refresh,
   } = usePanelData(panel, controlFilterOps, crossFilterEq);
+  // HEL-1358 design D5 — `usePanelData` above writes this same entry the grid card reads.
+  const totalRowCount = useAppSelector((state) => state.panels.paginationState[panel.id]?.total);
   const navigate = useNavigate();
 
   // Modal mode: "view" is the default on open; "edit" shows the unified settings form
@@ -507,6 +509,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
               // always false regardless of real truncation — see
               // `usePanelData`'s `rowsTruncated` doc comment.
               rowsTruncated={rowsTruncated}
+              totalRowCount={totalRowCount}
               crossFilterMode={crossFilterMode}
               viewerFilterActive={controlFilterOps.length > 0}
             />
