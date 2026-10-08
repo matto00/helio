@@ -100,10 +100,10 @@ filter runs, so a suppression fully removes an entry from the gate, not just
 from the visible failure count.
 
 **Frontend:** `audit-ci` wraps `npm audit` for the root, `frontend/` and
-`helio-mcp/` lockfiles. The root (`.audit-ci.jsonc`) is configured `"high": true`
-with one path-scoped allowlist entry (HEL-1246); `frontend/.audit-ci.jsonc`
-(HEL-1320) and `helio-mcp/.audit-ci.jsonc` (HEL-1204) are configured
-`"moderate": true` with an empty `allowlist`.
+`helio-mcp/` lockfiles. All three are configured `"moderate": true`: the root
+(`.audit-ci.jsonc`, HEL-1364) carries one path-scoped allowlist entry (HEL-1246);
+`frontend/.audit-ci.jsonc` (HEL-1320) and `helio-mcp/.audit-ci.jsonc` (HEL-1204)
+have an empty `allowlist`.
 
 Source: `.github/workflows/ci.yml` (`security` job), `backend/osv-scanner.toml`,
 `.audit-ci.jsonc`, `frontend/.audit-ci.jsonc`.
