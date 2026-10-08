@@ -1,0 +1,915 @@
+e2e (4)	Set up job	﻿2026-10-07T20:03:59.8451316Z Current runner version: '2.337.0'
+e2e (4)	Set up job	2026-10-07T20:03:59.8478209Z ##[group]Runner Image Provisioner
+e2e (4)	Set up job	2026-10-07T20:03:59.8479115Z Hosted Compute Agent
+e2e (4)	Set up job	2026-10-07T20:03:59.8479752Z Version: 20261002.596
+e2e (4)	Set up job	2026-10-07T20:03:59.8480472Z Commit: <elided>
+e2e (4)	Set up job	2026-10-07T20:03:59.8481244Z Build Date: 2026-10-02T22:28:27Z
+e2e (4)	Set up job	2026-10-07T20:03:59.8481972Z Worker ID: {ea196b46-268b-41fd-a42e-b5c22e348a3a}
+e2e (4)	Set up job	2026-10-07T20:03:59.8482718Z Region: westus
+e2e (4)	Set up job	2026-10-07T20:03:59.8483275Z Cloud: Azure
+e2e (4)	Set up job	2026-10-07T20:03:59.8484126Z ##[endgroup]
+e2e (4)	Set up job	2026-10-07T20:03:59.8485673Z ##[group]Operating System
+e2e (4)	Set up job	2026-10-07T20:03:59.8486318Z Ubuntu
+e2e (4)	Set up job	2026-10-07T20:03:59.8486950Z 24.04.5
+e2e (4)	Set up job	2026-10-07T20:03:59.8487512Z LTS
+e2e (4)	Set up job	2026-10-07T20:03:59.8488096Z ##[endgroup]
+e2e (4)	Set up job	2026-10-07T20:03:59.8488687Z ##[group]Runner Image
+e2e (4)	Set up job	2026-10-07T20:03:59.8489286Z Image: ubuntu-24.04
+e2e (4)	Set up job	2026-10-07T20:03:59.8489934Z Version: 20261004.327.1
+e2e (4)	Set up job	2026-10-07T20:03:59.8491019Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+e2e (4)	Set up job	2026-10-07T20:03:59.8492866Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+e2e (4)	Set up job	2026-10-07T20:03:59.8494118Z ##[endgroup]
+e2e (4)	Set up job	2026-10-07T20:03:59.8497171Z Contents: read
+e2e (4)	Set up job	2026-10-07T20:03:59.8497939Z Metadata: read
+e2e (4)	Set up job	2026-10-07T20:03:59.8498517Z ##[endgroup]
+e2e (4)	Set up job	2026-10-07T20:03:59.8501704Z Cache mode: write
+e2e (4)	Set up job	2026-10-07T20:03:59.8502515Z Prepare workflow directory
+e2e (4)	Set up job	2026-10-07T20:03:59.9005539Z Prepare all required actions
+e2e (4)	Set up job	2026-10-07T20:03:59.9060184Z Getting action download info
+e2e (4)	Set up job	2026-10-07T20:04:00.3249169Z Download action repository 'actions/checkout@v7' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:00.4308785Z Download action repository 'actions/setup-java@v6' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:01.0481795Z Download action repository 'sbt/setup-sbt@v1' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:01.2479269Z Download action repository 'actions/cache@v6' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:01.3533130Z Download action repository 'actions/setup-node@v7' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:01.4336657Z Download action repository 'actions/upload-artifact@v7' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:02.0064416Z Download action repository 'actions/upload-artifact@v4' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:02.2721067Z Getting action download info
+e2e (4)	Set up job	2026-10-07T20:04:02.4352639Z Download action repository 'actions/cache@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:02.5531089Z Download action repository 'carabiner-dev/actions@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:02.8187405Z Getting action download info
+e2e (4)	Set up job	2026-10-07T20:04:02.9870860Z Download action repository 'carabiner-dev/actions@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:03.2418134Z Download action repository 'actions/upload-artifact@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:03.3144237Z Getting action download info
+e2e (4)	Set up job	2026-10-07T20:04:03.4526501Z Download action repository 'carabiner-dev/actions@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:03.6730799Z Getting action download info
+e2e (4)	Set up job	2026-10-07T20:04:03.8379700Z Download action repository 'carabiner-dev/actions@<elided>' (SHA:<elided>)
+e2e (4)	Set up job	2026-10-07T20:04:04.1062244Z Getting action download info
+e2e (4)	Set up job	2026-10-07T20:04:04.2565991Z Getting action download info
+e2e (4)	Set up job	2026-10-07T20:04:04.4695140Z Complete job name: e2e (4)
+e2e (4)	Initialize containers	﻿2026-10-07T20:04:04.5205329Z ##[group]Checking docker version
+e2e (4)	Initialize containers	2026-10-07T20:04:04.5218621Z ##[command]/usr/bin/docker version --format '{{.Server.APIVersion}}'
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6245532Z '1.48'
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6255024Z Docker daemon API version: '1.48'
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6255493Z ##[command]/usr/bin/docker version --format '{{.Client.APIVersion}}'
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6419582Z '1.48'
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6433628Z Docker client API version: '1.48'
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6439168Z ##[endgroup]
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6441932Z ##[group]Clean up resources from previous jobs
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6447200Z ##[command]/usr/bin/docker ps --all --quiet --no-trunc --filter "label=1618de"
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6603315Z ##[command]/usr/bin/docker network prune --force --filter "label=1618de"
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6754281Z ##[endgroup]
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6754668Z ##[group]Create local container network
+e2e (4)	Initialize containers	2026-10-07T20:04:04.6764693Z ##[command]/usr/bin/docker network create --label 1618de github_network_<elided>
+e2e (4)	Initialize containers	2026-10-07T20:04:04.7371216Z <elided>
+e2e (4)	Initialize containers	2026-10-07T20:04:04.7388017Z ##[endgroup]
+e2e (4)	Initialize containers	2026-10-07T20:04:04.7411397Z ##[group]Starting postgres service container
+e2e (4)	Initialize containers	2026-10-07T20:04:04.7433290Z ##[command]/usr/bin/docker pull postgres:16
+e2e (4)	Initialize containers	2026-10-07T20:04:05.8499721Z 16: Pulling from library/postgres
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1175037Z ecc510c1e359: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1175688Z 79faf13a8736: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1176097Z 6456bfbf35e7: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1176544Z b353db459ed1: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1176906Z 99f49de4fe2b: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1177204Z 83d1a2a3917c: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1177601Z 715ea0948cb1: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1178048Z 486e8305f56f: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1178425Z e7d675f11ded: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1178674Z c49864c27f35: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1179107Z 770ef8b308ea: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1179366Z 50c25daa0302: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1179737Z 8309db3ae5b6: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1180219Z 9731e27f2541: Pulling fs layer
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1180562Z e7d675f11ded: Waiting
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1180789Z b353db459ed1: Waiting
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1180993Z c49864c27f35: Waiting
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1181199Z 770ef8b308ea: Waiting
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1181567Z 99f49de4fe2b: Waiting
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1181945Z 50c25daa0302: Waiting
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1182313Z 486e8305f56f: Waiting
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1182684Z 83d1a2a3917c: Waiting
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1183000Z 715ea0948cb1: Waiting
+e2e (4)	Initialize containers	2026-10-07T20:04:06.1183212Z 8309db3ae5b6: Waiting
+e2e (4)	Initialize containers	2026-10-07T20:04:06.3427121Z 79faf13a8736: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:06.3427747Z 79faf13a8736: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:06.3691705Z 6456bfbf35e7: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:06.3692556Z 6456bfbf35e7: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:06.4623000Z ecc510c1e359: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:06.4624563Z ecc510c1e359: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:06.5795073Z b353db459ed1: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:06.5795966Z b353db459ed1: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:06.6229400Z 99f49de4fe2b: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:06.6229916Z 99f49de4fe2b: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:06.6944043Z 83d1a2a3917c: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:06.7990113Z 83d1a2a3917c: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:06.7990660Z 715ea0948cb1: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:06.7992388Z 715ea0948cb1: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:06.8354778Z 486e8305f56f: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:06.8356443Z 486e8305f56f: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:07.0182001Z c49864c27f35: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:07.0182389Z c49864c27f35: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:07.0613992Z 770ef8b308ea: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:07.0615409Z 770ef8b308ea: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:07.2397944Z 50c25daa0302: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:07.2398527Z 50c25daa0302: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:07.2863509Z 8309db3ae5b6: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:07.2865231Z 8309db3ae5b6: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:07.2942304Z e7d675f11ded: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:07.2942829Z e7d675f11ded: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:07.4562877Z 9731e27f2541: Verifying Checksum
+e2e (4)	Initialize containers	2026-10-07T20:04:07.4563219Z 9731e27f2541: Download complete
+e2e (4)	Initialize containers	2026-10-07T20:04:07.5459540Z ecc510c1e359: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:09.8496825Z 79faf13a8736: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:10.0250419Z 6456bfbf35e7: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:10.0671977Z b353db459ed1: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:10.3747296Z 99f49de4fe2b: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:10.4532900Z 83d1a2a3917c: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:10.4652121Z 715ea0948cb1: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:10.4747075Z 486e8305f56f: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:13.5194099Z e7d675f11ded: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:13.5351031Z c49864c27f35: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:13.5450105Z 770ef8b308ea: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:13.5544139Z 50c25daa0302: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:13.5627811Z 8309db3ae5b6: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:13.5725571Z 9731e27f2541: Pull complete
+e2e (4)	Initialize containers	2026-10-07T20:04:13.5784109Z Status: Downloaded newer image for postgres:16
+e2e (4)	Initialize containers	2026-10-07T20:04:13.5789998Z docker.io/library/postgres:16
+e2e (4)	Initialize containers	2026-10-07T20:04:13.6115972Z <elided>
+e2e (4)	Initialize containers	2026-10-07T20:04:13.6138429Z ##[command]/usr/bin/docker start <elided>
+e2e (4)	Initialize containers	2026-10-07T20:04:13.8347094Z <elided>
+e2e (4)	Initialize containers	2026-10-07T20:04:13.8375488Z ##[command]/usr/bin/docker ps --all --filter id=<elided> --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+e2e (4)	Initialize containers	2026-10-07T20:04:13.8513268Z <elided> Up Less than a second (health: starting)
+e2e (4)	Initialize containers	2026-10-07T20:04:13.8541942Z ##[command]/usr/bin/docker port <elided>
+e2e (4)	Initialize containers	2026-10-07T20:04:13.8677810Z 5432/tcp -> 0.0.0.0:5432
+e2e (4)	Initialize containers	2026-10-07T20:04:13.8678523Z 5432/tcp -> [::]:5432
+e2e (4)	Initialize containers	2026-10-07T20:04:13.8727732Z ##[endgroup]
+e2e (4)	Initialize containers	2026-10-07T20:04:13.8736643Z ##[group]Waiting for all services to be ready
+e2e (4)	Initialize containers	2026-10-07T20:04:13.8750198Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" <elided>
+e2e (4)	Initialize containers	2026-10-07T20:04:13.8896556Z starting
+e2e (4)	Initialize containers	2026-10-07T20:04:13.8922705Z postgres service is starting, waiting 2 seconds before checking again.
+e2e (4)	Initialize containers	2026-10-07T20:04:15.8935069Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" <elided>
+e2e (4)	Initialize containers	2026-10-07T20:04:15.9062432Z starting
+e2e (4)	Initialize containers	2026-10-07T20:04:15.9075968Z postgres service is starting, waiting 4 seconds before checking again.
+e2e (4)	Initialize containers	2026-10-07T20:04:20.1400276Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" <elided>
+e2e (4)	Initialize containers	2026-10-07T20:04:20.1525957Z starting
+e2e (4)	Initialize containers	2026-10-07T20:04:20.1538858Z postgres service is starting, waiting 8 seconds before checking again.
+e2e (4)	Initialize containers	2026-10-07T20:04:28.6698561Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" <elided>
+e2e (4)	Initialize containers	2026-10-07T20:04:28.6824880Z healthy
+e2e (4)	Initialize containers	2026-10-07T20:04:28.6840416Z postgres service is healthy.
+e2e (4)	Initialize containers	2026-10-07T20:04:28.6841172Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	﻿2026-10-07T20:04:28.7139812Z ##[group]Run actions/checkout@v7
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7140400Z with:
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7140616Z   repository: matto00/helio
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7143233Z   ssh-strict: true
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7143744Z   ssh-user: git
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7143961Z   persist-credentials: true
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7144192Z   clean: true
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7144400Z   sparse-checkout-cone-mode: true
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7144653Z   fetch-depth: 1
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7144852Z   fetch-tags: false
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7145058Z   show-progress: true
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7145276Z   lfs: false
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7145459Z   submodules: false
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7145664Z   set-safe-directory: true
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7145906Z   allow-unsafe-pr-checkout: false
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7146558Z env:
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7146837Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7147164Z   DB_USER: helio
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7147590Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7147859Z   DEV_PORT: 5173
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7148049Z   BACKEND_PORT: 8080
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7148257Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7148811Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.7149916Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8168989Z Syncing repository: matto00/helio
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8170729Z ##[group]Getting Git version info
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8171279Z Working directory is '/home/runner/work/helio/helio'
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8172102Z [command]/usr/bin/git version
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8295744Z git version 2.55.0
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8316872Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8332816Z Temporarily overriding HOME='/home/runner/work/_temp/a511e562-33bd-4881-9c5e-9652a27bac79' before making global git config changes
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8334441Z Adding repository directory to the temporary git global config as a safe directory
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8341089Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/helio/helio
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8402893Z Deleting the contents of '/home/runner/work/helio/helio'
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8407397Z ##[group]Determining repository object format
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8408895Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8409453Z ##[group]Initializing the repository
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8414036Z [command]/usr/bin/git init /home/runner/work/helio/helio
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8562331Z hint: Using 'master' as the name for the initial branch. This default branch name
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8563667Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8564845Z hint: to use in all of your new repositories, which will suppress this warning,
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8565708Z hint: call:
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8566280Z hint:
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8566988Z hint: 	git config --global init.defaultBranch <name>
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8567553Z hint:
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8568045Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8568574Z hint: 'development'. The just-created branch can be renamed via this command:
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8568971Z hint:
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8569186Z hint: 	git branch -m <name>
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8569412Z hint:
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8569731Z hint: Disable this message with "git config set advice.defaultBranchName false"
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8570528Z Initialized empty Git repository in /home/runner/work/helio/helio/.git/
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8587201Z [command]/usr/bin/git remote add origin https://github.com/matto00/helio
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8646229Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8646905Z ##[group]Disabling automatic garbage collection
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8650940Z [command]/usr/bin/git config --local gc.auto 0
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8688034Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8689292Z ##[group]Setting up auth
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8689939Z Removing SSH command configuration
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8702789Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.8742637Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9146348Z Removing HTTP extra header
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9151814Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9188035Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9412762Z Removing includeIf entries pointing to credentials config files
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9419962Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9458728Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9692484Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-6eddb739-f586-4732-b6c0-9f123ba9a6c2.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9736500Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/helio/helio/.git.path /home/runner/work/_temp/git-credentials-6eddb739-f586-4732-b6c0-9f123ba9a6c2.config
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9781665Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-6eddb739-f586-4732-b6c0-9f123ba9a6c2.config
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9814404Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-6eddb739-f586-4732-b6c0-9f123ba9a6c2.config
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9857468Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-6eddb739-f586-4732-b6c0-9f123ba9a6c2.config
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9895719Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9896193Z ##[group]Fetching the repository
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:28.9907664Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin <elided>:refs/remotes/pull/822/merge
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:31.3304558Z From https://github.com/matto00/helio
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:31.3305386Z  * [new ref]         <elided> -> pull/822/merge
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:31.3310449Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:31.3310838Z ##[group]Determining the checkout info
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:31.3311744Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:31.3317138Z [command]/usr/bin/git sparse-checkout disable
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:31.3380401Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:31.3416039Z ##[group]Checking out the ref
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:31.3420792Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/822/merge
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2162118Z Note: switching to 'refs/remotes/pull/822/merge'.
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2162616Z 
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2162918Z You are in 'detached HEAD' state. You can look around, make experimental
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2163819Z changes and commit them, and you can discard any commits you make in this
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2164326Z state without impacting any branches by switching back to a branch.
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2164595Z 
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2164781Z If you want to create a new branch to retain commits you create, you may
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2165219Z do so (now or later) by using -c with the switch command. Example:
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2165498Z 
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2165601Z   git switch -c <new-branch-name>
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2165773Z 
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2165870Z Or undo this operation with:
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2166291Z 
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2166514Z   git switch -
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2166636Z 
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2166847Z Turn off this advice by setting config variable advice.detachedHead to false
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2167147Z 
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2167486Z HEAD is now at 300bfc4 Merge <elided> into <elided>
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2188511Z ##[endgroup]
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2238015Z [command]/usr/bin/git log -1 --format=%H
+e2e (4)	Run actions/checkout@v7	2026-10-07T20:04:32.2268138Z <elided>
+e2e (4)	Run actions/setup-java@v6	﻿2026-10-07T20:04:32.2531256Z ##[group]Run actions/setup-java@v6
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2531558Z with:
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2531753Z   distribution: temurin
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2531971Z   java-version: 21
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2532173Z   java-package: jdk
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2532381Z   check-latest: false
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2532606Z   force-download: false
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2532820Z   set-default: true
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2533020Z   server-id: github
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2533264Z   mvn-repositories-include-central: true
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2533943Z   mvn-repositories-prioritize-central: true
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2534256Z   overwrite-settings: true
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2534496Z   cache-read-only: false
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2534718Z   job-status: success
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2537228Z   show-download-progress: false
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2537482Z   problem-matcher: true
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2537695Z env:
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2537959Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2538334Z   DB_USER: helio
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2538749Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2538978Z   DEV_PORT: 5173
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2539169Z   BACKEND_PORT: 8080
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2539381Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2539951Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.2541082Z ##[endgroup]
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3276565Z ##[group]Installed distributions
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3367135Z Resolved Java 21.0.12+1 from tool-cache
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3367657Z Setting Java 21.0.12+1 as the default
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3377146Z 
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3377525Z Java configuration:
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3377809Z   Distribution: temurin
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3378106Z   Version: 21.0.12+1
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3378653Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3379152Z 
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3379574Z ##[endgroup]
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3414078Z Creating settings.xml with server-id: github
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3414765Z Creating toolchains.xml for JDK version 21 from temurin
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3418565Z Writing to /home/runner/.m2/settings.xml
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3429052Z Writing to /home/runner/.m2/toolchains.xml
+e2e (4)	Run actions/setup-java@v6	2026-10-07T20:04:32.3437496Z Configured MAVEN_ARGS to include -ntp to suppress Maven transfer progress logs. Set 'show-download-progress: true' to keep the download progress output.
+e2e (4)	Run sbt/setup-sbt@v1	﻿2026-10-07T20:04:32.3779167Z ##[group]Run sbt/setup-sbt@v1
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3779963Z with:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3780573Z   sbt-runner-version: 2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3781254Z   disk-cache: true
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3781880Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3782531Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3783337Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3784760Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3785478Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3786168Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3786782Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3788690Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3791699Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3818878Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3819613Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3819985Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3885986Z ##[start-action display=Set up cache paths;id=__sbt_setup-sbt.cache-paths]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3925107Z ##[group]Run JDK_VERSION=0
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3925485Z ^[[36;1mJDK_VERSION=0^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3925764Z ^[[36;1mif [[ -x "$(command -v java)" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3926216Z ^[[36;1m  JDK_VERSION=$(java -version 2>&1 | head -n 1 | sed -e 's/.*"\(.*\)"\(.*\)/\1/; 1q')^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3926626Z ^[[36;1mfi^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3926846Z ^[[36;1mif [[ "$RUNNER_OS" == "Windows" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3927308Z ^[[36;1m  echo "sbt_toolpath=$RUNNER_TOOL_CACHE\\sbt\\$SBT_RUNNER_VERSION" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3927852Z ^[[36;1m  echo "sbt_downloadpath=$RUNNER_TEMP\\_sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3928294Z ^[[36;1m  echo "sbt_diskcache=$LOCALAPPDATA\\sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3928758Z ^[[36;1m  echo "sbt_monday=$(date -d "last Monday" +%Y-%m-%d)" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3929160Z ^[[36;1melif [[ "$RUNNER_OS" == "macOS" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3929594Z ^[[36;1m  echo "sbt_toolpath=$RUNNER_TOOL_CACHE/sbt/$SBT_RUNNER_VERSION" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3930094Z ^[[36;1m  echo "sbt_downloadpath=$RUNNER_TEMP/_sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3930548Z ^[[36;1m  echo "sbt_diskcache=$HOME/Library/Caches/sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3931021Z ^[[36;1m  echo "sbt_monday=$(date -v-monday -v+0d +%Y-%m-%d)" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3931406Z ^[[36;1melse^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3931749Z ^[[36;1m  echo "sbt_toolpath=$RUNNER_TOOL_CACHE/sbt/$SBT_RUNNER_VERSION" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3932244Z ^[[36;1m  echo "sbt_downloadpath=$RUNNER_TEMP/_sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3932657Z ^[[36;1m  echo "sbt_diskcache=$HOME/.cache/sbt" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3933105Z ^[[36;1m  echo "sbt_monday=$(date -d "last Monday" +%Y-%m-%d)" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.3933684Z ^[[36;1mfi^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4153971Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4154385Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4154686Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4155051Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4155541Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4155803Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4156018Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4156257Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4157206Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4158550Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4159032Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4159417Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4159630Z   SBT_RUNNER_VERSION: 2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.4160099Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5872494Z ##[end-action id=__sbt_setup-sbt.cache-paths;outcome=success;conclusion=success;duration_ms=198]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5876866Z ##[start-action display=Check tool cache;id=__sbt_setup-sbt.cache-tool-dir]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5896114Z ##[group]Run if [[ -f "$SBT_TOOLPATH/sbt/bin/sbt" ]]; then
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5896547Z ^[[36;1mif [[ -f "$SBT_TOOLPATH/sbt/bin/sbt" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5896883Z ^[[36;1m  echo "cache-hit=true" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5897171Z ^[[36;1melse^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5897386Z ^[[36;1m  mkdir -p "$SBT_TOOLPATH"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5897688Z ^[[36;1m  echo "cache-hit=false" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5897973Z ^[[36;1mfi^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5960147Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5960490Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5960756Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5961083Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5961532Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5961758Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5961948Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5962158Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5962734Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5964221Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5964705Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5965077Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5965309Z   SBT_TOOLPATH: /opt/hostedtoolcache/sbt/2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.5965587Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6068520Z ##[end-action id=__sbt_setup-sbt.cache-tool-dir;outcome=success;conclusion=success;duration_ms=19]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6070823Z ##[start-action display=Cache sbt distribution;id=__sbt_setup-sbt.cache-dir]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6116539Z ##[group]Run actions/cache@<elided>
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6116899Z with:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6117108Z   path: /opt/hostedtoolcache/sbt/2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6117673Z   enableCrossOsArchive: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6117921Z   fail-on-cache-miss: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6118151Z   lookup-only: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6118356Z   save-always: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6118551Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6118807Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6119134Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6119547Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6119777Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6119970Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6120189Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6120782Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6122194Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6122674Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6123054Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:32.6123262Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:33.0003223Z Cache hit for: Linux-X64-sbt-runner-2.0.9-1.5.3
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:34.2882756Z Received 4194304 of 56531573 (7.4%), 4.0 MBs/sec
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:34.7472796Z Received 56531573 of 56531573 (100.0%), 36.9 MBs/sec
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:34.7475897Z Cache Size: ~54 MB (56531573 B)
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:34.7581202Z [command]/usr/bin/tar -xf /home/runner/work/_temp/6bb22520-ccba-4ef1-8666-5b3a1daf2cf7/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0337082Z Cache restored successfully
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0526512Z ##[end-action id=__sbt_setup-sbt.cache-dir;outcome=success;conclusion=success;duration_ms=2445]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0530609Z ##[start-action display=Check runner cache;id=__sbt_setup-sbt.cache-tool-dir2]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0552739Z ##[group]Run # actions/cache seems to be buggy on Windows, so double check if restore worked
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0553694Z ^[[36;1m# actions/cache seems to be buggy on Windows, so double check if restore worked^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0554184Z ^[[36;1mif [[ -f "$SBT_TOOLPATH/sbt/bin/sbt" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0554526Z ^[[36;1m  echo "cache-hit=true" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0554935Z ^[[36;1melse^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0555238Z ^[[36;1m  echo "cache-hit=false" >> "$GITHUB_OUTPUT"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0555542Z ^[[36;1mfi^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0618602Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0618953Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0619231Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0619573Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0619998Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0620235Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0620429Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0620643Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0621214Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0622425Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0622906Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0623294Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0623752Z   SBT_TOOLPATH: /opt/hostedtoolcache/sbt/2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0624040Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0716696Z ##[end-action id=__sbt_setup-sbt.cache-tool-dir2;outcome=success;conclusion=success;duration_ms=18]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:35.0718941Z ##[start-action display=sbt 2.x disk cache;id=__sbt_setup-sbt.disk-cache]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5127152Z ##[group]Run actions/cache@<elided>
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5127526Z with:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5127731Z   path: /home/runner/.cache/sbt
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5129328Z   enableCrossOsArchive: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5129586Z   fail-on-cache-miss: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5129837Z   lookup-only: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5130050Z   save-always: false
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5130248Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5130507Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5130842Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5131485Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5131718Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5131918Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5132130Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5132701Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5134393Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5134872Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5135452Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.5135672Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:36.9082899Z Cache hit for: Linux-X64-java21.0.12.1-sbt-diskcache-1.5.3-2026-10-05-<elided>
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5527940Z Received 32112 of 32112 (100.0%), 0.1 MBs/sec
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5528741Z Cache Size: ~0 MB (32112 B)
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5557872Z [command]/usr/bin/tar -xf /home/runner/work/_temp/213e286e-37c0-411c-8bf9-b74355f59531/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5626180Z Cache restored successfully
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5768392Z ##[end-action id=__sbt_setup-sbt.disk-cache;outcome=success;conclusion=success;duration_ms=2504]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5774570Z ##[start-action display=Download and Install sbt;id=__sbt_setup-sbt.__run]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5784145Z ##[end-action id=__sbt_setup-sbt.__run;outcome=skipped;conclusion=skipped;duration_ms=0]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5786331Z ##[start-action display=Verify the sbt distribution signature;id=__sbt_setup-sbt.ampel-verify]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5792073Z ##[end-action id=__sbt_setup-sbt.ampel-verify;outcome=skipped;conclusion=skipped;duration_ms=0]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5795919Z ##[start-action display=Setup PATH;id=__sbt_setup-sbt.__run_2]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5814683Z ##[group]Run cd "$SBT_TOOLPATH"
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5814977Z ^[[36;1mcd "$SBT_TOOLPATH"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5815222Z ^[[36;1mls sbt/bin/sbt^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5815483Z ^[[36;1mif [[ "$RUNNER_OS" == "Windows" ]]; then^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5815830Z ^[[36;1m  echo "$PWD\\sbt\\bin" >> "$GITHUB_PATH"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5816135Z ^[[36;1melse^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5816375Z ^[[36;1m  echo "$PWD/sbt/bin" >> "$GITHUB_PATH"^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5816664Z ^[[36;1mfi^[[0m
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5879468Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5879821Z env:
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5880258Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5880585Z   DB_USER: helio
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5881039Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5881283Z   DEV_PORT: 5173
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5881484Z   BACKEND_PORT: 8080
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5881706Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5882577Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5884119Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5884620Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5885118Z   MAVEN_ARGS: -ntp
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5885369Z   SBT_TOOLPATH: /opt/hostedtoolcache/sbt/2.0.9
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5885657Z ##[endgroup]
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5980100Z sbt/bin/sbt
+e2e (4)	Run sbt/setup-sbt@v1	2026-10-07T20:04:37.5991377Z ##[end-action id=__sbt_setup-sbt.__run_2;outcome=success;conclusion=success;duration_ms=19]
+e2e (4)	Cache sbt	﻿2026-10-07T20:04:38.8704384Z ##[group]Run actions/cache@v6
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8704921Z with:
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8705230Z   path: ~/.sbt
+e2e (4)	Cache sbt	~/.ivy2/cache
+e2e (4)	Cache sbt	~/.cache/coursier
+e2e (4)	Cache sbt	
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8706337Z   enableCrossOsArchive: false
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8706595Z   fail-on-cache-miss: false
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8706840Z   lookup-only: false
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8707052Z   save-always: false
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8707257Z env:
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8707536Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8708061Z   DB_USER: helio
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8708489Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8708728Z   DEV_PORT: 5173
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8708933Z   BACKEND_PORT: 8080
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8709149Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8709773Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8711003Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8711494Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8711877Z   MAVEN_ARGS: -ntp
+e2e (4)	Cache sbt	2026-10-07T20:04:38.8712090Z ##[endgroup]
+e2e (4)	Cache sbt	2026-10-07T20:04:39.2918512Z Cache hit for: sbt-<elided>
+e2e (4)	Cache sbt	2026-10-07T20:04:40.5928020Z Received 0 of 955541752 (0.0%), 0.0 MBs/sec
+e2e (4)	Cache sbt	2026-10-07T20:04:41.5964895Z Received 117440512 of 955541752 (12.3%), 55.9 MBs/sec
+e2e (4)	Cache sbt	2026-10-07T20:04:42.5944561Z Received 230686720 of 955541752 (24.1%), 73.3 MBs/sec
+e2e (4)	Cache sbt	2026-10-07T20:04:43.5949209Z Received 327155712 of 955541752 (34.2%), 77.9 MBs/sec
+e2e (4)	Cache sbt	2026-10-07T20:04:44.5994749Z Received 427819008 of 955541752 (44.8%), 81.5 MBs/sec
+e2e (4)	Cache sbt	2026-10-07T20:04:45.5974803Z Received 541065216 of 955541752 (56.6%), 85.9 MBs/sec
+e2e (4)	Cache sbt	2026-10-07T20:04:46.5963755Z Received 666894336 of 955541752 (69.8%), 90.8 MBs/sec
+e2e (4)	Cache sbt	2026-10-07T20:04:47.5994997Z Received 754974720 of 955541752 (79.0%), 89.9 MBs/sec
+e2e (4)	Cache sbt	2026-10-07T20:04:48.6028378Z Received 864026624 of 955541752 (90.4%), 91.5 MBs/sec
+e2e (4)	Cache sbt	2026-10-07T20:04:49.5988070Z Received 939524096 of 955541752 (98.3%), 89.5 MBs/sec
+e2e (4)	Cache sbt	2026-10-07T20:04:49.8087233Z Received 955541752 of 955541752 (100.0%), 89.2 MBs/sec
+e2e (4)	Cache sbt	2026-10-07T20:04:49.8089854Z Cache Size: ~911 MB (955541752 B)
+e2e (4)	Cache sbt	2026-10-07T20:04:49.8140401Z [command]/usr/bin/tar -xf /home/runner/work/_temp/da46a82a-a71c-4bf5-b4ae-b8e453703d5d/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+e2e (4)	Cache sbt	2026-10-07T20:04:51.4241425Z Cache restored successfully
+e2e (4)	Start backend (sbt run, background)	﻿2026-10-07T20:04:51.7923068Z ##[group]Run scripts/e2e-backend.sh start
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7923917Z ^[[36;1mscripts/e2e-backend.sh start^[[0m
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7990172Z shell: /usr/bin/bash -e {0}
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7990450Z env:
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7990749Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7991103Z   DB_USER: helio
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7991572Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7991833Z   DEV_PORT: 5173
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7992046Z   BACKEND_PORT: 8080
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7992273Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7992908Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7994460Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7994989Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7995382Z   MAVEN_ARGS: -ntp
+e2e (4)	Start backend (sbt run, background)	2026-10-07T20:04:51.7995598Z ##[endgroup]
+e2e (4)	Run actions/setup-node@v7	﻿2026-10-07T20:04:51.8193193Z ##[group]Run actions/setup-node@v7
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8194233Z with:
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8194454Z   node-version: 22
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8194678Z   cache: npm
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8195017Z   cache-dependency-path: package-lock.json
+e2e (4)	Run actions/setup-node@v7	frontend/package-lock.json
+e2e (4)	Run actions/setup-node@v7	
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8195427Z   check-latest: false
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8197956Z   package-manager-cache: true
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8198407Z env:
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8198682Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8199011Z   DB_USER: helio
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8199460Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8199712Z   DEV_PORT: 5173
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8199917Z   BACKEND_PORT: 8080
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8200150Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8200755Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8202048Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8202550Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8202947Z   MAVEN_ARGS: -ntp
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.8203168Z ##[endgroup]
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.9910254Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:51.9911044Z ##[group]Environment details
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:52.4968532Z node: v22.23.3
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:52.4969045Z npm: 10.9.9
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:52.4969416Z yarn: 1.22.22
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:52.4970221Z ##[endgroup]
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:52.4990455Z [command]/opt/hostedtoolcache/node/22.23.3/x64/bin/npm config get cache
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:52.6235487Z /home/runner/.npm
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:52.9029632Z Cache hit for: node-cache-Linux-x64-npm-<elided>
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:54.2008711Z Received 0 of 115458366 (0.0%), 0.0 MBs/sec
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:55.2048407Z Received 115458366 of 115458366 (100.0%), 55.0 MBs/sec
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:55.2054305Z Cache Size: ~110 MB (115458366 B)
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:55.2175350Z [command]/usr/bin/tar -xf /home/runner/work/_temp/5fd866d2-9ad3-46c6-9593-3216b16d9022/cache.tzst -P -C /home/runner/work/helio/helio --use-compress-program unzstd
+e2e (4)	Run actions/setup-node@v7	2026-10-07T20:04:55.7760630Z Cache restored successfully
+e2e (4)	Run npm ci	﻿2026-10-07T20:04:55.8069232Z ##[group]Run npm ci
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8069702Z ^[[36;1mnpm ci^[[0m
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8162874Z shell: /usr/bin/bash -e {0}
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8163338Z env:
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8164083Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8164717Z   DB_USER: helio
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8165525Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8165960Z   DEV_PORT: 5173
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8166341Z   BACKEND_PORT: 8080
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8166765Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8167911Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8170151Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8170975Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8171729Z   MAVEN_ARGS: -ntp
+e2e (4)	Run npm ci	2026-10-07T20:04:55.8172132Z ##[endgroup]
+e2e (4)	Run npm ci	2026-10-07T20:05:00.4907383Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+e2e (4)	Run npm ci	2026-10-07T20:05:02.1276739Z npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+e2e (4)	Run npm ci	2026-10-07T20:05:06.5424321Z 
+e2e (4)	Run npm ci	2026-10-07T20:05:06.5456443Z > helio@0.7.4 prepare
+e2e (4)	Run npm ci	2026-10-07T20:05:06.5491297Z > husky
+e2e (4)	Run npm ci	2026-10-07T20:05:06.5513901Z 
+e2e (4)	Run npm ci	2026-10-07T20:05:06.6426457Z 
+e2e (4)	Run npm ci	2026-10-07T20:05:06.6434962Z added 623 packages, and audited 624 packages in 11s
+e2e (4)	Run npm ci	2026-10-07T20:05:06.6464015Z 
+e2e (4)	Run npm ci	2026-10-07T20:05:06.6493312Z 229 packages are looking for funding
+e2e (4)	Run npm ci	2026-10-07T20:05:06.6544286Z   run `npm fund` for details
+e2e (4)	Run npm ci	2026-10-07T20:05:06.7344156Z 
+e2e (4)	Run npm ci	2026-10-07T20:05:06.7364694Z 32 vulnerabilities (5 moderate, 27 high)
+e2e (4)	Run npm ci	2026-10-07T20:05:06.7383875Z 
+e2e (4)	Run npm ci	2026-10-07T20:05:06.7414450Z To address all issues, run:
+e2e (4)	Run npm ci	2026-10-07T20:05:06.7420329Z   npm audit fix
+e2e (4)	Run npm ci	2026-10-07T20:05:06.7444054Z 
+e2e (4)	Run npm ci	2026-10-07T20:05:06.7469770Z Run `npm audit` for details.
+e2e (4)	Run npm --prefix frontend ci	﻿2026-10-07T20:05:06.8894790Z ##[group]Run npm --prefix frontend ci
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.8895459Z ^[[36;1mnpm --prefix frontend ci^[[0m
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9071525Z shell: /usr/bin/bash -e {0}
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9072010Z env:
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9072495Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9073101Z   DB_USER: helio
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9104728Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9105192Z   DEV_PORT: 5173
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9105597Z   BACKEND_PORT: 8080
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9106023Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9107154Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9109522Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9110511Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9111268Z   MAVEN_ARGS: -ntp
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:06.9111674Z ##[endgroup]
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:14.3817897Z npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:14.4263194Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:15.4285587Z npm warn deprecated source-map@0.8.0-beta.0: The work that was done in this beta branch won't be included in future versions
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:16.7972398Z npm warn deprecated glob@11.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:16.8066302Z npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:23.1053860Z 
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:23.1084772Z added 920 packages, and audited 921 packages in 16s
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:23.1104391Z 
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:23.1141802Z 266 packages are looking for funding
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:23.1164901Z   run `npm fund` for details
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:23.1184225Z 
+e2e (4)	Run npm --prefix frontend ci	2026-10-07T20:05:23.1195128Z found 0 vulnerabilities
+e2e (4)	Install Playwright browsers	﻿2026-10-07T20:05:23.1931480Z ##[group]Run npx playwright install --with-deps chromium
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.1932482Z ^[[36;1mnpx playwright install --with-deps chromium^[[0m
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2054235Z shell: /usr/bin/bash -e {0}
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2054777Z env:
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2055282Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2055903Z   DB_USER: helio
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2056749Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2057223Z   DEV_PORT: 5173
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2057619Z   BACKEND_PORT: 8080
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2058045Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2059169Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2061394Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2062392Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2063091Z   MAVEN_ARGS: -ntp
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:23.2063842Z ##[endgroup]
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:24.5503672Z Installing dependencies...
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:24.5764916Z Switching to root user to install dependencies...
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:24.8000514Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:24.8433507Z Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:24.9825434Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [463 kB]
+e2e (4)	Install Playwright browsers	2026-10-07T20:05:25.0145695Z Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [519 kB]
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:02.0729504Z Ign:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:17.3388041Z Ign:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:17.3389361Z Ign:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:17.3390398Z Ign:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:17.3391333Z Ign:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:18.3398290Z Ign:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:18.3424716Z Ign:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:18.3454377Z Ign:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:20.4124701Z Hit:2 https://archive.ubuntu.com/ubuntu noble InRelease
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:20.5554127Z Get:3 https://archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:21.0174744Z Ign:9 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:21.0708186Z Get:4 https://archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+e2e (4)	Install Playwright browsers	2026-10-07T20:06:21.3642206Z Get:5 https://archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+e2e (4)	Install Playwright browsers	2026-10-07T20:23:01.2413026Z ##[error]The operation was canceled.
+e2e (4)	Upload Playwright JSON report (per-test durations)	﻿2026-10-07T20:23:01.2487240Z ##[group]Run actions/upload-artifact@v7
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2487568Z with:
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2487786Z   name: playwright-json-shard-4
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2488073Z   path: test-results/results.json
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2488353Z   if-no-files-found: ignore
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2488599Z   retention-days: 14
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2488833Z   compression-level: 6
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2489064Z   overwrite: false
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2489295Z   include-hidden-files: false
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2489547Z   archive: true
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2489756Z env:
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2490026Z   DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2490382Z   DB_USER: helio
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2490840Z   HELIO_UPLOADS_BACKEND: local
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2491097Z   DEV_PORT: 5173
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2491308Z   BACKEND_PORT: 8080
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2491542Z   GOOGLE_CLIENT_ID: placeholder
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2492384Z   GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2494119Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2494638Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2495042Z   MAVEN_ARGS: -ntp
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.2495264Z ##[endgroup]
+e2e (4)	Upload Playwright JSON report (per-test durations)	2026-10-07T20:23:01.3908678Z No files were found with the provided path: test-results/results.json. No artifacts will be uploaded.
+e2e (4)	Post Run sbt/setup-sbt@v1	﻿2026-10-07T20:23:01.4279873Z Post job cleanup.
+e2e (4)	Post Run sbt/setup-sbt@v1	2026-10-07T20:23:01.4284635Z ##[start-action display=sbt 2.x disk cache;id=__c8a45a8a-84ea-4e7e-8798-41023baf3457.disk-cache]
+e2e (4)	Post Run sbt/setup-sbt@v1	2026-10-07T20:23:01.4287331Z ##[end-action id=__c8a45a8a-84ea-4e7e-8798-41023baf3457.disk-cache;outcome=skipped;conclusion=skipped;duration_ms=0]
+e2e (4)	Post Run sbt/setup-sbt@v1	2026-10-07T20:23:01.4291296Z ##[start-action display=Cache sbt distribution;id=__c8a45a8a-84ea-4e7e-8798-41023baf3457.cache-dir]
+e2e (4)	Post Run sbt/setup-sbt@v1	2026-10-07T20:23:01.4296534Z ##[end-action id=__c8a45a8a-84ea-4e7e-8798-41023baf3457.cache-dir;outcome=skipped;conclusion=skipped;duration_ms=0]
+e2e (4)	Post Run actions/setup-java@v6	﻿2026-10-07T20:23:01.4421526Z Post job cleanup.
+e2e (4)	Post Run actions/checkout@v7	﻿2026-10-07T20:23:01.5330998Z Post job cleanup.
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.6590378Z [command]/usr/bin/git version
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.6637305Z git version 2.55.0
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.6689751Z Temporarily overriding HOME='/home/runner/work/_temp/20c1ef56-20b4-4606-9bef-532eea5555dd' before making global git config changes
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.6700376Z Adding repository directory to the temporary git global config as a safe directory
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.6705100Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/helio/helio
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.6734722Z Removing SSH command configuration
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.6735728Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.6770639Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7073161Z Removing HTTP extra header
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7080088Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7121667Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7415619Z Removing includeIf entries pointing to credentials config files
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7416902Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7449776Z includeif.gitdir:/home/runner/work/helio/helio/.git.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7451063Z includeif.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7452708Z includeif.gitdir:/github/workspace/.git.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7453958Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7460462Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/helio/helio/.git.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7500737Z /home/runner/work/_temp/git-credentials-6eddb739-f586-4732-b6c0-9f123ba9a6c2.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7506951Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/helio/helio/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-6eddb739\-f586\-4732\-b6c0\-9f123ba9a6c2\.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7554145Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7592311Z /home/runner/work/_temp/git-credentials-6eddb739-f586-4732-b6c0-9f123ba9a6c2.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7602660Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/helio/helio/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-6eddb739\-f586\-4732\-b6c0\-9f123ba9a6c2\.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7642951Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7672242Z /github/runner_temp/git-credentials-6eddb739-f586-4732-b6c0-9f123ba9a6c2.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7682263Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-6eddb739\-f586\-4732\-b6c0\-9f123ba9a6c2\.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7722133Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7746084Z /github/runner_temp/git-credentials-6eddb739-f586-4732-b6c0-9f123ba9a6c2.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7756055Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-6eddb739\-f586\-4732\-b6c0\-9f123ba9a6c2\.config
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.7794535Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+e2e (4)	Post Run actions/checkout@v7	2026-10-07T20:23:01.8043851Z Removing credentials config '/home/runner/work/_temp/git-credentials-6eddb739-f586-4732-b6c0-9f123ba9a6c2.config'
+e2e (4)	Stop containers	﻿2026-10-07T20:23:01.8163003Z Print service container logs: <elided>_postgres16_f601bb
+e2e (4)	Stop containers	2026-10-07T20:23:01.8168292Z ##[command]/usr/bin/docker logs --details <elided>
+e2e (4)	Stop containers	2026-10-07T20:23:01.8296293Z  The files belonging to this database system will be owned by user "postgres".
+e2e (4)	Stop containers	2026-10-07T20:23:01.8297128Z  This user must also own the server process.
+e2e (4)	Stop containers	2026-10-07T20:23:01.8297657Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8298171Z  The database cluster will be initialized with locale "en_US.utf8".
+e2e (4)	Stop containers	2026-10-07T20:23:01.8299173Z  The default database encoding has accordingly been set to "UTF8".
+e2e (4)	Stop containers	2026-10-07T20:23:01.8300060Z  The default text search configuration will be set to "english".
+e2e (4)	Stop containers	2026-10-07T20:23:01.8300714Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8301103Z  Data page checksums are disabled.
+e2e (4)	Stop containers	2026-10-07T20:23:01.8301587Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8302147Z  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+e2e (4)	Stop containers	2026-10-07T20:23:01.8302928Z  creating subdirectories ... ok
+e2e (4)	Stop containers	2026-10-07T20:23:01.8303877Z  selecting dynamic shared memory implementation ... posix
+e2e (4)	Stop containers	2026-10-07T20:23:01.8304446Z  selecting default max_connections ... 100
+e2e (4)	Stop containers	2026-10-07T20:23:01.8304789Z  selecting default shared_buffers ... 128MB
+e2e (4)	Stop containers	2026-10-07T20:23:01.8306236Z  initdb: warning: enabling "trust" authentication for local connections
+e2e (4)	Stop containers	2026-10-07T20:23:01.8306662Z  selecting default time zone ... Etc/UTC
+e2e (4)	Stop containers	2026-10-07T20:23:01.8307416Z  initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+e2e (4)	Stop containers	2026-10-07T20:23:01.8308452Z  2026-10-07 20:04:14.772 UTC [1] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+e2e (4)	Stop containers	2026-10-07T20:23:01.8309255Z  2026-10-07 20:04:14.773 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+e2e (4)	Stop containers	2026-10-07T20:23:01.8309806Z  2026-10-07 20:04:14.773 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+e2e (4)	Stop containers	2026-10-07T20:23:01.8310388Z  2026-10-07 20:04:14.773 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+e2e (4)	Stop containers	2026-10-07T20:23:01.8311033Z  2026-10-07 20:04:14.776 UTC [65] LOG:  database system was shut down at 2026-10-07 20:04:14 UTC
+e2e (4)	Stop containers	2026-10-07T20:23:01.8311610Z  2026-10-07 20:04:14.780 UTC [1] LOG:  database system is ready to accept connections
+e2e (4)	Stop containers	2026-10-07T20:23:01.8312124Z  2026-10-07 20:04:23.895 UTC [76] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8312925Z  2026-10-07 20:04:33.959 UTC [84] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8313875Z  2026-10-07 20:04:44.022 UTC [92] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8314813Z  creating configuration files ... ok
+e2e (4)	Stop containers	2026-10-07T20:23:01.8315463Z  2026-10-07 20:04:54.105 UTC [101] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8316177Z  2026-10-07 20:05:04.302 UTC [109] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8316885Z  2026-10-07 20:05:14.422 UTC [117] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8317591Z  2026-10-07 20:05:24.527 UTC [126] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8318286Z  2026-10-07 20:05:34.620 UTC [134] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8318960Z  2026-10-07 20:05:44.726 UTC [142] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8319642Z  2026-10-07 20:05:54.823 UTC [151] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8320337Z  2026-10-07 20:06:04.916 UTC [159] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8321022Z  2026-10-07 20:06:15.005 UTC [168] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8321721Z  2026-10-07 20:06:25.111 UTC [176] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8322464Z  2026-10-07 20:06:35.194 UTC [184] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8323190Z  2026-10-07 20:06:45.256 UTC [200] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8324122Z  2026-10-07 20:06:55.318 UTC [208] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8324832Z  2026-10-07 20:07:05.378 UTC [217] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8325814Z  2026-10-07 20:07:15.440 UTC [226] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8326556Z  2026-10-07 20:07:25.502 UTC [235] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8326989Z  2026-10-07 20:07:35.563 UTC [243] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8327483Z  2026-10-07 20:07:45.624 UTC [252] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8328008Z  2026-10-07 20:07:55.685 UTC [260] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8328410Z  2026-10-07 20:08:05.747 UTC [269] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8328819Z  2026-10-07 20:08:15.809 UTC [277] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8329209Z  2026-10-07 20:08:25.870 UTC [286] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8329627Z  2026-10-07 20:08:35.932 UTC [294] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8330031Z  2026-10-07 20:08:45.993 UTC [303] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8330440Z  2026-10-07 20:08:56.055 UTC [311] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8330838Z  2026-10-07 20:09:06.117 UTC [320] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8331246Z  2026-10-07 20:09:14.875 UTC [63] LOG:  checkpoint starting: time
+e2e (4)	Stop containers	2026-10-07T20:23:01.8331668Z  2026-10-07 20:09:16.179 UTC [328] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8332074Z  2026-10-07 20:09:26.241 UTC [337] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8332466Z  2026-10-07 20:09:36.302 UTC [345] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8332865Z  2026-10-07 20:09:46.363 UTC [354] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8334218Z  2026-10-07 20:09:52.563 UTC [63] LOG:  checkpoint complete: wrote 380 buffers (2.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=37.683 s, sync=0.003 s, total=37.688 s; sync files=417, longest=0.001 s, average=0.001 s; distance=2818 kB, estimate=2818 kB; lsn=0/1BE0228, redo lsn=0/1BDFBB8
+e2e (4)	Stop containers	2026-10-07T20:23:01.8335313Z  2026-10-07 20:09:56.425 UTC [362] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8335721Z  2026-10-07 20:10:06.485 UTC [371] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8336131Z  2026-10-07 20:10:16.546 UTC [379] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8336528Z  2026-10-07 20:10:26.606 UTC [388] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8336925Z  2026-10-07 20:10:36.668 UTC [396] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8337313Z  2026-10-07 20:10:46.729 UTC [406] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8337710Z  2026-10-07 20:10:56.790 UTC [414] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8338289Z  2026-10-07 20:11:06.850 UTC [423] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8338683Z  2026-10-07 20:11:16.911 UTC [431] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8339074Z  2026-10-07 20:11:26.971 UTC [440] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8339470Z  2026-10-07 20:11:37.031 UTC [448] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8339870Z  2026-10-07 20:11:47.091 UTC [457] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8340265Z  2026-10-07 20:11:57.152 UTC [465] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8340658Z  2026-10-07 20:12:07.212 UTC [474] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8341054Z  2026-10-07 20:12:17.271 UTC [482] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8341451Z  2026-10-07 20:12:27.330 UTC [491] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8341846Z  2026-10-07 20:12:37.389 UTC [499] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8342244Z  2026-10-07 20:12:47.449 UTC [508] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8342638Z  2026-10-07 20:12:57.508 UTC [516] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8343034Z  2026-10-07 20:13:07.570 UTC [525] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8343651Z  2026-10-07 20:13:17.632 UTC [533] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8344221Z  2026-10-07 20:13:27.692 UTC [542] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8344624Z  2026-10-07 20:13:37.751 UTC [550] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8345030Z  2026-10-07 20:13:47.810 UTC [559] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8345427Z  2026-10-07 20:13:57.871 UTC [567] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8345817Z  2026-10-07 20:14:07.930 UTC [576] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8346220Z  2026-10-07 20:14:14.656 UTC [63] LOG:  checkpoint starting: time
+e2e (4)	Stop containers	2026-10-07T20:23:01.8347243Z  2026-10-07 20:14:14.959 UTC [63] LOG:  checkpoint complete: wrote 4 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.301 s, sync=0.001 s, total=0.304 s; sync files=4, longest=0.001 s, average=0.001 s; distance=5 kB, estimate=2537 kB; lsn=0/1BE1318, redo lsn=0/1BE12E0
+e2e (4)	Stop containers	2026-10-07T20:23:01.8348268Z  2026-10-07 20:14:17.990 UTC [584] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8348672Z  2026-10-07 20:14:28.050 UTC [593] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8349069Z  2026-10-07 20:14:38.109 UTC [601] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8349463Z  2026-10-07 20:14:48.168 UTC [610] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8349860Z  2026-10-07 20:14:58.227 UTC [618] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8350250Z  2026-10-07 20:15:08.287 UTC [627] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8350644Z  2026-10-07 20:15:18.345 UTC [636] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8351039Z  2026-10-07 20:15:28.404 UTC [645] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8351432Z  2026-10-07 20:15:38.465 UTC [653] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8351842Z  2026-10-07 20:15:48.525 UTC [662] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8352237Z  2026-10-07 20:15:58.584 UTC [670] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8352622Z  2026-10-07 20:16:08.646 UTC [679] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8353020Z  2026-10-07 20:16:18.706 UTC [687] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8353681Z  2026-10-07 20:16:28.765 UTC [696] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8354142Z  2026-10-07 20:16:38.825 UTC [704] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8354546Z  2026-10-07 20:16:48.885 UTC [713] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8354946Z  2026-10-07 20:16:58.945 UTC [721] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8355339Z  2026-10-07 20:17:09.004 UTC [730] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8355891Z  2026-10-07 20:17:19.063 UTC [738] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8356280Z  2026-10-07 20:17:29.122 UTC [747] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8356672Z  2026-10-07 20:17:39.184 UTC [755] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8357068Z  2026-10-07 20:17:49.246 UTC [765] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8357482Z  2026-10-07 20:17:59.306 UTC [773] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8357868Z  2026-10-07 20:18:09.365 UTC [782] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8358261Z  2026-10-07 20:18:19.424 UTC [790] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8358655Z  2026-10-07 20:18:29.486 UTC [799] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8359131Z  2026-10-07 20:18:39.546 UTC [807] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8359778Z  2026-10-07 20:18:49.606 UTC [816] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8360456Z  2026-10-07 20:18:59.666 UTC [824] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8361137Z  2026-10-07 20:19:09.728 UTC [833] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8361854Z  2026-10-07 20:19:15.039 UTC [63] LOG:  checkpoint starting: time
+e2e (4)	Stop containers	2026-10-07T20:23:01.8363894Z  2026-10-07 20:19:15.342 UTC [63] LOG:  checkpoint complete: wrote 4 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.301 s, sync=0.001 s, total=0.304 s; sync files=4, longest=0.001 s, average=0.001 s; distance=7 kB, estimate=2284 kB; lsn=0/1BE2FE8, redo lsn=0/1BE2FB0
+e2e (4)	Stop containers	2026-10-07T20:23:01.8365947Z  2026-10-07 20:19:19.787 UTC [842] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8366660Z  2026-10-07 20:19:29.847 UTC [851] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8367361Z  2026-10-07 20:19:39.906 UTC [859] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8368058Z  2026-10-07 20:19:49.966 UTC [868] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8368764Z  2026-10-07 20:20:00.025 UTC [876] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8369464Z  2026-10-07 20:20:10.085 UTC [885] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8370159Z  2026-10-07 20:20:20.146 UTC [893] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8370858Z  2026-10-07 20:20:30.206 UTC [902] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8371563Z  2026-10-07 20:20:40.266 UTC [910] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8372262Z  2026-10-07 20:20:50.326 UTC [920] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8372961Z  2026-10-07 20:21:00.386 UTC [928] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8373865Z  2026-10-07 20:21:10.445 UTC [937] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8374577Z  2026-10-07 20:21:20.504 UTC [945] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8375280Z  2026-10-07 20:21:30.565 UTC [954] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8375973Z  2026-10-07 20:21:40.624 UTC [962] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8376653Z  2026-10-07 20:21:50.683 UTC [972] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8377343Z  2026-10-07 20:22:00.744 UTC [980] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8378042Z  2026-10-07 20:22:10.803 UTC [989] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8378738Z  2026-10-07 20:22:20.863 UTC [997] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8379273Z  2026-10-07 20:22:30.922 UTC [1006] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8379711Z  2026-10-07 20:22:40.981 UTC [1014] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8380120Z  2026-10-07 20:22:51.043 UTC [1023] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8380517Z  2026-10-07 20:23:01.103 UTC [1031] FATAL:  role "root" does not exist
+e2e (4)	Stop containers	2026-10-07T20:23:01.8380875Z  running bootstrap script ... ok
+e2e (4)	Stop containers	2026-10-07T20:23:01.8381199Z  performing post-bootstrap initialization ... ok
+e2e (4)	Stop containers	2026-10-07T20:23:01.8381713Z  syncing data to disk ... ok
+e2e (4)	Stop containers	2026-10-07T20:23:01.8381963Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8382148Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8382397Z  Success. You can now start the database server using:
+e2e (4)	Stop containers	2026-10-07T20:23:01.8382717Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8382971Z      pg_ctl -D /var/lib/postgresql/data -l logfile start
+e2e (4)	Stop containers	2026-10-07T20:23:01.8383290Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8384244Z  waiting for server to start....2026-10-07 20:04:14.464 UTC [49] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+e2e (4)	Stop containers	2026-10-07T20:23:01.8385162Z  2026-10-07 20:04:14.464 UTC [49] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+e2e (4)	Stop containers	2026-10-07T20:23:01.8385744Z  2026-10-07 20:04:14.466 UTC [52] LOG:  database system was shut down at 2026-10-07 20:04:14 UTC
+e2e (4)	Stop containers	2026-10-07T20:23:01.8386275Z  2026-10-07 20:04:14.470 UTC [49] LOG:  database system is ready to accept connections
+e2e (4)	Stop containers	2026-10-07T20:23:01.8386685Z   done
+e2e (4)	Stop containers	2026-10-07T20:23:01.8386890Z  server started
+e2e (4)	Stop containers	2026-10-07T20:23:01.8387110Z  CREATE DATABASE
+e2e (4)	Stop containers	2026-10-07T20:23:01.8387323Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8387507Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8387838Z  /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+e2e (4)	Stop containers	2026-10-07T20:23:01.8388249Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8388518Z  2026-10-07 20:04:14.650 UTC [49] LOG:  received fast shutdown request
+e2e (4)	Stop containers	2026-10-07T20:23:01.8389055Z  waiting for server to shut down....2026-10-07 20:04:14.650 UTC [49] LOG:  aborting any active transactions
+e2e (4)	Stop containers	2026-10-07T20:23:01.8389899Z  2026-10-07 20:04:14.652 UTC [49] LOG:  background worker "logical replication launcher" (PID 55) exited with exit code 1
+e2e (4)	Stop containers	2026-10-07T20:23:01.8390448Z  2026-10-07 20:04:14.653 UTC [50] LOG:  shutting down
+e2e (4)	Stop containers	2026-10-07T20:23:01.8390854Z  2026-10-07 20:04:14.653 UTC [50] LOG:  checkpoint starting: shutdown immediate
+e2e (4)	Stop containers	2026-10-07T20:23:01.8391947Z  2026-10-07 20:04:14.669 UTC [50] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.013 s, sync=0.002 s, total=0.016 s; sync files=301, longest=0.001 s, average=0.001 s; distance=4273 kB, estimate=4273 kB; lsn=0/191F0E0, redo lsn=0/191F0E0
+e2e (4)	Stop containers	2026-10-07T20:23:01.8393013Z  2026-10-07 20:04:14.676 UTC [49] LOG:  database system is shut down
+e2e (4)	Stop containers	2026-10-07T20:23:01.8393532Z   done
+e2e (4)	Stop containers	2026-10-07T20:23:01.8414058Z  server stopped
+e2e (4)	Stop containers	2026-10-07T20:23:01.8414426Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8414794Z  PostgreSQL init process complete; ready for start up.
+e2e (4)	Stop containers	2026-10-07T20:23:01.8415151Z  
+e2e (4)	Stop containers	2026-10-07T20:23:01.8421347Z Stop and remove container: <elided>_postgres16_f601bb
+e2e (4)	Stop containers	2026-10-07T20:23:01.8426777Z ##[command]/usr/bin/docker rm --force <elided>
+e2e (4)	Stop containers	2026-10-07T20:23:01.9633603Z <elided>
+e2e (4)	Stop containers	2026-10-07T20:23:01.9648259Z Remove container network: github_network_<elided>
+e2e (4)	Stop containers	2026-10-07T20:23:01.9652704Z ##[command]/usr/bin/docker network rm github_network_<elided>
+e2e (4)	Stop containers	2026-10-07T20:23:02.0643629Z github_network_<elided>
+e2e (4)	Complete job	﻿2026-10-07T20:23:02.0715177Z Cleaning up orphan processes
+e2e (4)	Complete job	2026-10-07T20:23:02.0974490Z Terminate orphan process: pid (2919) (java)
+e2e (4)	Complete job	2026-10-07T20:23:02.1001304Z Terminate orphan process: pid (3274) (npm exec playwright install --with-deps chromium)
+e2e (4)	Complete job	2026-10-07T20:23:02.1032597Z Terminate orphan process: pid (3286) (sh)
+e2e (4)	Complete job	2026-10-07T20:23:02.1061163Z Terminate orphan process: pid (3287) (node)
+e2e (4)	Complete job	2026-10-07T20:23:02.1179743Z Terminate orphan process: pid (3739) (java)
