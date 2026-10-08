@@ -1,1 +1,0 @@
-- `backend/src/test/scala/com/helio/services/telemetry/ProductEventRollupServiceSpec.scala` — roster-scoped V114 expectations plus fixed-date late-user guard (test-only)
