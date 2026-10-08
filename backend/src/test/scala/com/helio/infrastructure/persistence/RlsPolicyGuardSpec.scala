@@ -153,7 +153,9 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V62 (pipeline_schedules) pattern (HEL-1093)
     "pipeline_auto_run_debounce" -> None,
     // V113 — product_events, direct owner (user_id); its five rollup tables hold aggregates only and carry no RLS (HEL-1208)
-    "product_events" -> None
+    "product_events" -> None,
+    // V117 — hel1387_dropped_output_config_keys, deny-all + explicit helio_privileged grant (admin-only; holds user config values) (HEL-1387)
+    "hel1387_dropped_output_config_keys" -> Some(Set("hel1387_dropped_output_config_keys_deny_all"))
   )
 
   override def beforeAll(): Unit = {

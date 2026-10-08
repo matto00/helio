@@ -704,8 +704,11 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
 
           expectedFormat.foreach { fmt =>
             val outputId = await(superDb.run(sql"SELECT output_id FROM panels WHERE id = ${p.id}".as[Option[String]].head)).get
-            val outConfig = await(superDb.run(sql"SELECT config::text FROM outputs WHERE id = $outputId".as[String].head))
-            outConfig.parseJson.asJsObject.fields("format") shouldBe fmt.parseJson
+            val (kind, outConfig) = await(superDb.run(sql"SELECT kind, config::text FROM outputs WHERE id = $outputId".as[(String, String)].head))
+            // HEL-1387: V117 (this spec migrates to latest) drops V94's `format` from kinds that do not accept it
+            // (chart/table/timeline/markdown); metric and collection Outputs keep it byte-identically.
+            if (Set("metric", "collection").contains(kind)) outConfig.parseJson.asJsObject.fields("format") shouldBe fmt.parseJson
+            else outConfig.parseJson.asJsObject.fields.get("format") shouldBe None
           }
         }
       }
