@@ -29,6 +29,8 @@ interface ChartRendererProps {
   /** HEL-318: optional static subtitle/footnote rendered beneath the chart
    *  canvas. Absent/blank renders nothing. */
   annotation?: string | null;
+  /** HEL-1358: one-line note that the chart is based on only the loaded rows; absent renders nothing. */
+  truncationNote?: string | null;
   /** HEL-301: forwarded to `ChartPanel` — see its `compact` prop. */
   compact?: boolean;
   /** HEL-572: forwarded to `ChartPanel` — see its `onDataPointSelect` prop. */
@@ -45,6 +47,7 @@ export function ChartRenderer({
   chartOptions,
   overlay,
   annotation,
+  truncationNote,
   compact,
   onDataPointSelect,
 }: ChartRendererProps) {
@@ -70,6 +73,11 @@ export function ChartRenderer({
       {trimmedAnnotation ? (
         <p className="chart-panel__annotation" title={trimmedAnnotation}>
           {trimmedAnnotation}
+        </p>
+      ) : null}
+      {truncationNote ? (
+        <p className="chart-panel__truncation-note" title={truncationNote}>
+          {truncationNote}
         </p>
       ) : null}
     </div>
