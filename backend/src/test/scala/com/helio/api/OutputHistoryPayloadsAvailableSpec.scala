@@ -146,8 +146,13 @@ class OutputHistoryPayloadsAvailableSpec extends AnyWordSpec with Matchers with 
         flag(js) shouldBe Some(JsBoolean(true))
         js.fields("id").convertTo[String]
       }
-      // PATCH is Output-owner-only: patch the editor's own Output; the client-sent config key is ignored.
+      // PATCH is Output-owner-only: patch the editor's own Output. HEL-1313: a client-sent
+      // `historyPayloadsAvailable` config key is no longer silently ignored -- it is an unknown key (400).
       as(freeEditorId)(Patch(s"/api/outputs/$created", json("""{"config":{"historyPayloadsAvailable":false}}"""))) ~> api ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("historyPayloadsAvailable")
+      }
+      as(freeEditorId)(Patch(s"/api/outputs/$created", json("""{"name":"renamed"}"""))) ~> api ~> check {
         status shouldBe StatusCodes.OK
         flag(responseAs[String].parseJson.asJsObject) shouldBe Some(JsBoolean(true))
       }
@@ -235,12 +240,17 @@ class OutputHistoryPayloadsAvailableSpec extends AnyWordSpec with Matchers with 
       assertLimitsAtAllSites(overridden, betaId, seedPayloadPipeline(betaId), overriddenLimitsJson)
     }
 
-    "not let a client-sent config.historyPayloadLimits affect the top-level field" in {
+    // HEL-1313: the spoof attempt is now rejected outright as an unknown config key; the top-level
+    // field stays the server's own either way.
+    "reject a client-sent config.historyPayloadLimits and leave the top-level field untouched" in {
       val fx = seedPayloadPipeline(betaId)
       as(betaId)(Patch(s"/api/outputs/${fx.plainOutput}", json(
         """{"config":{"historyPayloadLimits":{"maxRows":1,"maxBytes":1,"tiers":{}}}}"""))) ~> api ~> check {
-        val js = responseAs[String].parseJson.asJsObject
-        limits(js) shouldBe Some(defaultLimitsJson)
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("historyPayloadLimits")
+      }
+      as(betaId)(Get(s"/api/outputs/${fx.plainOutput}")) ~> api ~> check {
+        limits(responseAs[String].parseJson.asJsObject) shouldBe Some(defaultLimitsJson)
       }
     }
 

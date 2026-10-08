@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/outputs/output.schema.json",
   "title": "OutputResponse",
-  "description": "A panel-bindable projection of a single pipeline node (HEL-904/HEL-906). Replaces the DataType/Metric response shapes. `config` shape varies by `kind` (chart legend/tooltip/seriesColors/axisLabels for `chart`; `format` for `metric`/`collection`, HEL-876) and is carried as a raw object.",
+  "description": "A panel-bindable projection of a single pipeline node (HEL-904/HEL-906). Replaces the DataType/Metric response shapes. `config` shape varies by `kind` (the keys a write accepts per kind are listed on the create/update request schemas, HEL-1313; a stored Output may still carry legacy keys, which reads tolerate) and is carried as a raw object.",
   "type": "object",
   "required": [
     "id",

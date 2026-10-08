@@ -72,8 +72,13 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
             ? { annotation: params.annotationState.fieldValue }
             : {}),
         },
+        // A scatter chart never aggregates and the server rejects the pair (HEL-1313), so the
+        // editor writes null however the (hidden) aggregation fields were last left.
         aggregation:
-          params.groupBy && params.yField && isAggFn(params.chartAggFn)
+          params.chartType !== "scatter" &&
+          params.groupBy &&
+          params.yField &&
+          isAggFn(params.chartAggFn)
             ? { groupBy: params.groupBy, agg: params.chartAggFn, yField: params.yField }
             : null,
         chartOptions: params.chartOptionsState,

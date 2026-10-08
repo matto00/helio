@@ -1,0 +1,35 @@
+- `backend/src/main/scala/com/helio/services/pipelines/OutputConfigValidation.scala` — new pure validator: per-kind known keys, tolerance rule, hints, aggregation/chartType rules, KeysDoc, OutputConfigWritePolicy
+- `backend/src/main/scala/com/helio/services/pipelines/OutputService.scala` — validateConfig(kind, written, stored, policy); update takes write policy; shallow mergeConfig (dead deep merge removed)
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — validateOutputFieldMapping calls the validator (single-call create + proposal grounding)
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewProjection.scala` — preview validates patch against prior config
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyRollback.scala` — rollback uses RestorePriorStored
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoService.scala` — comment: raw restore deliberately unvalidated
+- `backend/src/main/scala/com/helio/services/patchsets/RefinementEditShape.scala` — KeysDoc in Output-edit text
+- `backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala` — KeysDoc on proposal Output config and propose_patch_set patch descriptions
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/OutputProtocol.scala` — doc comments (shallow merge)
+- `backend/src/test/scala/com/helio/services/pipelines/OutputConfigValidationSpec.scala` — new pure validator spec (4.1)
+- `backend/src/test/scala/com/helio/services/pipelines/OutputConfigKeyValidationSpec.scala` — new route/preview/single-call/grounding spec (4.2, 4.3)
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetApplyServiceSpec.scala` — rollback restores scatter+aggregation and legacy key (4.4)
+- `backend/src/test/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemasSpec.scala` — Output config/patch descriptions carry KeysDoc (4.7)
+- `backend/src/test/scala/com/helio/services/patchsets/RefinementEditShapeSpec.scala` — Output-edit text carries KeysDoc (4.7)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputRoutesSpec.scala` — HEL-877 legend deep-merge test and HEL-946 legend create fixture updated to the new contract (1.6)
+- `backend/src/test/scala/com/helio/services/pipelines/OutputCompareWriteValidationSpec.scala` — unrelated-patch fixture used dead `legend` key; now a known key so the test still exercises the stored invalid compare
+- `frontend/src/features/pipelines/ui/outputEditor/buildOutputConfig.ts` — aggregation null for scatter
+- `frontend/src/features/pipelines/ui/outputEditor/buildOutputConfig.test.ts` — scatter test
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx` — show server rejection message
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.saveError.test.tsx` — new editor test for rejected save message
+- `frontend/src/features/pipelines/ui/outputEditor/outputConfigTypes.ts` — comment fix (shallow merge)
+- `schemas/outputs/create-output-request.schema.json` — known keys, aggregation/chartType shapes
+- `schemas/outputs/update-output-request.schema.json` — known keys, shapes, merge wording
+- `schemas/pipelines/create-pipeline-transactional-output-request.schema.json` — known keys, shapes
+- `schemas/outputs/output.schema.json` — config description
+- `helio-mcp/src/tools/outputs.ts` — OUTPUT_CONFIG_KEYS_DOC
+- `helio-mcp/src/tools/pipelines.ts` — OUTPUT_CONFIG_KEYS_DOC
+- `helio-mcp/src/tools/pipelineProposal.ts` — OUTPUT_CONFIG_KEYS_DOC
+- `helio-mcp/src/tools/combinedProposal.ts` — OUTPUT_CONFIG_KEYS_DOC
+- `helio-mcp/src/tools/refinement.ts` — OUTPUT_CONFIG_KEYS_DOC
+- `helio-mcp/src/helioApi.ts` — drop deep-merge doc text
+- `helio-mcp/src/types.ts` — drop deep-merge doc text
+- `helio-mcp/src/server.test.ts` — tool descriptions list keys and shapes
+- `openspec/changes/validate-output-config-keys/tasks.md` — boxes checked
+- `backend/src/test/scala/com/helio/api/OutputHistoryPayloadsAvailableSpec.scala` — two tests PATCHed dead config keys (historyPayloadsAvailable/historyPayloadLimits) expecting them ignored; now 400 (contract change, same anti-spoof intent)
