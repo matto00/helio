@@ -10,6 +10,7 @@ import com.helio.domain.model.{AssertionResult, AssertionSink, AuditSource, Auth
 import com.helio.services.sources.DataSourceService
 import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeDependencyClosure, NodeKey, NodeOutcome, PipelineCostEstimator, PipelineExecutionBackend, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, SourceReadStats, StepExecutionException, StepKey}
 import com.helio.domain.connectors.RestApiConnectorDriver
+import com.helio.domain.util.{Clock, SystemClock}
 import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
@@ -104,7 +105,12 @@ final class PipelineRunService(
     // production values (mirrors `RateLimitConfig`'s fromEnv-once-inject-explicitly convention) so
     // a fixture that constructs this service with a real `pipelineRunRepo` but no explicit config
     // still gets a real (non-zero) cap rather than an NPE.
-    guardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv()
+    guardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv(),
+    // HEL-1374: drives ONLY the rate-window bucket (`incrementRateIfUnderLimit`'s `now`) -- no
+    // other timestamp in this service reads it. Production keeps `SystemClock`, identical to the
+    // repository's own `Instant.now()` default; tests pin it so a case spanning a wall-clock
+    // window boundary cannot straddle two epoch-aligned rate buckets.
+    guardClock: Clock = SystemClock
 )(implicit ec: ExecutionContext) {
 
   require(outputRepo != null, "PipelineRunService requires an OutputRepository")
@@ -1039,7 +1045,7 @@ final class PipelineRunService(
     // collaborator in this file.
     val rateLimitCheck: Future[Either[ServiceError, Unit]] =
       if (pipelineRunGuardRepo != null)
-        pipelineRunGuardRepo.incrementRateIfUnderLimit(user.id, guardConfig.rateLimitPerWindow, guardConfig.rateWindowSeconds).map {
+        pipelineRunGuardRepo.incrementRateIfUnderLimit(user.id, guardConfig.rateLimitPerWindow, guardConfig.rateWindowSeconds, guardClock.now()).map {
           case Right(())            => Right(())
           case Left(retryAfterSecs) => Left(ServiceError.TooManyRequests(retryAfterSecs, "Pipeline-run rate limit exceeded"))
         }

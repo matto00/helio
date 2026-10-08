@@ -27,7 +27,8 @@ class RowWriteResponseDenyReasonCoverageSpec extends AnyWordSpec with Matchers {
   private val AllReasonCodes: Set[String] = Set(
     "ai-step", "writeback-step", "content-conversion", "remote-fetch",
     "unclassified-op", "unclassified-source", "no-roots",
-    "row-estimate-unavailable", "rows-above-threshold", "steps-above-bound"
+    "row-estimate-unavailable", "rows-above-threshold", "steps-above-bound",
+    "step-config-invalid"
   )
 
   "DeniedPipelineResponse.fromDomain" should {

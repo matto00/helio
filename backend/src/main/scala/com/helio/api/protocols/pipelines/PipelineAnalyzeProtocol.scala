@@ -234,7 +234,7 @@ final case class CostReasonResponse(
  *  `canRun` (HEL-1096 design.md D1, HEL-1266 D1-D3): true iff the REQUESTING user is the
  *  pipeline's owner or holds an editor grant on it -- the same check `POST /api/pipelines/:id/run`
  *  enforces -- AND no enabled step carries a `validationError` (each such step adds a
- *  `step-config-invalid` reason naming it and clears `autoRunnable` too; a permission denial
+ *  `step-config-invalid` reason (`PipelineAnalyzeService.StepConfigInvalidCode`) naming it and clears `autoRunnable` too; a permission denial
  *  carries no reason code). Otherwise set regardless of `autoRunnable`; the pipeline-detail page
  *  only renders the "Run to update" control when BOTH `autoRunnable` is false and `canRun` is
  *  true, per the `run-to-update-affordance` spec. */

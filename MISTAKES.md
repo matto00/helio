@@ -276,6 +276,40 @@ there it is a full run). Separately, sbt 2's thin client joins unquoted argument
 into ONE command (`sbt compile test` fails with "Expected whitespace character"):
 pass a single quoted command, `sbt "compile; testFull"`. (HEL-1018.)
 
+### sbt can attach to another worktree's server and report exit 0 for the wrong build
+
+**Reported, not reproduced here:** HEL-1285's skeptic saw an `sbt` started in one
+worktree attach to a server owned by another checkout, run that checkout's build,
+and exit 0. Every worktree has its own `backend/`, and the claim is that the sbt
+thin client will connect to a server it finds, so a green result can describe
+someone else's sources. All of this is reported and unverified: on this machine
+`command -v sbt` is `~/.local/bin/sbt`, the sbt-extras launcher (not the sbt 2
+thin client), so the thin-client path was not exercised here. (HEL-1374.)
+
+**Invocation used (sbt 2.0.9):** from the worktree's own `backend/`,
+
+```bash
+nice -n 19 sbt -batch -Dsbt.server.autostart=false "testOnly <fully.qualified.Spec>"
+```
+
+What was verified: in every run (14 transcripts in the HEL-1374 evidence) the build
+executed in-process against the current directory's sources, and both project-path
+lines named the worktree. What was NOT tested: this invocation against a live sbt
+server running in another worktree, so whether the flag prevents an attach is
+untested. The project-path check is the safeguard either way.
+
+**Always check the project path in the output** -- a run is only evidence for your
+worktree if both lines name it:
+
+```
+[info] loading project definition from <your worktree>/backend/project
+[info] set current project to helio-backend (in build file:<your worktree>/backend/)
+```
+
+If either path is another checkout, discard the result. `-z "multi word"` does not
+survive sbt's argument quoting (ScalaTest rejects the second word): filter with a
+single-word substring instead.
+
 ### Parallel Playwright sessions share one browser
 
 A peer session can steal the tab mid-run. Re-check `location.href` before every
