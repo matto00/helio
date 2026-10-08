@@ -114,7 +114,8 @@ The system MUST reject an `appearance.chart.chartType` outside the allowed set (
 write paths: `POST /api/panels` (optional create-time `appearance`), `PATCH /api/panels/:id`, and
 `POST /api/panels/updateBatch` (the path the live edit UI uses). Batch validation MUST run before
 the transactional write so an invalid item rejects the whole batch with no partial write. An absent
-`chartType` SHALL remain valid (renderers fall back to line).
+`chartType` SHALL remain valid: the rendered chart type then resolves to the bound Output's `config.chartType`
+when that is one of the allowed values, else `line` (a stored panel `chartType` always wins over both).
 
 #### Scenario: PATCH with invalid chartType is rejected
 
@@ -143,6 +144,20 @@ the transactional write so an invalid item rejects the whole batch with no parti
 
 - **WHEN** a batch item carries `appearance.chart.chartType: "pie"`
 - **THEN** the stored appearance for that panel carries `chart.chartType: "pie"`
+
+#### Scenario: Absent panel chartType renders the Output's chart type
+
+- **GIVEN** a chart panel with no stored `appearance.chart.chartType`, bound to a chart Output whose `config.chartType`
+  is `"bar"`
+- **WHEN** the panel renders on the dashboard
+- **THEN** it renders as a bar chart
+
+#### Scenario: Absent panel and Output chartType renders line
+
+- **GIVEN** a chart panel with no stored `appearance.chart.chartType`, bound to a chart Output with no valid
+  `config.chartType`
+- **WHEN** the panel renders on the dashboard
+- **THEN** it renders as a line chart
 
 ### Requirement: Untouched appearance sentinels survive the edit-modal save
 

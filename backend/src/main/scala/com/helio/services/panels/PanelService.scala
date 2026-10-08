@@ -4,7 +4,6 @@ import com.helio.services.{FormSubmitError, ServiceError}
 import com.helio.services.auth.AccessChecker
 import com.helio.services.audit.AuditService
 import com.helio.services.sources.{DataSourceService, RowWriteResult}
-import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.panels.{CreatePanelRequest, CreatePanelsBatchRequest, PanelBatchItem, UpdatePanelRequest}
 import com.helio.domain.engine.DatasetRowValidator
 import com.helio.domain.model._
@@ -14,30 +13,11 @@ import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
-import com.helio.domain.panels.{FormUploadConfig, OutputPanel}
 import com.helio.services.panels.PanelServiceHelpers._
-import org.slf4j.LoggerFactory
 import spray.json._
 
 import java.time.Instant
-import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-
-/** A pre-validated, normalized snapshot of an `UpdatePanelRequest`.
- *
- *  CS2c-3c collapses the prior 14-field flat shape to four fields: title,
- *  appearance, type (with cross-type 400 lock at apply time), and a raw
- *  `config: JsValue` patch that the per-subtype `*Config.Patch.decode`
- *  resolves at apply time. */
-final case class ResolvedPanelPatch(
-    trimmedTitle: Option[String],
-    appearance:   Option[PanelAppearance],
-    panelType:    Option[PanelType],
-    configPatch:  Option[JsValue]
-) {
-  def hasAnyField: Boolean =
-    trimmedTitle.isDefined || appearance.isDefined || panelType.isDefined || configPatch.isDefined
-}
 
 /** Business logic for `/api/panels`. Absorbs the prior `PanelPatchService` so
  *  the patch resolver + step-by-step applier live with the rest of panel CRUD.
@@ -90,11 +70,18 @@ final class PanelService(
 
   require(outputRepo != null, "PanelService requires an OutputRepository")
 
-  private val log = LoggerFactory.getLogger(getClass)
-
   private val patchApplier = new PanelPatchApplier(panelRepo)
   private val outputControlsValidator = new OutputControlsValidator(outputRepo, nodeSnapshotRepo)
   private val batchControlsCheck      = new BatchControlsCheck(outputControlsValidator)
+  // The concerns split out of this file (HEL-1253); each is built once from this class's own
+  // constructor params, so the nullable-optional dependencies keep their exact semantics. Every ACL
+  // / `Forbidden` / 404 preamble stays below in this file.
+  private val bindingChecks    = new PanelBindingChecks(outputRepo, dataSourceRepo)
+  private val createBuilder    = new PanelCreateBuilder(bindingChecks, outputControlsValidator)
+  private val formFiles        = new PanelFormFileSubmission(dataSourceRepo, dataSourceService, fileSystem)
+  private val updateValidation = new PanelUpdateValidation(bindingChecks, outputControlsValidator)
+  private val batchWrites      = new PanelBatchWrites(panelRepo, bindingChecks, createBuilder, batchControlsCheck, audit)
+  private val lifecycleWrites  = new PanelLifecycleWrites(panelRepo, bindingChecks, createBuilder, audit)
 
   /** Fire-and-forget audit call, a no-op when `auditService` is `null`.
    *  HEL-483: `source`/`actor_token_id` come from the caller's resolved
@@ -102,7 +89,6 @@ final class PanelService(
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)
       auditService.record(Some(user.id), user.tokenId, user.source, action, "panel", resourceId, metadata)
-
 
   /** Sharing-aware read. Returns the panel only when the caller has access
    *  to the parent dashboard (owner, grantee, or public viewer when
@@ -136,82 +122,10 @@ final class PanelService(
             (declaration, now) => FormSubmission.buildRow(panel.config, declaration, values, now)
           dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user)
         } else {
-          submitFormWithFiles(panelId, panel, values, files, user)
+          formFiles.submitFormWithFiles(panelId, panel, values, files, user)
         }
       case Some(_) => Future.successful(Left(FormSubmitError(ServiceError.BadRequest("panel is not a form panel"))))
     }
-
-  /** HEL-1086 design.md D2: the two-phase file-attached submit path. Phase 1 (pre-lock, read-only):
-   *  fold `files` into `values` as presence-marker placeholders (`{"__file", "filename",
-   *  "sizeBytes"}`) and run `FormSubmission.buildRow` once against the schema read via
-   *  `getDeclaredSchema` — this single pass already validates EVERY field, file included (C2/C3:
-   *  a sibling field's failure is caught here, before any byte is written). Only on `Right` does
-   *  phase 2 write each file's real bytes via `FileSystem.write` (design.md D3 storage-key shape)
-   *  and substitute the placeholder with the real `binary-ref` JSON object, then delegate to
-   *  `DataSourceService.appendFormRow` exactly like the no-file path — which re-runs `buildRow`
-   *  a second time, atomically, under the source's own lock, against the declaration read fresh
-   *  there (closing the same concurrent-schema-change race the no-file path already closes). */
-  private def submitFormWithFiles(
-      panelId: PanelId,
-      panel:   FormPanel,
-      values:  Map[String, JsValue],
-      files:   Map[String, (String, Array[Byte])],
-      user:    AuthenticatedUser
-  ): Future[Either[FormSubmitError, RowWriteResult]] = {
-    val placeholderValues = foldFilePlaceholders(values, files)
-    dataSourceRepo.getDeclaredSchema(panel.config.dataSourceId, user).flatMap {
-      case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Data source not found"))))
-      case Some(declaration) =>
-        FormSubmission.buildRow(panel.config, declaration, placeholderValues) match {
-          case Left(errors) => Future.successful(Left(FormSubmitError.fromFieldErrors(errors)))
-          case Right(_) =>
-            storeFormFiles(files).flatMap { refsByField =>
-              val realValues = values ++ refsByField
-              val build: (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
-                (decl, now) => FormSubmission.buildRow(panel.config, decl, realValues, now)
-              dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user)
-            }
-        }
-    }
-  }
-
-  /** `{sourceField -> (filename, bytes)}` folded into `values` as the presence-marker placeholder
-   *  `FormSubmission.buildRow`'s file-control branch validates (design.md D2). Overwrites any
-   *  entry already present at that key — a `file` field's value only ever comes from a multipart
-   *  part, never the JSON `values` body. */
-  private def foldFilePlaceholders(
-      values: Map[String, JsValue],
-      files:  Map[String, (String, Array[Byte])]
-  ): Map[String, JsValue] =
-    values ++ files.map { case (field, (filename, bytes)) =>
-      field -> JsObject(
-        "__file"    -> JsBoolean(true),
-        "filename"  -> JsString(filename),
-        "sizeBytes" -> JsNumber(bytes.length.toLong)
-      )
-    }
-
-  /** Writes every attached file's real bytes via `FileSystem.write` at `form-uploads/<uuid>.<ext>`
-   *  (design.md D3 — a UUID-named storage key, never the caller-supplied filename, closes the
-   *  path-traversal scenario by construction) and returns the real `binary-ref` JSON object
-   *  (`storageKey`, `mimeType`, `filename`, `sizeBytes`) per field, ready to substitute into
-   *  `values` for the final in-lock `buildRow`/`appendFormRow` call. Only ever invoked AFTER the
-   *  pre-lock `buildRow` pass above returned `Right` — never on a submit that phase already
-   *  rejected (C3: a rejected submit stores no file). */
-  private def storeFormFiles(files: Map[String, (String, Array[Byte])]): Future[Map[String, JsValue]] =
-    Future.traverse(files.toVector) { case (field, (filename, bytes)) =>
-      val ext        = FormUploadConfig.extensionOf(filename)
-      val storageKey = s"form-uploads/${UUID.randomUUID().toString}.$ext"
-      val mimeType   = FormUploadConfig.mimeTypeOf(filename)
-      fileSystem.write(storageKey, bytes).map { _ =>
-        field -> (JsObject(
-          "storageKey" -> JsString(storageKey),
-          "mimeType"   -> JsString(mimeType),
-          "filename"   -> JsString(filename),
-          "sizeBytes"  -> JsNumber(bytes.length.toLong)
-        ): JsValue)
-      }
-    }.map(_.toMap)
 
   /** `POST /api/panels`. Returns the inserted panel plus the [[DashboardLayoutItem]] it was placed at
    *  in EACH breakpoint of `dashboardId`'s grid, for every panel kind (HEL-1260). The panel insert and
@@ -230,132 +144,26 @@ final class PanelService(
           case Right(ResourceAccess.Viewer) =>
             Future.successful(Left(ServiceError.Forbidden()))
           case Right(_) =>
-            buildForCreate(dashboardId, request, user).flatMap {
-              case Left(err)    => Future.successful(Left(err))
-              case Right(panel) =>
-                defaultSizesFor(panel).flatMap(sizes => panelRepo.insertPlaced(panel, sizes)).map {
-                  case None         => Left(ServiceError.NotFound("Dashboard not found"))
-                  case Some(placed) =>
-                    audit("panel.create", Some(panel.id.value), user)
-                    Right((panel, placed))
-                }
-            }
+            lifecycleWrites.createPlaced(dashboardId, request, user)
         }
     }
 
-  /** The size a new `panel` takes in each breakpoint. An Output panel takes its Output kind's
-   *  decision-15 default (`OutputPanelDefaultSize`), scaled per breakpoint's column count; every other
-   *  kind, and an Output whose output cannot be resolved (placement is never skipped), takes
-   *  [[PlacementSizes.ContentDefault]]. */
-  private def defaultSizesFor(panel: Panel): Future[PlacementSizes] =
-    panel match {
-      case outputPanel: OutputPanel =>
-        outputPanel.outputId match {
-          case None => Future.successful(PlacementSizes.ContentDefault)
-          case Some(outputId) =>
-            outputRepo.findByIdInternal(outputId).map {
-              case None         => PlacementSizes.ContentDefault
-              case Some(output) =>
-                val size = OutputPanelDefaultSize.forKind(output.kind)
-                PlacementSizes.scaledFromLg(ItemSize(size.w, size.h))
-            }
-        }
-      case _ => Future.successful(PlacementSizes.ContentDefault)
-    }
-
-  /** Construct + validate a new `Panel` domain object for `dashboardId` from a
-   *  `CreatePanelRequest` — every check `create` performs EXCEPT the
-   *  dashboard ACL check (the caller is expected to have already authorized
-   *  the target dashboard) and the final `panelRepo.insert` write.
-   *
-   *  Extracted (HEL-363 D1, behavior-preserving — same validation order, same
-   *  error messages as before) so `DashboardContentsService`'s atomic
-   *  replace-contents path can validate + build every panel in a batch, with
-   *  zero DB writes, before its single transactional write — reusing this
-   *  exact config-decode/appearance-resolve/`rejectCompanionBinding` logic
-   *  per panel instead of duplicating it. */
+  /** Delegates to [[PanelCreateBuilder.buildForCreate]]. */
   private[services] def buildForCreate(
       dashboardId: DashboardId,
       request: CreatePanelRequest,
       user: AuthenticatedUser
-  ): Future[Either[ServiceError, Panel]] = {
-    val resolved = for {
-      createConfig <- resolveCreateConfig(request)
-      appearance   <- resolveCreateAppearance(request.appearance)
-    } yield (createConfig, appearance)
-    resolved match {
-      case Left(err) =>
-        Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right((createConfig, appearance)) =>
-        rejectMissingOutput(outputIdFromCreateConfig(createConfig), user).flatMap {
-          case Left(err) => Future.successful(Left(err))
-          case Right(_)  => rejectMissingDataSource(dataSourceIdFromCreateConfig(createConfig), user)
-        }.flatMap {
-          case Left(err) => Future.successful(Left(err))
-          case Right(_)  =>
-            val now = Instant.now()
-            val panel = buildNewPanel(
-              id           = PanelId(UUID.randomUUID().toString),
-              dashboardId  = dashboardId,
-              title        = RequestValidation.normalizePanelTitle(request.title),
-              meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-              appearance   = appearance,
-              ownerId      = user.id,
-              createConfig = createConfig
-            )
-            panel.validateConfig match {
-              case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
-              case Right(_)  =>
-                // HEL-1189 design.md D4: create has no pre-existing persisted controls, so every
-                // entry in a new panel's `controls` is "new" and gets validated.
-                outputControlsValidator.reject(outputIdOf(panel), controlsOf(panel), Vector.empty, user).flatMap {
-                  case Left(err) => Future.successful(Left(err))
-                  case Right(_)  =>
-                    rejectInconsistentForm(formConfigOf(panel), user).map {
-                      case Left(err) => Left(err)
-                      case Right(_)  => Right(panel)
-                    }
-                }
-            }
-        }
-    }
-  }
+  ): Future[Either[ServiceError, Panel]] =
+    createBuilder.buildForCreate(dashboardId, request, user)
 
-  /** Sequentially `buildForCreate` every request for `dashboardId`, short-
-   *  circuiting on the first failure — zero DB writes for ANY item until every
-   *  item in `requests` has been validated + constructed (design.md D1/D2).
-   *
-   *  Extracted so `DashboardContentsService.buildPanels` and `batchCreate`
-   *  share one "validate every item before any write" recursion instead of
-   *  each hand-rolling its own. `itemLabel` (default: no label) lets a caller
-   *  opt into a per-index prefix on a `BadRequest` failure (e.g. `"panel 2
-   *  ('Revenue'): ..."`) without changing the unlabeled caller's messages —
-   *  `DashboardContentsService` passes the default so its own tested error
-   *  messages stay byte-for-byte unchanged; `batchCreate` opts in (design.md
-   *  D5) to satisfy this ticket's "400 identifies the offending item" AC.
-   *  Only `BadRequest` errors are labeled — every other `ServiceError`
-   *  `buildForCreate` can produce passes through unlabeled. */
+  /** Delegates to [[PanelCreateBuilder.buildAllForCreate]]. */
   private[services] def buildAllForCreate(
       dashboardId: DashboardId,
       requests: Vector[CreatePanelRequest],
       user: AuthenticatedUser,
       itemLabel: Int => Option[String] = _ => None
-  ): Future[Either[ServiceError, Vector[Panel]]] = {
-    def loop(remaining: Vector[(CreatePanelRequest, Int)], acc: Vector[Panel]): Future[Either[ServiceError, Vector[Panel]]] =
-      remaining.headOption match {
-        case None => Future.successful(Right(acc))
-        case Some((request, idx)) =>
-          buildForCreate(dashboardId, request, user).flatMap {
-            case Left(ServiceError.BadRequest(msg)) =>
-              val labeled = itemLabel(idx).fold(msg)(label => s"$label: $msg")
-              Future.successful(Left(ServiceError.BadRequest(labeled)))
-            case Left(err)    => Future.successful(Left(err))
-            case Right(built) => loop(remaining.tail, acc :+ built)
-          }
-      }
-    loop(requests.zipWithIndex, Vector.empty)
-  }
-
+  ): Future[Either[ServiceError, Vector[Panel]]] =
+    createBuilder.buildAllForCreate(dashboardId, requests, user, itemLabel)
 
   def delete(panelId: PanelId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     panelRepo.findById(panelId, Some(user)).flatMap {
@@ -365,12 +173,7 @@ final class PanelService(
         authorizeEditorOnDashboard(panel.dashboardId, user).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
-            panelRepo.delete(panelId).map {
-              case true  =>
-                audit("panel.delete", Some(panelId.value), user)
-                Right(())
-              case false => Left(ServiceError.NotFound("Panel not found"))
-            }
+            lifecycleWrites.deleteRow(panelId, user)
         }
     }
 
@@ -384,13 +187,7 @@ final class PanelService(
         authorizeEditorOnDashboard(panel.dashboardId, user).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
-            defaultSizesFor(panel).flatMap(kindDefault => panelRepo.duplicate(panelId, user.id, kindDefault)).map {
-              case Some((p, placed)) =>
-                // HEL-477 design.md Decision 7: one panel.duplicate row.
-                audit("panel.duplicate", Some(p.id.value), user, JsObject("sourcePanelId" -> JsString(panelId.value)))
-                Right((p, placed))
-              case None => Left(ServiceError.NotFound("Panel not found"))
-            }
+            lifecycleWrites.duplicatePlaced(panel, panelId, user)
         }
     }
 
@@ -424,39 +221,7 @@ final class PanelService(
                 case Right(ResourceAccess.Viewer) =>
                   Future.successful(Left(ServiceError.Forbidden()))
                 case Right(_) =>
-                  // D5 — validate every item's chartType before the transactional
-                  // write so an invalid value rejects the whole batch (no partial
-                  // write). This is the path the live edit UI uses.
-                  val batchValidation = for {
-                    _ <- validateBatchTypeMatch(items.zip(panels))
-                    _ <- validateBatchChartTypes(items)
-                  } yield ()
-                  batchValidation match {
-                    case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-                    case Right(_) =>
-                      val now = Instant.now()
-                      batchControlsCheck(items.zip(panels), user).flatMap {
-                        case Left(err) => Future.successful(Left(err))
-                        case Right(_)  => panelRepo.batchUpdate(items, now)
-                        .map { updated =>
-                          // HEL-477 design.md Decision 9: one panel.batch_update
-                          // row per call, not one per panel.
-                          audit(
-                            "panel.batch_update",
-                            Some(dashboardId.value),
-                            user,
-                            JsObject("count" -> JsNumber(updated.size), "panelIds" -> JsArray(updated.map(p => JsString(p.id.value))))
-                          )
-                          Right(updated)
-                        }
-                        .recover { case ex =>
-                          // HEL-311: never echo a raw DB-failure message; log
-                          // the detail server-side and return a generic body.
-                          log.error(s"batchUpdate failed for dashboard ${dashboardId.value}", ex)
-                          Left(ServiceError.BadRequest("Batch update failed"))
-                        }
-                      }
-                  }
+                  batchWrites.updateValidated(items, panels, dashboardId, user)
               }
             }
         }
@@ -488,37 +253,7 @@ final class PanelService(
           authorizeEditor(dashboardId, user).flatMap {
             case Left(err) => Future.successful(Left(err))
             case Right(_) =>
-              val items = request.panels
-              val createRequests = items.map { item =>
-                CreatePanelRequest(
-                  dashboardId = Some(dashboardId.value),
-                  title       = item.title,
-                  `type`      = item.`type`,
-                  config      = item.config,
-                  appearance  = item.appearance
-                )
-              }
-              val itemLabel: Int => Option[String] =
-                idx => Some(s"panel ${idx + 1} ('${items(idx).title.getOrElse("")}')")
-              buildAllForCreate(dashboardId, createRequests, user, itemLabel).flatMap {
-                case Left(err)     => Future.successful(Left(err))
-                case Right(built)  =>
-                  Future.traverse(built)(p => defaultSizesFor(p).map(p -> _))
-                    .flatMap(panelRepo.insertBatchPlaced)
-                    .map {
-                      case None => Left(ServiceError.NotFound("Dashboard not found"))
-                      case Some(inserted) =>
-                        // HEL-477 design.md Decision 9: one panel.batch_create row
-                        // per call, not one per panel.
-                        audit(
-                          "panel.batch_create",
-                          Some(dashboardId.value),
-                          user,
-                          JsObject("count" -> JsNumber(inserted.size), "panelIds" -> JsArray(inserted.map { case (p, _) => JsString(p.id.value) }))
-                        )
-                        Right(inserted)
-                    }
-              }
+              batchWrites.createValidated(request, dashboardId, user)
           }
       }
 
@@ -546,7 +281,6 @@ final class PanelService(
         }
     }
 
-
   def update(
       panelId: PanelId,
       request: UpdatePanelRequest,
@@ -559,143 +293,20 @@ final class PanelService(
         authorizeEditorOnDashboard(existing.dashboardId, user).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
-            // HEL-1203: the config patch is decoded + structurally validated here, AFTER the
-            // 404/403 lookups above (an absent/foreign panel never reaches this, so nothing about
-            // its existence leaks) and BEFORE any further read or write — a malformed/duplicate/
-            // misplaced `controls` is a 400, not the 500 a bare decode exception used to become.
-            resolvePatch(request, existing).flatMap(spec => patchedConfigOf(existing, spec).map(spec -> _)) match {
-              case Left(err) =>
-                Future.successful(Left(ServiceError.BadRequest(err)))
-              case Right((spec, patchedPanel)) =>
-                val incomingOutputId     = spec.configPatch.flatMap(outputIdFromConfigPatch)
-                val incomingDataSourceId = spec.configPatch.flatMap(dataSourceIdFromConfigPatch)
-                rejectMissingOutput(incomingOutputId, user).flatMap {
-                  case Left(err) => Future.successful(Left(err))
-                  case Right(_)  => rejectMissingDataSource(incomingDataSourceId, user)
-                }.flatMap {
-                  case Left(err) => Future.successful(Left(err))
-                  case Right(_)  =>
-                    // HEL-1189 design.md D4: validated against the EFFECTIVE post-patch config (C2
-                    // convention, mirroring rejectInconsistentForm below) — a `controls`-only PATCH
-                    // (or an outputId-only one) is diffed correctly either way, and a PATCH that
-                    // omits `config`/`controls` entirely carries the unchanged persisted list
-                    // through untouched (nothing to validate, per D4's "an update omitting
-                    // controls is unaffected" rule).
-                    val effectiveOutput = patchedPanel.collect { case op: OutputPanel => op.config }
-                    val existingControls = existing match {
-                      case op: OutputPanel => op.config.controls
-                      case _               => Vector.empty
-                    }
-                    outputControlsValidator.reject(
-                      effectiveOutput.map(_.outputId).filter(_.value.nonEmpty),
-                      effectiveOutput.map(_.controls).getOrElse(Vector.empty),
-                      existingControls,
-                      user
-                    )
-                }.flatMap {
-                  case Left(err) => Future.successful(Left(err))
-                  case Right(_)  => rejectInconsistentForm(effectiveFormConfig(existing, spec), user)
-                }.flatMap {
-                  case Left(err) => Future.successful(Left(err))
-                  case Right(_) =>
-                    patchApplier.apply(panelId, spec)
-                      .map {
-                        case Some(panel) =>
-                          audit("panel.update", Some(panel.id.value), user)
-                          Right(panel)
-                        case None        => Left(ServiceError.NotFound("Panel not found"))
-                      }
-                      .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }
-                }
+            updateValidation.validate(existing, request, user).flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(spec) =>
+                patchApplier.apply(panelId, spec)
+                  .map {
+                    case Some(panel) =>
+                      audit("panel.update", Some(panel.id.value), user)
+                      Right(panel)
+                    case None        => Left(ServiceError.NotFound("Panel not found"))
+                  }
+                  .recover { case ex: IllegalArgumentException => Left(ServiceError.BadRequest(ex.getMessage)) }
             }
         }
     }
-
-  // HEL-904 task 4.1: `rejectCompanionBinding` (enforce-pipeline-only-bindings,
-  // V41) removed outright — Text/Markdown's data-bound "Source mode" no
-  // longer exists, so no panel-create/patch path can carry a `dataTypeId`
-  // binding to reject in the first place.
-
-  /** 404 when `outputIdOpt` is provided but does not resolve to a real,
-   *  owned Output. HEL-904 follow-up (flagged cycle 17): closes the gap where
-   *  an `"output"`-kind panel's `outputId` reached `panelRepo.insert`/
-   *  `patchApplier.apply` unchecked and hit the raw `panels.output_id` FK
-   *  violation as a 500 instead of a clean, explicit rejection. A `None`
-   *  input (no outputId in this create/patch) passes through unchanged. */
-  private def rejectMissingOutput(
-      outputIdOpt: Option[OutputId],
-      user: AuthenticatedUser
-  ): Future[Either[ServiceError, Unit]] =
-    outputIdOpt match {
-      case None => Future.successful(Right(()))
-      case Some(outputId) =>
-        outputRepo.findByIdOwned(outputId, user).map {
-          case Some(_) => Right(())
-          case None    => Left(ServiceError.NotFound("Output not found"))
-        }
-    }
-
-  /** 404 when `dataSourceIdOpt` is provided but does not resolve to a real, owned data source
-   *  (design.md D6) — delegates to the shared [[FormBindingValidator]] the proposal paths also use. */
-  private def rejectMissingDataSource(
-      dataSourceIdOpt: Option[DataSourceId],
-      user: AuthenticatedUser
-  ): Future[Either[ServiceError, Unit]] =
-    FormBindingValidator.rejectMissingDataSource(dataSourceRepo, dataSourceIdOpt, user)
-
-  /** Extracts an `output` panel's `outputId`/`controls`, `None`/empty for every other kind. Feeds
-   *  `outputControlsValidator.reject` with the newly-built panel on `create`. */
-  private def outputIdOf(panel: Panel): Option[OutputId] = panel match {
-    case p: OutputPanel => p.outputId
-    case _              => None
-  }
-
-  private def controlsOf(panel: Panel): Vector[OutputControlSpec] = panel match {
-    case p: OutputPanel => p.config.controls
-    case _              => Vector.empty
-  }
-
-  /** The post-patch panel for `update` (C2, mirrors `effectiveFormConfig`): the stored panel with
-   *  the decoded config patch applied — never the incoming patch alone, so a `controls`-only PATCH
-   *  still carries the CURRENT `outputId` through (and vice versa). `None` when the request carries
-   *  no `config` (nothing config-related changes). `Left` is the codec's curated 400 message. */
-  private def patchedConfigOf(existing: Panel, spec: ResolvedPanelPatch): Either[String, Option[Panel]] =
-    spec.configPatch match {
-      case None         => Right(None)
-      case Some(config) => PanelConfigCodec.applyConfigPatch(existing, config).map(Some(_))
-    }
-
-  /** Extracts a `form` panel's config from a domain `Panel`, `None` for every other kind. Feeds
-   *  `rejectInconsistentForm` with the effective (post-patch, on `update`) config. */
-  private def formConfigOf(panel: Panel): Option[FormPanelConfig] = panel match {
-    case p: FormPanel => Some(p.config)
-    case _            => None
-  }
-
-  /** The EFFECTIVE post-patch form config for `update` (C2): `existing` as a `FormPanel`,
-   *  `applyPatch`ed with the decoded form patch — never the incoming patch alone, so a
-   *  `dataSourceId`-only PATCH re-validates the existing fields against the new dataset. `None`
-   *  when `existing` is not a `form` panel, or the patch carries no `configPatch` at all (nothing
-   *  form-related changed, nothing to re-check). */
-  private def effectiveFormConfig(existing: Panel, spec: ResolvedPanelPatch): Option[FormPanelConfig] =
-    (existing, spec.configPatch) match {
-      case (form: FormPanel, Some(patchJson)) =>
-        Some(form.applyPatch(FormPanelConfig.Patch.decode(patchJson)).config)
-      case _ => None
-    }
-
-  /** HEL-1084 design.md D1: schema-consistency check for a `form` panel's EFFECTIVE (post-patch on
-   *  `update`) config — delegates to the shared [[FormBindingValidator]] so the proposal paths
-   *  (HEL-1148) run the identical checks. */
-  private def rejectInconsistentForm(
-      configOpt: Option[FormPanelConfig],
-      user: AuthenticatedUser
-  ): Future[Either[ServiceError, Unit]] =
-    FormBindingValidator.rejectInconsistentForm(dataSourceRepo, configOpt, user)
-
-  // HEL-904 task 3.9/4.1: `rejectUnresolvableMetric` (HEL-500) and
-  // `metricRepo` (the constructor's legacy unused parameter) both removed —
-  // metrics no longer exist.
 
   private def authorizeEditorOnDashboard(
       dashboardId: DashboardId,
