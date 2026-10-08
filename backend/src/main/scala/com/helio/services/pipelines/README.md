@@ -9,3 +9,5 @@ Does NOT hold: business logic for other domains, or persistence
 repositories, never `db.run` directly (CONTRIBUTING.md). `private[services]`
 members here stay reachable from every other domain subpackage (no
 encapsulation implied by the split).
+
+Output-family internals split out of `OutputService` (package-private): `OutputRowReads` (materialized-row reads), `OutputRootResolution` (create-time root anchoring); config-write validation lives in `OutputConfigValidation`.

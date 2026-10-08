@@ -1,10 +1,15 @@
 package com.helio.services.pipelines
 
+import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.domain.model.OutputKind
+import com.helio.domain.panels.OutputBindingSpec
+import com.helio.services.ServiceError
 import spray.json.{JsNull, JsObject, JsString, JsValue}
 
 /** HEL-1313: write-time validation of an Output's free-form `config` against a per-kind known-key
  *  set, plus the `aggregation` / `chartType` shape rules. Pure; no I/O.
+ *  Also holds the whole-config write validators moved from `OutputService`, which judge the MERGED config's
+ *  `fieldMapping`/`compare`/`historyPayloads` outside the tolerance rule below.
  *
  *  Tolerance rule: only what a write introduces or changes is judged. A key (or `aggregation` /
  *  `chartType` value) re-sent with the value already stored is accepted, so Outputs carrying stored
@@ -145,6 +150,53 @@ object OutputConfigValidation {
       }
     }
   }
+
+  /** Extracts `config.fieldMapping` (a `{slot: columnName}` object, when present) and
+   *  validates its KEYS against `kind`'s own `requiredSlots ++ optionalSlots` (HEL-892,
+   *  `OutputBindingSpec.validateFieldMapping`) -- column-TYPE eligibility (`evaluate`) is a
+   *  capabilities-time concern (`GET /api/pipelines/:id/capabilities`), not a create/update-time
+   *  one, since validating it here would require re-resolving the node's projected schema on
+   *  every write. Absent `fieldMapping` is not an error -- not every Output kind requires one
+   *  (`table`/`markdown` have no slots at all). */
+  def validateFieldMapping(kind: OutputKind, config: JsObject): Either[ServiceError, Unit] = {
+    val spec = OutputBindingSpec.All.find(_.outputKind == kind).getOrElse(
+      throw new IllegalStateException(s"OutputService: no OutputBindingSpec for kind $kind -- OutputBindingSpec.All is missing a case")
+    )
+    config.fields.get("fieldMapping").collect { case o: JsObject => o } match {
+      case None => Right(())
+      case Some(mappingObj) =>
+        val mapping = mappingObj.fields.collect { case (k, JsString(v)) => k -> v }
+        OutputBindingSpec.validateFieldMapping(spec, mapping) match {
+          case Left(msg) => Left(ServiceError.BadRequest(msg))
+          case Right(())  => Right(())
+        }
+    }
+  }
+
+  /** Every Output config write path's validation: key set and `aggregation`/`chartType` shapes
+   *  (HEL-1313, skipped for [[OutputConfigWritePolicy.RestorePriorStored]]), then the MERGED config's
+   *  `fieldMapping` slots (HEL-892), `config.compare` (HEL-1273) and `config.historyPayloads`
+   *  (HEL-1276). `written` is what the caller sent, `stored` the pre-write config (empty on create). */
+  def validateConfig(
+      kind:    OutputKind,
+      written: JsObject,
+      stored:  JsObject,
+      policy:  OutputConfigWritePolicy = OutputConfigWritePolicy.ValidateWrite
+  ): Either[ServiceError, Unit] = {
+    val keyCheck: Either[ServiceError, Unit] = policy match {
+      case OutputConfigWritePolicy.ValidateWrite      => OutputConfigValidation.validate(kind, written, stored).left.map(ServiceError.BadRequest(_))
+      case OutputConfigWritePolicy.RestorePriorStored => Right(())
+    }
+    val merged = mergeConfig(stored, written)
+    keyCheck
+      .flatMap(_ => validateFieldMapping(kind, merged))
+      .flatMap(_ => OutputCompare.validateConfig(merged).left.map(ServiceError.BadRequest(_)))
+      .flatMap(_ => PayloadOptIn.validateConfig(merged).left.map(ServiceError.BadRequest(_)))
+  }
+
+  /** HEL-1239: shared with `PatchSetPreviewProjection` so an output-update preview merges exactly
+   *  as `update` does. */
+  def mergeConfig(existing: JsObject, patch: JsObject): JsObject = JsObject(existing.fields ++ patch.fields)
 }
 
 /** HEL-1313 D9: whether an Output config write is a caller's new value ([[ValidateWrite]]) or the
