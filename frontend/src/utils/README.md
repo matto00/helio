@@ -8,6 +8,9 @@ intent to share them, not current usage; they are candidates for a move to
 `features/panels/utils` but are left in place since this ticket is
 docs-only.
 
+`prefersReducedMotion.ts` is the single shared reduced-motion read (HEL-1179), imported by
+`features/panels/ui/buildChartOption.ts`, `shared/ui/Toast.tsx`, and `utils/chartAppearance.ts`.
+
 **Belongs here:** utilities actually imported by more than one feature.
 Verify with a real import grep before adding — do not assume a helper here
 just because it isn't feature-specific by name.

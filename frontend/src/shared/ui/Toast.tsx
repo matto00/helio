@@ -8,22 +8,13 @@ import "./toast.css";
 import type { Toast as ToastData } from "../../features/toasts/state/toastsSlice";
 import { CircleCheck, CircleX, Info, TriangleAlert, X } from "lucide-react";
 import { ICON_SIZE } from "./iconSize";
+import { prefersReducedMotion } from "../../utils/prefersReducedMotion";
 
 // HEL-535 D4 — the JS-side counterpart of toast.css's `--toast-exit-duration`
 // (200ms): the delay between playing the exit animation and actually
 // removing the toast from store. Documented as a matched pair rather than
 // computed from one another (no runtime CSS-var read) — see toast.css.
 const TOAST_EXIT_MS = 200;
-
-function prefersReducedMotion(): boolean {
-  // Guards `matchMedia` itself, not just `window` — jsdom (the test
-  // environment) doesn't implement it at all, so an unmocked test would
-  // otherwise throw rather than simply behaving as "no preference".
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-    return false;
-  }
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
 
 const variantIcon = {
   info: Info,
