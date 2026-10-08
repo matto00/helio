@@ -431,12 +431,8 @@ object PipelineAnalyzeService {
   }
 
   private def validateAggregate(config: String): Vector[String] = {
-    val cfg = AggregateConfig.decode(config)
-    cfg.aggregations.flatMap { agg =>
-      val fn = agg.fn.toLowerCase
-      if (AggregateStep.SupportedFunctions.contains(fn)) None
-      else Some(s"Unsupported aggregation function: '$fn'. Supported: ${AggregateStep.SupportedFunctions.mkString(", ")}")
-    }
+    // HEL-1310: one shared rule (also the write-time `validateRawConfig` override and `apply`).
+    AggregateConfig.decode(config).aggregations.flatMap(AggregateStep.aggregationProblem)
   }
 
   private def validateGroupBy(config: String): Vector[String] = {
@@ -632,7 +628,7 @@ object PipelineAnalyzeService {
         val aggFields = json.fields("aggregations").convertTo[Vector[JsValue]].map { v =>
           val obj   = v.asJsObject
           val alias = obj.fields("alias").convertTo[String]
-          val fn    = obj.fields("fn").convertTo[String]
+          val fn    = obj.fields("fn").convertTo[String].toLowerCase
           val field = obj.fields("field").convertTo[String]
           SchemaField(name = alias, `type` = aggResultType(fn, field, inputSchema))
         }
@@ -1183,8 +1179,8 @@ object PipelineAnalyzeService {
   /** Determine the output type of an aggregation function applied to `field`. */
   private def aggResultType(fn: String, field: String, inputSchema: Vector[SchemaField]): String =
     fn match {
-      case "count"      => "integer"
-      case "sum" | "avg" => "float"
+      case "count" | "count_distinct" => "integer"
+      case "sum" | "avg" | "median" | "percentile" => "float"
       case "min" | "max" => inputSchema.find(_.name == field).map(_.`type`).getOrElse("string")
       case _            => "string"
     }

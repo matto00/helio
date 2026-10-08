@@ -3,7 +3,8 @@ package com.helio.domain.engine
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.engine.PipelineAnalyzeService._
 import com.helio.domain.model.PipelineStep
-import com.helio.domain.steps.{GroupByConfig, GroupByStep}
+import com.helio.domain.steps.{AggregateConfig, AggregateField, AggregateStep, Aggregation, GroupByConfig, GroupByStep}
+import spray.json._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -448,6 +449,68 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val result = analyze(steps, baseSchema)
       result(0).outputSchema.find(_.name == "min_amt").map(_.`type`) shouldBe Some("float")
       result(0).outputSchema.find(_.name == "max_created").map(_.`type`) shouldBe Some("string")
+    }
+
+    // ── HEL-1310 ───────────────────────────────────────────────────────────────
+    "aggregate — median/percentile infer float and count_distinct infers integer, case-insensitively" in {
+      val cfg = """{"groupBy":[],"aggregations":[
+        {"alias":"m","fn":"median","field":"amount"},
+        {"alias":"p","fn":"percentile","field":"amount","p":95},
+        {"alias":"d","fn":"count_distinct","field":"order_id"},
+        {"alias":"s","fn":"SUM","field":"amount"},
+        {"alias":"M","fn":"MEDIAN","field":"order_id"}
+      ]}"""
+      val result = analyze(Vector(step("aggregate", cfg)), baseSchema)
+      result(0).validationError shouldBe None
+      def t(n: String) = result(0).outputSchema.find(_.name == n).map(_.`type`)
+      t("m") shouldBe Some("float")
+      t("p") shouldBe Some("float")
+      t("d") shouldBe Some("integer")
+      t("s") shouldBe Some("float")
+      t("M") shouldBe Some("float")
+    }
+
+    "aggregate — each invalid-p / unsupported-fn case yields exactly ONE validationError naming the problem" in {
+      def run(item: String) = analyze(Vector(step("aggregate", s"""{"groupBy":[],"aggregations":[$item]}""")), baseSchema)(0)
+      val cases = Seq(
+        """{"alias":"a","fn":"percentile","field":"amount"}"""                -> "requires 'p'",
+        """{"alias":"a","fn":"percentile","field":"amount","p":-1}"""         -> "between 0 and 100",
+        """{"alias":"a","fn":"percentile","field":"amount","p":100.5}"""      -> "between 0 and 100",
+        """{"alias":"a","fn":"sum","field":"amount","p":50}"""                -> "only valid for percentile",
+        """{"alias":"a","fn":"bogus_fn","field":"amount"}"""                  -> "Unsupported aggregation function"
+      )
+      cases.foreach { case (item, msg) =>
+        withClue(item) {
+          val err = run(item).validationError.getOrElse(fail("expected a validationError"))
+          err should include(msg)
+          err.split("; ") should have length 1
+        }
+      }
+      stepConfigProblem("aggregate", """{"groupBy":[],"aggregations":[{"alias":"a","fn":"percentile","field":"amount"}]}""").get should include("requires 'p'")
+      stepConfigProblem("aggregate", """{"groupBy":[],"aggregations":[{"alias":"a","fn":"percentile","field":"amount","p":90}]}""") shouldBe None
+    }
+
+    // Apply/infer parity: iterates AggregateStep.SupportedFunctions, so a function added without an
+    // inference case (aggResultType) fails here without any edit to this test.
+    "aggregate — inferred type matches the runtime value type apply produces, for every supported fn (HEL-1310 parity)" in {
+      AggregateStep.SupportedFunctions should not be empty
+      AggregateStep.SupportedFunctions.foreach { fn =>
+        withClue(s"fn=$fn: ") {
+          val agg = Aggregation("out", fn, "amount", if (fn == "percentile") Some(50.0) else None)
+          val cfg = AggregateConfig(Vector.empty[AggregateField], Vector(agg))
+          val rows: Seq[Map[String, Any]] = Seq(
+            Map("amount" -> 1.5, "order_id" -> "a"), Map("amount" -> 2.5, "order_id" -> "b"), Map("amount" -> 4.0, "order_id" -> "b")
+          )
+          val runtime = AggregateStep.apply(rows, cfg).head("out")
+          val inferred = analyze(Vector(step("aggregate", cfg.toJson.compactPrint)), baseSchema)(0).outputSchema.find(_.name == "out").map(_.`type`)
+          val expected = runtime match {
+            case _: Double => "float"
+            case _: Long   => "integer"
+            case other     => fail(s"unexpected runtime type ${other.getClass} for $fn")
+          }
+          inferred shouldBe Some(expected)
+        }
+      }
     }
 
     "aggregate — malformed config produces validationError and identity outputSchema" in {

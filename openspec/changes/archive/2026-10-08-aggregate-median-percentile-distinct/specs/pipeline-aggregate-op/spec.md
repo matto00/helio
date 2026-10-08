@@ -1,9 +1,4 @@
-# pipeline-aggregate-op Specification
-
-## Purpose
-The `aggregate` pipeline step groups rows and computes per-group aggregations (sum, avg, min, max, count, median, percentile, count_distinct), with matching analyze-time type inference and an editor in the pipeline StepCard.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Aggregate step configures group-by fields and aggregation functions
 The system SHALL provide an AggregateConfig component that allows the user to select zero or more
@@ -40,19 +35,6 @@ Config shape: `{"groupBy":[{"name":"<field>","type":"<type>"},...], "aggregation
 #### Scenario: Inline warning shown for missing aggregation field
 - **WHEN** an aggregation row references a field not present in analyzeSchema
 - **THEN** an inline warning is shown next to that row
-
-### Requirement: Aggregate step is selectable in the pipeline editor
-The system SHALL include "aggregate" in the list of op types in PipelineDetailPage with initial
-config `{"groupBy":[],"aggregations":[]}` and render AggregateConfig in the StepCard body when
-the step's opType is "aggregate".
-
-#### Scenario: Aggregate step is created with empty initial config
-- **WHEN** the user selects "Group & aggregate" from the op dropdown
-- **THEN** a new step is created and persisted with config `{"groupBy":[],"aggregations":[]}`
-
-#### Scenario: AggregateConfig is rendered for an aggregate step
-- **WHEN** an aggregate step's StepCard is expanded
-- **THEN** the AggregateConfig component is rendered (not the generic placeholder)
 
 ### Requirement: Backend executes aggregate op using group-by and aggregation config
 The InProcessPipelineEngine SHALL handle op `"aggregate"` using the config shape
@@ -99,6 +81,8 @@ group rows).
 - **WHEN** aggregate op config has a non-empty groupBy and the input row set has zero rows
 - **THEN** output has zero rows — no zero-value group row is synthesized for any group, since there
   are no groups to report
+
+## ADDED Requirements
 
 ### Requirement: Aggregate step supports median, percentile and count_distinct
 The aggregate step SHALL accept the functions `median`, `percentile` and `count_distinct` in

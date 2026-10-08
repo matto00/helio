@@ -65,6 +65,8 @@ export interface Aggregation {
   alias: string;
   fn: string;
   field: string;
+  /** Percentile position, 0-100 inclusive. Required for, and only valid on, `percentile`. */
+  p?: number;
 }
 export interface AggregateConfig {
   groupBy: AggregateField[];
