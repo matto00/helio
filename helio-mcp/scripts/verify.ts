@@ -28,6 +28,7 @@ import {
   buildAddUnknownShapeCall,
   buildCreatePipelineCall,
 } from "./verifyPayloads.js";
+import { retryingOnRateLimit } from "./rateLimitRetry.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const serverEntry = resolve(here, "../dist/index.js");
@@ -35,6 +36,15 @@ const serverEntry = resolve(here, "../dist/index.js");
 /** The actual (structural) resolved type of `Client#callTool` — covers both
  * the plain-content shape and the legacy `toolResult` compatibility shape. */
 type ToolCallResult = Awaited<ReturnType<Client["callTool"]>>;
+
+/** The ONLY place verify calls a tool: waits out a reported rate limit (HEL-1349) —
+ *  the HTTP client now fails fast instead of sleeping past the MCP request timeout. */
+function callToolRetrying(
+  client: Client,
+  params: Parameters<Client["callTool"]>[0],
+): Promise<ToolCallResult> {
+  return retryingOnRateLimit(() => client.callTool(params));
+}
 
 function section(title: string): void {
   process.stdout.write(`\n${"=".repeat(72)}\n${title}\n${"=".repeat(72)}\n`);
@@ -120,7 +130,7 @@ async function runChecks(
       displayName: string;
       requiredFields: Array<{ name: string; secret: boolean }>;
     }>
-  >(await client.callTool({ name: "list_connector_types", arguments: {} }));
+  >(await callToolRetrying(client, { name: "list_connector_types", arguments: {} }));
   for (const c of connectors)
     process.stdout.write(
       `  • ${c.displayName} (${c.kind}) requiredFields=${c.requiredFields.map((f) => f.name).join(",")}\n`,
@@ -130,7 +140,7 @@ async function runChecks(
   const sources = parse<{
     items: Array<{ id: string; name: string; type: string }>;
     total: number;
-  }>(await client.callTool({ name: "list_data_sources", arguments: {} }));
+  }>(await callToolRetrying(client, { name: "list_data_sources", arguments: {} }));
   process.stdout.write(
     `  total=${sources.total}; ${sources.items.map((s) => `${s.name}[${s.type}]`).join(", ")}\n`,
   );
@@ -139,7 +149,7 @@ async function runChecks(
   const outputs = parse<{
     items: Array<{ id: string; name: string; pipelineId: string; nodeStepId?: string | null }>;
     total: number;
-  }>(await client.callTool({ name: "list_outputs", arguments: {} }));
+  }>(await callToolRetrying(client, { name: "list_outputs", arguments: {} }));
   for (const o of outputs.items) {
     // nodeStepId omitted/null on the wire → the pipeline's raw source node.
     const raw = (o.nodeStepId ?? null) === null;
@@ -150,7 +160,7 @@ async function runChecks(
 
   section("list_pipelines");
   const pipelines = parse<Array<{ id: string; name: string; lastRunStatus: string | null }>>(
-    await client.callTool({ name: "list_pipelines", arguments: {} }),
+    await callToolRetrying(client, { name: "list_pipelines", arguments: {} }),
   );
   for (const p of pipelines)
     process.stdout.write(`  • ${p.name} (${p.id}) lastRun=${p.lastRunStatus ?? "none"}\n`);
@@ -160,7 +170,7 @@ async function runChecks(
     section(`get_pipeline (${firstPipeline.name}) — summary + steps`);
     process.stdout.write(
       textOf(
-        await client.callTool({
+        await callToolRetrying(client, {
           name: "get_pipeline",
           arguments: { pipelineId: firstPipeline.id },
         }),
@@ -170,7 +180,7 @@ async function runChecks(
     section(`analyze_pipeline (${firstPipeline.name})`);
     process.stdout.write(
       textOf(
-        await client.callTool({
+        await callToolRetrying(client, {
           name: "analyze_pipeline",
           arguments: { pipelineId: firstPipeline.id },
         }),
@@ -181,7 +191,7 @@ async function runChecks(
       `list_outputs (scoped to pipeline ${firstPipeline.name}) — evaluator-1 CR2: setup for get_output_rows`,
     );
     const pipelineOutputs = parse<{ items: Array<{ id: string; name: string }> }>(
-      await client.callTool({
+      await callToolRetrying(client, {
         name: "list_outputs",
         arguments: { pipelineId: firstPipeline.id },
       }),
@@ -193,7 +203,7 @@ async function runChecks(
       section(`get_output_rows (${firstOutput.name}) — replaces retired get_data_type_rows`);
       process.stdout.write(
         textOf(
-          await client.callTool({
+          await callToolRetrying(client, {
             name: "get_output_rows",
             arguments: { outputId: firstOutput.id },
           }),
@@ -207,7 +217,7 @@ async function runChecks(
     section(`list_source_objects (${firstSource.name})`);
     process.stdout.write(
       textOf(
-        await client.callTool({
+        await callToolRetrying(client, {
           name: "list_source_objects",
           arguments: { sourceId: firstSource.id },
         }),
@@ -217,7 +227,7 @@ async function runChecks(
 
   section("list_dashboards");
   const dashboards = parse<{ items: Array<{ id: string; name: string }>; total: number }>(
-    await client.callTool({ name: "list_dashboards", arguments: {} }),
+    await callToolRetrying(client, { name: "list_dashboards", arguments: {} }),
   );
   for (const d of dashboards.items) process.stdout.write(`  • ${d.name} (${d.id})\n`);
 
@@ -226,7 +236,7 @@ async function runChecks(
     section(`get_dashboard (${firstDashboard.name}) — with panels`);
     process.stdout.write(
       textOf(
-        await client.callTool({
+        await callToolRetrying(client, {
           name: "get_dashboard",
           arguments: { dashboardId: firstDashboard.id },
         }),
@@ -236,7 +246,7 @@ async function runChecks(
 
   section("list_pipeline_shapes");
   const shapes = parse<Array<{ id: string; label: string; outputContract: { rowCount: unknown } }>>(
-    await client.callTool({ name: "list_pipeline_shapes", arguments: {} }),
+    await callToolRetrying(client, { name: "list_pipeline_shapes", arguments: {} }),
   );
   for (const s of shapes)
     process.stdout.write(
@@ -254,12 +264,12 @@ async function runChecks(
     "add_outputs_from_shape — setup: create_pipeline (single-call, HEL-906) with an inline static source, no steps/outputs",
   );
   const shapePipeline = parse<{ id: string; roots: Array<{ dataSourceId: string }> }>(
-    await client.callTool(buildCreatePipelineCall(runId)),
+    await callToolRetrying(client, buildCreatePipelineCall(runId)),
   );
   ledger.pipelineIds.push(shapePipeline.id);
   for (const r of shapePipeline.roots) ledger.sourceIds.push(r.dataSourceId);
   const outputsBeforeFailures = parse<{ items: Array<{ id: string }> }>(
-    await client.callTool({
+    await callToolRetrying(client, {
       name: "list_outputs",
       arguments: { pipelineId: shapePipeline.id },
     }),
@@ -269,7 +279,7 @@ async function runChecks(
   const shapeResult = parse<{
     steps: Array<{ type: string }>;
     output: { id: string };
-  }>(await client.callTool(buildAddTopNOutputCall(shapePipeline.id, runId)));
+  }>(await callToolRetrying(client, buildAddTopNOutputCall(shapePipeline.id, runId)));
   process.stdout.write(
     `  • pipeline ${shapePipeline.id} steps=${shapeResult.steps.map((s) => s.type).join(",")} output=${shapeResult.output.id}\n`,
   );
@@ -283,7 +293,8 @@ async function runChecks(
   section(
     "add_outputs_from_shape — invalid params (missing 'n') surface expand's message, nothing added (evaluator-1 CR2)",
   );
-  const invalidParamsResult = await client.callTool(
+  const invalidParamsResult = await callToolRetrying(
+    client,
     buildAddInvalidParamsCall(shapePipeline.id, runId),
   );
   process.stdout.write(
@@ -301,7 +312,8 @@ async function runChecks(
   section(
     "add_outputs_from_shape — unknown shape id surfaces 404 message, nothing added (evaluator-1 CR2)",
   );
-  const unknownShapeResult = await client.callTool(
+  const unknownShapeResult = await callToolRetrying(
+    client,
     buildAddUnknownShapeCall(shapePipeline.id, runId),
   );
   process.stdout.write(
@@ -320,7 +332,7 @@ async function runChecks(
     "add_outputs_from_shape — confirm no orphan Output was added by the two failures (evaluator-1 CR2)",
   );
   const outputsAfterFailures = parse<{ items: Array<{ id: string }> }>(
-    await client.callTool({
+    await callToolRetrying(client, {
       name: "list_outputs",
       arguments: { pipelineId: shapePipeline.id },
     }),
@@ -354,7 +366,7 @@ async function runChecks(
 
   section("get_workspace_context tool — confirm it also includes pipelineShapes");
   const toolCtx = parse<{ pipelineShapes: Array<{ id: string }> }>(
-    await client.callTool({ name: "get_workspace_context", arguments: {} }),
+    await callToolRetrying(client, { name: "get_workspace_context", arguments: {} }),
   );
   if (toolCtx.pipelineShapes.length !== 5) {
     throw new Error(
@@ -379,18 +391,20 @@ async function verifyOutputHistory(
     `get_output_history — add a metric Output with config.compare, run ${HISTORY_RUNS}x, read once`,
   );
   const metric = parse<{ id: string; config?: { compare?: string } }>(
-    await client.callTool(buildAddMetricOutputCall(pipelineId, runId)),
+    await callToolRetrying(client, buildAddMetricOutputCall(pipelineId, runId)),
   );
   process.stdout.write(`  • metric Output ${metric.id} compare=${metric.config?.compare}\n`);
 
   const deadline = Date.now() + HISTORY_RUN_BUDGET_MS;
   for (let done = 0; done < HISTORY_RUNS; ) {
-    const res = await client.callTool(buildRunPipelineCall(pipelineId));
+    const res = await callToolRetrying(client, buildRunPipelineCall(pipelineId));
     if (!isErrorOf(res)) {
       done += 1;
       continue;
     }
-    // A 429 survives the HTTP client's own bounded retries: wait out the window, then retry.
+    // callToolRetrying already waits out reported rate limits, so this fallback is mostly dead
+    // code now; it remains for an error with no retry-after. The loop deadline is checked only
+    // here, so a run can overshoot it by up to one helper cycle (<= 180 s) before failing.
     if (Date.now() + RATE_LIMIT_BACKOFF_MS > deadline) {
       throw new Error(
         `only ${done}/${HISTORY_RUNS} runs within budget; last error: ${textOf(res)}`,
@@ -404,7 +418,7 @@ async function verifyOutputHistory(
   // Evidence only: how many points are retained right before the one-call read (limit 100 is the
   // route's max), so a pass is not a lucky timing and thinning shows up as a count below 30.
   const preRead = parse<{ points: unknown[] }>(
-    await client.callTool(buildGetOutputHistoryCall(metric.id, 100)),
+    await callToolRetrying(client, buildGetOutputHistoryCall(metric.id, 100)),
   );
   process.stdout.write(`  • pre-read retained point count (limit 100): ${preRead.points.length}\n`);
 
@@ -415,7 +429,7 @@ async function verifyOutputHistory(
     delta: number | null;
     sparkline: Array<{ capturedAt: string; value: number | null }>;
     points: unknown[];
-  }>(await client.callTool(buildGetOutputHistoryCall(metric.id, HISTORY_RUNS)));
+  }>(await callToolRetrying(client, buildGetOutputHistoryCall(metric.id, HISTORY_RUNS)));
   process.stdout.write(
     `  • ONE get_output_history call: points=${history.points.length} sparkline=${history.sparkline.length} ` +
       `compare=${history.compare} current=${history.current?.value} baseline=${history.baseline?.value} delta=${history.delta}\n`,

@@ -10,7 +10,11 @@
  *   remediation message so the MCP tool surfaces "your PAT is invalid/revoked"
  *   instead of an opaque 401).
  *
- * A 429 is the one status this client retries (HEL-495). The backend's
+ * A 429 is the one status this client retries (HEL-495). The total time one request
+ * spends sleeping is capped at `RATE_LIMIT_WAIT_BUDGET_MS` (HEL-1349), half the MCP
+ * SDK's default 60s request timeout; a wait that would not fit (or exhausted retries)
+ * throws `HelioRateLimitError` carrying the server's retry-after, so the caller gets
+ * an actionable `isError` result instead of an opaque -32001 timeout. The backend's
  * rate-limiting directive budgets `RATE_LIMIT_REQUESTS_PER_WINDOW` requests per
  * PAT per fixed window and refuses the overflow with a `Retry-After`
  * delta-seconds header. Agent-driven runs are bursty by nature — helio-news
@@ -58,12 +62,29 @@ export class HelioAuthError extends HelioApiError {
   }
 }
 
+/** 429 specifically (HEL-1349) — the request stayed rate limited past the wait budget or
+ *  the retry attempts. `retryAfterSeconds` is the server's own `Retry-After` from the
+ *  last 429 when it sent a usable one, else `undefined`. */
+export class HelioRateLimitError extends HelioApiError {
+  constructor(
+    url: string,
+    message: string,
+    readonly retryAfterSeconds: number | undefined,
+  ) {
+    super(429, url, message);
+    this.name = "HelioRateLimitError";
+  }
+}
+
+/** Max total time one request spends sleeping across all its 429 retries. Half of the
+ *  MCP SDK's default request timeout (60s), leaving the rest for the HTTP round trips
+ *  themselves; guarded against the installed SDK by `httpClient.test.ts`. */
+export const RATE_LIMIT_WAIT_BUDGET_MS = 30_000;
+
 /** Max retries after the initial attempt before a 429 is surfaced to the caller. */
 const MAX_RATE_LIMIT_RETRIES = 5;
 /** Backoff when a 429 arrives without a usable `Retry-After`: 1s, 2s, 4s, … */
 const BASE_BACKOFF_MS = 1_000;
-/** Ceiling on any single wait, so a stray large `Retry-After` cannot stall a run. */
-const MAX_BACKOFF_MS = 60_000;
 
 /** `TierErrorResponse.code` values the tier gate (HEL-703/HEL-1205) answers with. */
 const CHAT_LIMIT_REACHED = "CHAT_LIMIT_REACHED";
@@ -183,6 +204,7 @@ export class HelioHttpClient {
    *  TS-only ambient interfaces, so referencing them by name trips `no-undef`
    *  even though `fetch`'s own signature accepts this structurally). */
   private async dispatch<T>(url: string, init: HelioRequestInit): Promise<T> {
+    let waitedMs = 0;
     for (let attempt = 0; ; attempt++) {
       let response: Response;
       try {
@@ -206,11 +228,21 @@ export class HelioHttpClient {
       if (response.status === 429 && errorBody?.code === CHAT_LIMIT_REACHED) {
         throw new HelioApiError(429, url, this.describeError(response, errorBody));
       }
-      // Throttled, and there are attempts left: wait out the window and re-send.
-      // Only 429 is retried — every other non-2xx is a real answer about the
-      // request itself and would fail identically a second time.
-      if (response.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
-        const delay = this.retryDelayMs(response, attempt);
+      // Throttled: wait out the window and re-send, but only while the request's
+      // cumulative wait stays inside the budget and attempts remain. Only 429 is
+      // retried — every other non-2xx is a real answer about the request itself and
+      // would fail identically a second time.
+      if (response.status === 429) {
+        const retryAfterSeconds = this.retryAfterSeconds(response);
+        const delay =
+          retryAfterSeconds !== undefined
+            ? retryAfterSeconds * 1_000
+            : BASE_BACKOFF_MS * 2 ** attempt;
+        // Never sleep less than the server asked (a clamped wait would just be refused
+        // again): a wait that does not fit the remaining budget is surfaced at once.
+        if (attempt >= MAX_RATE_LIMIT_RETRIES || waitedMs + delay > RATE_LIMIT_WAIT_BUDGET_MS) {
+          throw this.rateLimitError(url, response, errorBody, retryAfterSeconds);
+        }
         // stderr, never stdout: stdout is the MCP stdio transport's JSON-RPC
         // channel and a stray line there corrupts the session. Logged because a
         // silent retry is indistinguishable from a slow backend — the 2026-08
@@ -219,6 +251,7 @@ export class HelioHttpClient {
           `helio-mcp: 429 rate limited on ${init.method} ${url}; ` +
             `retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})`,
         );
+        waitedMs += delay;
         await this.deps.sleep(delay);
         continue;
       }
@@ -231,18 +264,33 @@ export class HelioHttpClient {
     }
   }
 
-  /** How long to wait before re-sending after a 429.
-   *
-   *  Prefers the server's own `Retry-After` (the directive sends delta-seconds
-   *  — the exact remaining window), and falls back to exponential backoff when
-   *  the header is absent or in the HTTP-date form we don't parse. Either way
-   *  the wait is clamped to `MAX_BACKOFF_MS`. */
-  private retryDelayMs(response: Response, attempt: number): number {
+  /** The server's `Retry-After` in whole-or-fractional seconds, or `undefined` when
+   *  absent or in the HTTP-date form we don't parse (the caller then backs off
+   *  exponentially). The directive sends delta-seconds — the exact remaining window. */
+  private retryAfterSeconds(response: Response): number | undefined {
     const header = response.headers?.get("Retry-After");
     const seconds = header === null || header === undefined ? NaN : Number(header);
-    const wanted =
-      Number.isFinite(seconds) && seconds >= 0 ? seconds * 1_000 : BASE_BACKOFF_MS * 2 ** attempt;
-    return Math.min(wanted, MAX_BACKOFF_MS);
+    return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
+  }
+
+  /** The error for a 429 that stayed throttled past the wait budget or the retry cap.
+   *  The message is a contract: `scripts/rateLimitRetry.ts` parses `retry after <N>s`. */
+  private rateLimitError(
+    url: string,
+    response: Response,
+    body: ErrorBody | undefined,
+    retryAfterSeconds: number | undefined,
+  ): HelioRateLimitError {
+    const advice =
+      retryAfterSeconds !== undefined
+        ? `retry after ${retryAfterSeconds}s`
+        : "the backend sent no retry-after, retry later";
+    return new HelioRateLimitError(
+      url,
+      `429 Too Many Requests: rate limited by the Helio backend; ${advice} ` +
+        `(${this.describeError(response, body)})`,
+      retryAfterSeconds,
+    );
   }
 
   private buildUrl(path: string, query?: Record<string, string | number | undefined>): string {
