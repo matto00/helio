@@ -1,6 +1,0 @@
-- `helio-mcp/src/httpClient.ts` — HelioRateLimitError, RATE_LIMIT_WAIT_BUDGET_MS (30s) cumulative budget, fail-fast on over-budget/exhausted 429; MAX_BACKOFF_MS removed
-- `helio-mcp/src/httpClient.test.ts` — new budget/59s/no-Retry-After/SDK-guard tests; two existing tests updated per design D6
-- `helio-mcp/src/rateLimitSeam.test.ts` — seam test: real SDK Client with DEFAULT timeout (fake timers, no short-explicit-timeout fallback), red -32001 -> green isError
-- `helio-mcp/scripts/rateLimitRetry.ts` — importable retry-after parser + bounded retry helper for verify.ts (D7)
-- `helio-mcp/scripts/rateLimitRetry.test.ts` — parser and retry-helper unit tests
-- `helio-mcp/scripts/verify.ts` — all 23 callTool sites routed through callToolRetrying (single client.callTool( remains)
