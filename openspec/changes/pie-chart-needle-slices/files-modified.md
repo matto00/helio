@@ -1,0 +1,1 @@
+- `frontend/src/features/panels/ui/PanelCard.aggregatePieChart.test.tsx` — new test-only regression: aggregated pie Output via PanelCard (4 slices, both themes) + unaggregated control
