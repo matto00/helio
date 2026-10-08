@@ -1,0 +1,50 @@
+name: Cache Janitor
+
+# HEL-1299 D4: delete superseded refs/heads/main Actions cache entries of an explicit family allowlist
+# (see scripts/cache-janitor.mjs), keeping the newest of each. Runs after CI on main, every 6 hours (catches the
+# CodeQL overlay-base databases, whose dynamic workflow is not a reliable workflow_run source), or on demand.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "List what would be deleted without deleting"
+        type: boolean
+        default: true
+
+permissions:
+  actions: write
+
+concurrency:
+  group: cache-janitor
+  cancel-in-progress: false
+
+jobs:
+  janitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Default branch only -- never PR code (the workflow_run trigger runs with a write token).
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Delete superseded cache entries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # Scheduled / workflow_run runs are live; manual dispatch defaults to a dry run.
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/cache-janitor.mjs --dry-run
+          else
+            node scripts/cache-janitor.mjs
+          fi
