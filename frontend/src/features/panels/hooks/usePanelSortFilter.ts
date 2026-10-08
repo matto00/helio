@@ -25,7 +25,7 @@ export interface PanelSortFilterResult {
    *  session), reusing `tableFilterPredicate.ts`'s existing `isFiltering`. */
   filterActive: boolean;
   /** The current sort/filter, exposed so a caller's OWN "Load more" (page > 0) dispatch can carry
-   *  them too — `page`, unlike a sort/filter CHANGE, never resets to 0, so it is `PanelCard.tsx`'s
+   *  them too — `page`, unlike a sort/filter CHANGE, never resets to 0, so it is `PanelCardBody.tsx`'s
    *  own job to read these and include them, not this hook's (task 4.3's reset-then-refetch is
    *  page-0-only by construction). */
   activeSort: SortState<string> | null;
@@ -79,7 +79,7 @@ export interface PanelSortFilterResult {
  *  Output and typically resolve within the same tick, but the two can theoretically settle one
  *  render apart. That window is bounded and purely cosmetic (at most one stale render of
  *  `filterActive`, never a wrong PERSISTED value) — the same class of accepted, precedented
- *  independent-refetch-of-the-same-Output tradeoff already documented on `PanelCard.tsx`'s own
+ *  independent-refetch-of-the-same-Output tradeoff already documented on `usePanelCardInspect.ts`'s own
  *  `chartInspectConfig` `useOutputMeta` call. */
 export function usePanelSortFilter(
   panelId: string,

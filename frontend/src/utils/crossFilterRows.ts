@@ -1,7 +1,7 @@
 // HEL-588 — dashboard-scoped cross-filtering: row filtering and the
 // per-output-kind filterable-panel check. The MAIN content path applies
 // these inside `OutputPanelContent` (`PanelContent.tsx`), where the Output
-// it needs is already resolved for kind-dispatch; `PanelCard`'s own
+// it needs is already resolved for kind-dispatch; `usePanelCardInspect`'s own
 // `useCrossFilteredPanelData` call applies `filterRowsByDimension` a second
 // time, ONLY for what it threads to `PanelInspectView` (see that hook's own
 // comment for why). Kept separate from `chartClickSelection.ts` (which

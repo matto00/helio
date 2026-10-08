@@ -18,7 +18,7 @@ import { authReducer } from "../../auth/state/authSlice";
 import { panelsReducer } from "../state/panelsSlice";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
-import { PanelCardBody } from "./PanelCard";
+import { PanelCardBody } from "./PanelCardBody";
 import type { Panel } from "../types/panel";
 
 // HEL-579 design.md Decision 1: `PanelCardBody` no longer calls `usePanelData`

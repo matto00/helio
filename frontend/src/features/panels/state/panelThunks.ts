@@ -318,7 +318,7 @@ export const CROSS_FILTER_EQ_REJECTED = "cross-filter-eq-rejected" as const;
 // HEL-1027 design.md D1/D4 (task 4.3) — `sort`/`filter` are optional so every pre-existing
 // dispatch (`usePanelData`'s own initial fetch) keeps compiling and behaving identically;
 // `usePanelSortFilter` is the caller that passes them, on a (debounced) sort/filter change,
-// always paired with `page: 0`. `PanelCard.tsx`'s "Load more" (page > 0) also carries them, so an
+// always paired with `page: 0`. `PanelCardBody.tsx`'s "Load more" (page > 0) also carries them, so an
 // appended page never silently reverts to the raw/unfiltered default. skeptic-final-1.md CR2 —
 // this thunk does NOT itself sequence responses; staleness is discarded downstream in
 // `panelsSlice.ts`'s `.fulfilled`/`.rejected` via `latestFetchRequestId`.

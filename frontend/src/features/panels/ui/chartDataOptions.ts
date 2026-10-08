@@ -5,7 +5,7 @@ import type { ChartType } from "../../../utils/chartAppearance";
 import { makeScatterSymbolSize } from "../../../utils/chartTypeOptions";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 // HEL-572 — kept as a SEPARATE, echarts-import-free module (see its own
-// header comment) so `PanelCard.tsx`/`PanelFullscreenOverlay.tsx` can reuse
+// header comment) so `usePanelCardInspect.ts`/`PanelFullscreenOverlay.tsx` can reuse
 // the row-filter half without pulling this file's lazy-loaded echarts chunk
 // into the main bundle (HEL-512).
 import { resolveDataColumns, resolvePieValueColumn } from "../../../utils/chartClickSelection";

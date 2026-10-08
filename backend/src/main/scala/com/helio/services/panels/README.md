@@ -6,7 +6,14 @@ data binding/aggregation is gone; `PanelCapabilityService` was retargeted
 onto `OutputId` (was `DataTypeId`).
 
 Holds: `AutoLayoutService`, `PanelCapabilityService`, `PanelPacker`,
-`PanelPatchApplier`, `PanelServiceHelpers`, `PanelService`, plus the layout
+`PanelPatchApplier`, `PanelServiceHelpers`, `PanelService` (the entry point: the
+constructor, every ACL / `Forbidden` / 404 preamble, `audit`), the concerns split out of it
+(HEL-1253) -- `ResolvedPanelPatch` (the validated update snapshot), `PanelBindingChecks`
+(output / data-source existence, form consistency, default placement size, plus the pure panel
+extractors), `PanelCreateBuilder` (`buildForCreate` / `buildAllForCreate`),
+`PanelFormFileSubmission` (the file-attached form-submit path), `PanelUpdateValidation` (`update`'s
+post-authorize validation chain), `PanelBatchWrites` (`batchUpdate` / `batchCreate` post-ACL
+bodies) and `PanelLifecycleWrites` (`create` / `delete` / `duplicate` post-ACL tails) -- plus the layout
 rules (HEL-1071): `LayoutValidator` (pure bounds/overlap geometry, mirrors the
 frontend `breakpointLayout.ts` and is tested against the shared fixture
 `shared-test-fixtures/layout-validity.json`), `LayoutPolicy` (the one write

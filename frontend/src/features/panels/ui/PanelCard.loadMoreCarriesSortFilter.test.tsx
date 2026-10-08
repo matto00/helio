@@ -16,7 +16,7 @@ import { toastsReducer } from "../../toasts/state/toastsSlice";
 import { usePanelData } from "../hooks/usePanelData";
 import * as outputService from "../../pipelines/services/outputService";
 import type { Output } from "../../pipelines/types/output";
-import { PanelCardBody } from "./PanelCard";
+import { PanelCardBody } from "./PanelCardBody";
 import type { Panel } from "../types/panel";
 
 jest.mock("../../pipelines/services/outputService", () => ({
