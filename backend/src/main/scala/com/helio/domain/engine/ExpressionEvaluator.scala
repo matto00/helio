@@ -28,7 +28,8 @@ object EvaluationError {
  *   - `$`-prefixed field references (`$col`) — REQUIRED for the strict grammar (see below)
  *   - Arithmetic: +, -, *, / (with correct precedence); `-`/`*`/`/` are numeric-strict,
  *     `+` is coercion-permissive (string concatenation if either side is a string)
- *   - Function calls: `concat`, `substring`, `lower`, `upper`, `length`
+ *   - Function calls: `concat`, `substring`, `lower`, `upper`, `length`, and the numeric
+ *     `floor`, `ceil`, `round(x[, digits])`, `mod`, `abs` (strict numeric, null-propagating)
  *   - Parenthesised sub-expressions
  *   - No external library dependencies
  *
@@ -205,6 +206,15 @@ object ExpressionEvaluator {
   private final case class BinOp(op: Char, l: Expr, r: Expr) extends Expr
   private final case class Call(name: String, args: Vector[Expr]) extends Expr
 
+  /** Every function name `checkArity`/`applyFn` accepts, alphabetical. Drives the unknown-function
+   *  message; `ExpressionEvaluatorSpec` probes it against the dispatcher in both directions. */
+  private[engine] val SupportedFunctions: Vector[String] =
+    Vector("abs", "ceil", "concat", "floor", "length", "lower", "mod", "round", "substring", "upper")
+
+  /** The numeric-in/numeric-out subset of `SupportedFunctions` (all infer `"float"`); the infer/apply
+   *  parity test iterates it, so a new numeric function must be classified here. */
+  private[engine] val NumericFunctions: Vector[String] = Vector("abs", "ceil", "floor", "mod", "round")
+
   /** Arity/known-name check for function calls — shared by the strict parser
    *  (which rejects unknown names/arity at parse time, per
    *  compute-expression-language's "Function-call syntax" requirement). */
@@ -212,7 +222,11 @@ object ExpressionEvaluator {
     case "concat"                     => if (argc >= 1) Right(()) else Left("concat requires at least 1 argument")
     case "substring"                  => if (argc == 3) Right(()) else Left("substring requires 3 arguments")
     case "lower" | "upper" | "length" => if (argc == 1) Right(()) else Left(s"$name requires 1 argument")
-    case other                        => Left(s"'$other' is not a recognized function")
+    case "floor" | "ceil" | "abs"     => if (argc == 1) Right(()) else Left(s"$name requires 1 argument")
+    case "mod"                        => if (argc == 2) Right(()) else Left("mod requires 2 arguments")
+    case "round"                      => if (argc == 1 || argc == 2) Right(()) else Left("round requires 1 or 2 arguments")
+    case other =>
+      Left(s"'$other' is not a recognized function; supported functions: ${SupportedFunctions.mkString(", ")}")
   }
 
   // ── Strict parser (used by parse()/validate() — no legacy fallback) ─────────
@@ -481,8 +495,8 @@ object ExpressionEvaluator {
           }
           .map { _ =>
             name match {
-              case "length" => "float"
-              case _        => "string" // concat, substring, lower, upper
+              case n if n == "length" || NumericFunctions.contains(n) => "float"
+              case _ => "string" // concat, substring, lower, upper
             }
           }
     }
@@ -642,11 +656,50 @@ object ExpressionEvaluator {
             case other   => Left(EvaluationError.TypeError(s"length requires a string argument, got ${typeName(other)}"))
           }
 
+        case "floor" => numericUnary(name, args.head)(math.floor)
+        case "ceil"  => numericUnary(name, args.head)(math.ceil)
+        case "abs"   => numericUnary(name, args.head)(math.abs)
+
+        case "round" =>
+          (args.head, args.lift(1)) match {
+            case (VNum(x), None)         => Right(VNum(roundTo(x, 0)))
+            case (VNum(x), Some(VNum(d))) =>
+              if (d.isWhole) Right(VNum(roundTo(x, math.max(-308.0, math.min(308.0, d)).toInt)))
+              else Left(EvaluationError.TypeError("round requires a whole-number digits argument"))
+            case (VNum(_), Some(other)) =>
+              Left(EvaluationError.TypeError(s"round requires a numeric digits argument, got ${typeName(other)}"))
+            case (other, _) =>
+              Left(EvaluationError.TypeError(s"round requires a numeric argument, got ${typeName(other)}"))
+          }
+
+        case "mod" =>
+          (args(0), args(1)) match {
+            case (VNum(_), VNum(b)) if b == 0 => Left(EvaluationError.DivisionByZero("mod"))
+            case (VNum(a), VNum(b)) =>
+              val r = a % b
+              Right(VNum((if (r != 0 && (r < 0) != (b < 0)) r + b else r) + 0.0)) // + 0.0 turns -0.0 into 0.0
+            case (VNum(_), other) =>
+              Left(EvaluationError.TypeError(s"mod requires numeric arguments, got ${typeName(other)}"))
+            case (other, _) =>
+              Left(EvaluationError.TypeError(s"mod requires numeric arguments, got ${typeName(other)}"))
+          }
+
         case other =>
           // Unreachable in practice: unknown function names are rejected at parse
           // time by checkArity, before evaluation is ever reached.
           Left(EvaluationError.ParseError(s"Unknown function: $other"))
       }
+
+  private def numericUnary(name: String, v: Val)(f: Double => Double): Either[EvaluationError, Val] = v match {
+    case VNum(n) => Right(VNum(f(n) + 0.0)) // + 0.0 turns -0.0 into 0.0
+    case other   => Left(EvaluationError.TypeError(s"$name requires a numeric argument, got ${typeName(other)}"))
+  }
+
+  /** Round half away from zero on the double's shortest decimal representation. A non-finite
+   *  value is returned unchanged (`BigDecimal.decimal` would throw). */
+  private def roundTo(x: Double, digits: Int): Double =
+    if (x.isNaN || x.isInfinite) x
+    else BigDecimal.decimal(x).setScale(digits, BigDecimal.RoundingMode.HALF_UP).toDouble
 
   private def concatStr(v: Val): String = v match {
     case VNum(n) => numStr(n)
