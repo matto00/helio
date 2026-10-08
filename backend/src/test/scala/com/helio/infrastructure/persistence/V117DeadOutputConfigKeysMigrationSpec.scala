@@ -172,7 +172,7 @@ class V117DeadOutputConfigKeysMigrationSpec extends AnyWordSpec with Matchers {
         preConfigs.values.exists { case (k, c) => valid(k, c, JsObject.empty).isLeft } shouldBe true
 
         // ── V117 via Flyway, as the NOBYPASSRLS owner ──
-        noException should be thrownBy flyway(None).migrate()
+        noException should be thrownBy flyway(Some("117")).migrate() // HEL-1410: pinned -- V118 rewrites the metric `format` this spec asserts byte-identical
 
         val sPost = superDs.getConnection
         try {
