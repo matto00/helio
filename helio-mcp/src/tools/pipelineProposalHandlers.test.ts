@@ -121,6 +121,7 @@ describe("analyzePipelineProposalHandler", () => {
         },
       ],
       steps: [],
+      warnings: [],
     };
     let calledWith: PipelineProposal | undefined;
     const api = makeFakeApi({
@@ -134,6 +135,25 @@ describe("analyzePipelineProposalHandler", () => {
 
     expect(calledWith).toEqual(proposal);
     expect(result).toBe(response);
+  });
+
+  it("passes analyze warnings through untouched (HEL-1235)", async () => {
+    const response: PipelineAnalyzeProposalResponse = {
+      sourceSchemas: [],
+      steps: [],
+      warnings: [
+        {
+          stepId: "a1",
+          code: "field-not-in-input-schema",
+          message: "aggregate: field 'amount' not found in this step's inferred input schema",
+        },
+      ],
+    };
+    const api = makeFakeApi({ analyzePipelineProposal: async () => response });
+
+    const result = await analyzePipelineProposalHandler(api, proposal);
+
+    expect(result.warnings).toEqual(response.warnings);
   });
 
   it("propagates a rejected api.analyzePipelineProposal call as a rejected promise", async () => {

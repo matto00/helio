@@ -249,6 +249,26 @@ describe("create_connector's advertised input schema (HEL-886, skeptic-final-2.m
 // HEL-1193 D1: get_output_capabilities (pipeline step binding menu) and
 // get_output_filter_capabilities (an Output's filter operators/control kinds) are easy to confuse;
 // each description must name the other and say which id it takes.
+describe("analyze tools document the non-blocking warnings array (HEL-1235)", () => {
+  it.each(["analyze_pipeline", "analyze_pipeline_proposal"])(
+    "%s names warnings, the three codes, and that they never block or affect canRun",
+    async (name) => {
+      const tools = await listRegisteredTools();
+      const description = tools.find((t) => t.name === name)?.description ?? "";
+
+      expect(description).toContain("warnings");
+      expect(description).toContain("field-not-in-input-schema");
+      expect(description).toContain("join-key-type-mismatch");
+      expect(description).toContain("join-column-renamed");
+      expect(description).toContain("NON-BLOCKING");
+      expect(description).toContain("NOT affect canRun");
+      // distinguished from propose_pipeline's string warnings and from run warnings
+      expect(description).toContain("propose_pipeline's warnings");
+      expect(description).toContain("run");
+    },
+  );
+});
+
 describe("filter-capabilities vs step-capabilities tool descriptions (HEL-1193 D1)", () => {
   it("each description names the other tool and the id it takes", async () => {
     const tools = await listRegisteredTools();

@@ -222,7 +222,7 @@ object PipelineAnalyzeService {
    *  derivation) instead of throwing -- `inferOutputSchema`'s existing `parseConfig` /
    *  `validateStepConfig` machinery is still what reports a malformed config as an error;
    *  this helper only ever WIDENS what a well-formed config can additionally project. */
-  private def laneDependencyOf(op: String, config: String): Option[String] = {
+  private[engine] def laneDependencyOf(op: String, config: String): Option[String] = {
     def laneId(si: SecondaryInput): Option[String] = si match {
       case SecondaryInput.Lane(id) => Some(id)
       case _                       => None

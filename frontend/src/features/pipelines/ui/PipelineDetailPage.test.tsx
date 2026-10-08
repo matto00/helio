@@ -216,6 +216,7 @@ const emptyAnalyzeResponse: PipelineAnalyzeResponse = {
   sourceSchemas: [{ rootId: "root-1", sourceSchema: [] }],
   steps: [],
   costVerdict: { autoRunnable: true, stepCount: 0, reasons: [], canRun: true },
+  warnings: [],
 };
 
 const defaultPipeline: PipelineSummary = {
@@ -2794,6 +2795,7 @@ describe("PipelineDetailPage select step config round-trip", () => {
         },
       ],
       costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
+      warnings: [],
     });
   });
 
@@ -2868,6 +2870,7 @@ describe("PipelineDetailPage rename step config", () => {
       },
     ],
     costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
+    warnings: [],
   };
 
   beforeEach(() => {

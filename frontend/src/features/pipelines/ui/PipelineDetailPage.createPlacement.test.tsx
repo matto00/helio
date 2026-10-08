@@ -327,6 +327,7 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
       sourceSchemas: [{ rootId: "root-1", sourceSchema: notesSchema }],
       steps: [],
       costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
+      warnings: [],
     } as PipelineAnalyzeResponse);
     getPipelineStepsMock.mockResolvedValue([A(), B(), C()]);
     updatePipelineStepMock.mockResolvedValue(ps("N", "generatetext"));
