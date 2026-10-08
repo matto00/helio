@@ -1,4 +1,0 @@
-- `CLAUDE.md` — corrected the "Key endpoints" list: `GET/DELETE /api/data-sources/:id` → `PATCH/DELETE` (no GET-by-id), added one data-sources sub-route bullet, and removed the stale "No runtime firing yet (HEL-415)" / "data model + CRUD only" wording on the pipeline schedule bullet (scheduler fires via `PipelineSchedulerService`)
-- `openspec/changes/fix-claude-md-endpoint-list/evidence.md` — raw command output (with exit codes) backing every verdict, plus the 23-row verdict table
-- `openspec/changes/fix-claude-md-endpoint-list/tasks.md` — task checkboxes marked done (1.7 optional live curl left unchecked, not run)
-- `openspec/changes/fix-claude-md-endpoint-list/files-modified.md` — this handoff file
