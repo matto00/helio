@@ -29,6 +29,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+import scala.util.control.NonFatal
 
 /** Service-side run lifecycle. Extracted from the pre-CS2c-3a 380-line
  *  `PipelineRunRoutes` so HTTP routes become thin shells that translate
@@ -1027,7 +1028,9 @@ final class PipelineRunService(
     // apply).
     val writeBackSink = new WriteBackSink
 
-    publish(pidStr, RunStatusEvent("queued", runId = Some(runId.value)))
+    // HEL-1370: `queued` is published below, once the HEL-505 guard has ADMITTED the run -- a
+    // guard-rejected (429) submit publishes nothing, so no subscriber is left holding a `queued`
+    // that no terminal event will ever follow.
 
     // HEL-505 (design.md Decision 2, C7): the pipeline-run rate limit is checked FIRST,
     // unconditionally regardless of `isDry` -- the ONLY guard check dry runs are subject to (the
@@ -1073,6 +1076,8 @@ final class PipelineRunService(
         preExec.flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(()) =>
+            // HEL-1370: admitted by the guard (and, for a real run, the `queued` row is committed).
+            publish(pidStr, RunStatusEvent("queued", runId = Some(runId.value)))
             publish(pidStr, RunStatusEvent("running", runId = Some(runId.value)))
 
             // HEL-905 (design.md Decision 6): the tree walk invokes this once per node completed;
@@ -1300,7 +1305,15 @@ final class PipelineRunService(
       // HEL-1100 (design.md Decision 3): blocked first -- a blocked run never applies its
       // pending writes at all, matching the pre-existing "no snapshot write on block" contract.
       onBlockedRun(pipelineId, runId, pidStr, user, assertionResults, blockingFailures).map(Right(_))
-    else applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user).flatMap {
+    else Future.unit.flatMap(_ => applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user)).recoverWith {
+      // HEL-1370: a failed (non-IllegalStateException) write-back Future is a run failure too:
+      // record it and publish the one terminal `failed`, then re-fail with the original exception
+      // (even if that bookkeeping fails) so every `submit` caller sees the outcome it always did.
+      case NonFatal(ex) =>
+        log.error(s"Pipeline write-back threw for pipeline ${pipelineId.value}, run ${runId.value}", ex)
+        onWriteBackFailure(pipelineId, runId, pidStr, user, assertionResults, "Step (upsertsource): write-back failed")
+          .transformWith(_ => Future.failed(ex))
+    }.flatMap {
       case Left(reason) =>
         val errMsg = s"Step (upsertsource): $reason"
         onWriteBackFailure(pipelineId, runId, pidStr, user, assertionResults, errMsg).map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))

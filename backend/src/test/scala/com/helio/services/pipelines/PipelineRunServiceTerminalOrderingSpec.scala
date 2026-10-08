@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success}
 
 /** HEL-1366: a run's terminal SSE event (`succeeded` / `failed` / `dry_run`) must be published
  *  only AFTER the run's durable terminal state is committed.
@@ -237,6 +238,7 @@ class PipelineRunServiceTerminalOrderingSpec extends AnyWordSpec with Matchers w
 
   private final case class Harness(
       service: PipelineRunService,
+      registry: PipelineRunRegistry,
       sub: Subscriber,
       counter: PublishCounter,
       entered: Promise[Unit],
@@ -256,7 +258,11 @@ class PipelineRunServiceTerminalOrderingSpec extends AnyWordSpec with Matchers w
     }
   }
 
-  private def harness(pipelineId: PipelineId, failWith: Option[Throwable] = None): Harness = {
+  private def harness(
+      pipelineId: PipelineId,
+      failWith: Option[Throwable] = None,
+      guard: Option[(PipelineRunGuardRepository, PipelineRunGuardConfig)] = None
+  ): Harness = {
     val url      = embeddedPostgres.getJdbcUrl("postgres", "postgres")
     val bus      = new PipelineRunNotifyBus(db, url, "postgres", "postgres")
     val witness  = new PipelineRunNotifyBus(db, url, "postgres", "postgres")
@@ -272,9 +278,11 @@ class PipelineRunServiceTerminalOrderingSpec extends AnyWordSpec with Matchers w
     val service = new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, runRepo, new PipelineRunCache(), registry, fs,
       executionBackend = new GatingBackend(real, entered, gate.future, failWith),
-      outputRepo = outputRepo, nodeSnapshotRepo = snapshotRepo
+      outputRepo = outputRepo, nodeSnapshotRepo = snapshotRepo,
+      pipelineRunGuardRepo = guard.map(_._1).orNull,
+      guardConfig = guard.map(_._2).getOrElse(PipelineRunGuardConfig.fromEnv())
     )
-    Harness(service, sub, counter, entered, gate)
+    Harness(service, registry, sub, counter, entered, gate)
   }
 
   // ── Fixtures ─────────────────────────────────────────────────────────────
@@ -373,6 +381,38 @@ class PipelineRunServiceTerminalOrderingSpec extends AnyWordSpec with Matchers w
 
   private def awaitCompleted(f: Future[_]): Unit =
     withClue("submit never completed after the terminal write failed: ") { Await.ready(f, 20.seconds) }
+
+  /** HEL-1370: test-only BEFORE INSERT trigger on `dataset_rows` that raises for rows of the target
+   *  source `dsId`, so the write-back's row write fails with a NON-`IllegalStateException` (a real
+   *  SQL error, which `applyWriteBacks` does not recover into a `Left`). Dropped afterwards. */
+  private def withFailingDatasetRowInsert(dsId: String)(body: => Unit): Unit = {
+    val ddl    = openConn(autoCommit = true)
+    ddl.createStatement().execute("SET lock_timeout = '5s'")
+    val trg    = s"hel1370_fail_rows_${dsId.replace("-", "")}"
+    try {
+      ddl.createStatement().execute(
+        s"""CREATE OR REPLACE FUNCTION $trg() RETURNS trigger AS $$$$
+           |BEGIN
+           |  IF NEW.data_source_id = '$dsId' THEN
+           |    RAISE EXCEPTION 'hel1370 test: dataset row write refused';
+           |  END IF;
+           |  RETURN NEW;
+           |END $$$$ LANGUAGE plpgsql""".stripMargin)
+      ddl.createStatement().execute(s"CREATE TRIGGER $trg BEFORE INSERT ON dataset_rows FOR EACH ROW EXECUTE FUNCTION $trg()")
+      body
+    }
+    finally {
+      try ddl.createStatement().execute(s"DROP TRIGGER IF EXISTS $trg ON dataset_rows")
+      finally ddl.createStatement().execute(s"DROP FUNCTION IF EXISTS $trg()")
+    }
+  }
+
+  private def guardFixture(config: PipelineRunGuardConfig): Option[(PipelineRunGuardRepository, PipelineRunGuardConfig)] =
+    Some((new PipelineRunGuardRepository(ctx), config))
+
+  private val GenerousGuard = PipelineRunGuardConfig(
+    rateLimitPerWindow = 1000, rateWindowSeconds = 60, maxConcurrent = 1000,
+    concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 1000)
 
   // ── Cases ────────────────────────────────────────────────────────────────
 
@@ -503,6 +543,95 @@ class PipelineRunServiceTerminalOrderingSpec extends AnyWordSpec with Matchers w
         awaitCompleted(submitted)
         assertExactlyOneTerminalPublished(h, "succeeded")
         withClue("the terminal write really failed (run left non-terminal): ")(runStatus(fx.pid).foreach(s => isTerminalStatus(s) shouldBe false))
+      }
+    }
+  }
+
+  // HEL-1370: a submit rejected by the HEL-505 guard must never leave a subscriber holding a
+  // `queued` event that no terminal event will ever follow.
+  "PipelineRunService guard-rejected submits and write-back exceptions (HEL-1370)" should {
+
+    "publish no event at all for a submit rejected by the rate limit (limit 0), and leave the subscriber open" in {
+      val fx = seed()
+      val h  = harness(fx.pid, guard = guardFixture(GenerousGuard.copy(rateLimitPerWindow = 0)))
+      // limit 0 => always capped, before any DB work; no priming run (its terminal event would remove the subscriber).
+      val result = await(h.service.submit(fx.pid, isDry = false, fx.owner))
+      result shouldBe a[Left[_, _]]
+      result.left.toOption.get shouldBe a[ServiceError.TooManyRequests]
+      Thread.sleep(500)
+      withClue("a rejected submit must not publish `queued` (nor anything): ") { h.sub.snapshot shouldBe empty }
+      // Non-vacuity: the subscriber is still registered and open -- a later event on the pipeline reaches it
+      // (published directly: a limit of 0 admits no submit).
+      h.registry.publish(fx.pid.value, RunStatusEvent("running", runId = Some("probe")))
+      val deadline = System.nanoTime() + 5.seconds.toNanos
+      while (h.sub.snapshot.isEmpty && System.nanoTime() < deadline) Thread.sleep(25)
+      h.sub.snapshot.map(_.runId) shouldBe Vector(Some("probe"))
+    }
+
+    "publish no event for a submit rejected by the concurrency cap; the in-flight run's own terminal still arrives" in {
+      val fx = seed()
+      val h  = harness(fx.pid, guard = guardFixture(GenerousGuard.copy(maxConcurrent = 1)))
+      val runA = h.service.submit(fx.pid, isDry = false, fx.owner)
+      await(h.entered.future) // run A admitted (row inserted as queued) and held at the gate
+      val runB = await(h.service.submit(fx.pid, isDry = false, fx.owner))
+      runB shouldBe a[Left[_, _]]
+      runB.left.toOption.get shouldBe a[ServiceError.TooManyRequests]
+      Thread.sleep(500)
+      val aEvents = h.sub.snapshot
+      val aRunIds = aEvents.flatMap(_.runId).toSet
+      withClue(s"events seen by the subscriber: $aEvents: ") {
+        aRunIds should have size 1
+        aEvents.count(_.status == "queued") shouldBe 1
+        aEvents.map(_.status) should not contain "failed"
+      }
+      h.gate.success(())
+      val ev = h.sub.awaitTerminal()
+      ev.status shouldBe "succeeded"
+      ev.runId.toSet shouldBe aRunIds
+      await(runA) shouldBe a[Right[_, _]]
+    }
+
+    "publish exactly one `failed` event after the failed status is durable when the write-back Future itself fails" in {
+      import PostgresProfile.api._
+      val targetId = UUID.randomUUID().toString
+      val fx = seed(extraSteps = f => {
+        // Target declares `name`, so the write-back maps cleanly and reaches the row INSERT (which the trigger refuses).
+        await(db.run(DBIO.seq(
+          sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+                 VALUES ($targetId, 'ds-target', 'dataset', '{}', ${f.owner.id.value}::uuid, now(), now())""",
+          DatasetRowsTestSupport.seedActionsFromRaw(targetId, """{"columns":[{"name":"name","type":"string"}],"rows":[]}""")
+        )))
+        await(stepRepo.insertInternal(f.pid, "upsertsource", UpsertSourceConfig(UpsertTarget.ExistingSource(targetId), UpsertMode.Append),
+          enabled = true, None, explicitRootId = None, actingUserId = f.owner.id.value))
+      })
+      val h = harness(fx.pid)
+      observerPid
+      withFailingDatasetRowInsert(targetId) {
+        val (rowLock, submitted) = startAndLockRunRow(h, fx)
+        val testPids = Set(observerPid, rowLock.pid)
+        h.gate.success(())
+        // Deterministic ordering proof (as finishFailedCase): the failed-status write is blocked on the row lock.
+        awaitBlockedBy(rowLock, testPids)
+        assertNoTerminalWhileBlocked(h.sub, "pipeline_runs row locked")
+        withClue("run status while the terminal write is blocked: ") {
+          runStatus(fx.pid).foreach(s => isTerminalStatus(s) shouldBe false)
+        }
+        rowLock.release()
+        val ev = h.sub.awaitTerminal()
+        ev.status shouldBe "failed"
+        ev.errorLog.getOrElse("") should include("upsertsource")
+        // The generic message must not leak the raw SQL exception (HEL-311).
+        ev.errorLog.getOrElse("") should not include "hel1370 test"
+        // Durable at the moment the event is observed.
+        runStatus(fx.pid) shouldBe Some("failed")
+        scalar(s"SELECT last_run_status FROM pipelines WHERE id = '${fx.pid.value}'") shouldBe Some("failed")
+        awaitCompleted(submitted)
+        // HTTP-visible outcome unchanged: the submit Future still fails with the original exception.
+        submitted.value.get match {
+          case Failure(_) => succeed
+          case Success(r) => fail(s"submit should still fail with the write-back exception, got $r")
+        }
+        assertExactlyOneTerminalPublished(h, "failed")
       }
     }
   }
