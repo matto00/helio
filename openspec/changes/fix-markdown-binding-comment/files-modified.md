@@ -1,0 +1,1 @@
+- `backend/src/main/scala/com/helio/domain/panels/OutputBindingSpec.scala` — rewrites the `Markdown` kind comment (lines 97-102) to the literal-only `config.content` contract (comment only; no code change)

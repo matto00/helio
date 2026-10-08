@@ -94,12 +94,14 @@ object OutputBindingSpec {
     columnEligibility = Map("time" -> Orderable, "event" -> Any)
   )
 
-  // markdown → no fieldMapping slots at all (design.md: "a markdown template
-  // interpolated from rows" — the binding is a free-form template string
-  // against the row shape, not a per-slot column mapping like the other five
-  // kinds). Vacuously bindable, same as `table`. New in this ticket — no
-  // `PanelBindingSpec` predecessor (data-bound text/markdown panels were not
-  // in `PanelBindingSpec.DataBindable` before HEL-904).
+  // markdown → no fieldMapping slots and no data binding of any kind: a
+  // markdown Output's text is the literal `config.content`, and
+  // `validateFieldMapping` below rejects every `fieldMapping` key for this
+  // kind (HEL-1139 owner ruling removed the bound Content mode). Vacuously
+  // bindable, same as `table`. Narrative text bound to rows is the planned
+  // `insight` kind (HEL-921), not this one. No `PanelBindingSpec`
+  // predecessor (data-bound text/markdown panels were not in
+  // `PanelBindingSpec.DataBindable` before HEL-904).
   val Markdown: OutputBindingSpec =
     OutputBindingSpec(OutputKind.Markdown, Vector.empty, Vector.empty, Map.empty)
 
