@@ -1,6 +1,6 @@
 {
   // HEL-1204: fails CI on any moderate-or-higher npm advisory in the helio-mcp/ lockfile.
-  // Deliberately stricter than the root config (`"high": true`; frontend/ is also at moderate, HEL-1320): helio-mcp is a
+  // Same threshold as the root config and frontend/ (all moderate; HEL-1364, HEL-1320). helio-mcp is a
   // small, runtime-only dependency tree shipped to agent hosts, and every advisory that
   // motivated this gate (hono, ip-address, fast-uri) was MODERATE, so a `"high": true` config
   // would be green on a vulnerable lockfile. Accepted, un-fixable advisories go in `allowlist`
