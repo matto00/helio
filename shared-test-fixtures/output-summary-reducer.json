@@ -611,6 +611,23 @@
   ],
   "metricField": [
     {
+      "name": "label and unit listed before value (HEL-1182: key order never decides the field)",
+      "config": {
+        "fieldMapping": {
+          "unit": "currency",
+          "label": "region",
+          "value": "amount"
+        },
+        "aggregation": {
+          "agg": "sum"
+        }
+      },
+      "expected": {
+        "field": "amount",
+        "agg": "sum"
+      }
+    },
+    {
       "name": "value mapping only",
       "config": {
         "fieldMapping": {
