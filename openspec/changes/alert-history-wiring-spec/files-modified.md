@@ -1,2 +1,0 @@
-- `backend/src/test/scala/com/helio/api/ApiRoutesAlertHistoryWiringSpec.scala` — new composed-ApiRoutes spec for alert + output-history wiring (test-only)
-- `openspec/changes/alert-history-wiring-spec/mutation-evidence.md` — M1-M4 mutation transcripts, D2 sequencing evidence, 3x green
