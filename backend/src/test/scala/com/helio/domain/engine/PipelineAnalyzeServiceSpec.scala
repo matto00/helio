@@ -289,6 +289,26 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema.find(_.name == "label").map(_.`type`) shouldBe Some("string")
     }
 
+    "compute — numeric functions infer float with no validationError (HEL-1315)" in {
+      val cfg    = """{"column":"r","expression":"round($amount * 100, 1)","type":"string"}"""
+      val result = analyze(Vector(step("compute", cfg)), baseSchema)
+
+      result(0).validationError shouldBe None
+      result(0).outputSchema.last shouldBe SchemaField("r", "float")
+      val cfg2    = """{"column":"m","expression":"mod($amount, 3)","type":"string"}"""
+      val result2 = analyze(Vector(step("compute", cfg2)), baseSchema)
+      result2(0).validationError shouldBe None
+      result2(0).outputSchema.last shouldBe SchemaField("m", "float")
+    }
+
+    "compute — unknown function surfaces the supported-function listing as validationError (HEL-1315)" in {
+      val cfg    = """{"column":"r","expression":"reverse($order_id)","type":"string"}"""
+      val result = analyze(Vector(step("compute", cfg)), baseSchema)
+
+      result(0).validationError.get should include("supported functions: abs, ceil, concat, floor")
+      result(0).outputSchema shouldBe baseSchema
+    }
+
     "compute — single-field-reference expression infers the referenced field's type" in {
       val cfg    = """{"column":"label","expression":"$order_id","type":"number"}"""
       val steps  = Vector(step("compute", cfg))

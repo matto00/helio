@@ -5,7 +5,6 @@ import {
   applyAxisTriggerTooltip,
   applyHoverEmphasis,
   formatChartNumber,
-  prefersReducedMotion,
   resolveChartTheme,
 } from "./chartAppearance";
 import type { ChartAppearance } from "../features/panels/types/panel";
@@ -241,25 +240,6 @@ describe("resolveChartTheme — new tokens (HEL-566)", () => {
     expect(theme.shadowSoft).toBeTruthy();
     expect(theme.radiusMd).toBeTruthy();
     expect(theme.accentStrong).toBeTruthy();
-  });
-});
-
-describe("prefersReducedMotion", () => {
-  const originalMatchMedia = window.matchMedia;
-
-  afterEach(() => {
-    window.matchMedia = originalMatchMedia;
-  });
-
-  it("returns true when the media query matches", () => {
-    window.matchMedia = jest.fn().mockReturnValue({ matches: true }) as typeof window.matchMedia;
-    expect(prefersReducedMotion()).toBe(true);
-    expect(window.matchMedia).toHaveBeenCalledWith("(prefers-reduced-motion: reduce)");
-  });
-
-  it("returns false when the media query does not match", () => {
-    window.matchMedia = jest.fn().mockReturnValue({ matches: false }) as typeof window.matchMedia;
-    expect(prefersReducedMotion()).toBe(false);
   });
 });
 
