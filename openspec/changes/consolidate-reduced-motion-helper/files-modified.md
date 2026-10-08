@@ -1,0 +1,9 @@
+- `frontend/src/features/panels/ui/buildChartOption.ts`
+- `frontend/src/hooks/useIsNarrowerThan.ts`
+- `frontend/src/shared/ui/Toast.tsx`
+- `frontend/src/shared/ui/toast.css`
+- `frontend/src/utils/README.md`
+- `frontend/src/utils/chartAppearance.test.ts`
+- `frontend/src/utils/chartAppearance.ts`
+- `frontend/src/utils/prefersReducedMotion.test.ts`
+- `frontend/src/utils/prefersReducedMotion.ts`

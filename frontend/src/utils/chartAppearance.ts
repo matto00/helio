@@ -1,6 +1,7 @@
 import type { EChartsOption } from "echarts";
 
 import type { ChartAppearance } from "../features/panels/types/panel";
+import { prefersReducedMotion } from "./prefersReducedMotion";
 export type ChartType = "bar" | "line" | "pie" | "scatter";
 
 export interface AppearanceResult {
@@ -74,21 +75,6 @@ export function resolveChartTheme(): ChartThemeTokens {
     accentStrong: read("--app-accent-strong", FALLBACK_CHART_THEME.accentStrong),
     textMuted: read("--app-text-muted", FALLBACK_CHART_THEME.textMuted),
   };
-}
-
-/** Live read of the OS/browser reduced-motion preference. ECharts
- *  hover-emphasis motion (Decision 4) is JS option config, not CSS, so the
- *  existing `motionTokenGuard.css.test.ts` (which only scans `.css` files)
- *  never covers it — this has to be read explicitly, mirroring `Toast.tsx`'s
- *  own private `prefersReducedMotion` (same guard shape, same query; kept as
- *  its own copy here rather than a shared export — out of this ticket's
- *  scope, see `useIsNarrowerThan.ts`'s doc comment for the existing
- *  convention name). Guards `matchMedia` itself, not just `window` — jsdom
- *  (the test environment) doesn't implement it at all, so an unmocked test
- *  would otherwise throw rather than simply behaving as "no preference". */
-export function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 /** Matches `MetricRenderer.formatMetricValue`'s convention (design.md
