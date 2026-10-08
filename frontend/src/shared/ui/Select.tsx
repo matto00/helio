@@ -1,10 +1,11 @@
-import { useEffect, useId, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 
 import { usePortalPopover } from "../../hooks/usePortalPopover";
 import "./inputs.css";
 import { ChevronDown } from "lucide-react";
 import { ICON_SIZE } from "./iconSize";
+import { fitSelectPanel } from "./selectPanelFit";
 
 export interface SelectOption {
   value: string;
@@ -130,6 +131,26 @@ export function Select({
       window.removeEventListener("scroll", reposition, true);
     };
   }, [isOpen, handleOpen]);
+
+  // Viewport-fit the open listbox (HEL-1373): the panel is `position: fixed`, so without this a
+  // trigger near the bottom edge leaves options off-screen and unscrollable. Applied straight to
+  // the element (measure -> write, before paint) rather than through state, so there is no
+  // second render; it re-runs whenever the anchor moves (`panelPos` changes on scroll/resize).
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const trigger = triggerRef.current;
+    if (!isOpen || panelPos === null || !panel || !trigger) return;
+    // jsdom (and any non-rendering environment) reports no layout — leave the CSS placement alone.
+    if (panel.scrollHeight === 0) return;
+    const chrome = panel.offsetHeight - panel.clientHeight;
+    const fit = fitSelectPanel(
+      trigger.getBoundingClientRect(),
+      panel.scrollHeight + chrome,
+      window.innerHeight,
+    );
+    panel.style.top = `${fit.top}px`;
+    panel.style.maxHeight = `${fit.maxHeight}px`;
+  }, [isOpen, panelPos, panelRef, triggerRef]);
 
   const triggerClasses = ["ui-select__trigger", className ?? null].filter(Boolean).join(" ");
 
