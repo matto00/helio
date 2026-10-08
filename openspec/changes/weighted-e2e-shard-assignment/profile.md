@@ -257,3 +257,18 @@ CONTROL (5 runs, count-based shard)
 Honest read: with the regenerated table the weighted legs are balanced by summed test time (416-417 s), but the
 `Run e2e` step medians still spread 212-245 s (leg 4 slowest), the same spread count-based sharding shows in this
 window. Per C4 the bar failure is reported and not re-measured or substituted; escalated to the orchestrator.
+
+## Owner ruling: accept-partial (Matt, 2026-10-08)
+
+Ship the measured result (head 4b8f9f71b, run 37748264806 attempts 1-5; control and before-25 per profile.md):
+
+- (a) after imbalance 20.5 s vs <= 15 s: FAIL.
+- (b) 20.5 s vs before-25 25.5 s: PASS.
+- (c) 20.5 s vs same-window control 20.0 s: FAIL.
+
+Owner decision: accept-partial. The residual per-leg wall-time drift (legs ~212-245 s, the same spread as the
+control) is HEL-1368's scope. No re-measurement.
+
+Post-ruling note: after merging origin/main (`cde4d47b5`), `plan 4` is an exact partition and
+`hel1304-output-charttype-render.spec.ts` (new on main) has no weight row, so it runs `defaulted` (median weight).
+This is the documented behaviour; C1 forbids hand-added rows, so it is left until the next regeneration.
