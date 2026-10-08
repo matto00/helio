@@ -221,7 +221,10 @@ object ChartAppearance {
   /** Mirrors the frontend's `DEFAULT_CHART_APPEARANCE`
    *  (`PanelDetailModal.tsx`) so a proposal-created chart and a manually-
    *  edited one converge on the same look. Used as the base a proposal's
-   *  chart-appearance fields (Decision 2/HEL-293) override field-by-field. */
+   *  chart-appearance fields (Decision 2/HEL-293) override field-by-field.
+   *  `chartType = Some("line")` here is the proposal-created/full-default look
+   *  only; `PanelAppearance.applyPatch` merges a chartless panel's chart patch
+   *  over `Default.copy(chartType = None)` so a patch never invents it. */
   val Default: ChartAppearance = ChartAppearance(
     seriesColors = Vector(
       "#5470c6", "#91cc75", "#fac858", "#ee6666",
@@ -455,8 +458,11 @@ object PanelAppearance {
 
   /** Merge a decoded patch over the stored `PanelAppearance`. `chart: null`
    *  clears the sub-object entirely (`None`); a provided `chart` patch merges
-   *  field-by-field over the stored chart (or `ChartAppearance.Default` when
-   *  the panel has none). */
+   *  field-by-field over the stored chart. When the panel has none, the base is
+   *  `ChartAppearance.Default` with `chartType` absent (HEL-1304): a patch that
+   *  does not name a chart type must not store `Default`'s `"line"`, which would
+   *  then outrank the bound Output's `config.chartType` at render. An explicit
+   *  `chartType` in the patch still sets it. */
   def applyPatch(patch: Patch, existing: PanelAppearance): PanelAppearance = PanelAppearance(
     background   = patch.background.fold(existing.background)(_.getOrElse(Default.background)),
     color        = patch.color.fold(existing.color)(_.getOrElse(Default.color)),
@@ -464,7 +470,7 @@ object PanelAppearance {
     chart = patch.chart.fold(existing.chart) {
       case None            => None
       case Some(chartPatch) =>
-        Some(ChartAppearance.applyPatch(chartPatch, existing.chart.getOrElse(ChartAppearance.Default)))
+        Some(ChartAppearance.applyPatch(chartPatch, existing.chart.getOrElse(ChartAppearance.Default.copy(chartType = None))))
     }
   )
 
