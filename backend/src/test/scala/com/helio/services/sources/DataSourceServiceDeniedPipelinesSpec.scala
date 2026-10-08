@@ -2,7 +2,7 @@ package com.helio.services.sources
 
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest}
 import com.helio.domain.model._
-import com.helio.domain.steps.{AnalyzeWithAiConfig, AnalyzeWithAiOutputField}
+import com.helio.domain.steps.{AnalyzeWithAiConfig, AnalyzeWithAiOutputField, ComputeConfig}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -117,6 +117,19 @@ class DataSourceServiceDeniedPipelinesSpec
     PipelineId(pid)
   }
 
+  /** HEL-1279: a pipeline whose only enabled step is a `compute` with an empty required `column`. */
+  private def seedMisconfiguredPipeline(owner: UserId, dsId: DataSourceId): PipelineId = {
+    import PostgresProfile.api._
+    val pid = UUID.randomUUID().toString
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'misconfigured-pipe', ${owner.value}::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position)
+             VALUES (${UUID.randomUUID().toString}, $pid, ${dsId.value}, 0)"""
+    )))
+    await(pipelineStepRepo.insertInternal(PipelineId(pid), "compute", ComputeConfig("", "1 + 1", None), enabled = true, parentStepId = None, explicitRootId = None))
+    PipelineId(pid)
+  }
+
   private def deniedIn(entries: Vector[EvaluatedPipeline.Denied], pipelineId: PipelineId): Option[EvaluatedPipeline.Denied] =
     entries.find(_.pipelineId == pipelineId)
 
@@ -132,6 +145,19 @@ class DataSourceServiceDeniedPipelinesSpec
       entry shouldBe defined
       entry.get.canRun shouldBe true
       entry.get.reasons should not be empty
+    }
+
+    "folds a step-config-invalid denial into the response with canRun=false even for the owner (HEL-1279)" in {
+      val owner = seedUser()
+      val dsId  = seedDataset(AuthenticatedUser(owner))
+      val pid   = seedMisconfiguredPipeline(owner, dsId)
+
+      val result = await(service.appendRows(dsId, Vector(Vector(JsString("r2"))), AuthenticatedUser(owner)))
+        .getOrElse(fail("expected Right"))
+      val entry = deniedIn(result.deniedPipelines, pid)
+      entry shouldBe defined
+      entry.get.canRun shouldBe false
+      entry.get.reasons.map(_.code) shouldBe Vector("step-config-invalid")
     }
 
     "omits the pipeline entirely when the writer has no grant on it at all -- proven at the " +

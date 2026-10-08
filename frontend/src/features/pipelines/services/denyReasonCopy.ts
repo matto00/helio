@@ -12,9 +12,9 @@
 import type { CostReason } from "../types/pipelineStep";
 
 /** Every `CostReason.code` a surface can render: the codes `PipelineCostEstimator` produces
- *  (`schemas/sources/denied-pipeline-response.schema.json`) plus `step-config-invalid`, which only
- *  the analyze response emits (`schemas/pipelines/pipeline-analyze-response.schema.json`, HEL-1266),
- *  so the list is the union of the two schema enums. The single source of truth
+ *  (`schemas/sources/denied-pipeline-response.schema.json`) plus `step-config-invalid`, emitted by
+ *  the analyze response (HEL-1266) and, since HEL-1279, by dataset-write auto-run denials too (both
+ *  schemas' enums list it). The single source of truth
  *  `denyReasonCoverage.test.ts` iterates to prove every one of these has a mapping entry. */
 export const ALL_COST_REASON_CODES = [
   "ai-step",
