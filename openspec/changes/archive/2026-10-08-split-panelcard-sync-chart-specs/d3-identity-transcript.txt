@@ -1,0 +1,11 @@
+HEL-1365 D3/C6 byte-identity transcript (all whitespace removed). Base = origin/main 0de17a630 PanelCard.tsx
+PanelCardBody.tsx <- base L76-105,L126-130,L132-372: IDENTICAL (nonws chars base=12660 new=12660 sha base=3096fcc88e907339 new=3096fcc88e907339)
+controlResultCountText.ts <- base L107-124 (export is a separate new 'export { controlResultCountText };' line, excluded): IDENTICAL (nonws chars base=694 new=694 sha base=50e8cc2c6e802752 new=50e8cc2c6e802752)
+usePanelCardInspect.ts <- base L449-545 (new code excluded: signature, 'const dispatch = useAppDispatch();' before the range, trailing return {...}): IDENTICAL (nonws chars base=4613 new=4613 sha base=8b222d58b49c8094 new=8b222d58b49c8094)
+PanelCardHeader.tsx <- base L604-727 (new code excluded: imports, props interface, signature, return( ... );): IDENTICAL (nonws chars base=2951 new=2951 sha base=c9d0be0fffb57add new=c9d0be0fffb57add)
+PanelCard.tsx host top <- base L374-448 (comment/props/signature/pre-hook code): IDENTICAL (nonws chars base=2632 new=2632 sha base=349e7bde5db0655e new=349e7bde5db0655e)
+PanelCard.tsx host mid <- base L547-603 (useDataInvalid..handlers..<article ...>): IDENTICAL (sha base=b0acee3e397c1c2f new=b0acee3e397c1c2f)
+PanelCard.tsx host tail <- base L728-844: IDENTICAL (nonws chars base=4303 new=4303 sha base=c526e0f3c6f8ca5b new=c526e0f3c6f8ca5b)
+getPanelCardStyle <- base L52-74: IDENTICAL (nonws chars base=689 new=689 sha base=da5ab2ab36f40dd7 new=da5ab2ab36f40dd7)
+Permitted new code: import/export lines; PanelCardBodyProps unchanged; hook signature + 'const dispatch = useAppDispatch();' + 'return {...}' in usePanelCardInspect; PanelCardHeader props interface/signature/return wrapper; host's usePanelCardInspect(...) destructuring call and <PanelCardHeader .../> element.
+Post-merge note: origin/main 24f6de4cf merged; no moved block changed; new suite needs no import change.
