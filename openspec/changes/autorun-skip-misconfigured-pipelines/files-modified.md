@@ -1,0 +1,9 @@
+- `backend/src/main/scala/com/helio/domain/engine/PipelineAnalyzeService.scala` — public `stepConfigProblem` entry to the existing validator + single `StepConfigInvalidCode` constant
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — use shared constant (removed private copy)
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala` — doc comment names the constant
+- `backend/src/main/scala/com/helio/services/pipelines/AutoRunTriggerService.scala` — gate auto-run on config reasons; canRun=false when present
+- `backend/src/test/scala/com/helio/services/pipelines/AutoRunTriggerServiceSpec.scala` — RED/green cases, disabled step, combined reasons, HEL-1280 guard
+- `backend/src/test/scala/com/helio/services/sources/DataSourceServiceDeniedPipelinesSpec.scala` — append-write wire case
+- `backend/src/test/scala/com/helio/api/protocols/sources/RowWriteResponseDenyReasonCoverageSpec.scala` — add code
+- `schemas/sources/denied-pipeline-response.schema.json` — enum + canRun description
+- `frontend/src/features/pipelines/services/denyReasonCopy.ts` — comment accuracy only

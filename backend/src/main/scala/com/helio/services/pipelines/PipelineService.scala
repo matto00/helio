@@ -1061,7 +1061,7 @@ final class PipelineService(
       canRun:   Boolean,
       analyzed: Vector[PipelineAnalyzeService.AnalyzedStep]
   ): CostVerdictResponse = {
-    val configReasons = analyzed.flatMap(s => s.validationError.map(CostReasonResponse(PipelineService.StepConfigInvalidCode, _, Some(s.id))))
+    val configReasons = analyzed.flatMap(s => s.validationError.map(CostReasonResponse(PipelineAnalyzeService.StepConfigInvalidCode, _, Some(s.id))))
     CostVerdictResponse(
       autoRunnable  = v.autoRunnable && configReasons.isEmpty,
       estimatedRows = v.estimatedRows,
@@ -2448,9 +2448,6 @@ private final case class PipelineCreateValidationFailure(error: ServiceError) ex
 object PipelineService {
 
   private val log = LoggerFactory.getLogger(getClass)
-
-  /** HEL-1266: `CostReasonResponse.code` for an enabled step whose analyze `validationError` is set. */
-  private val StepConfigInvalidCode = "step-config-invalid"
 
   /** HEL-913 task 7.3c (R14): the request-address format THIS change emits for create-time
    *  validation errors -- `roots[<i>]`/`steps[<i>]`/`outputs[<i>]` addressing the request's OWN
