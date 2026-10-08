@@ -1,0 +1,22 @@
+name: Cache Cleanup (PR close)
+
+# HEL-1299 D5: when a pull request closes, delete the Actions caches scoped to exactly that PR's merge ref.
+# pull_request_target gives a write token even for Dependabot/fork PRs and runs this base-branch file; nothing from
+# the PR is checked out or interpolated -- only the integer PR number, passed through env.
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete this PR's caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh cache delete --all --ref "refs/pull/${PR_NUMBER}/merge" --succeed-on-no-caches -R "$GITHUB_REPOSITORY"
