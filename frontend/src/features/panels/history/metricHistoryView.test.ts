@@ -232,3 +232,32 @@ describe("selectMetricHistoryView", () => {
     expect(quiet.comparison).toBeNull();
   });
 });
+
+describe("resolveServerMetricField is independent of fieldMapping key order (HEL-1182)", () => {
+  // Plain-object string keys iterate in insertion order. "value-first" is a baseline control (passes under a
+  // positional pick too); the other three are non-value-first and go red under one.
+  const mappings: Array<[string, Record<string, string>]> = [
+    ["value-first (baseline control)", { value: "amount", label: "rank" }],
+    ["label-first", { label: "rank", value: "amount" }],
+    ["unit-first", { unit: "rank", value: "amount" }],
+    ["unit+label-first", { unit: "rank", label: "region", value: "amount" }],
+  ];
+
+  it.each(mappings)("%s resolves the value column", (name, fieldMapping) => {
+    if (!name.startsWith("value-first")) expect(Object.keys(fieldMapping)[0]).not.toBe("value");
+    expect(resolveServerMetricField({ fieldMapping })).toEqual({ field: "amount", agg: null });
+  });
+
+  it.each(mappings)("%s keeps the aggregation identity", (_name, fieldMapping) => {
+    expect(resolveServerMetricField({ fieldMapping, aggregation: { agg: "sum" } })).toEqual({
+      field: "amount",
+      agg: "sum",
+    });
+  });
+
+  it.each(mappings)("%s: fieldMapping.value wins over aggregation.value", (_name, fieldMapping) => {
+    expect(
+      resolveServerMetricField({ fieldMapping, aggregation: { value: "other", agg: "max" } }),
+    ).toEqual({ field: "amount", agg: "max" });
+  });
+});
