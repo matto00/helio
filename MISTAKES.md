@@ -225,18 +225,22 @@ tags have no Release because of exactly this. Verify with
 `scripts/release/audit-releases.sh`; **a successful deploy is not evidence the
 release was cut correctly, the audit is.**
 
-### The security gate is unconditional on high/critical (moderate for frontend/ and helio-mcp)
+### The security gate is moderate-or-higher for all three npm trees
 
-`audit-ci` runs with `"high": true` in the root tree, and with
-`"moderate": true` in `frontend/` (HEL-1320) and `helio-mcp/` (HEL-1204: its
+`audit-ci` runs with `"moderate": true` in the root tree (HEL-1364; it was
+`"high"` until then, which left the root's sprintf-js moderate advisory
+ungated), in `frontend/` (HEL-1320) and in `helio-mcp/` (HEL-1204: its
 advisories were all moderate, so a `"high"` gate there would be green on a
-vulnerable lockfile). The
-`frontend/` and `helio-mcp/` allowlists are empty; the root allowlist carries one
-path-scoped entry (HEL-1246, `GHSA-vfj7-8cjw-p6xm|*micromatch>braces*`, dev-only,
-no patched version, review-by 2026-11-02). A newly-published advisory turns every open PR red with no
+vulnerable lockfile). The `frontend/` and `helio-mcp/` allowlists are empty; the
+root allowlist carries one path-scoped entry (HEL-1246,
+`GHSA-vfj7-8cjw-p6xm|*micromatch>braces*`, dev-only, no patched version,
+review-by 2026-11-02). A newly-published advisory turns every open PR red with no
 repository change — "nothing moved, the world did". Check all three trees; an
-advisory may span two major ranges (js-yaml affected both 3.x and 4.x, with a
-separate override floor for each). The helio-mcp step runs the root-pinned
+advisory may span two major ranges. History: the root tree overrode js-yaml to
+both 3.x (for `@istanbuljs/load-nyc-config`) and 4.x (for `@eslint/eslintrc`) at
+once, and frontend/ carried the same 3.x override; HEL-1320 (frontend/) and
+HEL-1364 (root) retargeted the 3.x override to `^4.1.1`, so no tree pins js-yaml
+3.x any more (the root's 4.x eslintrc override remains). The helio-mcp step runs the root-pinned
 `audit-ci` via `--directory helio-mcp` — helio-mcp does not declare it.
 
 ---
