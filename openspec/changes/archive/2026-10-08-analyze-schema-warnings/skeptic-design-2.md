@@ -1,0 +1,34 @@
+## Skeptic Report — design gate (round 2, skeptic-design-2.md)
+
+Reviewed at HEAD 9fbdd4267a517f9a91554cadafe853165b44e1a2 (planning artifacts untracked in the worktree).
+
+### What I verified (with evidence)
+
+- **cwd guard:** `assert-cwd.sh` returned `READY ambient=/home/matt/Development/helio branch=feature/analyze-schema-warnings/hel-1235`.
+- **Round-1 CR1 is addressed in substance:** D3a now defines name-completeness and type-completeness, propagated through parent and lane, with an aggregate/groupby reset. The spec's "Missing referenced field warns" requirement repeats it, and task 2.1 adds negatives (a) through (f). The round-1 non-blocking notes are folded in: required `warnings` in the frontend types (D9), the `get_workspace_context` and lookup-key non-goals, `Vector.empty` defaults, the drift-check note, and tool descriptions that keep these warnings separate from `propose_pipeline`/run warnings.
+- **Non-blocking construction still holds:** the design writes no `validationError`. `stepConfigProblem` and `validateStepConfig` are config-only. D6 guard tests (a) through (d) cover canRun/reasons, stepConfigProblem, HEL-1279 and the write path.
+- **The completeness rule is still missing a case that is not staleness: `pivot`.** `PipelineAnalyzeService.scala:869-877` (doc) and `inferPivot` (:878-905) project ONLY the `index` fields. The comment says "the dynamic `<values>_<v>` columns are NOT enumerated because their names depend on runtime data". At run time `PivotStep.scala:106` emits `colName = s"${values}_$pivotValue"` for every distinct value. D3a's name-complete rule (conditions 1-4) never marks a pivot output incomplete, so a downstream `sort`/`select`/`filter`/`fillnull` on a pivoted column such as `sales_2024` gets a confident `field-not-in-input-schema` warning, even though the column exists at run time. That is the normal next step after a pivot. D3a was written to close exactly this class of false positive (CR1).
+- **Type-completeness treats some declared types as authoritative when they are only hints:**
+  - `AggregateStep.scala:12-13`: "The type hint is informational — the engine groups by the raw value". `:141` groups by `row.getOrElse(name, null)` and does not cast. `inferAggregate` (:620-627) still projects the groupBy field with the caller's declared `type`. Example: CSV `orders.customer_id` (string) goes through `aggregate groupBy [{name: customer_id, type: integer}]`, then joins a CSV lane whose `customer_id` is string. The projection says integer vs string, but at run time both sides are `String` and the join matches. D4/D7 would still emit "values of different types never match, so the join may return no rows", the confident false positive D4 says must never happen. D3a's placeholder list (lookup unresolved, groupby absent key, aggregate min/max absent) leaves this out.
+  - The list also leaves out `window` `lag`/`lead` over an absent `field` and an unrecognized function (`inferWindow` :919-925, `"string"` fallback), and `union` with a lane secondary, where on a name collision "parent lane's own type wins" (:1033-1038). At run time a key column there can carry values of either side's type.
+- **Internal contradiction (minor):** proposal.md says "New pure, schema-only warning pass in `PipelineAnalyzeService`", and its Impact lists `PipelineAnalyzeService.scala (new warning pass)`. design.md D2 and task 2.2 put the logic in a new `domain/engine/AnalyzeSchemaWarnings.scala` and allow only visibility tweaks in `PipelineAnalyzeService.scala`, which matches the driver's constraint about HEL-1267/HEL-1385. Impact also leaves out the new file, the concise protocol and the helio-mcp tool files.
+- **AC coverage:** AC1 → D1/D2/tasks 3.x. AC2 → D6/tasks 4.x. AC3 → D7. AC4 → D9/tasks 5.x. AC5 → tasks 2.1/3.3. No scope drift.
+
+### Verdict: REFUTE
+
+### Change Requests
+
+1. **Mark `pivot` output as not name-complete (D3a + spec + task 2.1).** In D3a's name-complete rule, add: "N is a `pivot` (without a `validationError`): its projected output lists only `index`, and the `<values>_<v>` columns are data-derived (PipelineAnalyzeService.scala:869-877, PivotStep.scala:106)". The aggregate/groupby reset still applies downstream. Add the same clause to the spec's list of non-name-complete derivations in "Missing referenced field warns". Add a task 2.1 negative: pivot `{index:[region], column: year, values: sales}`, then `sort` on `sales_2024`, gives no warning. Also have task 1.2 confirm that no other op has a data-derived output column set. The executor should check every `infer*` doc comment for "not enumerated"/"runtime data" wording, record the result, and treat any hit like pivot.
+2. **Type-completeness must exclude declared-but-unenforced types (D3a/D4 + spec + task 2.1).** Add these to the type-incomplete sources:
+   - `aggregate` groupBy fields, whose `type` is a hint the engine never applies (AggregateStep.scala:12-13, :141). The alternative is to define the groupBy field's type as its INPUT field's type when present, and type-incomplete otherwise.
+   - `window` lag/lead over an absent field, and an unrecognized function (`"string"` fallback).
+   - `union` with a lane secondary when a shared column's types differ between the two sides.
+
+   Better still, define type-completeness positively: an output column is type-complete only when its type is either copied from a type-complete input column or produced by an op that actually materializes that runtime representation (cast, compute, count/sum/etc.). Leave a closed placeholder list only as a fallback. Add a task 2.1 negative: CSV string `id`, then `aggregate groupBy [{name:id,type:integer}]`, then a join to a CSV-string-keyed lane on `id` gives no `join-key-type-mismatch`.
+3. **Make proposal.md agree with D2.** Change "New pure, schema-only warning pass in `PipelineAnalyzeService`" to the new `AnalyzeSchemaWarnings.scala` object. In Impact, list it plus the concise protocol, `PipelineService.scala`, helio-mcp `types.ts` and tool files, and frontend types. List `PipelineAnalyzeService.scala` as visibility-only.
+
+### Non-blocking notes
+
+- The spec orders warnings "by step position, then step id". For a DAG with lanes and tails, confirm `position` is unique per pipeline or document the tie-break, which step id already provides. Fine as written.
+- D3a condition 2 covers `join`/`union` with an unresolved secondary. A lane-kind `lookup` whose lane output is name-incomplete is name-complete under the "names from config.columns" argument, but per CR2 it is type-incomplete. Make sure the implementation treats it that way.
+- D3a's `join-column-renamed` parenthetical ("rename list may be partial but never wrong") is then overridden by "emitted only when both sides are name-complete". Delete the parenthetical so an implementer does not read two different rules.

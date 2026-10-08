@@ -612,6 +612,18 @@ export interface CostVerdictResponse {
   canRun: boolean;
 }
 
+/** HEL-1235: one schema-only, NON-BLOCKING analyze finding — mirrors the backend's
+ *  `AnalyzeWarningResponse`. Computed from the inferred schemas with no row reads, so a stale
+ *  stored schema can yield a misleading hint (the wording states that it is "inferred"). Never
+ *  sets a step's `validationError` and never affects `costVerdict.canRun`/`autoRunnable`/`reasons`.
+ *  NOT the same as `propose_pipeline`'s `warnings: string[]` (which drive `applyReady`) or a run's
+ *  warnings (`run_pipeline`). `stepId` is the proposal's client step id on the proposal analyze. */
+export interface AnalyzeWarning {
+  stepId: string;
+  code: "field-not-in-input-schema" | "join-key-type-mismatch" | "join-column-renamed";
+  message: string;
+}
+
 export interface PipelineAnalyzeResponse {
   id: string;
   name: string;
@@ -627,6 +639,8 @@ export interface PipelineAnalyzeResponse {
   }>;
   sourceSchemaDrift?: SourceSchemaDriftResponse;
   costVerdict: CostVerdictResponse;
+  /** HEL-1235: always present (empty when none). */
+  warnings: AnalyzeWarning[];
 }
 
 /** `GET /api/pipelines/:id/analyze?concise=true` — HEL-914's opt-in per-node projection, reachable
@@ -639,6 +653,8 @@ export interface ConciseAnalyzeNode {
   path: string;
   op: string;
   validationError?: string;
+  /** HEL-1235: this node's non-blocking warning messages; omitted when the node has none. */
+  warnings?: string[];
 }
 export interface PipelineAnalyzeConciseResponse {
   nodes: ConciseAnalyzeNode[];
@@ -1091,6 +1107,8 @@ export interface PipelineAnalyzeProposalResponse {
    *  `PipelineAnalyzeResponse.sourceSchemas`. */
   sourceSchemas: RootSourceSchemaResponse[];
   steps: PipelineAnalyzeResponse["steps"];
+  /** HEL-1235: always present (empty when none); `stepId` is the proposal's client step id. */
+  warnings: AnalyzeWarning[];
 }
 
 /** One applied Output, reported back by `apply_pipeline_proposal` (HEL-907
