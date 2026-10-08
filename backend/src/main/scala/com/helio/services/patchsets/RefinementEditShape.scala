@@ -1,5 +1,6 @@
 package com.helio.services.patchsets
 
+import com.helio.domain.steps.AggregateStep
 import com.helio.services.pipelines.OutputConfigValidation
 
 /** Hand-maintained `PatchSet`/`Edit` shape description + worked JSON examples for `RefinementPrompt`
@@ -161,7 +162,8 @@ object RefinementEditShape {
       "step's kind unless the message explicitly asks to replace its operation):\n\n" +
       "rename:\n" + RenameStepExample +
       "\n\naggregate (groupBy is a list of {name,type} objects; aggregations is a list of\n" +
-      "{alias,fn,field} objects — fn is one of sum|avg|min|max|count):\n" + AggregateStepExample +
+      "{alias,fn,field,p?} objects — fn is one of " + AggregateStep.SupportedFunctions.mkString("|") +
+      "; percentile needs p, a number 0-100, and no other fn takes p):\n" + AggregateStepExample +
       "\n\ngroupby (a DIFFERENT, single-aggregation shape from aggregate — groupBy is a list of PLAIN\n" +
       "STRINGS, not objects; aggColumn/aggFunction are single top-level fields, not a list):\n" + GroupByStepExample +
       "\n\njoin (secondaryInput is a discriminated object -- {\"kind\":\"source\",\"dataSourceId\":...}\n" +
