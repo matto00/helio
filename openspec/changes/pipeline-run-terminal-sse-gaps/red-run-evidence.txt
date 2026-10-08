@@ -1,0 +1,18 @@
+[info] PipelineRunServiceTerminalOrderingSpec:
+[info] PipelineRunService terminal event ordering (HEL-1366)
+[info] - should publish `succeeded` only after the run status AND the materialized snapshots are durable (staged release)
+[info] - should publish `failed` (execution exception) only after the run's failed status is durable
+[info] - should publish `failed` (assertion-blocked) only after the run's failed status is durable
+[info] - should publish `failed` (write-back failure) only after the run's failed status is durable
+[info] - should publish `dry_run` only after the dry run's record is durable
+[info] - should publish exactly one `failed` event and complete submit even when the terminal write fails (execution exception)
+[info] - should publish exactly one `succeeded` event and complete submit even when the terminal write fails
+[info] PipelineRunService guard-rejected submits and write-back exceptions (HEL-1370)
+[info] - should publish no event at all for a submit rejected by the rate limit (limit 0), and leave the subscriber open *** FAILED ***
+[info]   a rejected submit must not publish `queued` (nor anything): Vector(RunStatusEvent("queued", None, None, None, None, Some("d20540c5-8167-456c-9ee0-62f5b5658f32"))) was not empty (PipelineRunServiceTerminalOrderingSpec.scala:562)
+[info] - should publish no event for a submit rejected by the concurrency cap; the in-flight run's own terminal still arrives *** FAILED ***
+[info]   events seen by the subscriber: Vector(RunStatusEvent(queued,None,None,None,None,Some(dd51d728-3c31-484d-9df5-5f146feff4d8)), RunStatusEvent(running,None,None,None,None,Some(dd51d728-3c31-484d-9df5-5f146feff4d8)), RunStatusEvent(queued,None,None,None,None,Some(54d053ad-fbd3-401c-8cba-98ddf5945d93))): Set("dd51d728-3c31-484d-9df5-5f146feff4d8", "54d053ad-fbd3-401c-8cba-98ddf5945d93") had size 2 instead of expected size 1 (PipelineRunServiceTerminalOrderingSpec.scala:583)
+[info] - should publish exactly one `failed` event after the failed status is durable when the write-back Future itself fails *** FAILED ***
+[info]   no terminal event arrived after the lock was released; events=Vector(RunStatusEvent(queued,None,None,None,None,Some(07a99431-b546-40a3-b491-60663401a10c)), RunStatusEvent(running,None,None,None,None,Some(07a99431-b546-40a3-b491-60663401a10c)), RunStatusEvent(node-progress,Some(2),None,Some(fb0d737f-d1e9-44ba-9ae5-d49a21b11d75),Some(root),Some(07a99431-b546-40a3-b491-60663401a10c)), RunStatusEvent(node-progress,Some(2),None,Some(35f74cc7-846f-4f93-ac95-9e30633acbd8),Some(step),Some(07a99431-b546-40a3-b491-60663401a10c))): Vector() was empty (PipelineRunServiceTerminalOrderingSpec.scala:184)
+[info] Total number of tests run: 10
+[info] Tests: succeeded 7, failed 3, canceled 0, ignored 0, pending 0

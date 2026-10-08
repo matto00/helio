@@ -1,0 +1,15 @@
+# Cycle 2 red + mutation evidence (final spec, scratch copies, never committed)
+
+## Red vs b14e622ee PipelineRunService.scala (7 passed, 3 failed)
+[info] - should publish no event at all for a submit rejected by the rate limit (limit 0), and leave the subscriber open *** FAILED ***
+[info]   a rejected submit must not publish `queued` (nor anything): Vector(RunStatusEvent("queued", None, None, None, None, Some("a27c8c93-e991-42c7-a0df-2daab077850c"))) was not empty (PipelineRunServiceTerminalOrderingSpec.scala:562)
+[info] - should publish no event for a submit rejected by the concurrency cap; the in-flight run's own terminal still arrives *** FAILED ***
+[info]   events seen by the subscriber: Vector(RunStatusEvent(queued,None,None,None,None,Some(36fc12af-5611-4554-a7c2-2629501a23a9)), RunStatusEvent(running,None,None,None,None,Some(36fc12af-5611-4554-a7c2-2629501a23a9)), RunStatusEvent(queued,None,None,None,None,Some(8311bfbc-6fe6-4c58-88cf-ddd6438cd51e))): Set("36fc12af-5611-4
+[info] - should publish exactly one `failed` event after the failed status is durable when the write-back Future itself fails *** FAILED ***
+[info]   lock 'pipeline_runs row' (pid 3284908) never blocked a service backend -- the case would be vacuous: false was not equal to true (PipelineRunServiceTerminalOrderingSpec.scala:167)
+[info] Tests: succeeded 7, failed 3, canceled 0, ignored 0, pending 0
+
+## Mutation: publish failed BEFORE writes in recoverWith (9 passed, 1 failed)
+[info] - should publish exactly one `failed` event after the failed status is durable when the write-back Future itself fails *** FAILED ***
+[info]   terminal event received while write blocked (pipeline_runs row locked); events=Vector(RunStatusEvent(queued,None,None,None,None,Some(25a1f5f3-28f9-4274-86d2-5ff3663525b5)), RunStatusEvent(running,None,None,None,None,Some(25a1f5f3-28f9-4274-86d2-5ff366
+[info] Tests: succeeded 9, failed 1, canceled 0, ignored 0, pending 0
