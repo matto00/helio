@@ -31,7 +31,7 @@ import { getOutputId } from "../state/panelNarrowing";
 import { authReducer } from "../../auth/state/authSlice";
 import { panelsReducer } from "../state/panelsSlice";
 import { usePanelData } from "../hooks/usePanelData";
-import { PanelCardBody } from "./PanelCard";
+import { PanelCardBody } from "./PanelCardBody";
 import { PanelDetailModal } from "./detailModal/PanelDetailModal";
 import type { Panel } from "../types/panel";
 
