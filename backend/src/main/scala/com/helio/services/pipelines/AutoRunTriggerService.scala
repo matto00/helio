@@ -1,6 +1,7 @@
 package com.helio.services.pipelines
 
-import com.helio.domain.engine.PipelineCostEstimator
+import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
+import com.helio.domain.engine.{PipelineAnalyzeService, PipelineCostEstimator}
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, Pipeline, PipelineId}
 import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -83,7 +84,20 @@ final class AutoRunTriggerService(
       // the `user`-gated visibility/canRun computation below, which only ever affects what is
       // RETURNED, never what is EVALUATED.
       costInput       <- costInputGathering.gather(pipelineId, enabledSteps, lastRunRowCount, resolveRoot = dataSourceRepo.findByIdInternal)
-      verdict          = PipelineCostEstimator.estimate(costInput)
+      costVerdict      = PipelineCostEstimator.estimate(costInput)
+      // HEL-1279: a misconfigured ENABLED step is a run certain to fail (`STEP_CONFIG_INVALID`) and
+      // burns the owner's HEL-505 budget -- skip it. Only the schema-independent config class
+      // (analyze's own `validateStepConfig`) gates; analyze's schema-derived errors are HEL-1280's
+      // false-positive class and must never block a legitimate auto-run.
+      configReasons    = enabledSteps.flatMap { s =>
+                           PipelineAnalyzeService.stepConfigProblem(s.kind, PipelineStepConfigCodec.encode(s)).map { msg =>
+                             PipelineCostEstimator.CostReason(PipelineAnalyzeService.StepConfigInvalidCode, msg, Some(s.id.value))
+                           }
+                         }
+      verdict          = costVerdict.copy(
+                           autoRunnable = costVerdict.autoRunnable && configReasons.isEmpty,
+                           reasons      = costVerdict.reasons ++ configReasons
+                         )
       result          <- if (verdict.autoRunnable)
                             debounceRepo.upsertDebounce(pipelineId, now.plusSeconds(debounceSeconds))
                               .map(_ => Some(EvaluatedPipeline.Allowed(pipelineId)))
@@ -99,7 +113,8 @@ final class AutoRunTriggerService(
    *     writer with zero relationship to the pipeline learns nothing (`None`), matching that no
    *     existing API lets a data-source writer discover who reads their data today.
    *   - `canRun` (owner OR editor grant, mirroring `PipelineRunService.submit`'s own check) gates
-   *     the run ACTION only, and is only meaningful on an entry that already passed `visible`. */
+   *     the run ACTION only (HEL-1279: and false whenever a `step-config-invalid` reason is
+   *     present -- a run that cannot succeed is not offered), and is only meaningful on an entry that already passed `visible`. */
   private def handleDenied(
       pipelineId: PipelineId,
       dataSourceId: DataSourceId,
@@ -107,6 +122,7 @@ final class AutoRunTriggerService(
       pipelineOpt: Option[Pipeline],
       verdict: PipelineCostEstimator.CostVerdict
   ): Future[Option[EvaluatedPipeline]] = {
+    val hasConfigReason = verdict.reasons.exists(_.code == PipelineAnalyzeService.StepConfigInvalidCode)
     val reasonsText = verdict.reasons.map(r => s"${r.code}: ${r.detail}").mkString("; ")
     log.info(
       "AutoRunTriggerService: pipeline {} denied auto-run for data source {}: {}",
@@ -117,10 +133,10 @@ final class AutoRunTriggerService(
       // nothing to report, nothing to leak.
       case None => Future.successful(None)
       case Some(pipeline) if pipeline.ownerId.value == user.id.value =>
-        Future.successful(Some(EvaluatedPipeline.Denied(pipelineId, pipeline.name, verdict.reasons, canRun = true)))
+        Future.successful(Some(EvaluatedPipeline.Denied(pipelineId, pipeline.name, verdict.reasons, canRun = !hasConfigReason)))
       case Some(pipeline) =>
         pipelineRepo.findGrantRole(pipelineId, user).map {
-          case Some("editor") => Some(EvaluatedPipeline.Denied(pipelineId, pipeline.name, verdict.reasons, canRun = true))
+          case Some("editor") => Some(EvaluatedPipeline.Denied(pipelineId, pipeline.name, verdict.reasons, canRun = !hasConfigReason))
           case Some(_)        => Some(EvaluatedPipeline.Denied(pipelineId, pipeline.name, verdict.reasons, canRun = false))
           case None           => None // no grant at all -- invisible to this writer, dropped (design.md D1)
         }

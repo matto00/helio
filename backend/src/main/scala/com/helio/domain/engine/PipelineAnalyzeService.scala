@@ -41,6 +41,16 @@ object PipelineAnalyzeService {
 
   private val log = LoggerFactory.getLogger(getClass)
 
+  /** HEL-1266/HEL-1279: the single `CostReason.code` for an enabled step whose config is certain to
+   *  fail. Referenced by `PipelineService.toCostVerdictResponse` (analyze) and
+   *  `AutoRunTriggerService` (dataset-write auto-run) so the two surfaces cannot drift. */
+  val StepConfigInvalidCode: String = "step-config-invalid"
+
+  /** HEL-1279: public entry point to the schema-INDEPENDENT config validator -- the exact function
+   *  `analyzeNodes` runs for every enabled node (before inference). Reads only `(op, rawConfig)`,
+   *  never a schema, so it cannot inherit the stored-inferred-schema false positives of HEL-1280. */
+  def stepConfigProblem(op: String, rawConfig: String): Option[String] = validateStepConfig(op, rawConfig)
+
   /** JSON codec for `SchemaField` (design D2's `{name, type}` shape) — shared
     * by `PipelineRunService` (serializing the run-success baseline into
     * `pipelines.last_source_schema`) and `PipelineService` (tolerant-parsing
