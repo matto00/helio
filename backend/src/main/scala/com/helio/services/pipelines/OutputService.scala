@@ -1,16 +1,14 @@
 package com.helio.services.pipelines
 
-import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.services.auth.AccessChecker
 import com.helio.api.protocols.pipelines.{AssertionStatusResponse, CreateOutputRequest, DeleteOutputResponse, OutputPanelPlacementResponse, OutputRowsResponse, UpdateOutputRequest}
-import com.helio.domain.model.{AuthenticatedUser, NodeRef, Output, OutputId, OutputKind, Page, PagedResult, PipelineId, PipelineRootId, PipelineRunId, PipelineStepId, ResourceAccess}
+import com.helio.domain.model.{AuthenticatedUser, NodeRef, Output, OutputId, OutputKind, Page, PagedResult, PipelineId, PipelineRunId, PipelineStepId, ResourceAccess}
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRootRepository, PipelineRunRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.domain.panels.OutputBindingSpec
 import org.slf4j.LoggerFactory
-import spray.json.{JsObject, JsString, JsValue}
+import spray.json.{JsObject, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -58,6 +56,10 @@ final class OutputService(
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
+
+  private val rowReads       = new OutputRowReads(outputRepo, nodeSnapshotRepo, pipelineRunRepo)
+  private val rootResolution = new OutputRootResolution(pipelineRootRepo)
+  import rootResolution.{requireUnambiguousRootWhenNeither, resolveExplicitRootId}
 
   /** HEL-947: fires `PipelineRunService.backfillOutputNode` off the request path -- NOT
    *  awaited, NOT flatMapped into the `create`/`update` response Future. The route's HTTP
@@ -164,54 +166,6 @@ final class OutputService(
                     }
                 }
             }
-        }
-    }
-
-  /** HEL-913 (evaluation-1.md cycle 2, Priority 2 Site A): a create naming NEITHER
-   *  `nodeStepId` NOR `rootId` is unambiguous only when this pipeline has exactly one root --
-   *  mirrors `PipelineService.persistNewStep`'s `(None, None)` guard exactly, including its
-   *  message shape. Previously this fell straight through to `resolveExplicitRootId`'s `None`
-   *  branch and then `OutputRepository.insertInternal`'s `firstRootIdAction` (the
-   *  lowest-positioned root) -- a silent default this change's own `add_root` tool falsifies.
-   *  R3 forbids exactly this: auto-resolving to position is not one of the three permitted
-   *  tiebreaks, and "root 0 quietly means the root" is how multi-root degenerates back into
-   *  single-root-with-extras. `pipelineRootRepo == null` (a fixture that doesn't wire one)
-   *  skips the check -- nothing to count against, matching `resolveExplicitRootId`'s own
-   *  degrade contract. */
-  private def requireUnambiguousRootWhenNeither(pipelineId: PipelineId, req: CreateOutputRequest): Future[Either[ServiceError, Unit]] =
-    if (req.nodeStepId.isDefined || req.rootId.isDefined || pipelineRootRepo == null)
-      Future.successful(Right(()))
-    else
-      pipelineRootRepo.listInternal(pipelineId).map { roots =>
-        if (roots.size > 1)
-          Left(ServiceError.BadRequest(
-            s"This pipeline has ${roots.size} roots -- name one via rootId, or anchor via nodeStepId"
-          ))
-        else Right(())
-      }
-
-  /** HEL-913 task 5.8a: validates a caller-supplied `rootId` (from `CreateOutputRequest`)
-   *  actually belongs to `pipelineId` -- a root of ANOTHER pipeline is a named 400, never
-   *  silently accepted (the same cross-tenant-id discipline HEL-384/HEL-950 established for
-   *  step secondary inputs). `None` in means "no explicit root named" -- `requireUnambiguousRootWhenNeither`
-   *  runs BEFORE this (see `create`), which is what makes the `None` returned here safe for
-   *  `OutputRepository.insertInternal`'s `firstRootIdAction` fallback to consume: see that
-   *  method's own doc for the full three-caller enumeration this class is one of (evaluation-2.md
-   *  Rule B -- an enumeration, not "the caller is responsible"). `pipelineRootRepo == null` (a
-   *  fixture that doesn't wire one) degrades identically, since there is nothing to validate
-   *  against and no caller of THIS class exercises a non-null `req.rootId` without also wiring
-   *  the repository. */
-  private def resolveExplicitRootId(pipelineId: PipelineId, rootId: Option[String]): Future[Either[ServiceError, Option[PipelineRootId]]] =
-    rootId match {
-      case None => Future.successful(Right(None))
-      case Some(rid) if pipelineRootRepo == null =>
-        Future.successful(Left(ServiceError.BadRequest("rootId is not supported by this deployment")))
-      case Some(rid) =>
-        pipelineRootRepo.listInternal(pipelineId).map { roots =>
-          roots.find(_.id.value == rid) match {
-            case Some(root) => Right(Some(root.id))
-            case None       => Left(ServiceError.BadRequest(s"rootId '$rid' does not belong to pipeline '${pipelineId.value}'"))
-          }
         }
     }
 
@@ -333,19 +287,7 @@ final class OutputService(
         }
     }
 
-  /** `GET /api/outputs/:id/rows` (HEL-906 cycle 7, P1.4's `get_output_rows` dependency):
-   *  the Output's own materialized node snapshot (`node_snapshots`, keyed by
-   *  `(pipelineId, nodeStepId)` off `output.node`), offset/limit paginated. Gated by
-   *  `outputRepo.findById`'s own sharing-aware RLS select (same ACL surface as `GET
-   *  /api/outputs/:id` above) -- an Output's rows are exactly as visible as the Output itself,
-   *  no separate check needed. A missing `nodeSnapshotRepo` (nullable-optional wiring) degrades
-   *  to an empty page rather than an NPE, mirroring every other nullable dependency in this
-   *  service.
-   *
-   *  HEL-1027 design.md D1-D6 — `sort`/`filter` are resolved against THIS Output's OWN `schema`
-   *  (`OutputRowsQuery`, task 3.1) BEFORE `listRowsPaged` is ever called, so a non-eligible column
-   *  is rejected as `400` (D3) without touching the ACL-bypassing repository call at all -- the
-   *  `outputRepo.findById` ACL gate above remains the only access check either way (task 3.3). */
+  /** `GET /api/outputs/:id/rows`; implemented by [[OutputRowReads]]. */
   def rows(
       id: OutputId,
       page: Page,
@@ -353,100 +295,15 @@ final class OutputService(
       sort: Option[OutputRowsQuery.SortParam] = None,
       filter: Option[OutputRowsQuery.FilterParam] = None
   ): Future[Either[ServiceError, OutputRowsResponse]] =
-    outputRepo.findById(id, user).flatMap {
-      case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
-      case Some(_) if nodeSnapshotRepo == null =>
-        Future.successful(Right(OutputRowsResponse(Vector.empty, 0, page.offset, page.limit, materialized = false)))
-      case Some(output) =>
-        OutputRowsQuery.resolveSort(output.schema, sort) match {
-          case Left(err) => Future.successful(Left(err))
-          case Right(resolvedSort) =>
-            // HEL-1188 design.md D3: `resolveFilter` is now `Future`-returning (the `eq`/`in`
-            // on-demand cardinality check needs `nodeSnapshotRepo`) -- `resolveSort` above stays
-            // synchronous, unaffected.
-            OutputRowsQuery.resolveFilter(output, filter, nodeSnapshotRepo).flatMap {
-              case Left(err) => Future.successful(Left(err))
-              case Right(resolvedFilter) =>
-                nodeSnapshotRepo
-                  .listRowsPaged(
-                    output.node.pipelineId.value,
-                    output.node.stepId.map(_.value),
-                    page,
-                    explicitRootId = output.node.rootId.map(_.value),
-                    sort = resolvedSort,
-                    filter = resolvedFilter
-                  )
-                  .flatMap { paged =>
-                    for {
-                      materialized <- materializedFor(output, paged, filterActive = resolvedFilter.isDefined)
-                      metric       <- OutputFilteredMetric.compute(output, resolvedFilter, page.offset, outputRepo, nodeSnapshotRepo)
-                    } yield Right(OutputRowsResponse(paged.items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, materialized = materialized, metric = metric))
-                  }
-            }
-        }
-    }
+    rowReads.rows(id, page, user, sort, filter)
 
-  /** `GET /api/outputs/:id/filter-capabilities` (HEL-1188 design.md D1/D5) — same ACL surface as
-   *  `rows` above (`outputRepo.findById`'s sharing-aware select); the per-column operator contract
-   *  itself is `OutputFilterCapability.buildContract`'s job, not this method's. A missing
-   *  `nodeSnapshotRepo` (nullable-optional wiring, mirroring every other such fixture in this file)
-   *  degrades to an empty contract rather than an NPE. */
+  /** `GET /api/outputs/:id/filter-capabilities`; implemented by [[OutputRowReads]]. */
   def filterCapabilities(id: OutputId, user: AuthenticatedUser): Future[Either[ServiceError, OutputFilterCapability.FilterCapabilityContract]] =
-    outputRepo.findById(id, user).flatMap {
-      case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
-      case Some(_) if nodeSnapshotRepo == null =>
-        Future.successful(Right(OutputFilterCapability.FilterCapabilityContract(Vector.empty)))
-      case Some(output) =>
-        OutputFilterCapability.buildContract(output, nodeSnapshotRepo).map(Right(_))
-    }
+    rowReads.filterCapabilities(id, user)
 
-  /** `GET /api/outputs/:id/distinct-values?column=` (HEL-1188 design.md D4) — same ACL surface as
-   *  `rows`/`filterCapabilities` above. Gated on the SAME `eqInEligibleColumn` check
-   *  `resolveFilter`'s `eq`/`in` branch uses (design.md D2's "the contract and the rows endpoint
-   *  can't drift" guarantee, extended to this third surface) -- never a fourth, hand-copied
-   *  eligibility check. */
+  /** `GET /api/outputs/:id/distinct-values?column=`; implemented by [[OutputRowReads]]. */
   def distinctValues(id: OutputId, user: AuthenticatedUser, column: String): Future[Either[ServiceError, Vector[(String, Int)]]] =
-    outputRepo.findById(id, user).flatMap {
-      case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
-      case Some(_) if nodeSnapshotRepo == null =>
-        Future.successful(Left(ServiceError.BadRequest(s"column not eq/in-eligible: '$column'")))
-      case Some(output) =>
-        OutputFilterCapability.eqInEligibleColumn(output, nodeSnapshotRepo, column).flatMap {
-          case Left(err) => Future.successful(Left(err))
-          case Right(()) =>
-            nodeSnapshotRepo
-              .topDistinctValues(
-                output.node.pipelineId.value,
-                output.node.stepId.map(_.value),
-                output.node.rootId.map(_.value),
-                column,
-                OutputFilterCapability.MaxDropdownCardinality
-              )
-              .map(Right(_))
-        }
-    }
-
-  /** HEL-1027 design.md D5 amendment (task 3.4) — decouples the "does this node have ANY raw
-   *  data at all" signal from `paged.total`, which now can mean "count under the current filter"
-   *  (D5). Unfiltered requests keep TODAY'S exact `paged.total > 0` check (zero added cost, the
-   *  overwhelmingly common case); a filtered request that legitimately matches zero rows of an
-   *  Output that has real data must NOT fall into the "never materialized" branch just because
-   *  the filter happened to exclude every row (D5's own worked example: two Outputs sharing the
-   *  same `node_snapshots` data could otherwise report DIFFERENT `materialized` values purely as
-   *  an artifact of one having a filter and the other not). */
-  private def materializedFor(output: Output, paged: PagedResult[JsObject], filterActive: Boolean): Future[Boolean] = {
-    val rawExistsFuture: Future[Boolean] =
-      if (!filterActive) Future.successful(paged.total > 0)
-      else nodeSnapshotRepo.hasAnyRow(output.node.pipelineId.value, output.node.stepId.map(_.value), output.node.rootId.map(_.value))
-
-    rawExistsFuture.flatMap { rawExists =>
-      if (rawExists) Future.successful(true)
-      else if (pipelineRunRepo == null) Future.successful(true)
-      else pipelineRunRepo.latestSuccessfulCompletedAtInternal(output.node.pipelineId).map { lastSuccess =>
-        lastSuccess.exists(t => !t.isBefore(output.createdAt))
-      }
-    }
-  }
+    rowReads.distinctValues(id, user, column)
 }
 
 object OutputService {
@@ -454,50 +311,20 @@ object OutputService {
   /** Default `backfillObserver` (HEL-1356): does nothing. */
   val NoBackfillObserver: (OutputId, Future[Unit]) => Unit = (_, _) => ()
 
-  /** Extracts `config.fieldMapping` (a `{slot: columnName}` object, when present) and
-   *  validates its KEYS against `kind`'s own `requiredSlots ++ optionalSlots` (HEL-892,
-   *  `OutputBindingSpec.validateFieldMapping`) -- column-TYPE eligibility (`evaluate`) is a
-   *  capabilities-time concern (`GET /api/pipelines/:id/capabilities`), not a create/update-time
-   *  one, since validating it here would require re-resolving the node's projected schema on
-   *  every write. Absent `fieldMapping` is not an error -- not every Output kind requires one
-   *  (`table`/`markdown` have no slots at all). */
-  def validateFieldMapping(kind: OutputKind, config: JsObject): Either[ServiceError, Unit] = {
-    val spec = OutputBindingSpec.All.find(_.outputKind == kind).getOrElse(
-      throw new IllegalStateException(s"OutputService: no OutputBindingSpec for kind $kind -- OutputBindingSpec.All is missing a case")
-    )
-    config.fields.get("fieldMapping").collect { case o: JsObject => o } match {
-      case None => Right(())
-      case Some(mappingObj) =>
-        val mapping = mappingObj.fields.collect { case (k, JsString(v)) => k -> v }
-        OutputBindingSpec.validateFieldMapping(spec, mapping) match {
-          case Left(msg) => Left(ServiceError.BadRequest(msg))
-          case Right(())  => Right(())
-        }
-    }
-  }
+  /** Forwarder to [[OutputConfigValidation.validateFieldMapping]]. */
+  def validateFieldMapping(kind: OutputKind, config: JsObject): Either[ServiceError, Unit] =
+    OutputConfigValidation.validateFieldMapping(kind, config)
 
-  /** Every Output config write path's validation: key set and `aggregation`/`chartType` shapes
-   *  (HEL-1313, skipped for [[OutputConfigWritePolicy.RestorePriorStored]]), then the MERGED config's
-   *  `fieldMapping` slots (HEL-892), `config.compare` (HEL-1273) and `config.historyPayloads`
-   *  (HEL-1276). `written` is what the caller sent, `stored` the pre-write config (empty on create). */
+  /** Forwarder to [[OutputConfigValidation.validateConfig]]. */
   def validateConfig(
       kind:    OutputKind,
       written: JsObject,
       stored:  JsObject,
       policy:  OutputConfigWritePolicy = OutputConfigWritePolicy.ValidateWrite
-  ): Either[ServiceError, Unit] = {
-    val keyCheck: Either[ServiceError, Unit] = policy match {
-      case OutputConfigWritePolicy.ValidateWrite      => OutputConfigValidation.validate(kind, written, stored).left.map(ServiceError.BadRequest(_))
-      case OutputConfigWritePolicy.RestorePriorStored => Right(())
-    }
-    val merged = mergeConfig(stored, written)
-    keyCheck
-      .flatMap(_ => validateFieldMapping(kind, merged))
-      .flatMap(_ => OutputCompare.validateConfig(merged).left.map(ServiceError.BadRequest(_)))
-      .flatMap(_ => PayloadOptIn.validateConfig(merged).left.map(ServiceError.BadRequest(_)))
-  }
+  ): Either[ServiceError, Unit] =
+    OutputConfigValidation.validateConfig(kind, written, stored, policy)
 
-  /** HEL-1239: shared with `PatchSetPreviewProjection` so an output-update preview merges exactly
-   *  as `update` does. */
-  def mergeConfig(existing: JsObject, patch: JsObject): JsObject = JsObject(existing.fields ++ patch.fields)
+  /** Forwarder to [[OutputConfigValidation.mergeConfig]] (shared with `PatchSetPreviewProjection`). */
+  def mergeConfig(existing: JsObject, patch: JsObject): JsObject =
+    OutputConfigValidation.mergeConfig(existing, patch)
 }
