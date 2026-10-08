@@ -1,8 +1,0 @@
-- `backend/src/test/scala/com/helio/domain/history/OutputSummaryReducerSpec.scala` — key-order cases (value/label/unit-first) for summary metric field/value
-- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputFilteredMetricRoutesSpec.scala` — DB round-trip key-order cases on authenticated and public rows routes, with stored-order precondition
-- `frontend/src/features/panels/history/metricHistoryView.test.ts` — resolveServerMetricField key-order cases
-- `frontend/src/features/panels/ui/MetricOutputPanel.keyOrder.test.tsx` — new: loaded/aggregate/filteredMetric/headline key-order tests
-- `frontend/src/features/panels/ui/renderers/CollectionRenderer.keyOrder.test.tsx` — new: GUARD, per-slot mapping is order-independent
-- `shared-test-fixtures/output-summary-reducer.json` — label/unit-first metricField seam case for client and server
-- `openspec/changes/guard-metric-fieldmapping-key-order/**` — change artifacts
-- design.md rewritten (D3/D4); test labels/comments adjusted per evaluation-1
