@@ -5,17 +5,13 @@ import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.dashboards.{DashboardLayoutPatchPayload, DashboardSnapshotPayload, UpdateDashboardRequest}
-import com.helio.api.protocols.dashboards.DashboardSnapshotPanelEntry
 import com.helio.domain.model._
-import com.helio.domain.panels.PanelConfigCodec
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.services.dashboards.DashboardServiceValidation._
-import com.helio.services.panels.{LayoutPolicy, LayoutWritePolicy, PanelServiceHelpers}
+import com.helio.services.panels.LayoutWritePolicy
 import spray.json._
 
-import java.time.Instant
-import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Business logic for `/api/dashboards` CRUD plus snapshot export / import.
@@ -50,6 +46,12 @@ final class DashboardService(
 )(implicit ec: ExecutionContext) {
 
   require(outputRepo != null, "DashboardService requires an OutputRepository")
+
+  // The concerns split out of this file (HEL-1234); each is built once from this class's own
+  // constructor params. Every ACL / `Forbidden` / 404 preamble stays below in this file.
+  private val writes         = new DashboardWrites(dashboardRepo)
+  private val layoutRepair   = new DashboardLayoutRepairWrite(dashboardRepo, audit)
+  private val snapshotImport = new DashboardSnapshotImport(dashboardRepo, outputRepo, audit)
 
   import DashboardService._
 
@@ -95,10 +97,10 @@ final class DashboardService(
       case Some("return") =>
         dashboardRepo.findByNameOwned(name, user.id).flatMap {
           case Some(existing) => Future.successful((existing, false))
-          case None           => insertNew(name, request.tag, user).map((_, true))
+          case None           => writes.insertNew(name, request.tag, user).map((_, true))
         }
       case _ =>
-        insertNew(name, request.tag, user).map((_, true))
+        writes.insertNew(name, request.tag, user).map((_, true))
     }
     resultF.map { case (dashboard, created) =>
       // HEL-477 design.md Decision 2: only the fresh-insert branch (`created
@@ -107,23 +109,6 @@ final class DashboardService(
       if (created) audit("dashboard.create", Some(dashboard.id.value), user)
       (dashboard, created)
     }
-  }
-
-  private def insertNew(name: String, tag: Option[String], user: AuthenticatedUser): Future[Dashboard] = {
-    val now = Instant.now()
-    val dashboard = Dashboard(
-      id         = DashboardId(UUID.randomUUID().toString),
-      name       = name,
-      meta       = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-      appearance = DashboardAppearance.Default,
-      layout     = DashboardLayout.Default,
-      ownerId    = user.id,
-      // HEL-907 evaluator-1 CR3: free-form grouping tag (HEL-366's existing
-      // convention), set only at create time -- no update path, mirroring
-      // DataSource/Pipeline's own tag.
-      tag        = tag
-    )
-    dashboardRepo.insert(dashboard)
   }
 
   /** Owner-only delete.
@@ -209,13 +194,13 @@ final class DashboardService(
           case None =>
             Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
           case Some(existing) if existing.ownerId == user.id =>
-            applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt, layoutPolicy)
+            writes.applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt, layoutPolicy)
           case Some(existing) =>
             // Non-owner grantee: check role before allowing mutation.
             accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").flatMap {
               case Left(err)                        => Future.successful(Left(err))
               case Right(ResourceAccess.Viewer)     => Future.successful(Left(ServiceError.Forbidden()))
-              case Right(_)                         => applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt, layoutPolicy)
+              case Right(_)                         => writes.applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt, layoutPolicy)
             }
         }
     }
@@ -227,69 +212,6 @@ final class DashboardService(
     }
   }
 
-  private def applyUpdate(
-      dashboardId: DashboardId,
-      existing: Dashboard,
-      nameOpt: Option[String],
-      appearanceOpt: Option[DashboardAppearance],
-      layoutPatchOpt: Option[LayoutPolicy.Patch],
-      layoutPolicy: LayoutWritePolicy
-  ): Future[Either[ServiceError, Dashboard]] = {
-    // HEL-1071: resolve (and, under `Validate`, validate) the layout BEFORE any write — including
-    // the rename below — so a rejected layout saves nothing.
-    val layoutResolved: Either[String, Option[DashboardLayout]] = layoutPatchOpt match {
-      case None => Right(None)
-      case Some(patch) =>
-        layoutPolicy match {
-          case LayoutWritePolicy.Validate           => LayoutPolicy(existing.layout, patch).map(Some(_))
-          case LayoutWritePolicy.RestorePriorStored => Right(Some(LayoutPolicy.applyUnvalidated(existing.layout, patch)))
-        }
-    }
-    layoutResolved match {
-      case Left(msg)        => Future.successful(Left(ServiceError.BadRequest(msg)))
-      case Right(layoutOpt) => writeUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt)
-    }
-  }
-
-  private def writeUpdate(
-      dashboardId: DashboardId,
-      existing: Dashboard,
-      nameOpt: Option[String],
-      appearanceOpt: Option[DashboardAppearance],
-      layoutOpt: Option[DashboardLayout]
-  ): Future[Either[ServiceError, Dashboard]] = {
-    val now = Instant.now()
-    nameOpt match {
-      case Some(name) =>
-        dashboardRepo.updateName(dashboardId, name, now).flatMap {
-          case None => Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
-          case Some(renamed) =>
-            if (appearanceOpt.isEmpty && layoutOpt.isEmpty) {
-              Future.successful(Right(renamed))
-            } else {
-              val updated = renamed.copy(
-                appearance = appearanceOpt.getOrElse(renamed.appearance),
-                layout     = layoutOpt.getOrElse(renamed.layout),
-                meta       = renamed.meta.copy(lastUpdated = now)
-              )
-              dashboardRepo.update(updated).map {
-                case Some(d) => Right(d)
-                case None    => Left(ServiceError.NotFound("Dashboard not found"))
-              }
-            }
-        }
-      case None =>
-        val updated = existing.copy(
-          appearance = appearanceOpt.getOrElse(existing.appearance),
-          layout     = layoutOpt.getOrElse(existing.layout),
-          meta       = existing.meta.copy(lastUpdated = now)
-        )
-        dashboardRepo.update(updated).map {
-          case Some(d) => Right(d)
-          case None    => Left(ServiceError.NotFound("Dashboard not found"))
-        }
-    }
-  }
 
 
   /** Owner-only stored-layout repair (HEL-1233; see [[DashboardLayoutRepair]]). Ownership is
@@ -307,34 +229,7 @@ final class DashboardService(
       case Some(d) if d.ownerId != user.id =>
         Future.successful(Left(ServiceError.Forbidden()))
       case Some(existing) =>
-        validateDashboardLayoutPayload(Some(patchPayload)) match {
-          case Left(msg)            => Future.successful(Left(ServiceError.BadRequest(msg)))
-          case Right(None)          => Future.successful(Right(existing))
-          case Right(Some(patch)) =>
-            dashboardRepo.panelIdsInternal(dashboardId).flatMap { panelIds =>
-              DashboardLayoutRepair.plan(existing.layout, patch, panelIds) match {
-                case Left(msg)                      => Future.successful(Left(ServiceError.BadRequest(msg)))
-                case Right(toWrite) if toWrite.isEmpty => Future.successful(Right(existing))
-                case Right(toWrite) =>
-                  val next = LayoutPolicy.applyUnvalidated(existing.layout, toWrite)
-                  dashboardRepo.updateLayoutIfUnchanged(dashboardId, user.id, existing.layout, next).flatMap {
-                    case false =>
-                      Future.successful(Left(ServiceError.Conflict("Dashboard layout changed; repair not applied")))
-                    case true =>
-                      audit(
-                        "dashboard.layout.repair",
-                        Some(dashboardId.value),
-                        user,
-                        JsObject("breakpoints" -> JsArray(LayoutPolicy.Breakpoints.filter(toWrite.get(_).isDefined).map(JsString(_))))
-                      )
-                      dashboardRepo.findByIdInternal(dashboardId).map {
-                        case Some(updated) => Right(updated)
-                        case None          => Left(ServiceError.NotFound("Dashboard not found"))
-                      }
-                  }
-              }
-            }
-        }
+        layoutRepair.repairOwned(dashboardId, existing, patchPayload, user)
     }
 
   /** Sharing-aware export. Owner and editor grantees may export.
@@ -369,84 +264,7 @@ final class DashboardService(
       payload: DashboardSnapshotPayload,
       user: AuthenticatedUser
   ): Future[Either[ServiceError, (Dashboard, Vector[Panel])]] =
-    validateSnapshotPayload(payload) match {
-      case Left(error) =>
-        Future.successful(Left(ServiceError.BadRequest(error)))
-      case Right(_) =>
-        validateImportPanels(payload, user).flatMap {
-          case Left(err) => Future.successful(Left(err))
-          case Right(_) =>
-            dashboardRepo.importSnapshot(repairImportedLayoutGeometry(payload), user.id).map { case value @ (dashboard, panels) =>
-              // HEL-477 design.md Decision 9: a distinct dashboard.import action
-              // (not dashboard.create) — one row, no per-panel events.
-              audit(
-                "dashboard.import",
-                Some(dashboard.id.value),
-                user,
-                JsObject("panelCount" -> JsNumber(panels.size))
-              )
-              Right(value)
-            }
-        }
-    }
-
-  /** HEL-910 task 2.1/2.2 (design.md Decision 5). Two checks per entry, both BEFORE any repo
-   *  write so `DashboardSnapshotRepository.importSnapshot`'s own construction/id-minting logic
-   *  never runs on a payload this rejects:
-   *   - Gap B: decode `entry.config` via `PanelConfigCodec.decodeCreateConfig`, build the typed
-   *     `Panel` via `PanelServiceHelpers.buildNewPanel`, and call the panel's own
-   *     `.validateConfig` (the same method `PanelService.buildForCreate` calls) plus the
-   *     appearance decode/validate path (`PanelServiceHelpers.resolveCreateAppearance`) — closes
-   *     HEL-628 (import previously skipped both).
-   *   - Gap A: for an output-kind panel, confirm the bound `outputId` actually resolves via
-   *     `outputRepo.findByIdOwned`.
-   *  Returns the first failing entry's error, labelled with its `snapshotId` (mirrors
-   *  `validatePanelEntries`'s own labelling convention). */
-  private def validateImportPanels(
-      payload: DashboardSnapshotPayload,
-      user: AuthenticatedUser
-  ): Future[Either[ServiceError, Unit]] = {
-    def validateOne(entry: DashboardSnapshotPanelEntry): Future[Either[ServiceError, Unit]] = {
-      val built = for {
-        createConfig <- PanelConfigCodec.decodeCreateConfig(entry.`type`, Some(entry.config))
-        appearance   <- PanelServiceHelpers.resolveCreateAppearance(Some(entry.appearance))
-      } yield (createConfig, appearance)
-
-      built match {
-        case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"panel '${entry.snapshotId}': $msg")))
-        case Right((createConfig, appearance)) =>
-          val now = Instant.now()
-          val panel = PanelServiceHelpers.buildNewPanel(
-            id           = PanelId(UUID.randomUUID().toString),
-            dashboardId  = DashboardId(""),
-            title        = entry.title,
-            meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-            appearance   = appearance,
-            ownerId      = user.id,
-            createConfig = createConfig
-          )
-          panel.validateConfig match {
-            case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"panel '${entry.snapshotId}': $msg")))
-            case Right(_) =>
-              PanelServiceHelpers.outputIdFromCreateConfig(createConfig) match {
-                case Some(outputId) =>
-                  outputRepo.findByIdOwned(outputId, user).map {
-                    case None    => Left(ServiceError.BadRequest(s"panel '${entry.snapshotId}': outputId '${outputId.value}' not found"))
-                    case Some(_) => Right(())
-                  }
-                case _ => Future.successful(Right(()))
-              }
-          }
-      }
-    }
-
-    payload.panels.foldLeft(Future.successful[Either[ServiceError, Unit]](Right(()))) { (accF, entry) =>
-      accF.flatMap {
-        case Left(err) => Future.successful(Left(err))
-        case Right(_)  => validateOne(entry)
-      }
-    }
-  }
+    snapshotImport.importSnapshot(payload, user)
 }
 
 object DashboardService {
