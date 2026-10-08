@@ -171,3 +171,35 @@ Report authentication for the one counting attempt (`stats.startTime` vs jobs-AP
 
 Counting attempt raw rows (leg_s, `Run e2e` step_s, install_s): leg 1 387/215/35, leg 2 345/199/42, leg 3 381/223/31,
 leg 4 350/197/42.
+
+## Weight regeneration (task 3.3): 5 counting attempts of merged head 6a86b27a8
+
+Head `6a86b27a83912e3cc888aa75c973dc7b270c8241` (merge of origin/main `5c5ac92a9`, HEL-1373, main CI green) pushed;
+CI run `37742970410`, attempts 1-5, full `gh run rerun` one at a time, all 4 e2e legs success and all 4 reports
+downloaded per attempt (5 of 5 counting, no non-counting attempt). `e2e/shard-weights.tsv` regenerated with
+`weights` over those 5 runDirs (header lists them). 40 discovered specs, 40 rows, none defaulted.
+
+Report authentication (`stats.startTime` vs jobs-API `Run e2e` step `started_at`, legs 1-4):
+
+```
+attempt 1 leg 1  startTime=2026-10-08T07:25:35.876Z  step_started_at=2026-10-08T07:25:31Z
+attempt 1 leg 2  startTime=2026-10-08T07:27:39.319Z  step_started_at=2026-10-08T07:27:35Z
+attempt 1 leg 3  startTime=2026-10-08T07:28:12.226Z  step_started_at=2026-10-08T07:28:07Z
+attempt 1 leg 4  startTime=2026-10-08T07:26:17.193Z  step_started_at=2026-10-08T07:26:13Z
+attempt 2 leg 1  startTime=2026-10-08T07:37:13.590Z  step_started_at=2026-10-08T07:37:08Z
+attempt 2 leg 2  startTime=2026-10-08T07:36:31.751Z  step_started_at=2026-10-08T07:36:27Z
+attempt 2 leg 3  startTime=2026-10-08T07:35:50.008Z  step_started_at=2026-10-08T07:35:47Z
+attempt 2 leg 4  startTime=2026-10-08T07:37:12.377Z  step_started_at=2026-10-08T07:37:08Z
+attempt 3 leg 1  startTime=2026-10-08T07:45:11.052Z  step_started_at=2026-10-08T07:45:06Z
+attempt 3 leg 2  startTime=2026-10-08T07:44:58.993Z  step_started_at=2026-10-08T07:44:55Z
+attempt 3 leg 3  startTime=2026-10-08T07:45:30.190Z  step_started_at=2026-10-08T07:45:25Z
+attempt 3 leg 4  startTime=2026-10-08T07:45:25.308Z  step_started_at=2026-10-08T07:45:21Z
+attempt 4 leg 1  startTime=2026-10-08T07:53:27.425Z  step_started_at=2026-10-08T07:53:23Z
+attempt 4 leg 2  startTime=2026-10-08T07:53:59.794Z  step_started_at=2026-10-08T07:53:55Z
+attempt 4 leg 3  startTime=2026-10-08T07:53:40.844Z  step_started_at=2026-10-08T07:53:36Z
+attempt 4 leg 4  startTime=2026-10-08T07:53:58.403Z  step_started_at=2026-10-08T07:53:53Z
+attempt 5 leg 1  startTime=2026-10-08T08:02:32.053Z  step_started_at=2026-10-08T08:02:27Z
+attempt 5 leg 2  startTime=2026-10-08T08:02:33.918Z  step_started_at=2026-10-08T08:02:29Z
+attempt 5 leg 3  startTime=2026-10-08T08:01:50.995Z  step_started_at=2026-10-08T08:01:48Z
+attempt 5 leg 4  startTime=2026-10-08T08:02:35.109Z  step_started_at=2026-10-08T08:02:30Z
+```
