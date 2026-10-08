@@ -9,7 +9,7 @@ import { ProvenanceTrigger } from "../provenance/ProvenanceTrigger";
 import { buildViewerControlFilterOps } from "../state/viewerControlValues";
 import { clearSelection, selectDataPoint } from "../state/panelsSlice";
 import { getOutputId, isOutputPanel } from "../state/panelNarrowing";
-import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { useViewerControls } from "../hooks/useViewerControls";
 import { getDistinctValues } from "../../pipelines/services/outputService";
 import type { PanelDataResult } from "../hooks/usePanelData";
@@ -119,6 +119,8 @@ export function PanelFullscreenOverlay({
   crossFilterMode,
 }: PanelFullscreenOverlayProps) {
   const dispatch = useAppDispatch();
+  // HEL-1358 design D5 — the same source the grid card reads (`PanelCardBody`'s `paginationEntry`).
+  const totalRowCount = useAppSelector((state) => state.panels.paginationState[panel.id]?.total);
 
   // HEL-1190 design.md D1-D4/D10 (task 5.3) — the SAME URL-held control selection every other
   // render path reads (`useViewerControls` is keyed by `panel.id`). This overlay STILL never
@@ -226,6 +228,7 @@ export function PanelFullscreenOverlay({
             neverMaterialized={neverMaterialized}
             paginationRows={paginationRows}
             rowsTruncated={rowsTruncated}
+            totalRowCount={totalRowCount}
             onDataPointSelect={handleDataPointSelect}
             crossFilterMode={crossFilterMode}
             viewerFilterActive={viewerFilterActive}

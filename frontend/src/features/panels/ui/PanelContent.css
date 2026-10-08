@@ -177,7 +177,8 @@
 
 /* Static subtitle/footnote beneath the chart (HEL-318). Clamped to two lines
  * with an ellipsis so a long annotation never collapses the chart canvas. */
-.chart-panel__annotation {
+.chart-panel__annotation,
+.chart-panel__truncation-note {
   margin: 0;
   flex: 0 0 auto;
   padding: var(--space-1) var(--space-3) var(--space-2);
@@ -387,4 +388,11 @@
   .form-panel-view__fields .ui-form-field__error {
     font-size: var(--text-micro);
   }
+}
+
+/* HEL-1358: the truncation note shares the annotation footnote rule above (2-line clamp, so the
+ * total survives at the grid's narrowest panel width); only the join with a preceding annotation
+ * is specific to it. */
+.chart-panel__annotation + .chart-panel__truncation-note {
+  padding-top: 0;
 }

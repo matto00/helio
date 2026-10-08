@@ -33,6 +33,7 @@ import {
   isPanelFilterableByDimension,
 } from "../../../utils/crossFilterRows";
 import { ChartOutputPanel } from "./ChartOutputPanel";
+import { chartTruncationNote } from "./chartTruncationNote";
 import { CollectionRenderer } from "./renderers/CollectionRenderer";
 import { DividerRenderer } from "./renderers/DividerRenderer";
 import { FormRenderer } from "./renderers/FormRenderer";
@@ -277,6 +278,14 @@ function OutputPanelContent({
         filterActive={viewerFilterActive || crossFilterMode === "server" || isCrossFiltered}
         rowsTruncated={rowsTruncated}
         historySource={historySource}
+        // HEL-1358 design D1/D2 — fails closed; the count is the PRE-cross-filter loaded count and
+        // a server-narrowed total reads "matching rows".
+        truncationNote={chartTruncationNote({
+          rowsTruncated,
+          totalRowCount,
+          loadedCount: crossFilterLoadedRowCount,
+          narrowed: viewerFilterActive || crossFilterMode === "server",
+        })}
       />
     );
   } else if (kind === "table") {
