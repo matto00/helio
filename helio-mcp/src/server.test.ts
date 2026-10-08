@@ -345,8 +345,9 @@ describe("update_output description documents config.historyPayloads (HEL-1331)"
     const description = tools.find((t) => t.name === "update_output")?.description ?? "";
 
     expect(description).toContain("historyPayloads");
-    expect(description).toContain("1,000 rows");
-    expect(description).toContain("1 MiB");
+    expect(description).toContain("historyPayloadLimits");
+    expect(description).not.toContain("1,000 rows");
+    expect(description).not.toContain("1 MiB");
     expect(description).toContain("historyPayloadsAvailable");
     expect(description).toContain("free keeps none");
     expect(description).toContain("does not purge");

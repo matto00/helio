@@ -627,6 +627,7 @@ export function OutputEditorSheet({
             checked={historyPayloads}
             onChange={setHistoryPayloads}
             available={output?.historyPayloadsAvailable === true}
+            limits={output?.historyPayloadLimits}
           />
         </div>
       )}

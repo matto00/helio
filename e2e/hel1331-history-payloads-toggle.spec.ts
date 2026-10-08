@@ -9,7 +9,7 @@ import { waitForSettingsAuditTable } from "./support/settingsReady";
 //  * a BETA-owned pipeline: the switch is enabled; turning it on and saving sends
 //    `config.historyPayloads: true`, and reopening the editor shows it on;
 //  * a FREE-owned pipeline: the switch is visible but disabled, with the "Free stores run summaries
-//    only" note; the "Request Beta access" link lands on Settings with the "Beta access" heading in
+//    only" note; the "Request Beta access" link opens Settings in a new tab with the "Beta access" heading in
 //    the viewport (after the audit section's fetch settles).
 // Both themes; screenshots go through support/evidencePath.ts. Every created id is logged and
 // deleted by exact id in `finally`.
@@ -97,6 +97,14 @@ for (const theme of ["light", "dark"] as const) {
       await expect(toggle(page)).not.toBeChecked();
       await expect(page.getByText("Free stores run summaries only")).toHaveCount(0);
       await expect(page.getByText(/Stores the full rows of every run/)).toBeVisible();
+      // HEL-1372: the figures come from the server's historyPayloadLimits, not a frontend constant.
+      const served = await request.get(`/api/outputs/${ids.output}`);
+      const limits = ((await served.json()) as { historyPayloadLimits: { maxRows: number } })
+        .historyPayloadLimits;
+      expect(limits.maxRows).toBeGreaterThan(0);
+      await expect(page.getByText(/Stores the full rows of every run/)).toContainText(
+        `A run over ${limits.maxRows.toLocaleString("en-US")} rows`,
+      );
 
       // The native switch is visually hidden; the visible control is its label's track.
       await page.locator("label.ui-toggle", { hasText: "Keep each run's rows" }).click();
@@ -150,13 +158,33 @@ for (const theme of ["light", "dark"] as const) {
         path: evidencePath("HEL-1331", `editor-free-disabled-${theme}.png`),
       });
 
-      await page.getByRole("link", { name: "Request Beta access" }).click();
-      await expect(page).toHaveURL(/\/settings#beta-access$/);
-      await waitForSettingsAuditTable(page);
-      await expect(page.getByRole("heading", { name: "Beta access" })).toBeInViewport();
-      await page.screenshot({
+      // HEL-1372: the note matches the help text's computed font size.
+      const helpSize = await page
+        .getByText(/Stores the full rows of every run/)
+        .evaluate((el) => getComputedStyle(el).fontSize);
+      const noteSize = await page
+        .getByText("Free stores run summaries only")
+        .evaluate((el) => getComputedStyle(el.parentElement as HTMLElement).fontSize);
+      expect(noteSize).toBe(helpSize);
+
+      // HEL-1372: an unsaved edit survives the upsell link, which opens a NEW tab.
+      await page.locator("#output-name").fill("HEL-1372 unsaved edit");
+      const popupPromise = page.context().waitForEvent("page");
+      await page.getByRole("link", { name: "Request Beta access (opens in a new tab)" }).click();
+      const settings = await popupPromise;
+      await settings.waitForLoadState();
+      await expect(settings).toHaveURL(/\/settings#beta-access$/);
+      await waitForSettingsAuditTable(settings);
+      await expect(settings.getByRole("heading", { name: "Beta access" })).toBeInViewport();
+      await settings.screenshot({
         path: evidencePath("HEL-1331", `settings-beta-access-${theme}.png`),
       });
+      await settings.close();
+
+      // The original tab is untouched: still on the pipeline page, editor open, edit intact.
+      await expect(page).toHaveURL(new RegExp(`/pipelines/${ids.pipeline}`));
+      await expect(page.locator("#output-name")).toHaveValue("HEL-1372 unsaved edit");
+      await expect(toggle(page)).toBeVisible();
     } finally {
       await cleanup(request, ids);
     }

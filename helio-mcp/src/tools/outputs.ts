@@ -70,9 +70,10 @@ export const COMPARE_CONFIG_DOC =
 export const HISTORY_PAYLOADS_CONFIG_DOC =
   "Optional `config.historyPayloads` (boolean, off by default) opts this Output into keeping the " +
   "full rows of each real run, taking effect from the next run on, so History can show what " +
-  "changed. A run over 1,000 rows or 1 MiB keeps only its summary (no rows are stored). Rows are " +
-  "kept only when the PIPELINE OWNER's tier allows it: free keeps none; beta keeps the last 10 " +
-  "runs for 7 days; owner keeps 30 runs for 30 days. The Output's read-only " +
+  "changed. A run over the row or byte cap keeps only its summary (no rows are stored). Rows are " +
+  "kept only when the PIPELINE OWNER's tier allows it (free keeps none by default). The exact " +
+  "caps and per-tier retention (runs kept, max age in days) are reported by the Output's " +
+  "read-only `historyPayloadLimits` field, which reflects the server's configuration. The Output's read-only " +
   "`historyPayloadsAvailable` field (on get_output/list_outputs/update_output results) reports " +
   "whether that tier keeps any rows; when false the setting is accepted but stores nothing. " +
   "Setting it to false stops storing rows but does not purge: rows already kept expire on the " +
