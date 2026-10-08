@@ -21,4 +21,4 @@
 ## 4. Gates
 
 - [x] 4.1 Lint, typecheck, format, relevant Jest suites, and both e2e specs green locally; full logs kept.
-- [x] 4.2 (Orchestrator, delivery) All 4 CI e2e legs green on the PR with the PR head containing current origin/main.
+- [ ] 4.2 (Orchestrator, delivery) All 4 CI e2e legs green on the PR with the PR head containing current origin/main.

@@ -1,8 +1,0 @@
-- `frontend/src/shared/ui/Select.tsx` — layout effect viewport-fits the fixed-position listbox (flip/cap) so every option is reachable (hel1350 root cause: panel ran off the 900px viewport, "7 days" unreachable)
-- `frontend/src/shared/ui/selectPanelFit.ts` — pure placement geometry for the listbox
-- `frontend/src/shared/ui/selectPanelFit.test.ts` — Jest for the geometry only (not layout proof; e2e is)
-- `frontend/src/utils/chartAppearance.ts` — tooltip `className: "chart-tooltip"` DOM hook for tooltip-scoped e2e reads
-- `frontend/src/utils/chartAppearance.test.ts` — asserts the class
-- `e2e/hel1350-chart-compare-picker.spec.ts` — trigger placed low in viewport; asserts listbox inside viewport; evidencePath screenshot
-- `e2e/hel1351-aggregated-chart-overlay.spec.ts` — tooltip-scoped, digit-boundary east 15 / "vs 7d" 11 pair (old `\b(15|7)\b` on whole-card text was satisfied by the card's `Updated <date>` label)
-- `frontend/src/shared/ui/selectPanelFit.ts` / `.test.ts` — cycle 2: clamp the flipped-above height to >= 0 (evaluator suggestion)
