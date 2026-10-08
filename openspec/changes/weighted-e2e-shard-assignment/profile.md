@@ -203,3 +203,57 @@ attempt 5 leg 2  startTime=2026-10-08T08:02:33.918Z  step_started_at=2026-10-08T
 attempt 5 leg 3  startTime=2026-10-08T08:01:50.995Z  step_started_at=2026-10-08T08:01:48Z
 attempt 5 leg 4  startTime=2026-10-08T08:02:35.109Z  step_started_at=2026-10-08T08:02:30Z
 ```
+
+## Final measurement (task 3.4): head 4b8f9f71bfa56ff04ca18a89f45ea21ca8c90f35, run 37748264806, attempts 1-5
+
+Regenerated-table head (merge of origin/main `5c5ac92a9`, HEL-1373). Full `gh run rerun` one at a time; all 5
+attempts counted (all 4 e2e legs success, 4 reports each, all `unexpected`=0/`flaky`=0). These are the FIXED after
+set (first 5 counting attempts; nothing added or substituted). Per-leg `Run e2e` step seconds
+(attempt 1..5), `stats.startTime` agrees with the step `started_at` within ~5 s in all 20 reports:
+
+```
+AFTER (run 37748264806 attempts 1-5)
+ leg 1: step med=218 max=248 | leg med=394 max=427 | steps=[248,218,231,163,192]
+ leg 2: step med=223 max=237 | leg med=399 max=916 | steps=[226,171,200,223,237]
+ leg 3: step med=212 max=217 | leg med=395 max=551 | steps=[212,212,217,171,145]
+ leg 4: step med=245 max=254 | leg med=422 max=438 | steps=[249,173,245,254,184]
+ median-first imbalance = 245 - 224.5 = 20.5 s
+ per-run imbalance (max-mean per run): 15.25 24.5 21.75 51.25 47.5 -> median 24.5 s (reported, not the bar)
+```
+
+Before-25 (premise, pre-merge code): 25.5 s exactly (line (b) value). All 25 before runs (37552111090..37672748835,
+the successful `ci.yml` runs in that id range) still have >= 4 non-expired `playwright-json-shard-*` artifacts (one,
+37669132449, has 5 because of a rerun), so all count.
+
+Control (D8): count-based `--shard` runs on OTHER heads that contain origin/main commit `5c5ac92a9` (merge's 2nd
+parent; every head's `compare/5c5ac92a9...<head>` status was `ahead` or `identical`), first attempt meeting the
+counting rule, selected by `run_started_at`. Window = first..last after attempt `run_started_at` =
+2026-10-08T08:12:04Z..08:47:16Z. In window and counting: 37749098184 (HEL-1364, 03cd5bae8, 08:19:41), 37750186857
+(main 0a1eacd7d, 08:29:35), 37750313498 (HEL-1304, 130b64989, 08:30:41). In window, excluded: 37751642593 (main
+60fdb87de, 08:42:39; `e2e (1)` failed, non-counting). Only 3 qualify in window, so extended backwards by
+`run_started_at` to 5: 37748221338 (HEL-1364, 50dfb256a, 08:11:40) and 37744958037 (main 6218cd479, 07:41:07; its
+e2e legs all green though another job failed). Not included (older than the extension cut): 37744102717,
+37743584671, 37742765532, 37742731513, 37742056137 (all counting, all containing `5c5ac92a9`). Our own PR runs
+(heads 6a86b27a8 and 4b8f9f71b) are not controls (they use weighted sharding). All were attempt 1 (no expired
+artifacts or skipped attempts).
+
+```
+CONTROL (5 runs, count-based shard)
+ leg 1: step med=208 max=258 | steps=[169,253,206,208,258]
+ leg 2: step med=225 max=231 | steps=[224,227,225,185,231]
+ leg 3: step med=201 max=207 | steps=[207,201,137,152,203]
+ leg 4: step med=238 max=267 | steps=[236,238,244,267,235]
+ median-first imbalance = 238 - 218.0 = 20.0 s ; per-run median 27.0 s
+(in-window-only 3 runs: 20.5 s median-first, 27.0 per-run)
+```
+
+### Pass/fail lines
+
+- (a) after imbalance <= 15 s: **FAIL** (20.5 s).
+- (b) after imbalance < before-25 (25.5 s): **PASS** (20.5 < 25.5).
+- (c) after imbalance < same-window control (20.0 s): **FAIL** (20.5 is not below 20.0; the improvement over
+  count-based sharding is not distinguishable in this window).
+
+Honest read: with the regenerated table the weighted legs are balanced by summed test time (416-417 s), but the
+`Run e2e` step medians still spread 212-245 s (leg 4 slowest), the same spread count-based sharding shows in this
+window. Per C4 the bar failure is reported and not re-measured or substituted; escalated to the orchestrator.

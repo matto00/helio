@@ -100,7 +100,7 @@ suite) on an empty leg. Inspect an assignment without running tests with `DEV_PO
 Regenerate the table from fresh CI artifacts (never a local run, never by hand): download the `playwright-json-shard-*`
 artifacts of several recent green `ci.yml` runs into one directory per run (`gh run download <runId> -p
 'playwright-json-shard-*' -D <dir>/<runId>`), then `node scripts/e2e-shard.mjs weights <dir>/<runId>... >
-e2e/shard-weights.tsv` (per file: durations summed across all of a run's shard reports, median across runs). Each shard
+e2e/shard-weights.tsv` (per file: durations summed across all of a run's shard reports, median across runs). Acceptance bar for any change to shard assignment (e2e-ci-sharding spec, SHALL): from >= 5 sequential counting CI runs (all 4 legs green, all 4 JSON reports present), the slowest leg's median `Run e2e` step minus the mean of the legs' medians must be <= 15 s and lower than both the 25-run before value and a same-window control (`openspec/changes/weighted-e2e-shard-assignment/profile.md`). Each shard
 has its own Postgres, backend and Vite, so shards share no state; `ci-complete` still gates on every leg (a matrix
 job's result is `failure` if any leg fails). `workers` is pinned to 2 on CI (the matrix is capped at 4 legs), and CI
 additionally writes `test-results/results.json` (uploaded per shard as `playwright-json-shard-<i>`); `node

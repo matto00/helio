@@ -1,7 +1,8 @@
 - `scripts/e2e-shard.mjs` — weighted LPT shard assignment over Playwright-discovered specs, exact-once + selection verification, weights regeneration
 - `scripts/e2e-shard.selftest.mjs` — selftest incl. demonstrated-red partition mutations
-- `e2e/shard-weights.tsv` — per-spec weights generated from 5 CI baseline runs
+- `e2e/shard-weights.tsv` — per-spec weights regenerated from 5 counting CI attempts (run 37742970410) of the merged head
 - `.github/workflows/ci.yml` — e2e run step now calls the script; selftest wired in frontend job; HEL-951 comments updated
 - `package.json` — `check:e2e-shard:selftest` script
 - `.husky/pre-commit` — runs the selftest
 - `e2e/README.md` — sharding section rewritten, regeneration documented
+- `openspec/changes/weighted-e2e-shard-assignment/profile.md`, `tasks.md` — post-merge measurement, control, pass/fail lines
