@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/outputs/update-output-request.schema.json",
   "title": "UpdateOutputRequest",
-  "description": "Body of `PATCH /api/outputs/:id`. Both fields are optional — absent means unchanged. `config`, when present, is merged into the stored config one level deep for `legend`/`tooltip`/`seriesColors`/`axisLabels` (HEL-877) rather than replacing it wholesale.",
+  "description": "Body of `PATCH /api/outputs/:id`. Both fields are optional — absent means unchanged. `config`, when present, is shallow-merged into the stored config: each top-level key in the patch replaces that key's stored value and absent keys are kept (HEL-1313 removed the former one-level deep merge of `legend`/`tooltip`/`seriesColors`/`axisLabels`; those are now unknown keys). The merge result is not validated as a whole: only keys this patch introduces or changes are checked against the Output kind's known keys.",
   "type": "object",
   "properties": {
     "name": {
@@ -11,14 +11,105 @@
     },
     "config": {
       "type": "object",
-      "description": "Output config. `compare` (HEL-1273) selects the history comparison: absent/null (none), `previous_run`, `1d`, `7d`, `30d`, or `custom:<d>` where <d> is a positive ISO-8601 duration in days/hours/minutes/seconds (PnDTnHnMnS, at most 365 days; week/month/year and lowercase/signed forms are rejected). Anything else is a 400. `historyPayloads` (HEL-1276) opts this Output's node into storing each real run's full row payload (boolean, default off; absent/null/false store none): kept only for beta (10 runs / 7 days) and owner (30 runs / 30 days) pipeline owners, never for free, and a node over 1000 rows or 1 MiB stores none. Any non-boolean is a 400.",
+      "description": "Output config. `compare` (HEL-1273) selects the history comparison: absent/null (none), `previous_run`, `1d`, `7d`, `30d`, or `custom:<d>` where <d> is a positive ISO-8601 duration in days/hours/minutes/seconds (PnDTnHnMnS, at most 365 days; week/month/year and lowercase/signed forms are rejected). Anything else is a 400. `historyPayloads` (HEL-1276) opts this Output's node into storing each real run's full row payload (boolean, default off; absent/null/false store none): kept only for beta (10 runs / 7 days) and owner (30 runs / 30 days) pipeline owners, never for free, and a node over 1000 rows or 1 MiB stores none. Any non-boolean is a 400. Known top-level `config` keys per kind (HEL-1313; every other key is a 400 naming it, with a did-you-mean hint): every kind - `fieldMapping`, `compare`, `historyPayloads`; chart - `chartType`, `aggregation`, `chartOptions`, `annotation`; metric - `aggregation`, `label`, `unit`, `format`; table - `columnOrder`, `columnFormats`, `columnSort`, `columnFilters`, `pinnedColumns`; collection - `layout`, `format`; timeline - `sort`; markdown - `content`. A key already stored on the Output (a legacy key such as `metricLabel`) may be re-sent with its stored value unchanged, or cleared with null; introducing or changing any other unknown key is rejected, so `additionalProperties` is deliberately not false here. `aggregation` is null, `{groupBy, agg, yField}` on a chart (never on a scatter chart), or `{agg}` (field from `fieldMapping.value`) / `{value, agg}` on a metric; `agg` is count|sum|avg|min|max and every named field a non-empty string; any other kind or shape is a 400. `chartType` is bar|line|pie|scatter or null.",
       "properties": {
+        "fieldMapping": {
+          "type": "object",
+          "description": "Slot name -> column name; slot names are validated per kind."
+        },
         "compare": {
           "type": ["string", "null"],
           "pattern": "^(previous_run|1d|7d|30d|custom:P(\\d+D)?(T(\\d+H)?(\\d+M)?(\\d+(\\.\\d+)?S)?)?)$"
         },
         "historyPayloads": {
           "type": ["boolean", "null"]
+        },
+        "chartType": {
+          "type": ["string", "null"],
+          "enum": ["bar", "line", "pie", "scatter", null],
+          "description": "Chart kind only."
+        },
+        "aggregation": {
+          "description": "Chart or metric kind only; null clears it.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "title": "ChartAggregation",
+              "required": ["groupBy", "agg", "yField"],
+              "additionalProperties": false,
+              "properties": {
+                "groupBy": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "agg": {
+                  "enum": ["count", "sum", "avg", "min", "max"]
+                },
+                "yField": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            {
+              "type": "object",
+              "title": "MetricAggregation",
+              "required": ["agg"],
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "agg": {
+                  "enum": ["count", "sum", "avg", "min", "max"]
+                }
+              }
+            }
+          ]
+        },
+        "chartOptions": {
+          "type": "object",
+          "description": "Chart kind only."
+        },
+        "annotation": {
+          "description": "Chart kind only."
+        },
+        "label": {
+          "description": "Metric kind only."
+        },
+        "unit": {
+          "description": "Metric kind only."
+        },
+        "format": {
+          "description": "Metric and collection kinds."
+        },
+        "columnOrder": {
+          "description": "Table kind only."
+        },
+        "columnFormats": {
+          "description": "Table kind only."
+        },
+        "columnSort": {
+          "description": "Table kind only."
+        },
+        "columnFilters": {
+          "description": "Table kind only."
+        },
+        "pinnedColumns": {
+          "description": "Table kind only."
+        },
+        "layout": {
+          "description": "Collection kind only."
+        },
+        "sort": {
+          "description": "Timeline kind only."
+        },
+        "content": {
+          "description": "Markdown kind only."
         }
       }
     }

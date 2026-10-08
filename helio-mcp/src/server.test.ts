@@ -287,6 +287,40 @@ describe("control tool copy states the observed status codes (HEL-1193 C2)", () 
     expect(description).toContain("control not eligible");
   });
 
+  // HEL-1313: every tool that writes Output config lists the per-kind keys and aggregation shapes and
+  // no longer claims the dead legend/tooltip deep merge.
+  it.each([
+    "add_output",
+    "update_output",
+    "create_pipeline",
+    "propose_pipeline",
+    "analyze_pipeline_proposal",
+    "apply_pipeline_proposal",
+    "apply_combined_proposal",
+    "apply_patch_set",
+  ])("%s documents the Output config key set and aggregation shapes", async (name) => {
+    const tools = await listRegisteredTools();
+    const description = tools.find((t) => t.name === name)?.description ?? "";
+
+    for (const key of [
+      "chartType",
+      "chartOptions",
+      "columnOrder",
+      "columnFormats",
+      "pinnedColumns",
+      "layout",
+      "sort",
+      "content",
+      "{ groupBy, agg, yField }",
+      "{ agg }",
+      "{ value, agg }",
+    ]) {
+      expect(description).toContain(key);
+    }
+    expect(description).toContain("rejected with a 400");
+    expect(description).not.toContain("merges one level deep");
+  });
+
   it.each([
     "propose_dashboard",
     "apply_proposal",

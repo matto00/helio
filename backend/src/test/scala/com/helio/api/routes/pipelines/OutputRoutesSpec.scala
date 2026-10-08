@@ -295,7 +295,8 @@ class OutputRoutesSpec
     // correct — a save "vanished" on the very response that confirmed it.
     "returns the config the request body carried, not an empty object (HEL-946)" in {
       val pipelineId = newSharedPipeline()
-      val config = JsObject("legend" -> JsObject("show" -> JsBoolean(true)))
+      // HEL-1313: was a `legend` key (a dead key, now 400); contract change, same echo assertion.
+      val config = JsObject("chartType" -> JsString("bar"))
       Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "chart", "Chart Output", Some(config))) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.Created
         responseAs[OutputResponse].config shouldBe config
@@ -406,19 +407,34 @@ class OutputRoutesSpec
       await(outputRepo.findByIdInternal(output.id)).map(_.name) shouldBe Some("new-name")
     }
 
-    "merge a partial chart.legend config one level deep instead of replacing config wholesale (HEL-877)" in {
+    // HEL-1313 supersedes HEL-877's one-level deep merge of legend/tooltip/seriesColors/axisLabels:
+    // no renderer reads them, so they are unknown config keys (contract change, not a fixture edit).
+    "shallow-merge a config patch: named keys replace, absent keys are kept (HEL-877/HEL-1313)" in {
       val pipelineId = newSharedPipeline()
-      val initialConfig = JsObject("legend" -> JsObject("show" -> JsBoolean(true), "position" -> JsString("top")), "title" -> JsString("Chart"))
+      val initialConfig = JsObject("chartType" -> JsString("bar"), "chartOptions" -> JsObject("a" -> JsString("1")))
       val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = initialConfig, explicitRootId = None))
 
-      val patch = JsObject("legend" -> JsObject("position" -> JsString("bottom")))
+      val patch = JsObject("chartOptions" -> JsObject("b" -> JsString("2")))
       Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, Some(patch))) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
         val config = responseAs[OutputResponse].config.asJsObject
-        config.fields("title") shouldBe JsString("Chart")
-        val legend = config.fields("legend").asJsObject
-        legend.fields("show") shouldBe JsBoolean(true)
-        legend.fields("position") shouldBe JsString("bottom")
+        config.fields("chartType") shouldBe JsString("bar")
+        config.fields("chartOptions") shouldBe JsObject("b" -> JsString("2"))
+      }
+    }
+
+    "400 a PATCH introducing legend/tooltip/seriesColors/axisLabels naming the key, persisting nothing (HEL-1313)" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = JsObject("chartType" -> JsString("bar")), explicitRootId = None))
+      Seq("legend", "tooltip", "seriesColors", "axisLabels").foreach { key =>
+        val patch = JsObject(key -> JsObject("x" -> JsString("y")))
+        Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, Some(patch))) ~> routesFor(owner) ~> check {
+          status shouldBe StatusCodes.BadRequest
+          responseAs[String] should include(s"`$key`")
+        }
+      }
+      Get(s"/outputs/${output.id.value}") ~> routesFor(owner) ~> check {
+        responseAs[OutputResponse].config shouldBe JsObject("chartType" -> JsString("bar"))
       }
     }
 

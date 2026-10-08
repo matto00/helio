@@ -5,6 +5,7 @@ import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.api.protocols.pipelines.UpdateOutputRequest
 import com.helio.api.protocols.patchsets.{Edit, PatchSet, PatchSetProtocol}
 import com.helio.domain.panels.OutputPanelConfig
+import com.helio.services.pipelines.OutputConfigValidation
 import com.helio.domain.steps.{AggregateConfig, GroupByConfig, JoinConfig, PivotConfig, StepConfigTypeMismatch, UnpivotConfig, WindowConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -375,6 +376,19 @@ class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetPro
 
     "is reachable from the top-level Description the refinement prompt actually sends" in {
       RefinementEditShape.Description should include(RefinementEditShape.CreateExample)
+    }
+  }
+
+  // HEL-1313 task 4.7: the Output-edit text carries the validator's key table right after the output-update example.
+  "RefinementEditShape's output-update text" should {
+    "list every kind's known config keys and both aggregation shapes, from the validator's table" in {
+      val text   = RefinementEditShape.CreateExample
+      val atEdit = text.substring(text.indexOf("output update (rename"))
+      atEdit should include(OutputConfigValidation.KeysDoc)
+      OutputConfigValidation.KnownKeys.values.flatten.foreach(k => atEdit should include(k))
+      atEdit should include("{ groupBy, agg, yField }")
+      atEdit should include("{ value, agg }")
+      RefinementEditShape.Description should include(OutputConfigValidation.KeysDoc)
     }
   }
 }

@@ -1122,8 +1122,8 @@ export class HelioApi {
     return this.http.get<OutputResponse>(`/api/outputs/${outputId}`);
   }
 
-  /** `PATCH /api/outputs/:id`. Owner-only; `config`, when present, merges one level deep for
-   *  `legend`/`tooltip`/`seriesColors`/`axisLabels` rather than replacing wholesale (HEL-877). */
+  /** `PATCH /api/outputs/:id`. Owner-only; `config`, when present, is shallow-merged (each
+   *  top-level key replaces) rather than replacing wholesale; unknown keys are a 400 (HEL-1313). */
   updateOutput(outputId: string, patch: UpdateOutputRequest): Promise<OutputResponse> {
     return this.http.patch<OutputResponse>(`/api/outputs/${outputId}`, patch);
   }

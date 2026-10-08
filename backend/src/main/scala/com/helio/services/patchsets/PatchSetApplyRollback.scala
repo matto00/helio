@@ -3,6 +3,7 @@ package com.helio.services.patchsets
 import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelAppearancePayload, PanelResponse, UpdatePanelRequest}
 import com.helio.services.panels.LayoutWritePolicy
+import com.helio.services.pipelines.OutputConfigWritePolicy
 import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPatchPayload, DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, UpdateDataSourceRequest}
 import com.helio.api.protocols.patchsets.EditOutcome
@@ -178,7 +179,8 @@ private[services] object PatchSetApplyRollback {
 
       // ── output (HEL-907 task 1.2 — no create, see PatchSetProtocol's doc) ─
       case ResolvedAction.OutputUpdate(id, _, prior, priorConfig) =>
-        services.outputService.update(id, UpdateOutputRequest(name = Some(prior.name), config = Some(priorConfig)), user).map {
+        // HEL-1313 D9: restoring journaled state must not be refused by today's key/aggregation rules.
+        services.outputService.update(id, UpdateOutputRequest(name = Some(prior.name), config = Some(priorConfig)), user, OutputConfigWritePolicy.RestorePriorStored).map {
           case Right((output, config)) =>
             edit.toOutcome("rolledBack", resultingState = Some(outputResponseFormat.write(outputResponseFrom(output, config))))
           case Left(err) => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
