@@ -117,3 +117,27 @@ pre-merge) stays in profile.md as history.
 
 - Self-approved: new script + weight table + selftest; no new dependency, no architectural change (mirrors HEL-1287).
 - The `fast` local path (`npm run e2e`) is untouched; sharding exists only in CI.
+
+## Gate-Chain Implications Checklist
+
+This change adds `npm run check:e2e-shard:selftest` (`node scripts/e2e-shard.selftest.mjs`) as a line in
+`.husky/pre-commit`. Isolation transcript: `test-gate-in-isolation.sh HEL-1361 scripts/e2e-shard.selftest.mjs
+check:e2e-shard:selftest` -> `PASS` (evidence under `.concertino/runs/HEL-1361/evidence/.concertino/gate-chain-isolation-evidence/`).
+
+- **What does it execute?** `node scripts/e2e-shard.selftest.mjs`: pure-function unit cases of
+  `scripts/e2e-shard.mjs` (LPT, exact-partition checks, regex anchoring, weights-report guards on in-memory report
+  objects) plus one child `node` spawn of the CLI (`run 5 4`) that exits at argument validation. It never starts Playwright, a server or a browser, and
+  never runs `git`.
+- **What environment does it inherit, and from where?** Git's hook environment (`GIT_DIR`, `GIT_INDEX_FILE`, and
+  `GIT_WORK_TREE` where set) plus the user's `PATH`/`HOME`. The selftest reads none of the `GIT_*` variables and
+  runs no git command, so an inherited `GIT_DIR` from a linked worktree cannot redirect it. The isolation run
+  exercised exactly that shape (`GIT_DIR`/`GIT_INDEX_FILE` pointing at a linked-worktree gitdir).
+- **Does it write anything outside its own sandbox?** No. It imports `scripts/e2e-shard.mjs` and builds its
+  report fixtures in memory; it creates no files at all, so nothing is written to the repo, the index,
+  `e2e/shard-weights.tsv` or `test-results/`.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. It resolves paths from
+  `import.meta.url` relative to the script, not from `git rev-parse` or the cwd's `.git`; the isolation test ran it
+  from a `git worktree add` fixture and it passed, as it does from this linked worktree and from the main checkout.
+- **What happens on its first run?** Nothing is created or cached: no state file, no baseline. It runs the 15 cases
+  and exits 0 (15 passed in the isolation transcript), or non-zero naming the failing case. The commit is blocked only
+  on a genuine failure.
