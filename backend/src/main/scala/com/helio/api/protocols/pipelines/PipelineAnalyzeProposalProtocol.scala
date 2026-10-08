@@ -31,10 +31,12 @@ final case class OutputAnalyzeResponse(
     validationError: Option[String]
 )
 
+// HEL-1235: `warnings` carries the schema-only non-blocking findings and is always present.
 final case class PipelineAnalyzeProposalResponse(
     sourceSchemas: Vector[RootSourceSchemaResponse],
     steps:         Vector[AnalyzeStepResponse],
-    outputs:       Vector[OutputAnalyzeResponse]
+    outputs:       Vector[OutputAnalyzeResponse],
+    warnings:      Vector[AnalyzeWarningResponse] = Vector.empty
 )
 
 /** `PipelineAnalyzeProposalProtocol extends PipelineAnalyzeProtocol` to reuse
@@ -50,5 +52,5 @@ trait PipelineAnalyzeProposalProtocol
     jsonFormat3(OutputAnalyzeResponse.apply)
 
   implicit val pipelineAnalyzeProposalResponseFormat: RootJsonFormat[PipelineAnalyzeProposalResponse] =
-    jsonFormat3(PipelineAnalyzeProposalResponse.apply)
+    jsonFormat4(PipelineAnalyzeProposalResponse.apply)
 }

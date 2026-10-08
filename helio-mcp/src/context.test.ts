@@ -145,6 +145,7 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
       },
     ],
     costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
+    warnings: [],
   };
 
   const output: OutputResponse = {
@@ -708,6 +709,7 @@ function buildRealisticFixture(): RealisticFixture {
         validationError: null,
       })),
       costVerdict: { autoRunnable: true, stepCount: stepList.length, reasons: [], canRun: true },
+      warnings: [],
     });
   }
 

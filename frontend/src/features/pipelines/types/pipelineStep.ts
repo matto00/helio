@@ -621,12 +621,38 @@ export interface CostVerdict {
   canRun: boolean;
 }
 
+// HEL-1235: one schema-only, NON-BLOCKING analyze finding (`PipelineAnalyzeProtocol.scala`'s
+// `AnalyzeWarningResponse`). Computed from the inferred schemas with no row reads, so it can be a
+// misleading hint when a stored schema is stale. Never sets a step's `validationError` and never
+// affects `costVerdict`. Not rendered yet (follow-up).
+export type AnalyzeWarningCode =
+  | "field-not-in-input-schema"
+  | "join-key-type-mismatch"
+  | "join-column-renamed";
+
+export interface AnalyzeWarning {
+  stepId: string;
+  code: AnalyzeWarningCode;
+  message: string;
+}
+
 export interface PipelineAnalyzeResponse {
   id: string;
   name: string;
   sourceSchemas: RootSourceSchema[];
   steps: AnalyzeStepResult[];
   costVerdict: CostVerdict;
+  // The backend always sends this (empty when there are none).
+  warnings: AnalyzeWarning[];
+}
+
+// HEL-1235: the opt-in `?concise=true` per-node shape; `warnings` (messages only) is omitted on
+// nodes without any. No frontend caller consumes the concise shape today.
+export interface ConciseAnalyzeNode {
+  path: string;
+  op: string;
+  validationError?: string;
+  warnings?: string[];
 }
 
 // Extracted from `types/models.ts` in CS4 cycle 1.

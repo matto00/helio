@@ -21,10 +21,13 @@ import spray.json.JsValue
  *
  *  The trait is intentionally NOT `sealed`: Scala 2 constrains sealed-trait
  *  subclasses to the same compilation unit, which would defeat the per-file
- *  refactor (the CS2c-3a cycle-3 lesson). Discipline is enforced via
- *  [[Panel.Registry]] — only kinds registered there round-trip through the
- *  protocol / repo / service. Adding an 8th panel kind without updating
- *  the registry is caught by the kind-set parity test in `PanelSpec`.
+ *  refactor (the CS2c-3a cycle-3 lesson). [[Panel.Registry]] is the source
+ *  of truth for [[PanelKind.All]], [[PanelKind.parseKind]] and
+ *  [[Panel.companionFor]] only: the codec, service, persistence, JSON-schema,
+ *  helio-mcp and frontend layers each enumerate kinds by hand (see
+ *  [[PanelKind.All]] for that drift surface).
+ *  The kind-set parity test in `PanelSpec` pins the registry's key set; it
+ *  does not detect a missed hand-enumerated site.
  *
  *  Wire shape (cycle 1, unchanged): the existing wide-flat JSON shape with
  *  nullable per-subtype fields at the panel root is preserved by
@@ -33,9 +36,10 @@ import spray.json.JsValue
  *  coordinated frontend / schema / snapshot wire break; CS2c-3c rewrites
  *  `PanelResponse.fromDomain` for the `config`-collapse wire shape.
  *
- *  DB shape (unchanged): the `panels` table preserves all 8 per-subtype
- *  nullable columns; `PanelRepository.rowToDomain` dispatches on
- *  `panels.type` → typed subtype via the registry. */
+ *  DB shape: `PanelRepository.rowToDomain` delegates to
+ *  `PanelRowMapper.rowToDomain`, which dispatches on `panels.kind` with a
+ *  hand-written match — NOT via the registry — and silently falls back to
+ *  `OutputPanel` for an unrecognised kind. */
 trait Panel {
 
   // ── Common identity / metadata fields (every panel subtype carries these) ──
@@ -80,10 +84,13 @@ object Panel {
     def writeConfigToWire(config: Any): JsValue
   }
 
-  /** Registry of every panel kind. Single source of truth — every
-   *  protocol / repo / service / snapshot dispatcher derives from this Map.
-   *  Adding an 8th panel kind means dropping in one `panels/<Kind>Panel.scala`
-   *  file and adding one line here. */
+  /** Registry of every panel kind (kind string → [[Companion]]). The source
+   *  of truth for [[PanelKind.All]], [[PanelKind.parseKind]] and
+   *  [[companionFor]] only — no codec, repo, service or snapshot dispatcher
+   *  dispatches through this Map (`PanelConfigCodec` reads its key set only
+   *  for an error message). Adding a kind means a new
+   *  `panels/<Kind>Panel.scala` file, one line here, AND every hand-enumerated
+   *  site described on [[PanelKind.All]]. */
   val Registry: Map[String, Companion] = Map(
     TextPanel.Kind       -> TextPanel.companion,
     MarkdownPanel.Kind   -> MarkdownPanel.companion,
@@ -103,10 +110,11 @@ object Panel {
 
 }
 
-/** Source of truth for the panel-type discriminator string. Constants here
- *  are exported by each panel file (as `<Kind>Panel.Kind`); [[All]] is
- *  derived from the registry so the allow-list cannot drift from the
- *  actual set of registered kinds. */
+/** The panel-type discriminator strings. Constants here are exported by
+ *  each panel file (as `<Kind>Panel.Kind`); [[All]] is derived from the
+ *  registry so this allow-list cannot drift from the registered kinds. It
+ *  is not the only list: `PanelType` (model.scala) and the other sites
+ *  described on [[All]] enumerate kinds by hand. */
 object PanelKind {
   val Text: String       = TextPanel.Kind
   val Markdown: String   = MarkdownPanel.Kind
@@ -117,8 +125,24 @@ object PanelKind {
 
   val Default: String = Output
 
-  /** Registry-derived allow-list. After cycle 1 no consumer enumerates these
-   *  manually — adding a new kind only requires updating [[Panel.Registry]]. */
+  /** Registry-derived allow-list: the source of truth for [[parseKind]] and
+   *  this set ONLY. Adding a kind also requires hand-enumerating many further
+   *  sites — `PanelType` (model.scala, incl. its "Valid values" literal),
+   *  `PanelConfigCodec`, `PanelServiceHelpers.buildNewPanel`, `PanelRowMapper`,
+   *  `PanelRepository`'s config columns, `DashboardSnapshotRepository`,
+   *  `ProposalPanelSupport`, `AssistantProposalToolSchemas`, `schemas/panels/`
+   *  and `schemas/dashboards/dashboard-proposal.schema.json`, helio-mcp, and
+   *  the frontend kind unions and if-chains — plus a migration that drops and
+   *  re-adds `panels_kind_check` (precedent: V108). The documented list is the
+   *  "Drift surface for a new panel kind" paragraph in §2 of
+   *  docs/superpowers/specs/2026-09-10-interactive-data-writeback-design.md.
+   *  That list is a dated snapshot: re-derive from the tree, e.g.
+   *  `git grep -l -i divider -- backend/src/main frontend/src helio-mcp/src schemas`
+   *  (unquoted: backend sites match on `DividerPanel.Kind`, not the string).
+   *  Known gates: `PanelSpec` pins the registry key set, and
+   *  scripts/check-schema-drift.mjs checks several schema / helio-mcp enums
+   *  against `PanelType.fromString`; many other sites fall through silently
+   *  (e.g. `PanelRowMapper.rowToDomain`'s `case _ =>` → `OutputPanel`). */
   def All: Set[String] = Panel.Registry.keySet
 
   def parseKind(s: String): Either[String, String] =

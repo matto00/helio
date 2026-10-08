@@ -172,10 +172,20 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "step (or the source, for nodeStepId: null) will have " +
         "before running it. costVerdict.canRun is false when the caller may not run the pipeline " +
         "or a step has a validationError (reason code step-config-invalid in costVerdict.reasons) — " +
-        "do not submit a run when it is false. Optional concise: true (HEL-865) returns a bounded, per-node " +
-        "projection instead — a DIFFERENT shape ({ nodes: [{path, op, validationError?}] }, no " +
-        "column lists) — for a large/deep pipeline where the full response is unwieldy. Full " +
-        "response is the default and is unchanged.",
+        "do not submit a run when it is false. The top-level `warnings` array ({stepId, code, message}) " +
+        "holds schema-only, NON-BLOCKING pre-run findings computed from the inferred schemas (no row " +
+        "reads): code field-not-in-input-schema (a step references a field its input schema does not " +
+        "carry — e.g. count(amount) over a step that outputs (category,total) would silently count 0), " +
+        "join-key-type-mismatch (the join key has different types on the two inputs, e.g. a CSV " +
+        "string key vs an integer key, so the join may return no rows), join-column-renamed (a " +
+        "right-side column collides with an input column and will appear as right_<name>). They do " +
+        "NOT affect canRun, autoRunnable or costVerdict.reasons and never set a validationError; " +
+        "the stored inferred schema can be stale, so treat each as a hint to check, not proof. " +
+        "These are distinct from propose_pipeline's warnings (strings that drive applyReady) and " +
+        "from run_pipeline's run warnings. Optional concise: true (HEL-865) returns a bounded, per-node " +
+        "projection instead — a DIFFERENT shape ({ nodes: [{path, op, validationError?, " +
+        "warnings?: string[]}] }, no column lists) — for a large/deep pipeline where the full " +
+        "response is unwieldy. Full response is the default and is unchanged.",
       inputSchema: { pipelineId: z.string().min(1), concise: z.boolean().optional() },
     },
     ({ pipelineId, concise }) =>

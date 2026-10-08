@@ -3,7 +3,7 @@
   "$id": "https://helio.local/schemas/pipelines/pipeline-analyze-response.schema.json",
   "title": "PipelineAnalyzeResponse",
   "type": "object",
-  "required": ["id", "name", "sourceSchemas", "steps", "costVerdict"],
+  "required": ["id", "name", "sourceSchemas", "steps", "costVerdict", "warnings"],
   "properties": {
     "id": {
       "type": "string",
@@ -31,10 +31,37 @@
     },
     "costVerdict": {
       "$ref": "#/$defs/CostVerdict"
+    },
+    "warnings": {
+      "description": "HEL-1235: schema-only, NON-BLOCKING pre-run findings, computed from the inferred schemas with no row reads. Always present (empty when none). Never sets a step's validationError, never affects costVerdict (canRun/autoRunnable/reasons), never blocks a write or an auto-run. Wording states the evidence base (the stored inferred schema can be stale). Distinct from propose_pipeline's `warnings: string[]` (which drives applyReady) and from run warnings.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AnalyzeWarning"
+      }
     }
   },
   "additionalProperties": false,
   "$defs": {
+    "AnalyzeWarning": {
+      "type": "object",
+      "required": ["stepId", "code", "message"],
+      "properties": {
+        "stepId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The step the warning is about (the proposal's client step id for a proposal analyze)."
+        },
+        "code": {
+          "type": "string",
+          "enum": ["field-not-in-input-schema", "join-key-type-mismatch", "join-column-renamed"]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
     "RootSourceSchema": {
       "type": "object",
       "required": ["rootId", "dataSourceName", "sourceSchema"],
