@@ -953,6 +953,7 @@ const sampleAnalyzeResponse: PipelineAnalyzeResponse = {
     },
   ],
   costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
+  warnings: [],
 };
 
 describe("analyzePipeline reducer", () => {

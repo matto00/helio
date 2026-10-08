@@ -4,7 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.services.sources.{ContentSourceSupport, DataSourceService, SourceService}
 import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AnalyzeWithAiAnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, ConvertFormatAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, DateBucketAnalyzeStepResponse, DeletePipelineStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GenerateTextAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, OutputAnalyzeResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, RootSourceSchemaResponse, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, UpsertSourceAnalyzeStepResponse, WindowAnalyzeStepResponse}
+import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AnalyzeWarningResponse, AnalyzeWithAiAnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, ConvertFormatAnalyzeStepResponse, CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, DateBucketAnalyzeStepResponse, DeletePipelineStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GenerateTextAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, OutputAnalyzeResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineProposalSource, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse, ProposalRestApiConfig, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, ReorderPipelineStepsRequest, RootSourceSchemaResponse, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SourceSchemaDriftResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, TypeChangedColumnResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpdatePipelineRequest, UpdatePipelineStepRequest, UpsertSourceAnalyzeStepResponse, WindowAnalyzeStepResponse}
 import com.helio.api.protocols.sources.{CreateSourceRequest, RestApiConfigPayload, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticDataSourceRequest}
 import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse}
 import com.helio.api.protocols.pipelines.{ConciseAnalyzeNode, CostReasonResponse, CostVerdictResponse, PipelineAnalyzeConciseResponse, PipelineLaneTreeNode}
@@ -12,7 +12,7 @@ import com.helio.api.protocols.panels.{PanelCapabilityColumnResponse, PanelCapab
 import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.domain.panels.OutputBindingSpec
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, DataSource, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, Output, OutputKind, Pipeline, PipelineId, PipelineRootId, PipelineSchemaDrift, PipelineStep, PipelineStepId, PipelineStepKind, SchemaDrift, UserId}
-import com.helio.domain.engine.{ExpressionEvaluator, InvalidGraph, LaneReferenceError, PipelineAnalyzeService, PipelineCostEstimator, RuntimeGraphPath, SchemaField}
+import com.helio.domain.engine.{AnalyzeSchemaWarnings, ExpressionEvaluator, InvalidGraph, LaneReferenceError, PipelineAnalyzeService, PipelineCostEstimator, RuntimeGraphPath, SchemaField}
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.{AggregateConfig, AnalyzeWithAiConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, ConvertFormatConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GenerateTextConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig, UpsertSourceConfig}
 import com.helio.domain.steps.{SecondaryInput, UpsertTargetCheck}
@@ -994,6 +994,7 @@ final class PipelineService(
               )
             )
             val projections = UpsertTargetAnalysis.overlay(PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas), upsertProblems)
+            val warnings    = AnalyzeSchemaWarnings.compute(nodeInputs, projections, secondarySchemas).map(toWarningResponse)
             val enabledSteps = allSteps.filter(_.enabled)
             // Reassemble in the SAME order `enabledSteps` lists them; a node that never resolved
             // (unknown parentStepId, dangling lane reference) is simply absent, mirroring
@@ -1039,7 +1040,8 @@ final class PipelineService(
                                     },
                 steps             = analyzed.map(toAnalyzeStepResponse),
                 sourceSchemaDrift = drift.map(toDriftResponse),
-                costVerdict       = toCostVerdictResponse(costVerdict, canRun, analyzed)
+                costVerdict       = toCostVerdictResponse(costVerdict, canRun, analyzed),
+                warnings          = warnings
               ))
             }
             }
@@ -1053,6 +1055,9 @@ final class PipelineService(
   // HEL-1093 (design.md Decision 2a): `hasSourceUrl` moved to `PipelineCostInputGathering` — both
   // `analyze` (via `costInputGathering.gather`) and `AutoRunTriggerService` now share one
   // implementation instead of two.
+
+  private def toWarningResponse(w: AnalyzeSchemaWarnings.Warning): AnalyzeWarningResponse =
+    AnalyzeWarningResponse(stepId = w.stepId, code = w.code, message = w.message)
 
   /** HEL-1266 (design.md D1-D3): an enabled step with a `validationError` is a run that is certain
    *  to fail, so it adds a `step-config-invalid` reason (after the estimator's, in step order) and
@@ -1128,9 +1133,15 @@ final class PipelineService(
             )
             val projections = UpsertTargetAnalysis.overlay(PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas), upsertProblems)
             val graphPath    = RuntimeGraphPath.build(allSteps, rootIds, rootIdOfStepStr)
+            val warningsByStep = AnalyzeSchemaWarnings.compute(nodeInputs, projections, secondarySchemas).groupMap(_.stepId)(_.message)
             val nodes = allSteps.filter(_.enabled).flatMap { s =>
               projections.get(s.id.value).map { analyzed =>
-                ConciseAnalyzeNode(path = graphPath.pathOf(s), op = s.kind, validationError = analyzed.validationError)
+                ConciseAnalyzeNode(
+                  path            = graphPath.pathOf(s),
+                  op              = s.kind,
+                  validationError = analyzed.validationError,
+                  warnings        = warningsByStep.get(s.id.value)
+                )
               }
             }
             Right(PipelineAnalyzeConciseResponse(nodes))
@@ -1444,6 +1455,7 @@ final class PipelineService(
             val projections  = UpsertTargetAnalysis.overlay(PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas), upsertProblems)
             val enabledSteps = proposal.steps.filter(_.enabled.getOrElse(true))
             val analyzed     = enabledSteps.flatMap(s => projections.get(s.clientId))
+            val warnings     = AnalyzeSchemaWarnings.compute(nodeInputs, projections, secondarySchemas).map(toWarningResponse)
 
             resolveProposalOutputAnalyses(proposal.outputs, proposal.steps, rootKeys, schemasByRoot, projections) match {
               case Left(err) => Left(err)
@@ -1452,8 +1464,9 @@ final class PipelineService(
                   sourceSchemas = rootSchemas.zip(rootKeys).map { case ((name, schema), key) =>
                     RootSourceSchemaResponse(key, name, schema.map(toFieldResponse))
                   },
-                  steps   = analyzed.map(toAnalyzeStepResponse),
-                  outputs = outputAnalyses
+                  steps    = analyzed.map(toAnalyzeStepResponse),
+                  outputs  = outputAnalyses,
+                  warnings = warnings
                 ))
             }
           }

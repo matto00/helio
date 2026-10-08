@@ -28,6 +28,12 @@
         "validationError": {
           "type": "string",
           "description": "Omitted (not null) when the node has no validation error."
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "description": "HEL-1235: this node's schema-only, non-blocking warning MESSAGES (the full analyze response carries them as {stepId, code, message}). Omitted (not empty) when the node has none."
         }
       },
       "additionalProperties": false

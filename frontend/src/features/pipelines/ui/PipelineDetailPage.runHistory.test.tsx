@@ -178,6 +178,7 @@ describe("PipelineDetailPage — on-demand run history (HEL-1354)", () => {
       sourceSchemas: [],
       steps: [],
       costVerdict: { autoRunnable: true, stepCount: 0, reasons: [], canRun: true },
+      warnings: [],
     });
     jest.mocked(runPipeline).mockResolvedValue({
       rowCount: 0,

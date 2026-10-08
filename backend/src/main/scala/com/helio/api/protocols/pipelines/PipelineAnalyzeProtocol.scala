@@ -246,6 +246,13 @@ final case class CostVerdictResponse(
     canRun:        Boolean
 )
 
+/** HEL-1235: one schema-only, NON-BLOCKING analyze finding (`AnalyzeSchemaWarnings`). `code` is
+ *  `field-not-in-input-schema`, `join-key-type-mismatch` or `join-column-renamed`; `stepId` is the
+ *  step it is about (the client step id for a proposal). Never feeds `validationError`,
+ *  `costVerdict` or the auto-run gate, and is unrelated to `propose_pipeline`'s `warnings: string[]`
+ *  and to run warnings. Always present (possibly empty) on the full and proposal responses. */
+final case class AnalyzeWarningResponse(stepId: String, code: String, message: String)
+
 /** `sourceSchemaDrift` (HEL-462) is computed at analyze time and is absent
  *  when there is no baseline yet — i.e. the pipeline has never run
  *  successfully — or the current source schema matches the baseline exactly.
@@ -264,7 +271,8 @@ final case class PipelineAnalyzeResponse(
     sourceSchemas:     Vector[RootSourceSchemaResponse],
     steps:             Vector[AnalyzeStepResponse],
     sourceSchemaDrift: Option[SourceSchemaDriftResponse] = None,
-    costVerdict:       CostVerdictResponse
+    costVerdict:       CostVerdictResponse,
+    warnings:          Vector[AnalyzeWarningResponse] = Vector.empty
 )
 
 /** HEL-914 task 6.4/D6: `GET /pipelines/:id/analyze?concise=true`'s opt-in per-node
@@ -276,7 +284,13 @@ final case class PipelineAnalyzeResponse(
  *  formatter. `validationError` is OMITTED on the wire when absent (spray-json's built-in
  *  `Option` handling), not written as `null`, matching every other optional-field convention
  *  in this file family. */
-final case class ConciseAnalyzeNode(path: String, op: String, validationError: Option[String] = None)
+/** `warnings` (HEL-1235) holds this node's warning MESSAGES only, omitted when none. */
+final case class ConciseAnalyzeNode(
+    path:            String,
+    op:              String,
+    validationError: Option[String] = None,
+    warnings:        Option[Vector[String]] = None
+)
 final case class PipelineAnalyzeConciseResponse(nodes: Vector[ConciseAnalyzeNode])
 
 /** HEL-914 task 6.6/D6: the compact per-node shape `WorkspaceContextPipeline`'s lane tree and
@@ -425,9 +439,10 @@ trait PipelineAnalyzeProtocol
   implicit val costReasonResponseFormat: RootJsonFormat[CostReasonResponse] = jsonFormat3(CostReasonResponse.apply)
   implicit val costVerdictResponseFormat: RootJsonFormat[CostVerdictResponse] = jsonFormat5(CostVerdictResponse.apply)
 
-  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat6(PipelineAnalyzeResponse.apply)
+  implicit val analyzeWarningResponseFormat: RootJsonFormat[AnalyzeWarningResponse] = jsonFormat3(AnalyzeWarningResponse.apply)
+  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat7(PipelineAnalyzeResponse.apply)
 
-  implicit val conciseAnalyzeNodeFormat: RootJsonFormat[ConciseAnalyzeNode] = jsonFormat3(ConciseAnalyzeNode.apply)
+  implicit val conciseAnalyzeNodeFormat: RootJsonFormat[ConciseAnalyzeNode] = jsonFormat4(ConciseAnalyzeNode.apply)
   implicit val pipelineAnalyzeConciseResponseFormat: RootJsonFormat[PipelineAnalyzeConciseResponse] =
     jsonFormat1(PipelineAnalyzeConciseResponse.apply)
 
