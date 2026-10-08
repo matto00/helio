@@ -73,6 +73,19 @@ class PanelAppearanceMergeSpec extends AnyWordSpec with Matchers with OptionValu
       merged.chart.value shouldBe ChartAppearance.Default.copy(chartType = Some("pie"))
     }
 
+    "store no chartType when a chart patch without chartType lands on a panel with no stored chart (HEL-1304)" in {
+      val noChart = stored.copy(chart = None)
+      val json = JsObject(
+        "chart" -> JsObject("legend" -> JsObject("show" -> JsBoolean(false), "position" -> JsString("top")))
+      )
+      val Right(merged) = PanelAppearance.applyPatchJson(json, noChart): @unchecked
+
+      merged.chart.value shouldBe ChartAppearance.Default.copy(
+        legend    = ChartLegend(show = false, position = "top"),
+        chartType = None
+      )
+    }
+
     // ── Task 5.6: explicit null resets to Default, with the chartType exception ──
 
     "reset a top-level field to PanelAppearance.Default on explicit null" in {
