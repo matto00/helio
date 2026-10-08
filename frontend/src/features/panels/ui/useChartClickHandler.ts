@@ -3,7 +3,7 @@ import { useCallback, useMemo } from "react";
 import type { ChartTypeOptionsMap, PanelAppearance } from "../types/panel";
 import { resolveChartType } from "../../../utils/chartAppearance";
 // HEL-572 — kept as a SEPARATE, echarts-import-free module (see its own
-// header comment) so `PanelCard.tsx`/`PanelFullscreenOverlay.tsx` can reuse
+// header comment) so `usePanelCardInspect.ts`/`PanelFullscreenOverlay.tsx` can reuse
 // the row-filter half without pulling this file's lazy-loaded echarts chunk
 // into the main bundle (HEL-512).
 import {

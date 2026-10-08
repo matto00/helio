@@ -1,7 +1,7 @@
 # chart-type-selector Specification
 
 ## Purpose
-Controls the chart rendering type (bar, line, pie, scatter) for chart panels. The selector appears in the Appearance tab of the panel detail modal and persists the selected type to the backend via the panel appearance save flow.
+Controls the chart rendering type (bar, line, pie, scatter) for chart panels. The chart type is chosen on the bound Output (`config.chartType`); a chart type stored on the panel's own appearance still takes precedence, and the effective type resolves panel, then Output, then `line`. The panel detail modal shows no chart type selector.
 ## Requirements
 ### Requirement: Panel detail modal shows chart type selector for chart panels
 The Appearance tab in the panel detail modal MUST display a chart type selector when `panel.type` is `"chart"`. The selector MUST NOT be visible for non-chart panel types.
