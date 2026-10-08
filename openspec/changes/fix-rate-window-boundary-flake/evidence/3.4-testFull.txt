@@ -1,0 +1,20 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/task/fix-rate-window-flake/HEL-1374/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/task/fix-rate-window-flake/HEL-1374/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+... [59k lines of per-test output trimmed] ...
+02:14:52.893 INFO  [pg_ctl:pid(182404)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+02:14:52.893 INFO  [pg_ctl:pid(182404)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+02:14:52.894 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 852213f2-42a7-4f29-a8fe-1325431c8b74 shut down postmaster in 00:00:00.102
+02:14:52.917 INFO  [com-helio-api-routes-pipelines-PipelineApplyProposalSpec-pekko.actor.default-dispatcher-8] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] Run completed in 8 minutes, 33 seconds.
+[info] Total number of tests run: 6117
+[info] Suites: completed 440, aborted 0
+[info] Tests: succeeded 6117, failed 0, canceled 4, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 515 s (0:08:35.0), cache 78%, 369 disk cache hits, 101 onsite tasks
+
+real	8m36.793s
+user	9m36.004s
+sys	0m49.776s
+exit=0

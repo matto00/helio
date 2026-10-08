@@ -1,0 +1,4 @@
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — trailing defaulted `guardClock: Clock = SystemClock` driving only the rate-window bucket `now`
+- `backend/src/test/scala/com/helio/services/pipelines/DatasetWriteAutoRunEndToEndSpec.scala` — owner-attribution case pins the guard clock mid-window (assertion/limit/window unchanged)
+- `MISTAKES.md` — sbt cross-worktree server-attach entry with verified invocation
+- `openspec/changes/fix-rate-window-boundary-flake/**` — tasks, evidence transcripts
