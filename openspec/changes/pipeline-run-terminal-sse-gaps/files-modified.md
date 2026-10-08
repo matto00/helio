@@ -1,4 +1,0 @@
-- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — D1: `queued` published only after guard admission; D2: failed write-back Future recovered via onWriteBackFailure, re-failed with original exception
-- `backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceTerminalOrderingSpec.scala` — harness takes optional guard repo/config; three HEL-1370 cases; the write-back case proves ordering with the pipeline_runs row lock (startAndLockRunRow + awaitBlockedBy + assertNoTerminalWhileBlocked), asserts errorLog names upsertsource and omits the raw trigger message, submit fails, exactly one failed published
-- `openspec/changes/pipeline-run-terminal-sse-gaps/red-run-evidence.txt` — cycle 1 red run vs unmodified service
-- `openspec/changes/pipeline-run-terminal-sse-gaps/red-run-evidence-cycle2.txt` — final spec red vs b14e622ee service (3 fail) and publish-before-write mutation probe (caught by the lock stage)
