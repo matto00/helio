@@ -7,6 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.{Instant, LocalDate}
+import java.util.UUID
 import scala.io.Source
 
 class ProductEventRollupServiceSpec extends AnyWordSpec with Matchers with ProductTelemetryDbHarness {
@@ -67,16 +68,22 @@ class ProductEventRollupServiceSpec extends AnyWordSpec with Matchers with Produ
 
   /** Backfill fixture users use the reserved `@backfill.invalid` domain, which no harness, newUser() or migration email can match.
     * ~400 historical users (one per day, 1..400 days before BackfillNow) plus the harness's two and a "bf"-UUID decoy. */
-  private def withHistoricalUsers[T](body: => T): T = {
+  private def withHistoricalUsers[T](body: Set[String] => T): T = {
     priv(sqlu"INSERT INTO users (id, email, created_at) VALUES (${DecoyId}::uuid, ${DecoyId + "@t.local"}, now())")
     // every pre-existing user (harness users + any migration-seeded baseline user) lands on a day a bf user also uses
     priv(sqlu"""UPDATE users SET created_at = TIMESTAMPTZ '2026-09-23 10:00:00+00'""")
+    // pin-time roster by exact id: every user here carries the literal created_at above; never recomputed at assertion time
+    val roster = priv(sql"SELECT id::text FROM users".as[String]).toSet
+    roster should contain allOf (userA.value, userB.value, DecoyId)
+    // a non-backfill user dated AFTER BackfillToday (what a wall-clock newUser() looks like on any day past the anchor),
+    // inserted after the pin and the roster capture so it is in neither
+    priv(sqlu"INSERT INTO users (id, email, created_at) VALUES (${LateId}::uuid, ${LateId + "@t.local"}, TIMESTAMPTZ '2026-10-05 09:00:00+00')")
     priv(sqlu"""INSERT INTO users (id, email, created_at)
                 SELECT gen_random_uuid(), 'bf' || g || '@backfill.invalid', TIMESTAMPTZ '2026-10-03 09:00:00+00' - (g || ' days')::interval
                 FROM generate_series(1, 400) g""")
     try {
       val result =
-        try body
+        try body(roster)
         finally priv(sqlu"DELETE FROM users WHERE email LIKE '%@backfill.invalid'")
       // reached only when body completed: the cleanup must not have deleted userA, userB or the decoy
       val survivors = priv(
@@ -84,19 +91,30 @@ class ProductEventRollupServiceSpec extends AnyWordSpec with Matchers with Produ
       )
       survivors shouldBe 3
       result
-    } finally priv(sqlu"DELETE FROM users WHERE id = ${DecoyId}::uuid")
+    } finally priv(sqlu"DELETE FROM users WHERE id IN (${DecoyId}::uuid, ${LateId}::uuid)")
   }
 
-  private def otherUsers: Int = priv(sql"SELECT COUNT(*) FROM users WHERE email NOT LIKE '%@backfill.invalid'".as[Int].head)
+  /** Fixed non-"bf", non-backfill-domain user dated 2026-10-05, after BackfillToday: V114 backfills its signup but a 2026-10-03 tick never rolls it. */
+  private val LateId = "5a7e0000-0000-4000-8000-000000000005"
+  private val LateDay = LocalDate.parse("2026-10-05")
+
+  /** Raw signup rows belonging to the fixture's own users: the pin-time roster (exact ids) plus the `@backfill.invalid` users. */
+  private def fixtureSignups(roster: Set[String]): Int = {
+    val ids = roster.map(id => s"'${UUID.fromString(id)}'").mkString(", ") // ids were read from users.id; parsed to guarantee UUID shape
+    priv(sql"""SELECT COUNT(*) FROM product_events
+               WHERE event = 'signup_completed'
+                 AND (user_id IN (#$ids) OR user_id IN (SELECT id FROM users WHERE email LIKE '%@backfill.invalid'))""".as[Int].head)
+  }
 
   private def wau(day: LocalDate): Option[Long] =
     priv(sql"SELECT weekly_active_users FROM product_active_users_daily WHERE day = CAST(${day.toString} AS date)".as[Option[Long]].headOption).flatten
 
   "V114 backfilled history" should {
 
-    "roll up in ONE tick when rolled_through is NULL, with WAU in-window only and signup rows surviving the purge" in withHistoricalUsers {
+    "roll up in ONE tick when rolled_through is NULL, with WAU in-window only and signup rows surviving the purge" in withHistoricalUsers { roster =>
       runBackfill()
-      countEvents("signup_completed") shouldBe 400 + otherUsers
+      fixtureSignups(roster) shouldBe 400 + roster.size
+      priv(sql"SELECT COUNT(*) FROM product_events WHERE event = 'signup_completed' AND user_id = ${LateId}::uuid".as[Int].head) shouldBe 1
       // an old non-exempt row that the purge must remove while the signups survive
       rawInsert(userA, "provenance_opened", BackfillNow.minusSeconds(200L * 86400L))
       await(repo.state()).rolledThrough shouldBe None
@@ -108,19 +126,21 @@ class ProductEventRollupServiceSpec extends AnyWordSpec with Matchers with Produ
 
       await(repo.state()).rolledThrough shouldBe Some(BackfillToday.minusDays(2))
       priv(sql"SELECT COUNT(DISTINCT day) FROM product_event_daily WHERE event = 'signup_completed'".as[Int].head) shouldBe 400
-      priv(sql"SELECT SUM(event_count) FROM product_event_daily WHERE event = 'signup_completed'".as[Long].head) shouldBe (400L + otherUsers)
+      priv(sql"SELECT SUM(event_count) FROM product_event_daily WHERE event = 'signup_completed'".as[Long].head) shouldBe (400L + roster.size)
+      eventCount(LateDay, "signup_completed") shouldBe None // the 2026-10-03 tick never rolls a later day
       // WAU: computable inside retention, NULL (by existing design) once the window left it
       wau(BackfillToday.minusDays(1)) should not be None
       wau(BackfillToday.minusDays(2)) should not be None
       wau(BackfillToday.minusDays(400)) shouldBe None
       priv(sql"SELECT COUNT(*) FROM product_active_users_daily".as[Int].head) should be >= 400
       // purge exempts signup_completed, removes the old provenance_opened
-      countEvents("signup_completed") shouldBe 400 + otherUsers
+      fixtureSignups(roster) shouldBe 400 + roster.size
+      priv(sql"SELECT COUNT(*) FROM product_events WHERE event = 'signup_completed' AND user_id = ${LateId}::uuid".as[Int].head) shouldBe 1
       countEvents("provenance_opened") shouldBe 0
       eventCount(BackfillToday.minusDays(200), "provenance_opened") shouldBe Some(1L)
     }
 
-    "become visible when rolled_through was ALREADY set: V114 lowers the mark and the next tick re-rolls history" in withHistoricalUsers {
+    "become visible when rolled_through was ALREADY set: V114 lowers the mark and the next tick re-rolls history" in withHistoricalUsers { _ =>
       // a previous tick had already advanced the mark (recent days only)
       priv(sqlu"UPDATE product_rollup_state SET rolled_through = CAST(${BackfillToday.minusDays(2).toString} AS date) WHERE id = 1")
       runBackfill()
@@ -132,7 +152,7 @@ class ProductEventRollupServiceSpec extends AnyWordSpec with Matchers with Produ
       eventCount(BackfillToday.minusDays(400), "signup_completed") shouldBe Some(1L)
     }
 
-    "document the accepted limitation: lowering the mark defeats the partly-purged guard for days past retention" in withHistoricalUsers {
+    "document the accepted limitation: lowering the mark defeats the partly-purged guard for days past retention" in withHistoricalUsers { _ =>
       val old = BackfillToday.minusDays(200)
       // Control: with the mark left alone, the guard keeps an old, already-purged day's rollup.
       priv(sqlu"UPDATE product_rollup_state SET rolled_through = CAST(${BackfillToday.minusDays(2).toString} AS date) WHERE id = 1")
