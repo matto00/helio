@@ -1,5 +1,0 @@
-- `backend/src/main/scala/com/helio/domain/engine/ExpressionEvaluator.scala` — floor/ceil/abs/round/mod, SupportedFunctions list, float inference, header doc
-- `backend/src/test/scala/com/helio/domain/engine/ExpressionEvaluatorSpec.scala` — function semantics, parity, bidirectional drift guard
-- `backend/src/test/scala/com/helio/domain/engine/PipelineAnalyzeServiceSpec.scala` — analyze reports float / listing error
-- `backend/src/test/scala/com/helio/domain/steps/ComputeStepSpec.scala` — pipeline-level compute step values + write-path messages
-- `docs/compute-expression-grammar.md` — function table, errors, inference wording
