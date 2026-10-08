@@ -10,9 +10,9 @@ import spray.json._
  *  `GET/POST /api/pipelines/:id/outputs` and `GET/PATCH/DELETE
  *  /api/outputs/:id`. `config`/`schema` are carried as raw `JsValue` (like
  *  `PanelResponse.config` / `AlertRuleProtocol.condition`) — an Output's
- *  `config` shape varies by `kind` (chart legend/tooltip/seriesColors/
- *  axisLabels for `chart`; `format` for `metric`/`collection`, HEL-876) and
- *  has no single case class this protocol could bind to. */
+ *  `config` shape varies by `kind` (known keys per kind: see
+ *  `OutputConfigValidation.KnownKeys`) and has no single case class this
+ *  protocol could bind to. */
 final case class OutputSchemaFieldResponse(name: String, `type`: String)
 
 /** `panelCount` (HEL-909 CR2) is the number of panels currently bound to this
@@ -87,9 +87,10 @@ final case class CreateOutputRequest(
  *  config object), so a plain `Option` captures the full absent-vs-present
  *  idiom with no need for the `Option[Option[T]]` wrapper HEL-362/HEL-623
  *  reach for when a field can also be explicitly nulled. `config`, when
- *  present, is merged into the stored config one level deep for
- *  `legend`/`tooltip`/`seriesColors`/`axisLabels` (HEL-877) rather than
- *  replacing `config` wholesale — see `OutputService.mergeConfig`. */
+ *  present, is shallow-merged into the stored config (each top-level key
+ *  replaces that key) rather than replacing `config` wholesale — see
+ *  `OutputService.mergeConfig`; its keys are validated per kind by
+ *  `OutputConfigValidation` (HEL-1313). */
 final case class UpdateOutputRequest(name: Option[String], config: Option[JsObject])
 
 /** `GET /api/outputs/:id/rows` response (HEL-946 Bug C(2)). `metric` (HEL-1326) is the metric value

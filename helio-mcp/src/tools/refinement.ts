@@ -17,6 +17,7 @@ import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import type { PatchSet } from "../types.js";
 import { patchSetSchema } from "./refinementSchemas.js";
+import { OUTPUT_CONFIG_KEYS_DOC } from "./outputs.js";
 import {
   applyPatchSetHandler,
   proposePatchSetHandler,
@@ -98,7 +99,9 @@ export function registerRefinementTools(server: McpServer, api: HelioApi): void 
         "rollback happened). An output-panel edit whose `patch.config.controls` holds a control the " +
         "Output's contract disallows is NOT rejected at propose time; apply_patch_set answers HTTP " +
         "200 with `edits: []` and `failure: \"control not eligible: column '<c>', kind '<k>'\"`, " +
-        "and every earlier edit in the set is rolled back (observed live).",
+        "and every earlier edit in the set is rolled back (observed live). For an `output` " +
+        "update edit, `patch` is `{ name?, config? }` and `patch.config` is shallow-merged. " +
+        OUTPUT_CONFIG_KEYS_DOC,
       inputSchema: {
         patchSet: patchSetSchema,
       },

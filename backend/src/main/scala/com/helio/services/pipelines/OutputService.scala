@@ -130,7 +130,7 @@ final class OutputService(
       case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
       case Right(kind) =>
         val config = req.config.getOrElse(JsObject.empty)
-        OutputService.validateConfig(kind, config) match {
+        OutputService.validateConfig(kind, config, JsObject.empty) match {
           case Left(err) => Future.successful(Left(err))
           case Right(()) =>
             accessChecker.requireAccess("pipeline", pipelineId.value, Some(user), "Pipeline not found").flatMap {
@@ -223,13 +223,18 @@ final class OutputService(
       case Some(output) => outputRepo.findConfigById(id, user).map(cfg => Right((output, cfg.getOrElse(JsObject.empty))))
     }
 
-  /** Partial-merge update (HEL-877): a present `config` field is merged into
-   *  the stored config one level deep for the four known sub-objects
-   *  (`legend`, `tooltip`, `seriesColors`, `axisLabels`) — every other
-   *  top-level key is replaced outright, matching a shallow-merge PATCH
-   *  contract. Owner-only (RLS `outputs_update`, V94) — a non-owner sees a
+  /** Partial-merge update (HEL-877): a present `config` field is shallow-merged
+   *  into the stored config — each top-level key in the patch replaces that key
+   *  outright (HEL-1313 removed the former one-level deep merge). `policy` is
+   *  [[OutputConfigWritePolicy.ValidateWrite]] for every caller except patch-set
+   *  rollback. Owner-only (RLS `outputs_update`, V94) — a non-owner sees a
    *  404 (existence-not-leaked), never a 403. */
-  def update(id: OutputId, req: UpdateOutputRequest, user: AuthenticatedUser): Future[Either[ServiceError, (Output, JsObject)]] =
+  def update(
+      id:     OutputId,
+      req:    UpdateOutputRequest,
+      user:   AuthenticatedUser,
+      policy: OutputConfigWritePolicy = OutputConfigWritePolicy.ValidateWrite
+  ): Future[Either[ServiceError, (Output, JsObject)]] =
     outputRepo.findById(id, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
       case Some(output) =>
@@ -241,7 +246,7 @@ final class OutputService(
             // actually persist), not the raw patch -- a patch that only touches an unrelated
             // sub-object must not bypass validation of an already-invalid stored fieldMapping,
             // and a patch that legitimately fixes fieldMapping must be judged on its result.
-            mergedConfig.map(cfg => OutputService.validateConfig(output.kind, cfg)).getOrElse(Right(())) match {
+            req.config.map(patch => OutputService.validateConfig(output.kind, patch, existingConfig, policy)).getOrElse(Right(())) match {
               case Left(err) => Future.successful(Left(err))
               case Right(()) =>
                 outputRepo.updateOwned(id, user, req.name, mergedConfig).flatMap {
@@ -471,24 +476,28 @@ object OutputService {
     }
   }
 
-  /** Every Output config write path's validation: `fieldMapping` slots (HEL-892), then
-   *  `config.compare` (HEL-1273), then `config.historyPayloads` (HEL-1276). */
-  def validateConfig(kind: OutputKind, config: JsObject): Either[ServiceError, Unit] =
-    validateFieldMapping(kind, config)
-      .flatMap(_ => OutputCompare.validateConfig(config).left.map(ServiceError.BadRequest(_)))
-      .flatMap(_ => PayloadOptIn.validateConfig(config).left.map(ServiceError.BadRequest(_)))
-
-  private val mergeableSubObjects = Set("legend", "tooltip", "seriesColors", "axisLabels")
+  /** Every Output config write path's validation: key set and `aggregation`/`chartType` shapes
+   *  (HEL-1313, skipped for [[OutputConfigWritePolicy.RestorePriorStored]]), then the MERGED config's
+   *  `fieldMapping` slots (HEL-892), `config.compare` (HEL-1273) and `config.historyPayloads`
+   *  (HEL-1276). `written` is what the caller sent, `stored` the pre-write config (empty on create). */
+  def validateConfig(
+      kind:    OutputKind,
+      written: JsObject,
+      stored:  JsObject,
+      policy:  OutputConfigWritePolicy = OutputConfigWritePolicy.ValidateWrite
+  ): Either[ServiceError, Unit] = {
+    val keyCheck: Either[ServiceError, Unit] = policy match {
+      case OutputConfigWritePolicy.ValidateWrite      => OutputConfigValidation.validate(kind, written, stored).left.map(ServiceError.BadRequest(_))
+      case OutputConfigWritePolicy.RestorePriorStored => Right(())
+    }
+    val merged = mergeConfig(stored, written)
+    keyCheck
+      .flatMap(_ => validateFieldMapping(kind, merged))
+      .flatMap(_ => OutputCompare.validateConfig(merged).left.map(ServiceError.BadRequest(_)))
+      .flatMap(_ => PayloadOptIn.validateConfig(merged).left.map(ServiceError.BadRequest(_)))
+  }
 
   /** HEL-1239: shared with `PatchSetPreviewProjection` so an output-update preview merges exactly
    *  as `update` does. */
-  def mergeConfig(existing: JsObject, patch: JsObject): JsObject = {
-    val mergedFields = existing.fields ++ patch.fields.map {
-      case (key, patchValue: JsObject) if mergeableSubObjects.contains(key) =>
-        val existingSub = existing.fields.get(key).collect { case o: JsObject => o }.getOrElse(JsObject.empty)
-        key -> JsObject(existingSub.fields ++ patchValue.fields)
-      case other => other
-    }
-    JsObject(mergedFields)
-  }
+  def mergeConfig(existing: JsObject, patch: JsObject): JsObject = JsObject(existing.fields ++ patch.fields)
 }

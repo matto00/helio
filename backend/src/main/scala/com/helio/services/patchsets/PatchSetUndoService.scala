@@ -294,6 +294,8 @@ final class PatchSetUndoService(
       val placements      = entryObj.fields.get("placements").map(_.convertTo[Vector[PanelResponse]]).getOrElse(Vector.empty)
       val kind            = OutputKind.fromString(outputResponse.kind).getOrElse(OutputKind.Table)
       val schema          = outputResponse.schema.flatMap(f => DataFieldType.fromString(f.`type`).map(t => SchemaField(f.name, DataFieldType.asString(t))))
+      // HEL-1313: raw restore of previously stored data -- deliberately NOT run through
+      // OutputConfigValidation; restoring stored state must never be refused.
       context.outputRepo.insertInternal(
         PipelineId(outputResponse.pipelineId), Some(PipelineStepId(newStepId)), user.id, outputResponse.name, kind,
         config = outputResponse.config.asJsObject, schema = schema, tag = None, explicitRootId = None

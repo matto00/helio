@@ -1,5 +1,6 @@
 package com.helio.api.protocols.assistant
 
+import com.helio.services.pipelines.OutputConfigValidation
 import com.helio.infrastructure.ai.ClaudeTool
 import spray.json._
 
@@ -254,7 +255,10 @@ private[protocols] trait AssistantProposalToolSchemas {
         "enum" -> JsArray(Vector("table", "metric", "chart", "collection", "timeline", "markdown").map(JsString(_)))
       ),
       "name"   -> JsObject("type" -> JsString("string")),
-      "config" -> JsObject("type" -> JsString("object")),
+      "config" -> JsObject(
+        "type"        -> JsString("object"),
+        "description" -> JsString(OutputConfigValidation.KeysDoc)
+      ),
       "rootClientId" -> JsObject(
         "type" -> JsArray(Vector(JsString("string"), JsString("null"))),
         "description" -> JsString(
@@ -388,7 +392,8 @@ private[protocols] trait AssistantProposalToolSchemas {
             "create's patch must ALSO set attachAsTail: true to add a SIBLING lane off " +
             "patch.parentStepId -- omitting it instead SPLICES the new step in directly after " +
             "patch.parentStepId, reparenting that step's existing children onto the new step (a " +
-            "trunk insertion, not a new lane)."
+            "trunk insertion, not a new lane). For target.kind \"output\" (update only), patch is " +
+            "{ name?, config? } and patch.config is shallow-merged: " + OutputConfigValidation.KeysDoc
         )
       )
     ),

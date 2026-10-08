@@ -1,5 +1,7 @@
 package com.helio.services.patchsets
 
+import com.helio.services.pipelines.OutputConfigValidation
+
 /** Hand-maintained `PatchSet`/`Edit` shape description + worked JSON examples for `RefinementPrompt`
  *  (design.md D2a — "the ticket's central technical bet"). Split into its own file (not inlined into
  *  `RefinementPrompt`) purely to keep both files under CONTRIBUTING's ~250-line soft budget — this
@@ -259,6 +261,7 @@ object RefinementEditShape {
       "output panel create:\n" + OutputPanelCreateExample +
       "\n\noutput update (rename, or rebind config \u2014 see the worked output-update\n" +
       "example above; output has NO create op of its own):\n" + OutputUpdateExample +
+      "\npatch.config of an output update: " + OutputConfigValidation.KeysDoc +
       "\n\ncreate is ALSO supported for dashboard (patch: { \"name\": string }), dataSource (patch reuses\n" +
       "StaticDataSourceRequest \u2014 { \"name\", \"type\": \"static\", \"columns\": [...], \"rows\": [...] }, static\n" +
       "only), and pipeline (patch reuses CreatePipelineRequest \u2014 { \"name\", \"roots\": [{ \"sourceId\" }] }\n" +
