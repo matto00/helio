@@ -82,13 +82,18 @@ Function-call syntax is `name(arg1, arg2, ...)`. Arguments are themselves expres
 `$refs`, or nested calls) and are evaluated left-to-right. Functions bind like a single factor, so
 `concat($a, $b) + "!"` parses unambiguously (the `+` applies to the whole call's result).
 
-| Function                   | Arity | Behavior                                                                                                 | Errors                                                  |
-| -------------------------- | ----- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `concat(a, b, ...)`        | ≥ 1   | Joins all arguments as strings (numbers coerced, same as `+`'s coercion)                                 | —                                                       |
-| `substring(s, start, end)` | 3     | 0-indexed, `end` exclusive; **out-of-range `start`/`end` are clamped to `[0, length(s)]`, not an error** | first argument must be a string (`TypeError` otherwise) |
-| `lower(s)`                 | 1     | Lowercases a string                                                                                      | non-string argument is a `TypeError`                    |
-| `upper(s)`                 | 1     | Uppercases a string                                                                                      | non-string argument is a `TypeError`                    |
-| `length(s)`                | 1     | Character count as a number                                                                              | non-string argument is a `TypeError`                    |
+| Function                   | Arity  | Behavior                                                                                                                                                                                                                                                      | Errors                                                                         |
+| -------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `concat(a, b, ...)`        | ≥ 1    | Joins all arguments as strings (numbers coerced, same as `+`'s coercion)                                                                                                                                                                                      | —                                                                              |
+| `substring(s, start, end)` | 3      | 0-indexed, `end` exclusive; **out-of-range `start`/`end` are clamped to `[0, length(s)]`, not an error**                                                                                                                                                      | first argument must be a string (`TypeError` otherwise)                        |
+| `lower(s)`                 | 1      | Lowercases a string                                                                                                                                                                                                                                           | non-string argument is a `TypeError`                                           |
+| `upper(s)`                 | 1      | Uppercases a string                                                                                                                                                                                                                                           | non-string argument is a `TypeError`                                           |
+| `length(s)`                | 1      | Character count as a number                                                                                                                                                                                                                                   | non-string argument is a `TypeError`                                           |
+| `floor(x)`                 | 1      | Rounds toward negative infinity (`floor(0 - 2.5)` = `-3`)                                                                                                                                                                                                     | non-numeric argument is a `TypeError`                                          |
+| `ceil(x)`                  | 1      | Rounds toward positive infinity (`ceil(0 - 2.5)` = `-2`)                                                                                                                                                                                                      | non-numeric argument is a `TypeError`                                          |
+| `abs(x)`                   | 1      | Absolute value                                                                                                                                                                                                                                                | non-numeric argument is a `TypeError`                                          |
+| `round(x)` / `round(x, d)` | 1 or 2 | Rounds half **away from zero** on the value's decimal form: `round(2.5)` = `3`, `round(0 - 2.5)` = `-3`, `round(2.675, 2)` = `2.68`. `d` must be a whole number; negative `d` rounds to tens/hundreds (`round(1234, 0 - 2)` = `1200`); `d` is clamped to ±308 | non-numeric argument, or fractional `d`, is a `TypeError`                      |
+| `mod(a, b)`                | 2      | **Floored** remainder, sign follows the divisor `b`: `mod(7, 3)` = `1`, `mod(0 - 7, 3)` = `2`, `mod(7, 0 - 3)` = `-2`, `mod(5.5, 2)` = `1.5` (differs from SQL/Java truncated `%`)                                                                            | non-numeric argument is a `TypeError`; `b` = `0` is a per-row `null`, like `/` |
 
 An unknown function name, or a call with the wrong number of arguments, is a **parse error**
 (caught by `validate()` before the expression is ever run against a row).
@@ -99,7 +104,13 @@ substring($sku, 0, 3)                  // "ABC" from "ABC-1234"
 substring($sku, 0, 999)                // clamps to the full string — no error
 upper($code)                           // "AB12" from "ab12"
 length($name)                          // 3
+round($rate * 100, 1)                  // 87.3 from 0.8734
+mod($n, 3)                             // bucket index; mod(0 - 7, 3) = 2
 ```
+
+The numeric functions are numeric-strict, like `-`/`*`/`/`: a string argument — including a numeric
+string such as `"3.7"` from an uncast CSV column — is a `TypeError` (row value `null`); use a `cast`
+step first. Their results are floats on the wire, so analyze-time and run-time types agree.
 
 If any argument evaluates to `null` (e.g. an unset field), the whole call's result is `null`
 (same null-propagation as the binary operators) rather than an error.
@@ -107,7 +118,7 @@ If any argument evaluates to `null` (e.g. an unset field), the whole call's resu
 ## Errors
 
 Parse/validation errors surface as a human-readable message (e.g. `"Column references require a
-'$' prefix"`, `"Unknown field: foo"`, `"'reverse' is not a recognized function"`,
+'$' prefix"`, `"Unknown field: foo"`, `"'reverse' is not a recognized function; supported functions: abs, ceil, concat, floor, length, lower, mod, round, substring, upper"`,
 `"substring requires 3 arguments"`). At **analyze time** (`PipelineAnalyzeService.inferCompute`),
 this message is set on `AnalyzedStep.validationError` and rendered inline under the expression
 input in the step-card UI (`ComputeFieldConfig`). At **row-execution time**
@@ -117,14 +128,14 @@ throwing — the pipeline keeps running.
 
 ## Output type inference
 
-`ExpressionEvaluator.inferType` derives the compute step's output field type (`"number"` or
+`ExpressionEvaluator.inferType` derives the compute step's output field type (`"float"` or
 `"string"`) directly from the expression, instead of trusting a possibly-stale `type` value on the
 wire:
 
-- Numeric literals and arithmetic (`-`, `*`, `/`, and `+` when neither side is a string) → `number`
+- Numeric literals and arithmetic (`-`, `*`, `/`, and `+` when neither side is a string) → `float`
 - String literals, `concat`, `substring`, `lower`, `upper` → `string`
-- `length` → `number`
-- `+` → `string` if either operand infers `string`, else `number`
+- `length`, `floor`, `ceil`, `round`, `mod`, `abs` → `float`
+- `+` → `string` if either operand infers `string`, else `float`
 - A `$`-prefixed field reference inherits its type from the input schema
 
 ## Legacy compatibility

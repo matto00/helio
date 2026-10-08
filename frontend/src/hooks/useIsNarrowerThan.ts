@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 /** Reads `window.matchMedia` for `(max-width: {breakpointPx - 1}px)` and
  *  stays live across resizes -- returns `false` (never throws) when
  *  `matchMedia` doesn't exist (jsdom/tests) or during SSR, matching
- *  `Toast.tsx`'s `prefersReducedMotion` guard convention.
+ *  the guard convention of `utils/prefersReducedMotion.ts`.
  *
  *  Genuinely reactive at runtime, not a CSS-hidden duplicate: a caller
  *  branching render logic on this (e.g. moving an action from an inline

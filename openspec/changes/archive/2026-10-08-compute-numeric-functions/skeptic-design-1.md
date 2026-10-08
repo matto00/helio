@@ -1,0 +1,34 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+Reviewed HEAD `8efa42298fdf19779174beba6a35ead4c2d7126b` (planning artifacts are untracked under the change dir).
+
+### What I verified (with evidence)
+
+- **Spawn-cwd guard:** `assert-cwd.sh` → `READY ambient=/home/matt/Development/helio branch=feature/compute-numeric-functions/HEL-1315`.
+- **AC coverage.** AC1 (correct values, negatives, null) → D3/D4/D5 + tasks 1.3/3.1 + spec scenarios for each function on negatives and null. AC2 (inferred = applied) → D6 + tasks 1.4/3.3/3.4. AC3 (unknown-function message lists new functions) → D7 + tasks 1.2/3.2 + spec "Unknown function name is a parse error" scenario. No uncovered AC; no scope beyond the ticket (non-goals explicitly exclude unary minus, coercion, HEL-1070/1314/1310).
+- **Design's "existing conventions" claims, checked against `ExpressionEvaluator.scala`:**
+  - `checkArity` at :211-216 is the only name/arity gate, reached from `StrictParser.parseFactor` :279 — so `validate`, `parseProblem`, `compile`, and `inferType` all share it. Claim holds.
+  - `applyFn` :606 null-propagates any `VNull` arg. Holds.
+  - `-`/`*`/`/` numeric-strict with `TypeError` fallthrough :594-597; `/` by zero → `DivisionByZero` :587. Holds.
+  - `inferTypeOf` :462-488 returns `"float"` for numeric literals, arithmetic, and `length`. Holds. The proposal's spec delta correctly brings the baseline spec's stale `"number"` wording (openspec/specs/compute-expression-language/spec.md:136-155) in line with code.
+  - `valToJs` :667 emits `JsNumber(n: Double)`; `PipelineRowJson.jsValueToAny` :61 materialises every JSON number as `Double`. So the run path does not distinguish integer from float. Inferring `"float"` for floor/ceil/round is the only parity-correct choice. D6 is right; inferring `"integer"` would be the parity bug.
+  - `ComputeStep.apply` (ComputeStep.scala:67-80) maps per-row `Left` to `null`. Holds.
+  - `LegacyParser` has no `FnName` arm, so new syntax only goes through `StrictParser`. Holds.
+- **Callers enumerated in the proposal match a grep** of `backend/src/main`: PipelineAnalyzeService.scala:563/568 (validate + inferType, with `inferType` only on `validate` success), ComputeStep.scala:67/103/119, PipelineService.scala:1293. They all go through the same parser, so there is nothing per-caller to change.
+- **spray-json non-finite behaviour** (spray-json_2.13-1.3.6 sources, `JsValue.scala` :100-104): `JsNumber.apply(n: Double)` returns `JsNull` for NaN/±Infinity and otherwise `new JsNumber(BigDecimal(n))`. D4's "non-finite x passes through unchanged" therefore cannot throw, and serialises as `null`, the same as today's `*` overflow. It is safe. The important part of D4 is keeping a non-finite value out of `BigDecimal.decimal`, which throws `NumberFormatException` on "Infinity". That part is correct.
+- **round HALF_UP on `BigDecimal.decimal`:** `BigDecimal.decimal(d)` builds from `java.lang.Double.toString(d)` (shortest repr), so 2.675 → "2.675" → HALF_UP@2 → 2.68, and ±2.5 → ±3. These are the claimed values. HALF_UP is away-from-zero for ties in java.math. Spec example `round($rate*100, 1)` on 0.8734: the product is 87.34 or 87.33999…; either way it rounds to 87.3. Correct. The digit clamp to [-308, 308] bounds the unscaled BigInteger to about 616 digits worst case (x=1e308, scale 308), which is cheap. Fractional digits → TypeError. NaN/Inf digits fail `isWhole`, so they are also TypeError. The clamp must be applied to the double before `toInt` (`toInt` saturates anyway, so either order is safe).
+- **Floored mod formula** checked by hand on all four sign quadrants: (-7,3)→2, (7,-3)→-2, (-7,-3)→-1, (7,3)→1. These match D5. A `b == 0` check also catches `-0.0` (since `-0.0 == 0`).
+- **Unknown-function message consumers:** grep finds only ExpressionEvaluatorSpec.scala:77 (exact match, which task 3.2 updates), docs/compute-expression-grammar.md:110 (task 2.1), and archived/baseline spec text (the delta updates the baseline). Frontend: `ComputeFieldConfig.tsx` has no function list or validator; it renders `validationError` verbatim. helio-mcp and assistant prompts do not enumerate compute functions. Claim holds.
+- **Spec delta mechanics:** both MODIFIED requirement headers exactly match the baseline (`Function-call syntax for string operations`, `Output type can be inferred from the expression AST`). All seven baseline scenarios of the function-call requirement and all three inference scenarios are carried forward. No scenario is dropped.
+- **No placeholders, TBDs, or deferred decisions** in proposal/design/tasks. Every task has a named verification signal.
+- **Product-call check (owner asleep):** D4 (ties away from zero) and D5 (floored mod) are semantics choices the ticket makes unavoidable: AC1 demands defined negative behaviour. Each matches spreadsheet precedent (Excel/Sheets ROUND/MOD), is recorded with its rejected alternative, and is flagged for the delivery report. The outputs are additive: no existing expression changes value, since these functions previously failed to parse. I do not consider either an owner-level product call requiring ESCALATION. Both are reversible before anyone depends on them, and the ticket author explicitly delegated "mod" without semantics. No other self-approved decision qualifies as a product call.
+
+### Verdict: CONFIRM
+
+### Non-blocking notes
+
+1. **Negative-zero normalisation is unobservable through the public API.** `valToJs` → `JsNumber(BigDecimal(-0.0))` has signum 0 and prints `0.0`, and `numStr(-0.0)` prints `"0"`. So "no `-0`" holds whether or not you normalise. Keep the normalisation if you like, but do not write a test that claims to guard it via `evaluate`, because it cannot fail under mutation. Also note that D3 scopes the normalisation to floor/ceil/abs, while the spec's "No numeric function result SHALL be negative zero" also covers `mod` (`-6 % 3 == -0.0`). It is moot for the same reason.
+2. **Floating-point floored-mod edge:** `mod(-1e-20, 3)` evaluates `r + b` to `3.0`, which is outside `[0, b)`. Python has the same quirk. Don't claim `0 <= mod(a,b) < b` as an invariant in docs or tests. A doc caveat is optional.
+3. **The D7 drift guard is one-directional.** It checks that every listed name passes `checkArity`, but it does not catch a name added to `checkArity` and left out of the list. Driving `checkArity`'s unknown-name check from the same list, or asserting the converse with a probe name set, would close it. This is optional.
+4. Use Scala's `BigDecimal.RoundingMode.HALF_UP` with Scala `BigDecimal.setScale`. Mixing in `java.math.RoundingMode` will not compile against the Scala overload. The compiler will catch this either way.
+5. The delivery report should state D4/D5 and the floored-vs-truncated divergence from Postgres/Spark, as the Planner Notes already intend. That way the owner sees it when awake.

@@ -5,10 +5,10 @@ import {
   appearanceToEChartsOption,
   applyAxisTriggerTooltip,
   applyHoverEmphasis,
-  prefersReducedMotion,
   toSeriesArray,
 } from "../../../utils/chartAppearance";
 import type { ChartThemeTokens } from "../../../utils/chartAppearance";
+import { prefersReducedMotion } from "../../../utils/prefersReducedMotion";
 import { defaultChartAppearance, resolveChartTextColor } from "../../../theme/appearance";
 import type { Theme } from "../../../theme/theme";
 import { applyChartTypeOptions } from "../../../utils/chartTypeOptions";
