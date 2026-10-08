@@ -9,7 +9,7 @@ import { ProvenanceTrigger } from "../provenance/ProvenanceTrigger";
 import { buildViewerControlFilterOps } from "../state/viewerControlValues";
 import { clearSelection, selectDataPoint } from "../state/panelsSlice";
 import { getOutputId, isOutputPanel } from "../state/panelNarrowing";
-import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { useViewerControls } from "../hooks/useViewerControls";
 import { getDistinctValues } from "../../pipelines/services/outputService";
 import type { PanelDataResult } from "../hooks/usePanelData";
@@ -17,7 +17,7 @@ import type { OutputControlSpec, Panel } from "../types/panel";
 import type { ChartClickSelection, ChartInspectConfig } from "../../../utils/chartClickSelection";
 import type { CrossFilterMode } from "../hooks/useCrossFilterServerOps";
 
-// HEL-1190 — module-level stable empty array, same rationale as `PanelCard.tsx`'s
+// HEL-1190 — module-level stable empty array, same rationale as `PanelCardBody.tsx`'s
 // `EMPTY_CONTROLS`.
 const EMPTY_CONTROLS: OutputControlSpec[] = [];
 
@@ -119,6 +119,8 @@ export function PanelFullscreenOverlay({
   crossFilterMode,
 }: PanelFullscreenOverlayProps) {
   const dispatch = useAppDispatch();
+  // HEL-1358 design D5 — the same source the grid card reads (`PanelCardBody`'s `paginationEntry`).
+  const totalRowCount = useAppSelector((state) => state.panels.paginationState[panel.id]?.total);
 
   // HEL-1190 design.md D1-D4/D10 (task 5.3) — the SAME URL-held control selection every other
   // render path reads (`useViewerControls` is keyed by `panel.id`). This overlay STILL never
@@ -153,7 +155,7 @@ export function PanelFullscreenOverlay({
   );
 
   // HEL-572 design.md D5 — this overlay's OWN "is the inspect view open"
-  // local boolean, parallel to `PanelCard`'s grid-context one; the
+  // local boolean, parallel to `usePanelCardInspect`'s grid-context one; the
   // SELECTION itself stays the single Redux-owned source of truth both
   // mount points read (`PanelInspectView`).
   const [isInspectOpen, setIsInspectOpen] = useState(false);
@@ -167,7 +169,7 @@ export function PanelFullscreenOverlay({
   // spec.md — Modal's own dismiss (Escape/backdrop/X) closes the view
   // without clearing the selection; only the explicit clear/return control
   // does both. See `PanelInspectView`'s own `onClose`/`onClear` doc
-  // comments, and `PanelCard`'s identical split for the grid-context view.
+  // comments, and `usePanelCardInspect`'s identical split for the grid-context view.
   const handleCloseInspect = useCallback(() => setIsInspectOpen(false), []);
   const handleClearInspect = useCallback(() => {
     setIsInspectOpen(false);
@@ -226,6 +228,7 @@ export function PanelFullscreenOverlay({
             neverMaterialized={neverMaterialized}
             paginationRows={paginationRows}
             rowsTruncated={rowsTruncated}
+            totalRowCount={totalRowCount}
             onDataPointSelect={handleDataPointSelect}
             crossFilterMode={crossFilterMode}
             viewerFilterActive={viewerFilterActive}

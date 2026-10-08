@@ -51,6 +51,20 @@ describe("buildOutputConfig", () => {
     expect(config.aggregation).toEqual({ groupBy: "region", agg: "sum", yField: "revenue" });
   });
 
+  it("writes aggregation: null for a scatter chart even when groupBy/yField/aggFn are set (HEL-1313)", () => {
+    const config = buildOutputConfig(
+      baseParams({
+        kind: "chart",
+        chartType: "scatter",
+        groupBy: "region",
+        chartAggFn: "sum",
+        yField: "revenue",
+      }),
+    );
+    expect(config.aggregation).toBeNull();
+    expect(config.chartType).toBe("scatter");
+  });
+
   it("omits chart aggregation when any of groupBy/yField/aggFn is missing", () => {
     const config = buildOutputConfig(baseParams({ kind: "chart", groupBy: "region" }));
     expect(config.aggregation).toBeNull();

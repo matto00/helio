@@ -204,6 +204,23 @@ export interface OutputResponse {
   rootId?: string;
   /** HEL-1331: read-only; whether the pipeline owner's tier keeps any history payload runs. */
   historyPayloadsAvailable?: boolean;
+  /** HEL-1372: read-only; the payload-history limits the server enforces (env overrides included). */
+  historyPayloadLimits?: HistoryPayloadLimits;
+}
+
+export interface HistoryPayloadTierLimit {
+  maxRuns: number;
+  maxAgeDays: number;
+}
+
+export interface HistoryPayloadLimits {
+  maxRows: number;
+  maxBytes: number;
+  tiers: {
+    free: HistoryPayloadTierLimit;
+    beta: HistoryPayloadTierLimit;
+    owner: HistoryPayloadTierLimit;
+  };
 }
 
 export interface OutputsResponse {
@@ -224,8 +241,8 @@ export interface CreateOutputRequest {
 }
 
 /** `name`/`config` absent means "leave unchanged" -- `config`, when present, is merged into the
- *  stored config one level deep for `legend`/`tooltip`/`seriesColors`/`axisLabels` (HEL-877)
- *  rather than replacing it wholesale. */
+ *  stored config (each top-level key replaces) rather than replacing it wholesale; unknown
+ *  keys are a 400 (HEL-1313). */
 export interface UpdateOutputRequest {
   name?: string;
   config?: Record<string, unknown>;

@@ -114,7 +114,8 @@ The system MUST reject an `appearance.chart.chartType` outside the allowed set (
 write paths: `POST /api/panels` (optional create-time `appearance`), `PATCH /api/panels/:id`, and
 `POST /api/panels/updateBatch` (the path the live edit UI uses). Batch validation MUST run before
 the transactional write so an invalid item rejects the whole batch with no partial write. An absent
-`chartType` SHALL remain valid (renderers fall back to line).
+`chartType` SHALL remain valid: the rendered chart type then resolves to the bound Output's `config.chartType`
+when that is one of the allowed values, else `line` (a stored panel `chartType` always wins over both).
 
 #### Scenario: PATCH with invalid chartType is rejected
 
@@ -144,6 +145,20 @@ the transactional write so an invalid item rejects the whole batch with no parti
 - **WHEN** a batch item carries `appearance.chart.chartType: "pie"`
 - **THEN** the stored appearance for that panel carries `chart.chartType: "pie"`
 
+#### Scenario: Absent panel chartType renders the Output's chart type
+
+- **GIVEN** a chart panel with no stored `appearance.chart.chartType`, bound to a chart Output whose `config.chartType`
+  is `"bar"`
+- **WHEN** the panel renders on the dashboard
+- **THEN** it renders as a bar chart
+
+#### Scenario: Absent panel and Output chartType renders line
+
+- **GIVEN** a chart panel with no stored `appearance.chart.chartType`, bound to a chart Output with no valid
+  `config.chartType`
+- **WHEN** the panel renders on the dashboard
+- **THEN** it renders as a line chart
+
 ### Requirement: Untouched appearance sentinels survive the edit-modal save
 
 The panel edit modal MUST preserve an appearance sentinel value (`background: "transparent"`,
@@ -172,12 +187,12 @@ persist an explicitly chosen hex color unchanged for any field the user edited.
 - **THEN** the saved `appearance.background` is the chosen hex value, not `"transparent"`
 
 ### Requirement: Panel appearance chart merges partially
-A payload `appearance.chart` object MUST merge over the panel's stored `chart` (or
-`ChartAppearance.Default` when the panel has no stored `chart`) field-by-field. A payload chart
-carrying only a subset of `seriesColors`/`legend`/`tooltip`/`axisLabels`/`chartType` MUST be
-accepted and MUST leave every unlisted chart field at its stored (or default) value. Each provided
-chart field replaces the stored field's value wholesale (no merge inside `legend`/`tooltip`/
-`axisLabels` themselves).
+A payload `appearance.chart` object MUST merge over the panel's stored `chart` field-by-field, or — when the panel
+has no stored `chart` — over `ChartAppearance.Default` **with `chartType` absent**, so a chart patch never stores a
+`chartType` the payload did not provide. A payload chart carrying only a subset of
+`seriesColors`/`legend`/`tooltip`/`axisLabels`/`chartType` MUST be accepted and MUST leave every unlisted chart field
+at its stored (or default) value. Each provided chart field replaces the stored field's value wholesale (no merge
+inside `legend`/`tooltip`/`axisLabels` themselves).
 
 #### Scenario: Partial chart payload sets only the provided field
 - **GIVEN** an existing chart panel with a stored `chart` carrying non-default `seriesColors`,
@@ -192,6 +207,14 @@ chart field replaces the stored field's value wholesale (no merge inside `legend
 - **WHEN** a client PATCHes the panel with `{"appearance": {"chart": {"chartType": "pie"}}}`
 - **THEN** the panel's stored `chart` becomes `ChartAppearance.Default` with `chartType` overridden
   to `"pie"`
+
+#### Scenario: A chart patch without chartType on a chartless panel stores no chartType
+- **GIVEN** an output panel with no stored `appearance.chart`, bound to a chart Output whose `config.chartType` is
+  `"bar"`
+- **WHEN** a client PATCHes the panel with `{"appearance": {"chart": {"legend": {"show": false, "position": "top"}}}}`
+- **THEN** the panel's stored `chart` carries the patched `legend` and the default `seriesColors`/`tooltip`/
+  `axisLabels`, with `chartType` absent
+- **AND** the panel still renders as a bar chart (the Output's type), not line
 
 #### Scenario: Explicit null on chartType within a chart patch clears it (does not reset to the line default)
 - **GIVEN** an existing chart panel whose stored `chart.chartType` is `"bar"`

@@ -1,6 +1,7 @@
 package com.helio.api.protocols.pipelines
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import com.helio.domain.history.{PayloadHistoryConfig, PayloadTierLimit}
 import com.helio.domain.model.{DataFieldType, Output, OutputKind}
 import com.helio.services.pipelines.OutputFilterCapability
 import spray.json._
@@ -9,9 +10,9 @@ import spray.json._
  *  `GET/POST /api/pipelines/:id/outputs` and `GET/PATCH/DELETE
  *  /api/outputs/:id`. `config`/`schema` are carried as raw `JsValue` (like
  *  `PanelResponse.config` / `AlertRuleProtocol.condition`) — an Output's
- *  `config` shape varies by `kind` (chart legend/tooltip/seriesColors/
- *  axisLabels for `chart`; `format` for `metric`/`collection`, HEL-876) and
- *  has no single case class this protocol could bind to. */
+ *  `config` shape varies by `kind` (known keys per kind: see
+ *  `OutputConfigValidation.KnownKeys`) and has no single case class this
+ *  protocol could bind to. */
 final case class OutputSchemaFieldResponse(name: String, `type`: String)
 
 /** `panelCount` (HEL-909 CR2) is the number of panels currently bound to this
@@ -40,8 +41,32 @@ final case class OutputResponse(
     updatedAt: String,
     panelCount: Option[Int] = None,
     rootId: Option[String] = None,
-    historyPayloadsAvailable: Option[Boolean] = None
+    historyPayloadsAvailable: Option[Boolean] = None,
+    historyPayloadLimits: Option[HistoryPayloadLimitsResponse] = None
 )
+
+/** HEL-1372: one tier's payload retention, mirroring `PayloadTierLimit` (age in whole days -- `fromEnv` is day-granular). */
+final case class HistoryPayloadTierLimitResponse(maxRuns: Int, maxAgeDays: Int)
+
+final case class HistoryPayloadTiersResponse(
+    free: HistoryPayloadTierLimitResponse,
+    beta: HistoryPayloadTierLimitResponse,
+    owner: HistoryPayloadTierLimitResponse
+)
+
+/** HEL-1372: read-only snapshot of the running server's `PayloadHistoryConfig`, env overrides included. */
+final case class HistoryPayloadLimitsResponse(maxRows: Int, maxBytes: Int, tiers: HistoryPayloadTiersResponse)
+
+object HistoryPayloadLimitsResponse {
+  def from(config: PayloadHistoryConfig): HistoryPayloadLimitsResponse = {
+    def tier(l: PayloadTierLimit) = HistoryPayloadTierLimitResponse(l.maxRuns, l.maxAge.toDays.toInt)
+    HistoryPayloadLimitsResponse(
+      config.maxRows,
+      config.maxBytes,
+      HistoryPayloadTiersResponse(tier(config.free), tier(config.beta), tier(config.owner))
+    )
+  }
+}
 
 final case class OutputsResponse(items: Vector[OutputResponse])
 
@@ -62,9 +87,10 @@ final case class CreateOutputRequest(
  *  config object), so a plain `Option` captures the full absent-vs-present
  *  idiom with no need for the `Option[Option[T]]` wrapper HEL-362/HEL-623
  *  reach for when a field can also be explicitly nulled. `config`, when
- *  present, is merged into the stored config one level deep for
- *  `legend`/`tooltip`/`seriesColors`/`axisLabels` (HEL-877) rather than
- *  replacing `config` wholesale — see `OutputService.mergeConfig`. */
+ *  present, is shallow-merged into the stored config (each top-level key
+ *  replaces that key) rather than replacing `config` wholesale — see
+ *  `OutputService.mergeConfig`; its keys are validated per kind by
+ *  `OutputConfigValidation` (HEL-1313). */
 final case class UpdateOutputRequest(name: Option[String], config: Option[JsObject])
 
 /** `GET /api/outputs/:id/rows` response (HEL-946 Bug C(2)). `metric` (HEL-1326) is the metric value
@@ -116,7 +142,10 @@ final case class PublicOutputMetaResponse(
 
 trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val outputSchemaFieldResponseFormat: RootJsonFormat[OutputSchemaFieldResponse] = jsonFormat2(OutputSchemaFieldResponse)
-  implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat13(OutputResponse)
+  implicit val historyPayloadTierLimitResponseFormat: RootJsonFormat[HistoryPayloadTierLimitResponse] = jsonFormat2(HistoryPayloadTierLimitResponse.apply)
+  implicit val historyPayloadTiersResponseFormat: RootJsonFormat[HistoryPayloadTiersResponse]         = jsonFormat3(HistoryPayloadTiersResponse.apply)
+  implicit val historyPayloadLimitsResponseFormat: RootJsonFormat[HistoryPayloadLimitsResponse]       = jsonFormat3(HistoryPayloadLimitsResponse.apply)
+  implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat14(OutputResponse.apply)
   implicit val outputsResponseFormat: RootJsonFormat[OutputsResponse]                     = jsonFormat1(OutputsResponse)
   implicit val createOutputRequestFormat: RootJsonFormat[CreateOutputRequest]             = jsonFormat5(CreateOutputRequest)
   implicit val outputRowsResponseFormat: RootJsonFormat[OutputRowsResponse]               = jsonFormat6(OutputRowsResponse)

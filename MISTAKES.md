@@ -225,18 +225,22 @@ tags have no Release because of exactly this. Verify with
 `scripts/release/audit-releases.sh`; **a successful deploy is not evidence the
 release was cut correctly, the audit is.**
 
-### The security gate is unconditional on high/critical (moderate for frontend/ and helio-mcp)
+### The security gate is moderate-or-higher for all three npm trees
 
-`audit-ci` runs with `"high": true` in the root tree, and with
-`"moderate": true` in `frontend/` (HEL-1320) and `helio-mcp/` (HEL-1204: its
+`audit-ci` runs with `"moderate": true` in the root tree (HEL-1364; it was
+`"high"` until then, which left the root's sprintf-js moderate advisory
+ungated), in `frontend/` (HEL-1320) and in `helio-mcp/` (HEL-1204: its
 advisories were all moderate, so a `"high"` gate there would be green on a
-vulnerable lockfile). The
-`frontend/` and `helio-mcp/` allowlists are empty; the root allowlist carries one
-path-scoped entry (HEL-1246, `GHSA-vfj7-8cjw-p6xm|*micromatch>braces*`, dev-only,
-no patched version, review-by 2026-11-02). A newly-published advisory turns every open PR red with no
+vulnerable lockfile). The `frontend/` and `helio-mcp/` allowlists are empty; the
+root allowlist carries one path-scoped entry (HEL-1246,
+`GHSA-vfj7-8cjw-p6xm|*micromatch>braces*`, dev-only, no patched version,
+review-by 2026-11-02). A newly-published advisory turns every open PR red with no
 repository change — "nothing moved, the world did". Check all three trees; an
-advisory may span two major ranges (js-yaml affected both 3.x and 4.x, with a
-separate override floor for each). The helio-mcp step runs the root-pinned
+advisory may span two major ranges. History: the root tree overrode js-yaml to
+both 3.x (for `@istanbuljs/load-nyc-config`) and 4.x (for `@eslint/eslintrc`) at
+once, and frontend/ carried the same 3.x override; HEL-1320 (frontend/) and
+HEL-1364 (root) retargeted the 3.x override to `^4.1.1`, so no tree pins js-yaml
+3.x any more (the root's 4.x eslintrc override remains). The helio-mcp step runs the root-pinned
 `audit-ci` via `--directory helio-mcp` — helio-mcp does not declare it.
 
 ---
@@ -271,6 +275,40 @@ sbt 2 caches task results. A repeat `sbt test` with no source change prints
 there it is a full run). Separately, sbt 2's thin client joins unquoted arguments
 into ONE command (`sbt compile test` fails with "Expected whitespace character"):
 pass a single quoted command, `sbt "compile; testFull"`. (HEL-1018.)
+
+### sbt can attach to another worktree's server and report exit 0 for the wrong build
+
+**Reported, not reproduced here:** HEL-1285's skeptic saw an `sbt` started in one
+worktree attach to a server owned by another checkout, run that checkout's build,
+and exit 0. Every worktree has its own `backend/`, and the claim is that the sbt
+thin client will connect to a server it finds, so a green result can describe
+someone else's sources. All of this is reported and unverified: on this machine
+`command -v sbt` is `~/.local/bin/sbt`, the sbt-extras launcher (not the sbt 2
+thin client), so the thin-client path was not exercised here. (HEL-1374.)
+
+**Invocation used (sbt 2.0.9):** from the worktree's own `backend/`,
+
+```bash
+nice -n 19 sbt -batch -Dsbt.server.autostart=false "testOnly <fully.qualified.Spec>"
+```
+
+What was verified: in every run (14 transcripts in the HEL-1374 evidence) the build
+executed in-process against the current directory's sources, and both project-path
+lines named the worktree. What was NOT tested: this invocation against a live sbt
+server running in another worktree, so whether the flag prevents an attach is
+untested. The project-path check is the safeguard either way.
+
+**Always check the project path in the output** -- a run is only evidence for your
+worktree if both lines name it:
+
+```
+[info] loading project definition from <your worktree>/backend/project
+[info] set current project to helio-backend (in build file:<your worktree>/backend/)
+```
+
+If either path is another checkout, discard the result. `-z "multi word"` does not
+survive sbt's argument quoting (ScalaTest rejects the second word): filter with a
+single-word substring instead.
 
 ### Parallel Playwright sessions share one browser
 

@@ -1093,6 +1093,32 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       await(outputRepo.findById(output.id, userA)).map(_.name) shouldBe Some("Original name")
     }
 
+    // HEL-1313 D9: rollback re-sends the full prior config, which may hold a value today's rules
+    // reject (an editor-made scatter chart WITH an aggregation) -- restoring must not be refused.
+    "roll back an output config edit restoring a scatter chart that carries an aggregation, and a stored legacy key (HEL-1313)" in {
+      val sourceId  = seedDatasetSource(userA, "Output-1313 source")
+      val pipeline  = seedPipeline(userA, sourceId, "Output-1313 pipeline")
+      val dashboard = seedDashboard(userA, "Output-1313 dashboard")
+      val agg       = JsObject("groupBy" -> JsString("region"), "agg" -> JsString("sum"), "yField" -> JsString("amount"))
+      val stored    = JsObject("chartType" -> JsString("scatter"), "aggregation" -> agg, "metricLabel" -> JsString("legacy"))
+      val output    = await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, "Scatter", OutputKind.Chart, stored, explicitRootId = None))
+
+      val edits = Vector(
+        Edit(EditTarget("output", Some(output.id.value)), "update",
+          None, None, None, None, None, None, Some(UpdateOutputRequest(name = None, config = Some(JsObject("chartType" -> JsString("bar")))))),
+        Edit(EditTarget("dashboard", Some(dashboard.id.value)), "update",
+          None, Some(UpdateDashboardRequest(Some(""), None, None)), None, None, None, None, None)
+      )
+
+      val response = await(service.apply(PatchSet(None, edits), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected Right, got Left($err)")
+      }
+      response.failure shouldBe defined
+      response.edits.find(_.index == 0).map(_.status) shouldBe Some("rolledBack")
+      await(outputRepo.findConfigById(output.id, userA)) shouldBe Some(stored)
+    }
+
     "mark an output delete edit unrecoverable on rollback, matching the dashboard/dataSource/pipeline delete precedent (task 1.2)" in {
       val sourceId  = seedDatasetSource(userA, "Output-delete-rollback source")
       val pipeline  = seedPipeline(userA, sourceId, "Output-delete-rollback pipeline")

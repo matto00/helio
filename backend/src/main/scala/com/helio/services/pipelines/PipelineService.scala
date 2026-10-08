@@ -677,7 +677,8 @@ final class PipelineService(
     )
     // HEL-1273: `config.compare` is checked first and unconditionally (before the no-fieldMapping
     // early return), so single-call create and proposal grounding both reject a bad compare.
-    OutputCompare.validateConfig(config).flatMap(_ => PayloadOptIn.validateConfig(config)).left.map(ServiceError.BadRequest(_)).flatMap { _ =>
+    // HEL-1313: key set + aggregation/chartType rules first (nothing stored yet, so empty `stored`).
+    OutputConfigValidation.validate(kind, config, JsObject.empty).flatMap(_ => OutputCompare.validateConfig(config)).flatMap(_ => PayloadOptIn.validateConfig(config)).left.map(ServiceError.BadRequest(_)).flatMap { _ =>
     config.fields.get("fieldMapping").collect { case o: JsObject => o } match {
       case None => Right(())
       case Some(mappingObj) =>
@@ -1061,7 +1062,7 @@ final class PipelineService(
       canRun:   Boolean,
       analyzed: Vector[PipelineAnalyzeService.AnalyzedStep]
   ): CostVerdictResponse = {
-    val configReasons = analyzed.flatMap(s => s.validationError.map(CostReasonResponse(PipelineService.StepConfigInvalidCode, _, Some(s.id))))
+    val configReasons = analyzed.flatMap(s => s.validationError.map(CostReasonResponse(PipelineAnalyzeService.StepConfigInvalidCode, _, Some(s.id))))
     CostVerdictResponse(
       autoRunnable  = v.autoRunnable && configReasons.isEmpty,
       estimatedRows = v.estimatedRows,
@@ -2448,9 +2449,6 @@ private final case class PipelineCreateValidationFailure(error: ServiceError) ex
 object PipelineService {
 
   private val log = LoggerFactory.getLogger(getClass)
-
-  /** HEL-1266: `CostReasonResponse.code` for an enabled step whose analyze `validationError` is set. */
-  private val StepConfigInvalidCode = "step-config-invalid"
 
   /** HEL-913 task 7.3c (R14): the request-address format THIS change emits for create-time
    *  validation errors -- `roots[<i>]`/`steps[<i>]`/`outputs[<i>]` addressing the request's OWN

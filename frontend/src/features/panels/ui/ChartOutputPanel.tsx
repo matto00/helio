@@ -32,6 +32,8 @@ interface ChartOutputPanelProps {
   /** Whether more rows exist than the panel loaded; `undefined` fails closed (no overlay). */
   rowsTruncated: boolean | undefined;
   historySource?: HistorySource;
+  /** HEL-1358: precomputed truncation note, forwarded to `ChartRenderer`. */
+  truncationNote?: string | null;
 }
 
 /** HEL-1277 design D9 — the chart branch of `OutputPanelContent`: reads the Output's history (only
@@ -52,6 +54,7 @@ export function ChartOutputPanel({
   filterActive,
   rowsTruncated,
   historySource,
+  truncationNote,
 }: ChartOutputPanelProps) {
   const cfg = readChartConfig(config);
   const compare = configCompare(config);
@@ -118,6 +121,7 @@ export function ChartOutputPanel({
       chartOptions={cfg.chartOptions}
       annotation={cfg.annotation ?? null}
       overlay={overlay}
+      truncationNote={truncationNote}
       compact={compact}
       onDataPointSelect={onDataPointSelect}
     />

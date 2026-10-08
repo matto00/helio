@@ -1,0 +1,33 @@
+## Skeptic Report — design gate (round 2, skeptic-design-2.md)
+
+Reviewed HEAD d2601e2581b8a26373456b1b65078c67d5612bf6. The planning artifacts are untracked in the change dir and there is no code diff yet.
+
+### What I verified (with evidence)
+
+- **Spawn-cwd guard:** `READY ambient=/home/matt/Development/helio branch=task/alert-history-wiring-spec/hel-1283`.
+- **Round-1 CR2 (JSON-number cells) is addressed.** D3 now requires numeric `amount` cells and explains why: `numericValue`/`extractMetric` (AlertEvaluationService.scala ~37-52) map every `String` to None. Task 1.2 restates it.
+- **Round-1 CR1 (exclusion honesty) is addressed in wording.** D5 and C1 tie the exclusion claim to D3b plus a measured M4 rate. M4 is a task (3.4), and the 0/5 fallback is stated. D7's "unambiguous" sentence is reworded. As CR1 below shows, D3b's own observability still has a gap.
+- **D3b, `listRecent` is overridable.** `class OutputHistoryRepository(ctx: DbContext)(implicit ec)` is a plain class, not final or sealed (OutputHistoryRepository.scala:60). `def listRecent(outputId: String, limit: Int): Future[Vector[OutputHistoryPoint]]` (:81) is public, non-final, and Future-returning (no DBIO), so a subclass can override it and delay asynchronously.
+- **D3b, one instance reaches every consumer.** ApiRoutes.scala:220 has the `outputHistoryRepo` param. :253-254 `resolvedOutputHistoryRepo = Option(outputHistoryRepo).getOrElse(...)`. Consumers are :413 (AlertEvaluationService), :460 (PipelineRunService) and :488 (OutputHistoryService). M1 (:413) and M3 (:460) still cut exactly the production edges, and M2 (:444) is unaffected. D3b keeps M1-M3 meaningful.
+- **D3b, only evaluation and the history route call `listRecent`.** grep finds just two production call sites: AlertEvaluationService.scala:145 (`listRecent(id, k+1)`) and OutputHistoryService.scala:93 (the GET history route). The write path only calls `insertAction` (PipelineRunService.scala:1500/1504). So an armed wait can never sit inside the write it waits for.
+- **D3b, no deadlock.** In PipelineRunService.scala `writesChain`, `materializedWrites` (:1446) and `alertEvaluation` (:1565) are independent eager `val` Futures. Neither references the other, and they are only sequenced by the trailing `for` (:1628-1636). The history insert runs inside `nodeSnapshotRepo.overwriteRowsWith(..., historyAction)`, a separate transaction. Polling reads are short `withSystemContext` queries. Under Postgres MVCC they do not block on the uncommitted insert and hold no connection between polls, so the pool (`numThreads = 5`, application.conf:82/128) is not starved. With Pekko `after`/scheduler, no thread is parked. The armed wait completes once the write commits.
+- **D3b, M4 semantics confirmed.** `HistoryBaseline.eligible` = `points.filterNot(_.runId.contains(triggeringRunId)).take(k)` (HistoryBaseline.scala ~108). Without `filterNot`, and with D3b forcing both points visible, `take(1)` yields run 2's own point. That gives baseline 100, delta 0, no breach, and `resolveInternal` (no event), so the "exactly one baseline event" assertion goes red. With correct code: baseline 30, delta 70, one event.
+- **Is a condition wait acceptable?** Yes. It waits on an observable DB condition with a hard cap. It is not a fixed sleep standing in for synchronization. I found no better mechanism that avoids a production change. The commit point of `overwriteRowsWith`'s transaction is not hookable from `insertAction` (that DBIO runs before commit), and the spec cannot observe commit while the request is in flight. Polling for the committed row is the minimal sound option.
+- **Problem: D3b's timeout does NOT "fail loudly", and nothing proves the wait actually engaged (CR1).** AlertEvaluationService.evaluateForOutput wraps each rule in `.recover { case NonFatal(e) => log.error(...); () }` (AlertEvaluationService.scala ~110-118), and PipelineRunService wraps the whole call again in `.recoverWith { ... Future.successful(()) }` (PipelineRunService.scala ~1590). A D3b timeout exception is therefore swallowed into a log line. The run still returns 200, and the only visible effect is "no baseline event". That is the same symptom M4 (self-inclusion) produces. A mis-armed wait (wrong output id, armed after the run, wrong count) would silently pass through, and M4 would then measure only the original race. The design's determinism claim (D3b "fails loudly", D7 "fails loudly on timeout") rests on narrative, and C1 forbids exactly that.
+
+### Verdict: REFUTE
+
+### Change Requests
+
+1. **D3b/D5/D7 must make the forced read-after-write self-verifying, not assumed.** Edit design.md D3b and D7, and add a matching task 2.3/2.4 line:
+   - (a) Delete the claim that a D3b timeout "fails loudly". State that a timeout exception is swallowed by the per-rule `recover` in `AlertEvaluationService.evaluateForOutput` and by `PipelineRunService`'s `recoverWith` around `evaluateForOutput`, so the run still succeeds with no baseline event.
+   - (b) `ReadAfterWriteHistoryRepo` must record, in test-visible state (e.g. `AtomicInteger`s or a concurrent list), each armed wait's outcome: satisfied (count reached N, with the observed count) or timed out.
+   - (c) After run 2, the spec must assert that at least one armed wait for the Output was satisfied, and that zero timed out, **before** asserting on alert events. A mis-armed or pass-through D3b then fails with its own message.
+   - (d) The M4 transcripts in `mutation-evidence.md` must show that this "wait satisfied, no timeout" precondition passed in each red run, and that the red came from the baseline-event assertion. That separates a genuine self-inclusion red from a timeout red. Only then may the M4 rate be presented as the exclusion measurement C1 requires.
+
+### Non-blocking notes
+
+- D1 still says the spec passes "a real `OutputHistoryRepository(ctx)`", but D3b replaces it with the subclass. Reword D1 to name `ReadAfterWriteHistoryRepo`, which is a real repository plus one read override, so the two decisions don't read as contradictory.
+- Arming scope: if the repo stays armed (N=2) when the spec calls `GET /api/outputs/:id/history` after run 2, OutputHistoryService.scala:93 also goes through the wait. It is satisfied immediately, which is harmless, but the counter from CR1(b) will include it. Either disarm after the run returns or count evaluation-path waits by `limit == 2`. Document whichever is chosen.
+- Under M3, the armed wait in evaluation will time out (no history is written). That is expected, and the spec's history-row assertion after run 1 reds first. Note it in the M3 transcript so the timeout log line doesn't confuse a reader.
+- Arm before submitting run 2 (not concurrently), and key arming by output id.

@@ -261,8 +261,11 @@ backend SHALL then delete all but the 10 most recent `pipeline_runs` rows for th
 side-effects SHALL be skipped when `pipelineRunRepo` is unavailable (null-safe guard).
 
 In addition, at each status transition the backend SHALL publish a `RunStatusEvent` to
-`PipelineRunRegistry` for the pipeline: `queued` when pre-execution begins, `running` when the
-engine starts, and `succeeded` or `failed` on completion (a blocked run publishes `failed`).
+`PipelineRunRegistry` for the pipeline: `queued` once the run is admitted by the pipeline-run guard (see
+`pipeline-run-guard`), `running` when the engine starts, and `succeeded` or `failed` on completion (a blocked run
+publishes `failed`). A submit rejected by the guard publishes no event. A run whose deferred `upsertsource`
+write-back fails, whether reported as a failure or raised as an exception, SHALL reach terminal status `"failed"`
+with a descriptive `error_log` and publish exactly one `failed` event.
 
 #### Scenario: Successful non-dry run creates a succeeded pipeline_runs record
 - **WHEN** `POST /api/pipelines/:id/run` is called without `?dry=true` and execution succeeds
@@ -284,8 +287,17 @@ engine starts, and `succeeded` or `failed` on completion (a blocked run publishe
 - **THEN** no `pipeline_runs` row is inserted (the route returns 422 immediately without recording)
 
 #### Scenario: SSE queued event published before engine starts
-- **WHEN** `POST /api/pipelines/:id/run` is received and pre-execution work begins
+- **WHEN** `POST /api/pipelines/:id/run` is received and the run is admitted by the pipeline-run guard
 - **THEN** a `queued` RunStatusEvent is published to PipelineRunRegistry before the engine is invoked
+
+#### Scenario: Guard-rejected submit publishes no SSE event
+- **WHEN** `POST /api/pipelines/:id/run` is rejected with `429` by the pipeline-run rate limit or concurrency cap
+- **THEN** no RunStatusEvent is published to PipelineRunRegistry for that submit
+
+#### Scenario: Write-back exception persists a failed pipeline_runs record
+- **WHEN** a non-dry run's execution succeeds but applying its deferred `upsertsource` write-back raises an exception
+- **THEN** a `pipeline_runs` row exists with `status = "failed"` and an `error_log` naming `upsertsource`, and
+  exactly one `failed` RunStatusEvent is published after that row is durable
 
 #### Scenario: SSE running event published when engine starts
 - **WHEN** the in-process engine is about to be invoked for a run

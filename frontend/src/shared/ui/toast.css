@@ -58,9 +58,10 @@
 }
 
 /* HEL-535 D4 — reduced motion disables the entrance/exit outright rather
-   than merely shortening it; `Toast.tsx`'s own `matchMedia` check zeroes the
-   exit delay under the same query so a dismissed toast doesn't sit in
-   layout, invisible, for `--toast-exit-duration` while unpainted. */
+   than merely shortening it; `Toast.tsx`'s own reduced-motion check (the
+   shared `utils/prefersReducedMotion.ts`) zeroes the exit delay under the
+   same query so a dismissed toast doesn't sit in layout, invisible, for
+   `--toast-exit-duration` while unpainted. */
 @media (prefers-reduced-motion: reduce) {
   .toast,
   .toast--exiting {

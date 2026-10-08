@@ -41,8 +41,12 @@ export function registerPlacementTools(server: McpServer, api: HelioApi): void {
         "bind_panel/create_bound_panel for the data-bound case. Each item's `outputId` MUST be a " +
         "real, existing Output id (create it first with create_pipeline's outputs[], add_output, " +
         "or add_outputs_from_shape) — a placement carries ONLY `config.outputId`; there is no " +
-        "fieldMapping/aggregation/chartType on a panel anymore, that all lives on the Output " +
-        "itself (update_output to change it). Optional per-item `w`/`h` (12-column grid units) " +
+        "fieldMapping/aggregation on a panel anymore, that all lives on the Output itself " +
+        "(update_output to change it). A placement also stores no chart type, so a chart " +
+        "renders with the chart type resolved as: the panel's own appearance.chart.chartType " +
+        "if set, else the Output's config.chartType, else line. Change it for every placement " +
+        "with update_output (config.chartType), or for one panel with update_panel_appearance " +
+        "({chart: {chartType}}). Optional per-item `w`/`h` (12-column grid units) " +
         "position that item via a follow-up auto_layout_dashboard call — omit both on an item to " +
         "leave it at its auto/default position; if only one of w/h is given the other defaults to " +
         "4. Returns every created panel, with ids, in the same order supplied.",

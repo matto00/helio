@@ -76,8 +76,8 @@ export function PanelInspectView({
   const selection = useAppSelector((state) => state.panels.interactionState[panelId] ?? null);
 
   // HEL-588 design.md D3 / owner ruling "Action in Inspect" — the ONLY
-  // writer of the dashboard's cross-filter. A chart click (`PanelCard.
-  // handleDataPointSelect`) never reaches this; only this explicit footer
+  // writer of the dashboard's cross-filter. A chart click (`usePanelCardInspect`'s
+  // `handleDataPointSelect`) never reaches this; only this explicit footer
   // action does. Dispatches, then closes the SAME way the header ×/Escape/
   // backdrop already do (`onClose`, not `onClear` — the selection itself is
   // untouched, only the dashboard-level filter changes).

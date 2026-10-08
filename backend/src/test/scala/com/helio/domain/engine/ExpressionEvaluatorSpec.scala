@@ -74,7 +74,10 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
 
     "reject an unknown function name" in {
       ExpressionEvaluator.validate("reverse($name)", Set("name")) shouldBe
-        Left("'reverse' is not a recognized function")
+        Left(
+          "'reverse' is not a recognized function; supported functions: " +
+            "abs, ceil, concat, floor, length, lower, mod, round, substring, upper"
+        )
     }
 
     "reject substring called with the wrong arity" in {
@@ -600,6 +603,172 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
         withClue(s"expr='$expr': ") {
           problem.isDefined shouldBe evalIsParseErr
         }
+      }
+    }
+  }
+
+  // ── HEL-1315: numeric functions ─────────────────────────────────────────────
+
+  private def num(expr: String, pairs: (String, JsValue)*): Either[EvaluationError, JsValue] =
+    ExpressionEvaluator.evaluate(expr, pairs.toMap)
+  private def n(d: Double): Either[EvaluationError, JsValue] = Right(JsNumber(d))
+  private def x(d: Double) = "x" -> (JsNumber(d): JsValue)
+
+  "ExpressionEvaluator numeric functions" should {
+
+    "floor rounds toward negative infinity" in {
+      num("floor($x)", x(2.7)) shouldBe n(2)
+      num("floor($x)", x(-2.5)) shouldBe n(-3)
+      num("floor($x)", x(0)) shouldBe n(0)
+    }
+
+    "ceil rounds toward positive infinity" in {
+      num("ceil($x)", x(2.1)) shouldBe n(3)
+      num("ceil($x)", x(-2.5)) shouldBe n(-2)
+      num("ceil($x)", x(0)) shouldBe n(0)
+    }
+
+    "abs returns the absolute value" in {
+      num("abs($x)", x(-4.25)) shouldBe n(4.25)
+      num("abs($x)", x(4.25)) shouldBe n(4.25)
+      num("abs($x)", x(0)) shouldBe n(0)
+    }
+
+    "round ties go away from zero" in {
+      num("round($x)", x(2.5)) shouldBe n(3)
+      num("round($x)", x(-2.5)) shouldBe n(-3)
+      num("round($x)", x(2.4)) shouldBe n(2)
+      num("round($x)", x(-2.4)) shouldBe n(-2)
+    }
+
+    "round to digits uses the decimal value" in {
+      num("round($x, 2)", x(2.675)) shouldBe n(2.68)
+      num("round($x, 2)", x(-2.675)) shouldBe n(-2.68)
+      num("round($x, 1)", x(0.1 + 0.2)) shouldBe n(0.3)
+      num("round($x, 2)", x(0.1 + 0.2)) shouldBe n(0.3)
+      num("round($rate * 100, 1)", "rate" -> JsNumber(0.8734)) shouldBe n(87.3)
+    }
+
+    "round with negative digits rounds to tens/hundreds" in {
+      num("round($x, 0 - 2)", x(1234)) shouldBe n(1200)
+      num("round($x, 0 - 2)", x(-1250)) shouldBe n(-1300)
+    }
+
+    "round with 0.0 digits is accepted as a whole number" in {
+      num("round($x, 0.0)", x(2.5)) shouldBe n(3)
+    }
+
+    "round with fractional digits is a TypeError" in {
+      num("round($x, 1.5)", x(3.14159)) shouldBe a[Left[_, _]]
+      num("round($x, 1.5)", x(3.14159)).left.toOption.get shouldBe a[EvaluationError.TypeError]
+    }
+
+    "round with huge digits is clamped and does not blow up" in {
+      num("round($x, 1000000000)", x(1.5)) shouldBe n(1.5)
+      num("round($x, 0 - 1000000000)", x(1.5)) shouldBe n(0)
+    }
+
+    "round passes a non-finite value through unchanged instead of throwing" in {
+      // 1e308 * 10 overflows to +Infinity; spray-json serialises a non-finite JsNumber as null.
+      num("round($x * 10)", x(1e308)) shouldBe Right(JsNull)
+    }
+
+    "mod returns the floored remainder (sign follows the divisor)" in {
+      num("mod($a, $b)", "a" -> JsNumber(7), "b" -> JsNumber(3)) shouldBe n(1)
+      num("mod($a, $b)", "a" -> JsNumber(-7), "b" -> JsNumber(3)) shouldBe n(2)
+      num("mod($a, $b)", "a" -> JsNumber(7), "b" -> JsNumber(-3)) shouldBe n(-2)
+      num("mod($a, $b)", "a" -> JsNumber(-7), "b" -> JsNumber(-3)) shouldBe n(-1)
+      num("mod($a, 2)", "a" -> JsNumber(5.5)) shouldBe n(1.5)
+      num("mod($a, 3)", "a" -> JsNumber(6)) shouldBe n(0)
+    }
+
+    "mod by zero is a DivisionByZero error" in {
+      num("mod($a, 0)", "a" -> JsNumber(7)).left.toOption.get shouldBe a[EvaluationError.DivisionByZero]
+    }
+
+    "null propagates through every numeric function" in {
+      val r = "x" -> (JsNull: JsValue)
+      Seq("floor($x)", "ceil($x)", "abs($x)", "round($x)", "round($x, 1)", "mod($x, 2)", "mod(2, $x)", "round(2.5, $x)")
+        .foreach(e => withClue(e)(num(e, r) shouldBe Right(JsNull)))
+    }
+
+    "a numeric string argument is a TypeError (strict, like - * /)" in {
+      val r = "x" -> (JsString("3.7"): JsValue)
+      Seq("floor($x)", "ceil($x)", "abs($x)", "round($x)", "round(2.5, $x)", "mod($x, 2)", "mod(2, $x)").foreach { e =>
+        withClue(e)(num(e, r).left.toOption.get shouldBe a[EvaluationError.TypeError])
+      }
+    }
+
+    "wrong arity is a parse error" in {
+      val f = Set.empty[String]
+      ExpressionEvaluator.validate("floor()", f) shouldBe Left("floor requires 1 argument")
+      ExpressionEvaluator.validate("ceil(1, 2)", f) shouldBe Left("ceil requires 1 argument")
+      ExpressionEvaluator.validate("abs(1, 2)", f) shouldBe Left("abs requires 1 argument")
+      ExpressionEvaluator.validate("mod(1)", f) shouldBe Left("mod requires 2 arguments")
+      ExpressionEvaluator.validate("mod(1, 2, 3)", f) shouldBe Left("mod requires 2 arguments")
+      ExpressionEvaluator.validate("round()", f) shouldBe Left("round requires 1 or 2 arguments")
+      ExpressionEvaluator.validate("round(1, 2, 3)", f) shouldBe Left("round requires 1 or 2 arguments")
+      ExpressionEvaluator.validate("round(1)", f) shouldBe Right(())
+      ExpressionEvaluator.validate("round(1, 2)", f) shouldBe Right(())
+    }
+
+    "infer/apply parity: every numeric function infers float and evaluates to a JsNumber" in {
+      val fields = Map("x" -> "float", "y" -> "float")
+      val r      = row("x" -> JsNumber(-7.5), "y" -> JsNumber(3))
+      // NumericFunctions must be exactly SupportedFunctions minus the string functions, so a new
+      // function cannot be added without being classified (and parity-tested) here.
+      val stringFns = Set("concat", "substring", "lower", "upper", "length")
+      ExpressionEvaluator.NumericFunctions.toSet shouldBe (ExpressionEvaluator.SupportedFunctions.toSet -- stringFns)
+      ExpressionEvaluator.NumericFunctions.foreach { f =>
+        val exprs = (1 to 2).map(k => s"$f(${Seq("$x", "$y").take(k).mkString(", ")})")
+          .filter(e => ExpressionEvaluator.validate(e, fields.keySet).isRight)
+        withClue(f)(exprs should not be empty)
+        exprs.foreach { e =>
+          withClue(e) {
+            ExpressionEvaluator.inferType(e, fields) shouldBe Right("float")
+            ExpressionEvaluator.evaluate(e, r) match {
+              case Right(_: JsNumber) => succeed
+              case other              => fail(s"expected JsNumber, got $other")
+            }
+          }
+        }
+      }
+    }
+
+    "inferType still errors on an unknown field inside a numeric function" in {
+      ExpressionEvaluator.inferType("floor($missing)", Map.empty) shouldBe a[Left[_, _]]
+    }
+  }
+
+  // ── HEL-1315: supported-function list vs the dispatcher (bidirectional drift guard) ──
+
+  "ExpressionEvaluator.SupportedFunctions" should {
+
+    def accepts(name: String, argc: Int): Boolean =
+      ExpressionEvaluator.parseProblem(s"$name(${Seq.fill(argc)("1").mkString(", ")})").isEmpty
+
+    "list every supported function in the unknown-function message" in {
+      val msg = ExpressionEvaluator.validate("reverse($name)", Set("name")).left.toOption.get
+      ExpressionEvaluator.SupportedFunctions should have size 10
+      ExpressionEvaluator.SupportedFunctions.foreach(f => msg should include(f))
+      Seq("floor", "ceil", "round", "mod", "abs").foreach(f => msg should include(f))
+    }
+
+    "list -> dispatcher: every listed name parses with some arity" in {
+      ExpressionEvaluator.SupportedFunctions.foreach { f =>
+        withClue(f)((0 to 4).exists(accepts(f, _)) shouldBe true)
+      }
+    }
+
+    "dispatcher -> list: no probed name the parser accepts is missing from the list" in {
+      val candidates = Seq(
+        "abs", "ceil", "concat", "floor", "length", "lower", "mod", "round", "substring", "upper",
+        "sqrt", "pow", "power", "sign", "trunc", "truncate", "min", "max", "coalesce", "trim", "ltrim", "rtrim",
+        "replace", "reverse", "if", "iif", "nullif", "ifnull", "left", "right", "sum", "avg", "median", "exp", "ln",
+        "log", "log10", "year", "month", "day", "now", "today", "to_number", "to_string", "cast", "greatest", "least"
+      )
+      candidates.filter(c => (0 to 4).exists(accepts(c, _))).foreach { c =>
+        withClue(c)(ExpressionEvaluator.SupportedFunctions should contain(c))
       }
     }
   }

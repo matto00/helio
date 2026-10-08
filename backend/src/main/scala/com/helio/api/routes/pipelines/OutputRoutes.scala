@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.IdParsing.{OutputIdSegment, PipelineIdSegment}
-import com.helio.api.protocols.pipelines.{CreateOutputRequest, OutputResponse, OutputsResponse, UpdateOutputRequest}
+import com.helio.api.protocols.pipelines.{CreateOutputRequest, HistoryPayloadLimitsResponse, OutputResponse, OutputsResponse, UpdateOutputRequest}
 import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
 import com.helio.domain.model.{AuthenticatedUser, Page, PagedResult}
@@ -42,8 +42,14 @@ class OutputRoutes(
     payloadAvailability match {
       case None => Future.successful(responses)
       case Some((repo, config)) =>
+        val limits = HistoryPayloadLimitsResponse.from(config)
         repo.payloadsAvailableFor(responses.map(_.pipelineId).toSet, config).map { available =>
-          responses.map(r => r.copy(historyPayloadsAvailable = Some(available.getOrElse(r.pipelineId, false))))
+          responses.map(r =>
+            r.copy(
+              historyPayloadsAvailable = Some(available.getOrElse(r.pipelineId, false)),
+              historyPayloadLimits = Some(limits)
+            )
+          )
         }
     }
 

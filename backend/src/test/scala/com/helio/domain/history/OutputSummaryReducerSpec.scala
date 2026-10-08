@@ -147,4 +147,41 @@ class OutputSummaryReducerSpec extends AnyWordSpec with Matchers {
       pts.elements.head.asInstanceOf[JsArray].elements.head.asInstanceOf[JsString].value should have length 256
     }
   }
+
+  "metric field selection is independent of fieldMapping key order (HEL-1182)" should {
+    // D1: `rank` is numeric and differs from `amount`, so a positional pick gives a wrong exact number.
+    val rows = (1 to 10).map(i => row("amount" -> JsNumber(i), "rank" -> JsNumber(100 + i), "region" -> JsString("r"))).toVector
+
+    // D4 (probe-corrected): spray-json's parsed JsObject iterates its fields alphabetically, NOT in insertion order
+    // (label < unit < value), so `value` is never first here whatever order the JSON text lists. The precondition
+    // below asserts that for every case, so the spec cannot degrade into a value-first test.
+    val orders = Seq(
+      "value-first JSON text" -> """{"value":"amount","label":"rank"}""",
+      "label-first"       -> """{"label":"rank","value":"amount"}""",
+      "unit-first"        -> """{"unit":"rank","value":"amount"}""",
+      "unit+label-first"  -> """{"unit":"rank","label":"region","value":"amount"}"""
+    )
+
+    orders.foreach { case (name, mapping) =>
+      def cfg(agg: String) = s"""{"fieldMapping":$mapping$agg}"""
+
+      s"resolve `value` without aggregation ($name)" in {
+        cfg("").parseJson.asJsObject.fields("fieldMapping").asJsObject.fields.keys.head should not be "value"
+        val m = summarize(rows, OutputKind.Metric, cfg("")).fields("metric").asJsObject
+        m.fields("field") shouldBe JsString("amount")
+        m.fields("value") shouldBe JsNumber(1)
+      }
+
+      s"resolve `value` with aggregation.agg ($name)" in {
+        val m = summarize(rows, OutputKind.Metric, cfg(""","aggregation":{"agg":"sum"}""")).fields("metric").asJsObject
+        m.fields("field") shouldBe JsString("amount")
+        m.fields("agg") shouldBe JsString("sum")
+        m.fields("value") shouldBe JsNumber(55)
+      }
+
+      s"expose the same field via metricField ($name)" in {
+        OutputSummaryReducer.metricField(cfg(""","aggregation":{"agg":"max"}""").parseJson.asJsObject) shouldBe Some(("amount", Some("max")))
+      }
+    }
+  }
 }

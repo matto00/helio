@@ -17,7 +17,7 @@ import {
   isOutputPanel,
   isTextPanel,
 } from "../../state/panelNarrowing";
-import { useAppDispatch } from "../../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { usePanelData } from "../../hooks/usePanelData";
 import { useOutputMeta } from "../../hooks/useOutputMeta";
 import { useCrossFilterServerOps } from "../../hooks/useCrossFilterServerOps";
@@ -152,7 +152,7 @@ interface PanelDetailModalProps {
   initialMode?: "view" | "edit";
 }
 
-// HEL-1190 — module-level stable empty array, same rationale as `PanelCard.tsx`'s
+// HEL-1190 — module-level stable empty array, same rationale as `PanelCardBody.tsx`'s
 // `EMPTY_CONTROLS`: a fresh `[]` literal per-render for a non-output panel would defeat every
 // `useMemo` below that lists `controls` as a dependency.
 const EMPTY_CONTROLS: OutputControlSpec[] = [];
@@ -211,6 +211,8 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     rowsTruncated,
     refresh,
   } = usePanelData(panel, controlFilterOps, crossFilterEq);
+  // HEL-1358 design D5 — `usePanelData` above writes this same entry the grid card reads.
+  const totalRowCount = useAppSelector((state) => state.panels.paginationState[panel.id]?.total);
   const navigate = useNavigate();
 
   // Modal mode: "view" is the default on open; "edit" shows the unified settings form
@@ -507,12 +509,13 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
               // always false regardless of real truncation — see
               // `usePanelData`'s `rowsTruncated` doc comment.
               rowsTruncated={rowsTruncated}
+              totalRowCount={totalRowCount}
               crossFilterMode={crossFilterMode}
               viewerFilterActive={controlFilterOps.length > 0}
             />
             {/* HEL-1190 design.md D10 (task 5.5) — this modal had NO live region at all before this
                 ticket; a control-driven row-count change is announced here, mirroring
-                `PanelCard.tsx`'s own region (reused there; added fresh here since none existed). */}
+                `PanelCardBody.tsx`'s own region (reused there; added fresh here since none existed). */}
             {hasVisibleControls && (
               <div className="sr-only" role="status">
                 {`${rawRows?.length ?? 0} result${(rawRows?.length ?? 0) === 1 ? "" : "s"}.`}

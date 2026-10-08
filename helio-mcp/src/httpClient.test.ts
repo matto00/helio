@@ -12,10 +12,13 @@
  * schedule without real timers or a real socket.
  */
 
+import { DEFAULT_REQUEST_TIMEOUT_MSEC } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import {
   HelioApiError,
   HelioAuthError,
   HelioHttpClient,
+  HelioRateLimitError,
+  RATE_LIMIT_WAIT_BUDGET_MS,
   type HelioRequestInit,
 } from "./httpClient.js";
 import type { HelioConfig } from "./config.js";
@@ -78,14 +81,65 @@ describe("HelioHttpClient 429 handling", () => {
     expect(slept).toEqual([1000, 2000]);
   });
 
-  it("caps a single wait so an absurd Retry-After cannot stall a run for hours", async () => {
-    const { client, slept } = harness([
+  it("surfaces an absurd Retry-After immediately instead of sleeping into the same refusal", async () => {
+    // HEL-1349: was "caps a single wait" (clamped to 60s, then re-sent); the cumulative
+    // budget makes a wait longer than the remaining budget fail fast, never sleep.
+    const { client, slept, calls } = harness([
       reply(429, { message: "Rate limit exceeded" }, { "retry-after": "86400" }),
       reply(200, { ok: true }),
     ]);
 
-    await client.get("/api/dashboards");
-    expect(slept).toEqual([60_000]);
+    await expect(client.get("/api/dashboards")).rejects.toMatchObject({
+      name: "HelioRateLimitError",
+      retryAfterSeconds: 86400,
+    });
+    expect(slept).toEqual([]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("surfaces a near-timeout Retry-After (59s) at once with its retry-after, no wait, no re-send (HEL-1349)", async () => {
+    const { client, slept, calls } = harness([
+      reply(429, { message: "Rate limit exceeded" }, { "retry-after": "59" }),
+      reply(200, { ok: true }),
+    ]);
+
+    const error = await client.get("/api/dashboards").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(HelioRateLimitError);
+    expect(error).toBeInstanceOf(HelioApiError);
+    expect((error as HelioRateLimitError).status).toBe(429);
+    expect((error as HelioRateLimitError).retryAfterSeconds).toBe(59);
+    expect((error as HelioRateLimitError).message).toMatch(/rate limit/i);
+    expect((error as HelioRateLimitError).message).toContain("retry after 59s");
+    expect(slept).toEqual([]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("never spends more than the wait budget across repeated 429s (HEL-1349)", async () => {
+    const { client, slept } = harness(
+      Array.from({ length: 6 }, () =>
+        reply(429, { message: "Rate limit exceeded" }, { "retry-after": "15" }),
+      ),
+    );
+
+    await expect(client.get("/api/dashboards")).rejects.toBeInstanceOf(HelioRateLimitError);
+    expect(slept.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(RATE_LIMIT_WAIT_BUDGET_MS);
+    expect(slept).toEqual([15_000, 15_000]);
+  });
+
+  it("with no Retry-After sleeps exactly 1+2+4+8s, then fails with an undefined retry-after (HEL-1349)", async () => {
+    const { client, slept } = harness(
+      Array.from({ length: 6 }, () => reply(429, { message: "Rate limit exceeded" })),
+    );
+
+    const error = await client.get("/api/dashboards").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(HelioRateLimitError);
+    expect((error as HelioRateLimitError).retryAfterSeconds).toBeUndefined();
+    expect((error as HelioRateLimitError).message).toMatch(/no retry-after/i);
+    expect(slept).toEqual([1000, 2000, 4000, 8000]);
+  });
+
+  it("keeps the wait budget at most half of the installed MCP SDK default request timeout (HEL-1349)", () => {
+    expect(RATE_LIMIT_WAIT_BUDGET_MS).toBeLessThanOrEqual(DEFAULT_REQUEST_TIMEOUT_MSEC / 2);
   });
 
   it("ignores an unparseable Retry-After and falls back to the backoff schedule", async () => {
@@ -102,7 +156,7 @@ describe("HelioHttpClient 429 handling", () => {
     expect(slept).toEqual([1000]);
   });
 
-  it("gives up after the attempt budget and throws the 429 as a HelioApiError", async () => {
+  it("gives up after the attempt budget and throws the 429 as a HelioRateLimitError", async () => {
     const { client, calls } = harness([
       reply(429, { message: "Rate limit exceeded" }, { "retry-after": "1" }),
       reply(429, { message: "Rate limit exceeded" }, { "retry-after": "1" }),
@@ -113,8 +167,9 @@ describe("HelioHttpClient 429 handling", () => {
     ]);
 
     await expect(client.get("/api/dashboards")).rejects.toMatchObject({
-      name: "HelioApiError",
+      name: "HelioRateLimitError",
       status: 429,
+      retryAfterSeconds: 1,
     });
     // 1 initial attempt + 5 retries, then surface the error.
     expect(calls).toHaveLength(6);

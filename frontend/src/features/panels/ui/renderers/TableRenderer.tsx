@@ -829,7 +829,7 @@ export function TableRenderer({
                 `rawRows`/`paginationRows` derive from one `paginationEntry
                 .rows`, so one being non-empty implies the other is too) —
                 this gate stays CORRECT if that derivation is ever decoupled,
-                and `PanelCard.tsx` passes `onLoadMore` UNCONDITIONALLY, so
+                and `PanelCardBody.tsx` passes `onLoadMore` UNCONDITIONALLY, so
                 `onLoadMore != null` alone would render a live button on
                 every FULLY-LOADED dashboard panel. Do not "simplify" this
                 away. */}

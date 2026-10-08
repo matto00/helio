@@ -1,8 +1,8 @@
 package com.helio.services.pipelines
 
-import com.helio.domain.engine.PipelineCostEstimator
+import com.helio.domain.engine.{PipelineAnalyzeService, PipelineCostEstimator, SchemaField}
 import com.helio.domain.model._
-import com.helio.domain.steps.{AnalyzeWithAiConfig, AnalyzeWithAiOutputField, UpsertMode, UpsertSourceConfig, UpsertTarget}
+import com.helio.domain.steps.{AnalyzeWithAiConfig, ComputeConfig, AnalyzeWithAiOutputField, UpsertMode, UpsertSourceConfig, UpsertTarget}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -13,6 +13,8 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
+
+import spray.json._
 
 import java.time.Instant
 import java.util.UUID
@@ -117,6 +119,11 @@ class AutoRunTriggerServiceSpec extends AnyWordSpec with Matchers with BeforeAnd
     await(pipelineStepRepo.insertInternal(pipelineId, "analyzewithai", cfg, enabled = true, parentStepId = None, explicitRootId = None))
   }
 
+  /** HEL-1279: a `compute` step (a cheap op) persisted with an EMPTY required `column` -- certain
+   *  to fail at run time with `STEP_CONFIG_INVALID` (HEL-814 D2: persistable, rejected at run). */
+  private def seedMisconfiguredComputeStep(pipelineId: PipelineId, enabled: Boolean = true): PipelineStep =
+    await(pipelineStepRepo.insertInternal(pipelineId, "compute", ComputeConfig("", "1 + 1", None), enabled = enabled, parentStepId = None, explicitRootId = None))
+
   private def seedGrant(pipelineId: PipelineId, granteeId: UserId, role: String): Unit = {
     import PostgresProfile.api._
     await(db.run(sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
@@ -159,6 +166,90 @@ class AutoRunTriggerServiceSpec extends AnyWordSpec with Matchers with BeforeAnd
 
       debounceRowExists(deniedPid) shouldBe false
       debounceRowExists(eligiblePid) shouldBe true
+    }
+
+    // HEL-1279 tasks.md 1.1/3.1/3.2
+    "denies (step-config-invalid, canRun=false even for the owner, NO debounce row) a pipeline whose only " +
+      "enabled step is a cheap op with a missing required config (HEL-1279 tasks.md 1.1)" in {
+      cleanDb()
+      val owner = seedUser()
+      val dsId  = seedDataset(owner)
+      val pid   = seedPipeline(owner, Vector(dsId))
+      val step  = seedMisconfiguredComputeStep(pid)
+
+      val results = await(service.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now()))
+
+      val denied = deniedEntry(results, pid)
+      denied shouldBe defined
+      denied.get.reasons.map(_.code) shouldBe Vector("step-config-invalid")
+      denied.get.reasons.head.stepId shouldBe Some(step.id.value)
+      denied.get.canRun shouldBe false
+      debounceRowExists(pid) shouldBe false
+    }
+
+    "a misconfigured step is denied with canRun=false for an EDITOR grantee too, and the denial is invisible to a stranger (HEL-1279 3.2)" in {
+      cleanDb()
+      val owner    = seedUser()
+      val editor   = seedUser()
+      val stranger = seedUser()
+      val dsId     = seedDataset(owner)
+      val pid      = seedPipeline(owner, Vector(dsId))
+      seedMisconfiguredComputeStep(pid)
+      seedGrant(pid, editor, "editor")
+
+      deniedEntry(await(service.triggerAutoRun(dsId, AuthenticatedUser(editor), Instant.now())), pid).map(_.canRun) shouldBe Some(false)
+      await(service.triggerAutoRun(dsId, AuthenticatedUser(stranger), Instant.now())) shouldBe empty
+    }
+
+    "a DISABLED misconfigured step does not deny auto-run (HEL-1279 4.2)" in {
+      cleanDb()
+      val owner = seedUser()
+      val dsId  = seedDataset(owner)
+      val pid   = seedPipeline(owner, Vector(dsId))
+      seedMisconfiguredComputeStep(pid, enabled = false)
+
+      val results = await(service.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now()))
+
+      results should contain (EvaluatedPipeline.Allowed(pid))
+      debounceRowExists(pid) shouldBe true
+    }
+
+    "a cost denial AND a misconfigured step report BOTH reasons, cost first, with canRun=false (HEL-1279 4.2)" in {
+      cleanDb()
+      val owner = seedUser()
+      val dsId  = seedDataset(owner)
+      val pid   = seedPipeline(owner, Vector(dsId))
+      seedAnalyzeWithAiStep(pid)
+      seedMisconfiguredComputeStep(pid)
+
+      val denied = deniedEntry(await(service.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now())), pid)
+
+      denied shouldBe defined
+      denied.get.reasons.map(_.code) shouldBe Vector("ai-step", "step-config-invalid")
+      denied.get.canRun shouldBe false
+      debounceRowExists(pid) shouldBe false
+    }
+
+    // HEL-1280 guard (HEL-1279 4.1): a step referencing a column absent from the stored inferred
+    // schema gets a SCHEMA-DERIVED validationError from analyze (class 2), which must NOT deny
+    // auto-run -- only the schema-independent config class does.
+    "a schema-derived analyze validationError (HEL-1280 false-positive class) does NOT deny auto-run (HEL-1279 4.1)" in {
+      cleanDb()
+      val owner = seedUser()
+      val dsId  = seedDataset(owner)
+      val pid   = seedPipeline(owner, Vector(dsId))
+      val node = PipelineAnalyzeService.NodeStepInput(
+        id = "s1", parentStepId = None, position = 0, op = "compute",
+        config = ComputeConfig("c", "$missing_col + 1", Some("string")).toJson.compactPrint
+      )
+      val analyzed = PipelineAnalyzeService.analyzeNodes(Vector(node), Vector(SchemaField("name", "string")))
+      analyzed("s1").validationError.exists(_.contains("Unknown field")) shouldBe true // premise: analyze flags it
+      await(pipelineStepRepo.insertInternal(pid, "compute", ComputeConfig("c", "$missing_col + 1", Some("string")), enabled = true, parentStepId = None, explicitRootId = None))
+
+      val results = await(service.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now()))
+
+      results should contain (EvaluatedPipeline.Allowed(pid))
+      debounceRowExists(pid) shouldBe true
     }
 
     "evaluates every pipeline reading the data source independently in one call" in {

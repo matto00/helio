@@ -264,7 +264,7 @@ jobs:
   # local vulnerability DB, so no extra cache beyond the existing sbt/coursier cache) scans
   # it, with day-one-known-unfixable advisories suppressed via backend/osv-scanner.toml
   # (see that file for individual written justifications). Frontend: audit-ci wraps
-  # `npm audit` for three lockfiles: root (at "high", against .audit-ci.jsonc),
+  # `npm audit` for three lockfiles: root (at "moderate", against .audit-ci.jsonc -- HEL-1364),
   # frontend/ (at "moderate", frontend/.audit-ci.jsonc -- HEL-1320) and helio-mcp/ (at "moderate", against
   # helio-mcp/.audit-ci.jsonc -- HEL-1204; it runs the ROOT-pinned audit-ci with --directory,
   # since helio-mcp does not declare audit-ci itself). See design.md D2/D3/D6 for the tool

@@ -49,6 +49,15 @@ OUT OF SCOPE for this requirement — it SHALL continue to only log a denial, ex
 change, and SHALL NOT be required to return `204`-incompatible response content. Scheduling a
 debounced auto-run for an ALLOWED pipeline SHALL be unaffected by this requirement.
 
+A pipeline SHALL also be denied auto-run when any ENABLED step has a step-configuration problem as
+reported by the same step-configuration validation the pipeline analyze surface uses (one shared
+validator, never a parallel check). Such a denial SHALL carry one reason per misconfigured step with
+code `step-config-invalid`, the step's id, and the validator's message, listed after any cheapness
+reasons in step order — the same configuration-class reasons, in the same order, that analyze reports. A denied entry carrying a
+`step-config-invalid` reason SHALL report `canRun: false` regardless of the writer's grant, because a
+manual run of it is certain to fail. Validation problems that depend on a source's stored inferred
+schema (rather than on the step's configuration alone) SHALL NOT deny auto-run.
+
 #### Scenario: A denied pipeline is not auto-run
 - **WHEN** a dataset write's downstream pipeline contains a step the cheapness verdict denies
   (e.g. an AI step), and the writing user has at least a viewer grant on that pipeline
@@ -92,6 +101,31 @@ debounced auto-run for an ALLOWED pipeline SHALL be unaffected by this requireme
 - **WHEN** a dataset write's downstream pipeline passes the cheapness verdict
 - **THEN** a debounced auto-run is scheduled for it exactly as before this change, and it does not
   appear in the write response's denied-pipelines list
+
+#### Scenario: A pipeline with a misconfigured enabled step is not auto-run
+- **WHEN** a dataset write's downstream pipeline passes the cheapness verdict but one of its enabled
+  steps has a step-configuration problem (e.g. a `compute` step with an empty target column), and the
+  writing user owns that pipeline
+- **THEN** no run is scheduled or submitted for that pipeline as a result of the write, and the write
+  response includes that pipeline with a `step-config-invalid` reason naming the step, and
+  `canRun: false`
+
+#### Scenario: A disabled misconfigured step does not deny auto-run
+- **WHEN** a dataset write's downstream pipeline's only misconfigured step is disabled
+- **THEN** a debounced auto-run is scheduled for it exactly as for any other allowed pipeline
+
+#### Scenario: A schema-derived validation problem does not deny auto-run
+- **WHEN** a dataset write's downstream pipeline passes the cheapness verdict and has no
+  step-configuration problem, but a step references a column absent from its source's stored
+  inferred schema (so analyze may report a schema-derived validation error)
+- **THEN** a debounced auto-run is still scheduled for it, and it does not appear in the write
+  response's denied-pipelines list
+
+#### Scenario: Cheapness and configuration denials are reported together
+- **WHEN** a dataset write's downstream pipeline is denied by the cheapness verdict AND has a
+  misconfigured enabled step
+- **THEN** its write-response entry lists the cheapness reason(s) first, followed by the
+  `step-config-invalid` reason(s), and has `canRun: false`
 
 ### Requirement: Auto-run submissions enter through the guarded submission path as the pipeline owner
 The system SHALL submit every auto-run through the same `PipelineRunService.submit` path every

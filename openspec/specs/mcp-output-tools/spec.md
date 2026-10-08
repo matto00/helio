@@ -203,10 +203,11 @@ document or accept `compare`. The MCP layer SHALL NOT validate `compare` itself;
 
 ### Requirement: update_output documents the history-payloads opt-in
 The helio-mcp `update_output` tool description SHALL document `config.historyPayloads`: it is a boolean opt-in to keep
-each real run's full rows; a run over 1,000 rows or 1 MiB keeps only its summary; rows are kept only when the
-pipeline owner's tier allows it (free keeps none), and the Output's `historyPayloadsAvailable` field reports that; and
-turning it off stops storing rows while stored rows expire on the normal schedule. Sending
-`config: {"historyPayloads": true}` through `update_output` SHALL reach `PATCH /api/outputs/:id` unchanged.
+each real run's full rows; a run over the row or byte cap keeps only its summary; rows are kept only when the pipeline
+owner's tier allows it (free keeps none by default), and the Output's `historyPayloadsAvailable` field reports that;
+the exact caps and per-tier retention are reported by the Output's read-only `historyPayloadLimits` field rather than
+fixed in the description; and turning it off stops storing rows while stored rows expire on the normal schedule.
+Sending `config: {"historyPayloads": true}` through `update_output` SHALL reach `PATCH /api/outputs/:id` unchanged.
 
 #### Scenario: Agent enables payloads
 - **WHEN** an agent calls `update_output` with `config: {"historyPayloads": true}`
@@ -215,5 +216,22 @@ turning it off stops storing rows while stored rows expire on the normal schedul
 
 #### Scenario: Description is discoverable
 - **WHEN** a client lists tools
-- **THEN** `update_output`'s description mentions `historyPayloads`, the 1,000-row / 1 MiB caps, and
-  `historyPayloadsAvailable`
+- **THEN** `update_output`'s description mentions `historyPayloads`, `historyPayloadsAvailable` and
+  `historyPayloadLimits`, and does not state the 1,000-row / 1 MiB figures as fixed values
+
+### Requirement: Output config write tools document the known-key set and aggregation shapes
+The helio-mcp tools that write an Output's `config` (`add_output`, `update_output`, `create_pipeline`, any
+pipeline-proposal tool that carries Output config, and `apply_patch_set` for its `output` update edits) SHALL document, in the description text the agent sees, the
+per-kind known config keys, the chart `{ groupBy, agg, yField }` and metric `{ agg }` (with `fieldMapping.value`) or `{ value, agg }` aggregation shapes, and
+that an unknown key or malformed aggregation is rejected with 400 naming the key. No tool description SHALL claim a
+deep merge of `legend`, `tooltip`, `seriesColors` or `axisLabels`.
+
+#### Scenario: Tool description lists the keys
+- **WHEN** the `update_output` tool's description is read
+- **THEN** it lists the per-kind known config keys and both aggregation shapes, and does not mention a legend/tooltip
+  deep merge
+
+#### Scenario: apply_patch_set documents Output-edit keys
+- **WHEN** the `apply_patch_set` tool's description is read
+- **THEN** its `output` edit `patch.config` guidance lists the per-kind known config keys and states unknown keys are
+  rejected with 400

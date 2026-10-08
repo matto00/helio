@@ -92,7 +92,7 @@ class OutputCompareWriteValidationSpec
 
     "validate the MERGED config: an unrelated patch does not bypass a stored invalid compare" in {
       val (_, oid) = seedMetricOutput(ownerId, Some("bogus")) // raw-seeded, outside any validated path
-      Patch(s"/outputs/$oid", UpdateOutputRequest(Some("renamed"), Some(JsObject("legend" -> JsObject("show" -> JsBoolean(true)))))) ~> routes() ~> check {
+      Patch(s"/outputs/$oid", UpdateOutputRequest(Some("renamed"), Some(JsObject("label" -> JsString("x"))))) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
       }
     }

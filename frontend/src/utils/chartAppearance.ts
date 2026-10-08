@@ -1,6 +1,7 @@
 import type { EChartsOption } from "echarts";
 
 import type { ChartAppearance } from "../features/panels/types/panel";
+import { prefersReducedMotion } from "./prefersReducedMotion";
 export type ChartType = "bar" | "line" | "pie" | "scatter";
 
 export interface AppearanceResult {
@@ -76,21 +77,6 @@ export function resolveChartTheme(): ChartThemeTokens {
   };
 }
 
-/** Live read of the OS/browser reduced-motion preference. ECharts
- *  hover-emphasis motion (Decision 4) is JS option config, not CSS, so the
- *  existing `motionTokenGuard.css.test.ts` (which only scans `.css` files)
- *  never covers it — this has to be read explicitly, mirroring `Toast.tsx`'s
- *  own private `prefersReducedMotion` (same guard shape, same query; kept as
- *  its own copy here rather than a shared export — out of this ticket's
- *  scope, see `useIsNarrowerThan.ts`'s doc comment for the existing
- *  convention name). Guards `matchMedia` itself, not just `window` — jsdom
- *  (the test environment) doesn't implement it at all, so an unmocked test
- *  would otherwise throw rather than simply behaving as "no preference". */
-export function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
 /** Matches `MetricRenderer.formatMetricValue`'s convention (design.md
  *  Decision 1, HEL-297): 2 fraction digits max, no thousands grouping — so a
  *  dashboard's numeric presentation is consistent panel-to-panel instead of
@@ -107,15 +93,15 @@ export function formatChartNumber(value: unknown): string {
   return Number.isFinite(n) ? chartNumberFormat.format(n) : String(value);
 }
 
-/** HEL-572 — the chart type a panel actually renders is `appearance.chart.
- *  chartType`, defaulting `"line"` when unset (mirrors
- *  `appearanceToEChartsOption`'s own derivation, which is the only other
- *  place this was previously computed inline). Exported so `ChartPanel`'s
- *  click handler and `PanelCard`/`PanelFullscreenOverlay`'s inspect-view
- *  mounting (which never call `appearanceToEChartsOption` — that also
- *  builds a full ECharts option object, wasted work for a value this small)
- *  resolve the SAME chart type without a second, divergence-prone copy of
- *  this fallback. */
+/** HEL-572 — the chart type of an APPEARANCE: `appearance.chart.chartType`,
+ *  defaulting `"line"` when unset. This reads the panel appearance ONLY. It is
+ *  not the dashboard's precedence: `ChartOutputPanel` and `PanelCard` resolve
+ *  stored chartType -> bound Output `config.chartType` -> line with
+ *  `resolvePanelChartType` (HEL-1351, HEL-1304) and hand this an appearance
+ *  that already carries the resolved type. Mirrors
+ *  `appearanceToEChartsOption`'s own derivation; exported so the click
+ *  handler (`useChartClickHandler`) reads the SAME type from that resolved
+ *  appearance without a second, divergence-prone copy of this fallback. */
 export function resolveChartType(chart: ChartAppearance | undefined): ChartType {
   return (chart?.chartType as ChartType | undefined) ?? "line";
 }

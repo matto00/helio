@@ -64,15 +64,32 @@ export const COMPARE_CONFIG_DOC =
   "`custom:PT6H`, at most 365 days), or null for none. Anything else is rejected by the " +
   "backend with a 400; this tool does not validate it.";
 
+/** Per-kind `config` key set and `aggregation` shapes (HEL-1313), appended to every Output-config
+ *  write tool. Mirrors the backend's `OutputConfigValidation.KnownKeys`, the sole validator: an
+ *  unknown key or malformed aggregation is a 400 naming it. */
+export const OUTPUT_CONFIG_KEYS_DOC =
+  "Output `config` accepts ONLY these top-level keys (anything else is rejected with a 400 " +
+  "naming the key and a did-you-mean hint; this tool does not validate it): every kind: " +
+  "`fieldMapping`, `compare`, `historyPayloads`; chart: `chartType` (bar|line|pie|scatter), " +
+  "`aggregation`, `chartOptions`, `annotation`; metric: `aggregation`, `label`, `unit`, " +
+  "`format`; table: `columnOrder`, `columnFormats`, `columnSort`, `columnFilters`, " +
+  "`pinnedColumns`; collection: `layout`, `format`; timeline: `sort`; markdown: `content`. " +
+  "`aggregation` is null, `{ groupBy, agg, yField }` on a chart (never on a scatter chart), " +
+  "or `{ agg }` (the field comes from `fieldMapping.value`) / `{ value, agg }` on a metric; " +
+  "`agg` is one of count|sum|avg|min|max and every named field a non-empty string. Chart " +
+  "styling (legend, tooltip, colors) is not Output config: it lives on the panel's " +
+  "`appearance.chart`. A key already stored on an Output may be re-sent unchanged.";
+
 /** `config.historyPayloads` documentation (HEL-1331), appended to `update_output`. The caps and
  *  retention mirror the backend defaults (`PayloadHistoryConfig.Defaults`); the backend is the sole
  *  validator (a non-boolean value is a 400). */
 export const HISTORY_PAYLOADS_CONFIG_DOC =
   "Optional `config.historyPayloads` (boolean, off by default) opts this Output into keeping the " +
   "full rows of each real run, taking effect from the next run on, so History can show what " +
-  "changed. A run over 1,000 rows or 1 MiB keeps only its summary (no rows are stored). Rows are " +
-  "kept only when the PIPELINE OWNER's tier allows it: free keeps none; beta keeps the last 10 " +
-  "runs for 7 days; owner keeps 30 runs for 30 days. The Output's read-only " +
+  "changed. A run over the row or byte cap keeps only its summary (no rows are stored). Rows are " +
+  "kept only when the PIPELINE OWNER's tier allows it (free keeps none by default). The exact " +
+  "caps and per-tier retention (runs kept, max age in days) are reported by the Output's " +
+  "read-only `historyPayloadLimits` field, which reflects the server's configuration. The Output's read-only " +
   "`historyPayloadsAvailable` field (on get_output/list_outputs/update_output results) reports " +
   "whether that tier keeps any rows; when false the setting is accepted but stores nothing. " +
   "Setting it to false stops storing rows but does not purge: rows already kept expire on the " +
@@ -98,6 +115,8 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         "`nodeStepId`; omit it on a single-root pipeline (the backend auto-resolves the one " +
         "root). Requires editor or owner access on the pipeline. " +
         COMPARE_CONFIG_DOC +
+        " " +
+        OUTPUT_CONFIG_KEYS_DOC +
         " Returns the created Output.",
       inputSchema: {
         pipelineId: z.string().min(1),
@@ -118,11 +137,12 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
       title: "Update an Output",
       description:
         "Rename an Output and/or patch its config (PATCH /api/outputs/:id) — owner-only. " +
-        "`config`, when present, merges one level deep for legend/tooltip/seriesColors/" +
-        "axisLabels (HEL-877) rather than replacing the whole object; every other config key is " +
-        "replaced outright — including `compare`, which is replaced, never deep-merged; sending " +
-        "`compare: null` clears it. " +
+        "`config`, when present, is shallow-merged into the stored config: each top-level key " +
+        "you send replaces that key outright — including `compare`, which is replaced, never " +
+        "deep-merged; sending `compare: null` clears it — and absent keys are kept. " +
         COMPARE_CONFIG_DOC +
+        " " +
+        OUTPUT_CONFIG_KEYS_DOC +
         " " +
         HISTORY_PAYLOADS_CONFIG_DOC +
         " Absent fields are left unchanged. Returns the updated Output.",

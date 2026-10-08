@@ -134,12 +134,12 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
   private def newTriggerService(debounceSeconds: Long): AutoRunTriggerService =
     new AutoRunTriggerService(pipelineRootRepo, pipelineRepo, pipelineStepRepo, dataSourceRepo, debounceRepo, debounceSeconds)
 
-  private def newRunService(guardConfig: PipelineRunGuardConfig): PipelineRunService =
+  private def newRunService(guardConfig: PipelineRunGuardConfig, guardClock: Clock = SystemClock): PipelineRunService =
     new PipelineRunService(
       pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
       new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
       pipelineRunGuardRepo = guardRepo, guardConfig = guardConfig,
-      outputRepo = new OutputRepository(ctx)
+      outputRepo = new OutputRepository(ctx), guardClock = guardClock
     )
 
   private class FakeClock(@volatile private var instant: Instant) extends Clock {
@@ -203,7 +203,13 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
       // Exhaust the PIPELINE OWNER's own rate-limit budget (limit = 1) via one direct submission
       // as the owner -- unrelated to the write below.
       val tightGuard = PipelineRunGuardConfig(rateLimitPerWindow = 1, rateWindowSeconds = 60, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30)
-      val runService = newRunService(tightGuard)
+      // HEL-1374: pin the rate-window clock mid-window so the owner's direct submit and the
+      // scheduler-fired auto-run bucket into the SAME 60s window however long this case takes on
+      // the wall clock (epoch-aligned buckets: a real clock lets a minute boundary between the two
+      // checks hand the owner a fresh bucket, admitting the auto-run -> runCount 2). Only the
+      // guard consults it; the scheduler keeps SystemClock.
+      val pinnedGuardClock = new FakeClock(Instant.now().truncatedTo(ChronoUnit.MINUTES).plusSeconds(30))
+      val runService = newRunService(tightGuard, pinnedGuardClock)
       await(runService.submit(pid, isDry = false, AuthenticatedUser(pipelineOwner))) shouldBe a[Right[_, _]]
       runCount(pid) shouldBe 1
 

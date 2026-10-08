@@ -81,7 +81,7 @@ export interface TableOutputConfig {
    *  `columnSort`, not `sort` — `TimelineOutputConfig.sort` below is a
    *  different type in this same file. This is a FLAT sibling of
    *  `columnOrder`, not a nested container, because `OutputService
-   *  .mergeConfig` only deep-merges four hardcoded chart keys — any nested
+   *  .mergeConfig` is a shallow merge (each top-level key replaces) — any nested
    *  container here would be replaced wholesale on every unrelated patch.
    *  HEL-451 (columnFilters), HEL-465 (pinnedColumns) and HEL-469
    *  (columnFormats) should each land as their OWN flat sibling here too,

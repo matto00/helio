@@ -26,7 +26,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
-import { COMPARE_CONFIG_DOC } from "./outputs.js";
+import { COMPARE_CONFIG_DOC, OUTPUT_CONFIG_KEYS_DOC } from "./outputs.js";
 import type { PipelineProposalSource } from "../types.js";
 import {
   analyzePipelineProposalHandler,
@@ -135,6 +135,8 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "Outputs; nodeStepClientId resolves against steps[].clientId, absent means the pipeline's " +
         "raw source. " +
         COMPARE_CONFIG_DOC +
+        " " +
+        OUTPUT_CONFIG_KEYS_DOC +
         " Read-only-checks a given `sourceId` resolves among your data sources and " +
         "that an inline source supplies a non-blank `name` and its matching `config`, returning " +
         "{ proposal, warnings, applyReady }. Every SQL step/source in the pipeline must remain " +
@@ -167,7 +169,8 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "`steps` is the same per-step " +
         "{id, position, type, config, inputSchema, outputSchema, validationError} shape " +
         "analyze_pipeline returns for an existing pipeline, projected here for a not-yet-created " +
-        "one (no ids exist yet, since nothing is persisted).",
+        "one (no ids exist yet, since nothing is persisted). " +
+        OUTPUT_CONFIG_KEYS_DOC,
       inputSchema: pipelineProposalInputSchema,
     },
     ({ pipelineName, roots, steps, outputs }) =>
@@ -196,7 +199,8 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "accepts it — create the csv source first (create_csv_data_source) and pass its `sourceId` " +
         "instead. propose_pipeline's warnings are advisory only; this tool may be called directly " +
         "without ever calling propose_pipeline first. Returns the created source (if inline)/" +
-        "pipeline summary/the created Outputs (zero, one, or many)/run result.",
+        "pipeline summary/the created Outputs (zero, one, or many)/run result. " +
+        OUTPUT_CONFIG_KEYS_DOC,
       inputSchema: pipelineProposalInputSchema,
     },
     ({ pipelineName, roots, steps, outputs }) =>

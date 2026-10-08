@@ -6,6 +6,7 @@ import com.helio.api.protocols.pipelines.{PipelineProposal, ProposalRestApiConfi
 import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalProtocol, DashboardProposal}
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlSourceConfigPayload}
 import com.helio.domain.model.PanelType
+import com.helio.services.pipelines.OutputConfigValidation
 import com.helio.services.proposals.ProposalPanelSupport
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -252,6 +253,46 @@ class AssistantProposalToolSchemasSpec
       val decoded = json.convertTo[PatchSet]
       decoded.edits should have size 1
       decoded.edits.head.target.kind shouldBe "output"
+    }
+  }
+
+  // HEL-1313 task 4.7: every in-app surface that lets Claude write Output config carries the validator's
+  // key table (one KeysDoc string) on the Output config / patch description ITSELF.
+  private def descriptionAt(json: JsValue, path: String*): String =
+    path.foldLeft(json)((node, key) => node.asJsObject.fields.getOrElse(key, fail(s"no '$key' on the way to ${path.mkString(".")}")))
+      .asJsObject.fields("description").asInstanceOf[JsString].value
+
+  private def findFirst(json: JsValue, key: String): Option[JsValue] = json match {
+    case o: JsObject => o.fields.get(key).collect { case v: JsObject if v.fields.contains("items") => v: JsValue }.orElse(o.fields.values.view.flatMap(findFirst(_, key)).headOption)
+    case a: JsArray  => a.elements.view.flatMap(findFirst(_, key)).headOption
+    case _           => None
+  }
+
+  private def assertListsEveryKindAndShape(doc: String): Unit = {
+    OutputConfigValidation.KnownKeys.values.flatten.foreach(k => doc should include(k))
+    doc should include("{ groupBy, agg, yField }")
+    doc should include("{ agg }")
+    doc should include("{ value, agg }")
+    doc shouldBe a[String]
+  }
+
+  "the Output config surfaces" should {
+    Seq("propose_pipeline", "propose_combined").foreach { tool =>
+      s"document every kind's keys and both aggregation shapes on $tool's Output config" in {
+        val schema = AssistantProtocol.assistantTools.find(_.name == tool).get.inputSchema
+        val outputs = findFirst(schema, "outputs").getOrElse(fail("no outputs property"))
+        val doc = descriptionAt(outputs, "items", "properties", "config")
+        doc should include(OutputConfigValidation.KeysDoc)
+        assertListsEveryKindAndShape(doc)
+      }
+    }
+
+    "document them on propose_patch_set's edit patch description" in {
+      val schema = AssistantProtocol.assistantTools.find(_.name == "propose_patch_set").get.inputSchema
+      val doc = descriptionAt(schema, "properties", "edits", "items", "properties", "patch")
+      doc should include("target.kind \"output\"")
+      doc should include(OutputConfigValidation.KeysDoc)
+      assertListsEveryKindAndShape(doc)
     }
   }
 }

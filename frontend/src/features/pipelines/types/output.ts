@@ -54,6 +54,24 @@ export interface Output {
   /** HEL-1331: read-only. True when the PIPELINE OWNER's tier keeps at least one payload run
    *  (never the viewer's tier). Absent or false means the History toggle renders disabled. */
   historyPayloadsAvailable?: boolean;
+  /** HEL-1372: read-only. The payload-history limits the running server enforces (env overrides
+   *  included); the editor's help copy renders its figures from here. Absent on older servers. */
+  historyPayloadLimits?: HistoryPayloadLimits;
+}
+
+export interface HistoryPayloadTierLimit {
+  maxRuns: number;
+  maxAgeDays: number;
+}
+
+export interface HistoryPayloadLimits {
+  maxRows: number;
+  maxBytes: number;
+  tiers: {
+    free: HistoryPayloadTierLimit;
+    beta: HistoryPayloadTierLimit;
+    owner: HistoryPayloadTierLimit;
+  };
 }
 
 export interface CreateOutputPayload {

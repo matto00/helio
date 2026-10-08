@@ -1,7 +1,7 @@
 // HEL-572 — click→selection column mapping and row-filtering for
 // chart-drilldown-inspect. Kept in this standalone module, deliberately
 // free of any `echarts`/`echarts-for-react` runtime import, so that
-// `PanelCard.tsx`/`PanelFullscreenOverlay.tsx` (eagerly bundled) can import
+// `usePanelCardInspect.ts`/`PanelFullscreenOverlay.tsx` (eagerly bundled) can import
 // it for row-filtering without pulling `ChartPanel.tsx`'s lazy-loaded
 // echarts chunk into the main bundle — see `ChartRenderer.tsx`'s own
 // HEL-512 comment for why that boundary is load-bearing. `ChartPanel.tsx`
@@ -188,8 +188,9 @@ export function filterRowsForSelection(
 }
 
 /** The chart-config half a panel's inspect view needs to filter/re-derive
- *  rows for a selection (see `PanelCard.tsx`) — `chartType` from the
- *  panel's own `appearance.chart` (`resolveChartType`, `chartAppearance.ts`),
+ *  rows for a selection (see `usePanelCardInspect.ts`) — `chartType` resolved by
+ *  `resolvePanelChartType` (panel `appearance.chart` -> the bound Output's
+ *  `config.chartType` -> line; HEL-1351/HEL-1304),
  *  `fieldMapping`/`scatterOptions` from the bound Output's config
  *  (`readChartConfig`). Computed once at the `PanelCard`/
  *  `PanelFullscreenOverlay` level and threaded down, rather than

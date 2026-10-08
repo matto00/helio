@@ -48,6 +48,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const TARGET_FILES = [
   "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputRepository.scala",
   "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala",
+  "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotFilterSql.scala",
   "backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/BinaryRefRepository.scala",
 ];
 

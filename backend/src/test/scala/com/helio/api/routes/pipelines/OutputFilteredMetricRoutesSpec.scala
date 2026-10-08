@@ -221,4 +221,75 @@ class OutputFilteredMetricRoutesSpec
       }
     }
   }
+
+  // ---- HEL-1182: fieldMapping key order must never decide the metric field -------------------------------
+  // jsonb stores object keys sorted by length then bytewise (`unit` < `label` < `value`), so any config
+  // written `value`-first reads back with `value` LAST. D1: the `rank` column is numeric and differs from
+  // `amount`, so a positional pick yields a plausible wrong sum rather than a coincidentally equal one.
+
+  private val rankOffset = 1000
+  private val rankEastSum = eastRows.map(i => (i + 1 + rankOffset).toDouble).sum
+
+  private def seedRankedOutput(config: JsObject): (String, String) = {
+    val (pid, _) = seedPipelineWithOutput(ownerId)
+    val fields   = schemaFields :+ SchemaField("rank", "integer")
+    val out = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(ownerId), "o", OutputKind.Metric, config, fields, explicitRootId = Some(PipelineRootId(pid))))
+    val rows = (0 until Total).map(i =>
+      JsObject("region" -> JsString(if (i % 2 == 0) "east" else "west"), "amount" -> JsNumber(i + 1), "rank" -> JsNumber(i + 1 + rankOffset))
+    )
+    awaitDb(snapshotRepo.overwriteRows(pid, None, rows, explicitRootId = Some(pid)))
+    (pid, out.id.value)
+  }
+
+  /** (case name, written fieldMapping JSON). The first is written `value`-first; the rest label/unit-first. */
+  private val keyOrderCases = Seq(
+    "value-first written"       -> """{"value":"amount","label":"rank"}""",
+    "label-first written"       -> """{"label":"rank","value":"amount"}""",
+    "unit-first written"        -> """{"unit":"rank","value":"amount"}""",
+    "unit+label-first written"  -> """{"unit":"rank","label":"region","value":"amount"}"""
+  )
+
+  private def orderConfig(mapping: String): JsObject =
+    s"""{"fieldMapping":$mapping,"aggregation":{"agg":"sum"}}""".parseJson.asJsObject
+
+  /** D3: the config as Postgres returns it must NOT list `value` first, or the test has degraded to value-first. */
+  private def assertStoredNotValueFirst(outputId: String): Unit = {
+    val stored  = awaitDb(outputRepo.findConfigsByIdsInternal(Vector(outputId)))(outputId)
+    val mapping = stored.fields("fieldMapping").asJsObject
+    mapping.fields.keys.head should not be "value"
+    mapping.fields.keySet should contain("value")
+  }
+
+  "HEL-1182 fieldMapping key order on GET /outputs/:id/rows" should {
+    keyOrderCases.foreach { case (name, mapping) =>
+      s"resolve the value column and its full-filtered sum ($name)" in {
+        val (_, oid) = seedRankedOutput(orderConfig(mapping))
+        assertStoredNotValueFirst(oid)
+        Get(s"/outputs/$oid/rows?filter=$eastFilter&limit=200") ~> authRoutes() ~> check {
+          status shouldBe StatusCodes.OK
+          val metric = responseAs[JsObject].fields("metric").asJsObject
+          metric.fields("field") shouldBe JsString("amount")
+          metric.fields("value") shouldBe JsNumber(eastSum)
+          metric.fields("value") should not be JsNumber(rankEastSum)
+        }
+      }
+    }
+  }
+
+  "HEL-1182 fieldMapping key order on GET /dashboards/:d/panels/:p/rows" should {
+    keyOrderCases.foreach { case (name, mapping) =>
+      s"resolve the value column and its full-filtered sum ($name)" in {
+        val (_, oid)          = seedRankedOutput(orderConfig(mapping))
+        assertStoredNotValueFirst(oid)
+        val (dashId, panelId) = seedPublicPanel(oid)
+        Get(s"/dashboards/$dashId/panels/$panelId/rows?filter=$eastFilter&limit=200") ~> publicRoutes() ~> check {
+          status shouldBe StatusCodes.OK
+          val metric = responseAs[JsObject].fields("metric").asJsObject
+          metric.fields("field") shouldBe JsString("amount")
+          metric.fields("value") shouldBe JsNumber(eastSum)
+          metric.fields("value") should not be JsNumber(rankEastSum)
+        }
+      }
+    }
+  }
 }

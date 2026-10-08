@@ -355,8 +355,10 @@ export function OutputEditorSheet({
         ).unwrap();
       }
       onClose();
-    } catch {
-      setSaveError("Failed to save output.");
+    } catch (err) {
+      // The thunks reject with the server's message (`rejectWithValue`), which names a rejected
+      // config key/aggregation (HEL-1313); anything else keeps the generic text.
+      setSaveError(typeof err === "string" && err ? err : "Failed to save output.");
     } finally {
       setSaving(false);
     }
@@ -627,6 +629,7 @@ export function OutputEditorSheet({
             checked={historyPayloads}
             onChange={setHistoryPayloads}
             available={output?.historyPayloadsAvailable === true}
+            limits={output?.historyPayloadLimits}
           />
         </div>
       )}
