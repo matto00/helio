@@ -1,0 +1,6 @@
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — buildStepsAction runs validateRawConfig per step (422)
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyResolvers.scala` — resolvePipelineCreate validates inline steps at resolve time (422)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineCreateStepConfigRoutesSpec.scala` — red-first route tests, valid-shape, empty draft, legacy list/analyze
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetPipelineCreateStepConfigSpec.scala` — red-first patch-set apply/preview tests
+- `backend/src/test/scala/com/helio/services/pipelines/CreateStepConfigNonRegressionSpec.scala` — helio-news, shape and FirstRunPlanner configs pinned accepted
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineApplyProposalSpec.scala` — proposal apply 422 regression pin

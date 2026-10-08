@@ -554,7 +554,16 @@ final class PipelineService(
               s"Step '${spec.clientId}' references unresolvable parentStepId '$parentClientId' -- it must be an earlier step's clientId in this same request"
             )))
           case parentClientIdOpt =>
-            PipelineStepConfigCodec.decode(spec.`type`, spec.config.compactPrint) match {
+            // HEL-1402: strict write-path check, same order as `addStepReporting` (type ->
+            // validateRawConfig -> tolerant decode), so an undecodable config stays 400 and an
+            // understood-but-refused one is 422 on every write surface.
+            val rawConfigError: Option[String] =
+              PipelineStep.companionFor(spec.`type`).toOption.flatMap(_.validateRawConfig(spec.config.compactPrint))
+            if (rawConfigError.isDefined)
+              DBIO.failed(PipelineCreateValidationFailure(
+                ServiceError.UnprocessableEntity(s"Step '${spec.clientId}': ${rawConfigError.get}")
+              ))
+            else PipelineStepConfigCodec.decode(spec.`type`, spec.config.compactPrint) match {
               case Failure(ex) =>
                 log.warn(s"create (transactional): config decode failed for step type '${spec.`type`}'", ex)
                 DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(s"Invalid '${spec.`type`}' config")))
