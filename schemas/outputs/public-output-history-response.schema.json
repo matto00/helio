@@ -29,7 +29,7 @@
           "$ref": "#/$defs/resolvedPoint"
         }
       ],
-      "description": "previous_run: the second-newest RETAINED point (history is thinned with age, so this is not necessarily the immediately previous run). Window: the newest point captured at or before (current.capturedAt minus the window). Null when there is none or no compare is configured."
+      "description": "previous_run: the immediately previous recorded run (history thinning never deletes an Output's newest 101 points). Window: the newest surviving point captured at or before (current.capturedAt minus the window); because older history is thinned it may be up to one thinning bucket (5 minutes, 1 hour or 1 day by age) earlier than that exact target. Null when there is none or no compare is configured."
     },
     "delta": {
       "type": ["number", "null"],

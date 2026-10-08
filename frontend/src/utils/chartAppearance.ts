@@ -160,6 +160,10 @@ export function appearanceToEChartsOption(
     // mirroring the axis-label convention already in place (Decision 2).
     tooltip: {
       show: chart.tooltip.enabled,
+      // Stable DOM hook: the tooltip is a real element inside the chart's host, so e2e specs read
+      // its text through this class instead of the whole card (whose `Updated <date>` label would
+      // otherwise leak into digit assertions).
+      className: "chart-tooltip",
       backgroundColor: themeTokens.surfaceStrong,
       borderColor: themeTokens.borderSubtle,
       borderWidth: 1,

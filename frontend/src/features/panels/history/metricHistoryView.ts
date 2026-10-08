@@ -76,8 +76,8 @@ export function configCompare(config: Record<string, unknown>): string | null {
 
 const EMPTY_VIEW: MetricHistoryView = { headline: null, sparkline: null, comparison: null };
 
-/** Short window label. `previous_run` reads "previous" (never "previous run": after thinning the
- *  prior point is the previous *surviving* point — HEL-1285). */
+/** Short window label. `previous_run` reads "previous" ("previous", not "previous run", keeps the
+ *  label short; the baseline IS the literal previous run, as thinning never removes the newest 101 points — HEL-1285). */
 export function compareLabel(compare: string): string {
   if (compare === "previous_run") return "previous";
   if (compare === "1d" || compare === "7d" || compare === "30d") return compare;

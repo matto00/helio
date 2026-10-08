@@ -12,11 +12,9 @@ export const METRIC_COMPARE_OPTIONS: SelectOption[] = [
   { value: "30d", label: "30 days" },
 ];
 
-/** HEL-1350 design D3 — chart Outputs offer no "Previous" choice (HEL-1285); a stored
- *  `previous_run` is still shown and kept by `compareOptions`. */
-export const CHART_COMPARE_OPTIONS: SelectOption[] = METRIC_COMPARE_OPTIONS.filter(
-  (o) => o.value !== "previous_run",
-);
+/** HEL-1285 — chart Outputs offer the same choices as metric Outputs, including "Previous": history
+ *  thinning never removes an Output's newest 101 points, so `previous_run` is the literal previous run. */
+export const CHART_COMPARE_OPTIONS: SelectOption[] = METRIC_COMPARE_OPTIONS;
 
 /** A stored value outside `base` (`previous_run`, `custom:<duration>`) is appended as its own
  *  option so opening and saving never silently drops it. */

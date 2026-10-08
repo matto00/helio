@@ -227,8 +227,13 @@ for (const theme of ["light", "dark"] as const) {
       const canvas = tallCard.locator("canvas").first();
       await expect(canvas).toBeVisible({ timeout: 15_000 });
 
-      // Hover across the plot until the axis tooltip names the primary series, a grouped value and
-      // the overlay: sum(amount) / east 15 (10+5 grouped, not a raw 10 or 5) / "vs 7d" baseline 11.
+      // Hover across the plot until the axis tooltip is the EAST category's (pinned: the poll never
+      // settles for west). The text is read from the tooltip element only (`.chart-tooltip`), never
+      // the whole card, whose `Updated <date>` label has satisfied a bare digit match by accident
+      // (HEL-1373). Expected east pair: sum(amount) 15 (10+5 grouped, not a raw 10 or 5) with the
+      // "vs 7d" baseline 11 (8+3) — digit boundaries, since the tooltip text has no space between
+      // the label and its value ("sum(amount)15vs 7d11").
+      const tooltip = tallCard.locator(".chart-tooltip");
       await expect
         .poll(
           async () => {
@@ -236,17 +241,16 @@ for (const theme of ["light", "dark"] as const) {
             if (!box) return "";
             for (const fx of [0.3, 0.4, 0.5, 0.6, 0.7]) {
               await page.mouse.move(box.x + box.width * fx, box.y + box.height * 0.5);
-              const text = (await tallCard.textContent()) ?? "";
-              if (/vs 7d/.test(text)) return text;
+              const text = (await tooltip.textContent()) ?? "";
+              if (/^east/.test(text) && /vs 7d/.test(text)) return text;
             }
             return "";
           },
           { timeout: 20_000 },
         )
         .toMatch(/sum\(amount\)/);
-      const hovered = (await tallCard.textContent()) ?? "";
-      expect(hovered).toMatch(/vs 7d/);
-      expect(hovered).toMatch(/\b(15|7)\b/);
+      const hovered = (await tooltip.textContent()) ?? "";
+      expect(hovered).toMatch(/^east.*sum\(amount\)\s*(?<!\d)15(?!\d).*vs 7d\s*(?<!\d)11(?!\d)/);
       expect(hovered).not.toMatch(/previous/i);
 
       await page.mouse.move(0, 0);

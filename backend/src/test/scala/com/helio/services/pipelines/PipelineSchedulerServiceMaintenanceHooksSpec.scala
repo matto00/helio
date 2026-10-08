@@ -44,7 +44,7 @@ class PipelineSchedulerServiceMaintenanceHooksSpec extends AnyWordSpec with Matc
       }
 
     class FailingHistoryRepo(sync: Boolean) extends OutputHistoryRepository(historyCtx) {
-      override def thinAndPurge(now: Instant, policy: HistoryThinningPolicy, caps: Map[UserTier, Duration]): Future[RetentionPassOutcome] =
+      override def thinAndPurge(now: Instant, policy: HistoryThinningPolicy, caps: Map[UserTier, Duration], protectedNewest: Int): Future[RetentionPassOutcome] =
         if (sync) throw new IllegalStateException("boom-sync") else Future.failed(new IllegalStateException("boom-future"))
     }
 
