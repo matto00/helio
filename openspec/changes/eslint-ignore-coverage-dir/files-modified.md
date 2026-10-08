@@ -1,0 +1,1 @@
+- `eslint.config.cjs` — adds `"**/coverage/**"` to the root ESLint `ignores` (tasks.md 2.2)

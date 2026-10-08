@@ -34,6 +34,13 @@ module.exports = [
       // template.md` (both markdown, untouched by ESLint's `files` globs), so
       // this is safe.
       ".concertino/**",
+      // `jest --coverage` writes a generated istanbul HTML report into
+      // `coverage/` (root suite) or `frontend/coverage/` (frontend suite). Its
+      // `lcov-report/block-navigation.js` carries an eslint-disable directive
+      // ESLint reports as unused, so `--max-warnings=0` failed lint and the
+      // pre-commit hook on a file outside the committer's diff. Gitignored, but
+      // ESLint's flat config does not consult .gitignore.
+      "**/coverage/**",
     ],
   },
   js.configs.recommended,
