@@ -104,6 +104,26 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
       err.message should include("step 1")
     }
 
+    // HEL-1310: aggregate write-time validation reaches the proposal surface.
+    "accept a valid percentile aggregate and reject an invalid one with a 422 (HEL-1310)" in {
+      val sourceId = DataSourceId(UUID.randomUUID().toString)
+      val dsRepo   = mock(classOf[DataSourceRepository])
+      when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(existingSource(sourceId))))
+      def aggStep(item: String) = CreatePipelineTransactionalStepRequest(
+        clientId = "s1",
+        `type`   = "aggregate",
+        config   = s"""{"groupBy":[],"aggregations":[$item]}""".parseJson.asJsObject
+      )
+      def run(item: String) =
+        await(newService(dsRepo).validate(proposal(existingSourceRef(sourceId.value)).copy(steps = Vector(aggStep(item))), user))
+
+      run("""{"alias":"a","fn":"percentile","field":"v","p":90}""") shouldBe Right(())
+      val missingP = run("""{"alias":"a","fn":"percentile","field":"v"}""").swap.toOption.get
+      missingP shouldBe a[ServiceError.UnprocessableEntity]
+      missingP.message should include("requires 'p'")
+      run("""{"alias":"a","fn":"bogus_fn","field":"v"}""").swap.toOption.get.message should include("Unsupported aggregation function")
+    }
+
     // GUARD, sited next to the proof: an INCOMPLETE draft step is still
     // accepted by this surface. D2 rejects wrong-TYPE values only, so a
     // proposal carrying a not-yet-configured step stays applicable.

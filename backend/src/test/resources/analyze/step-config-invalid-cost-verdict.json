@@ -5,7 +5,7 @@
   "reasons": [
     {
       "code": "step-config-invalid",
-      "detail": "Unsupported aggregation function: 'bogus_fn'. Supported: sum, avg, min, max, count",
+      "detail": "Unsupported aggregation function: 'bogus_fn'. Supported: sum, avg, min, max, count, median, percentile, count_distinct",
       "stepId": "STEP_ID"
     }
   ],

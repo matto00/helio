@@ -543,6 +543,32 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       }
     }
 
+    // HEL-1310: aggregate write-time validation on the patch-set create and update paths.
+    "reject an invalid aggregate on pipelineStep create and update, accept a valid percentile (HEL-1310)" in {
+      def aggConfig(item: JsObject) = JsObject("groupBy" -> JsArray(), "aggregations" -> JsArray(item))
+      def item(fn: String, p: Option[Double]) =
+        JsObject(Map("alias" -> JsString("a"), "fn" -> JsString(fn), "field" -> JsString("v")) ++ p.map(x => "p" -> JsNumber(x)))
+      val sourceId = seedDatasetSource(userA)
+      val pipeline = seedPipeline(userA, sourceId)
+      def create(cfg: JsObject) = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None,
+        Some(JsObject("type" -> JsString("aggregate"), "config" -> cfg)))
+
+      val bad = await(service.apply(PatchSet(None, Vector(create(aggConfig(item("percentile", None))))), userA)).getOrElse(fail("expected Right"))
+      bad.failure.getOrElse(fail("expected a reported failure")) should include("requires 'p'")
+      await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id))) shouldBe empty
+
+      val good = await(service.apply(PatchSet(None, Vector(create(aggConfig(item("percentile", Some(90)))))), userA)).getOrElse(fail("expected Right"))
+      good.failure shouldBe None
+      val stepId = good.edits.head.newId.getOrElse(fail("no newId"))
+
+      val upd = Edit(EditTarget("pipelineStep", Some(stepId)), "update", None, None, None, None,
+        Some(UpdatePipelineStepRequest(None, Some(aggConfig(item("percentile", Some(120)))), None)), None)
+      await(service.apply(PatchSet(None, Vector(upd)), userA)) match {
+        case Left(ServiceError.UnprocessableEntity(msg)) => msg should include("between 0 and 100")
+        case other                                         => fail(s"expected 422, got $other")
+      }
+    }
+
     "refuse an upsertsource create targeting a non-dataset source and roll back the earlier edit (HEL-1265)" in {
       val sourceId = seedDatasetSource(userA)
       val pipeline = seedPipeline(userA, sourceId, "Before upsert refusal")

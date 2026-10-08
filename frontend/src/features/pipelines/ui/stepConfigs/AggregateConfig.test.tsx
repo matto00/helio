@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { AggregateConfig } from "./AggregateConfig";
+import { AggregateConfig, FN_HINTS } from "./AggregateConfig";
 import type { AggregateConfigValue } from "./AggregateConfig";
 import type { SchemaField } from "../../types/pipelineStep";
 
@@ -529,5 +529,100 @@ describe("AggregateConfig", () => {
       />,
     );
     expect(screen.getByText(/Group-by fields define the partition keys/i)).toBeInTheDocument();
+  });
+
+  describe("median / percentile / count_distinct (HEL-1310)", () => {
+    function renderRow(row: AggregateConfigValue["aggregations"][number]) {
+      const onChange = jest.fn();
+      const view = render(
+        <AggregateConfig
+          config={{ groupBy: [], aggregations: [row] }}
+          analyzeSchema={sampleSchema}
+          analyzeColumns={sampleColumns}
+          onChange={onChange}
+        />,
+      );
+      return { onChange, ...view };
+    }
+    const lastConfig = (onChange: jest.Mock) =>
+      onChange.mock.calls[onChange.mock.calls.length - 1][0] as AggregateConfigValue;
+
+    it("offers the three new functions", () => {
+      renderRow({ alias: "x", fn: "sum", field: "age" });
+      fireEvent.click(screen.getByRole("combobox", { name: /function for aggregation 1/i }));
+      for (const fn of ["median", "percentile", "count_distinct"]) {
+        expect(screen.getByRole("option", { name: fn })).toBeInTheDocument();
+      }
+    });
+
+    it("shows a hint for each new function", () => {
+      for (const fn of ["median", "percentile", "count_distinct"]) {
+        const { unmount } = renderRow({ alias: "x", fn, field: "age", p: 50 });
+        expect(
+          document.querySelector(".pipeline-detail-page__aggregate-fn-hint")?.textContent,
+        ).toBe(FN_HINTS[fn as keyof typeof FN_HINTS]);
+        unmount();
+      }
+    });
+
+    it("does not render a p input for non-percentile functions", () => {
+      renderRow({ alias: "x", fn: "median", field: "age" });
+      expect(screen.queryByRole("spinbutton", { name: /percentile p 1/i })).not.toBeInTheDocument();
+    });
+
+    it("switching to percentile seeds p: 50 and reveals the p input; entering 90 emits p: 90", () => {
+      const { onChange, rerender } = renderRow({ alias: "x", fn: "sum", field: "age" });
+      fireEvent.click(screen.getByRole("combobox", { name: /function for aggregation 1/i }));
+      fireEvent.click(screen.getByRole("option", { name: "percentile" }));
+      expect(lastConfig(onChange).aggregations[0]).toEqual({
+        alias: "x",
+        fn: "percentile",
+        field: "age",
+        p: 50,
+      });
+
+      rerender(
+        <AggregateConfig
+          config={lastConfig(onChange)}
+          analyzeSchema={sampleSchema}
+          analyzeColumns={sampleColumns}
+          onChange={onChange}
+        />,
+      );
+      const input = screen.getByRole("spinbutton", { name: /percentile p 1/i });
+      expect(input).toHaveValue(50);
+      fireEvent.change(input, { target: { value: "90" } });
+      expect(lastConfig(onChange).aggregations[0].p).toBe(90);
+    });
+
+    it.each(["", "abc", "101", "-1"])(
+      "an invalid p (%p) shows an inline error and does not emit",
+      (bad) => {
+        const { onChange } = renderRow({ alias: "x", fn: "percentile", field: "age", p: 90 });
+        const input = screen.getByRole("spinbutton", { name: /percentile p 1/i });
+        // number inputs sanitize "abc" to "", which exercises the cleared path
+        fireEvent.change(input, { target: { value: bad } });
+        expect(onChange).not.toHaveBeenCalled();
+        expect(screen.getByText(/percentile p must be a number between 0 and 100/i)).toBeVisible();
+      },
+    );
+
+    it("recovers from an invalid p once a valid value is entered", () => {
+      const { onChange } = renderRow({ alias: "x", fn: "percentile", field: "age", p: 90 });
+      const input = screen.getByRole("spinbutton", { name: /percentile p 1/i });
+      fireEvent.change(input, { target: { value: "150" } });
+      fireEvent.change(input, { target: { value: "95" } });
+      expect(lastConfig(onChange).aggregations[0].p).toBe(95);
+      expect(screen.queryByText(/percentile p must be a number/i)).not.toBeInTheDocument();
+    });
+
+    it("switching away from percentile drops p", () => {
+      const { onChange } = renderRow({ alias: "x", fn: "percentile", field: "age", p: 90 });
+      fireEvent.click(screen.getByRole("combobox", { name: /function for aggregation 1/i }));
+      fireEvent.click(screen.getByRole("option", { name: "median" }));
+      const row = lastConfig(onChange).aggregations[0];
+      expect(row.fn).toBe("median");
+      expect("p" in row).toBe(false);
+    });
   });
 });

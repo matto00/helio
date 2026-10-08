@@ -4,6 +4,7 @@ import com.helio.api.protocols.panels.PanelCapabilitiesResponse
 import com.helio.api.protocols.pipelines.{PipelineStepProtocol, PipelineStepResponse, PipelineSummaryResponse}
 import com.helio.api.protocols.workspace.WorkspaceContextOutput
 import com.helio.domain.model.{Dashboard, Panel}
+import com.helio.domain.steps.AggregateStep
 import spray.json.JsObject
 
 /** Builds the natural-language prompt `RefinementService` sends to `ClaudeClient` (design.md D2a) —
@@ -21,7 +22,7 @@ import spray.json.JsObject
  *  block (see that method's own doc comment for why this is load-bearing, not cosmetic). */
 object RefinementPrompt extends PipelineStepProtocol {
 
-  private val Instructions: String =
+  private[patchsets] val Instructions: String =
     "You are refining an EXISTING Helio dashboard or pipeline from a user's natural-language message. " +
       "Respond with ONLY a single JSON object — no prose, no markdown code fences, nothing before or " +
       "after it — matching exactly this shape (a PatchSet):\n\n" + RefinementEditShape.Description + "\n\n" +
@@ -51,8 +52,9 @@ object RefinementPrompt extends PipelineStepProtocol {
       "step's decoder, which can silently empty out the step's real behavior even though the call " +
       "still succeeds. This applies to EVERY pipelineStep kind, not only the ones with a worked " +
       "example below. Two kinds with easily-confused, similarly-named shapes: an \"aggregate\" step's " +
-      "config needs groupBy:[{name,type}] objects and aggregations:[{alias,fn,field}] objects (fn is " +
-      "one of sum|avg|min|max|count); a \"groupby\" step's config is a DIFFERENT, single-aggregation " +
+      "config needs groupBy:[{name,type}] objects and aggregations:[{alias,fn,field,p?}] objects (fn is " +
+      "one of " + AggregateStep.SupportedFunctions.mkString("|") + "; percentile needs p, a number 0-100, " +
+      "and no other fn takes p); a \"groupby\" step's config is a DIFFERENT, single-aggregation " +
       "shape — groupBy:[string] (plain strings, not objects), aggColumn:string, aggFunction:string. " +
       "Never mix the two kinds' key names.\n" +
       "- If the message can only be partially satisfied from the state/data available, return the " +

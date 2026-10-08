@@ -2060,5 +2060,44 @@ class PipelineStepRoutesSpec
         responseAs[String] should include ("does-not-exist")
       }
     }
+
+    // HEL-1310: write-time aggregation validation (AggregateStep.companion.validateRawConfig).
+    def aggReq(aggs: JsObject*): JsObject = JsObject(
+      "type"   -> JsString("aggregate"),
+      "config" -> JsObject("groupBy" -> JsArray(), "aggregations" -> JsArray(aggs.toVector))
+    )
+    def aggItem(fn: String, p: Option[Double] = None): JsObject =
+      JsObject(Map("alias" -> JsString("a"), "fn" -> JsString(fn), "field" -> JsString("v")) ++ p.map(x => "p" -> JsNumber(x)))
+
+    "POST accepts median, count_distinct and percentile with p, and rejects invalid aggregations with 422 (HEL-1310)" in {
+      cleanSteps(); val pid = seedPipeline()
+      for (item <- Seq(aggItem("median"), aggItem("count_distinct"), aggItem("percentile", Some(90)), aggItem("PERCENTILE", Some(0))))
+        Post(s"/pipelines/$pid/steps", aggReq(item)) ~> routes ~> check { status shouldBe StatusCodes.Created }
+      val rejected = Seq(
+        aggItem("percentile")                   -> "requires 'p'",
+        aggItem("percentile", Some(101))        -> "between 0 and 100",
+        aggItem("median", Some(50))             -> "only valid for percentile",
+        aggItem("bogus_fn")                     -> "Unsupported aggregation function"
+      )
+      for ((item, msg) <- rejected)
+        Post(s"/pipelines/$pid/steps", aggReq(item)) ~> routes ~> check {
+          status shouldBe StatusCodes.UnprocessableEntity
+          responseAs[String] should include(msg)
+        }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check { responseAs[Vector[PipelineStepResponse]] should have size 4 }
+    }
+
+    "PATCH rejects an invalid aggregation config with 422 and accepts a valid percentile (HEL-1310)" in {
+      cleanSteps(); val pid = seedPipeline()
+      var stepId = ""
+      Post(s"/pipelines/$pid/steps", aggReq(aggItem("sum"))) ~> routes ~> check { stepId = responseAs[PipelineStepResponse].id }
+      Patch(s"/pipeline-steps/$stepId", JsObject("config" -> aggReq(aggItem("percentile")).fields("config"))) ~> routes ~> check {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[String] should include("requires 'p'")
+      }
+      Patch(s"/pipeline-steps/$stepId", JsObject("config" -> aggReq(aggItem("percentile", Some(95))).fields("config"))) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+    }
   }
 }

@@ -12,6 +12,15 @@ class AggregateStepSpec extends AnyWordSpec with Matchers {
   private def agg(alias: String, fn: String, field: String): Aggregation =
     Aggregation(alias, fn, field)
 
+  private def pct(alias: String, field: String, p: Double): Aggregation =
+    Aggregation(alias, "percentile", field, Some(p))
+
+  private def vals(field: String, values: Any*): Seq[Map[String, Any]] =
+    values.map(v => Map[String, Any](field -> v))
+
+  private def one(rows: Seq[Map[String, Any]], a: Aggregation): Any =
+    apply(rows, Vector.empty, Vector(a)).head(a.alias)
+
   private def groupField(name: String): AggregateField =
     AggregateField(name, "string")
 
@@ -269,6 +278,137 @@ class AggregateStepSpec extends AnyWordSpec with Matchers {
       result should have size 1
       result.head("mn") shouldBe 42.0
       result.head("mx") shouldBe 42.0
+    }
+  }
+
+  // ── HEL-1310: median / percentile / count_distinct ─────────────────────────
+
+  "AggregateStep median/percentile/count_distinct" should {
+
+    "compute the median of an odd and an even count" in {
+      one(vals("v", 3.0, 1.0, 2.0), agg("m", "median", "v")) shouldBe 2.0
+      one(vals("v", 4.0, 1.0, 3.0, 2.0), agg("m", "median", "v")) shouldBe 2.5
+    }
+
+    "compute percentile with linear interpolation (p90 of 1..10 is 9.1)" in {
+      val rows = vals("v", (1 to 10).map(_.toDouble): _*)
+      one(rows, pct("p", "v", 90)).asInstanceOf[Double] shouldBe 9.1 +- 1e-9
+    }
+
+    "return min and max for percentile p=0 and p=100" in {
+      val rows = vals("v", 5.0, 9.0, 1.0, 7.0)
+      one(rows, pct("lo", "v", 0)) shouldBe 1.0
+      one(rows, pct("hi", "v", 100)) shouldBe 9.0
+    }
+
+    "accept an upper-case fn name" in {
+      one(vals("v", 1.0, 3.0), Aggregation("m", "MEDIAN", "v")) shouldBe 2.0
+      one(vals("v", 1.0, 3.0), Aggregation("m", "PERCENTILE", "v", Some(100))) shouldBe 3.0
+    }
+
+    "let numeric strings participate and ignore nulls and non-numeric values" in {
+      one(vals("v", "10", null, "abc", 30L), agg("m", "median", "v")) shouldBe 20.0
+    }
+
+    "exclude NaN from median/percentile" in {
+      one(vals("v", "NaN", 1.0, 3.0), agg("m", "median", "v")) shouldBe 2.0
+    }
+
+    "keep infinity: [Inf, Inf] at a fractional position is Inf, not NaN" in {
+      val inf = Double.PositiveInfinity
+      one(vals("v", inf, inf), agg("m", "median", "v")) shouldBe inf
+      one(vals("v", inf, inf, inf), pct("p", "v", 25)) shouldBe inf
+    }
+
+    "count distinct non-null values, with 1L and 1.0 counting once and \"1\" distinct from 1" in {
+      one(vals("v", "a", "b", "a", null, "c"), agg("d", "count_distinct", "v")) shouldBe 3L
+      one(vals("v", 1L, 1.0), agg("d", "count_distinct", "v")) shouldBe 1L
+      one(vals("v", "1", 1L), agg("d", "count_distinct", "v")) shouldBe 2L
+    }
+
+    "compute per group when grouped" in {
+      val rows = Seq(
+        Map[String, Any]("g" -> "a", "v" -> 1.0), Map[String, Any]("g" -> "a", "v" -> 3.0),
+        Map[String, Any]("g" -> "b", "v" -> 10.0), Map[String, Any]("g" -> "b", "v" -> 10.0), Map[String, Any]("g" -> "b", "v" -> 20.0)
+      )
+      val out = apply(rows, Vector(groupField("g")), Vector(
+        agg("med", "median", "v"), pct("p100", "v", 100), agg("d", "count_distinct", "v")
+      )).map(r => r("g") -> r).toMap
+      out("a")("med") shouldBe 2.0
+      out("a")("p100") shouldBe 3.0
+      out("a")("d") shouldBe 2L
+      out("b")("med") shouldBe 10.0
+      out("b")("d") shouldBe 2L
+    }
+
+    "return null/null/0 for a group whose field is entirely null" in {
+      val rows = Seq(Map[String, Any]("g" -> "a", "v" -> null))
+      val out = apply(rows, Vector(groupField("g")), Vector(
+        agg("med", "median", "v"), pct("p", "v", 50), agg("d", "count_distinct", "v")
+      )).head
+      out("med").asInstanceOf[AnyRef] shouldBe null
+      out("p").asInstanceOf[AnyRef] shouldBe null
+      out("d") shouldBe 0L
+    }
+
+    "yield null/null/0 for empty input with empty groupBy" in {
+      val out = apply(Seq.empty, Vector.empty, Vector(
+        agg("med", "median", "v"), pct("p", "v", 50), agg("d", "count_distinct", "v")
+      )).head
+      out("med").asInstanceOf[AnyRef] shouldBe null
+      out("p").asInstanceOf[AnyRef] shouldBe null
+      out("d") shouldBe 0L
+    }
+
+    "yield zero rows for empty input with non-empty groupBy" in {
+      apply(Seq.empty, Vector(groupField("g")), Vector(agg("med", "median", "v"))) shouldBe empty
+    }
+
+    "throw StepConfigError for invalid aggregation configs, on empty and non-empty input" in {
+      val bad = Seq(
+        Aggregation("a", "percentile", "v"),
+        Aggregation("a", "percentile", "v", Some(101)),
+        Aggregation("a", "percentile", "v", Some(-1)),
+        Aggregation("a", "percentile", "v", Some(Double.NaN)),
+        Aggregation("a", "percentile", "v", Some(Double.PositiveInfinity)),
+        Aggregation("a", "median", "v", Some(50)),
+        Aggregation("a", "bogus", "v")
+      )
+      bad.foreach { a =>
+        withClue(a.toString) {
+          an[StepConfigError] should be thrownBy apply(vals("v", 1.0), Vector.empty, Vector(a))
+          an[StepConfigError] should be thrownBy apply(Seq.empty, Vector.empty, Vector(a))
+        }
+      }
+    }
+
+    "round-trip a config without p byte-identically" in {
+      import spray.json._
+      val raw = """{"groupBy":[],"aggregations":[{"alias":"t","fn":"sum","field":"v"}]}"""
+      AggregateConfig.decode(raw).toJson shouldBe raw.parseJson
+      AggregateConfig.decode(raw).toJson.compactPrint should not include "\"p\""
+    }
+  }
+
+  "AggregateStep.companion.validateRawConfig" should {
+    def raw(aggs: String) = s"""{"groupBy":[],"aggregations":[$aggs]}"""
+    val c = AggregateStep.companion
+
+    "accept median, count_distinct, percentile with p, and upper-case PERCENTILE with p" in {
+      c.validateRawConfig(raw("""{"alias":"a","fn":"median","field":"v"},{"alias":"b","fn":"count_distinct","field":"v"},{"alias":"c","fn":"percentile","field":"v","p":90},{"alias":"d","fn":"PERCENTILE","field":"v","p":0}""")) shouldBe None
+    }
+
+    "reject each invalid aggregation, joining all problems" in {
+      c.validateRawConfig(raw("""{"alias":"a","fn":"percentile","field":"v"}""")).get should include("requires 'p'")
+      c.validateRawConfig(raw("""{"alias":"a","fn":"percentile","field":"v","p":101}""")).get should include("between 0 and 100")
+      c.validateRawConfig(raw("""{"alias":"a","fn":"sum","field":"v","p":5}""")).get should include("only valid for percentile")
+      c.validateRawConfig(raw("""{"alias":"a","fn":"bogus_fn","field":"v"}""")).get should (include("Unsupported aggregation function") and include("bogus_fn"))
+      val both = c.validateRawConfig(raw("""{"alias":"a","fn":"percentile","field":"v"},{"alias":"b","fn":"bogus_fn","field":"v"}""")).get
+      both should (include("requires 'p'") and include("bogus_fn") and include("; "))
+    }
+
+    "leave a malformed (non-numeric p) config to the decode-mismatch message" in {
+      c.validateRawConfig(raw("""{"alias":"a","fn":"percentile","field":"v","p":"x"}""")).get should include("p?")
     }
   }
 }

@@ -22,6 +22,8 @@ export interface AggregationRow {
   alias: string;
   fn: string;
   field: string;
+  /** Percentile position (0-100); present only when fn is "percentile". */
+  p?: number;
 }
 
 export interface AggregateConfigValue {
@@ -29,7 +31,26 @@ export interface AggregateConfigValue {
   aggregations: AggregationRow[];
 }
 
-export const AGG_FNS = ["sum", "avg", "min", "max", "count"] as const;
+export const AGG_FNS = [
+  "sum",
+  "avg",
+  "min",
+  "max",
+  "count",
+  "median",
+  "percentile",
+  "count_distinct",
+] as const;
+
+/** Default percentile position seeded when a row is switched to `percentile`. */
+const DEFAULT_PERCENTILE = 50;
+
+/** Parses a percentile draft; null when blank, non-numeric or outside 0-100. */
+function parsePercentile(draft: string): number | null {
+  if (draft.trim() === "") return null;
+  const n = Number(draft);
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? n : null;
+}
 
 /** Schema types a new aggregation should default its field to (HEL sweep
  *  F-129) — mirrors FilterConfig's own NUMERIC_TYPES set for value-input
@@ -42,6 +63,10 @@ export const FN_HINTS: Record<(typeof AGG_FNS)[number], string> = {
   min: "Minimum numeric value; ignores nulls and non-numeric",
   max: "Maximum numeric value; ignores nulls and non-numeric",
   count: "Counts non-null values in the field",
+  median:
+    "Middle numeric value; mean of the two middle values for an even count; ignores nulls and non-numeric",
+  percentile: "Value at percentile p (0-100), linearly interpolated; ignores nulls and non-numeric",
+  count_distinct: "Counts distinct non-null values in the field",
 };
 
 interface AggregateConfigProps {
@@ -62,6 +87,9 @@ export function AggregateConfig({
   onChange,
 }: AggregateConfigProps) {
   const [blurredAliasRows, setBlurredAliasRows] = useState<Set<number>>(new Set());
+  // In-progress `p` text per row. An invalid draft (blank / non-numeric / outside 0-100) stays
+  // here and is never emitted, so the editor cannot save a config the server would reject.
+  const [pDrafts, setPDrafts] = useState<Record<number, string>>({});
 
   function emit(next: AggregateConfigValue) {
     onChange(next);
@@ -118,7 +146,33 @@ export function AggregateConfig({
     emit({ ...config, aggregations });
   }
 
+  function handleFnChange(index: number, agg: AggregationRow, fn: string) {
+    setPDrafts((prev) => {
+      const { [index]: _dropped, ...rest } = prev;
+      return rest;
+    });
+    const { p: _oldP, ...withoutP } = agg;
+    handleAggregationChange(
+      index,
+      fn === "percentile" ? { ...withoutP, fn, p: DEFAULT_PERCENTILE } : { ...withoutP, fn },
+    );
+  }
+
+  function handlePChange(index: number, agg: AggregationRow, draft: string) {
+    const parsed = parsePercentile(draft);
+    if (parsed === null) {
+      setPDrafts((prev) => ({ ...prev, [index]: draft }));
+      return;
+    }
+    setPDrafts((prev) => {
+      const { [index]: _dropped, ...rest } = prev;
+      return rest;
+    });
+    handleAggregationChange(index, { ...agg, p: parsed });
+  }
+
   function handleRemoveAggregation(index: number) {
+    setPDrafts({});
     const aggregations = config.aggregations.filter((_, i) => i !== index);
     emit({ ...config, aggregations });
   }
@@ -193,11 +247,29 @@ export function AggregateConfig({
                   ariaLabel={`Function for aggregation ${index + 1}`}
                   value={agg.fn}
                   options={AGG_FNS.map((fn) => ({ value: fn, label: fn }))}
-                  onChange={(next) => handleAggregationChange(index, { ...agg, fn: next })}
+                  onChange={(next) => handleFnChange(index, agg, next)}
                 />
                 <span className="pipeline-detail-page__aggregate-fn-hint">
                   {FN_HINTS[agg.fn as (typeof AGG_FNS)[number]]}
                 </span>
+
+                {agg.fn === "percentile" && (
+                  <>
+                    <TextField
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="any"
+                      aria-label={`Percentile p ${index + 1}`}
+                      placeholder="p (0-100)"
+                      value={pDrafts[index] ?? String(agg.p ?? "")}
+                      onChange={(e) => handlePChange(index, agg, e.target.value)}
+                    />
+                    {pDrafts[index] !== undefined && (
+                      <InlineError error="Percentile p must be a number between 0 and 100" />
+                    )}
+                  </>
+                )}
 
                 {/* Field dropdown */}
                 <Select
