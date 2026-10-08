@@ -25,11 +25,10 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
+      # HEL-1299 D3: no npm caching here -- a tag-scoped entry can never be restored by any other run.
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm --prefix frontend ci

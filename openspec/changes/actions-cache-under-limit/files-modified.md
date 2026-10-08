@@ -1,0 +1,11 @@
+- `.github/workflows/ci.yml` — sbt dep cache restore-only everywhere + one main save; report step; prune on PR (canary) and main; new selftests wired into frontend job
+- `.github/workflows/cd-frontend.yml` — drop npm caching (no tag-scoped cache)
+- `.github/workflows/cache-janitor.yml` — new: janitor after main CI / 6-hourly / dispatch (dry-run default)
+- `.github/workflows/cache-cleanup-pr.yml` — new: delete exactly refs/pull/<N>/merge on PR close
+- `scripts/ci-prune-sbt-cas.sh` — new: prune sbt CAS/ac to what compile output references
+- `scripts/ci-prune-sbt-cas.selftest.mjs` — fixture selftest for the prune script
+- `scripts/cache-janitor.mjs` — new: allowlist janitor with --dry-run
+- `scripts/cache-janitor.selftest.mjs` — exact-deletion-set selftest
+- `scripts/check-cache-cleanup-pr.mjs` — static guard of the PR-close workflow
+- `scripts/check-cache-cleanup-pr.selftest.mjs` — mutation selftest for that guard
+- `package.json` — npm scripts for the above
