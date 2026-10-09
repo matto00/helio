@@ -567,7 +567,9 @@ describe("AggregateConfig", () => {
 
     it("does not render a p input for non-percentile functions", () => {
       renderRow({ alias: "x", fn: "median", field: "age" });
-      expect(screen.queryByRole("spinbutton", { name: /percentile p 1/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("spinbutton", { name: /percentile p \(row 1\)/i }),
+      ).not.toBeInTheDocument();
     });
 
     it("switching to percentile seeds p: 50 and reveals the p input; entering 90 emits p: 90", () => {
@@ -589,7 +591,7 @@ describe("AggregateConfig", () => {
           onChange={onChange}
         />,
       );
-      const input = screen.getByRole("spinbutton", { name: /percentile p 1/i });
+      const input = screen.getByRole("spinbutton", { name: /percentile p \(row 1\)/i });
       expect(input).toHaveValue(50);
       fireEvent.change(input, { target: { value: "90" } });
       expect(lastConfig(onChange).aggregations[0].p).toBe(90);
@@ -599,7 +601,7 @@ describe("AggregateConfig", () => {
       "an invalid p (%p) shows an inline error and does not emit",
       (bad) => {
         const { onChange } = renderRow({ alias: "x", fn: "percentile", field: "age", p: 90 });
-        const input = screen.getByRole("spinbutton", { name: /percentile p 1/i });
+        const input = screen.getByRole("spinbutton", { name: /percentile p \(row 1\)/i });
         // number inputs sanitize "abc" to "", which exercises the cleared path
         fireEvent.change(input, { target: { value: bad } });
         expect(onChange).not.toHaveBeenCalled();
@@ -609,7 +611,7 @@ describe("AggregateConfig", () => {
 
     it("recovers from an invalid p once a valid value is entered", () => {
       const { onChange } = renderRow({ alias: "x", fn: "percentile", field: "age", p: 90 });
-      const input = screen.getByRole("spinbutton", { name: /percentile p 1/i });
+      const input = screen.getByRole("spinbutton", { name: /percentile p \(row 1\)/i });
       fireEvent.change(input, { target: { value: "150" } });
       fireEvent.change(input, { target: { value: "95" } });
       expect(lastConfig(onChange).aggregations[0].p).toBe(95);
@@ -623,6 +625,99 @@ describe("AggregateConfig", () => {
       const row = lastConfig(onChange).aggregations[0];
       expect(row.fn).toBe("median");
       expect("p" in row).toBe(false);
+    });
+  });
+
+  describe("case-insensitive stored function (HEL-1407)", () => {
+    function renderRow(row: AggregateConfigValue["aggregations"][number]) {
+      return render(
+        <AggregateConfig
+          config={{ groupBy: [], aggregations: [row] }}
+          analyzeSchema={sampleSchema}
+          analyzeColumns={sampleColumns}
+          onChange={jest.fn()}
+        />,
+      );
+    }
+    const hintText = () =>
+      document.querySelector(".pipeline-detail-page__aggregate-fn-hint")?.textContent;
+
+    it("a stored SUM shows the sum hint and selects the sum picker option", () => {
+      renderRow({ alias: "x", fn: "SUM", field: "age" });
+      expect(hintText()).toBe(FN_HINTS.sum);
+      expect(
+        screen.getByRole("combobox", { name: /function for aggregation 1/i }),
+      ).toHaveTextContent("sum");
+    });
+
+    it("a stored PERCENTILE shows its hint and the p input", () => {
+      renderRow({ alias: "x", fn: "PERCENTILE", field: "age", p: 90 });
+      expect(hintText()).toBe(FN_HINTS.percentile);
+      expect(screen.getByRole("spinbutton", { name: /percentile p/i })).toHaveValue(90);
+    });
+  });
+
+  describe("percentile p input accessibility (HEL-1407)", () => {
+    function renderPercentile(p: number) {
+      return render(
+        <AggregateConfig
+          config={{
+            groupBy: [],
+            aggregations: [{ alias: "x", fn: "percentile", field: "age", p }],
+          }}
+          analyzeSchema={sampleSchema}
+          analyzeColumns={sampleColumns}
+          onChange={jest.fn()}
+        />,
+      );
+    }
+
+    it("has a visible label element, with a value present, that names the row", () => {
+      renderPercentile(90);
+      const input = screen.getByRole("spinbutton", { name: /percentile p/i }) as HTMLInputElement;
+      expect(input).toHaveValue(90);
+      expect(input.labels).toHaveLength(1);
+      expect(input.labels?.[0].tagName).toBe("LABEL");
+      expect(input.labels?.[0]).toHaveTextContent(/percentile p.*1/i);
+      expect(input).not.toHaveAttribute("aria-label");
+    });
+
+    it("links an invalid-p error to the input with aria-invalid and aria-describedby", () => {
+      renderPercentile(90);
+      const input = screen.getByRole("spinbutton", { name: /percentile p/i });
+      expect(input).not.toHaveAttribute("aria-invalid");
+      fireEvent.change(input, { target: { value: "150" } });
+      const error = screen.getByText(/percentile p must be a number between 0 and 100/i);
+      expect(input).toHaveAttribute("aria-invalid", "true");
+      expect(input).toHaveAccessibleDescription(error.textContent ?? "");
+      expect(input.getAttribute("aria-describedby")).toBe(error.id);
+    });
+
+    it("gives each percentile row its own label and error ids", () => {
+      render(
+        <AggregateConfig
+          config={{
+            groupBy: [],
+            aggregations: [
+              { alias: "a", fn: "percentile", field: "age", p: 10 },
+              { alias: "b", fn: "percentile", field: "age", p: 20 },
+            ],
+          }}
+          analyzeSchema={sampleSchema}
+          analyzeColumns={sampleColumns}
+          onChange={jest.fn()}
+        />,
+      );
+      const inputs = screen.getAllByRole("spinbutton") as HTMLInputElement[];
+      expect(inputs).toHaveLength(2);
+      expect(inputs[0].labels?.[0]).toHaveTextContent("row 1");
+      expect(inputs[1].labels?.[0]).toHaveTextContent("row 2");
+      inputs.forEach((input) => fireEvent.change(input, { target: { value: "150" } }));
+      const [first, second] = inputs.map((input) => input.getAttribute("aria-describedby"));
+      expect(first).toBeTruthy();
+      expect(first).not.toBe(second);
+      expect(document.getElementById(first as string)).toHaveTextContent(/between 0 and 100/);
+      expect(document.getElementById(second as string)).toHaveTextContent(/between 0 and 100/);
     });
   });
 });

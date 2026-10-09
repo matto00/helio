@@ -2,7 +2,9 @@
 
 ## Purpose
 Show pipeline authors, at a glance on each StepCard, what a step actually does to the schema — real added/dropped/retyped/renamed column chips computed client-side from the analyze endpoint's per-step input/output schemas.
+
 ## Requirements
+
 ### Requirement: Per-step schema diff is computed client-side from analyze schemas
 The frontend SHALL provide a pure helper that, given a step's analyze `inputSchema` and
 `outputSchema` (and, for the `rename` op, its `renames` config map), computes:
@@ -60,3 +62,11 @@ placeholder chips (`+ col_a`, `− col_b`, `~ col_c`), which SHALL be removed. T
   or unknown step id)
 - **THEN** the expanded StepCard renders no diff chips and no empty diff container
 
+### Requirement: Schema diff chips have unique keys when field names repeat
+The schema diff chips SHALL render with unique React keys even when two diff entries in the same category share a
+field name (for example several aggregate aliases left empty), so rendering logs no duplicate-key warning and every
+entry still renders its own chip.
+
+#### Scenario: Several empty aggregate aliases
+- **WHEN** a step's output schema contains two or more added fields with the same name (e.g. `""`)
+- **THEN** one chip renders per added field and React logs no duplicate-key warning
