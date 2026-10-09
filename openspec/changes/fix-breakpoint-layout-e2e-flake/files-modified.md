@@ -1,0 +1,3 @@
+- `e2e/hel1023-breakpoint-layout-derivation.spec.ts` — settledRects waits for RGL's processed width (desktop) / grid gone (stack) plus transition settle
+- `frontend/src/features/panels/ui/grid/DesktopPanelGrid.tsx` — expose RGL-processed width as `--panel-grid-processed-width` (observability only)
+- `frontend/src/features/panels/ui/grid/DesktopPanelGrid.processedWidth.test.tsx` — unit guard for the new wiring
