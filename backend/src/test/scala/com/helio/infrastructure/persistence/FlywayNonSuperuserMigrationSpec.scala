@@ -277,11 +277,14 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
         // load-bearing step: with realistic data now in place, every DO block's loop actually
         // executes, reaching the INSERT/UPDATE/DELETE statements against FORCE-RLS tables that
         // round 1 of this gate never reached. ─────────────────────────────────────────────────
+        // HEL-1347: pinned to V118 first -- V119 deletes the dump's two NULL-owner sources, which the V106
+        // assertions below read by id. The chain is then taken to latest at the end of this test.
         noException should be thrownBy {
           Flyway
             .configure()
             .dataSource(migrationUrl, "helio_migration_test", "test")
             .locations("classpath:db/migration")
+            .target(MigrationVersion.fromVersion("118"))
             .load()
             .migrate()
         }
@@ -455,6 +458,32 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
             migratedDb.run(sql"SELECT config::text FROM data_sources WHERE id = '18dc0d3b-ad44-48cd-bc1d-f066726fc0f1'".as[String].head)
           )
           withClue("config should be cleared for a migrated dataset-kind source: ") { myManualConfig.parseJson shouldBe JsObject.empty }
+
+          // HEL-1347: the rest of the chain (V119) as the same non-superuser role. The dump has exactly two
+          // NULL-owner sources, no FK orphans, and nothing references them, so V119 must delete exactly those two
+          // (and their dataset_rows) and leave every owned source and its rows alone.
+          val nullOwnerIds = await(migratedDb.run(sql"SELECT id FROM data_sources WHERE owner_id IS NULL ORDER BY id".as[String]))
+          withClue("fixture sanity -- the dump's two known NULL-owner sources (MyManualSource and one more): ") {
+            nullOwnerIds.size shouldBe 2
+            nullOwnerIds should contain("18dc0d3b-ad44-48cd-bc1d-f066726fc0f1")
+          }
+          val ownedSourcesBefore = await(migratedDb.run(sql"SELECT count(*) FROM data_sources WHERE owner_id IS NOT NULL".as[Int].head))
+          val ownedRowsBefore =
+            await(migratedDb.run(sql"SELECT count(*) FROM dataset_rows r JOIN data_sources s ON s.id = r.data_source_id WHERE s.owner_id IS NOT NULL".as[Int].head))
+          val nullOwnerRowsBefore =
+            await(migratedDb.run(sql"SELECT count(*) FROM dataset_rows r JOIN data_sources s ON s.id = r.data_source_id WHERE s.owner_id IS NULL".as[Int].head))
+          withClue("fixture sanity -- MyManualSource carries dataset_rows that V119 must cascade away: ") { nullOwnerRowsBefore should be > 0 }
+
+          noException should be thrownBy {
+            Flyway.configure().dataSource(migrationUrl, "helio_migration_test", "test").locations("classpath:db/migration").load().migrate()
+          }
+
+          await(migratedDb.run(sql"SELECT count(*) FROM data_sources WHERE id IN (#${nullOwnerIds.map("'" + _ + "'").mkString(",")})".as[Int].head)) shouldBe 0
+          await(migratedDb.run(sql"SELECT count(*) FROM data_sources".as[Int].head)) shouldBe ownedSourcesBefore
+          await(migratedDb.run(sql"SELECT count(*) FROM dataset_rows".as[Int].head)) shouldBe ownedRowsBefore
+          await(migratedDb.run(
+            sql"SELECT count(*) FROM pg_class WHERE relname IN ('data_sources', 'image_uploads', 'pipeline_roots', 'pipeline_steps', 'panels') AND relforcerowsecurity".as[Int].head
+          )) shouldBe 5
         } finally migratedDb.close()
       } finally embeddedPostgres.close()
     }

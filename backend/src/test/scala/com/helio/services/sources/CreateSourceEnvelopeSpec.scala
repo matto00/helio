@@ -1,5 +1,6 @@
 package com.helio.services.sources
 
+import com.helio.testsupport.UserSeeding
 import com.helio.services.sources.CreateSourceEnvelope
 import com.helio.domain.connectors.{ConnectorDriver, ConnectorMetadata, ConnectorResolveContext, FetchOutcome}
 import com.helio.domain.model._
@@ -91,6 +92,7 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
       .load()
       .migrate()
     db             = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
+    UserSeeding.seedUsers(db, owner) // HEL-1347: owner_id is a real FK to users
     val ctx        = new DbContext(db, db)
     dataSourceRepo = new DataSourceRepository(ctx)
   }

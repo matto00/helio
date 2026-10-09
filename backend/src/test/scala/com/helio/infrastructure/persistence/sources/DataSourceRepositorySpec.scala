@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence.sources
 
+import com.helio.testsupport.UserSeeding
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.api.protocols.sources.DatasetFieldDeclarationPayload
@@ -42,6 +43,9 @@ class DataSourceRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
 
     db   = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     repo = new DataSourceRepository(new DbContext(db, db))
+
+    // HEL-1347: data_sources.owner_id is a real foreign key to users now, so the owners must exist.
+    UserSeeding.seedUsers(db, owner1, owner2)
   }
 
   override def afterAll(): Unit = {

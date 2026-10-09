@@ -1,5 +1,6 @@
 package com.helio.services.sources
 
+import com.helio.testsupport.UserSeeding
 import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
@@ -58,6 +59,7 @@ class DataSourceServiceRestartPersistenceSpec
       .load()
       .migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
+    UserSeeding.seedUsers(db, owner) // HEL-1347: owner_id is a real FK to users
   }
 
   override def afterAll(): Unit = {
