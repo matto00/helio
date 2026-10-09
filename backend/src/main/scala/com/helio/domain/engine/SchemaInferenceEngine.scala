@@ -52,8 +52,8 @@ object SchemaInferenceEngine {
       return InferredSchema(headers.map(h => InferredField(h, displayName(h), DataFieldType.StringType, nullable = false)))
 
     // HEL-893 design D1: every column is StringType -- the CSV row loader
-    // (`InProcessPipelineEngine.loadCsvRowsFromBytes`) materializes every cell as a `String`,
-    // unconditionally, and never casts it. Declaring anything else would be a promise the data
+    // (`InProcessPipelineEngine.loadCsvRowsFromBytes`) materializes every non-blank cell as a `String`
+    // (a blank cell is null, HEL-1408), and never casts it. Declaring anything else would be a promise the data
     // does not honour. Only nullability is inferred from the sampled rows; type-widening
     // (`widenType`) has no caller left and is deleted per HEL-893 D1.
     val init: Vector[Boolean] = Vector.fill(headers.length)(false)
@@ -62,7 +62,7 @@ object SchemaInferenceEngine {
       // HEL-868: padTo already treats a short/ragged row's missing trailing cells as empty, and
       // the fold below marks an empty cell nullable -- so CSV already honours absence as
       // evidence of nullability, with no code change needed here. It also conflates "empty" with
-      // "absent" (both pad/parse to `""`), a divergence from JSON's three-way distinction that is
+      // "absent" (both read as blank here; the row loader makes both null, HEL-1408), a divergence from JSON's three-way distinction that is
       // retained deliberately (design D3/D4): CSV has no on-the-wire encoding for the difference.
       val cells = parseRfc4180Row(line).padTo(headers.length, "")
       colState.zip(cells).map { case (nullable, cell) =>

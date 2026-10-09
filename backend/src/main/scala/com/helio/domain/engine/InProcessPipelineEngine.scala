@@ -801,9 +801,12 @@ class InProcessPipelineEngine(
     val lines   = content.linesIterator.toVector
     if (lines.isEmpty) return Seq.empty
     val headers = parseCsvLine(lines.head)
-    lines.tail.map { line =>
+    // HEL-1408: a blank cell (empty, quoted-empty, or whitespace-only) is null, missing trailing
+    // cells pad with null, and a blank/whitespace-only line is skipped. Non-blank cells are NOT
+    // trimmed. Inference/preview read raw strings and are untouched.
+    lines.tail.filter(_.trim.nonEmpty).map { line =>
       val values = parseCsvLine(line)
-      val padded = values.padTo(headers.size, "")
+      val padded = values.map(v => if (v.trim.isEmpty) null else v).padTo(headers.size, null: String)
       headers.zip(padded).map { case (h, v) => h -> v.asInstanceOf[Any] }.toMap
     }
   }

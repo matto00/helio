@@ -54,7 +54,9 @@ object ConvertFormatStep {
   def apply(rows: Seq[PipelineRowJson.Row], cfg: ConvertFormatConfig): Seq[PipelineRowJson.Row] =
     rows.map { row =>
       val value = row.get(cfg.field) match {
-        case None | Some(null)  => fail("field-missing", s"field '${cfg.field}' is missing or null")
+        case None               => fail("field-missing", s"field '${cfg.field}' is missing")
+        // HEL-1408 (D4): a CSV blank is null; treat it as the empty text a blank was before.
+        case Some(null)         => ""
         case Some(s: String)    => s
         case Some(_)            => fail("field-not-string", s"field '${cfg.field}' is not a string")
       }

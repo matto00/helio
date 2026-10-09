@@ -78,7 +78,9 @@ matches only its own column. `ops` entries add range/equality/list-membership ma
   `float`, or `timestamp` columns.
 - Every `ops` value is compared using the same value-typed cast the column itself uses
   (`safe_numeric`/`safe_timestamptz` for numeric/timestamp columns, plain text for `string`/
-  `boolean`) — a malformed `ops` value degrades to "no match" for that clause, never a `500`.
+  `boolean`) — a malformed `ops` value degrades to "no match" for that clause, never a `500`. Exception: an `eq`
+  whose `value` is the empty string SHALL match every row whose cell is null or the empty string, whatever the
+  column's cast (the "blank" rule shared with the filter step).
 - `eq`/`in` on a given column SHALL be accepted only when that column is currently reported
   eq/in-eligible by `GET /api/outputs/:id/filter-capabilities` (see below) — a column whose actual
   distinct-value count in this Output's data exceeds the capability contract's cardinality bound
@@ -206,6 +208,10 @@ When `filter` is absent, `total` is the Output's raw row count, unchanged from p
   metacharacters (e.g. `'; DROP TABLE node_snapshots; --`)
 - **THEN** the response is `400 Bad Request` (treated as an unrecognized/non-eligible column name)
   with no SQL error and no effect on any table
+
+#### Scenario: eq with an empty value matches null and empty cells
+- **WHEN** an Output's rows hold `team` = null, `""`, and `"red"` and are read with `ops: [{"column":"team","op":"eq","value":""}]`
+- **THEN** the null and `""` rows are returned and the `"red"` row is not
 
 ### Requirement: GET /api/outputs/:id/panels lists placements
 The backend SHALL expose `GET /api/outputs/:id/panels` returning every panel placement (id,

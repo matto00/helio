@@ -59,7 +59,9 @@ object GenerateTextStep {
     rows.foldLeft(Future.successful(Vector.empty[PipelineRowJson.Row])) { (accF, row) =>
       accF.flatMap { acc =>
         val content = row.get(cfg.inputField) match {
-          case None | Some(null) => fail("field-missing", s"field '${cfg.inputField}' is missing or null")
+          case None => fail("field-missing", s"field '${cfg.inputField}' is missing")
+          // HEL-1408 (D4): a CSV blank is null; treat it as the empty text a blank was before.
+          case Some(null) => ""
           case Some(s: String)   => s
           case Some(_)           => fail("field-not-string", s"field '${cfg.inputField}' is not a string")
         }
