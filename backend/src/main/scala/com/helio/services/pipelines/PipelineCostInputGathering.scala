@@ -20,7 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  (`skeptic-design-1.md`, round 1 REFUTE).
  *
  *  The fix: root-to-`DataSource` resolution is supplied by the CALLER as `resolveRoot`, exactly
- *  like `PipelineRunService.resolveAllRootDataSourcesInternal` already does for the run-execution
+ *  like `PipelineRunSupport.resolveAllRootDataSourcesInternal` already does for the run-execution
  *  path (same file family, `dataSourceRepo.findByIdInternal`, privileged) —
  *  `PipelineService.analyze` passes `dsId => dataSourceRepo.findByIdOwned(dsId, user)` (unchanged
  *  behavior), `AutoRunTriggerService` passes `dsId => dataSourceRepo.findByIdInternal(dsId)`

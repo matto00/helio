@@ -41,7 +41,7 @@ object PipelineRowJson {
     // below would stringify it via `Map#toString` (e.g.
     // "Map(storageKey -> ...)") instead of producing a real JSON object,
     // silently corrupting `data_type_rows.data.content` — the sole row-read
-    // path (see PipelineRunService.onRunSuccess / GET /api/types/:id/rows).
+    // path (see PipelineRunExecutor.onRunSuccess / GET /api/types/:id/rows).
     // Must come before the catch-all; recurses so any nested value gets the
     // same treatment. Behaviour for every existing scalar case above is
     // unchanged.

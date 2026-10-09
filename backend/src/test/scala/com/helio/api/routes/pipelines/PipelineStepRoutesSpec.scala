@@ -373,7 +373,7 @@ class PipelineStepRoutesSpec
     // HEL-904 cycle-9 fix (round-6 skeptic Finding 1, required-proof test):
     // the primary, default step-creation path (`addStep` with no `position`)
     // must extend the trunk, not fan out into flat root siblings -- else
-    // `PipelineRunService`'s run-result node key (`trunkOf(steps).lastOption`)
+    // the run-result node key (`PipelineStepRepository.trunkOf(steps).lastOption`)
     // and `PipelineProposalService`'s Output binding (`createdSteps.lastOption`)
     // silently diverge on every pipeline built through the ordinary UI/API
     // path (Probe A in the round-6 skeptic report).
@@ -392,7 +392,7 @@ class PipelineStepRoutesSpec
       // root-level sibling, so `trunkOf` returned only `idA`).
       trunk.map(_.id.value) shouldBe Vector(idA, idB, idC)
 
-      // The run-result node key (`PipelineRunService.trunkOf(steps).lastOption`)
+      // The run-result node key (`PipelineStepRepository.trunkOf(steps).lastOption`)
       // and an Output binding (`PipelineProposalService`'s
       // `createdSteps.lastOption`, since `addSteps` calls this same `addStep`
       // path for every proposal step) must agree on which step is "last" --

@@ -123,7 +123,7 @@ private[pipelines] final class PipelineRunExecutor(
     // unconditionally regardless of `isDry` -- the ONLY guard check dry runs are subject to (the
     // concurrency cap below is real-runs-only). `pipelineRunGuardRepo == null` (fixtures that
     // don't pass one) skips the check entirely, mirroring every other nullable-optional
-    // collaborator in this file.
+    // collaborator in `PipelineRunService`'s constructor.
     val rateLimitCheck: Future[Either[ServiceError, Unit]] =
       if (pipelineRunGuardRepo != null)
         pipelineRunGuardRepo.incrementRateIfUnderLimit(user.id, guardConfig.rateLimitPerWindow, guardConfig.rateWindowSeconds, guardClock.now()).map {

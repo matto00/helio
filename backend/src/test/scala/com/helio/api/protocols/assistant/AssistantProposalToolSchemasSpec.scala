@@ -5,7 +5,7 @@ import com.helio.api.protocols.patchsets.{PatchSet, PatchSetProtocol}
 import com.helio.api.protocols.pipelines.{PipelineProposal, ProposalRestApiConfig}
 import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalProtocol, DashboardProposal}
 import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlSourceConfigPayload}
-import com.helio.domain.model.PanelType
+import com.helio.domain.model.{OutputKind, PanelType}
 import com.helio.services.pipelines.OutputConfigValidation
 import com.helio.services.proposals.ProposalPanelSupport
 import org.scalatest.matchers.should.Matchers
@@ -273,7 +273,6 @@ class AssistantProposalToolSchemasSpec
     doc should include("{ groupBy, agg, yField }")
     doc should include("{ agg }")
     doc should include("{ value, agg }")
-    doc shouldBe a[String]
   }
 
   "the Output config surfaces" should {
@@ -293,6 +292,81 @@ class AssistantProposalToolSchemasSpec
       doc should include("target.kind \"output\"")
       doc should include(OutputConfigValidation.KeysDoc)
       assertListsEveryKindAndShape(doc)
+    }
+  }
+
+  // HEL-1390: the worked examples must teach where Output config lives. Aggregation (and every other
+  // Output config key) belongs on the Output; a panel bound to an Output carries only `outputId`
+  // (`ProposalPanelSupport.buildDataConfig` emits just `{outputId}`), so a config key on an output
+  // panel is inert. Driven from `OutputConfigValidation.KnownKeys` so it tracks the validator.
+  private val ProposeTools = Vector("propose_dashboard", "propose_pipeline", "propose_combined", "propose_patch_set")
+
+  private def allExamples: Vector[JsValue] = ProposeTools.flatMap(examplesOf)
+
+  private def walk(json: JsValue): Vector[JsValue] = json match {
+    case o: JsObject => json +: o.fields.values.toVector.flatMap(walk)
+    case a: JsArray  => json +: a.elements.flatMap(walk)
+    case _           => Vector(json)
+  }
+
+  private def outputPanels: Vector[JsObject] =
+    allExamples.flatMap(walk).collect {
+      case o: JsObject if o.fields.get("type").contains(JsString("output")) => o
+    }
+
+  /** (kind, config) of every Output an example creates (`outputs[]`) or patches (output-targeted edits). */
+  private def exampleOutputConfigs: Vector[(String, JsObject)] = {
+    val created = allExamples.flatMap(walk).flatMap {
+      case o: JsObject =>
+        o.fields.get("outputs").toVector.flatMap {
+          case JsArray(els) =>
+            els.collect { case out: JsObject =>
+              val kind = out.fields("kind").asInstanceOf[JsString].value
+              kind -> out.fields.get("config").collect { case c: JsObject => c }.getOrElse(JsObject.empty)
+            }
+          case _ => Vector.empty
+        }
+      case _ => Vector.empty
+    }
+    val patched = allExamples.flatMap(walk).collect {
+      case o: JsObject if o.fields.get("target").exists(_.asJsObject.fields.get("kind").contains(JsString("output"))) =>
+        "output" -> o.fields.get("patch").flatMap(_.asJsObject.fields.get("config")).collect { case c: JsObject => c }.getOrElse(JsObject.empty)
+    }
+    created ++ patched
+  }
+
+  "the propose_* worked examples (HEL-1390)" should {
+    "find at least one output panel and one Output, so the checks below cannot pass vacuously" in {
+      outputPanels should not be empty
+      exampleOutputConfigs should not be empty
+    }
+
+    "never put an Output config key on an output panel" in {
+      val configKeys = OutputConfigValidation.KnownKeys.values.flatten.toSet
+      outputPanels.foreach { panel =>
+        val offending = panel.fields.keySet.intersect(configKeys)
+        withClue(s"output panel '${panel.fields.get("title")}' carries Output config key(s) ${offending.mkString(", ")}: ") {
+          offending shouldBe empty
+        }
+      }
+    }
+
+    "give every example Output a config that passes OutputConfigValidation.validateConfig for its kind" in {
+      exampleOutputConfigs.foreach { case (kindName, config) =>
+        // An output-targeted patch edit names no kind, so it must validate for at least one.
+        val kinds = OutputKind.fromString(kindName).toOption.toVector match {
+          case Vector() => OutputConfigValidation.KnownKeys.keys.toVector
+          case known    => known
+        }
+        withClue(s"example $kindName Output config $config: ") {
+          kinds.exists(k => OutputConfigValidation.validateConfig(k, config, JsObject.empty).isRight) shouldBe true
+        }
+      }
+    }
+
+    "show aggregation on at least one example Output's config" in {
+      val aggregations = exampleOutputConfigs.flatMap(_._2.fields.get("aggregation"))
+      aggregations.filterNot(_ == JsNull) should not be empty
     }
   }
 }

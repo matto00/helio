@@ -13,6 +13,7 @@ import {
   filterRowsForSelection,
 } from "../../../utils/chartClickSelection";
 import type { ChartInspectConfig } from "../../../utils/chartClickSelection";
+import { inspectColumns } from "./inspectColumnOrder";
 
 export interface PanelInspectViewProps {
   panelId: string;
@@ -118,6 +119,13 @@ export function PanelInspectView({
     return filteredRows.map((row) => Object.fromEntries(headers.map((h, i) => [h, row[i]])));
   }, [aggregation, selection, records, filteredRows, headers]);
 
+  // HEL-1394 -- columnOrder (when set) then the Output's declared schema, never DataGrid's
+  // alphabetical derivation; both row paths share `gridRows`, so one memo covers both.
+  const gridColumns = useMemo(
+    () => inspectColumns(gridRows, chartInspectConfig.columnOrderHint),
+    [gridRows, chartInspectConfig.columnOrderHint],
+  );
+
   const headerLabel = selection
     ? `Showing rows for ${selection.dimension}: ${selection.value}${
         selection.series ? ` / ${selection.series}` : ""
@@ -173,6 +181,7 @@ export function PanelInspectView({
           )}
           <DataGrid
             rows={gridRows}
+            columns={gridColumns}
             variant={variant}
             emptyText="No loaded rows match this selection."
           />

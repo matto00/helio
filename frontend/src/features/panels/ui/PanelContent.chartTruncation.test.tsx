@@ -172,3 +172,12 @@ describe("chart truncation note (HEL-1358)", () => {
     expect(screen.getByTestId("echarts").getAttribute("data-option")).not.toContain("vs 7d");
   });
 });
+
+describe("chart truncation note short form (HEL-1398)", () => {
+  it("passes the short form alongside the long sentence, 'matching rows' included", async () => {
+    renderChart({ rowsTruncated: true, totalRowCount: 1234, viewerFilterActive: true });
+    expect(await screen.findByText(`${n(2)} of ${n(1234)} matching rows.`)).toHaveClass(
+      "chart-panel__truncation-note-short",
+    );
+  });
+});

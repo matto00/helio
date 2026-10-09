@@ -116,11 +116,7 @@ private[protocols] trait AssistantProposalToolSchemas {
         {
           "title": "Total Revenue",
           "type": "output",
-          "outputId": "dt_example_from_find",
-          "fieldMapping": { "value": "amount" },
-          "aggregation": { "value": "amount", "agg": "sum" },
-          "label": "Total",
-          "unit": "USD"
+          "outputId": "dt_example_from_find"
         }
       ]
     }""".parseJson
@@ -331,9 +327,16 @@ private[protocols] trait AssistantProposalToolSchemas {
             "config": { "connectorId": "conn_example_from_find", "endpoint": "/signups", "method": "GET" }
           }
         ],
-        "steps": [],
+        "steps": [
+          { "clientId": "s1", "type": "cast", "config": { "casts": { "signups": "integer" } } }
+        ],
         "outputs": [
-          { "kind": "table", "name": "Weekly Signups" }
+          {
+            "nodeStepClientId": "s1",
+            "kind": "metric",
+            "name": "Weekly Signups",
+            "config": { "fieldMapping": { "value": "signups" }, "aggregation": { "agg": "sum" } }
+          }
         ]
       },
       "dashboard": {
@@ -342,9 +345,7 @@ private[protocols] trait AssistantProposalToolSchemas {
           {
             "title": "Weekly Signups",
             "type": "output",
-            "outputId": "$pipelineOutput",
-            "fieldMapping": { "value": "signups" },
-            "aggregation": { "value": "signups", "agg": "sum" }
+            "outputId": "$pipelineOutput"
           }
         ]
       }
@@ -405,7 +406,7 @@ private[protocols] trait AssistantProposalToolSchemas {
   // `patchSetFormat`. "panel_example_from_find" is an obviously-synthetic placeholder id.
   private val PatchSetExample: JsValue =
     """{
-      "summary": "Rename the revenue panel and update its unit",
+      "summary": "Rename the revenue panel",
       "edits": [
         {
           "target": { "kind": "panel", "id": "panel_example_from_find" },

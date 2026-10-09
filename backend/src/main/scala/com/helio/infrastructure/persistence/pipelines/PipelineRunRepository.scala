@@ -38,7 +38,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   /** Owner-scoped insert. Silent no-op when the caller does not own the
     * parent pipeline. `triggerSource` defaults to `"manual"` (rather than
     * requiring every test/caller to pass the literal) -- the real callers
-    * that care (`PipelineRunService.executeRun`, the HEL-415 scheduler path)
+    * that care (`PipelineRunExecutor.executeRun`, the HEL-415 scheduler path)
     * always pass it explicitly. `triggeredByTokenId` (HEL-369) is the id of
     * the scoped or unscoped PAT that authenticated an external trigger, or
     * `None` for every other trigger source. */
@@ -98,7 +98,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   }
 
   /** HEL-505 (design.md Decision 3, C1/C2): the concurrency-cap-gated counterpart to `insertRun`,
-    * replacing (not supplementing) that plain call in `PipelineRunService.executeRun`'s `preExec`
+    * replacing (not supplementing) that plain call in `PipelineRunExecutor.executeRun`'s `preExec`
     * for the non-dry path. Composes THREE steps into ONE chained `DBIO`, passed to a SINGLE
     * `ctx.withUserContext` call -- never as separate repository calls issuing separate DB
     * round-trips -- because `DbContext.withUserContext` wraps exactly the `DBIO` it is given in
@@ -473,7 +473,7 @@ object PipelineRunRepository {
       // production). `reads` empty means recorded-and-complete; `reads` non-empty means truncated.
       // `PipelineRunService.EmptyTruncationJson` is the canonical recorded-and-complete literal --
       // use it, never a bare `"[]"`, which is NOT an object and therefore decodes to NOT-RECORDED
-      // (`PipelineRunService.parseTruncationRecord`'s `Try` degrades any non-object value that
+      // (`PipelineRunQueries.parseTruncationRecord`'s `Try` degrades any non-object value that
       // way, per CR4). Raw JSON text at this layer -- decoded to a `RunTruncationRecord` at the
       // service boundary, mirroring every other `jsonbStringType`-mapped column in this codebase
       // (see `PanelRepository`/`AlertRuleRepository`).

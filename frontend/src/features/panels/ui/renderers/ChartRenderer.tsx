@@ -29,8 +29,14 @@ interface ChartRendererProps {
   /** HEL-318: optional static subtitle/footnote rendered beneath the chart
    *  canvas. Absent/blank renders nothing. */
   annotation?: string | null;
-  /** HEL-1358: one-line note that the chart is based on only the loaded rows; absent renders nothing. */
+  /** HEL-1358: note that the chart is based on only the loaded rows; absent renders nothing. It shares
+   *  the annotation footnote's two-line clamp, so at the grid's narrowest width the total is not
+   *  ellipsised away. */
   truncationNote?: string | null;
+  /** HEL-1398: the short form of `truncationNote` ("200 of 1,234 rows."). On a narrow `panel-card`
+   *  the CSS shows it and visually hides (never removes) the full sentence, so the note fits one
+   *  line and leaves the chart canvas more room; absent renders the full sentence alone. */
+  truncationNoteShort?: string | null;
   /** HEL-301: forwarded to `ChartPanel` — see its `compact` prop. */
   compact?: boolean;
   /** HEL-572: forwarded to `ChartPanel` — see its `onDataPointSelect` prop. */
@@ -48,6 +54,7 @@ export function ChartRenderer({
   overlay,
   annotation,
   truncationNote,
+  truncationNoteShort,
   compact,
   onDataPointSelect,
 }: ChartRendererProps) {
@@ -77,7 +84,16 @@ export function ChartRenderer({
       ) : null}
       {truncationNote ? (
         <p className="chart-panel__truncation-note" title={truncationNote}>
-          {truncationNote}
+          {truncationNoteShort ? (
+            <>
+              <span className="chart-panel__truncation-note-long">{truncationNote}</span>
+              <span className="chart-panel__truncation-note-short" aria-hidden="true">
+                {truncationNoteShort}
+              </span>
+            </>
+          ) : (
+            truncationNote
+          )}
         </p>
       ) : null}
     </div>

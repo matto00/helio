@@ -1978,7 +1978,7 @@ class OutputRoutesSpec
         val entry = responseAs[PipelinePreviewResponse].outputs.head
         entry.preview.rows.map(_.fields("v")) shouldBe Vector(JsString("root1-row"))
       }
-      // MUTATION PROOF: reverting `PipelineRunService.previewAtNode`'s `selectedRoot` resolution
+      // MUTATION PROOF: reverting `PipelineRunPreview.previewAtNode`'s `selectedRoot` resolution
       // (restoring the unconditional `roots.head`) must turn THIS test red -- it would then
       // assert `"root0-row"` and fail against the real `"root1-row"` response, exactly the
       // preview/persisted-snapshot disagreement this fix closes (the persisted-rows path was

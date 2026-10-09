@@ -212,7 +212,7 @@ export function buildAggregateTailConfigs(
       },
       outputConfig: {
         chartType: params.chartType,
-        fieldMapping: { category: params.groupBy, value: alias },
+        fieldMapping: { xAxis: params.groupBy, yAxis: alias },
         aggregation: null,
         chartOptions: params.chartOptionsState,
         annotation:

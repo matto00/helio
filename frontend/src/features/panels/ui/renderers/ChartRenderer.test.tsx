@@ -97,3 +97,40 @@ describe("ChartRenderer — annotation footnote (HEL-318)", () => {
     expect(el).toHaveAttribute("title", long);
   });
 });
+
+// HEL-1398 -- the truncation note's narrow short form. Both texts live in the DOM (the CSS container
+// query picks which one is visible); the full sentence is never aria-hidden, the short one always is.
+describe("ChartRenderer -- truncation note forms (HEL-1398)", () => {
+  const LONG = "Based on the first 200 of 1,234 rows.";
+  const SHORT = "200 of 1,234 rows.";
+
+  it("renders the long sentence and the short form, only the short one aria-hidden", async () => {
+    const { container } = render(
+      <ThemeProvider>
+        <ChartRenderer truncationNote={LONG} truncationNoteShort={SHORT} />
+      </ThemeProvider>,
+    );
+    await screen.findByTestId("echarts");
+    const note = container.querySelector(".chart-panel__truncation-note");
+    expect(note).toHaveAttribute("title", LONG);
+    const long = screen.getByText(LONG);
+    const short = screen.getByText(SHORT);
+    expect(long).toHaveClass("chart-panel__truncation-note-long");
+    expect(long).not.toHaveAttribute("aria-hidden");
+    expect(short).toHaveClass("chart-panel__truncation-note-short");
+    expect(short).toHaveAttribute("aria-hidden", "true");
+    // The note's own text is now both forms (two spans): an intended consequence of the split.
+    expect(note).toHaveTextContent(`${LONG}${SHORT}`);
+  });
+
+  it("renders the long sentence alone when no short form is supplied", async () => {
+    const { container } = render(
+      <ThemeProvider>
+        <ChartRenderer truncationNote={LONG} />
+      </ThemeProvider>,
+    );
+    await screen.findByTestId("echarts");
+    expect(container.querySelector(".chart-panel__truncation-note")).toHaveTextContent(LONG);
+    expect(container.querySelector(".chart-panel__truncation-note-short")).toBeNull();
+  });
+});
