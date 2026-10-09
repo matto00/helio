@@ -85,6 +85,17 @@ export function ChartOutputPanel({
     () => (chartType === "scatter" ? null : chartAggregationSpec(config)),
     [chartType, config],
   );
+  // HEL-1408 design D10a -- null detection reads the typed records (never the null-to-"" `rawRows`),
+  // strictly `=== null`, and rides on a LOCAL copy of the spec so the shared spec type is untouched.
+  const groupBy = aggregationSpec?.groupBy;
+  const groupHasNull = useMemo(
+    () => (groupBy && records ? records.some((r) => r[groupBy] === null) : false),
+    [groupBy, records],
+  );
+  const clickSpec = useMemo(
+    () => (aggregationSpec ? { ...aggregationSpec, groupHasNull } : null),
+    [aggregationSpec, groupHasNull],
+  );
   const chartAggregate = useMemo(
     () =>
       aggregationSpec && records
@@ -117,7 +128,7 @@ export function ChartOutputPanel({
       headers={headers}
       fieldMapping={cfg.fieldMapping}
       chartAggregate={chartAggregate}
-      aggregationSpec={aggregationSpec}
+      aggregationSpec={clickSpec}
       chartOptions={cfg.chartOptions}
       annotation={cfg.annotation ?? null}
       overlay={overlay}

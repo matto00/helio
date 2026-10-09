@@ -37,6 +37,10 @@ export interface ChartAggregationSpec {
   groupBy: string;
   agg: AggFn;
   yField: string;
+  /** HEL-1408 design D10a -- set only by `ChartOutputPanel` (never by `chartAggregationSpec`): the
+   *  loaded records hold a strict-`null` group value, so a click on the `"null"` bar means "blank".
+   *  Optional so the shared "is this aggregated" notion stays computable from config alone. */
+  groupHasNull?: boolean;
 }
 
 export function chartAggregationSpec(config: Record<string, unknown>): ChartAggregationSpec | null {

@@ -82,9 +82,9 @@ export function PanelInspectView({
   // backdrop already do (`onClose`, not `onClear` — the selection itself is
   // untouched, only the dashboard-level filter changes).
   //
-  // HEL-1351 edge (accepted, documented): on an aggregate-rendered chart the selection's `value` is
-  // the plotted category, so "Filter dashboard" on the `"null"` group writes the value `"null"`,
-  // which `filterRecordRowsByDimension` (null read as `""`) will not match on sibling panels.
+  // HEL-1408 design D10: on an aggregate-rendered chart a click on the null group writes the blank
+  // selection `""` (see `mapAggregateClickToSelection`), which `filterRecordRowsByDimension` (null
+  // read as `""`) and the server's `eq ""` both match on sibling panels.
   const handleFilterDashboard = useCallback(() => {
     if (!selection) return;
     dispatch(setCrossFilter(selection));

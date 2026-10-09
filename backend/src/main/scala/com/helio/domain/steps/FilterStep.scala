@@ -103,15 +103,20 @@ object FilterStep {
     operator match {
       case "is null"     => fieldVal == null
       case "is not null" => fieldVal != null
-      case "contains"    => fieldVal != null && fieldVal.toString.contains(value.getOrElse(""))
+      // HEL-1408 (D3): a blank CSV cell is null, so an empty needle keeps matching it as before.
+      case "contains"    =>
+        val needle = value.getOrElse("")
+        if (fieldVal == null) needle.isEmpty else fieldVal.toString.contains(needle)
       case "=" | "!=" =>
         val numericMatch = for {
           f <- numericFieldValue(fieldVal)
           v <- value.flatMap(_.toDoubleOption)
         } yield f == v
         val isEqual = numericMatch.getOrElse {
-          val fieldStr = if (fieldVal == null) null else fieldVal.toString
           val valStr   = value.getOrElse("")
+          // HEL-1408 (D3): null is "blank", so `= ""` matches it and `!= ""` excludes it; null never
+          // equals a non-empty value.
+          val fieldStr = if (fieldVal == null) (if (valStr.isEmpty) "" else null) else fieldVal.toString
           fieldStr == valStr
         }
         if (operator == "=") isEqual else !isEqual

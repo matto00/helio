@@ -1,5 +1,6 @@
 package com.helio.domain.steps
 
+import com.helio.testsupport.CsvLoadSupport
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -8,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
  *  `FilterCondition.field` by literal exact-key lookup (`row.getOrElse(field, null)`), never
  *  through `ExpressionEvaluator`, so a dotted column name was never affected by the tokenizer
  *  gap this ticket closes. This test documents already-shipped behaviour, not new behaviour. */
-class FilterStepSpec extends AnyWordSpec with Matchers {
+class FilterStepSpec extends AnyWordSpec with Matchers with CsvLoadSupport {
 
   private def cond(field: String, operator: String, value: Option[String]): FilterCondition =
     FilterCondition(field, operator, value)
@@ -198,6 +199,24 @@ class FilterStepSpec extends AnyWordSpec with Matchers {
       val result = FilterStep.apply(rows, cfg)
 
       result shouldBe Vector(Map("years_exp" -> 10.0))
+    }
+
+    // HEL-1408 design D3: a CSV blank cell is null, and `= ""` / `!= ""` / omitted value / `contains ""`
+    // keep meaning "blank". Every other operator/value keeps strict null semantics.
+    "blank-cell compat over CSV-loaded rows (HEL-1408 D3)" in {
+      val rows: Seq[Map[String, Any]] = loadCsv("name,age\nann,30\n,40\nbob,\n")
+      def run(op: String, value: Option[String], field: String = "name"): Seq[Any] =
+        FilterStep.apply(rows, FilterConfig("AND", Vector(cond(field, op, value)))).map(_("age"))
+
+      run("=", Some(""))          shouldBe Seq("40")                // matches the blank
+      run("=", None)              shouldBe Seq("40")                // omitted value defaults to ""
+      run("!=", Some(""))         shouldBe Seq("30", null)          // excludes the blank
+      run("contains", Some(""))   shouldBe Seq("30", "40", null)    // degenerate empty needle keeps all
+      run("=", Some("ann"))       shouldBe Seq("30")                // non-empty value unchanged
+      run("!=", Some("ann"))      shouldBe Seq("40", null)          // null is still != a non-empty value
+      run("contains", Some("a"))  shouldBe Seq("30")
+      run("is null", None)        shouldBe Seq("40")
+      run("is not null", None)    shouldBe Seq("30", null)
     }
   }
 }

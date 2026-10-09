@@ -1,0 +1,27 @@
+- `backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala` — CSV loader: blank/whitespace cell -> null, null padding, blank-line skip (D1)
+- `backend/src/main/scala/com/helio/domain/steps/FilterStep.scala` — `= ""`/`!= ""`/omitted/`contains ""` treat null as blank (D3)
+- `backend/src/main/scala/com/helio/domain/steps/AnalyzeWithAiStep.scala` — null input treated as `""`, absent stays field-missing (D4)
+- `backend/src/main/scala/com/helio/domain/steps/GenerateTextStep.scala` — same (D4)
+- `backend/src/main/scala/com/helio/domain/steps/ConvertFormatStep.scala` — same (D4)
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotFilterSql.scala` — `eq ""` matches NULL or `''` (D10b)
+- `backend/src/main/scala/com/helio/domain/engine/SchemaInferenceEngine.scala` — comments no longer claim every cell is a String
+- `backend/src/test/scala/com/helio/testsupport/CsvLoadSupport.scala` — helper loading CSV text through the real loader
+- `backend/src/test/scala/com/helio/domain/engine/CsvBlankCellsNullSpec.scala` — red-first engine spec, loader unit cases, inference/preview unchanged
+- `backend/src/test/scala/com/helio/domain/engine/CsvBlankCellsNullStepsSpec.scala` — D7/D7b regression rows over CSV-loaded frames
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/CsvBlankCellsNullSnapshotSpec.scala` — snapshot distinct values, `eq ""`, NULLS LAST, row count
+- `backend/src/test/scala/com/helio/services/workspace/CsvBlankCellsNullWorkspaceSpec.scala` — workspace grounding nullRate
+- `backend/src/test/scala/com/helio/domain/steps/FilterStepSpec.scala` — compat / null-as-empty cases
+- `backend/src/test/scala/com/helio/domain/steps/GenerateTextStepSpec.scala` — compat / null-as-empty cases
+- `backend/src/test/scala/com/helio/domain/steps/AnalyzeWithAiStepSpec.scala` — compat / null-as-empty cases
+- `backend/src/test/scala/com/helio/domain/steps/ConvertFormatStepSpec.scala` — compat / null-as-empty cases
+- `frontend/src/features/panels/history/chartOverlay.ts` — optional `groupHasNull` on `ChartAggregationSpec`
+- `frontend/src/utils/chartClickSelection.ts` — "null" click => blank when groupHasNull; Inspect predicate for blank (D10a)
+- `frontend/src/features/panels/ui/ChartOutputPanel.tsx` — computes groupHasNull from records, local spec copy
+- `frontend/src/features/panels/ui/MetricOutputPanel.tsx` — metric aggregates typed records (D6)
+- `frontend/src/features/panels/ui/PanelContent.tsx` — metric aggregates typed records so count excludes null (D6)
+- `frontend/src/features/panels/ui/PanelInspectView.tsx` — HEL-1351 comment updated
+- `frontend/src/features/panels/ui/ChartOutputPanel.aggregate.test.tsx` — Jest cases for D6/D10a
+- `frontend/src/features/panels/ui/MetricOutputPanel.blankCount.test.tsx` — Jest cases for D6/D10a
+- `frontend/src/features/panels/ui/PanelCard.aggregateChart.test.tsx` — Jest cases for D6/D10a
+- `frontend/src/utils/chartClickSelection.test.ts` — Jest cases for D6/D10a
+- `openspec/changes/csv-blank-cells-as-null/` — tasks ticked, this file

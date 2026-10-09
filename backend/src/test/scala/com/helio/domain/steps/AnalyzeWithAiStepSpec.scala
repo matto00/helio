@@ -8,6 +8,7 @@ import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.auth.AiPipelineQuotaGate
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
+import com.helio.testsupport.CsvLoadSupport
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -23,7 +24,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  `ClaudeAiStepClient`), mirroring `ClaudeClientSpec`'s own fake-transport pattern. Every
  *  enforcement failure arm is proven failable by a recorded mutation (tasks.md C4) -- see
  *  `files-modified.md`. */
-class AnalyzeWithAiStepSpec extends AnyWordSpec with Matchers {
+class AnalyzeWithAiStepSpec extends AnyWordSpec with Matchers with CsvLoadSupport {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
@@ -174,6 +175,16 @@ class AnalyzeWithAiStepSpec extends AnyWordSpec with Matchers {
       }
       ex.getMessage should include("field-missing")
       transport.sendInvocations.get() shouldBe 0
+    }
+
+    // HEL-1408 design D4: a CSV blank is null; it is treated as empty text, not as a missing field.
+    "treat a CSV-loaded blank (null) input as empty text, not field-missing" in {
+      val transport = new FakeTransport(Future.successful(cannedResponse("""{"sentiment":"neutral","score":0}""")))
+      val blankRows = loadCsv("content,id\n,1\n")
+      (blankRows.head("content") == null) shouldBe true
+      val result = await(AnalyzeWithAiStep.apply(blankRows, cfg, contextWithTransport(transport)))
+      result.head("sentiment") shouldBe "neutral"
+      transport.sendInvocations.get() shouldBe 1
     }
 
     "fail with field-not-string when the input field is present but not a string" in {

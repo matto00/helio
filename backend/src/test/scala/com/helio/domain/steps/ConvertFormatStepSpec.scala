@@ -3,6 +3,7 @@ package com.helio.domain.steps
 import com.helio.domain.engine.{InProcessPipelineEngine, StepExecutionException}
 import com.helio.domain.model.{PipelineId, PipelineStepId}
 import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.testsupport.CsvLoadSupport
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -19,7 +20,7 @@ import scala.util.Random
  *  confirming the failure actually surfaces through `StepExecutionException`. No ScalaCheck
  *  dependency exists in this project's test scope -- the "property-style" tests (task 4.1) are a
  *  hand-rolled seeded-`Random` generator loop instead. */
-class ConvertFormatStepSpec extends AnyWordSpec with Matchers {
+class ConvertFormatStepSpec extends AnyWordSpec with Matchers with CsvLoadSupport {
 
   private def cfg(field: String, from: String, to: String, outputField: String = ""): ConvertFormatConfig =
     ConvertFormatConfig(field, from, to, if (outputField.isEmpty) field else outputField)
@@ -280,8 +281,12 @@ class ConvertFormatStepSpec extends AnyWordSpec with Matchers {
       failWith("field-missing", Seq(Map[String, Any]("other" -> "x")), cfg("content", "csv", "json"))
     }
 
-    "field-missing when the field is null" in {
-      failWith("field-missing", Seq(Map[String, Any]("content" -> null)), cfg("content", "csv", "json"))
+    // HEL-1408 design D4: a CSV blank is null and is treated as the empty text a blank used to be,
+    // so it flows the same path as before (json -> csv of a blank still fails json-malformed).
+    "a CSV-loaded blank (null) is treated as empty text, not field-missing" in {
+      val blankRows = loadCsv("content,id\n,1\n")
+      (blankRows.head("content") == null) shouldBe true
+      failWith("json-malformed", blankRows, cfg("content", "json", "csv"))
     }
 
     "field-not-string when the field holds a non-string value" in {
