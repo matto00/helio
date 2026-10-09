@@ -1,0 +1,424 @@
+# S3 backlog (1k Outputs, 7 d un-thinned) V120 applied, PG 18 as-is
+# source: psql -v do_measure=on output; run 1 of 3 EXPLAIN (ANALYZE, BUFFERS) plans, then all 3 timed passes (@@T = plain statement, @@TX = whole repo transaction = lock hold)
+
+@@ settings
+@@ version=PostgreSQL 18.4 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 16.1.1 20260728, 64-bit
+@@ effective_cache_size=524288
+@@ max_parallel_workers_per_gather=2
+@@ random_page_cost=4
+@@ shared_buffers=16384
+@@ work_mem=4096
+@@ rows output_snapshot_history=2081516 node_payload_history=206
+@@ pg16_view=off
+@@ indexes idx_node_payload_history_captured_at, idx_node_payload_history_node_captured, idx_output_snapshot_history_captured_at, idx_output_snapshot_history_output_captured, idx_output_snapshot_history_payload, node_payload_history_pkey, output_snapshot_history_pkey
+@@LOCK run=1 repo=1 acquired=t
+
+@@STMT run=1 repo=1 seq=11 label=history age purge free
+Delete on output_snapshot_history h  (cost=18.52..2851.16 rows=0 width=0) (actual time=13.993..13.999 rows=0.00 loops=1)
+  Buffers: shared hit=227 read=1533 dirtied=4 written=1443
+  ->  Hash Join  (cost=18.52..2851.16 rows=24438 width=18) (actual time=13.954..13.981 rows=25.00 loops=1)
+        Hash Cond: (p.owner_id = u.id)
+        Buffers: shared hit=199 read=1533 written=1443
+        ->  Hash Join  (cost=11.94..2752.28 rows=34295 width=28) (actual time=0.076..12.771 rows=30516.00 loops=1)
+              Hash Cond: (h.pipeline_id = p.id)
+              Buffers: shared hit=196 read=1533 written=1443
+              ->  Index Scan using idx_output_snapshot_history_captured_at on output_snapshot_history h  (cost=0.43..2649.59 rows=34295 width=10) (actual time=0.012..9.808 rows=30516.00 loops=1)
+                    Index Cond: (captured_at < '2026-09-09 00:00:00-07'::timestamp with time zone)
+                    Index Searches: 1
+                    Buffers: shared hit=192 read=1533 written=1443
+              ->  Hash  (cost=7.34..7.34 rows=334 width=26) (actual time=0.055..0.056 rows=334.00 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 28kB
+                    Buffers: shared hit=4
+                    ->  Seq Scan on pipelines p  (cost=0.00..7.34 rows=334 width=26) (actual time=0.003..0.024 rows=334.00 loops=1)
+                          Buffers: shared hit=4
+        ->  Hash  (cost=5.09..5.09 rows=119 width=22) (actual time=0.043..0.047 rows=119.00 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 15kB
+              Buffers: shared hit=3
+              ->  Seq Scan on users u  (cost=0.00..5.09 rows=119 width=22) (actual time=0.004..0.025 rows=119.00 loops=1)
+                    Filter: (tier = 'free'::text)
+                    Rows Removed by Filter: 48
+                    Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=296 read=8 dirtied=1 written=8
+Planning Time: 0.532 ms
+Execution Time: 14.060 ms
+
+@@STMT run=1 repo=1 seq=12 label=history age purge beta
+Delete on output_snapshot_history h  (cost=15.25..1447.37 rows=0 width=0) (actual time=1.990..1.991 rows=0.00 loops=1)
+  Buffers: shared hit=766 dirtied=1
+  ->  Hash Join  (cost=15.25..1447.37 rows=4104 width=18) (actual time=1.984..1.986 rows=10.00 loops=1)
+        Hash Cond: (h.pipeline_id = p.id)
+        Buffers: shared hit=755
+        ->  Index Scan using idx_output_snapshot_history_captured_at on output_snapshot_history h  (cost=0.43..1327.25 rows=17133 width=10) (actual time=0.006..1.440 rows=13211.00 loops=1)
+              Index Cond: (captured_at < '2026-07-11 00:00:00-07'::timestamp with time zone)
+              Index Searches: 1
+              Buffers: shared hit=748
+        ->  Hash  (cost=13.83..13.83 rows=80 width=16) (actual time=0.070..0.070 rows=80.00 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 12kB
+              Buffers: shared hit=7
+              ->  Hash Join  (cost=5.59..13.83 rows=80 width=16) (actual time=0.022..0.056 rows=80.00 loops=1)
+                    Hash Cond: (p.owner_id = u.id)
+                    Buffers: shared hit=7
+                    ->  Seq Scan on pipelines p  (cost=0.00..7.34 rows=334 width=26) (actual time=0.003..0.021 rows=334.00 loops=1)
+                          Buffers: shared hit=4
+                    ->  Hash  (cost=5.09..5.09 rows=40 width=22) (actual time=0.016..0.016 rows=40.00 loops=1)
+                          Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                          Buffers: shared hit=3
+                          ->  Seq Scan on users u  (cost=0.00..5.09 rows=40 width=22) (actual time=0.002..0.012 rows=40.00 loops=1)
+                                Filter: (tier = 'beta'::text)
+                                Rows Removed by Filter: 127
+                                Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=19
+Planning Time: 0.163 ms
+Execution Time: 2.016 ms
+
+@@STMT run=1 repo=1 seq=13 label=history age purge owner
+Delete on output_snapshot_history h  (cost=0.72..16.90 rows=0 width=0) (actual time=0.011..0.012 rows=0.00 loops=1)
+  Buffers: shared hit=9 dirtied=1
+  ->  Nested Loop  (cost=0.72..16.90 rows=1 width=18) (actual time=0.009..0.010 rows=1.00 loops=1)
+        Buffers: shared hit=8
+        ->  Nested Loop  (cost=0.57..16.66 rows=1 width=28) (actual time=0.007..0.007 rows=1.00 loops=1)
+              Buffers: shared hit=6
+              ->  Index Scan using idx_output_snapshot_history_captured_at on output_snapshot_history h  (cost=0.43..8.45 rows=1 width=10) (actual time=0.004..0.004 rows=1.00 loops=1)
+                    Index Cond: (captured_at < '2025-10-09 00:00:00-07'::timestamp with time zone)
+                    Index Searches: 1
+                    Buffers: shared hit=4
+              ->  Index Scan using pipelines_pkey on pipelines p  (cost=0.15..8.17 rows=1 width=26) (actual time=0.002..0.002 rows=1.00 loops=1)
+                    Index Cond: (id = h.pipeline_id)
+                    Index Searches: 1
+                    Buffers: shared hit=2
+        ->  Index Scan using users_pkey on users u  (cost=0.14..0.22 rows=1 width=22) (actual time=0.003..0.003 rows=1.00 loops=1)
+              Index Cond: (id = p.owner_id)
+              Filter: (tier = 'owner'::text)
+              Index Searches: 1
+              Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=19
+Planning Time: 0.108 ms
+Execution Time: 0.019 ms
+
+@@STMT run=1 repo=1 seq=20 label=history age purge unnamed-tier catch-all
+Delete on output_snapshot_history h  (cost=13.71..2793.53 rows=0 width=0) (actual time=0.017..0.018 rows=0.00 loops=1)
+  Buffers: shared hit=7
+  ->  Hash Join  (cost=13.71..2793.53 rows=205 width=18) (actual time=0.017..0.017 rows=0.00 loops=1)
+        Hash Cond: (h.pipeline_id = p.id)
+        Buffers: shared hit=7
+        ->  Index Scan using idx_output_snapshot_history_captured_at on output_snapshot_history h  (cost=0.43..2649.59 rows=34295 width=10) (actual time=0.005..0.005 rows=1.00 loops=1)
+              Index Cond: (captured_at < '2026-09-09 00:00:00-07'::timestamp with time zone)
+              Index Searches: 1
+              Buffers: shared hit=4
+        ->  Hash  (cost=13.26..13.26 rows=2 width=16) (actual time=0.011..0.011 rows=0.00 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 8kB
+              Buffers: shared hit=3
+              ->  Nested Loop  (cost=4.16..13.26 rows=2 width=16) (actual time=0.011..0.011 rows=0.00 loops=1)
+                    Buffers: shared hit=3
+                    ->  Seq Scan on users u  (cost=0.00..5.30 rows=1 width=22) (actual time=0.011..0.011 rows=0.00 loops=1)
+                          Filter: (tier <> ALL ('{free,beta,owner}'::text[]))
+                          Rows Removed by Filter: 167
+                          Buffers: shared hit=3
+                    ->  Bitmap Heap Scan on pipelines p  (cost=4.16..7.95 rows=2 width=26) (never executed)
+                          Recheck Cond: (u.id = owner_id)
+                          ->  Bitmap Index Scan on idx_pipelines_owner_id  (cost=0.00..4.16 rows=2 width=0) (never executed)
+                                Index Cond: (owner_id = u.id)
+                                Index Searches: 0
+Planning:
+  Buffers: shared hit=14
+Planning Time: 0.093 ms
+Execution Time: 0.027 ms
+
+@@STMT run=1 repo=1 seq=30 label=history thin (protected newest 101)
+Delete on output_snapshot_history  (cost=655478.76..826623.94 rows=0 width=0) (actual time=15788.337..15788.341 rows=0.00 loops=1)
+  Buffers: shared hit=503216 read=1411814 dirtied=1234393 written=1211510, temp read=54562 written=54599
+  ->  Hash Semi Join  (cost=655478.76..826623.94 rows=231280 width=46) (actual time=4216.442..5332.351 rows=1595000.00 loops=1)
+        Hash Cond: (output_snapshot_history.id = ranked.id)
+        Buffers: shared hit=15309 read=215980 written=39953, temp read=54562 written=54599
+        ->  Seq Scan on output_snapshot_history  (cost=0.00..136455.20 rows=2081520 width=22) (actual time=89.503..330.768 rows=2081480.00 loops=1)
+              Buffers: shared hit=1696 read=113944 written=39867
+        ->  Hash  (cost=650328.76..650328.76 rows=231280 width=56) (actual time=4118.913..4118.916 rows=1595000.00 loops=1)
+              Buckets: 131072 (originally 131072)  Batches: 32 (originally 4)  Memory Usage: 7169kB
+              Buffers: shared hit=13613 read=102036 written=86, temp read=21397 written=36698
+              ->  Subquery Scan on ranked  (cost=454646.06..650328.76 rows=231280 width=56) (actual time=1478.783..3960.435 rows=1595000.00 loops=1)
+                    Filter: (ranked.rn > 1)
+                    Rows Removed by Filter: 385480
+                    Buffers: shared hit=13613 read=102036 written=86, temp read=21397 written=21434
+                    ->  WindowAgg  (cost=454646.06..641655.76 rows=693840 width=72) (actual time=1478.729..3829.327 rows=1980480.00 loops=1)
+                          Window: w1 AS (PARTITION BY recent.output_id, (CASE WHEN (EXTRACT(epoch FROM ('2026-10-09 00:00:00-07'::timestamp with time zone - recent.captured_at)) < '86400'::numeric) THEN 0 WHEN (EXTRACT(epoch FROM ('2026-10-09 00:00:00-07'::timestamp with time zone - recent.captured_at)) < '604800'::numeric) THEN 1 ELSE 2 END), (floor((EXTRACT(epoch FROM recent.captured_at) / (CASE WHEN (EXTRACT(epoch FROM ('2026-10-09 00:00:00-07'::timestamp with time zone - recent.captured_at)) < '86400'::numeric) THEN '300'::bigint WHEN (EXTRACT(epoch FROM ('2026-10-09 00:00:00-07'::timestamp with time zone - recent.captured_at)) < '604800'::numeric) THEN '3600'::bigint ELSE '86400'::bigint END)::numeric))) ORDER BY recent.captured_at, recent.id ROWS UNBOUNDED PRECEDING)
+                          Storage: Memory  Maximum Storage: 17kB
+                          Buffers: shared hit=13613 read=102036 written=86, temp read=21397 written=21434
+                          ->  Incremental Sort  (cost=454645.83..596556.16 rows=693840 width=64) (actual time=1478.724..3555.380 rows=1980480.00 loops=1)
+                                Sort Key: recent.output_id, (CASE WHEN (EXTRACT(epoch FROM ('2026-10-09 00:00:00-07'::timestamp with time zone - recent.captured_at)) < '86400'::numeric) THEN 0 WHEN (EXTRACT(epoch FROM ('2026-10-09 00:00:00-07'::timestamp with time zone - recent.captured_at)) < '604800'::numeric) THEN 1 ELSE 2 END), (floor((EXTRACT(epoch FROM recent.captured_at) / (CASE WHEN (EXTRACT(epoch FROM ('2026-10-09 00:00:00-07'::timestamp with time zone - recent.captured_at)) < '86400'::numeric) THEN '300'::bigint WHEN (EXTRACT(epoch FROM ('2026-10-09 00:00:00-07'::timestamp with time zone - recent.captured_at)) < '604800'::numeric) THEN '3600'::bigint ELSE '86400'::bigint END)::numeric))), recent.captured_at DESC, recent.id DESC
+                                Presorted Key: recent.output_id
+                                Full-sort Groups: 1000  Sort Method: quicksort  Average Memory: 28kB  Peak Memory: 28kB
+                                Pre-sorted Groups: 1000  Sort Method: quicksort  Average Memory: 237kB  Peak Memory: 239kB
+                                Buffers: shared hit=13613 read=102036 written=86, temp read=21397 written=21434
+                                ->  Subquery Scan on recent  (cost=454512.48..555119.26 rows=693840 width=64) (actual time=1476.647..2614.411 rows=1980480.00 loops=1)
+                                      Filter: (recent.recency > 101)
+                                      Rows Removed by Filter: 101000
+                                      Buffers: shared hit=13604 read=102036 written=86, temp read=21397 written=21434
+                                      ->  WindowAgg  (cost=454512.48..501346.66 rows=2081520 width=36) (actual time=1476.594..1896.543 rows=2081480.00 loops=1)
+                                            Window: w1 AS (PARTITION BY output_snapshot_history_1.output_id ORDER BY output_snapshot_history_1.captured_at, output_snapshot_history_1.id ROWS UNBOUNDED PRECEDING)
+                                            Storage: Memory  Maximum Storage: 17kB
+                                            Buffers: shared hit=13604 read=102036 written=86, temp read=21397 written=21434
+                                            ->  Sort  (cost=454512.46..459716.26 rows=2081520 width=28) (actual time=1476.570..1646.247 rows=2081480.00 loops=1)
+                                                  Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+                                                  Sort Method: external merge  Disk: 85624kB
+                                                  Buffers: shared hit=13604 read=102036 written=86, temp read=21397 written=21434
+                                                  ->  Seq Scan on output_snapshot_history output_snapshot_history_1  (cost=0.00..136455.20 rows=2081520 width=28) (actual time=0.014..153.190 rows=2081480.00 loops=1)
+                                                        Buffers: shared hit=13604 read=102036 written=86
+Planning:
+  Buffers: shared hit=29 read=5 written=4
+Planning Time: 0.158 ms
+JIT:
+  Functions: 22
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 0.588 ms (Deform 0.155 ms), Inlining 24.933 ms, Optimization 35.905 ms, Emission 28.709 ms, Total 90.134 ms
+Execution Time: 15804.855 ms
+@@LOCK run=1 repo=2 acquired=t
+
+@@STMT run=1 repo=2 seq=10 label=payload disallowed-tier
+Delete on node_payload_history h  (cost=15.13..66.26 rows=0 width=0) (actual time=1.523..1.524 rows=0.00 loops=1)
+  Buffers: shared hit=7 read=57 dirtied=3 written=55
+  ->  Hash Anti Join  (cost=15.13..66.26 rows=147 width=18) (actual time=0.431..0.433 rows=2.00 loops=1)
+        Hash Cond: (h.pipeline_id = p.id)
+        Buffers: shared read=54 written=52
+        ->  Seq Scan on node_payload_history h  (cost=0.00..49.06 rows=206 width=10) (actual time=0.086..0.314 rows=206.00 loops=1)
+              Buffers: shared read=47 written=45
+        ->  Hash  (cost=13.93..13.93 rows=96 width=16) (actual time=0.104..0.105 rows=96.00 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 13kB
+              Buffers: shared read=7 written=7
+              ->  Hash Join  (cost=5.69..13.93 rows=96 width=16) (actual time=0.060..0.097 rows=96.00 loops=1)
+                    Hash Cond: (p.owner_id = u.id)
+                    Buffers: shared read=7 written=7
+                    ->  Seq Scan on pipelines p  (cost=0.00..7.34 rows=334 width=26) (actual time=0.023..0.043 rows=334.00 loops=1)
+                          Buffers: shared read=4 written=4
+                    ->  Hash  (cost=5.09..5.09 rows=48 width=22) (actual time=0.035..0.035 rows=48.00 loops=1)
+                          Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                          Buffers: shared read=3 written=3
+                          ->  Seq Scan on users u  (cost=0.00..5.09 rows=48 width=22) (actual time=0.021..0.031 rows=48.00 loops=1)
+                                Filter: (tier = ANY ('{beta,owner}'::text[]))
+                                Rows Removed by Filter: 119
+                                Buffers: shared read=3 written=3
+Planning:
+  Buffers: shared hit=13 read=14 written=12
+Planning Time: 0.241 ms
+Trigger for constraint output_snapshot_history_payload_id_fkey: time=0.408 calls=2
+Execution Time: 1.961 ms
+
+@@STMT run=1 repo=2 seq=20 label=payload age purge beta
+Delete on node_payload_history h  (cost=0.44..16.60 rows=0 width=0) (actual time=0.137..0.138 rows=0.00 loops=1)
+  Buffers: shared hit=27 read=14 dirtied=3 written=12
+  ->  Nested Loop  (cost=0.44..16.60 rows=1 width=18) (actual time=0.006..0.006 rows=1.00 loops=1)
+        Buffers: shared hit=6
+        ->  Nested Loop  (cost=0.29..16.38 rows=1 width=28) (actual time=0.004..0.004 rows=1.00 loops=1)
+              Buffers: shared hit=4
+              ->  Index Scan using idx_node_payload_history_captured_at on node_payload_history h  (cost=0.14..8.16 rows=1 width=10) (actual time=0.001..0.002 rows=1.00 loops=1)
+                    Index Cond: (captured_at < '2026-10-02 00:00:00-07'::timestamp with time zone)
+                    Index Searches: 1
+                    Buffers: shared hit=2
+              ->  Index Scan using pipelines_pkey on pipelines p  (cost=0.15..8.17 rows=1 width=26) (actual time=0.002..0.002 rows=1.00 loops=1)
+                    Index Cond: (id = h.pipeline_id)
+                    Index Searches: 1
+                    Buffers: shared hit=2
+        ->  Index Scan using users_pkey on users u  (cost=0.14..0.22 rows=1 width=22) (actual time=0.001..0.001 rows=1.00 loops=1)
+              Index Cond: (id = p.owner_id)
+              Filter: (tier = 'beta'::text)
+              Index Searches: 1
+              Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=34 read=2 dirtied=1 written=2
+Planning Time: 0.156 ms
+Trigger for constraint output_snapshot_history_payload_id_fkey: time=0.138 calls=1
+Execution Time: 0.285 ms
+
+@@STMT run=1 repo=2 seq=30 label=payload newest-N beta
+Delete on node_payload_history  (cost=68.62..118.40 rows=0 width=0) (actual time=0.201..0.202 rows=0.00 loops=1)
+  Buffers: shared hit=130 dirtied=1
+  ->  Hash Semi Join  (cost=68.62..118.40 rows=16 width=46) (actual time=0.183..0.199 rows=2.00 loops=1)
+        Hash Cond: (node_payload_history.id = ranked.id)
+        Buffers: shared hit=125
+        ->  Seq Scan on node_payload_history  (cost=0.00..49.06 rows=206 width=22) (actual time=0.003..0.016 rows=203.00 loops=1)
+              Buffers: shared hit=47
+        ->  Hash  (cost=68.42..68.42 rows=16 width=56) (actual time=0.173..0.174 rows=2.00 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 9kB
+              Buffers: shared hit=78
+              ->  Subquery Scan on ranked  (cost=66.46..68.42 rows=16 width=56) (actual time=0.151..0.174 rows=2.00 loops=1)
+                    Filter: (ranked.rn > 10)
+                    Rows Removed by Filter: 110
+                    Buffers: shared hit=78
+                    ->  WindowAgg  (cost=66.46..67.81 rows=49 width=72) (actual time=0.146..0.167 rows=112.00 loops=1)
+                          Window: w1 AS (PARTITION BY h.pipeline_id, h.node_step_id, h.root_id ORDER BY h.captured_at, h.id ROWS UNBOUNDED PRECEDING)
+                          Storage: Memory  Maximum Storage: 17kB
+                          Buffers: shared hit=78
+                          ->  Sort  (cost=66.46..66.58 rows=49 width=64) (actual time=0.143..0.146 rows=112.00 loops=1)
+                                Sort Key: h.pipeline_id, h.node_step_id, h.root_id, h.captured_at DESC, h.id DESC
+                                Sort Method: quicksort  Memory: 30kB
+                                Buffers: shared hit=78
+                                ->  Hash Join  (cost=5.75..65.08 rows=49 width=64) (actual time=0.030..0.102 rows=112.00 loops=1)
+                                      Hash Cond: (p.owner_id = u.id)
+                                      Buffers: shared hit=78
+                                      ->  Nested Loop  (cost=0.16..58.94 rows=206 width=80) (actual time=0.006..0.074 rows=203.00 loops=1)
+                                            Buffers: shared hit=75
+                                            ->  Seq Scan on node_payload_history h  (cost=0.00..49.06 rows=206 width=64) (actual time=0.001..0.017 rows=203.00 loops=1)
+                                                  Buffers: shared hit=47
+                                            ->  Memoize  (cost=0.16..0.29 rows=1 width=20) (actual time=0.000..0.000 rows=1.00 loops=203)
+                                                  Cache Key: h.pipeline_id
+                                                  Cache Mode: logical
+                                                  Hits: 189  Misses: 14  Evictions: 0  Overflows: 0  Memory Usage: 2kB
+                                                  Buffers: shared hit=28
+                                                  ->  Index Scan using pipelines_pkey on pipelines p  (cost=0.15..0.28 rows=1 width=20) (actual time=0.001..0.001 rows=1.00 loops=14)
+                                                        Index Cond: (id = h.pipeline_id)
+                                                        Index Searches: 14
+                                                        Buffers: shared hit=28
+                                      ->  Hash  (cost=5.09..5.09 rows=40 width=16) (actual time=0.012..0.012 rows=40.00 loops=1)
+                                            Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                                            Buffers: shared hit=3
+                                            ->  Seq Scan on users u  (cost=0.00..5.09 rows=40 width=16) (actual time=0.002..0.009 rows=40.00 loops=1)
+                                                  Filter: (tier = 'beta'::text)
+                                                  Rows Removed by Filter: 127
+                                                  Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=34 read=3 written=3
+Planning Time: 0.198 ms
+Trigger for constraint output_snapshot_history_payload_id_fkey: time=0.035 calls=2
+Execution Time: 0.255 ms
+
+@@STMT run=1 repo=2 seq=40 label=payload age purge owner
+Delete on node_payload_history h  (cost=0.44..14.83 rows=0 width=0) (actual time=0.001..0.001 rows=0.00 loops=1)
+  Buffers: shared hit=1
+  ->  Nested Loop  (cost=0.44..14.83 rows=1 width=18) (actual time=0.001..0.001 rows=0.00 loops=1)
+        Buffers: shared hit=1
+        ->  Nested Loop  (cost=0.29..14.58 rows=1 width=28) (actual time=0.001..0.001 rows=0.00 loops=1)
+              Buffers: shared hit=1
+              ->  Index Scan using idx_node_payload_history_captured_at on node_payload_history h  (cost=0.14..6.37 rows=1 width=10) (actual time=0.001..0.001 rows=0.00 loops=1)
+                    Index Cond: (captured_at < '2026-09-09 00:00:00-07'::timestamp with time zone)
+                    Index Searches: 1
+                    Buffers: shared hit=1
+              ->  Index Scan using pipelines_pkey on pipelines p  (cost=0.15..8.17 rows=1 width=26) (never executed)
+                    Index Cond: (id = h.pipeline_id)
+                    Index Searches: 0
+        ->  Index Scan using users_pkey on users u  (cost=0.14..0.22 rows=1 width=22) (never executed)
+              Index Cond: (id = p.owner_id)
+              Filter: (tier = 'owner'::text)
+              Index Searches: 0
+Planning:
+  Buffers: shared hit=34
+Planning Time: 0.100 ms
+Execution Time: 0.008 ms
+
+@@STMT run=1 repo=2 seq=50 label=payload newest-N owner
+Delete on node_payload_history  (cost=34.28..58.97 rows=0 width=0) (actual time=0.136..0.137 rows=0.00 loops=1)
+  Buffers: shared hit=99 read=1 written=1
+  ->  Nested Loop  (cost=34.28..58.97 rows=3 width=46) (actual time=0.134..0.135 rows=1.00 loops=1)
+        Buffers: shared hit=97 read=1 written=1
+        ->  HashAggregate  (cost=34.00..34.03 rows=3 width=56) (actual time=0.131..0.132 rows=1.00 loops=1)
+              Group Key: ranked.id
+              Batches: 1  Memory Usage: 32kB
+              Buffers: shared hit=94 read=1 written=1
+              ->  Subquery Scan on ranked  (cost=33.60..34.00 rows=3 width=56) (actual time=0.123..0.130 rows=1.00 loops=1)
+                    Filter: (ranked.rn > 30)
+                    Rows Removed by Filter: 90
+                    Buffers: shared hit=94 read=1 written=1
+                    ->  WindowAgg  (cost=33.60..33.87 rows=10 width=72) (actual time=0.109..0.126 rows=91.00 loops=1)
+                          Window: w1 AS (PARTITION BY h.pipeline_id, h.node_step_id, h.root_id ORDER BY h.captured_at, h.id ROWS UNBOUNDED PRECEDING)
+                          Storage: Memory  Maximum Storage: 17kB
+                          Buffers: shared hit=94 read=1 written=1
+                          ->  Sort  (cost=33.60..33.62 rows=10 width=64) (actual time=0.108..0.110 rows=91.00 loops=1)
+                                Sort Key: h.pipeline_id, h.node_step_id, h.root_id, h.captured_at DESC, h.id DESC
+                                Sort Method: quicksort  Memory: 29kB
+                                Buffers: shared hit=94 read=1 written=1
+                                ->  Nested Loop  (cost=5.46..33.43 rows=10 width=64) (actual time=0.016..0.081 rows=91.00 loops=1)
+                                      Buffers: shared hit=94 read=1 written=1
+                                      ->  Hash Join  (cost=5.19..13.43 rows=16 width=4) (actual time=0.013..0.039 rows=16.00 loops=1)
+                                            Hash Cond: (p.owner_id = u.id)
+                                            Buffers: shared hit=7
+                                            ->  Seq Scan on pipelines p  (cost=0.00..7.34 rows=334 width=20) (actual time=0.002..0.016 rows=334.00 loops=1)
+                                                  Buffers: shared hit=4
+                                            ->  Hash  (cost=5.09..5.09 rows=8 width=16) (actual time=0.008..0.009 rows=8.00 loops=1)
+                                                  Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                                  Buffers: shared hit=3
+                                                  ->  Seq Scan on users u  (cost=0.00..5.09 rows=8 width=16) (actual time=0.002..0.007 rows=8.00 loops=1)
+                                                        Filter: (tier = 'owner'::text)
+                                                        Rows Removed by Filter: 159
+                                                        Buffers: shared hit=3
+                                      ->  Index Scan using idx_node_payload_history_node_captured on node_payload_history h  (cost=0.27..1.12 rows=13 width=64) (actual time=0.001..0.002 rows=5.69 loops=16)
+                                            Index Cond: (pipeline_id = p.id)
+                                            Index Searches: 16
+                                            Buffers: shared hit=87 read=1 written=1
+        ->  Memoize  (cost=0.28..8.30 rows=1 width=22) (actual time=0.002..0.002 rows=1.00 loops=1)
+              Cache Key: ranked.id
+              Cache Mode: logical
+              Hits: 0  Misses: 1  Evictions: 0  Overflows: 0  Memory Usage: 1kB
+              Buffers: shared hit=3
+              ->  Index Scan using node_payload_history_pkey on node_payload_history  (cost=0.27..8.29 rows=1 width=22) (actual time=0.001..0.001 rows=1.00 loops=1)
+                    Index Cond: (id = ranked.id)
+                    Index Searches: 1
+                    Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=34
+Planning Time: 0.147 ms
+Trigger for constraint output_snapshot_history_payload_id_fkey: time=0.117 calls=1
+Execution Time: 0.274 ms
+
+@@STMT run=1 repo=2 seq=60 label=payload unreferenced
+Delete on node_payload_history h  (cost=57.25..62.85 rows=0 width=0) (actual time=0.962..0.962 rows=0.00 loops=1)
+  Buffers: shared hit=110 read=166 written=157
+  ->  Merge Anti Join  (cost=57.25..62.85 rows=1 width=12) (actual time=0.961..0.962 rows=0.00 loops=1)
+        Merge Cond: (h.id = o.payload_id)
+        Buffers: shared hit=110 read=166 written=157
+        ->  Sort  (cost=56.98..57.49 rows=206 width=22) (actual time=0.033..0.041 rows=200.00 loops=1)
+              Sort Key: h.id
+              Sort Method: quicksort  Memory: 32kB
+              Buffers: shared hit=47
+              ->  Seq Scan on node_payload_history h  (cost=0.00..49.06 rows=206 width=22) (actual time=0.002..0.016 rows=200.00 loops=1)
+                    Buffers: shared hit=47
+        ->  Index Scan using idx_output_snapshot_history_payload on output_snapshot_history o  (cost=0.28..2321.97 rows=2081538 width=22) (actual time=0.010..0.879 rows=598.00 loops=1)
+              Index Searches: 1
+              Buffers: shared hit=63 read=166 written=157
+Planning:
+  Buffers: shared hit=3
+Planning Time: 0.038 ms
+Execution Time: 0.968 ms
+@@LOCK run=2 repo=1 acquired=t
+@@LOCK run=2 repo=2 acquired=t
+@@LOCK run=3 repo=1 acquired=t
+@@LOCK run=3 repo=2 acquired=t
+@@T run=1 repo=1 seq=11 deleted=25 ms=12.80 label=history age purge free
+@@T run=1 repo=1 seq=12 deleted=10 ms=1.68 label=history age purge beta
+@@T run=1 repo=1 seq=13 deleted=1 ms=0.11 label=history age purge owner
+@@T run=1 repo=1 seq=20 deleted=0 ms=0.11 label=history age purge unnamed-tier catch-all
+@@T run=1 repo=1 seq=30 deleted=1595000 ms=17475.19 label=history thin (protected newest 101)
+@@TX run=1 repo=1 lock_hold_ms=17490.26
+@@T run=1 repo=2 seq=10 deleted=2 ms=1.30 label=payload disallowed-tier
+@@T run=1 repo=2 seq=20 deleted=1 ms=0.46 label=payload age purge beta
+@@T run=1 repo=2 seq=30 deleted=2 ms=0.50 label=payload newest-N beta
+@@T run=1 repo=2 seq=40 deleted=0 ms=0.17 label=payload age purge owner
+@@T run=1 repo=2 seq=50 deleted=1 ms=0.46 label=payload newest-N owner
+@@T run=1 repo=2 seq=60 deleted=0 ms=1.05 label=payload unreferenced
+@@TX run=1 repo=2 lock_hold_ms=4.09
+@@T run=2 repo=1 seq=11 deleted=25 ms=13.50 label=history age purge free
+@@T run=2 repo=1 seq=12 deleted=10 ms=2.05 label=history age purge beta
+@@T run=2 repo=1 seq=13 deleted=1 ms=0.14 label=history age purge owner
+@@T run=2 repo=1 seq=20 deleted=0 ms=0.14 label=history age purge unnamed-tier catch-all
+@@T run=2 repo=1 seq=30 deleted=1595000 ms=17919.41 label=history thin (protected newest 101)
+@@TX run=2 repo=1 lock_hold_ms=17935.37
+@@T run=2 repo=2 seq=10 deleted=2 ms=2.67 label=payload disallowed-tier
+@@T run=2 repo=2 seq=20 deleted=1 ms=0.41 label=payload age purge beta
+@@T run=2 repo=2 seq=30 deleted=2 ms=0.73 label=payload newest-N beta
+@@T run=2 repo=2 seq=40 deleted=0 ms=0.17 label=payload age purge owner
+@@T run=2 repo=2 seq=50 deleted=1 ms=0.53 label=payload newest-N owner
+@@T run=2 repo=2 seq=60 deleted=0 ms=1.08 label=payload unreferenced
+@@TX run=2 repo=2 lock_hold_ms=5.75
+@@T run=3 repo=1 seq=11 deleted=25 ms=13.96 label=history age purge free
+@@T run=3 repo=1 seq=12 deleted=10 ms=1.88 label=history age purge beta
+@@T run=3 repo=1 seq=13 deleted=1 ms=0.16 label=history age purge owner
+@@T run=3 repo=1 seq=20 deleted=0 ms=0.13 label=history age purge unnamed-tier catch-all
+@@T run=3 repo=1 seq=30 deleted=1595000 ms=17823.00 label=history thin (protected newest 101)
+@@TX run=3 repo=1 lock_hold_ms=17839.27
+@@T run=3 repo=2 seq=10 deleted=2 ms=11.02 label=payload disallowed-tier
+@@T run=3 repo=2 seq=20 deleted=1 ms=0.44 label=payload age purge beta
+@@T run=3 repo=2 seq=30 deleted=2 ms=0.51 label=payload newest-N beta
+@@T run=3 repo=2 seq=40 deleted=0 ms=0.16 label=payload age purge owner
+@@T run=3 repo=2 seq=50 deleted=1 ms=0.51 label=payload newest-N owner
+@@T run=3 repo=2 seq=60 deleted=0 ms=1.14 label=payload unreferenced
+@@TX run=3 repo=2 lock_hold_ms=13.94
