@@ -1,0 +1,15 @@
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionParser.scala` — `Neg` AST node and `unary` level in StrictParser only (legacy parser untouched)
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionTypeInference.scala` — `Neg` infers float (operand errors propagate)
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionInterpreter.scala` — `Neg` evaluation (strict numeric, null propagates, no negative zero)
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionEvaluator.scala` — `Neg` in checkRefs, grammar comment, `numericContextTextFields` facade
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionNumericContexts.scala` — new: AST scan for text fields in numeric contexts
+- `backend/src/main/scala/com/helio/domain/engine/AnalyzeSchemaWarnings.scala` — `numeric-op-on-text-field` code, compute branch (trusted types only), header comment
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala` — doc comment lists new code
+- `backend/src/test/scala/com/helio/domain/engine/ExpressionUnaryMinusSpec.scala` — new: unary minus unit tests
+- `backend/src/test/scala/com/helio/domain/engine/NumericOpOnTextFieldWarningSpec.scala` — new: warning unit tests
+- `backend/src/test/scala/com/helio/services/pipelines/ComputeExpressionRunSpec.scala` — new: real pipeline run, node_snapshots asserted
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineAnalyzeSchemaWarningsSpec.scala` — full/concise/proposal analyze + schema validation for the new code
+- `schemas/pipelines/pipeline-analyze-response.schema.json`, `schemas/pipelines/pipeline-analyze-proposal-response.schema.json` — code enum
+- `frontend/src/features/pipelines/types/pipelineStep.ts` — AnalyzeWarningCode union (type only)
+- `helio-mcp/src/types.ts`, `helio-mcp/src/tools/read.ts`, `helio-mcp/src/tools/pipelineProposal.ts`, `helio-mcp/src/server.test.ts` — code union, tool descriptions, description test
+- `docs/compute-expression-grammar.md` — unary minus section, examples, limitations, Spark note

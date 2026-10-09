@@ -620,7 +620,11 @@ export interface CostVerdictResponse {
  *  warnings (`run_pipeline`). `stepId` is the proposal's client step id on the proposal analyze. */
 export interface AnalyzeWarning {
   stepId: string;
-  code: "field-not-in-input-schema" | "join-key-type-mismatch" | "join-column-renamed";
+  code:
+    | "field-not-in-input-schema"
+    | "join-key-type-mismatch"
+    | "join-column-renamed"
+    | "numeric-op-on-text-field";
   message: string;
 }
 

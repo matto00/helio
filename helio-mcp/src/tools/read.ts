@@ -178,7 +178,8 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "carry — e.g. count(amount) over a step that outputs (category,total) would silently count 0), " +
         "join-key-type-mismatch (the join key has different types on the two inputs, e.g. a CSV " +
         "string key vs an integer key, so the join may return no rows), join-column-renamed (a " +
-        "right-side column collides with an input column and will appear as right_<name>). They do " +
+        "right-side column collides with an input column and will appear as right_<name>), numeric-op-on-text-field " +
+        "(a compute expression uses a text/boolean field, e.g. an uncast CSV column, where a number is required — add a cast step first). They do " +
         "NOT affect canRun, autoRunnable or costVerdict.reasons and never set a validationError; " +
         "the stored inferred schema can be stale, so treat each as a hint to check, not proof. " +
         "These are distinct from propose_pipeline's warnings (strings that drive applyReady) and " +

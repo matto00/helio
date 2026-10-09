@@ -2,7 +2,7 @@ package com.helio.domain.engine
 
 import spray.json._
 
-import ExpressionParser.{BinOp, Call, Expr, FieldRef, NumLit, StrLit}
+import ExpressionParser.{BinOp, Call, Expr, FieldRef, Neg, NumLit, StrLit}
 
 // Row evaluation and function dispatch over the parsed AST.
 private[engine] object ExpressionInterpreter {
@@ -34,6 +34,13 @@ private[engine] object ExpressionInterpreter {
           rv <- evalExpr(r, row)
           res <- applyOp(op, lv, rv, expr.toString)
         } yield res
+
+      case Neg(e) =>
+        evalExpr(e, row).flatMap {
+          case VNum(n) => Right(VNum(-n + 0.0)) // + 0.0 turns -0.0 into 0.0
+          case VNull   => Right(VNull)
+          case other   => Left(EvaluationError.TypeError(s"Operator '-' cannot be applied to ${typeName(other)}"))
+        }
 
       // HEL-1423: lazy and null-exempt, so it never reaches applyFn's null guard.
       case Call("coalesce", args) =>
