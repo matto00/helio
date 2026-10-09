@@ -1,2 +1,0 @@
-- `frontend/src/features/panels/ui/detailModal/PanelDetailModal.tsx` — buildInitialChart no longer seeds chartType "line"
-- `frontend/src/features/panels/ui/detailModal/PanelDetailModal.chartTypeDefault.test.tsx` — new tests (unset stays unset, stored passes through, save-payload guard)
