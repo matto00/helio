@@ -3,7 +3,7 @@ package com.helio.services.patchsets
 import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.{LayoutWritePolicy, PanelService}
-import com.helio.services.pipelines.PipelineService
+import com.helio.services.pipelines.{LegacyOutputConfigKeys, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.dashboards.DashboardResponse
 import com.helio.api.protocols.sources.{DataSourceResponse, UpdateDataSourceRequest}
@@ -295,10 +295,12 @@ final class PatchSetUndoService(
       val kind            = OutputKind.fromString(outputResponse.kind).getOrElse(OutputKind.Table)
       val schema          = outputResponse.schema.flatMap(f => DataFieldType.fromString(f.`type`).map(t => SchemaField(f.name, DataFieldType.asString(t))))
       // HEL-1313: raw restore of previously stored data -- deliberately NOT run through
-      // OutputConfigValidation; restoring stored state must never be refused.
+      // OutputConfigValidation; restoring stored state must never be refused. HEL-1409: but a
+      // journal written before V117 may hold the V94/HEL-877 dead keys, so the config is normalised
+      // (V117's own mapping) rather than written raw -- the journal itself is left untouched.
       context.outputRepo.insertInternal(
         PipelineId(outputResponse.pipelineId), Some(PipelineStepId(newStepId)), user.id, outputResponse.name, kind,
-        config = outputResponse.config.asJsObject, schema = schema, tag = None, explicitRootId = None
+        config = LegacyOutputConfigKeys.normalise(kind, outputResponse.config.asJsObject), schema = schema, tag = None, explicitRootId = None
       ).flatMap { newOutput =>
         Future.traverse(placements) { panelResponse =>
           val baseRequest = PatchSetUndoInverse.panelCreateRequestFromResponse(panelResponse)
