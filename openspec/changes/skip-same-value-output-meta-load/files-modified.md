@@ -1,4 +1,0 @@
-- `frontend/src/features/panels/hooks/useOutputMeta.ts` — skip same-value mount-time setIsLoading(true)/null-branch reset via committed-state ref mirror (effect declared before fetch effect)
-- `frontend/src/features/panels/ui/PanelCardBody.mountRenders.test.tsx` — red/green render-count proofs (PanelCardBody cache-miss 3->2; useOutputMeta(null) wrapper 3->2)
-- `frontend/src/features/panels/hooks/useOutputMeta.test.tsx` — GUARD tests pinning loading transitions
-- `frontend/src/features/panels/ui/PanelCard.test.tsx` — corrected HEL-1215 comments
