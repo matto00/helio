@@ -59,6 +59,7 @@ trait PatchSetUndoServiceFixture extends AnyWordSpec with Matchers with HelioRou
   protected var pipelineStepRepo: PipelineStepRepository   = _
   protected var outputRepo: OutputRepository               = _
   protected var applicationRepo: PatchSetApplicationRepository = _
+  protected var accessChecker: AccessChecker               = _
 
   protected var dashboardService: DashboardService   = _
   protected var panelService: PanelService           = _
@@ -96,7 +97,7 @@ trait PatchSetUndoServiceFixture extends AnyWordSpec with Matchers with HelioRou
       AclResourceType("data-source", id => dataSourceRepo.findByIdInternal(DataSourceId(id)).map(_.map(_.ownerId.value))),
       AclResourceType("pipeline",    id => pipelineRepo.findByIdInternal(PipelineId(id)).map(_.map(_.ownerId.value)))
     )
-    val accessChecker: AccessChecker = new AccessCheckerImpl(permissionRepo, registry)
+    accessChecker = new AccessCheckerImpl(permissionRepo, registry)
     val fileSystem = new LocalFileSystem(newTempDir("patch-set-undo-service-spec"))
 
     dashboardService   = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
