@@ -121,7 +121,8 @@ async function save(): Promise<Record<string, unknown>> {
     fireEvent.click(screen.getByRole("button", { name: /^(Save|Create)/ }));
   });
   await waitFor(() => expect(http.patch).toHaveBeenCalled());
-  return (http.patch.mock.calls[0][1] as { config: Record<string, unknown> }).config;
+  // HEL-1389 -- `config` is omitted entirely when nothing in it changed.
+  return (http.patch.mock.calls[0][1] as { config?: Record<string, unknown> }).config ?? {};
 }
 
 const toggle = () => screen.getByRole("switch", { name: "Keep each run's rows" });

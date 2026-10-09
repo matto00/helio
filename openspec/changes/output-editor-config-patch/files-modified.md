@@ -1,0 +1,11 @@
+- `frontend/src/features/pipelines/ui/outputEditor/configPatch.ts` — new: opening-state baseline (`openingParams`) and `buildConfigPatch` (changed-keys-only diff, null clears, D4 stale-slot repair, D4a metric fieldMapping/aggregation pairing)
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx` — edit Save sends the config patch (omits `config` when empty; full config on kind change); markdown comment updated
+- `frontend/src/features/pipelines/ui/outputEditor/buildOutputConfig.ts` — chart base mapping drops stored annotation slot; metric label/unit explicit null; metric `fieldMapping.value` always carried
+- `frontend/src/features/pipelines/ui/outputEditor/useOutputTableColumns.ts` — `deriveColumnOrder`: default only when all columns visible in natural order; stored order passed through before columns load
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.configPatch.test.tsx` — new sheet-level red-first/guard/create tests
+- `frontend/src/features/pipelines/ui/outputEditor/buildOutputConfig.test.ts` — builder tests updated/added
+- `frontend/src/features/pipelines/ui/outputEditor/useOutputTableColumns.test.ts` — hook tests added
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.compare.test.tsx` — untouched/partial saves no longer re-send unchanged keys
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.history.test.tsx` — `config` may be absent on a no-change save
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.test.tsx` — legacy markdown untouched save sends no config
+- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputRoutesSpec.scala` — guard test pinning PATCH merge semantics
