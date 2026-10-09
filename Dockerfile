@@ -1,5 +1,9 @@
+# Registry prefix for Docker Hub base images. Every Docker Hub FROM must use it: CI overrides it to
+# mirror.gcr.io/library (HEL-1452, avoids Docker Hub 429s); CD builds with this default.
+ARG BASE_REGISTRY=docker.io/library
+
 # Stage 1: Build fat JAR
-FROM eclipse-temurin:21-jdk-jammy AS builder
+FROM ${BASE_REGISTRY}/eclipse-temurin:21-jdk-jammy AS builder
 
 RUN apt-get update && apt-get install -y curl gnupg && \
     echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/apt/sources.list.d/sbt.list && \
@@ -21,7 +25,7 @@ COPY backend/ backend/
 RUN cd backend && sbt assembly
 
 # Stage 2: Minimal runtime image
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM ${BASE_REGISTRY}/eclipse-temurin:21-jre-alpine AS runtime
 
 RUN addgroup -S helio && adduser -S helio -G helio
 
