@@ -1,0 +1,8 @@
+1092037 7 MB /usr/bin/bash -c source /home/matt/.claude/shell-snapshots/snapshot-bash-1791564167618-0m9
+1092089 4 MB bash /home/matt/.local/bin/sbt run
+1092131 1430 MB java -Xms512m -Xss2m -XX:MaxInlineLevel=18 -Dsbt.ivy.home=.ivy2 -jar /home/matt/.sbt/launc
+1092779 498 MB /usr/lib/jvm/java-21-openjdk/bin/java @/tmp/sbt-args8613082827040166430.tmp
+"-Xmx3g"
+1093140 64 MB npm run dev
+1093156 265 MB node /home/matt/Development/helio/.claude/worktrees/task/cap-local-test-parallelism/HEL-14
+1093435 5 MB /usr/bin/bash -c source /home/matt/.claude/shell-snapshots/snapshot-bash-1791564167618-0m9

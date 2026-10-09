@@ -74,7 +74,7 @@ interface TableRendererProps {
   pinnedColumns?: string[];
   /** TEST-ONLY (evaluation-1.md change request 1 / design D4/task 4.0): an
    *  EXPLICIT locale/timeZone override for `resolveColumnFormatter`, never
-   *  passed by production code (see `PanelContent.tsx`, which does not set
+   *  passed by production code (see `OutputPanelContent.tsx`, which does not set
    *  this prop) — production keeps `Intl`'s locale-aware runtime defaults.
    *  `TableRenderer.test.tsx` passes this explicitly for every assertion
    *  over rendered formatted text, so those tests are pinned the same way

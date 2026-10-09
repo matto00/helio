@@ -259,6 +259,33 @@ serving. **Verify the process cwd is your worktree** (`readlink /proc/<pid>/cwd`
 before trusting anything you observe — otherwise you may be reviewing another
 branch's binary. (CON-155.)
 
+### The 2026-10-09 OOM: uncapped test parallelism x three lanes, and `/tmp` is RAM
+
+Three lanes on the 62 GB dev box ended in a global OOM that took the desktop session down. Measured afterwards
+(HEL-1442 `openspec/changes/archive/2026-10-09-cap-local-test-parallelism/measurements.md`), not guessed:
+
+- **Jest, not the JVMs, was the memory.** Jest defaults to cores - 1 = 11 workers. One uncapped run is 12 node
+  processes and **11.4-12.4 GB** (root suite 12.4 GB, `frontend/` 11.4-12.0 GB, ~1.0-1.2 GB per worker plus the parent).
+  The kernel log's task table has 30 node processes with 26.2 GiB anon, consistent with two hook `npm test` runs at once
+  (an inference: the table has no command lines). The 6 JVMs were 6.5 GiB anon (a lane's `sbt run` is ~2.2 GB with its launcher and vite; `sbt testFull` peaks ~3.5 GB).
+- **~12 of the 13.1 GiB of shmem was tmpfs file data, not any process.** `/tmp` is tmpfs (RAM): jest's default
+  `cacheDirectory` (`/tmp/jest_<user>`) held 5.7 G across 863 per-checkout cache sets that nothing cleans, and the
+  Claude Code harness's own scratch (`/tmp/claude-1000`) another 9.9 G. Anything you park in `/tmp` costs RAM, and
+  `sbt testFull`'s embedded Postgres adds ~1.3 GB there while it runs.
+- **An unset `-Xmx` is 1/4 of physical RAM per JVM** (16.65 GB here): every forked test JVM and the `sbt` server.
+  CI only bounded the sbt server (`-Xmx3g`).
+
+The fix is a permanent local cap at CI's worker counts (CONTRIBUTING.md, "Local resource caps"). Two traps found while
+proving CI stays unchanged:
+
+- **sbt 2 serves an env-dependent task body from its disk cache.** A plain
+  `Test / javaOptions ++= ... ++ f(sys.env)` kept returning the old value ("cache 100%, N disk cache hits"): the cache key
+  does not include `sys.env`, so neither the new `-Xmx` nor an invalid override took effect. Wrap the env-reading part in
+  `Def.uncached(...)`. Check such changes with `show <key>` in a fresh `sbt --server` and by running the thing (a forked
+  test printing `Runtime.maxMemory`), not by reading `build.sbt`.
+- **`sbt run`'s launcher JVM is also uncapped** (`-Xms512m`, no `-Xmx`), and the repo cannot cap it: only the
+  caller (`start-servers.sh` / your shell) can pass `-J-Xmx3g` or set `SBT_OPTS`.
+
 ### Never invoke `npm` / `vite` / `sbt` / `npx playwright` bare
 
 A bare invocation inherits an ambient default instead of the run's pinned config.

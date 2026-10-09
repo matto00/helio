@@ -41,6 +41,8 @@ module.exports = [
       // pre-commit hook on a file outside the committer's diff. Gitignored, but
       // ESLint's flat config does not consult .gitignore.
       "**/coverage/**",
+      // HEL-1442: local jest cache (cacheDirectory), generated; gitignored but ESLint ignores .gitignore.
+      "**/.jest-cache/**",
     ],
   },
   js.configs.recommended,
