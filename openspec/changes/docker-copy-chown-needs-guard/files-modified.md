@@ -1,6 +1,7 @@
 - `./Dockerfile` — COPY --chown for the jar; non-recursive chown of /app and /app/data (declared as `./Dockerfile` because a bare name is not path-shaped for squash-branch.sh, CON-245)
 - `scripts/check-ci-complete-needs.mjs` — new fail-closed guard: every ci.yml job is in ci-complete.needs
 - `scripts/check-ci-complete-needs.selftest.mjs` — selftest covering every error path by reason text
-- `package.json` — check:ci-complete-needs and :selftest scripts
+- `package.json` — check:ci-complete-needs and :selftest scripts; js-yaml 4.3.2 (exact) devDependency for the guard
+- `package-lock.json` — root devDependencies entry for js-yaml 4.3.2 (already locked transitively; no other churn)
 - `.husky/pre-commit` — runs the check
 - `.github/workflows/ci.yml` — frontend job runs the check and selftest
