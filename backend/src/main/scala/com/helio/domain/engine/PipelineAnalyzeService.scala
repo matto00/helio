@@ -634,7 +634,7 @@ object PipelineAnalyzeService {
           val alias = obj.fields("alias").convertTo[String]
           val fn    = obj.fields("fn").convertTo[String].toLowerCase
           val field = obj.fields("field").convertTo[String]
-          SchemaField(name = alias, `type` = aggResultType(fn, field, inputSchema))
+          SchemaField(name = alias, `type` = aggregateResultType(fn, field, inputSchema))
         }
         (groupByFields ++ aggFields, None)
       }
@@ -1179,6 +1179,16 @@ object PipelineAnalyzeService {
       )
       keyFields :+ aggField
     } (inputSchema)
+
+  /** Result type of an `aggregate`-op function. `AggregateStep.apply` computes min/max over
+   *  `PipelineRowJson.toDouble`, so it always yields a Double (or null) whatever the field's
+   *  declared type; reporting the declared type would be a lie. `groupby` keeps `aggResultType`
+   *  because its Spark path preserves the column type. */
+  private def aggregateResultType(fn: String, field: String, inputSchema: Vector[SchemaField]): String =
+    fn match {
+      case "min" | "max" => "float"
+      case _             => aggResultType(fn, field, inputSchema)
+    }
 
   /** Determine the output type of an aggregation function applied to `field`. */
   private def aggResultType(fn: String, field: String, inputSchema: Vector[SchemaField]): String =

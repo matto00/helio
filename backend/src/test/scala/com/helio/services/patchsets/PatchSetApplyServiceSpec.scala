@@ -1160,7 +1160,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
 
     // HEL-1313 D9: rollback re-sends the full prior config, which may hold a value today's rules
     // reject (an editor-made scatter chart WITH an aggregation) -- restoring must not be refused.
-    "roll back an output config edit restoring a scatter chart that carries an aggregation, and a stored legacy key (HEL-1313)" in {
+    "roll back an output config edit restoring a scatter chart that carries an aggregation, and drops a stored V94 dead key as V117 would (HEL-1313, HEL-1409)" in {
       val sourceId  = seedDatasetSource(userA, "Output-1313 source")
       val pipeline  = seedPipeline(userA, sourceId, "Output-1313 pipeline")
       val dashboard = seedDashboard(userA, "Output-1313 dashboard")
@@ -1181,7 +1181,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       }
       response.failure shouldBe defined
       response.edits.find(_.index == 0).map(_.status) shouldBe Some("rolledBack")
-      await(outputRepo.findConfigById(output.id, userA)) shouldBe Some(stored)
+      // HEL-1409: the restore is still not refused, but a stored V94 dead key (`metricLabel` on a chart
+      // is kind-inapplicable) is written as V117 would have written it -- dropped, not resurrected.
+      await(outputRepo.findConfigById(output.id, userA)) shouldBe Some(JsObject(stored.fields - "metricLabel"))
     }
 
     "mark an output delete edit unrecoverable on rollback, matching the dashboard/dataSource/pipeline delete precedent (task 1.2)" in {

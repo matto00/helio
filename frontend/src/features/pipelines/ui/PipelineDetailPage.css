@@ -1603,6 +1603,12 @@
   gap: var(--space-1);
 }
 
+/* Full row width like every sibling control: an unsized FormField wrapper shrink-wraps, so the
+ * input would track the error text's width and jump when the error toggles. */
+.pipeline-detail-page__aggregate-p-field {
+  flex: 1 1 100%;
+}
+
 .pipeline-detail-page__aggregate-fn-hint {
   color: var(--app-text-muted);
   font-size: var(--text-xs);

@@ -458,7 +458,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       result(0).outputSchema.find(_.name == "cnt").map(_.`type`) shouldBe Some("integer")
     }
 
-    "aggregate — min/max inherit the source field type from inputSchema" in {
+    "aggregate — min/max infer float regardless of the source field type (apply returns Doubles)" in {
       val cfg = """{
         "groupBy":[],
         "aggregations":[
@@ -469,7 +469,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val steps  = Vector(step("aggregate", cfg))
       val result = analyze(steps, baseSchema)
       result(0).outputSchema.find(_.name == "min_amt").map(_.`type`) shouldBe Some("float")
-      result(0).outputSchema.find(_.name == "max_created").map(_.`type`) shouldBe Some("string")
+      result(0).outputSchema.find(_.name == "max_created").map(_.`type`) shouldBe Some("float")
     }
 
     // ── HEL-1310 ───────────────────────────────────────────────────────────────
@@ -511,27 +511,42 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       stepConfigProblem("aggregate", """{"groupBy":[],"aggregations":[{"alias":"a","fn":"percentile","field":"amount","p":90}]}""") shouldBe None
     }
 
-    // Apply/infer parity: iterates AggregateStep.SupportedFunctions, so a function added without an
-    // inference case (aggResultType) fails here without any edit to this test.
-    "aggregate — inferred type matches the runtime value type apply produces, for every supported fn (HEL-1310 parity)" in {
+    // Apply/infer parity: iterates AggregateStep.SupportedFunctions over integer- and float-declared
+    // fields, so a function added without an inference case fails here without any edit to this
+    // test, and a fn whose inferred type tracks the declared type (min/max) fails on the integer field.
+    "aggregate — inferred type matches the runtime value type apply produces, for every supported fn and declared field type (HEL-1310 parity)" in {
       AggregateStep.SupportedFunctions should not be empty
-      AggregateStep.SupportedFunctions.foreach { fn =>
-        withClue(s"fn=$fn: ") {
-          val agg = Aggregation("out", fn, "amount", if (fn == "percentile") Some(50.0) else None)
-          val cfg = AggregateConfig(Vector.empty[AggregateField], Vector(agg))
-          val rows: Seq[Map[String, Any]] = Seq(
-            Map("amount" -> 1.5, "order_id" -> "a"), Map("amount" -> 2.5, "order_id" -> "b"), Map("amount" -> 4.0, "order_id" -> "b")
-          )
-          val runtime = AggregateStep.apply(rows, cfg).head("out")
-          val inferred = analyze(Vector(step("aggregate", cfg.toJson.compactPrint)), baseSchema)(0).outputSchema.find(_.name == "out").map(_.`type`)
-          val expected = runtime match {
-            case _: Double => "float"
-            case _: Long   => "integer"
-            case other     => fail(s"unexpected runtime type ${other.getClass} for $fn")
-          }
-          inferred shouldBe Some(expected)
+      for {
+        declared <- Seq("integer", "float")
+        fn       <- AggregateStep.SupportedFunctions
+      } withClue(s"fn=$fn declared=$declared: ") {
+        val agg = Aggregation("out", fn, "amount", if (fn == "percentile") Some(50.0) else None)
+        val cfg = AggregateConfig(Vector.empty[AggregateField], Vector(agg))
+        val rows: Seq[Map[String, Any]] = Seq(
+          Map("amount" -> 1.5, "order_id" -> "a"), Map("amount" -> 2.5, "order_id" -> "b"), Map("amount" -> 4.0, "order_id" -> "b")
+        )
+        val runtime  = AggregateStep.apply(rows, cfg).head("out")
+        val schema   = Vector(field("amount", declared), field("order_id", "string"))
+        val inferred = analyze(Vector(step("aggregate", cfg.toJson.compactPrint)), schema)(0).outputSchema.find(_.name == "out").map(_.`type`)
+        val expected = runtime match {
+          case _: Double => "float"
+          case _: Long   => "integer"
+          case other     => fail(s"unexpected runtime type ${other.getClass} for $fn")
         }
+        inferred shouldBe Some(expected)
       }
+    }
+
+    // apply only ever returns Doubles for min/max, so a non-numeric declared type (a CSV
+    // numeric-text column is `string` until cast) still infers float.
+    "aggregate — min/max infer float for string- and timestamp-declared fields too (HEL-1407)" in {
+      val schema = Vector(field("txt", "string"), field("ts", "timestamp"))
+      val cfg = """{"groupBy":[],"aggregations":[
+        {"alias":"a","fn":"min","field":"txt"},
+        {"alias":"b","fn":"max","field":"ts"}
+      ]}"""
+      val out = analyze(Vector(step("aggregate", cfg)), schema)(0).outputSchema
+      out.map(f => f.name -> f.`type`) shouldBe Vector("a" -> "float", "b" -> "float")
     }
 
     "aggregate — malformed config produces validationError and identity outputSchema" in {
