@@ -262,7 +262,7 @@ branch's binary. (CON-155.)
 ### The 2026-10-09 OOM: uncapped test parallelism x three lanes, and `/tmp` is RAM
 
 Three lanes on the 62 GB dev box ended in a global OOM that took the desktop session down. Measured afterwards
-(HEL-1442 `measurements.md`), not guessed:
+(HEL-1442 `openspec/changes/archive/2026-10-09-cap-local-test-parallelism/measurements.md`), not guessed:
 
 - **Jest, not the JVMs, was the memory.** Jest defaults to cores - 1 = 11 workers. One uncapped run is 12 node
   processes and **11.4-12.4 GB** (root suite 12.4 GB, `frontend/` 11.4-12.0 GB, ~1.0-1.2 GB per worker plus the parent).

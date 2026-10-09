@@ -105,7 +105,7 @@ With `CI` unset, test and dev entry points are capped at or below CI's worker co
 | forked test-group concurrency      | 1 (serial)                                                                        | 2 (`HEL924_TEST_GROUP_CONCURRENCY`)     | `HEL924_TEST_GROUP_CONCURRENCY=2 sbt testFull` (pre-existing; non-integers are silently ignored) |
 | sbt server JVM heap                | **not capped by the repo** (16 GB default); pass `-J-Xmx3g` / `SBT_OPTS=-J-Xmx3g` | `-Xmx3g`                                | n/a                                                                                              |
 
-An invalid override value throws, naming the variable. Details and measurements: `CONTRIBUTING.md` ("Local resource caps") and `openspec/changes/cap-local-test-parallelism/measurements.md` (archived with the change).
+An invalid override value throws, naming the variable. Details and measurements: `CONTRIBUTING.md` ("Local resource caps") and `openspec/changes/archive/2026-10-09-cap-local-test-parallelism/measurements.md`.
 
 ## Architecture
 
