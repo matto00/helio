@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.testsupport.UserSeeding
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.api.routes.pipelines.PipelineRoutes
 import com.helio.services.sources.{ContentSourceSupport, SourceService}
@@ -421,6 +422,7 @@ noInlineSource.copy(
     "return 404 for a sourceId owned by a different user, leaking no schema (3.9)" in {
       cleanAll()
       val otherUserId = UUID.randomUUID().toString
+      UserSeeding.seedUsers(db, UserId(otherUserId)) // HEL-1347: owner_id is a real FK to users
       val fields = """[{"name":"secret_field","displayName":"Secret","dataType":"string","nullable":false}]"""
       val dsId = seedDataSource(otherUserId, "other-user-source", fields)
 

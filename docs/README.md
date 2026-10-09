@@ -5,7 +5,8 @@ Standalone reference docs not tied to a single package: deployment
 agent-native integration (`agent-native.md`), the compute-step expression
 grammar (`compute-expression-grammar.md`), uploads (`uploads.md`), Spark
 setup (`spark-setup.md`), dependency & CVE management
-(`dependency-management.md`), plus `superpowers/` (design/planning artifacts)
+(`dependency-management.md`), the user-reference and `ON DELETE` inventory
+(`user-reference-inventory.md`), plus `superpowers/` (design/planning artifacts)
 and reference screenshots.
 
 **Belongs here:** cross-cutting docs that don't belong in a single package's

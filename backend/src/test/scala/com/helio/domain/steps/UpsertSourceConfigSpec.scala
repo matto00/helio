@@ -1,5 +1,6 @@
 package com.helio.domain.steps
 
+import com.helio.testsupport.UserSeeding
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -38,6 +39,7 @@ class UpsertSourceConfigSpec extends AnyWordSpec with Matchers with OptionValues
       .load()
       .migrate()
     db   = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
+    UserSeeding.seedUsers(db, ownerA.id, ownerB.id) // HEL-1347: owner_id is a real FK to users
     repo = new DataSourceRepository(new DbContext(db, db))
   }
 

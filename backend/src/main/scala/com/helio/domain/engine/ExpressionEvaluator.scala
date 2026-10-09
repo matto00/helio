@@ -209,7 +209,7 @@ object ExpressionEvaluator {
   /** Every function name `checkArity`/`applyFn` accepts, alphabetical. Drives the unknown-function
    *  message; `ExpressionEvaluatorSpec` probes it against the dispatcher in both directions. */
   private[engine] val SupportedFunctions: Vector[String] =
-    Vector("abs", "ceil", "concat", "floor", "length", "lower", "mod", "round", "substring", "upper")
+    Vector("abs", "ceil", "coalesce", "concat", "floor", "length", "lower", "mod", "round", "substring", "upper")
 
   /** The numeric-in/numeric-out subset of `SupportedFunctions` (all infer `"float"`); the infer/apply
    *  parity test iterates it, so a new numeric function must be classified here. */
@@ -223,6 +223,7 @@ object ExpressionEvaluator {
     case "substring"                  => if (argc == 3) Right(()) else Left("substring requires 3 arguments")
     case "lower" | "upper" | "length" => if (argc == 1) Right(()) else Left(s"$name requires 1 argument")
     case "floor" | "ceil" | "abs"     => if (argc == 1) Right(()) else Left(s"$name requires 1 argument")
+    case "coalesce"                   => if (argc >= 2) Right(()) else Left("coalesce requires at least 2 arguments")
     case "mod"                        => if (argc == 2) Right(()) else Left("mod requires 2 arguments")
     case "round"                      => if (argc == 1 || argc == 2) Right(()) else Left("round requires 1 or 2 arguments")
     case other =>
@@ -490,16 +491,27 @@ object ExpressionEvaluator {
         }
       case Call(name, args) =>
         args
-          .foldLeft[Either[String, Unit]](Right(())) { (acc, a) =>
-            acc.flatMap(_ => inferTypeOf(a, fieldTypes).map(_ => ()))
+          .foldLeft[Either[String, Vector[String]]](Right(Vector.empty)) { (acc, a) =>
+            acc.flatMap(ts => inferTypeOf(a, fieldTypes).map(ts :+ _))
           }
-          .map { _ =>
+          .flatMap { ts =>
             name match {
-              case n if n == "length" || NumericFunctions.contains(n) => "float"
-              case _ => "string" // concat, substring, lower, upper
+              case "coalesce"                                         => coalesceType(ts)
+              case n if n == "length" || NumericFunctions.contains(n) => Right("float")
+              case _ => Right("string") // concat, substring, lower, upper
             }
           }
     }
+
+  /** HEL-1423: `coalesce`'s result type is the arguments' common type. Numeric types are all `VNum`
+   *  at run time and every other type is a `VStr`, so a numeric/text mix has no truthful type. */
+  private def coalesceType(ts: Vector[String]): Either[String, String] = {
+    val numeric = Set("integer", "float")
+    if (ts.distinct.size == 1) Right(ts.head)
+    else if (ts.forall(numeric)) Right("float")
+    else if (!ts.exists(numeric)) Right("string")
+    else Left(s"coalesce arguments must all be numbers or all be text; got ${ts.mkString(", ")} — wrap a number in concat() to coalesce it as text")
+  }
 
 
   /** Intermediate value type used during evaluation. */
@@ -580,6 +592,11 @@ object ExpressionEvaluator {
           rv <- evalExpr(r, row)
           res <- applyOp(op, lv, rv, expr.toString)
         } yield res
+
+      // HEL-1423: lazy and null-exempt, so it never reaches applyFn's null guard.
+      case Call("coalesce", args) =>
+        args.iterator.map(evalExpr(_, row)).collectFirst { case l @ Left(_) => l; case r @ Right(v) if v != VNull => r }
+          .getOrElse(Right(VNull))
 
       case Call(name, args) =>
         args

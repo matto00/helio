@@ -1,5 +1,6 @@
 package com.helio.api.routes.sources
 
+import com.helio.testsupport.UserSeeding
 import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 
@@ -62,6 +63,7 @@ class UploadRoutesSpec
       .migrate()
 
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
+    UserSeeding.seedUsers(db, testUser.id) // HEL-1347: owner_id is a real FK to users
 
     val ec  = typedSystem.executionContext
     val ctx = new DbContext(db, db)(ec)
