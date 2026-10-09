@@ -1,4 +1,8 @@
-import { buildOutputConfig, type BuildOutputConfigParams } from "./buildOutputConfig";
+import {
+  buildAggregateTailConfigs,
+  buildOutputConfig,
+  type BuildOutputConfigParams,
+} from "./buildOutputConfig";
 
 function boundOrLiteral(overrides: Partial<BuildOutputConfigParams["annotationState"]> = {}) {
   return {
@@ -198,5 +202,35 @@ describe("buildOutputConfig", () => {
     const config = buildOutputConfig(baseParams({ kind: "table", tableColumnFormats: {} }));
     expect(config.columnFormats).toEqual({});
     expect("columnFormats" in config).toBe(true);
+  });
+});
+
+// HEL-1390 -- "Add as tail with aggregate" must write fieldMapping keys that
+// are real slots of the Output kind. The slot sets below mirror the backend's
+// OutputBindingSpec.Chart / OutputBindingSpec.Metric (the frontend has no
+// shared constant; capabilities supply slots at runtime), and the backend
+// 400s any other key (OutputConfigValidation.validateFieldMapping).
+const CHART_SLOTS = ["xAxis", "yAxis", "series", "annotation"];
+const METRIC_SLOTS = ["value", "label", "unit"];
+
+describe("buildAggregateTailConfigs (HEL-1390)", () => {
+  it("chart tail writes fieldMapping { xAxis: groupBy, yAxis: alias } using only chart slots", () => {
+    const result = buildAggregateTailConfigs(
+      baseParams({ kind: "chart", groupBy: "region", chartAggFn: "sum", yField: "revenue" }),
+      undefined,
+    );
+    const fieldMapping = result?.outputConfig.fieldMapping as Record<string, string>;
+    expect(fieldMapping).toEqual({ xAxis: "region", yAxis: "sum_revenue" });
+    for (const key of Object.keys(fieldMapping)) expect(CHART_SLOTS).toContain(key);
+  });
+
+  it("metric tail writes only metric slots", () => {
+    const result = buildAggregateTailConfigs(
+      baseParams({ kind: "metric", metricField: "signups", metricAggFn: "sum" }),
+      undefined,
+    );
+    const fieldMapping = result?.outputConfig.fieldMapping as Record<string, string>;
+    expect(fieldMapping).toEqual({ value: "sum_signups" });
+    for (const key of Object.keys(fieldMapping)) expect(METRIC_SLOTS).toContain(key);
   });
 });
