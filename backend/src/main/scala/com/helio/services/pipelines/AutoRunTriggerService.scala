@@ -119,7 +119,8 @@ final class AutoRunTriggerService(
    *     existing API lets a data-source writer discover who reads their data today.
    *   - `canRun` (owner OR editor grant, mirroring `PipelineRunService.submit`'s own check) gates
    *     the run ACTION only (HEL-1279: and false whenever a `step-config-invalid` reason is
-   *     present -- a run that cannot succeed is not offered), and is only meaningful on an entry that already passed `visible`. */
+   *     present -- a run that cannot succeed is not offered), and is only meaningful on an entry that already
+   *     passed `visible`. */
   private def handleDenied(
       pipelineId: PipelineId,
       dataSourceId: DataSourceId,
