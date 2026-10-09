@@ -51,7 +51,7 @@ private[pipelines] final class PipelineRunBackfill(
    *
    *  Skips entirely (no-op) when:
    *    - `nodeSnapshotRepo` is null (nullable-optional wiring, mirrors every other such fixture
-   *      in this file).
+   *      in `PipelineRunService`'s constructor).
    *    - the node already has >= 1 snapshot row (nothing to backfill — either a prior run
    *      already materialized it, or a prior call to this same method already did).
    *    - the pipeline has never had a successful run (`pipelineRunRepo.latestSuccessfulCompletedAtInternal`
@@ -65,9 +65,9 @@ private[pipelines] final class PipelineRunBackfill(
       // HEL-913 task 5.10: names WHICH root when `nodeStepId` is `None` (a root-bound Output) --
       // without it, the backfill always evaluates the LOWEST-positioned root regardless of which
       // root the Output is actually bound to (`OutputRepository.rootIdOpt`'s job at write time;
-      // this is the corresponding read/backfill-time thread-through). Defaulted to `None` so
-      // every pre-existing call site (and the single-root case, where there is only one root to
-      // mean anyway) is unaffected.
+      // this is the corresponding read/backfill-time thread-through). Required (no default): every
+      // caller passes it explicitly -- `None` for a step-bound Output, or for the single-root case
+      // where there is only one root to mean anyway.
       explicitRootId: Option[PipelineRootId]
   ): Future[Unit] =
     if (nodeSnapshotRepo == null) Future.successful(())
@@ -138,7 +138,7 @@ private[pipelines] final class PipelineRunBackfill(
                     .flatMap { outcome =>
                       val targetRows = outcome.nodeOutcomes.get(StepKey(target.id.value)).map(_.rows).getOrElse(outcome.rows)
                       // Step-bound write (`nodeKey = Some(stepId)`) -- `explicitRootId` only
-                      // governs the ROOT-BOUND case (`persistBackfilledRows`'s own doc above),
+                      // governs the ROOT-BOUND case (`persistBackfilledRows`'s own doc below),
                       // so `None` here is exactly correct, not a re-introduced silent default.
                       persistBackfilledRows(pipelineId, targetStepId, targetRows, explicitRootId = None)
                     }

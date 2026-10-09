@@ -39,7 +39,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import com.helio.domain.steps.SecondaryInput
 
-/** HEL-509 (419-B): `PipelineRunService.executeRun`'s assertion-persistence
+/** HEL-509 (419-B): `PipelineRunExecutor.executeRun`'s assertion-persistence
  *  wiring — real run / dry run, success / failure, owner / editor-grantee.
  *  Modelled after `PipelineRunRoutesSpec`'s real-Postgres fixture but calls
  *  `PipelineRunService.submit` directly (service-layer, not route-layer). */
@@ -367,7 +367,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   }
 
   /** HEL-462/HEL-904 task 4.1: writes the source's OWN `inferred_schema` column directly (the
-   *  baseline-capture read path `PipelineRunService.onUnblockedRunSuccess` uses now,
+   *  baseline-capture read path `PipelineRunSucceededWrites.onUnblockedRunSuccess` uses now,
    *  `dataSourceRepo.findByIdOwned(...).inferredSchema` — no companion DataType exists anymore)
    *  — `seedPipeline`/`seedDsWithData` alone leave the source's `inferred_schema` empty.
    *  `schemaJson` is a `Vector[SchemaField]`-shaped JSON array (`{"name", "dataType"}` per entry,
@@ -1350,9 +1350,9 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     // ── HEL-994: closure guards on `previewOutputs`' OWN path (both arms) ────────────────────
     //
     // HEL-957 (merged 0f758ff3) guarded the shared `closureOf` slice at
-    // `PipelineRunService.scala:507`, reached transitively by `previewOutputs` via `previewAtNode`
-    // (:403). That covers a break in `closureOf`/`previewAtNode`, but NOT a change to how
-    // `previewOutputs`' own body (:329-374) resolves its target/root or the arguments it hands
+    // `PipelineRunPreview.previewAtNode`'s `closureOf` call, reached transitively by `previewOutputs`.
+    // That covers a break in `closureOf`/`previewAtNode`, but NOT a change to how
+    // `previewOutputs`' own body resolves its target/root or the arguments it hands
     // `previewAtNode` -- every HEL-957 guard drives `previewStep`, never this caller. These guards
     // close that caller-specific gap, per design.md D1/D5.
     //
@@ -2233,7 +2233,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
       // The oracle: run the SAME engine class (`InProcessExecutionBackend` /
       // `InProcessPipelineEngine`) against the FULL, un-sliced step list -- exactly what
-      // `PipelineRunService.runPipeline` does for a real `/run` -- and read s4's own frame out
+      // `PipelineRunExecutor.runPipeline` does for a real `/run` -- and read s4's own frame out
       // of `nodeOutcomes`, independent of `previewStep`'s slicing entirely.
       val pipeline   = await(pipelineRepo.findByIdShared(pid, Some(dummyUser))).get
       val allSteps   = await(stepRepo.listByPipelineInternal(pid))
@@ -2409,14 +2409,14 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
 
     // HEL-957 (ticket AC5; design.md Decision 4; skeptic-design-1/2.md CR1/CR2): the SECOND
-    // `closureOf` call site (line 662) lives in `evaluateNodeRowsForBackfill`, whose only
+    // `closureOf` call site lives in `PipelineRunBackfill.evaluateNodeRowsForBackfill`, whose only
     // observable output -- the persisted rows -- is read through the SAME node-keyed lookup
     // the step-preview site uses, so an assertion on persisted rows is invariant under the
     // widening mutation BY CONSTRUCTION. That is exactly the masked, non-discriminating guard
     // this ticket exists to prevent, so this test observes the executed node SET directly via
     // a spy `PipelineExecutionBackend` that captures the `steps` argument passed to `execute`,
     // injected through `PipelineRunService`'s `executionBackend` constructor parameter
-    // (`PipelineRunService.scala:108`).
+    // (the `PipelineRunService` constructor).
     "backfill's spy execution backend observes exactly the target's dependency closure, excluding an off-closure sibling tail (HEL-957 AC5)" in {
       val spyEngine   = new InProcessPipelineEngine(new LocalFileSystem(Paths.get("/")), stubConnector)
       val spyDelegate = new InProcessExecutionBackend(spyEngine, stepRepo)

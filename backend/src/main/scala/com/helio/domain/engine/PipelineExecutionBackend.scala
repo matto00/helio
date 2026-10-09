@@ -20,7 +20,7 @@ trait PipelineExecutionBackend {
   /** HEL-1100 (design.md Decision 3): whether this backend actually applies an `upsertsource`
    *  step's deferred write -- `false` by default so every backend with no write-back
    *  implementation (`SparkJobSubmitter`) fails closed without needing its own override.
-   *  `PipelineRunService.runPipeline` consults this BEFORE `execute`/`executeRun`, at submit
+   *  `PipelineRunExecutor.runPipeline` consults this BEFORE `execute`/`executeRun`, at submit
    *  time, rejecting a run whose enabled steps include `upsertsource` when this is `false` --
    *  the backend is a deployment choice, not a pipeline property, so step CREATION is
    *  unaffected either way. */
@@ -46,7 +46,7 @@ trait PipelineExecutionBackend {
       onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
       // HEL-1100 (design.md Decision 2): mirrors assertionSink/truncationSink's output-parameter
       // convention, DEFAULTED (unlike those two) because every pre-existing call site (previews,
-      // dry-run inline arms) has no reason to read it back -- only `PipelineRunService.executeRun`'s
+      // dry-run inline arms) has no reason to read it back -- only `PipelineRunExecutor.executeRun`'s
       // real-run path constructs one explicitly and reads `.writes` after the Future completes. An
       // implementation with no equivalent concept (`SparkJobSubmitter`) leaves it untouched, exactly
       // like the sinks above.
@@ -64,8 +64,8 @@ trait PipelineExecutionBackend {
  *  either a trunk node or a tail's terminal node. */
 final case class NodeOutcome(rows: Seq[Row], rowCount: Long)
 
-/** The row/step-count/stats outcome `PipelineRunService`'s two execution call sites
- *  (`executeRun`, `previewStep`) already compute today, unified behind [[PipelineExecutionBackend]]. */
+/** The row/step-count/stats outcome the two execution call sites (`PipelineRunExecutor.executeRun`,
+ *  `PipelineRunPreview.previewStep`) already compute today, unified behind [[PipelineExecutionBackend]]. */
 final case class PipelineExecutionOutcome(
     rows: Seq[Row],
     stepCounts: Map[String, Long],
