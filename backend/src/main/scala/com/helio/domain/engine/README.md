@@ -3,7 +3,10 @@
 Execution and analysis logic that operates over pipeline steps and rows:
 `InProcessPipelineEngine` (runs a pipeline's steps against loaded source rows),
 `SchemaInferenceEngine` (infers a schema from JSON/CSV samples),
-`ExpressionEvaluator` (evaluates computed-field expressions),
+`ExpressionEvaluator` (the public entry point for computed-field expressions) and the
+objects it delegates to -- `ExpressionTokenizer`, `ExpressionParser` (strict and legacy
+parsers plus the AST), `ExpressionTypeInference` and `ExpressionInterpreter`
+(row evaluation and function dispatch),
 `PipelineAnalyzeService` (dry-run schema analysis: the DAG walk and the shared
 `stepConfigProblem` entry point), the pieces it delegates to -- `SchemaField`,
 `StepConfigValidation` (step-config validation), `StepSchemaInference` (per-op
