@@ -13,7 +13,6 @@ import { PublicDashboardViewerPage } from "./PublicDashboardViewerPage";
 import { authReducer } from "../../auth/state/authSlice";
 import { panelsReducer } from "../../panels/state/panelsSlice";
 import * as publicDashboardService from "../services/publicDashboardService";
-import * as historyService from "../../panels/history/outputHistoryService";
 import { resetHistoryCache } from "../../panels/history/outputHistoryCache";
 import type { OutputPanel } from "../../panels/types/panel";
 

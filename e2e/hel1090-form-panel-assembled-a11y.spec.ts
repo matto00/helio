@@ -1,5 +1,4 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1090 — the epic's final leaf: audit the ASSEMBLED form panel (every field type in one

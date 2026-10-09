@@ -11,7 +11,6 @@
  * HEL-904; the tool has had no backend route to call since).
  */
 
-import { z } from "zod";
 import type { UpdatePanelRequest, UpdatePipelineStepRequest } from "../types.js";
 
 /** Build `update_pipeline_step`'s PATCH body from the tool's already-Zod-

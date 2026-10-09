@@ -1,5 +1,4 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1230 — a drag followed by a panel create before the flush must not be lost: the dragged position

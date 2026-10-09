@@ -90,7 +90,7 @@ export function placeAround(
 /** One compaction sweep: items in reading order (y, x, input index); each keeps its x and takes the
  * smallest y that collides with nothing already placed and never rises above the item placed before it,
  * so a later item cannot jump over an earlier row. Returns items in INPUT order. */
-function compactOnce(items: readonly Item[], cols: number): Item[] {
+function compactOnce(items: readonly Item[]): Item[] {
   const order = items
     .map((item, index) => ({ item, index }))
     .sort((a, b) => a.item.y - b.item.y || a.item.x - b.item.x || a.index - b.index);
@@ -115,7 +115,7 @@ function compactOnce(items: readonly Item[], cols: number): Item[] {
 export function compactLayout(items: readonly Item[], cols: number): Item[] {
   let current = items.map((item) => clampItem(item, cols));
   for (let pass = 0; pass <= items.length; pass++) {
-    const next = compactOnce(current, cols);
+    const next = compactOnce(current);
     if (next.every((item, i) => item.y === current[i].y)) return next;
     current = next;
   }

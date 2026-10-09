@@ -15,7 +15,6 @@ import { MemoryRouter } from "react-router-dom";
 
 import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
-import { getMeRequest } from "../features/auth/services/authService";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
@@ -27,11 +26,7 @@ import { fetchSources as fetchSourcesRequest } from "../features/sources/service
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { shareTokensReducer } from "../features/dashboards/state/shareTokensSlice";
-import {
-  fetchDashboards as fetchDashboardsRequest,
-  updateDashboardAppearance as updateDashboardAppearanceRequest,
-  updateDashboardLayout as updateDashboardLayoutRequest,
-} from "../features/dashboards/services/dashboardService";
+import { fetchDashboards as fetchDashboardsRequest } from "../features/dashboards/services/dashboardService";
 import { fetchPanels as fetchPanelsRequest } from "../features/panels/services/panelService";
 import { listShareTokens } from "../features/dashboards/services/shareTokenService";
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";

@@ -51,10 +51,6 @@ const STACK_CONTAINER_PADDING_PX = 24; // 2 × --space-3 (12px)
 const STACK_CARD_PADDING_PX = 32; // 2 × ~16px card padding
 const STACK_ITEM_CHROME_PX = STACK_CONTAINER_PADDING_PX + STACK_CARD_PADDING_PX;
 
-function clampNumber(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
 /** Approximates a single stack item's content width from the measured grid
  *  container width. See `STACK_ITEM_CHROME_PX`. */
 export function resolveStackContentWidth(containerWidth: number): number {
@@ -77,8 +73,8 @@ export function resolveStackContentWidth(containerWidth: number): number {
  *  refinement. */
 export function computeMobilePanelHeight(
   kind: PanelKind,
-  h: number,
-  w: number,
+  _h: number,
+  _w: number,
 ): MobilePanelHeightPolicy {
   switch (kind) {
     case "output":

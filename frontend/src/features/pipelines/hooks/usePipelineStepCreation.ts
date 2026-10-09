@@ -53,7 +53,6 @@ export function usePipelineStepCreation({
   stepsRef,
   setSteps,
   setStepsInitialized,
-  syncStepsFromServer,
   pushToast,
   pendingDraftMetaRef,
   draftFallbackMetaRef,

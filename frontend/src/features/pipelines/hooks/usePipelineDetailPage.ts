@@ -19,12 +19,8 @@ import {
   updatePipeline,
 } from "../state/pipelinesSlice";
 import {
-  defaultConfigFor,
-  isCompleteAiStepConfig,
   isTempStepId,
-  makeStep,
   pipelineStepToStep,
-  requiresCompleteConfigForCreate,
   resolveDraftFallbackSchema,
 } from "../state/stepNarrowing";
 import { buildLaneGraph } from "../state/stepTree";
@@ -52,7 +48,6 @@ import {
   duplicatePipelineStep,
   removePipelineRoot,
   reorderPipelineSteps,
-  updatePipelineStep,
   updatePipelineStepEnabled,
 } from "../services/pipelineService";
 import { createOutput } from "../services/outputService";
@@ -61,11 +56,10 @@ import type {
   AggregateConfig,
   PipelineRoot,
   PipelineStepConfig,
-  PipelineStepKind,
   SchemaField,
 } from "../types/pipelineStep";
 import type { ExpandPipelineShapeResponse } from "../types/pipelineShape";
-import type { OpType, Step } from "../types/step";
+import type { Step } from "../types/step";
 
 // F-146 — module-level (not per-render) so a step with no analyze data yet
 // gets the same empty-array reference on every call, not a fresh `[]` per

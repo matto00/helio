@@ -22,6 +22,8 @@ npm run check:e2e-evidence-paths
 npm run check:e2e-evidence-paths:selftest
 npm run check:no-credential-leak
 npm run check:no-credential-leak:selftest
+npm run check:eslint-ts-rules
+npm run check:eslint-ts-rules:selftest
 npm run check:tokens
 npm run check:tokens:selftest
 npm run check:e2e-shard:selftest

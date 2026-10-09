@@ -17,6 +17,15 @@ import { deleteExact } from "./support/remountBurstSeed";
 const DESKTOP = { width: 1400, height: 900 };
 const PHONE = { width: 1000, height: 900 };
 
+type EchartsInstance = {
+  getOption(): { series?: unknown[]; legend?: { show?: boolean; type?: string }[] };
+  getDom(): Element;
+};
+type ReactFiber = {
+  stateNode?: { getEchartsInstance?: () => EchartsInstance } | null;
+  return?: ReactFiber | null;
+};
+
 async function seriesTypes(card: Locator): Promise<string[]> {
   return card
     .locator("canvas")
@@ -25,10 +34,12 @@ async function seriesTypes(card: Locator): Promise<string[]> {
       let host: Element | null = canvas;
       while (host) {
         const key = Object.keys(host).find((k) => k.startsWith("__reactFiber$"));
-        let f: any = key ? (host as any)[key] : null;
+        let f: ReactFiber | null | undefined = key
+          ? (host as unknown as Record<string, ReactFiber>)[key]
+          : null;
         while (f) {
           if (f.stateNode && typeof f.stateNode.getEchartsInstance === "function") {
-            const o = f.stateNode.getEchartsInstance().getOption();
+            const o = f.stateNode.getEchartsInstance!().getOption();
             return ((o.series ?? []) as { type?: string }[]).map((s) => s.type ?? "");
           }
           f = f.return;

@@ -31,7 +31,7 @@ const schema: DatasetSchemaResponse = {
 // mounted DOM row count is a literal, asserted number that never exceeds the page size.
 const TOTAL_ROWS = 500;
 
-function pageOf(startSeq: number, count: number, cursor: number | undefined) {
+function pageOf(startSeq: number, count: number) {
   const rows: RowResponseRow[] = Array.from({ length: count }, (_, i) => ({
     id: `r${startSeq + i}`,
     seq: startSeq + i,
@@ -61,7 +61,7 @@ describe("DatasetRowGrid large-dataset measurement (tasks.md 5.7)", () => {
     fetchSourceRowsMock.mockImplementation(async (_sourceId, options) => {
       const cursor = options?.cursor;
       const startSeq = cursor ?? 0;
-      return pageOf(startSeq, DATASET_GRID_PAGE_SIZE, cursor);
+      return pageOf(startSeq, DATASET_GRID_PAGE_SIZE);
     });
 
     renderWithStore(<DatasetRowGrid sourceId={sourceId} />);
