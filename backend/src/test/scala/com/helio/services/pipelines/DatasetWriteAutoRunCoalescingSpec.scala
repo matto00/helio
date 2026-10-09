@@ -140,8 +140,9 @@ class DatasetWriteAutoRunCoalescingSpec extends AnyWordSpec with Matchers with B
 
   private def newScheduler(runService: PipelineRunService, clock: FakeClock, staleClaimAfterSeconds: Long = 300L): PipelineSchedulerService =
     new PipelineSchedulerService(
-      scheduleRepo, pipelineRepo, pipelineRunRepo, runService, clock,
+      scheduleRepo, pipelineRepo, pipelineStepRepo, pipelineRunRepo, runService, clock,
       autoRunDebounceRepo = debounceRepo,
+      autoRunTriggerService = new AutoRunTriggerService(pipelineRootRepo, pipelineRepo, pipelineStepRepo, dataSourceRepo, debounceRepo),
       staleClaimAfterSeconds = staleClaimAfterSeconds
     )
 

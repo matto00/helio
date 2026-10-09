@@ -76,7 +76,8 @@ async function save(): Promise<Record<string, unknown>> {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
   });
   await waitFor(() => expect(http.patch).toHaveBeenCalled());
-  return (http.patch.mock.calls[0][1] as { config: Record<string, unknown> }).config;
+  // HEL-1389 -- `config` is omitted entirely when nothing in it changed.
+  return (http.patch.mock.calls[0][1] as { config?: Record<string, unknown> }).config ?? {};
 }
 
 async function choose(label: string) {
@@ -99,7 +100,10 @@ describe("OutputEditorSheet -- Compare picker (HEL-1275)", () => {
   it("saving an aggregated metric keeps its aggregation (field lives in aggregation.value)", async () => {
     renderSheet(outputOf("metric", METRIC));
     await choose("7 days");
-    expect((await save()).aggregation).toEqual({ value: "amount", agg: "sum" });
+    // The edit patch carries only the changed key; the shallow merge keeps the stored aggregation.
+    const config = await save();
+    expect(config).toEqual({ compare: "7d" });
+    expect({ ...METRIC, ...config }.aggregation).toEqual({ value: "amount", agg: "sum" });
   });
 
   it("choosing None sends a literal null compare (the key is present)", async () => {
@@ -115,7 +119,7 @@ describe("OutputEditorSheet -- Compare picker (HEL-1275)", () => {
     expect(await screen.findByRole("combobox", { name: "Compare" })).toHaveTextContent(
       "Custom (P3D)",
     );
-    expect((await save()).compare).toBe("custom:P3D");
+    expect((await save()).compare).toBeUndefined(); // untouched: not re-sent, stays stored
   });
 });
 
@@ -148,13 +152,13 @@ describe("OutputEditorSheet -- chart Compare picker (HEL-1350)", () => {
 
   it("an untouched stored compare round-trips unchanged", async () => {
     renderSheet(outputOf("chart", { ...CLEAN_CHART, compare: "30d" }));
-    expect((await save()).compare).toBe("30d");
+    expect((await save()).compare).toBeUndefined(); // untouched: not re-sent, stays stored
   });
 
   it("keeps a stored previous_run and custom value as options", async () => {
     renderSheet(outputOf("chart", { ...CLEAN_CHART, compare: "previous_run" }));
     expect(await screen.findByRole("combobox", { name: "Compare" })).toHaveTextContent("Previous");
-    expect((await save()).compare).toBe("previous_run");
+    expect((await save()).compare).toBeUndefined(); // untouched: not re-sent, stays stored
   });
 
   it("shows a stored custom value and saves it unchanged", async () => {
@@ -162,7 +166,7 @@ describe("OutputEditorSheet -- chart Compare picker (HEL-1350)", () => {
     expect(await screen.findByRole("combobox", { name: "Compare" })).toHaveTextContent(
       "Custom (P3D)",
     );
-    expect((await save()).compare).toBe("custom:P3D");
+    expect((await save()).compare).toBeUndefined(); // untouched: not re-sent, stays stored
   });
 
   it("offers Previous exactly once, alongside the other five choices (HEL-1285)", async () => {

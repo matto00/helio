@@ -149,8 +149,9 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
 
   private def newScheduler(runService: PipelineRunService, clock: Clock = SystemClock): PipelineSchedulerService =
     new PipelineSchedulerService(
-      scheduleRepo, pipelineRepo, pipelineRunRepo, runService, clock,
-      autoRunDebounceRepo = debounceRepo, staleClaimAfterSeconds = 300L
+      scheduleRepo, pipelineRepo, pipelineStepRepo, pipelineRunRepo, runService, clock,
+      autoRunDebounceRepo = debounceRepo,
+      autoRunTriggerService = new AutoRunTriggerService(pipelineRootRepo, pipelineRepo, pipelineStepRepo, dataSourceRepo, debounceRepo), staleClaimAfterSeconds = 300L
     )
 
   /** Polls `tick()` on `scheduler` every 50ms until `predicate` holds or `timeout` elapses. */

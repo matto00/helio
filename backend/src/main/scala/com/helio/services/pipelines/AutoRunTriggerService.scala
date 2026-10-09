@@ -1,6 +1,5 @@
 package com.helio.services.pipelines
 
-import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
 import com.helio.domain.engine.{PipelineAnalyzeService, PipelineCostEstimator}
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, Pipeline, PipelineId}
 import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
@@ -73,37 +72,43 @@ final class AutoRunTriggerService(
 
   private def evaluateAndSchedule(pipelineId: PipelineId, dataSourceId: DataSourceId, user: AuthenticatedUser, now: Instant): Future[Option[EvaluatedPipeline]] =
     for {
-      pipelineOpt      <- pipelineRepo.findByIdInternal(pipelineId)
+      pipelineOpt <- pipelineRepo.findByIdInternal(pipelineId)
+      verdict     <- computeVerdict(pipelineId)
+      result      <- if (verdict.autoRunnable)
+                       debounceRepo.upsertDebounce(pipelineId, now.plusSeconds(debounceSeconds))
+                         .map(_ => Some(EvaluatedPipeline.Allowed(pipelineId)))
+                     else
+                       handleDenied(pipelineId, dataSourceId, user, pipelineOpt, verdict)
+    } yield result
+
+  /** HEL-1384 (design.md D2): the SAME verdict `evaluateAndSchedule` computes at write time,
+   *  re-evaluated when the scheduler claims a due debounce row. Empty = allowed; otherwise the
+   *  denial reasons (cost first, then `step-config-invalid`). Fails if any read fails. */
+  def evaluateAtFire(pipelineId: PipelineId): Future[Vector[PipelineCostEstimator.CostReason]] =
+    computeVerdict(pipelineId).map(v => if (v.autoRunnable) Vector.empty else v.reasons)
+
+  /** The single verdict computation shared by write time and fire time (HEL-1384 D2): the
+   *  HEL-1096 cost verdict plus the HEL-1279 config reasons from [[RunConfigGate]]. */
+  private def computeVerdict(pipelineId: PipelineId): Future[PipelineCostEstimator.CostVerdict] =
+    for {
       allSteps        <- pipelineStepRepo.listByPipelineInternal(pipelineId)
       enabledSteps     = allSteps.filter(_.enabled)
       lastRunRowCount <- pipelineRepo.findLastRunRowCountInternal(pipelineId)
       // HEL-1093 design.md Decision 2a (design-gate round 1 fix): PRIVILEGED resolveRoot
       // (`findByIdInternal`, NOT `findByIdOwned`) -- the writer's ACL is irrelevant to the
       // pipeline's OTHER roots (a co-root the writer doesn't own must still resolve, not
-      // silently deny the pipeline -- see PipelineCostInputGathering's own doc). Unrelated to
-      // the `user`-gated visibility/canRun computation below, which only ever affects what is
-      // RETURNED, never what is EVALUATED.
+      // silently deny the pipeline -- see PipelineCostInputGathering's own doc).
       costInput       <- costInputGathering.gather(pipelineId, enabledSteps, lastRunRowCount, resolveRoot = dataSourceRepo.findByIdInternal)
       costVerdict      = PipelineCostEstimator.estimate(costInput)
       // HEL-1279: a misconfigured ENABLED step is a run certain to fail (`STEP_CONFIG_INVALID`) and
       // burns the owner's HEL-505 budget -- skip it. Only the schema-independent config class
-      // (analyze's own `validateStepConfig`) gates; analyze's schema-derived errors are HEL-1280's
-      // false-positive class and must never block a legitimate auto-run.
-      configReasons    = enabledSteps.flatMap { s =>
-                           PipelineAnalyzeService.stepConfigProblem(s.kind, PipelineStepConfigCodec.encode(s)).map { msg =>
-                             PipelineCostEstimator.CostReason(PipelineAnalyzeService.StepConfigInvalidCode, msg, Some(s.id.value))
-                           }
-                         }
-      verdict          = costVerdict.copy(
-                           autoRunnable = costVerdict.autoRunnable && configReasons.isEmpty,
-                           reasons      = costVerdict.reasons ++ configReasons
-                         )
-      result          <- if (verdict.autoRunnable)
-                            debounceRepo.upsertDebounce(pipelineId, now.plusSeconds(debounceSeconds))
-                              .map(_ => Some(EvaluatedPipeline.Allowed(pipelineId)))
-                          else
-                            handleDenied(pipelineId, dataSourceId, user, pipelineOpt, verdict)
-    } yield result
+      // gates (see RunConfigGate); analyze's schema-derived errors are HEL-1280's false-positive
+      // class and must never block a legitimate auto-run.
+      configReasons    = RunConfigGate.stepConfigReasons(enabledSteps)
+    } yield costVerdict.copy(
+      autoRunnable = costVerdict.autoRunnable && configReasons.isEmpty,
+      reasons      = costVerdict.reasons ++ configReasons
+    )
 
   /** Denial reason is logged, never silently dropped (ticket AC #2), for EVERY denied pipeline --
    *  regardless of the writer's visibility into it (no regression from pre-HEL-1096 behavior).

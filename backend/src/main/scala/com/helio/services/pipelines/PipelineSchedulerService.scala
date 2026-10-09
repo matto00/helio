@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, PipelineId, PipelineSchedule}
 import com.helio.domain.util.{Clock, CronSchedule}
-import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.services.telemetry.ProductEventRollupService
 import org.slf4j.LoggerFactory
 
@@ -23,6 +23,9 @@ import scala.util.{Failure, Success}
 final class PipelineSchedulerService(
     scheduleRepo: PipelineScheduleRepository,
     pipelineRepo: PipelineRepository,
+    // HEL-1384 (design.md D6): REQUIRED -- the scheduled fire-time config gate reads the pipeline's
+    // steps, so it can never degrade to a silent no-op through a nullable default.
+    pipelineStepRepo: PipelineStepRepository,
     runRepo: PipelineRunRepository,
     pipelineRunService: PipelineRunService,
     clock: Clock,
@@ -46,8 +49,17 @@ final class PipelineSchedulerService(
     // tick rather than a second timer.
     productEventRollupService: ProductEventRollupService = null,
     // HEL-1272: nullable-optional like productEventRollupService -- skipped when not wired.
-    outputHistoryRetentionService: OutputHistoryRetentionService = null
+    outputHistoryRetentionService: OutputHistoryRetentionService = null,
+    // HEL-1384 (design.md D2/D6): the fire-time auto-run verdict. Wired exactly when
+    // `autoRunDebounceRepo` is (enforced below), so a debounce pass can never run ungated.
+    autoRunTriggerService: AutoRunTriggerService = null
 )(implicit ec: ExecutionContext) {
+
+  require(pipelineStepRepo != null, "PipelineSchedulerService: pipelineStepRepo is required (HEL-1384 fire-time config gate)")
+  require(
+    (autoRunDebounceRepo == null) == (autoRunTriggerService == null),
+    "PipelineSchedulerService: autoRunDebounceRepo and autoRunTriggerService must be wired together (HEL-1384)"
+  )
 
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -133,7 +145,21 @@ final class PipelineSchedulerService(
         log.debug("Skipping auto-run claim for pipeline {} — already has an active run", pipelineId.value)
         autoRunDebounceRepo.releaseClaim(pipelineId, claimedAt)
       case false =>
-        fireAutoRun(pipelineId).flatMap { _ => autoRunDebounceRepo.releaseClaim(pipelineId, claimedAt) }
+        // HEL-1384 (design.md D2/D5): re-evaluate the write-time verdict NOW. A denial (or an
+        // evaluation failure -- never a fail-open submit) skips the fire; the claim is released
+        // either way, so a denied pipeline's pending row cannot fire and cannot retry-storm.
+        autoRunTriggerService.evaluateAtFire(pipelineId).transformWith {
+          case Success(reasons) if reasons.isEmpty => fireAutoRun(pipelineId)
+          case Success(reasons) =>
+            log.info(
+              "PipelineSchedulerService: auto-run for pipeline {} denied at fire time, skipping: {}",
+              pipelineId.value, reasons.map(r => s"${r.code}: ${r.detail}").mkString("; ")
+            )
+            Future.successful(())
+          case Failure(ex) =>
+            log.error(s"PipelineSchedulerService: auto-run fire-time evaluation failed for pipeline ${pipelineId.value}; not submitting", ex)
+            Future.successful(())
+        }.flatMap { _ => autoRunDebounceRepo.releaseClaim(pipelineId, claimedAt) }
     }
 
   private def fireAutoRun(pipelineId: PipelineId): Future[Unit] =
@@ -226,19 +252,50 @@ final class PipelineSchedulerService(
         // only guards tick() against an unexpected exception outside that
         // path (e.g. a pre-submit DB lookup failure), so bookkeeping below
         // still runs either way.
-        pipelineRunService
-          .submit(schedule.pipelineId, isDry = false, owner, triggerSource = TriggerSource.Scheduled)
-          .transform {
-            case Success(result) => Success(result)
-            case Failure(ex) =>
-              log.error(s"PipelineSchedulerService: submit raised unexpectedly for pipeline ${schedule.pipelineId.value}", ex)
-              Success(Left(ServiceError.UnprocessableEntity("Scheduled submit failed")))
-          }
+        gatedSubmit(schedule, owner)
           .flatMap { _ =>
             val next = nextFireTimeLogged(schedule, now)
             scheduleRepo.updateAfterTickInternal(schedule.id, nextRunAt = next, lastRunAt = Some(now))
           }
     }
+
+  /** HEL-1384 (design.md D3/D5): the scheduled fire-time config gate. A misconfigured enabled step
+   *  records a failed never-attempted run (no execute, no HEL-505 budget) instead of submitting; an
+   *  evaluation or record failure never submits and never throws, so the caller's schedule advance
+   *  always runs (bounded: one occurrence lost, never a retry every tick). */
+  private def gatedSubmit(schedule: PipelineSchedule, owner: AuthenticatedUser): Future[Unit] = {
+    val pid = schedule.pipelineId
+    Future.delegate(pipelineStepRepo.listByPipelineInternal(pid).map(RunConfigGate.stepConfigReasons)).transformWith {
+      case Success(reasons) if reasons.isEmpty =>
+        pipelineRunService
+          .submit(pid, isDry = false, owner, triggerSource = TriggerSource.Scheduled)
+          .transform {
+            case Success(_) => Success(())
+            case Failure(ex) =>
+              log.error(s"PipelineSchedulerService: submit raised unexpectedly for pipeline ${pid.value}", ex)
+              Success(())
+          }
+      case Success(reasons) =>
+        log.info(
+          "PipelineSchedulerService: scheduled run of pipeline {} not attempted (schedule {}): {}",
+          pid.value, schedule.id.value, reasons.map(r => s"${r.code}: ${r.detail}").mkString("; ")
+        )
+        pipelineRunService
+          .recordUnrunnable(
+            pid, RunConfigGate.scheduledSkipReason(reasons), owner,
+            triggerSource = TriggerSource.Scheduled, pruneOldRuns = true
+          )
+          .transform {
+            case Success(_) => Success(())
+            case Failure(ex) =>
+              log.error(s"PipelineSchedulerService: recording the skipped scheduled run failed for pipeline ${pid.value}", ex)
+              Success(())
+          }
+      case Failure(ex) =>
+        log.error(s"PipelineSchedulerService: fire-time config evaluation failed for pipeline ${pid.value} (schedule ${schedule.id.value}); not submitting", ex)
+        Future.successful(())
+    }
+  }
 
   private def nextFireTimeLogged(schedule: PipelineSchedule, after: Instant): Option[Instant] = {
     val next = CronSchedule.nextFireTime(schedule.kind, schedule.expression, schedule.timezone, after)

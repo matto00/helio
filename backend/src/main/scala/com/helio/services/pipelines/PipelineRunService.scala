@@ -215,14 +215,32 @@ final class PipelineRunService(
    *  reason is durable: it survives a page reload via the pipeline's
    *  `lastRunStatus` badge and its run history, not just the transient apply
    *  response. */
-  def recordUnrunnable(pipelineId: PipelineId, reason: String, user: AuthenticatedUser): Future[RunResultResponse] = {
+  def recordUnrunnable(
+      pipelineId: PipelineId,
+      reason: String,
+      user: AuthenticatedUser,
+      // HEL-1384 (design.md D4): the scheduled gate records its skip as `scheduled`; every other
+      // caller keeps the repository's historical `manual` default.
+      triggerSource: String = TriggerSource.Manual,
+      // HEL-1384 (design.md D3a): a recurring caller (the scheduled gate) trims history the way
+      // `submit`'s real-run path does, so a misconfigured cron cannot grow it without bound.
+      pruneOldRuns: Boolean = false
+  ): Future[RunResultResponse] = {
     val runId = PipelineRunId(UUID.randomUUID().toString)
     val now   = Instant.now()
     val insertWork: Future[Unit] =
       if (pipelineRunRepo != null)
-        pipelineRunRepo.insertRun(runId, pipelineId, now, user).recoverWith { case _ => Future.successful(()) }
+        pipelineRunRepo.insertRun(runId, pipelineId, now, user, triggerSource = triggerSource).recoverWith { case ex =>
+          log.warn(s"PipelineRunService.recordUnrunnable: insertRun failed for pipeline ${pipelineId.value}; continuing", ex)
+          Future.successful(())
+        }
       else Future.successful(())
     insertWork
+      .flatMap { _ =>
+        if (pruneOldRuns && pipelineRunRepo != null)
+          pipelineRunRepo.deleteOldRuns(pipelineId, user, keepN = 10).recoverWith { case _ => Future.successful(()) }
+        else Future.successful(())
+      }
       .flatMap { _ =>
         if (pipelineRunRepo != null)
           // HEL-873 (design.md Decision 2a): a failed/never-attempted run records `[]`, never NULL.

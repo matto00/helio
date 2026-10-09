@@ -112,7 +112,7 @@ class PipelineRunServiceUpsertSourceRlsSpec extends AnyWordSpec with Matchers wi
       new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
       outputRepo = outputRepo, nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
     )
-    schedulerService = new PipelineSchedulerService(scheduleRepo, pipelineRepo, runRepo, runService, fakeClock)
+    schedulerService = new PipelineSchedulerService(scheduleRepo, pipelineRepo, pipelineStepRepo, runRepo, runService, fakeClock)
 
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES (${owner.value}::uuid, ${owner.value + "@test.local"}, now()) ON CONFLICT DO NOTHING""",
