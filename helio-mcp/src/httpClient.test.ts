@@ -19,6 +19,7 @@ import {
   HelioHttpClient,
   HelioRateLimitError,
   RATE_LIMIT_WAIT_BUDGET_MS,
+  runWithRateLimitScope,
   type HelioRequestInit,
 } from "./httpClient.js";
 import type { HelioConfig } from "./config.js";
@@ -273,5 +274,101 @@ describe("HelioHttpClient 429 handling", () => {
     ]);
 
     await expect(client.delete("/api/types/t-1")).resolves.toBeUndefined();
+  });
+});
+
+describe("HelioHttpClient per-invocation wait budget (HEL-1381)", () => {
+  const throttled = () => reply(429, { message: "Rate limit exceeded" }, { "retry-after": "25" });
+
+  it("inside a scope, two sequential 429(25) requests share one budget: the second throws", async () => {
+    const { client, slept } = harness([
+      throttled(),
+      reply(200, { ok: 1 }),
+      throttled(),
+      reply(200, { ok: 2 }),
+    ]);
+    const err = await runWithRateLimitScope(undefined, async () => {
+      await expect(client.get("/api/a")).resolves.toEqual({ ok: 1 });
+      return client.get("/api/b").catch((e: unknown) => e);
+    });
+    expect(err).toBeInstanceOf(HelioRateLimitError);
+    expect((err as HelioRateLimitError).retryAfterSeconds).toBe(25);
+    expect((err as HelioRateLimitError).message).toContain("retry after 25s");
+    expect(slept).toEqual([25_000]);
+  });
+
+  it("outside a scope the same sequence sleeps for both requests (per-request budget preserved)", async () => {
+    const { client, slept } = harness([
+      throttled(),
+      reply(200, { ok: 1 }),
+      throttled(),
+      reply(200, { ok: 2 }),
+    ]);
+    await expect(client.get("/api/a")).resolves.toEqual({ ok: 1 });
+    await expect(client.get("/api/b")).resolves.toEqual({ ok: 2 });
+    expect(slept).toEqual([25_000, 25_000]);
+  });
+
+  it("two separate scopes each get their own budget", async () => {
+    const { client, slept } = harness([
+      throttled(),
+      reply(200, { ok: 1 }),
+      throttled(),
+      reply(200, { ok: 2 }),
+    ]);
+    await runWithRateLimitScope(undefined, () => client.get("/api/a"));
+    await runWithRateLimitScope(undefined, () => client.get("/api/b"));
+    expect(slept).toEqual([25_000, 25_000]);
+  });
+
+  it("an abort during a wait stops waiting and does not re-send", async () => {
+    const controller = new AbortController();
+    const calls: string[] = [];
+    const client = new HelioHttpClient(config, {
+      fetchImpl: (url) => {
+        calls.push(url);
+        return Promise.resolve(throttled());
+      },
+      // Never resolves on its own: only the abort can end the wait.
+      sleep: () => new Promise<void>(() => {}),
+      warn: () => {},
+    });
+    const pending = runWithRateLimitScope(controller.signal, () =>
+      client.get("/api/a").catch((e: unknown) => e),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    controller.abort();
+    const err = await pending;
+    expect(err).toBeInstanceOf(HelioRateLimitError);
+    expect((err as HelioRateLimitError).retryAfterSeconds).toBe(25);
+    expect((err as HelioRateLimitError).message).toMatch(/cancelled/);
+    expect((err as HelioRateLimitError).message).toContain("retry after 25s");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("an already-aborted signal does not start a wait or re-send", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const { client, slept, calls } = harness([throttled()]);
+    const err = await runWithRateLimitScope(controller.signal, () =>
+      client.get("/api/a").catch((e: unknown) => e),
+    );
+    expect(err).toBeInstanceOf(HelioRateLimitError);
+    expect(slept).toEqual([]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("removes its abort listener after each completed wait (no per-retry leak)", async () => {
+    const controller = new AbortController();
+    const add = jest.spyOn(controller.signal, "addEventListener");
+    const remove = jest.spyOn(controller.signal, "removeEventListener");
+    const { client } = harness([
+      reply(429, {}, { "retry-after": "1" }),
+      reply(429, {}, { "retry-after": "1" }),
+      reply(200, { ok: 1 }),
+    ]);
+    await runWithRateLimitScope(controller.signal, () => client.get("/api/a"));
+    expect(add.mock.calls.length).toBeGreaterThan(0);
+    expect(remove.mock.calls.length).toBe(add.mock.calls.length);
   });
 });
