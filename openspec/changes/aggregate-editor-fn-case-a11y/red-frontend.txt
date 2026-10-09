@@ -1,0 +1,119 @@
+FAIL src/features/pipelines/ui/StepSchemaDiffChips.test.tsx
+  ● StepSchemaDiffChips › renders two added fields with an empty name as two chips without a duplicate-key warning
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 6
+
+    - Array []
+    + Array [
+    +   Array [
+    +     "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.",
+    +     "added-",
+    +   ],
+    + ]
+
+      23 |       args.some((a) => typeof a === "string" && /same key|unique "key"/i.test(a)),
+      24 |     );
+    > 25 |     expect(keyWarnings).toEqual([]);
+         |                         ^
+      26 |   });
+      27 |
+      28 |   it("still renders a chip for each diff category", () => {
+
+      at Object.<anonymous> (src/features/pipelines/ui/StepSchemaDiffChips.test.tsx:25:25)
+
+FAIL src/features/pipelines/ui/stepConfigs/AggregateConfig.test.tsx
+  ● AggregateConfig › case-insensitive stored function (HEL-1407) › a stored SUM shows the sum hint and selects the sum picker option
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "Sums numeric values; ignores nulls"
+    Received: ""
+
+      643 |     it("a stored SUM shows the sum hint and selects the sum picker option", () => {
+      644 |       renderRow({ alias: "x", fn: "SUM", field: "age" });
+    > 645 |       expect(hintText()).toBe(FN_HINTS.sum);
+          |                          ^
+      646 |       expect(screen.getByRole("combobox", { name: /function for aggregation 1/i })).toHaveTextContent(
+      647 |         "sum",
+      648 |       );
+
+      at Object.<anonymous> (src/features/pipelines/ui/stepConfigs/AggregateConfig.test.tsx:645:26)
+
+  ● AggregateConfig › case-insensitive stored function (HEL-1407) › a stored PERCENTILE shows its hint and the p input
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "Value at percentile p (0-100), linearly interpolated; ignores nulls and non-numeric"
+    Received: ""
+
+      651 |     it("a stored PERCENTILE shows its hint and the p input", () => {
+      652 |       renderRow({ alias: "x", fn: "PERCENTILE", field: "age", p: 90 });
+    > 653 |       expect(hintText()).toBe(FN_HINTS.percentile);
+          |                          ^
+      654 |       expect(screen.getByRole("spinbutton", { name: /percentile p/i })).toHaveValue(90);
+      655 |     });
+      656 |   });
+
+      at Object.<anonymous> (src/features/pipelines/ui/stepConfigs/AggregateConfig.test.tsx:653:26)
+
+  ● AggregateConfig › percentile p input accessibility (HEL-1407) › has a visible label element, with a value present, that names the row
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received object: []
+
+      675 |       const input = screen.getByRole("spinbutton", { name: /percentile p/i }) as HTMLInputElement;
+      676 |       expect(input).toHaveValue(90);
+    > 677 |       expect(input.labels).toHaveLength(1);
+          |                            ^
+      678 |       expect(input.labels?.[0].tagName).toBe("LABEL");
+      679 |       expect(input.labels?.[0]).toHaveTextContent(/percentile p.*1/i);
+      680 |       expect(input).not.toHaveAttribute("aria-label");
+
+      at Object.<anonymous> (src/features/pipelines/ui/stepConfigs/AggregateConfig.test.tsx:677:28)
+
+  ● AggregateConfig › percentile p input accessibility (HEL-1407) › links an invalid-p error to the input with aria-invalid and aria-describedby
+
+    expect(element).toHaveAttribute("aria-invalid", "true") // element.getAttribute("aria-invalid") === "true"
+
+    Expected the element to have attribute:
+      aria-invalid="true"
+    Received:
+      null
+
+      687 |       fireEvent.change(input, { target: { value: "150" } });
+      688 |       const error = screen.getByText(/percentile p must be a number between 0 and 100/i);
+    > 689 |       expect(input).toHaveAttribute("aria-invalid", "true");
+          |                     ^
+      690 |       expect(input).toHaveAccessibleDescription(error.textContent ?? "");
+      691 |       expect(input.getAttribute("aria-describedby")).toBe(error.id);
+      692 |     });
+
+      at Object.<anonymous> (src/features/pipelines/ui/stepConfigs/AggregateConfig.test.tsx:689:21)
+
+  ● AggregateConfig › percentile p input accessibility (HEL-1407) › gives each percentile row its own label and error ids
+
+    expect(received).not.toBe(expected) // Object.is equality
+
+    Expected: not ""
+
+      709 |       const inputs = screen.getAllByRole("spinbutton");
+      710 |       expect(inputs).toHaveLength(2);
+    > 711 |       expect(inputs[0].id).not.toBe(inputs[1].id);
+          |                                ^
+      712 |     });
+      713 |   });
+      714 | });
+
+      at Object.<anonymous> (src/features/pipelines/ui/stepConfigs/AggregateConfig.test.tsx:711:32)
+
+Test Suites: 2 failed, 2 total
+Tests:       6 failed, 39 passed, 45 total
+Snapshots:   0 total
+Time:        4.697 s
+Ran all test suites matching StepSchemaDiffChips|AggregateConfig.test.
