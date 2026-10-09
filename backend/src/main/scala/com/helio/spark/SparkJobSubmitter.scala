@@ -96,7 +96,7 @@ class SparkJobSubmitter(
           case ex: Throwable =>
             // HEL-311: this `errorMsg` fans out to the same client-visible
             // surfaces as the in-process engine's run-failure path
-            // (`PipelineRunService.executeRun`) — cache `error` (surfaced via
+            // (`PipelineRunExecutor.executeRun`) — cache `error` (surfaced via
             // `RunStatusResponse.error`) and the persisted run record's
             // `errorLog`. Keep the static prefix, log the raw cause
             // server-side, never echo it to the client.
@@ -148,7 +148,7 @@ class SparkJobSubmitter(
       // assertionSink/truncationSink above.
       onNodeProgress: (NodeKey, Long) => Unit,
       // HEL-1100 (design.md D3): `supportsWriteBack` is `false` for this backend (below), so
-      // `PipelineRunService.runPipeline` rejects an `upsertsource`-containing run before this
+      // `PipelineRunExecutor.runPipeline` rejects an `upsertsource`-containing run before this
       // method is ever reached with a real write pending -- accepted per the trait contract and
       // never invoked, same "leave untouched" convention as assertionSink/truncationSink above.
       writeBackSink: WriteBackSink,

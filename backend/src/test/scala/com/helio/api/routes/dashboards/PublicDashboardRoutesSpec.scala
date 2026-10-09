@@ -114,7 +114,7 @@ class PublicDashboardRoutesSpec
   }
 
   /** Real source -> pipeline chain with a real, non-null `last_run_at` stamped directly
-   *  (mirrors what `PipelineRunService.onRunSuccess` would set on a real successful run,
+   *  (mirrors what `PipelineRunExecutor.onRunSuccess` would set on a real successful run,
    *  without needing to run the whole engine for this route-level test). */
   private def newPipelineWithLastRunAt(lastRunAt: Instant): PipelineId = {
     val now    = Instant.now()

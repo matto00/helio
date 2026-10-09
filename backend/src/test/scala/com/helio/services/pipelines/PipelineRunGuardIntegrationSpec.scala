@@ -138,7 +138,7 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
    *  under test -- proven correct, deterministically, by `PipelineRunRepositorySpec`'s own
    *  `insertRunIfUnderConcurrencyCap` concurrent-race test, which never completes a run at all. */
   /** HEL-1184: `onAdmitted` fires the instant `execute()` is entered, strictly BEFORE blocking on
-   *  `gate` -- `PipelineRunService.executeRun`'s concurrency-cap decision (the guard insert) has
+   *  `gate` -- `PipelineRunExecutor.executeRun`'s concurrency-cap decision (the guard insert) has
    *  already committed by this point (it fully resolves before `backend.execute()` is ever
    *  called), so this is a faithful "this submission's admission decision has settled: Admitted"
    *  signal. Defaults to a no-op so existing callers are unaffected. */
@@ -202,7 +202,7 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
    *  once-a-minute boundaries between two of a test's own sequential submissions -- CI/full-suite
    *  contention widens the exposure window slightly, but even an idle run has a nonzero chance --
    *  the later submission lands in a fresh bucket and is incorrectly admitted instead of rejected.
-   *  `PipelineRunService.executeRun` calls `incrementRateIfUnderLimit` with no explicit `now`, so
+   *  `PipelineRunExecutor.executeRun` calls `incrementRateIfUnderLimit` with no explicit `now`, so
    *  there is no clock-injection seam at this (integration, not repository-level) test's disposal
    *  to pin time deterministically. Widening to 3600s here (test-only; no production change, and
    *  no assertion below depends on the specific window value) cuts the boundary-crossing exposure

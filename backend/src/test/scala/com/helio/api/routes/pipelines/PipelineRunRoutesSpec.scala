@@ -633,7 +633,7 @@ class PipelineRunRoutesSpec
     }
 
     // HEL-922: same assertion at the `POST /run` (non-dry) route, the OTHER wire-response call
-    // site that constructs `RunResultResponse` from `outcome.stepCounts` (PipelineRunService.scala,
+    // site that constructs `RunResultResponse` from `outcome.stepCounts` (PipelineRunExecutor.scala,
     // the run-path construction site, not the preview-path one exercised above) -- covering both
     // call sites closes the gap the ticket's mutation-testing finding identified (94/94 green with
     // a wrong `stepCounts` because NEITHER route-level suite asserted the value). Same chained

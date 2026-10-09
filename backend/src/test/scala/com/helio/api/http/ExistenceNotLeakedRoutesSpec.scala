@@ -46,7 +46,7 @@ import scala.jdk.CollectionConverters._
  *  Completeness guards (also failable): every source file calling one of the four shared access
  *  helpers must be named by at least one row's `sites`, and the per-file count of
  *  `ServiceError.Forbidden(` producers is pinned, so a new producer cannot ship unclassified (see
- *  openspec/changes/collapse-owner-only-existence-leak/forbidden-classification.md). */
+ *  openspec/changes/archive/2026-10-02-collapse-owner-only-existence-leak/forbidden-classification.md). */
 class ExistenceNotLeakedRoutesSpec
     extends AnyWordSpec
     with Matchers
@@ -453,7 +453,7 @@ object ExistenceNotLeakedRoutesSpec {
     Row("DELETE pipeline", HttpMethods.DELETE, "/api/pipelines/{id}", Pipeline, Set("PipelineService.scala")),
     Row("GET pipeline analyze", HttpMethods.GET, "/api/pipelines/{id}/analyze", Pipeline, Set("PipelineService.scala"), ownerControl = false),
     Row("POST pipeline run", HttpMethods.POST, "/api/pipelines/{id}/run", Pipeline, Set("PipelineRunService.scala"), ownerControl = false),
-    Row("GET pipeline run status", HttpMethods.GET, s"/api/pipelines/{id}/runs/$SeededRunId", Pipeline, Set("PipelineRunService.scala"), seedRun = true),
+    Row("GET pipeline run status", HttpMethods.GET, s"/api/pipelines/{id}/runs/$SeededRunId", Pipeline, Set("PipelineRunQueries.scala"), seedRun = true),
     Row("POST pipeline dry run", HttpMethods.POST, "/api/pipelines/{id}/run?dry=true", Pipeline, Set("PipelineRunService.scala"), ownerControl = false)
   )
 
@@ -515,7 +515,8 @@ object ExistenceNotLeakedRoutesSpec {
 
   /** Pinned inventory of `ServiceError.Forbidden(` producers; every entry is classified in
    *  forbidden-classification.md (all legitimate: the caller demonstrably already sees the
-   *  resource, or the denial is not about a specific resource). */
+   *  resource, or the denial is not about a specific resource). The `PipelineRunPreview.scala` entry is
+   *  the step-preview AI-closure gate, moved unchanged out of `PipelineRunService.scala` (HEL-1393). */
   val expectedForbiddenProducers: Map[String, Int] = Map(
     "AccessCheckerImpl.scala"        -> 1,
     "AutoLayoutService.scala"        -> 1,
@@ -525,7 +526,8 @@ object ExistenceNotLeakedRoutesSpec {
     "OutputService.scala"            -> 1,
     "PanelService.scala"             -> 5,
     "PatchSetApplyResolvers.scala"   -> 4,
-    "PipelineRunService.scala"       -> 2,
+    "PipelineRunPreview.scala"       -> 1,
+    "PipelineRunService.scala"       -> 1,
     "PipelineService.scala"          -> 1
   )
 }

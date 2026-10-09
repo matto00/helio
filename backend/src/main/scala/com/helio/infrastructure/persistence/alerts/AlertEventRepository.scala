@@ -117,7 +117,7 @@ class AlertEventRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  privileged pool.
    *
    *  Reserved for HEL-466's background evaluation engine (post-run path
-   *  triggered from `PipelineRunService.onRunSuccess`), which has no
+   *  triggered from `PipelineRunExecutor.onRunSuccess`), which has no
    *  request-bound user. No caller exists yet in this ticket — exercised
    *  only by `AlertEventRepositorySpec`, mirroring
    *  `AlertRuleRepository.listEnabledByDataTypeInternal`'s pre-caller-landing

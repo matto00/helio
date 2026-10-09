@@ -38,9 +38,9 @@ private[pipelines] final class PipelineRunTerminalWrites(
       Future.fromTry(outcome)
     }
 
-  /** The `Failure(ex)` branch of `executeRun`'s original inline `transformWith` (HEL-505: factored
-   *  out, unchanged in behavior, so the guard-check nesting added above it doesn't push this
-   *  method's line count past the file-size budget). */
+  /** The `Failure(ex)` branch of `PipelineRunExecutor.executeRun`'s original inline `transformWith`
+   *  (HEL-505: factored out, unchanged in behavior, so the guard-check nesting added to `executeRun`
+   *  doesn't push that method's line count past the file-size budget). */
   private[pipelines] def executeRunFailure(
       pipelineId: PipelineId,
       runId: PipelineRunId,
@@ -50,48 +50,48 @@ private[pipelines] final class PipelineRunTerminalWrites(
       assertionSink: AssertionSink,
       ex: Throwable
   ): Future[Either[ServiceError, RunResultResponse]] = {
-        // HEL-311: this single `errMsg` fans out to three client-visible
-        // surfaces — the SSE `errorLog` event, `RunStatusResponse.error`,
-        // and the persisted `PipelineRunRecord.errorLog` returned by
-        // run-history. Genericizing here (keeping the static prefix, logging
-        // the raw cause server-side) covers all three at construction.
-        logExecutionFailure(s"Pipeline execution failed for pipeline ${pipelineId.value}, run ${runId.value}", ex)
-        // HEL-859 (design.md Decision 3, Decision 3a): when the failure was
-        // attributed to a specific step by the in-process engine, forward its
-        // curated message (id, kind, allowlisted reason); the Spark path
-        // (out of scope) never produces a StepExecutionException, so it still
-        // falls through to the generic constant.
-        val errMsg = ex match {
-          case see: StepExecutionException => see.getMessage
-          case _                           => "Pipeline execution failed"
+    // HEL-311: this single `errMsg` fans out to three client-visible
+    // surfaces — the SSE `errorLog` event, `RunStatusResponse.error`,
+    // and the persisted `PipelineRunRecord.errorLog` returned by
+    // run-history. Genericizing here (keeping the static prefix, logging
+    // the raw cause server-side) covers all three at construction.
+    logExecutionFailure(s"Pipeline execution failed for pipeline ${pipelineId.value}, run ${runId.value}", ex)
+    // HEL-859 (design.md Decision 3, Decision 3a): when the failure was
+    // attributed to a specific step by the in-process engine, forward its
+    // curated message (id, kind, allowlisted reason); the Spark path
+    // (out of scope) never produces a StepExecutionException, so it still
+    // falls through to the generic constant.
+    val errMsg = ex match {
+      case see: StepExecutionException => see.getMessage
+      case _                           => "Pipeline execution failed"
+    }
+    def failWork(): Future[Unit] =
+      // HEL-509 (419-B, design.md Decision 4): a failed dry run has no
+      // `pipeline_runs` row to attach assertion results to (a dry run's
+      // row is inserted only on success, see onDryRunSuccess below) — the
+      // `insertAssertions` call below MUST stay nested inside this
+      // existing `if (!isDry)` guard, never called unconditionally.
+      if (!isDry) {
+        val updateRun =
+          if (pipelineRunRepo != null)
+            // HEL-873 (design.md Decision 2a): a failed run records `[]`, never NULL.
+            pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
+          else Future.successful(())
+        updateRun.flatMap { _ =>
+          pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, truncated = Some(false))
+        }.flatMap { _ =>
+          persistAssertions(runId, assertionSink.results)
         }
-        def failWork(): Future[Unit] =
-          // HEL-509 (419-B, design.md Decision 4): a failed dry run has no
-          // `pipeline_runs` row to attach assertion results to (a dry run's
-          // row is inserted only on success, see onDryRunSuccess below) — the
-          // `insertAssertions` call below MUST stay nested inside this
-          // existing `if (!isDry)` guard, never called unconditionally.
-          if (!isDry) {
-            val updateRun =
-              if (pipelineRunRepo != null)
-                // HEL-873 (design.md Decision 2a): a failed run records `[]`, never NULL.
-                pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
-              else Future.successful(())
-            updateRun.flatMap { _ =>
-              pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, truncated = Some(false))
-            }.flatMap { _ =>
-              persistAssertions(runId, assertionSink.results)
-            }
-          } else Future.successful(())
-        // HEL-1366: terminal event only after the failed status + last-run + assertions are written.
-        publishTerminalAfter(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg), runId = Some(runId.value)), failWork())
-          .map(_ => Left(executionFailureError(ex)))
+      } else Future.successful(())
+    // HEL-1366: terminal event only after the failed status + last-run + assertions are written.
+    publishTerminalAfter(pidStr, RunStatusEvent("failed", errorLog = Some(errMsg), runId = Some(runId.value)), failWork())
+      .map(_ => Left(executionFailureError(ex)))
   }
 
   /** Best-effort persistence of assertion results — wrapped in `recoverWith`
-   *  at every call site (design.md Decision 4a), mirroring the file's
-   *  existing `insertRun`/`deleteOldRuns` and `insertDryRun`/
-   *  `deleteOldDryRuns` best-effort pattern. `insertRun`/`insertDryRun`
+   *  at every call site (design.md Decision 4a), mirroring the existing
+   *  `insertRun`/`deleteOldRuns` (`PipelineRunExecutor`) and `insertDryRun`/
+   *  `deleteOldDryRuns` (`onDryRunSuccess`, below) best-effort pattern. `insertRun`/`insertDryRun`
    *  already silently no-op for a caller who does not own the parent
    *  pipeline (e.g. an editor grantee triggering a run via
    *  `POST /api/pipelines/:id/run`), leaving no `pipeline_runs` row for
@@ -136,8 +136,8 @@ private[pipelines] final class PipelineRunTerminalWrites(
     publishTerminalAfter(pidStr, RunStatusEvent("dry_run", rowCount = Some(rowCount), runId = Some(runId.value)), dryRunWrites())
   }
 
-  /** HEL-1100 (design.md Decision 3): the SAME terminal-failure bookkeeping the `executeRun`
-   *  Failure branch performs (`Failure(ex)` above) -- a write-back failure is a run failure,
+  /** HEL-1100 (design.md Decision 3): the SAME terminal-failure bookkeeping `executeRunFailure`
+   *  (above, the `PipelineRunExecutor.executeRun` Failure branch) performs -- a write-back failure is a run failure,
    *  discovered one step later (after the engine's own Future already succeeded), so it must
    *  leave the pipeline/run rows in the identical terminal "failed" state, with the SAME
    *  assertion-persistence step (assertions were already evaluated even though the run's

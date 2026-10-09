@@ -139,7 +139,7 @@ object Main {
       val pipelineStepRepo   = new PipelineStepRepository(ctx)
       val outputRepo         = new OutputRepository(ctx)
       val pipelineRunRepo    = new PipelineRunRepository(ctx)
-      // HEL-505: shared with both ApiRoutes (rate-limit check inside PipelineRunService.executeRun)
+      // HEL-505: shared with both ApiRoutes (rate-limit check inside PipelineRunExecutor.executeRun)
       // and PipelineSchedulerService (cleanupOldWindows piggybacked on its tick cadence) below --
       // mirrors pipelineRunRepo's own single-instance-shared-across-both-sites wiring.
       val pipelineRunGuardRepo = new PipelineRunGuardRepository(ctx)

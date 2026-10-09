@@ -48,7 +48,8 @@ private[pipelines] final class PipelineRunSucceededWrites(
     else outputRepo.findConfigsByIdsInternal(outputs.map(_.id.value))
 
   /** The pre-existing succeeded path (all-passing or warn-only), unchanged in
-   *  behavior — a pure insertion point above this method, not a rewrite. */
+   *  behavior; the assert-fail-policy blocked path lives apart, in
+   *  `PipelineRunTerminalWrites.onBlockedRun`. */
   private[pipelines] def onUnblockedRunSuccess(
       sourceDataSourceId: DataSourceId,
       lowestRootId:       String,
@@ -150,7 +151,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
       // HEL-216: wire BinaryRefRepository.overwriteForNode into the one real
       // row-write call site, generically over row shape (not gated on source
       // kind) — see design.md Decision "BinaryRefRepository...wired into
-      // PipelineRunService.onRunSuccess". Extracted from resultRows (the
+      // PipelineRunExecutor.onRunSuccess". Extracted from resultRows (the
       // post-step, final row values — not the pre-step source rows) so the
       // refs match exactly what jsRows/rowsUpsert just wrote. HEL-904 (task
       // 3.4): re-keyed to `(pipelineId, trunkLastStepId)` instead of the
@@ -179,8 +180,8 @@ private[pipelines] final class PipelineRunSucceededWrites(
           }
         else Future.successful(())
       // HEL-466: fire alert-rule evaluation against the rows just written.
-      // Wrapped in recoverWith (matching the file's existing discipline at
-      // updateRunTerminal's preExec/insertRun handling) so an evaluation
+      // Wrapped in recoverWith (matching the existing discipline at `PipelineRunExecutor
+      // .executeRun`'s preExec/insertRun handling) so an evaluation
       // failure is logged inside AlertEvaluationService and never fails or
       // rolls back this run — see design.md "Per-rule isolation"/"Hook
       // placement".
@@ -232,7 +233,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
         else Future.successful(())
       // HEL-509 (419-B): insertRun already ran during preExec, so the parent
       // `pipeline_runs` row exists before this real-run success path runs —
-      // no ordering constraint here (unlike onDryRunSuccess above).
+      // no ordering constraint here (unlike `PipelineRunTerminalWrites.onDryRunSuccess`).
       val assertionsInsert = persistAssertions(runId, assertionResults)
       // HEL-462 (design D4): best-effort schema-drift baseline capture — the
       // current source schema (same derivation `PipelineService.analyze` uses)

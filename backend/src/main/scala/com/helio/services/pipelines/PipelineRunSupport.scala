@@ -80,7 +80,7 @@ private[pipelines] final class PipelineRunSupport(
     * alongside the detail vector it does NOT depend on, removes that inference entirely rather
     * than guarding it. Hand-rolled rather than relying on `PipelineProtocol
     * .truncatedReadResponseFormat` (a trait member, not reachable from this class without mixing
-    * the whole trait in). Mirrors [[PipelineRunService.parseTruncationRecord]], its read-side
+    * the whole trait in). Mirrors [[PipelineRunQueries.parseTruncationRecord]], its read-side
     * inverse. */
   private[pipelines] def truncatedReadsToJson(primaryAvailableRowCount: Option[Long], reads: Vector[TruncatedReadResponse]): String =
     JsObject(
@@ -94,27 +94,13 @@ private[pipelines] final class PipelineRunSupport(
       })
     ).compactPrint
 
-  /** HEL-913: single-root-compatible replacement for the old `pipeline.sourceDataSourceId`
-   *  field read (removed from `Pipeline` -- a pipeline no longer has exactly one source).
-   *  Resolves the pipeline's LOWEST-POSITIONED root's DataSource. Every run/preview/backfill
-   *  call site in this class is still single-root in this stage (walking every root is engine
-   *  work -- design.md's NodeKey/RootKey contract, a later stage of this ticket); this helper
-   *  keeps that behavior byte-for-byte identical to before while the underlying storage has
-   *  already moved onto `pipeline_roots`. Privileged (ACL is the caller's job, exactly like the
-   *  `dataSourceRepo.findByIdInternal` calls it replaces). */
-  private def resolvePrimaryDataSourceInternal(pipelineId: PipelineId): Future[Option[DataSource]] =
-    pipelineRepo.findPrimaryDataSourceIdInternal(pipelineId).flatMap {
-      case None       => Future.successful(None)
-      case Some(dsId) => dataSourceRepo.findByIdInternal(dsId)
-    }
-
   /** HEL-913 task 5.4: every root's `(rootId, DataSource)`, ORDERED by `position` ascending
-   *  (R3's tiebreak; `PipelineRepository.listRootDataSourceIdsInternal` already sorts) -- the
-   *  N-root-aware replacement for [[resolvePrimaryDataSourceInternal]], threaded into
-   *  `PipelineExecutionBackend.execute`'s `roots` parameter. A pipeline with exactly one root
-   *  (today's only real case, since no route creates a second yet) yields a one-element
+   *  (R3's tiebreak; `PipelineRepository.listRootDataSourceIdsInternal` already sorts) --
+   *  threaded into `PipelineExecutionBackend.execute`'s `roots` parameter. A pipeline with exactly
+   *  one root (today's only real case, since no route creates a second yet) yields a one-element
    *  Vector, preserving today's behavior exactly (5.5a's single-root parity requirement).
-   *  Privileged, same contract as `resolvePrimaryDataSourceInternal`. */
+   *  Privileged (ACL is the caller's job, exactly like the `dataSourceRepo.findByIdInternal` calls
+   *  it wraps). */
   private[pipelines] def resolveAllRootDataSourcesInternal(pipelineId: PipelineId): Future[Vector[(String, DataSource)]] =
     pipelineRepo.listRootDataSourceIdsInternal(pipelineId).flatMap { rootDsIds =>
       Future.sequence(rootDsIds.map { case (rootId, dsId) =>

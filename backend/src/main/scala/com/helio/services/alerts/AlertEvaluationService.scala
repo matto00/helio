@@ -37,7 +37,7 @@ final class AlertEvaluationService(
 
   /** Numeric coercion consistent with the value-class checks pipeline-output schema inference
    *  performs on runtime row values (ticket.md's explicit instruction; see
-   *  `PipelineRunService.upsertFieldsFromRows`, HEL-891) — deliberately NOT
+   *  `upsertFieldsFromRows`, HEL-891, since removed with the `DataType.fields` schema-union write in HEL-904) — deliberately NOT
    *  `PipelineRowJson.toDouble`, which parses numeric-looking `String`s.
    *  Only genuinely numeric-typed values coerce; every `String` (numeric-
    *  looking or not), `Boolean`, `null`, and nested value is `None`. See
@@ -95,7 +95,7 @@ final class AlertEvaluationService(
    *  inside its own `Future` wrapped in `recover`, so one rule's exception
    *  (bad `condition` JSON, coercion failure, repository error) is logged
    *  and never blocks sibling rules for the same `OutputId`. Callers (e.g.
-   *  `PipelineRunService.onRunSuccess`) additionally wrap the whole call so a
+   *  `PipelineRunExecutor.onRunSuccess`) additionally wrap the whole call so a
    *  defect here can never fail the triggering pipeline run. */
   def evaluateForOutput(
       outputId: OutputId,
