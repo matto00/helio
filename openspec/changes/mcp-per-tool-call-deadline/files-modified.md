@@ -1,5 +1,0 @@
-- `helio-mcp/src/httpClient.ts` — AsyncLocalStorage `runWithRateLimitScope` shared 429 budget, abort-aware waits, `isInRateLimitScope` guard seam, header doc update
-- `helio-mcp/src/server.ts` — `scopeHandlers` wraps registerTool/registerResource so every handler runs in a scope bound to `extra.signal`
-- `helio-mcp/src/httpClient.test.ts` — unit tests: shared budget, per-request outside scope, abort, listener cleanup
-- `helio-mcp/src/rateLimitSeam.test.ts` — run_pipeline two-25s-Retry-After seam test (real SDK client, default timeout)
-- `helio-mcp/src/server.scope.test.ts` — guards: tool/resource handlers scoped; no bypass registration forms in src
