@@ -238,7 +238,8 @@ jobs:
         # HEL-1339: sbt runs through scripts/ci-sbt.sh: `--server` (one foreground JVM, no sbtn -> background-server
         # handoff, the suspect in two silent hangs) plus an in-step deadline (660 s; step bound 13 min) that captures
         # a thread dump of the recorded sbt JVM, uploaded as an artifact, before failing. 660 + 25 capture + 5 grace
-        # < 780 s step bound; 780 s + pre-steps (25-40 s) < 900 s job bound.
+        # < 780 s step bound; 780 s + shard-0 pre-steps (job start -> this step, incl. the 41-46 s selftest) <
+        # 900 s job bound. Measured on 4 HEL-1362 PR runs: 83, 90, 73, 77 s; worst 90 s -> 870 s, about 30 s to spare.
         timeout-minutes: 13
         # HEL-1018: one quoted command -- sbt 2's thin client joins unquoted args into a single
         # (unparseable) command; testFull never serves a cached result.
@@ -247,7 +248,7 @@ jobs:
         # (`sbt -J-Xmx3g` via the thin client) still printed 1073741824 on this runner although it
         # gave 3221225472 locally, so the heap is set two ways at once (a CI-only `.jvmopts`, untracked;
         # backend/.sbtopts is untouched, and `-J-Xmx3g`). The leading `eval` prints the JVM's real max heap into
-        # this log -- keep it: it is the heap proof for whichever client mode is in use.
+        # this log -- keep it: it is the heap proof for the sbt JVM.
         run: |
           printf '%s\n' -Xmx3g > .jvmopts
           "$GITHUB_WORKSPACE/scripts/ci-sbt.sh" --deadline 660 --dir . -- -batch -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile; testFull"
