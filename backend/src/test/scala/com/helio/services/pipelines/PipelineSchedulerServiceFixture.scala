@@ -38,6 +38,7 @@ trait PipelineSchedulerServiceFixture extends BeforeAndAfterAll { this: Suite =>
   protected var scheduleRepo: PipelineScheduleRepository = _
   protected var pipelineRepo: PipelineRepository         = _
   protected var runRepo: PipelineRunRepository           = _
+  protected var pipelineStepRepo: PipelineStepRepository = _
   protected var service: PipelineSchedulerService        = _
   protected var auditEventRepo: AuditEventRepository     = _
   protected var runServiceForHistory: PipelineRunService  = _
@@ -86,7 +87,7 @@ trait PipelineSchedulerServiceFixture extends BeforeAndAfterAll { this: Suite =>
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx            = new DbContext(db, db)
     val dataSourceRepo = new DataSourceRepository(ctx)
-    val pipelineStepRepo = new PipelineStepRepository(ctx)
+    pipelineStepRepo = new PipelineStepRepository(ctx)
     pipelineRepo  = new PipelineRepository(ctx, dataSourceRepo)
     scheduleRepo  = new PipelineScheduleRepository(ctx)
     runRepo       = new PipelineRunRepository(ctx)
@@ -105,7 +106,7 @@ trait PipelineSchedulerServiceFixture extends BeforeAndAfterAll { this: Suite =>
     )
     runServiceForHistory = pipelineRunService
     historyCtx = ctx
-    service = new PipelineSchedulerService(scheduleRepo, pipelineRepo, runRepo, pipelineRunService, fakeClock)
+    service = new PipelineSchedulerService(scheduleRepo, pipelineRepo, pipelineStepRepo, runRepo, pipelineRunService, fakeClock)
   }
 
   override def afterAll(): Unit = {

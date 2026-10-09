@@ -293,11 +293,14 @@ object Main {
       val pipelineSchedulerService = new PipelineSchedulerService(
         pipelineScheduleRepo,
         pipelineRepo,
+        pipelineStepRepo,
         pipelineRunRepo,
         apiRoutes.pipelineRunService,
         SystemClock,
         pipelineRunGuardRepo = pipelineRunGuardRepo,
         autoRunDebounceRepo = autoRunDebounceRepo,
+        // HEL-1384: the SAME trigger service the write path uses, so the fire-time verdict cannot drift.
+        autoRunTriggerService = apiRoutes.autoRunTriggerServiceOpt.orNull,
         productEventRollupService = productEventRollupService,
         outputHistoryRetentionService = outputHistoryRetentionService
       )
