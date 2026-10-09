@@ -1337,8 +1337,8 @@ final class PipelineService(
       // caller asking for "the source schema") still resolves against the lowest-positioned
       // root, matching the pre-multi-root single-schema convention `stepId = None` has always had
       // on this endpoint (caller's pipeline access already confirmed upstream, mirroring the
-      // privileged field-read `findPrimaryDataSourceIdInternal`/`listRootDataSourceIdsInternal`
-      // replace).
+      // privileged field-read `listRootDataSourceIdsInternal`, which replaced the single-root
+      // primary-source resolution).
       for {
         rootDataSourceIds <- pipelineRepo.listRootDataSourceIdsInternal(pipelineId)
         rootIdOfStep      <- pipelineStepRepo.rootIdsOf(pipelineId)

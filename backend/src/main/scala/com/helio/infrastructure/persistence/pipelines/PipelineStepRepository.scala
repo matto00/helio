@@ -431,10 +431,10 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       config: Any,
       enabled: Boolean = true,
       parentStepId: Option[PipelineStepId] = None,
-      // HEL-913 task 7.3a: names WHICH root a PARENTLESS insert attaches to. Defaulted to `None`
-      // (auto-resolve the pipeline's lowest-positioned root via `firstRootIdAction`, exactly the
-      // pre-multi-root single-root-compatible behavior) so every pre-existing call site is
-      // unaffected; the single-call transactional create path (`PipelineService.buildStepsAction`)
+      // HEL-913 task 7.3a: names WHICH root a PARENTLESS insert attaches to. Required (no default):
+      // `None` auto-resolves the pipeline's lowest-positioned root via `firstRootIdAction`
+      // (exactly the pre-multi-root single-root-compatible behavior); the single-call
+      // transactional create path (`PipelineService.buildStepsAction`)
       // passes it explicitly once a request names more than one root, never silently defaulting
       // to `roots[0]` under multi-root.
       explicitRootId: Option[PipelineRootId],
