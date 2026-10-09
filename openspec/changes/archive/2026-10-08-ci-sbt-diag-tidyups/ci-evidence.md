@@ -1,3 +1,4 @@
+<!-- HEL-1362: the executor's files-modified.md handoff, kept verbatim as the change's CI/red-first evidence (files-modified.md itself is removed at delivery). -->
 - `scripts/lib/ci-sbt-diag.sh` — capture returns 0/2/1 (dump / SIGQUIT-only / nothing); hard budget ceiling (every cap incl. kill grace and every sleep clamped; candidates skipped+logged when <3 s remain); `_diag_socket_owner`/active.json removed
 - `scripts/ci-sbt.sh` — `--mode` removed (unknown option, exit 2); distinct deadline messages for rc 0/2/1
 - `scripts/e2e-backend.sh` — empty-`E2E_SBT_SERVER_FLAG` client mode removed (`--server` fixed, `mode=server` token kept); die distinguishes SIGQUIT-only from no JVM
