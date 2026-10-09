@@ -1,38 +1,20 @@
 // Output editor sheet (task 5.1) -- kind + name + capabilities-at-node-driven
 // mapping shell, built from `BindingEditor.tsx` (design.md decision 3). Opens
 // against either an existing `Output` (edit) or a target step id with no
-// Output yet (create). Owns its own save/create/delete + placements +
-// live-preview plumbing; `PipelineDetailPage` only owns open/close state.
+// Output yet (create). Owns its own save/create/delete + live-preview
+// plumbing; `PipelineDetailPage` only owns open/close state.
 //
-// CONTRIBUTING.md file-size note: this file sits a bit over the ~400-line
-// soft budget (~580 lines, rounded deliberately per skeptic-final-scope-
-// round2's CR2 note so a small future edit to this very comment does not
-// immediately go stale again -- see tasks.md 10.4 for the exact `wc -l`
-// count as of the commit that last touched this file). Config-assembly (`buildOutputConfig.ts`) and
-// per-kind field rendering (`OutputKindFields.tsx`) are already extracted;
-// what remains is per-kind local state (six kinds x a handful of `useState`
-// calls each -- mirrors `BindingEditor.tsx`'s own pre-split size, which held
-// every kind's state in one component too) plus the JSX kind switch. A
-// further split (e.g. one state-hook per kind) was judged to trade real
-// file-size compliance for indirection that would make the six kinds' shared
-// save/create/delete/preview lifecycle harder to follow in one place --
-// noted here rather than silently over budget.
+// The per-kind editor state lives in `useOutputKindState.ts` (seeded from
+// `configPatch.ts`'s `openingParams`); config assembly in `buildOutputConfig.ts`;
+// the Configuration card, Preview card, footer and placements list in their
+// own files beside this one. This file keeps the top-level fields and the
+// save/create/delete lifecycle.
 
 import { useEffect, useId, useMemo, useState } from "react";
 
 import { Modal, Select, TextField, type SelectOption } from "../../../../shared/ui/index";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
-import type { ChartType } from "../../../../utils/chartAppearance";
-import type {
-  BarChartOptions,
-  ChartTypeOptionsMap,
-  LineChartOptions,
-  PieChartOptions,
-  ScatterChartOptions,
-} from "../../../panels/types/panel";
-import { useBoundOrLiteralState } from "../../../panels/ui/editors/useBoundOrLiteralState";
-import { defaultBoundOrLiteralMode } from "../../../panels/ui/editors/BoundOrLiteralField";
 import {
   createOutput,
   deleteOutput,
@@ -41,40 +23,24 @@ import {
   selectNodeCapabilities,
   updateOutput,
 } from "../../state/outputsSlice";
-import { chartCompareBlocker } from "../../../panels/history/chartOverlay";
-import type { Output, OutputKind, OutputPanelPlacement } from "../../types/output";
+import type { Output, OutputKind } from "../../types/output";
 import type { AggregateConfig } from "../../types/pipelineStep";
-import { getOutputRows, listOutputPanels } from "../../services/outputService";
 import { useOutputPreview, useUnsavedStepPreview } from "../../hooks/usePipelinePreviewCache";
 import type { Step } from "../../types/step";
-import {
-  aggColumnOptions,
-  columnOptions,
-  readChartConfig,
-  readCollectionConfig,
-  readMarkdownConfig,
-  readMetricConfig,
-  readTableConfig,
-  readTimelineConfig,
-} from "./outputConfigTypes";
+import { aggColumnOptions, columnOptions } from "./outputConfigTypes";
 import {
   buildAggregateTailConfigs,
   buildOutputConfig,
   canAddAsTailWithAggregate,
 } from "./buildOutputConfig";
-import {
-  ChartKindFields,
-  MarkdownKindFields,
-  METRIC_FORMAT_OPTIONS,
-  MetricKindFields,
-  SimpleMappingFields,
-  TableKindFields,
-} from "./OutputKindFields";
 import { buildBaselineConfig, buildConfigPatch } from "./configPatch";
-import { useOutputTableColumns } from "./useOutputTableColumns";
-import { useOutputColumnFormats } from "./useOutputColumnFormats";
-import { OutputPreviewPane } from "./OutputPreviewPane";
 import { HistoryPayloadsField } from "./HistoryPayloadsField";
+import { OutputEditorFooter } from "./OutputEditorFooter";
+import { OutputKindConfigCard } from "./OutputKindConfigCard";
+import { OutputPlacementsList } from "./OutputPlacementsList";
+import { OutputSheetPreviewCard } from "./OutputSheetPreviewCard";
+import { useOutputKindState } from "./useOutputKindState";
+import { useOutputSavedStatus } from "./useOutputSavedStatus";
 import "./OutputEditorSheet.css";
 
 const KIND_OPTIONS: SelectOption[] = [
@@ -113,8 +79,6 @@ interface OutputEditorSheetProps {
   onRunPipeline?: () => void;
 }
 
-const EMPTY_CHART_OPTIONS: ChartTypeOptionsMap = {};
-
 export function OutputEditorSheet({
   open,
   onClose,
@@ -138,18 +102,11 @@ export function OutputEditorSheet({
   const [historyPayloads, setHistoryPayloads] = useState(output?.config?.historyPayloads === true);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [placements, setPlacements] = useState<OutputPanelPlacement[] | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  // HEL-946 Bug C(2) -- `null` while unknown/loading, `false` when the
-  // saved Output has never been materialized by a successful run (so a
-  // dashboard panel bound to it currently shows "No data available"),
-  // `true` once materialized (a stored-empty result is a legitimate empty
-  // result, not a warning). Only meaningful for an EXISTING Output -- a
-  // brand-new one has no saved rows to check yet.
-  const [neverMaterialized, setNeverMaterialized] = useState<boolean | null>(null);
 
-  // Re-seed local state whenever a different Output/create-target opens
-  // (the sheet instance is reused across opens rather than remounted).
+  // Re-seed the TOP-LEVEL fields whenever a different Output/create-target opens. The per-kind
+  // state (`useOutputKindState`) is seeded once per mount, so a caller that swaps Outputs must
+  // remount the sheet -- `PipelineDetailPage` keys it by Output id.
   useEffect(() => {
     if (!open) return;
     setNodeStepId(isCreate ? createTargetStepId : output?.nodeStepId);
@@ -169,105 +126,12 @@ export function OutputEditorSheet({
     void dispatch(fetchNodeCapabilities({ pipelineId, stepId: nodeStepId }));
   }, [open, dispatch, pipelineId, nodeStepId]);
 
-  // task 5.7 -- placements fetched fresh on every open (safety-critical for
-  // the delete-warning count, design.md decision 9).
-  useEffect(() => {
-    if (!open || isCreate || !output) {
-      setPlacements(null);
-      return;
-    }
-    let cancelled = false;
-    void listOutputPanels(output.id).then((result) => {
-      if (!cancelled) setPlacements(result);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, isCreate, output]);
-
-  // HEL-946 Bug C(2) -- fetch the SAVED row-materialization status (distinct
-  // from the live preview below, which re-runs the node fresh every time and
-  // so never reflects whether a real pipeline run has ever persisted a
-  // snapshot for this node). One row is enough to know `materialized`.
-  useEffect(() => {
-    if (!open || isCreate || !output) {
-      setNeverMaterialized(null);
-      return;
-    }
-    let cancelled = false;
-    void getOutputRows(output.id, 0, 1).then((result) => {
-      if (!cancelled) setNeverMaterialized(!result.materialized);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, isCreate, output]);
+  const { placements, neverMaterialized } = useOutputSavedStatus(open, isCreate, output);
 
   const config = useMemo(() => output?.config ?? {}, [output]);
-  const chartConfig = useMemo(() => readChartConfig(config), [config]);
-  const tableConfig = useMemo(() => readTableConfig(config), [config]);
-  const metricConfig = useMemo(() => readMetricConfig(config), [config]);
-  const markdownConfig = useMemo(() => readMarkdownConfig(config), [config]);
-  const collectionConfig = useMemo(() => readCollectionConfig(config), [config]);
-  const timelineConfig = useMemo(() => readTimelineConfig(config), [config]);
-
-  // Chart
-  const [chartType, setChartType] = useState<ChartType>(chartConfig.chartType);
-  const [chartFieldMapping] = useState(chartConfig.fieldMapping);
-  const [groupBy, setGroupBy] = useState(chartConfig.aggregation?.groupBy ?? "");
-  const [chartAggFn, setChartAggFn] = useState<string>(chartConfig.aggregation?.agg ?? "");
-  const [yField, setYField] = useState(chartConfig.aggregation?.yField ?? "");
-  const [chartOptionsState, setChartOptionsState] = useState<ChartTypeOptionsMap>(
-    chartConfig.chartOptions ?? EMPTY_CHART_OPTIONS,
-  );
-  const annotationState = useBoundOrLiteralState(
-    defaultBoundOrLiteralMode(
-      chartConfig.annotation !== undefined && chartConfig.annotation !== null,
-    ),
-    chartConfig.fieldMapping.annotation ?? "",
-    chartConfig.annotation ?? "",
-  );
-
-  // Table
-  const [tableFieldMapping] = useState(tableConfig.fieldMapping);
-  const tableCols = useOutputTableColumns(
+  const kindState = useOutputKindState(
+    config,
     capabilities ? capabilities.columns.map((c) => c.name) : [],
-    tableConfig.columnOrder,
-  );
-  const tableFormats = useOutputColumnFormats(tableConfig.columnFormats);
-
-  // Metric
-  const [metricField, setMetricField] = useState(
-    // An aggregated metric stores its field in `aggregation.value`, not `fieldMapping.value`;
-    // reading only the latter silently dropped the aggregation on the next save (HEL-1275).
-    metricConfig.fieldMapping.value ?? metricConfig.aggregation?.value ?? "",
-  );
-  const [metricAggFn, setMetricAggFn] = useState<string>(metricConfig.aggregation?.agg ?? "");
-  const metricLabelState = useBoundOrLiteralState(
-    defaultBoundOrLiteralMode(metricConfig.label !== undefined),
-    metricConfig.fieldMapping.label ?? "",
-    metricConfig.label ?? "",
-  );
-  const metricUnitState = useBoundOrLiteralState(
-    defaultBoundOrLiteralMode(metricConfig.unit !== undefined),
-    metricConfig.fieldMapping.unit ?? "",
-    metricConfig.unit ?? "",
-  );
-  const [metricFormat, setMetricFormat] = useState<string>(metricConfig.format ?? "number");
-  const [compare, setCompare] = useState<string>(metricConfig.compare ?? "none");
-
-  // Markdown
-  // Literal-only (HEL-1139): a legacy `fieldMapping.content` is ignored on open;
-  // an edit Save leaves it stored unless the user changes the content (HEL-1389).
-  const [markdownContent, setMarkdownContent] = useState(markdownConfig.content ?? "");
-
-  // Collection / Timeline (lighter-weight slots -- task 5.1)
-  const [collectionFieldMapping, setCollectionFieldMapping] = useState(
-    collectionConfig.fieldMapping,
-  );
-  const [timelineFieldMapping, setTimelineFieldMapping] = useState(timelineConfig.fieldMapping);
-  const [collectionFormat, setCollectionFormat] = useState<string>(
-    collectionConfig.format ?? "number",
   );
 
   const fieldOptions = columnOptions(capabilities);
@@ -292,29 +156,7 @@ export function OutputEditorSheet({
   }, [open, isCreate, output?.id, nodeStepId]);
 
   function buildConfig(): Record<string, unknown> {
-    return buildOutputConfig({
-      kind,
-      chartType,
-      chartFieldMapping,
-      groupBy,
-      chartAggFn,
-      yField,
-      chartOptionsState,
-      annotationState,
-      tableFieldMapping,
-      tableColumnOrder: tableCols.columnOrder,
-      tableColumnFormats: tableFormats.columnFormats,
-      metricField,
-      metricAggFn,
-      metricLabelState,
-      metricUnitState,
-      metricFormat,
-      compare,
-      markdownContent,
-      collectionFieldMapping,
-      collectionFormat,
-      timelineFieldMapping,
-    });
+    return buildOutputConfig(kindState.params(kind));
   }
 
   // HEL-1331 D5 -- `historyPayloads` rides on an edit Save only when the toggle is enabled AND the
@@ -407,28 +249,11 @@ export function OutputEditorSheet({
     isCreate &&
     Boolean(nodeStepId) &&
     Boolean(onAddAsTailWithAggregate) &&
-    canAddAsTailWithAggregate({ kind, groupBy, chartAggFn, yField, metricField, metricAggFn });
+    canAddAsTailWithAggregate(kindState.params(kind));
 
   async function handleAddTailWithAggregate() {
     if (!onAddAsTailWithAggregate || !nodeStepId) return;
-    const built = buildAggregateTailConfigs(
-      {
-        kind,
-        groupBy,
-        chartAggFn,
-        yField,
-        chartType,
-        chartOptionsState,
-        annotationState,
-        metricField,
-        metricAggFn,
-        metricLabelState,
-        metricUnitState,
-        metricFormat,
-        compare,
-      },
-      capabilities,
-    );
+    const built = buildAggregateTailConfigs(kindState.params(kind), capabilities);
     if (!built) return;
     setSaving(true);
     setSaveError(null);
@@ -453,46 +278,17 @@ export function OutputEditorSheet({
       onClose={onClose}
       size="lg"
       footer={
-        <div className="output-editor-sheet__footer">
-          {!isCreate && (
-            <button
-              type="button"
-              className="ui-modal-btn ui-modal-btn--danger output-editor-sheet__delete"
-              onClick={() => (confirmingDelete ? void handleDelete() : setConfirmingDelete(true))}
-              disabled={saving}
-            >
-              {confirmingDelete
-                ? `Confirm delete${placements && placements.length > 0 ? ` (removes from ${placements.length} dashboard${placements.length === 1 ? "" : "s"})` : ""}`
-                : "Delete"}
-            </button>
-          )}
-          <button
-            type="button"
-            className="ui-modal-btn ui-modal-btn--secondary"
-            onClick={onClose}
-            disabled={saving}
-          >
-            Cancel
-          </button>
-          {canAddTailWithAggregate && (
-            <button
-              type="button"
-              className="ui-modal-btn ui-modal-btn--secondary output-editor-sheet__add-tail"
-              onClick={() => void handleAddTailWithAggregate()}
-              disabled={saving}
-            >
-              {saving ? "Adding…" : "Add as tail with aggregate"}
-            </button>
-          )}
-          <button
-            type="button"
-            className="ui-modal-btn ui-modal-btn--primary"
-            onClick={() => void handleSave()}
-            disabled={saving}
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
+        <OutputEditorFooter
+          isCreate={isCreate}
+          confirmingDelete={confirmingDelete}
+          onDeleteClick={() => (confirmingDelete ? void handleDelete() : setConfirmingDelete(true))}
+          placements={placements}
+          saving={saving}
+          onClose={onClose}
+          canAddTailWithAggregate={canAddTailWithAggregate}
+          onAddTailWithAggregate={() => void handleAddTailWithAggregate()}
+          onSave={() => void handleSave()}
+        />
       }
     >
       <div className="output-editor-sheet__group">
@@ -543,110 +339,12 @@ export function OutputEditorSheet({
         </div>
       </div>
 
-      <div className="output-editor-sheet__group output-editor-sheet__group--card">
-        <h3 className="output-editor-sheet__edit-section-heading">Configuration</h3>
-        {kind === "chart" && (
-          <ChartKindFields
-            fieldOptions={aggFieldOptions}
-            chartType={chartType}
-            onChartTypeChange={setChartType}
-            groupByValue={groupBy}
-            onGroupByChange={setGroupBy}
-            valueFieldValue={yField}
-            onValueFieldChange={setYField}
-            aggFnValue={chartAggFn}
-            onAggFnChange={setChartAggFn}
-            line={chartOptionsState.line ?? ({} as LineChartOptions)}
-            onLineChange={(patch) =>
-              setChartOptionsState((prev) => ({ ...prev, line: { ...prev.line, ...patch } }))
-            }
-            bar={chartOptionsState.bar ?? ({} as BarChartOptions)}
-            onBarChange={(patch) =>
-              setChartOptionsState((prev) => ({ ...prev, bar: { ...prev.bar, ...patch } }))
-            }
-            pie={chartOptionsState.pie ?? ({} as PieChartOptions)}
-            onPieChange={(patch) =>
-              setChartOptionsState((prev) => ({ ...prev, pie: { ...prev.pie, ...patch } }))
-            }
-            scatter={chartOptionsState.scatter ?? ({} as ScatterChartOptions)}
-            onScatterChange={(patch) =>
-              setChartOptionsState((prev) => ({ ...prev, scatter: { ...prev.scatter, ...patch } }))
-            }
-            annotationState={annotationState}
-            compareValue={compare}
-            onCompareChange={setCompare}
-            compareBlocker={chartCompareBlocker(buildConfig())}
-          />
-        )}
-        {kind === "table" && (
-          <TableKindFields
-            columns={tableCols.columns}
-            onToggleVisible={tableCols.toggleVisible}
-            onMoveUp={tableCols.moveUp}
-            onMoveDown={tableCols.moveDown}
-            onMoveToTop={tableCols.moveToTop}
-            onMoveToBottom={tableCols.moveToBottom}
-            columnFormats={tableFormats.selections}
-            onFormatChange={tableFormats.setFormat}
-          />
-        )}
-        {kind === "metric" && (
-          <MetricKindFields
-            fieldOptions={aggFieldOptions}
-            fieldValue={metricField}
-            onFieldChange={setMetricField}
-            reduceValue={metricAggFn}
-            onReduceChange={setMetricAggFn}
-            labelState={metricLabelState}
-            unitState={metricUnitState}
-            formatValue={metricFormat}
-            onFormatChange={setMetricFormat}
-            compareValue={compare}
-            onCompareChange={setCompare}
-          />
-        )}
-        {kind === "markdown" && (
-          <MarkdownKindFields content={markdownContent} onContentChange={setMarkdownContent} />
-        )}
-        {kind === "collection" && (
-          <>
-            <SimpleMappingFields
-              title="Item fields"
-              slots={[
-                { key: "value", label: "Value" },
-                { key: "label", label: "Label" },
-                { key: "unit", label: "Unit" },
-              ]}
-              fieldMapping={collectionFieldMapping}
-              onFieldChange={(k, v) => setCollectionFieldMapping((prev) => ({ ...prev, [k]: v }))}
-              fieldOptions={fieldOptions}
-            />
-            <div className="output-editor-sheet__data-section">
-              <label className="output-editor-sheet__data-label" htmlFor="output-collection-format">
-                Format
-              </label>
-              <Select
-                ariaLabel="Format"
-                value={collectionFormat}
-                onChange={setCollectionFormat}
-                options={METRIC_FORMAT_OPTIONS}
-              />
-            </div>
-          </>
-        )}
-        {kind === "timeline" && (
-          <SimpleMappingFields
-            title="Timeline fields"
-            slots={[
-              { key: "time", label: "Time" },
-              { key: "event", label: "Event" },
-            ]}
-            fieldMapping={timelineFieldMapping}
-            onFieldChange={(k, v) => setTimelineFieldMapping((prev) => ({ ...prev, [k]: v }))}
-            fieldOptions={fieldOptions}
-          />
-        )}
-      </div>
+      <OutputKindConfigCard
+        kind={kind}
+        kindState={kindState}
+        aggFieldOptions={aggFieldOptions}
+        fieldOptions={fieldOptions}
+      />
 
       {!isCreate && (
         <div className="output-editor-sheet__group output-editor-sheet__group--card">
@@ -660,78 +358,15 @@ export function OutputEditorSheet({
         </div>
       )}
 
-      <div className="output-editor-sheet__group output-editor-sheet__group--card">
-        <h3 className="output-editor-sheet__edit-section-heading">Preview</h3>
-        {neverMaterialized && (
-          // HEL-946 Bug C(2) -- the preview below re-runs the node live and
-          // always shows current data, which is why it can look fine even
-          // though a dashboard panel bound to this SAVED Output currently
-          // shows "No data available": this node has never had a successful
-          // pipeline run since the Output was added, so nothing has been
-          // written to its saved snapshot yet. Distinct from a genuinely
-          // empty result (that case renders no banner at all).
-          <div className="output-editor-sheet__data-section" role="status">
-            <p className="output-editor-sheet__field-hint">
-              This output hasn&rsquo;t been included in a saved run yet, so any dashboard panel
-              bound to it currently shows &ldquo;No data available.&rdquo; Run the pipeline to
-              populate it.
-            </p>
-            {onRunPipeline && (
-              <button
-                type="button"
-                className="ui-modal-btn ui-modal-btn--secondary"
-                onClick={onRunPipeline}
-              >
-                Run pipeline
-              </button>
-            )}
-          </div>
-        )}
-        <OutputPreviewPane
-          kind={kind}
-          rows={previewEntry.result}
-          loading={false}
-          chartType={chartType}
-          chartFieldMapping={chartFieldMapping}
-          chartGroupBy={groupBy}
-          chartAggFn={chartAggFn}
-          chartYField={yField}
-          chartOptions={chartOptionsState}
-          chartAnnotation={
-            annotationState.mode === "literal" ? annotationState.literalValue : undefined
-          }
-          tableColumns={tableCols.columns.filter((c) => c.visible).map((c) => c.key)}
-          metricField={metricField}
-          metricAggFn={metricAggFn}
-          metricLabel={
-            metricLabelState.mode === "literal" ? metricLabelState.literalValue : undefined
-          }
-          metricUnit={metricUnitState.mode === "literal" ? metricUnitState.literalValue : undefined}
-          metricFormat={metricFormat}
-          markdownContent={markdownContent}
-        />
-      </div>
+      <OutputSheetPreviewCard
+        kind={kind}
+        kindState={kindState}
+        rows={previewEntry.result}
+        neverMaterialized={neverMaterialized}
+        onRunPipeline={onRunPipeline}
+      />
 
-      {!isCreate && placements && (
-        <div className="output-editor-sheet__group">
-          <div className="output-editor-sheet__data-section">
-            <span className="output-editor-sheet__data-label">
-              Placements ({placements.length})
-            </span>
-            {placements.length === 0 ? (
-              <p className="output-editor-sheet__field-hint">Not placed on any dashboard yet.</p>
-            ) : (
-              <ul className="output-editor-sheet__placements">
-                {placements.map((p) => (
-                  <li key={p.panelId}>
-                    <a href={`/dashboards/${p.dashboardId}`}>Dashboard {p.dashboardId}</a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      )}
+      {!isCreate && placements && <OutputPlacementsList placements={placements} />}
 
       <InlineError error={saveError} />
     </Modal>

@@ -1,0 +1,485 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) create mode (kind chosen after open) chart 1`] = `
+{
+  "body": {
+    "config": {
+      "aggregation": null,
+      "annotation": null,
+      "chartOptions": {},
+      "chartType": "line",
+      "compare": null,
+      "fieldMapping": {},
+    },
+    "kind": "chart",
+    "name": "Untitled output",
+    "nodeStepId": "step-1",
+  },
+  "controls": [
+    "button name="Close"",
+    "input name="Name" value=""",
+    "combobox name="Target step" value="First step"",
+    "combobox name="Output kind" value="Chart"",
+    "h3: Configuration",
+    "combobox name="Chart type" value="Line"",
+    "combobox name="Group by field" value="— None —"",
+    "combobox name="Aggregation value field" value="— None —"",
+    "combobox name="Aggregation function" value="— None —"",
+    "h3: Display",
+    "group name="Annotation mode"",
+    "button name="Bind to field" pressed=true",
+    "button name="Fixed text" pressed=false",
+    "combobox name="Annotation field" value="— None —"",
+    "input name="Smooth lines" checked=false",
+    "input name="Point markers" checked=true",
+    "input name="Area fill" checked=false",
+    "combobox name="Compare" value="None" describedBy="Adds a “vs” line or bars to dashboard charts. It doesn't show for pie or scatter panels, multi-series charts, horizontal or 100% stacked bars, Outputs with more than 200 rows, or while a filter is applied."",
+    "h3: Preview",
+    "button name="Cancel"",
+    "button name="Save"",
+  ],
+}
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) create mode (kind chosen after open) collection 1`] = `
+{
+  "body": {
+    "config": {
+      "fieldMapping": {},
+      "format": "number",
+      "layout": "grid",
+    },
+    "kind": "collection",
+    "name": "Untitled output",
+    "nodeStepId": "step-1",
+  },
+  "controls": [
+    "button name="Close"",
+    "input name="Name" value=""",
+    "combobox name="Target step" value="First step"",
+    "combobox name="Output kind" value="Collection"",
+    "h3: Configuration",
+    "combobox name="Value field" value="— None —"",
+    "combobox name="Label field" value="— None —"",
+    "combobox name="Unit field" value="— None —"",
+    "combobox name="Format" value="Number"",
+    "h3: Preview",
+    "button name="Cancel"",
+    "button name="Save"",
+  ],
+}
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) create mode (kind chosen after open) markdown 1`] = `
+{
+  "body": {
+    "config": {
+      "content": "",
+      "fieldMapping": {},
+    },
+    "kind": "markdown",
+    "name": "Untitled output",
+    "nodeStepId": "step-1",
+  },
+  "controls": [
+    "button name="Close"",
+    "input name="Name" value=""",
+    "combobox name="Target step" value="First step"",
+    "combobox name="Output kind" value="Markdown"",
+    "h3: Configuration",
+    "textarea name="Content text" value=""",
+    "h3: Preview",
+    "button name="Cancel"",
+    "button name="Save"",
+  ],
+}
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) create mode (kind chosen after open) metric 1`] = `
+{
+  "body": {
+    "config": {
+      "aggregation": null,
+      "compare": null,
+      "fieldMapping": {},
+      "format": "number",
+      "label": null,
+      "unit": null,
+    },
+    "kind": "metric",
+    "name": "Untitled output",
+    "nodeStepId": "step-1",
+  },
+  "controls": [
+    "button name="Close"",
+    "input name="Name" value=""",
+    "combobox name="Target step" value="First step"",
+    "combobox name="Output kind" value="Metric"",
+    "h3: Configuration",
+    "combobox name="Value field" value="— None —"",
+    "combobox name="Reduce function" value="None (first row)"",
+    "combobox name="Format" value="Number"",
+    "combobox name="Compare" value="None"",
+    "group name="Label mode"",
+    "button name="Bind to field" pressed=true",
+    "button name="Fixed text" pressed=false",
+    "combobox name="Label field" value="— None —"",
+    "group name="Unit mode"",
+    "button name="Bind to field" pressed=true",
+    "button name="Fixed text" pressed=false",
+    "combobox name="Unit field" value="— None —"",
+    "h3: Preview",
+    "button name="Cancel"",
+    "button name="Save"",
+  ],
+}
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) create mode (kind chosen after open) table 1`] = `
+{
+  "body": {
+    "config": {
+      "columnFormats": {},
+      "fieldMapping": {},
+    },
+    "kind": "table",
+    "name": "Untitled output",
+    "nodeStepId": "step-1",
+  },
+  "controls": [
+    "button name="Close"",
+    "input name="Name" value=""",
+    "combobox name="Target step" value="First step"",
+    "combobox name="Output kind" value="Table"",
+    "h3: Configuration",
+    "combobox name="Cell density" value="Normal"",
+    "input name="a" checked=true",
+    "combobox name="Format a" value="None"",
+    "button name="Move a up" disabled",
+    "button name="Move a down"",
+    "input name="b" checked=true",
+    "combobox name="Format b" value="None"",
+    "button name="Move b up"",
+    "button name="Move b down"",
+    "input name="c" checked=true",
+    "combobox name="Format c" value="None"",
+    "button name="Move c up"",
+    "button name="Move c down" disabled",
+    "button name="Reset column widths" disabled",
+    "h3: Preview",
+    "button name="Cancel"",
+    "button name="Save"",
+  ],
+}
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) create mode (kind chosen after open) timeline 1`] = `
+{
+  "body": {
+    "config": {
+      "fieldMapping": {},
+      "sort": "asc",
+    },
+    "kind": "timeline",
+    "name": "Untitled output",
+    "nodeStepId": "step-1",
+  },
+  "controls": [
+    "button name="Close"",
+    "input name="Name" value=""",
+    "combobox name="Target step" value="First step"",
+    "combobox name="Output kind" value="Timeline"",
+    "h3: Configuration",
+    "combobox name="Time field" value="— None —"",
+    "combobox name="Event field" value="— None —"",
+    "h3: Preview",
+    "button name="Cancel"",
+    "button name="Save"",
+  ],
+}
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode chart: bar, bound annotation, aggregation, bar options, compare 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Chart" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "combobox name="Chart type" value="Bar"",
+  "combobox name="Group by field" value="a"",
+  "combobox name="Aggregation value field" value="b"",
+  "combobox name="Aggregation function" value="Sum"",
+  "h3: Display",
+  "group name="Annotation mode"",
+  "button name="Bind to field" pressed=true",
+  "button name="Fixed text" pressed=false",
+  "combobox name="Annotation field" value="c"",
+  "combobox name="Bar orientation" value="Horizontal"",
+  "combobox name="Bar stacking" value="Stacked"",
+  "input name="Bar group spacing" value="30"",
+  "combobox name="Compare" value="7 days" describedBy=undefined",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=false disabled describedBy=undefined",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode chart: line options 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Chart" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "combobox name="Chart type" value="Line"",
+  "combobox name="Group by field" value="— None —"",
+  "combobox name="Aggregation value field" value="— None —"",
+  "combobox name="Aggregation function" value="— None —"",
+  "h3: Display",
+  "group name="Annotation mode"",
+  "button name="Bind to field" pressed=true",
+  "button name="Fixed text" pressed=false",
+  "combobox name="Annotation field" value="— None —"",
+  "input name="Smooth lines" checked=true",
+  "input name="Point markers" checked=true",
+  "input name="Area fill" checked=true",
+  "combobox name="Compare" value="None" describedBy="Adds a “vs” line or bars to dashboard charts. It doesn't show for pie or scatter panels, multi-series charts, horizontal or 100% stacked bars, Outputs with more than 200 rows, or while a filter is applied."",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=false disabled describedBy=undefined",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode chart: pie, literal annotation, pie options 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Chart" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "combobox name="Chart type" value="Pie"",
+  "combobox name="Group by field" value="— None —"",
+  "combobox name="Aggregation value field" value="— None —"",
+  "combobox name="Aggregation function" value="— None —"",
+  "h3: Display",
+  "group name="Annotation mode"",
+  "button name="Bind to field" pressed=false",
+  "button name="Fixed text" pressed=true",
+  "input name="Annotation text" value="Note"",
+  "input name="Donut hole size" value="40"",
+  "input name="Percentage labels" checked=true",
+  "combobox name="Compare" value="None" describedBy="Adds a “vs” line or bars to dashboard charts. It doesn't show for pie or scatter panels, multi-series charts, horizontal or 100% stacked bars, Outputs with more than 200 rows, or while a filter is applied."",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=false disabled describedBy=undefined",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode chart: scatter, size and colour fields 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Chart" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "combobox name="Chart type" value="Scatter"",
+  "h3: Display",
+  "group name="Annotation mode"",
+  "button name="Bind to field" pressed=true",
+  "button name="Fixed text" pressed=false",
+  "combobox name="Annotation field" value="— None —"",
+  "combobox name="Scatter point size field" value="c"",
+  "combobox name="Scatter color-by field" value="b"",
+  "combobox name="Compare" value="None" describedBy="Adds a “vs” line or bars to dashboard charts. It doesn't show for pie or scatter panels, multi-series charts, horizontal or 100% stacked bars, Outputs with more than 200 rows, or while a filter is applied."",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=false disabled describedBy=undefined",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode collection: mapping + list layout + integer format 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Collection" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "combobox name="Value field" value="a"",
+  "combobox name="Label field" value="b"",
+  "combobox name="Unit field" value="c"",
+  "combobox name="Format" value="Integer"",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=false disabled describedBy=undefined",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode markdown: content, legacy fieldMapping.content, history payloads on 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Markdown" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "textarea name="Content text" value="# Hi"",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=true describedBy="Stores the full rows of every run from the next run on, so History can show what changed. Very large runs keep only their summary; how many runs are kept depends on the pipeline owner's plan. Turning this off stops storing rows; rows already kept expire on the normal schedule."",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode markdown: empty config 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Markdown" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "textarea name="Content text" value=""",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=false disabled describedBy=undefined",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode metric: aggregated {agg,value}, literal label/unit, currency, compare previous_run 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Metric" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "combobox name="Value field" value="b"",
+  "combobox name="Reduce function" value="Average"",
+  "combobox name="Format" value="Currency ($)"",
+  "combobox name="Compare" value="Previous"",
+  "group name="Label mode"",
+  "button name="Bind to field" pressed=false",
+  "button name="Fixed text" pressed=true",
+  "input name="Label text" value="Revenue"",
+  "group name="Unit mode"",
+  "button name="Bind to field" pressed=false",
+  "button name="Fixed text" pressed=true",
+  "input name="Unit text" value="$"",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=false disabled describedBy=undefined",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode metric: bound value/label/unit, percent, compare 30d 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Metric" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "combobox name="Value field" value="a"",
+  "combobox name="Reduce function" value="None (first row)"",
+  "combobox name="Format" value="Percent (%)"",
+  "combobox name="Compare" value="30 days"",
+  "group name="Label mode"",
+  "button name="Bind to field" pressed=true",
+  "button name="Fixed text" pressed=false",
+  "combobox name="Label field" value="b"",
+  "group name="Unit mode"",
+  "button name="Bind to field" pressed=true",
+  "button name="Fixed text" pressed=false",
+  "combobox name="Unit field" value="c"",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=false disabled describedBy=undefined",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode metric: no stored format (default seed) 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Metric" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "combobox name="Value field" value="a"",
+  "combobox name="Reduce function" value="None (first row)"",
+  "combobox name="Format" value="Number"",
+  "combobox name="Compare" value="None"",
+  "group name="Label mode"",
+  "button name="Bind to field" pressed=true",
+  "button name="Fixed text" pressed=false",
+  "combobox name="Label field" value="— None —"",
+  "group name="Unit mode"",
+  "button name="Bind to field" pressed=true",
+  "button name="Fixed text" pressed=false",
+  "combobox name="Unit field" value="— None —"",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=false disabled describedBy=undefined",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode table: columnOrder + columnFormats 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Table" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "combobox name="Cell density" value="Normal"",
+  "input name="c" checked=true",
+  "combobox name="Format c" value="Date"",
+  "button name="Move c up" disabled",
+  "button name="Move c down"",
+  "input name="a" checked=true",
+  "combobox name="Format a" value="Currency ($)"",
+  "button name="Move a up"",
+  "button name="Move a down"",
+  "input name="b" checked=false",
+  "combobox name="Format b" value="None"",
+  "button name="Move b up"",
+  "button name="Move b down" disabled",
+  "button name="Reset column widths" disabled",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=false disabled describedBy=undefined",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
+
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode timeline: mapping + sort desc 1`] = `
+[
+  "button name="Close"",
+  "input name="Name" value="Out"",
+  "combobox name="Output kind" value="Timeline" disabled describedBy="An Output's kind can't be changed after it's created. Create a new Output for a different kind."",
+  "h3: Configuration",
+  "combobox name="Time field" value="a"",
+  "combobox name="Event field" value="b"",
+  "h3: History",
+  "switch name="Keep each run's rows" checked=false disabled describedBy=undefined",
+  "h3: Preview",
+  "button name="Delete"",
+  "button name="Cancel"",
+  "button name="Save"",
+]
+`;
