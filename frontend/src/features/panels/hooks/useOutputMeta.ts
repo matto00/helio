@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { fetchOutputMeta, getOutputMetaCached } from "../state/outputMetaCache";
 import type { Output } from "../../pipelines/types/output";
@@ -25,23 +25,37 @@ export function useOutputMeta(outputId: string | null): OutputMetaResult {
     outputId === null ? false : getOutputMetaCached(outputId) === undefined,
   );
 
+  // HEL-1380 — mirrors the committed state so the effect below can skip queuing an update whose
+  // value equals it (React bails out of committing such an update but still re-invokes the
+  // component). Synced in an effect declared BEFORE the fetch effect, so the fetch effect reads
+  // the state committed for the render that triggered it; never written during render.
+  const committed = useRef({ output, isLoading });
+  useEffect(() => {
+    committed.current = { output, isLoading };
+  });
+
   useEffect(() => {
     let cancelled = false;
     if (!outputId) {
       // Resolve asynchronously (not a synchronous setState call inside the
       // effect body) so switching a panel away from an Output still clears
       // a previously-fetched one.
-      void Promise.resolve().then(() => {
-        if (!cancelled) {
-          setOutput(null);
-          setIsLoading(false);
-        }
-      });
+      // Skipped entirely when state already is the cleared state (a null mount).
+      if (committed.current.output !== null || committed.current.isLoading) {
+        void Promise.resolve().then(() => {
+          if (!cancelled) {
+            setOutput(null);
+            setIsLoading(false);
+          }
+        });
+      }
       return () => {
         cancelled = true;
       };
     }
-    if (getOutputMetaCached(outputId) === undefined) {
+    // Only queued when not already loading (a cache-miss mount starts loading); a switch from a
+    // loaded/absent Output to an uncached one still flips to loading.
+    if (getOutputMetaCached(outputId) === undefined && !committed.current.isLoading) {
       void Promise.resolve().then(() => {
         if (!cancelled) setIsLoading(true);
       });
