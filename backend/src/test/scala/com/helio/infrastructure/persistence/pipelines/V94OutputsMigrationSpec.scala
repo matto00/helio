@@ -706,8 +706,16 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
             val outputId = await(superDb.run(sql"SELECT output_id FROM panels WHERE id = ${p.id}".as[Option[String]].head)).get
             val (kind, outConfig) = await(superDb.run(sql"SELECT kind, config::text FROM outputs WHERE id = $outputId".as[(String, String)].head))
             // HEL-1387: V117 (this spec migrates to latest) drops V94's `format` from kinds that do not accept it
-            // (chart/table/timeline/markdown); metric and collection Outputs keep it byte-identically.
-            if (Set("metric", "collection").contains(kind)) outConfig.parseJson.asJsObject.fields("format") shouldBe fmt.parseJson
+            // (chart/table/timeline/markdown). HEL-1410: V118 then rewrites V94's object-valued `format` on metric and
+            // collection Outputs to a string in the `isMetricFormat` set and records V94's object in
+            // `hel1410_migrated_output_formats`. NOTE: this dump never exercises the metric/collection branch (only a
+            // chart is `metric_id`-bound), so V118LegacyMetricFormatMigrationSpec is the real coverage.
+            if (Set("metric", "collection").contains(kind)) {
+              outConfig.parseJson.asJsObject.fields("format") should (be(JsString("number")) or be(JsString("integer")) or be(JsString("currency")) or be(JsString("percent")))
+              val original = await(superDb.run(
+                sql"SELECT original_format::text FROM hel1410_migrated_output_formats WHERE output_id = $outputId".as[String].head))
+              original.parseJson shouldBe fmt.parseJson
+            }
             else outConfig.parseJson.asJsObject.fields.get("format") shouldBe None
           }
         }

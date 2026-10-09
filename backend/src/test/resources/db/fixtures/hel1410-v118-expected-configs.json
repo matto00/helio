@@ -1,0 +1,158 @@
+{
+  "comment": "HEL-1410: expected post-V118 `format` (and metric `unit`) per migrated Output. Read by V118LegacyMetricFormatMigrationSpec (against the migrated DB) and by outputConfigTypes.hel1410.test.ts (against readMetricConfig/readCollectionConfig). `id` values starting with 'real-' are the dump-derived Outputs.",
+  "entries": [
+    {
+      "id": "real-metric-dump",
+      "kind": "metric",
+      "originalFormat": { "unit": "pts", "prefix": "~", "suffix": "/10", "decimals": 2 },
+      "format": "number",
+      "unit": "~ pts /10"
+    },
+    { "id": "real-metric-empty", "kind": "metric", "originalFormat": {}, "format": "number" },
+    {
+      "id": "real-collection-dump",
+      "kind": "collection",
+      "originalFormat": { "unit": "pts", "prefix": "~", "suffix": "/10", "decimals": 2 },
+      "format": "number"
+    },
+    {
+      "id": "m-currency",
+      "kind": "metric",
+      "originalFormat": { "prefix": " $ ", "decimals": 2 },
+      "format": "currency"
+    },
+    {
+      "id": "m-currency-nodec",
+      "kind": "metric",
+      "originalFormat": { "prefix": "$" },
+      "format": "currency"
+    },
+    {
+      "id": "m-currency-dec-string",
+      "kind": "metric",
+      "originalFormat": { "prefix": "$", "decimals": "2" },
+      "format": "currency"
+    },
+    {
+      "id": "m-currency-2point0",
+      "kind": "metric",
+      "originalFormat": { "prefix": "$", "decimals": 2.0 },
+      "format": "currency"
+    },
+    {
+      "id": "m-dollar-int",
+      "kind": "metric",
+      "originalFormat": { "prefix": "$", "decimals": 0 },
+      "format": "integer",
+      "unit": "$"
+    },
+    {
+      "id": "m-dollar-1",
+      "kind": "metric",
+      "originalFormat": { "prefix": "$", "decimals": 1 },
+      "format": "number",
+      "unit": "$"
+    },
+    {
+      "id": "m-euro",
+      "kind": "metric",
+      "originalFormat": { "prefix": "€" },
+      "format": "number",
+      "unit": "€"
+    },
+    {
+      "id": "m-dec3",
+      "kind": "metric",
+      "originalFormat": { "unit": "kg", "decimals": 3 },
+      "format": "number",
+      "unit": "kg"
+    },
+    {
+      "id": "m-dec-string",
+      "kind": "metric",
+      "originalFormat": { "decimals": "2", "suffix": "x" },
+      "format": "number",
+      "unit": "x"
+    },
+    {
+      "id": "m-dec-neg",
+      "kind": "metric",
+      "originalFormat": { "decimals": -1, "unit": "u" },
+      "format": "number",
+      "unit": "u"
+    },
+    {
+      "id": "m-nulls",
+      "kind": "metric",
+      "originalFormat": { "decimals": null, "prefix": null, "unit": null, "suffix": null },
+      "format": "number"
+    },
+    {
+      "id": "m-pct-null-unit",
+      "kind": "metric",
+      "originalFormat": { "decimals": 0, "suffix": "%" },
+      "format": "integer",
+      "unit": "%"
+    },
+    {
+      "id": "m-live-unit",
+      "kind": "metric",
+      "originalFormat": { "unit": "lb" },
+      "format": "number",
+      "unit": "kg"
+    },
+    {
+      "id": "m-live-unit-numeric",
+      "kind": "metric",
+      "originalFormat": { "unit": "lb" },
+      "format": "number",
+      "unit": 5
+    },
+    {
+      "id": "m-nonstring-text",
+      "kind": "metric",
+      "originalFormat": { "unit": 5, "suffix": "s" },
+      "format": "number",
+      "unit": "s"
+    },
+    {
+      "id": "m-unknown-key",
+      "kind": "metric",
+      "originalFormat": { "foo": 1, "unit": "u" },
+      "format": "number",
+      "unit": "u"
+    },
+    {
+      "id": "m-joined",
+      "kind": "metric",
+      "originalFormat": { "unit": "a", "suffix": "b", "bogus": true, "decimals": 5 },
+      "format": "number",
+      "unit": "a b"
+    },
+    {
+      "id": "m-whitespace",
+      "kind": "metric",
+      "originalFormat": { "prefix": "  ", "unit": "\t", "suffix": " \n" },
+      "format": "number"
+    },
+    {
+      "id": "c-text",
+      "kind": "collection",
+      "originalFormat": { "unit": "pts", "decimals": 0 },
+      "format": "integer"
+    },
+    {
+      "id": "c-currency",
+      "kind": "collection",
+      "originalFormat": { "prefix": "$" },
+      "format": "currency"
+    },
+    {
+      "id": "m-string-control",
+      "kind": "metric",
+      "originalFormat": null,
+      "format": "percent",
+      "unit": "u"
+    }
+  ]
+}
