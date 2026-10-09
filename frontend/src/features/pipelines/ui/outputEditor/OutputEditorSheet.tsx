@@ -18,7 +18,7 @@
 // save/create/delete/preview lifecycle harder to follow in one place --
 // noted here rather than silently over budget.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { Modal, Select, TextField, type SelectOption } from "../../../../shared/ui/index";
 import { InlineError } from "../../../../shared/chrome/InlineError";
@@ -127,6 +127,7 @@ export function OutputEditorSheet({
 }: OutputEditorSheetProps) {
   const dispatch = useAppDispatch();
   const isCreate = output === null;
+  const kindHintId = useId();
 
   const [nodeStepId, setNodeStepId] = useState<string | undefined>(
     isCreate ? createTargetStepId : output?.nodeStepId,
@@ -326,7 +327,8 @@ export function OutputEditorSheet({
   }
 
   // HEL-1389 -- an edit Save sends a config PATCH (only what the user changed, `null` for a clear);
-  // see `configPatch.ts`. A kind change has no comparable baseline, so it sends the full config.
+  // see `configPatch.ts`. Kind is fixed in edit mode (HEL-1388: the Kind select is disabled), so the
+  // `kind !== output.kind` guard is purely defensive; a differing kind would send the full config.
   function buildEditConfig(): Record<string, unknown> {
     const built = buildConfig();
     if (!output || kind !== output.kind) return built;
@@ -529,7 +531,15 @@ export function OutputEditorSheet({
             value={kind}
             onChange={(v) => setKind(v as OutputKind)}
             options={KIND_OPTIONS}
+            disabled={!isCreate}
+            ariaDescribedBy={isCreate ? undefined : kindHintId}
           />
+          {!isCreate && (
+            <p id={kindHintId} className="output-editor-sheet__field-hint">
+              An Output&apos;s kind can&apos;t be changed after it&apos;s created. Create a new
+              Output for a different kind.
+            </p>
+          )}
         </div>
       </div>
 

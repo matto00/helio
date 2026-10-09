@@ -40,7 +40,7 @@ literal markdown Content editor for `markdown` (no row binding — see "Markdown
 literal-only"); a number `format` for `metric`.
 
 #### Scenario: Switching kind swaps the option group
-- **WHEN** a user changes an Output's kind from `chart` to `table`
+- **WHEN** a user creating a new Output changes its kind from `chart` to `table`
 - **THEN** the sheet replaces the chart option group with the table column/density option group
 
 ### Requirement: Aggregate-requiring kinds offer tail insertion
@@ -125,3 +125,23 @@ When saving an existing Output, the Output editor sheet SHALL send in `config` o
 #### Scenario: Create still writes defaults
 - **WHEN** a new collection or timeline Output is created from the sheet
 - **THEN** the create request's `config` includes `layout: "grid"` (collection) or `sort: "asc"` (timeline) as today
+
+### Requirement: An existing Output's kind is fixed in the editor
+When the Output editor sheet is opened for an existing Output, the Kind control SHALL be disabled, SHALL show the
+Output's stored kind, and SHALL show a short visible reason that the kind cannot be changed after creation. The reason
+SHALL be exposed to assistive technology as the Kind control's accessible description, and the disabled control SHALL
+NOT be reachable by keyboard focus or open its option list. A Save from the edit sheet SHALL never send a different
+kind's configuration. When the sheet is opened to create a new Output, the Kind control SHALL be enabled and SHALL show
+no such reason.
+
+#### Scenario: Edit mode shows Kind disabled with a reason
+- **WHEN** a user opens the editor for an existing `chart` Output
+- **THEN** the Kind control shows "Chart", is disabled, and its accessible description is the cannot-be-changed reason
+
+#### Scenario: Disabled Kind cannot be changed
+- **WHEN** a user clicks the disabled Kind control in edit mode or tabs through the sheet
+- **THEN** no option list opens, focus skips the control, and the kind-specific option group stays the stored kind's
+
+#### Scenario: Create mode is unchanged
+- **WHEN** a user opens the editor to create a new Output
+- **THEN** the Kind control is enabled, has no cannot-be-changed reason, and selecting another kind swaps the option group
