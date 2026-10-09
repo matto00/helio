@@ -1,1 +1,0 @@
-- `schemas/pipelines/pipeline-analyze-proposal-response.schema.json` — corrects the two stale `AnalyzeStep` descriptions (top-level description and `$defs.AnalyzeProposalStep.description`) to state the current wire shape and the reason for the local `$defs` copy instead of a cross-file `$ref`; no structural change.
