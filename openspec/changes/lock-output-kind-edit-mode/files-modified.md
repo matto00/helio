@@ -1,3 +1,0 @@
-- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx` — Kind Select disabled in edit mode with visible hint + aria-describedby; buildEditConfig comment
-- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.kindLock.test.tsx` — edit-mode locked / create-mode unchanged tests
-- `openspec/changes/lock-output-kind-edit-mode/tasks.md` — task checkboxes
