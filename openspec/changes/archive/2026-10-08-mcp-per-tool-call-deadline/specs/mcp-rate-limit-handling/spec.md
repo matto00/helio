@@ -1,9 +1,4 @@
-# mcp-rate-limit-handling Specification
-
-## Purpose
-Defines how the helio-mcp server's HTTP client handles backend 429 rate-limit responses so a throttled tool call either succeeds after a short transparent wait or fails fast with an actionable rate-limit error, never with an opaque MCP request timeout.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Bounded transparent retry of rate-limited requests
 
