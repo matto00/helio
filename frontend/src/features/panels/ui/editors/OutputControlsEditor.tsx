@@ -1,6 +1,6 @@
 // HEL-1189 design.md D6/D7 — the "Controls" section for an `output` panel's config surface:
 // add/auto-bind/rebind/remove date-range/dropdown/numeric-range/text controls. Sibling to
-// `OutputPanelSection` in `PanelDetailModal.tsx`, mounted only in edit mode. Row rendering lives
+// `OutputPanelSection` (both rendered by `PanelDetailModal.tsx`), mounted only in edit mode. Row rendering lives
 // in `OutputControlRow.tsx` (CONTRIBUTING.md file-size budget, mirrors FormEditor/FormFieldRow).
 
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
