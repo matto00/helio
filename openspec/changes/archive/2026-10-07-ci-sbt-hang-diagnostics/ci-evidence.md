@@ -113,3 +113,18 @@ Reds observed (scripts copied to a scratch dir and mutated; the unmutated tree i
 - cwd check removed from `_diag_is_backend_jvm`: `(c) no dump taken` and `(c) message says no dump` red, 2 FAILED.
 - capture call removed from `e2e-backend.sh die`: `(d) die captured a dump of the recorded PGID's JVM` red, 1 FAILED.
 - Injected `x=$(pgrep -f sbt)` into `ci-sbt-diag.sh`: `check:ci-sbt-guard` exit 1 `scripts/lib/ci-sbt-diag.sh:132: pattern-matching process lookup/kill`; the guard selftest has 7 flagged + 5 allowed spellings.
+
+## Correction (HEL-1362, 2026-10-08)
+
+Timing: the "25-40 s" backend pre-step figure above (and in the then-current `ci.yml` comment) is stale for shard 0, where
+the selftest step (41-46 s) runs before "Compile and test". Re-measured (job start -> "Compile and test" step start,
+`backend (0)`) on four HEL-1362 PR runs: 83 s (37870529638), 90 s (37871617663), 73 s (37872469892), 77 s (37874061808).
+Worst 90 s: 780 s step bound + 90 s = 870 s < 900 s job bound, about 30 s to spare. (Main push run 37869010952 showed 55 s, but
+that predates the longer selftest, which then took 25 s; it is not representative of main after this change.) The original
+measurement above is left as recorded.
+
+Logs: two full backend-job logs of FLAKY-TEST failures unrelated to sbt diagnostics were removed from `ci-logs/`:
+`run37583797617-backend2-FAIL.log.txt` (2,266,058 B; OutputRoutesSpec:756) and
+`run37586488590-attempt4-backend3-FAIL.log.txt` (3,203,939 B; ProductEventRollupServiceSpec:85), 5,469,997 B in total. They are
+not hang evidence (no real hang occurred) and remain in git history at d71f646cb (runs 37583797617 and 37586488590). Kept: the
+deliberate positive control `run37583797617-security-control.log.txt` and `control-artifact/`, the only dump this tooling has produced.

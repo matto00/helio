@@ -11,9 +11,8 @@
 #       the backend JVM after "running (fork)"): if no process in the group is alive and /health is not
 #       answering, fail within one poll;
 #   (b) that the log reaches the compile/run stage within STAGE_TIMEOUT seconds; otherwise fail (no restart).
-# A thin-client sbt SERVER may live outside the group; it is not used as a liveness handle (its death shows up
-# as the client exiting, i.e. (a)). Every failure dumps the log. Tunables are env vars so the guard can be
-# exercised without CI.
+# sbt runs with `--server` (one foreground JVM), so no sbt server lives outside the group. Every failure dumps
+# the log. Tunables are env vars so the guard can be exercised without CI.
 set -u
 LOG="${BACKEND_LOG:-/tmp/backend.log}"
 PGIDFILE="${BACKEND_PGIDFILE:-/tmp/backend.pgid}"
@@ -23,9 +22,9 @@ TOTAL_TIMEOUT="${TOTAL_TIMEOUT:-300}"
 STAGE_TIMEOUT="${STAGE_TIMEOUT:-120}"
 POLL="${POLL:-2}"
 SBT="${SBT_CMD:-sbt}"
-# HEL-1339: official-runner flag for one foreground sbt JVM; set E2E_SBT_SERVER_FLAG="" to run the thin client (A/B).
-SERVER_FLAG="${E2E_SBT_SERVER_FLAG---server}"
-if [ -n "$SERVER_FLAG" ]; then MODE=server; else MODE=client; fi
+# HEL-1339: `--server` = one foreground sbt JVM, no thin-client handoff. Always on (HEL-1362 removed the empty-flag
+# thin-client A/B lever); MODE stays in the log lines as the fixed token `server`.
+MODE=server
 DIAG_DIR="${CI_SBT_DIAG_DIR:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/sbt-diagnostics}"
 # HEL-1339: shared thread-dump capture (PIDs from the recorded PGID only; see the library header).
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/lib/ci-sbt-diag.sh"
@@ -37,7 +36,12 @@ die() {
   local gid
   gid="$(cat "$PGIDFILE" 2> /dev/null)"
   if [ -n "$gid" ]; then
-    ci_sbt_capture "$gid" "$gid" "$DIR" "$DIAG_DIR" >&2 || echo "backend: no verified JVM in group $gid to dump" >&2
+    ci_sbt_capture "$gid" "$gid" "$DIR" "$DIAG_DIR" >&2
+    case $? in
+      0) ;;
+      2) echo "backend: SIGQUIT was sent to a verified JVM in group $gid but no jcmd thread dump file was written (the dump, if any, is in $LOG)" >&2 ;;
+      *) echo "backend: no verified JVM in group $gid to dump" >&2 ;;
+    esac
   fi
   echo "----- $LOG -----" >&2
   cat "$LOG" >&2
@@ -49,7 +53,7 @@ case "${1:-}" in
     : > "$LOG"
     # setsid makes the child a session (and group) leader, so its PID is the PGID of the whole tree.
     # HEL-1339: `--server` = one foreground sbt JVM (no sbtn -> background-server handoff), so $! is the build JVM.
-    ( cd "$DIR" || exit 1; setsid $SBT $SERVER_FLAG run >> "$LOG" 2>&1 < /dev/null & echo $! > "$PGIDFILE" ) > /dev/null 2>&1
+    ( cd "$DIR" || exit 1; setsid $SBT --server run >> "$LOG" 2>&1 < /dev/null & echo $! > "$PGIDFILE" ) > /dev/null 2>&1
     ;;
   wait)
     pgid="$(cat "$PGIDFILE" 2>/dev/null)"

@@ -1,27 +1,4 @@
-# ci-sbt-invocation Specification
-
-## Purpose
-Defines how CI runs sbt (whether the sbt 2 thin client is used) and what evidence a hung or timed-out sbt step leaves
-behind, so a silent sbt hang in CI can be diagnosed rather than only bounded.
-
-## Requirements
-
-### Requirement: CI sbt client mode is a measured, recorded decision
-Every CI step that invokes sbt (backend "Compile and test", security "Generate backend SBOM", e2e backend start) SHALL
-use one documented client mode. Whether that mode is the thin client or a single foreground sbt JVM SHALL be decided
-from CI measurements of the affected steps taken before and after the change, and the measurements SHALL be recorded
-with the change, including a startup-time measure (step start to the build's first project/compile output) for
-each mode. The chosen mode SHALL NOT add measurable time to those steps' startup, SHALL keep the backend job's
-median leg time at or below 5.5 minutes, and SHALL NOT make e2e legs exceed 7 minutes more often than a same-period
-thin-client baseline does. Any trade-off against these bounds is escalated to the owner, not decided in-loop.
-
-#### Scenario: Mode is visible in the log
-- **WHEN** a CI sbt step starts
-- **THEN** its log shows a positive line naming the mode, the recorded PID and that PID's executable
-
-#### Scenario: The backend heap setting still takes effect
-- **WHEN** the backend "Compile and test" step runs in the chosen mode
-- **THEN** the JVM max heap it prints is the configured 3 GiB value (3221225472), not the 1 GiB default
+## MODIFIED Requirements
 
 ### Requirement: A hung or timed-out CI sbt step captures a JVM thread dump
 When a CI sbt invocation exceeds its in-step deadline (or, for the e2e backend start, trips its existing fail-fast

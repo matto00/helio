@@ -5,29 +5,31 @@
 #   launch  the PID recorded when CI launched sbt (in `--server` mode `setsid` execs `sbt` which execs the build JVM,
 #           so it becomes the JVM itself);
 #   group   every process whose /proc/<p>/stat process-group field equals the PGID recorded at launch (this is how
-#           the JVM forked by `sbt run` / the forked test JVMs are found), enumerated from /proc, not by name;
-#   socket  only when backend/project/target/active.json exists (thin-client mode): the PID owning the exact socket
-#           path that file names (`ss -xlpn`, matched against the literal path).
+#           the JVM forked by `sbt run` / the forked test JVMs are found), enumerated from /proc, not by name.
+# CI only ever launches sbt with `--server` (one foreground JVM), so no sbt server lives outside the recorded group.
 # A candidate is dumped only if /proc/<p>/exe is a `java` binary and /proc/<p>/cwd is the backend dir or below it.
 # Nothing is ever signalled individually unless it passed that check; the recorded process GROUP is stopped as a
 # whole (the group id of a live group cannot be handed to an unrelated process; an already-empty group is a
 # harmless ESRCH -- a reused PID number is negligible, not impossible, over the seconds involved).
 #
-# Total capture budget is CI_SBT_CAPTURE_BUDGET seconds (default 25); every external call is clamped to what is left.
+# Total capture budget is CI_SBT_CAPTURE_BUDGET seconds (default 25) and is a HARD ceiling (HEL-1362): every external
+# call's cap INCLUDING its 1 s kill grace, and every sleep, is clamped to what is left, and a candidate is skipped
+# (logged) when too little budget remains to start it. `SECONDS` is whole-second, so the true ceiling is budget + <1 s.
 
 CI_SBT_CAPTURE_BUDGET="${CI_SBT_CAPTURE_BUDGET:-25}"
 _diag_t0=0
 
 _diag_remaining() { echo $((CI_SBT_CAPTURE_BUDGET - (SECONDS - _diag_t0))); }
 
-# _diag_timeout <cap-seconds> <cmd...>: run with min(cap, remaining budget); 124 when no budget is left.
+# _diag_timeout <cap-seconds> <cmd...>: run for at most min(cap, remaining budget) seconds in total, kill grace
+# included (`timeout -k 1 (n-1)` ends by n at the latest); 124 when under 2 s remain (nothing is started).
 _diag_timeout() {
   local cap="$1" rem
   shift
   rem="$(_diag_remaining)"
-  [ "$rem" -le 0 ] && return 124
   [ "$cap" -gt "$rem" ] && cap="$rem"
-  timeout -k 1 "$cap" "$@"
+  [ "$cap" -lt 2 ] && return 124
+  timeout -k 1 "$((cap - 1))" "$@"
 }
 
 # _diag_pgrp <pid>: process-group id from /proc/<pid>/stat (field 5; parsed after the ") " that ends comm).
@@ -48,26 +50,13 @@ _diag_is_backend_jvm() {
   [ "$cwd" = "$2" ] || case "$cwd" in "$2"/*) return 0 ;; *) return 1 ;; esac
 }
 
-# _diag_socket_owner <abs-backend-dir>: PID owning the socket path named by active.json; empty when none.
-_diag_socket_owner() {
-  local aj="$1/project/target/active.json" body path line
-  [ -f "$aj" ] || return 0
-  body="$(cat "$aj" 2> /dev/null)"
-  [[ "$body" =~ \"uri\"[[:space:]]*:[[:space:]]*\"local://([^\"]+)\" ]] || return 0
-  path="${BASH_REMATCH[1]}"
-  while IFS= read -r line; do
-    if [[ "$line" == *"$path"* && "$line" =~ pid=([0-9]+) ]]; then
-      echo "${BASH_REMATCH[1]}"
-      return 0
-    fi
-  done < <(_diag_timeout 4 ss -xlpn 2> /dev/null)
-}
-
 # ci_sbt_capture <pgid> <launch-pid> <backend-dir> <outdir>
-# Writes thread dumps to <outdir>/threads-<pid>.txt and returns 0 when at least one JVM was dumped, 1 otherwise.
+# Writes thread dumps to <outdir>/threads-<pid>.txt. Returns 0 when at least one jcmd dump file was written, 2 when
+# none was but SIGQUIT was delivered to at least one verified JVM (its dump, if any, is in the JVM's own log), 1 when
+# nothing was dumped or signalled.
 # Prints one `ci-sbt-diag:` line per candidate naming the PID SOURCE actually used.
 ci_sbt_capture() {
-  local pgid="$1" launch="$2" dir outdir="$4" p pg dumped=0 src
+  local pgid="$1" launch="$2" dir outdir="$4" p pg dumped=0 quit=0 src rem cap
   local -a order=()
   local -A seen=() source_of=()
   dir="$(cd "$3" 2> /dev/null && pwd -P)" || { echo "ci-sbt-diag: backend dir $3 not found; nothing dumped"; return 1; }
@@ -87,7 +76,6 @@ ci_sbt_capture() {
     pg="$(_diag_pgrp "$p")" || continue
     [ "$pg" = "$pgid" ] && _diag_add "$p" group
   done
-  _diag_add "$(_diag_socket_owner "$dir")" socket
 
   {
     echo "=== process tree of recorded session $pgid ($(date -u +%FT%TZ)) ==="
@@ -100,14 +88,21 @@ ci_sbt_capture() {
       echo "ci-sbt-diag: candidate pid=$p source=$src exe=$(readlink "/proc/$p/exe" 2> /dev/null || echo gone) cwd=$(readlink "/proc/$p/cwd" 2> /dev/null || echo gone) -> NOT a JVM in $dir; no dump, no individual signal"
       continue
     fi
-    if _diag_timeout 12 jcmd "$p" Thread.print -l > "$outdir/threads-$p.txt" 2> "$outdir/jcmd-$p.err" && [ -s "$outdir/threads-$p.txt" ]; then
+    rem="$(_diag_remaining)"
+    if [ "$rem" -lt 3 ]; then
+      echo "ci-sbt-diag: candidate pid=$p source=$src -> skipped: capture budget exhausted (${rem}s of ${CI_SBT_CAPTURE_BUDGET}s left)"
+      continue
+    fi
+    cap=$((rem - 1)) # reserve 1 s of the budget for the post-SIGQUIT wait below
+    [ "$cap" -gt 12 ] && cap=12
+    if _diag_timeout "$cap" jcmd "$p" Thread.print -l > "$outdir/threads-$p.txt" 2> "$outdir/jcmd-$p.err" && [ -s "$outdir/threads-$p.txt" ]; then
       echo "ci-sbt-diag: candidate pid=$p source=$src -> thread dump via jcmd ($(wc -l < "$outdir/threads-$p.txt") lines) -> threads-$p.txt"
       dumped=1
     else
       rm -f "$outdir/threads-$p.txt"
       echo "ci-sbt-diag: candidate pid=$p source=$src -> jcmd failed ($(head -c 200 "$outdir/jcmd-$p.err" 2> /dev/null)); sending SIGQUIT (dump goes to the JVM's own stdout log)"
-      kill -QUIT "$p" 2> /dev/null && dumped=1
-      sleep 1
+      kill -QUIT "$p" 2> /dev/null && quit=1
+      [ "$(_diag_remaining)" -ge 2 ] && sleep 1
     fi
     if [ "$(_diag_remaining)" -ge 8 ] && [ -s "$outdir/threads-$p.txt" ]; then
       _diag_timeout 4 jcmd "$p" GC.heap_info > "$outdir/heap-$p.txt" 2>&1
@@ -115,7 +110,9 @@ ci_sbt_capture() {
     fi
   done
   echo "ci-sbt-diag: capture finished in $((SECONDS - _diag_t0))s (budget ${CI_SBT_CAPTURE_BUDGET}s), artifacts in $outdir"
-  [ "$dumped" = 1 ]
+  [ "$dumped" = 1 ] && return 0
+  [ "$quit" = 1 ] && return 2
+  return 1
 }
 
 # ci_sbt_stop_group <pgid>: TERM the recorded group, 5 s grace, then KILL. Group signals only.
