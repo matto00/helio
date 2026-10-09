@@ -155,9 +155,12 @@ class DatasetRowsReaderBehaviorPreservingSpec extends AnyWordSpec with Matchers 
           (rows.map(_._1), goldenById)
         } finally preDb.close()
 
-        // ── Migrate to latest (applies V106) ────────────────────────────────────────────────
+        // ── Migrate (applies V106) ──────────────────────────────────────────────────────────
+        // HEL-1347: pinned to 118 -- this spec tests V106's reader equivalence, and V119 deletes the dump's
+        // NULL-owner static sources (including MyManualSource) that it reads by id.
         noException should be thrownBy {
-          Flyway.configure().dataSource(jdbcUrl, "postgres", "postgres").locations("classpath:db/migration").load().migrate()
+          Flyway.configure().dataSource(jdbcUrl, "postgres", "postgres").locations("classpath:db/migration")
+            .target(MigrationVersion.fromVersion("118")).load().migrate()
         }
 
         val postDb = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(4))

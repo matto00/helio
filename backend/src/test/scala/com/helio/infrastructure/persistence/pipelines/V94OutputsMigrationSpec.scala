@@ -234,11 +234,13 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
         .as[(String, String, String)]
     ))
 
-    // ── Now migrate to latest (applies V94) ─────────────────────────────────
+    // ── Now migrate (applies V94) ───────────────────────────────────────────
+    // HEL-1347: pinned to 118 -- this spec tests V94, and V119 deletes the dump's NULL-owner data sources.
     Flyway
       .configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")
+      .target(MigrationVersion.fromVersion("118"))
       .load()
       .migrate()
 
