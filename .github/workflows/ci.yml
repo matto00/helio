@@ -653,6 +653,24 @@ jobs:
             /tmp/frontend.log
           retention-days: 7
 
+  # HEL-1427 (origin HEL-1426): builds the production backend image exactly as cd-backend.yml does (final
+  # `runtime` stage, so `sbt update`, `sbt assembly` and the jar COPY --from=builder are all exercised) but with
+  # no login and no push, so a deploy-only Dockerfile break fails the PR instead of the release tag. Always-on
+  # and cache-less on purpose: it runs in parallel off the critical path, never turns `skipped` into a
+  # ci-complete hazard, and touches no Actions cache (HEL-1299 budget).
+  docker-image:
+    runs-on: ubuntu-latest
+    # Provisional until measured on real CI (HEL-1427 D5).
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -t helio-backend:ci-${{ github.sha }} .
+      # Report-only: image size evidence for the no-layer-cache trade (HEL-1427 D4).
+      - name: Report image layer sizes
+        run: |
+          docker history helio-backend:ci-${{ github.sha }}
+          docker image ls
+
   # Single required status check for the `main` ruleset. Individual jobs may be
   # skipped by future path filters; a skipped job reports "skipped", which this
   # gate treats as success. Only failure/cancelled fail the gate. Never add
@@ -660,7 +678,7 @@ jobs:
   # status at all and would block every affected PR permanently.
   ci-complete:
     if: always()
-    needs: [frontend, backend, security, e2e]
+    needs: [frontend, backend, security, e2e, docker-image]
     runs-on: ubuntu-latest
     # HEL-1287 D11: measured 2-4 s of execution; 2 min leaves runner start-up jitter.
     timeout-minutes: 2
