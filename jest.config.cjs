@@ -1,3 +1,5 @@
+const { localJestCaps } = require("./scripts/lib/jest-local-caps.cjs");
+
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
@@ -58,4 +60,6 @@ module.exports = {
   transform: {
     "^.+\\.tsx?$": ["ts-jest", { tsconfig: { module: "NodeNext", moduleResolution: "NodeNext" } }],
   },
+  // HEL-1442: local-only worker/memory/cache caps (empty under CI).
+  ...localJestCaps(__dirname),
 };

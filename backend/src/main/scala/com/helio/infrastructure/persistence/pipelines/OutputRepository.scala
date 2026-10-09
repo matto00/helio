@@ -194,9 +194,9 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       schema: Vector[SchemaField] = Vector.empty,
       tag: Option[String] = None,
       // HEL-913 task 5.8a: names WHICH root a root-bound (`nodeStepId = None`) Output attaches
-      // to. Defaulted to `None` (auto-resolve the pipeline's first/only root, exactly the
-      // Stage-1/2 single-root-compatible behavior) so every pre-existing call site is
-      // unaffected; the service layer passes it explicitly once a caller can name a root.
+      // to. Required (no default): `None` auto-resolves the pipeline's first/only root (exactly the
+      // Stage-1/2 single-root-compatible behavior); the service layer
+      // passes it explicitly once a caller can name a root.
       explicitRootId: Option[PipelineRootId]
   ): Future[Output] =
     ctx.withSystemContext(insertInternalAction(pipelineId, nodeStepId, ownerId, name, kind, config, schema, tag, explicitRootId).transactionally)

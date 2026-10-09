@@ -1,0 +1,315 @@
+Oct 09 05:23:08 archlinux kernel: node invoked oom-killer: gfp_mask=0x140cca(GFP_HIGHUSER_MOVABLE|__GFP_COMP), order=0, oom_score_adj=200
+Oct 09 05:23:08 archlinux kernel: CPU: 8 UID: 1000 PID: 738108 Comm: node Tainted: G           OE       7.1.5-arch1-2 #1 PREEMPT(full)  33708094282b4038de0f4f0d201b68f6a0b5d9bf
+Oct 09 05:23:08 archlinux kernel: Tainted: [O]=OOT_MODULE, [E]=UNSIGNED_MODULE
+Oct 09 05:23:08 archlinux kernel: Hardware name: ASUS System Product Name/TUF GAMING B650-PLUS WIFI, BIOS 2613 04/12/2024
+Oct 09 05:23:08 archlinux kernel: Call Trace:
+Oct 09 05:23:08 archlinux kernel:  <TASK>
+Oct 09 05:23:08 archlinux kernel:  dump_stack_lvl+0x5d/0x80
+Oct 09 05:23:08 archlinux kernel:  dump_header+0x43/0x1b3
+Oct 09 05:23:08 archlinux kernel:  oom_kill_process.cold+0x8/0x91
+Oct 09 05:23:08 archlinux kernel:  out_of_memory+0x231/0x570
+Oct 09 05:23:08 archlinux kernel:  __alloc_pages_slowpath.constprop.0+0xf26/0x1170
+Oct 09 05:23:08 archlinux kernel:  __alloc_frozen_pages_noprof+0x31e/0x380
+Oct 09 05:23:08 archlinux kernel:  alloc_pages_mpol+0xb2/0x160
+Oct 09 05:23:08 archlinux kernel:  folio_alloc_noprof+0x54/0xa0
+Oct 09 05:23:08 archlinux kernel:  __filemap_get_folio_mpol+0x1e3/0x320
+Oct 09 05:23:08 archlinux kernel:  filemap_fault+0x2f8/0x1340
+Oct 09 05:23:08 archlinux kernel:  __do_fault+0x34/0x170
+Oct 09 05:23:08 archlinux kernel:  do_fault+0x3ec/0x5f0
+Oct 09 05:23:08 archlinux kernel:  ? __pte_offset_map+0x1b/0x100
+Oct 09 05:23:08 archlinux kernel:  ? srso_alias_return_thunk+0x5/0xfbef5
+Oct 09 05:23:08 archlinux kernel:  __handle_mm_fault+0x967/0xf80
+Oct 09 05:23:08 archlinux kernel:  ? srso_alias_return_thunk+0x5/0xfbef5
+Oct 09 05:23:08 archlinux kernel:  handle_mm_fault+0xed/0x2c0
+Oct 09 05:23:08 archlinux kernel:  do_user_addr_fault+0x23b/0x730
+Oct 09 05:23:08 archlinux kernel:  exc_page_fault+0x90/0x1f0
+Oct 09 05:23:08 archlinux kernel:  asm_exc_page_fault+0x26/0x30
+Oct 09 05:23:08 archlinux kernel: RIP: 0033:0x2ae7240
+Oct 09 05:23:08 archlinux kernel: Code: Unable to access opcode bytes at 0x2ae7216.
+Oct 09 05:23:08 archlinux kernel: RSP: 002b:00007fd0509fba38 EFLAGS: 00010202
+Oct 09 05:23:08 archlinux kernel: RAX: 0000000006690a28 RBX: 00007fd014138658 RCX: 00007fd01413bff0
+Oct 09 05:23:08 archlinux kernel: RDX: 0000000000000000 RSI: 00007fd0141463a0 RDI: 000000000cb53480
+Oct 09 05:23:08 archlinux kernel: RBP: 00007fd0509fba70 R08: 0000000000000000 R09: 0000000000000002
+Oct 09 05:23:08 archlinux kernel: R10: 0000000000000001 R11: 000000000fc23ae0 R12: 00007fd0141463a0
+Oct 09 05:23:08 archlinux kernel: R13: 0000000000000000 R14: 0000000000000000 R15: 00007fd014154e18
+Oct 09 05:23:08 archlinux kernel:  </TASK>
+Oct 09 05:23:08 archlinux kernel: Mem-Info:
+Oct 09 05:23:08 archlinux kernel: active_anon:9257885 inactive_anon:5120014 isolated_anon:0
+                                   active_file:272 inactive_file:1122 isolated_file:0
+                                   unevictable:77785 dirty:0 writeback:0
+                                   slab_reclaimable:197162 slab_unreclaimable:282486
+                                   mapped:186043 shmem:3444480 pagetables:214351
+                                   sec_pagetables:1518 bounce:0
+                                   kernel_misc_reclaimable:0
+                                   free:111926 free_pcp:1 free_cma:0
+Oct 09 05:23:08 archlinux kernel: Node 0 active_anon:37031540kB inactive_anon:20480056kB active_file:1412kB inactive_file:4488kB unevictable:311140kB isolated(anon):0kB isolated(file):0kB mapped:744172kB dirty:0kB writeback:0kB shmem:13777920kB shmem_thp:0kB shmem_pmdmapped:0kB anon_thp:11077632kB kernel_stack:44944kB pagetables:857404kB sec_pagetables:6072kB all_unreclaimable? yes Balloon:0kB gpu_active:15876kB gpu_reclaim:0kB
+Oct 09 05:23:08 archlinux kernel: Node 0 DMA free:11260kB boost:0kB min:16kB low:28kB high:40kB reserved_highatomic:0KB free_highatomic:0KB active_anon:0kB inactive_anon:0kB active_file:0kB inactive_file:0kB unevictable:0kB writepending:0kB zspages:0kB present:15996kB managed:15360kB mlocked:0kB bounce:0kB free_pcp:0kB local_pcp:0kB free_cma:0kB
+Oct 09 05:23:08 archlinux kernel: lowmem_reserve[]: 0 1712 63489 63489 63489
+Oct 09 05:23:08 archlinux kernel: Node 0 DMA32 free:248164kB boost:0kB min:1564kB low:3064kB high:4564kB reserved_highatomic:0KB free_highatomic:0KB active_anon:1176456kB inactive_anon:260532kB active_file:28kB inactive_file:876kB unevictable:0kB writepending:0kB zspages:55688kB present:1820184kB managed:1753416kB mlocked:0kB bounce:0kB free_pcp:4kB local_pcp:0kB free_cma:0kB
+Oct 09 05:23:08 archlinux kernel: lowmem_reserve[]: 0 0 61776 61776 61776
+Oct 09 05:23:08 archlinux kernel: Node 0 Normal free:188280kB boost:147456kB min:213456kB low:276704kB high:339952kB reserved_highatomic:0KB free_highatomic:0KB active_anon:35855088kB inactive_anon:20219520kB active_file:356kB inactive_file:4640kB unevictable:311140kB writepending:0kB zspages:2795932kB present:64453632kB managed:63259476kB mlocked:184kB bounce:0kB free_pcp:0kB local_pcp:0kB free_cma:0kB
+Oct 09 05:23:08 archlinux kernel: lowmem_reserve[]: 0 0 0 0 0
+Oct 09 05:23:08 archlinux kernel: Node 0 DMA: 1*4kB (U) 1*8kB (U) 1*16kB (U) 1*32kB (U) 1*64kB (U) 1*128kB (U) 1*256kB (U) 1*512kB (U) 0*1024kB 1*2048kB (M) 2*4096kB (M) = 11260kB
+Oct 09 05:23:08 archlinux kernel: Node 0 DMA32: 102*4kB (ME) 116*8kB (UME) 65*16kB (UME) 91*32kB (UME) 69*64kB (UME) 51*128kB (UME) 32*256kB (UME) 17*512kB (UME) 16*1024kB (UME) 7*2048kB (ME) 45*4096kB (ME) = 248168kB
+Oct 09 05:23:08 archlinux kernel: Node 0 Normal: 2306*4kB (UME) 1694*8kB (UME) 694*16kB (UME) 1979*32kB (UME) 935*64kB (UME) 148*128kB (UME) 24*256kB (UME) 12*512kB (U) 0*1024kB 0*2048kB 0*4096kB = 188280kB
+Oct 09 05:23:08 archlinux kernel: Node 0 hugepages_total=0 hugepages_free=0 hugepages_surp=0 hugepages_size=1048576kB
+Oct 09 05:23:08 archlinux kernel: Node 0 hugepages_total=0 hugepages_free=0 hugepages_surp=0 hugepages_size=2048kB
+Oct 09 05:23:08 archlinux kernel: 3523636 total pagecache pages
+Oct 09 05:23:08 archlinux kernel: 1 pages in swap cache
+Oct 09 05:23:08 archlinux kernel: Free swap  = 216kB
+Oct 09 05:23:08 archlinux kernel: Total swap = 4194300kB
+Oct 09 05:23:08 archlinux kernel: 16572453 pages RAM
+Oct 09 05:23:08 archlinux kernel: 0 pages HighMem/MovableOnly
+Oct 09 05:23:08 archlinux kernel: 315390 pages reserved
+Oct 09 05:23:08 archlinux kernel: 0 pages cma reserved
+Oct 09 05:23:08 archlinux kernel: 0 pages hwpoisoned
+Oct 09 05:23:08 archlinux kernel: Memory cgroup min protection 0kB -- low protection 0kB
+Oct 09 05:23:08 archlinux kernel: Tasks state (memory values in pages):
+Oct 09 05:23:08 archlinux kernel: [  pid  ]   uid  tgid total_vm      rss rss_anon rss_file rss_shmem pgtables_bytes swapents oom_score_adj name
+Oct 09 05:23:08 archlinux kernel: [    348]     0   348    23430      493      487        4         2   212992        0          -250 systemd-journal
+Oct 09 05:23:08 archlinux kernel: [    376]     0   376     2295      139      135        4         0    65536        7             0 systemd-userdbd
+Oct 09 05:23:08 archlinux kernel: [    392]   974   392    21368      197      193        4         0    73728        0             0 systemd-timesyn
+Oct 09 05:23:08 archlinux kernel: [    398]     0   398    10763     1140     1136        4         0   106496        0         -1000 systemd-udevd
+Oct 09 05:23:08 archlinux kernel: [    548]    81   548     2040      217      212        4         1    57344        7          -900 dbus-broker-lau
+Oct 09 05:23:08 archlinux kernel: [    549]    81   549     1673      493      491        2         0    57344        4          -900 dbus-broker
+Oct 09 05:23:08 archlinux kernel: [    550]     0   550   175273     1604     1600        4         0   217088        0             0 NetworkManager
+Oct 09 05:23:08 archlinux kernel: [    551]     0   551     2841      154      150        4         0    69632        0             0 bluetoothd
+Oct 09 05:23:08 archlinux kernel: [    553]     0   553     2638      273      269        4         0    61440        0             0 systemd-logind
+Oct 09 05:23:08 archlinux kernel: [    604]     0   604     5137      590      587        3         0    90112        0             0 wpa_supplicant
+Oct 09 05:23:08 archlinux kernel: [    613]     0   613    40490       20       17        3         0   155648      615             0 sddm
+Oct 09 05:23:08 archlinux kernel: [    615]     0   615   566092    10320    10311        4         5   446464        0          -999 containerd
+Oct 09 05:23:08 archlinux kernel: [    650]   964   650 2147618562    15454    15402       52         0   561152    25090             0 mariadbd
+Oct 09 05:23:08 archlinux kernel: [    651]     0   651  6627762     6312     3491     2316       505   425984     6092             0 Xorg
+Oct 09 05:23:08 archlinux kernel: [    750]     0   750   576613    10222    10218        4         0   507904     1265          -500 dockerd
+Oct 09 05:23:08 archlinux kernel: [    751]  1000   751   541857     5215     5211        4         0   344064        0             0 ollama
+Oct 09 05:23:08 archlinux kernel: [    765]   961   765    57218     3933      570        3      3360   176128        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [    771]     0   771    22890      393      389        4         0   147456      295             0 sddm-helper
+Oct 09 05:23:08 archlinux kernel: [    792]   961   792    57292    34578      610        2     33966   401408        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [    793]   961   793    57251    34558      590        2     33966   401408        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [    794]   961   794    57251    34166      587        2     33577   401408        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [    795]   961   795    57489    35745      833        2     34910   405504        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [    796]   961   796    57251    35255      601        2     34652   397312        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [    799]   961   799    57507     1749      585        2      1162   135168        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [    800]   961   800    57615     3318      660        2      2656   348160        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [    801]   961   801    57615      916      647        2       267   139264        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [    814]  1000   814     4843      740      736        4         0    77824        0           100 systemd
+Oct 09 05:23:08 archlinux kernel: [    821]  1000   821     4889      397      395        2         0    77824        0           100 (sd-pam)
+Oct 09 05:23:08 archlinux kernel: [    885]  1000   885     2024       87       84        3         0    53248        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [    887]  1000   887    80392      333      330        3         0   122880        0           200 gnome-keyring-d
+Oct 09 05:23:08 archlinux kernel: [    894]  1000   894     1915       86       81        4         1    57344        0           200 dbus-broker-lau
+Oct 09 05:23:08 archlinux kernel: [    903]  1000   903     1657      488      486        2         0    53248        0           200 dbus-broker
+Oct 09 05:23:08 archlinux kernel: [    911]  1000   911     2024       84       81        3         0    53248        5             0 sh
+Oct 09 05:23:08 archlinux kernel: [   1083]     0  1083   317001     1690     1687        3         0   118784        0          -998 containerd-shim
+Oct 09 05:23:08 archlinux kernel: [   1110]     0  1110    34602     5907     5902        5         0   159744        0             0 searxng
+Oct 09 05:23:08 archlinux kernel: [   1161]     0  1161   418367      645      642        3         0   159744      569          -500 docker-proxy
+Oct 09 05:23:08 archlinux kernel: [   1956]  1000  1956     1512       28       26        2         0    57344        0           200 waitpid
+Oct 09 05:23:08 archlinux kernel: [   1996]  1000  1996     3179      149      145        4         0    73728       10             0 systemctl
+Oct 09 05:23:08 archlinux kernel: [   2145]  1000  2145     4231       77       75        2         0    69632        0           200 start-hyprland
+Oct 09 05:23:08 archlinux kernel: [   2146]     0  2146     4371     1656     1651        5         0    73728        0             0 python3
+Oct 09 05:23:08 archlinux kernel: [   2147]     0  2147   126511    21957    21952        5         0   380928        0             0 searxng worker-
+Oct 09 05:23:08 archlinux kernel: [   2168]  1000  2168   263815    44329    21310    21031      1988   749568        0           200 Hyprland
+Oct 09 05:23:08 archlinux kernel: [   2223]  1000  2223    41419      151      148        3         0    77824        0           200 dconf-service
+Oct 09 05:23:08 archlinux kernel: [   2231]  1000  2231      799       43       41        2         0    40960        0           200 wl-paste
+Oct 09 05:23:08 archlinux kernel: [   2232]  1000  2232      799       43       41        2         0    49152        0           200 wl-paste
+Oct 09 05:23:08 archlinux kernel: [   2240]  1000  2240     1767       74       71        3         0    57344        0           200 mpris-proxy
+Oct 09 05:23:08 archlinux kernel: [   2253]  1000  2253  1390986   410314   385731    24539        44  5681152        0           200 qs
+Oct 09 05:23:08 archlinux kernel: [   2274]  1000  2274   140462    21661    13623     7971        67   409600        0           200 Xwayland
+Oct 09 05:23:08 archlinux kernel: [   2294]  1000  2294   137867      918      913        4         1   167936        0           200 xdg-desktop-por
+Oct 09 05:23:08 archlinux kernel: [   2300]  1000  2300   232488     3030     2985        4        41   385024        0           200 nm-applet
+Oct 09 05:23:08 archlinux kernel: [   2306]  1000  2306    76946      137      134        3         0    94208        0           200 xdg-permission-
+Oct 09 05:23:08 archlinux kernel: [   2312]  1000  2312   211037      190      187        3         0   180224        0           200 xdg-document-po
+Oct 09 05:23:08 archlinux kernel: [   2323]  1000  2323      768       30       28        2         0    45056        0           200 fusermount3
+Oct 09 05:23:08 archlinux kernel: [   2326]  1000  2326   232065     8864     8779        4        81   344064        0           200 xdg-desktop-por
+Oct 09 05:23:08 archlinux kernel: [   2328]  1000  2328    95125      175      171        3         1   114688        0           200 at-spi-bus-laun
+Oct 09 05:23:08 archlinux kernel: [   2334]  1000  2334     1915       72       67        4         1    57344        0           200 dbus-broker-lau
+Oct 09 05:23:08 archlinux kernel: [   2335]  1000  2335     1230       55       53        2         0    57344        0           200 dbus-broker
+Oct 09 05:23:08 archlinux kernel: [   2342]  1000  2342    82796      479      475        4         0   155648        0           200 gvfsd
+Oct 09 05:23:08 archlinux kernel: [   2349]  1000  2349   136554      224      221        3         0   135168        0           200 gvfsd-fuse
+Oct 09 05:23:08 archlinux kernel: [   2356]  1000  2356    41999      162      159        3         0    90112        0           200 at-spi2-registr
+Oct 09 05:23:08 archlinux kernel: [   2364]   102  2364    95832      777      773        4         0   114688        0             0 polkitd
+Oct 09 05:23:08 archlinux kernel: [   2366]   133  2366    21657       61       58        3         0    73728        0             0 rtkit-daemon
+Oct 09 05:23:08 archlinux kernel: [   2380]  1000  2380    27295     2411     2367        4        40   118784        0           200 pipewire
+Oct 09 05:23:08 archlinux kernel: [   2382]  1000  2382   192432     3905     3899        4         2   348160        0           200 wireplumber
+Oct 09 05:23:08 archlinux kernel: [   2384]  1000  2384    42341      204      201        3         0    86016        0           200 gvfsd-metadata
+Oct 09 05:23:08 archlinux kernel: [   2409]  1000  2409    42555      316      312        4         0    90112        0           200 xdg-desktop-por
+Oct 09 05:23:08 archlinux kernel: [   2422]     0  2422    77141      175      171        4         0   114688        0             0 power-profiles-
+Oct 09 05:23:08 archlinux kernel: [   2544]  1000  2544      834       35       33        2         0    49152        0           200 bwrap
+Oct 09 05:23:08 archlinux kernel: [   2548]  1000  2548      834       36       36        0         0    49152        0           200 bwrap
+Oct 09 05:23:08 archlinux kernel: [   2549]  1000  2549    36421      231      227        4         0    86016        0           200 glycin-image-rs
+Oct 09 05:23:08 archlinux kernel: [   2565]     0  2565    80429      996      992        4         0   131072        0             0 upowerd
+Oct 09 05:23:08 archlinux kernel: [ 112325]  1000 112325    78571      561      557        4         0   110592       22           200 nmcli
+Oct 09 05:23:08 archlinux kernel: [ 157991]  1000 157991    29480     3320     3316        4         0   114688       38           200 pipewire-pulse
+Oct 09 05:23:08 archlinux kernel: [2638114]  1000 2638114 379721487    22497    21407       25      1065  1609728      206           200 Discord
+Oct 09 05:23:08 archlinux kernel: [2638117]  1000 2638117 12725040     2302     2299        3         0   376832       70           200 Discord
+Oct 09 05:23:08 archlinux kernel: [2638118]  1000 2638118 12725037     2242     2239        3         0   401408      108           200 Discord
+Oct 09 05:23:08 archlinux kernel: [2638121]  1000 2638121 12725037     2247     2245        2         0   221184      108           200 Discord
+Oct 09 05:23:08 archlinux kernel: [2638167]  1000 2638167 12589117       91       88        3         0    90112        4           200 chrome_crashpad
+Oct 09 05:23:08 archlinux kernel: [2638213]  1000 2638213 13998155    29945    22895     6965        85  1359872      753           200 Discord
+Oct 09 05:23:08 archlinux kernel: [2638219]  1000 2638219 12690509     4515     4411        4       100   880640      101           200 Discord
+Oct 09 05:23:08 archlinux kernel: [2638644]  1000 2638644 380772564    72867    72270       60       537  2801664        0           200 Discord
+Oct 09 05:23:08 archlinux kernel: [2639088]  1000 2639088 12692186     2632     2597        4        31   520192        0           200 Discord
+Oct 09 05:23:08 archlinux kernel: [3575523]  1000 3575523   109233      615      611        3         1   159744        0           200 gvfs-udisks2-vo
+Oct 09 05:23:08 archlinux kernel: [3575565]     0 3575565   119893      668      664        4         0   151552        0             0 udisksd
+Oct 09 05:23:08 archlinux kernel: [3575685]  1000 3575685   138144      554      550        4         0   176128        0           200 gvfsd-trash
+Oct 09 05:23:08 archlinux kernel: [3576895]  1000 3576895   101308      511      507        4         0   159744        0           200 gvfsd-network
+Oct 09 05:23:08 archlinux kernel: [3992787]  1000 3992787     2360      146      142        4         0    61440        0           200 systemd-inhibit
+Oct 09 05:23:08 archlinux kernel: [3992794]  1000 3992794     1525       29       27        2         0    57344        0           200 sleep
+Oct 09 05:23:08 archlinux kernel: [3995817]  1000 3995817 379707499    49585    48626       18       941  2191360      673           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3995827]  1000 3995827 13784219     2636     2632        4         0   434176        0           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3995828]  1000 3995828 13784215     2615     2611        4         0   434176        0           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3995830]  1000 3995830 13784223     2644     2641        3         0   286720        0           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3995849]  1000 3995849 13637934       92       89        3         0    81920        0           200 chrome_crashpad
+Oct 09 05:23:08 archlinux kernel: [3995882]  1000 3995882 13936444    33491    25661     7221       609  1351680        0           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3995885]  1000 3995885 13750307     4929     4860        4        65  1015808        0           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3995950]  1000 3995950 379639255     6790     6758        3        29   819200        0           300 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3996007]  1000 3996007 13897854     9121     7770     1351         0   516096        0           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3996096]  1000 3996096 383639399   214212   212692        3      1517  4792320        0           300 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3996189]  1000 3996189   307380     1115     1112        3         0    98304        0           200 cowork-linux-he
+Oct 09 05:23:08 archlinux kernel: [3996199]  1000 3996199 379577676     5983     5931       18        34  1003520        0           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3996215]  1000 3996215 379569480    17835    17783       18        34   933888        0           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3996299]  1000 3996299 13749282     2886     2864        4        18   552960        0           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3996371]  1000 3996371  1411113   135937   135933        4         0  2617344        0           200 claude
+Oct 09 05:23:08 archlinux kernel: [3996447]  1000 3996447   336075    10813    10788       25         0  1269760        0           200 npm exec @playw
+Oct 09 05:23:08 archlinux kernel: [3996448]  1000 3996448   256867     5817     5793       24         0  1011712        0           200 node
+Oct 09 05:23:08 archlinux kernel: [3996649]  1000 3996649  3016705    74516    74491       25         0  8400896        0           200 node
+Oct 09 05:23:08 archlinux kernel: [3996826]  1000 3996826 379583845     4752     4703       18        31   753664       66           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [3996841]  1000 3996841     2879      944      941        3         0    65536        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [1024380]  1000 1024380     2090      143      140        3         0    53248        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [1024399]  1000 1024399     5906       91       88        3         0   106496        0           200 srt-logger
+Oct 09 05:23:08 archlinux kernel: [1024489]  1000 1024489   251093    76149    69390     1862      4897  1703936        0           200 steam
+Oct 09 05:23:08 archlinux kernel: [1024513]  1000 1024513     1293       39       37        2         0    61440        0           200 srt-bwrap
+Oct 09 05:23:08 archlinux kernel: [1024525]  1000 1024525     5535       79       76        3         0   102400        0           200 srt-logger
+Oct 09 05:23:08 archlinux kernel: [1024681]  1000 1024681     6707      106      103        3         0   122880        0           200 pv-adverb
+Oct 09 05:23:08 archlinux kernel: [1024682]  1000 1024682    79310      133      130        3         0   147456        0           200 steam-runtime-l
+Oct 09 05:23:08 archlinux kernel: [1024713]  1000 1024713   428658    58373    30620      841     26912  1445888        0           200 steamwebhelper
+Oct 09 05:23:08 archlinux kernel: [1024716]  1000 1024716   144257     5532     5518        4        10   475136        0           200 steamwebhelper
+Oct 09 05:23:08 archlinux kernel: [1024721]  1000 1024721  8567530     5542     5528        4        10   499712        0           200 steamwebhelper
+Oct 09 05:23:08 archlinux kernel: [1024722]  1000 1024722  8567519     5414     5400        4        10   495616        0           200 steamwebhelper
+Oct 09 05:23:08 archlinux kernel: [1024724]  1000 1024724  8567527     5430     5427        3         0   237568        0           200 steamwebhelper
+Oct 09 05:23:08 archlinux kernel: [1024742]  1000 1024742  8837113    68229    52671    14815       743  1335296        0           200 steamwebhelper
+Oct 09 05:23:08 archlinux kernel: [1024745]  1000 1024745  8593520     8839     7489     1350         0   299008        0           200 steamwebhelper
+Oct 09 05:23:08 archlinux kernel: [1024755]  1000 1024755   326863     7390     7263        4       123   761856        0           200 steamwebhelper
+Oct 09 05:23:08 archlinux kernel: [1024760]  1000 1024760  8696858     6124     6088        3        33   499712        0           200 steamwebhelper
+Oct 09 05:23:08 archlinux kernel: [1024813]  1000 1024813 12463619   120314   120085        3       226  2109440        0           300 steamwebhelper
+Oct 09 05:23:08 archlinux kernel: [1025354]  1000 1025354 12473573    36839    36043        3       793  1269760        0           300 steamwebhelper
+Oct 09 05:23:08 archlinux kernel: [1660669]  1000 1660669   502404     2300     2296        4         0   229376        0           200 spicetify
+Oct 09 05:23:08 archlinux kernel: [1660677]  1000 1660677   470942    61360    60921        4       435  1544192        0           200 spotify
+Oct 09 05:23:08 archlinux kernel: [1660684]  1000 1660684   135579     4492     4488        4         0   401408        0           200 spotify
+Oct 09 05:23:08 archlinux kernel: [1660689]  1000 1660689 12780573     5101     5097        4         0   487424        0           200 spotify
+Oct 09 05:23:08 archlinux kernel: [1660690]  1000 1660690 12780574     5102     5098        4         0   483328        0           200 spotify
+Oct 09 05:23:08 archlinux kernel: [1660711]  1000 1660711 14232627    24973    19310     4901       762  1261568        0           200 spotify
+Oct 09 05:23:08 archlinux kernel: [1660715]  1000 1660715   321345    14584    14386        4       194   790528        0           200 spotify
+Oct 09 05:23:08 archlinux kernel: [1660722]  1000 1660722 12933149    15061    15017        3        41   593920        0           200 spotify
+Oct 09 05:23:08 archlinux kernel: [1660781]  1000 1660781 365243896    67339    66282        4      1053  1974272        0           300 spotify
+Oct 09 05:23:08 archlinux kernel: [1660917]  1000 1660917 21282169    19900    19859        3        38   655360        0           200 spotify
+Oct 09 05:23:08 archlinux kernel: [1662402]  1000 1662402  3296696   219862   201884    11922      6056  5017600        0           200 zen-bin
+Oct 09 05:23:08 archlinux kernel: [1662479]  1000 1662479   148635     2396     2393        3         0   237568        0           200 forkserver
+Oct 09 05:23:08 archlinux kernel: [1662498]  1000 1662498   152417     3165     3086        4        75   356352        0           200 Socket Process
+Oct 09 05:23:08 archlinux kernel: [1662530]  1000 1662530   720155    13896    11824        4      2068   770048        0           200 Privileged Cont
+Oct 09 05:23:08 archlinux kernel: [1662539]  1000 1662539   231053     6315     4060        4      2251   614400        0           200 RDD Process
+Oct 09 05:23:08 archlinux kernel: [1662663]  1000 1662663   687549     4468     4176        4       288   577536        0           200 Web Content
+Oct 09 05:23:08 archlinux kernel: [1662728]  1000 1662728   763887    59741    59295        4       442  1572864        0           200 Isolated Web Co
+Oct 09 05:23:08 archlinux kernel: [1662775]  1000 1662775   697471     7850     7559        4       287   786432        0           133 WebExtensions
+Oct 09 05:23:08 archlinux kernel: [1662861]  1000 1662861   212034     4272     4193        4        75   516096        0           200 Utility Process
+Oct 09 05:23:08 archlinux kernel: [1683156]  1000 1683156   773323    45981    45526        4       451  2146304        0           200 Isolated Web Co
+Oct 09 05:23:08 archlinux kernel: [1684819]  1000 1684819   902642   143492   142941        4       547  4603904        0           133 Isolated Web Co
+Oct 09 05:23:08 archlinux kernel: [1684950]  1000 1684950   822743    81936    81032        4       900  3223552        0           200 Isolated Web Co
+Oct 09 05:23:08 archlinux kernel: [1748656]  1000 1748656   721334     9033     8738        4       291   860160        0           200 Isolated Web Co
+Oct 09 05:23:08 archlinux kernel: [1748721]  1000 1748721   697866     5496     5022        4       470   643072        0           200 Isolated Web Co
+Oct 09 05:23:08 archlinux kernel: [1793261]  1000 1793261   864683   100624   100218        4       402  3530752        0           200 Isolated Web Co
+Oct 09 05:23:08 archlinux kernel: [2031715]  1000 2031715     2879      943      940        3         0    57344        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [2031928]  1000 2031928 379569480     6307     6261       18        28   794624        0           200 claude-desktop
+Oct 09 05:23:08 archlinux kernel: [2043520]  1000 2043520     2879      944      941        3         0    53248        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [2056033]  1000 2056033     2807      867      864        3         0    65536        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [2056097]  1000 2056097     2187      260      257        3         0    49152        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [3528486]  1000 3528486     2220      278      275        3         0    53248        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [3528528]  1000 3528528  4760329   238028   238014        4        10  2408448        0           200 java
+Oct 09 05:23:08 archlinux kernel: [3528693]  1000 3528693  4773077   203831   203819        4         8  2080768        0           200 java
+Oct 09 05:23:08 archlinux kernel: [3528942]   961 3528942    57744     1930      784        2      1144   172032        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [3529172]  1000 3529172   278851     2988     2964       24         0   528384        0           200 npm run dev
+Oct 09 05:23:08 archlinux kernel: [3529187]  1000 3529187  6166772   209874   209849       25         0  4300800        0           200 node
+Oct 09 05:23:08 archlinux kernel: [4027633]  1000 4027633     2220      278      275        3         0    53248        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [4027732]  1000 4027732  4782129   229994   229980        4        10  2412544        0           200 java
+Oct 09 05:23:08 archlinux kernel: [4029609]  1000 4029609  4772865   222254   222242        4         8  2293760        0           200 java
+Oct 09 05:23:08 archlinux kernel: [4029674]   961 4029674    57744     1926      784        2      1140   172032        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [4029840]  1000 4029840   278980     3286     3262       24         0   573440        0           200 npm run dev
+Oct 09 05:23:08 archlinux kernel: [4029855]  1000 4029855  6173457   193498   193473       25         0  5173248        0           200 node
+Oct 09 05:23:08 archlinux kernel: [  82005]  1000 82005     2220      277      274        3         0    57344        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [  82059]  1000 82059  4798698   640089   640075        4        10  5754880        0           200 java
+Oct 09 05:23:08 archlinux kernel: [  84872]  1000 84872  4771678   170691   170679        4         8  1904640        0           200 java
+Oct 09 05:23:08 archlinux kernel: [  84925]   961 84925    57744     1898      784        2      1112   172032        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [  85067]  1000 85067   278851     3121     3097       24         0   536576        0           200 npm run dev
+Oct 09 05:23:08 archlinux kernel: [  85082]  1000 85082  6164744   133040   133015       25         0  3952640        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 493984]   961 493984    58226     6198     1174        2      5022   307200        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 494330]   961 494330    57744     1850      783        2      1065   167936        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 494552]   961 494552    58096     6060     1098        2      4960   307200        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 494688]   961 494688    58094     6134     1097        2      5035   307200        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 496349]   961 496349    58095     6143     1097        2      5044   307200        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 497086]   961 497086    57744     1817      783        2      1032   167936        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 514395]   961 514395    57744     1850      783        2      1065   167936        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 548180]   961 548180    57744     1865      783        2      1080   167936        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 605369]   961 605369    58068     5863     1043        2      4818   303104        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 659749]   961 659749    57744     1826      783        2      1041   167936        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 661747]   961 661747    57744     1873      783        2      1088   167936        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 708410]  1000 708410     2807      868      865        3         0    65536        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [ 708470]  1000 708470   193408      967      963        4         0   147456        0           200 git
+Oct 09 05:23:08 archlinux kernel: [ 708471]  1000 708471     1529       37       35        2         0    57344        0           200 tail
+Oct 09 05:23:08 archlinux kernel: [ 708512]  1000 708512     2058       95       92        3         0    49152        0           200 sh
+Oct 09 05:23:08 archlinux kernel: [ 708517]  1000 708517     2025       91       88        3         0    57344        0           200 sh
+Oct 09 05:23:08 archlinux kernel: [ 710563]  1000 710563     2807      868      865        3         0    61440        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [ 710746]  1000 710746     2088      141      138        3         0    53248        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [ 710747]  1000 710747     1529       34       32        2         0    49152        0           200 tail
+Oct 09 05:23:08 archlinux kernel: [ 711197]  1000 711197   193436      890      887        3         0   147456        0           200 git
+Oct 09 05:23:08 archlinux kernel: [ 711239]  1000 711239     2058       96       93        3         0    53248        0           200 sh
+Oct 09 05:23:08 archlinux kernel: [ 711244]  1000 711244     2025       90       87        3         0    53248        0           200 sh
+Oct 09 05:23:08 archlinux kernel: [ 719564]   961 719564    58086     5929     1062        2      4865   303104        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 723647]     0 723647     2424      153      149        4         0    65536        0             0 systemd-userwor
+Oct 09 05:23:08 archlinux kernel: [ 736589]  1000 736589   278923     3091     3067       24         0   569344        0           200 npm test
+Oct 09 05:23:08 archlinux kernel: [ 736600]  1000 736600   279014     3092     3068       24         0   561152        0           200 npm test
+Oct 09 05:23:08 archlinux kernel: [ 737055]  1000 737055   351483    21614    21589       25         0  1888256        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737147]  1000 737147   614124   260698   260673       25         0 34652160        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737148]  1000 737148   549030   263082   263057       25         0 33497088        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737149]  1000 737149   730352   414179   414154       25         0 47239168        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737160]  1000 737160   666810   288824   288799       25         0 40398848        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737167]  1000 737167   639962   286217   286192       25         0 36945920        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737179]  1000 737179   683937   382503   382478       25         0 43565056        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737185]  1000 737185   721268   404525   404500       25         0 46170112        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737192]  1000 737192   645661   276432   276407       25         0 37683200        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737200]  1000 737200   752088   435018   434993       25         0 49872896        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737207]  1000 737207   732370   415945   415920       25         0 47529984        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737214]  1000 737214   605038   286656   286631       25         0 32563200        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 737551]  1000 737551   278988     3274     3250       24         0   573440        0           200 npm test
+Oct 09 05:23:08 archlinux kernel: [ 737562]  1000 737562   279013     3374     3350       24         0   573440        0           200 npm test
+Oct 09 05:23:08 archlinux kernel: [ 737866]  1000 737866   351862    21848    21823       25         0  2019328        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738057]  1000 738057   518427   193402   193377       25         0 22634496        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738058]  1000 738058   517639   193542   193517       25         0 21405696        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738060]  1000 738060   452901   185651   185626       25         0 21590016        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738065]  1000 738065   563450   239891   239866       25         0 26615808        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738076]  1000 738076   544966   221699   221674       25         0 24100864        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738082]  1000 738082   544750   220979   220954       25         0 24137728        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738090]  1000 738090   537287   213450   213425       25         0 23621632        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738096]  1000 738096   537205   212918   212893       25         0 23400448        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738104]  1000 738104   551027   228249   228224       25         0 25169920        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738118]  1000 738118   520162   196342   196317       25         0 21843968        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738119]  1000 738119   550268   226409   226384       25         0 24715264        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 738544]  1000 738544     2807      868      865        3         0    69632        0           200 bash
+Oct 09 05:23:08 archlinux kernel: [ 738604]  1000 738604   193407      964      960        4         0   139264        0           200 git
+Oct 09 05:23:08 archlinux kernel: [ 738605]  1000 738605     1529       32       30        2         0    49152        0           200 tail
+Oct 09 05:23:08 archlinux kernel: [ 738646]  1000 738646     2058       96       93        3         0    53248        0           200 sh
+Oct 09 05:23:08 archlinux kernel: [ 738651]  1000 738651     2025       91       88        3         0    53248        0           200 sh
+Oct 09 05:23:08 archlinux kernel: [ 738671]  1000 738671   278978     3216     3192       24         0   618496        0           200 npm run lint
+Oct 09 05:23:08 archlinux kernel: [ 738682]  1000 738682   457456   157178   157154       24         0 16613376        0           200 node
+Oct 09 05:23:08 archlinux kernel: [ 740184]   961 740184    57744     1854      783        2      1069   172032        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 740188]   961 740188    57744     1822      783        2      1037   172032        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 740189]   961 740189    57744     1876      783        2      1091   172032        0          -200 postgres
+Oct 09 05:23:08 archlinux kernel: [ 740193]     0 740193     2424      152      148        4         0    65536        0             0 systemd-userwor
+Oct 09 05:23:08 archlinux kernel: [ 740202]  1000 740202   689097     5333     5086        4       243   688128        0           133 Isolated Servic
+Oct 09 05:23:08 archlinux kernel: [ 740213]  1000 740213   687975     4925     4662        4       259   688128        0           133 Isolated Servic
+Oct 09 05:23:08 archlinux kernel: [ 741626]  1000 741626   263815    42338    21309    21029         0   602112        0           200 Hyprland
+Oct 09 05:23:08 archlinux kernel: oom-kill:constraint=CONSTRAINT_NONE,nodemask=(null),cpuset=user.slice,mems_allowed=0,global_oom,task_memcg=/user.slice/user-1000.slice/user@1000.service/session.slice/wayland-wm@hyprland.desktop.service,task=claude-desktop,pid=3996096,uid=1000
+Oct 09 05:23:08 archlinux kernel: Out of memory: Killed process 3996096 (claude-desktop) total-vm:1534557596kB, anon-rss:850768kB, file-rss:12kB, shmem-rss:6068kB, UID:1000 pgtables:4680kB oom_score_adj:300
+Oct 09 05:23:08 archlinux systemd-journald[348]: Under memory pressure, flushing caches.
+Oct 09 05:23:08 archlinux systemd-journald[348]: Under memory pressure, flushing caches.
+Oct 09 05:23:09 archlinux kernel: hyprland-dialog[741643]: segfault at 0 ip 00005586f2c322e5 sp 00007ffeeaa688f0 error 4 in hyprland-dialog[42e5,5586f2c32000+1b000] likely on CPU 5 (core 5, socket 0)
+Oct 09 05:23:09 archlinux kernel: Code: 41 5d 41 5e 41 5f 5d c3 90 4c 89 d6 45 31 c9 49 89 d8 4c 89 e9 4c 89 e7 e8 c6 fe ff ff 4d 8b 14 24 e9 b8 71 00 00 48 89 5d f0 <48> 8b 04 25 00 00 00 00 4c 89 75 f8 0f 0b 48 8b 5d d0 48 85 db 75
+Oct 09 05:23:09 archlinux systemd-journald[348]: Under memory pressure, flushing caches.
