@@ -36,8 +36,11 @@ value. A string-typed row value SHALL NOT be numerically coerced.
 When the condition value does not parse as a number, the comparison SHALL be an exact string
 comparison, whatever the row value's type.
 
-A null (or absent) row value SHALL never satisfy `=`, and SHALL always satisfy `!=`, for any condition
-value. `!=` SHALL be the exact negation of `=` for every non-null row value.
+A null (or absent) row value SHALL never satisfy `=`, and SHALL always satisfy `!=`, for any non-empty condition
+value. When the condition value is the empty string (or omitted), a null (or absent) row value SHALL satisfy `=` and
+SHALL NOT satisfy `!=`, so that `= ""` and `!= ""` treat null and the empty string alike as blank. Likewise `contains` with an empty or
+omitted value SHALL match a null row value. `!=` SHALL be the
+exact negation of `=` for every row value.
 
 #### Scenario: = operator keeps matching rows
 - **WHEN** a condition is `{"field":"dept","operator":"=","value":"eng"}`
@@ -89,6 +92,22 @@ value. `!=` SHALL be the exact negation of `=` for every non-null row value.
 
 #### Scenario: A null row value always satisfies !=
 - **WHEN** a row's `years_exp` is null or absent and a condition is `{"field":"years_exp","operator":"!=","value":"0"}`
+- **THEN** that row is returned
+
+#### Scenario: = "" matches a null row value
+- **WHEN** a row's `name` is null or absent and a condition is `{"field":"name","operator":"=","value":""}`
+- **THEN** that row is returned
+
+#### Scenario: != "" excludes a null row value
+- **WHEN** a row's `name` is null or absent and a condition is `{"field":"name","operator":"!=","value":""}`
+- **THEN** that row is excluded
+
+#### Scenario: contains "" matches a null row value
+- **WHEN** a row's `name` is null and a condition is `{"field":"name","operator":"contains","value":""}`
+- **THEN** that row is returned
+
+#### Scenario: = "" still matches an empty-string row value
+- **WHEN** a row's `name` is the empty string and a condition is `{"field":"name","operator":"=","value":""}`
 - **THEN** that row is returned
 
 ### Requirement: applyFilter supports numeric comparison operators
