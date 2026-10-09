@@ -7,6 +7,7 @@
 // Follows the same props-driven pattern as AggregateConfig / DateBucketConfig:
 // the parent (StepCard) owns state and calls onChange with the typed config.
 
+import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { SchemaField } from "../../types/pipelineStep";
 import { Select } from "../../../../shared/ui/index";
 import { X } from "lucide-react";
@@ -30,9 +31,17 @@ interface PivotConfigProps {
   analyzeColumns: string[];
   /** Called with the typed config object on any change (CS2c-3a). */
   onChange: (newConfig: PivotConfigValue) => void;
+  /** HEL-1416: the server's message for a rejected save of this step's config. */
+  saveError?: string | null;
 }
 
-export function PivotConfig({ config, analyzeSchema, analyzeColumns, onChange }: PivotConfigProps) {
+export function PivotConfig({
+  config,
+  analyzeSchema,
+  analyzeColumns,
+  onChange,
+  saveError,
+}: PivotConfigProps) {
   function emit(next: PivotConfigValue) {
     onChange(next);
   }
@@ -132,6 +141,7 @@ export function PivotConfig({ config, analyzeSchema, analyzeColumns, onChange }:
           />
         </div>
       </div>
+      <InlineError error={saveError ?? null} />
     </div>
   );
 }

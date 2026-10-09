@@ -257,8 +257,9 @@ export function useStepCardState(
    *  notifies the parent. Local editor state is updated by the caller (so
    *  the UI stays responsive regardless of debounce/network latency).
    *
-   *  `captureErrors` (design.md Decision 6, currently only passed `true` by
-   *  `onUpsertSourceChange`) opts a call site INTO surfacing a rejected
+   *  `captureErrors` (design.md Decision 6; passed `true` by `onUpsertSourceChange` and, since
+   *  HEL-1416, by the fillnull/window/pivot change handlers whose write-time enum validation can
+   *  422) opts a call site INTO surfacing a rejected
    *  PATCH's backend message via `saveError` — every other op kind keeps
    *  the pre-existing silent-swallow behavior (out of scope to change here)
    *  by omitting it. */
@@ -303,7 +304,7 @@ export function useStepCardState(
             setSaveError(
               extractErrorMessage(
                 err,
-                "Failed to save this step's target or mode — the server didn't say why.",
+                "Failed to save this step's configuration — the server didn't say why.",
               ),
             );
           }
@@ -392,7 +393,7 @@ export function useStepCardState(
 
   function onPivotChange(newConfig: PivotConfigValue) {
     setPivotConfig(newConfig);
-    persist(newConfig);
+    persist(newConfig, true);
   }
 
   function onWindowChange(newConfig: WindowConfigValue) {
@@ -406,14 +407,17 @@ export function useStepCardState(
       newConfig.function === "lag" ||
       newConfig.function === "lead";
     const usesOffset = newConfig.function === "lag" || newConfig.function === "lead";
-    persist({
-      partitionBy: newConfig.partitionBy,
-      orderBy: newConfig.orderBy,
-      function: newConfig.function,
-      field: usesField && newConfig.field ? newConfig.field : undefined,
-      outputColumn: newConfig.outputColumn,
-      offset: usesOffset ? newConfig.offset : undefined,
-    });
+    persist(
+      {
+        partitionBy: newConfig.partitionBy,
+        orderBy: newConfig.orderBy,
+        function: newConfig.function,
+        field: usesField && newConfig.field ? newConfig.field : undefined,
+        outputColumn: newConfig.outputColumn,
+        offset: usesOffset ? newConfig.offset : undefined,
+      },
+      true,
+    );
   }
 
   function onUnpivotChange(newConfig: UnpivotConfigValue) {
@@ -428,7 +432,7 @@ export function useStepCardState(
 
   function onFillNullChange(newConfig: FillNullConfigValue) {
     setFillNullConfig(newConfig);
-    persist(newConfig);
+    persist(newConfig, true);
   }
 
   function onStringOpsChange(newConfig: StringOpsConfigValue) {

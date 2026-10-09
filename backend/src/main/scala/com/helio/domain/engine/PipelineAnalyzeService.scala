@@ -406,8 +406,10 @@ object PipelineAnalyzeService {
 
   private def validateFillNull(config: String): Vector[String] = {
     val cfg = FillNullConfig.decode(config)
-    if (!FillNullStep.SupportedStrategies.contains(cfg.strategy))
-      Vector(s"Unsupported fillnull strategy: '${cfg.strategy}'. Supported: ${FillNullStep.SupportedStrategies.mkString(", ")}")
+    // HEL-1416: the shared rule reports a non-empty unknown strategy; the empty draft is reported here.
+    val strategyProblem = FillNullStep.strategyProblem(cfg)
+    if (strategyProblem.isDefined) strategyProblem.toVector
+    else if (cfg.strategy.isEmpty) Vector(FillNullStep.unsupportedStrategyMessage(cfg.strategy))
     else if (cfg.strategy == "constant" && cfg.value.isEmpty)
       Vector("fillnull strategy 'constant' requires 'value'")
     else Vector.empty
@@ -415,18 +417,14 @@ object PipelineAnalyzeService {
 
   private def validateWindow(config: String): Vector[String] = {
     val cfg = WindowConfig.decode(config)
-    if (!WindowStep.SupportedFunctions.contains(cfg.function))
-      Vector(s"Unsupported window function: '${cfg.function}'. Supported: ${WindowStep.SupportedFunctions.mkString(", ")}")
+    // HEL-1416: enum/offset rule shared with write and run; the empty-function draft is reported here.
+    if (cfg.function.isEmpty) Vector(WindowStep.unsupportedFunctionMessage(cfg.function))
     else {
       val fieldProblem =
         if (WindowStep.FieldRequired.contains(cfg.function) && cfg.field.isEmpty)
           Some(s"window function '${cfg.function}' requires 'field'")
         else None
-      val offsetProblem =
-        if ((cfg.function == "lag" || cfg.function == "lead") && cfg.offset.exists(_ <= 0))
-          Some(s"window function '${cfg.function}' requires a positive 'offset', got ${cfg.offset.get}")
-        else None
-      Vector(fieldProblem, offsetProblem).flatten
+      fieldProblem.toVector ++ WindowStep.enumProblems(cfg)
     }
   }
 
@@ -444,8 +442,9 @@ object PipelineAnalyzeService {
 
   private def validatePivot(config: String): Vector[String] = {
     val cfg = PivotConfig.decode(config)
-    if (PivotStep.SupportedAggs.contains(cfg.agg)) Vector.empty
-    else Vector(s"Unsupported pivot aggregation function: '${cfg.agg}'. Supported: ${PivotStep.SupportedAggs.mkString(", ")}")
+    // HEL-1416: one shared rule; the empty-agg draft is still reported, with the same message.
+    if (cfg.agg.isEmpty) Vector(PivotStep.unsupportedAggMessage(cfg.agg))
+    else PivotStep.aggProblem(cfg).toVector
   }
 
   private def validateUnion(config: String): Vector[String] = {

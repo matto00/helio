@@ -7,6 +7,7 @@
 // conditionally per design.md decision 4 — the rank family ignores `field`
 // and `offset` entirely.
 
+import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { ChangeEvent } from "react";
 
 import type { SchemaField } from "../../types/pipelineStep";
@@ -52,6 +53,8 @@ interface WindowConfigProps {
   analyzeColumns: string[];
   /** Called with the typed config object on any change (CS2c-3a). */
   onChange: (newConfig: WindowConfigValue) => void;
+  /** HEL-1416: the server's message for a rejected save of this step's config. */
+  saveError?: string | null;
 }
 
 export function WindowConfig({
@@ -59,6 +62,7 @@ export function WindowConfig({
   analyzeSchema,
   analyzeColumns,
   onChange,
+  saveError,
 }: WindowConfigProps) {
   function emit(next: WindowConfigValue) {
     onChange(next);
@@ -212,6 +216,7 @@ export function WindowConfig({
           />
         </div>
       </div>
+      <InlineError error={saveError ?? null} />
     </div>
   );
 }

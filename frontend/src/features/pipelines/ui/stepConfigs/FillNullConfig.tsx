@@ -6,6 +6,7 @@
 // rendered when `strategy` is `"constant"` (design.md: the other four
 // strategies never read `value`).
 
+import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { ChangeEvent } from "react";
 
 import { Select, TextField } from "../../../../shared/ui/index";
@@ -29,9 +30,16 @@ interface FillNullConfigProps {
   analyzeColumns: string[];
   /** Called with the typed config object on any change (CS2c-3a). */
   onChange: (newConfig: FillNullConfigValue) => void;
+  /** HEL-1416: the server's message for a rejected save of this step's config. */
+  saveError?: string | null;
 }
 
-export function FillNullConfig({ config, analyzeColumns, onChange }: FillNullConfigProps) {
+export function FillNullConfig({
+  config,
+  analyzeColumns,
+  onChange,
+  saveError,
+}: FillNullConfigProps) {
   function handleColumnToggle(field: string, checked: boolean) {
     const columns = checked
       ? [...config.columns, field]
@@ -109,6 +117,7 @@ export function FillNullConfig({ config, analyzeColumns, onChange }: FillNullCon
           />
         </div>
       )}
+      <InlineError error={saveError ?? null} />
     </div>
   );
 }

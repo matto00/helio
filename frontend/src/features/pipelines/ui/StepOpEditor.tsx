@@ -224,6 +224,7 @@ export function StepOpEditor({
         analyzeSchema={analyzeSchema}
         analyzeColumns={analyzeColumns}
         onChange={onPivotChange}
+        saveError={saveError}
       />
     );
   }
@@ -234,6 +235,7 @@ export function StepOpEditor({
         analyzeSchema={analyzeSchema}
         analyzeColumns={analyzeColumns}
         onChange={onWindowChange}
+        saveError={saveError}
       />
     );
   }
@@ -261,6 +263,7 @@ export function StepOpEditor({
         config={fillNullConfig}
         analyzeColumns={analyzeColumns}
         onChange={onFillNullChange}
+        saveError={saveError}
       />
     );
   }

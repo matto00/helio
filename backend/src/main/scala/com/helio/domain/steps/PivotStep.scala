@@ -7,6 +7,7 @@ import spray.json.DefaultJsonProtocol._
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** Typed config for the `pivot` step (HEL-375). `index` names the source
  *  columns to group by (a `null` value at an index field is a valid group
@@ -76,11 +77,20 @@ object PivotStep {
   // HEL-859 (design.md Decision 5): not `private` — see StringOpsStep.SupportedOperations.
   val SupportedAggs: Vector[String] = Vector("sum", "count", "avg", "min", "max", "first")
 
+  /** The one message for an unsupported agg, shared by write, analyze and run. */
+  def unsupportedAggMessage(agg: String): String =
+    s"Unsupported pivot aggregation function: '$agg'. Supported: ${SupportedAggs.mkString(", ")}"
+
+  /** HEL-1416: the single agg rule. An empty agg is an unconfigured draft (not a problem here; analyze and
+   *  `apply` still refuse it); a non-empty value outside [[SupportedAggs]] is clearly invalid. Shared by
+   *  `validateRawConfig`, analyze and `apply`. */
+  def aggProblem(cfg: PivotConfig): Option[String] =
+    if (cfg.agg.nonEmpty && !SupportedAggs.contains(cfg.agg)) Some(unsupportedAggMessage(cfg.agg)) else None
+
   def apply(rows: Seq[PipelineRowJson.Row], cfg: PivotConfig): Seq[PipelineRowJson.Row] = {
-    if (!SupportedAggs.contains(cfg.agg))
-      throw new StepConfigError(
-        s"Unsupported pivot aggregation function: '${cfg.agg}'. Supported: ${SupportedAggs.mkString(", ")}"
-      )
+    aggProblem(cfg).foreach(msg => throw new StepConfigError(msg))
+    if (cfg.agg.isEmpty) // unconfigured draft: the shared rule above only rejects non-empty values
+      throw new StepConfigError(unsupportedAggMessage(cfg.agg))
 
     val indexFields = cfg.index
     val column      = cfg.column
@@ -150,5 +160,10 @@ object PivotStep {
       val cfg = PivotConfig.decode(raw)
       StepCodecUtil.missingRequired(Kind, "column" -> cfg.column, "values" -> cfg.values)
     }
+
+    /** HEL-1416: write-time rejection of a non-empty unknown `agg` (the HEL-1310 pattern). An empty/absent
+     *  `agg` is a draft and stays accepted (HEL-814 D2). */
+    override def validateRawConfig(raw: String): Option[String] =
+      super.validateRawConfig(raw).orElse(Try(PivotConfig.decode(raw)).toOption.flatMap(aggProblem))
   }
 }

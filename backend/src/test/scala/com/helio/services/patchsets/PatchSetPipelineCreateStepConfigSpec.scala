@@ -149,6 +149,35 @@ class PatchSetPipelineCreateStepConfigSpec
       }
     }
 
+    // HEL-1416: clearly invalid fillnull/window/pivot enum values, one per kind, on apply AND preview.
+    "reject an invalid fillnull strategy, lag offset and pivot agg on apply and preview, creating no pipeline (HEL-1416)" in {
+      val sourceId = seedSource()
+      val cases = Seq(
+        ("fillnull", JsObject("columns" -> JsArray(JsString("value")), "strategy" -> JsString("average")), "Unsupported fillnull strategy: 'average'"),
+        ("window", JsObject("function" -> JsString("lag"), "field" -> JsString("value"), "offset" -> JsNumber(0), "outputColumn" -> JsString("o")), "requires a positive 'offset'"),
+        ("pivot", JsObject("column" -> JsString("value"), "values" -> JsString("value"), "agg" -> JsString("median")), "Unsupported pivot aggregation function: 'median'")
+      )
+      for ((kind, cfg, frag) <- cases) {
+        val name = s"enum-$kind"
+        val edit = Edit(EditTarget("pipeline", None), "create", None, None, None, None, None, Some(JsObject(
+          "name"  -> JsString(name),
+          "roots" -> JsArray(JsObject("sourceId" -> JsString(sourceId.value))),
+          "steps" -> JsArray(JsObject("clientId" -> JsString("s1"), "type" -> JsString(kind), "config" -> cfg))
+        )))
+        val results = Seq(
+          withClue(s"$kind apply: ")(await(applyService.apply(PatchSet(None, Vector(edit)), user)).swap.toOption),
+          withClue(s"$kind preview: ")(await(previewService.preview(PatchSet(None, Vector(edit)), user)).swap.toOption)
+        )
+        results.foreach {
+          case Some(ServiceError.UnprocessableEntity(msg)) =>
+            msg should startWith("edit 0: Step 's1': ")
+            msg should include(frag)
+          case other => fail(s"$kind: expected 422, got $other")
+        }
+        pipelineNames() should not contain name
+      }
+    }
+
     "still apply when the step config is valid" in {
       val sourceId = seedSource()
       val ok       = pipelineCreateEdit(sourceId, "ValidCreated", "1 + 1")

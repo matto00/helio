@@ -124,6 +124,31 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
       run("""{"alias":"a","fn":"bogus_fn","field":"v"}""").swap.toOption.get.message should include("Unsupported aggregation function")
     }
 
+    // HEL-1416: fillnull/window/pivot enum rejection reaches the proposal surface; drafts stay accepted.
+    "reject invalid fillnull/window/pivot enum values with a 422 and accept their drafts (HEL-1416)" in {
+      val sourceId = DataSourceId(UUID.randomUUID().toString)
+      val dsRepo   = mock(classOf[DataSourceRepository])
+      when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(existingSource(sourceId))))
+      def run(kind: String, config: String) = await(newService(dsRepo).validate(
+        proposal(existingSourceRef(sourceId.value)).copy(steps = Vector(
+          CreatePipelineTransactionalStepRequest(clientId = "s1", `type` = kind, config = config.parseJson.asJsObject))), user))
+
+      val rejected = Seq(
+        ("fillnull", """{"columns":["a"],"strategy":"average"}""", "Unsupported fillnull strategy: 'average'"),
+        ("window", """{"function":"ntile","outputColumn":"o"}""", "Unsupported window function: 'ntile'"),
+        ("window", """{"function":"lead","field":"f","offset":-1,"outputColumn":"o"}""", "requires a positive 'offset'"),
+        ("pivot", """{"column":"c","values":"v","agg":"median"}""", "Unsupported pivot aggregation function: 'median'")
+      )
+      for ((kind, cfg, msg) <- rejected) {
+        val err = run(kind, cfg).swap.toOption.getOrElse(fail(s"$kind accepted"))
+        err shouldBe a[ServiceError.UnprocessableEntity]
+        err.message should include(msg)
+      }
+      run("fillnull", """{"columns":[],"strategy":"constant"}""") shouldBe Right(())
+      run("window", """{"function":"lag","outputColumn":"p"}""") shouldBe Right(())
+      run("pivot", """{"column":"c","values":"v"}""") shouldBe Right(())
+    }
+
     // GUARD, sited next to the proof: an INCOMPLETE draft step is still
     // accepted by this surface. D2 rejects wrong-TYPE values only, so a
     // proposal carrying a not-yet-configured step stays applicable.

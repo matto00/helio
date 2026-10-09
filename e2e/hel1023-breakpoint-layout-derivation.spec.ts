@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
+import { settleTransitions } from "./support/settleTransitions";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
 // own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
@@ -249,6 +250,27 @@ async function settledRects(page: Page, expectedCount: number, containerWidth: n
   await expect
     .poll(async () => Math.round((await readRects(page)).container?.w ?? -1), { timeout: 15_000 })
     .toBe(containerWidth);
+  // HEL-1413: the CSS box above follows the viewport at once, but RGL only receives the new width
+  // after a ResizeObserver -> rAF -> setWidth chain that needs rendering opportunities, so under
+  // load items can still sit at the previous breakpoint's geometry while that box is already
+  // correct. Wait for RGL itself to report it processed this width (its breakpoint/cols commit),
+  // then for the item transitions that commit starts to actually finish.
+  // Below 768 the phone stack replaces RGL, and it swaps in only once the same chain delivers the
+  // width, so wait for the desktop grid to be gone instead.
+  if (containerWidth < 768) {
+    await expect(page.locator(".panel-grid")).toHaveCount(0, { timeout: 15_000 });
+  } else {
+    await expect
+      .poll(
+        () =>
+          page
+            .locator(".panel-grid")
+            .evaluate((el) => el.style.getPropertyValue("--panel-grid-processed-width")),
+        { timeout: 15_000 },
+      )
+      .toBe(`${containerWidth}px`);
+    await settleTransitions(page, 5_000);
+  }
   let prev = await readRects(page);
   for (let i = 0; i < 40; i++) {
     await page.waitForTimeout(150);
