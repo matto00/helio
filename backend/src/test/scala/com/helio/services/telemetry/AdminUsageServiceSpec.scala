@@ -156,15 +156,15 @@ class AdminUsageServiceSpec extends AnyWordSpec with Matchers with ProductTeleme
       r.funnel.map(_.users) shouldBe Seq(0L, 0L, 0L)
     }
 
-    "reject days that is not an integer in 1..90 as BadRequest rather than clamping" in {
-      Seq("abc", "0", "91", "-1", "").foreach { d =>
+    "reject days that is not an integer in 1..365 as BadRequest rather than clamping" in {
+      Seq("abc", "0", "366", "-1", "").foreach { d =>
         usage(Some(d)) match {
           case Left(ServiceError.BadRequest(_)) => succeed
           case other                            => fail(s"days=$d -> $other")
         }
       }
       usage(None).toOption.get.days shouldBe 30
-      usage(Some("90")).toOption.get.days shouldBe 90
+      usage(Some("365")).toOption.get.days shouldBe 365
       usage(Some("1")).toOption.get.days shouldBe 1
     }
   }

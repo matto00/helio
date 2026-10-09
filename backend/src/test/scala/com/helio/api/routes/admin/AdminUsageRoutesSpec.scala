@@ -16,6 +16,7 @@ import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.services.telemetry.{ProductEventRollupService, ProductTelemetryConfig}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.testkit.HelioRouteTest
+import com.helio.testsupport.JsonSchemaValidation
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -123,6 +124,7 @@ class AdminUsageRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTest
 
     "return 403 (not a 400) for a non-owner even with an invalid days value" in {
       Get("/api/admin/usage?days=abc") ~> as("beta-token") ~> check { status shouldBe StatusCodes.Forbidden }
+      Get("/api/admin/usage?days=366") ~> as("free-token") ~> check { status shouldBe StatusCodes.Forbidden }
     }
 
     "return 401 without a session" in {
@@ -152,13 +154,20 @@ class AdminUsageRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTest
       }
     }
 
-    "accept the 1 and 90 day bounds" in {
+    "accept the 1 and 365 day bounds, the latter with 365 points per series" in {
       Get("/api/admin/usage?days=1") ~> as("owner-token") ~> check { status shouldBe StatusCodes.OK }
-      Get("/api/admin/usage?days=90") ~> as("owner-token") ~> check { status shouldBe StatusCodes.OK }
+      Get("/api/admin/usage?days=365") ~> as("owner-token") ~> check {
+        status shouldBe StatusCodes.OK
+        val b = body
+        Seq("signupsPerDay", "provenanceOpensPerDay", "activeUsers").foreach { k =>
+          withClue(k)(b.fields(k).asInstanceOf[JsArray].elements.size shouldBe 365)
+        }
+        b.fields("ttfd").asJsObject.fields("perDay").asInstanceOf[JsArray].elements.size shouldBe 365
+      }
     }
 
-    "reject a non-numeric, zero, negative or over-90 days with 400 (never clamped)" in {
-      Seq("abc", "0", "-3", "91", "1000", "2.5").foreach { d =>
+    "reject a non-numeric, zero, negative or over-365 days with 400 (never clamped)" in {
+      Seq("abc", "0", "-3", "366", "1000", "2.5").foreach { d =>
         Get(s"/api/admin/usage?days=$d") ~> as("owner-token") ~> check { withClue(s"days=$d: ") { status shouldBe StatusCodes.BadRequest } }
       }
     }
@@ -184,6 +193,15 @@ class AdminUsageRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTest
         b.fields("funnel").asInstanceOf[JsArray].elements.map(e => n(e.asJsObject.fields("users"))) shouldBe Vector(1L, 1L, 0L)
         b.fields("templateChoices") shouldBe JsArray(JsObject("template" -> JsString("streamer"), "count" -> JsNumber(1)))
         n(b.fields("activeUsers").asInstanceOf[JsArray].elements.map(_.asJsObject).find(_.fields("day") == JsString(today.toString)).get.fields("dailyActiveUsers")) shouldBe 2L
+        val totals = b.fields("totals").asJsObject
+        totals.fields.keySet shouldBe Set("totalUsers", "activeLast7Days", "activeLast30Days", "asOf")
+        n(totals.fields("totalUsers")) shouldBe 3L
+        totals.fields("asOf") shouldBe b.fields("rolledThrough")
+        val text = responseAs[String]
+        Seq(freeId, betaId, ownerId).foreach(id => text should not include id)
+        text should not include "userId"
+        text should not include "@admin-usage.local"
+        JsonSchemaValidation.validationErrors(JsonSchemaValidation.compile("admin/admin-usage-response.schema.json"), text) shouldBe empty
       }
       Await.result(db.run(sqlu"DELETE FROM product_events"), 5.seconds)
     }

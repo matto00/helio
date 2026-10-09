@@ -6,7 +6,6 @@ import {
 } from "../services/panelService";
 import { createDashboard as createDashboardRequest } from "../../dashboards/services/dashboardService";
 import { renderWithStore } from "../../../test/renderWithStore";
-import { setPanelCreationModalOpen } from "../state/panelsSlice";
 import { PanelGrid } from "./grid/PanelGrid";
 import { PanelList } from "./PanelList";
 
@@ -105,38 +104,6 @@ const baseDashboardsState = {
     },
   ],
   selectedDashboardId: "dashboard-1",
-};
-
-/** Store additions required for data-bound types (metric/chart/table) which need a DataType step. */
-const dataTypeStoreAdditions = {
-  pipelines: {
-    items: [
-      {
-        id: "pipe-1",
-        name: "Revenue Pipeline",
-        roots: [{ id: "root-1", dataSourceId: "src-1", dataSourceName: "Source" }],
-        lastRunStatus: null as null,
-        lastRunAt: null,
-        lastRunRowCount: null as null,
-      },
-    ],
-    status: "succeeded" as const,
-  },
-  dataTypes: {
-    items: [
-      {
-        id: "dt-1",
-        name: "Revenue",
-        sourceId: null,
-        version: 1,
-        fields: [],
-        computedFields: [],
-        createdAt: "2026-01-01T00:00:00Z",
-        updatedAt: "2026-01-01T00:00:00Z",
-      },
-    ],
-    status: "succeeded" as const,
-  },
 };
 
 describe("PanelList", () => {

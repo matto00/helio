@@ -1,6 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { evidencePath } from "./support/evidencePath";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1087 design.md D10 — live-browser proof of the submit path: server-side enforcement via

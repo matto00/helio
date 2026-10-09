@@ -332,6 +332,9 @@ export function PipelineDetailPage() {
       {/* ── Output editor sheet (task 5.1) ── */}
       {outputSheet && (
         <OutputEditorSheet
+          // Remount per Output (create mode keyed by its target step) so a `?outputId=` swap
+          // reseeds ALL of the sheet's state, not just name/kind/step.
+          key={outputSheet.output?.id ?? `create:${outputSheet.createTargetStepId ?? ""}`}
           open
           onClose={handleCloseOutputSheet}
           pipelineId={id ?? ""}

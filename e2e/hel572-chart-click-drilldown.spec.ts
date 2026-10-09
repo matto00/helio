@@ -1,5 +1,4 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-572 — live-browser verification of the click→selection→inspect
