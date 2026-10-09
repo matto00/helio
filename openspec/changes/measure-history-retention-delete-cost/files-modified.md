@@ -1,5 +1,0 @@
-- `backend/scripts/perf/history-retention-measure.sql` — committed seed/measure script (scratch-DB guard first; EXPLAIN ANALYZE of every retention DELETE; index variants; insert path)
-- `backend/src/main/resources/db/migration/V120__history_retention_captured_at_indexes.sql` — `captured_at` btree on `output_snapshot_history` and `node_payload_history` (must not merge before HEL-1347's V119)
-- `openspec/changes/measure-history-retention-delete-cost/measurements.md` — the evidence: plans, per-scenario tables, D4 candidate comparison, verdict
-- `openspec/changes/measure-history-retention-delete-cost/evidence/*.txt` — raw run-1 EXPLAIN (ANALYZE, BUFFERS) text and timed passes per scenario/view
-- `openspec/changes/measure-history-retention-delete-cost/tasks.md` — tasks marked done
