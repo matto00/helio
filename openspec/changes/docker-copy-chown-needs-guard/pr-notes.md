@@ -10,6 +10,14 @@ the second build.
 | `docker image ls` size | 1.5GB | 894MB |
 | jar layer(s) | 316MB COPY + 316MB `chown -R` layer | 316MB COPY --chown + 12.3kB `chown` layer |
 
+`docker history` (non-zero layers only), before then after:
+```
+before: 316MB  /bin/sh -c mkdir -p data && chown -R helio:h...
+        316MB  /bin/sh -c #(nop) COPY file:650a5571b35af371...
+after:  12.3kB /bin/sh -c mkdir -p data && chown helio:heli...
+        316MB  /bin/sh -c #(nop) COPY --chown=helio:helio f...
+```
+
 (`docker image ls` figures are from this host's containerd store accounting; the layer lines from
 `docker history` are the load-bearing evidence: the second 316MB layer is gone.)
 
@@ -33,6 +41,7 @@ scratch copy of the real ci.yml with `docker-image` dropped from `needs` (exit 1
   - job "docker-image" is missing from `ci-complete.needs` (it would silently stop being required)
 ```
 Mutation (missing-job comparison replaced with `if (false)`): selftest exit 1 with 5 FAIL lines; reverted, exit 0.
+Cycle 2: a column-0 line after `jobs:` is now an error (it previously ended the jobs block, so a column-0 continuation of a multi-line quoted scalar could hide later jobs). Selftest fixture was red before the fix (`FAIL - column-0 line inside a quoted scalar after jobs: ... got []`) and green after.
 Known gap: if `frontend` itself is removed from `needs`, the CI run of the guard (inside `frontend`) no longer blocks
 `ci-complete`; only the pre-commit hook still catches it. Follow-up candidate: `check-precommit-ci-parity.mjs`
 `parseCiCompleteNeeds` has the same comment-first-match fail-open.

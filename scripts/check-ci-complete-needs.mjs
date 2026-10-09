@@ -17,7 +17,6 @@ import { fileURLToPath } from "node:url";
 const GATE_JOB = "ci-complete";
 const JOB_KEY_RE = /^ {2}([A-Za-z0-9_-]+):\s*(#.*)?$/;
 const BARE_ID_RE = /^[A-Za-z0-9_-]+$/;
-const TOP_LEVEL_KEY_RE = /^[A-Za-z0-9_"'-][^:]*:/;
 const NEEDS_LINE_RE = /^ {4}needs:/;
 const NEEDS_FLOW_RE = /^ {4}needs:\s*\[([^\]]*)\]\s*(#.*)?$/;
 
@@ -34,11 +33,15 @@ export function checkCiCompleteNeeds(ciYamlText) {
   if (jobsStart === -1) {
     return { errors: ["no top-level `jobs:` block found in ci.yml"], jobs: [], needs: [] };
   }
-  let jobsEnd = lines.length;
-  for (let i = jobsStart + 1; i < lines.length; i++) {
-    if (TOP_LEVEL_KEY_RE.test(lines[i])) {
-      jobsEnd = i;
-      break;
+  // `jobs:` must be the last top-level key, so the block runs to end of file. A column-0 line after
+  // it is NOT treated as a terminator (it may be the continuation of a multi-line quoted scalar, which
+  // would hide every later job): it is an error, since the job set cannot be established.
+  const jobsEnd = lines.length;
+  for (let i = jobsStart + 1; i < jobsEnd; i++) {
+    if (!isCommentOrBlank(lines[i]) && /^\S/.test(lines[i])) {
+      errors.push(
+        `column-0 line after \`jobs:\` -- jobs must be the last top-level key in ci.yml (cannot establish the job set): ${JSON.stringify(lines[i])}`,
+      );
     }
   }
 

@@ -109,6 +109,19 @@ expectError(
   'job "b" is missing',
 );
 
+// A column-0 continuation line inside a multi-line quoted scalar must not end the jobs block and hide
+// a later job (evaluator cycle-1 fixture).
+expectError(
+  "column-0 line inside a quoted scalar after jobs:",
+  'jobs:\n  a:\n    runs-on: x\n  ci-complete:\n    needs: [a, b]\n  b:\n    steps:\n      - run: "echo\nfoo: bar"\n  c:\n    runs-on: x\n',
+  "column-0 line after `jobs:`",
+);
+expectError(
+  "duplicate top-level key after jobs:",
+  yaml() + "jobs:\n  z:\n",
+  "column-0 line after `jobs:`",
+);
+
 // Real ci.yml.
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const real = readFileSync(join(root, ".github", "workflows", "ci.yml"), "utf8");

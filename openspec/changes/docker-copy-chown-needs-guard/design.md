@@ -39,15 +39,16 @@ diff, saying so. Remove containers, network and both images by exact name afterw
 **D3 - guard as its own script.** New `scripts/check-ci-complete-needs.mjs` exporting a pure
 `checkCiCompleteNeeds(ciYamlText)` returning `{errors, jobs, needs}`, plus a CLI taking an optional `repoRoot` (same
 shape as `check-precommit-ci-parity.mjs`). It does not reuse `parseCiCompleteNeeds`, because that helper's leniency is
-exactly what this guard must not have. Parsing: scope to the top-level `jobs:` block, which starts at the `^jobs:` line and ends
-only at the next column-0 YAML key (`^[A-Za-z0-9_"'-][^:]*:`); blank lines and comment lines at any indent (including
-column 0) never end it. Inside it, every line at exactly 2-space indent that is not a comment MUST match
+exactly what this guard must not have. Parsing: scope to the top-level `jobs:` block, which starts at the `^jobs:` line and runs to
+end of file: `jobs:` must be the last top-level key. Any non-blank, non-comment column-0 line after it is an error
+(never a terminator, since it could be the continuation of a multi-line quoted scalar that would otherwise hide later
+jobs); blank lines and comment lines at any indent (including column 0) are ignored. Inside it, every line at exactly 2-space indent that is not a comment MUST match
 `^  ([A-Za-z0-9_-]+):\s*(#.*)?$`; any other 2-space line (quoted key `  "lint":`, flow mapping, anchor) is an error
 naming the line, so no job can be skipped silently; `ci-complete`'s block is the text
 until the next 2-space key; the `needs` key is the one non-comment line in that block indented exactly 4 spaces matching
 `^    needs:` (comment lines are never read, so a comment mentioning `needs: [...]` cannot stand in for the list;
 zero or more than one such line is an error), and its value must be the single-line `needs: [a, b]` form; each entry must be a bare
-`[A-Za-z0-9_-]+` id, and a quoted or otherwise non-bare entry is an error (rejected, not stripped). Errors (fail closed): an unrecognised 2-space line in `jobs:`, a non-bare needs entry, zero jobs,
+`[A-Za-z0-9_-]+` id, and a quoted or otherwise non-bare entry is an error (rejected, not stripped). Errors (fail closed): a column-0 line after `jobs:`, an unrecognised 2-space line in `jobs:`, a non-bare needs entry, zero jobs,
 no `ci-complete`, no `needs`, a `needs` value not in single-line flow form (block list or a bare scalar), a `needs`
 entry naming no defined job, any job other than `ci-complete` missing from `needs` (each named).
 
