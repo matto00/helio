@@ -306,8 +306,29 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val cfg    = """{"column":"r","expression":"reverse($order_id)","type":"string"}"""
       val result = analyze(Vector(step("compute", cfg)), baseSchema)
 
-      result(0).validationError.get should include("supported functions: abs, ceil, concat, floor")
+      result(0).validationError.get should include("supported functions: abs, ceil, coalesce, concat, floor")
       result(0).outputSchema shouldBe baseSchema
+    }
+
+    "compute — mixed numeric/text coalesce surfaces a validationError naming coalesce (HEL-1423)" in {
+      val cfg    = """{"column":"r","expression":"coalesce($amount, \"n/a\")","type":"float"}"""
+      val result = analyze(Vector(step("compute", cfg)), baseSchema)
+
+      result(0).validationError.get should include("coalesce")
+      result(0).validationError.get should include("concat(")
+      result(0).outputSchema.map(_.name) should contain("r") // column still projected (wire-type fallback)
+    }
+
+    "compute — same-type coalesce has no validationError and infers the common type (HEL-1423)" in {
+      val cfg    = """{"column":"r","expression":"coalesce($order_id, \"\")","type":"float"}"""
+      val result = analyze(Vector(step("compute", cfg)), baseSchema)
+      result(0).validationError shouldBe None
+      result(0).outputSchema.last shouldBe SchemaField("r", "string")
+
+      val cfg2    = """{"column":"r","expression":"coalesce(concat($amount), \"n/a\")","type":"float"}"""
+      val result2 = analyze(Vector(step("compute", cfg2)), baseSchema)
+      result2(0).validationError shouldBe None
+      result2(0).outputSchema.last shouldBe SchemaField("r", "string")
     }
 
     "compute — single-field-reference expression infers the referenced field's type" in {

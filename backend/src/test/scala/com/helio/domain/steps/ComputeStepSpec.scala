@@ -95,7 +95,7 @@ class ComputeStepSpec extends AnyWordSpec with Matchers {
     "write path rejects an unknown function with the supported-function listing" in {
       val problem = ComputeStep.companion.validateRawConfig(config("v", "reverse($a)"))
       problem shouldBe defined
-      problem.get should include("supported functions: abs, ceil, concat, floor, length, lower, mod, round, substring, upper")
+      problem.get should include("supported functions: abs, ceil, coalesce, concat, floor, length, lower, mod, round, substring, upper")
     }
 
     "write path accepts round/mod and rejects wrong arity" in {

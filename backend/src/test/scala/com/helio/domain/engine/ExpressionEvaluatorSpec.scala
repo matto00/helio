@@ -76,7 +76,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       ExpressionEvaluator.validate("reverse($name)", Set("name")) shouldBe
         Left(
           "'reverse' is not a recognized function; supported functions: " +
-            "abs, ceil, concat, floor, length, lower, mod, round, substring, upper"
+            "abs, ceil, coalesce, concat, floor, length, lower, mod, round, substring, upper"
         )
     }
 
@@ -718,7 +718,9 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       // NumericFunctions must be exactly SupportedFunctions minus the string functions, so a new
       // function cannot be added without being classified (and parity-tested) here.
       val stringFns = Set("concat", "substring", "lower", "upper", "length")
-      ExpressionEvaluator.NumericFunctions.toSet shouldBe (ExpressionEvaluator.SupportedFunctions.toSet -- stringFns)
+      val nullFns   = Set("coalesce") // HEL-1423: polymorphic, parity-tested separately below
+      ExpressionEvaluator.NumericFunctions.toSet shouldBe
+        (ExpressionEvaluator.SupportedFunctions.toSet -- stringFns -- nullFns)
       ExpressionEvaluator.NumericFunctions.foreach { f =>
         val exprs = (1 to 2).map(k => s"$f(${Seq("$x", "$y").take(k).mkString(", ")})")
           .filter(e => ExpressionEvaluator.validate(e, fields.keySet).isRight)
@@ -749,7 +751,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
 
     "list every supported function in the unknown-function message" in {
       val msg = ExpressionEvaluator.validate("reverse($name)", Set("name")).left.toOption.get
-      ExpressionEvaluator.SupportedFunctions should have size 10
+      ExpressionEvaluator.SupportedFunctions should have size 11
       ExpressionEvaluator.SupportedFunctions.foreach(f => msg should include(f))
       Seq("floor", "ceil", "round", "mod", "abs").foreach(f => msg should include(f))
     }
@@ -770,6 +772,80 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       candidates.filter(c => (0 to 4).exists(accepts(c, _))).foreach { c =>
         withClue(c)(ExpressionEvaluator.SupportedFunctions should contain(c))
       }
+    }
+  }
+
+  // ── HEL-1423: coalesce ─────────────────────────────────────────────────────
+
+  "ExpressionEvaluator coalesce" should {
+    def ev(e: String, pairs: (String, JsValue)*) = ExpressionEvaluator.evaluate(e, row(pairs: _*))
+    val N: JsValue = JsNull
+
+    "require at least 2 arguments" in {
+      ExpressionEvaluator.validate("coalesce($a)", Set("a")) shouldBe Left("coalesce requires at least 2 arguments")
+      ExpressionEvaluator.validate("coalesce()", Set.empty) shouldBe Left("coalesce requires at least 2 arguments")
+      ExpressionEvaluator.validate("coalesce($a, 1, 2)", Set("a")) shouldBe Right(())
+    }
+
+    "supply a fallback for a null field" in {
+      ev("coalesce($nick, $name)", "nick" -> N, "name" -> JsString("Ada")) shouldBe Right(JsString("Ada"))
+    }
+
+    "return the first non-null value" in {
+      ev("coalesce($a, $b)", "a" -> JsNumber(1), "b" -> JsNumber(2)) shouldBe Right(JsNumber(1))
+    }
+
+    "return null when every argument is null" in {
+      ev("coalesce($a, $b)", "a" -> N, "b" -> N) shouldBe Right(JsNull)
+    }
+
+    "not evaluate arguments after the first non-null one" in {
+      ev("coalesce($a, floor($s))", "a" -> JsNumber(5), "s" -> JsString("x")) shouldBe Right(JsNumber(5))
+    }
+
+    "propagate an error in a reached argument" in {
+      ev("coalesce(floor($s), 0)", "s" -> JsString("x")).left.toOption.get shouldBe a[EvaluationError.TypeError]
+    }
+
+    "return an empty string selected as a non-null value unchanged" in {
+      ev("coalesce($a, \"z\")", "a" -> JsString("")) shouldBe Right(JsString(""))
+    }
+
+    "infer the common type of its arguments" in {
+      val t = Map("first" -> "string", "n" -> "integer", "f" -> "float", "ts" -> "timestamp", "ts2" -> "timestamp")
+      ExpressionEvaluator.inferType("coalesce($first, \"\")", t) shouldBe Right("string")
+      ExpressionEvaluator.inferType("coalesce($n, 0)", t) shouldBe Right("float")
+      ExpressionEvaluator.inferType("coalesce($f, $n)", t) shouldBe Right("float")
+      ExpressionEvaluator.inferType("coalesce($ts, $ts2)", t) shouldBe Right("timestamp")
+      ExpressionEvaluator.inferType("coalesce($ts, \"\")", t) shouldBe Right("string")
+      ExpressionEvaluator.inferType("coalesce(concat($f), \"n/a\")", t) shouldBe Right("string")
+    }
+
+    "reject a numeric/text mix at inference, naming coalesce and the concat workaround" in {
+      val msg = ExpressionEvaluator.inferType("coalesce($f, \"n/a\")", Map("f" -> "float")).left.toOption.get
+      msg should include("coalesce")
+      msg should include("concat(")
+      msg should include("float")
+    }
+
+    "infer/apply parity for same-type string and numeric-mix cases" in {
+      val t = Map("s" -> "string", "t" -> "string", "i" -> "integer", "f" -> "float")
+      val r = row("s" -> N, "t" -> JsString("x"), "i" -> N, "f" -> JsNumber(2.5))
+      Seq("coalesce($s, $t)" -> "string", "coalesce($s, \"\")" -> "string", "coalesce($i, $f)" -> "float",
+          "coalesce($i, 0)" -> "float").foreach { case (e, ty) =>
+        withClue(e) {
+          ExpressionEvaluator.inferType(e, t) shouldBe Right(ty)
+          (ty, ExpressionEvaluator.evaluate(e, r)) match {
+            case ("string", Right(_: JsString)) => succeed
+            case ("float", Right(_: JsNumber))  => succeed
+            case other                          => fail(s"parity mismatch: $other")
+          }
+        }
+      }
+    }
+
+    "leave null propagation intact for concat of a null part" in {
+      ev("concat($first, \" \", $last)", "first" -> JsString("Grace"), "last" -> N) shouldBe Right(JsNull)
     }
   }
 }
