@@ -24,7 +24,6 @@ import type { HelioApi } from "../helioApi.js";
 import type { DashboardResponse, PipelineScheduleResponse } from "../types.js";
 import {
   buildSetPipelineScheduleBody,
-  DELETE_PIPELINE_SCHEDULE_DESCRIPTION,
   deletePipelineScheduleHandler,
   GET_PIPELINE_SCHEDULE_DESCRIPTION,
   getPipelineScheduleHandler,

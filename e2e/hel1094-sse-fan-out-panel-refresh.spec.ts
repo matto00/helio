@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1094 tasks 3.3/3.4 — live-browser proof of the FULL write -> debounce -> scheduler tick ->

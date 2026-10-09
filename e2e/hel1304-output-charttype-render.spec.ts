@@ -27,6 +27,15 @@ async function postJson<T>(
   return (await res.json()) as T;
 }
 
+type EchartsInstance = {
+  getOption(): { series?: unknown[]; legend?: { show?: boolean; type?: string }[] };
+  getDom(): Element;
+};
+type ReactFiber = {
+  stateNode?: { getEchartsInstance?: () => EchartsInstance } | null;
+  return?: ReactFiber | null;
+};
+
 /** The rendered `series[].type` list of the first chart inside `card` (null until reachable). */
 async function seriesTypes(card: Locator): Promise<string[] | null> {
   return card
@@ -34,13 +43,16 @@ async function seriesTypes(card: Locator): Promise<string[] | null> {
     .first()
     .evaluate((canvas) => {
       let host: Element | null = canvas;
-      let comp: any = null;
+      type Comp = { getEchartsInstance(): EchartsInstance };
+      let comp: Comp | null = null;
       while (host && !comp) {
         const key = Object.keys(host).find((k) => k.startsWith("__reactFiber$"));
-        let f: any = key ? (host as any)[key] : null;
+        let f: ReactFiber | null | undefined = key
+          ? (host as unknown as Record<string, ReactFiber>)[key]
+          : null;
         while (f) {
           if (f.stateNode && typeof f.stateNode.getEchartsInstance === "function") {
-            comp = f.stateNode;
+            comp = f.stateNode as Comp;
             break;
           }
           f = f.return;

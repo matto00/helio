@@ -1,6 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { evidencePath } from "./support/evidencePath";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its

@@ -1,0 +1,56 @@
+# Files modified (HEL-1448)
+
+Notes:
+- Config: `eslint.config.cjs` replaces the broken `...tseslint.configs.recommended.rules` spread with the scoped recommended entries (D1), `no-unused-vars` options (D2), and a no-require-imports exemption for `**/*.test.{ts,tsx}` and `frontend/src/test/**` ONLY (D3; `*.spec.ts` Playwright specs are NOT exempt). The wired `eslint-recommended` entry also turns off `no-undef` for TS and enables `prefer-const`/`no-var` etc.; no new errors resulted.
+- C1 (side effects): every removed import was a named import of a side-effect-free module (`isolateLivePage` helper, services, zod, react-router, rtk); no bare side-effect import had to be kept. No new `eslint-disable` comments (C4).
+- C2: all `any` replacements are type-only (e2e: local `EchartsInstance`/`ReactFiber` types + `unknown` casts; `toastListeners.ts`: `(...args: never[])`; `usePipelineRunEvents.test.ts`: `{ signal: AbortSignal }`).
+- Judgment sites: `ROUTE_KEYS` in state-surface-contrast-guard.spec.ts -> explicit `RouteKey` union (const dropped). `computeMobilePanelHeight` h/w -> `_h`/`_w` (kept signature: exported, 2 prod callers + tests pass 3 args, doc says intentionally reserved). `App.test.tsx` and `hel516` -> kept the call/`await outputRes.json()`, dropped only the binding. `breakpointLayout.ts` `compactOnce` unused private `cols` param removed; `mobilePanelHeights.ts` dead `clampNumber` helper and two dead `findRuleBody` test helpers and `dataTypeStoreAdditions` const deleted (only what lint flagged).
+- Gate-chain: `.husky/pre-commit` touched; design.md has the checklist; test-gate-in-isolation.sh PASS for both new scripts.
+
+- `.github/workflows/ci.yml`
+- `.husky/pre-commit`
+- `e2e/focus-presence-guard.spec.ts`
+- `e2e/hel1080-dataset-row-grid-live.spec.ts`
+- `e2e/hel1085-form-field-renderers-keyboard.spec.ts`
+- `e2e/hel1087-form-submit-path.spec.ts`
+- `e2e/hel1088-compact-counter-chrome.spec.ts`
+- `e2e/hel1090-form-panel-assembled-a11y.spec.ts`
+- `e2e/hel1094-sse-fan-out-panel-refresh.spec.ts`
+- `e2e/hel1095-optimistic-pending-writing-panel-a11y.spec.ts`
+- `e2e/hel1096-run-to-update-affordance.spec.ts`
+- `e2e/hel1169-network-vs-rejection-reconcile-a11y.spec.ts`
+- `e2e/hel1189-output-panel-controls-live.spec.ts`
+- `e2e/hel1230-drag-then-create-persists.spec.ts`
+- `e2e/hel1304-output-charttype-render.spec.ts`
+- `e2e/hel1351-aggregated-chart-overlay.spec.ts`
+- `e2e/hel1392-remount-staleness.spec.ts`
+- `e2e/hel516-palette-quick-create.spec.ts`
+- `e2e/hel520-focus-presence-guard.regression.spec.ts`
+- `e2e/hel572-chart-click-drilldown.spec.ts`
+- `e2e/hel588-cross-filter-panels.spec.ts`
+- `e2e/hel909-output-picker-panel-sheet.spec.ts`
+- `e2e/state-surface-contrast-guard.spec.ts`
+- `eslint.config.cjs`
+- `frontend/src/app/App.test.tsx`
+- `frontend/src/app/CommandBar.tsx`
+- `frontend/src/app/ShareDialogFocusRestore.test.tsx`
+- `frontend/src/features/dashboards/state/breakpointLayout.ts`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.truncation.test.tsx`
+- `frontend/src/features/dashboards/ui/RefinementChatDrawer.test.tsx`
+- `frontend/src/features/onboarding/ui/OnboardingChecklist.css.test.ts`
+- `frontend/src/features/panels/ui/PanelList.onboarding.test.tsx`
+- `frontend/src/features/panels/ui/PanelList.test.tsx`
+- `frontend/src/features/panels/ui/grid/mobilePanelHeights.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineRunEvents.test.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineStepCreation.ts`
+- `frontend/src/features/pipelines/state/pipelinesSlice.ts`
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx`
+- `frontend/src/features/sources/ui/DatasetRowGridLargeDataset.test.tsx`
+- `frontend/src/features/toasts/state/toastListeners.ts`
+- `frontend/src/shared/ui/Modal.css.test.ts`
+- `helio-mcp/src/tools/scheduleTools.test.ts`
+- `helio-mcp/src/tools/updateSchemas.ts`
+- `package.json`
+- `scripts/check-eslint-ts-rules.mjs`
+- `scripts/check-eslint-ts-rules.selftest.mjs`

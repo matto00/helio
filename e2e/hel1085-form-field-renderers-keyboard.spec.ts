@@ -1,6 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { evidencePath } from "./support/evidencePath";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1085 design.md D9/task 4.8 — live-browser proof of keyboard completability, computed

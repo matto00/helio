@@ -27,7 +27,6 @@ import {
   fetchStepPreview,
   getPipelineSchedule,
   putPipelineSchedule,
-  deletePipelineSchedule,
   getPipelineShapeCatalog,
   getPipelineStepCatalog,
   expandPipelineShape,
@@ -35,7 +34,6 @@ import {
   updatePipelineStepEnabled,
   duplicatePipelineStep,
   listPipelinePermissions,
-  addPipelineRoot,
   removePipelineRoot,
 } from "../services/pipelineService";
 import type { PipelineStepCatalog } from "../types/pipelineStepCatalog";
@@ -93,7 +91,6 @@ const analyzePipelineMock = jest.mocked(analyzePipeline);
 const fetchStepPreviewMock = jest.mocked(fetchStepPreview);
 const getPipelineScheduleMock = jest.mocked(getPipelineSchedule);
 const putPipelineScheduleMock = jest.mocked(putPipelineSchedule);
-const deletePipelineScheduleMock = jest.mocked(deletePipelineSchedule);
 const getPipelineShapeCatalogMock = jest.mocked(getPipelineShapeCatalog);
 const getPipelineStepCatalogMock = jest.mocked(getPipelineStepCatalog);
 const expandPipelineShapeMock = jest.mocked(expandPipelineShape);
@@ -101,7 +98,6 @@ const reorderPipelineStepsMock = jest.mocked(reorderPipelineSteps);
 const updatePipelineStepEnabledMock = jest.mocked(updatePipelineStepEnabled);
 const duplicatePipelineStepMock = jest.mocked(duplicatePipelineStep);
 const listPipelinePermissionsMock = jest.mocked(listPipelinePermissions);
-const addPipelineRootMock = jest.mocked(addPipelineRoot);
 const removePipelineRootMock = jest.mocked(removePipelineRoot);
 
 /** Minimal AxiosError-shaped rejection, matching `pipelinesSlice.ts`'s
