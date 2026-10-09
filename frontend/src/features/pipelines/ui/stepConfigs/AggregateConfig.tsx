@@ -5,10 +5,10 @@
 // Follows the same props-driven pattern as FilterConfig / ComputeFieldConfig:
 // the parent (StepCard) owns state and calls onChange with serialized config JSON.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import type { SchemaField } from "../../types/pipelineStep";
-import { Select, TextField } from "../../../../shared/ui/index";
+import { FormField, Select, TextField } from "../../../../shared/ui/index";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import { TriangleAlert, X } from "lucide-react";
 import { ICON_SIZE } from "../../../../shared/ui/iconSize";
@@ -89,6 +89,8 @@ export function AggregateConfig({
   const [blurredAliasRows, setBlurredAliasRows] = useState<Set<number>>(new Set());
   // In-progress `p` text per row. An invalid draft (blank / non-numeric / outside 0-100) stays
   // here and is never emitted, so the editor cannot save a config the server would reject.
+  // One useId per component, suffixed per row (hooks cannot run inside the map).
+  const idBase = useId();
   const [pDrafts, setPDrafts] = useState<Record<number, string>>({});
 
   function emit(next: AggregateConfigValue) {
@@ -226,6 +228,15 @@ export function AggregateConfig({
         <div className="pipeline-detail-page__aggregate-agg-rows">
           {config.aggregations.map((agg, index) => {
             const fieldMissing = agg.field !== "" && !analyzeFieldNames.has(agg.field);
+            // Stored configs may carry any case ("SUM", "PERCENTILE"); the backend lowercases
+            // fn, so the editor matches on the lowercase key and leaves the stored value alone.
+            const fnKey = agg.fn.toLowerCase();
+            const pId = `${idBase}-p-${index}`;
+            const pErrorId = `${idBase}-p-err-${index}`;
+            const pError =
+              pDrafts[index] !== undefined
+                ? "Percentile p must be a number between 0 and 100"
+                : null;
             const aliasBlurred = blurredAliasRows.has(index);
             const showAliasError = aliasBlurred && agg.alias === "";
             return (
@@ -245,30 +256,35 @@ export function AggregateConfig({
                 {/* Function dropdown */}
                 <Select
                   ariaLabel={`Function for aggregation ${index + 1}`}
-                  value={agg.fn}
+                  value={fnKey}
                   options={AGG_FNS.map((fn) => ({ value: fn, label: fn }))}
                   onChange={(next) => handleFnChange(index, agg, next)}
                 />
                 <span className="pipeline-detail-page__aggregate-fn-hint">
-                  {FN_HINTS[agg.fn as (typeof AGG_FNS)[number]]}
+                  {FN_HINTS[fnKey as (typeof AGG_FNS)[number]]}
                 </span>
 
-                {agg.fn === "percentile" && (
-                  <>
+                {fnKey === "percentile" && (
+                  <FormField
+                    label={`Percentile p (row ${index + 1})`}
+                    htmlFor={pId}
+                    error={pError}
+                    errorId={pErrorId}
+                    className="pipeline-detail-page__aggregate-p-field"
+                  >
                     <TextField
+                      id={pId}
                       type="number"
                       min={0}
                       max={100}
                       step="any"
-                      aria-label={`Percentile p ${index + 1}`}
                       placeholder="p (0-100)"
+                      aria-invalid={pError ? true : undefined}
+                      aria-describedby={pError ? pErrorId : undefined}
                       value={pDrafts[index] ?? String(agg.p ?? "")}
                       onChange={(e) => handlePChange(index, agg, e.target.value)}
                     />
-                    {pDrafts[index] !== undefined && (
-                      <InlineError error="Percentile p must be a number between 0 and 100" />
-                    )}
-                  </>
+                  </FormField>
                 )}
 
                 {/* Field dropdown */}

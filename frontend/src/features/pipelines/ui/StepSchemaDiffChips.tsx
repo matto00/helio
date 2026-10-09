@@ -24,33 +24,33 @@ export function StepSchemaDiffChips({ input, output, renames }: StepSchemaDiffCh
 
   return (
     <div className="pipeline-detail-page__step-card-diff">
-      {added.map((field) => (
+      {added.map((field, index) => (
         <span
-          key={`added-${field.name}`}
+          key={`added-${index}-${field.name}`}
           className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--added"
         >
           + {field.name}
         </span>
       ))}
-      {dropped.map((field) => (
+      {dropped.map((field, index) => (
         <span
-          key={`dropped-${field.name}`}
+          key={`dropped-${index}-${field.name}`}
           className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--removed"
         >
           − {field.name}
         </span>
       ))}
-      {retyped.map((field) => (
+      {retyped.map((field, index) => (
         <span
-          key={`retyped-${field.name}`}
+          key={`retyped-${index}-${field.name}`}
           className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--changed"
         >
           ~ {field.name}: {field.fromType}→{field.toType}
         </span>
       ))}
-      {renamed.map((field) => (
+      {renamed.map((field, index) => (
         <span
-          key={`renamed-${field.from}`}
+          key={`renamed-${index}-${field.from}`}
           className="pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--renamed"
         >
           {field.from} → {field.to}

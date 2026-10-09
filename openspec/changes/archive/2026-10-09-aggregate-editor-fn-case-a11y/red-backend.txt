@@ -1,0 +1,9 @@
+# Old-code run: sbt "testOnly com.helio.domain.engine.PipelineAnalyzeServiceSpec" (failing excerpt; ANSI/paths stripped)
+[info] - should aggregate — min/max infer float regardless of the source field type (apply returns Doubles) *** FAILED ***
+[info]   Some("string") was not equal to Some("float") (PipelineAnalyzeServiceSpec.scala:472)
+[info] - should aggregate — inferred type matches the runtime value type apply produces, for every supported fn and declared field type (HEL-1310 parity) *** FAILED ***
+[info]   fn=min declared=integer: Some("integer") was not equal to Some("float") (PipelineAnalyzeServiceSpec.scala:536)
+[info] - should aggregate — min/max infer float for string- and timestamp-declared fields too (HEL-1407) *** FAILED ***
+[info]   Vector(("a", "string"), ("b", "timestamp")) was not equal to Vector(("a", "float"), ("b", "float")) (PipelineAnalyzeServiceSpec.scala:549)
+[info] Tests: succeeded 131, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
