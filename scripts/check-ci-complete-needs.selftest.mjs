@@ -122,6 +122,19 @@ expectError(
   "column-0 line after `jobs:`",
 );
 
+// A fake `ci-complete` + `needs:` inside an earlier job's multi-line quoted scalar must not stand in
+// for the real needs list (evaluator cycle-2 fixture).
+expectError(
+  "duplicate ci-complete key from a quoted scalar",
+  'on: push\njobs:\n  a:\n    runs-on: x\n    steps:\n      - run: "x\n  ci-complete:\n    needs: [a, b]\n    end"\n  b:\n    runs-on: x\n  ci-complete:\n    needs: [a]\n',
+  'duplicate job key "ci-complete"',
+);
+expectError(
+  "duplicate ordinary job key",
+  yaml({ jobsB: JOB("a") + JOB("b") }),
+  'duplicate job key "a"',
+);
+
 // Real ci.yml.
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const real = readFileSync(join(root, ".github", "workflows", "ci.yml"), "utf8");

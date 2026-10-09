@@ -24,7 +24,7 @@ jobs are found, when `ci-complete` is missing, when `ci-complete` has no `needs`
 single-line list, when `needs` names a job that does not exist or contains an entry that is not a bare job id, or
 when the jobs mapping contains a key it cannot read as a bare job id (for example a quoted key). `jobs:` SHALL be the last top-level key: any non-comment column-0 line after it SHALL be an error rather than the end of the jobs mapping. Comment lines,
 including column-0 comments between jobs, SHALL NOT end the jobs mapping, and comment lines SHALL never be read as the
-`needs` list; `ci-complete` having more than one `needs` key line SHALL be an error.
+`needs` list; `ci-complete` having more than one `needs` key line SHALL be an error. A job key appearing more than once in the jobs mapping SHALL be an error.
 
 #### Scenario: needs written as a multi-line list
 - **WHEN** `ci-complete`'s `needs` is written as a block (multi-line) list
@@ -49,3 +49,7 @@ including column-0 comments between jobs, SHALL NOT end the jobs mapping, and co
 #### Scenario: Column-0 line after jobs
 - **WHEN** a non-comment column-0 line follows `jobs:` (for example the continuation of a multi-line quoted string that would otherwise hide a later job)
 - **THEN** the check exits non-zero naming that line
+
+#### Scenario: Duplicate job key
+- **WHEN** a job key (for example `ci-complete`) appears twice, such as a fake copy inside an earlier job's multi-line quoted string
+- **THEN** the check exits non-zero naming the duplicate key

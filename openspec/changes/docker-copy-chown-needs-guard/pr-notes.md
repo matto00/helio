@@ -42,6 +42,15 @@ scratch copy of the real ci.yml with `docker-image` dropped from `needs` (exit 1
 ```
 Mutation (missing-job comparison replaced with `if (false)`): selftest exit 1 with 5 FAIL lines; reverted, exit 0.
 Cycle 2: a column-0 line after `jobs:` is now an error (it previously ended the jobs block, so a column-0 continuation of a multi-line quoted scalar could hide later jobs). Selftest fixture was red before the fix (`FAIL - column-0 line inside a quoted scalar after jobs: ... got []`) and green after.
+Cycle 3: a duplicate job key is now an error (a fake `ci-complete`/`needs:` inside an earlier job's multi-line quoted
+scalar used to replace the real list). Selftest fixture red before (`FAIL - duplicate ci-complete key from a quoted
+scalar ... got []`), green after. Self-attack battery on the same class (lines inside multi-line quoted scalars that
+look like structure), all against the final code: fake `ci-complete` after the real one -> RED (duplicate key); fake
+`needs:` line inside the real gate, before or after the real line, -> RED (2 needs lines); fake `jobs:` before the real
+one -> RED (column-0 line); fake job key in a scalar not in needs -> RED (false red only); real gate hidden inside a
+scalar -> RED (real job missing); jobs after the gate omitted from needs -> RED. The one PASS: a fake job key placed in
+`needs` as well as in the scalar, with every real job still listed (fake names can only add; no real job escapes). Real job
+keys are always seen because scanning is line-based at 2-space indent, so a hidden real job is not possible.
 Known gap: if `frontend` itself is removed from `needs`, the CI run of the guard (inside `frontend`) no longer blocks
 `ci-complete`; only the pre-commit hook still catches it. Follow-up candidate: `check-precommit-ci-parity.mjs`
 `parseCiCompleteNeeds` has the same comment-first-match fail-open.

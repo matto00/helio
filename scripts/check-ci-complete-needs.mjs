@@ -58,6 +58,12 @@ export function checkCiCompleteNeeds(ciYamlText) {
       );
   }
   const jobs = jobLines.map((j) => j.name);
+  const seen = new Set();
+  for (const { name } of jobLines) {
+    if (seen.has(name))
+      errors.push(`duplicate job key "${name}" in jobs: block (cannot establish the job set)`);
+    seen.add(name);
+  }
   if (jobs.length === 0) errors.push("no jobs found in the jobs: block");
 
   const gate = jobLines.find((j) => j.name === GATE_JOB);

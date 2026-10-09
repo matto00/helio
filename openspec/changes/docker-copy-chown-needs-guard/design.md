@@ -48,7 +48,7 @@ naming the line, so no job can be skipped silently; `ci-complete`'s block is the
 until the next 2-space key; the `needs` key is the one non-comment line in that block indented exactly 4 spaces matching
 `^    needs:` (comment lines are never read, so a comment mentioning `needs: [...]` cannot stand in for the list;
 zero or more than one such line is an error), and its value must be the single-line `needs: [a, b]` form; each entry must be a bare
-`[A-Za-z0-9_-]+` id, and a quoted or otherwise non-bare entry is an error (rejected, not stripped). Errors (fail closed): a column-0 line after `jobs:`, an unrecognised 2-space line in `jobs:`, a non-bare needs entry, zero jobs,
+`[A-Za-z0-9_-]+` id, and a quoted or otherwise non-bare entry is an error (rejected, not stripped). Errors (fail closed): a duplicate job key (valid YAML cannot repeat one, and a fake `ci-complete`/`needs:` inside an earlier job's multi-line quoted scalar must not stand in for the real gate), a column-0 line after `jobs:`, an unrecognised 2-space line in `jobs:`, a non-bare needs entry, zero jobs,
 no `ci-complete`, no `needs`, a `needs` value not in single-line flow form (block list or a bare scalar), a `needs`
 entry naming no defined job, any job other than `ci-complete` missing from `needs` (each named).
 
