@@ -63,7 +63,7 @@ object PipelineAnalyzeService {
    *  real, already-persisted `data_sources.inferred_schema` rows with a `"number"` type (12 of
    *  141 rows, predating this ticket's fixes) -- without this tolerant read, EVERY subsequent
    *  deserialization of one of those rows (`GET /api/pipelines/:id/analyze`,
-   *  `PipelineRunService.onRunSuccess`'s baseline capture, etc.) would throw `SchemaField`'s
+   *  `PipelineRunExecutor.onRunSuccess`'s baseline capture, etc.) would throw `SchemaField`'s
    *  `require` and 500, converting quietly-wrong data into a hard outage for existing rows this
    *  same ticket already knows about. `write` always emits the canonical form (every
    *  in-process-constructed `SchemaField` is already canonical, by the structural guard).

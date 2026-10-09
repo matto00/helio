@@ -29,7 +29,7 @@ final case class AssertionResult(
  *  mid-pipeline failure (a failed `Future` carries only its exception), so
  *  this sink is the one way to survive that failure with whatever was
  *  evaluated before it. `synchronized` guards concurrent `record`/`results`
- *  access; each `PipelineRunService.executeRun` call constructs its own
+ *  access; each `PipelineRunExecutor.executeRun` call constructs its own
  *  fresh sink, so contention is not expected in practice, but the guard costs
  *  nothing and removes any doubt. */
 final class AssertionSink {

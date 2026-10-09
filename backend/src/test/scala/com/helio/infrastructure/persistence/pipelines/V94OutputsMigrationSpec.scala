@@ -589,7 +589,7 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
       trunkAfter.map(_.id) shouldBe trunkBefore.map(_.id)
 
       // The run-result node key (`trunkOf(...).lastOption`, consumed by
-      // `PipelineRunService.scala` to key `node_snapshots`/`binary_refs`
+      // `PipelineRunSucceededWrites.scala` to key `node_snapshots`/`binary_refs`
       // writes) must be UNCHANGED by this position-only PATCH.
       trunkAfter.lastOption.map(_.id) shouldBe runResultNodeBefore
     }

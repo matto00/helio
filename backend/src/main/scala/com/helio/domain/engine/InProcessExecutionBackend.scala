@@ -22,7 +22,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class InProcessExecutionBackend(engine: InProcessPipelineEngine, stepRepo: PipelineStepRepository) extends PipelineExecutionBackend {
 
   // HEL-1100 (design.md Decision 3): the only backend that actually applies an `upsertsource`
-  // step's deferred write (via `PipelineRunService.executeRun`'s post-run apply point).
+  // step's deferred write (via `PipelineRunExecutor.executeRun`'s post-run apply point).
   override def supportsWriteBack: Boolean = true
 
   def execute(
