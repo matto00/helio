@@ -33,7 +33,7 @@ import {
   isPanelFilterableByDimension,
 } from "../../../utils/crossFilterRows";
 import { ChartOutputPanel } from "./ChartOutputPanel";
-import { chartTruncationNote } from "./chartTruncationNote";
+import { chartTruncationNote, chartTruncationNoteShort } from "./chartTruncationNote";
 import { CollectionRenderer } from "./renderers/CollectionRenderer";
 import { DividerRenderer } from "./renderers/DividerRenderer";
 import { FormRenderer } from "./renderers/FormRenderer";
@@ -256,6 +256,13 @@ function OutputPanelContent({
   const isCrossFiltered = isEligibleTarget && filteredRawRows !== rawRows;
   const crossFilterLoadedRowCount = rawRows?.length ?? 0;
 
+  const truncationArgs = {
+    rowsTruncated,
+    totalRowCount,
+    loadedCount: crossFilterLoadedRowCount,
+    narrowed: viewerFilterActive || crossFilterMode === "server",
+  };
+
   const kind = output.kind;
   let content: ReactNode;
 
@@ -280,12 +287,8 @@ function OutputPanelContent({
         historySource={historySource}
         // HEL-1358 design D1/D2 — fails closed; the count is the PRE-cross-filter loaded count and
         // a server-narrowed total reads "matching rows".
-        truncationNote={chartTruncationNote({
-          rowsTruncated,
-          totalRowCount,
-          loadedCount: crossFilterLoadedRowCount,
-          narrowed: viewerFilterActive || crossFilterMode === "server",
-        })}
+        truncationNote={chartTruncationNote(truncationArgs)}
+        truncationNoteShort={chartTruncationNoteShort(truncationArgs)}
       />
     );
   } else if (kind === "table") {
