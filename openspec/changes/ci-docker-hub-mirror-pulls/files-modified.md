@@ -1,4 +1,0 @@
-- `Dockerfile` — ARG BASE_REGISTRY (default docker.io/library) and prefix on both FROM lines
-- `.github/workflows/ci.yml` — docker-image passes BASE_REGISTRY=mirror.gcr.io/library; e2e postgres service via mirror.gcr.io; HEL-1427 comment updated
-- `openspec/changes/ci-docker-hub-mirror-pulls/evidence-3.1.md` — digest equality evidence (tasks 1.2, 3.1)
-- `openspec/changes/ci-docker-hub-mirror-pulls/tasks.md` — tasks ticked (3.2 left open)

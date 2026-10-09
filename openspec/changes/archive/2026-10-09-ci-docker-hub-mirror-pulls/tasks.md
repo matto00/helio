@@ -15,4 +15,4 @@
 ## 3. Evidence
 
 - [x] 3.1 Capture mirror vs Docker Hub manifest-list digests for the three tags (anonymous registry HEAD requests); record in the change's evidence.
-- [ ] 3.2 After the PR exists, capture the CI run where `docker-image` logs both `load metadata for mirror.gcr.io/library/eclipse-temurin:...` lines and all four `e2e (n)` jobs log `docker pull mirror.gcr.io/library/postgres:16`, and every job passes (orchestrator/evaluator task, post-push). The PR body states that prod base-digest equality is inferred (same reference + matching mirror/Hub digests), not observed from a rebuilt prod image.
+- [x] 3.2 (run 37993012058, all jobs green) After the PR exists, capture the CI run where `docker-image` logs both `load metadata for mirror.gcr.io/library/eclipse-temurin:...` lines and all four `e2e (n)` jobs log `docker pull mirror.gcr.io/library/postgres:16`, and every job passes (orchestrator/evaluator task, post-push). The PR body states that prod base-digest equality is inferred (same reference + matching mirror/Hub digests), not observed from a rebuilt prod image.
