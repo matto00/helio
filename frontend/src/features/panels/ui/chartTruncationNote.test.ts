@@ -1,4 +1,9 @@
-import { chartTruncationNote, chartTruncationNoteText } from "./chartTruncationNote";
+import {
+  chartTruncationNote,
+  chartTruncationNoteShort,
+  chartTruncationNoteShortText,
+  chartTruncationNoteText,
+} from "./chartTruncationNote";
 
 const n = (v: number) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(v);
 
@@ -30,5 +35,36 @@ describe("chartTruncationNote (HEL-1358 D1)", () => {
     expect(chartTruncationNote({ ...base, totalRowCount: NaN })).toBeNull();
     expect(chartTruncationNote({ ...base, totalRowCount: 200 })).toBeNull();
     expect(chartTruncationNote({ ...base, totalRowCount: 150 })).toBeNull();
+  });
+});
+
+describe("chartTruncationNoteShortText (HEL-1398 D2)", () => {
+  it("is '{loaded} of {total} rows.' for an unnarrowed total", () => {
+    expect(chartTruncationNoteShortText(200, 1234, false)).toBe(`${n(200)} of ${n(1234)} rows.`);
+  });
+  it("is '{loaded} of {total} matching rows.' when the total is server-narrowed", () => {
+    expect(chartTruncationNoteShortText(200, 640, true)).toBe(
+      `${n(200)} of ${n(640)} matching rows.`,
+    );
+  });
+  it("groups digits through Intl.NumberFormat", () => {
+    expect(chartTruncationNoteShortText(200, 1234567, false)).toContain(n(1234567));
+  });
+});
+
+describe("chartTruncationNoteShort (HEL-1398)", () => {
+  const base = { rowsTruncated: true, totalRowCount: 500, loadedCount: 200, narrowed: false };
+  it("returns the short text under exactly the conditions the long note does", () => {
+    expect(chartTruncationNoteShort(base)).toBe(chartTruncationNoteShortText(200, 500, false));
+    for (const args of [
+      { ...base, rowsTruncated: undefined },
+      { ...base, rowsTruncated: false },
+      { ...base, totalRowCount: undefined },
+      { ...base, totalRowCount: NaN },
+      { ...base, totalRowCount: 200 },
+    ]) {
+      expect(chartTruncationNoteShort(args)).toBeNull();
+      expect(chartTruncationNote(args)).toBeNull();
+    }
   });
 });
