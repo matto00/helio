@@ -18,6 +18,17 @@ if (!process.env.DEV_PORT) {
   );
 }
 
+// HEL-1442: local worker cap (CI's 2). Only evaluated when `CI` is unset.
+const LOCAL_PLAYWRIGHT_WORKERS = 2;
+function localWorkers(): number {
+  const raw = process.env.HELIO_PLAYWRIGHT_WORKERS;
+  if (raw === undefined || raw === "") return LOCAL_PLAYWRIGHT_WORKERS;
+  if (!/^[1-9][0-9]*$/.test(raw)) {
+    throw new Error(`HELIO_PLAYWRIGHT_WORKERS must be a positive integer (e.g. 2), got "${raw}"`);
+  }
+  return Number(raw);
+}
+
 export default defineConfig({
   testDir: "./e2e",
   // Quarantine register (HEL-951) — the single exclusion list for both a
@@ -126,9 +137,12 @@ export default defineConfig({
   // account-wide concurrent-job limit). 3 workers measured no faster and 4 workers flaked on CI
   // (the 4-vCPU runner is CPU-bound); 2 is also the runner default. Cross-test isolation at 2 workers can only be proven on CI
   // (local runs stay at <= 2 workers). CI additionally writes a JSON report (uploaded as an artifact by
-  // the `e2e` job) so per-test durations come from CI rather than a dev box. A bare local run is
-  // unchanged: default workers, list reporter only, nothing written.
-  workers: process.env.CI ? 2 : undefined,
+  // the `e2e` job) so per-test durations come from CI rather than a dev box. A bare local run writes
+  // nothing and uses the list reporter only. HEL-1442: locally the worker count is ALSO capped at CI's 2
+  // (Playwright's own default is 50% of cores = 6 on a 12-thread box, each worker a browser); override a
+  // single run with HELIO_PLAYWRIGHT_WORKERS=<positive integer> (a CLI `--workers` still wins). An invalid
+  // override throws. With `CI` set the value is exactly 2, as before.
+  workers: process.env.CI ? 2 : localWorkers(),
   reporter: process.env.CI
     ? [["list"], ["json", { outputFile: "test-results/results.json" }]]
     : [["list"]],

@@ -105,3 +105,6 @@ scripts/concertino/.instrumentation-manifest.json
 
 # E2E evidence screenshots (HEL-1363): one per-worktree dir written by e2e/support/evidencePath.ts
 /e2e-evidence/
+
+# HEL-1442: jest cache moved off tmpfs /tmp to the checkout (local only)
+.jest-cache/

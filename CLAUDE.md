@@ -93,6 +93,20 @@ For local development, `DATABASE_URL` can embed credentials and `DB_USER` / `DB_
 
 Husky runs ESLint, `tsc --noEmit` (frontend type-check), Prettier, schema-drift check, OpenSpec hygiene check, Scala code-quality check, and Jest automatically on commit. Fix all issues before committing.
 
+### Local resource caps (HEL-1442)
+
+With `CI` unset, test and dev entry points are capped at or below CI's worker counts so three concurrent delivery lanes fit in 62 GB (the 2026-10-09 OOM: two hook `npm test` runs x 11 jest workers x ~12 GB each; see `MISTAKES.md`). `CI=true` leaves every value exactly as CI had it. One-off override: set the variable for that one invocation.
+
+| Cap                                | Local default                                                                     | CI                                      | One-off override                                                                                 |
+| ---------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| jest `maxWorkers`                  | 3 (+ `workerIdleMemoryLimit` 1.5 GB, cache on disk in `.jest-cache/`)             | jest default on a 4-vCPU runner = 3     | `HELIO_JEST_MAX_WORKERS=2 npm test` (or `--maxWorkers=N`)                                        |
+| Playwright `workers`               | 2                                                                                 | 2                                       | `HELIO_PLAYWRIGHT_WORKERS=1 npm run e2e` (or `--workers=N`)                                      |
+| forked test + `sbt run` JVM `-Xmx` | 3g                                                                                | JVM default (1/4 of the runner's 16 GB) | `HELIO_TEST_JVM_XMX=2g sbt testFull`                                                             |
+| forked test-group concurrency      | 1 (serial)                                                                        | 2 (`HEL924_TEST_GROUP_CONCURRENCY`)     | `HEL924_TEST_GROUP_CONCURRENCY=2 sbt testFull` (pre-existing; non-integers are silently ignored) |
+| sbt server JVM heap                | **not capped by the repo** (16 GB default); pass `-J-Xmx3g` / `SBT_OPTS=-J-Xmx3g` | `-Xmx3g`                                | n/a                                                                                              |
+
+An invalid override value throws, naming the variable. Details and measurements: `CONTRIBUTING.md` ("Local resource caps") and `openspec/changes/archive/2026-10-09-cap-local-test-parallelism/measurements.md`.
+
 ## Architecture
 
 Helio is a dashboard builder with a React/Redux frontend and a Scala/Pekko backend.

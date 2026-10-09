@@ -1,3 +1,5 @@
+const { localJestCaps } = require("../scripts/lib/jest-local-caps.cjs");
+
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "jsdom",
@@ -18,4 +20,6 @@ module.exports = {
     "^echarts-for-react/esm/core$": "<rootDir>/src/test/echartsForReactCoreMock.tsx",
     "^echarts/(core|charts|components|renderers)$": "<rootDir>/src/test/echartsCoreSubpathMock.ts",
   },
+  // HEL-1442: local-only worker/memory/cache caps (empty under CI).
+  ...localJestCaps(__dirname),
 };
