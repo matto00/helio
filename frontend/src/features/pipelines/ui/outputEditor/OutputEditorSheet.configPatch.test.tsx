@@ -239,8 +239,9 @@ describe("OutputEditorSheet edit Save -- config patch (HEL-1389)", () => {
     expect(after.label).toBe("Revenue");
   });
 
-  // GUARD (passes on the pre-fix code, which re-sends the whole config): shown failable by a
-  // mutation in the task 1.1 record -- dropping the D4a `fieldMapping`/`aggregation` pairing.
+  // Red on the WHOLE pre-fix tree (6f2351e8^, measured there, not by dropping its sheet into this
+  // tree): the pre-fix builder omits `fieldMapping.value` for an aggregated metric. On current
+  // code it is failable by removing the D4a `fieldMapping`/`aggregation` pairing in `buildConfigPatch`.
   it("keeps an aggregated {agg} metric bound after binding only its label to a field", async () => {
     const stored = { fieldMapping: { value: "a" }, aggregation: { agg: "sum" } };
     await openAndWaitForColumns(outputOf("metric", stored));
