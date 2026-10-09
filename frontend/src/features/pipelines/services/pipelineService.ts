@@ -1,3 +1,4 @@
+import { invalidateAll, invalidatePipeline } from "../../panels/state/outputFreshness";
 import type {
   AssertionSummary,
   GrantRole,
@@ -74,11 +75,13 @@ export async function getPipelineSteps(id: string): Promise<PipelineStep[]> {
 
 export async function updatePipeline(id: string, name: string): Promise<PipelineSummary> {
   const response = await httpClient.patch<PipelineSummary>(`/api/pipelines/${id}`, { name });
+  invalidatePipeline(id);
   return response.data;
 }
 
 export async function deletePipeline(id: string): Promise<void> {
   await httpClient.delete(`/api/pipelines/${id}`);
+  invalidatePipeline(id);
 }
 
 /** What `createPipelineStep` resolves to (HEL-1345): the step plus the ids the insert re-parented
@@ -130,6 +133,7 @@ export async function createPipelineStep(
       ...(parentStepId === undefined && rootId !== undefined ? { rootId } : {}),
     },
   );
+  invalidatePipeline(pipelineId);
   // HEL-1345 D5 — the create response lists the existing steps the insert re-parented
   // (`reparentedStepIds`, create-only; `[]` when none). Surface it so the editor can apply the
   // server's delta; `[]` when absent so older mocks/responses keep working.
@@ -146,6 +150,7 @@ export async function updatePipelineStep(
   const response = await httpClient.patch<PipelineStep>(`/api/pipeline-steps/${stepId}`, {
     config,
   });
+  invalidateAll();
   return normalizePipelineStep(response.data);
 }
 
@@ -160,6 +165,7 @@ export async function updatePipelineStepEnabled(
   const response = await httpClient.patch<PipelineStep>(`/api/pipeline-steps/${stepId}`, {
     enabled,
   });
+  invalidateAll();
   return normalizePipelineStep(response.data);
 }
 
@@ -167,11 +173,13 @@ export async function updatePipelineStepEnabled(
  *  Returns the created clone, positioned directly after the original. */
 export async function duplicatePipelineStep(stepId: string): Promise<PipelineStep> {
   const response = await httpClient.post<PipelineStep>(`/api/pipeline-steps/${stepId}/duplicate`);
+  invalidateAll();
   return normalizePipelineStep(response.data);
 }
 
 export async function deletePipelineStep(stepId: string): Promise<void> {
   await httpClient.delete(`/api/pipeline-steps/${stepId}`);
+  invalidateAll();
 }
 
 /** HEL-968 task 7.1 — `POST /api/pipelines/:id/roots` (R6). One shape, not
@@ -189,6 +197,7 @@ export async function addPipelineRoot(
   body: { sourceId: string },
 ): Promise<PipelineRoot> {
   const response = await httpClient.post<PipelineRoot>(`/api/pipelines/${pipelineId}/roots`, body);
+  invalidatePipeline(pipelineId);
   return response.data;
 }
 
@@ -206,6 +215,7 @@ export async function removePipelineRoot(
   const response = await httpClient.delete<RemovePipelineRootResponse>(
     `/api/pipelines/${pipelineId}/roots/${rootId}`,
   );
+  invalidatePipeline(pipelineId);
   return response.data;
 }
 
@@ -221,6 +231,7 @@ export async function reorderPipelineSteps(
     `/api/pipelines/${pipelineId}/steps/order`,
     { stepIds },
   );
+  invalidatePipeline(pipelineId);
   return response.data.map(normalizePipelineStep);
 }
 
@@ -244,6 +255,7 @@ export async function runPipeline(pipelineId: string, dryRun?: boolean): Promise
     ? `/api/pipelines/${pipelineId}/run?dry=true`
     : `/api/pipelines/${pipelineId}/run`;
   const response = await httpClient.post<RunResult>(url);
+  invalidatePipeline(pipelineId);
   return response.data;
 }
 

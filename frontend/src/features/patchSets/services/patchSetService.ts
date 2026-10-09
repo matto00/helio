@@ -1,3 +1,4 @@
+import { invalidateAll } from "../../panels/state/outputFreshness";
 import { httpClient } from "../../../services/httpClient";
 import type {
   PatchSet,
@@ -22,6 +23,7 @@ export async function previewPatchSet(patchSet: PatchSet): Promise<PatchSetPrevi
  *  already-applied edit. */
 export async function applyPatchSet(patchSet: PatchSet): Promise<PatchSetApplyResponse> {
   const response = await httpClient.post<PatchSetApplyResponse>("/api/patch-sets/apply", patchSet);
+  invalidateAll();
   return response.data;
 }
 
@@ -31,5 +33,6 @@ export async function undoPatchSet(applicationId: string): Promise<PatchSetUndoR
   const response = await httpClient.post<PatchSetUndoResponse>(
     `/api/patch-sets/${applicationId}/undo`,
   );
+  invalidateAll();
   return response.data;
 }

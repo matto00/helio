@@ -244,7 +244,15 @@ describe("panelsSlice", () => {
       const nextState = panelsReducer(
         afterPending,
         fetchPanelPage.fulfilled(
-          { panelId: "panel-1", page: 0, rows, hasMore: true, materialized: true, total: 2 },
+          {
+            panelId: "panel-1",
+            page: 0,
+            rows,
+            hasMore: true,
+            materialized: true,
+            total: 2,
+            generation: 3,
+          },
           "req",
           arg,
         ),
@@ -260,6 +268,11 @@ describe("panelsSlice", () => {
         // HEL-1191 design.md D9a-i — a legitimate shape change: the page-0 request's query is now
         // recorded on the entry (`crossFilterEq` is `null` when none was sent).
         lastQuery: { outputId: "output-1", crossFilterEq: null },
+        // HEL-1392 design.md D2 -- a settled page-0 window records that it succeeded and under
+        // which freshness generation, so a remounting card can tell whether it may reuse it.
+        lastFetchOk: true,
+        generation: 3,
+        lastError: null,
       });
     });
 
