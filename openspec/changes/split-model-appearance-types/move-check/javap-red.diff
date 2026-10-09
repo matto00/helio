@@ -1,0 +1,5 @@
+7c7,8
+<   public scala.util.Either<java.lang.String, com.helio.domain.model.PanelAppearance> applyPatchJson(spray.json.JsValue, com.helio.domain.model.PanelAppearance);
+---
+>   public scala.util.Either<java.lang.String, com.helio.domain.model.PanelAppearance> applyPatchJson(spray.json.JsValue, com.helio.domain.model.PanelAppearance, boolean);
+>   public boolean applyPatchJson$default$3();
