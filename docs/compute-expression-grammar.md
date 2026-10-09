@@ -82,18 +82,19 @@ Function-call syntax is `name(arg1, arg2, ...)`. Arguments are themselves expres
 `$refs`, or nested calls) and are evaluated left-to-right. Functions bind like a single factor, so
 `concat($a, $b) + "!"` parses unambiguously (the `+` applies to the whole call's result).
 
-| Function                   | Arity  | Behavior                                                                                                                                                                                                                                                      | Errors                                                                         |
-| -------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `concat(a, b, ...)`        | ≥ 1    | Joins all arguments as strings (numbers coerced, same as `+`'s coercion)                                                                                                                                                                                      | —                                                                              |
-| `substring(s, start, end)` | 3      | 0-indexed, `end` exclusive; **out-of-range `start`/`end` are clamped to `[0, length(s)]`, not an error**                                                                                                                                                      | first argument must be a string (`TypeError` otherwise)                        |
-| `lower(s)`                 | 1      | Lowercases a string                                                                                                                                                                                                                                           | non-string argument is a `TypeError`                                           |
-| `upper(s)`                 | 1      | Uppercases a string                                                                                                                                                                                                                                           | non-string argument is a `TypeError`                                           |
-| `length(s)`                | 1      | Character count as a number                                                                                                                                                                                                                                   | non-string argument is a `TypeError`                                           |
-| `floor(x)`                 | 1      | Rounds toward negative infinity (`floor(0 - 2.5)` = `-3`)                                                                                                                                                                                                     | non-numeric argument is a `TypeError`                                          |
-| `ceil(x)`                  | 1      | Rounds toward positive infinity (`ceil(0 - 2.5)` = `-2`)                                                                                                                                                                                                      | non-numeric argument is a `TypeError`                                          |
-| `abs(x)`                   | 1      | Absolute value                                                                                                                                                                                                                                                | non-numeric argument is a `TypeError`                                          |
-| `round(x)` / `round(x, d)` | 1 or 2 | Rounds half **away from zero** on the value's decimal form: `round(2.5)` = `3`, `round(0 - 2.5)` = `-3`, `round(2.675, 2)` = `2.68`. `d` must be a whole number; negative `d` rounds to tens/hundreds (`round(1234, 0 - 2)` = `1200`); `d` is clamped to ±308 | non-numeric argument, or fractional `d`, is a `TypeError`                      |
-| `mod(a, b)`                | 2      | **Floored** remainder, sign follows the divisor `b`: `mod(7, 3)` = `1`, `mod(0 - 7, 3)` = `2`, `mod(7, 0 - 3)` = `-2`, `mod(5.5, 2)` = `1.5` (differs from SQL/Java truncated `%`)                                                                            | non-numeric argument is a `TypeError`; `b` = `0` is a per-row `null`, like `/` |
+| Function                   | Arity  | Behavior                                                                                                                                                                                                                                                      | Errors                                                                                |
+| -------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `concat(a, b, ...)`        | ≥ 1    | Joins all arguments as strings (numbers coerced, same as `+`'s coercion)                                                                                                                                                                                      | —                                                                                     |
+| `substring(s, start, end)` | 3      | 0-indexed, `end` exclusive; **out-of-range `start`/`end` are clamped to `[0, length(s)]`, not an error**                                                                                                                                                      | first argument must be a string (`TypeError` otherwise)                               |
+| `lower(s)`                 | 1      | Lowercases a string                                                                                                                                                                                                                                           | non-string argument is a `TypeError`                                                  |
+| `upper(s)`                 | 1      | Uppercases a string                                                                                                                                                                                                                                           | non-string argument is a `TypeError`                                                  |
+| `length(s)`                | 1      | Character count as a number                                                                                                                                                                                                                                   | non-string argument is a `TypeError`                                                  |
+| `floor(x)`                 | 1      | Rounds toward negative infinity (`floor(0 - 2.5)` = `-3`)                                                                                                                                                                                                     | non-numeric argument is a `TypeError`                                                 |
+| `ceil(x)`                  | 1      | Rounds toward positive infinity (`ceil(0 - 2.5)` = `-2`)                                                                                                                                                                                                      | non-numeric argument is a `TypeError`                                                 |
+| `abs(x)`                   | 1      | Absolute value                                                                                                                                                                                                                                                | non-numeric argument is a `TypeError`                                                 |
+| `round(x)` / `round(x, d)` | 1 or 2 | Rounds half **away from zero** on the value's decimal form: `round(2.5)` = `3`, `round(0 - 2.5)` = `-3`, `round(2.675, 2)` = `2.68`. `d` must be a whole number; negative `d` rounds to tens/hundreds (`round(1234, 0 - 2)` = `1200`); `d` is clamped to ±308 | non-numeric argument, or fractional `d`, is a `TypeError`                             |
+| `mod(a, b)`                | 2      | **Floored** remainder, sign follows the divisor `b`: `mod(7, 3)` = `1`, `mod(0 - 7, 3)` = `2`, `mod(7, 0 - 3)` = `-2`, `mod(5.5, 2)` = `1.5` (differs from SQL/Java truncated `%`)                                                                            | non-numeric argument is a `TypeError`; `b` = `0` is a per-row `null`, like `/`        |
+| `coalesce(a, b, ...)`      | ≥ 2    | Returns the first argument that is not `null`, evaluating left to right and **stopping at the first non-null** (later arguments are never evaluated); all `null` → `null`. The one function exempt from null propagation. The value is returned unchanged     | fewer than 2 arguments is a parse error; an error in a reached argument nulls the row |
 
 An unknown function name, or a call with the wrong number of arguments, is a **parse error**
 (caught by `validate()` before the expression is ever run against a row).
@@ -106,6 +107,8 @@ upper($code)                           // "AB12" from "ab12"
 length($name)                          // 3
 round($rate * 100, 1)                  // 87.3 from 0.8734
 mod($n, 3)                             // bucket index; mod(0 - 7, 3) = 2
+coalesce($nick, $name)                 // "Ada" when nick is null and name is "Ada"
+concat(coalesce($first, ""), " ", coalesce($last, ""))   // "Grace " when last is blank
 ```
 
 The numeric functions are numeric-strict, like `-`/`*`/`/`: a string argument — including a numeric
@@ -113,12 +116,19 @@ string such as `"3.7"` from an uncast CSV column — is a `TypeError` (row value
 step first. Their results are floats on the wire, so analyze-time and run-time types agree.
 
 If any argument evaluates to `null` (e.g. an unset field), the whole call's result is `null`
-(same null-propagation as the binary operators) rather than an error.
+(same null-propagation as the binary operators) rather than an error. **`coalesce` is the exception.**
+
+### Blank CSV cells and `coalesce`
+
+A blank CSV cell loads as `null` (HEL-1408), so `concat($first, " ", $last)` is `null` for a row
+where either part is blank. Supply a fallback with `coalesce`:
+`concat(coalesce($first, ""), " ", coalesce($last, ""))` turns rows `Ada,Lovelace`, `Grace,` and
+`,Hopper` into `"Ada Lovelace"`, `"Grace "` and `" Hopper"`. Conditionals are not available (HEL-1070).
 
 ## Errors
 
 Parse/validation errors surface as a human-readable message (e.g. `"Column references require a
-'$' prefix"`, `"Unknown field: foo"`, `"'reverse' is not a recognized function; supported functions: abs, ceil, concat, floor, length, lower, mod, round, substring, upper"`,
+'$' prefix"`, `"Unknown field: foo"`, `"'reverse' is not a recognized function; supported functions: abs, ceil, coalesce, concat, floor, length, lower, mod, round, substring, upper"`,
 `"substring requires 3 arguments"`). At **analyze time** (`PipelineAnalyzeService.inferCompute`),
 this message is set on `AnalyzedStep.validationError` and rendered inline under the expression
 input in the step-card UI (`ComputeFieldConfig`). At **row-execution time**
@@ -137,6 +147,13 @@ wire:
 - `length`, `floor`, `ceil`, `round`, `mod`, `abs` → `float`
 - `+` → `string` if either operand infers `string`, else `float`
 - A `$`-prefixed field reference inherits its type from the input schema
+- `coalesce` → the **common type of its arguments**: all the same type → that type; all numeric
+  (`integer`/`float`) → `float`; no numeric argument → `string`. A **numeric/text mix**
+  (`coalesce($n, "n/a")` with `n` numeric) has no truthful type and is an **analyze-time error** on the
+  step (`validationError`, naming `coalesce` and suggesting `concat(...)`: `coalesce(concat($n), "n/a")`
+  infers `string`). The error is analyze-only: the step still saves, and manual, scheduled and
+  dataset-write runs still fire. The pipeline page's step-config-invalid notice that follows is display
+  only, as for any schema-derived compute error (e.g. `Unknown field`).
 
 ## Legacy compatibility
 
@@ -157,7 +174,7 @@ for this change (see the `compute-step-expression-rework` OpenSpec change's desi
 ## Known limitations (non-goals)
 
 - No unary minus / negative number literals (e.g. `-5` as a standalone value) — only binary `-`.
-- No boolean/comparison operators, conditionals, or aggregate functions.
+- No boolean/comparison operators, conditionals (HEL-1070; `coalesce` covers only null fallbacks), or aggregate functions.
 - No autocomplete for column references (stretch goal, not implemented).
 - No member-access/property-traversal operator — a dot is only ever part of a literal column
   name, never an operator, and no quoted/bracketed reference syntax exists for column names
