@@ -70,6 +70,7 @@ import {
   SimpleMappingFields,
   TableKindFields,
 } from "./OutputKindFields";
+import { buildBaselineConfig, buildConfigPatch } from "./configPatch";
 import { useOutputTableColumns } from "./useOutputTableColumns";
 import { useOutputColumnFormats } from "./useOutputColumnFormats";
 import { OutputPreviewPane } from "./OutputPreviewPane";
@@ -255,8 +256,8 @@ export function OutputEditorSheet({
   const [compare, setCompare] = useState<string>(metricConfig.compare ?? "none");
 
   // Markdown
-  // Literal-only (HEL-1139): a legacy `fieldMapping.content` is ignored on open
-  // and dropped on the next save.
+  // Literal-only (HEL-1139): a legacy `fieldMapping.content` is ignored on open;
+  // an edit Save leaves it stored unless the user changes the content (HEL-1389).
   const [markdownContent, setMarkdownContent] = useState(markdownConfig.content ?? "");
 
   // Collection / Timeline (lighter-weight slots -- task 5.1)
@@ -324,6 +325,16 @@ export function OutputEditorSheet({
     return { ...built, historyPayloads };
   }
 
+  // HEL-1389 -- an edit Save sends a config PATCH (only what the user changed, `null` for a clear);
+  // see `configPatch.ts`. A kind change has no comparable baseline, so it sends the full config.
+  function buildEditConfig(): Record<string, unknown> {
+    const built = buildConfig();
+    if (!output || kind !== output.kind) return built;
+    const fieldKeys = capabilities ? capabilities.columns.map((c) => c.name) : [];
+    const baseline = buildBaselineConfig(kind, output.config ?? {}, fieldKeys);
+    return buildConfigPatch(kind, built, baseline, output.config ?? {}) ?? {};
+  }
+
   async function handleSave() {
     setSaving(true);
     setSaveError(null);
@@ -347,10 +358,15 @@ export function OutputEditorSheet({
         // reopened (`OutputsRail` never fetches on its own).
         void dispatch(previewOutput({ pipelineId, outputId: created.id }));
       } else if (output) {
+        const patch = withHistoryPayloads(buildEditConfig());
         await dispatch(
           updateOutput({
             outputId: output.id,
-            payload: { name: name.trim(), config: withHistoryPayloads(buildConfig()) },
+            // `config` is omitted entirely when nothing in it changed.
+            payload: {
+              name: name.trim(),
+              ...(Object.keys(patch).length > 0 ? { config: patch } : {}),
+            },
           }),
         ).unwrap();
       }
