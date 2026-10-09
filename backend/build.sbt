@@ -23,6 +23,22 @@ def loadDotEnv(baseDir: File): Map[String, String] = {
   }
 }
 
+// HEL-1442: local-only explicit max heap for the forked test JVMs and the forked `sbt run` JVM. Without it a
+// forked JVM's max heap defaults to 1/4 of physical RAM (16.65 GB on the 62 GB dev box, measured), so several
+// concurrent delivery lanes can each grow to it. CI sets `CI`, so this is empty there and the JVM options are
+// exactly what they were (CI's own per-JVM heap is the runner's 1/4 of 16 GB, ~4 GB); production is untouched
+// because only `Test` and `Compile / run` options use it, never `assembly` or the Dockerfile's runtime flags.
+// One-off override: HELIO_TEST_JVM_XMX=<N>m|<N>g. An invalid value fails when `javaOptions` is evaluated (`show`, `testFull`, `run`), never silently uncapped.
+def localJvmHeapOptions(env: Map[String, String]): Seq[String] =
+  if (env.get("CI").exists(_.nonEmpty)) Seq.empty
+  else {
+    val heap = env.get("HELIO_TEST_JVM_XMX").filter(_.nonEmpty).getOrElse("3g")
+    if (!heap.matches("[1-9][0-9]*[mMgG]")) {
+      sys.error(s"HELIO_TEST_JVM_XMX must look like 512m or 3g, got \"$heap\"")
+    }
+    Seq(s"-Xmx$heap")
+  }
+
 // HEL-459: generates a CycloneDX 1.4 SBOM directly from the resolved compile-scope
 // classpath's attached `ModuleID`s (Coursier's own resolution result), rather than
 // text-parsing `sbt dependencyTree` output the way the archived HEL-452 `osv-scan.py`
@@ -136,7 +152,7 @@ lazy val root = (project in file("."))
       "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
       "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
       "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED"
-    ),
+    ) ++ Def.uncached(localJvmHeapOptions(sys.env)),
     // HEL-924: bound concurrent embedded-postgres instances during `sbt test`.
     //
     // Root cause (probe-confirmed via ~110 repeated `testOnly` runs against every
@@ -233,7 +249,7 @@ lazy val root = (project in file("."))
       "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
       "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
       "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED"
-    ),
+    ) ++ Def.uncached(localJvmHeapOptions(sys.env)),
     libraryDependencies ++= Seq(
       "org.apache.pekko" %% "pekko-actor-typed" % "1.1.3",
       "org.apache.pekko" %% "pekko-http" % "1.1.0",

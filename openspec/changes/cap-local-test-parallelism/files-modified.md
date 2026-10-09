@@ -1,0 +1,12 @@
+- `scripts/lib/jest-local-caps.cjs` — new: local-only jest caps (maxWorkers 3, workerIdleMemoryLimit, on-disk cacheDirectory), `{}` under CI, validated HELIO_JEST_MAX_WORKERS override
+- `jest.config.cjs` — spreads the local caps (root suite incl. helio-mcp)
+- `frontend/jest.config.cjs` — spreads the local caps (frontend suite)
+- `playwright.config.ts` — local `workers` capped at 2 with validated HELIO_PLAYWRIGHT_WORKERS override; stale "bare local run unchanged" comment fixed
+- `backend/build.sbt` — local-only `-Xmx3g` (HELIO_TEST_JVM_XMX override) on Test and Compile/run javaOptions, via Def.uncached so sbt 2's task cache cannot serve a stale value
+- `.gitignore` — ignore `.jest-cache/`
+- `eslint.config.cjs` — ignore `**/.jest-cache/**`
+- `CONTRIBUTING.md` — "Local resource caps" section (caps vs CI vs overrides); HEL924 comment corrected
+- `CLAUDE.md` — condensed caps table
+- `MISTAKES.md` — the 2026-10-09 OOM, measured causes, sbt 2 env-cache trap
+- `openspec/changes/cap-local-test-parallelism/measurements.md` + `measurements/` — before/after peaks, CI-identity and prod-untouched proof, raw sampler output
+- `scripts/lib/jest-local-caps.test.js` — unit test guarding the CI-identity rule (no keys under CI, caps locally, invalid override throws)

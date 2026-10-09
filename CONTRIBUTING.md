@@ -246,7 +246,7 @@ Use `testFull`, not bare `sbt test`: sbt 2 caches `test` results, so a repeat ru
 **Embedded-postgres test groups (HEL-924).** ~110 backend specs each start their own `EmbeddedPostgres` instance. `build.sbt` splits `Test / definedTests` into several forked-JVM groups (`hel924-group-N`) and caps how many run concurrently via `Global / concurrentRestrictions += Tags.limit(Tags.ForkedTestGroup, ...)`, so at most a handful of embedded Postgres instances start at once instead of one per suite in parallel — the earlier behavior could launch 100+ concurrently and produce spurious timeouts/failures unrelated to any code change (a different suite failing on every otherwise-identical re-run). Tune for a different machine via env vars before invoking `sbt testFull`:
 
 ```bash
-HEL924_TEST_GROUP_COUNT=8 HEL924_TEST_GROUP_CONCURRENCY=4 sbt testFull   # defaults shown
+HEL924_TEST_GROUP_COUNT=8 HEL924_TEST_GROUP_CONCURRENCY=4 sbt testFull   # count default 8; concurrency unset = serial locally, CI sets 2
 ```
 
 If `sbt testFull` still produces a failure that a second, immediate, unchanged re-run does not reproduce, that is environmental flakiness, not a regression — re-run before trusting a red result, and consider lowering `HEL924_TEST_GROUP_CONCURRENCY` on a busier machine (e.g. several concurrent delivery worktrees).
@@ -254,6 +254,32 @@ If `sbt testFull` still produces a failure that a second, immediate, unchanged r
 **Route-test request timeout (HEL-1228).** Pekko's route testkit fails any request slower than its 1-second default `RouteTestTimeout` ("Request was neither completed nor rejected within 1 second"), which a cold JVM or a loaded runner reaches on correct code. Every backend spec therefore obtains the testkit by mixing in `com.helio.testkit.HelioRouteTest` (never `ScalatestRouteTest`/`RouteTest` directly), which supplies one explicit 15-second `RouteTestTimeout`; `RouteTestBaseGuardSpec` fails `sbt testFull` naming any spec that bypasses it. The 15s bounds _harness_ latency only. It is not a performance check, so a spec that asserts latency must measure it itself (`System.nanoTime`) with its own bound, and a spec that needs a different harness bound overrides `routeTestTimeout`.
 
 `git commit -n` (skip hooks) is available for emergencies only. Any bypassed checks must be fixed in the next commit.
+
+## Local resource caps (HEL-1442)
+
+Several delivery lanes share one dev machine, and every default below scales with core count or RAM. On 2026-10-09
+two husky pre-commit `npm test` runs (jest's default of cores-1 = 11 workers each, ~12 GB each, measured) plus a build
+on a 12-thread / 62 GB box OOM-killed the desktop session. **CI's worker counts are the hard cap for local runs**,
+sized so three lanes fit comfortably. The caps apply only when the `CI` environment variable is unset or empty (any other value, including `CI=false`, counts as CI and leaves the shell uncapped); with `CI` set the
+effective jest, Playwright and sbt configuration is byte-identical to before. Production artefacts (Dockerfile,
+Cloud Run flags, the assembled jar, the frontend build) are not touched.
+
+| Entry point                                                    | Local default                                                                                         | CI value                                                           | One-off override                                                                                                                          |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| jest (root + `frontend/`, so the pre-commit hook's `npm test`) | `maxWorkers` 3, `workerIdleMemoryLimit` 1.5GB, `cacheDirectory` `<checkout>/.jest-cache` (gitignored) | jest default (cores - 1 = 3 on the 4-vCPU runner), cache in `/tmp` | `HELIO_JEST_MAX_WORKERS=<n>`; a CLI `--maxWorkers=<n>` also wins                                                                          |
+| Playwright (`npm run e2e`)                                     | `workers` 2                                                                                           | 2                                                                  | `HELIO_PLAYWRIGHT_WORKERS=<n>`; a CLI `--workers=<n>` also wins                                                                           |
+| forked `sbt testFull` JVMs and the forked `sbt run` JVM        | `-Xmx3g`                                                                                              | none (JVM default, 1/4 of the runner's RAM)                        | `HELIO_TEST_JVM_XMX=<N>m` or `<N>g`                                                                                                       |
+| forked test-group concurrency                                  | 1 (serial)                                                                                            | 2                                                                  | `HEL924_TEST_GROUP_CONCURRENCY=<n>` (the existing override; predates this change, so unlike the others it silently ignores a non-integer) |
+| sbt server JVM                                                 | not capped by the repo; default max heap is 1/4 of RAM (16 GB here)                                   | `-Xmx3g` (via an untracked `.jvmopts` and `-J-Xmx3g` in CI)        | pass `-J-Xmx3g`, export `SBT_OPTS=-J-Xmx3g`, or keep an untracked `backend/.jvmopts` containing `-Xmx3g`                                  |
+
+The sbt server heap is the one cap this repo cannot apply for you: no tracked file may carry it (CI and the Docker build
+read `backend/.sbtopts` / `.jvmopts`), and `build.sbt` cannot size the JVM it is loaded in.
+
+Rules for these settings: an invalid override value (`HELIO_JEST_MAX_WORKERS=abc`) throws and names the variable; it is never
+silently ignored or uncapped. A one-off override only affects that invocation. Expect the pre-commit hook to be about 8-11 s
+slower than uncapped (the frontend jest step: ~40 s -> ~49 s measured), in exchange for ~60% less peak memory per run
+(11.4-12.0 GB -> 4.1-4.9 GB). If you add a new local test/dev entry point that spawns workers or a JVM, cap it the same
+way (gate on `CI`, omit the key rather than set it to CI's value, and add the override row here).
 
 ## Pull Request Expectations
 

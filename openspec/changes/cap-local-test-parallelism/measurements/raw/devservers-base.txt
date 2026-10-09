@@ -1,0 +1,13 @@
+966495 VmRSS:=7352 RssAnon:=3456  /usr/bin/bash -c source /home/matt/.claude/shell-snapshots/snapshot-bash-1791564167618-0m97tu.sh 2>/dev/null |
+966549 VmRSS:=4964 RssAnon:=1096  bash /home/matt/.local/bin/sbt run 
+966591 VmRSS:=990712 RssAnon:=965468  java -Xms512m -Xss2m -XX:MaxInlineLevel=18 -Dsbt.ivy.home=.ivy2 -jar /home/matt/.sbt/launchers/2.0.9/sbt-launc
+967211 VmRSS:=577016 RssAnon:=551008  /usr/lib/jvm/java-21-openjdk/bin/java @/tmp/sbt-args11585473390873163735.tmp 
+967452 VmRSS:=62744 RssAnon:=12024  npm run dev                            
+967467 VmRSS:=784700 RssAnon:=706824  node /home/matt/Development/helio/.claude/worktrees/task/cap-local-test-parallelism/HEL-1442/frontend/node_mod
+967994 VmRSS:=5604 RssAnon:=3456  /usr/bin/bash -c source /home/matt/.claude/shell-snapshots/snapshot-bash-1791564167618-0m97tu.sh 2>/dev/null |
+967995 VmRSS:=2428 RssAnon:=120  tee /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/devservers-b
+966549 4.84766 MB
+966591 969.5 MB
+967211 565.895 MB
+967452 61.2734 MB
+967467 766.309 MB

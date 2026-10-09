@@ -1,0 +1,169 @@
+{
+  "configs": [
+    {
+      "automock": false,
+      "cache": true,
+      "cacheDirectory": "/tmp/jest_rs",
+      "clearMocks": false,
+      "collectCoverageFrom": [],
+      "coverageDirectory": "/home/matt/Development/helio/.claude/worktrees/task/cap-local-test-parallelism/HEL-1442/coverage",
+      "coveragePathIgnorePatterns": [
+        "/node_modules/"
+      ],
+      "coverageReporters": [
+        "json",
+        "text",
+        "lcov",
+        "clover"
+      ],
+      "cwd": "/home/matt/Development/helio/.claude/worktrees/task/cap-local-test-parallelism/HEL-1442",
+      "detectLeaks": false,
+      "detectOpenHandles": false,
+      "errorOnDeprecated": false,
+      "extensionsToTreatAsEsm": [],
+      "fakeTimers": {
+        "enableGlobally": false
+      },
+      "forceCoverageMatch": [],
+      "globals": {},
+      "haste": {
+        "computeSha1": false,
+        "enableSymlinks": false,
+        "forceNodeFilesystemAPI": true,
+        "throwOnModuleCollision": false
+      },
+      "id": "0d8d1ceced86d6e125132e1b83519fc6",
+      "injectGlobals": true,
+      "moduleDirectories": [
+        "node_modules"
+      ],
+      "moduleFileExtensions": [
+        "ts",
+        "tsx",
+        "js",
+        "jsx",
+        "json"
+      ],
+      "moduleNameMapper": [
+        [
+          "^(\\.{1,2}/.*)\\.js$",
+          "$1"
+        ]
+      ],
+      "modulePathIgnorePatterns": [
+        "/home/matt/Development/helio/.claude/worktrees/task/cap-local-test-parallelism/HEL-1442/.claude/worktrees/"
+      ],
+      "openHandlesTimeout": 1000,
+      "prettierPath": "prettier",
+      "resetMocks": false,
+      "resetModules": false,
+      "restoreMocks": false,
+      "rootDir": "/home/matt/Development/helio/.claude/worktrees/task/cap-local-test-parallelism/HEL-1442",
+      "roots": [
+        "/home/matt/Development/helio/.claude/worktrees/task/cap-local-test-parallelism/HEL-1442"
+      ],
+      "runner": "/home/matt/Development/helio/node_modules/jest-runner/build/index.js",
+      "sandboxInjectedGlobals": [],
+      "setupFiles": [],
+      "setupFilesAfterEnv": [],
+      "skipFilter": false,
+      "slowTestThreshold": 5,
+      "snapshotFormat": {
+        "escapeString": false,
+        "printBasicPrototype": false
+      },
+      "snapshotSerializers": [],
+      "testEnvironment": "/home/matt/Development/helio/node_modules/jest-environment-node/build/index.js",
+      "testEnvironmentOptions": {},
+      "testLocationInResults": false,
+      "testMatch": [
+        "**/?(*.)+(spec|test).[tj]s?(x)"
+      ],
+      "testPathIgnorePatterns": [
+        "/node_modules/",
+        "/openspec/",
+        "/.cursor/",
+        "/frontend/",
+        "/e2e/",
+        "/helio-mcp/dist/",
+        "/home/matt/Development/helio/.claude/worktrees/task/cap-local-test-parallelism/HEL-1442/.claude/worktrees/"
+      ],
+      "testRegex": [],
+      "testRunner": "/home/matt/Development/helio/node_modules/jest-circus/build/runner.js",
+      "transform": [
+        [
+          "^.+\\.tsx?$",
+          "/home/matt/Development/helio/node_modules/ts-jest/dist/index.js",
+          {
+            "tsconfig": {
+              "module": "NodeNext",
+              "moduleResolution": "NodeNext"
+            }
+          }
+        ]
+      ],
+      "transformIgnorePatterns": [
+        "/node_modules/",
+        "\\.pnp\\.[^\\/]+$"
+      ],
+      "waitForUnhandledRejections": false,
+      "watchPathIgnorePatterns": []
+    }
+  ],
+  "globalConfig": {
+    "bail": 0,
+    "changedFilesWithAncestor": false,
+    "ci": true,
+    "collectCoverage": false,
+    "collectCoverageFrom": [],
+    "coverageDirectory": "/home/matt/Development/helio/.claude/worktrees/task/cap-local-test-parallelism/HEL-1442/coverage",
+    "coverageProvider": "babel",
+    "coverageReporters": [
+      "json",
+      "text",
+      "lcov",
+      "clover"
+    ],
+    "detectLeaks": false,
+    "detectOpenHandles": false,
+    "errorOnDeprecated": false,
+    "expand": false,
+    "findRelatedTests": false,
+    "forceExit": false,
+    "json": false,
+    "lastCommit": false,
+    "listTests": false,
+    "logHeapUsage": false,
+    "maxConcurrency": 5,
+    "maxWorkers": 11,
+    "noStackTrace": false,
+    "nonFlagArgs": [],
+    "notify": false,
+    "notifyMode": "failure-change",
+    "onlyChanged": false,
+    "onlyFailures": false,
+    "openHandlesTimeout": 1000,
+    "passWithNoTests": false,
+    "projects": [],
+    "rootDir": "/home/matt/Development/helio/.claude/worktrees/task/cap-local-test-parallelism/HEL-1442",
+    "runInBand": false,
+    "runTestsByPath": false,
+    "seed": 1,
+    "skipFilter": false,
+    "snapshotFormat": {
+      "escapeString": false,
+      "printBasicPrototype": false
+    },
+    "testFailureExitCode": 1,
+    "testPathPatterns": [],
+    "testSequencer": "/home/matt/Development/helio/node_modules/@jest/test-sequencer/build/index.js",
+    "updateSnapshot": "none",
+    "useStderr": false,
+    "waitForUnhandledRejections": false,
+    "watch": false,
+    "watchAll": false,
+    "watchman": true,
+    "workerThreads": false
+  },
+  "version": "30.1.3"
+}
