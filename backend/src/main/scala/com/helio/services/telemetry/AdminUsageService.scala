@@ -20,7 +20,7 @@ final class AdminUsageService(repo: ProductUsageRepository, clock: Clock)(implic
   import AdminUsageService._
 
   /** `rawDays` is the unparsed query value: absent -> [[DefaultDays]]; non-numeric or outside
-   *  `1..90` -> `BadRequest` (rejected, never clamped). */
+   *  `1..365` -> `BadRequest` (rejected, never clamped). */
   def usage(rawDays: Option[String]): Future[Either[ServiceError, AdminUsageResponse]] =
     parseDays(rawDays) match {
       case Left(msg)    => Future.successful(Left(ServiceError.BadRequest(msg)))
@@ -43,12 +43,14 @@ final class AdminUsageService(repo: ProductUsageRepository, clock: Clock)(implic
       // Nothing has been finalised yet (`rolled_through` is null): the only rollup rows that may
       // exist are the still-moving yesterday/today recomputes, which are not final numbers, so
       // none are read -- the response is the zero-filled empty window.
-      if (rolled.isEmpty) Future.successful(empty(days, from, to, window))
+      if (rolled.isEmpty) repo.totalUsers().map(n => empty(days, from, to, window, AdminUsageTotals(n, None, None, None)))
       else for {
         eventRows <- repo.eventDaily(from, to, events)
         active    <- repo.activeUsersDaily(from, to)
         ttfd      <- repo.ttfdDaily(from, to)
         templates <- repo.propertyTotals(from, to, ProductEventRegistry.FirstrunTemplateChosen, "template")
+        users     <- repo.totalUsers()
+        latest    <- repo.activeTotals(to)
       } yield AdminUsageResponse(
         days                  = days,
         from                  = from.toString,
@@ -59,11 +61,12 @@ final class AdminUsageService(repo: ProductUsageRepository, clock: Clock)(implic
         funnel                = funnel(eventRows),
         templateChoices       = templates.map { case (t, n) => AdminUsageTemplateCount(t, n) },
         provenanceOpensPerDay = countSeries(window, eventRows, Provenance),
-        activeUsers           = activeSeries(window, active)
+        activeUsers           = activeSeries(window, active),
+        totals                = AdminUsageTotals(users, latest.flatMap(_.weekly), latest.flatMap(_.monthly), Some(to.toString))
       )
     }
 
-  private def empty(days: Int, from: LocalDate, to: LocalDate, window: Seq[LocalDate]): AdminUsageResponse =
+  private def empty(days: Int, from: LocalDate, to: LocalDate, window: Seq[LocalDate], totals: AdminUsageTotals): AdminUsageResponse =
     AdminUsageResponse(
       days                  = days,
       from                  = from.toString,
@@ -74,7 +77,8 @@ final class AdminUsageService(repo: ProductUsageRepository, clock: Clock)(implic
       funnel                = funnel(Nil),
       templateChoices       = Nil,
       provenanceOpensPerDay = countSeries(window, Nil, Provenance),
-      activeUsers           = activeSeries(window, Nil)
+      activeUsers           = activeSeries(window, Nil),
+      totals                = totals
     )
 
   private def countSeries(window: Seq[LocalDate], rows: Seq[EventDayRow], event: String): Seq[AdminUsageDayCount] = {
@@ -116,7 +120,7 @@ final class AdminUsageService(repo: ProductUsageRepository, clock: Clock)(implic
 object AdminUsageService {
   val DefaultDays: Int = 30
   val MinDays: Int     = 1
-  val MaxDays: Int     = 90
+  val MaxDays: Int     = 365
 
   private val Signup           = ProductEventRegistry.SignupCompleted
   private val Provenance       = ProductEventRegistry.ProvenanceOpened

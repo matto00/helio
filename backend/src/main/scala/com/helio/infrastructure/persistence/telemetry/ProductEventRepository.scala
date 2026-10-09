@@ -103,12 +103,14 @@ class ProductEventRepository(
       val covered = st.rolledThrough.exists(rt => !day.isAfter(rt))
       if (covered && !day.isAfter(cutoff)) DBIO.successful(false)
       else {
-        // WAU spans day-6..day; it is computable only while the window's first day is still
-        // inside retention, otherwise partial purged rows would under-count.
+        // WAU (day-6..day) and MAU (day-29..day) are computable only while the window's first day
+        // is still inside retention, otherwise partial purged rows would under-count.
         val wauComputable = day.minusDays(6).isAfter(cutoff)
+        val mauComputable = day.minusDays(29).isAfter(cutoff)
         val start         = dayStart(day)
         val end           = dayStart(day.plusDays(1))
         val weekStart     = dayStart(day.minusDays(6))
+        val monthStart    = dayStart(day.minusDays(29))
         val dayStr        = day.toString
         val slugs         = rolledUpTemplateSlugs.mkString(",")
         DBIO.seq(
@@ -117,7 +119,7 @@ class ProductEventRepository(
                  SELECT CAST($dayStr AS date), event, COUNT(*), COUNT(DISTINCT user_id)
                  FROM product_events WHERE occurred_at >= $start AND occurred_at < $end
                  GROUP BY event""",
-          activeUsersUpsert(dayStr, start, end, weekStart, wauComputable),
+          activeUsersUpsert(dayStr, start, end, Option.when(wauComputable)(weekStart), Option.when(mauComputable)(monthStart)),
           sqlu"DELETE FROM product_ttfd_daily WHERE day = CAST($dayStr AS date)",
           ttfdUpsert(dayStr, start, end),
           sqlu"DELETE FROM product_event_property_daily WHERE day = CAST($dayStr AS date)",
@@ -133,20 +135,24 @@ class ProductEventRepository(
       }
     }
 
-  private def activeUsersUpsert(dayStr: String, start: Timestamp, end: Timestamp, weekStart: Timestamp, wau: Boolean): DBIO[Int] =
-    if (wau)
-      sqlu"""INSERT INTO product_active_users_daily (day, daily_active_users, weekly_active_users)
-             SELECT CAST($dayStr AS date),
-                    (SELECT COUNT(DISTINCT user_id) FROM product_events WHERE occurred_at >= $start AND occurred_at < $end),
-                    (SELECT COUNT(DISTINCT user_id) FROM product_events WHERE occurred_at >= $weekStart AND occurred_at < $end)
-             ON CONFLICT (day) DO UPDATE SET daily_active_users = EXCLUDED.daily_active_users,
-                                             weekly_active_users = EXCLUDED.weekly_active_users"""
-    else
-      sqlu"""INSERT INTO product_active_users_daily (day, daily_active_users, weekly_active_users)
-             SELECT CAST($dayStr AS date),
-                    (SELECT COUNT(DISTINCT user_id) FROM product_events WHERE occurred_at >= $start AND occurred_at < $end),
-                    NULL
-             ON CONFLICT (day) DO UPDATE SET daily_active_users = EXCLUDED.daily_active_users"""
+  /** A `None` window start means that trailing count is not computable for this roll, so NULL is
+   *  written; on conflict `COALESCE` keeps an earlier value computed while the window was still
+   *  inside retention rather than clobbering it with NULL. */
+  private def activeUsersUpsert(dayStr: String, start: Timestamp, end: Timestamp, weekStart: Option[Timestamp], monthStart: Option[Timestamp]): DBIO[Int] = {
+    val wauOk = weekStart.isDefined
+    val mauOk = monthStart.isDefined
+    sqlu"""INSERT INTO product_active_users_daily (day, daily_active_users, weekly_active_users, monthly_active_users)
+           SELECT CAST($dayStr AS date),
+                  (SELECT COUNT(DISTINCT user_id) FROM product_events WHERE occurred_at >= $start AND occurred_at < $end),
+                  CASE WHEN CAST($wauOk AS boolean)
+                       THEN (SELECT COUNT(DISTINCT user_id) FROM product_events WHERE occurred_at >= $weekStart AND occurred_at < $end) END,
+                  CASE WHEN CAST($mauOk AS boolean)
+                       THEN (SELECT COUNT(DISTINCT user_id) FROM product_events WHERE occurred_at >= $monthStart AND occurred_at < $end) END
+           ON CONFLICT (day) DO UPDATE SET
+             daily_active_users   = EXCLUDED.daily_active_users,
+             weekly_active_users  = COALESCE(EXCLUDED.weekly_active_users, product_active_users_daily.weekly_active_users),
+             monthly_active_users = COALESCE(EXCLUDED.monthly_active_users, product_active_users_daily.monthly_active_users)"""
+  }
 
   /** TTFD per design.md Decision 9: seconds from `signup_completed` to `first_dashboard_rendered`;
    *  users without a signup row and negative differences are excluded. Histogram buckets are
