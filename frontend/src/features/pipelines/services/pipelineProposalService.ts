@@ -1,3 +1,4 @@
+import { invalidateAll } from "../../panels/state/outputFreshness";
 import { httpClient } from "../../../services/httpClient";
 import type { PipelineProposal, PipelineProposalApplyResponse } from "../types/pipelineProposal";
 
@@ -11,5 +12,6 @@ export async function applyPipelineProposal(
     "/api/pipelines/apply-proposal",
     proposal,
   );
+  invalidateAll();
   return response.data;
 }

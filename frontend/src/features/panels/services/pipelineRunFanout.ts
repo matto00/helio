@@ -16,6 +16,8 @@
 // record — before opening the live SSE stream, so a missed terminal outcome is still observed on
 // the very next (re)connect.
 
+import { invalidatePipeline, onFreshnessReset } from "../state/outputFreshness";
+
 type SucceededListener = () => void;
 
 interface FanoutEntry {
@@ -38,6 +40,42 @@ const TERMINAL_STATUSES = new Set(["succeeded", "failed", "dry_run"]);
 
 const entries = new Map<string, FanoutEntry>();
 
+// HEL-1392 design.md D5 — the last terminal run id observed per pipeline, kept for the page's
+// lifetime. `closeEntry` deletes the entry (and with it `lastObservedRunId`) when the last
+// subscriber leaves, so without this a resubscribe is a "first observation" that never notifies: a
+// run that finished while no card was subscribed would go unnoticed. Seeding a new entry from here
+// makes that reconnect a real observation. Its presence also is the "run baseline" row reuse
+// requires (`hasRunBaseline`).
+const lastObservedRunIdByPipeline = new Map<string, string>();
+// Logout (and every test) forgets them with the rest of the freshness state.
+onFreshnessReset(() => lastObservedRunIdByPipeline.clear());
+
+function createEntry(pipelineId: string): FanoutEntry {
+  return {
+    listeners: new Set(),
+    terminalListeners: new Set(),
+    controller: null,
+    retryTimeoutId: null,
+    attempt: 0,
+    lastObservedRunId: lastObservedRunIdByPipeline.get(pipelineId),
+  };
+}
+
+function recordObservedRun(pipelineId: string, entry: FanoutEntry, runId: string): void {
+  entry.lastObservedRunId = runId;
+  lastObservedRunIdByPipeline.set(pipelineId, runId);
+}
+
+/** True once a terminal run id has been recorded for `pipelineId` in this page's lifetime. */
+export function hasRunBaseline(pipelineId: string): boolean {
+  return lastObservedRunIdByPipeline.has(pipelineId);
+}
+
+/** Test helper: forgets every recorded run id. */
+export function resetRunBaselines(): void {
+  lastObservedRunIdByPipeline.clear();
+}
+
 /** Bounded exponential backoff for a non-terminal connection failure (design.md D6):
  *  1s, 2s, 4s, ... capped at 30s. `attempt` resets to 0 on the next successful connection. */
 export function computeRetryDelayMs(attempt: number): number {
@@ -56,14 +94,7 @@ export function subscribeToPipelineSucceeded(
 ): () => void {
   let entry = entries.get(pipelineId);
   if (!entry) {
-    entry = {
-      listeners: new Set(),
-      terminalListeners: new Set(),
-      controller: null,
-      retryTimeoutId: null,
-      attempt: 0,
-      lastObservedRunId: undefined,
-    };
+    entry = createEntry(pipelineId);
     entries.set(pipelineId, entry);
     void connect(pipelineId, entry);
   }
@@ -89,14 +120,7 @@ export function subscribeToPipelineTerminal(
 ): () => void {
   let entry = entries.get(pipelineId);
   if (!entry) {
-    entry = {
-      listeners: new Set(),
-      terminalListeners: new Set(),
-      controller: null,
-      retryTimeoutId: null,
-      attempt: 0,
-      lastObservedRunId: undefined,
-    };
+    entry = createEntry(pipelineId);
     entries.set(pipelineId, entry);
     void connect(pipelineId, entry);
   }
@@ -203,6 +227,7 @@ async function reconcile(
   if (data.status === "succeeded" && !isFirstObservation) {
     // Same "notify" path the live SSE succeeded-event handler below uses — a reconciled outcome
     // and a live one are indistinguishable to a listener.
+    invalidatePipeline(pipelineId);
     for (const listener of entry.listeners) listener();
   }
   if ((data.status === "succeeded" || data.status === "failed") && !isFirstObservation) {
@@ -210,7 +235,7 @@ async function reconcile(
   }
   // Set regardless of status (succeeded, failed, or dry_run) — a later failed/dry_run run must
   // also stop being treated as "new" on the next reconcile call (design.md Decision 3).
-  entry.lastObservedRunId = data.id;
+  recordObservedRun(pipelineId, entry, data.id);
 }
 
 async function connect(pipelineId: string, entry: FanoutEntry): Promise<void> {
@@ -280,12 +305,13 @@ async function connect(pipelineId: string, entry: FanoutEntry): Promise<void> {
                 const isNewRun =
                   parsed.runId === undefined || parsed.runId !== entry.lastObservedRunId;
                 if (parsed.status === "succeeded" && isNewRun) {
+                  invalidatePipeline(pipelineId);
                   for (const listener of entry.listeners) listener();
                 }
                 if ((parsed.status === "succeeded" || parsed.status === "failed") && isNewRun) {
                   for (const listener of entry.terminalListeners) listener();
                 }
-                if (parsed.runId !== undefined) entry.lastObservedRunId = parsed.runId;
+                if (parsed.runId !== undefined) recordObservedRun(pipelineId, entry, parsed.runId);
                 reader.cancel();
                 break readLoop;
               }

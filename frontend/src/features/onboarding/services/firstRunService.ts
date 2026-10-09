@@ -1,3 +1,4 @@
+import { invalidateAll } from "../../panels/state/outputFreshness";
 import { httpClient } from "../../../services/httpClient";
 
 export interface FirstRunBuildResult {
@@ -16,6 +17,7 @@ export async function buildFirstRunDashboard(sourceId: string): Promise<FirstRun
   const response = await httpClient.post<FirstRunBuildResult>("/api/first-run/dashboard", {
     sourceId,
   });
+  invalidateAll();
   return response.data;
 }
 
@@ -26,5 +28,6 @@ export async function buildTemplateDashboard(template: string): Promise<FirstRun
   const response = await httpClient.post<FirstRunBuildResult>("/api/first-run/template", {
     template,
   });
+  invalidateAll();
   return response.data;
 }

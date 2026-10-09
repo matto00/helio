@@ -1,3 +1,5 @@
+// HEL-1392 design.md D4 -- a write invalidates the held metadata and rows of what it touched.
+import { invalidateOutput, invalidatePipeline } from "../../panels/state/outputFreshness";
 import { httpClient } from "../../../services/httpClient";
 import type {
   AssertionStatus,
@@ -38,6 +40,7 @@ export async function createOutput(
   payload: CreateOutputPayload,
 ): Promise<Output> {
   const response = await httpClient.post<Output>(`/api/pipelines/${pipelineId}/outputs`, payload);
+  invalidatePipeline(pipelineId);
   return normalizeOutput(response.data);
 }
 
@@ -51,11 +54,13 @@ export async function updateOutput(
   payload: UpdateOutputPayload,
 ): Promise<Output> {
   const response = await httpClient.patch<Output>(`/api/outputs/${outputId}`, payload);
+  invalidateOutput(outputId);
   return normalizeOutput(response.data);
 }
 
 export async function deleteOutput(outputId: string): Promise<DeleteOutputResult> {
   const response = await httpClient.delete<DeleteOutputResult>(`/api/outputs/${outputId}`);
+  invalidateOutput(outputId);
   return response.data;
 }
 

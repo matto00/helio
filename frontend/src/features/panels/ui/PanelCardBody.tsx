@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, type RefObject } from "react";
 import { isOutputPanel } from "../state/panelNarrowing";
 import { fetchPanelPage } from "../state/panelsSlice";
 import { useFirstDashboardRendered } from "../../telemetry/useFirstDashboardRendered";
@@ -45,6 +45,9 @@ interface PanelCardBodyProps extends Omit<PanelDataResult, "isRefreshing" | "pag
    *  instead of overflowing a narrow phone width (W5). No effect on other
    *  renderers; unset (desktop grid) is unchanged. */
   compact?: boolean;
+  /** HEL-1392 design.md D2 — the host card's mount-ownership token (see `usePanelData`), threaded
+   *  to `usePanelSortFilter`. Absent for any caller that does not own a card's mount request. */
+  mountOwnership?: RefObject<boolean>;
   /** HEL-572: forwarded to `PanelContent` — see `ChartPanel`'s
    *  `onDataPointSelect` prop. */
   onDataPointSelect?: (selection: ChartClickSelection) => void;
@@ -71,6 +74,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   rowsTruncated,
   refresh,
   compact,
+  mountOwnership,
   onDataPointSelect,
 }: PanelCardBodyProps) {
   const dispatch = useAppDispatch();
@@ -129,7 +133,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   // goes down to `PanelContent` so the client-side loaded-rows filter runs ONLY on the fallback.
   const { crossFilterEq, mode: crossFilterMode } = useCrossFilterServerOps(panel, output);
   const { filterActive, activeSort, activeFilter, handleSortChange, handleFilterChange } =
-    usePanelSortFilter(panel.id, outputId, output, controlFilterOps, crossFilterEq);
+    usePanelSortFilter(panel.id, outputId, output, controlFilterOps, crossFilterEq, mountOwnership);
   // HEL-1027 design.md D10 — suppresses `PanelContent`'s top-level `noData`/`neverMaterialized`
   // short-circuit whenever a table filter is genuinely active, so a filter matching zero rows
   // across the whole Output falls through to `TableRenderer`'s own correct

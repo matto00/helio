@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { isAxiosError } from "axios";
 
+import { resetOutputFreshness } from "../../panels/state/outputFreshness";
 import {
   getMeRequest,
   loginRequest,
@@ -145,6 +146,8 @@ export const logout = createAsyncThunk<void, void>("auth/logout", async (_, { di
   } catch {
     // fire-and-forget; always clear local state
   }
+  // HEL-1392 design.md D4 -- the next user must never be served this one's cached Output data.
+  resetOutputFreshness();
   dispatch(clearAuth());
 });
 
