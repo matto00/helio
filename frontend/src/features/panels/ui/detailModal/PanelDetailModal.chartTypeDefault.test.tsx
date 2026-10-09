@@ -25,6 +25,8 @@ jest.mock("../../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../../pipelines/services/outputService"),
   getOutputById: jest.fn(),
   getAssertionStatus: jest.fn(() => new Promise(() => {})),
+  listOutputPanels: jest.fn(() => Promise.resolve([])),
+  getDistinctValues: jest.fn(() => Promise.resolve({ values: [] })),
 }));
 
 // Wrap the real editor and capture the chartAppearance the modal hands it.
@@ -35,7 +37,7 @@ jest.mock("../editors/AppearanceEditor", () => {
     ...actual,
     AppearanceEditor: (props: { chartAppearance: ChartAppearance }) => {
       mockCaptured.chart = props.chartAppearance;
-      return actual.AppearanceEditor(props);
+      return <actual.AppearanceEditor {...props} />;
     },
   };
 });

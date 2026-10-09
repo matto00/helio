@@ -262,7 +262,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
         onLoadMore={handleLoadMore}
         // HEL-451 design D4/task 4.0: `rowsTruncated` (from `usePanelData`) is
         // the branch-independent truncation signal — must be wired at BOTH
-        // `PanelContent` call sites (this one AND `PanelDetailModal.tsx:400`),
+        // `PanelContent` call sites (this one AND `PanelDetailModal.tsx`),
         // or the inversion this task fixes just relocates to the surface
         // whichever call site is missed.
         rowsTruncated={rowsTruncated}
