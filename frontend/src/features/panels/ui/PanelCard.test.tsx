@@ -592,28 +592,22 @@ describe("PanelCardBody — HEL-579 prop reference stability across an unrelated
     // Let the mount-triggered fetch dispatch settle into pending state
     // before counting.
     await waitFor(() => expect(getOutputRowsMock).toHaveBeenCalledTimes(1));
-    // HEL-1027 skeptic-final-3.md CR1 (cycle 4) — `PanelCardBody` now owns its OWN internal
+    // HEL-1027 skeptic-final-3.md CR1 (cycle 4) — `PanelCardBody` owns its OWN internal
     // `useOutputMeta(outputId)` call (previously an externally-supplied prop from `PanelCard`;
-    // see `PanelCardBody.tsx`'s doc comment). Its `isLoading` state is already `true` on
-    // initial mount, and the effect's `setIsLoading(true)` microtask (line ~37, a redundant
-    // same-value update) causes React to invoke `PanelCardBody`'s function body ONE extra time
-    // while bailing out of committing — react.dev's "Bailing out of state updates" behavior. This
-    // happens ONCE, during THIS component's own mount settling, regardless of any PARENT
-    // re-render — flush its microtask here (unrelated to the title-edit re-render this test
-    // actually cares about). This flush does NOT by itself yield a settled baseline; the
-    // identical-props `rerender` in act below (HEL-1215) is what absorbs the deferred render.
+    // see `PanelCardBody.tsx`'s doc comment). Flush the mount-time microtasks here (unrelated to
+    // the title-edit re-render this test actually cares about). HEL-1380: `useOutputMeta` no
+    // longer queues a same-value `setIsLoading(true)` on a cache-miss mount, so it no longer causes
+    // a redundant extra `PanelCardBody` render (see `PanelCardBody.mountRenders.test.tsx`).
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    // HEL-1215 — the flush above only guarantees the `setIsLoading(true)` microtask has RUN. It
-    // was scheduled outside an act scope (while `waitFor` had the act environment off), so the
-    // resulting bail-out render sits on React's real Scheduler (a MessageChannel macrotask) and
-    // whether it lands before or after the baseline sample below depended on event-loop timing
-    // under load (CI: baseline 2, then 3 once the task ran during `rerender`). Re-rendering the
-    // root with IDENTICAL props inside act makes React process every pending lane synchronously,
-    // so any such deferred mount-time render is absorbed here, deterministically, rather than
-    // being left to race the title-edit re-render this test actually measures.
+    // HEL-1215 — kept as a defensive absorption: mount-time work scheduled outside an act scope
+    // (while `waitFor` had the act environment off) sits on React's real Scheduler, and whether it
+    // lands before or after the baseline sample below can depend on event-loop timing under load.
+    // Re-rendering the root with IDENTICAL props inside act makes React process every pending lane
+    // synchronously, so any deferred mount-time render is absorbed here deterministically rather
+    // than racing the title-edit re-render this test actually measures.
     rerender(<PanelCard panel={panel} {...noopProps} isEditingTitle={false} />);
     const callsBeforeRerender = mockUsePanelPolling.mock.calls.length;
     expect(callsBeforeRerender).toBeGreaterThan(0);
