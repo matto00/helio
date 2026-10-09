@@ -628,7 +628,8 @@ export interface CostVerdict {
 export type AnalyzeWarningCode =
   | "field-not-in-input-schema"
   | "join-key-type-mismatch"
-  | "join-column-renamed";
+  | "join-column-renamed"
+  | "numeric-op-on-text-field";
 
 export interface AnalyzeWarning {
   stepId: string;

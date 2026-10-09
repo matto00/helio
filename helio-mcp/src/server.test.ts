@@ -260,6 +260,7 @@ describe("analyze tools document the non-blocking warnings array (HEL-1235)", ()
       expect(description).toContain("field-not-in-input-schema");
       expect(description).toContain("join-key-type-mismatch");
       expect(description).toContain("join-column-renamed");
+      expect(description).toContain("numeric-op-on-text-field");
       expect(description).toContain("NON-BLOCKING");
       expect(description).toContain("NOT affect canRun");
       // distinguished from propose_pipeline's string warnings and from run warnings
