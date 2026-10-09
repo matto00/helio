@@ -34,6 +34,8 @@ interface ChartOutputPanelProps {
   historySource?: HistorySource;
   /** HEL-1358: precomputed truncation note, forwarded to `ChartRenderer`. */
   truncationNote?: string | null;
+  /** HEL-1398: the short form of `truncationNote`, shown on narrow cards. */
+  truncationNoteShort?: string | null;
 }
 
 /** HEL-1277 design D9 — the chart branch of `OutputPanelContent`: reads the Output's history (only
@@ -55,6 +57,7 @@ export function ChartOutputPanel({
   rowsTruncated,
   historySource,
   truncationNote,
+  truncationNoteShort,
 }: ChartOutputPanelProps) {
   const cfg = readChartConfig(config);
   const compare = configCompare(config);
@@ -133,6 +136,7 @@ export function ChartOutputPanel({
       annotation={cfg.annotation ?? null}
       overlay={overlay}
       truncationNote={truncationNote}
+      truncationNoteShort={truncationNoteShort}
       compact={compact}
       onDataPointSelect={onDataPointSelect}
     />

@@ -1,10 +1,4 @@
-# chart-panel-truncation-notice Specification
-
-## Purpose
-Makes a dashboard chart panel say, on the chart itself, when it is drawn from fewer rows than its Output holds, so a
-truncated chart is never mistaken for a complete one.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Truncated chart panels disclose their loaded scope on the chart
 
@@ -43,28 +37,7 @@ assistive technology and SHALL remain the note's tooltip.
 - **WHEN** a truncated chart panel (200 of 1234 rows) is rendered at the grid's narrowest width (w=2)
 - **THEN** the visible note reads "200 of 1,234 rows." and the full sentence "Based on the first 200 of 1,234 rows." is still present in the DOM for assistive technology and as the tooltip
 
-### Requirement: The note appears on every chart surface, authenticated and public
-
-The truncation note SHALL appear on every surface that renders a chart panel: the dashboard grid card, the mobile
-panel stack, the fullscreen view, the panel detail modal, and public/shared dashboards. On public dashboards it SHALL
-use only the row total the public panel rows endpoint already returns; no new data SHALL be exposed publicly.
-
-#### Scenario: public dashboard chart over the page size
-- **WHEN** a public dashboard's chart panel's public rows response reports total 1234 and returns 200 rows
-- **THEN** the public panel shows "Based on the first 200 of 1,234 rows."
-
-#### Scenario: fullscreen view of a truncated chart
-- **WHEN** a viewer opens a truncated chart panel in fullscreen or the detail modal
-- **THEN** the same note is shown there
-
-### Requirement: The compare overlay stays hidden for truncated charts
-
-Adding the truncation note SHALL NOT change when the "vs" compare overlay draws: a chart panel whose loaded rows are
-fewer than its Output's total SHALL continue to show no overlay.
-
-#### Scenario: truncated chart with compare configured
-- **WHEN** a chart Output has `config.compare` set, 1234 rows, and the panel loaded 200
-- **THEN** the truncation note is shown and no "vs" overlay is drawn
+## ADDED Requirements
 
 ### Requirement: Footnotes never collapse a narrow chart
 
