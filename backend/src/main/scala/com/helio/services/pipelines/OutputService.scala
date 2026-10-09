@@ -195,7 +195,12 @@ final class OutputService(
         outputRepo.findConfigById(id, user).flatMap {
           case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
           case Some(existingConfig) =>
-            val mergedConfig = req.config.map(patch => OutputService.mergeConfig(existingConfig, patch))
+            val mergedConfig = req.config.map { patch =>
+              val merged = OutputService.mergeConfig(existingConfig, patch)
+              // HEL-1409: a restore of previously captured state is written as V117 would have written
+              // it (judged on the MERGED config: a non-null live key shadows a dead one). Never for ValidateWrite.
+              if (policy == OutputConfigWritePolicy.RestorePriorStored) LegacyOutputConfigKeys.normalise(output.kind, merged) else merged
+            }
             // HEL-892: validate the MERGED config's fieldMapping (the shape the write will
             // actually persist), not the raw patch -- a patch that only touches an unrelated
             // sub-object must not bypass validation of an already-invalid stored fieldMapping,
