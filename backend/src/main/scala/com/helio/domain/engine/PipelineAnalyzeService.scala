@@ -560,8 +560,13 @@ object PipelineAnalyzeService {
           (inputSchema :+ SchemaField(name = column, `type` = canonicalizeLegacyType(wireType)), Some(validationMsg))
         case Right(_) =>
           val fieldTypes = inputSchema.map(f => f.name -> f.`type`).toMap
-          val outputType = ExpressionEvaluator.inferType(expression, fieldTypes).getOrElse(canonicalizeLegacyType(wireType))
-          (inputSchema :+ SchemaField(name = column, `type` = outputType), None)
+          // HEL-1423: unknown fields are already rejected by `validate`, so a Left here is the
+          // coalesce mixed-type error; keep the wire-type fallback column and surface the message.
+          ExpressionEvaluator.inferType(expression, fieldTypes) match {
+            case Right(t)  => (inputSchema :+ SchemaField(name = column, `type` = t), None)
+            case Left(msg) =>
+              (inputSchema :+ SchemaField(name = column, `type` = canonicalizeLegacyType(wireType)), Some(msg))
+          }
       }
     } catch {
       case ex: Exception =>

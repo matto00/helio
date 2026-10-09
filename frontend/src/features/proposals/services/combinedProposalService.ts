@@ -1,3 +1,4 @@
+import { invalidateAll } from "../../panels/state/outputFreshness";
 import { httpClient } from "../../../services/httpClient";
 import type { CombinedProposal, CombinedProposalApplyResponse } from "../types/combinedProposal";
 
@@ -12,5 +13,6 @@ export async function applyCombinedProposal(
     "/api/proposals/apply",
     proposal,
   );
+  invalidateAll();
   return response.data;
 }

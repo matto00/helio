@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useStore } from "react-redux";
 
 import { fetchPanelPage } from "../state/panelsSlice";
 import { CROSS_FILTER_EQ_REJECTED } from "../state/panelThunks";
 import type { CrossFilterEq } from "../types/panel";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
+import type { RootState } from "../../../store/store";
+import { isPendingFor, isReusable, type RowsQuery } from "../state/panelRowsReuse";
 import { useToast } from "../../toasts/hooks/useToast";
 import { readTableConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import type { TableColumnFilters } from "../../pipelines/ui/outputEditor/outputConfigTypes";
@@ -98,8 +101,13 @@ export function usePanelSortFilter(
   // (via a ref, like `controlFilterOps`), the corrective-mount condition and the change key, so
   // set / change / clear re-dispatches page 0 exactly like a control change does.
   crossFilterEq: CrossFilterEq | null = null,
+  // HEL-1392 design.md D2 — the card's mount-ownership token: the one-time correction below sets it
+  // when it has terms to apply, which tells the parent's `usePanelData` not to send its stripped
+  // mount query as well.
+  mountOwnership?: RefObject<boolean>,
 ): PanelSortFilterResult {
   const dispatch = useAppDispatch();
+  const store = useStore<RootState>();
   const { push: pushToast } = useToast();
   const [activeSort, setActiveSort] = useState<SortState<string> | null>(null);
   const [activeFilter, setActiveFilter] = useState<TableColumnFilters | null>(null);
@@ -232,6 +240,21 @@ export function usePanelSortFilter(
       controlFilterOps.length > 0 ||
       crossFilterEq !== null
     ) {
+      if (mountOwnership) mountOwnership.current = true;
+      // HEL-1392 -- a remounting card whose window already is this exact query (or whose request
+      // is already in flight) has nothing to correct; the live store is read, never the render.
+      const entry = store.getState().panels.paginationState[panelId];
+      const query: RowsQuery | null = outputId
+        ? {
+            outputId,
+            sort: activeSort
+              ? { column: activeSort.key, direction: activeSort.direction }
+              : undefined,
+            filter: composeOutputRowsFilter(activeFilter, controlFilterOps),
+            crossFilterEq,
+          }
+        : null;
+      if (query && (isReusable(entry, query) || isPendingFor(entry, query))) return;
       dispatchFetch(activeSort, activeFilter);
     }
     // controlFilterOps is read once here (mount-time value) — see the eslint-disable below for

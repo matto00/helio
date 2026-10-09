@@ -18,6 +18,7 @@
 // `panel.config`.
 
 import type { ResourceMeta } from "../../../types/models";
+import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type {
   FilteredMetric,
   OutputRowsFilter,
@@ -470,4 +471,19 @@ export interface PanelPaginationState {
   metric?: FilteredMetric | null;
   /** HEL-1191 design.md D9a-i — see `PanelLastQuery`. Absent until the first page-0 request. */
   lastQuery?: PanelLastQuery;
+  /** HEL-1392 design.md D2 — whether the most recent page-0 request succeeded: `true` once it
+   *  fulfilled, `false` once it failed, `undefined` while it is pending. A window is reusable by a
+   *  remounting card only when this is `true`. A load-more (page > 0) leaves it unchanged. */
+  lastFetchOk?: boolean;
+  /** HEL-1392 design.md D1/D2 — the `outputFreshness` generation the window was fetched under. */
+  generation?: number;
+  /** HEL-1392 design.md D2 — the failure of the latest page-0 request, with that request's id so a
+   *  card that waited on it can tell its failure from a later, unrelated one. */
+  lastError?: PanelFetchError | null;
+}
+
+export interface PanelFetchError {
+  requestId: string;
+  message: string;
+  kind: RequestErrorKind;
 }
