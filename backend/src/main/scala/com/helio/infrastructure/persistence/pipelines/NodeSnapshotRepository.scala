@@ -167,8 +167,8 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       excludeKeys: Set[String] = Set.empty,
       // HEL-913 design.md R12: when `nodeStepId` is `None` (a root-bound read), names WHICH
       // root -- a bare `node_step_id IS NULL` would return every root's rows mixed together
-      // under multi-root. Defaulted to `None` (unscoped, today's single-root-compatible
-      // behavior) so every pre-existing call site is unaffected.
+      // under multi-root. Required (no default): `None` is unscoped (today's
+      // single-root-compatible behavior).
       explicitRootId: Option[String]
   ): Future[Vector[JsObject]] = {
     val dataExpr: SQLActionBuilder =

@@ -1,7 +1,6 @@
 package com.helio.services.pipelines
 
-import com.helio.services.ServiceError
-import com.helio.domain.model.{AuditSource, AuthenticatedUser, PipelineId, PipelineSchedule}
+import com.helio.domain.model.{AuditSource, AuthenticatedUser, PipelineSchedule}
 import com.helio.domain.util.{Clock, CronSchedule}
 import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.services.telemetry.ProductEventRollupService
@@ -19,7 +18,7 @@ import scala.util.{Failure, Success}
  *  thin timer wrapper around [[tick]] with no business logic of its own.
  *
  *  HEL-1093 (design.md Decision 3): this same tick also claims and fires due dataset-write
- *  auto-run debounce rows -- no dedicated second timer. See [[processAutoRunDebounce]]. */
+ *  auto-run debounce rows -- no dedicated second timer. See [[PipelineAutoRunDebounceFirer]]. */
 final class PipelineSchedulerService(
     scheduleRepo: PipelineScheduleRepository,
     pipelineRepo: PipelineRepository,
@@ -37,7 +36,7 @@ final class PipelineSchedulerService(
     pipelineRunGuardRepo: PipelineRunGuardRepository = null,
     // HEL-1093 (design.md Decision 3): nullable-optional wiring mirrors pipelineRunGuardRepo
     // above -- a fixture that doesn't pass a PipelineAutoRunDebounceRepository simply skips the
-    // auto-run claim-and-fire pass below.
+    // auto-run claim-and-fire pass (PipelineAutoRunDebounceFirer).
     autoRunDebounceRepo: PipelineAutoRunDebounceRepository = null,
     // HEL-1093 (design.md Decision 3, step 1): generous self-healing fallback for a claim whose
     // owning process crashed before reaching `releaseClaim` -- chosen well above any realistic
@@ -62,6 +61,16 @@ final class PipelineSchedulerService(
   )
 
   private val log = LoggerFactory.getLogger(getClass)
+
+  // HEL-1429: the auto-run debounce claim-and-fire pass lives in PipelineAutoRunDebounceFirer.
+  // Built only when the debounce repo is wired (the require above guarantees the trigger service
+  // is then non-null too), so an unwired fixture keeps skipping the pass.
+  private val autoRunFirer: Option[PipelineAutoRunDebounceFirer] =
+    Option.when(autoRunDebounceRepo != null)(
+      new PipelineAutoRunDebounceFirer(
+        autoRunDebounceRepo, staleClaimAfterSeconds, runRepo, pipelineRepo, pipelineRunService, autoRunTriggerService
+      )
+    )
 
   /** Same-process in-flight guard (pipeline IDs) — the fast, same-tick half
    *  of the overlap guard (design.md Decision 3). Access is synchronized to
@@ -100,7 +109,7 @@ final class PipelineSchedulerService(
     // HEL-1093 (design.md Decision 3): the auto-run debounce claim-and-fire pass, run
     // concurrently with the two existing pieces of work above (an unrelated table, no ordering
     // dependency) and never allowed to fail the tick itself.
-    val autoRunWork = processAutoRunDebounce(now).recover { case ex =>
+    val autoRunWork = autoRunFirer.fold(Future.successful(()))(_.processAutoRunDebounce(now)).recover { case ex =>
       log.error("PipelineSchedulerService: auto-run debounce claim-and-fire pass failed", ex)
       ()
     }
@@ -117,78 +126,6 @@ final class PipelineSchedulerService(
       else Future.successful(())
     candidatesWork.zip(cleanupWork).zip(autoRunWork).zip(telemetryWork).zip(historyWork).map(_ => ())
   }
-
-  /** HEL-1093 (design.md Decision 3): claims every due `pipeline_auto_run_debounce` row and fires
-   *  each one through the existing `PipelineRunService.submit` path, as the pipeline owner —
-   *  mirrors `fire`'s synthetic-owner-identity pattern exactly. No-op when `autoRunDebounceRepo`
-   *  is not wired (nullable-optional, mirrors `pipelineRunGuardRepo` above). */
-  private def processAutoRunDebounce(now: Instant): Future[Unit] =
-    if (autoRunDebounceRepo == null) Future.successful(())
-    else
-      autoRunDebounceRepo.claimDue(now, staleClaimAfter = now.minusSeconds(staleClaimAfterSeconds)).flatMap { claimed =>
-        Future.traverse(claimed) { case (pipelineId, claimedAt) =>
-          processAutoRunClaim(pipelineId, claimedAt).recover { case ex =>
-            log.error(s"PipelineSchedulerService: unexpected failure processing auto-run claim for pipeline ${pipelineId.value}", ex)
-            ()
-          }
-        }.map(_ => ())
-      }
-
-  /** Fires (unless a same-pipeline run is already active — the same narrower overlap
-   *  consideration `fireIfNotOverlapping` already applies to scheduled fires, design.md Decision
-   *  3 step 2) then ALWAYS releases the claim (step 4), whether fired, skipped, or guard-rejected
-   *  — see `PipelineAutoRunDebounceRepository.releaseClaim`'s own doc for why an unconditional
-   *  release would be wrong. */
-  private def processAutoRunClaim(pipelineId: PipelineId, claimedAt: Instant): Future[Unit] =
-    runRepo.hasActiveRunInternal(pipelineId).flatMap {
-      case true =>
-        log.debug("Skipping auto-run claim for pipeline {} — already has an active run", pipelineId.value)
-        autoRunDebounceRepo.releaseClaim(pipelineId, claimedAt)
-      case false =>
-        // HEL-1384 (design.md D2/D5): re-evaluate the write-time verdict NOW. A denial (or an
-        // evaluation failure -- never a fail-open submit) skips the fire; the claim is released
-        // either way, so a denied pipeline's pending row cannot fire and cannot retry-storm.
-        autoRunTriggerService.evaluateAtFire(pipelineId).transformWith {
-          case Success(reasons) if reasons.isEmpty => fireAutoRun(pipelineId)
-          case Success(reasons) =>
-            log.info(
-              "PipelineSchedulerService: auto-run for pipeline {} denied at fire time, skipping: {}",
-              pipelineId.value, reasons.map(r => s"${r.code}: ${r.detail}").mkString("; ")
-            )
-            Future.successful(())
-          case Failure(ex) =>
-            log.error(s"PipelineSchedulerService: auto-run fire-time evaluation failed for pipeline ${pipelineId.value}; not submitting", ex)
-            Future.successful(())
-        }.flatMap { _ => autoRunDebounceRepo.releaseClaim(pipelineId, claimedAt) }
-    }
-
-  private def fireAutoRun(pipelineId: PipelineId): Future[Unit] =
-    pipelineRepo.findByIdInternal(pipelineId).flatMap {
-      case None =>
-        // The debounce row's own FK (V110, ON DELETE CASCADE) means this should be unreachable in
-        // practice -- defensive against any future change to that constraint, mirrors `fire`'s own
-        // "pipeline deleted after the schedule was created" defensive branch.
-        log.warn("Auto-run claim for pipeline {} — pipeline not found, skipping fire", pipelineId.value)
-        Future.successful(())
-      case Some(pipeline) =>
-        // HEL-1108 scheduled-run precedent, mirrored exactly: the pipeline owner is the acting
-        // principal, source=System (not a browser-attributed Ui action).
-        val owner = AuthenticatedUser(pipeline.ownerId, source = AuditSource.System, tokenId = None)
-        pipelineRunService
-          .submit(pipelineId, isDry = false, owner, triggerSource = TriggerSource.AutoRun)
-          .transform {
-            case Success(Left(err: ServiceError.TooManyRequests)) =>
-              // Guard-rejected: recorded (logged), never silently dropped -- ticket AC #3/spec
-              // scenario "An auto-run is rejected by the per-user rate limit". No exception
-              // escapes -- the tick itself must never crash on this.
-              log.info("Auto-run for pipeline {} rejected by the pipeline-run guard: {}", pipelineId.value, err.reason)
-              Success(())
-            case Success(_) => Success(())
-            case Failure(ex) =>
-              log.error(s"PipelineSchedulerService: auto-run submit raised unexpectedly for pipeline ${pipelineId.value}", ex)
-              Success(())
-          }
-    }
 
   private def processCandidate(schedule: PipelineSchedule, now: Instant): Future[Unit] =
     processOne(schedule, now).recover { case ex =>
@@ -248,9 +185,9 @@ final class PipelineSchedulerService(
         val owner = AuthenticatedUser(pipeline.ownerId, source = AuditSource.System, tokenId = None)
         // PipelineRunService.submit's own PipelineRunExecutor.executeRun already records a
         // pipeline-execution failure in run history (its Failure branch
-        // returns a successful Future carrying Left(...)) — this `recover`
-        // only guards tick() against an unexpected exception outside that
-        // path (e.g. a pre-submit DB lookup failure), so bookkeeping below
+        // returns a successful Future carrying Left(...)) — the `Failure` case of
+        // `gatedSubmit`'s `transform` only guards tick() against an unexpected exception
+        // outside that path (e.g. a pre-submit DB lookup failure), so bookkeeping below
         // still runs either way.
         gatedSubmit(schedule, owner)
           .flatMap { _ =>
