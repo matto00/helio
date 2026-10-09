@@ -246,7 +246,7 @@ final class PipelineSchedulerService(
         // AuthenticatedUser default of Ui) — this is a cron-fired run, not a
         // browser-attributed action.
         val owner = AuthenticatedUser(pipeline.ownerId, source = AuditSource.System, tokenId = None)
-        // PipelineRunService.submit's own executeRun already records a
+        // PipelineRunService.submit's own PipelineRunExecutor.executeRun already records a
         // pipeline-execution failure in run history (its Failure branch
         // returns a successful Future carrying Left(...)) — this `recover`
         // only guards tick() against an unexpected exception outside that

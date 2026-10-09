@@ -497,7 +497,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * (writing a non-zero `position` on a mid-trunk step broke `trunkOf`'s
     * exact `position == 0` match, reclassifying the rest of the trunk as
     * one giant tail -- and silently changing the node key
-    * `PipelineRunService.trunkOf(steps).lastOption` writes run results
+    * `PipelineStepRepository.trunkOf(steps).lastOption` writes run results
     * under). The write is now re-scoped via [[positionScopedUpdateAction]]:
     * a requested `position` moves the step to that (clamped) index WITHIN
     * its own existing sibling group only, by construction never producing
@@ -1089,7 +1089,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * scalar, single-anchor caller should use -- and every one of its callers needs a
     * scalar, not a set:
     *
-    *   - `PipelineRunService.scala` (the binary-refs write key) and `PipelineService.scala`
+    *   - `PipelineRunSucceededWrites.scala` (the binary-refs write key) and `PipelineService.scala`
     *     (the default-append anchor, AND the lane-cycle-check ancestor-chain root) all need
     *     ONE deterministic anchor step, not a set of candidates to choose among themselves.
     *   - `InProcessPipelineEngine.executeTree`'s `rows` (CR1, restored above) is defined in
