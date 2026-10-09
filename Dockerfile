@@ -12,6 +12,8 @@ WORKDIR /build
 # Cache dependency resolution before copying full source
 COPY backend/project/build.properties backend/project/
 COPY backend/project/plugins.sbt backend/project/
+# sbt meta-build sources: build.sbt references objects defined here, so sbt cannot load the build without them
+COPY backend/project/*.scala backend/project/
 COPY backend/build.sbt backend/
 RUN cd backend && sbt update
 
