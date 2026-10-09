@@ -136,8 +136,9 @@ class AutoRunGuardNoRetryStormSpec extends AnyWordSpec with Matchers with Before
 
   private def newScheduler(runService: PipelineRunService, clock: Clock): PipelineSchedulerService =
     new PipelineSchedulerService(
-      scheduleRepo, pipelineRepo, pipelineRunRepo, runService, clock,
-      autoRunDebounceRepo = debounceRepo, staleClaimAfterSeconds = 300L
+      scheduleRepo, pipelineRepo, pipelineStepRepo, pipelineRunRepo, runService, clock,
+      autoRunDebounceRepo = debounceRepo,
+      autoRunTriggerService = new AutoRunTriggerService(pipelineRootRepo, pipelineRepo, pipelineStepRepo, dataSourceRepo, debounceRepo), staleClaimAfterSeconds = 300L
     )
 
   "a guard-rejected auto-run's debounce claim (HEL-1097 tasks.md 3.4 / spec: " +

@@ -31,7 +31,7 @@ class PipelineSchedulerServiceMaintenanceHooksSpec extends AnyWordSpec with Matc
         seedSchedule(pid, nextRunAt = Some(fakeClock.now().minusSeconds(60)), expression = "30m")
         val retention = new OutputHistoryRetentionService(failing, OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock, new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults)
         val svc = new PipelineSchedulerService(
-          scheduleRepo, pipelineRepo, runRepo, runServiceForHistory, fakeClock, outputHistoryRetentionService = retention
+          scheduleRepo, pipelineRepo, pipelineStepRepo, runRepo, runServiceForHistory, fakeClock, outputHistoryRetentionService = retention
         )
         val appender = new ListAppender[ILoggingEvent]()
         val logger   = LoggerFactory.getLogger(classOf[OutputHistoryRetentionService]).asInstanceOf[LogbackLogger]
@@ -60,7 +60,7 @@ class PipelineSchedulerServiceMaintenanceHooksSpec extends AnyWordSpec with Matc
         override def purgeIfDue(now: Instant): Future[Option[Int]] = throw new IllegalStateException("service bug")
       }
       val svc = new PipelineSchedulerService(
-        scheduleRepo, pipelineRepo, runRepo, runServiceForHistory, fakeClock, outputHistoryRetentionService = broken
+        scheduleRepo, pipelineRepo, pipelineStepRepo, runRepo, runServiceForHistory, fakeClock, outputHistoryRetentionService = broken
       )
       noException should be thrownBy await(svc.tick())
       await(runRepo.listByPipelineInternal(pid)) should have size 1

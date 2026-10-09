@@ -260,7 +260,7 @@ final class ApiRoutes(
   // `None` unless the debounce repo is present, so a fixture that passes none simply gets
   // `dataSourceService` constructed with `autoRunTriggerService = null` (debounce-scheduling
   // skipped entirely on every row-mutation call).
-  private val autoRunTriggerServiceOpt: Option[AutoRunTriggerService] =
+  val autoRunTriggerServiceOpt: Option[AutoRunTriggerService] =
     Option(autoRunDebounceRepo).map(debounceRepo =>
       new AutoRunTriggerService(pipelineRootRepo, pipelineRepo, pipelineStepRepo, dataSourceRepo, debounceRepo)
     )
