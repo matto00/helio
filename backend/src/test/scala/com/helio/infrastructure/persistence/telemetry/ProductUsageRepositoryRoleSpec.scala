@@ -109,6 +109,15 @@ class ProductUsageRepositoryRoleSpec extends AnyWordSpec with Matchers with Befo
       r.templateChoices.map(t => t.template -> t.count) shouldBe Seq("streamer" -> 2L)
     }
 
+    "count users excluding the system user through helio_privileged's own grant, and fail once that grant is revoked" in {
+      await(ownerDb.run(sqlu"INSERT INTO users (id, email, created_at) VALUES ('00000000-0000-0000-0000-0000000014a1'::uuid, 'role-spec@t.local', now())"))
+      await(repo().totalUsers()) shouldBe 1L
+      await(ownerDb.run(sqlu"REVOKE SELECT ON users FROM helio_privileged"))
+      try an[Exception] should be thrownBy await(repo().totalUsers())
+      finally await(ownerDb.run(sqlu"GRANT SELECT ON users TO helio_privileged"))
+      await(repo().totalUsers()) shouldBe 1L
+    }
+
     "fail once the GRANT is revoked (the grant is the access path, not a superuser/RLS accident)" in {
       await(ownerDb.run(sqlu"REVOKE SELECT ON product_event_daily FROM helio_privileged"))
       try an[Exception] should be thrownBy await(repo().eventDaily(LocalDate.parse("2026-04-12"), LocalDate.parse("2026-04-12"), Seq("signup_completed")))

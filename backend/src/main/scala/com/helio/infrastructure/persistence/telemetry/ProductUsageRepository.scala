@@ -6,14 +6,16 @@ import slick.jdbc.PostgresProfile.api._
 import java.time.LocalDate
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Read-only access to the product-telemetry rollup tables (V113, HEL-1211).
+/** Read-only access to the product-telemetry rollup tables (V113, HEL-1211) and one identifier-free
+ *  `users` count for the owner page's all-time totals (HEL-1420).
  *
  *  Role/pool (design.md Decision 2): the rollup tables hold aggregates only (no user id) and carry
  *  no RLS, so the access path is the explicit V113 `GRANT SELECT ... TO helio_privileged`. Reads
  *  run on [[DbContext.withSystemContext]] (the privileged pool the rollup writes already use), not
  *  because RLS needs bypassing -- there is none on these tables -- but because that pool's role is
  *  the one holding the grant. It NEVER touches `product_events` (the FORCE-RLS per-user table):
- *  the page reads rollups only. */
+ *  the page reads rollups only. The one non-rollup read is [[totalUsers]], a bare `COUNT(*)` over
+ *  `users` (no RLS; readable through V38's blanket `GRANT SELECT` to `helio_privileged`). */
 class ProductUsageRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import ProductUsageRepository._
@@ -41,6 +43,20 @@ class ProductUsageRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             ORDER BY day""".as[(String, Long, Option[Long])]
     ).map(_.map { case (d, dau, wau) => ActiveUsersRow(LocalDate.parse(d), dau, wau) })
 
+  /** Registered users excluding the system user: a single count, never a row or identifier. */
+  def totalUsers(): Future[Long] =
+    ctx.withSystemContext(
+      sql"SELECT COUNT(*) FROM users WHERE id <> CAST($SystemUserId AS uuid)".as[Long].head
+    )
+
+  /** Trailing-7/30-day distinct-active-user counts stored on `day`'s rollup row; `None` when the
+   *  row is missing, otherwise each count is `None` where it was not computable. */
+  def activeTotals(day: LocalDate): Future[Option[ActiveTotalsRow]] =
+    ctx.withSystemContext(
+      sql"""SELECT weekly_active_users, monthly_active_users FROM product_active_users_daily
+            WHERE day = CAST(${day.toString} AS date)""".as[(Option[Long], Option[Long])].headOption
+    ).map(_.map { case (w, m) => ActiveTotalsRow(w, m) })
+
   def ttfdDaily(from: LocalDate, to: LocalDate): Future[Seq[TtfdRow]] =
     ctx.withSystemContext(
       sql"""SELECT day::text, sample_count, median_seconds, p90_seconds FROM product_ttfd_daily
@@ -60,6 +76,11 @@ class ProductUsageRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 }
 
 object ProductUsageRepository {
+  /** The V10-seeded system user, excluded from `totalUsers`. One constant so HEL-1421 (which
+   *  decides the system user's fate) changes a single line. */
+  val SystemUserId: String = "00000000-0000-0000-0000-000000000001"
+
+  final case class ActiveTotalsRow(weekly: Option[Long], monthly: Option[Long])
   final case class EventDayRow(day: LocalDate, event: String, eventCount: Long, activeUsers: Long)
   final case class ActiveUsersRow(day: LocalDate, dailyActiveUsers: Long, weeklyActiveUsers: Option[Long])
   final case class TtfdRow(day: LocalDate, sampleCount: Int, medianSeconds: Double, p90Seconds: Double)

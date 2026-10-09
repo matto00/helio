@@ -10,14 +10,18 @@ import { Select } from "../../../shared/ui/Select";
 import { useAdminUsage } from "../hooks/useAdminUsage";
 import type { AdminUsage, AdminUsageFunnelStageName } from "../types/adminUsage";
 import { formatCount, formatDuration, formatPercent, shortDay } from "../format";
+import { Stat } from "./Stat";
 import { UsageCard } from "./UsageCard";
 import { UsageChart } from "./UsageChart";
+import { UsageTotals } from "./UsageTotals";
 import "./AdminUsagePage.css";
 
 const WINDOWS = [
   { value: "7", label: "Last 7 days" },
   { value: "30", label: "Last 30 days" },
   { value: "90", label: "Last 90 days" },
+  { value: "180", label: "Last 180 days" },
+  { value: "365", label: "Last 365 days" },
 ];
 
 // Data-viz colour (not chrome): the first series colour of the app's own chart palette, so the CSS
@@ -35,16 +39,6 @@ function lastNonNull(values: Array<number | null>): number | null {
     if (values[i] !== null) return values[i];
   }
   return null;
-}
-
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="admin-usage__stat">
-      <dt className="eyebrow">{label}</dt>
-      <dd className="admin-usage__stat-value mono">{value}</dd>
-      {hint && <dd className="admin-usage__stat-hint">{hint}</dd>}
-    </div>
-  );
 }
 
 function UsageContent({ data }: { data: AdminUsage }) {
@@ -280,11 +274,17 @@ export function AdminUsagePage() {
       )}
       {data && status !== "failed" && (
         <>
-          <p className="admin-usage__through mono" aria-live="polite">
-            {data.rolledThrough
-              ? `Data through ${data.rolledThrough} (UTC)`
-              : "No usage has been rolled up yet"}
+          <p className="admin-usage__through" aria-live="polite">
+            {data.rolledThrough ? (
+              <>
+                <strong className="mono">Data through {data.rolledThrough} (UTC)</strong>
+                <span>The most recent ~2 days are still being rolled up.</span>
+              </>
+            ) : (
+              "No usage has been rolled up yet"
+            )}
           </p>
+          <UsageTotals totals={data.totals} />
           {data.rolledThrough === null ? (
             <EmptyState
               variant="main"

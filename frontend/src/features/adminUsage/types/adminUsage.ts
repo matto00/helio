@@ -1,5 +1,5 @@
 // Mirrors the backend `AdminUsageResponse` (`AdminUsageProtocol.scala`,
-// schemas/admin/admin-usage-response.schema.json, HEL-1211). Aggregates only; no user ids.
+// schemas/admin/admin-usage-response.schema.json, HEL-1211, HEL-1420). Aggregates only; no user ids.
 
 export interface AdminUsageDayCount {
   day: string;
@@ -43,6 +43,15 @@ export interface AdminUsageTemplateCount {
   count: number;
 }
 
+/** All-time headline totals, independent of the requested window. The active counts are users with
+ *  a tracked product event as of `asOf` (= `rolledThrough`); `null` means unavailable, never 0. */
+export interface AdminUsageTotals {
+  totalUsers: number;
+  activeLast7Days: number | null;
+  activeLast30Days: number | null;
+  asOf: string | null;
+}
+
 export interface AdminUsage {
   days: number;
   from: string;
@@ -54,4 +63,5 @@ export interface AdminUsage {
   templateChoices: AdminUsageTemplateCount[];
   provenanceOpensPerDay: AdminUsageDayCount[];
   activeUsers: AdminUsageActiveUsersDay[];
+  totals: AdminUsageTotals;
 }
