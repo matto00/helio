@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, type CSSProperties } from "react";
+import React, { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
 import { getOutputId, isFullscreenEligible } from "../state/panelNarrowing";
 import { deletePanel, duplicatePanel } from "../state/panelsSlice";
@@ -12,6 +12,7 @@ import { PanelCardBody } from "./PanelCardBody";
 import { usePanelCardInspect } from "../hooks/usePanelCardInspect";
 import { PanelInspectView } from "./PanelInspectView";
 import { usePanelData } from "../hooks/usePanelData";
+import { useOutputRetention } from "../hooks/useOutputRetention";
 import type { Panel } from "../types/panel";
 
 // Exported for reuse by `MobilePanelStack` (HEL-301), which builds its own
@@ -102,7 +103,11 @@ export const PanelCard = React.memo(function PanelCard({
   // (where the rest of this result is consumed). See that component's own
   // doc comment for why a second, independent call here would defeat the
   // shared in-flight guard.
-  const panelData = usePanelData(panel);
+  // HEL-1392 design.md D1/D2: the Output stays trusted while this card is on screen (and briefly
+  // after), and `mountOwnership` lets the body's persisted-default correction own the mount request.
+  useOutputRetention(outputId);
+  const mountOwnership = useRef(false);
+  const panelData = usePanelData(panel, [], null, { mountOwnership });
   const { refresh, isRefreshing } = panelData;
 
   // HEL-584 design.md Decision 2 — the fullscreen overlay consumes THIS
@@ -227,6 +232,7 @@ export const PanelCard = React.memo(function PanelCard({
         neverMaterialized={panelData.neverMaterialized}
         rowsTruncated={panelData.rowsTruncated}
         refresh={panelData.refresh}
+        mountOwnership={mountOwnership}
         onDataPointSelect={handleDataPointSelect}
       />
       {/* HEL-572 design.md D5 — the grid-context inspect view (`DataGrid

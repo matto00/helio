@@ -26,6 +26,8 @@ import {
 } from "../services/panelService";
 import { isAxiosError } from "axios";
 
+import { currentGeneration } from "./outputFreshness";
+
 import {
   composeOutputRowsFilter,
   getOutputRows,
@@ -331,6 +333,8 @@ export const fetchPanelPage = createAsyncThunk<
     materialized: boolean;
     total: number;
     metric?: FilteredMetric | null;
+    /** HEL-1392 — `outputFreshness` generation at the moment this request started. */
+    generation?: number;
   },
   {
     panelId: string;
@@ -358,6 +362,7 @@ export const fetchPanelPage = createAsyncThunk<
     { panelId, outputId, page, pageSize, sort, filter, crossFilterEq },
     { rejectWithValue },
   ) => {
+    const generation = currentGeneration(outputId);
     try {
       const offset = page * pageSize;
       const effectiveFilter = crossFilterEq
@@ -376,6 +381,7 @@ export const fetchPanelPage = createAsyncThunk<
         materialized: result.materialized,
         total: result.total,
         metric: result.metric,
+        generation,
       };
     } catch (err: unknown) {
       // HEL-1191 design.md D3a — read the raw HTTP status BEFORE `classifyRequestError` (which

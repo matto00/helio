@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useStore } from "react-redux";
 
 import { fetchPanelPage } from "../state/panelsSlice";
 import { CROSS_FILTER_EQ_REJECTED } from "../state/panelThunks";
 import { getOutputId } from "../state/panelNarrowing";
+import { isPendingFor, isReusable, type RowsQuery } from "../state/panelRowsReuse";
 import type {
   CrossFilterEq,
   MappedPanelData,
@@ -11,6 +13,7 @@ import type {
   SelectionDescriptor,
 } from "../types/panel";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import type { RootState } from "../../../store/store";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type {
   OutputRowsFilter,
@@ -73,12 +76,23 @@ export interface PanelDataResult {
  *  `PanelCard`/`MobilePanelStack`, which own no Output), the mount dispatch and `refresh()` REPLAY
  *  the panel's own `paginationState.lastQuery` instead of dispatching an unfiltered read that
  *  would silently drop a server-applied filter/sort — see `replayableQuery` below for the rules. */
+export interface UsePanelDataOptions {
+  /** HEL-1392 design.md D2 — set by the host card's child (`usePanelSortFilter`) when it owns the
+   *  mount's page-0 request (it has a persisted sort/filter default, a URL control op or a
+   *  cross-filter term to apply). This hook then makes no mount request of its own. Only the
+   *  ops-less hosts (`PanelCard`, the phone stack) pass it; `PanelDetailModal` never does. */
+  mountOwnership?: RefObject<boolean>;
+}
+
 export function usePanelData(
   panel: Panel,
   controlFilterOps: OutputRowsFilterOp[] = [],
   crossFilterEq: CrossFilterEq | null = null,
+  options: UsePanelDataOptions = {},
 ): PanelDataResult {
   const dispatch = useAppDispatch();
+  const store = useStore<RootState>();
+  const { mountOwnership } = options;
   const paginationEntry = useAppSelector((state) => state.panels.paginationState[panel.id]);
   const activeCrossFilter = useAppSelector((state) => state.panels.crossFilter);
 
@@ -107,6 +121,10 @@ export function usePanelData(
   // all three uniformly.
   const inFlightRef = useRef(false);
   const replayFullQueryRef = useRef(false);
+  // HEL-1392 design.md D2/D8 — set when this mount's first decision was "the child owns the
+  // request"; the effect's re-run for the same key and refresh token (StrictMode's dev double run,
+  // or a render that has not yet seen the entry) must not send the stripped query after all.
+  const ownershipSkippedKey = useRef<{ key: string; token: number } | null>(null);
 
   const refresh = useCallback(() => {
     if (inFlightRef.current) return;
@@ -119,6 +137,60 @@ export function usePanelData(
     setRefreshToken((t) => t + 1);
   }, []);
 
+  // HEL-1392 design.md D2/D8 (N2/N3) -- waits, without dispatching, for a request somebody else
+  // owns: holds the refresh guard until the entry settles, and surfaces THAT request's failure (a
+  // later, unrelated one -- e.g. a user-driven sort refetch -- is the toast's business, not ours).
+  // The subscription is tied to the component's mount (below), so an unmounted card never
+  // receives a late `setState`; `waitRecord` lets StrictMode's cleanup/re-run resume it.
+  const waitRecord = useRef<{ key: string; waitedId: string | undefined } | null>(null);
+  const unsubscribeWait = useRef<(() => void) | null>(null);
+
+  const subscribeWait = useCallback(
+    (record: { key: string; waitedId: string | undefined }) => {
+      const settled = () => {
+        const entry = store.getState().panels.paginationState[panel.id];
+        return !entry || !entry.isLoadingMore ? entry : null;
+      };
+      if (settled() !== null) {
+        waitRecord.current = null;
+        inFlightRef.current = false;
+        return;
+      }
+      inFlightRef.current = true;
+      const unsubscribe = store.subscribe(() => {
+        const entry = settled();
+        if (entry === null) return;
+        unsubscribe();
+        unsubscribeWait.current = null;
+        waitRecord.current = null;
+        inFlightRef.current = false;
+        if (entry?.lastError && entry.lastError.requestId === record.waitedId) {
+          const { message, kind } = entry.lastError;
+          setErrorForKey({ key: record.key, message, kind });
+        }
+      });
+      unsubscribeWait.current = unsubscribe;
+    },
+    [store, panel.id],
+  );
+
+  const waitForOwnedRequest = useCallback(
+    (key: string) => {
+      const record = { key, waitedId: store.getState().panels.latestFetchRequestId[panel.id] };
+      waitRecord.current = record;
+      subscribeWait(record);
+    },
+    [store, panel.id, subscribeWait],
+  );
+
+  useEffect(() => {
+    if (waitRecord.current && unsubscribeWait.current === null) subscribeWait(waitRecord.current);
+    return () => {
+      unsubscribeWait.current?.();
+      unsubscribeWait.current = null;
+    };
+  }, [subscribeWait]);
+
   useEffect(() => {
     if (!currentFetchKey || !outputId) {
       // Losing the Output binding mid-fetch must not wedge the guard `true`
@@ -127,29 +199,64 @@ export function usePanelData(
       return;
     }
 
+    // N1 -- precedes every other check, and clears only on the RENDER-CAPTURED entry (the live
+    // store would show the owner's pending entry on StrictMode's re-run and re-open the door to
+    // the stripped query).
+    const skipped = ownershipSkippedKey.current;
+    if (skipped !== null) {
+      if (skipped.key === currentFetchKey && skipped.token === refreshToken) {
+        if (paginationEntry == null) return;
+      }
+      ownershipSkippedKey.current = null;
+    }
+
     if (prevFetchKey.current === currentFetchKey && paginationEntry != null) {
       return;
     }
+    const isFirstMountDecision = prevFetchKey.current === null && !replayFullQueryRef.current;
     prevFetchKey.current = currentFetchKey;
-
-    // Covers the initial mount / output-changed dispatch too, which never
-    // goes through `refresh()` at all.
-    inFlightRef.current = true;
-    const keyAtDispatch = currentFetchKey;
 
     // An explicit argument (the detail modal's) takes precedence; otherwise replay the last query.
     const explicit = controlFilterOpsKey !== "" || crossFilterEq !== null;
     const fullReplay = replayFullQueryRef.current;
     replayFullQueryRef.current = false;
+    const liveEntry = store.getState().panels.paginationState[panel.id];
     const replay = explicit
       ? null
-      : replayableQuery(
-          paginationEntry?.lastQuery,
-          outputId,
-          panel.id,
-          activeCrossFilter,
-          fullReplay,
-        );
+      : replayableQuery(liveEntry?.lastQuery, outputId, panel.id, activeCrossFilter, fullReplay);
+
+    // HEL-1392 -- a refresh (manual, poll, SSE) always fetches. Anything else first asks whether
+    // the window already held, or the request already in flight, is exactly what would be sent.
+    if (!fullReplay) {
+      if (isFirstMountDecision && mountOwnership?.current && liveEntry) {
+        ownershipSkippedKey.current = { key: currentFetchKey, token: refreshToken };
+        waitForOwnedRequest(currentFetchKey);
+        return;
+      }
+      const query: RowsQuery = {
+        outputId,
+        sort: replay?.sort,
+        filter: explicit
+          ? controlFilterOpsKey
+            ? { ops: controlFilterOps }
+            : undefined
+          : replay?.filter,
+        crossFilterEq: explicit ? crossFilterEq : (replay?.crossFilterEq ?? null),
+      };
+      if (isReusable(liveEntry, query)) {
+        inFlightRef.current = false;
+        return;
+      }
+      if (isPendingFor(liveEntry, query)) {
+        waitForOwnedRequest(currentFetchKey);
+        return;
+      }
+    }
+
+    // Covers the initial mount / output-changed dispatch too, which never
+    // goes through `refresh()` at all.
+    inFlightRef.current = true;
+    const keyAtDispatch = currentFetchKey;
 
     void dispatch(
       fetchPanelPage({

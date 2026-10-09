@@ -1,5 +1,13 @@
 import "@testing-library/jest-dom";
 
+import { resetOutputFreshness } from "../features/panels/state/outputFreshness";
+
+// HEL-1392 -- the Output freshness registry and the metadata cache are module-level; a test must
+// never inherit another test's retained Outputs or cached metadata.
+beforeEach(() => {
+  resetOutputFreshness();
+});
+
 // react-router-dom (v7) uses the Node.js web APIs which jsdom doesn't polyfill.
 if (typeof globalThis.TextEncoder === "undefined") {
   const { TextEncoder, TextDecoder } = require("util") as typeof import("util");

@@ -16,12 +16,13 @@
 // `orderPanelsForMobileStack`). Heights come from `mobilePanelHeights`
 // (per-kind policy) — never the desktop `h × rowHeight` formula (W4.2/W4.3).
 
-import { useCallback, useMemo, useState, type CSSProperties, type MouseEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 
 import { resolveDashboardLayout } from "../../../dashboards/state/dashboardLayout";
 import { useTheme } from "../../../../theme/ThemeProvider";
 import { getOutputId } from "../../state/panelNarrowing";
 import { usePanelData } from "../../hooks/usePanelData";
+import { useOutputRetention } from "../../hooks/useOutputRetention";
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import type { Panel } from "../../types/panel";
 import { getPanelCardStyle } from "../PanelCard";
@@ -46,7 +47,10 @@ import "./MobilePanelStack.css";
 // through.
 function MobileStackPanelBody({ panel, compact }: { panel: Panel; compact?: boolean }) {
   const outputId = getOutputId(panel);
-  const panelData = usePanelData(panel);
+  // HEL-1392 design.md D1/D2 -- see `PanelCard`, the desktop twin of this.
+  useOutputRetention(outputId);
+  const mountOwnership = useRef(false);
+  const panelData = usePanelData(panel, [], null, { mountOwnership });
   // evaluation-1.md CR1/CR2 (cycle 2) — this component does NOT need its own
   // `useOutputMeta` fetch for cross-filtering: an earlier version of this
   // ticket added one here specifically to resolve the Output for
@@ -77,6 +81,7 @@ function MobileStackPanelBody({ panel, compact }: { panel: Panel; compact?: bool
       neverMaterialized={panelData.neverMaterialized}
       rowsTruncated={panelData.rowsTruncated}
       refresh={panelData.refresh}
+      mountOwnership={mountOwnership}
     />
   );
 }

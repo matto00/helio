@@ -3,6 +3,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { duplicateDashboard, importDashboard } from "../../dashboards/state/dashboardsSlice";
 import { markDashboardPanelsStale } from "./panelActions";
 import {
+  CROSS_FILTER_EQ_REJECTED,
   createPanel,
   deletePanel,
   duplicatePanel,
@@ -316,10 +317,16 @@ const panelsSlice = createSlice({
             page === 0
               ? { outputId, sort, filter, crossFilterEq: crossFilterEq ?? null }
               : existing?.lastQuery,
+          // HEL-1392 design.md D2 — a pending page-0 request is not reusable; a load-more leaves
+          // the window's own bookkeeping alone.
+          lastFetchOk: page === 0 ? undefined : existing?.lastFetchOk,
+          generation: existing?.generation,
+          lastError: page === 0 ? null : existing?.lastError,
         };
       })
       .addCase(fetchPanelPage.fulfilled, (state, action) => {
-        const { panelId, page, rows, hasMore, materialized, total, metric } = action.payload;
+        const { panelId, page, rows, hasMore, materialized, total, metric, generation } =
+          action.payload;
         // HEL-1027 skeptic-final-1.md CR2 (Defect 2) — a response whose OWN dispatch is no
         // longer the latest one recorded for this panel is STALE (a newer request has already
         // superseded it, regardless of which one's promise happens to settle first) and must
@@ -345,19 +352,36 @@ const panelsSlice = createSlice({
           // WITHOUT it clears it (no stale value after a filter is removed); a load-more keeps it.
           metric: page === 0 ? metric : existing?.metric,
           lastQuery: existing?.lastQuery,
+          lastFetchOk: page === 0 ? true : existing?.lastFetchOk,
+          generation: page === 0 ? generation : existing?.generation,
+          lastError: page === 0 ? null : existing?.lastError,
         };
       })
       .addCase(fetchPanelPage.rejected, (state, action) => {
-        const { panelId } = action.meta.arg;
+        const { panelId, page } = action.meta.arg;
         // Same staleness guard as `.fulfilled` above -- a superseded request's FAILURE must not
         // clear `isLoadingMore` out from under the newer request that's still legitimately in
         // flight.
         if (state.latestFetchRequestId[panelId] !== action.meta.requestId) return;
         const existing = state.paginationState[panelId];
         if (existing) {
+          // HEL-1392 design.md D2 — a failed page-0 request is never reusable. Its failure is kept
+          // (with the request id) for a card that waited on it, except a cross-filter `eq`
+          // rejection, which self-heals through its own path and is never an error state.
+          const failedPage0 = (page ?? 0) === 0;
+          const selfHealing = action.payload?.code === CROSS_FILTER_EQ_REJECTED;
           state.paginationState[panelId] = {
             ...existing,
             isLoadingMore: false,
+            lastFetchOk: failedPage0 ? false : existing.lastFetchOk,
+            lastError:
+              failedPage0 && !selfHealing
+                ? {
+                    requestId: action.meta.requestId,
+                    message: action.payload?.message ?? "Failed to load data.",
+                    kind: action.payload?.kind ?? "error",
+                  }
+                : existing.lastError,
           };
         }
       });
