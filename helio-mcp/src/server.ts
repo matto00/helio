@@ -22,11 +22,45 @@ import { registerOutputControlTools } from "./tools/outputControls.js";
 import { registerPipelineTools } from "./tools/pipelines.js";
 import { registerPlacementTools } from "./tools/placements.js";
 import { buildWorkspaceContext } from "./context.js";
+import { runWithRateLimitScope } from "./httpClient.js";
 
 export const WORKSPACE_CONTEXT_URI = "helio://workspace/context";
 
+/** Where the SDK puts the per-request `extra` in each registration's callback: the tool
+ *  callback is `(args, extra)` (or `(extra)` for a no-input tool), a resource callback is
+ *  `(uri, extra)` or `(uri, variables, extra)`. Rather than guess a position, scan the
+ *  arguments for the object carrying the `AbortSignal`. */
+function findSignal(args: unknown[]): AbortSignal | undefined {
+  for (const arg of args) {
+    const signal = (arg as { signal?: unknown } | null)?.signal;
+    if (signal instanceof AbortSignal) return signal;
+  }
+  return undefined;
+}
+
+/**
+ * HEL-1381: make every tool/resource handler registered on `server` run inside one shared
+ * 429 wait budget (`runWithRateLimitScope`), bound to the request's abort signal. This is the
+ * single choke point -- tool files stay unaware, and a future tool registered through
+ * `createServer` is scoped automatically. Must run before any `register*` call.
+ */
+function scopeHandlers(server: McpServer): void {
+  const scoped = (original: (...a: never[]) => unknown) =>
+    function (this: unknown, ...args: unknown[]) {
+      const cb = args[args.length - 1];
+      if (typeof cb !== "function") return Reflect.apply(original, this, args);
+      const wrapped = (...cbArgs: unknown[]) =>
+        runWithRateLimitScope(findSignal(cbArgs), () => Reflect.apply(cb, undefined, cbArgs));
+      return Reflect.apply(original, this, [...args.slice(0, -1), wrapped]);
+    };
+  const target = server as unknown as Record<string, (...a: never[]) => unknown>;
+  target.registerTool = scoped(server.registerTool.bind(server) as never);
+  target.registerResource = scoped(server.registerResource.bind(server) as never);
+}
+
 export function createServer(api: HelioApi): McpServer {
   const server = new McpServerImpl({ name: "helio-mcp", version: "0.1.0" });
+  scopeHandlers(server);
 
   registerReadTools(server, api);
   registerWriteTools(server, api);

@@ -10,11 +10,16 @@
  *   remediation message so the MCP tool surfaces "your PAT is invalid/revoked"
  *   instead of an opaque 401).
  *
- * A 429 is the one status this client retries (HEL-495). The total time one request
- * spends sleeping is capped at `RATE_LIMIT_WAIT_BUDGET_MS` (HEL-1349), half the MCP
- * SDK's default 60s request timeout; a wait that would not fit (or exhausted retries)
- * throws `HelioRateLimitError` carrying the server's retry-after, so the caller gets
- * an actionable `isError` result instead of an opaque -32001 timeout. The backend's
+ * A 429 is the one status this client retries (HEL-495). The total time spent sleeping
+ * is capped at `RATE_LIMIT_WAIT_BUDGET_MS` (HEL-1349), half the MCP SDK's default 60s
+ * request timeout; a wait that would not fit (or exhausted retries) throws
+ * `HelioRateLimitError` carrying the server's retry-after, so the caller gets an
+ * actionable `isError` result instead of an opaque -32001 timeout. The budget is
+ * per tool invocation (HEL-1381): `createServer` runs every tool/resource handler inside
+ * `runWithRateLimitScope`, so all HTTP requests one invocation makes share one budget
+ * (the SDK's 60s clock covers the whole call, not each request) and the invocation's abort
+ * signal cuts a wait short. Outside a scope (scripts, e2e) each request has its own
+ * budget, as before. The backend's
  * rate-limiting directive budgets `RATE_LIMIT_REQUESTS_PER_WINDOW` requests per
  * PAT per fixed window and refuses the overflow with a `Retry-After`
  * delta-seconds header. Agent-driven runs are bursty by nature — helio-news
@@ -35,6 +40,7 @@
  * HTTP dependency to pin.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { HelioConfig } from "./config.js";
 
 /** Base error for any non-2xx Helio response. */
@@ -81,10 +87,33 @@ export class HelioRateLimitError extends HelioApiError {
  *  themselves; guarded against the installed SDK by `httpClient.test.ts`. */
 export const RATE_LIMIT_WAIT_BUDGET_MS = 30_000;
 
+interface RateLimitScope {
+  /** Cumulative milliseconds slept on 429 waits so far in this scope. */
+  waitedMs: number;
+  /** The invocation's abort signal (the SDK's `extra.signal`), if any. */
+  signal: AbortSignal | undefined;
+}
+
+const rateLimitScope = new AsyncLocalStorage<RateLimitScope>();
+
+/** Run `fn` (one MCP tool invocation or resource read) with a single 429 wait budget shared
+ *  by every `HelioHttpClient` request made in its async continuation, and `signal` (when
+ *  given) cancelling any 429 wait. Requests made outside a scope keep a per-request budget. */
+export function runWithRateLimitScope<T>(signal: AbortSignal | undefined, fn: () => T): T {
+  return rateLimitScope.run({ waitedMs: 0, signal }, fn);
+}
+
+/** True when called inside `runWithRateLimitScope` (a guard seam: `server.scope.test.ts`). */
+export function isInRateLimitScope(): boolean {
+  return rateLimitScope.getStore() !== undefined;
+}
+
 /** Max retries after the initial attempt before a 429 is surfaced to the caller. */
 const MAX_RATE_LIMIT_RETRIES = 5;
 /** Backoff when a 429 arrives without a usable `Retry-After`: 1s, 2s, 4s, … */
 const BASE_BACKOFF_MS = 1_000;
+
+const CANCELLED_NOTE = "tool invocation cancelled while waiting out the rate limit";
 
 /** `TierErrorResponse.code` values the tier gate (HEL-703/HEL-1205) answers with. */
 const CHAT_LIMIT_REACHED = "CHAT_LIMIT_REACHED";
@@ -108,13 +137,26 @@ export interface HelioRequestInit {
 /** Seams for tests: the real `fetch` and a real timer in production. */
 export interface HelioHttpClientDeps {
   fetchImpl: (url: string, init: HelioRequestInit) => Promise<Response>;
-  sleep: (ms: number) => Promise<void>;
+  /** `signal`, when given, lets a real timer be cleared on abort; a fake may ignore it
+   *  (`dispatch` races the wait against the signal itself). */
+  sleep: (ms: number, signal?: AbortSignal) => Promise<void>;
   warn: (message: string) => void;
 }
 
 const defaultDeps: HelioHttpClientDeps = {
   fetchImpl: (url, init) => fetch(url, init),
-  sleep: (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
+  sleep: (ms, signal) =>
+    new Promise((resolve) => {
+      const onAbort = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, ms);
+      signal?.addEventListener("abort", onAbort, { once: true });
+    }),
   warn: (message: string) => console.error(message),
 };
 
@@ -204,7 +246,8 @@ export class HelioHttpClient {
    *  TS-only ambient interfaces, so referencing them by name trips `no-undef`
    *  even though `fetch`'s own signature accepts this structurally). */
   private async dispatch<T>(url: string, init: HelioRequestInit): Promise<T> {
-    let waitedMs = 0;
+    // Inside a tool invocation the budget is the invocation's; otherwise this request's own.
+    const budget: RateLimitScope = rateLimitScope.getStore() ?? { waitedMs: 0, signal: undefined };
     for (let attempt = 0; ; attempt++) {
       let response: Response;
       try {
@@ -240,8 +283,14 @@ export class HelioHttpClient {
             : BASE_BACKOFF_MS * 2 ** attempt;
         // Never sleep less than the server asked (a clamped wait would just be refused
         // again): a wait that does not fit the remaining budget is surfaced at once.
-        if (attempt >= MAX_RATE_LIMIT_RETRIES || waitedMs + delay > RATE_LIMIT_WAIT_BUDGET_MS) {
+        if (
+          attempt >= MAX_RATE_LIMIT_RETRIES ||
+          budget.waitedMs + delay > RATE_LIMIT_WAIT_BUDGET_MS
+        ) {
           throw this.rateLimitError(url, response, errorBody, retryAfterSeconds);
+        }
+        if (budget.signal?.aborted) {
+          throw this.rateLimitError(url, response, errorBody, retryAfterSeconds, CANCELLED_NOTE);
         }
         // stderr, never stdout: stdout is the MCP stdio transport's JSON-RPC
         // channel and a stray line there corrupts the session. Logged because a
@@ -251,8 +300,10 @@ export class HelioHttpClient {
           `helio-mcp: 429 rate limited on ${init.method} ${url}; ` +
             `retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})`,
         );
-        waitedMs += delay;
-        await this.deps.sleep(delay);
+        budget.waitedMs += delay;
+        if (await this.sleepUnlessAborted(delay, budget.signal)) {
+          throw this.rateLimitError(url, response, errorBody, retryAfterSeconds, CANCELLED_NOTE);
+        }
         continue;
       }
       if (!response.ok) {
@@ -261,6 +312,34 @@ export class HelioHttpClient {
       // 204 No Content (e.g. some DELETEs) — return undefined as T.
       if (response.status === 204) return undefined as T;
       return (await response.json()) as T;
+    }
+  }
+
+  /** Sleep `delay` ms; resolves `true` if `signal` aborted first (the wait stops at once and
+   *  the abort listener is always removed, so retries never accumulate listeners). */
+  private async sleepUnlessAborted(
+    delay: number,
+    signal: AbortSignal | undefined,
+  ): Promise<boolean> {
+    if (!signal) {
+      await this.deps.sleep(delay);
+      return false;
+    }
+    // One listener on the invocation signal forwards to a private controller, which both
+    // stops a real timer (via the sleep seam) and ends the race for fakes that ignore it.
+    const inner = new AbortController();
+    const cancelled = new Promise<true>((resolve) =>
+      inner.signal.addEventListener("abort", () => resolve(true), { once: true }),
+    );
+    const onAbort = () => inner.abort();
+    signal.addEventListener("abort", onAbort, { once: true });
+    try {
+      return await Promise.race([
+        this.deps.sleep(delay, inner.signal).then(() => signal.aborted),
+        cancelled,
+      ]);
+    } finally {
+      signal.removeEventListener("abort", onAbort);
     }
   }
 
@@ -280,6 +359,7 @@ export class HelioHttpClient {
     response: Response,
     body: ErrorBody | undefined,
     retryAfterSeconds: number | undefined,
+    note?: string,
   ): HelioRateLimitError {
     const advice =
       retryAfterSeconds !== undefined
@@ -287,7 +367,7 @@ export class HelioHttpClient {
         : "the backend sent no retry-after, retry later";
     return new HelioRateLimitError(
       url,
-      `429 Too Many Requests: rate limited by the Helio backend; ${advice} ` +
+      `429 Too Many Requests: rate limited by the Helio backend${note ? ` (${note})` : ""}; ${advice} ` +
         `(${this.describeError(response, body)})`,
       retryAfterSeconds,
     );
