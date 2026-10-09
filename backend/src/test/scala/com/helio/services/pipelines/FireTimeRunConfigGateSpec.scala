@@ -36,10 +36,12 @@ import scala.jdk.CollectionConverters._
  *  Gap 1 (debounced auto-run, config + cost verdict flipped after the write), gap 2 (scheduled cron
  *  runs not config-gated at all), gap 3 (a pending debounce row survives a later denial).
  *
- *  Red-first (assertion failures on unmodified main): the "gap" tests below. GUARDS (green on main
- *  by design; each is shown failing against a deliberate mutation in the delivery evidence): the
- *  "negative controls" and "fire-time evaluation error" groups, and the run-history cap test's
- *  prune assertion.
+ *  Red-first (assertion failures on unmodified main): the "gap" tests below, and the two
+ *  undecodable-step-config tests (HEL-1429: re-run against 1bf11f55, the parent of HEL-1384's merge,
+ *  both fail on `submitAttempted(s) shouldBe false`, not on a compile or uncaught-exception error).
+ *  GUARDS (green on main by design; each is shown failing against a deliberate mutation in the
+ *  delivery evidence): the "negative controls" group, the 2.4a failed-run-recording test, and the
+ *  run-history cap test's prune assertion.
  *
  *  Literals (not symbols) are used for the skip prefix and log wording so the spec compiles and
  *  fails on assertions against main. */
@@ -341,6 +343,51 @@ class FireTimeRunConfigGateSpec extends AnyWordSpec with Matchers with BeforeAnd
   }
 
   // ---------------------------------------------------------------------------------------------
+  // RED-FIRST, undecodable step config (fails on assertions on pre-HEL-1384 code, 1bf11f55)
+  // ---------------------------------------------------------------------------------------------
+
+  "fire-time evaluation error: undecodable step config (red-first)" should {
+
+    "never submit, advance the schedule and not re-attempt, for an undecodable step config" in {
+      cleanDb()
+      val s = seedScenario()
+      val step = seedMisconfiguredStep(s, enabled = true)
+      corruptStepConfig(step)
+      val clock = new FakeClock(t0)
+      seedDueSchedule(s, t0.minusSeconds(60))
+      val scheduler = newScheduler(newRunService(), clock)
+
+      await(scheduler.tick())
+      submitAttempted(s) shouldBe false // never submitted
+      val advanced = nextRunAt(s)
+      advanced shouldBe Some(t0.plus(30, ChronoUnit.MINUTES))
+
+      clock.set(t0.plusSeconds(60))
+      await(scheduler.tick())
+      submitAttempted(s) shouldBe false
+      nextRunAt(s) shouldBe advanced // not retried every tick
+    }
+
+    "never submit and release the claim for an undecodable step config on the auto-run path" in {
+      cleanDb()
+      val s = seedScenario()
+      val step = seedMisconfiguredStep(s, enabled = false)
+      val clock = new FakeClock(t0)
+      await(newTrigger().triggerAutoRun(s.dsId, s.user, t0))
+      setStepEnabled(step, enabled = true)
+      corruptStepConfig(step)
+      clock.set(t0.plusSeconds(2))
+      val scheduler = newScheduler(newRunService(), clock)
+
+      await(scheduler.tick())
+      submitAttempted(s) shouldBe false
+      debounceRowExists(s) shouldBe false // claim released, not stuck
+      await(scheduler.tick())
+      submitAttempted(s) shouldBe false
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------
   // GUARDS (green on main by design; each shown red against a deliberate mutation)
   // ---------------------------------------------------------------------------------------------
 
@@ -384,44 +431,6 @@ class FireTimeRunConfigGateSpec extends AnyWordSpec with Matchers with BeforeAnd
   }
 
   "fire-time evaluation error (GUARD)" should {
-
-    "never submit, advance the schedule and not re-attempt, for an undecodable step config" in {
-      cleanDb()
-      val s = seedScenario()
-      val step = seedMisconfiguredStep(s, enabled = true)
-      corruptStepConfig(step)
-      val clock = new FakeClock(t0)
-      seedDueSchedule(s, t0.minusSeconds(60))
-      val scheduler = newScheduler(newRunService(), clock)
-
-      await(scheduler.tick())
-      submitAttempted(s) shouldBe false // never submitted
-      val advanced = nextRunAt(s)
-      advanced shouldBe Some(t0.plus(30, ChronoUnit.MINUTES))
-
-      clock.set(t0.plusSeconds(60))
-      await(scheduler.tick())
-      submitAttempted(s) shouldBe false
-      nextRunAt(s) shouldBe advanced // not retried every tick
-    }
-
-    "never submit and release the claim for an undecodable step config on the auto-run path" in {
-      cleanDb()
-      val s = seedScenario()
-      val step = seedMisconfiguredStep(s, enabled = false)
-      val clock = new FakeClock(t0)
-      await(newTrigger().triggerAutoRun(s.dsId, s.user, t0))
-      setStepEnabled(step, enabled = true)
-      corruptStepConfig(step)
-      clock.set(t0.plusSeconds(2))
-      val scheduler = newScheduler(newRunService(), clock)
-
-      await(scheduler.tick())
-      submitAttempted(s) shouldBe false
-      debounceRowExists(s) shouldBe false // claim released, not stuck
-      await(scheduler.tick())
-      submitAttempted(s) shouldBe false
-    }
 
     "still advance the schedule when recording the failed run itself fails (2.4a)" in {
       cleanDb()
