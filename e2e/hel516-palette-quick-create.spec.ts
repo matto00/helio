@@ -317,7 +317,7 @@ test.describe("HEL-516 design.md D3b — OutputPicker parity between / and off-r
       },
       headers: { [CSRF_HEADER]: "1" },
     });
-    const output = (await outputRes.json()) as { id: string };
+    await outputRes.json();
 
     // Select the dashboard (most-recently-updated auto-select already lands here, since it's
     // the only one, but navigate explicitly for clarity/robustness).

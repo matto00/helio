@@ -1,4 +1,4 @@
-import { expect, test, type CDPSession, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { FOCUSABLE_SELECTOR } from "./support/stateContrastProbe";
 import { forceFocusVisible } from "./support/forceFocusVisible";

@@ -61,14 +61,14 @@ import {
 /** The structural shape `startListening`'s `type` overload needs from a
  *  `createAsyncThunk(...).fulfilled`/`.rejected` action creator — just its
  *  `.type` string, so registration below can key on the literal action type
- *  rather than the creator itself. `(...args: any[])` mirrors RTK's own
- *  `TypedActionCreator` (`addCase`'s bound, `index.d.ts:1045`) — the same
- *  escape hatch RTK uses internally to unify otherwise-unrelated action
- *  creators structurally; it is not exported, so it's reproduced narrowly
- *  here rather than imported. */
+ *  rather than the creator itself. `(...args: never[])` is the lint-clean form
+ *  of RTK's own `(...args: any[])` `TypedActionCreator` escape hatch
+ *  (`addCase`'s bound, `index.d.ts:1045`): it lets otherwise-unrelated action
+ *  creators unify structurally without an `any`. RTK does not export it, so
+ *  it's reproduced narrowly here rather than imported. */
 interface AsyncThunkResultCreator<A extends { type: string; payload?: unknown }> {
   type: string;
-  (...args: any[]): A;
+  (...args: never[]): A;
 }
 
 interface SuccessToastEntry {

@@ -1,6 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { evidencePath } from "./support/evidencePath";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1088 design.md Decision 1-4 — live-browser proof of the compact single-counter-field

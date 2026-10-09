@@ -40,18 +40,6 @@ function findMediaBlock(source: string, preludeSubstring: string): string {
   }
 }
 
-/** Body of the first flat rule inside `block` whose selector contains
- *  `selectorSubstring`. Assumes flat rules (no nested at-rules). */
-function findRuleBody(block: string, selectorSubstring: string): string {
-  const selectorIndex = block.indexOf(selectorSubstring);
-  if (selectorIndex === -1) {
-    throw new Error(`Selector containing "${selectorSubstring}" not found in the media block`);
-  }
-  const openBrace = block.indexOf("{", selectorIndex);
-  const closeBrace = block.indexOf("}", openBrace);
-  return block.slice(openBrace + 1, closeBrace);
-}
-
 describe("OnboardingChecklist.css — 44px tap-target floor at <=768px (HEL-554)", () => {
   it("the <=768px block clears the 44px floor for both the step action and the done button", () => {
     const mobileBlock = findMediaBlock(css, "max-width: 768px");

@@ -1,5 +1,4 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-909 — live verification of the OutputPicker/Panel-sheet replacement for

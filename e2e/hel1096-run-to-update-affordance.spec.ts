@@ -1,5 +1,4 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1096 tasks.md 3.9 — live-browser proof of the full chain: a denied form submit shows the
