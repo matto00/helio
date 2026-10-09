@@ -135,6 +135,12 @@ jobs:
       # actually runs, so the hook and CI cannot silently diverge again.
       - run: npm run check:precommit-ci-parity
       - run: npm run check:precommit-ci-parity:selftest
+      # HEL-1299: cache-budget tooling. CI-only on purpose, like the other selftests above that avoid touching
+      # `.husky/**`; check:precommit-ci-parity only requires hook checks to appear here, not the reverse.
+      - run: npm run selftest:cache-janitor
+      - run: npm run selftest:ci-prune-sbt-cas
+      - run: npm run check:cache-cleanup-pr
+      - run: npm run check:cache-cleanup-pr:selftest
       - run: npm test
 
   backend:
@@ -180,8 +186,10 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: sbt/setup-sbt@v1
-      - name: Cache sbt
-        uses: actions/cache@v6
+      # HEL-1299 D1: every job only RESTORES the sbt dependency cache; the one save is backend shard 0 on a main push.
+      - name: Restore sbt dependency cache
+        id: sbt-cache
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.sbt
@@ -189,6 +197,12 @@ jobs:
             ~/.cache/coursier
           key: sbt-${{ hashFiles('**/build.sbt') }}
           restore-keys: sbt-
+      # HEL-1299 task 1.3: report-only composition of the restored sbt paths (PR runs, shard 0), so any trim is
+      # decided on measurement. Prints sizes only; changes nothing.
+      - name: Report sbt cache composition (PR, shard 0)
+        if: github.event_name == 'pull_request' && matrix.shard == 0
+        continue-on-error: true
+        run: du -sh ~/.sbt ~/.ivy2/cache ~/.cache/coursier 2>&1
       # HEL-1287 D7: restore the nearest earlier compile output so sbt/zinc compiles incrementally (only changed
       # sources and their dependents). sbt 2 writes compile outputs into its content-addressed disk cache
       # (~/.cache/sbt/v2/cas) and leaves SYMLINKS to it under backend/target/out, so BOTH paths are one entry:
@@ -208,6 +222,13 @@ jobs:
             !backend/target/out/**/test-reports
           key: backend-compile-v3-${{ runner.os }}-${{ hashFiles('backend/src/**', 'backend/build.sbt', 'backend/project/*.scala', 'backend/project/*.sbt', 'backend/project/build.properties') }}
           restore-keys: backend-compile-v3-${{ runner.os }}-
+      # HEL-1299 D2 (C1 proof): on PR runs prune the restored compile cache BEFORE compile/testFull, so the PR's real
+      # build runs from exactly the content a pruned main entry would hold. PRs never save, so this is a permanent canary.
+      - name: Prune restored sbt CAS (PR canary)
+        if: github.event_name == 'pull_request' && steps.compile-cache.outputs.cache-matched-key != ''
+        run: |
+          scripts/ci-prune-sbt-cas.sh prune
+          du -sh ~/.cache/sbt/v2/* backend/target/out
       # HEL-1339: the diagnostics helper's own selftest needs a JDK (jcmd), so it runs here, in shard 0 only
       # (node built-ins only: this job has no setup-node). CI-only, like the other selftests (no `.husky/**` change).
       - name: Selftest sbt hang diagnostics (shard 0)
@@ -231,6 +252,13 @@ jobs:
           printf '%s\n' -Xmx3g > .jvmopts
           "$GITHUB_WORKSPACE/scripts/ci-sbt.sh" --deadline 660 --dir . -- -batch -J-Xmx3g "eval java.lang.Runtime.getRuntime.maxMemory; compile; testFull"
         working-directory: backend
+      # Deliberately NO continue-on-error: if the prune fails the entry must not be saved unpruned and silently regrow
+      # (a red main job is the signal). The PR canary above is likewise a hard failure.
+      - name: Prune sbt CAS before save (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.shard == 0 && steps.compile-cache.outputs.cache-hit != 'true'
+        run: |
+          scripts/ci-prune-sbt-cas.sh prune
+          du -sh ~/.cache/sbt/v2/* backend/target/out
       - name: Save backend compile output (main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.shard == 0 && steps.compile-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
@@ -240,6 +268,16 @@ jobs:
             ~/.cache/sbt
             !backend/target/out/**/test-reports
           key: backend-compile-v3-${{ runner.os }}-${{ hashFiles('backend/src/**', 'backend/build.sbt', 'backend/project/*.scala', 'backend/project/*.sbt', 'backend/project/build.properties') }}
+      # HEL-1299 D1: the only writer of the sbt dependency cache -- one job, main pushes only, only when no exact hit.
+      - name: Save sbt dependency cache (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.shard == 0 && steps.sbt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2/cache
+            ~/.cache/coursier
+          key: sbt-${{ hashFiles('**/build.sbt') }}
       # HEL-1287: JUnit XML (one per suite, `time` attribute) is the per-suite profile source.
       - name: Upload backend JUnit reports
         if: always()
@@ -284,8 +322,9 @@ jobs:
           java-version: 21
       - id: setup-sbt
         uses: sbt/setup-sbt@v1
-      - name: Cache sbt
-        uses: actions/cache@v6
+      # HEL-1299 D1: every job only RESTORES the sbt dependency cache; the one save is backend shard 0 on a main push.
+      - name: Restore sbt dependency cache
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.sbt
@@ -523,8 +562,9 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: sbt/setup-sbt@v1
-      - name: Cache sbt
-        uses: actions/cache@v6
+      # HEL-1299 D1: every job only RESTORES the sbt dependency cache; the one save is backend shard 0 on a main push.
+      - name: Restore sbt dependency cache
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.sbt

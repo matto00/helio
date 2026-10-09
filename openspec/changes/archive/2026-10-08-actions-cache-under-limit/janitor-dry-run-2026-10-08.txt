@@ -1,0 +1,17 @@
+# node scripts/cache-janitor.mjs --dry-run --repo matto00/helio  (2026-10-08, GET only; nothing deleted)
+would-delete id=8691919888 backend-compile-v3-Linux-5a6f4f879d756607f1927f8663af937f2e7297e2af1e39d0406fc0f5f00b63fb refs/heads/main 1864818489
+would-delete id=8687766032 backend-compile-v3-Linux-b3c9f40749c9d491c1544d8ad7f1f174acdf44ccb51f42a0b1a7b12819b4766d refs/heads/main 1804114137
+would-delete id=8693190738 codeql-overlay-base-database-1-c801913f1ee29663-javascript-2.27.1-e8381591fe52ffed36f846db990a274afc938add-37821597432-1 refs/heads/main 160478570
+would-delete id=8692602326 codeql-overlay-base-database-1-c801913f1ee29663-javascript-2.27.1-e631948dbfaea2bff361f2552fc0548f93c47f9d-37819723239-1 refs/heads/main 161199047
+would-delete id=8691842755 codeql-overlay-base-database-1-c801913f1ee29663-javascript-2.27.1-681a16478c98242b188b26ebc6754b7596a6fd22-37817362364-1 refs/heads/main 160535411
+would-delete id=8691793099 codeql-overlay-base-database-1-c801913f1ee29663-javascript-2.27.1-569fda06117ad4cd0ddc2e1266ad6810c12b5d4b-37817356924-1 refs/heads/main 160142072
+would-delete id=8689754487 codeql-overlay-base-database-1-c801913f1ee29663-javascript-2.27.1-002249226fadcbbe8d33eb0f00000c89de80cf73-37811499800-1 refs/heads/main 159694896
+would-delete id=8687638086 codeql-overlay-base-database-1-c801913f1ee29663-javascript-2.27.1-42d2fbd16e4e7b30bd2b266e72616e9d00eb0425-37805357641-1 refs/heads/main 160236575
+would-delete id=8693142968 codeql-overlay-base-database-1-d953d79b74456ce0-python-2.27.1-e8381591fe52ffed36f846db990a274afc938add-37821597432-1 refs/heads/main 4583888
+would-delete id=8692557502 codeql-overlay-base-database-1-d953d79b74456ce0-python-2.27.1-e631948dbfaea2bff361f2552fc0548f93c47f9d-37819723239-1 refs/heads/main 4661518
+would-delete id=8691891427 codeql-overlay-base-database-1-d953d79b74456ce0-python-2.27.1-681a16478c98242b188b26ebc6754b7596a6fd22-37817362364-1 refs/heads/main 4498734
+would-delete id=8691745881 codeql-overlay-base-database-1-d953d79b74456ce0-python-2.27.1-569fda06117ad4cd0ddc2e1266ad6810c12b5d4b-37817356924-1 refs/heads/main 4586694
+would-delete id=8689725600 codeql-overlay-base-database-1-d953d79b74456ce0-python-2.27.1-002249226fadcbbe8d33eb0f00000c89de80cf73-37811499800-1 refs/heads/main 4580457
+would-delete id=8687574923 codeql-overlay-base-database-1-d953d79b74456ce0-python-2.27.1-42d2fbd16e4e7b30bd2b266e72616e9d00eb0425-37805357641-1 refs/heads/main 4644549
+dry-run: would delete 14 of 27 entries, 4658775037 bytes
+exit=0
