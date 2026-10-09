@@ -10,6 +10,7 @@
 import type { ChartType } from "./chartAppearance";
 import type { ScatterChartOptions } from "../features/panels/types/panel";
 import type { ChartAggregationSpec } from "../features/panels/history/chartOverlay";
+import type { InspectColumnOrderHint } from "../features/panels/ui/inspectColumnOrder";
 
 interface ResolvedColumns {
   xCol: number;
@@ -217,4 +218,7 @@ export interface ChartInspectConfig {
    *  Output is aggregated AND the resolved `chartType` is not scatter): clicks key on `groupBy`
    *  and Inspect lists the loaded records of the clicked group. */
   aggregation?: ChartAggregationSpec | null;
+  /** HEL-1394 -- the Output's declared schema names and `columnOrder`, ordering Inspect's grid
+   *  columns. Optional so a hand-built config (tests) keeps DataGrid's own order. */
+  columnOrderHint?: InspectColumnOrderHint;
 }

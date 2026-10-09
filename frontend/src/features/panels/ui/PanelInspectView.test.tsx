@@ -238,3 +238,70 @@ describe("PanelInspectView — HEL-588 (Filter dashboard action)", () => {
     expect(filterButton).toHaveFocus();
   });
 });
+
+// HEL-1394 -- the ticket's example: server (alphabetical) key order vs the Output's declared schema.
+describe("PanelInspectView -- HEL-1394 (column order follows the Output schema)", () => {
+  const spendHeaders = ["amount_usd", "category", "date", "merchant"];
+  const spendRows = [["12", "Food", "2026-01-01", "Cafe"]];
+  const spendConfig: ChartInspectConfig = {
+    chartType: "bar",
+    fieldMapping: { xAxis: "category", yAxis: "amount_usd" },
+    columnOrderHint: { schema: ["date", "category", "merchant", "amount_usd"] },
+  };
+  const headerTexts = () => screen.getAllByRole("columnheader").map((h) => h.textContent?.trim());
+
+  it("orders raw-row Inspect columns by schema", async () => {
+    const { store } = renderInspectView({
+      headers: spendHeaders,
+      rawRows: spendRows,
+      chartInspectConfig: spendConfig,
+    });
+    act(() => {
+      store.dispatch(
+        selectDataPoint({ panelId: "panel-1", dimension: "category", value: "Food", series: "" }),
+      );
+    });
+    await screen.findByText("Showing rows for category: Food");
+    expect(headerTexts()).toEqual(["date", "category", "merchant", "amount_usd"]);
+  });
+
+  it("orders aggregate-group Inspect columns by schema", async () => {
+    const { store } = renderInspectView({
+      headers: null,
+      rawRows: null,
+      records: [{ amount_usd: 12, category: "Food", date: "2026-01-01", merchant: "Cafe" }],
+      chartInspectConfig: {
+        ...spendConfig,
+        aggregation: { groupBy: "category", agg: "sum", yField: "amount_usd" },
+      },
+    });
+    act(() => {
+      store.dispatch(
+        selectDataPoint({ panelId: "panel-1", dimension: "category", value: "Food", series: "" }),
+      );
+    });
+    await screen.findByText("Showing rows for category: Food");
+    expect(headerTexts()).toEqual(["date", "category", "merchant", "amount_usd"]);
+  });
+
+  it("puts columnOrder ahead of the schema and still shows every column", async () => {
+    const { store } = renderInspectView({
+      headers: spendHeaders,
+      rawRows: spendRows,
+      chartInspectConfig: {
+        ...spendConfig,
+        columnOrderHint: {
+          schema: ["date", "category", "merchant"],
+          columnOrder: ["merchant"],
+        },
+      },
+    });
+    act(() => {
+      store.dispatch(
+        selectDataPoint({ panelId: "panel-1", dimension: "category", value: "Food", series: "" }),
+      );
+    });
+    await screen.findByText("Showing rows for category: Food");
+    expect(headerTexts()).toEqual(["merchant", "date", "category", "amount_usd"]);
+  });
+});

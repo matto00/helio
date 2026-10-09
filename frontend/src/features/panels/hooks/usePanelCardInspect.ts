@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { clearSelection, selectDataPoint } from "../state/panelsSlice";
-import { readChartConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
+import {
+  readChartConfig,
+  readTableConfig,
+} from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { useOutputMeta } from "./useOutputMeta";
 import { useCrossFilterServerOps } from "./useCrossFilterServerOps";
@@ -46,6 +49,11 @@ export function usePanelCardInspect(
         chartType === "scatter" || !panelData.paginationRows
           ? null
           : chartAggregationSpec(output.config),
+      // HEL-1394 -- orders Inspect's columns; from the Output already held here (no extra fetch).
+      columnOrderHint: {
+        schema: output.schema.map((f) => f.name),
+        columnOrder: readTableConfig(output.config).columnOrder,
+      },
     };
   }, [output, panel.appearance.chart, panelData.paginationRows]);
 
