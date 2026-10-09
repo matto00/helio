@@ -514,7 +514,8 @@ jobs:
         shard: [1, 2, 3, 4]
     services:
       postgres:
-        image: postgres:16
+        # HEL-1452: pulled via mirror.gcr.io (same tag/digest as Docker Hub) to avoid Docker Hub anonymous 429s.
+        image: mirror.gcr.io/library/postgres:16
         env:
           POSTGRES_USER: helio
           POSTGRES_PASSWORD: helio
@@ -653,18 +654,20 @@ jobs:
             /tmp/frontend.log
           retention-days: 7
 
-  # HEL-1427 (origin HEL-1426): builds the production backend image exactly as cd-backend.yml does (final
+  # HEL-1427 (origin HEL-1426): builds the production backend image as cd-backend.yml does (final
   # `runtime` stage, so `sbt update`, `sbt assembly` and the jar COPY --from=builder are all exercised) but with
   # no login and no push, so a deploy-only Dockerfile break fails the PR instead of the release tag. Always-on
   # and cache-less on purpose: it runs in parallel off the critical path, never turns `skipped` into a
   # ci-complete hazard, and touches no Actions cache (HEL-1299 budget).
+  # Base images come from mirror.gcr.io in CI (same tags and digests as Docker Hub, HEL-1452); CD uses Docker Hub.
   docker-image:
     runs-on: ubuntu-latest
     # HEL-1427 D5: measured 195 s (run 37883939609, no layer cache); ~2.5x.
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v7
-      - run: docker build -t helio-backend:ci-${{ github.sha }} .
+      # HEL-1452: base images come from mirror.gcr.io (avoids Docker Hub 429s); no fallback, a failed pull fails the job.
+      - run: docker build --build-arg BASE_REGISTRY=mirror.gcr.io/library -t helio-backend:ci-${{ github.sha }} .
       # Report-only: image size evidence for the no-layer-cache trade (HEL-1427 D4).
       - name: Report image layer sizes
         run: |
