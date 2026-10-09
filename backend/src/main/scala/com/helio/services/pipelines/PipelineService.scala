@@ -687,7 +687,11 @@ final class PipelineService(
     // HEL-1273: `config.compare` is checked first and unconditionally (before the no-fieldMapping
     // early return), so single-call create and proposal grounding both reject a bad compare.
     // HEL-1313: key set + aggregation/chartType rules first (nothing stored yet, so empty `stored`).
-    OutputConfigValidation.validate(kind, config, JsObject.empty).flatMap(_ => OutputCompare.validateConfig(config)).flatMap(_ => PayloadOptIn.validateConfig(config)).left.map(ServiceError.BadRequest(_)).flatMap { _ =>
+    OutputConfigValidation.validate(kind, config, JsObject.empty)
+      .flatMap(_ => OutputCompare.validateConfig(config))
+      .flatMap(_ => PayloadOptIn.validateConfig(config))
+      .left.map(ServiceError.BadRequest(_))
+      .flatMap { _ =>
     config.fields.get("fieldMapping").collect { case o: JsObject => o } match {
       case None => Right(())
       case Some(mappingObj) =>
