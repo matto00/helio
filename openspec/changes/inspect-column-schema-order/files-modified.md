@@ -1,7 +1,0 @@
-- `frontend/src/features/panels/ui/inspectColumnOrder.ts` — new pure helper ordering Inspect columns (columnOrder, schema, leftovers)
-- `frontend/src/features/panels/ui/inspectColumnOrder.test.ts` — helper unit tests
-- `frontend/src/utils/chartClickSelection.ts` — optional `columnOrderHint` on `ChartInspectConfig`
-- `frontend/src/features/panels/hooks/usePanelCardInspect.ts` — populate hint from the resolved Output
-- `frontend/src/features/panels/hooks/usePanelCardInspect.test.tsx` — hint derivation test
-- `frontend/src/features/panels/ui/PanelInspectView.tsx` — pass ordered `columns` to DataGrid
-- `frontend/src/features/panels/ui/PanelInspectView.test.tsx` — header-order tests (raw + aggregate + columnOrder)
