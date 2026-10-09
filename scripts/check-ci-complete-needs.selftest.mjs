@@ -26,25 +26,27 @@ function expectError(label, text, fragment) {
 
 const JOB = (name) => `  ${name}:\n    runs-on: ubuntu-latest\n`;
 const yaml = ({
-  pre = "",
   between = "",
   needsLine = "    needs: [a, b]",
-  extraGate = "",
   jobsA = JOB("a"),
   jobsB = JOB("b"),
 } = {}) =>
-  `name: ci\non:\n  push:\n${pre}jobs:\n${jobsA}${between}${jobsB}  ci-complete:\n    runs-on: ubuntu-latest\n${needsLine}\n${extraGate}    steps:\n      - run: true\n`;
+  `name: ci\non:\n  push:\njobs:\n${jobsA}${between}${jobsB}  ci-complete:\n    runs-on: ubuntu-latest\n${needsLine}\n    steps:\n      - run: true\n`;
 
 // Green baselines.
 assert(checkCiCompleteNeeds(yaml()).errors.length === 0, "valid file passes");
 assert(
   checkCiCompleteNeeds(yaml({ needsLine: "    needs: [a, b] # note" })).errors.length === 0,
-  "trailing comment after ] allowed",
+  "trailing comment allowed",
+);
+assert(
+  checkCiCompleteNeeds(yaml({ needsLine: "    needs:\n      - a\n      - b" })).errors.length === 0,
+  "block-list needs is parsed (the parser accepts any list form)",
 );
 assert(
   checkCiCompleteNeeds(yaml({ between: "# col0 comment\n\n  # indented comment\n" })).errors
     .length === 0,
-  "column-0 / indented comments between jobs do not end the jobs block",
+  "comments between jobs are ignored",
 );
 {
   const r = checkCiCompleteNeeds(yaml());
@@ -55,36 +57,22 @@ assert(
 expectError("missing job", yaml({ needsLine: "    needs: [a]" }), 'job "b" is missing');
 expectError(
   "col-0 comment then later job missing from needs",
-  yaml({
-    between: "# a comment at column 0\n",
-    jobsB: JOB("b") + "# another\n" + JOB("c"),
-    needsLine: "    needs: [a, b]",
-  }),
+  yaml({ between: "# a comment at column 0\n", jobsB: JOB("b") + "# another\n" + JOB("c") }),
   'job "c" is missing',
 );
 expectError(
-  "quoted job key",
-  yaml({ jobsA: '  "lint":\n    runs-on: x\n' }),
-  "unrecognised 2-space line",
-);
-expectError(
-  "flow-mapping job",
-  yaml({ jobsA: "  a: {runs-on: x}\n" }),
-  "unrecognised 2-space line",
-);
-expectError(
-  "quoted needs entry",
-  yaml({ needsLine: '    needs: [a, "b"]' }),
+  "quoted needs entry that is not a bare id",
+  yaml({ needsLine: '    needs: [a, "b c"]' }),
   "invalid `ci-complete.needs` entry",
 );
 expectError(
-  "empty needs entry (trailing comma)",
-  yaml({ needsLine: "    needs: [a, b,]" }),
+  "empty needs entry",
+  yaml({ needsLine: '    needs: [a, b, ""]' }),
   "invalid `ci-complete.needs` entry",
 );
 expectError(
-  "empty needs entry (double comma)",
-  yaml({ needsLine: "    needs: [a,,b]" }),
+  "non-string needs entry",
+  yaml({ needsLine: "    needs: [a, b, 1]" }),
   "invalid `ci-complete.needs` entry",
 );
 expectError(
@@ -93,46 +81,54 @@ expectError(
   '"zzz", which is not a defined job',
 );
 expectError(
-  "block-list needs",
-  yaml({ needsLine: "    needs:\n      - a\n      - b" }),
-  "not in single-line flow form",
+  "scalar needs is rejected",
+  yaml({ needsLine: "    needs: a" }),
+  "must be a list of job ids",
 );
-expectError("scalar needs", yaml({ needsLine: "    needs: a" }), "not in single-line flow form");
-expectError("two needs lines", yaml({ extraGate: "    needs: [a, b]\n" }), "2 `needs:` lines");
 expectError("no needs", yaml({ needsLine: "    # needs: [a, b]" }), "no `needs:` key");
+expectError(
+  "duplicate job key is a parse error",
+  yaml({ jobsB: JOB("a") + JOB("b") }),
+  "not parseable YAML",
+);
+expectError(
+  "two needs keys is a parse error",
+  yaml({ needsLine: "    needs: [a, b]\n    needs: [a, b]" }),
+  "not parseable YAML",
+);
 expectError("no ci-complete", "jobs:\n  a:\n    runs-on: x\n", "no `ci-complete` job");
-expectError("no jobs block", "name: x\n", "no top-level `jobs:` block");
-expectError("zero jobs", "jobs:\n", "no jobs found");
+expectError("no jobs block", "name: x\n", "no top-level `jobs:` mapping");
+expectError("jobs is a list", "jobs:\n  - a\n", "no top-level `jobs:` mapping");
+expectError("zero jobs", "jobs: {}\n", "no jobs found");
+expectError("empty file", "", "no top-level `jobs:` mapping");
+expectError("broken YAML", "jobs: [\n", "not parseable YAML");
 expectError(
   "comment listing all jobs above the real needs line cannot stand in",
   yaml({ needsLine: "    # needs: [a, b]\n    needs: [a]" }),
   'job "b" is missing',
 );
-
-// A column-0 continuation line inside a multi-line quoted scalar must not end the jobs block and hide
-// a later job (evaluator cycle-1 fixture).
 expectError(
-  "column-0 line inside a quoted scalar after jobs:",
+  "job after ci-complete missing from needs",
+  "jobs:\n  ci-complete:\n    needs: [a]\n  a:\n  b:\n",
+  'job "b" is missing',
+);
+
+// Named regressions: the three evaluator attacks (cycles 1-3). Each hides structure-looking lines in a
+// multi-line quoted scalar; a line scanner mis-reads them, the parser sees plain string content.
+expectError(
+  "REGRESSION cycle 1: column-0 continuation line inside a quoted scalar",
   'jobs:\n  a:\n    runs-on: x\n  ci-complete:\n    needs: [a, b]\n  b:\n    steps:\n      - run: "echo\nfoo: bar"\n  c:\n    runs-on: x\n',
-  "column-0 line after `jobs:`",
+  'job "c" is missing',
 );
 expectError(
-  "duplicate top-level key after jobs:",
-  yaml() + "jobs:\n  z:\n",
-  "column-0 line after `jobs:`",
-);
-
-// A fake `ci-complete` + `needs:` inside an earlier job's multi-line quoted scalar must not stand in
-// for the real needs list (evaluator cycle-2 fixture).
-expectError(
-  "duplicate ci-complete key from a quoted scalar",
+  "REGRESSION cycle 2: fake duplicate ci-complete + needs inside an earlier job's quoted scalar",
   'on: push\njobs:\n  a:\n    runs-on: x\n    steps:\n      - run: "x\n  ci-complete:\n    needs: [a, b]\n    end"\n  b:\n    runs-on: x\n  ci-complete:\n    needs: [a]\n',
-  'duplicate job key "ci-complete"',
+  'job "b" is missing',
 );
 expectError(
-  "duplicate ordinary job key",
-  yaml({ jobsB: JOB("a") + JOB("b") }),
-  'duplicate job key "a"',
+  "REGRESSION cycle 3: fake `zz:` key inside the gate's own quoted scalar hiding the real needs",
+  'on: push\njobs:\n  a:\n    runs-on: x\n  b:\n    runs-on: x\n  ci-complete:\n    name: "x\n    needs: [a, b, zz]\n  zz:\n    y"\n    needs: [a]\n',
+  'job "b" is missing',
 );
 
 // Real ci.yml.
@@ -151,13 +147,12 @@ const dropped = real.replace(
       .join(", ") +
     c,
 );
-assert(dropped !== real, "fixture: docker-image removed from real needs line");
+assert(dropped !== real, "fixture: docker-image removed from real needs");
 expectError(
   "real ci.yml with docker-image dropped from needs",
   dropped,
   'job "docker-image" is missing',
 );
-// Real file with a comment listing all jobs above the (mutated) real line.
 const withComment = dropped.replace(
   /^( {4}needs:)/m,
   "    # needs: [frontend, backend, security, e2e, docker-image]\n$1",

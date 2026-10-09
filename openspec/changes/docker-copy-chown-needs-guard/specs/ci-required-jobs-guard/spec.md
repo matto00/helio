@@ -19,37 +19,33 @@ in a CI job that `ci-complete` depends on.
 - **THEN** the check exits zero
 
 ### Requirement: The guard fails closed
-The check SHALL exit non-zero, rather than pass, when it cannot establish the job set or the `needs` list: when no
-jobs are found, when `ci-complete` is missing, when `ci-complete` has no `needs` or a `needs` not written as a
-single-line list, when `needs` names a job that does not exist or contains an entry that is not a bare job id, or
-when the jobs mapping contains a key it cannot read as a bare job id (for example a quoted key). `jobs:` SHALL be the last top-level key: any non-comment column-0 line after it SHALL be an error rather than the end of the jobs mapping. Comment lines,
-including column-0 comments between jobs, SHALL NOT end the jobs mapping, and comment lines SHALL never be read as the
-`needs` list; `ci-complete` having more than one `needs` key line SHALL be an error. A job key appearing more than once in the jobs mapping SHALL be an error.
+The check SHALL parse `ci.yml` with a real YAML parser (not a line scanner), so lines inside multi-line quoted or flow
+scalars are string content and never structure. It SHALL exit non-zero, rather than pass, when it cannot establish the
+job set or the `needs` list: when the YAML does not parse (including a duplicate key), when there is no `jobs` mapping
+or it is empty, when `ci-complete` is missing, when `ci-complete` has no `needs` or a `needs` that is not a list (a
+scalar `needs: a` is rejected), when a `needs` entry is not a bare job id string, or when `needs` names a job that does
+not exist.
 
-#### Scenario: needs written as a multi-line list
-- **WHEN** `ci-complete`'s `needs` is written as a block (multi-line) list
-- **THEN** the check exits non-zero with a message saying the list could not be parsed
+#### Scenario: needs is a scalar
+- **WHEN** `ci-complete`'s `needs` is the scalar `needs: a`
+- **THEN** the check exits non-zero saying `needs` must be a list of job ids
 
 #### Scenario: ci-complete missing
 - **WHEN** `ci.yml` has no `ci-complete` job
 - **THEN** the check exits non-zero
 
-#### Scenario: Quoted job key
-- **WHEN** `ci.yml` defines a job with a quoted key such as `"lint":`
-- **THEN** the check exits non-zero naming the unreadable line, rather than skipping that job
-
-#### Scenario: Column-0 comment between jobs
-- **WHEN** a column-0 comment sits between two jobs and the later job is missing from `needs`
-- **THEN** the check exits non-zero and names the later job
-
-#### Scenario: Comment mentioning needs above the real list
-- **WHEN** a comment in the `ci-complete` job lists every job in `needs: [...]` form, and the real `needs` line omits one
-- **THEN** the check exits non-zero and names the omitted job
-
-#### Scenario: Column-0 line after jobs
-- **WHEN** a non-comment column-0 line follows `jobs:` (for example the continuation of a multi-line quoted string that would otherwise hide a later job)
-- **THEN** the check exits non-zero naming that line
+#### Scenario: Invalid needs entry
+- **WHEN** a `needs` entry is empty, non-string, or not a bare job id
+- **THEN** the check exits non-zero naming the entry
 
 #### Scenario: Duplicate job key
 - **WHEN** a job key (for example `ci-complete`) appears twice, such as a fake copy inside an earlier job's multi-line quoted string
-- **THEN** the check exits non-zero naming the duplicate key
+- **THEN** the check exits non-zero as unparseable YAML
+
+#### Scenario: Structure-looking lines inside a quoted scalar
+- **WHEN** a multi-line quoted string contains lines that look like job keys, `needs:` lines or column-0 keys
+- **THEN** those lines are string content: the real jobs and the real `needs` are checked, and a real job missing from `needs` is named
+
+#### Scenario: Comment mentioning needs above the real list
+- **WHEN** a comment in the `ci-complete` job lists every job in `needs: [...]` form, and the real `needs` omits one
+- **THEN** the check exits non-zero and names the omitted job

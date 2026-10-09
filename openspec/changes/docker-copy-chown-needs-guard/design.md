@@ -36,21 +36,21 @@ against a throwaway `postgres:16` container on a dedicated docker network (exact
 backend cannot reach `/health` for a reason unrelated to the Dockerfile, record why and rely on the listing/inspect
 diff, saying so. Remove containers, network and both images by exact name afterwards. Never print env contents.
 
-**D3 - guard as its own script.** New `scripts/check-ci-complete-needs.mjs` exporting a pure
-`checkCiCompleteNeeds(ciYamlText)` returning `{errors, jobs, needs}`, plus a CLI taking an optional `repoRoot` (same
-shape as `check-precommit-ci-parity.mjs`). It does not reuse `parseCiCompleteNeeds`, because that helper's leniency is
-exactly what this guard must not have. Parsing: scope to the top-level `jobs:` block, which starts at the `^jobs:` line and runs to
-end of file: `jobs:` must be the last top-level key. Any non-blank, non-comment column-0 line after it is an error
-(never a terminator, since it could be the continuation of a multi-line quoted scalar that would otherwise hide later
-jobs); blank lines and comment lines at any indent (including column 0) are ignored. Inside it, every line at exactly 2-space indent that is not a comment MUST match
-`^  ([A-Za-z0-9_-]+):\s*(#.*)?$`; any other 2-space line (quoted key `  "lint":`, flow mapping, anchor) is an error
-naming the line, so no job can be skipped silently; `ci-complete`'s block is the text
-until the next 2-space key; the `needs` key is the one non-comment line in that block indented exactly 4 spaces matching
-`^    needs:` (comment lines are never read, so a comment mentioning `needs: [...]` cannot stand in for the list;
-zero or more than one such line is an error), and its value must be the single-line `needs: [a, b]` form; each entry must be a bare
-`[A-Za-z0-9_-]+` id, and a quoted or otherwise non-bare entry is an error (rejected, not stripped). Errors (fail closed): a duplicate job key (valid YAML cannot repeat one, and a fake `ci-complete`/`needs:` inside an earlier job's multi-line quoted scalar must not stand in for the real gate), a column-0 line after `jobs:`, an unrecognised 2-space line in `jobs:`, a non-bare needs entry, zero jobs,
-no `ci-complete`, no `needs`, a `needs` value not in single-line flow form (block list or a bare scalar), a `needs`
-entry naming no defined job, any job other than `ci-complete` missing from `needs` (each named).
+**D3 - guard as its own script (js-yaml; owner ruling, constraint C4).** New `scripts/check-ci-complete-needs.mjs`
+exporting a pure `checkCiCompleteNeeds(ciYamlText)` returning `{errors, jobs, needs}`, plus a CLI taking an optional
+`repoRoot` (same shape as `check-precommit-ci-parity.mjs`). It does not reuse `parseCiCompleteNeeds`, because that
+helper's leniency is exactly what this guard must not have. The first design (a line scanner) was replaced after three
+review cycles each found another way to hide a job inside the continuation lines of a multi-line quoted scalar: a line
+scanner cannot tell structure from scalar content without becoming a YAML lexer. The file is now parsed with js-yaml 4.x
+`load` (root devDependency, pinned exactly to `4.3.2`, the version already in the lockfile, so the lockfile diff is the
+root entry only), and the fail-closed checks run on the parsed tree. js-yaml rejects duplicate keys, so a fake
+`ci-complete` is a parse error, and every fake-structure line is plain string content. Errors (all fail closed): YAML
+that does not parse (duplicate keys included); no `jobs` mapping or zero jobs; no `ci-complete`; no `needs`; `needs`
+not a list (GitHub also accepts the scalar `needs: a`; this guard rejects it on purpose, since the aggregate gate must
+list several jobs); a `needs` entry that is not a string matching `[A-Za-z0-9_-]+` (empty, null, number, spaces); an
+entry naming no defined job; any job other than `ci-complete` missing from `needs` (each named). Block-list and
+flow-list `needs` are both accepted because the parser reads either. Out of scope: `check-precommit-ci-parity.mjs`'s
+own `parseCiCompleteNeeds` (follow-up).
 
 **D4 - wiring.** `package.json`: `check:ci-complete-needs` and `check:ci-complete-needs:selftest`. `.husky/pre-commit`:
 add `npm run check:ci-complete-needs` (the check, not the selftest). `ci.yml` `frontend` job: run both, next to
@@ -88,10 +88,15 @@ numbers. The executor re-runs the query at Execution time and records the result
 - **What environment does it inherit, and from where?** The hook's environment (husky via git); it reads no env vars
   and resolves the repo root from its own file location (`import.meta.url`), not cwd or `GIT_*`.
 - **Does it write anything outside its own sandbox?** No. It writes nothing at all (stdout/stderr only).
-- **Does it behave differently from a linked worktree than from a main checkout?** No: path is derived from the
-  script's location, and `ci.yml` is a tracked file present in both.
+- **Does it behave differently from a linked worktree than from a main checkout?** Only in how `js-yaml` resolves:
+  node resolves it from the nearest `node_modules` up from the script's directory. A main checkout (or a worktree
+  after `npm install`) uses its own root `node_modules`; a linked worktree under the main checkout's `.claude/worktrees/`
+  with no install of its own resolves it through the ancestor main checkout's `node_modules`. The `ci.yml` path is
+  derived from the script's location and is tracked in both.
 - **What happens on its first run?** It parses the current `ci.yml`, which already lists all five jobs in `needs`, and
-  exits 0. It needs no dependency install (node built-ins only).
+  exits 0. It now needs `js-yaml` to be resolvable (see the worktree answer above): in a fresh clone or worktree
+  without `npm install` / an ancestor `node_modules`, it fails loudly with `ERR_MODULE_NOT_FOUND` (exit 1) and aborts
+  the commit, never a silent pass; the hook's other checks need the same install, so the failure mode is not new.
 
 ## Planner Notes
 

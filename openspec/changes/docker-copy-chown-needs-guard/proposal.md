@@ -28,10 +28,10 @@ in CI run 37997304485's `docker history`: two 316 MB layers). Separately, nothin
 ## Non-goals
 
 - Changing the CD workflow, deploying, or cutting a release (the post-release `/health` check is handed to the owner).
-- Restructuring `ci-complete`'s aggregation logic, or adding a full YAML parser dependency.
+- Restructuring `ci-complete`'s aggregation logic.
 - Changing `docker-image`'s timeout, caching, or base-image registry handling (HEL-1427/HEL-1452).
 
 ## Impact
 
 `Dockerfile`, `.husky/pre-commit` (gate chain), `.github/workflows/ci.yml` (frontend job steps), `package.json`
-scripts, new `scripts/check-ci-complete-needs.mjs` + `.selftest.mjs`. Production image layout changes on next release.
+scripts + new exact-pinned devDependency `js-yaml@4.3.2` (already in the lockfile transitively; `package-lock.json` root entry only), new `scripts/check-ci-complete-needs.mjs` + `.selftest.mjs`. Production image layout changes on next release.

@@ -2,6 +2,7 @@
 
 - [C1] Never print environment contents; never touch the shared dev DB for image verification (throwaway postgres only).
 - [C2] Remove every docker image/container/network created for measurement by exact name; never prune or pattern-match.
+- [C4] The ci-complete.needs guard parses ci.yml with js-yaml 4.x (root devDependency pinned 4.3.2), never a line scanner; fail-closed checks on the parsed result; the three evaluator attack cases stay as named selftest regressions.
 - [C3] Heavy work (docker build, sbt) under `nice -n 19`; never pkill/pgrep/killall; no --no-verify/HUSKY=0.
 
 ### Backend

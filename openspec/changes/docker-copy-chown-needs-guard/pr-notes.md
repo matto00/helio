@@ -41,16 +41,21 @@ scratch copy of the real ci.yml with `docker-image` dropped from `needs` (exit 1
   - job "docker-image" is missing from `ci-complete.needs` (it would silently stop being required)
 ```
 Mutation (missing-job comparison replaced with `if (false)`): selftest exit 1 with 5 FAIL lines; reverted, exit 0.
-Cycle 2: a column-0 line after `jobs:` is now an error (it previously ended the jobs block, so a column-0 continuation of a multi-line quoted scalar could hide later jobs). Selftest fixture was red before the fix (`FAIL - column-0 line inside a quoted scalar after jobs: ... got []`) and green after.
-Cycle 3: a duplicate job key is now an error (a fake `ci-complete`/`needs:` inside an earlier job's multi-line quoted
-scalar used to replace the real list). Selftest fixture red before (`FAIL - duplicate ci-complete key from a quoted
-scalar ... got []`), green after. Self-attack battery on the same class (lines inside multi-line quoted scalars that
-look like structure), all against the final code: fake `ci-complete` after the real one -> RED (duplicate key); fake
-`needs:` line inside the real gate, before or after the real line, -> RED (2 needs lines); fake `jobs:` before the real
-one -> RED (column-0 line); fake job key in a scalar not in needs -> RED (false red only); real gate hidden inside a
-scalar -> RED (real job missing); jobs after the gate omitted from needs -> RED. The one PASS: a fake job key placed in
-`needs` as well as in the scalar, with every real job still listed (fake names can only add; no real job escapes). Real job
-keys are always seen because scanning is line-based at 2-space indent, so a hidden real job is not possible.
+Cycles 2-3 hardened the line scanner (column-0 line after `jobs:`; duplicate job keys). Cycle 3's review then found a
+third way (a fake `zz:` key inside the gate's own multi-line quoted scalar hides the real `needs`), and the line-scanner
+approach was judged unsound. Cycle 4, per the owner ruling (`js-yaml-rewrite`, constraint C4): the guard now parses
+`ci.yml` with js-yaml 4.x and checks the parsed tree. `js-yaml` is a root devDependency pinned EXACTLY to `4.3.2` (the
+version already locked transitively, so the lockfile diff is two added lines: the root `devDependencies` entry in
+`package.json` and in `package-lock.json`'s root package; no version churn). A scalar `needs: a` is rejected on purpose
+(documented in the script and spec). The three evaluator attacks (cycle 1 column-0 continuation, cycle 2 fake duplicate
+`ci-complete`, cycle 3 fake `zz:` key) are named `REGRESSION` cases in the selftest. The cycle-3 fixture against the
+line-scanner HEAD `2ba8bbbfb`, before the rewrite: `PASS (false pass: job b missing)
+{"errors":[],"jobs":["a","b","ci-complete","zz"],"needs":["a","b","zz"]}`; after the rewrite the selftest names job "b"
+missing. CLI red re-run on the scratch copy (`docker-image` dropped from `needs`): exit 1,
+`job "docker-image" is missing from ci-complete.needs`. Mutation of the rewrite (missing-job comparison replaced by
+`if (false)`): selftest exit 1 with 9 FAIL lines; reverted, exit 0.
+Out of scope, follow-up: `check-precommit-ci-parity.mjs`'s `parseCiCompleteNeeds` still has the line-based
+comment-first-match weakness.
 Known gap: if `frontend` itself is removed from `needs`, the CI run of the guard (inside `frontend`) no longer blocks
 `ci-complete`; only the pre-commit hook still catches it. Follow-up candidate: `check-precommit-ci-parity.mjs`
 `parseCiCompleteNeeds` has the same comment-first-match fail-open.
