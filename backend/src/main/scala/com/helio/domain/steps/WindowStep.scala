@@ -95,11 +95,25 @@ object WindowStep {
   val SupportedFunctions: Vector[String] = Vector("row_number", "rank", "dense_rank", "running_sum", "lag", "lead")
   val FieldRequired: Set[String]         = Set("running_sum", "lag", "lead")
 
+  /** The one message for an unsupported function, shared by write, analyze and run. */
+  def unsupportedFunctionMessage(function: String): String =
+    s"Unsupported window function: '$function'. Supported: ${SupportedFunctions.mkString(", ")}"
+
+  /** HEL-1416: the single enum/offset rule. A non-empty `function` outside [[SupportedFunctions]], or a
+   *  `lag`/`lead` with an explicit `offset` <= 0, is clearly invalid. An empty function is a draft (not a
+   *  problem here; analyze and `apply` still refuse it); an absent offset defaults to 1; `offset` on any other
+   *  function is ignored by run, so it is not rejected. Shared by `validateRawConfig`, analyze and `apply`. */
+  def enumProblems(cfg: WindowConfig): Vector[String] =
+    if (cfg.function.nonEmpty && !SupportedFunctions.contains(cfg.function))
+      Vector(unsupportedFunctionMessage(cfg.function))
+    else if ((cfg.function == "lag" || cfg.function == "lead") && cfg.offset.exists(_ <= 0))
+      Vector(s"window function '${cfg.function}' requires a positive 'offset', got ${cfg.offset.get}")
+    else Vector.empty
+
   def apply(rows: Seq[PipelineRowJson.Row], cfg: WindowConfig): Seq[PipelineRowJson.Row] = {
-    if (!SupportedFunctions.contains(cfg.function))
-      throw new StepConfigError(
-        s"Unsupported window function: '${cfg.function}'. Supported: ${SupportedFunctions.mkString(", ")}"
-      )
+    enumProblems(cfg).headOption.foreach(msg => throw new StepConfigError(msg))
+    if (cfg.function.isEmpty) // unconfigured draft: the shared rule above only rejects non-empty values
+      throw new StepConfigError(unsupportedFunctionMessage(cfg.function))
 
     val fieldName =
       if (FieldRequired.contains(cfg.function))
@@ -109,14 +123,8 @@ object WindowStep {
       else ""
 
     val offset =
-      if (cfg.function == "lag" || cfg.function == "lead") {
-        val o = cfg.offset.getOrElse(1)
-        if (o <= 0)
-          throw new StepConfigError(
-            s"window function '${cfg.function}' requires a positive 'offset', got $o"
-          )
-        o
-      } else 0
+      // Non-positive offsets were refused by `enumProblems` above.
+      if (cfg.function == "lag" || cfg.function == "lead") cfg.offset.getOrElse(1) else 0
 
     // Stage 1: partition rows while retaining each row's original index —
     // the output row order must match the input row order (design.md
@@ -267,5 +275,12 @@ object WindowStep {
      *  covers them and both run and analyze already enforce them. */
     override def requiredConfigProblems(raw: String): Vector[String] =
       StepCodecUtil.missingRequired(Kind, "outputColumn" -> WindowConfig.decode(raw).outputColumn)
+
+    /** HEL-1416: write-time rejection of a non-empty unknown `function` and a lag/lead `offset` <= 0 (the
+     *  HEL-1310 pattern). Drafts (empty function, missing `field`) stay accepted (HEL-814 D2). */
+    override def validateRawConfig(raw: String): Option[String] =
+      super.validateRawConfig(raw).orElse {
+        Try(WindowConfig.decode(raw)).toOption.flatMap(enumProblems(_).headOption)
+      }
   }
 }

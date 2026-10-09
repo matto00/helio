@@ -139,7 +139,11 @@ export function mapAggregateClickToSelection(
   spec: ChartAggregationSpec,
 ): ChartClickSelection | null {
   if (typeof params.name !== "string") return null;
-  return { dimension: spec.groupBy, value: params.name, series: aggregateSeriesName(spec) };
+  // HEL-1408 design D10a: a null group plots as the label "null" (grouping keys on `String(v)`),
+  // but a blank selection must match blank rows on siblings, so a "null" bar over real nulls
+  // selects "" (blank). With no null in the records, "null" is a literal string and stays.
+  const value = spec.groupHasNull && params.name === "null" ? "" : params.name;
+  return { dimension: spec.groupBy, value, series: aggregateSeriesName(spec) };
 }
 
 /** HEL-1351 design D3 — the Inspect rows of an aggregate selection: exactly the loaded RECORD rows
@@ -150,7 +154,13 @@ export function filterRecordsForAggregateSelection(
   spec: ChartAggregationSpec,
   selection: { value: string },
 ): Record<string, unknown>[] {
-  return records.filter((row) => String(row[spec.groupBy]) === selection.value);
+  // HEL-1408 design D10a: the blank selection ("") keeps null AND "" cells (absent keys stay in
+  // the "undefined" group, as before).
+  const { value } = selection;
+  return records.filter((row) => {
+    const raw = row[spec.groupBy];
+    return value === "" ? raw === null || raw === "" : String(raw) === value;
+  });
 }
 
 /** design.md D4 — row filtering for the inspect view, reusing the exact

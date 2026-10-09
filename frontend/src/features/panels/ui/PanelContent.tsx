@@ -324,6 +324,8 @@ function OutputPanelContent({
         config={output.config}
         rawRows={filteredRawRows}
         headers={headers}
+        // HEL-1408 design D6 -- typed records so a client `count` excludes null like the server.
+        records={filteredPaginationRows}
         // HEL-1275 design.md D3 — an applied viewer control filter, or a cross-filter narrowing this
         // panel (server `eq`, or the client-side loaded-rows fallback), hides the unfiltered delta.
         filterActive={viewerFilterActive || crossFilterMode === "server" || isCrossFiltered}

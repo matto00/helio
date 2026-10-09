@@ -187,15 +187,14 @@ describe("PanelCard aggregated chart Output (HEL-1351)", () => {
     expect(screen.getByText("r-east-2")).toBeInTheDocument();
   });
 
-  it("the null group is keyed 'null' (as plotted) and Inspect lists its null-keyed record", async () => {
+  it("the null group plots as 'null' but a click selects blank (HEL-1408 D10a) and Inspect lists its null-keyed record", async () => {
     renderCard();
     const chart = (await screen.findByTestId("echarts")) as MockChartNode;
     act(() => {
       chart.__onEvents?.click({ componentType: "series", name: "null", seriesName: "sum(amount)" });
     });
-    expect(
-      await screen.findByText("Showing rows for region: null / sum(amount)"),
-    ).toBeInTheDocument();
+    // The blank selection header reads `region: ` (empty); whitespace collapses in the matcher.
+    expect(await screen.findByText("Showing rows for region: / sum(amount)")).toBeInTheDocument();
     expect(screen.getByText("r-null-1")).toBeInTheDocument();
     expect(screen.queryByText("r-east-1")).not.toBeInTheDocument();
   });

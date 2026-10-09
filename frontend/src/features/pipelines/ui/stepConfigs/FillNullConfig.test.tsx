@@ -12,6 +12,15 @@ function chooseStrategy(optionLabel: string) {
 }
 
 describe("FillNullConfig", () => {
+  // GUARD (HEL-1416): the editor must never offer a strategy the backend's write-time validation
+  // rejects. Failable by mutating FILL_NULL_STRATEGIES in FillNullConfig.tsx (source), not this list.
+  it("GUARD: strategy dropdown offers exactly the backend's supported strategies", () => {
+    render(<FillNullConfig config={emptyConfig} analyzeColumns={columns} onChange={jest.fn()} />);
+    fireEvent.click(screen.getByRole("combobox", { name: "Fill strategy" }));
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["constant", "forwardFill", "mean", "median", "mode"]);
+  });
+
   // Scenario: User selects columns and a strategy
   it("selecting a column calls onChange with the column added to columns", () => {
     const onChange = jest.fn();

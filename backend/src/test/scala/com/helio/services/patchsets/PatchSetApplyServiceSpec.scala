@@ -569,6 +569,45 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       }
     }
 
+    // HEL-1416: fillnull/window/pivot enum rejection on the patch-set create and update paths.
+    "reject invalid fillnull/window/pivot enum values on pipelineStep create and update (HEL-1416)" in {
+      val sourceId = seedDatasetSource(userA)
+      val pipeline = seedPipeline(userA, sourceId)
+      def create(kind: String, cfg: JsObject) = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None,
+        Some(JsObject("type" -> JsString(kind), "config" -> cfg)))
+      val bad = Seq(
+        ("fillnull", JsObject("columns" -> JsArray(JsString("a")), "strategy" -> JsString("average")), "Unsupported fillnull strategy: 'average'"),
+        ("window", JsObject("function" -> JsString("lag"), "field" -> JsString("f"), "offset" -> JsNumber(0), "outputColumn" -> JsString("o")), "requires a positive 'offset'"),
+        ("pivot", JsObject("column" -> JsString("c"), "values" -> JsString("v"), "agg" -> JsString("median")), "Unsupported pivot aggregation function: 'median'")
+      )
+      for ((kind, cfg, msg) <- bad) {
+        val r = await(service.apply(PatchSet(None, Vector(create(kind, cfg))), userA)).getOrElse(fail("expected Right"))
+        withClue(kind) { r.failure.getOrElse(fail("expected a reported failure")) should include(msg) }
+      }
+      await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id))) shouldBe empty
+
+      // Update edits: one valid step per kind, then an invalid enum value patched onto each.
+      val valid = Seq(
+        ("fillnull", JsObject("columns" -> JsArray(JsString("a")), "strategy" -> JsString("mean")),
+          JsObject("columns" -> JsArray(JsString("a")), "strategy" -> JsString("average")), "Unsupported fillnull strategy"),
+        ("window", JsObject("function" -> JsString("row_number"), "outputColumn" -> JsString("o")),
+          JsObject("function" -> JsString("ntile"), "outputColumn" -> JsString("o")), "Unsupported window function"),
+        ("pivot", JsObject("column" -> JsString("c"), "values" -> JsString("v"), "agg" -> JsString("sum")),
+          JsObject("column" -> JsString("c"), "values" -> JsString("v"), "agg" -> JsString("median")), "Unsupported pivot aggregation function")
+      )
+      for ((kind, goodCfg, badCfg, frag) <- valid) {
+        val good = await(service.apply(PatchSet(None, Vector(create(kind, goodCfg))), userA)).getOrElse(fail("expected Right"))
+        good.failure shouldBe None
+        val stepId = good.edits.head.newId.getOrElse(fail("no newId"))
+        val upd = Edit(EditTarget("pipelineStep", Some(stepId)), "update", None, None, None, None,
+          Some(UpdatePipelineStepRequest(None, Some(badCfg), None)), None)
+        await(service.apply(PatchSet(None, Vector(upd)), userA)) match {
+          case Left(ServiceError.UnprocessableEntity(msg)) => withClue(kind)(msg should include(frag))
+          case other                                         => fail(s"$kind: expected 422, got $other")
+        }
+      }
+    }
+
     "refuse an upsertsource create targeting a non-dataset source and roll back the earlier edit (HEL-1265)" in {
       val sourceId = seedDatasetSource(userA)
       val pipeline = seedPipeline(userA, sourceId, "Before upsert refusal")

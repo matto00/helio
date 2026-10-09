@@ -60,6 +60,10 @@ private[pipelines] object NodeSnapshotFilterSql {
    *  (an empty `in` list is rejected as 400 before this is ever reached), so `.tail`/`.head` below
    *  are safe. */
   private def opFragment(op: NodeSnapshotRepository.OpSpec): SQLActionBuilder = op match {
+    // HEL-1408 (D10b): a blank is null OR "" (CSV blanks are null, older snapshots hold ""), so an
+    // `eq ""` -- the blank-category cross-filter -- matches both, whatever the column's cast.
+    case NodeSnapshotRepository.OpSpec.Eq(column, _, "") =>
+      sql"((data ->> $column) IS NULL OR (data ->> $column) = '')"
     case NodeSnapshotRepository.OpSpec.Eq(column, cast, value) =>
       sortCastExpr(column, cast).concat(sql" = ").concat(opValueCastExpr(value, cast))
     case NodeSnapshotRepository.OpSpec.Gte(column, cast, value) =>

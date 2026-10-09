@@ -10,7 +10,7 @@ import com.helio.domain.model.{AuthenticatedUser, PipelineId, UserId}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.domain.steps.ComputeConfig
+import com.helio.domain.steps.{ComputeConfig, FillNullConfig}
 import com.helio.services.pipelines.PipelineService
 import com.helio.testkit.HelioRouteTest
 import com.helio.testsupport.DatasetRowsTestSupport
@@ -145,6 +145,52 @@ class PipelineCreateStepConfigRoutesSpec
         responseAs[String] should include("agg")
       }
       pipelineNames(owner) shouldBe empty
+    }
+
+    // HEL-1416: clearly invalid fillnull/window/pivot enum values are rejected on single-call create too.
+    "reject an invalid fillnull strategy, window function, lag offset and pivot agg with 422, persisting nothing (HEL-1416)" in {
+      val owner = newUser(); val src = newSource(owner)
+      val cases = Seq(
+        step("fn", "fillnull", JsObject("columns" -> JsArray(JsString("name")), "strategy" -> JsString("average")))       -> "Unsupported fillnull strategy: 'average'",
+        step("w1", "window", JsObject("function" -> JsString("ntile"), "outputColumn" -> JsString("o")))                    -> "Unsupported window function: 'ntile'",
+        step("w2", "window", JsObject("function" -> JsString("lag"), "field" -> JsString("score"), "offset" -> JsNumber(0), "outputColumn" -> JsString("o"))) -> "requires a positive 'offset'",
+        step("pv", "pivot", JsObject("column" -> JsString("name"), "values" -> JsString("score"), "agg" -> JsString("median"))) -> "Unsupported pivot aggregation function: 'median'"
+      )
+      for ((bad, msg) <- cases)
+        Post("/pipelines", createBody(src, "bad-enum", bad)) ~> routesFor(owner) ~> check {
+          withClue(msg) { status shouldBe StatusCodes.UnprocessableEntity }
+          responseAs[String] should include(msg)
+        }
+      pipelineNames(owner) shouldBe empty
+    }
+
+    "accept incomplete fillnull/window/pivot drafts (HEL-1416)" in {
+      val owner = newUser(); val src = newSource(owner)
+      val drafts = Seq(
+        step("fn", "fillnull", JsObject("columns" -> JsArray(), "strategy" -> JsString("constant"))),
+        step("w", "window", JsObject("function" -> JsString("lag"), "outputColumn" -> JsString("prev"))),
+        step("pv", "pivot", JsObject("column" -> JsString("name"), "values" -> JsString("score")))
+      )
+      for ((d, i) <- drafts.zipWithIndex)
+        Post("/pipelines", createBody(src, s"draft-$i", d)) ~> routesFor(owner) ~> check { status shouldBe StatusCodes.Created }
+    }
+
+    "still list and analyze a legacy stored fillnull step with an unknown strategy, reporting it once (HEL-1416)" in {
+      val owner = newUser(); val src = newSource(owner)
+      var pid = PipelineId("")
+      Post("/pipelines", createBody(src, "legacy-fillnull")) ~> routesFor(owner) ~> check {
+        pid = PipelineId(responseAs[JsObject].fields("id").convertTo[String])
+      }
+      await(stepRepo.insertInternal(pid, "fillnull", FillNullConfig(Vector("name"), "average", None), explicitRootId = None))
+      Get(s"/pipelines/${pid.value}/steps") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsArray].elements should have size 1
+      }
+      Get(s"/pipelines/${pid.value}/analyze") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val stepErr = responseAs[JsObject].fields("steps").asInstanceOf[JsArray].elements.head.asJsObject.fields("validationError").convertTo[String]
+        stepErr shouldBe "Unsupported fillnull strategy: 'average'. Supported: constant, forwardFill, mean, median, mode"
+      }
     }
 
     "create filter, aggregate (object groupBy), sort and select steps in their documented shapes" in {

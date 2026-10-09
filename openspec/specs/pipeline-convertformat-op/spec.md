@@ -58,7 +58,8 @@ normalized to `\n`. text->markdown output SHALL render as the literal text.
 ### Requirement: Unconvertible input fails the step with a named reason
 When a value cannot be converted, the step SHALL fail the run with an error message containing a stable reason code
 (`field-missing`, `field-not-string`, `csv-malformed`, `json-malformed`, `json-not-array-of-objects`,
-`json-nested-value`, `json-non-string-value`, `json-inconsistent-keys`) and SHALL NOT emit rows for it.
+`json-nested-value`, `json-non-string-value`, `json-inconsistent-keys`) and SHALL NOT emit rows for it. A configured
+field that is present with a null value SHALL be converted exactly as the empty string would be.
 
 #### Scenario: Malformed CSV
 - **WHEN** a csv->json step receives content with an unterminated quoted field
@@ -69,8 +70,12 @@ When a value cannot be converted, the step SHALL fail the run with an error mess
 - **THEN** the run fails with a message containing `json-not-array-of-objects`
 
 #### Scenario: Missing content field
-- **WHEN** the configured field is null or absent on a row
+- **WHEN** the configured field is absent on a row
 - **THEN** the run fails with a message containing `field-missing`
+
+#### Scenario: Null content field converts as empty
+- **WHEN** the configured field is null on a row and the step is csv->json
+- **THEN** the output field is `[]`, the same as for an empty string
 
 ### Requirement: Analyze infers the convertformat output schema
 Analyze SHALL report a validation error when `field` is absent from the input schema, is not a `string-body` field, or

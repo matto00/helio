@@ -25,6 +25,10 @@ interface MetricOutputPanelProps {
   config: Record<string, unknown>;
   rawRows: string[][] | null | undefined;
   headers: string[] | null | undefined;
+  /** HEL-1408 design D6 -- the typed record rows (cross-filter-narrowed like `rawRows`), so a
+   *  client `count` excludes null cells exactly as the server headline does; the stringified
+   *  `rawRows` render a null as `""`, which `count` would count. */
+  records?: Record<string, unknown>[] | null;
   /** An applied viewer control filter or cross-filter narrows this panel's rows (design D3). */
   filterActive: boolean;
   /** The metric over the FULL filtered set from the last page-0 rows response (HEL-1326 design D6);
@@ -43,6 +47,7 @@ export function MetricOutputPanel({
   config,
   rawRows,
   headers,
+  records,
   filterActive,
   filteredMetric,
   historySource,
@@ -70,9 +75,10 @@ export function MetricOutputPanel({
   const resolvedMetric = resolveServerMetricField(config);
   const valueColumn = resolvedMetric?.field;
   const rowsAsRecords =
-    rawRows && headers
+    records ??
+    (rawRows && headers
       ? rawRows.map((row) => Object.fromEntries(headers.map((h, i) => [h, row[i]])))
-      : [];
+      : []);
   const loadedValue =
     valueColumn && cfg.aggregation?.agg
       ? String(computeAggregate(rowsAsRecords, valueColumn, cfg.aggregation.agg) ?? "")

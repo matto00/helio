@@ -1,5 +1,7 @@
 import {
+  filterRecordsForAggregateSelection,
   filterRowsForSelection,
+  mapAggregateClickToSelection,
   mapChartClickToSelection,
   resolvePieValueColumn,
 } from "./chartClickSelection";
@@ -281,5 +283,55 @@ describe("click mapping and row filtering agree on the same selection (regressio
       scatterOptions,
     );
     expect(rows).toEqual([["1", "20", "West"]]);
+  });
+});
+
+describe("aggregate blank-category click and Inspect (HEL-1408 design D10a)", () => {
+  const spec = { groupBy: "team", agg: "count" as const, yField: "id" };
+  const click = (name: string): ChartClickParams => ({ componentType: "series", name });
+  const records: Record<string, unknown>[] = [
+    { team: "a", id: 1 },
+    { team: null, id: 2 },
+    { team: "", id: 3 },
+    { id: 4 },
+    { team: "null", id: 5 },
+  ];
+
+  it("a click on the 'null' bar selects blank when the records hold a null group", () => {
+    expect(
+      mapAggregateClickToSelection(click("null"), { ...spec, groupHasNull: true })?.value,
+    ).toBe("");
+  });
+
+  it("a click on 'null' without null records stays the literal string 'null'", () => {
+    expect(
+      mapAggregateClickToSelection(click("null"), { ...spec, groupHasNull: false })?.value,
+    ).toBe("null");
+    expect(mapAggregateClickToSelection(click("null"), spec)?.value).toBe("null");
+  });
+
+  it("a click on any other bar is untouched, even with a null group", () => {
+    expect(mapAggregateClickToSelection(click("a"), { ...spec, groupHasNull: true })?.value).toBe(
+      "a",
+    );
+  });
+
+  it("Inspect for the blank selection lists null and empty-string rows, not absent-key or 'null' rows", () => {
+    const ids = filterRecordsForAggregateSelection(records, spec, { value: "" }).map((r) => r.id);
+    expect(ids).toEqual([2, 3]);
+  });
+
+  it("Inspect for 'null' keeps the String(v) keying (null and literal 'null' rows), unchanged", () => {
+    const ids = filterRecordsForAggregateSelection(records, spec, { value: "null" }).map(
+      (r) => r.id,
+    );
+    expect(ids).toEqual([2, 5]);
+  });
+
+  it("Inspect for the 'undefined' group lists its absent-key rows", () => {
+    const ids = filterRecordsForAggregateSelection(records, spec, { value: "undefined" }).map(
+      (r) => r.id,
+    );
+    expect(ids).toEqual([4]);
   });
 });

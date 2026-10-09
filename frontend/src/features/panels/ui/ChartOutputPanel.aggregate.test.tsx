@@ -84,7 +84,7 @@ describe("ChartOutputPanel aggregation (HEL-1351)", () => {
       values: [15, 2, 7],
       seriesName: "sum(amount)",
     });
-    expect(last.aggregationSpec).toEqual(AGG);
+    expect(last.aggregationSpec).toEqual({ ...AGG, groupHasNull: true });
   });
 
   it("renders the SAME aggregate as the editor preview on the same records (C2)", () => {
@@ -104,6 +104,52 @@ describe("ChartOutputPanel aggregation (HEL-1351)", () => {
       />,
     );
     expect(captured.at(-1)!.chartAggregate).toEqual(dashboard);
+  });
+
+  it("carries groupHasNull from strict-null records only, never from the stringified rawRows (HEL-1408 D10a)", () => {
+    // rawRows stringify null to "" -- a record set with "" (not null) must NOT flag a null group.
+    const emptyStringRecords = RECORDS.map((r) => (r.region === null ? { ...r, region: "" } : r));
+    render(
+      <ChartOutputPanel
+        panelId="p1"
+        outputId="o1"
+        config={BAR_CONFIG}
+        appearance={APPEARANCE}
+        rawRows={ROWS}
+        headers={HEADERS}
+        records={emptyStringRecords}
+        filterActive={false}
+        rowsTruncated={false}
+      />,
+    );
+    expect(captured.at(-1)!.aggregationSpec).toEqual({ ...AGG, groupHasNull: false });
+    // The grouping itself is untouched: "" is its own (first-sorted) group, null stays "null".
+    expect(captured.at(-1)!.chartAggregate!.categories).toEqual(["", "east", "west"]);
+  });
+
+  it("an absent group key (undefined, no null) does not set groupHasNull (strict === null)", () => {
+    const absentKeyRecords: Record<string, unknown>[] = [
+      { region: "east", amount: 10 },
+      { amount: 2 },
+    ];
+    render(
+      <ChartOutputPanel
+        panelId="p1"
+        outputId="o1"
+        config={BAR_CONFIG}
+        appearance={APPEARANCE}
+        rawRows={[
+          ["east", "10"],
+          ["", "2"],
+        ]}
+        headers={HEADERS}
+        records={absentKeyRecords}
+        filterActive={false}
+        rowsTruncated={false}
+      />,
+    );
+    expect(captured.at(-1)!.aggregationSpec).toEqual({ ...AGG, groupHasNull: false });
+    expect(captured.at(-1)!.chartAggregate!.categories).toEqual(["east", "undefined"]);
   });
 
   it("does not group a scatter Output, nor a panel whose resolved type is scatter", () => {

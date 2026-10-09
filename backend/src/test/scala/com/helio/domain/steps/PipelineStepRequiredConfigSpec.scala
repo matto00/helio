@@ -256,10 +256,19 @@ class PipelineStepRequiredConfigSpec extends AnyWordSpec with Matchers {
 
     // The combining requirement: two independent failures on one step join
     // into a single message rather than one silently winning.
-    "combine a required-value failure with an enum failure on the same step into one message" in {
-      val msg = analyzeError("window", """{"function":"bogus_fn","outputColumn":""}""").get
+    // HEL-1416: a clearly invalid enum value is now rejected by `validateRawConfig` and analyze
+    // short-circuits on it (the HEL-1310 trade-off), so the join is exercised with two DRAFT
+    // failures that stay analyze-only: a missing required `outputColumn` and a missing `field`.
+    "combine a required-value failure with a draft failure on the same step into one message" in {
+      val msg = analyzeError("window", """{"function":"lag","outputColumn":""}""").get
       msg should include("outputColumn")
+      msg should include("requires 'field'")
+    }
+
+    "report only the enum failure (once) when a clearly invalid enum value accompanies a missing required value (HEL-1416)" in {
+      val msg = analyzeError("window", """{"function":"bogus_fn","outputColumn":""}""").get
       msg should include("bogus_fn")
+      msg should not include "outputColumn"
     }
   }
 
