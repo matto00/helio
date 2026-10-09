@@ -487,7 +487,7 @@ describe("useStepCardState — saveError (HEL-1102 task 2.4)", () => {
     });
 
     expect(result.current.saveError).toBe(
-      "Failed to save this step's target or mode — the server didn't say why.",
+      "Failed to save this step's configuration — the server didn't say why.",
     );
   });
 

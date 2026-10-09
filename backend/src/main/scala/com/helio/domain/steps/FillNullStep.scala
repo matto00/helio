@@ -7,6 +7,7 @@ import spray.json.DefaultJsonProtocol._
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** Typed config for the `fillnull` step (HEL-388) — the sixth leaf of the
  *  HEL-336 Pipeline Op Expansion epic. `columns` names the fields to fill;
@@ -80,11 +81,22 @@ object FillNullStep {
   // HEL-859 (design.md Decision 5): not `private` — see StringOpsStep.SupportedOperations.
   val SupportedStrategies: Vector[String] = Vector("constant", "forwardFill", "mean", "median", "mode")
 
+  /** The one message for an unsupported strategy, shared by write, analyze and run. */
+  def unsupportedStrategyMessage(strategy: String): String =
+    s"Unsupported fillnull strategy: '$strategy'. Supported: ${SupportedStrategies.mkString(", ")}"
+
+  /** HEL-1416: the single strategy rule. An empty strategy is an unconfigured draft (an omitted key decodes
+   *  to `""`) and is NOT a problem here — analyze and `apply` still refuse it; a non-empty value outside
+   *  [[SupportedStrategies]] is clearly invalid. Shared by `validateRawConfig`, analyze and `apply`. */
+  def strategyProblem(cfg: FillNullConfig): Option[String] =
+    if (cfg.strategy.nonEmpty && !SupportedStrategies.contains(cfg.strategy))
+      Some(unsupportedStrategyMessage(cfg.strategy))
+    else None
+
   def apply(rows: Seq[PipelineRowJson.Row], cfg: FillNullConfig): Seq[PipelineRowJson.Row] = {
-    if (!SupportedStrategies.contains(cfg.strategy))
-      throw new StepConfigError(
-        s"Unsupported fillnull strategy: '${cfg.strategy}'. Supported: ${SupportedStrategies.mkString(", ")}"
-      )
+    strategyProblem(cfg).foreach(msg => throw new StepConfigError(msg))
+    if (cfg.strategy.isEmpty) // unconfigured draft: the shared rule above only rejects non-empty values
+      throw new StepConfigError(unsupportedStrategyMessage(cfg.strategy))
 
     cfg.strategy match {
       case "constant" =>
@@ -201,5 +213,11 @@ object FillNullStep {
     def encodeConfig(config: Any): String = config.asInstanceOf[FillNullConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[FillNullConfig]
     def writeToWire(config: Any): JsValue = config.asInstanceOf[FillNullConfig].toJson
+
+    /** HEL-1416: write-time rejection of a non-empty unknown `strategy` (HEL-1310 pattern). Drafts (empty
+     *  strategy, `constant` with no `value`) stay accepted (HEL-814 D2). A decode failure is left to the
+     *  shared shape check. Analyze and the auto-run gate short-circuit on this result. */
+    override def validateRawConfig(raw: String): Option[String] =
+      super.validateRawConfig(raw).orElse(Try(FillNullConfig.decode(raw)).toOption.flatMap(strategyProblem))
   }
 }
