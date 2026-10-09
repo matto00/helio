@@ -18,7 +18,7 @@
 // save/create/delete/preview lifecycle harder to follow in one place --
 // noted here rather than silently over budget.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { Modal, Select, TextField, type SelectOption } from "../../../../shared/ui/index";
 import { InlineError } from "../../../../shared/chrome/InlineError";
@@ -70,6 +70,7 @@ import {
   SimpleMappingFields,
   TableKindFields,
 } from "./OutputKindFields";
+import { buildBaselineConfig, buildConfigPatch } from "./configPatch";
 import { useOutputTableColumns } from "./useOutputTableColumns";
 import { useOutputColumnFormats } from "./useOutputColumnFormats";
 import { OutputPreviewPane } from "./OutputPreviewPane";
@@ -126,6 +127,7 @@ export function OutputEditorSheet({
 }: OutputEditorSheetProps) {
   const dispatch = useAppDispatch();
   const isCreate = output === null;
+  const kindHintId = useId();
 
   const [nodeStepId, setNodeStepId] = useState<string | undefined>(
     isCreate ? createTargetStepId : output?.nodeStepId,
@@ -255,8 +257,8 @@ export function OutputEditorSheet({
   const [compare, setCompare] = useState<string>(metricConfig.compare ?? "none");
 
   // Markdown
-  // Literal-only (HEL-1139): a legacy `fieldMapping.content` is ignored on open
-  // and dropped on the next save.
+  // Literal-only (HEL-1139): a legacy `fieldMapping.content` is ignored on open;
+  // an edit Save leaves it stored unless the user changes the content (HEL-1389).
   const [markdownContent, setMarkdownContent] = useState(markdownConfig.content ?? "");
 
   // Collection / Timeline (lighter-weight slots -- task 5.1)
@@ -324,6 +326,17 @@ export function OutputEditorSheet({
     return { ...built, historyPayloads };
   }
 
+  // HEL-1389 -- an edit Save sends a config PATCH (only what the user changed, `null` for a clear);
+  // see `configPatch.ts`. Kind is fixed in edit mode (HEL-1388: the Kind select is disabled), so the
+  // `kind !== output.kind` guard is purely defensive; a differing kind would send the full config.
+  function buildEditConfig(): Record<string, unknown> {
+    const built = buildConfig();
+    if (!output || kind !== output.kind) return built;
+    const fieldKeys = capabilities ? capabilities.columns.map((c) => c.name) : [];
+    const baseline = buildBaselineConfig(kind, output.config ?? {}, fieldKeys);
+    return buildConfigPatch(kind, built, baseline, output.config ?? {}) ?? {};
+  }
+
   async function handleSave() {
     setSaving(true);
     setSaveError(null);
@@ -347,10 +360,15 @@ export function OutputEditorSheet({
         // reopened (`OutputsRail` never fetches on its own).
         void dispatch(previewOutput({ pipelineId, outputId: created.id }));
       } else if (output) {
+        const patch = withHistoryPayloads(buildEditConfig());
         await dispatch(
           updateOutput({
             outputId: output.id,
-            payload: { name: name.trim(), config: withHistoryPayloads(buildConfig()) },
+            // `config` is omitted entirely when nothing in it changed.
+            payload: {
+              name: name.trim(),
+              ...(Object.keys(patch).length > 0 ? { config: patch } : {}),
+            },
           }),
         ).unwrap();
       }
@@ -513,7 +531,15 @@ export function OutputEditorSheet({
             value={kind}
             onChange={(v) => setKind(v as OutputKind)}
             options={KIND_OPTIONS}
+            disabled={!isCreate}
+            ariaDescribedBy={isCreate ? undefined : kindHintId}
           />
+          {!isCreate && (
+            <p id={kindHintId} className="output-editor-sheet__field-hint">
+              An Output&apos;s kind can&apos;t be changed after it&apos;s created. Create a new
+              Output for a different kind.
+            </p>
+          )}
         </div>
       </div>
 

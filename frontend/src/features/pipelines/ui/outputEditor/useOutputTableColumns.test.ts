@@ -41,4 +41,21 @@ describe("useOutputTableColumns", () => {
     act(() => result.current.moveUp(1));
     expect(result.current.columnOrder).toBeUndefined();
   });
+
+  it("a visible subset in natural order is an explicit columnOrder, not default (HEL-1389)", () => {
+    const { result } = renderHook(() => useOutputTableColumns(["a", "b", "c"], undefined));
+    act(() => result.current.toggleVisible("c"));
+    expect(result.current.columnOrder).toEqual(["a", "b"]);
+  });
+
+  it("returns the stored columnOrder untouched before the node's columns have loaded (HEL-1389)", () => {
+    const { result } = renderHook(() => useOutputTableColumns([], ["b", "a"]));
+    expect(result.current.columnOrder).toEqual(["b", "a"]);
+  });
+
+  it("columnOrder is undefined when nothing is visible (reads back as all visible)", () => {
+    const { result } = renderHook(() => useOutputTableColumns(["a"], undefined));
+    act(() => result.current.toggleVisible("a"));
+    expect(result.current.columnOrder).toBeUndefined();
+  });
 });

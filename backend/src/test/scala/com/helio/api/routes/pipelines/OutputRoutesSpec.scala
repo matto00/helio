@@ -423,6 +423,40 @@ class OutputRoutesSpec
       }
     }
 
+    // HEL-1389 GUARD -- pins the merge semantics the Output editor's edit-mode Save relies on (it
+    // sends only changed keys, an explicit null for a clear, and a whole replacement fieldMapping).
+    // It passes on pre-fix code (the server is unchanged); it is failable by mutating
+    // `OutputConfigValidation.mergeConfig` (drop JsNull-valued patch keys, or deep-merge fieldMapping).
+    "HEL-1389 guard: an omitted key is kept, an explicit null is stored as null, fieldMapping is replaced whole" in {
+      val pipelineId = newSharedPipeline()
+      val initialConfig = JsObject(
+        "chartType"    -> JsString("bar"),
+        "fieldMapping" -> JsObject("xAxis" -> JsString("a"), "yAxis" -> JsString("b"), "annotation" -> JsString("c")),
+        "annotation"   -> JsString("Plain note"),
+        "compare"      -> JsString("7d")
+      )
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = initialConfig, explicitRootId = None))
+
+      val patch = JsObject(
+        "fieldMapping" -> JsObject("xAxis" -> JsString("a"), "yAxis" -> JsString("b")),
+        "annotation"   -> JsNull
+      )
+      Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, Some(patch))) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val config = responseAs[OutputResponse].config.asJsObject
+        config.fields("chartType") shouldBe JsString("bar")
+        config.fields("compare") shouldBe JsString("7d")
+        config.fields.get("annotation") shouldBe Some(JsNull)
+        config.fields("fieldMapping") shouldBe JsObject("xAxis" -> JsString("a"), "yAxis" -> JsString("b"))
+      }
+      // Read back through the GET route: the persisted row, not just the PATCH response.
+      Get(s"/outputs/${output.id.value}") ~> routesFor(owner) ~> check {
+        val stored = responseAs[OutputResponse].config.asJsObject
+        stored.fields.get("annotation") shouldBe Some(JsNull)
+        stored.fields("fieldMapping") shouldBe JsObject("xAxis" -> JsString("a"), "yAxis" -> JsString("b"))
+      }
+    }
+
     "400 a PATCH introducing legend/tooltip/seriesColors/axisLabels naming the key, persisting nothing (HEL-1313)" in {
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = JsObject("chartType" -> JsString("bar")), explicitRootId = None))

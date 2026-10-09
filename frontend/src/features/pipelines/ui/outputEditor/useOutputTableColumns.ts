@@ -29,6 +29,26 @@ export function buildOutputColumns(fieldKeys: string[], columnOrder?: string[]):
   return [...visible, ...hidden];
 }
 
+/** The `columnOrder` an editor in this column state persists. `undefined` ("default": nothing
+ *  to store, an existing stored order is cleared) only when EVERY field key is visible in
+ *  natural order -- a visible subset in natural relative order is NOT default, because the
+ *  renderer treats `columnOrder` as the visible set and mapping it to default would un-hide
+ *  columns (HEL-1389). Before the node's columns have loaded (`fieldKeys` empty) the stored
+ *  order is returned as-is so an untouched save stays a no-op. */
+export function deriveColumnOrder(
+  columns: TableColumnRow[],
+  fieldKeys: string[],
+  storedColumnOrder: string[] | undefined,
+): string[] | undefined {
+  if (fieldKeys.length === 0) return storedColumnOrder;
+  const visible = columns.filter((c) => c.visible).map((c) => c.key);
+  // Nothing visible reads back as "all visible" (`buildOutputColumns` treats [] as no order).
+  if (visible.length === 0) return undefined;
+  const isDefault =
+    visible.length === fieldKeys.length && visible.every((k, i) => k === fieldKeys[i]);
+  return isDefault ? undefined : visible;
+}
+
 export interface OutputTableColumnsState {
   columns: TableColumnRow[];
   toggleVisible: (key: string) => void;
@@ -36,8 +56,8 @@ export interface OutputTableColumnsState {
   moveDown: (index: number) => void;
   moveToTop: (index: number) => void;
   moveToBottom: (index: number) => void;
-  /** `undefined` when the visible order matches natural field order (nothing
-   *  to persist), else the ordered list of visible keys. */
+  /** `undefined` when every column is visible in natural field order (nothing
+   *  to persist), else the ordered list of visible keys (see `deriveColumnOrder`). */
   columnOrder: string[] | undefined;
 }
 
@@ -90,11 +110,6 @@ export function useOutputTableColumns(
       return next;
     });
 
-  const visible = columns.filter((c) => c.visible).map((c) => c.key);
-  const natural = fieldKeys.filter((k) => visible.includes(k));
-  const orderMatchesNatural =
-    visible.length === natural.length && visible.every((k, i) => k === natural[i]);
-
   return {
     columns,
     toggleVisible,
@@ -102,6 +117,6 @@ export function useOutputTableColumns(
     moveDown,
     moveToTop,
     moveToBottom,
-    columnOrder: orderMatchesNatural ? undefined : visible,
+    columnOrder: deriveColumnOrder(columns, fieldKeys, initialColumnOrder),
   };
 }

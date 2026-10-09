@@ -226,7 +226,7 @@ describe("OutputEditorSheet -- markdown Content is literal-only (HEL-1139)", () 
     expect(body.config).toEqual({ content: "# Hello", fieldMapping: {} });
   });
 
-  it("opens a legacy markdown Output holding fieldMapping.content in literal mode and saves an empty fieldMapping", async () => {
+  it("opens a legacy markdown Output holding fieldMapping.content in literal mode and leaves it stored on an untouched save", async () => {
     const store = buildStore();
     render(
       <MemoryRouter>
@@ -253,9 +253,10 @@ describe("OutputEditorSheet -- markdown Content is literal-only (HEL-1139)", () 
     await waitFor(() => expect(mockedHttpClient.patch).toHaveBeenCalled());
     const [url, body] = mockedHttpClient.patch.mock.calls[0] as [
       string,
-      { config: Record<string, unknown> },
+      { config?: Record<string, unknown> },
     ];
     expect(url).toBe("/api/outputs/o-9");
-    expect(body.config).toEqual({ content: "", fieldMapping: {} });
+    // HEL-1389 -- an untouched save sends no config (the legacy key is neither read nor rewritten).
+    expect(body.config).toBeUndefined();
   });
 });

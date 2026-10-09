@@ -15,6 +15,13 @@ import {
   type TableColumnFormats,
 } from "./outputConfigTypes";
 
+/** The slice of a bound-or-literal slot the builder reads -- lets the edit-mode baseline (HEL-1389)
+ *  feed it a plain value instead of a live `useBoundOrLiteralState`. */
+export type BoundOrLiteralValue = Pick<
+  BoundOrLiteralState,
+  "mode" | "fieldValue" | "literalValue" | "fieldMappingValue"
+>;
+
 export interface BuildOutputConfigParams {
   kind: OutputKind;
   // Chart
@@ -24,7 +31,7 @@ export interface BuildOutputConfigParams {
   chartAggFn: string;
   yField: string;
   chartOptionsState: ChartTypeOptionsMap;
-  annotationState: BoundOrLiteralState;
+  annotationState: BoundOrLiteralValue;
   // Table
   tableFieldMapping: Record<string, string>;
   tableColumnOrder: string[] | undefined;
@@ -36,8 +43,8 @@ export interface BuildOutputConfigParams {
   // Metric
   metricField: string;
   metricAggFn: string;
-  metricLabelState: BoundOrLiteralState;
-  metricUnitState: BoundOrLiteralState;
+  metricLabelState: BoundOrLiteralValue;
+  metricUnitState: BoundOrLiteralValue;
   // HEL-876 — numeric display style, shared by metric and collection (metric baseType).
   metricFormat: string;
   // HEL-1275/HEL-1350 — the Compare picker's value (metric and chart kinds): `"none"` or a
@@ -61,13 +68,26 @@ function readFormatOrNull(value: string): MetricFormat | null {
   return isMetricFormat(value) ? value : null;
 }
 
+/** A metric Label/Unit slot's `config.<slot>`: the literal text, else an explicit `null` -- field
+ *  mode and an emptied literal both clear, because `PATCH /api/outputs/:id` shallow-merges config and
+ *  an omitted key silently keeps the stored literal (HEL-1389). */
+function literalOrNull(state: BoundOrLiteralValue): string | null {
+  return state.mode === "literal" && state.literalValue.length > 0 ? state.literalValue : null;
+}
+
+/** The chart's base mapping carries no `annotation` slot: that key is owned by the annotation state
+ *  (re-added below only when bound), so a removed binding cannot survive via the stored mapping. */
+function withoutAnnotation(mapping: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(mapping).filter(([slot]) => slot !== "annotation"));
+}
+
 export function buildOutputConfig(params: BuildOutputConfigParams): Record<string, unknown> {
   switch (params.kind) {
     case "chart":
       return {
         chartType: params.chartType,
         fieldMapping: {
-          ...params.chartFieldMapping,
+          ...withoutAnnotation(params.chartFieldMapping),
           ...(params.annotationState.mode === "field" && params.annotationState.fieldValue
             ? { annotation: params.annotationState.fieldValue }
             : {}),
@@ -97,7 +117,9 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
     case "metric":
       return {
         fieldMapping: {
-          ...(params.metricAggFn === "" && params.metricField ? { value: params.metricField } : {}),
+          // Always carried (aggregated or not; the server accepts the equal value in both places) so a
+          // fieldMapping-only edit patch can never unbind an aggregated metric (HEL-1389 D4a).
+          ...(params.metricField ? { value: params.metricField } : {}),
           ...(params.metricLabelState.fieldMappingValue
             ? { label: params.metricLabelState.fieldMappingValue }
             : {}),
@@ -109,14 +131,8 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
           params.metricField && isAggFn(params.metricAggFn)
             ? { value: params.metricField, agg: params.metricAggFn }
             : null,
-        label:
-          params.metricLabelState.mode === "literal"
-            ? params.metricLabelState.literalValue
-            : undefined,
-        unit:
-          params.metricUnitState.mode === "literal"
-            ? params.metricUnitState.literalValue
-            : undefined,
+        label: literalOrNull(params.metricLabelState),
+        unit: literalOrNull(params.metricUnitState),
         format: readFormatOrNull(params.metricFormat),
         compare: compareOrNull(params.compare),
       };

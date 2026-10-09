@@ -81,7 +81,7 @@ describe("buildOutputConfig", () => {
     expect((config.fieldMapping as Record<string, string>).annotation).toBeUndefined();
   });
 
-  it("metric config writes fieldMapping.value only when no reduce function is chosen", () => {
+  it("metric config writes fieldMapping.value with or without a reduce function (HEL-1389 D4a)", () => {
     const unreduced = buildOutputConfig(baseParams({ kind: "metric", metricField: "amount" }));
     expect((unreduced.fieldMapping as Record<string, string>).value).toBe("amount");
     expect(unreduced.aggregation).toBeNull();
@@ -89,8 +89,49 @@ describe("buildOutputConfig", () => {
     const reduced = buildOutputConfig(
       baseParams({ kind: "metric", metricField: "amount", metricAggFn: "sum" }),
     );
-    expect((reduced.fieldMapping as Record<string, string>).value).toBeUndefined();
+    expect((reduced.fieldMapping as Record<string, string>).value).toBe("amount");
     expect(reduced.aggregation).toEqual({ value: "amount", agg: "sum" });
+  });
+
+  it("metric label/unit are an explicit null in field mode or when the literal is emptied (HEL-1389)", () => {
+    const fieldMode = buildOutputConfig(
+      baseParams({
+        kind: "metric",
+        metricLabelState: boundOrLiteral({
+          mode: "field",
+          fieldValue: "lbl",
+          fieldMappingValue: "lbl",
+        }),
+        metricUnitState: boundOrLiteral({ mode: "literal", literalValue: "" }),
+      }),
+    );
+    expect(fieldMode.label).toBeNull();
+    expect(fieldMode.unit).toBeNull();
+    expect(fieldMode.fieldMapping).toEqual({ label: "lbl" });
+
+    const literal = buildOutputConfig(
+      baseParams({
+        kind: "metric",
+        metricLabelState: boundOrLiteral({ mode: "literal", literalValue: "Revenue" }),
+      }),
+    );
+    expect(literal.label).toBe("Revenue");
+  });
+
+  it("chart fieldMapping never inherits a stored annotation slot; a bound annotation re-adds it", () => {
+    const stale = buildOutputConfig(
+      baseParams({ kind: "chart", chartFieldMapping: { category: "a", annotation: "old" } }),
+    );
+    expect(stale.fieldMapping).toEqual({ category: "a" });
+
+    const bound = buildOutputConfig(
+      baseParams({
+        kind: "chart",
+        chartFieldMapping: { category: "a", annotation: "old" },
+        annotationState: boundOrLiteral({ mode: "field", fieldValue: "n", fieldMappingValue: "n" }),
+      }),
+    );
+    expect(bound.fieldMapping).toEqual({ category: "a", annotation: "n" });
   });
 
   it("metric config carries format (HEL-876) and rejects an unrecognized value", () => {
