@@ -149,8 +149,9 @@ class AutoRunGuardBurstProofSpec extends AnyWordSpec with Matchers with BeforeAn
 
   private def newScheduler(runService: PipelineRunService, clock: Clock): PipelineSchedulerService =
     new PipelineSchedulerService(
-      scheduleRepo, pipelineRepo, pipelineRunRepo, runService, clock,
-      autoRunDebounceRepo = debounceRepo, staleClaimAfterSeconds = 300L
+      scheduleRepo, pipelineRepo, pipelineStepRepo, pipelineRunRepo, runService, clock,
+      autoRunDebounceRepo = debounceRepo,
+      autoRunTriggerService = new AutoRunTriggerService(pipelineRootRepo, pipelineRepo, pipelineStepRepo, dataSourceRepo, debounceRepo), staleClaimAfterSeconds = 300L
     )
 
   /** Fires `attempts` independent debounce windows for `pid` through `triggerServices` (round-
