@@ -94,3 +94,12 @@ Cycle-2 NotFound-message-divergence sweep (same class as the panel/step finds, n
 
 Timing: the collapsed `requireOwnerOnly` foreign arm adds one indexed `findGrant` query that the absent arm does
 not run. Response shape is identical; timing equalisation is a stated non-goal (design.md).
+
+## F. Post-#888 note (HEL-1429, 2026-10-09)
+
+Section B's "Pipeline grantee non-editor" row (line 52) attributes step-preview `authorizedForAi` to
+`PipelineRunService`. HEL-1393 (#888) moved the step-preview code into `PipelineRunPreview`, so
+`authorizedForAi` now lives in `PipelineRunPreview.scala`; `PipelineRunService.submit` stays in
+`PipelineRunService.scala`. The producer pins in `ExistenceNotLeakedRoutesSpec` (`expectedForbiddenProducers`,
+lines 529-530) are now `PipelineRunPreview.scala -> 1` and `PipelineRunService.scala -> 1`. The original row
+above is left as written (it is the record of the 2026-10-02 classification).

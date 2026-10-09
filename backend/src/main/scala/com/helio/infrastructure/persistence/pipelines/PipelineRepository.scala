@@ -106,27 +106,10 @@ class PipelineRepository(
     ).map(_.map(rowToPipeline))
   }
 
-  /** HEL-913: ACL-bypassing resolution of a pipeline's LOWEST-POSITIONED root's
-    * `data_source_id` -- the single-root-compatible replacement for the now-dropped
-    * `Pipeline.sourceDataSourceId` field, used by the run/analyze paths (`PipelineRunService`,
-    * `PipelineService`) that have not yet been generalized to walk every root (that
-    * generalization is engine work, a later stage of this ticket -- see design.md's NodeKey/
-    * RootKey engine contract). Every pipeline has at least one root (V98 backfill / task 4.6's
-    * service-layer enforcement), so `None` here means the pipeline itself does not exist, not
-    * "no source". */
-  def findPrimaryDataSourceIdInternal(id: PipelineId): Future[Option[DataSourceId]] =
-    ctx.withSystemContext(
-      rootsTable
-        .filter(_.pipelineId === id.value)
-        .sortBy(_.position)
-        .map(_.dataSourceId)
-        .result
-        .headOption
-    ).map(_.map(DataSourceId.apply))
-
   /** HEL-913 task 5.4: every root's `(PipelineRootId, DataSourceId)`, ordered by `position`
-    * ascending (R3's cross-root tiebreak) -- the multi-root-aware sibling of
-    * [[findPrimaryDataSourceIdInternal]]. Privileged, mirroring that method's contract. */
+    * ascending (R3's cross-root tiebreak) -- the multi-root-aware, ACL-bypassing
+    * resolution of a pipeline's root data sources (it replaced the single-root
+    * `findPrimaryDataSourceIdInternal`, removed in HEL-1429 once nothing called it). Privileged. */
   def listRootDataSourceIdsInternal(id: PipelineId): Future[Vector[(PipelineRootId, DataSourceId)]] =
     ctx.withSystemContext(
       rootsTable
@@ -142,7 +125,7 @@ class PipelineRepository(
     * `findSummaryByIdShared`'s ACL-scoped summary; the auto-run path has no such summary in scope
     * (its caller is the dataset writer, not a pipeline-ACL-checked request), so it needs this
     * one-column privileged read instead. Mirrors this file's existing small internal-getter
-    * convention (`findPrimaryDataSourceIdInternal`). */
+    * convention (`listRootDataSourceIdsInternal`). */
   def findLastRunRowCountInternal(id: PipelineId): Future[Option[Long]] =
     ctx.withSystemContext(
       pipelinesTable.filter(_.id === id.value).map(_.lastRunRowCount).result.headOption
@@ -175,8 +158,8 @@ class PipelineRepository(
       }.toVector).map { case (pid, v) => (PipelineId(pid), v) }.toMap)
     }
 
-  /** Owner-scoped variant of [[findPrimaryDataSourceIdInternal]], for request-bound service
-    * methods that must not bypass ACL (mirrors `findByIdOwned`'s contract). */
+  /** Owner-scoped resolution of a pipeline's LOWEST-POSITIONED root's `data_source_id`, for
+    * request-bound service methods that must not bypass ACL (mirrors `findByIdOwned`'s contract). */
   def findPrimaryDataSourceIdOwned(id: PipelineId, user: AuthenticatedUser): Future[Option[DataSourceId]] = {
     val ownerUuid = UUID.fromString(user.id.value)
     ctx.withUserContext(user.id.value)(

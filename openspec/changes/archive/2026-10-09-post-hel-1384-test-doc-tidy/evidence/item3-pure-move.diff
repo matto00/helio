@@ -1,0 +1,49 @@
+# Pure-move check: orig PipelineSchedulerService.scala (2fb8deb5) lines of the auto-run block vs PipelineAutoRunDebounceFirer.scala. Diff of the block (< = original, > = firer):
+3,15c3,12
+<    *  mirrors `fire`'s synthetic-owner-identity pattern exactly. No-op when `autoRunDebounceRepo`
+<    *  is not wired (nullable-optional, mirrors `pipelineRunGuardRepo` above). */
+<   private def processAutoRunDebounce(now: Instant): Future[Unit] =
+<     if (autoRunDebounceRepo == null) Future.successful(())
+<     else
+<       autoRunDebounceRepo.claimDue(now, staleClaimAfter = now.minusSeconds(staleClaimAfterSeconds)).flatMap { claimed =>
+<         Future.traverse(claimed) { case (pipelineId, claimedAt) =>
+<           processAutoRunClaim(pipelineId, claimedAt).recover { case ex =>
+<             log.error(s"PipelineSchedulerService: unexpected failure processing auto-run claim for pipeline ${pipelineId.value}", ex)
+<             ()
+<           }
+<         }.map(_ => ())
+<       }
+---
+>    *  mirrors `PipelineSchedulerService.fire`'s synthetic-owner-identity pattern exactly. */
+>   def processAutoRunDebounce(now: Instant): Future[Unit] =
+>     autoRunDebounceRepo.claimDue(now, staleClaimAfter = now.minusSeconds(staleClaimAfterSeconds)).flatMap { claimed =>
+>       Future.traverse(claimed) { case (pipelineId, claimedAt) =>
+>         processAutoRunClaim(pipelineId, claimedAt).recover { case ex =>
+>           log.error(s"PipelineSchedulerService: unexpected failure processing auto-run claim for pipeline ${pipelineId.value}", ex)
+>           ()
+>         }
+>       }.map(_ => ())
+>     }
+18c15
+<    *  consideration `fireIfNotOverlapping` already applies to scheduled fires, design.md Decision
+---
+>    *  consideration `PipelineSchedulerService.fireIfNotOverlapping` already applies to scheduled fires, design.md Decision
+49c46
+<         // practice -- defensive against any future change to that constraint, mirrors `fire`'s own
+---
+>         // practice -- defensive against any future change to that constraint, mirrors `PipelineSchedulerService.fire`'s own
+72d68
+< 
+
+# tick() recover placement (unchanged, wraps firer call):
+111-    // dependency) and never allowed to fail the tick itself.
+112:    val autoRunWork = autoRunFirer.fold(Future.successful(()))(_.processAutoRunDebounce(now)).recover { case ex =>
+113-      log.error("PipelineSchedulerService: auto-run debounce claim-and-fire pass failed", ex)
+114-      ()
+115-    }
+--
+126-      else Future.successful(())
+127:    candidatesWork.zip(cleanupWork).zip(autoRunWork).zip(telemetryWork).zip(historyWork).map(_ => ())
+128-  }
+129-
+130-  private def processCandidate(schedule: PipelineSchedule, now: Instant): Future[Unit] =

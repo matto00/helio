@@ -194,7 +194,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   /** HEL-904 task 4.1: the surviving row-materialization read -- `node_snapshots`
    *  keyed by `(pipelineId, trunkLastStepId)` -- replacing the retired
    *  `dataTypeRowRepo.listRows(outputDataTypeId)`. Resolves the CURRENT
-   *  trunk-last step at call time (mirrors `PipelineRunService.
+   *  trunk-last step at call time (mirrors `PipelineRunSucceededWrites.
    *  onUnblockedRunSuccess`'s own `trunkLastStepIdFut` derivation), since a
    *  test may add a step between two `service.submit` calls. */
   private def snapshotRows(pid: PipelineId): Vector[JsObject] = {
@@ -444,7 +444,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     pattern = None, separator = None, index = None, fields = None
   )
 
-  "PipelineRunService.executeRun (HEL-509 / 419-B assertion persistence)" should {
+  "PipelineRunService.submit -> PipelineRunExecutor.executeRun (HEL-509 / 419-B assertion persistence)" should {
 
     "persists assertion results on a successful real run" in {
       val dsId = seedDsWithData()
@@ -544,7 +544,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
   }
 
-  "PipelineRunService.onRunSuccess (HEL-570 assert fail-policy)" should {
+  "PipelineRunService.submit -> PipelineRunExecutor.onRunSuccess (HEL-570 assert fail-policy)" should {
 
     "does not update the node_snapshots rows when blocked by an error-severity assertion, preserving the prior snapshot" in {
       val dsId = seedDsWithData()
@@ -746,7 +746,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   }
 
 
-  "PipelineRunService onRunSuccess (HEL-462 schema-drift baseline capture)" should {
+  "PipelineRunService.submit -> PipelineRunSucceededWrites.onUnblockedRunSuccess (HEL-462 schema-drift baseline capture)" should {
 
     "persists last_source_schema (matching the source DataType's declared fields) on a successful real run" in {
       val dsId = seedDsWithData()
@@ -2145,6 +2145,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   // block removed outright -- upsertFieldsFromRows/DataType.fields no longer exist; the schema-
   // union inference engine itself (SchemaInferenceEngine.inferShallowFromJsObjects) survives for
   // a future Output-schema caller (design.md line 89), just not exercised via this deleted path.
+  // (Note, HEL-1429: `onUnblockedRunSuccess` now lives in `PipelineRunSucceededWrites`; the quoted
+  // describe title above is the deleted block's verbatim title, kept as written.)
 
   // HEL-970: `previewStep`/`evaluateNodeRowsForBackfill` must slice by the target's transitive
   // DEPENDENCY CLOSURE (parent edges + lane edges, `NodeDependencyClosure.closureOf`), not the
@@ -2164,7 +2166,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   // reverting `NodeDependencyClosure`'s use at the call site -- covered below by comparing the
   // OLD ancestor-chain-only slice (re-derived inline) against the NEW closure on the same
   // fixture, which is the discriminating, still-standing regression guard.
-  "PipelineRunService.previewStep / evaluateNodeRowsForBackfill (HEL-970 lane-aware closure)" should {
+  "PipelineRunService.previewStep (PipelineRunPreview) / backfillOutputNode -> PipelineRunBackfill.evaluateNodeRowsForBackfill (HEL-970 lane-aware closure)" should {
 
     // Task 1.1: two-lane pipeline with a rejoin. Lane A: s1 (select, trunk root) -> s2 (compute,
     // adds "lane_a_flag"). Lane B is a TWO-STEP chain, root-level SIBLING of s1 (NOT s1's/s2's

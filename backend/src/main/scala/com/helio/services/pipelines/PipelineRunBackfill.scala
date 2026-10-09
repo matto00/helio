@@ -66,8 +66,9 @@ private[pipelines] final class PipelineRunBackfill(
       // without it, the backfill always evaluates the LOWEST-positioned root regardless of which
       // root the Output is actually bound to (`OutputRepository.rootIdOpt`'s job at write time;
       // this is the corresponding read/backfill-time thread-through). Required (no default): every
-      // caller passes it explicitly -- `None` for a step-bound Output, or for the single-root case
-      // where there is only one root to mean anyway.
+      // caller passes it explicitly -- the sole production caller (`OutputService`) passes the
+      // Output's own `node.rootId`, which is `None` for a step-bound Output (`nodeStepId` already
+      // names the node). `None` with `nodeStepId = None` names no root, so every root is evaluated.
       explicitRootId: Option[PipelineRootId]
   ): Future[Unit] =
     if (nodeSnapshotRepo == null) Future.successful(())
