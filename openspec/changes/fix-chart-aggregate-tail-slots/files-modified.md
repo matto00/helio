@@ -1,0 +1,7 @@
+- `frontend/src/features/pipelines/ui/outputEditor/buildOutputConfig.ts` — chart aggregate-tail fieldMapping now { xAxis, yAxis }
+- `frontend/src/features/pipelines/ui/outputEditor/buildOutputConfig.test.ts` — red-first slot-membership tests for chart/metric tail
+- `backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala` — examples bind output panels by outputId only; combined example carries aggregation on its metric Output config; PatchSet summary fixed
+- `backend/src/test/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemasSpec.scala` — KnownKeys-driven example walk (4 tests); removed no-op assertion
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — split long chained line (formatting only)
+- `docs/superpowers/specs/2026-08-30-pipelines-outputs-remodel-design.md` — dated corrections to "render-only"
+- `e2e/hel1390-chart-tail-aggregate-live.spec.ts` — live seam probe for the chart tail flow
