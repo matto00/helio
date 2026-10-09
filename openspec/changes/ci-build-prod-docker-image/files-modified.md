@@ -1,0 +1,1 @@
+- `.github/workflows/ci.yml` — new `docker-image` job (docker build, no push/cache) and added to `ci-complete.needs`
