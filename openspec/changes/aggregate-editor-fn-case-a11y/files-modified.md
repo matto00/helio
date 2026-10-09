@@ -1,7 +1,0 @@
-- `backend/src/main/scala/com/helio/domain/engine/PipelineAnalyzeService.scala` — HEL-1407
-- `backend/src/test/scala/com/helio/domain/engine/PipelineAnalyzeServiceSpec.scala` — HEL-1407
-- `frontend/src/features/pipelines/ui/stepConfigs/AggregateConfig.test.tsx` — HEL-1407
-- `frontend/src/features/pipelines/ui/stepConfigs/AggregateConfig.tsx` — HEL-1407
-- `frontend/src/features/pipelines/ui/StepSchemaDiffChips.test.tsx` — HEL-1407
-- `frontend/src/features/pipelines/ui/StepSchemaDiffChips.tsx` — HEL-1407
-- `frontend/src/features/pipelines/ui/PipelineDetailPage.css` — HEL-1407 (cycle 2 p-field width; declared by orchestrator at Delivery, executor omitted it)
