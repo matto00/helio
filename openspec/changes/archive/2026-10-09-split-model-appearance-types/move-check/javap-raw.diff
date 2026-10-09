@@ -1,0 +1,108 @@
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartAppearance$Patch$.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartAppearance$Patch$.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartAppearance$Patch.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartAppearance$Patch.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartAppearance$.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartAppearance$.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartAppearance.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartAppearance.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartAxisLabel$.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartAxisLabel$.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartAxisLabels$.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartAxisLabels$.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartAxisLabels.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartAxisLabels.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartAxisLabel.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartAxisLabel.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartLegend$.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartLegend$.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartLegend.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartLegend.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartTooltip$.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartTooltip$.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/ChartTooltip.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/ChartTooltip.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "ChartAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/PanelAppearance$Patch$.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/PanelAppearance$Patch$.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "PanelAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/PanelAppearance$Patch.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/PanelAppearance$Patch.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "PanelAppearance.scala"
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/PanelAppearance$.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/PanelAppearance$.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "PanelAppearance.scala"
+12,24c12,24
+<   public static final java.lang.String $anonfun$applyPatch$15(com.helio.domain.model.PanelAppearance);
+<   public static final java.lang.String $anonfun$applyPatch$17();
+<   public static final java.lang.String $anonfun$applyPatch$16(scala.Option);
+<   public static final java.lang.String $anonfun$applyPatch$18(com.helio.domain.model.PanelAppearance);
+<   public static final java.lang.String $anonfun$applyPatch$20();
+<   public static final java.lang.String $anonfun$applyPatch$19(scala.Option);
+<   public static final double $anonfun$applyPatch$21(com.helio.domain.model.PanelAppearance);
+<   public static final double $anonfun$applyPatch$23();
+<   public static final double $anonfun$applyPatch$22(scala.Option);
+<   public static final scala.Option $anonfun$applyPatch$24(com.helio.domain.model.PanelAppearance);
+<   public static final com.helio.domain.model.ChartAppearance $anonfun$applyPatch$26();
+<   public static final scala.Option $anonfun$applyPatch$25(com.helio.domain.model.PanelAppearance, scala.Option);
+<   public static final java.lang.Object $anonfun$applyPatch$22$adapted(scala.Option);
+---
+>   public static final java.lang.String $anonfun$applyPatch$1(com.helio.domain.model.PanelAppearance);
+>   public static final java.lang.String $anonfun$applyPatch$3();
+>   public static final java.lang.String $anonfun$applyPatch$2(scala.Option);
+>   public static final java.lang.String $anonfun$applyPatch$4(com.helio.domain.model.PanelAppearance);
+>   public static final java.lang.String $anonfun$applyPatch$6();
+>   public static final java.lang.String $anonfun$applyPatch$5(scala.Option);
+>   public static final double $anonfun$applyPatch$7(com.helio.domain.model.PanelAppearance);
+>   public static final double $anonfun$applyPatch$9();
+>   public static final double $anonfun$applyPatch$8(scala.Option);
+>   public static final scala.Option $anonfun$applyPatch$10(com.helio.domain.model.PanelAppearance);
+>   public static final com.helio.domain.model.ChartAppearance $anonfun$applyPatch$12();
+>   public static final scala.Option $anonfun$applyPatch$11(com.helio.domain.model.PanelAppearance, scala.Option);
+>   public static final java.lang.Object $anonfun$applyPatch$8$adapted(scala.Option);
+diff -r /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-before/PanelAppearance.txt /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1376/javap-after/PanelAppearance.txt
+1c1
+< Compiled from "model.scala"
+---
+> Compiled from "PanelAppearance.scala"
