@@ -2099,5 +2099,62 @@ class PipelineStepRoutesSpec
         status shouldBe StatusCodes.OK
       }
     }
+
+    // HEL-1416: write-time enum rejection for fillnull / window / pivot (companion validateRawConfig).
+    def enumReq(kind: String, config: JsObject): JsObject = JsObject("type" -> JsString(kind), "config" -> config)
+    val enumInvalid: Seq[(String, JsObject, String)] = Seq(
+      ("fillnull", JsObject("columns" -> JsArray(JsString("a")), "strategy" -> JsString("average")), "Unsupported fillnull strategy: 'average'"),
+      ("window", JsObject("function" -> JsString("ntile"), "outputColumn" -> JsString("o")), "Unsupported window function: 'ntile'"),
+      ("window", JsObject("function" -> JsString("lag"), "field" -> JsString("f"), "offset" -> JsNumber(0), "outputColumn" -> JsString("o")),
+        "window function 'lag' requires a positive 'offset', got 0"),
+      ("pivot", JsObject("column" -> JsString("c"), "values" -> JsString("v"), "agg" -> JsString("median")), "Unsupported pivot aggregation function: 'median'")
+    )
+    val enumDrafts: Seq[(String, JsObject)] = Seq(
+      ("fillnull", JsObject("columns" -> JsArray(), "strategy" -> JsString("constant"))),
+      ("window", JsObject("function" -> JsString("lag"), "outputColumn" -> JsString("prev"))),
+      ("window", JsObject("function" -> JsString("row_number"), "offset" -> JsNumber(0), "outputColumn" -> JsString("o"))),
+      ("pivot", JsObject("column" -> JsString("c"), "values" -> JsString("v")))
+    )
+
+    "POST rejects clearly invalid fillnull/window/pivot enum values with 422 and creates nothing (HEL-1416)" in {
+      cleanSteps(); val pid = seedPipeline()
+      for ((kind, cfg, msg) <- enumInvalid)
+        Post(s"/pipelines/$pid/steps", enumReq(kind, cfg)) ~> routes ~> check {
+          withClue(s"$kind $msg: ") { status shouldBe StatusCodes.UnprocessableEntity }
+          responseAs[String] should include(msg)
+        }
+      Get(s"/pipelines/$pid/steps") ~> routes ~> check { responseAs[Vector[PipelineStepResponse]] shouldBe empty }
+    }
+
+    "POST still accepts incomplete fillnull/window/pivot drafts (HEL-1416, HEL-814 D2)" in {
+      cleanSteps(); val pid = seedPipeline()
+      for ((kind, cfg) <- enumDrafts)
+        Post(s"/pipelines/$pid/steps", enumReq(kind, cfg)) ~> routes ~> check {
+          withClue(s"$kind $cfg: ") { status shouldBe StatusCodes.Created }
+        }
+    }
+
+    "PATCH rejects an invalid fillnull/window/pivot enum value with 422 and leaves the stored config unchanged (HEL-1416)" in {
+      cleanSteps(); val pid = seedPipeline()
+      val valid = Seq(
+        "fillnull" -> JsObject("columns" -> JsArray(JsString("a")), "strategy" -> JsString("mean")),
+        "window"   -> JsObject("function" -> JsString("row_number"), "outputColumn" -> JsString("o")),
+        "pivot"    -> JsObject("column" -> JsString("c"), "values" -> JsString("v"), "agg" -> JsString("sum"))
+      )
+      for ((kind, good) <- valid) {
+        var stepId = ""
+        Post(s"/pipelines/$pid/steps", enumReq(kind, good)) ~> routes ~> check { stepId = responseAs[PipelineStepResponse].id }
+        for ((k, bad, msg) <- enumInvalid if k == kind)
+          Patch(s"/pipeline-steps/$stepId", JsObject("config" -> bad)) ~> routes ~> check {
+            withClue(s"$kind $msg: ") { status shouldBe StatusCodes.UnprocessableEntity }
+            responseAs[String] should include(msg)
+          }
+        Get(s"/pipelines/$pid/steps") ~> routes ~> check {
+          val stored = responseAs[JsArray].elements.map(_.asJsObject).find(_.fields("id") == JsString(stepId)).get
+          val key    = Map("fillnull" -> "strategy", "window" -> "function", "pivot" -> "agg")(kind)
+          stored.fields("config").asJsObject.fields(key) shouldBe good.fields(key)
+        }
+      }
+    }
   }
 }

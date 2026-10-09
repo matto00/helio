@@ -528,14 +528,14 @@ class PipelineAnalyzeRoutesSpec
       cleanPipelines()
       val sourceFields = """[{"name":"order_id","displayName":"Order ID","dataType":"string","nullable":false},{"name":"amount","displayName":"Amount","dataType":"number","nullable":false}]"""
       val (pid, _) = seedPipelineWithSchema(sourceFields)
-      // window: unsupported function AND (for lag/lead) a non-positive offset
-      // — WindowConfig.decode both go through validateWindow's two independent
-      // problem checks (function support, offset positivity for lag/lead).
+      // window: a lag with no `field` AND an empty `outputColumn` -- two independent draft
+      // failures that stay analyze-only (HEL-1416: a clearly invalid function/offset is now
+      // rejected at write time and analyze reports it alone).
       await(pipelineStepRepo.insertRootStep(
         PipelineId(pid), "window",
         WindowConfig(
           partitionBy = Vector.empty, orderBy = Vector.empty, function = "lag",
-          field = None, outputColumn = "win", offset = Some(-1)
+          field = None, outputColumn = "", offset = None
         ),
         dummyUser
       ))
@@ -546,7 +546,7 @@ class PipelineAnalyzeRoutesSpec
         step.validationError shouldBe defined
         val msg = step.validationError.get
         msg should include("requires 'field'")
-        msg should include("requires a positive 'offset'")
+        msg should include("outputColumn")
         msg should include(";")
       }
     }
