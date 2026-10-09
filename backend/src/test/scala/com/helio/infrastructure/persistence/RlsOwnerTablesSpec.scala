@@ -277,21 +277,9 @@ class RlsOwnerTablesSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       rows.toSet should contain allOf (rowA, rowB)
     }
 
-    // design.md Decision 8: a `data_sources` row with `owner_id IS NULL` is the existing,
-    // already-documented posture for every owner-scoped table (V35's own header) -- its
-    // dataset_rows must be invisible to EVERY non-privileged user context, not just superuser.
-    "an owner_id IS NULL source's dataset_rows are invisible to any non-privileged user context" in {
-      cleanDb()
-      val (_, ownerlessRow) = seedDatasetSource(None)
-
-      val rowsAsA = await(ctx.withUserContext(ownerA.value)(sql"SELECT id FROM dataset_rows".as[String]))
-      val rowsAsB = await(ctx.withUserContext(ownerB.value)(sql"SELECT id FROM dataset_rows".as[String]))
-      rowsAsA should not contain ownerlessRow
-      rowsAsB should not contain ownerlessRow
-
-      val rowsPrivileged = await(ctx.withSystemContext(sql"SELECT id FROM dataset_rows".as[String]))
-      rowsPrivileged should contain(ownerlessRow)
-    }
+    // HEL-1347: the "owner_id IS NULL source's dataset_rows are invisible" case was removed -- V119 makes
+    // data_sources.owner_id NOT NULL with a FK to users, so that state cannot exist. V119OwnerFkMigrationSpec
+    // covers the replacement ground (NULL owner -> 23502, owner id with no user -> 23503).
 
     "SELECT on dataset_rows without app.current_user_id set raises an error (fail-closed, not missing_ok)" in {
       cleanDb()

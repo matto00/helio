@@ -216,11 +216,9 @@ class RestSourceConnectorMigrationSpec extends AnyWordSpec with Matchers with He
       body.asJsObject.fields("rawQuery") shouldBe JsString("tag=a&tag=b")
     }
 
-    "skip an ownerless legacy row without crashing (task 4.1a, round-3 CR5)" in {
-      val srcId = seedLegacyRestSource(None, "ownerless-src", """{"url":"https://example.test/ownerless"}""")
-      await(RestSourceConnectorMigration.run(dataSourceRepo, connectorRepo, ctx, log))
-      DataSourceConfigCodec.decodeRest(rawConfigOf(srcId)) shouldBe Left("legacy-unmigrated")
-    }
+    // HEL-1347: the "skip an ownerless legacy row" test was removed -- V119 makes data_sources.owner_id NOT NULL
+    // with a FK to users, so an ownerless row cannot be seeded. V119OwnerFkMigrationSpec covers that ground
+    // (NULL owner -> 23502, owner id with no user -> 23503). The defensive branch in the migration is unchanged.
 
     "skip a malformed row without crashing (task 4.6)" in {
       val owner = freshUser()

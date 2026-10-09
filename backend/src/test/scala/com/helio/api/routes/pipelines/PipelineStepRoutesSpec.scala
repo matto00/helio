@@ -1,5 +1,6 @@
 package com.helio.api.routes.pipelines
 
+import com.helio.testsupport.UserSeeding
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -52,6 +53,7 @@ class PipelineStepRoutesSpec
       .locations("classpath:db/migration")
       .load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
+    UserSeeding.seedUsers(db, viewerUser.id) // HEL-1347: the cross-user source's owner_id is a real FK to users
     val ctx        = new DbContext(db, db)(typedSystem.executionContext)
     outputRepo = new OutputRepository(ctx)
     dataSourceRepo = new DataSourceRepository(ctx)(typedSystem.executionContext)
