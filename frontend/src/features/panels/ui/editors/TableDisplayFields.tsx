@@ -94,6 +94,7 @@ export function TableDisplayFields({
             Cell density
           </label>
           <Select
+            id="table-density"
             ariaLabel="Cell density"
             value={density}
             onChange={(value) => {

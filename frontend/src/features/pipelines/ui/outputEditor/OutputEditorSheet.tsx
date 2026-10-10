@@ -310,6 +310,7 @@ export function OutputEditorSheet({
               Step
             </label>
             <Select
+              id="output-step"
               ariaLabel="Target step"
               value={nodeStepId ?? ""}
               onChange={(v) => setNodeStepId(v === "" ? undefined : v)}
@@ -323,6 +324,7 @@ export function OutputEditorSheet({
             Kind
           </label>
           <Select
+            id="output-kind"
             ariaLabel="Output kind"
             value={kind}
             onChange={(v) => setKind(v as OutputKind)}
