@@ -27,8 +27,9 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  unmodified HEL-1279 auto-run specs).
  *
  *  GUARD NOTE: the "never blocks" cases are guards, not red-first proofs. Each was shown failable
- *  by a temporary mutation that routes a warning into the blocking path (see the change's
- *  verification notes), then reverted. */
+ *  by a temporary mutation that routes a warning into the blocking path, then reverted -- see
+ *  openspec/changes/archive/2026-10-08-analyze-schema-warnings/evaluation-1.md ("My own mutation
+ *  runs") and evaluation-2.md; the D6b/D6d mutations there were synthetic. */
 class PipelineAnalyzeSchemaWarningsSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll with JsonProtocols {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
@@ -241,6 +242,39 @@ class PipelineAnalyzeSchemaWarningsSpec extends AnyWordSpec with Matchers with B
       response.steps.foreach(_.validationError shouldBe None)
       val schema = JsonSchemaValidation.compile("pipelines/pipeline-analyze-proposal-response.schema.json")
       JsonSchemaValidation.validationErrors(schema, response.toJson.compactPrint) shouldBe empty
+    }
+  }
+
+  // ---- HEL-1414: a lookup over a SOURCE secondary surfaces rename + key-mismatch warnings, still runnable.
+  "lookup over a source secondary through the analyze services (HEL-1414)" should {
+    def lookupPipeline(owner: AuthenticatedUser): PipelineId = {
+      val left = newSource(owner, Vector("customer_id" -> "string", "name" -> "string"))
+      val ref  = newSource(owner, Vector("id" -> "integer", "name" -> "string"))
+      val pid  = createPipeline(owner, left)
+      val cfg  = JsObject(
+        "secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(ref.value)),
+        "sourceKey"      -> JsString("customer_id"),
+        "lookupKey"      -> JsString("id"),
+        "columns"        -> JsArray(JsString("name"))
+      )
+      await(service.addStep(pid, CreatePipelineStepRequest(`type` = "lookup", config = cfg), owner)) shouldBe a[Right[_, _]]
+      pid
+    }
+
+    "carry rename and key-mismatch warnings on full analyze and stay runnable (guard: warnings never block)" in {
+      val owner    = newUser()
+      val response = await(service.analyze(lookupPipeline(owner), owner)).getOrElse(fail("expected Right"))
+      response.warnings.map(_.code).sorted shouldBe Vector("join-column-renamed", "join-key-type-mismatch")
+      response.warnings.foreach(_.message should startWith("lookup:"))
+      response.steps.foreach(_.validationError shouldBe None)
+      response.costVerdict.canRun shouldBe true
+      response.costVerdict.reasons.map(_.code) should not contain PipelineAnalyzeService.StepConfigInvalidCode
+    }
+
+    "carry the same warnings on the concise per-node response" in {
+      val owner   = newUser()
+      val concise = await(service.analyzeConcise(lookupPipeline(owner), owner)).getOrElse(fail("expected Right"))
+      concise.nodes.filter(_.op == "lookup").flatMap(_.warnings.getOrElse(Vector.empty)) should have size 2
     }
   }
 }

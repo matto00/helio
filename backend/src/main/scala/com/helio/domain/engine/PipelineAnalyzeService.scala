@@ -3,6 +3,7 @@ package com.helio.domain.engine
 import com.helio.domain.model.DataFieldType
 import com.helio.domain.steps.{JoinConfig, LookupConfig, SecondaryInput, UnionConfig}
 import org.slf4j.LoggerFactory
+import scala.util.Try
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -168,6 +169,16 @@ object PipelineAnalyzeService {
    *  single-root/pre-multi-root convention). Never surfaced on the wire. */
   private val DefaultRootKey = ""
 
+  /** HEL-1414: the data-source id a `join` OR `lookup` step's `source`-kind secondary names. Used ONLY
+   *  to pre-resolve schemas for [[AnalyzeSchemaWarnings]]; [[sourceDependencyOf]] stays join-only so
+   *  `analyzeNodes` projections (a source-secondary lookup's documented placeholder types) do not change. */
+  def secondarySourceIdOf(op: String, config: String): Option[String] =
+    Try(op match {
+      case "join"   => Some(JoinConfig.decode(config).secondaryInput)
+      case "lookup" => Some(LookupConfig.decode(config).secondaryInput)
+      case _        => None
+    }).toOption.flatten.collect { case SecondaryInput.Source(dsId) if dsId.nonEmpty => dsId }
+
   /** Per-node (trunk + every tail) schema projection — the HEL-905 task 6.4
    *  handoff. Unlike [[analyze]] (a single ordered chain), this walks the
    *  `parentStepId` tree so a tail's projection is computed from ITS OWN
@@ -200,7 +211,7 @@ object PipelineAnalyzeService {
       case SecondaryInput.Lane(id) => Some(id)
       case _                       => None
     }
-    scala.util.Try(op match {
+    Try(op match {
       case "union"  => laneId(UnionConfig.decode(config).secondaryInput)
       case "join"   => laneId(JoinConfig.decode(config).secondaryInput)
       case "lookup" => laneId(LookupConfig.decode(config).secondaryInput)
@@ -214,7 +225,7 @@ object PipelineAnalyzeService {
    *  config degrades to `None`. Public so callers can pre-resolve those sources' schemas. */
   def sourceDependencyOf(op: String, config: String): Option[String] =
     if (op != "join") None
-    else scala.util.Try(JoinConfig.decode(config).secondaryInput).toOption.collect {
+    else Try(JoinConfig.decode(config).secondaryInput).toOption.collect {
       case SecondaryInput.Source(dsId) if dsId.nonEmpty => dsId
     }
 
