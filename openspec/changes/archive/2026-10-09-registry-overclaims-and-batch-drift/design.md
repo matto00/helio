@@ -559,3 +559,28 @@ check("the real exemption table gives every entry a reason", () => {
 3. `domain/steps/README.md` lists 23 step files / "23 step kinds"; 27 are registered.
 4. `PipelineShape.scala:39` makes the same "Single source of truth" registry claim for shapes.
 5. `PipelineStepSecondSourceGuardSpec.scala:17` calls `PipelineStep.Registry` "the single source of truth" (test comment).
+
+## Gate-Chain Implications Checklist
+
+`scripts/check-schema-drift.mjs` is run by `.husky/pre-commit` (`npm run check:schemas`) and by CI; this change adds an
+import of the new pure module `scripts/lib/panelKindEnumCoverage.mjs` and a read-only scan of `schemas/`.
+
+**What does it execute?** `node scripts/check-schema-drift.mjs` only. It imports `scripts/lib/agentFacingPanelTypes.mjs`
+and `scripts/lib/panelKindEnumCoverage.mjs` (pure functions, no I/O) and reads files with `readFileSync` /
+`readdirSync`. It spawns no subprocess and runs no git command (`grep -n 'child_process\|spawn\|writeFile\|mkdir\|unlink'`
+over the script and both lib modules finds none).
+
+**What environment does it inherit, and from where?** The hook's/CI's process environment via `npm run`; it reads no
+environment variable (no `process.env` reference in the script or either lib module). Paths are resolved from the
+script's own location (`import.meta.url` → repo root), never from cwd or `GIT_*`.
+
+**Does it write anything outside its own sandbox?** No. It writes nothing at all — only stdout/stderr and an exit code.
+
+**Does it behave differently from a linked worktree than from a main checkout?** No: it resolves the repo root from its
+own file path and uses no git state, so a linked worktree reads its own `schemas/` and sources. Verified by
+`scripts/concertino/test-gate-in-isolation.sh HEL-1412 scripts/check-schema-drift.mjs check:schemas` (hook-shaped,
+linked-worktree environment) → `PASS`; transcript at
+`.concertino/runs/HEL-1412/evidence/.concertino/gate-chain-isolation-evidence/scripts__check-schema-drift.mjs.md`.
+
+**What happens on its first run?** Same as every run: it is stateless (no cache, no setup step). On the current tree it
+exits 0 with "9 surfaces checked" and "5 schema enums detected"; the pre-commit hook ran it on both delivery commits.
