@@ -1,0 +1,2 @@
+- `frontend/src/utils/README.md` — paragraph 1 corrected to the grep-verified importer lists (formatRelativeTime, chartAppearance, aggregate, chartTypeOptions); stale "exclusively panels" / "docs-only" framing removed
+- `frontend/src/utils/prefersReducedMotion.ts` — doc comment only: one sentence (3 lines) stating ECharts hover-emphasis motion must be JS-gated because the CSS motion-token guard only scans `.css` files

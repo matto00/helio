@@ -1,12 +1,17 @@
 # Utils
 
-`formatRelativeTime.ts` is genuinely cross-feature (used by `features/panels`
-and `features/pipelines`). `aggregate.ts`, `chartAppearance.ts`, and
-`chartTypeOptions.ts` are, as of this writing, imported exclusively by
-`features/panels` (verified via grep) — they live here from an earlier
-intent to share them, not current usage; they are candidates for a move to
-`features/panels/utils` but are left in place since this ticket is
-docs-only.
+`formatRelativeTime.ts` is genuinely cross-feature (imported by
+`features/connectors`, `features/panels`, `features/pipelines` and
+`features/sources`). So is `chartAppearance.ts`: besides `features/panels` it
+is imported by `features/adminUsage` (`ui/UsageChart.tsx`), by
+`features/pipelines` (`ui/outputEditor/`), and by `chartClickSelection.ts` and
+`chartTypeOptions.ts` in this directory. `aggregate.ts` is imported by
+`features/panels` and `features/pipelines`
+(`ui/outputEditor/OutputPreviewPane.tsx`). `chartTypeOptions.ts` is, as of
+this writing, imported only by `features/panels` — it lives here from an
+earlier intent to share it, not current usage, and is a candidate for a move
+to `features/panels/utils`. These are non-test importers; re-check one (from the repo root) with
+`git grep -lE 'from "[./]*(utils/)?<module>"' -- frontend/src ':!*.test.ts' ':!*.test.tsx'`.
 
 `prefersReducedMotion.ts` is the single shared reduced-motion read (HEL-1179), imported by
 `features/panels/ui/buildChartOption.ts`, `shared/ui/Toast.tsx`, and `utils/chartAppearance.ts`.
