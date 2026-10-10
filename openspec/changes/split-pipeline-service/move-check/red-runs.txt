@@ -1,0 +1,24 @@
+## GREEN (real files)
+PipelineService.scala: 446 lines :: moved/kept verbatim=320, scaffold:class-scaffold=1, scaffold:collaborator-import=1, scaffold:delegation=62, scaffold:imports=15, scaffold:package=1, scaffold:wiring=9
+blocks: 75; base non-blank lines 35..2571 (less the class-closing brace): 2434; unclaimed 0; multiply-claimed 0
+PASS
+
+## RED 1: one token changed inside a moved body (PipelineRootWrites: first "NotFound(" -> "Conflict(")
+113:        case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+PipelineStepCreate.scala: 327 lines :: moved/kept verbatim=299, scaffold:class-doc=1, scaffold:class-scaffold=8, scaffold:collaborator-import=1, scaffold:imports=9, scaffold:logger=1, scaffold:package=1
+PipelineStepWrites.scala: 291 lines :: moved/kept verbatim=261, scaffold:class-doc=1, scaffold:class-scaffold=8, scaffold:collaborator-import=1, scaffold:imports=9, scaffold:logger=1, scaffold:package=1
+PipelineService.scala: 446 lines :: moved/kept verbatim=320, scaffold:class-scaffold=1, scaffold:collaborator-import=1, scaffold:delegation=62, scaffold:imports=15, scaffold:package=1, scaffold:wiring=9
+blocks: 75; base non-blank lines 35..2571 (less the class-closing brace): 2434; unclaimed 0; multiply-claimed 0
+FAIL
+ - PipelineRootWrites.scala:113: member addRoot base line 749 mismatch
+    expected: '        case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))'
+    actual:   '        case None => Future.successful(Left(ServiceError.Conflict(s"Pipeline not found: ${pipelineId.value}")))'
+exit=0
+
+## RED 2: a copy of an existing line (a duplicated closing brace) inserted outside any member (PipelineStepWrites, before the final class brace)
+PipelineStepCreate.scala: 327 lines :: moved/kept verbatim=299, scaffold:class-doc=1, scaffold:class-scaffold=8, scaffold:collaborator-import=1, scaffold:imports=9, scaffold:logger=1, scaffold:package=1
+PipelineStepWrites.scala: 292 lines :: moved/kept verbatim=261, scaffold:class-doc=1, scaffold:class-scaffold=8, scaffold:collaborator-import=1, scaffold:imports=9, scaffold:logger=1, scaffold:package=1
+PipelineService.scala: 446 lines :: moved/kept verbatim=320, scaffold:class-scaffold=1, scaffold:collaborator-import=1, scaffold:delegation=62, scaffold:imports=15, scaffold:package=1, scaffold:wiring=9
+blocks: 75; base non-blank lines 35..2571 (less the class-closing brace): 2434; unclaimed 0; multiply-claimed 0
+FAIL
+ - PipelineStepWrites.scala:292: UNACCOUNTED line(s) from here on: '}' (+0 more)
