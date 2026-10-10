@@ -1,6 +1,7 @@
 package com.helio.services.auth
 
 import com.helio.domain.model.UserId
+import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.assistant.AssistantDailyUsageRepository
 import com.helio.infrastructure.persistence.auth.UserRepository
@@ -14,6 +15,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.{LocalDate, ZoneOffset}
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -46,7 +48,7 @@ class AiPipelineQuotaGateSpec extends AnyWordSpec with Matchers with BeforeAndAf
       .load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     userRepo  = new UserRepository(db)
-    usageRepo = new AssistantDailyUsageRepository(new DbContext(db, db))
+    usageRepo = new AssistantDailyUsageRepository(new DbContext(db, db), PinnedDayClock)
 
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at, tier)
@@ -60,10 +62,14 @@ class AiPipelineQuotaGateSpec extends AnyWordSpec with Matchers with BeforeAndAf
 
   override def afterAll(): Unit = { db.close(); embeddedPostgres.close() }
 
+  // HEL-1473: pin the beta per-UTC-day bucket so a run straddling real UTC midnight cannot split it.
+  private object PinnedDayClock extends Clock { def now(): Instant = Instant.parse("2026-01-01T12:00:00Z") }
+  private val pinnedDate: LocalDate = LocalDate.ofInstant(PinnedDayClock.now(), ZoneOffset.UTC)
+
   private def cleanUsage(): Unit = await(db.run(sqlu"TRUNCATE TABLE assistant_daily_usage"))
 
   private def countFor(owner: UserId): Option[Int] = {
-    val today = LocalDate.now(ZoneOffset.UTC).toString
+    val today = pinnedDate.toString
     await(db.run(
       sql"""SELECT message_count FROM assistant_daily_usage
             WHERE user_id = ${owner.value}::uuid AND usage_date = $today::date"""
