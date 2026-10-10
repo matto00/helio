@@ -286,6 +286,19 @@ proving CI stays unchanged:
 - **`sbt run`'s launcher JVM is also uncapped** (`-Xms512m`, no `-Xmx`), and the repo cannot cap it: only the
   caller (`start-servers.sh` / your shell) can pass `-J-Xmx3g` or set `SBT_OPTS`.
 
+### Never print `backend/.env` or an env map into a transcript
+
+`backend/.env` holds real credentials (Google OAuth, Anthropic, a Cloud SQL password). Anything an agent prints
+lands in a transcript that is stored and may be shared, so never `cat`, `source`, `grep`-with-values, `printenv`
+or `env` it, and never `sbt "show Test/envVars"` / `"show Compile/run/envVars"` (they print every value; a
+failure message that formats an env map does the same). Inspect by KEY NAME: `sed -E 's/=.*//' backend/.env`, or
+`sbt envVarKeys`, which prints the key names of the test and run environments and fails if the test environment
+is anything but the fixed test-only set. Forked **tests** receive no `.env` value (HEL-1450: just the public CI
+test connector key/id, plus whatever the sbt process env already has); the forked **dev server** gets `.env`
+minus `GCLOUD_DB_PASSWORD`, and a key exported in the shell beats `.env`. The sbt server captures its env when
+it starts, so after a fresh `export` run `sbt shutdown`. Tests that prove a value is absent assert on key names
+or a SHA-256, never print the value. (HEL-1450.)
+
 ### Never invoke `npm` / `vite` / `sbt` / `npx playwright` bare
 
 A bare invocation inherits an ambient default instead of the run's pinned config.
