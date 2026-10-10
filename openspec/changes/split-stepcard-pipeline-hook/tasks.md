@@ -35,8 +35,8 @@
 
 ## 5. Unique lookup id (D4) — separate commit
 
-- [ ] 5.1 Add a test rendering two lookup editors asserting distinct ids, single-occurrence ids, and each card's `<label htmlFor>` resolving to its own input (not getAllByLabelText — aria-label makes that pass on base); run it red on the split head.
-- [ ] 5.2 `LookupConfig` uses `useId()` for the "Reference match field" input/label; test green; commit.
+- [x] 5.1 Add a test rendering two lookup editors asserting distinct ids, single-occurrence ids, and each card's `<label htmlFor>` resolving to its own input (not getAllByLabelText — aria-label makes that pass on base); run it red on the split head.
+- [x] 5.2 `LookupConfig` uses `useId()` for the "Reference match field" input/label; test green; commit.
 
 ## 6. Lookup warning wording (D5) — separate commit
 

@@ -8,6 +8,7 @@
 // free-text add/remove row list mirroring UnpivotConfig.tsx's row-add UI
 // shape, with TextField rows instead of Select rows.
 
+import { useId } from "react";
 import type { ChangeEvent } from "react";
 
 import { Select, TextField } from "../../../../shared/ui/index";
@@ -43,6 +44,8 @@ export function LookupConfig({
   currentStepId,
   onChange,
 }: LookupConfigProps) {
+  // HEL-1465 — a per-instance id: two lookup steps expanded on one page must not share it.
+  const lookupKeyId = useId();
   function handleSecondaryChange(secondary: SecondaryInput) {
     onChange({ ...config, secondary });
   }
@@ -91,11 +94,11 @@ export function LookupConfig({
       </div>
 
       <div className="pipeline-detail-page__compute-field">
-        <label className="pipeline-detail-page__compute-label" htmlFor="lookup-key">
+        <label className="pipeline-detail-page__compute-label" htmlFor={lookupKeyId}>
           Reference match field
         </label>
         <TextField
-          id="lookup-key"
+          id={lookupKeyId}
           placeholder="e.g. code"
           value={config.lookupKey}
           onChange={handleLookupKeyChange}
