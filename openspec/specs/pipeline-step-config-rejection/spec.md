@@ -1,7 +1,7 @@
 # pipeline-step-config-rejection Specification
 
 ## Purpose
-Reject a step configuration the caller supplied but the system cannot represent, with a 422 naming the offending key and the expected shape, so a misunderstood config can never be stored as a silent no-op that runs green while doing nothing.
+Reject a step configuration the caller supplied but the system cannot represent, or that parses but is invalid (an unparseable compute expression, an unsupported aggregation function, an unsupported fillnull/window/pivot value), with a 422 naming the offending key or value and the expected shape, on every write surface (step create/update, single-call pipeline create, pipeline proposals, and patch-set apply and preview edits), so a misunderstood config can never be stored as a silent no-op that runs green while doing nothing.
 
 ## Requirements
 
@@ -198,7 +198,7 @@ be rejected on write SHALL still load and still be analyzed exactly as before.
 ### Requirement: Clearly invalid fillnull, window and pivot enum values are rejected on every write surface
 
 Every surface that already applies the step-configuration rejection of this capability (step create, step update,
-pipeline proposal validate/apply, patch-set step-update and pipeline-create edits on apply and preview, single-call
+pipeline proposal validate/apply, patch-set step-create, step-update and pipeline-create edits on apply and preview, single-call
 pipeline create) SHALL reject, with that surface's existing step-configuration rejection status (422 on the REST step
 and pipeline routes):
 

@@ -292,8 +292,7 @@ final class PipelineProposalService(
       // because the decoder is contractually tolerant. 422 matches
       // `pipeline-step-config-rejection`'s status for a rejected config; the 400 below is kept
       // for the distinct "did not parse" case.
-      PipelineStep.companionFor(step.`type`).toOption
-        .flatMap(_.validateRawConfig(step.config.compactPrint)) match {
+      PipelineStep.rawConfigProblem(step.`type`, step.config.compactPrint) match {
         case Some(msg) => Left(ServiceError.UnprocessableEntity(s"step ${idx + 1}: $msg"))
         case None =>
           PipelineStepConfigCodec.decode(step.`type`, step.config.compactPrint) match {
