@@ -1,0 +1,7 @@
+## javap RED run: removeRoot delegation given a trailing defaulted param (main compiles; reverted afterwards)
+16c16,17
+<   public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.RemovePipelineRootResponse>> removeRoot(java.lang.String, java.lang.String, com.helio.domain.model.AuthenticatedUser);
+---
+>   public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.RemovePipelineRootResponse>> removeRoot(java.lang.String, java.lang.String, com.helio.domain.model.AuthenticatedUser, int);
+>   public int removeRoot$default$4();
+diff exit=1

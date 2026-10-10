@@ -1,0 +1,12 @@
+PipelineServiceSupport.scala: 220 lines :: moved/kept verbatim=173, scaffold:class-doc=2, scaffold:class-scaffold=6, scaffold:imports=14, scaffold:package=1, visibility-subst=10
+PipelineCreateWrites.scala: 232 lines :: moved/kept verbatim=192, scaffold:class-doc=1, scaffold:class-scaffold=9, scaffold:collaborator-import=3, scaffold:imports=11, scaffold:logger=1, scaffold:package=1
+PipelineCreateTransaction.scala: 283 lines :: moved/kept verbatim=247, scaffold:class-doc=1, scaffold:class-scaffold=8, scaffold:collaborator-import=1, scaffold:imports=13, scaffold:package=1, visibility-subst=2
+PipelineRootWrites.scala: 216 lines :: moved/kept verbatim=184, scaffold:class-doc=1, scaffold:class-scaffold=12, scaffold:collaborator-import=1, scaffold:imports=8, scaffold:package=1, visibility-subst=1
+PipelineAnalyzeReads.scala: 272 lines :: moved/kept verbatim=235, scaffold:class-doc=1, scaffold:class-scaffold=8, scaffold:collaborator-import=1, scaffold:imports=13, scaffold:logger=1, scaffold:package=1
+PipelineNodeReads.scala: 247 lines :: moved/kept verbatim=211, scaffold:class-doc=1, scaffold:class-scaffold=8, scaffold:collaborator-import=1, scaffold:imports=11, scaffold:package=1
+PipelineProposalAnalyze.scala: 359 lines :: moved/kept verbatim=325, scaffold:class-doc=1, scaffold:class-scaffold=7, scaffold:collaborator-import=1, scaffold:imports=11, scaffold:package=1
+PipelineStepCreate.scala: 327 lines :: moved/kept verbatim=299, scaffold:class-doc=1, scaffold:class-scaffold=8, scaffold:collaborator-import=1, scaffold:imports=9, scaffold:logger=1, scaffold:package=1
+PipelineStepWrites.scala: 291 lines :: moved/kept verbatim=261, scaffold:class-doc=1, scaffold:class-scaffold=8, scaffold:collaborator-import=1, scaffold:imports=9, scaffold:logger=1, scaffold:package=1
+PipelineService.scala: 446 lines :: moved/kept verbatim=320, scaffold:class-scaffold=1, scaffold:collaborator-import=1, scaffold:delegation=62, scaffold:imports=15, scaffold:package=1, scaffold:wiring=9
+blocks: 75; base non-blank lines 35..2571 (less the class-closing brace): 2434; unclaimed 0; multiply-claimed 0
+PASS

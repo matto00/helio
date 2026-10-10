@@ -1,0 +1,1828 @@
+{
+ "PipelineServiceSupport.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.audit.AuditService",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{AggregateAnalyzeStepResponse, AnalyzeStepResponse, AnalyzeWarningResponse, AnalyzeWithAiAnalyzeStepResponse, AssertAnalyzeStepResponse, CastAnalyzeStepResponse, ChunkByTokenCountAnalyzeStepResponse, ComputeAnalyzeStepResponse, ConvertFormatAnalyzeStepResponse, DateBucketAnalyzeStepResponse, DedupeAnalyzeStepResponse, ExtractHeadingsAnalyzeStepResponse, FillNullAnalyzeStepResponse, FilterAnalyzeStepResponse, GenerateTextAnalyzeStepResponse, GroupByAnalyzeStepResponse, JoinAnalyzeStepResponse, LimitAnalyzeStepResponse, LookupAnalyzeStepResponse, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, PivotAnalyzeStepResponse, RenameAnalyzeStepResponse, SchemaFieldResponse, SelectAnalyzeStepResponse, SortAnalyzeStepResponse, SplitTextAnalyzeStepResponse, StringOpsAnalyzeStepResponse, UnionAnalyzeStepResponse, UnpivotAnalyzeStepResponse, UpsertSourceAnalyzeStepResponse, WindowAnalyzeStepResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.panels.OutputBindingSpec",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataSource, DataSourceId, OutputKind, PipelineId, PipelineStep, UserId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{AnalyzeSchemaWarnings, PipelineAnalyzeService, SchemaField}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.{AggregateConfig, AnalyzeWithAiConfig, AssertConfig, CastConfig, ChunkByTokenCountConfig, ComputeConfig, ConvertFormatConfig, DateBucketConfig, DedupeConfig, ExtractHeadingsConfig, FillNullConfig, FilterConfig, GenerateTextConfig, GroupByConfig, JoinConfig, LimitConfig, LookupConfig, PivotConfig, RenameConfig, SelectConfig, SortConfig, SplitTextConfig, StringOpsConfig, UnionConfig, UnpivotConfig, WindowConfig, UpsertSourceConfig}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.steps.UpsertTargetCheck",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.{Failure, Success}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Shared helpers for the PipelineService collaborators: auditing, step-response assembly, wire-response mapping, schema",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": " *  resolution and the upsert-target ownership check. Split out of `PipelineService` (HEL-1463). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineServiceSupport(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineStepRepo: PipelineStepRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    auditService: AuditService",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "member": "audit",
+   "range": [
+    93,
+    101
+   ],
+   "subst": {
+    "93": "  private[pipelines] def audit("
+   }
+  },
+  {
+   "member": "stepResponseWithRoot",
+   "range": [
+    103,
+    113
+   ],
+   "subst": {
+    "110": "  private[pipelines] def stepResponseWithRoot(pipelineId: PipelineId, step: PipelineStep): Future[PipelineStepResponse] ="
+   }
+  },
+  {
+   "member": "stepAddress",
+   "range": [
+    329,
+    329
+   ],
+   "subst": {}
+  },
+  {
+   "member": "outputAddress",
+   "range": [
+    330,
+    330
+   ],
+   "subst": {
+    "330": "  private[pipelines] def outputAddress(idx: Int): String = PipelineService.outputAddress(idx)"
+   }
+  },
+  {
+   "member": "validateOutputFieldMapping",
+   "range": [
+    594,
+    629
+   ],
+   "subst": {
+    "608": "  private[pipelines] def validateOutputFieldMapping(kind: OutputKind, config: JsObject, schema: Vector[SchemaField]): Either[ServiceError, Unit] = {"
+   }
+  },
+  {
+   "member": "toWarningResponse",
+   "range": [
+    992,
+    993
+   ],
+   "subst": {
+    "992": "  private[pipelines] def toWarningResponse(w: AnalyzeSchemaWarnings.Warning): AnalyzeWarningResponse ="
+   }
+  },
+  {
+   "member": "resolveSecondarySourceSchemas",
+   "range": [
+    1013,
+    1029
+   ],
+   "subst": {
+    "1022": "  private[pipelines] def resolveSecondarySourceSchemas("
+   }
+  },
+  {
+   "member": "toAnalyzeStepResponse",
+   "range": [
+    1664,
+    1736
+   ],
+   "subst": {
+    "1667": "  private[pipelines] def toAnalyzeStepResponse(s: PipelineAnalyzeService.AnalyzedStep): AnalyzeStepResponse = {"
+   }
+  },
+  {
+   "member": "upsertOwnershipCheckF",
+   "range": [
+    1893,
+    1909
+   ],
+   "subst": {
+    "1899": "  private[pipelines] def upsertOwnershipCheckF(typedConfig: Any, pipelineOwnerId: UserId, caller: AuthenticatedUser): Future[Either[ServiceError, Unit]] ="
+   }
+  },
+  {
+   "member": "toSummaryResponse",
+   "range": [
+    2367,
+    2380
+   ],
+   "subst": {
+    "2367": "  private[pipelines] def toSummaryResponse(s: PipelineSummary): PipelineSummaryResponse ="
+   }
+  },
+  {
+   "member": "toFieldResponse",
+   "range": [
+    2382,
+    2383
+   ],
+   "subst": {
+    "2382": "  private[pipelines] def toFieldResponse(sf: SchemaField): SchemaFieldResponse ="
+   }
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineCreateWrites.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.sources.DataSourceService",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.http.RequestValidation",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, PipelineSummaryResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataSource, DataSourceId, DataSourceKind}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.PipelineRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.collection.mutable.ArrayBuffer",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.{Failure, Success}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** The create path of `PipelineService.create`: request-only root checks, inline-root creation with compensation. Split out of `PipelineService` (HEL-1463). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineCreateWrites(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceService: DataSourceService,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineServiceSupport,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    rootWrites: PipelineRootWrites,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    createTransaction: PipelineCreateTransaction",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  private val log = LoggerFactory.getLogger(classOf[PipelineService])",
+   "cat": "logger"
+  },
+  {
+   "scaffold": "  import support.{audit, toSummaryResponse}",
+   "cat": "collaborator-import"
+  },
+  {
+   "scaffold": "  import rootWrites.resolveOneRootSourceId",
+   "cat": "collaborator-import"
+  },
+  {
+   "scaffold": "  import createTransaction.{createTransactional, validateStepCrossOwnerRefs}",
+   "cat": "collaborator-import"
+  },
+  {
+   "member": "create",
+   "range": [
+    128,
+    165
+   ],
+   "subst": {}
+  },
+  {
+   "member": "checkedCreate",
+   "range": [
+    167,
+    190
+   ],
+   "subst": {}
+  },
+  {
+   "member": "checkRootsReadOnly",
+   "range": [
+    192,
+    212
+   ],
+   "subst": {}
+  },
+  {
+   "member": "rootShapeProblem",
+   "range": [
+    214,
+    238
+   ],
+   "subst": {}
+  },
+  {
+   "member": "createWithInlineRoots",
+   "range": [
+    240,
+    271
+   ],
+   "subst": {}
+  },
+  {
+   "member": "createRootSources",
+   "range": [
+    273,
+    289
+   ],
+   "subst": {}
+  },
+  {
+   "member": "lookupOwnedRoots",
+   "range": [
+    291,
+    301
+   ],
+   "subst": {}
+  },
+  {
+   "member": "compensatingInlineSources",
+   "range": [
+    303,
+    317
+   ],
+   "subst": {}
+  },
+  {
+   "member": "deleteInlineSources",
+   "range": [
+    319,
+    327
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineCreateTransaction.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineStepConfigCodec, PipelineSummaryResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataSource, DataSourceId, PipelineId, PipelineRootId, PipelineStepId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{PipelineAnalyzeService, SchemaField}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.{JoinConfig, LookupConfig, UnionConfig}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.steps.SecondaryInput",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineCycleGuard, PipelineRepository, PipelineStepRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import slick.jdbc.PostgresProfile.api._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.{Failure, Success}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** The single-call transactional create (`createTransactional`) and the DBIO builders it composes. Split out of `PipelineService` (HEL-1463). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineCreateTransaction(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineStepRepo: PipelineStepRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    outputRepo: OutputRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineServiceSupport",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  import support.{audit, validateOutputFieldMapping, resolveSecondarySourceSchemas, upsertOwnershipCheckF, toSummaryResponse}",
+   "cat": "collaborator-import"
+  },
+  {
+   "member": "createTransactional",
+   "range": [
+    332,
+    394
+   ],
+   "subst": {
+    "346": "  private[pipelines] def createTransactional("
+   }
+  },
+  {
+   "member": "validateStepCrossOwnerRefs",
+   "range": [
+    396,
+    443
+   ],
+   "subst": {
+    "410": "  private[pipelines] def validateStepCrossOwnerRefs("
+   }
+  },
+  {
+   "member": "checkOwnedSource",
+   "range": [
+    452,
+    456
+   ],
+   "subst": {}
+  },
+  {
+   "member": "rewriteLaneClientId",
+   "range": [
+    458,
+    484
+   ],
+   "subst": {}
+  },
+  {
+   "member": "buildStepsAction",
+   "range": [
+    486,
+    540
+   ],
+   "subst": {}
+  },
+  {
+   "member": "buildOutputsAction",
+   "range": [
+    542,
+    592
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineRootWrites.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.sources.{DataSourceService, SourceService}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{CreatePipelineRootRequest, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.sources.{CreateSourceRequest, SqlCreateSourceRequest, StaticDataSourceRequest}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, PipelineId, PipelineRootId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineCycleGuard, PipelineRepository, PipelineRootRepository, PipelineStepRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Root add/remove (`addRoot`/`removeRoot`) and the shared root-source resolution `create` also uses. Split out of `PipelineService` (HEL-1463). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineRootWrites(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineStepRepo: PipelineStepRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    outputRepo: OutputRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRootRepo: PipelineRootRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    sourceService: SourceService,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceService: DataSourceService,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineServiceSupport,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    requireEditorAccess: (PipelineId, AuthenticatedUser) => Future[Either[ServiceError, Unit]]",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  import support.audit",
+   "cat": "collaborator-import"
+  },
+  {
+   "member": "resolveOneRootSourceId",
+   "range": [
+    664,
+    686
+   ],
+   "subst": {
+    "672": "  private[pipelines] def resolveOneRootSourceId(req: CreatePipelineRootRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSourceId]] ="
+   }
+  },
+  {
+   "member": "resolveInlineRootSourceId",
+   "range": [
+    688,
+    737
+   ],
+   "subst": {}
+  },
+  {
+   "member": "addRoot",
+   "range": [
+    739,
+    772
+   ],
+   "subst": {}
+  },
+  {
+   "member": "removeRoot",
+   "range": [
+    774,
+    851
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineAnalyzeReads.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{PipelineAnalyzeResponse, PipelineStepConfigCodec, RootSourceSchemaResponse, SourceSchemaDriftResponse, TypeChangedColumnResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{ConciseAnalyzeNode, CostReasonResponse, CostVerdictResponse, PipelineAnalyzeConciseResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, PipelineId, PipelineSchemaDrift, PipelineStep, SchemaDrift, UserId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{AnalyzeSchemaWarnings, PipelineAnalyzeService, PipelineCostEstimator, RuntimeGraphPath, SchemaField}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json.DefaultJsonProtocol._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.{Failure, Success, Try}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Analyze reads: `analyze` and `analyzeConcise` and their wire-response mapping. Split out of `PipelineService` (HEL-1463). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineAnalyzeReads(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineStepRepo: PipelineStepRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    costInputGathering: PipelineCostInputGathering,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineServiceSupport",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  private val log = LoggerFactory.getLogger(classOf[PipelineService])",
+   "cat": "logger"
+  },
+  {
+   "scaffold": "  import support.{toWarningResponse, resolveSecondarySourceSchemas, toAnalyzeStepResponse, toFieldResponse}",
+   "cat": "collaborator-import"
+  },
+  {
+   "member": "upsertTargetProblems",
+   "range": [
+    445,
+    450
+   ],
+   "subst": {}
+  },
+  {
+   "member": "analyze",
+   "range": [
+    853,
+    986
+   ],
+   "subst": {}
+  },
+  {
+   "member": "standalone-hasSourceUrl-comment",
+   "range": [
+    988,
+    990
+   ],
+   "subst": {}
+  },
+  {
+   "member": "toCostVerdictResponse",
+   "range": [
+    995,
+    1011
+   ],
+   "subst": {}
+  },
+  {
+   "member": "analyzeConcise",
+   "range": [
+    1031,
+    1083
+   ],
+   "subst": {}
+  },
+  {
+   "member": "parseBaselineSchema",
+   "range": [
+    1306,
+    1319
+   ],
+   "subst": {}
+  },
+  {
+   "member": "toDriftResponse",
+   "range": [
+    1321,
+    1328
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineNodeReads.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.PipelineStepConfigCodec",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.PipelineLaneTreeNode",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.panels.{PanelCapabilityColumnResponse, PanelCapabilityResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.panels.OutputBindingSpec",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataFieldType, DataSourceId, Output, OutputKind, Pipeline, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{ExpressionEvaluator, PipelineAnalyzeService, RuntimeGraphPath, SchemaField}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Per-node reads: the lane tree, node capabilities, expression validation and the `private[services]` batched lookups. Split out of `PipelineService` (HEL-1463). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineNodeReads(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineStepRepo: PipelineStepRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    outputRepo: OutputRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineServiceSupport",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  import support.resolveSecondarySourceSchemas",
+   "cat": "collaborator-import"
+  },
+  {
+   "member": "laneTree",
+   "range": [
+    1085,
+    1100
+   ],
+   "subst": {}
+  },
+  {
+   "member": "laneTreeGiven",
+   "range": [
+    1102,
+    1131
+   ],
+   "subst": {}
+  },
+  {
+   "member": "listRootDataSourceIdsInternalBatch",
+   "range": [
+    1133,
+    1154
+   ],
+   "subst": {}
+  },
+  {
+   "member": "rootIdsOfBatch",
+   "range": [
+    1156,
+    1161
+   ],
+   "subst": {}
+  },
+  {
+   "member": "listByPipelineInternalBatch",
+   "range": [
+    1163,
+    1169
+   ],
+   "subst": {}
+  },
+  {
+   "member": "laneTreeFromRoots",
+   "range": [
+    1171,
+    1192
+   ],
+   "subst": {}
+  },
+  {
+   "member": "capabilitiesAtNode",
+   "range": [
+    1194,
+    1214
+   ],
+   "subst": {}
+  },
+  {
+   "member": "validateExpression",
+   "range": [
+    1216,
+    1242
+   ],
+   "subst": {}
+  },
+  {
+   "member": "projectedSchemaAtNode",
+   "range": [
+    1244,
+    1288
+   ],
+   "subst": {}
+  },
+  {
+   "member": "buildNodeCapabilities",
+   "range": [
+    1290,
+    1304
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineProposalAnalyze.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.sources.{ContentSourceSupport, SourceService}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, OutputAnalyzeResponse, PipelineAnalyzeProposalResponse, PipelineProposal, PipelineProposalSource, ProposalRestApiConfig, RootSourceSchemaResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.sources.{RestApiConfigPayload, SqlSourceConfigPayload}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataFieldType, DataSourceId, DataSourceKind, EphemeralRestConfig, InferredSchema, OutputKind, PipelineStepKind}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{AnalyzeSchemaWarnings, PipelineAnalyzeService, SchemaField}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import java.net.InetAddress",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Dry-analyze of a not-yet-created `PipelineProposal` (`analyzeProposal`) and its source/Output resolution. Split out of `PipelineService` (HEL-1463). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineProposalAnalyze(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    connector: RestApiConnectorDriver,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    sourceService: SourceService,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineServiceSupport",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  import support.{outputAddress, validateOutputFieldMapping, toWarningResponse, resolveSecondarySourceSchemas, toAnalyzeStepResponse, toFieldResponse}",
+   "cat": "collaborator-import"
+  },
+  {
+   "member": "analyzeProposal",
+   "range": [
+    1330,
+    1407
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveProposalOutputAnalyses",
+   "range": [
+    1409,
+    1431
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveOneProposalOutputAnalysis",
+   "range": [
+    1433,
+    1461
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveProposalOutputNodeSchema",
+   "range": [
+    1463,
+    1499
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveAllProposalRootSchemas",
+   "range": [
+    1501,
+    1517
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveOneProposalRootSchema",
+   "range": [
+    1519,
+    1538
+   ],
+   "subst": {}
+  },
+  {
+   "member": "validateStepKinds",
+   "range": [
+    1540,
+    1551
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveInlineSourceSchema",
+   "range": [
+    1553,
+    1659
+   ],
+   "subst": {}
+  },
+  {
+   "member": "toSchemaFields",
+   "range": [
+    1661,
+    1662
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineStepCreate.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec, PipelineStepResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PipelineId, PipelineStep, PipelineStepId, PipelineStepKind, UserId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.{Failure, Success}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Step creation (`addStepReporting`) and its shared persist branch. Split out of `PipelineService` (HEL-1463). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineStepCreate(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineStepRepo: PipelineStepRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineServiceSupport,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    requireEditorAccess: (PipelineId, AuthenticatedUser) => Future[Either[ServiceError, Unit]]",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  private val log = LoggerFactory.getLogger(classOf[PipelineService])",
+   "cat": "logger"
+  },
+  {
+   "scaffold": "  import support.{audit, stepResponseWithRoot, upsertOwnershipCheckF}",
+   "cat": "collaborator-import"
+  },
+  {
+   "member": "addStepReporting",
+   "range": [
+    1768,
+    1891
+   ],
+   "subst": {}
+  },
+  {
+   "member": "persistNewStep",
+   "range": [
+    1911,
+    2085
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineStepWrites.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{DeletePipelineStepResponse, PipelineStepConfigCodec, PipelineStepResponse, ReorderPipelineStepsRequest, UpdatePipelineStepRequest}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PipelineId, PipelineStep, PipelineStepId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.{Failure, Success}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Step update/delete/reorder/duplicate. Split out of `PipelineService` (HEL-1463). */",
+   "cat": "class-doc"
+  },
+  {
+   "scaffold": "private[pipelines] final class PipelineStepWrites(",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineRepo: PipelineRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    pipelineStepRepo: PipelineStepRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    dataSourceRepo: DataSourceRepository,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    support: PipelineServiceSupport,",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "    requireEditorAccess: (PipelineId, AuthenticatedUser) => Future[Either[ServiceError, Unit]]",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": ")(implicit ec: ExecutionContext) {",
+   "cat": "class-scaffold"
+  },
+  {
+   "scaffold": "  private val log = LoggerFactory.getLogger(classOf[PipelineService])",
+   "cat": "logger"
+  },
+  {
+   "scaffold": "  import support.{audit, stepResponseWithRoot, upsertOwnershipCheckF}",
+   "cat": "collaborator-import"
+  },
+  {
+   "member": "updateStep",
+   "range": [
+    2087,
+    2201
+   ],
+   "subst": {}
+  },
+  {
+   "member": "deleteStep",
+   "range": [
+    2203,
+    2233
+   ],
+   "subst": {}
+  },
+  {
+   "member": "reorderSteps",
+   "range": [
+    2235,
+    2285
+   ],
+   "subst": {}
+  },
+  {
+   "member": "duplicateStep",
+   "range": [
+    2287,
+    2350
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  }
+ ],
+ "PipelineService.scala": [
+  {
+   "scaffold": "package com.helio.services.pipelines",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.audit.AuditService",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.sources.{DataSourceService, SourceService}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, DeletePipelineStepResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse, PipelineStepResponse, PipelineSummaryResponse, ReorderPipelineStepsRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{PipelineAnalyzeConciseResponse, PipelineLaneTreeNode}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataSourceId, Output, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.engine.{InvalidGraph, LaneReferenceError}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.connectors.RestApiConnectorDriver",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.sources.DataSourceRepository",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineCycleGuard, PipelineRepository, PipelineRootRepository, PipelineStepRepository, ReparentRejected}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.postgresql.util.PSQLException",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import org.slf4j.LoggerFactory",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.annotation.tailrec",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "member": "class-header",
+   "range": [
+    35,
+    82
+   ],
+   "subst": {}
+  },
+  {
+   "member": "require",
+   "range": [
+    84,
+    84
+   ],
+   "subst": {}
+  },
+  {
+   "member": "log",
+   "range": [
+    86,
+    86
+   ],
+   "subst": {}
+  },
+  {
+   "member": "costInputGathering",
+   "range": [
+    88,
+    91
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "  private val support = new PipelineServiceSupport(pipelineStepRepo, dataSourceRepo, auditService)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val analyzeReads = new PipelineAnalyzeReads(pipelineRepo, pipelineStepRepo, dataSourceRepo, costInputGathering, support)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val nodeReads = new PipelineNodeReads(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo, support)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val proposalAnalyze = new PipelineProposalAnalyze(dataSourceRepo, connector, sourceService, support)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val rootWrites = new PipelineRootWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo, pipelineRootRepo, sourceService, dataSourceService, support, requireEditorAccess)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val createTransaction = new PipelineCreateTransaction(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo, support)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val createWrites = new PipelineCreateWrites(pipelineRepo, dataSourceRepo, dataSourceService, support, rootWrites, createTransaction)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val stepCreate = new PipelineStepCreate(pipelineRepo, pipelineStepRepo, dataSourceRepo, support, requireEditorAccess)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  private val stepWrites = new PipelineStepWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, support, requireEditorAccess)",
+   "cat": "wiring"
+  },
+  {
+   "scaffold": "  import support.{audit, toSummaryResponse}",
+   "cat": "collaborator-import"
+  },
+  {
+   "member": "listSummaries",
+   "range": [
+    116,
+    119
+   ],
+   "subst": {}
+  },
+  {
+   "member": "findSummaryById",
+   "range": [
+    121,
+    126
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "  def create(req: CreatePipelineRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineSummaryResponse]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    createWrites.create(req, user)",
+   "cat": "delegation"
+  },
+  {
+   "member": "updateName",
+   "range": [
+    631,
+    647
+   ],
+   "subst": {}
+  },
+  {
+   "member": "delete",
+   "range": [
+    649,
+    662
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "  def addRoot(pipelineId: PipelineId, req: CreatePipelineRootRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineRootSummaryResponse]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    rootWrites.addRoot(pipelineId, req, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def removeRoot(pipelineId: PipelineId, rootId: PipelineRootId, user: AuthenticatedUser): Future[Either[ServiceError, RemovePipelineRootResponse]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    rootWrites.removeRoot(pipelineId, rootId, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def analyze(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeResponse]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    analyzeReads.analyze(pipelineId, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def analyzeConcise(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeConciseResponse]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    analyzeReads.analyzeConcise(pipelineId, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def laneTree(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineLaneTreeNode]]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    nodeReads.laneTree(pipelineId, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  private[services] def laneTreeGiven(",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      pipelineId: PipelineId,",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      allSteps: Vector[PipelineStep],",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      outputsAlreadyFetchedForThisPipeline: Vector[Output]",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  ): Future[Vector[PipelineLaneTreeNode]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    nodeReads.laneTreeGiven(pipelineId, allSteps, outputsAlreadyFetchedForThisPipeline)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  private[services] def listRootDataSourceIdsInternalBatch(",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      pipelineIds: Set[PipelineId]",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  ): Future[Map[PipelineId, Vector[(PipelineRootId, DataSourceId)]]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    nodeReads.listRootDataSourceIdsInternalBatch(pipelineIds)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  private[services] def rootIdsOfBatch(",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      pipelineIds: Set[PipelineId]",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  ): Future[Map[PipelineId, Map[PipelineStepId, PipelineRootId]]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    nodeReads.rootIdsOfBatch(pipelineIds)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  private[services] def listByPipelineInternalBatch(",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      pipelineIds: Set[PipelineId]",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  ): Future[Map[PipelineId, Vector[PipelineStep]]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    nodeReads.listByPipelineInternalBatch(pipelineIds)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  private[services] def laneTreeFromRoots(",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      allSteps: Vector[PipelineStep],",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      outputsAlreadyFetchedForThisPipeline: Vector[Output],",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      rootDataSourceIds: Vector[String],",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      rootIdOfStep: Map[PipelineStepId, PipelineRootId]",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  ): Vector[PipelineLaneTreeNode] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    nodeReads.laneTreeFromRoots(allSteps, outputsAlreadyFetchedForThisPipeline, rootDataSourceIds, rootIdOfStep)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def capabilitiesAtNode(",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      pipelineId: PipelineId,",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      stepId: Option[PipelineStepId],",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      user: AuthenticatedUser",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  ): Future[Either[ServiceError, NodeCapabilitiesResponse]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    nodeReads.capabilitiesAtNode(pipelineId, stepId, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def validateExpression(",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      pipelineId: PipelineId,",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      stepId: Option[PipelineStepId],",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      expression: String,",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "      user: AuthenticatedUser",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  ): Future[Either[ServiceError, ExpressionValidationResponse]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    nodeReads.validateExpression(pipelineId, stepId, expression, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def analyzeProposal(proposal: PipelineProposal, user: AuthenticatedUser): Future[Either[ServiceError, PipelineAnalyzeProposalResponse]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    proposalAnalyze.analyzeProposal(proposal, user)",
+   "cat": "delegation"
+  },
+  {
+   "member": "listSteps",
+   "range": [
+    1739,
+    1762
+   ],
+   "subst": {}
+  },
+  {
+   "member": "addStep",
+   "range": [
+    1764,
+    1766
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "  def addStepReporting(pipelineId: PipelineId, req: CreatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, (PipelineStepResponse, Seq[String])]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    stepCreate.addStepReporting(pipelineId, req, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def updateStep(stepId: PipelineStepId, req: UpdatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    stepWrites.updateStep(stepId, req, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def deleteStep(stepId: PipelineStepId, user: AuthenticatedUser): Future[Either[ServiceError, DeletePipelineStepResponse]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    stepWrites.deleteStep(stepId, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def reorderSteps(pipelineId: PipelineId, req: ReorderPipelineStepsRequest, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineStepResponse]]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    stepWrites.reorderSteps(pipelineId, req, user)",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "  def duplicateStep(stepId: PipelineStepId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] =",
+   "cat": "delegation"
+  },
+  {
+   "scaffold": "    stepWrites.duplicateStep(stepId, user)",
+   "cat": "delegation"
+  },
+  {
+   "member": "requireEditorAccess",
+   "range": [
+    2353,
+    2365
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "class-scaffold"
+  },
+  {
+   "member": "PipelineCreateValidationFailure",
+   "range": [
+    2386,
+    2393
+   ],
+   "subst": {}
+  },
+  {
+   "member": "companion-object",
+   "range": [
+    2395,
+    2571
+   ],
+   "subst": {}
+  }
+ ]
+}

@@ -1,0 +1,56 @@
+=== PipelineService
+Compiled from "PipelineService.scala"
+public final class com.helio.services.pipelines.PipelineService {
+  public static com.helio.services.sources.DataSourceService $lessinit$greater$default$9();
+  public static com.helio.services.sources.SourceService $lessinit$greater$default$8();
+  public static com.helio.infrastructure.persistence.pipelines.PipelineRootRepository $lessinit$greater$default$7();
+  public static com.helio.services.audit.AuditService $lessinit$greater$default$5();
+  public static com.helio.domain.connectors.RestApiConnectorDriver $lessinit$greater$default$4();
+  public scala.concurrent.Future<scala.collection.immutable.Vector<com.helio.api.protocols.pipelines.PipelineSummaryResponse>> listSummaries(com.helio.domain.model.AuthenticatedUser, scala.Option<java.lang.String>);
+  public scala.Option<java.lang.String> listSummaries$default$2();
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.PipelineSummaryResponse>> findSummaryById(java.lang.String, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.PipelineSummaryResponse>> create(com.helio.api.protocols.pipelines.CreatePipelineRequest, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.PipelineSummaryResponse>> updateName(java.lang.String, com.helio.api.protocols.pipelines.UpdatePipelineRequest, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.runtime.BoxedUnit>> delete(java.lang.String, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.PipelineRootSummaryResponse>> addRoot(java.lang.String, com.helio.api.protocols.pipelines.CreatePipelineRootRequest, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.RemovePipelineRootResponse>> removeRoot(java.lang.String, java.lang.String, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.PipelineAnalyzeResponse>> analyze(java.lang.String, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.PipelineAnalyzeConciseResponse>> analyzeConcise(java.lang.String, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.api.protocols.pipelines.PipelineLaneTreeNode>>> laneTree(java.lang.String, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.collection.immutable.Vector<com.helio.api.protocols.pipelines.PipelineLaneTreeNode>> laneTreeGiven(java.lang.String, scala.collection.immutable.Vector<com.helio.domain.model.PipelineStep>, scala.collection.immutable.Vector<com.helio.domain.model.Output>);
+  public scala.concurrent.Future<scala.collection.immutable.Map<com.helio.domain.model.PipelineId, scala.collection.immutable.Vector<scala.Tuple2<com.helio.domain.model.PipelineRootId, com.helio.domain.model.DataSourceId>>>> listRootDataSourceIdsInternalBatch(scala.collection.immutable.Set<com.helio.domain.model.PipelineId>);
+  public scala.concurrent.Future<scala.collection.immutable.Map<com.helio.domain.model.PipelineId, scala.collection.immutable.Map<com.helio.domain.model.PipelineStepId, com.helio.domain.model.PipelineRootId>>> rootIdsOfBatch(scala.collection.immutable.Set<com.helio.domain.model.PipelineId>);
+  public scala.concurrent.Future<scala.collection.immutable.Map<com.helio.domain.model.PipelineId, scala.collection.immutable.Vector<com.helio.domain.model.PipelineStep>>> listByPipelineInternalBatch(scala.collection.immutable.Set<com.helio.domain.model.PipelineId>);
+  public scala.collection.immutable.Vector<com.helio.api.protocols.pipelines.PipelineLaneTreeNode> laneTreeFromRoots(scala.collection.immutable.Vector<com.helio.domain.model.PipelineStep>, scala.collection.immutable.Vector<com.helio.domain.model.Output>, scala.collection.immutable.Vector<java.lang.String>, scala.collection.immutable.Map<com.helio.domain.model.PipelineStepId, com.helio.domain.model.PipelineRootId>);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.NodeCapabilitiesResponse>> capabilitiesAtNode(java.lang.String, scala.Option<com.helio.domain.model.PipelineStepId>, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.ExpressionValidationResponse>> validateExpression(java.lang.String, scala.Option<com.helio.domain.model.PipelineStepId>, java.lang.String, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.PipelineAnalyzeProposalResponse>> analyzeProposal(com.helio.api.protocols.pipelines.PipelineProposal, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.api.protocols.pipelines.PipelineStepResponse>>> listSteps(java.lang.String, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.PipelineStepResponse>> addStep(java.lang.String, com.helio.api.protocols.pipelines.CreatePipelineStepRequest, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.Tuple2<com.helio.api.protocols.pipelines.PipelineStepResponse, scala.collection.immutable.Seq<java.lang.String>>>> addStepReporting(java.lang.String, com.helio.api.protocols.pipelines.CreatePipelineStepRequest, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.PipelineStepResponse>> updateStep(java.lang.String, com.helio.api.protocols.pipelines.UpdatePipelineStepRequest, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.DeletePipelineStepResponse>> deleteStep(java.lang.String, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.api.protocols.pipelines.PipelineStepResponse>>> reorderSteps(java.lang.String, com.helio.api.protocols.pipelines.ReorderPipelineStepsRequest, com.helio.domain.model.AuthenticatedUser);
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, com.helio.api.protocols.pipelines.PipelineStepResponse>> duplicateStep(java.lang.String, com.helio.domain.model.AuthenticatedUser);
+  public com.helio.services.pipelines.PipelineService(com.helio.infrastructure.persistence.pipelines.PipelineRepository, com.helio.infrastructure.persistence.pipelines.PipelineStepRepository, com.helio.infrastructure.persistence.sources.DataSourceRepository, com.helio.domain.connectors.RestApiConnectorDriver, com.helio.services.audit.AuditService, com.helio.infrastructure.persistence.pipelines.OutputRepository, com.helio.infrastructure.persistence.pipelines.PipelineRootRepository, com.helio.services.sources.SourceService, com.helio.services.sources.DataSourceService, scala.concurrent.ExecutionContext);
+}
+=== PipelineService$
+Compiled from "PipelineService.scala"
+public final class com.helio.services.pipelines.PipelineService$ {
+  public static final com.helio.services.pipelines.PipelineService$ MODULE$;
+  public static {};
+  public com.helio.domain.connectors.RestApiConnectorDriver $lessinit$greater$default$4();
+  public com.helio.services.audit.AuditService $lessinit$greater$default$5();
+  public com.helio.infrastructure.persistence.pipelines.PipelineRootRepository $lessinit$greater$default$7();
+  public com.helio.services.sources.SourceService $lessinit$greater$default$8();
+  public com.helio.services.sources.DataSourceService $lessinit$greater$default$9();
+  public java.lang.String rootAddress(int);
+  public java.lang.String stepAddress(int);
+  public java.lang.String outputAddress(int);
+  public java.lang.String joinAddress(scala.collection.immutable.Seq<java.lang.String>);
+  public com.helio.services.ServiceError classifyDbError(java.lang.Throwable);
+  public scala.util.Either<com.helio.services.ServiceError, scala.runtime.BoxedUnit> validateLaneReference(java.lang.Object, scala.collection.immutable.Vector<com.helio.domain.model.PipelineStep>, scala.collection.immutable.Set<java.lang.String>, scala.Option<java.lang.String>);
+  public scala.util.Either<com.helio.services.ServiceError, scala.Option<com.helio.domain.model.PipelineStepId>> resolveRootTrunkAnchor(scala.collection.immutable.Vector<com.helio.domain.model.PipelineStep>, scala.collection.immutable.Map<com.helio.domain.model.PipelineStepId, com.helio.domain.model.PipelineRootId>, java.lang.String, scala.Option<java.lang.Object>);
+  public scala.collection.immutable.Set<java.lang.String> ancestorChainOf(scala.Option<com.helio.domain.model.PipelineStepId>, scala.collection.immutable.Vector<com.helio.domain.model.PipelineStep>);
+  public scala.collection.immutable.Set<java.lang.String> descendantStepIds(scala.collection.immutable.Set<java.lang.String>, scala.collection.immutable.Vector<com.helio.domain.model.PipelineStep>);
+}
