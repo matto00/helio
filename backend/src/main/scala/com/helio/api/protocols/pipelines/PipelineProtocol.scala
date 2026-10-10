@@ -20,10 +20,10 @@ import spray.json._
  *  (`PipelineRepository.runTransactionally`, `DbContext.withUserContext`), not a
  *  compensating-delete of the just-created pipeline row. The compensating-delete approach was
  *  an earlier cycle's implementation and was deleted outright once the real transaction
- *  shipped -- see `PipelineService.createTransactional`'s doc. */
+ *  shipped -- see `PipelineCreateTransaction.createTransactional`'s doc. */
 /** `rootClientId` (HEL-913 task 7.3a, R13): names WHICH `roots[]` element (by ITS `clientId`)
  *  this PARENTLESS step attaches to, when the request carries more than one root. Meaningless
- *  (and rejected, see `PipelineService.buildStepsAction`) alongside a non-absent `parentStepId`
+ *  (and rejected, see `PipelineCreateTransaction.buildStepsAction`) alongside a non-absent `parentStepId`
  *  -- a step with a parent inherits its root implicitly. With a single root, both absent still
  *  resolves unambiguously to that one root (unchanged pre-multi-root behavior). With more than
  *  one root, a parentless step naming NEITHER, or naming an unresolvable `rootClientId`, is each

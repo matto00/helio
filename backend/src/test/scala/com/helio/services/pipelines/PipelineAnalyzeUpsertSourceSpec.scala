@@ -25,7 +25,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 /** HEL-1100 skeptic-final-1.md CR1: `GET /pipelines/:id/analyze` and `POST
  *  /pipelines/analyze-proposal` must both succeed (not 500) for a pipeline/proposal containing a
  *  registered `upsertsource` step -- reproduces and closes the real
- *  `PipelineService.toAnalyzeStepResponse` `IllegalStateException` found live against the running
+ *  `PipelineServiceSupport.toAnalyzeStepResponse` `IllegalStateException` found live against the running
  *  app (`codec returned unexpected config type ... for op 'upsertsource'`). */
 class PipelineAnalyzeUpsertSourceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 

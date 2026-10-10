@@ -68,9 +68,7 @@ final class PipelineService(
 
   require(outputRepo != null, "PipelineService requires an OutputRepository")
 
-  private val log = LoggerFactory.getLogger(getClass)
-
-  // HEL-1093 (design.md Decision 2a): shared with `AutoRunTriggerService` -- `analyze` below
+  // HEL-1093 (design.md Decision 2a): shared with `AutoRunTriggerService` -- `PipelineAnalyzeReads.analyze`
   // supplies its own ACL-scoped `resolveRoot` (`findByIdOwned`), unchanged from this file's
   // pre-existing inline behavior; only the gathering plumbing itself moved out.
   private val costInputGathering = new PipelineCostInputGathering(pipelineRepo, dataSourceRepo)
@@ -259,7 +257,7 @@ final class PipelineService(
 }
 
 /** Carries a `ServiceError` out of a composed `DBIO` chain via `DBIO.failed` (HEL-906 task 3.1,
- *  coordinator ruling D3) -- `PipelineService.createTransactional`'s single transaction has no
+ *  coordinator ruling D3) -- `PipelineCreateTransaction.createTransactional`'s single transaction has no
  *  other channel for a mid-chain business-validation failure (a bad step config, an unresolvable
  *  `clientId` reference, an invalid Output kind/`fieldMapping`) to abort the whole transaction
  *  AND report a specific, typed error back to the caller. Thrown inside `buildStepsAction`/
@@ -313,7 +311,7 @@ object PipelineService {
       log.warn(s"Pipeline step graph is invalid: ${invalid.message}")
       ServiceError.UnprocessableEntity(invalid.message)
     // HEL-1102 (backend fix, cycle 2): every DB-level write path that recovers through this
-    // shared classifier -- not just the two call sites (:374/:818) that already caught this
+    // shared classifier -- not just the two call sites (`PipelineCreateTransaction.createTransactional` and `PipelineRootWrites.addRoot`) that already caught this
     // locally -- must map a cycle rejection to a named 400, never fall through to the generic
     // `case other` 500 below. Added here once rather than duplicated at each of the ~9 other
     // `.recover { case ex => Left(classifyDbError(ex)) }` sites so every current AND future

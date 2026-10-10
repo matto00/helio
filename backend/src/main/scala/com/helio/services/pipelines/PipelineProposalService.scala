@@ -237,7 +237,7 @@ final class PipelineProposalService(
    *  must decode for that kind, `clientId` must be non-blank and unique
    *  within the proposal, and `parentStepId` (when present) must resolve to
    *  an EARLIER step's `clientId` in the same proposal (HEL-907 task 1.1 —
-   *  mirrors `PipelineService.buildStepsAction`'s own transactional-create
+   *  mirrors `PipelineCreateTransaction.buildStepsAction`'s own transactional-create
    *  validation, kept in sync deliberately: both reject the same shapes, so
    *  a proposal that validates here is guaranteed to also pass
    *  `pipelineService.create`'s own re-validation at apply time).
@@ -303,7 +303,7 @@ final class PipelineProposalService(
 
   /** Every output's `name` must be non-blank, `kind` must be a recognized
    *  `OutputKind`, and `nodeStepClientId` (when present) must resolve to a
-   *  `clientId` in `steps` — mirrors `PipelineService.buildOutputsAction`'s
+   *  `clientId` in `steps` — mirrors `PipelineCreateTransaction.buildOutputsAction`'s
    *  own transactional-create validation (same "kept in sync deliberately"
    *  rationale as `validateSteps`). */
   private def validateOutputs(

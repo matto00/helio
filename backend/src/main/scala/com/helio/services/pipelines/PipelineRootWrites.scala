@@ -32,7 +32,7 @@ private[pipelines] final class PipelineRootWrites(
    *  names). Mirrors `PipelineProposalService.resolveSource`'s D1-style mutual-exclusivity
    *  check and its per-kind dispatch, but returns just the id (not a `ResolvedSource`) since
    *  the caller tracks the id: `create` deletes the inline sources it made if the rest of the
-   *  request later fails ([[compensatingInlineSources]], HEL-1469); `addRoot` does not. */
+   *  request later fails ([[PipelineCreateWrites.compensatingInlineSources]], HEL-1469); `addRoot` does not. */
   private[pipelines] def resolveOneRootSourceId(req: CreatePipelineRootRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSourceId]] =
     (req.sourceId.map(_.trim), req.`type`) match {
       case (Some(sid), None) if sid.nonEmpty =>

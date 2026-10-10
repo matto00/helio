@@ -23,7 +23,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 /** HEL-1105 task 2.4/4.5 (design.md D6, mirrors `PipelineAnalyzeUpsertSourceSpec`'s own
  *  precedent): `GET /pipelines/:id/analyze` must succeed (not 500) for a persisted pipeline
  *  containing a `convertformat` step -- reproduces the same
- *  `PipelineService.toAnalyzeStepResponse`/`PipelineStepRepository.rowToDomain`
+ *  `PipelineServiceSupport.toAnalyzeStepResponse`/`PipelineStepRepository.rowToDomain`
  *  "codec returned unexpected config type" class of bug `upsertsource`'s own ticket closed. */
 class PipelineAnalyzeConvertFormatSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 

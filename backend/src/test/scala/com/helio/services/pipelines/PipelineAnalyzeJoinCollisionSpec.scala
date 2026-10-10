@@ -23,14 +23,14 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 /** HEL-1236: the persisted `analyze` route, the un-applied `analyzeProposal` route and the
  *  node-capabilities path must project a `source`-kind join's colliding right column as
  *  `right_<name>` (the secondary source's inferred schema is pre-resolved by
- *  `PipelineService.resolveSecondarySourceSchemas`). Unreachable-source behaviour is the
+ *  `PipelineServiceSupport.resolveSecondarySourceSchemas`). Unreachable-source behaviour is the
  *  documented left-schema passthrough, and an un-applied proposal can never read another
  *  tenant's source schema.
  *
  *  (Template: HEL-1100 skeptic-final-1.md CR1: `GET /pipelines/:id/analyze` and `POST
  *  /pipelines/analyze-proposal` must both succeed (not 500) for a pipeline/proposal containing a
  *  registered `upsertsource` step -- reproduces and closes the real
- *  `PipelineService.toAnalyzeStepResponse` `IllegalStateException` found live against the running
+ *  `PipelineServiceSupport.toAnalyzeStepResponse` `IllegalStateException` found live against the running
  *  app (`codec returned unexpected config type ... for op 'upsertsource'`).) */
 class PipelineAnalyzeJoinCollisionSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 

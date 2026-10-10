@@ -434,7 +434,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // HEL-913 task 7.3a: names WHICH root a PARENTLESS insert attaches to. Required (no default):
       // `None` auto-resolves the pipeline's lowest-positioned root via `firstRootIdAction`
       // (exactly the pre-multi-root single-root-compatible behavior); the single-call
-      // transactional create path (`PipelineService.buildStepsAction`)
+      // transactional create path (`PipelineCreateTransaction.buildStepsAction`)
       // passes it explicitly once a request names more than one root, never silently defaulting
       // to `roots[0]` under multi-root.
       explicitRootId: Option[PipelineRootId],
@@ -446,7 +446,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // -- safe because `cycleCheckForUpsertAction` short-circuits on `kind != "upsertsource"`
       // BEFORE ever touching `actingUserId` (every one of this method's ~80 existing test call
       // sites inserts an ordinary registered kind, never `upsertsource`), exactly mirroring
-      // `updateInternal`'s existing default. `PipelineService.buildStepsAction`'s own call site
+      // `updateInternal`'s existing default. `PipelineCreateTransaction.buildStepsAction`'s own call site
       // always passes the real `user.id.value`.
       actingUserId: String = ""
   ): DBIO[PipelineStep] = {
@@ -662,7 +662,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // HEL-913 task 7.3b: names WHICH root a PARENTLESS splice-insert attaches to. Defaulted
       // to `None` (auto-resolve the pipeline's lowest-positioned root via `firstRootIdAction`,
       // the pre-multi-root single-root-compatible behavior) so every pre-existing call site is
-      // unaffected; `PipelineService.persistNewStep` passes it explicitly once a caller names a
+      // unaffected; `PipelineStepCreate.persistNewStep` passes it explicitly once a caller names a
       // root, never silently defaulting to `roots[0]` under multi-root (task 7.3d/7.3e: this
       // default is scheduled for removal once every caller states a root explicitly).
       explicitRootId: Option[PipelineRootId],
@@ -1089,7 +1089,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * scalar, single-anchor caller should use -- and every one of its callers needs a
     * scalar, not a set:
     *
-    *   - `PipelineRunSucceededWrites.scala` (the binary-refs write key) and `PipelineService.scala`
+    *   - `PipelineRunSucceededWrites.scala` (the binary-refs write key) and `PipelineStepCreate.scala`
     *     (the default-append anchor, AND the lane-cycle-check ancestor-chain root) all need
     *     ONE deterministic anchor step, not a set of candidates to choose among themselves.
     *   - `InProcessPipelineEngine.executeTree`'s `rows` (CR1, restored above) is defined in

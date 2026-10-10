@@ -175,7 +175,8 @@ private[services] object PatchSetApplyResolvers {
   /** pipelineStep update: when the decoded config patch is a
    *  `JoinConfig`/`UnionConfig`/`LookupConfig`, the SAME "Pre-flight ACL"
    *  owner-only check `PipelineService.updateStep`/`addStep` already run,
-   *  mirrored (`PipelineService.scala:568-597`). */
+   *  mirrored (the config branch of `PipelineStepWrites.updateStep` and
+   *  `PipelineStepCreate.addStepReporting`). */
   private def validateEmbeddedStepReferences(
       existing: PipelineStep,
       request: UpdatePipelineStepRequest,

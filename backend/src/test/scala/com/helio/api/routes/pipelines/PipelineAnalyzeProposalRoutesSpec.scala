@@ -362,6 +362,22 @@ noInlineSource.copy(
       }
     }
 
+    // HEL-1480 (coverage gap found by HEL-1463's mutation run): an inline `static` source with no
+    // `config` object decodes to `staticConfig = None` and must be refused with the curated 400.
+    "reject an inline static source that carries no config with 400 and the curated message (HEL-1480)" in {
+      cleanAll()
+      val proposal = PipelineProposal(
+        pipelineName = "Static without config",
+        roots        = Vector(noInlineSource.copy(`type` = Some("static"), name = Some("No Config"))),
+        steps        = Vector.empty
+      )
+
+      Post("/pipelines/analyze-proposal", proposal) ~> routes ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message shouldBe "inline 'static' source requires a 'config' object"
+      }
+    }
+
     "surface a per-step validationError (not a 500) for a step with an invalid config (3.7)" in {
       cleanAll()
       val proposal = PipelineProposal(

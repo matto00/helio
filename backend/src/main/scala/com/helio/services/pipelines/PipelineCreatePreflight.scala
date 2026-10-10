@@ -11,7 +11,7 @@ import scala.annotation.tailrec
 import scala.util.{Failure, Success}
 
 /** HEL-1469: every check of a single-call `POST /api/pipelines` request that needs nothing but the request
- *  itself, so it can run BEFORE any inline root source is created. `PipelineService.buildStepsAction`/
+ *  itself, so it can run BEFORE any inline root source is created. `PipelineCreateTransaction.buildStepsAction`/
  *  `buildOutputsAction` call the SAME per-step/per-Output helpers inside the write transaction as defense in
  *  depth, so the two entry points cannot drift in message or status. Schema-dependent checks (an Output
  *  `fieldMapping` naming a column) and ownership lookups are not request-only and stay in `PipelineService`. */

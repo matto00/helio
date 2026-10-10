@@ -31,7 +31,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  chain via `PipelineRepository.runTransactionally`, not the compensating-delete rollback an
  *  earlier cycle used before the ruling required deleting that pattern outright). The two
  *  rollback tests below were verified failable by mutation during cycle-5 development: splitting
- *  `PipelineService.createTransactional`'s single composed `DBIO` into two separate
+ *  `PipelineCreateTransaction.createTransactional`'s single composed `DBIO` into two separate
  *  `runTransactionally` calls (so the pipeline row insert commits in its OWN transaction before
  *  the step/Output build runs in a second one) makes "roll back the whole call... when a step has
  *  an invalid type" fail with the pipeline row still present -- confirming these tests actually
@@ -91,8 +91,8 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
     await(dataSourceRepo.insert(source, owner)).id
   }
 
-  // HEL-907 evaluator-final-2 non-blocking note 2: `validateStepCrossOwnerRefs`
-  // (PipelineService.scala) is create_pipeline's own version of the sibling addStep
+  // HEL-907 evaluator-final-2 non-blocking note 2: `PipelineCreateTransaction.validateStepCrossOwnerRefs`
+  // is create_pipeline's own version of the sibling addStep
   // path's cross-owner join/union/lookup ACL check (PipelineStepRoutesSpec.scala's six
   // POST/PATCH tests) -- until now it had ZERO direct test coverage of its own, despite
   // being the exact same security-relevant class of check (an unauthorized secondary
@@ -166,8 +166,8 @@ class PipelineCreateTransactionalSpec extends AnyWordSpec with Matchers with Bef
     }
 
     // HEL-1104 task 2.3: V107 widens the DB's pipeline_steps_op_check to accept these four
-    // write-back op strings, but PipelineStepKind.All (the allow-list validateStepKinds/addStep
-    // actually checks, at services/pipelines/PipelineService.scala:521) has no entry for any of
+    // write-back op strings, but PipelineStepKind.All (the allow-list the create path checks in
+    // `PipelineCreatePreflight.checkStep` and `addStep` checks in `PipelineStepCreate.addStepReporting`) has no entry for any of
     // them yet -- each op's own ticket (HEL-1099/1105/1106/1107) adds it deliberately. This test
     // is at the service boundary that produces the route's real 400, not PipelineAnalyzeService's
     // "Unknown op" (which only fires inside an already-200 analyze response and would pass

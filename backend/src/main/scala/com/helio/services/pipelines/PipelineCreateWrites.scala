@@ -115,7 +115,7 @@ private[pipelines] final class PipelineCreateWrites(
       }
     }
 
-  /** The request-only shape errors [[resolveOneRootSourceId]] would raise, with the same messages and statuses,
+  /** The request-only shape errors [[PipelineRootWrites.resolveOneRootSourceId]] would raise, with the same messages and statuses,
    *  so they surface before any sibling root's inline source is created. The null-service check stays at
    *  creation time. */
   private def rootShapeProblem(req: CreatePipelineRootRequest): Option[ServiceError] =
@@ -174,7 +174,7 @@ private[pipelines] final class PipelineCreateWrites(
     }
   }
 
-  /** Root pass (b): resolves each root in request order via [[resolveOneRootSourceId]], recording the id of
+  /** Root pass (b): resolves each root in request order via [[PipelineRootWrites.resolveOneRootSourceId]], recording the id of
    *  every inline source it creates in `created` (sequential, so no synchronization is needed). */
   private def createRootSources(
       roots: Vector[CreatePipelineRootRequest],

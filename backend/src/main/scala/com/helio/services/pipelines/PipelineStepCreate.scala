@@ -24,9 +24,9 @@ private[pipelines] final class PipelineStepCreate(
 
   import support.{audit, stepResponseWithRoot, upsertOwnershipCheckF}
 
-  /** HEL-1069: [[addStep]] plus the ids of existing steps the insert re-parented (empty for a tail
+  /** HEL-1069: [[PipelineService.addStep]] plus the ids of existing steps the insert re-parented (empty for a tail
     * attach or a childless anchor). Only the create route consumes the ids; every other caller
-    * (patch-set apply/rollback) goes through [[addStep]], which discards them. */
+    * (patch-set apply/rollback) goes through [[PipelineService.addStep]], which discards them. */
   def addStepReporting(pipelineId: PipelineId, req: CreatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, (PipelineStepResponse, Seq[String])]] = {
     // HEL-860: strict write-path check runs before the tolerant decode below,
     // so a mistyped `cast`/`rename` config is rejected instead of silently

@@ -340,7 +340,7 @@ object PipelineStepKind {
    *  further sites, e.g.:
    *   - protocol / codec: `PipelineStepConfigCodec.encodeConfig`,
    *     `PipelineStepProtocol`, `PipelineAnalyzeProtocol`, and
-   *     `PipelineService.toAnalyzeStepResponse`;
+   *     `PipelineServiceSupport.toAnalyzeStepResponse`;
    *   - engine (apply/infer parity: a kind's `evaluate` in its step file and
    *     its schema inference must read the same config shape):
    *     `StepSchemaInference` and the `*SchemaInference` objects it dispatches

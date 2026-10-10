@@ -13,7 +13,7 @@ private[pipelines] final class OutputRootResolution(pipelineRootRepo: PipelineRo
 
   /** HEL-913 (evaluation-1.md cycle 2, Priority 2 Site A): a create naming NEITHER
    *  `nodeStepId` NOR `rootId` is unambiguous only when this pipeline has exactly one root --
-   *  mirrors `PipelineService.persistNewStep`'s `(None, None)` guard exactly, including its
+   *  mirrors `PipelineStepCreate.persistNewStep`'s `(None, None)` guard exactly, including its
    *  message shape. Previously this fell straight through to `resolveExplicitRootId`'s `None`
    *  branch and then `OutputRepository.insertInternal`'s `firstRootIdAction` (the
    *  lowest-positioned root) -- a silent default this change's own `add_root` tool falsifies.

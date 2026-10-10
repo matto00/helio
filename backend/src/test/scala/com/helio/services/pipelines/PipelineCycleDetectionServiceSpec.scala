@@ -199,7 +199,7 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
       val s     = newSource(owner, "cr1-s")
       // `upsertsource` cannot reach `PipelineService.create` via the live `PipelineStepKind.All`
       // allow-list yet (HEL-1100's job) -- this composes the SAME two repository calls
-      // `PipelineService.createTransactional` composes (`createAction` then
+      // `PipelineCreateTransaction.createTransactional` composes (`createAction` then
       // `insertInternalAction`, inside ONE `runTransactionally`), bypassing the Registry gate
       // entirely, exactly as design.md's Testability section prescribes.
       val sDataSource = await(dataSourceRepo.findByIdOwned(s, owner)).getOrElse(fail("expected the just-created data source"))

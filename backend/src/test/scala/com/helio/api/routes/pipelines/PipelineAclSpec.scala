@@ -393,6 +393,18 @@ class PipelineAclSpec
       }
     }
 
+    // HEL-1480 (coverage gap found by HEL-1463's mutation run): no route-layer check rejects a blank
+    // pipeline name; the 400 comes from the service's own `name is required` guard. The roots are
+    // valid, so a different 400 cannot satisfy this.
+    "reject a blank name with 400 and the curated message, creating nothing (HEL-1480)" in {
+      val dsIdOwnedByA = seedOwnedDataSource(userAId)
+      val body = JsObject("name" -> JsString("   "), "roots" -> JsArray(JsObject("sourceId" -> JsString(dsIdOwnedByA))))
+      Post("/pipelines", body) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] should include("name is required")
+      }
+    }
+
     // HEL-913 R8: a blank/whitespace root sourceId is a 400 -- explicitly with NO ownership
     // lookup performed for that root (the HEL-950 empty-seed-id guard does not extend to roots).
     "reject a root with a blank sourceId with 400" in {

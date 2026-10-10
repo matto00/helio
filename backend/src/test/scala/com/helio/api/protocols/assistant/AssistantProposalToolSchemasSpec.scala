@@ -106,7 +106,7 @@ class AssistantProposalToolSchemasSpec
     }
 
     // HEL-822 cycle-2 CR1: the inline rest_api example's config must itself pass
-    // RestApiConfigPayload.toDomain — PipelineService.resolveInlineSourceSchema rejects an
+    // RestApiConfigPayload.toDomain — PipelineProposalAnalyze.resolveInlineSourceSchema rejects an
     // `auth`-carrying or url+connectorId-ambiguous config before it ever reaches a connector.
     "the inline rest_api example's config decodes through RestApiConfigPayload.toDomain" in {
       val decoded = examplesOf("propose_pipeline").head.convertTo[PipelineProposal]

@@ -25,11 +25,11 @@ private[pipelines] final class PipelineProposalAnalyze(
 
   /** Dry-analyze a not-yet-created `PipelineProposal` (HEL-381): resolve/derive the
    *  source schema, fold the proposed steps through the same `PipelineAnalyzeService`
-   *  engine `analyze` above uses, and return the projected schema — no persistence,
+   *  engine `PipelineAnalyzeReads.analyze` uses, and return the projected schema — no persistence,
    *  no run (design.md D1).
    *
    *  Validates every step's `type` against `PipelineStepKind.All` *before* resolving
-   *  the source or building `stepInputs` — mirroring `addStep`'s existing guard above
+   *  the source or building `stepInputs` — mirroring `PipelineStepCreate.addStepReporting`'s existing guard
    *  — and short-circuits with `ServiceError.BadRequest` for an unrecognized kind.
    *  Unlike an in-schema-range "bad config" (surfaced as a per-step `validationError`
    *  in a `200`, see `toAnalyzeStepResponse`'s tolerant decode), an unrecognized `type`
@@ -44,7 +44,7 @@ private[pipelines] final class PipelineProposalAnalyze(
    *  unconstrained (checked at apply time, not by this schema) and no
    *  `ExceptionHandler` is registered anywhere in the backend. */
   /** HEL-914 task 3.6/D4: projects PER NODE across lanes, reusing the same `analyzeNodes`
-   *  multi-root/lane projection the persisted-pipeline `analyze` route uses above — never a
+   *  multi-root/lane projection the persisted-pipeline `PipelineAnalyzeReads.analyze` route uses — never a
    *  second, un-applied-proposal-specific projection. Each proposed root gets a stable key
    *  (its own `clientId` when given, else its request index as a string) so a step's
    *  `rootClientId` (or, for a single-root proposal, the implicit root) resolves against the
