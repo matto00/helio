@@ -11,6 +11,7 @@ import com.helio.services.sources.DataSourceService
 import com.helio.spark.PipelineRunCache
 import com.helio.testsupport.DatasetRowsTestSupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
@@ -53,7 +54,7 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
   private var guardRepo: PipelineRunGuardRepository      = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

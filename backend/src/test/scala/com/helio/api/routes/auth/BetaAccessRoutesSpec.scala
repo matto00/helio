@@ -11,6 +11,7 @@ import com.helio.services.auth.{BetaAccessService, UserTierConfig}
 import com.helio.testkit.HelioRouteTest
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCodes}
@@ -52,7 +53,7 @@ class BetaAccessRoutesSpec
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     val superDs   = embeddedPostgres.getPostgresDatabase
     val superJdbc = embeddedPostgres.getJdbcUrl("postgres", "postgres")

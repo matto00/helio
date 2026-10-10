@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -42,7 +43,7 @@ class PipelineOnlyPanelBindingMigrationSpec extends AnyWordSpec with Matchers wi
   private val unboundTypeId   = UUID.randomUUID().toString
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     val jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
 
     // Stage 1: migrate up to V40 only -- the pre-V41 schema shape.

@@ -12,6 +12,7 @@ import com.helio.services.auth.AiPipelineQuotaGate
 import com.helio.spark.PipelineRunCache
 import com.helio.testsupport.DatasetRowsTestSupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import org.flywaydb.core.Flyway
@@ -50,7 +51,7 @@ class PipelineRunServiceAiStepClientWiringSpec extends AnyWordSpec with Matchers
   private var outputRepo: OutputRepository           = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

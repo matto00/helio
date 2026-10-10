@@ -11,6 +11,7 @@ import com.helio.services.audit.AuditService
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.spark.PipelineRunCache
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.{BeforeAndAfterAll, Suite}
 import slick.jdbc.{JdbcBackend, PostgresProfile}
@@ -77,7 +78,7 @@ trait PipelineSchedulerServiceFixture extends BeforeAndAfterAll { this: Suite =>
   }
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway
       .configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")

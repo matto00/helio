@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.scalatest.BeforeAndAfterEach
@@ -42,7 +43,7 @@ class V98PipelineRootsMigrationSpec extends AnyWordSpec with Matchers with Befor
   private val granteeId = UUID.randomUUID().toString
 
   override def beforeEach(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     val jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
 
     // Migrate to V97 (everything up to, but not including, V98) as superuser, then seed a
@@ -220,7 +221,7 @@ class V98PipelineRootsMigrationSpec extends AnyWordSpec with Matchers with Befor
       // task 3.1/3.2's technique -- that comparison mismatches (1 vs 0), which is precisely why
       // that external spec, not this migration's own in-transaction guard, is the load-bearing
       // gate for a missing bracket on a fail-SILENT table. V98's header is updated accordingly.
-      val ep = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+      val ep = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
       try {
         val superDs = ep.getPostgresDatabase
 
@@ -332,7 +333,7 @@ class V98PipelineRootsMigrationSpec extends AnyWordSpec with Matchers with Befor
       // V98 has already run (e.g. a future `POST /api/pipelines/:id/steps` bug). Proven directly
       // against the guard's exact predicate instead, same technique as the pipelines-without-root
       // case above.
-      val ep = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+      val ep = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
       try {
         val jdbcUrl = ep.getJdbcUrl("postgres", "postgres")
         Flyway.configure().dataSource(jdbcUrl, "postgres", "postgres")
@@ -371,7 +372,7 @@ class V98PipelineRootsMigrationSpec extends AnyWordSpec with Matchers with Befor
 
     Seq("outputs", "node_snapshots", "binary_refs").foreach { table =>
       s"fire when a $table row has both node_step_id and root_id NULL" in {
-        val ep = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+        val ep = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
         try {
           val jdbcUrl = ep.getJdbcUrl("postgres", "postgres")
           Flyway.configure().dataSource(jdbcUrl, "postgres", "postgres")

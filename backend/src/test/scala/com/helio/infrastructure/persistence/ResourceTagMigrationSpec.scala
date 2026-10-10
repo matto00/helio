@@ -5,6 +5,7 @@ import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -56,7 +57,7 @@ class ResourceTagMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
   private val pipelineId    = UUID.randomUUID().toString
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     val jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
 
     // Stage 1: migrate up to V72 only -- the pre-V73 schema shape (no `tag`

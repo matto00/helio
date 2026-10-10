@@ -7,6 +7,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.{InviteCodeRepository, UserRepository}
 import com.helio.infrastructure.crypto.TokenHashing
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -36,7 +37,7 @@ class BetaAccessServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfte
   private var inviteCodeRepo: InviteCodeRepository  = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway
       .configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")

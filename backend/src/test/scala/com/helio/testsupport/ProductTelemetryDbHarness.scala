@@ -5,6 +5,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.telemetry.ProductEventRepository
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite}
 import slick.jdbc.JdbcBackend
@@ -52,7 +53,7 @@ trait ProductTelemetryDbHarness extends BeforeAndAfterAll with BeforeAndAfterEac
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     val superConn = embeddedPostgres.getPostgresDatabase.getConnection
     try {
       val st = superConn.createStatement()

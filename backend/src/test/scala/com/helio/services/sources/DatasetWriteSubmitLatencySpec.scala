@@ -11,6 +11,7 @@ import com.helio.services.pipelines.{AutoRunTriggerService, EvaluatedPipeline}
 import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
@@ -76,7 +77,7 @@ class DatasetWriteSubmitLatencySpec
   private val Measure           = sys.env.get("HELIO_MEASURE").contains("1")
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

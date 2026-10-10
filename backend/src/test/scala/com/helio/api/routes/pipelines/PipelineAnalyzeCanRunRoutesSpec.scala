@@ -11,6 +11,7 @@ import com.helio.services.pipelines.PipelineService
 import com.helio.testkit.HelioRouteTest
 import com.helio.testsupport.JsonSchemaValidation
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -50,7 +51,7 @@ class PipelineAnalyzeCanRunRoutesSpec
   private val owner = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

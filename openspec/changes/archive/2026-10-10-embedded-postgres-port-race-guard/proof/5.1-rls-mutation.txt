@@ -1,0 +1,18 @@
+# 5.1 RLS mutation (BYPASSRLS added temporarily to OutputHistoryApiHarness role; reverted)
+## mutated:
+214:[info] - should return 200 for a grantee of the pipeline, under a non-BYPASSRLS app pool *** FAILED ***
+216:[info]   at com.helio.testsupport.OutputHistoryApiHarness.assertAppPoolEnforcesRls(OutputHistoryApiHarness.scala:122)
+217:[info]   at com.helio.testsupport.OutputHistoryApiHarness.assertAppPoolEnforcesRls$(OutputHistoryApiHarness.scala:121)
+218:[info]   at com.helio.api.routes.pipelines.OutputHistoryPayloadRoutesSpec.assertAppPoolEnforcesRls(OutputHistoryPayloadRoutesSpec.scala:24)
+228:[info] - should 404 a stranger with a body identical to an unknown Output *** FAILED ***
+443:[info] - should not bypass row-level security (asserted before any 200/404 below) *** FAILED ***
+470:[info] - should serve the owner and a viewer grantee, and 404 a non-grantee byte-identically to an unknown id *** FAILED ***
+472:[info]   at com.helio.testsupport.OutputHistoryApiHarness.assertAppPoolEnforcesRls(OutputHistoryApiHarness.scala:122)
+473:[info]   at com.helio.testsupport.OutputHistoryApiHarness.assertAppPoolEnforcesRls$(OutputHistoryApiHarness.scala:121)
+474:[info]   at com.helio.api.routes.pipelines.OutputHistoryRoutesSpec.assertAppPoolEnforcesRls(OutputHistoryRoutesSpec.scala:28)
+501:[info] Suites: completed 2, aborted 0
+502:[info] Tests: succeeded 27, failed 4, canceled 0, ignored 0, pending 0
+503:[info] *** 4 TESTS FAILED ***
+## reverted:
+475:[info] Suites: completed 2, aborted 0
+476:[info] Tests: succeeded 31, failed 0, canceled 0, ignored 0, pending 0

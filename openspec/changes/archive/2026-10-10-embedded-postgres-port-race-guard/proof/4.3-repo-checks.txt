@@ -1,0 +1,30 @@
+== check:scala-quality
+> node scripts/check-scala-quality.selftest.mjs && node scripts/check-scala-quality.mjs
+
+check-scala-quality selftest: 26 passed
+Scala file-size warnings:
+
+Scala code-quality check: clean (224 soft warning(s))
+exit=0
+== check:test-temp-dir-hygiene
+
+> helio@0.7.4 check:test-temp-dir-hygiene
+> node scripts/check-test-temp-dir-hygiene.mjs
+
+Test temp-dir hygiene check: clean
+exit=0
+== check:test-temp-dir-hygiene:selftest
+
+> helio@0.7.4 check:test-temp-dir-hygiene:selftest
+> node scripts/check-test-temp-dir-hygiene.selftest.mjs
+
+
+9 passed, 0 failed
+exit=0
+== check:scala-quality:selftest
+
+> helio@0.7.4 check:scala-quality:selftest
+> node scripts/check-scala-quality.selftest.mjs
+
+check-scala-quality selftest: 26 passed
+exit=0

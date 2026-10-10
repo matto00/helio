@@ -4,6 +4,7 @@ import com.helio.domain.model.SqlSourceConfig
 import com.helio.testsupport.AcceptRecordingListener
 import com.helio.services.sources.ContentSourceSupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -21,7 +22,7 @@ class SqlConnectorRebindingSpec extends AnyWordSpec with Matchers with BeforeAnd
   private var embeddedPostgres: EmbeddedPostgres = _
 
   override def beforeAll(): Unit =
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
   override def afterAll(): Unit =
     if (embeddedPostgres != null) embeddedPostgres.close()

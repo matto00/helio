@@ -5,6 +5,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.{ConnectorCredentialEncryptionFailed, ConnectorCredentialRepository}
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.http.scaladsl.Http
@@ -59,7 +60,7 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     Map("CONNECTOR_MASTER_KEY" -> currentKeyB64, "CONNECTOR_MASTER_KEY_ID" -> currentKeyId)
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     val superDs   = embeddedPostgres.getPostgresDatabase
     val superJdbc = embeddedPostgres.getJdbcUrl("postgres", "postgres")

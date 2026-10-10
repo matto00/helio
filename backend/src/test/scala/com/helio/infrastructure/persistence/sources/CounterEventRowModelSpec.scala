@@ -5,6 +5,7 @@ import com.helio.domain.model.{AuditSource, AuthenticatedUser, DataFieldType, Da
 import com.helio.domain.panels.{FormFieldSpec, FormPanelConfig, FormSubmission, FormSubmitSpec}
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.ActorSystem
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -42,7 +43,7 @@ class CounterEventRowModelSpec extends AnyWordSpec with Matchers with BeforeAndA
   private val owner   = AuthenticatedUser(UserId(ownerId), AuditSource.Ui, None)
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration").load().migrate()

@@ -2,6 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.domain.model.OutputKind
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -22,7 +23,7 @@ import scala.util.Random
 class LegacyOutputConfigKeysParitySpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
   private var pg: EmbeddedPostgres = _
-  override def beforeAll(): Unit = pg = EmbeddedPostgres.builder().start()
+  override def beforeAll(): Unit = pg = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder())
   override def afterAll(): Unit  = pg.close()
 
   private val Kinds = Vector(OutputKind.Table, OutputKind.Metric, OutputKind.Chart, OutputKind.Collection, OutputKind.Timeline, OutputKind.Markdown)

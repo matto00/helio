@@ -9,6 +9,7 @@ import com.helio.infrastructure.persistence.auth.{OAuthStateRepository, UserRepo
 import com.helio.infrastructure.persistence.telemetry.ProductEventRepository
 import com.helio.services.telemetry.{ProductEventService, ValidatedProductEvent}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -34,7 +35,7 @@ class AuthServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
   private var oauthStateStore: OAuthStateRepository = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     Flyway
       .configure()

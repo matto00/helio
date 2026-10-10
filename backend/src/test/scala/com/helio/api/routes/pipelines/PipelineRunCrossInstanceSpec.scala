@@ -6,6 +6,7 @@ import com.helio.testkit.HelioRouteTest
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -41,7 +42,7 @@ class PipelineRunCrossInstanceSpec
   private var jdbcUrl: String                    = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder())
     db      = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
   }

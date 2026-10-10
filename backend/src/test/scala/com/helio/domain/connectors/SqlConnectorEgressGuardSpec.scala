@@ -3,6 +3,7 @@ package com.helio.domain.connectors
 import com.helio.domain.model.SqlSourceConfig
 import com.helio.services.sources.{ContentSourceSupport, EgressCheck}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -40,7 +41,7 @@ class SqlConnectorEgressGuardSpec extends AnyWordSpec with Matchers with BeforeA
   private var embeddedPostgres: EmbeddedPostgres = _
 
   override def beforeAll(): Unit =
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
   override def afterAll(): Unit =
     if (embeddedPostgres != null) embeddedPostgres.close()

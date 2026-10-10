@@ -3,6 +3,7 @@ package com.helio.infrastructure.persistence
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -51,7 +52,7 @@ class RlsPrivilegedDmlSpec extends AnyWordSpec with Matchers with BeforeAndAfter
   private val ownerB = UserId(UUID.randomUUID().toString)
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     // Run Flyway as postgres superuser — creates helio_privileged (V34),
     // RLS policies (V35/V36), indexes (V37), and table-level GRANTs (V38).

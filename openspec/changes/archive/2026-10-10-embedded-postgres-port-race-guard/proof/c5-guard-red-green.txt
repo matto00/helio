@@ -1,0 +1,16 @@
+# cycle 5: splice-aware stripper
+## RED: new reject cases against committed e4ed945e8 (guard unchanged):
+16:[info] - should reject direct starts hidden behind string literals inside interpolation splices *** FAILED ***
+17:[info]   not flagged: slash-star-slash, glob, double slash, paren-less start
+24:[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+28:[info] Tests: succeeded 10, failed 1, canceled 0, ignored 0, pending 0
+29:[info] *** 1 TEST FAILED ***
+## GREEN (guard + helper + OutputHistoryRoutesSpec, fresh sbt JVM):
+2:[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/embedded-postgres-port-race/HEL-1445/backend/project
+22:[info]   + STATS files-scanned=500 files-with-splice-literals=173 raw-fallback-files=0 offenders=0 
+812:[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+815:[info] Suites: completed 3, aborted 0
+816:[info] Tests: succeeded 41, failed 0, canceled 0, ignored 0, pending 0
+failure strings: 0
+## whole tree (c5-whole-tree-dump.txt): files=501 splice-literal-files=174 (includes the guard spec) raw-fallback=0 length-not-preserved=0 files-with-offenders=0
+the 8 named files + PublicDashboardRoutesSpec are scanned (splice=true raw=false) with offenders=0: see dump lines
