@@ -1,9 +1,4 @@
-# pipeline-create-api Specification
-
-## Purpose
-TBD - created by archiving change create-pipeline-flow. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: POST /api/pipelines creates a new pipeline with one or more roots
 `POST /api/pipelines` SHALL accept `name` and `roots` (a non-empty array; each element names an existing caller-owned DataSource by `sourceId` or supplies an inline source spec), plus optional `tag`, `steps`, and `outputs`. There SHALL be no scalar `sourceDataSourceId` field: the single-source request shape is removed outright, not accepted as an alias or a legacy form.

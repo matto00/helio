@@ -28,6 +28,7 @@ import slick.jdbc.PostgresProfile.api._
 
 import java.net.InetAddress
 import scala.annotation.tailrec
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -136,9 +137,13 @@ final class PipelineService(
    *  correctly under the RLS-enforced app pool, not just the privileged pool cycle 5-6 used) --
    *  a genuine `.transactionally` spanning `PipelineRepository.createAction`/
    *  `PipelineStepRepository.insertInternalAction`/`OutputRepository.insertInternalAction`, not a
-   *  create-then-compensate delete (that was cycle 4's implementation; the coordinator ruled it
-   *  out explicitly once the composed `DBIO` action was confirmed to run correctly as one
-   *  transaction, and it has been deleted, not patched). A validation failure partway
+   *  create-then-compensate delete for those rows (that was cycle 4's implementation; the coordinator
+   *  ruled it out explicitly once the composed `DBIO` action was confirmed to run correctly as one
+   *  transaction, and it has been deleted, not patched). HEL-1469's one exception: INLINE ROOT SOURCES
+   *  are created by `SourceService`/`DataSourceService` as their own committed writes (with network
+   *  I/O after the insert), so they cannot join that transaction; they are created only after every
+   *  request-only check has passed and are deleted by [[compensatingInlineSources]] if a later
+   *  step fails. A validation failure partway
    *  through is signalled by throwing `PipelineCreateValidationFailure` from inside the composed
    *  `DBIO` chain (`DBIO.failed`) -- Slick's `.transactionally` rolls back the ENTIRE transaction
    *  on any failed action in the chain, so a bad step 3 of 5 genuinely leaves zero rows behind,
@@ -155,147 +160,174 @@ final class PipelineService(
     else RequestValidation.validateTag(req.tag) match {
       case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
       case Right(tag) =>
-        if (req.steps.isEmpty && req.outputs.isEmpty)
-          // Simple-create path: every root's `sourceId`/inline spec is resolved to a
-          // caller-owned DataSourceId FIRST (task 7.1a -- an inline root has no id yet for
-          // `pipelineRepo.create` to validate), THEN `pipelineRepo.create` does its OWN
-          // per-id R8 ownership re-check (unresolvable id -> 404-shaped Left) -- a redundant
-          // but harmless second lookup for an id this same call just created, and the ONLY
-          // check at all for a pre-existing `sourceId` (blank id -> 400-shaped Left, sequential,
-          // refusing on the first bad entry).
-          resolveRootSourceIds(req.roots, user).flatMap {
-            case Left(err) => Future.successful(Left(err))
-            case Right(dsIds) =>
+        checkedCreate(req, tag, user)
+    }
+  }
+
+  /** The write ordering of single-call create (HEL-1469). Nothing is written until every check that needs
+   *  only the request (plus read-only ownership lookups) has passed: (1) root pass (a) -- root shape and
+   *  existing-`sourceId` ownership; (2) transactional path only -- [[PipelineCreatePreflight.run]] and the
+   *  ownership half of `validateStepCrossOwnerRefs`; (3) only then are inline root sources created, and from
+   *  there every `Left` or failed Future deletes the inline sources this call created
+   *  ([[compensatingInlineSources]]). */
+  private def checkedCreate(req: CreatePipelineRequest, tag: Option[String], user: AuthenticatedUser): Future[Either[ServiceError, PipelineSummaryResponse]] = {
+    val transactional = req.steps.nonEmpty || req.outputs.nonEmpty
+    checkRootsReadOnly(req.roots, user).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(()) =>
+        val preflight: Either[ServiceError, Option[PipelineCreatePreflight.RootIndices]] =
+          if (transactional) PipelineCreatePreflight.run(req).map(Some(_)) else Right(None)
+        preflight match {
+          case Left(err) => Future.successful(Left(err))
+          case Right(indices) =>
+            val ownership = if (transactional) validateStepCrossOwnerRefs(req.steps, user) else Future.successful(Right(()))
+            ownership.flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(()) => createWithInlineRoots(req, indices, tag, user)
+            }
+        }
+    }
+  }
+
+  /** Root pass (a), read-only and in request order: each root's shape (`sourceId` xor inline `type`, blank id,
+   *  inline `name`/config/kind) and, for an existing `sourceId`, caller ownership (404). Writes nothing. */
+  private def checkRootsReadOnly(roots: Vector[CreatePipelineRootRequest], user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    roots.foldLeft(Future.successful[Either[ServiceError, Unit]](Right(()))) { (accF, root) =>
+      accF.flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(()) =>
+          rootShapeProblem(root) match {
+            case Some(err) => Future.successful(Left(err))
+            case None =>
+              root.sourceId.map(_.trim) match {
+                case Some(sid) =>
+                  dataSourceRepo.findByIdOwned(DataSourceId(sid), user).map {
+                    case None    => Left(ServiceError.NotFound(s"Data source not found: $sid"))
+                    case Some(_) => Right(())
+                  }
+                case None => Future.successful(Right(()))
+              }
+          }
+      }
+    }
+
+  /** The request-only shape errors [[resolveOneRootSourceId]] would raise, with the same messages and statuses,
+   *  so they surface before any sibling root's inline source is created. The null-service check stays at
+   *  creation time. */
+  private def rootShapeProblem(req: CreatePipelineRootRequest): Option[ServiceError] =
+    (req.sourceId.map(_.trim), req.`type`) match {
+      case (Some(sid), None) if sid.nonEmpty => None
+      case (Some(_), None)  => Some(ServiceError.BadRequest("roots: sourceId is required and must not be blank"))
+      case (Some(_), Some(_)) => Some(ServiceError.BadRequest("roots: specify either sourceId or an inline type, not both"))
+      case (None, None)     => Some(ServiceError.BadRequest("roots: sourceId or inline type is required"))
+      case (None, Some(kind)) =>
+        if (req.name.map(_.trim).forall(_.isEmpty)) Some(ServiceError.BadRequest("roots: name is required for an inline source"))
+        else {
+          val missingConfig = Some(ServiceError.BadRequest("roots: config is required for an inline source"))
+          DataSourceKind.canonicalize(kind) match {
+            case DataSourceKind.Csv =>
+              Some(ServiceError.UnprocessableEntity(
+                "inline csv sources are not supported for pipeline roots; create the CSV source separately and reference it via sourceId"
+              ))
+            case DataSourceKind.Sql     => if (req.sqlConfig.isEmpty) missingConfig else None
+            case DataSourceKind.RestApi => if (req.restConfig.isEmpty) missingConfig else None
+            case DataSourceKind.Dataset => if (req.staticConfig.isEmpty) missingConfig else None
+            case other                  => Some(ServiceError.BadRequest(s"roots: unrecognized inline type '$other'"))
+          }
+        }
+    }
+
+  /** Root pass (b) and everything after it, under [[compensatingInlineSources]]. */
+  private def createWithInlineRoots(
+      req: CreatePipelineRequest,
+      indices: Option[PipelineCreatePreflight.RootIndices],
+      tag: Option[String],
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, PipelineSummaryResponse]] = {
+    val created = ArrayBuffer.empty[DataSourceId]
+    compensatingInlineSources(created, user) {
+      createRootSources(req.roots, user, created).flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(dsIds) =>
+          indices match {
+            case None =>
+              // Simple-create path: `pipelineRepo.create` re-checks each id's ownership itself.
               pipelineRepo.create(req.name.trim, dsIds, user, tag).map {
-                case Right(summary)                          =>
+                case Right(summary)                         =>
                   audit("pipeline.create", "pipeline", Some(summary.id), user)
                   Right(toSummaryResponse(summary))
                 case Left(msg) if msg.contains("not found") => Left(ServiceError.NotFound(msg))
                 case Left(msg)                               => Left(ServiceError.BadRequest(msg))
               }
-          }
-        else
-          // Transactional path needs the resolved DataSource OBJECT (name/inferredSchema) for
-          // EVERY root before building the composed DBIO action -- unlike the simple path, this
-          // pre-validation can't be pushed down into the repo (existing architecture, unrelated
-          // to this change).
-          resolveRootDataSources(req.roots, user).flatMap {
-            case Left(err)          => Future.successful(Left(err))
-            case Right(dataSources) => createTransactional(req, dataSources, user, tag)
-          }
-    }
-  }
-
-  /** HEL-913 task 7.1a: simple-create-path counterpart to `resolveRootDataSources` below --
-   *  resolves every root's `sourceId`/inline spec via the shared `resolveOneRootSourceId`, in
-   *  request order, refusing on the FIRST invalid entry, and returns just the ids (this path
-   *  never needs the DataSource object itself -- `pipelineRepo.create` re-resolves it). */
-  private def resolveRootSourceIds(
-      roots: Vector[CreatePipelineRootRequest],
-      user: AuthenticatedUser
-  ): Future[Either[ServiceError, Vector[DataSourceId]]] = {
-    def loop(remaining: List[CreatePipelineRootRequest], acc: Vector[DataSourceId]): Future[Either[ServiceError, Vector[DataSourceId]]] =
-      remaining match {
-        case Nil => Future.successful(Right(acc))
-        case root :: rest =>
-          resolveOneRootSourceId(root, user).flatMap {
-            case Left(err)   => Future.successful(Left(err))
-            case Right(dsId) => loop(rest, acc :+ dsId)
-          }
-      }
-    loop(roots.toList, Vector.empty)
-  }
-
-  /** HEL-913 task 7.3 (R8), transactional-path-only: resolves EVERY root's DataSource object
-   *  (needed for `dataSource.name`/`.inferredSchema` before the composed transaction is built --
-   *  see `createTransactional`'s doc), in request order, refusing on the FIRST invalid entry, via
-   *  the shared `resolveOneRootSourceId` (task 7.1a: existing `sourceId` OR an inline source
-   *  spec) followed by an ownership re-lookup to get the full `DataSource` object. */
-  private def resolveRootDataSources(
-      roots: Vector[CreatePipelineRootRequest],
-      user: AuthenticatedUser
-  ): Future[Either[ServiceError, Vector[(DataSourceId, DataSource)]]] = {
-    def loop(remaining: List[CreatePipelineRootRequest], acc: Vector[(DataSourceId, DataSource)]): Future[Either[ServiceError, Vector[(DataSourceId, DataSource)]]] =
-      remaining match {
-        case Nil => Future.successful(Right(acc))
-        case root :: rest =>
-          resolveOneRootSourceId(root, user).flatMap {
-            case Left(err) => Future.successful(Left(err))
-            case Right(dsId) =>
-              dataSourceRepo.findByIdOwned(dsId, user).flatMap {
-                case None     => Future.successful(Left(ServiceError.NotFound(s"Data source not found: ${dsId.value}")))
-                case Some(ds) => loop(rest, acc :+ ((dsId, ds)))
+            case Some(rootIndices) =>
+              // The transactional path needs every root's DataSource OBJECT (name/inferredSchema).
+              lookupOwnedRoots(dsIds, user).flatMap {
+                case Left(err)          => Future.successful(Left(err))
+                case Right(dataSources) => createTransactional(req, dataSources, rootIndices, user, tag)
               }
           }
       }
-    loop(roots.toList, Vector.empty)
+    }
   }
 
-  /** HEL-913 task 7.3a (R13): resolves a PARENTLESS step's owning root to an INDEX into
-   *  `roots` (never a real id -- the transactional path calls this OUTSIDE the DBIO chain,
-   *  before any root is persisted). A step with a `parentStepId` inherits its root implicitly
-   *  and must NOT also name `rootClientId` (a named 400, "both"); a parentless step with neither
-   *  `parentStepId` nor `rootClientId` is fine when there is exactly one root (unambiguous,
-   *  preserves the pre-multi-root single-root behavior byte-for-byte) but a named 400 ("neither")
-   *  once there is more than one; an unresolvable `rootClientId` (matches no `roots[].clientId`)
-   *  is a named 400 ("unresolvable"). Returns `Right(None)` for a non-parentless step (root
-   *  resolution is irrelevant -- its parent supplies it). */
+  /** Root pass (b): resolves each root in request order via [[resolveOneRootSourceId]], recording the id of
+   *  every inline source it creates in `created` (sequential, so no synchronization is needed). */
+  private def createRootSources(
+      roots: Vector[CreatePipelineRootRequest],
+      user: AuthenticatedUser,
+      created: ArrayBuffer[DataSourceId]
+  ): Future[Either[ServiceError, Vector[DataSourceId]]] =
+    roots.foldLeft(Future.successful[Either[ServiceError, Vector[DataSourceId]]](Right(Vector.empty))) { (accF, root) =>
+      accF.flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(acc) =>
+          resolveOneRootSourceId(root, user).map(_.map { dsId =>
+            if (root.`type`.isDefined) created += dsId
+            acc :+ dsId
+          })
+      }
+    }
+
+  private def lookupOwnedRoots(dsIds: Vector[DataSourceId], user: AuthenticatedUser): Future[Either[ServiceError, Vector[(DataSourceId, DataSource)]]] =
+    dsIds.foldLeft(Future.successful[Either[ServiceError, Vector[(DataSourceId, DataSource)]]](Right(Vector.empty))) { (accF, dsId) =>
+      accF.flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(acc) =>
+          dataSourceRepo.findByIdOwned(dsId, user).map {
+            case None     => Left(ServiceError.NotFound(s"Data source not found: ${dsId.value}"))
+            case Some(ds) => Right(acc :+ ((dsId, ds)))
+          }
+      }
+    }
+
+  /** HEL-1469: inline root sources are created by `SourceService`/`DataSourceService` as their own committed
+   *  writes, outside the pipeline's Slick transaction, so a failure after creation cannot roll them back. On a
+   *  `Left` or a failed Future from `body`, delete every id in `created` (through `DataSourceService.delete`,
+   *  as the user -- C3) BEFORE returning the ORIGINAL `Left` or re-raising the ORIGINAL exception. A cleanup
+   *  failure is logged and never replaces the original error. Not crash-atomic: a process death between
+   *  creation and the delete leaves the source behind (see design.md Risks). */
+  private def compensatingInlineSources[T](
+      created: ArrayBuffer[DataSourceId],
+      user: AuthenticatedUser
+  )(body: => Future[Either[ServiceError, T]]): Future[Either[ServiceError, T]] =
+    Future.unit.flatMap(_ => body).transformWith {
+      case Success(right @ Right(_)) => Future.successful(right)
+      case Success(left)             => deleteInlineSources(created.toVector, user).map(_ => left)
+      case Failure(ex)               => deleteInlineSources(created.toVector, user).flatMap(_ => Future.failed(ex))
+    }
+
+  private def deleteInlineSources(ids: Vector[DataSourceId], user: AuthenticatedUser): Future[Unit] =
+    ids.foldLeft(Future.unit) { (accF, id) =>
+      accF.flatMap { _ =>
+        Future.unit.flatMap(_ => dataSourceService.delete(id, user)).map {
+          case Left(e)  => log.warn(s"create cleanup could not delete inline source ${id.value}: ${e.err.message}")
+          case Right(_) => ()
+        }.recover { case ex => log.warn(s"create cleanup failed to delete inline source ${id.value}: ${ex.getMessage}") }
+      }
+    }
+
   private def stepAddress(idx: Int): String   = PipelineService.stepAddress(idx)
   private def outputAddress(idx: Int): String = PipelineService.outputAddress(idx)
-
-  private def resolveStepRootIndex(
-      step: CreatePipelineTransactionalStepRequest,
-      stepIdx: Int,
-      roots: Vector[CreatePipelineRootRequest]
-  ): Either[ServiceError, Option[Int]] =
-    if (step.parentStepId.isDefined) {
-      if (step.rootClientId.isDefined)
-        Left(ServiceError.BadRequest(
-          s"${stepAddress(stepIdx)}: names both parentStepId and rootClientId -- a step with a parent inherits its root implicitly"
-        ))
-      else Right(None)
-    } else step.rootClientId match {
-      case Some(rcid) =>
-        roots.indexWhere(_.clientId.contains(rcid)) match {
-          case -1  => Left(ServiceError.BadRequest(s"${stepAddress(stepIdx)}: references unresolvable rootClientId '$rcid'"))
-          case idx => Right(Some(idx))
-        }
-      case None =>
-        if (roots.size > 1)
-          Left(ServiceError.BadRequest(
-            s"${stepAddress(stepIdx)}: is parentless with no rootClientId, and this request names ${roots.size} roots -- name one explicitly"
-          ))
-        else Right(Some(0))
-    }
-
-  /** HEL-913 task 7.3a-i (R13 extended to Outputs): the Output-shaped sibling of
-   *  `resolveStepRootIndex` -- a step-bound Output (`nodeStepClientId` defined) inherits its
-   *  step's root implicitly and must NOT also name `rootClientId`; a root-bound Output
-   *  (`nodeStepClientId` absent) follows the identical neither/unresolvable rules. */
-  private def resolveOutputRootIndex(
-      output: CreatePipelineTransactionalOutputRequest,
-      outputIdx: Int,
-      roots: Vector[CreatePipelineRootRequest]
-  ): Either[ServiceError, Option[Int]] =
-    if (output.nodeStepClientId.isDefined) {
-      if (output.rootClientId.isDefined)
-        Left(ServiceError.BadRequest(
-          s"${outputAddress(outputIdx)}: names both nodeStepClientId and rootClientId -- a step-bound Output's root is implied by its step"
-        ))
-      else Right(None)
-    } else output.rootClientId match {
-      case Some(rcid) =>
-        roots.indexWhere(_.clientId.contains(rcid)) match {
-          case -1  => Left(ServiceError.BadRequest(s"${outputAddress(outputIdx)}: references unresolvable rootClientId '$rcid'"))
-          case idx => Right(Some(idx))
-        }
-      case None =>
-        if (roots.size > 1)
-          Left(ServiceError.BadRequest(
-            s"${outputAddress(outputIdx)}: is root-bound with no rootClientId, and this request names ${roots.size} roots -- name one explicitly"
-          ))
-        else Right(Some(0))
-    }
 
   /** The single-call transactional path (`create` above delegates here only when `steps`/
    *  `outputs` are non-empty). `dataSources` is EVERY root's already-ACL-checked
@@ -314,72 +346,50 @@ final class PipelineService(
   private def createTransactional(
       req: CreatePipelineRequest,
       dataSources: Vector[(DataSourceId, DataSource)],
+      rootIndices: PipelineCreatePreflight.RootIndices,
       user: AuthenticatedUser,
       tag: Option[String]
   ): Future[Either[ServiceError, PipelineSummaryResponse]] = {
-    val stepRootIndices: Either[ServiceError, Vector[Option[Int]]] =
-      req.steps.zipWithIndex.foldLeft[Either[ServiceError, Vector[Option[Int]]]](Right(Vector.empty)) { (accE, stepAndIdx) =>
-        val (step, stepIdx) = stepAndIdx
-        for {
-          acc <- accE
-          idx <- resolveStepRootIndex(step, stepIdx, req.roots)
-        } yield acc :+ idx
+    val stepRootIdxs   = rootIndices.steps
+    val outputRootIdxs = rootIndices.outputs
+    // HEL-907 task 1.4: computed OUTSIDE the DBIO chain -- analyzeNodes is a pure,
+    // in-memory function (no DB access), so there's no reason to pay for it inside the
+    // transaction. `req.steps` (not the just-inserted rows) is the correct input: the
+    // clientId keys this produces are exactly what `buildOutputsAction` already
+    // resolves `nodeStepClientId` against. `sourceSchemasByRoot` is keyed by
+    // INDEX-as-string (matching `NodeStepInput.rootId` below) since no root has a real
+    // persisted id at this point in the call.
+    val sourceSchemasByRoot: Map[String, Vector[SchemaField]] =
+      dataSources.zipWithIndex.map { case ((_, ds), idx) => idx.toString -> ds.inferredSchema }.toMap
+    val nodeInputsForAnalyze =
+      req.steps.zip(stepRootIdxs).zipWithIndex.map { case ((s, rootIdxOpt), idx) =>
+        PipelineAnalyzeService.NodeStepInput(
+          id           = s.clientId,
+          parentStepId = s.parentStepId,
+          position     = idx,
+          op           = s.`type`,
+          config       = s.config.compactPrint,
+          rootId       = rootIdxOpt.map(_.toString)
+        )
       }
-    val outputRootIndices: Either[ServiceError, Vector[Option[Int]]] =
-      req.outputs.zipWithIndex.foldLeft[Either[ServiceError, Vector[Option[Int]]]](Right(Vector.empty)) { (accE, outputAndIdx) =>
-        val (output, outputIdx) = outputAndIdx
-        for {
-          acc <- accE
-          idx <- resolveOutputRootIndex(output, outputIdx, req.roots)
-        } yield acc :+ idx
-      }
-    (stepRootIndices, outputRootIndices) match {
-      case (Left(err), _) => Future.successful(Left(err))
-      case (_, Left(err)) => Future.successful(Left(err))
-      case (Right(stepRootIdxs), Right(outputRootIdxs)) =>
-        validateStepCrossOwnerRefs(req.steps, user).flatMap {
-          case Left(err) => Future.successful(Left(err))
-          case Right(()) =>
-            // HEL-907 task 1.4: computed OUTSIDE the DBIO chain -- analyzeNodes is a pure,
-            // in-memory function (no DB access), so there's no reason to pay for it inside the
-            // transaction. `req.steps` (not the just-inserted rows) is the correct input: the
-            // clientId keys this produces are exactly what `buildOutputsAction` already
-            // resolves `nodeStepClientId` against. `sourceSchemasByRoot` is keyed by
-            // INDEX-as-string (matching `NodeStepInput.rootId` below) since no root has a real
-            // persisted id at this point in the call.
-            val sourceSchemasByRoot: Map[String, Vector[SchemaField]] =
-              dataSources.zipWithIndex.map { case ((_, ds), idx) => idx.toString -> ds.inferredSchema }.toMap
-            val nodeInputsForAnalyze =
-              req.steps.zip(stepRootIdxs).zipWithIndex.map { case ((s, rootIdxOpt), idx) =>
-                PipelineAnalyzeService.NodeStepInput(
-                  id           = s.clientId,
-                  parentStepId = s.parentStepId,
-                  position     = idx,
-                  op           = s.`type`,
-                  config       = s.config.compactPrint,
-                  rootId       = rootIdxOpt.map(_.toString)
-                )
-              }
-            // HEL-1236: cross-referenced sources already passed `validateStepCrossOwnerRefs` above.
-            resolveSecondarySourceSchemas(nodeInputsForAnalyze.map(n => n.op -> n.config), dataSourceRepo.findByIdInternal).flatMap { secondarySchemas =>
-              val analyzedNodes = PipelineAnalyzeService.analyzeNodes(nodeInputsForAnalyze, sourceSchemasByRoot, secondarySchemas)
-              val action: DBIO[PipelineSummary] = for {
-                createResult      <- pipelineRepo.createAction(req.name.trim, dataSources, user, tag)
-                (summary, rootIds) = createResult
-                stepIdMap         <- buildStepsAction(PipelineId(summary.id), req.steps, stepRootIdxs, rootIds, user.id.value)
-                _                 <- buildOutputsAction(PipelineId(summary.id), req.outputs, outputRootIdxs, rootIds, stepIdMap, user, analyzedNodes, sourceSchemasByRoot)
-              } yield summary
+    // HEL-1236: cross-referenced sources already passed `validateStepCrossOwnerRefs` (run by `checkedCreate`).
+    resolveSecondarySourceSchemas(nodeInputsForAnalyze.map(n => n.op -> n.config), dataSourceRepo.findByIdInternal).flatMap { secondarySchemas =>
+      val analyzedNodes = PipelineAnalyzeService.analyzeNodes(nodeInputsForAnalyze, sourceSchemasByRoot, secondarySchemas)
+      val action: DBIO[PipelineSummary] = for {
+        createResult      <- pipelineRepo.createAction(req.name.trim, dataSources, user, tag)
+        (summary, rootIds) = createResult
+        stepIdMap         <- buildStepsAction(PipelineId(summary.id), req.steps, stepRootIdxs, rootIds, user.id.value)
+        _                 <- buildOutputsAction(PipelineId(summary.id), req.outputs, outputRootIdxs, rootIds, stepIdMap, user, analyzedNodes, sourceSchemasByRoot)
+      } yield summary
 
-              pipelineRepo.runTransactionally(user.id.value)(action).map { summary =>
-                audit("pipeline.create", "pipeline", Some(summary.id), user)
-                Right(toSummaryResponse(summary))
-              }.recover {
-                case PipelineCreateValidationFailure(err)         => Left(err)
-                case PipelineCycleGuard.PipelineCycleRejected(msg) => Left(ServiceError.BadRequest(msg))
-                case ex                                            => Left(PipelineService.classifyDbError(ex))
-              }
-            }
-        }
+      pipelineRepo.runTransactionally(user.id.value)(action).map { summary =>
+        audit("pipeline.create", "pipeline", Some(summary.id), user)
+        Right(toSummaryResponse(summary))
+      }.recover {
+        case PipelineCreateValidationFailure(err)         => Left(err)
+        case PipelineCycleGuard.PipelineCycleRejected(msg) => Left(ServiceError.BadRequest(msg))
+        case ex                                            => Left(PipelineService.classifyDbError(ex))
+      }
     }
   }
 
@@ -401,45 +411,8 @@ final class PipelineService(
       steps: Vector[CreatePipelineTransactionalStepRequest],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, Unit]] = {
-    // HEL-911 evaluation-1.md CR5 (cycle 2): this single-call create path never validated a
-    // `lane`-kind secondaryInput's `stepId` at all -- a dangling id, an id from an EARLIER
-    // clientId that isn't actually in this same request, or an id naming the step's own
-    // ancestor (a cycle) all persisted silently. `PipelineService.validateLaneReference`/
-    // `ancestorChainOf` operate on persisted `PipelineStep`s with real ids; this request has
-    // only `clientId`s and hasn't been persisted yet, so this is a lightweight, request-scoped
-    // mirror of the same three checks (exists in THIS request / not self / not an ancestor),
-    // not a call-through -- the run-time defensive arm in `InProcessPipelineEngine.executeTree`
-    // still backstops this once the steps ARE persisted, exactly as documented at contract
-    // item 7 ("both arms required").
-    val byClientId: Map[String, CreatePipelineTransactionalStepRequest] =
-      steps.map(s => s.clientId -> s).toMap
-
-    def ancestorClientIds(step: CreatePipelineTransactionalStepRequest): Set[String] = {
-      def loop(cur: Option[String], acc: Set[String]): Set[String] = cur match {
-        case None => acc
-        case Some(parentClientId) =>
-          byClientId.get(parentClientId) match {
-            case Some(p) => loop(p.parentStepId, acc + parentClientId)
-            case None    => acc
-          }
-      }
-      loop(step.parentStepId, Set.empty)
-    }
-
-    def validateLane(step: CreatePipelineTransactionalStepRequest, typedConfig: Any): Either[ServiceError, Unit] =
-      PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
-        case None => Right(())
-        case Some(dep) =>
-          if (dep == step.clientId)
-            Left(ServiceError.BadRequest(s"Lane reference '$dep' cannot reference the step itself."))
-          else if (!byClientId.contains(dep))
-            Left(ServiceError.UnprocessableEntity(s"Lane reference '$dep' does not exist in this request."))
-          else if (ancestorClientIds(step).contains(dep))
-            Left(ServiceError.BadRequest(s"Lane reference '$dep' would create a cycle (it is an ancestor of this step)."))
-          else
-            Right(())
-      }
-
+    // HEL-1469: the request-scoped lane checks (HEL-911 CR5) moved to `PipelineCreatePreflight.laneChecks`,
+    // which runs for every step BEFORE this ownership pass; only the read-only ownership lookups remain here.
     steps.foldLeft(Future.successful[Either[ServiceError, Unit]](Right(()))) { (accF, step) =>
       accF.flatMap {
         case Left(err) => Future.successful(Left(err))
@@ -447,26 +420,22 @@ final class PipelineService(
           PipelineStepConfigCodec.decode(step.`type`, step.config.compactPrint) match {
             case Failure(_) => Future.successful(Right(())) // buildStepsAction will reject this; not this check's job.
             case Success(typedConfig) =>
-              validateLane(step, typedConfig) match {
+              // HEL-950: was three hand-copied per-op arms (join unconditional -- the same
+              // unguarded-empty-id bug this change closes elsewhere -- union/lookup already
+              // `.nonEmpty`-guarded); now driven by the one shared extractor so this call site
+              // cannot drift from PipelineService.addStep/updateStep the way it already had.
+              val crossOwnerF: Future[Either[ServiceError, Unit]] = PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
+                case Some(id) => checkOwnedSource(id, user)
+                case None     => Future.successful(Right(()))
+              }
+              crossOwnerF.flatMap {
                 case Left(err) => Future.successful(Left(err))
                 case Right(()) =>
-                  // HEL-950: was three hand-copied per-op arms (join unconditional -- the same
-                  // unguarded-empty-id bug this change closes elsewhere -- union/lookup already
-                  // `.nonEmpty`-guarded); now driven by the one shared extractor so this call site
-                  // cannot drift from PipelineService.addStep/updateStep the way it already had.
-                  val crossOwnerF: Future[Either[ServiceError, Unit]] = PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
-                    case Some(id) => checkOwnedSource(id, user)
-                    case None     => Future.successful(Right(()))
-                  }
-                  crossOwnerF.flatMap {
-                    case Left(err) => Future.successful(Left(err))
-                    case Right(()) =>
-                      // HEL-1100 (design.md Decision 1): `create()`'s caller IS the new pipeline's
-                      // owner (there is no grantee at creation time), so `user.id` already IS
-                      // `pipeline.ownerId` here -- unlike addStep/updateStep, no separate pipeline
-                      // fetch is needed to know the owner.
-                      upsertOwnershipCheckF(typedConfig, user.id, user)
-                  }
+                  // HEL-1100 (design.md Decision 1): `create()`'s caller IS the new pipeline's
+                  // owner (there is no grantee at creation time), so `user.id` already IS
+                  // `pipeline.ownerId` here -- unlike addStep/updateStep, no separate pipeline
+                  // fetch is needed to know the owner.
+                  upsertOwnershipCheckF(typedConfig, user.id, user)
               }
           }
       }
@@ -543,66 +512,28 @@ final class PipelineService(
     steps.zip(stepRootIdxs).foldLeft(DBIO.successful(Map.empty[String, PipelineStepId]): DBIO[Map[String, PipelineStepId]]) { (accAction, specAndRootIdx) =>
       val (spec, rootIdx) = specAndRootIdx
       accAction.flatMap { clientIdMap =>
-        if (clientIdMap.contains(spec.clientId))
-          DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(s"Duplicate step clientId: ${spec.clientId}")))
-        else if (!PipelineStepKind.All.contains(spec.`type`))
-          DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(
-            s"Invalid step type '${spec.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
-          )))
-        else spec.parentStepId match {
-          case Some(parentClientId) if !clientIdMap.contains(parentClientId) =>
-            DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(
-              s"Step '${spec.clientId}' references unresolvable parentStepId '$parentClientId' -- it must be an earlier step's clientId in this same request"
-            )))
-          case parentClientIdOpt =>
-            // HEL-1402: strict write-path check, same order as `addStepReporting` (type ->
-            // validateRawConfig -> tolerant decode), so an undecodable config stays 400 and an
-            // understood-but-refused one is 422 on every write surface.
-            val rawConfigError: Option[String] =
-              PipelineStep.rawConfigProblem(spec.`type`, spec.config.compactPrint)
-            if (rawConfigError.isDefined)
-              DBIO.failed(PipelineCreateValidationFailure(
-                ServiceError.UnprocessableEntity(s"Step '${spec.clientId}': ${rawConfigError.get}")
-              ))
-            else PipelineStepConfigCodec.decode(spec.`type`, spec.config.compactPrint) match {
-              case Failure(ex) =>
-                log.warn(s"create (transactional): config decode failed for step type '${spec.`type`}'", ex)
-                DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(s"Invalid '${spec.`type`}' config")))
-              case Success(typedConfig) =>
-                val parentStepId = parentClientIdOpt.map(clientIdMap(_))
-                // HEL-911 skeptic-final-1.md cycle 3: mirrors the parentStepId rewrite one
-                // line above -- `validateLane` (in `validateStepCrossOwnerRefs`, run before
-                // this action) validates a `lane`-kind `secondaryInput.stepId` against
-                // `byClientId` (the REQUEST's clientIds), but this line used to pass
-                // `typedConfig` through UNMODIFIED, persisting the clientId itself instead of
-                // resolving it to the real, just-inserted `PipelineStepId` -- a pipeline that
-                // validated successfully and persisted a permanently unrunnable lane reference
-                // (every run 422s with `LaneReferenceError`, unrepairable since lane authoring
-                // is P2.2). Rewritten here through the SAME `clientIdMap` `parentStepId` uses.
-                //
-                // Unlike `parentStepId` (whose own guard above already REQUIRES it to be an
-                // earlier clientId, so it is always in `clientIdMap` by this point), a lane
-                // reference's write-time check (`validateLane`) does NOT require the referenced
-                // clientId to be earlier in the request -- contract item 6 permits naming ANY
-                // node. A forward-referencing lane `stepId` therefore is NOT YET in
-                // `clientIdMap` when this fold reaches it, since `buildStepsAction` inserts
-                // steps strictly in request order. Rather than silently persist the unresolved
-                // clientId again (the exact defect being fixed) or crash on a missing-key
-                // lookup, that case fails loudly and by name -- a genuine, narrower limitation
-                // than the full contract, reported rather than fixed here (out of this cycle's
-                // tightly-scoped fix; forward lane references through this single-call path
-                // would need a two-pass build, which is a real restructure).
-                rewriteLaneClientId(typedConfig, clientIdMap) match {
-                  case Left(unresolvedClientId) =>
-                    DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(
-                      s"Step '${spec.clientId}' has a lane secondaryInput referencing '$unresolvedClientId', " +
-                        "which is not an earlier step's clientId in this same request -- a forward lane " +
-                        "reference is not yet supported via this single-call create path"
-                    )))
-                  case Right(rewrittenConfig) =>
-                    pipelineStepRepo.insertInternalAction(pipelineId, spec.`type`, rewrittenConfig, spec.enabled.getOrElse(true), parentStepId, rootIdx.map(rootIds(_)), actingUserId)
-                      .map(step => clientIdMap + (spec.clientId -> step.id))
-                }
+        // HEL-1469: the request-only checks (duplicate clientId, type, parentStepId, strict config, decode,
+        // forward lane reference) live in `PipelineCreatePreflight.checkStep`, which `create` has already run
+        // for the whole request before any write; they run again here as defense in depth, with identical
+        // messages and statuses by construction.
+        PipelineCreatePreflight.checkStep(spec, clientIdMap.keySet) match {
+          case Left(err) => DBIO.failed(PipelineCreateValidationFailure(err))
+          case Right(typedConfig) =>
+            val parentStepId = spec.parentStepId.map(clientIdMap(_))
+            // HEL-911 skeptic-final-1.md cycle 3: a decoded `lane`-kind `secondaryInput.stepId` carries a
+            // REQUEST-scoped clientId (validated by `PipelineCreatePreflight.laneChecks`), which must be
+            // rewritten to the real, just-inserted `PipelineStepId` through the SAME `clientIdMap`
+            // `parentStepId` uses -- otherwise the row persists a clientId no read path can resolve.
+            // `checkStep` already refused a FORWARD lane reference (not yet in `clientIdMap`, since steps
+            // are inserted strictly in request order), so the `Left` arm is unreachable defense.
+            rewriteLaneClientId(typedConfig, clientIdMap) match {
+              case Left(unresolvedClientId) =>
+                DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(
+                  PipelineCreatePreflight.forwardLaneMessage(spec.clientId, unresolvedClientId)
+                )))
+              case Right(rewrittenConfig) =>
+                pipelineStepRepo.insertInternalAction(pipelineId, spec.`type`, rewrittenConfig, spec.enabled.getOrElse(true), parentStepId, rootIdx.map(rootIds(_)), actingUserId)
+                  .map(step => clientIdMap + (spec.clientId -> step.id))
             }
         }
       }
@@ -635,33 +566,26 @@ final class PipelineService(
     outputs.zip(outputRootIdxs).foldLeft(DBIO.successful(()): DBIO[Unit]) { (accAction, specAndRootIdx) =>
       val (spec, rootIdx) = specAndRootIdx
       accAction.flatMap { _ =>
-        spec.nodeStepClientId match {
-          case Some(clientId) if !stepIdMap.contains(clientId) =>
-            DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(
-              s"Output '${spec.name}' references unresolvable nodeStepClientId '$clientId' -- it must be a step's clientId in this same request"
-            )))
-          case nodeClientIdOpt =>
-            if (spec.name.trim.isEmpty)
-              DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest("name is required")))
-            else OutputKind.fromString(spec.kind) match {
-              case Left(msg) => DBIO.failed(PipelineCreateValidationFailure(ServiceError.BadRequest(msg)))
-              case Right(kind) =>
-                val config = spec.config.getOrElse(JsObject.empty)
-                val nodeSchema = nodeClientIdOpt.flatMap(analyzedNodes.get).map(_.outputSchema)
-                  .getOrElse(rootIdx.flatMap(idx => sourceSchemasByRoot.get(idx.toString)).getOrElse(Vector.empty))
-                validateOutputFieldMapping(kind, config, nodeSchema) match {
-                  case Left(err) => DBIO.failed(PipelineCreateValidationFailure(err))
-                  case Right(()) =>
-                    outputRepo.insertInternalAction(
-                      pipelineId     = pipelineId,
-                      nodeStepId     = nodeClientIdOpt.map(stepIdMap(_)),
-                      ownerId        = user.id,
-                      name           = spec.name.trim,
-                      kind           = kind,
-                      config         = config,
-                      explicitRootId = rootIdx.map(rootIds(_))
-                    ).map(_ => ())
-                }
+        // HEL-1469: nodeStepClientId / name / kind / config-only checks are `PipelineCreatePreflight.checkOutput`
+        // (already run for the whole request before any write; repeated here as defense in depth).
+        PipelineCreatePreflight.checkOutput(spec, stepIdMap.keySet) match {
+          case Left(err) => DBIO.failed(PipelineCreateValidationFailure(err))
+          case Right(kind) =>
+            val config = spec.config.getOrElse(JsObject.empty)
+            val nodeSchema = spec.nodeStepClientId.flatMap(analyzedNodes.get).map(_.outputSchema)
+              .getOrElse(rootIdx.flatMap(idx => sourceSchemasByRoot.get(idx.toString)).getOrElse(Vector.empty))
+            validateOutputFieldMapping(kind, config, nodeSchema) match {
+              case Left(err) => DBIO.failed(PipelineCreateValidationFailure(err))
+              case Right(()) =>
+                outputRepo.insertInternalAction(
+                  pipelineId     = pipelineId,
+                  nodeStepId     = spec.nodeStepClientId.map(stepIdMap(_)),
+                  ownerId        = user.id,
+                  name           = spec.name.trim,
+                  kind           = kind,
+                  config         = config,
+                  explicitRootId = rootIdx.map(rootIds(_))
+                ).map(_ => ())
             }
         }
       }
@@ -685,27 +609,22 @@ final class PipelineService(
     val spec = OutputBindingSpec.All.find(_.outputKind == kind).getOrElse(
       throw new IllegalStateException(s"PipelineService: no OutputBindingSpec for kind $kind -- OutputBindingSpec.All is missing a case")
     )
-    // HEL-1273: `config.compare` is checked first and unconditionally (before the no-fieldMapping
-    // early return), so single-call create and proposal grounding both reject a bad compare.
-    // HEL-1313: key set + aggregation/chartType rules first (nothing stored yet, so empty `stored`).
-    OutputConfigValidation.validate(kind, config, JsObject.empty)
-      .flatMap(_ => OutputCompare.validateConfig(config))
-      .flatMap(_ => PayloadOptIn.validateConfig(config))
-      .left.map(ServiceError.BadRequest(_))
-      .flatMap { _ =>
-    config.fields.get("fieldMapping").collect { case o: JsObject => o } match {
-      case None => Right(())
-      case Some(mappingObj) =>
-        val mapping = mappingObj.fields.collect { case (k, JsString(v)) => k -> v }
-        OutputBindingSpec.validateFieldMapping(spec, mapping) match {
-          case Left(msg) => Left(ServiceError.BadRequest(msg))
-          case Right(()) =>
-            OutputBindingSpec.validateFieldMappingColumnsExist(mapping, schema) match {
-              case Left(msg) => Left(ServiceError.BadRequest(msg))
-              case Right(()) => Right(())
-            }
-        }
-    }
+    // HEL-1273/HEL-1313: the config-only checks are `PipelineCreatePreflight.validateOutputConfig` (run first,
+    // unconditionally, before the no-fieldMapping early return).
+    PipelineCreatePreflight.validateOutputConfig(kind, config).flatMap { _ =>
+      config.fields.get("fieldMapping").collect { case o: JsObject => o } match {
+        case None => Right(())
+        case Some(mappingObj) =>
+          val mapping = mappingObj.fields.collect { case (k, JsString(v)) => k -> v }
+          OutputBindingSpec.validateFieldMapping(spec, mapping) match {
+            case Left(msg) => Left(ServiceError.BadRequest(msg))
+            case Right(()) =>
+              OutputBindingSpec.validateFieldMappingColumnsExist(mapping, schema) match {
+                case Left(msg) => Left(ServiceError.BadRequest(msg))
+                case Right(()) => Right(())
+              }
+          }
+      }
     }
   }
 
@@ -748,8 +667,8 @@ final class PipelineService(
    *  so `roots[]` and `add_root` can never diverge in what they accept (the exact hazard R6
    *  names). Mirrors `PipelineProposalService.resolveSource`'s D1-style mutual-exclusivity
    *  check and its per-kind dispatch, but returns just the id (not a `ResolvedSource`) since
-   *  root creation has no proposal-apply-style "delete the inline source if the rest of the
-   *  request later fails" undo step to track. */
+   *  the caller tracks the id: `create` deletes the inline sources it made if the rest of the
+   *  request later fails ([[compensatingInlineSources]], HEL-1469); `addRoot` does not. */
   private def resolveOneRootSourceId(req: CreatePipelineRootRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSourceId]] =
     (req.sourceId.map(_.trim), req.`type`) match {
       case (Some(sid), None) if sid.nonEmpty =>
