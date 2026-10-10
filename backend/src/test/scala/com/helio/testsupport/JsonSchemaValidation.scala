@@ -2,6 +2,7 @@ package com.helio.testsupport
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.networknt.schema.{JsonSchema, JsonSchemaFactory, SpecVersion}
+import com.networknt.schema.uri.URITranslator
 import org.scalatest.Assertions.fail
 
 import java.io.File
@@ -39,9 +40,24 @@ object JsonSchemaValidation {
     search(new File(".").getCanonicalFile, searchDepth)
   }
 
-  /** Compile `schemas/<relativePath>` once (JSON Schema 2020-12). */
+  /** The canonical `$id` prefix every repo schema declares; mapped onto the local `schemas/` directory. */
+  private val SchemaIdPrefix = "https://helio.local/schemas/"
+
+  /**
+   * One factory for every compile (HEL-1419): maps [[SchemaIdPrefix]] onto the located `schemas/`
+   * directory as a `file:` URI, so a cross-file `$ref` by `$id` resolves offline instead of
+   * attempting a network fetch (`UnknownHostException`, HEL-1281). An unresolvable ref fails loudly
+   * at compile time rather than degrading to a permissive schema.
+   */
+  private lazy val factory: JsonSchemaFactory =
+    JsonSchemaFactory
+      .builder(JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012))
+      .addUriTranslator(URITranslator.prefix(SchemaIdPrefix, schemaFile("").toURI.toString))
+      .build()
+
+  /** Compile `schemas/<relativePath>` (JSON Schema 2020-12); cross-file `https://helio.local/schemas/...` refs resolve locally. */
   def compile(relativePath: String): JsonSchema =
-    JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(jsonMapper.readTree(schemaFile(relativePath)))
+    factory.getSchema(jsonMapper.readTree(schemaFile(relativePath)))
 
   /**
    * Real ajv-equivalent validation (networknt/json-schema-validator, JSON Schema 2020-12) of a
