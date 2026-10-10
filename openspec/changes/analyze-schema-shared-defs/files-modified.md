@@ -1,0 +1,4 @@
+- `backend/src/test/scala/com/helio/testsupport/JsonSchemaValidation.scala` — single mapped factory: `https://helio.local/schemas/` -> located `schemas/` dir
+- `schemas/pipelines/pipeline-analyze-proposal-response.schema.json` — four copied defs replaced by absolute cross-file `$ref`s; prose corrected
+- `schemas/pipelines/pipeline-analyze-response.schema.json` — `AnalyzeStep.type` gains `minLength: 1` (resolves the drift)
+- `backend/src/test/scala/com/helio/testsupport/AnalyzeSchemaSharedDefsSpec.scala` — new drift/enforcement guard
