@@ -12,6 +12,8 @@ Every root's source SHALL be ownership-checked; a root naming a non-existent or 
 
 `steps`/`outputs` remain additive: absent or empty preserves the simple create (name + roots only); non-empty builds the pipeline, its roots, its steps and its Outputs in one call, any failure rolling back the whole call.
 
+"The whole call" SHALL include every inline root source the call creates: when the response is any 4xx or 5xx, no data source created by that request SHALL remain. Failures detectable from the request alone (step type, step config, `parentStepId`, Output name/kind/config, root resolution) SHALL be rejected before any data source is created.
+
 #### Scenario: Create with two roots returns 201 with both roots
 - **WHEN** `POST /api/pipelines` is called with `name` and two `roots` naming two caller-owned sources, and no `steps`/`outputs`
 - **THEN** the response is `201 Created` with the new pipeline's `id`, `name`, and a `roots` array carrying both roots in request order, each with its root id, data source id, and data source name
@@ -41,6 +43,7 @@ Every root's source SHALL be ownership-checked; a root naming a non-existent or 
 - **WHEN** `POST /api/pipelines` is called with a root whose `sourceId` does not exist, or is owned by another user
 - **THEN** the response is `404 Not Found` with an error message
 - **THEN** no pipeline, root, or step is created
+- **THEN** no inline source named by another root of the same request is created
 
 #### Scenario: Created pipeline appears in GET /api/pipelines list
 - **WHEN** a pipeline is created via `POST /api/pipelines`
@@ -55,8 +58,8 @@ Every root's source SHALL be ownership-checked; a root naming a non-existent or 
 - **THEN** each step is bound to the root it named, and neither reads the other root's frame
 
 #### Scenario: A failing step rolls back the whole transaction
-- **WHEN** `POST /api/pipelines` is called with a `steps[]` entry whose config fails validation, or whose `parentStepId` references a `clientId` not present earlier in the same request
-- **THEN** the response is a `400` error and no pipeline, root, step, or Output row is created
+- **WHEN** `POST /api/pipelines` is called with a `steps[]` entry whose config is understood but refused, whose config cannot be decoded, or whose `parentStepId` references a `clientId` not present earlier in the same request
+- **THEN** the response is a `422` (refused config) or `400` (undecodable config, unresolvable `parentStepId`) error and no pipeline, root, step, or Output row is created
 
 #### Scenario: A failing Output rolls back the whole transaction
 - **WHEN** `POST /api/pipelines` is called with valid steps but an `outputs[]` entry naming an Output kind not bindable at its `nodeStepClientId`'s node
@@ -65,3 +68,39 @@ Every root's source SHALL be ownership-checked; a root naming a non-existent or 
 #### Scenario: The simple-create shape runs no transactional composition
 - **WHEN** `POST /api/pipelines` is called with `steps`/`outputs` both empty or absent
 - **THEN** no transaction composition and no `steps`/`outputs`-related validation runs
+
+#### Scenario: A bad step config with an inline root leaves no data source
+- **WHEN** `POST /api/pipelines` is called with an inline root source and a `steps[]` entry whose config is understood but refused
+- **THEN** the response is `422` naming the step's `clientId`
+- **THEN** the caller owns exactly as many data sources as before the request
+
+#### Scenario: An unknown step type with an inline root leaves no data source
+- **WHEN** `POST /api/pipelines` is called with an inline root source and a `steps[]` entry whose `type` is not a known step kind
+- **THEN** the response is `400` naming the invalid type
+- **THEN** the caller owns exactly as many data sources as before the request
+
+#### Scenario: A bad Output config with an inline root leaves no data source
+- **WHEN** `POST /api/pipelines` is called with an inline root source and an `outputs[]` entry whose `config` carries a key not allowed for its kind
+- **THEN** the response is `400`
+- **THEN** the caller owns exactly as many data sources as before the request
+
+#### Scenario: A failure only detectable after the inline source exists leaves no data source
+- **WHEN** `POST /api/pipelines` is called with an inline root source and an `outputs[]` entry whose `fieldMapping` names a column absent from that source's schema
+- **THEN** the response is `400`
+- **THEN** the caller owns exactly as many data sources as before the request
+
+#### Scenario: A patch-set pipeline create with a bad step type or Output config is refused before apply
+- **WHEN** a patch set containing a `pipeline` `create` edit with an inline root and either an unknown step type or a disallowed Output config key is applied
+- **THEN** the apply is refused with the same 4xx class as the direct route, naming the edit index
+- **THEN** nothing is applied and the caller owns exactly as many data sources as before the request
+- **THEN** previewing the same patch set is refused with the same 4xx class rather than returning a projection
+
+#### Scenario: A simple-create request whose later root is unknown leaves no data source
+- **WHEN** `POST /api/pipelines` is called with no `steps`/`outputs` and two roots, the first an inline source and the second naming a non-existent `sourceId`
+- **THEN** the response is `404`
+- **THEN** the caller owns exactly as many data sources as before the request
+
+#### Scenario: A rolled-back patch-set pipeline create removes its inline source
+- **WHEN** a patch set's `pipeline` `create` edit with an inline root applies successfully and a later edit in the same apply call fails
+- **THEN** the pipeline create edit is reported rolled back
+- **THEN** neither the pipeline nor the inline source it created remains

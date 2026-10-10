@@ -1,8 +1,0 @@
-- `backend/src/main/scala/com/helio/services/pipelines/PipelineCreatePreflight.scala` — new: pure request-only pre-flight (root indices, lane pass 1, per-step, per-Output checks) shared by create, the in-transaction build, and patch-set resolve
-- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — create reordered (root pass a, pre-flight, ownership, then inline creation) with compensating delete of call-created inline sources; build*Action reuse shared checks; docstrings corrected
-- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyResolvers.scala` — resolvePipelineCreate runs the shared pre-flight (edit-prefixed 4xx at resolve time, apply and preview)
-- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyRollback.scala` — mid-set rollback of a pipeline create also deletes its inline root sources
-- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineCreateOrphanSourceRoutesSpec.scala` — route specs per failure class, owner-id row counts
-- `backend/src/test/scala/com/helio/services/pipelines/PipelineCreateInlineSourceCleanupSpec.scala` — failed-Future compensation + cleanup-failure guard
-- `backend/src/test/scala/com/helio/services/patchsets/PatchSetPipelineCreateOrphanSourceSpec.scala` — patch-set apply/preview refusal and mid-set rollback
-- `openspec/changes/single-call-create-orphan-source/` — tasks ticked, red-evidence.md, behavior-changes.md
