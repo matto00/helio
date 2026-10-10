@@ -70,6 +70,8 @@ directory is the backend build) before it is dumped or signalled. Process-name o
 - **WHEN** the CI checks run on a pull request
 - **THEN** they fail if a CI sbt helper script contains a pattern-matching process lookup or kill, including one
   written across several physical lines joined by shell line continuations or a trailing pipe
+- **AND** a trailing pipe, `&&` or `||` followed by one or more blank or whitespace-only lines before the next command
+  is still treated as one pipeline, as bash treats it
 
 #### Scenario: Recorded PID is the build JVM
 - **WHEN** CI launches sbt through the helper

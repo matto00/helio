@@ -36,6 +36,13 @@ flagsOnce("trailing | then grep", "ps -ef |\n  grep sbt");
 flagsOnce("three-line split", "ps -ef \\\n  | awk '{print}' \\\n  | grep sbt");
 flagsOnce("trailing && continuation", "pgrep -f x &&\n  echo y");
 flagsOnce("comment inside a continuation does not hide the rest", "ps -ef |\n# note\n  grep sbt");
+// HEL-1425: bash keeps reading past blank lines after a trailing `|`/`&&`/`||`, but not after `\`.
+flagsOnce("trailing | then a blank line then grep", "ps -ef |\n\n  grep sbt");
+flagsOnce("trailing | then a whitespace-only line then grep", "ps -ef |\n   \n\n  grep sbt");
+rec(
+  "blank-line split reports the FIRST physical line number",
+  /^x:1:/.test(checkText("x", "ps -ef |\n\n grep s")[0] ?? ""),
+);
 flagsOnce(
   "YAML run: | body with a split pipeline",
   "  - run: |\n      ps -ef \\\n        | grep sbt",
@@ -49,6 +56,7 @@ const allowsText = (name, text) =>
 allowsText("two separate lines ps x / grep y", "ps x\ngrep y");
 allowsText("YAML `run: |` header is not a continuation", "  - run: |\n      grep y file");
 allowsText("block header followed by a ps and then a grep line", "key: |\n  ps x\n  grep y");
+allowsText("backslash then a blank line ends the command", "ps -ef \\\n\n  | grep sbt");
 // The YAML block-header exclusion must be failable: the header stays its own logical line and the flagged body
 // line is reported at the BODY's physical line (2), not the header's (1).
 {
