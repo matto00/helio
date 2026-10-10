@@ -1,6 +1,7 @@
 package com.helio.api.routes.proposals
 
 import com.helio.api.JsonProtocols
+import com.helio.domain.util.Clock
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.assistant.TierErrorResponse
 import com.helio.api.protocols.panels.CreatePanelRequest
@@ -49,6 +50,7 @@ import spray.json._
 
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.DurationInt
@@ -123,7 +125,7 @@ class ClaudeRoutesChatGateSpec
     refinementService = client => new RefinementService(grounding, previewService, client, authoringConvRepo)(routeEc)
 
     userRepo            = new UserRepository(db)(routeEc)
-    usageRepo           = new AssistantDailyUsageRepository(ctx)(routeEc)
+    usageRepo           = new AssistantDailyUsageRepository(ctx, PinnedDayClock)(routeEc)
     conversationService = new AssistantConversationService(new AssistantConversationRepository(ctx), fs)(routeEc)
   }
 
@@ -200,8 +202,12 @@ class ClaudeRoutesChatGateSpec
     )
   }
 
+  // HEL-1473: pin the beta per-UTC-day bucket so a run straddling real UTC midnight cannot split it.
+  private object PinnedDayClock extends Clock { def now(): Instant = Instant.parse("2026-01-01T12:00:00Z") }
+  private val pinnedDate: LocalDate = LocalDate.ofInstant(PinnedDayClock.now(), ZoneOffset.UTC)
+
   private def usage(f: Fixture): Option[Int] = {
-    val today = LocalDate.now(ZoneOffset.UTC).toString
+    val today = pinnedDate.toString
     await(db.run(sql"""SELECT message_count FROM assistant_daily_usage WHERE user_id = ${f.user.id.value}::uuid AND usage_date = $today::date""".as[Int].headOption))
   }
 
@@ -239,6 +245,9 @@ class ClaudeRoutesChatGateSpec
       Post("/authoring/dashboard", jsonEntity(goal)) ~> routes(f, t, Some(c), c) ~> check { status shouldBe StatusCodes.OK }
       Post("/authoring/dashboard?stream=true", jsonEntity(goal)) ~> routes(f, t, Some(c), c) ~> check { status shouldBe StatusCodes.OK }
       usage(f) shouldBe Some(2)
+      // Wiring guard (HEL-1473): the stored usage_date IS the pinned day. Fails on SystemClock on any
+      // day but 2026-01-01, so dropping the pin from the repo is caught immediately.
+      await(db.run(sql"""SELECT usage_date::text FROM assistant_daily_usage WHERE user_id = ${f.user.id.value}::uuid""".as[String])) shouldBe Vector(pinnedDate.toString)
       val before = t.calls.get
       Post("/authoring/dashboard", jsonEntity(goal)) ~> routes(f, t, Some(c), c) ~> check { expectTier("CHAT_LIMIT_REACHED", StatusCodes.TooManyRequests, Some(2)) }
       Post("/refinements", jsonEntity(refineBody(f))) ~> routes(f, t, Some(c), c) ~> check { expectTier("CHAT_LIMIT_REACHED", StatusCodes.TooManyRequests, Some(2)) }
