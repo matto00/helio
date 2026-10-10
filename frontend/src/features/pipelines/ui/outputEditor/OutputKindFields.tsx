@@ -94,6 +94,7 @@ export function ChartKindFields({
           Chart type
         </label>
         <Select
+          id="output-chart-type"
           ariaLabel="Chart type"
           value={chartType}
           onChange={(v) => onChartTypeChange(v as ChartType)}
@@ -233,6 +234,7 @@ export function MetricKindFields({
           Format
         </label>
         <Select
+          id="output-metric-format"
           ariaLabel="Format"
           value={formatValue}
           onChange={onFormatChange}
@@ -332,6 +334,7 @@ export function SimpleMappingFields({
             {slot.label}
           </label>
           <Select
+            id={`output-slot-${slot.key}`}
             ariaLabel={`${slot.label} field`}
             value={fieldMapping[slot.key] ?? ""}
             onChange={(v) => onFieldChange(slot.key, v)}

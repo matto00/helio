@@ -857,3 +857,105 @@ describe("nodePath wiring (HEL-985)", () => {
     }
   });
 });
+
+describe("PipelineRiverView analyze warnings (HEL-1414)", () => {
+  it("threads getAnalyzeWarnings(stepId) to each step's card", () => {
+    const getAnalyzeWarnings = (stepId: string) =>
+      stepId === "b"
+        ? [{ stepId: "b", code: "join-column-renamed" as const, message: "renamed" }]
+        : [];
+    render(<PipelineRiverView {...baseProps({ getAnalyzeWarnings })} />);
+
+    const indicators = screen.getAllByRole("img", { name: "1 schema warning" });
+    expect(indicators).toHaveLength(1);
+    expect(indicators[0]!.closest(".pipeline-detail-page__step-section")).toHaveTextContent(
+      "Limit rows",
+    );
+  });
+
+  it("GUARD: renders no warning indicators when no getAnalyzeWarnings is supplied", () => {
+    render(<PipelineRiverView {...baseProps()} />);
+    expect(screen.queryByRole("img", { name: /schema warning/ })).not.toBeInTheDocument();
+  });
+});
+
+// HEL-1414 evaluation-1 CR2 -- the warning data flow must reach EVERY StepCard call site, not just the trunk:
+// the compact one-step lane and full multi-step lane (`LaneColumn`), and a non-first root (`RootColumn`).
+describe("PipelineRiverView analyze warnings reach branch lanes and extra roots (HEL-1414)", () => {
+  const warn = (stepId: string) => [
+    { stepId, code: "join-column-renamed" as const, message: `warning for ${stepId}` },
+  ];
+  const only = (id: string) => (stepId: string) => (stepId === id ? warn(id) : []);
+
+  function indicatorIn(label: string): HTMLElement {
+    const section = screen
+      .getByRole("button", { name: new RegExp(label) })
+      .closest(".pipeline-detail-page__step-section") as HTMLElement;
+    return within(section).getByRole("img", { name: "1 schema warning" });
+  }
+
+  it("a compact one-step branch lane's card shows its step's warning indicator", () => {
+    const linkedA: Step = { ...stepA, parentStepId: undefined };
+    const primaryContinuation: Step = { ...stepC, parentStepId: "a", position: 0 };
+    const lane: Step = { ...stepB, parentStepId: "a", position: 1 };
+    const steps = [linkedA, primaryContinuation, lane];
+    render(
+      <PipelineRiverView
+        {...baseProps({
+          steps,
+          laneGraph: buildLaneGraph(steps, ONE_ROOT),
+          getAnalyzeWarnings: only("b"),
+        })}
+      />,
+    );
+    const tail = screen.getByRole("button", { name: /Limit rows/ });
+    expect(
+      within(tail.closest(".pipeline-detail-page__tail-chain-item") as HTMLElement).getByRole(
+        "img",
+        { name: "1 schema warning" },
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: /schema warning/ })).toHaveLength(1);
+  });
+
+  it("a multi-step branch lane's second card shows its step's warning indicator", () => {
+    const linkedA: Step = { ...stepA, parentStepId: undefined };
+    const primaryContinuation: Step = { ...stepC, parentStepId: "a", position: 0 };
+    const laneHead: Step = { ...stepB, parentStepId: "a", position: 1 };
+    const laneSecond: Step = { ...stepD, parentStepId: "b", position: 2 };
+    const steps = [linkedA, primaryContinuation, laneHead, laneSecond];
+    render(
+      <PipelineRiverView
+        {...baseProps({
+          steps,
+          laneGraph: buildLaneGraph(steps, ONE_ROOT),
+          getAnalyzeWarnings: only("d"),
+        })}
+      />,
+    );
+    expect(indicatorIn("Cast type")).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: /schema warning/ })).toHaveLength(1);
+  });
+
+  it("a non-first root's column (RootColumn -> LaneColumn) shows its step's warning indicator", () => {
+    const TWO_ROOTS: PipelineRoot[] = [
+      { id: "root-1", dataSourceId: "src-1", dataSourceName: "Orders" },
+      { id: "root-2", dataSourceId: "src-2", dataSourceName: "Shipments" },
+    ];
+    const trunk: Step = { ...stepA, parentStepId: undefined, rootId: "root-1" };
+    const secondRootStep: Step = { ...stepC, id: "r2", parentStepId: undefined, rootId: "root-2" };
+    const steps = [trunk, secondRootStep];
+    render(
+      <PipelineRiverView
+        {...baseProps({
+          steps,
+          roots: TWO_ROOTS,
+          laneGraph: buildLaneGraph(steps, TWO_ROOTS),
+          getAnalyzeWarnings: only("r2"),
+        })}
+      />,
+    );
+    expect(indicatorIn("Sort rows")).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: /schema warning/ })).toHaveLength(1);
+  });
+});

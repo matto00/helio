@@ -171,6 +171,7 @@ export function ChartDisplayFields({
                 Orientation
               </label>
               <Select
+                id="bar-orientation"
                 ariaLabel="Bar orientation"
                 value={bar.orientation ?? "vertical"}
                 onChange={(value) => {
@@ -186,6 +187,7 @@ export function ChartDisplayFields({
                 Stacking
               </label>
               <Select
+                id="bar-stacking"
                 ariaLabel="Bar stacking"
                 value={bar.stacking ?? "none"}
                 onChange={(value) => {
@@ -247,6 +249,7 @@ export function ChartDisplayFields({
                   Point size field
                 </label>
                 <Select
+                  id="scatter-size-field"
                   ariaLabel="Scatter point size field"
                   value={scatter.sizeField ?? ""}
                   onChange={(value) => onScatterChange({ sizeField: value || undefined })}
@@ -264,6 +267,7 @@ export function ChartDisplayFields({
                   Color by field
                 </label>
                 <Select
+                  id="scatter-color-field"
                   ariaLabel="Scatter color-by field"
                   value={scatter.colorField ?? ""}
                   onChange={(value) => onScatterChange({ colorField: value || undefined })}

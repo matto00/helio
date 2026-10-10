@@ -261,6 +261,7 @@ describe("analyze tools document the non-blocking warnings array (HEL-1235)", ()
       expect(description).toContain("join-key-type-mismatch");
       expect(description).toContain("join-column-renamed");
       expect(description).toContain("numeric-op-on-text-field");
+      expect(description).toContain("lookup keys");
       expect(description).toContain("NON-BLOCKING");
       expect(description).toContain("NOT affect canRun");
       // distinguished from propose_pipeline's string warnings and from run warnings
@@ -268,6 +269,21 @@ describe("analyze tools document the non-blocking warnings array (HEL-1235)", ()
       expect(description).toContain("run");
     },
   );
+
+  it("analyze_pipeline concise wording matches the payload (HEL-1414)", async () => {
+    const tools = await listRegisteredTools();
+    const description = tools.find((t) => t.name === "analyze_pipeline")?.description ?? "";
+    expect(description).not.toContain("no column lists");
+    expect(description).toContain("omits the per-step schema column lists");
+    expect(description).toContain("may name up to 20 available columns");
+  });
+
+  it("get_workspace_context documents per-step warnings as non-blocking (HEL-1414)", async () => {
+    const tools = await listRegisteredTools();
+    const description = tools.find((t) => t.name === "get_workspace_context")?.description ?? "";
+    expect(description).toContain("warnings");
+    expect(description).toContain("do not affect whether the pipeline can run");
+  });
 });
 
 describe("filter-capabilities vs step-capabilities tool descriptions (HEL-1193 D1)", () => {

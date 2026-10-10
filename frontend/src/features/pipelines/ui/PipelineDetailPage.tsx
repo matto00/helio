@@ -74,6 +74,7 @@ export function PipelineDetailPage() {
     getAnalyzeOutputSchema,
     hasOwnAnalyzeEntry,
     getAnalyzeValidationError,
+    getAnalyzeWarnings,
     outputsByStepId,
     allOutputs,
     previewRowCountByOutputId,
@@ -281,6 +282,7 @@ export function PipelineDetailPage() {
             getAnalyzeOutputSchema={getAnalyzeOutputSchema}
             hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
             getAnalyzeValidationError={getAnalyzeValidationError}
+            getAnalyzeWarnings={getAnalyzeWarnings}
             estimatedRows={estimatedRows}
             draftCreateErrors={draftCreateErrors}
             onStepConfigChange={handleStepConfigChange}

@@ -9,7 +9,12 @@
 import { LaneColumn } from "./LaneColumn";
 import type { LaneReorder } from "../hooks/useLaneReorder";
 import type { OpType, Step } from "../types/step";
-import type { PipelineRoot, PipelineStepConfig, SchemaField } from "../types/pipelineStep";
+import type {
+  AnalyzeWarning,
+  PipelineRoot,
+  PipelineStepConfig,
+  SchemaField,
+} from "../types/pipelineStep";
 import type { Output } from "../types/output";
 import type { Lane, LaneGraph } from "../state/stepTree";
 
@@ -33,6 +38,8 @@ interface RootColumnProps {
   /** HEL-1340 — true when the step has its own analyze entry (see StepCard `hasOwnAnalyze`). */
   hasOwnAnalyzeEntry?: (stepId: string) => boolean;
   getAnalyzeValidationError: (stepId: string) => string | undefined;
+  /** HEL-1414 — this step's schema-only, NON-BLOCKING analyze warnings (stable array per analyze result). */
+  getAnalyzeWarnings?: (stepId: string) => AnalyzeWarning[];
   onConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   runStepRowCounts: Record<string, number> | null | undefined;
   onToggleStepEnabled: (stepId: string, enabled: boolean) => void;
@@ -78,6 +85,7 @@ export function RootColumn({
   getAnalyzeOutputSchema,
   hasOwnAnalyzeEntry,
   getAnalyzeValidationError,
+  getAnalyzeWarnings,
   onConfigChange,
   runStepRowCounts,
   onToggleStepEnabled,
@@ -129,6 +137,7 @@ export function RootColumn({
           getAnalyzeOutputSchema={getAnalyzeOutputSchema}
           hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
           getAnalyzeValidationError={getAnalyzeValidationError}
+          getAnalyzeWarnings={getAnalyzeWarnings}
           onConfigChange={onConfigChange}
           runStepRowCounts={runStepRowCounts}
           onToggleStepEnabled={onToggleStepEnabled}

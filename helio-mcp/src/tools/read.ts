@@ -177,7 +177,8 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "reads): code field-not-in-input-schema (a step references a field its input schema does not " +
         "carry — e.g. count(amount) over a step that outputs (category,total) would silently count 0), " +
         "join-key-type-mismatch (the join key has different types on the two inputs, e.g. a CSV " +
-        "string key vs an integer key, so the join may return no rows), join-column-renamed (a " +
+        "string key vs an integer key, so the join may return no rows; the same code also covers lookup keys, " +
+        "sourceKey vs lookupKey, with a message starting `lookup:`), join-column-renamed (a " +
         "right-side column collides with an input column and will appear as right_<name>), numeric-op-on-text-field " +
         "(a compute expression uses a text/boolean field, e.g. an uncast CSV column, where a number is required — add a cast step first). They do " +
         "NOT affect canRun, autoRunnable or costVerdict.reasons and never set a validationError; " +
@@ -185,7 +186,8 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "These are distinct from propose_pipeline's warnings (strings that drive applyReady) and " +
         "from run_pipeline's run warnings. Optional concise: true (HEL-865) returns a bounded, per-node " +
         "projection instead — a DIFFERENT shape ({ nodes: [{path, op, validationError?, " +
-        "warnings?: string[]}] }, no column lists) — for a large/deep pipeline where the full " +
+        "warnings?: string[]}] }) that omits the per-step schema column lists — though a warning message may " +
+        "name up to 20 available columns — for a large/deep pipeline where the full " +
         "response is unwieldy. Full response is the default and is unchanged.",
       inputSchema: { pipelineId: z.string().min(1), concise: z.boolean().optional() },
     },
@@ -336,7 +338,9 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "fidelity) the full response can exceed this tool's byte budget. Optional concise: true " +
         "returns every data source and pipeline entry (no entities dropped) but omits per-step " +
         "output-column lists and per-source inferredSchema listings, replacing each with its " +
-        "element count — Output schemas are always returned in full either way. The omitted " +
+        "element count — Output schemas are always returned in full either way. Each pipeline step " +
+        "carries `warnings` ({code, message}, omitted when none; kept in concise mode too): schema-only " +
+        "NON-BLOCKING analyze hints that do not affect whether the pipeline can run — see analyze_pipeline. The omitted " +
         "per-step columns remain obtainable per-pipeline via analyze_pipeline. truncation.applied " +
         "and truncation.omittedDetailKinds report whether/what was omitted.",
       inputSchema: { concise: z.boolean().optional() },

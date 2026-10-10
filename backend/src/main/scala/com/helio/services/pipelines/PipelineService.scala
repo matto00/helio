@@ -1103,7 +1103,7 @@ final class PipelineService(
       steps:   Iterable[(String, String)],
       resolve: DataSourceId => Future[Option[DataSource]]
   ): Future[Map[String, Vector[SchemaField]]] = {
-    val ids = steps.flatMap { case (op, config) => PipelineAnalyzeService.sourceDependencyOf(op, config) }.toVector.distinct
+    val ids = steps.flatMap { case (op, config) => PipelineAnalyzeService.secondarySourceIdOf(op, config) }.toVector.distinct
     Future.traverse(ids)(id => resolve(DataSourceId(id)).map(id -> _.map(_.inferredSchema).filter(_.nonEmpty)))
       .map(_.collect { case (id, Some(schema)) => id -> schema }.toMap)
   }

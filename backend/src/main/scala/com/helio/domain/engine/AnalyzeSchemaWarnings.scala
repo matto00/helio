@@ -11,9 +11,9 @@ import scala.util.Try
 
 /** HEL-1235: schema-only, NON-BLOCKING analyze warnings.
  *
- *  Three silent-wrong-result shapes HEL-1069 found that analyze reported nothing for:
- *  a step referencing a field absent from its projected input schema, a join whose key types
- *  differ between the two inputs, and a join/lookup column that collides with an input column
+ *  Silent-wrong-result shapes HEL-1069 found that analyze reported nothing for:
+ *  a step referencing a field absent from its projected input schema, a join (or, HEL-1414, lookup) whose key types
+ *  differ between the two inputs (or whose lookup key is absent from the secondary), and a join/lookup column that collides with an input column
  *  (the right one is renamed `right_<name>`, HEL-1236/HEL-1250). HEL-1403 adds a fourth, for
  *  `compute`: a text/boolean field (e.g. an uncast CSV column) used as a numeric-function argument or
  *  a `-`/`*`/`/`/unary-`-` operand nulls every non-null row at run time
@@ -47,7 +47,7 @@ object AnalyzeSchemaWarnings {
    *  that exists at run time is in the projection. `types`: the projected types equal the
    *  run-time value classes (positively defined: only [[typeTrusted]] ops preserve it). */
   private final case class Flags(names: Boolean, types: Boolean)
-  private final case class Secondary(schema: Vector[SchemaField], flags: Flags)
+  private final case class Secondary(schema: Vector[SchemaField], flags: Flags, viaLane: Boolean)
 
   private val Incomplete = Flags(names = false, types = false)
   private val MaxListedFields = 20
@@ -94,8 +94,8 @@ object AnalyzeSchemaWarnings {
       }
 
     def secondaryOf(step: NodeStepInput): Option[Secondary] =
-      PipelineAnalyzeService.laneDependencyOf(step.op, step.config).flatMap(l => projections.get(l).flatMap(p => byId.get(l).map(lane => Secondary(p.outputSchema, outFlags(lane)))))
-        .orElse(PipelineAnalyzeService.sourceDependencyOf(step.op, step.config).flatMap(secondarySourceSchemas.get).map(s => Secondary(s, Flags(names = true, types = true))))
+      PipelineAnalyzeService.laneDependencyOf(step.op, step.config).flatMap(l => projections.get(l).flatMap(p => byId.get(l).map(lane => Secondary(p.outputSchema, outFlags(lane), viaLane = true))))
+        .orElse(PipelineAnalyzeService.secondarySourceIdOf(step.op, step.config).flatMap(secondarySourceSchemas.get).map(s => Secondary(s, Flags(names = true, types = true), viaLane = false)))
 
     def outFlags(step: NodeStepInput): Flags =
       memo.getOrElseUpdate(step.id, {
@@ -123,7 +123,9 @@ object AnalyzeSchemaWarnings {
       case op if typeTrusted.contains(op) => true
       case "cast"                         => castTrusted(step.config)
       case "join"                         => sec.exists(_.flags.types)
-      case "lookup"                       => sec.exists(s => s.flags.types && lookupColumnsResolved(step.config, s.schema))
+      // A source-secondary lookup's projection used placeholder column types (analyzeNodes does not
+      // see the source schema), so only a lane secondary keeps the output type-trusted.
+      case "lookup"                       => sec.exists(s => s.viaLane && s.flags.types && lookupColumnsResolved(step.config, s.schema))
       case _                              => false
     }
 
@@ -142,7 +144,10 @@ object AnalyzeSchemaWarnings {
         }
 
         if (step.op == "join") joinWarnings(step, a, in, sec).foreach(w => out += a.position -> w)
-        if (step.op == "lookup") lookupRenames(step, a, in, sec).foreach(w => out += a.position -> w)
+        if (step.op == "lookup") {
+          lookupKeyWarnings(step, a, in, sec).foreach(w => out += a.position -> w)
+          lookupRenames(step, a, in, sec).foreach(w => out += a.position -> w)
+        }
         // Gated on trusted input TYPES: after a compute/fillnull/aggregate/untrusted cast the
         // projected type may not equal the run-time class, and a guess would be a false positive.
         if (step.op == "compute" && in.types) computeNumericWarnings(step, a).foreach(w => out += a.position -> w)
@@ -186,6 +191,33 @@ object AnalyzeSchemaWarnings {
       }
     }
 
+  /** HEL-1414: the lookup twin of [[joinWarnings]]' key checks. `LookupStep` indexes the secondary rows
+   *  by the raw `lookupKey` value and probes with the raw `sourceKey` value, the same `Map[Any, _]`
+   *  equality [[family]] models for join. The input-side `sourceKey` is covered by [[referencedFields]]. */
+  private def lookupKeyWarnings(step: NodeStepInput, a: AnalyzedStep, in: Flags, sec: Option[Secondary]): Vector[Warning] =
+    Try(LookupConfig.decode(step.config)).toOption.fold(Vector.empty[Warning]) { cfg =>
+      sec.filter(_ => cfg.sourceKey.nonEmpty && cfg.lookupKey.nonEmpty).fold(Vector.empty[Warning]) { s =>
+        val ws = Vector.newBuilder[Warning]
+        val leftField  = a.inputSchema.find(_.name == cfg.sourceKey)
+        val rightField = s.schema.find(_.name == cfg.lookupKey)
+        if (s.flags.names && rightField.isEmpty)
+          ws += Warning(step.id, FieldNotInInputSchema, missingMessage("lookup", cfg.lookupKey, s.schema, "this step's inferred secondary input schema", secondary = true))
+        for {
+          l <- leftField
+          r <- rightField
+          if in.types && s.flags.types
+          lf <- family(l.`type`)
+          rf <- family(r.`type`)
+          if lf != rf
+        } ws += Warning(
+          step.id,
+          JoinKeyTypeMismatch,
+          s"lookup: source key '${cfg.sourceKey}' is ${l.`type`} on the input but lookup key '${cfg.lookupKey}' is ${r.`type`} on the secondary input; values of different types never match, so no row will find a match (types are from the inferred schemas)"
+        )
+        ws.result()
+      }
+    }
+
   private def lookupRenames(step: NodeStepInput, a: AnalyzedStep, in: Flags, sec: Option[Secondary]): Vector[Warning] =
     Try(LookupConfig.decode(step.config)).toOption.fold(Vector.empty[Warning]) { cfg =>
       if (!(in.names && sec.exists(_.flags.names))) Vector.empty
@@ -216,7 +248,7 @@ object AnalyzeSchemaWarnings {
   private def missingMessage(op: String, field: String, schema: Vector[SchemaField], where: String, secondary: Boolean = false): String = {
     val names     = schema.map(_.name)
     val listed    = names.take(MaxListedFields).mkString(", ") + (if (names.size > MaxListedFields) ", …" else "")
-    val what      = if (secondary && op == "join") s"key '$field'" else s"field '$field'"
+    val what      = if (secondary && (op == "join" || op == "lookup")) s"key '$field'" else s"field '$field'"
     s"$op: $what not found in $where (available: $listed)"
   }
 

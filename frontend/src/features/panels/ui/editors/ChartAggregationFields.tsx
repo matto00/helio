@@ -44,6 +44,7 @@ export function ChartAggregationFields({
           Group by
         </label>
         <Select
+          id="agg-group-by"
           ariaLabel="Group by field"
           value={groupByValue}
           onChange={onGroupByChange}
@@ -56,6 +57,7 @@ export function ChartAggregationFields({
           Value field
         </label>
         <Select
+          id="agg-field"
           ariaLabel="Aggregation value field"
           value={valueFieldValue}
           onChange={onValueFieldChange}
@@ -68,6 +70,7 @@ export function ChartAggregationFields({
           Function
         </label>
         <Select
+          id="agg-fn"
           ariaLabel="Aggregation function"
           value={aggFnValue}
           onChange={onAggFnChange}

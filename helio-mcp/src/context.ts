@@ -379,6 +379,9 @@ export interface WorkspaceContext {
       outputColumns?: string[];
       outputColumnCount?: number;
       validationError: string | null;
+      /** HEL-1414: this step's schema-only, NON-BLOCKING analyze warnings (hints that do not
+       *  affect whether the pipeline can run). Kept in full in concise mode too. Omitted when none. */
+      warnings?: Array<{ code: string; message: string }>;
     }>;
     /** set when the analyze fan-out for this pipeline failed */
     stepsError?: string;
@@ -532,14 +535,24 @@ export async function buildWorkspaceContext(
         (async () => {
           try {
             const analyzed = await api.analyzePipeline(summary.id);
+            // HEL-1414: group the non-blocking analyze warnings by step id (an older server may
+            // omit the field entirely).
+            const warningsByStep = new Map<string, Array<{ code: string; message: string }>>();
+            for (const w of analyzed.warnings ?? []) {
+              const list = warningsByStep.get(w.stepId) ?? [];
+              list.push({ code: w.code, message: w.message });
+              warningsByStep.set(w.stepId, list);
+            }
             return {
               steps: analyzed.steps.map((step) => {
                 const outputColumns = step.outputSchema.map((f) => f.name);
+                const warnings = warningsByStep.get(step.id);
                 return {
                   position: step.position,
                   type: step.type,
                   ...(concise ? { outputColumnCount: outputColumns.length } : { outputColumns }),
                   validationError: step.validationError,
+                  ...(warnings ? { warnings } : {}),
                 };
               }),
             };

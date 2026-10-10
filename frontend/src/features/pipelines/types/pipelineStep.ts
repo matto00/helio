@@ -624,7 +624,7 @@ export interface CostVerdict {
 // HEL-1235: one schema-only, NON-BLOCKING analyze finding (`PipelineAnalyzeProtocol.scala`'s
 // `AnalyzeWarningResponse`). Computed from the inferred schemas with no row reads, so it can be a
 // misleading hint when a stored schema is stale. Never sets a step's `validationError` and never
-// affects `costVerdict`. Not rendered yet (follow-up).
+// affects `costVerdict`. Rendered on the warned step's StepCard (HEL-1414).
 export type AnalyzeWarningCode =
   | "field-not-in-input-schema"
   | "join-key-type-mismatch"

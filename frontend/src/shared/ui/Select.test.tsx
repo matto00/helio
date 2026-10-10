@@ -86,3 +86,22 @@ describe("Select — combobox a11y (HEL a11y sweep F-048)", () => {
     expect(trigger).toHaveFocus();
   });
 });
+
+describe("Select -- id pass-through (HEL-1432)", () => {
+  it("puts the id on the trigger and lets a label associate with it", () => {
+    render(
+      <>
+        <label htmlFor="pos">Where</label>
+        <Select id="pos" value="top" options={options} onChange={jest.fn()} />
+      </>,
+    );
+    const trigger = screen.getByRole("combobox", { name: "Where" });
+    expect(trigger).toHaveAttribute("id", "pos");
+    expect(screen.getByLabelText("Where")).toBe(trigger);
+  });
+
+  it("renders no id attribute on the trigger when none is passed", () => {
+    renderSelect();
+    expect(screen.getByRole("combobox", { name: "Position" })).not.toHaveAttribute("id");
+  });
+});

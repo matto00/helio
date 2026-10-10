@@ -152,6 +152,7 @@ export function OutputKindConfigCard({
               Format
             </label>
             <Select
+              id="output-collection-format"
               ariaLabel="Format"
               value={collectionFormat}
               onChange={setCollectionFormat}

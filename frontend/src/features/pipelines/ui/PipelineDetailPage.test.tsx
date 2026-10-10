@@ -781,6 +781,52 @@ describe("PipelineDetailPage", () => {
       expect(screen.queryByRole("option", { name: "raw_notes" })).not.toBeInTheDocument();
     });
 
+    // HEL-1414 evaluation-1 CR1 -- the page's analyze result reaches each step's card through the
+    // real `usePipelineDetailPage` grouping (a hook that dropped every warning must fail here).
+    it("renders each step's analyze warnings on its own card, in server order, none on other steps", async () => {
+      getPipelineStepsMock.mockResolvedValue([
+        {
+          id: "rename-1",
+          pipelineId: "pipe-1",
+          position: 0,
+          type: "rename",
+          config: { renames: {} },
+          createdAt: "",
+          updatedAt: "",
+        },
+        {
+          id: "limit-1",
+          pipelineId: "pipe-1",
+          position: 1,
+          type: "limit",
+          config: { count: 5 },
+          createdAt: "",
+          updatedAt: "",
+        },
+      ]);
+      analyzePipelineMock.mockResolvedValue({
+        ...emptyAnalyzeResponse,
+        warnings: [
+          {
+            stepId: "rename-1",
+            code: "field-not-in-input-schema",
+            message: "first rename warning",
+          },
+          { stepId: "rename-1", code: "join-column-renamed", message: "second rename warning" },
+        ],
+      });
+      renderDetailPage();
+      const indicator = await screen.findByRole("img", { name: "2 schema warnings" });
+      expect(screen.getAllByRole("img", { name: /schema warning/ })).toHaveLength(1);
+      fireEvent.click(indicator.closest("button") as HTMLElement);
+      const region = await screen.findByRole("region", { name: /Check before running/ });
+      const items = within(region).getAllByRole("listitem");
+      expect(items.map((li) => li.textContent)).toEqual([
+        "first rename warning",
+        "second rename warning",
+      ]);
+    });
+
     // evaluation-1.md CR2(a)/(c) — a LANE draft resolves its field picker from
     // its OWN anchor (`pendingDraftMetaRef`'s recorded `parentStepId`), never
     // a flat array-position walk. This live end-to-end test is NOT

@@ -171,7 +171,7 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "analyze_pipeline returns for an existing pipeline, projected here for a not-yet-created " +
         "one (no ids exist yet, since nothing is persisted). `warnings` ({stepId, code, message}, " +
         "stepId = the proposal's client step id) are schema-only, NON-BLOCKING findings " +
-        "(field-not-in-input-schema, join-key-type-mismatch, join-column-renamed, numeric-op-on-text-field) computed from " +
+        "(field-not-in-input-schema, join-key-type-mismatch -- join OR lookup keys --, join-column-renamed, numeric-op-on-text-field) computed from " +
         "the inferred schemas; they never set a validationError, they do NOT affect canRun (or block apply/run), and are distinct from " +
         "propose_pipeline's warnings strings (which drive applyReady) and from run warnings. " +
         OUTPUT_CONFIG_KEYS_DOC,
