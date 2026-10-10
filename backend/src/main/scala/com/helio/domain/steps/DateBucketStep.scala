@@ -123,6 +123,10 @@ object DateBucketStep {
     }
   }
 
+  /** `true` when `datebucket` could bucket `value` (HEL-1436 D3: lets `cast` keep exactly the values
+   *  this op reads). */
+  def parsesAsDate(value: Any): Boolean = parseToUtcDate(value).isDefined
+
   /** Space-separated tz-less timestamp formatter (`2026-07-01 12:00:00`,
    *  `2026-07-01 12:00`, with an optional **variable-length** (0-9 digit)
    *  fractional-seconds component). Built via `DateTimeFormatterBuilder`

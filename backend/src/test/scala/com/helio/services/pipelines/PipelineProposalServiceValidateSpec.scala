@@ -213,4 +213,22 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
       verifyNoInteractions(dsRepo)
     }
   }
+
+  "PipelineProposalService.validate cast targets (HEL-1436)" should {
+    "RED: reject a cast step with a string-body target (422) and accept a float target" in {
+      val sourceId = DataSourceId(UUID.randomUUID().toString)
+      val dsRepo   = mock(classOf[DataSourceRepository])
+      when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(existingSource(sourceId))))
+      def run(target: String) = await(newService(dsRepo).validate(
+        proposal(existingSourceRef(sourceId.value)).copy(steps = Vector(
+          CreatePipelineTransactionalStepRequest(clientId = "s1", `type` = "cast",
+            config = s"""{"casts":{"doc":"$target"}}""".parseJson.asJsObject))), user))
+
+      val err = run("string-body").swap.toOption.getOrElse(fail("string-body accepted"))
+      err shouldBe a[ServiceError.UnprocessableEntity]
+      err.message should include("string-body")
+      err.message should include("step 1")
+      run("float") shouldBe Right(())
+    }
+  }
 }

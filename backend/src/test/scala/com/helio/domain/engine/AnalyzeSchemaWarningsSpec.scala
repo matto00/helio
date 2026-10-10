@@ -330,10 +330,12 @@ class AnalyzeSchemaWarningsSpec extends AnyWordSpec with Matchers {
       codes(warnings(steps, roots)) shouldBe Vector("join" -> TypeMismatch)
     }
 
-    "not trust a cast to float (CastStep falls through to the raw string)" in {
+    // HEL-1436 D6: flipped on purpose. CastStep now produces a Double for float, so the projected
+    // `float` is the run-time class and the cast is trusted: a float key against a string key warns.
+    "RED (HEL-1436): trust a cast to float (CastStep emits Double) and warn against a string key" in {
       val cast = node("cs", Some("laneL"), 5, "cast", """{"casts":{"id":"float"}}""")
       val (steps, roots) = laneJoin(Vector(f("id", "string")), Vector(f("id", "string")), leftPrefix = Vector(cast))
-      warnings(steps, roots) shouldBe empty
+      codes(warnings(steps, roots)) shouldBe Vector("join" -> TypeMismatch)
     }
 
     "stay quiet when the left side is name-incomplete" in {

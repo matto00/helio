@@ -196,6 +196,12 @@ object PipelineStep {
      *  into strictness by overriding this in its own file. */
     def validateRawConfig(raw: String): Option[String] = strictDecodeProblem(raw)
 
+    /** HEL-1436 D4: a WRITE-ONLY extra rejection, consulted by [[PipelineStep.rawConfigProblem]]
+     *  after `validateRawConfig`. Deliberately NOT part of `validateRawConfig`: analyze and the run
+     *  gates (`RunConfigGate`, used by auto-run and the scheduler) call that directly and must keep
+     *  admitting configs stored before this check existed. Default `None`. */
+    def writeConfigProblem(raw: String): Option[String] = None
+
     /** HEL-814 D2: the shared wrong-TYPE rejection, derived from this kind's
      *  own strict decoder so the write path can never reject a shape the read
      *  path accepts, or accept one it rejects. `decodeConfig` raises
@@ -281,7 +287,7 @@ object PipelineStep {
    *  config is acceptable OR the kind is unregistered / has not opted in (callers handle an
    *  unknown kind separately). The one shared lookup behind every `validateRawConfig` call site. */
   def rawConfigProblem(kind: String, raw: String): Option[String] =
-    companionFor(kind).toOption.flatMap(_.validateRawConfig(raw))
+    companionFor(kind).toOption.flatMap(c => c.validateRawConfig(raw).orElse(c.writeConfigProblem(raw)))
 
   /** Look up a kind's companion, or `Left` with a descriptive error. */
   def companionFor(kind: String): Either[String, Companion] =

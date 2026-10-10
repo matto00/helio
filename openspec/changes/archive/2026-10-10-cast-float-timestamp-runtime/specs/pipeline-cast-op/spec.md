@@ -1,9 +1,4 @@
-# pipeline-cast-op Specification
-
-## Purpose
-TBD - created by archiving change pipeline-op-cast-type. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Cast op retypes specified fields per a casts map
 The execution engine SHALL support the `cast` op. The step config SHALL contain a `casts` object
@@ -60,36 +55,7 @@ for that column.
 - **WHEN** a cast step with `casts: {}` is applied to any rows
 - **THEN** each output row is identical to the corresponding input row
 
-### Requirement: Frontend cast op renders a field-type table in the step-card config UI
-When a pipeline step has `op: "cast"` and the step card is expanded, the frontend SHALL render a
-table of available column names derived from the analyze endpoint's `inputSchema` for that step.
-Each row SHALL show the source field name and a target-type dropdown. If the user selects
-"— keep as is —" for a field, that field SHALL be removed from the `casts` map in the persisted
-config. If the analyze response returns an empty `inputSchema`, the UI SHALL render an empty table
-(no prompt to run the pipeline first). The dropdown SHALL offer the types: `string`, `integer`,
-`long`, `double`, `boolean`.
-
-#### Scenario: Table shows columns from analyze inputSchema
-- **WHEN** a cast step card is expanded and the analyze response contains an `inputSchema` with
-  fields `["id", "price", "qty"]` for that step
-- **THEN** the step-card body shows three rows labelled `id`, `price`, and `qty` each with a type dropdown
-
-#### Scenario: Empty inputSchema renders empty table, no run prompt
-- **WHEN** a cast step card is expanded and the analyze response returns an empty `inputSchema`
-- **THEN** the step-card body renders an empty table; no message prompting the user to run the
-  pipeline is shown
-
-#### Scenario: Selecting a type updates the step config
-- **WHEN** the user selects `integer` in the dropdown for field `price`
-- **THEN** the step config is patched with `{"casts": {"price": "integer"}}`
-
-#### Scenario: Selecting keep-as-is removes field from config
-- **WHEN** the user selects "— keep as is —" in the dropdown for field `price` (previously cast to `integer`)
-- **THEN** the step config is patched with `casts` that does not contain the `price` key
-
-#### Scenario: Config is hydrated from persisted step on reload
-- **WHEN** a pipeline step with `op: "cast"` and persisted config `{"casts": {"qty": "integer"}}` is loaded
-- **THEN** the `qty` dropdown shows `integer` as the selected type
+## ADDED Requirements
 
 ### Requirement: Cast targets outside the supported set are rejected at write and passed through when already stored
 Creating or updating a `cast` step (including through a single-call pipeline create or an applied

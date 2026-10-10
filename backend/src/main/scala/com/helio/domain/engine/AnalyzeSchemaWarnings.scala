@@ -2,7 +2,7 @@ package com.helio.domain.engine
 
 import com.helio.domain.engine.PipelineAnalyzeService.{AnalyzedStep, NodeStepInput}
 import com.helio.domain.steps.{
-  AggregateConfig, CastConfig, ComputeConfig, DateBucketConfig, DedupeConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinColumnNaming, JoinConfig,
+  AggregateConfig, CastConfig, CastStep, ComputeConfig, DateBucketConfig, DedupeConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinColumnNaming, JoinConfig,
   LookupConfig, RenameConfig, SelectConfig, SortConfig, StringOpsConfig, WindowConfig, WindowStep
 }
 
@@ -63,10 +63,9 @@ object AnalyzeSchemaWarnings {
   private val typeTrusted: Set[String] =
     Set("filter", "sort", "limit", "dedupe", "select", "rename", "stringops", "assert", "upsertsource")
 
-  /** `CastStep.castValue` produces a value of the projected class only for these targets; any other
-   *  target (e.g. `float`, `timestamp`) falls through to the raw string while analyze projects the
-   *  target type. */
-  private val castRuntimeTargets: Set[String] = Set("string", "integer", "long", "double", "boolean", "date")
+  /** `CastStep.castValue` produces a value of the projected class for every supported target
+   *  (HEL-1436); a stored legacy target passes through and is not trusted. */
+  private val castRuntimeTargets: Set[String] = CastStep.SupportedTargets.toSet
 
   /** Runtime-equality families of the declared canonical types, as `JoinStep` indexes them (a raw
    *  `Map[Any, _]` lookup: a `String` never equals a number, while Int/Long/Double/BigDecimal match
