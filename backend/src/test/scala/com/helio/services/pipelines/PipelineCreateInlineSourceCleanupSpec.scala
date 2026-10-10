@@ -14,6 +14,7 @@ import com.helio.testkit.TempDirectorySupport
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -59,7 +60,7 @@ class PipelineCreateInlineSourceCleanupSpec extends AnyWordSpec with Matchers wi
   private val owner   = AuthenticatedUser(UserId(ownerId))
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

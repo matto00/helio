@@ -18,7 +18,7 @@ import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
 import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.{DataSourceService, SourceService}
-import com.helio.testkit.{HelioRouteTest, TempDirectorySupport}
+import com.helio.testkit.{HelioRouteTest, TempDirectorySupport, VerifiedEmbeddedPostgres}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -56,7 +56,7 @@ class PatchSetPipelineCreateOrphanSourceSpec
   private val user   = AuthenticatedUser(UserId(userId))
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")
