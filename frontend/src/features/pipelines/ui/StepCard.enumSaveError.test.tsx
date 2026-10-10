@@ -17,11 +17,14 @@ jest.mock("../services/pipelineService", () => ({
 
 const updatePipelineStepMock = jest.mocked(updatePipelineStep);
 
-function rejection(message: string): AxiosError {
-  return new AxiosError("Request failed with status code 422", "ERR_BAD_REQUEST", undefined, null, {
-    status: 422,
-    data: { message },
-  } as AxiosResponse);
+function rejection(message: string, status = 422): AxiosError {
+  return new AxiosError(
+    `Request failed with status code ${status}`,
+    "ERR_BAD_REQUEST",
+    undefined,
+    null,
+    { status, data: { message } } as AxiosResponse,
+  );
 }
 
 function baseProps(step: Step) {
@@ -61,24 +64,33 @@ const CASES: {
   label: string;
   config: Step["config"];
   edit: () => void;
+  /** The enum control the server's rejection is about, and the value the edit picks. */
+  control: string;
+  chosen: string;
 }[] = [
   {
     id: "fillnull",
     label: "Fill step",
     config: { columns: [], strategy: "constant", value: null },
     edit: () => pick("Fill strategy", "mean"),
+    control: "Fill strategy",
+    chosen: "mean",
   },
   {
     id: "window",
     label: "Window step",
     config: { partitionBy: [], orderBy: [], function: "row_number", outputColumn: "" },
     edit: () => pick("Window function", "rank"),
+    control: "Window function",
+    chosen: "rank",
   },
   {
     id: "pivot",
     label: "Pivot step",
     config: { index: [], column: "", values: "", agg: "sum" },
     edit: () => pick("Pivot aggregation function", "first"),
+    control: "Pivot aggregation function",
+    chosen: "first",
   },
 ];
 
@@ -119,6 +131,64 @@ describe("StepCard — rejected config save (HEL-1416)", () => {
       expect(screen.getByText("Unsupported thing: 'bogus'. Supported: a, b")).toBeInTheDocument();
     },
   );
+
+  describe("HEL-1422: a 422 keeps the choice and marks the control invalid", () => {
+    async function openAndEdit(c: (typeof CASES)[number], rejectWith: AxiosError) {
+      updatePipelineStepMock.mockRejectedValue(rejectWith);
+      const step: Step = {
+        id: "persisted-step-1",
+        opType: OP_TYPES.find((op) => op.id === c.id)!,
+        label: c.label,
+        config: c.config,
+        enabled: true,
+      };
+      renderWithStore(<StepCard {...baseProps(step)} />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: c.label }));
+      });
+      c.edit();
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+    }
+
+    it.each(CASES)("$id: keeps the value, aria-invalid + describedby the error", async (c) => {
+      await openAndEdit(c, rejection("Unsupported thing: 'bogus'. Supported: a, b"));
+      const control = screen.getByRole("combobox", { name: c.control });
+      expect(control).toHaveTextContent(c.chosen);
+      expect(control).toHaveAttribute("aria-invalid", "true");
+      const describedBy = control.getAttribute("aria-describedby");
+      expect(describedBy).toBeTruthy();
+      expect(document.getElementById(describedBy!)).toHaveTextContent(
+        "Unsupported thing: 'bogus'. Supported: a, b",
+      );
+    });
+
+    it.each(CASES)("$id: a 500 shows the message but marks nothing invalid", async (c) => {
+      await openAndEdit(c, rejection("Internal boom", 500));
+      expect(screen.getByText("Internal boom")).toBeInTheDocument();
+      const control = screen.getByRole("combobox", { name: c.control });
+      expect(control).not.toHaveAttribute("aria-invalid");
+      expect(control).not.toHaveAttribute("aria-describedby");
+    });
+
+    it("clears the mark on the next save attempt", async () => {
+      const c = CASES[0];
+      await openAndEdit(c, rejection("Unsupported thing: 'bogus'"));
+      expect(screen.getByRole("combobox", { name: c.control })).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      );
+      updatePipelineStepMock.mockResolvedValue(undefined as never);
+      pick("Fill strategy", "median");
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      const control = screen.getByRole("combobox", { name: c.control });
+      expect(control).not.toHaveAttribute("aria-invalid");
+      expect(screen.queryByText("Unsupported thing: 'bogus'")).not.toBeInTheDocument();
+    });
+  });
 
   it("falls back to a kind-neutral message when the server gives none", async () => {
     updatePipelineStepMock.mockRejectedValue(new Error("boom"));

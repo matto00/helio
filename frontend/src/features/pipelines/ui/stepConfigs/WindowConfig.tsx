@@ -8,7 +8,7 @@
 // and `offset` entirely.
 
 import { InlineError } from "../../../../shared/chrome/InlineError";
-import type { ChangeEvent } from "react";
+import { useId, type ChangeEvent } from "react";
 
 import type { SchemaField } from "../../types/pipelineStep";
 import { Select, TextField } from "../../../../shared/ui/index";
@@ -55,6 +55,8 @@ interface WindowConfigProps {
   onChange: (newConfig: WindowConfigValue) => void;
   /** HEL-1416: the server's message for a rejected save of this step's config. */
   saveError?: string | null;
+  /** HEL-1422: the rejection was a 422, so the function control is marked invalid. */
+  saveErrorIsValidation?: boolean;
 }
 
 export function WindowConfig({
@@ -63,7 +65,10 @@ export function WindowConfig({
   analyzeColumns,
   onChange,
   saveError,
+  saveErrorIsValidation = false,
 }: WindowConfigProps) {
+  const errorId = useId();
+  const functionInvalid = Boolean(saveError) && saveErrorIsValidation;
   function emit(next: WindowConfigValue) {
     onChange(next);
   }
@@ -171,6 +176,8 @@ export function WindowConfig({
             value={config.function}
             options={FUNCTION_OPTIONS}
             onChange={handleFunctionChange}
+            ariaInvalid={functionInvalid}
+            ariaDescribedBy={functionInvalid ? errorId : undefined}
           />
         </div>
 
@@ -216,7 +223,7 @@ export function WindowConfig({
           />
         </div>
       </div>
-      <InlineError error={saveError ?? null} />
+      <InlineError error={saveError ?? null} id={errorId} />
     </div>
   );
 }

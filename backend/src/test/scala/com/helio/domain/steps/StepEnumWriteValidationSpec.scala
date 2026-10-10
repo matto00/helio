@@ -110,4 +110,26 @@ class StepEnumWriteValidationSpec extends AnyWordSpec with Matchers {
       ex3.getMessage should include("Unsupported pivot aggregation function: 'median'")
     }
   }
+
+  "WindowStep.apply error order (HEL-1422)" should {
+    def runErr(extra: String): String =
+      intercept[StepConfigError](WindowStep.apply(Seq.empty, WindowConfig.decode(window(extra)))).getMessage
+
+    "report a missing field before a non-positive offset for lag" in {
+      val msg = runErr(""""function":"lag","offset":0""")
+      msg should include("requires 'field'")
+      msg should not include "positive 'offset'"
+    }
+    "report a missing field before a non-positive offset for lead" in {
+      val msg = runErr(""""function":"lead","offset":-2""")
+      msg should include("requires 'field'")
+      msg should not include "positive 'offset'"
+    }
+    "report an unsupported function before a missing field" in {
+      runErr(""""function":"median"""") should include("Unsupported window function: 'median'")
+    }
+    "still report a bad offset when the field is present" in {
+      runErr(""""function":"lag","field":"f","offset":0""") should include("positive 'offset'")
+    }
+  }
 }

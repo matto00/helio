@@ -92,6 +92,7 @@ export function StepOpEditor({
     analyzeWithAiConfig,
     generateTextConfig,
     saveError,
+    saveErrorIsValidation,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -225,6 +226,7 @@ export function StepOpEditor({
         analyzeColumns={analyzeColumns}
         onChange={onPivotChange}
         saveError={saveError}
+        saveErrorIsValidation={saveErrorIsValidation}
       />
     );
   }
@@ -236,6 +238,7 @@ export function StepOpEditor({
         analyzeColumns={analyzeColumns}
         onChange={onWindowChange}
         saveError={saveError}
+        saveErrorIsValidation={saveErrorIsValidation}
       />
     );
   }
@@ -264,6 +267,7 @@ export function StepOpEditor({
         analyzeColumns={analyzeColumns}
         onChange={onFillNullChange}
         saveError={saveError}
+        saveErrorIsValidation={saveErrorIsValidation}
       />
     );
   }

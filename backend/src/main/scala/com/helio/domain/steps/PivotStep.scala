@@ -161,8 +161,9 @@ object PivotStep {
       StepCodecUtil.missingRequired(Kind, "column" -> cfg.column, "values" -> cfg.values)
     }
 
-    /** HEL-1416: write-time rejection of a non-empty unknown `agg` (the HEL-1310 pattern). An empty/absent
-     *  `agg` is a draft and stays accepted (HEL-814 D2). */
+    /** HEL-1416: write-time rejection of a non-empty unknown `agg` (HEL-1310 pattern). Drafts (empty or absent
+     *  `agg`) stay accepted (HEL-814 D2). A decode failure is left to the shared shape check. Analyze and the
+     *  auto-run gate short-circuit on this result. */
     override def validateRawConfig(raw: String): Option[String] =
       super.validateRawConfig(raw).orElse(Try(PivotConfig.decode(raw)).toOption.flatMap(aggProblem))
   }
