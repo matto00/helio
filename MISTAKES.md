@@ -350,6 +350,41 @@ If either path is another checkout, discard the result. `-z "multi word"` does n
 survive sbt's argument quoting (ScalaTest rejects the second word): filter with a
 single-word substring instead.
 
+### sbt 2 can exit 0 and print `[success]` while ScalaTest says `*** N TESTS FAILED ***`
+
+**Symptom.** `sbt testOnly <spec>` ends with `Tests: succeeded 0, failed 40`, `*** 40 TESTS FAILED ***`, then
+`No tests to run for Test / testSelected` and `[success]`, and `$?` is 0. Measured on sbt 2.0.9 with a 40-failure
+spec: `-batch testOnly`, the default launcher, `testQuick`, `sbt --client` and `scripts/ci-sbt.sh` exited 0 in 52 of
+72 pre-fix red runs (2/6 to 6/6 per path and cache state) (a single failing test usually exits 1, so a small repro hides it). `testFull` did not lose
+events in 3 of 3 measured runs, but it runs the same forked path. A gate that trusts the exit code can certify a red
+run as green. (HEL-1468; first seen by HEL-1419's skeptic.)
+
+**Mechanism.** Forked test groups report results to sbt as `testEvents` notifications, and sbt builds the group's
+result from whatever arrived: an empty set is `Passed` and prints "No tests to run". A fork-side shutdown hook that
+delays the fork's exit by 2 s made 6 of 6 runs exit 1, which points at a race with the fork's exit, not a swallowed
+handler. ScalaTest's own run summary reaches sbt over a separate channel, so it stays right. The defect is in sbt's
+`ForkTests` and is unfixed in 2.0.10; sbt itself was not changed here.
+
+**Guard.** `backend/build.sbt` wraps `Test / testResultLogger` and `Test / testFull / testResultLogger` with
+`ScalaTestFailureGuard` (`backend/project/`): after every test task it reads ScalaTest's summary and throws when it
+reports failed tests or aborted suites, or when a summary is present but unreadable (fail closed). Every run that saw a
+ScalaTest summary logs `[hel1468-guard] ScalaTest summary: failed=N aborted=M ...`; a red run caused by the guard also
+logs `[hel1468-guard] ScalaTest reported ...` (its message contains the literal `*** FAILED ***`, so a raw count of that
+string is +1 on guard-only red runs). `scripts/ci-sbt.sh` additionally fails an exit-0 run whose log carries a
+ScalaTest `*** N TEST(S)/SUITE(S) FAILED/ABORTED ***` or `*** RUN ABORTED ***` line (CI logs are ANSI-wrapped; the scan
+strips escapes first).
+
+**Still judge every run by the output as well as the exit code** (grep the `Tests:` line and `*** ... FAILED ***`):
+
+- `*** RUN ABORTED ***` in a fork that still exits 0 is only caught in CI (the `ci-sbt.sh` scan); locally only the log
+  line shows it.
+- With `HEL924_TEST_GROUP_CONCURRENCY` above 1, ScalaTest joins only the last-started group's reader thread in `done()`,
+  so a first-started, last-finishing group could in principle be under-counted in the summary. Not observed: 12 runs
+  with concurrency 2 (failing suite in the slower group, both start orders) all reported the full 40 failures.
+- The guard says how many tests failed, not which: find the failing suite's header line (`[info] <Suite>:`) and its
+  `*** FAILED ***` lines earlier in the same log.
+- A `testQuick` over unchanged sources prints no ScalaTest summary at all and therefore has no verdict.
+
 ### Parallel Playwright sessions share one browser
 
 A peer session can steal the tab mid-run. Re-check `location.href` before every
