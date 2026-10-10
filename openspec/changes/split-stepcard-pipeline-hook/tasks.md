@@ -19,7 +19,7 @@
 
 ## 3. usePipelineDetailPage split (D2)
 
-- [x] 3.1 Extract C1 `usePipelineAnalyzeScheduler` in place (ends before the clearRunState unmount effect).
+- [x] 3.1 Extract C1 `usePipelineAnalyzeDeferWatchdog` in place (`clearDeferWatchdog`, `forceDeferredAnalyze` and the unmount cleanup, base L373-403; the debounced re-analyze effect stays in the host, see design D2b).
 - [x] 3.2 Extract C2 `usePipelineAnalyzeLookups` in place (ends at `getAnalyzeWarnings`; isDirty/beforeunload/pipelineName stay in host).
 - [x] 3.3 Extract C3 `usePipelineStepStructure` in place.
 - [x] 3.4 Extract C4 `usePipelineStepMutations` in place (two consecutive hooks if > ~250).

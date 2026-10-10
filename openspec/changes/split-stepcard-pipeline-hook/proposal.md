@@ -5,7 +5,7 @@
 ## What Changes
 
 - Split `StepCard.tsx` into focused modules (props type, header, warnings region, preview tray), behaviour-preserving.
-- Split `usePipelineDetailPage.ts` by extracting contiguous clusters into sub-hooks called in place (analyze scheduling, analyze lookups, step-structure creation/sync handlers, step mutation handlers), behaviour-preserving; the remainder (load/SSE wiring, outputs/sheet handlers, run/save/cancel) and `useStepCardState.ts` (602 lines) are filed as a follow-up ticket.
+- Split `usePipelineDetailPage.ts` by extracting contiguous clusters into sub-hooks called in place (analyze defer watchdog, analyze lookups, step-structure creation/sync handlers, step mutation handlers), behaviour-preserving; the remainder (load/SSE wiring, outputs/sheet handlers, run/save/cancel) and `useStepCardState.ts` (602 lines) are filed as a follow-up ticket.
 - Make the lookup "Reference match field" input id unique per step card (derived via `useId`), with its label pointing at it.
 - Reword the lookup analyze warnings to use the card's own field labels.
 
