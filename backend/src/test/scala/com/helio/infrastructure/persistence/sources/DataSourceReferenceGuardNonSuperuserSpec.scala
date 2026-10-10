@@ -10,6 +10,7 @@ import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
 import com.typesafe.config.ConfigFactory
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -65,7 +66,7 @@ class DataSourceReferenceGuardNonSuperuserSpec
   private var superTeardownRepo: WorkspaceTeardownRepository = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     val superConn = embeddedPostgres.getPostgresDatabase.getConnection
     try {
       val stmt = superConn.createStatement()

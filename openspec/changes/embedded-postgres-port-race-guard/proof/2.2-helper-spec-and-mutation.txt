@@ -1,0 +1,18 @@
+# 2.2 mutation: ownership comparison disabled (if (true || ...)) -> step 3 and 4 red; reverted
+115:[info] - should silently attach to that other cluster (the defect)
+157:[info] - should end on its own cluster on a different port and leave the foreign cluster untouched *** FAILED ***
+185:[info] - should fail loudly naming every directory when all attempts collide, leaving the foreign cluster intact *** FAILED ***
+277:[info] - should discard the attempt's own data directory and retry
+317:[info] - should carry the recorded error in the exhaustion message instead of propagating it as-is
+334:[info] Suites: completed 1, aborted 0
+335:[info] Tests: succeeded 3, failed 2, canceled 0, ignored 0, pending 0
+336:[info] *** 2 TESTS FAILED ***
+# green (unmutated):
+2:[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/embedded-postgres-port-race/HEL-1445/backend/project
+115:[info] - should silently attach to that other cluster (the defect)
+243:[info] - should end on its own cluster on a different port and leave the foreign cluster untouched
+419:[info] - should fail loudly naming every directory when all attempts collide, leaving the foreign cluster intact
+502:[info] - should discard the attempt's own data directory and retry
+542:[info] - should carry the recorded error in the exhaustion message instead of propagating it as-is
+550:[info] Suites: completed 1, aborted 0
+551:[info] Tests: succeeded 5, failed 0, canceled 0, ignored 0, pending 0

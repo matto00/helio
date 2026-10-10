@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -35,7 +36,7 @@ class UserTierMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAfte
   private val preExistingUserId = UUID.randomUUID().toString
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     val jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
 
     // Stage 1: migrate up to V86 only -- the pre-V88 users schema (no tier column).

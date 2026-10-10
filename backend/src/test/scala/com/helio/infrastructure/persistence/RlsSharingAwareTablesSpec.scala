@@ -3,6 +3,7 @@ package com.helio.infrastructure.persistence
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -55,7 +56,7 @@ class RlsSharingAwareTablesSpec extends AnyWordSpec with Matchers with BeforeAnd
   private val granteeUser = UserId(UUID.randomUUID().toString)
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     // Run Flyway as postgres superuser — creates helio_privileged + RLS policies.
     val superDs   = embeddedPostgres.getPostgresDatabase

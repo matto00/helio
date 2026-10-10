@@ -3,6 +3,7 @@ package com.helio.infrastructure.persistence
 import com.helio.domain.model.OutputKind
 import com.helio.services.pipelines.OutputConfigValidation
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.scalatest.matchers.should.Matchers
@@ -88,7 +89,7 @@ class V118LegacyMetricFormatMigrationSpec extends AnyWordSpec with Matchers {
 
   "V118, run as a NOBYPASSRLS table-owning role over a real pre-V94 dump" should {
     "map object formats to strings, move text into unit, audit, stay idempotent and keep the audit table admin-only" in {
-      val pg = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+      val pg = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
       try {
         val superDs = pg.getPostgresDatabase
         val su = superDs.getConnection

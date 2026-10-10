@@ -7,6 +7,7 @@ import com.helio.infrastructure.persistence.pipelines._
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.testsupport.OutputHistoryFixtures
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -42,7 +43,7 @@ class HistoryBaselineAfterThinningSpec extends AnyWordSpec with Matchers with Be
   override protected def seedDb: JdbcBackend.Database = db
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

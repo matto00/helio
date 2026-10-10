@@ -14,6 +14,7 @@ import com.helio.spark.PipelineRunCache
 import com.helio.testkit.TempDirectorySupport
 import com.helio.testsupport.DatasetRowsTestSupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.stream.Materializer
@@ -71,7 +72,7 @@ class PipelineRunServiceTerminalOrderingSpec extends AnyWordSpec with Matchers w
     finally { heldLocks.clear(); super.afterEach() }
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

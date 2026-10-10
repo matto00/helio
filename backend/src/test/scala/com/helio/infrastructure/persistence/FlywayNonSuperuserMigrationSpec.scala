@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.scalatest.matchers.should.Matchers
@@ -88,7 +89,7 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
   "the full Flyway migration chain, run as a non-superuser role that owns its own schema (mirrors prod DB_USER), against realistic pre-V94 data" should {
 
     "apply cleanly with real RLS policies enforced on Flyway's own connection" in {
-      val embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+      val embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
       try {
         val superDs = embeddedPostgres.getPostgresDatabase
 

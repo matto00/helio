@@ -4,6 +4,7 @@ import com.helio.domain.model._
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -95,7 +96,7 @@ class PublicPathRlsSmokeSpec extends AnyWordSpec with Matchers with BeforeAndAft
   }
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")
@@ -142,7 +143,7 @@ class PublicPathRlsSmokeSpec extends AnyWordSpec with Matchers with BeforeAndAft
   "Regression-guard sanity check (Iron Law: red before trusted)" should {
 
     "the owner-positive assertion above goes red once outputs_select/node_snapshots_select are dropped" in {
-      val probePostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+      val probePostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
       try {
         Flyway.configure()
           .dataSource(probePostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")

@@ -1,0 +1,9 @@
+# 1.2 old direct path silently attaches (spec step 2), judged by log
+2:[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/embedded-postgres-port-race/HEL-1445/backend/project
+85:[warn] Or use `-Wconf:msg=legacy-binding:s` to silence this warning. [quickfixable]
+233:23:37:29.666 INFO  [postgres:pid(2369219)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-09 23:37:29.666 PDT [2369225] LOG:  could not bind IPv6 address "::1": Address already in use
+235:23:37:29.666 INFO  [postgres:pid(2369219)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-09 23:37:29.666 PDT [2369225] LOG:  could not bind IPv4 address "127.0.0.1": Address already in use
+238:23:37:29.666 INFO  [postgres:pid(2369219)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-09 23:37:29.666 PDT [2369225] FATAL:  could not create any TCP/IP sockets
+246:[info] - should silently attach to that other cluster (the defect)
+254:[info] Suites: completed 1, aborted 0
+255:[info] Tests: succeeded 1, failed 0, canceled 0, ignored 0, pending 0

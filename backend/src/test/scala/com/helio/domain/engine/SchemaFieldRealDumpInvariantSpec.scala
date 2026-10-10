@@ -3,6 +3,7 @@ package com.helio.domain.engine
 import com.helio.domain.engine.PipelineAnalyzeService.{NodeStepInput, analyzeNodes, schemaFieldJsonFormat}
 import com.helio.domain.model.DataFieldType
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -47,7 +48,7 @@ class SchemaFieldRealDumpInvariantSpec extends AnyWordSpec with Matchers with Be
   private val manyStepsPipelineId = "6ba5075b-2291-4508-881b-a517b1f300cf"
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     // Migrate only to pre-V94 first so the dump (captured against the pre-V94 schema) loads
     // cleanly, exactly like V94OutputsMigrationSpec -- then migrate the rest of the way so the

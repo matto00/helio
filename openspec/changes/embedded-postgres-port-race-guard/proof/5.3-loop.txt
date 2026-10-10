@@ -1,0 +1,54 @@
+# 5.3 loop: D8 15-suite set, fresh sbt JVM per iteration (sbt -batch -Dsbt.server.autostart=false), nice -n 19, -J-Xmx3g, HEL924_TEST_GROUP_CONCURRENCY=2 HEL924_TEST_GROUP_COUNT=4, fresh report dir each
+show Global/concurrentRestrictions under this env (from the parity run logs): [info] * Limit forked-test-group to 2
+suite set spans groups (java hashCode floorMod 4): {2:5, 0:4, 1:3, 3:3}
+iterations run: 47; counted (all positive-evidence checks pass AND >=1 cross-group overlap >1s AND 0 same-group overlaps >1s): 35 (>=30 required)
+iterations with cross-group overlap 0 (not counted, but also zero failures): 12
+failure strings (TESTS FAILED|*** FAILED|RUN ABORTED|*** ABORTED) across all 47 iteration logs: 0
+per-iteration summary (failstrings, 'Suites: completed 15, aborted 0' line count, project-path line, XML count, XML with failures/errors, overlaps):
+iter=1 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=2 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0
+iter=3 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=2_same_group_overlaps_gt1s=0
+iter=4 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0
+iter=5 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=2_same_group_overlaps_gt1s=0
+iter=6 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0
+iter=7 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0
+iter=8 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=9 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=2_same_group_overlaps_gt1s=0
+iter=10 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0
+iter=11 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=12 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0
+iter=13 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=2_same_group_overlaps_gt1s=0
+iter=14 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=15 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=16 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=17 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=18 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=19 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0
+iter=20 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=21 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=22 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=23 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=24 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=2_same_group_overlaps_gt1s=0
+iter=25 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=26 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=27 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0
+iter=28 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0
+iter=29 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=30 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=31 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=32 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=33 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=34 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0
+iter=35 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=36 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=37 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=38 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0
+iter=39 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=2_same_group_overlaps_gt1s=0
+iter=40 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=41 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=2_same_group_overlaps_gt1s=0
+iter=42 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=2_same_group_overlaps_gt1s=0
+iter=43 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=44 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=45 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=1_same_group_overlaps_gt1s=0
+iter=46 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=2_same_group_overlaps_gt1s=0
+iter=47 sbt_rc=0 failstrings=0 suites15=1 projpath=1 xml=15 xml_bad=0 suites=15_cross_group_overlaps_gt1s=0_same_group_overlaps_gt1s=0

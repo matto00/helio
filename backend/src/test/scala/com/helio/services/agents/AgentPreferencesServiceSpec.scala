@@ -6,6 +6,7 @@ import com.helio.domain.model.{AgentPreferences, AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.agents.AgentPreferencesRepository
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -38,7 +39,7 @@ class AgentPreferencesServiceSpec extends AnyWordSpec with Matchers with BeforeA
   private val user1    = AuthenticatedUser(owner1)
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway
       .configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")

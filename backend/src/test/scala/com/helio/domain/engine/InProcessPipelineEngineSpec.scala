@@ -18,6 +18,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.testsupport.PdfFixtures
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -75,7 +76,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with HelioRo
   // SqlConnectorSpec's own `liveConfig` pattern.
   private var embeddedPostgres: EmbeddedPostgres = _
   override def beforeAll(): Unit =
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
   override def afterAll(): Unit = {
     embeddedPostgres.close()
     super.afterAll()

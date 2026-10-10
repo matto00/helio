@@ -1,0 +1,17 @@
+# cycle 3: allowlist guard
+## merge of origin/main (HEL-1468, 5ba82b39f) -> d3f24c387, clean, no conflicts. sbt now prints the HEL-1468 line:
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+## RED: new reject cases (B1-B6, junit, FQN, rename) against the previous guard:
+14:[info] - should reject static-member imports, backticks and other cluster-starting entry points (allowlist) *** FAILED ***
+15:[info]   not flagged: B1 member wildcard, B2 member rename, B3 member import, B4 nested wildcard, B5 backticks, B6 PreparedDbProvider, B6b provider in selector, junit rule, junit5 extension, other-package import
+17:[info] - should accept the verified spellings, plain imports and type positions *** FAILED ***
+18:[info]   wrongly flagged:
+27:[info] [hel1468-guard] ScalaTest summary: failed=2 aborted=0 unreadable=0
+31:[info] Tests: succeeded 7, failed 2, canceled 0, ignored 0, pending 0
+32:[info] *** 2 TESTS FAILED ***
+## GREEN with allowlist (guard + helper + OutputHistoryRoutesSpec, fresh sbt JVM):
+2:[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/embedded-postgres-port-race/HEL-1445/backend/project
+806:[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+809:[info] Suites: completed 3, aborted 0
+810:[info] Tests: succeeded 38, failed 0, canceled 0, ignored 0, pending 0
+failure strings: 0

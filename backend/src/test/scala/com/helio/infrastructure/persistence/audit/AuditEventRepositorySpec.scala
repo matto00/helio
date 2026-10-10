@@ -4,6 +4,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.domain.model._
 import com.helio.domain.model.AuditEvent.NewAuditEvent
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -37,7 +38,7 @@ class AuditEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
   private var repo: AuditEventRepository = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     val superDs   = embeddedPostgres.getPostgresDatabase
     val superJdbc = embeddedPostgres.getJdbcUrl("postgres", "postgres")

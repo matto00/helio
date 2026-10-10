@@ -4,6 +4,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.InviteCodeRepository
 import com.helio.domain.model.UserId
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -33,7 +34,7 @@ class InviteCodeRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     val superDs   = embeddedPostgres.getPostgresDatabase
     val superJdbc = embeddedPostgres.getJdbcUrl("postgres", "postgres")

@@ -20,6 +20,7 @@ import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, 
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -158,7 +159,7 @@ class FormSubmitRoutesSpec
     s"""{"dataSourceId":"__DS__","fields":$fieldsJson,"submit":{"writeMode":"append"}}"""
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration").load().migrate()
