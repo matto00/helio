@@ -39,7 +39,7 @@ not exist.
 - **THEN** the check exits non-zero naming the entry
 
 #### Scenario: Duplicate job key
-- **WHEN** a job key (for example `ci-complete`) appears twice, such as a fake copy inside an earlier job's multi-line quoted string
+- **WHEN** a job key (for example `ci-complete`) appears twice as a real mapping key in the `jobs` mapping
 - **THEN** the check exits non-zero as unparseable YAML
 
 #### Scenario: Structure-looking lines inside a quoted scalar
