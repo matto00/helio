@@ -56,7 +56,7 @@ class PanelSpec extends AnyWordSpec with Matchers {
     FormPanel(id, dashboardId, "t", meta, appearance, owner, cfg)
 
   "Panel.Registry" should {
-    "be the single source of truth for all 6 panel kinds" in {
+    "have exactly the 6 panel kinds as its key set" in {
       Panel.Registry.keySet shouldBe Set(
         TextPanel.Kind,
         MarkdownPanel.Kind,

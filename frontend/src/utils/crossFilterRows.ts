@@ -12,7 +12,6 @@
 import {
   readChartConfig,
   readCollectionConfig,
-  readMarkdownConfig,
   readMetricConfig,
   readTableConfig,
   readTimelineConfig,
@@ -78,7 +77,12 @@ export function filterRecordRowsByDimension(
  *  the field-mapping vocabulary each `*OutputConfig` interface already
  *  declares (`outputConfigTypes.ts`), one reader per kind. An output kind
  *  this module doesn't recognize (defensive-only — `OutputKind` is a closed
- *  union) yields an empty mapping, which never matches any dimension. */
+ *  union) yields an empty mapping, which never matches any dimension.
+ *  `markdown` is deliberately absent (HEL-1405): a markdown Output has no
+ *  data binding (HEL-1139) and renders no rows, so a legacy stored
+ *  `fieldMapping` (V94) must never make it a cross-filter target -- it
+ *  falls to the empty default.
+ */
 function fieldMappingForKind(
   outputKind: string,
   outputConfig: Record<string, unknown>,
@@ -88,8 +92,6 @@ function fieldMappingForKind(
       return readChartConfig(outputConfig).fieldMapping;
     case "metric":
       return readMetricConfig(outputConfig).fieldMapping;
-    case "markdown":
-      return readMarkdownConfig(outputConfig).fieldMapping;
     case "collection":
       return readCollectionConfig(outputConfig).fieldMapping;
     case "timeline":

@@ -168,9 +168,8 @@ describe("isPanelFilterableByDimension", () => {
       ).toBe(true);
     });
 
-    it("markdown/collection/timeline all read fieldMapping the same way", () => {
+    it("collection/timeline both read fieldMapping the same way", () => {
       const config = { fieldMapping: { primary: "region" } };
-      expect(isPanelFilterableByDimension("markdown", config, null, "region")).toBe(true);
       expect(isPanelFilterableByDimension("collection", config, null, "region")).toBe(true);
       expect(isPanelFilterableByDimension("timeline", config, null, "region")).toBe(true);
     });
@@ -186,6 +185,33 @@ describe("isPanelFilterableByDimension", () => {
           "quarter",
         ),
       ).toBe(false);
+    });
+
+    // HEL-1405 — RED-FIRST: failed on the pre-change code (returned true).
+    it("markdown: a legacy stored fieldMapping never makes it filterable", () => {
+      expect(
+        isPanelFilterableByDimension(
+          "markdown",
+          { content: "# Notes", fieldMapping: { content: "region" } },
+          ["region"],
+          "region",
+        ),
+      ).toBe(false);
+    });
+
+    // HEL-1405 — GUARD: passes before and after (current writes store {}).
+    it("markdown: a current markdown Output (empty fieldMapping) is not filterable", () => {
+      expect(
+        isPanelFilterableByDimension(
+          "markdown",
+          { content: "# Notes", fieldMapping: {} },
+          ["region"],
+          "region",
+        ),
+      ).toBe(false);
+      expect(isPanelFilterableByDimension("markdown", { content: "# Notes" }, null, "region")).toBe(
+        false,
+      );
     });
 
     it("an unrecognized output kind never matches (empty field mapping)", () => {
