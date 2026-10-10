@@ -43,6 +43,7 @@ export function MetricValueEditor({
           Field
         </label>
         <Select
+          id="metric-value-field"
           ariaLabel="Value field"
           value={fieldValue}
           onChange={onFieldChange}
@@ -55,6 +56,7 @@ export function MetricValueEditor({
           Reduce
         </label>
         <Select
+          id="metric-value-reduce"
           ariaLabel="Reduce function"
           value={reduceValue}
           onChange={onReduceChange}
