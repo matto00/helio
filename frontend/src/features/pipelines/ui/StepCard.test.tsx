@@ -16,7 +16,7 @@ import { renderWithStore } from "../../../test/renderWithStore";
 import { OP_TYPES, unsupportedOpType } from "../state/stepNarrowing";
 import { fetchStepPreview, updatePipelineStep } from "../services/pipelineService";
 import type { OpType, Step } from "../types/step";
-import type { SchemaField } from "../types/pipelineStep";
+import type { AnalyzeWarning, SchemaField } from "../types/pipelineStep";
 import { Link2 } from "lucide-react";
 
 jest.mock("../services/pipelineService", () => ({
@@ -1096,5 +1096,85 @@ describe("StepCard tail rendering (isTail)", () => {
     expect(
       container.querySelector(".pipeline-detail-page__step-card-drag-handle"),
     ).toBeInTheDocument();
+  });
+});
+
+// HEL-1414 — analyze warnings (schema-only, NON-BLOCKING) render on the warned step's own card.
+describe("StepCard — analyze warnings (HEL-1414)", () => {
+  const w = (message: string): AnalyzeWarning => ({
+    stepId: "persisted-step-1",
+    code: "field-not-in-input-schema",
+    message,
+  });
+
+  it("shows a header indicator with an accessible count and a visible count when N > 1, collapsed too", () => {
+    render(<StepCard {...baseProps({ warnings: [w("first"), w("second")] })} />);
+
+    const indicator = screen.getByRole("img", { name: "2 schema warnings" });
+    expect(indicator).toHaveTextContent("2");
+    expect(screen.queryByText("first")).not.toBeInTheDocument();
+  });
+
+  it("shows no visible count for a single warning and uses a singular name", () => {
+    render(<StepCard {...baseProps({ warnings: [w("only")] })} />);
+
+    const indicator = screen.getByRole("img", { name: "1 schema warning" });
+    expect(indicator).not.toHaveTextContent("1");
+  });
+
+  it("lists every message under 'Check before running' when expanded, outside the card body and before the Outputs rail", async () => {
+    const { container } = render(
+      <StepCard {...baseProps({ warnings: [w("first message"), w("second message")] })} />,
+    );
+    await click(/Limit rows/);
+
+    const region = screen.getByRole("region", { name: /Check before running/ });
+    expect(region).toHaveTextContent("(these don't block runs)");
+    expect(region).toHaveTextContent("first message");
+    expect(region).toHaveTextContent("second message");
+    expect(region).not.toHaveAttribute("role", "alert");
+    expect(region.closest(".pipeline-detail-page__step-card-body")).toBeNull();
+    const card = container.querySelector(".pipeline-detail-page__step-card")!;
+    const kids = Array.from(card.children);
+    const header = kids.findIndex((el) =>
+      el.classList.contains("pipeline-detail-page__step-card-header"),
+    );
+    const rail = kids.findIndex((el) => el.classList.contains("outputs-rail"));
+    const body = kids.findIndex((el) =>
+      el.classList.contains("pipeline-detail-page__step-card-body"),
+    );
+    const at = kids.indexOf(region);
+    expect([header, rail, body].every((i) => i >= 0)).toBe(true);
+    expect(header).toBeLessThan(at);
+    expect(at).toBeLessThan(rail);
+    expect(rail).toBeLessThan(body);
+    expect(region.textContent).not.toMatch(/can.?t run|cannot run/i);
+  });
+
+  it("does not render the message list while collapsed", () => {
+    render(<StepCard {...baseProps({ warnings: [w("hidden until expanded")] })} />);
+    expect(screen.queryByText("hidden until expanded")).not.toBeInTheDocument();
+  });
+
+  it("shows both the error and the warning indicator for a step with a validationError and warnings", () => {
+    render(
+      <StepCard {...baseProps({ validationError: "Unknown field", warnings: [w("a hint")] })} />,
+    );
+    expect(screen.getByRole("img", { name: "Step has a validation error" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "1 schema warning" })).toBeInTheDocument();
+  });
+
+  it("GUARD: a step without warnings renders no indicator and no region", async () => {
+    render(<StepCard {...baseProps()} />);
+    await click("Limit rows");
+    expect(screen.queryByRole("img", { name: /schema warning/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /Check before running/ })).not.toBeInTheDocument();
+  });
+
+  it("GUARD: a warned valid step is not marked errored", () => {
+    const { container } = render(<StepCard {...baseProps({ warnings: [w("hint")] })} />);
+    expect(
+      container.querySelector(".pipeline-detail-page__step-card--errored"),
+    ).not.toBeInTheDocument();
   });
 });

@@ -337,6 +337,69 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
     expect(context.pipelines[0]?.outputs).toHaveLength(201);
   });
 
+  // HEL-1414: analyze warnings ride on the matching step entry (non-blocking hints).
+  describe("per-step analyze warnings (HEL-1414)", () => {
+    const stepTwo = { ...analyzeResponse.steps[0]!, id: "step-2", position: 1, type: "aggregate" };
+    const warnedResponse: PipelineAnalyzeResponse = {
+      ...analyzeResponse,
+      steps: [analyzeResponse.steps[0]!, stepTwo],
+      warnings: [
+        {
+          stepId: "step-2",
+          code: "field-not-in-input-schema",
+          message: "aggregate: field 'amount' not found",
+        },
+        {
+          stepId: "step-2",
+          code: "join-column-renamed",
+          message: "lookup: right-side column 'x' collides",
+        },
+      ],
+    };
+
+    it.each([false, true])(
+      "attaches {code,message} warnings to the matching step only (concise=%s)",
+      async (concise) => {
+        const context = await buildWorkspaceContext(
+          fakeApiWithPipeline({
+            analyzePipeline: async () => warnedResponse,
+          }) as unknown as HelioApi,
+          undefined,
+          concise,
+        );
+        const steps = context.pipelines[0]!.steps;
+        expect(steps[1]?.warnings).toEqual([
+          { code: "field-not-in-input-schema", message: "aggregate: field 'amount' not found" },
+          { code: "join-column-renamed", message: "lookup: right-side column 'x' collides" },
+        ]);
+        expect(steps[0]).not.toHaveProperty("warnings");
+      },
+    );
+
+    it("GUARD: omits the key when no step has warnings", async () => {
+      const context = await buildWorkspaceContext(fakeApiWithPipeline() as unknown as HelioApi);
+      expect(context.pipelines[0]!.steps[0]).not.toHaveProperty("warnings");
+    });
+
+    it("GUARD: treats a response with no warnings field (older server) as none", async () => {
+      const { warnings: _omit, ...legacy } = analyzeResponse;
+      void _omit;
+      const context = await buildWorkspaceContext(
+        fakeApiWithPipeline({ analyzePipeline: async () => legacy }) as unknown as HelioApi,
+      );
+      expect(context.pipelines[0]!.steps[0]).not.toHaveProperty("warnings");
+    });
+
+    it("GUARD: concise omittedDetailKinds does not mention warnings", async () => {
+      const context = await buildWorkspaceContext(
+        fakeApiWithPipeline({ analyzePipeline: async () => warnedResponse }) as unknown as HelioApi,
+        undefined,
+        true,
+      );
+      expect(JSON.stringify(context.truncation.omittedDetailKinds)).not.toContain("warning");
+    });
+  });
+
   // HEL-914 task 6.6: the compact lane tree.
   it("reports laneTree with id/parentId/rootId/op/outputIds per node", async () => {
     const context = await buildWorkspaceContext(

@@ -558,7 +558,7 @@ final class PipelineService(
             // validateRawConfig -> tolerant decode), so an undecodable config stays 400 and an
             // understood-but-refused one is 422 on every write surface.
             val rawConfigError: Option[String] =
-              PipelineStep.companionFor(spec.`type`).toOption.flatMap(_.validateRawConfig(spec.config.compactPrint))
+              PipelineStep.rawConfigProblem(spec.`type`, spec.config.compactPrint)
             if (rawConfigError.isDefined)
               DBIO.failed(PipelineCreateValidationFailure(
                 ServiceError.UnprocessableEntity(s"Step '${spec.clientId}': ${rawConfigError.get}")
@@ -1103,7 +1103,7 @@ final class PipelineService(
       steps:   Iterable[(String, String)],
       resolve: DataSourceId => Future[Option[DataSource]]
   ): Future[Map[String, Vector[SchemaField]]] = {
-    val ids = steps.flatMap { case (op, config) => PipelineAnalyzeService.sourceDependencyOf(op, config) }.toVector.distinct
+    val ids = steps.flatMap { case (op, config) => PipelineAnalyzeService.secondarySourceIdOf(op, config) }.toVector.distinct
     Future.traverse(ids)(id => resolve(DataSourceId(id)).map(id -> _.map(_.inferredSchema).filter(_.nonEmpty)))
       .map(_.collect { case (id, Some(schema)) => id -> schema }.toMap)
   }
@@ -1854,7 +1854,7 @@ final class PipelineService(
     // persisted as a no-op. `None` (unregistered kind, or a kind that hasn't
     // opted in) falls through to the decode as before.
     val rawConfigError: Option[String] =
-      PipelineStep.companionFor(req.`type`).toOption.flatMap(_.validateRawConfig(req.config.compactPrint))
+      PipelineStep.rawConfigProblem(req.`type`, req.config.compactPrint)
     if (!PipelineStepKind.All.contains(req.`type`))
       Future.successful(Left(ServiceError.BadRequest(
         s"Invalid step type '${req.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
@@ -2208,7 +2208,7 @@ final class PipelineService(
                         // HEL-860: strict write-path check runs before the tolerant
                         // decode below, mirroring addStep — see comment there.
                         val rawConfigError: Option[String] =
-                          PipelineStep.companionFor(existing.kind).toOption.flatMap(_.validateRawConfig(cfgJson.compactPrint))
+                          PipelineStep.rawConfigProblem(existing.kind, cfgJson.compactPrint)
                         if (rawConfigError.isDefined)
                           Future.successful(Left(ServiceError.UnprocessableEntity(rawConfigError.get)))
                         else

@@ -3,14 +3,14 @@
 // (`StepOpEditor.tsx`) and the inline "preview data" panel state
 // (`useStepCardPreview.ts`, HEL-682 split, task 3.2) to their own modules.
 
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 
 import { useStepCardState } from "../hooks/useStepCardState";
 import { useStepCardPreview } from "../hooks/useStepCardPreview";
 import { DataGrid, StatusChip } from "../../../shared/ui/index";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { isTempStepId, renamesOf } from "../state/stepNarrowing";
-import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
+import type { AnalyzeWarning, PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { StepOpEditor } from "./StepOpEditor";
 import { StepSchemaDiffChips } from "./StepSchemaDiffChips";
@@ -60,6 +60,9 @@ interface StepCardProps {
    *  (`ComputeFieldConfig`) — kept there for its more specific placement, not
    *  double-rendered. */
   validationError?: string;
+  /** HEL-1414 — this step's schema-only, NON-BLOCKING analyze warnings. Shown as a header indicator
+   *  and, when expanded, a "Check before running" region; never marks the card errored. */
+  warnings?: AnalyzeWarning[];
   /** Called after a successful config PATCH so the parent can keep step.config in sync. */
   onConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   /** Output row count from the last run, if available. Null hides the chip. */
@@ -155,6 +158,7 @@ export const StepCard = React.memo(function StepCard({
   analyzeOutputSchema,
   hasOwnAnalyze = true,
   validationError,
+  warnings,
   onConfigChange,
   rowCount,
   onStepDragStart,
@@ -223,6 +227,8 @@ export const StepCard = React.memo(function StepCard({
   }
 
   const stepCardState = useStepCardState(step, onConfigChange);
+  const warningsHeadingId = useId();
+  const warningCount = warnings?.length ?? 0;
   const moveUpLabel = laneLabel ? `Move step up in ${laneLabel}` : "Move step up";
   const moveDownLabel = laneLabel ? `Move step down in ${laneLabel}` : "Move step down";
 
@@ -268,6 +274,18 @@ export const StepCard = React.memo(function StepCard({
               aria-label="Step has a validation error"
             >
               <TriangleAlert aria-hidden="true" size={ICON_SIZE.sm} />
+            </span>
+          )}
+          {/* HEL-1414 — non-interactive warning-intent indicator, a sibling of the error chip;
+           * never marks the card errored (warning tokens only). */}
+          {warningCount > 0 && (
+            <span
+              className="pipeline-detail-page__step-card-warning-chip"
+              role="img"
+              aria-label={`${warningCount} schema ${warningCount === 1 ? "warning" : "warnings"}`}
+            >
+              <TriangleAlert aria-hidden="true" size={ICON_SIZE.sm} />
+              {warningCount > 1 && <span aria-hidden="true">{warningCount}</span>}
             </span>
           )}
           {rowCount !== null && (
@@ -356,6 +374,30 @@ export const StepCard = React.memo(function StepCard({
           </button>
         </div>
       </div>
+
+      {/* HEL-1414 — warnings region: expanded only, directly after the header and before the
+       * Outputs rail (outside the card body). Not role="alert": non-blocking and refreshed on
+       * every analyze. */}
+      {expanded && warningCount > 0 && (
+        <div
+          className="pipeline-detail-page__step-card-warnings"
+          role="region"
+          aria-labelledby={warningsHeadingId}
+        >
+          <p id={warningsHeadingId} className="pipeline-detail-page__step-card-warnings-heading">
+            <TriangleAlert aria-hidden="true" size={ICON_SIZE.sm} />
+            Check before running{" "}
+            <span className="pipeline-detail-page__step-card-warnings-note">
+              (these don&apos;t block runs)
+            </span>
+          </p>
+          <ul className="pipeline-detail-page__step-card-warnings-list">
+            {warnings?.map((w, i) => (
+              <li key={`${w.code}-${i}`}>{w.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* task 3.3 — always visible (not gated on `expanded`): the rail is
        * this step's Outputs summary, the whole point of which is to be

@@ -16,7 +16,7 @@ import { BranchAffordance } from "./BranchAffordance";
 import { StepCard } from "./StepCard";
 import type { LaneReorder } from "../hooks/useLaneReorder";
 import type { OpType, Step } from "../types/step";
-import type { PipelineStepConfig, SchemaField } from "../types/pipelineStep";
+import type { AnalyzeWarning, PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Output } from "../types/output";
 import type { Lane, LaneGraph } from "../state/stepTree";
 import { childLanesOf, laneRenderKey, stepRenderKey } from "../state/stepTree";
@@ -43,6 +43,8 @@ interface LaneColumnProps {
   /** HEL-1340 — true when the step has its own analyze entry (see StepCard `hasOwnAnalyze`). */
   hasOwnAnalyzeEntry?: (stepId: string) => boolean;
   getAnalyzeValidationError: (stepId: string) => string | undefined;
+  /** HEL-1414 — this step's schema-only, NON-BLOCKING analyze warnings (stable array per analyze result). */
+  getAnalyzeWarnings?: (stepId: string) => AnalyzeWarning[];
   onConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   runStepRowCounts: Record<string, number> | null | undefined;
   onToggleStepEnabled: (stepId: string, enabled: boolean) => void;
@@ -106,6 +108,7 @@ export function LaneColumn({
   getAnalyzeOutputSchema,
   hasOwnAnalyzeEntry,
   getAnalyzeValidationError,
+  getAnalyzeWarnings,
   onConfigChange,
   runStepRowCounts,
   onToggleStepEnabled,
@@ -164,6 +167,7 @@ export function LaneColumn({
             getAnalyzeOutputSchema={getAnalyzeOutputSchema}
             hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
             getAnalyzeValidationError={getAnalyzeValidationError}
+            getAnalyzeWarnings={getAnalyzeWarnings}
             onConfigChange={onConfigChange}
             runStepRowCounts={runStepRowCounts}
             onToggleStepEnabled={onToggleStepEnabled}
@@ -221,6 +225,7 @@ export function LaneColumn({
                 analyzeOutputSchema={getAnalyzeOutputSchema(step.id)}
                 hasOwnAnalyze={hasOwnAnalyzeEntry?.(step.id) ?? true}
                 validationError={getAnalyzeValidationError(step.id)}
+                warnings={getAnalyzeWarnings?.(step.id)}
                 onConfigChange={onConfigChange}
                 rowCount={runStepRowCounts?.[step.id] ?? null}
                 onStepDragStart={NOOP}
@@ -273,6 +278,7 @@ export function LaneColumn({
               analyzeOutputSchema={getAnalyzeOutputSchema(step.id)}
               hasOwnAnalyze={hasOwnAnalyzeEntry?.(step.id) ?? true}
               validationError={getAnalyzeValidationError(step.id)}
+              warnings={getAnalyzeWarnings?.(step.id)}
               onConfigChange={onConfigChange}
               rowCount={runStepRowCounts?.[step.id] ?? null}
               onStepDragStart={reorder ? reorder.onStepDragStart : NOOP}

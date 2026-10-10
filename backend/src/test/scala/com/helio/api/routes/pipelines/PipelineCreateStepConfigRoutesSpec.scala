@@ -142,7 +142,7 @@ class PipelineCreateStepConfigRoutesSpec
       ))
       Post("/pipelines", createBody(src, "bad-agg", agg)) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
-        responseAs[String] should include("agg")
+        responseAs[String] should (include("Step 'agg':") and include("bogus"))
       }
       pipelineNames(owner) shouldBe empty
     }
