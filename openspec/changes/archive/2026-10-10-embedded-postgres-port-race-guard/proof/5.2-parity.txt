@@ -1,0 +1,28 @@
+# 5.2 full-suite parity, base (6902b57f1) vs branch, fresh sbt JVM each, HEL924_TEST_GROUP_CONCURRENCY=2 HEL924_TEST_GROUP_COUNT=4, nice -n 19, -J-Xmx3g
+## base
+2:[info] loading project definition from /tmp/hel1445-base/backend/project
+79:[info] * Limit forked-test-group to 2
+68327:[info] Total number of tests run: 6529
+68328:[info] Suites: completed 472, aborted 0
+68329:[info] Tests: succeeded 6529, failed 0, canceled 4, ignored 0, pending 0
+68331:[success] elapsed time: 271 s (0:04:31.0), cache 100%, 501 disk cache hits
+failure strings (TESTS FAILED|*** FAILED|RUN ABORTED|*** ABORTED): 0
+XML suites: 472; sum failures+errors: 0
+## branch
+2:[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/embedded-postgres-port-race/HEL-1445/backend/project
+7:[info] * Limit forked-test-group to 2
+68778:[info] Total number of tests run: 6541
+68779:[info] Suites: completed 474, aborted 0
+68780:[info] Tests: succeeded 6541, failed 0, canceled 4, ignored 0, pending 0
+68782:[success] elapsed time: 265 s (0:04:25.0), cache 46%, 236 disk cache hits, 267 onsite tasks
+failure strings (TESTS FAILED|*** FAILED|RUN ABORTED|*** ABORTED): 0
+XML suites: 474; sum failures+errors: 0
+## per-suite diff (suite, tests, failures, errors, skipped) base vs branch:
+469a470
+> com.helio.testkit.EmbeddedPostgresStartGuardSpec	7	0	0	0
+470a472
+> com.helio.testkit.VerifiedEmbeddedPostgresSpec	5	0	0	0
+## cross-group overlap (end-based window, >1s) on each run's XML:
+base:   suites=472 cross_group_overlaps_gt1s=16 same_group_overlaps_gt1s=0
+branch: suites=474 cross_group_overlaps_gt1s=14 same_group_overlaps_gt1s=0
+## XML suite set cross-checked against log '<Suite>:' headers: 472/472 base, 474/474 branch

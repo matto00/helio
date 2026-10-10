@@ -5,6 +5,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.services.telemetry.AdminUsageService
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -37,7 +38,7 @@ class ProductUsageRepositoryRoleSpec extends AnyWordSpec with Matchers with Befo
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    pg = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    pg = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     val su = pg.getPostgresDatabase.getConnection
     try {
       val st = su.createStatement()

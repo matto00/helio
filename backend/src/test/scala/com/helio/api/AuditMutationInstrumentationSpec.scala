@@ -36,6 +36,7 @@ import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.testsupport.PdfFixtures
 import spray.json._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -90,7 +91,7 @@ class AuditMutationInstrumentationSpec
   private var connectorRepo: ConnectorRepository             = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     Flyway
       .configure()

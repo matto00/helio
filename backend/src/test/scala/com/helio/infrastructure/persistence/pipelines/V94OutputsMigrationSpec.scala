@@ -5,6 +5,7 @@ import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.scalatest.BeforeAndAfterAll
@@ -121,7 +122,7 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
   private val singleCompanionSourceId = "18dc0d3b-ad44-48cd-bc1d-f066726fc0f1"
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     // ── Migrate only up to V93 (pre-V94) ────────────────────────────────────
     Flyway

@@ -9,6 +9,7 @@ import com.helio.infrastructure.persistence.pipelines.{OutputRepository, Pipelin
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.services.ServiceError
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -41,7 +42,7 @@ class UpsertTargetWritableRlsSpec extends AnyWordSpec with Matchers with BeforeA
   import PostgresProfile.api._
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     val superDs = embeddedPostgres.getPostgresDatabase
     Flyway.configure().dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration").load().migrate()

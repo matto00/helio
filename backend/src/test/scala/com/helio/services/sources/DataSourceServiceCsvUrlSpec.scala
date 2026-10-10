@@ -16,6 +16,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -69,7 +70,7 @@ class DataSourceServiceCsvUrlSpec extends AnyWordSpec with Matchers with HelioRo
   private lazy val tallCsv: Array[Byte] = ("a\n" + "1\n" * (CsvLimits.maxRows.toInt + 1)).getBytes(StandardCharsets.UTF_8)
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

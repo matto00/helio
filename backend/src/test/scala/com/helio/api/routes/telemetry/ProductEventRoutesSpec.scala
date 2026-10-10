@@ -15,6 +15,7 @@ import com.helio.services.telemetry.ProductTelemetryConfig
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.model.headers.{Cookie, RawHeader}
@@ -53,7 +54,7 @@ class ProductEventRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTe
   private val testUser   = AuthenticatedUser(UserId(testUserId))
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure().dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration").load().migrate()
     val e = typedSystem.executionContext

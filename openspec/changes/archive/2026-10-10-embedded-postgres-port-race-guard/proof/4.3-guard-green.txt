@@ -1,0 +1,5 @@
+# 4.3 guard green post-migration
+67:[info] - should scan a real, non-trivial source tree (non-vacuity)
+73:[info] - should have no test source that starts embedded Postgres without the verified helper
+618:[info] Suites: completed 2, aborted 0
+619:[info] Tests: succeeded 12, failed 0, canceled 0, ignored 0, pending 0

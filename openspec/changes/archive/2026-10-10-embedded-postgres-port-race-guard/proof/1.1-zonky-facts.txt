@@ -1,0 +1,165 @@
+# Task 1.1: zonky embedded-postgres 2.0.7 source facts
+--- EmbeddedPostgres.java lines 210,235
+    public int getPort()
+    {
+        return port;
+    }
+
+    Map<String, String> getConnectConfig()
+    {
+        return unmodifiableMap(connectConfig);
+    }
+
+    private static int detectPort() throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            while(!socket.isBound()) {
+                Thread.sleep(50);
+            }
+            return socket.getLocalPort();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Thread interrupted", e);
+        }
+    }
+
+    private void lock() throws IOException
+    {
+        lockStream = new FileOutputStream(lockFile);
+--- EmbeddedPostgres.java lines 255,290
+    {
+        final StopWatch watch = new StopWatch();
+        watch.start();
+        if (started.getAndSet(true)) {
+            throw new IllegalStateException("Postmaster already started");
+        }
+
+        final List<String> args = new ArrayList<>();
+        args.addAll(Arrays.asList(
+                "-D", dataDirectory.getPath(),
+                "-o", String.join(" ", createInitOptions()),
+                "-w", "start"
+        ));
+
+        final ProcessBuilder builder = new ProcessBuilder();
+        PG_CTL.applyTo(builder, args);
+
+        builder.redirectErrorStream(true);
+        builder.redirectError(errorRedirector);
+        builder.redirectOutput(outputRedirector);
+        final Process postmaster = builder.start();
+
+        if (outputRedirector.type() == ProcessBuilder.Redirect.Type.PIPE) {
+            ProcessOutputLogger.logOutput(LOG, postmaster, POSTGRES.processName());
+        }
+
+        LOG.info("{} postmaster started as {} on port {}.  Waiting up to {} for server startup to finish.", instanceId, postmaster.toString(), port, pgStartupWait);
+
+        Runtime.getRuntime().addShutdownHook(newCloserThread());
+
+        waitForServerStartup(watch);
+    }
+
+    private List<String> createInitOptions()
+    {
+        final List<String> initOptions = new ArrayList<>();
+--- EmbeddedPostgres.java lines 313,345
+    private void waitForServerStartup(StopWatch watch) throws IOException
+    {
+        Throwable lastCause = null;
+        final long start = System.nanoTime();
+        final long maxWaitNs = TimeUnit.NANOSECONDS.convert(pgStartupWait.toMillis(), TimeUnit.MILLISECONDS);
+        while (System.nanoTime() - start < maxWaitNs) {
+            try {
+                verifyReady();
+                LOG.info("{} postmaster startup finished in {}", instanceId, watch);
+                return;
+            } catch (final SQLException e) {
+                lastCause = e;
+                LOG.trace("While waiting for server startup", e);
+            }
+
+            try {
+                Thread.sleep(100);
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        throw new IOException("Gave up waiting for server to start after " + pgStartupWait.toMillis() + "ms", lastCause);
+    }
+
+    private void verifyReady() throws SQLException
+    {
+        final InetAddress localhost = InetAddress.getLoopbackAddress();
+        try (Socket sock = new Socket()) {
+            sock.setSoTimeout((int) Duration.ofMillis(500).toMillis());
+            sock.connect(new InetSocketAddress(localhost, port), (int) Duration.ofMillis(500).toMillis());
+        } catch (final IOException e) {
+            throw new SQLException("connect failed", e);
+--- EmbeddedPostgres.java lines 380,410
+
+    @Override
+    public void close() throws IOException
+    {
+        if (closed.getAndSet(true)) {
+            return;
+        }
+        final StopWatch watch = new StopWatch();
+        watch.start();
+        try {
+            pgCtl(dataDirectory, "stop");
+            LOG.info("{} shut down postmaster in {}", instanceId, watch);
+        } catch (final Exception e) {
+            LOG.error("Could not stop postmaster " + instanceId, e);
+        }
+        if (lock != null) {
+            lock.release();
+        }
+        try {
+            lockStream.close();
+        } catch (IOException e) {
+            LOG.error("while closing lockStream", e);
+        }
+
+        if (cleanDataDirectory && System.getProperty("ot.epg.no-cleanup") == null) {
+            try {
+                FileUtils.deleteDirectory(dataDirectory);
+            } catch (IOException e) {
+                LOG.error("Could not clean up directory {}", dataDirectory.getAbsolutePath());
+            }
+        } else {
+--- EmbeddedPostgres.java lines 415,425
+    private void pgCtl(File dir, String action)
+    {
+        final List<String> args = new ArrayList<>();
+        args.addAll(Arrays.asList(
+                "-D", dir.getPath(), action,
+                "-m", PG_STOP_MODE, "-t",
+                PG_STOP_WAIT_S, "-w"
+        ));
+        system(PG_CTL, args);
+    }
+
+--- EmbeddedPostgres.java lines 570,590
+
+        public Builder setPgBinaryResolver(PgBinaryResolver pgBinaryResolver) {
+            this.pgBinaryResolver = pgBinaryResolver;
+            return this;
+        }
+
+        public EmbeddedPostgres start() throws IOException {
+            if (builderPort == 0)
+            {
+                builderPort = detectPort();
+            }
+            if (builderDataDirectory == null) {
+                builderDataDirectory = Files.createTempDirectory("epg").toFile();
+            }
+            return new EmbeddedPostgres(parentDirectory, builderDataDirectory, builderCleanDataDirectory, config,
+                    localeConfig, builderPort, connectConfig, pgBinaryResolver, errRedirector, outRedirector,
+                    pgStartupWait, overrideWorkingDirectory);
+        }
+
+        @Override
+        public boolean equals(Object o) {

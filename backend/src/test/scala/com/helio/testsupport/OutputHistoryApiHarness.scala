@@ -16,6 +16,7 @@ import com.helio.services.pipelines.{OutputHistoryService, OutputService, Pipeli
 import com.helio.spark.PipelineRunCache
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import slick.jdbc.PostgresProfile.api._
 import slick.jdbc.JdbcBackend
@@ -65,7 +66,7 @@ trait OutputHistoryApiHarness extends OutputHistoryFixtures {
 
   protected def startHarness(): Unit = {
     implicit val ec: ExecutionContext = harnessEc
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

@@ -4,6 +4,7 @@ import com.helio.domain.engine.PipelineRowJson
 import com.helio.domain.model.DataSourceId
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.scalatest.matchers.should.Matchers
@@ -75,7 +76,7 @@ class DatasetRowsReaderBehaviorPreservingSpec extends AnyWordSpec with Matchers 
   "the HEL-1074 dataset_rows migration" should {
 
     "preserve every legacy reader's output for every real static source in hel904-real-dump.sql (before/after, design.md Decision 9)" in {
-      val embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+      val embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
       try {
         val jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
 

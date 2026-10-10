@@ -1,0 +1,6 @@
+# verifier negative control: one non-mechanical line added to ApiRoutesSpec.scala
+files with builder at base: 221
+changed backend files (tracked diff + untracked): 224 (expected 224 = 221 + 3 new)
+base occurrences: 226  wrapped: 226  unwrapped: 0  inserted imports: 221
+FAIL backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala: inverse transform is not byte-equal to base
+RESULT: FAIL

@@ -25,6 +25,7 @@ import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCod
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.stream.scaladsl.Source
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{mock, when}
@@ -84,7 +85,7 @@ class AssistantConversationRoutesSpec
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     val superDs   = embeddedPostgres.getPostgresDatabase
     val superJdbc = embeddedPostgres.getJdbcUrl("postgres", "postgres")

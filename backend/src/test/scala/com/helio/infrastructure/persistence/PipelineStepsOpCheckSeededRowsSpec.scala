@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.postgresql.util.PSQLException
@@ -39,7 +40,7 @@ class PipelineStepsOpCheckSeededRowsSpec extends AnyWordSpec with Matchers {
   "V107's re-added pipeline_steps_op_check, applied against a table already holding rows for every existing op" should {
 
     "keep every seeded existing-op row valid, accept all four new ops, and still reject a bogus op" in {
-      val embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+      val embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
       try {
         val jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
 

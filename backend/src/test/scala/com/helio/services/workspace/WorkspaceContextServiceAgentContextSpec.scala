@@ -20,6 +20,7 @@ import com.helio.api.protocols.agents.{CreateAgentMemoryRequest, PutAgentPrefere
 import com.helio.api.protocols.workspace.WorkspaceContextAgentSection
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.flywaydb.core.Flyway
@@ -82,7 +83,7 @@ class WorkspaceContextServiceAgentContextSpec
     // same scope depth).
     implicit val ec: ExecutionContext = routeEc
 
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

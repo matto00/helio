@@ -1,0 +1,19 @@
+# 3.1 guard RED before migration (unmigrated tree); names offending files
+2:[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/embedded-postgres-port-race/HEL-1445/backend/project
+11:[info] - should scan a real, non-trivial source tree (non-vacuity)
+12:[info] - should find the helper and a migrated spec and recognise the wrapped form as clean *** FAILED ***
+14:[info] - should reject every direct-start spelling
+15:[info] - should accept the verified spellings and the plain import
+16:[info] - should not mistake the verified start for a static zonky start
+17:[info] - should honour the exemption marker only on the marked line of the regression spec
+18:[info] - should have no test source that starts embedded Postgres without the verified helper *** FAILED ***
+244:[info] Suites: completed 1, aborted 0
+245:[info] Tests: succeeded 5, failed 2, canceled 0, ignored 0, pending 0
+246:[info] *** 2 TESTS FAILED ***
+offending files listed: 221 (expected 221)
+--- first 5 listed:
+[info]   src/test/scala/com/helio/api/ApiRoutesCorsErrorHandlingSpec.scala
+[info]   src/test/scala/com/helio/api/ApiRoutesPipelineRunGuardSpec.scala
+[info]   src/test/scala/com/helio/api/ApiRoutesSpec.scala
+[info]   src/test/scala/com/helio/api/ApiTokenAuthSpec.scala
+[info]   src/test/scala/com/helio/api/AuditMutationInstrumentationSpec.scala

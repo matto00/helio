@@ -6,6 +6,7 @@ import com.helio.domain.connectors.{ConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.model.SqlSourceConfig
 import com.helio.services.sources.ContentSourceSupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -30,7 +31,7 @@ class SqlConnectorSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll 
   private var embeddedPostgres: EmbeddedPostgres = _
 
   override def beforeAll(): Unit =
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
   override def afterAll(): Unit =
     embeddedPostgres.close()

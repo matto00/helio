@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.scalatest.matchers.should.Matchers
@@ -27,7 +28,7 @@ class V106DatasetRowsMigrationSpec extends AnyWordSpec with Matchers {
   "V106 dataset_rows migration, run as a non-superuser role, on edge-case pre-existing static sources" should {
 
     "migrate config = '{}' to zero dataset_rows and dataset_schema: [], migrate a duplicate-column-name source losslessly (positional, no collapse), and migrate a ragged row verbatim" in {
-      val embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+      val embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
       try {
         val superDs   = embeddedPostgres.getPostgresDatabase
         val superConn = superDs.getConnection

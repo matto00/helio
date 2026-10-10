@@ -2,6 +2,7 @@ package com.helio.infrastructure.persistence.audit
 
 import com.helio.infrastructure.persistence.DbContext
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.postgresql.util.PSQLException
 import org.scalatest.BeforeAndAfterAll
@@ -39,7 +40,7 @@ class AuditEventsAppendOnlySpec extends AnyWordSpec with Matchers with BeforeAnd
   private val ownerB = UUID.randomUUID().toString
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     val superDs   = embeddedPostgres.getPostgresDatabase
     val superJdbc = embeddedPostgres.getJdbcUrl("postgres", "postgres")

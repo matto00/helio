@@ -9,6 +9,7 @@ import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.sources.DataSourceService
 import com.typesafe.config.ConfigFactory
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
@@ -72,7 +73,7 @@ class V100ZeroRootGuardNonSuperuserSpec
   private var service: DataSourceService         = _
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     val superConn = embeddedPostgres.getPostgresDatabase.getConnection
     try {

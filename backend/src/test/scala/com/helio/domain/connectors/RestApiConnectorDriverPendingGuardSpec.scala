@@ -7,6 +7,7 @@ import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.testkit.HelioRouteTest
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.http.scaladsl.server.Directives._
@@ -55,7 +56,7 @@ class RestApiConnectorDriverPendingGuardSpec extends AnyWordSpec with Matchers w
   }
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

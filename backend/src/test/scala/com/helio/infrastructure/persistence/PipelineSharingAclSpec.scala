@@ -3,6 +3,7 @@ package com.helio.infrastructure.persistence
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -48,7 +49,7 @@ class PipelineSharingAclSpec extends AnyWordSpec with Matchers with BeforeAndAft
   private val unrelated   = UserId(UUID.randomUUID().toString)
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     val superJdbc = embeddedPostgres.getJdbcUrl("postgres", "postgres")
     val superDs   = embeddedPostgres.getPostgresDatabase

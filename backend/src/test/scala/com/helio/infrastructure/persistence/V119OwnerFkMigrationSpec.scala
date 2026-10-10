@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.FlywayException
 import org.flywaydb.core.api.MigrationVersion
@@ -36,7 +37,7 @@ class V119OwnerFkMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
 
   private val BracketedTables = Seq("data_sources", "image_uploads", "pipeline_roots", "pipeline_steps", "panels")
 
-  private lazy val pg: EmbeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+  private lazy val pg: EmbeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
   private val dbSeq = new AtomicInteger(0)
 
   override def beforeAll(): Unit = {

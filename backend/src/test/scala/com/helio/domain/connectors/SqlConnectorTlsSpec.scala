@@ -3,6 +3,7 @@ package com.helio.domain.connectors
 import com.helio.domain.model.SqlSourceConfig
 import com.helio.testkit.TempDirectorySupport
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -34,11 +35,11 @@ class SqlConnectorTlsSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       require(exit == 0, "openssl failed to mint the test certificate")
       Files.setPosixFilePermissions(key, PosixFilePermissions.fromString("rw-------"))
       tlsPostgres = Some(
-        EmbeddedPostgres.builder()
+        VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder()
           .setServerConfig("ssl", "on")
           .setServerConfig("ssl_cert_file", cert.toString)
           .setServerConfig("ssl_key_file", key.toString)
-          .start()
+          )
       )
     }
 

@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.scalatest.matchers.should.Matchers
@@ -45,7 +46,7 @@ class V114BackfillSignupEventsSpec extends AnyWordSpec with Matchers {
   }
 
   private def withDb[T](body: Fixture => T): T = {
-    val pg = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    val pg = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     try {
       val f = new Fixture(pg)
       f.exec("CREATE ROLE helio_migration_test LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD 'test'")

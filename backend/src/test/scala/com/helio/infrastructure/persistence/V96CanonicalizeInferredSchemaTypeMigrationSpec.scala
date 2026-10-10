@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.scalatest.matchers.should.Matchers
@@ -36,7 +37,7 @@ class V96CanonicalizeInferredSchemaTypeMigrationSpec extends AnyWordSpec with Ma
   "V96 canonicalize inferred_schema type migration, run as a non-superuser role" should {
 
     "rewrite legacy \"number\" types to \"float\", leave canonical rows and a field named \"number\" untouched, and be idempotent" in {
-      val embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+      val embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
       try {
         val superDs   = embeddedPostgres.getPostgresDatabase
         val superConn = superDs.getConnection

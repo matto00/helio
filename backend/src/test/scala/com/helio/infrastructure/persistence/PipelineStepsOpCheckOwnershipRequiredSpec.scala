@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.postgresql.util.PSQLException
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -21,7 +22,7 @@ class PipelineStepsOpCheckOwnershipRequiredSpec extends AnyWordSpec with Matcher
   "a non-superuser, non-BYPASSRLS role that does not own pipeline_steps" should {
 
     "be denied with SQLSTATE 42501 (must be owner of table pipeline_steps) when attempting V107's own drop/re-add of pipeline_steps_op_check" in {
-      val embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+      val embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
       try {
         val superConn = embeddedPostgres.getPostgresDatabase.getConnection
         try {

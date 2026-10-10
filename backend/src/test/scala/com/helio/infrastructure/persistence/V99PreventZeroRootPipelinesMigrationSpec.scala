@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.postgresql.util.PSQLException
 import org.scalatest.BeforeAndAfterEach
@@ -40,7 +41,7 @@ class V99PreventZeroRootPipelinesMigrationSpec extends AnyWordSpec with Matchers
   private val ownerId = UUID.randomUUID().toString
 
   override def beforeEach(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     val jdbcUrl = embeddedPostgres.getJdbcUrl("postgres", "postgres")
     Flyway.configure().dataSource(jdbcUrl, "postgres", "postgres").locations("classpath:db/migration").load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(5))

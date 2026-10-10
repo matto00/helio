@@ -6,6 +6,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -53,7 +54,7 @@ class PipelineRepositoryRunTransactionallyRlsSpec extends AnyWordSpec with Match
   private val owner   = AuthenticatedUser(UserId(ownerId))
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration").load().migrate()

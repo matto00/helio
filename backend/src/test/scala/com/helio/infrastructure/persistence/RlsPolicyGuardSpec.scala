@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -161,7 +162,7 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
   )
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
 
     // Apply all migrations as the postgres superuser — this creates
     // helio_privileged, enables RLS policies, and adds indexes.
@@ -338,7 +339,7 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
       // A separate, disposable EmbeddedPostgres+Flyway instance so this
       // destructive DROP POLICY never touches the shared beforeAll instance
       // the other tests in this spec depend on.
-      val probePostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+      val probePostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
       try {
         Flyway
           .configure()

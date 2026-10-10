@@ -10,6 +10,7 @@ import com.helio.services.dashboards.DashboardService
 import com.helio.api.protocols.dashboards.{DashboardLayoutItemPayload, DashboardLayoutPatchPayload, DashboardProtocol}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -42,7 +43,7 @@ class DashboardLayoutRepairRlsSpec extends AnyWordSpec with Matchers with Before
   private def await[T](f: Future[T]): T = Await.result(f, 15.seconds)
 
   override def beforeAll(): Unit = {
-    pg = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    pg = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     val superDs = pg.getPostgresDatabase
     Flyway.configure().dataSource(pg.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration").load().migrate()

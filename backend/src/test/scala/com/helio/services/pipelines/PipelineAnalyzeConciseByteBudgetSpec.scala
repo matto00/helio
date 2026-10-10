@@ -13,6 +13,7 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.sources.DataSourceService
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.flywaydb.core.Flyway
@@ -47,7 +48,7 @@ class PipelineAnalyzeConciseByteBudgetSpec extends AnyWordSpec with Matchers wit
   private val user = AuthenticatedUser(UserId(UUID.randomUUID().toString))
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")

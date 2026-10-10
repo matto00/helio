@@ -19,6 +19,7 @@ import com.helio.api.protocols.workspace.{TeardownRequest, TeardownResponse}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
@@ -92,7 +93,7 @@ class WorkspaceTeardownServiceSpec
   private val userB   = AuthenticatedUser(UserId(userBId))
 
   override def beforeAll(): Unit = {
-    embeddedPostgres = EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").start()
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     val superDs   = embeddedPostgres.getPostgresDatabase
     val superJdbc = embeddedPostgres.getJdbcUrl("postgres", "postgres")
     Flyway.configure()
