@@ -46,5 +46,5 @@
 
 ## 7. Verification
 
-- [ ] 7.1 Full frontend gates (lint, typecheck, format:check, jest) and backend `sbt testFull`.
-- [ ] 7.2 RUNNING app after (light + dark), same scenario as 1.3, compared to base; the only intended differences are the lookup input id values and the lookup warning wording.
+- [x] 7.1 Full frontend gates (lint, typecheck, format:check, jest) and backend `sbt testFull`.
+- [x] 7.2 RUNNING app after (light + dark), same scenario as 1.3, compared to base; the only intended differences are the lookup input id values and the lookup warning wording.
