@@ -118,6 +118,26 @@ describe("PanelContent — output kind dispatch", () => {
     const lines = container.querySelectorAll(".panel-content__text-line");
     expect(lines.length).toBeGreaterThan(0);
   });
+
+  // HEL-1405 — GUARD (spec scenario "Placed markdown Output renders its literal content").
+  it("renders the literal config.content of a placed markdown Output, ignoring a legacy fieldMapping", async () => {
+    getOutputByIdMock.mockResolvedValue(
+      makeOutput({
+        kind: "markdown",
+        config: { content: "# Literal heading", fieldMapping: { content: "region" } },
+      }),
+    );
+    renderWithStore(
+      <PanelContent
+        crossFilterMode="none"
+        panel={makeOutputPanel()}
+        rawRows={[["Bound value"]]}
+        headers={["region"]}
+      />,
+    );
+    expect((await screen.findByTestId("markdown-content")).textContent).toBe("# Literal heading");
+    expect(screen.queryByText("Bound value")).toBeNull();
+  });
 });
 
 describe("PanelContent — loading state", () => {
