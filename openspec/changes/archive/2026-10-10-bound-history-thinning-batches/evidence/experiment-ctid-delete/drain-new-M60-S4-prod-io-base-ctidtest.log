@@ -1,0 +1,7 @@
+@@DRAIN tag=S4-prod-io-base-ctidtest-newM now=2026-10-10T11:00:00Z limits=ThinBatchLimits(500,25000,60)
+@@PASS tag=S4-prod-io-base-ctidtest-newM pass=1 outcome=more deleted=1104151 ms=103749.7 wal_bytes=1532411512 start_epoch_ms=1791632553022 end_epoch_ms=1791632656772
+@@PASS tag=S4-prod-io-base-ctidtest-newM pass=2 outcome=more deleted=949500 ms=39819.9 wal_bytes=1133626504 start_epoch_ms=1791632656781 end_epoch_ms=1791632696601
+@@PASS tag=S4-prod-io-base-ctidtest-newM pass=3 outcome=more deleted=1284752 ms=111796.3 wal_bytes=1624681464 start_epoch_ms=1791632696673 end_epoch_ms=1791632808469
+@@PASS tag=S4-prod-io-base-ctidtest-newM pass=4 outcome=more deleted=923704 ms=40297.3 wal_bytes=950153232 start_epoch_ms=1791632808477 end_epoch_ms=1791632848774
+@@PASS tag=S4-prod-io-base-ctidtest-newM pass=5 outcome=completed deleted=1130102 ms=73216.5 wal_bytes=1107122928 start_epoch_ms=1791632848783 end_epoch_ms=1791632921999
+@@DRAINED tag=S4-prod-io-base-ctidtest-newM passes=5 total_deleted=5392209 wall_ms=368987.8

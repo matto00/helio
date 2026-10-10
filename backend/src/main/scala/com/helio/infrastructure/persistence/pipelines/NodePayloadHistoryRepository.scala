@@ -126,7 +126,7 @@ class NodePayloadHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext
                  ORDER BY captured_at DESC, id DESC OFFSET $keep LIMIT 1)"""
     }
     // HEL-1333: the trim's ON DELETE SET NULL cascade row-locks the summary points linked to the
-    // victim payload, which the retention pass (thinAndPurge / purge) also row-locks in its own
+    // victim payload, which the retention pass (thinPass / purge) also row-locks in its own
     // order -- a deadlock cycle in which the run could be the victim. The retention pass holds the
     // HEL-1272 key EXCLUSIVE for its whole transaction, so the run takes the SAME key SHARED, with a
     // TRY, immediately before the trim: shared/exclusive conflict (no trim while retention runs),
@@ -157,7 +157,7 @@ class NodePayloadHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext
 
   /** Enforces the payload retention policy, returning `Purged(n)` (payloads deleted) or `LockBusy`
    *  (nothing run; another session holds the key). One transaction under the SAME advisory lock as
-   *  `OutputHistoryRepository.thinAndPurge` (so the two never contend across instances; a lock-held
+   *  `OutputHistoryRepository.thinPass` (so the two never contend across instances; a lock-held
    *  skip is retried by the service after its short lock-retry window).
    *  Deletes, in order: payloads of any owner tier that stores none (zero runs/age, or a tier the
    *  config does not name, which fails closed and also covers downgrades); payloads older than the

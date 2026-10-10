@@ -1,0 +1,157 @@
+DO
+MARKER_AFTER_GUARD
+CREATE TABLE
+INSERT 0 3
+INSERT 0 2
+INSERT 0 1
+INSERT 0 4
+INSERT 0 1
+@@ settings
+                                                                v                                                                
+---------------------------------------------------------------------------------------------------------------------------------
+ @@ version=PostgreSQL 16.14 (Debian 16.14-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+                  s                   
+--------------------------------------
+ @@ effective_cache_size=524288
+ @@ max_parallel_workers_per_gather=2
+ @@ random_page_cost=4
+ @@ shared_buffers=76800
+ @@ work_mem=4096
+(5 rows)
+
+                                r                                 
+------------------------------------------------------------------
+ @@ rows output_snapshot_history=2081516 node_payload_history=206
+(1 row)
+
+        pv        
+------------------
+ @@ pg16_view=off
+(1 row)
+
+                                                                                                                                     ix                                                                                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ @@ indexes idx_node_payload_history_captured_at, idx_node_payload_history_node_captured, idx_output_snapshot_history_captured_at, idx_output_snapshot_history_output_captured, idx_output_snapshot_history_payload, node_payload_history_pkey, output_snapshot_history_pkey
+(1 row)
+
+CREATE FUNCTION
+CREATE FUNCTION
+BEGIN
+ ?column? 
+----------
+        1
+(1 row)
+
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@LOCK run=1 repo=1 acquired=t
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@STMT run=1 repo=1 seq=11 label=history age purge free
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Delete on output_snapshot_history h  (cost=18.52..2611.98 rows=0 width=0) (actual time=5712.634..5712.643 rows=0 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   Buffers: shared hit=57 read=1703 dirtied=4
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   ->  Hash Join  (cost=18.52..2611.98 rows=22374 width=18) (actual time=5712.540..5712.620 rows=25 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         Hash Cond: (p.owner_id = u.id)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         Buffers: shared hit=29 read=1703
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         ->  Hash Join  (cost=11.94..2520.89 rows=31399 width=28) (actual time=0.395..5710.750 rows=30516 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Hash Cond: (h.pipeline_id = p.id)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Buffers: shared hit=29 read=1700
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               ->  Index Scan using idx_output_snapshot_history_captured_at on output_snapshot_history h  (cost=0.43..2425.91 rows=31399 width=10) (actual time=0.085..5705.364 rows=30516 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Index Cond: (captured_at < '2026-09-10 12:00:00+00'::timestamp with time zone)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Buffers: shared hit=29 read=1696
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               ->  Hash  (cost=7.34..7.34 rows=334 width=26) (actual time=0.297..0.298 rows=334 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Buckets: 1024  Batches: 1  Memory Usage: 28kB
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Buffers: shared read=4
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     ->  Seq Scan on pipelines p  (cost=0.00..7.34 rows=334 width=26) (actual time=0.068..0.264 rows=334 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                           Buffers: shared read=4
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         ->  Hash  (cost=5.09..5.09 rows=119 width=22) (actual time=0.250..0.257 rows=119 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Buckets: 1024  Batches: 1  Memory Usage: 15kB
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Buffers: shared read=3
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               ->  Seq Scan on users u  (cost=0.00..5.09 rows=119 width=22) (actual time=0.084..0.236 rows=119 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Filter: (tier = 'free'::text)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Rows Removed by Filter: 48
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Buffers: shared read=3
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Planning:
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   Buffers: shared hit=283 read=19 dirtied=3
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Planning Time: 94.641 ms
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Execution Time: 5712.882 ms
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@STMT run=1 repo=1 seq=12 label=history age purge beta
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Delete on output_snapshot_history h  (cost=15.25..1379.28 rows=0 width=0) (actual time=2.489..2.490 rows=0 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   Buffers: shared hit=766 dirtied=1
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   ->  Hash Join  (cost=15.25..1379.28 rows=3910 width=18) (actual time=2.479..2.482 rows=10 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         Hash Cond: (h.pipeline_id = p.id)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         Buffers: shared hit=755
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         ->  Index Scan using idx_output_snapshot_history_captured_at on output_snapshot_history h  (cost=0.43..1264.13 rows=16326 width=10) (actual time=0.006..1.892 rows=13211 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Index Cond: (captured_at < '2026-07-12 12:00:00+00'::timestamp with time zone)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Buffers: shared hit=748
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         ->  Hash  (cost=13.83..13.83 rows=80 width=16) (actual time=0.072..0.072 rows=80 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Buckets: 1024  Batches: 1  Memory Usage: 12kB
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Buffers: shared hit=7
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               ->  Hash Join  (cost=5.59..13.83 rows=80 width=16) (actual time=0.025..0.063 rows=80 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Hash Cond: (p.owner_id = u.id)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Buffers: shared hit=7
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     ->  Seq Scan on pipelines p  (cost=0.00..7.34 rows=334 width=26) (actual time=0.004..0.023 rows=334 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                           Buffers: shared hit=4
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     ->  Hash  (cost=5.09..5.09 rows=40 width=22) (actual time=0.019..0.019 rows=40 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                           Buckets: 1024  Batches: 1  Memory Usage: 11kB
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                           Buffers: shared hit=3
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                           ->  Seq Scan on users u  (cost=0.00..5.09 rows=40 width=22) (actual time=0.003..0.014 rows=40 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                                 Filter: (tier = 'beta'::text)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                                 Rows Removed by Filter: 127
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                                 Buffers: shared hit=3
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Planning:
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   Buffers: shared hit=18
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Planning Time: 0.180 ms
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Execution Time: 2.505 ms
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@STMT run=1 repo=1 seq=13 label=history age purge owner
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Delete on output_snapshot_history h  (cost=0.72..16.90 rows=0 width=0) (actual time=0.015..0.016 rows=0 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   Buffers: shared hit=10 dirtied=1
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   ->  Nested Loop  (cost=0.72..16.90 rows=1 width=18) (actual time=0.010..0.010 rows=1 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         Buffers: shared hit=8
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         ->  Nested Loop  (cost=0.57..16.66 rows=1 width=28) (actual time=0.007..0.007 rows=1 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Buffers: shared hit=6
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               ->  Index Scan using idx_output_snapshot_history_captured_at on output_snapshot_history h  (cost=0.43..8.45 rows=1 width=10) (actual time=0.005..0.005 rows=1 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Index Cond: (captured_at < '2025-10-10 12:00:00+00'::timestamp with time zone)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Buffers: shared hit=4
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               ->  Index Scan using pipelines_pkey on pipelines p  (cost=0.15..8.17 rows=1 width=26) (actual time=0.001..0.001 rows=1 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Index Cond: (id = h.pipeline_id)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Buffers: shared hit=2
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         ->  Index Scan using users_pkey on users u  (cost=0.14..0.22 rows=1 width=22) (actual time=0.003..0.003 rows=1 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Index Cond: (id = p.owner_id)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Filter: (tier = 'owner'::text)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Buffers: shared hit=2
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Planning:
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   Buffers: shared hit=18
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Planning Time: 0.107 ms
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Execution Time: 0.024 ms
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@STMT run=1 repo=1 seq=20 label=history age purge unnamed-tier catch-all
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Delete on output_snapshot_history h  (cost=13.71..2558.82 rows=0 width=0) (actual time=0.019..0.020 rows=0 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   Buffers: shared hit=7
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   ->  Hash Join  (cost=13.71..2558.82 rows=188 width=18) (actual time=0.019..0.020 rows=0 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         Hash Cond: (h.pipeline_id = p.id)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         Buffers: shared hit=7
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         ->  Index Scan using idx_output_snapshot_history_captured_at on output_snapshot_history h  (cost=0.43..2425.91 rows=31399 width=10) (actual time=0.003..0.003 rows=1 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Index Cond: (captured_at < '2026-09-10 12:00:00+00'::timestamp with time zone)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Buffers: shared hit=4
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P         ->  Hash  (cost=13.26..13.26 rows=2 width=16) (actual time=0.011..0.011 rows=0 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Buckets: 1024  Batches: 1  Memory Usage: 8kB
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               Buffers: shared hit=3
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P               ->  Nested Loop  (cost=4.16..13.26 rows=2 width=16) (actual time=0.011..0.011 rows=0 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     Buffers: shared hit=3
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     ->  Seq Scan on users u  (cost=0.00..5.30 rows=1 width=22) (actual time=0.011..0.011 rows=0 loops=1)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                           Filter: (tier <> ALL ('{free,beta,owner}'::text[]))
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                           Rows Removed by Filter: 167
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                           Buffers: shared hit=3
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                     ->  Bitmap Heap Scan on pipelines p  (cost=4.16..7.95 rows=2 width=26) (never executed)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                           Recheck Cond: (u.id = owner_id)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                           ->  Bitmap Index Scan on idx_pipelines_owner_id  (cost=0.00..4.16 rows=2 width=0) (never executed)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P                                 Index Cond: (owner_id = u.id)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Planning:
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P   Buffers: shared hit=14
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Planning Time: 0.098 ms
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@P Execution Time: 0.030 ms
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: NOTICE:  @@STMT run=1 repo=1 seq=30 label=history thin (protected newest 101)
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: FATAL:  terminating connection due to administrator command
+CONTEXT:  PL/pgSQL function pg_temp_3.perf_explain(integer,integer) line 8 at FOR over EXECUTE statement
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:backend/scripts/perf/history-retention-batched-measure.sql:342: error: connection to server was lost

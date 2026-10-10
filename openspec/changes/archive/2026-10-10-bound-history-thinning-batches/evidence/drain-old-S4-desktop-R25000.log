@@ -1,0 +1,2 @@
+@@OLD tag=S4-desktop-R25000-old now=2026-10-10T08:00:00Z
+@@OLDDONE tag=S4-desktop-R25000-old deleted=5392209 ms=81457.5 wal_bytes=23613541440 start_epoch_ms=1791628771251 end_epoch_ms=1791628852709

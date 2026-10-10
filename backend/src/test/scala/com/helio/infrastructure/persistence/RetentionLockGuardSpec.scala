@@ -15,7 +15,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json.{JsNumber, JsObject}
 
-import java.sql.{Connection, Timestamp}
+import java.sql.{Connection, SQLException, Timestamp}
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant}
 import java.util.UUID
@@ -260,6 +260,19 @@ class RetentionLockGuardSpec extends AnyWordSpec with Matchers with BeforeAndAft
         holder.createStatement().executeQuery(s"SELECT id FROM output_snapshot_history WHERE id = '$x'::uuid FOR UPDATE").next() shouldBe true
         retention = outputRepo.thinAndPurge(t0, policy, caps, protectedNewest = 0)
         awaitCondition("thinAndPurge holds the key and waits on X's row lock")(retentionParkedOnRowLock())
+
+        // HEL-1435 D10 non-vacuity: the batch's age DELETE is an earlier statement of the SAME transaction that is
+        // now parked on X, so the P_old-linked points it deleted are still row-locked. Asserted from a separate
+        // session BEFORE the write is issued, on the SQLSTATE itself (55P03 lock_not_available), never on a message.
+        val probe: Connection = superDs.getConnection
+        try {
+          probe.setAutoCommit(false)
+          val attempt = Try(probe.createStatement().executeQuery(
+            s"SELECT id FROM output_snapshot_history WHERE payload_id = '$pOld'::uuid FOR UPDATE NOWAIT").next())
+          withClue("the P_old-linked points must still be row-locked by the parked retention transaction: ") { attempt.isFailure shouldBe true }
+          attempt.failed.get shouldBe a[SQLException]
+          attempt.failed.get.asInstanceOf[SQLException].getSQLState shouldBe "55P03"
+        } finally { Try(probe.rollback()); Try(probe.close()) }
 
         write = ctx.withSystemContext(payloadRepo.writeAction(pid, None, Some(pid), Some("r"), "manual", Instant.now(), rowsOf, cfg1))
         writeCompleted = Try(Await.ready(write, 10.seconds)).isSuccess

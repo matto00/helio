@@ -1,0 +1,2 @@
+@@OLD tag=S4-prod-io-base-ctidtest-old now=2026-10-10T11:00:00Z
+@@OLDDONE tag=S4-prod-io-base-ctidtest-old deleted=5392209 ms=603791.0 wal_bytes=24113536960 start_epoch_ms=1791631472464 end_epoch_ms=1791632076255

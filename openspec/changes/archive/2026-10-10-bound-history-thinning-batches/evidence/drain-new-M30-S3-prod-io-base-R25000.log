@@ -1,0 +1,5 @@
+@@DRAIN tag=S3-prod-io-base-R25000-newM now=2026-10-10T11:00:00Z limits=ThinBatchLimits(500,25000,30)
+@@PASS tag=S3-prod-io-base-R25000-newM pass=1 outcome=more deleted=558257 ms=7789.4 wal_bytes=343182920 start_epoch_ms=1791630676728 end_epoch_ms=1791630684518
+@@PASS tag=S3-prod-io-base-R25000-newM pass=2 outcome=more deleted=555071 ms=7491.5 wal_bytes=280524944 start_epoch_ms=1791630684526 end_epoch_ms=1791630692018
+@@PASS tag=S3-prod-io-base-R25000-newM pass=3 outcome=completed deleted=481708 ms=6693.6 wal_bytes=269817064 start_epoch_ms=1791630692025 end_epoch_ms=1791630698718
+@@DRAINED tag=S3-prod-io-base-R25000-newM passes=3 total_deleted=1595036 wall_ms=21999.1

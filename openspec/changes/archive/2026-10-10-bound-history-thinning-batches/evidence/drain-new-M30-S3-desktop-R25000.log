@@ -1,0 +1,5 @@
+@@DRAIN tag=S3-desktop-R25000-newM now=2026-10-10T11:00:00Z limits=ThinBatchLimits(500,25000,30)
+@@PASS tag=S3-desktop-R25000-newM pass=1 outcome=more deleted=558257 ms=4272.0 wal_bytes=307073624 start_epoch_ms=1791630574282 end_epoch_ms=1791630578554
+@@PASS tag=S3-desktop-R25000-newM pass=2 outcome=more deleted=555071 ms=3954.3 wal_bytes=309209912 start_epoch_ms=1791630578564 end_epoch_ms=1791630582518
+@@PASS tag=S3-desktop-R25000-newM pass=3 outcome=completed deleted=481708 ms=3506.8 wal_bytes=228468264 start_epoch_ms=1791630582526 end_epoch_ms=1791630586033
+@@DRAINED tag=S3-desktop-R25000-newM passes=3 total_deleted=1595036 wall_ms=11761.1

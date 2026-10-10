@@ -1,7 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.domain.model.UserTier
-import com.helio.infrastructure.persistence.pipelines.HistoryThinningPolicy
+import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, ThinBatchLimits}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -56,6 +56,20 @@ class OutputHistoryRetentionConfigSpec extends AnyWordSpec with Matchers {
       // Interval (1 min) shorter than the retry (default 120 s): capped, so no lengthening.
       OutputHistoryRetentionConfig.fromEnv(Map("OUTPUT_HISTORY_PURGE_INTERVAL_MINUTES" -> "1")).lockRetry shouldBe Duration.ofMinutes(1)
       OutputHistoryRetentionConfig.fromEnv(Map("OUTPUT_HISTORY_LOCK_RETRY_SECONDS" -> "99999")).lockRetry shouldBe Duration.ofMinutes(60)
+    }
+
+    "default the thin batch sizes, read them, and fall back on unset, non-numeric or non-positive input (HEL-1435)" in {
+      OutputHistoryRetentionConfig.fromEnv(Map.empty).thinLimits shouldBe ThinBatchLimits.Defaults
+      OutputHistoryRetentionConfig.fromEnv(Map(
+        "OUTPUT_HISTORY_THIN_BATCH_OUTPUTS" -> "7", "OUTPUT_HISTORY_THIN_BATCH_ROWS" -> "900", "OUTPUT_HISTORY_THIN_MAX_BATCHES_PER_PASS" -> "3"
+      )).thinLimits shouldBe ThinBatchLimits(7, 900, 3)
+      for (bad <- Seq("abc", "0", "-5", "")) {
+        OutputHistoryRetentionConfig.fromEnv(Map(
+          "OUTPUT_HISTORY_THIN_BATCH_OUTPUTS" -> bad, "OUTPUT_HISTORY_THIN_BATCH_ROWS" -> bad, "OUTPUT_HISTORY_THIN_MAX_BATCHES_PER_PASS" -> bad
+        )).thinLimits shouldBe ThinBatchLimits.Defaults
+      }
+      // A value beyond Int range clamps rather than overflowing negative.
+      OutputHistoryRetentionConfig.fromEnv(Map("OUTPUT_HISTORY_THIN_BATCH_ROWS" -> "99999999999")).thinLimits.batchRows shouldBe Int.MaxValue
     }
 
     "provide a cap for every tier" in {

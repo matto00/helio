@@ -1,0 +1,165 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/)
+[info] running (fork) com.helio.infrastructure.persistence.pipelines.HistoryThinMeasure migrate jdbc:postgresql://127.0.0.1:55435/helio_hel1435_scratch
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+22:12:33,545 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+22:12:33,546 |-INFO in ch.qos.logback.classic.util.ContextInitializer@78fbff54 - No custom configurators were discovered as a service.
+22:12:33,546 |-INFO in ch.qos.logback.classic.util.ContextInitializer@78fbff54 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+22:12:33,546 |-INFO in ch.qos.logback.classic.util.ContextInitializer@78fbff54 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+22:12:33,546 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+22:12:33,546 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/target/bg-jobs/sbt_9cdefb98/target/c57b03e5/bff0eece/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+22:12:33,576 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+22:12:33,578 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3e10dc6 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+22:12:33,578 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+22:12:33,588 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+22:12:33,589 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3e10dc6 - value "plain" substituted for "${LOG_APPENDER}"
+22:12:33,589 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+22:12:33,589 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+22:12:33,589 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+22:12:33,593 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+22:12:33,608 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+22:12:33,608 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+22:12:33,608 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+22:12:33,608 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3e10dc6 - value "INFO" substituted for "${LOG_LEVEL}"
+22:12:33,608 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+22:12:33,608 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3e10dc6 - value "plain" substituted for "${LOG_APPENDER}"
+22:12:33,608 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+22:12:33,608 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@7e22550a - End of configuration.
+22:12:33,609 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@45e37a7e - Registering current configuration as safe fallback point
+22:12:33,611 |-INFO in ch.qos.logback.classic.util.ContextInitializer@78fbff54 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 63 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+22:12:33.680 INFO  [main] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://127.0.0.1:55435/helio_hel1435_scratch (PostgreSQL 16.14)
+22:12:33.729 INFO  [main] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+22:12:33.732 INFO  [main] o.f.core.internal.command.DbValidate - Successfully validated 121 migrations (execution time 00:00.036s)
+22:12:33.739 INFO  [main] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+22:12:33.769 INFO  [main] o.f.core.internal.command.DbMigrate - Current version of schema "public": << Empty Schema >>
+22:12:33.776 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "1 - init"
+22:12:33.793 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "2 - cascade delete"
+22:12:33.801 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "3 - panel type"
+22:12:33.807 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "4 - data sources and types"
+22:12:33.817 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "5 - panel type binding"
+22:12:33.822 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "6 - users"
+22:12:33.829 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "7 - user sessions"
+22:12:33.835 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "8 - google oauth"
+22:12:33.841 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "9 - users schema fix"
+22:12:33.845 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "10 - owner id"
+22:12:33.851 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "11 - user sessions complete"
+22:12:33.859 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "12 - add computed fields to data types"
+22:12:33.863 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "13 - add sql source type"
+22:12:33.867 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "14 - data sources owner"
+22:12:33.870 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "15 - data types owner"
+22:12:33.874 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "16 - resource permissions"
+22:12:33.882 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "17 - add owner indexes"
+22:12:33.890 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "18 - user preferences"
+22:12:33.896 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "19 - panel content"
+22:12:33.900 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "20 - image panel type"
+22:12:33.904 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "21 - divider panel type"
+22:12:33.908 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "22 - pipelines"
+22:12:33.913 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "23 - pipeline steps"
+22:12:33.919 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "24 - pipeline runs"
+22:12:33.924 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "25 - add select op"
+22:12:33.927 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "26 - add limit op"
+22:12:33.930 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "27 - add sort op"
+22:12:33.934 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "28 - pipeline runs dry run status"
+22:12:33.937 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "29 - data type rows"
+22:12:33.943 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "30 - pipeline last run row count"
+22:12:33.946 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "31 - add aggregate op"
+22:12:33.949 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "32 - pipelines owner"
+22:12:33.955 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "33 - jsonb columns"
+22:12:33.970 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "34 - rls privileged role"
+22:12:33.975 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "35 - rls owner only tables"
+22:12:33.985 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "36 - rls sharing aware tables"
+22:12:33.991 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "37 - rls performance indexes"
+22:12:33.996 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "38 - rls privileged grants"
+22:12:34.000 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "39 - pipeline sharing grants"
+22:12:34.002 INFO  [main] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+22:12:34.007 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "40 - fix rls policy function recursion"
+22:12:34.011 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "41 - pipeline only panel binding"
+22:12:34.015 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "42 - api tokens"
+22:12:34.021 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "43 - panel aggregation column"
+22:12:34.024 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "44 - panel metric literal columns"
+22:12:34.026 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "45 - hash session tokens"
+22:12:34.029 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "46 - binary refs"
+22:12:34.035 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "47 - add text source type"
+22:12:34.038 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "48 - add pdf source type"
+22:12:34.040 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "49 - add image source type"
+22:12:34.043 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "50 - add splittext op"
+22:12:34.047 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "51 - add extractheadings op"
+22:12:34.049 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "52 - add chunkbytokencount op"
+22:12:34.052 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "53 - panel column widths"
+22:12:34.055 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "54 - image uploads"
+22:12:34.061 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "55 - panel table display config"
+22:12:34.063 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "56 - panel chart options"
+22:12:34.066 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "57 - panel collection options"
+22:12:34.068 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "58 - panel timeline options"
+22:12:34.071 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "59 - panel caption annotation"
+22:12:34.073 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "60 - alert rules"
+22:12:34.080 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "61 - alert events"
+22:12:34.086 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "62 - pipeline schedules"
+22:12:34.092 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "63 - pipeline run trigger source"
+22:12:34.095 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "64 - add datebucket op"
+22:12:34.099 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "65 - add pivot op"
+22:12:34.102 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "66 - add window op"
+22:12:34.105 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "67 - add unpivot op"
+22:12:34.108 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "68 - add dedupe op"
+22:12:34.110 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "69 - add fillnull op"
+22:12:34.113 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "70 - add stringops op"
+22:12:34.116 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "71 - add union op"
+22:12:34.119 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "72 - add lookup op"
+22:12:34.121 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "73 - add resource tag"
+22:12:34.127 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "74 - api token scope and run audit"
+22:12:34.130 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "75 - metrics"
+22:12:34.138 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "76 - panel metric id"
+22:12:34.143 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "77 - authoring conversations"
+22:12:34.151 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "78 - refinement conversations"
+22:12:34.154 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "79 - patch set applications"
+22:12:34.161 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "80 - assistant conversations"
+22:12:34.168 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "81 - agent preferences"
+22:12:34.173 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "82 - agent memory"
+22:12:34.179 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "83 - add assert op"
+22:12:34.182 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "84 - pipeline run assertions"
+22:12:34.188 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "85 - pipeline last source schema"
+22:12:34.191 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "86 - pipeline steps enabled"
+22:12:34.193 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "87 - assistant conversation idempotency key"
+22:12:34.196 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "88 - user tier"
+22:12:34.201 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "89 - totp mfa"
+22:12:34.212 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "90 - invite codes"
+22:12:34.218 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "91 - audit events"
+22:12:34.226 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "92 - connector credentials"
+22:12:34.230 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "93 - connectors"
+22:12:34.242 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "94 - outputs model"
+22:12:34.278 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "95 - dashboard tag"
+22:12:34.282 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "96 - canonicalize inferred schema type"
+22:12:34.285 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "97 - discriminated secondary input"
+22:12:34.290 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "98 - pipeline roots"
+22:12:34.305 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "99 - prevent zero root pipelines"
+22:12:34.308 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "100 - zero root guard rls independent"
+22:12:34.312 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "101 - share tokens"
+22:12:34.318 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "102 - share tokens privileged grant"
+22:12:34.320 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "103 - pending connectors"
+22:12:34.327 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "104 - pipeline run truncation signal"
+22:12:34.330 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "105 - oauth states"
+22:12:34.337 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "106 - dataset rows"
+22:12:34.346 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "107 - add writeback ops"
+22:12:34.348 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "108 - add form panel kind"
+22:12:34.352 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "109 - pipeline run rate window"
+22:12:34.355 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "110 - pipeline auto run debounce"
+22:12:34.360 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "111 - safe cast functions"
+22:12:34.362 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "112 - add output panel controls"
+22:12:34.365 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "113 - product events"
+22:12:34.379 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "114 - backfill signup completed events"
+22:12:34.383 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "115 - output snapshot history"
+22:12:34.388 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "116 - node payload history"
+22:12:34.396 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "117 - migrate v94 dead output config keys"
+22:12:34.398 INFO  [main] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1387_dropped_output_config_keys_deny_all" for relation "hel1387_dropped_output_config_keys" does not exist, skipping
+22:12:34.401 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "118 - map legacy metric format objects"
+22:12:34.404 INFO  [main] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1410_migrated_output_formats_deny_all" for relation "hel1410_migrated_output_formats" does not exist, skipping
+22:12:34.407 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "119 - data sources image uploads owner fk"
+22:12:34.410 INFO  [main] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned or ownerless data_sources rows (dataset_rows cascade)
+22:12:34.411 INFO  [main] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned image_uploads rows
+22:12:34.415 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "120 - history retention captured at indexes"
+22:12:34.419 INFO  [main] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "121 - monthly active users"
+22:12:34.424 INFO  [main] o.f.core.internal.command.DbMigrate - Successfully applied 121 migrations to schema "public", now at version v121 (execution time 00:00.269s)
+@@RESULT migrations=121 success=true target=121
+[success] elapsed time: 4 s, cache 71%, 20 disk cache hits, 8 onsite tasks

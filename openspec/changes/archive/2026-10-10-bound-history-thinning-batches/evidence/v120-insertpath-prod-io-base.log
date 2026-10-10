@@ -1,0 +1,44 @@
+## profile prod-io-base 2026-10-10T04:19:31-07:00
+-- V120 build run 1
+Time: 2930.443 ms (00:02.930)
+Time: 3.515 ms
+                    index                    |  size  
+ idx_output_snapshot_history_output_captured | 249 MB
+ idx_node_payload_history_node_captured      | 248 kB
+ idx_output_snapshot_history_payload         | 256 kB
+ idx_output_snapshot_history_captured_at     | 33 MB
+ idx_node_payload_history_captured_at        | 40 kB
+-- V120 build run 2
+Time: 2793.598 ms (00:02.794)
+Time: 2.183 ms
+                    index                    |  size  
+ idx_output_snapshot_history_output_captured | 249 MB
+ idx_node_payload_history_node_captured      | 248 kB
+ idx_output_snapshot_history_payload         | 256 kB
+ idx_output_snapshot_history_captured_at     | 33 MB
+ idx_node_payload_history_captured_at        | 40 kB
+-- V120 build run 3
+Time: 2794.486 ms (00:02.794)
+Time: 2.273 ms
+                    index                    |  size  
+ idx_output_snapshot_history_output_captured | 249 MB
+ idx_node_payload_history_node_captured      | 248 kB
+ idx_output_snapshot_history_payload         | 256 kB
+ idx_output_snapshot_history_captured_at     | 33 MB
+ idx_node_payload_history_captured_at        | 40 kB
+-- insert path WITH V120 indexes (3 runs x per_output 1 and 12)
+ @@ indexes idx_output_snapshot_history_captured_at, idx_output_snapshot_history_output_captured, idx_output_snapshot_history_payload, output_snapshot_history_pkey
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=1 rows=10000 ms=386.27
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=1 rows=120000 ms=3909.08
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=2 rows=10000 ms=308.73
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=2 rows=120000 ms=4086.15
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=3 rows=10000 ms=308.36
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=3 rows=120000 ms=4278.32
+-- insert path WITHOUT V120 indexes
+ @@ indexes idx_output_snapshot_history_output_captured, idx_output_snapshot_history_payload, output_snapshot_history_pkey
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=1 rows=10000 ms=309.00
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=1 rows=120000 ms=3604.85
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=2 rows=10000 ms=302.07
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=2 rows=120000 ms=4364.38
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=3 rows=10000 ms=317.41
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=3 rows=120000 ms=4483.55

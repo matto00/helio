@@ -1,0 +1,6 @@
+@@DRAIN tag=S4-prod-io-base-newM now=2026-10-10T08:00:00Z limits=ThinBatchLimits(500,100000,20)
+@@PASS tag=S4-prod-io-base-newM pass=1 outcome=more deleted=1781531 ms=175246.7 wal_bytes=2257797176 start_epoch_ms=1791628165727 end_epoch_ms=1791628340974
+@@PASS tag=S4-prod-io-base-newM pass=2 outcome=more deleted=1726218 ms=207861.1 wal_bytes=2887492760 start_epoch_ms=1791628340984 end_epoch_ms=1791628548845
+@@PASS tag=S4-prod-io-base-newM pass=3 outcome=more deleted=1799575 ms=115257.4 wal_bytes=1941443824 start_epoch_ms=1791628548854 end_epoch_ms=1791628664111
+@@PASS tag=S4-prod-io-base-newM pass=4 outcome=completed deleted=84885 ms=5879.7 wal_bytes=49439752 start_epoch_ms=1791628664122 end_epoch_ms=1791628670001
+@@DRAINED tag=S4-prod-io-base-newM passes=4 total_deleted=5392209 wall_ms=504343.7

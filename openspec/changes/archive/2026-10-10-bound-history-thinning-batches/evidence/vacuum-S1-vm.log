@@ -1,0 +1,8 @@
+DO
+MARKER_AFTER_GUARD
+VACUUM
+               ?column?                
+---------------------------------------
+ @@ relallvisible=27640 relpages=27640
+(1 row)
+

@@ -1,0 +1,6 @@
+2026-10-10 05:17:18.617 UTC [7456] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp7456.0", size 21004288
+2026-10-10 05:17:19.701 UTC [7456] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp7456.1", size 21004288
+2026-10-10 05:17:20.757 UTC [7456] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp7456.2", size 21004288
+2026-10-10 05:17:21.696 UTC [7456] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp7456.3", size 21004288
+2026-10-10 05:17:22.647 UTC [7456] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp7456.4", size 21004288
+2026-10-10 05:17:23.588 UTC [7456] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp7456.5", size 21004288

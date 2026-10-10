@@ -1,0 +1,20 @@
+## IO probe (HEL-1435) 2026-10-09T22:09:19-07:00
+backing:  ; disk nvme0n1 = 259:0, partition p6 = 259:6
+### unthrottled ()
+-- O_DIRECT write 64MB bs=1M
+67108864 bytes (67 MB, 64 MiB) copied, 0.0135763 s, 4.9 GB/s
+-- O_DIRECT write 4k x 2000 (iops)
+8192000 bytes (8.2 MB, 7.8 MiB) copied, 0.0376409 s, 218 MB/s
+-- buffered write 64MB + fdatasync
+67108864 bytes (67 MB, 64 MiB) copied, 0.0357947 s, 1.9 GB/s
+-- O_DIRECT read 64MB
+67108864 bytes (67 MB, 64 MiB) copied, 0.0147266 s, 4.6 GB/s
+### throttled (--device-write-bps /dev/nvme0n1:4800kb --device-read-bps /dev/nvme0n1:4800kb --device-write-iops /dev/nvme0n1:300 --device-read-iops /dev/nvme0n1:300)
+-- O_DIRECT write 64MB bs=1M
+67108864 bytes (67 MB, 64 MiB) copied, 13.6107 s, 4.9 MB/s
+-- O_DIRECT write 4k x 2000 (iops)
+8192000 bytes (8.2 MB, 7.8 MiB) copied, 6.44824 s, 1.3 MB/s
+-- buffered write 64MB + fdatasync
+67108864 bytes (67 MB, 64 MiB) copied, 13.5806 s, 4.9 MB/s
+-- O_DIRECT read 64MB
+67108864 bytes (67 MB, 64 MiB) copied, 13.6715 s, 4.9 MB/s
