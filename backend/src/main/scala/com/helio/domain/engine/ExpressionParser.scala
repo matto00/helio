@@ -18,6 +18,8 @@ private[engine] object ExpressionParser {
   private[engine] final case class FieldRef(name: String)     extends Expr
   private[engine] final case class BinOp(op: Char, l: Expr, r: Expr) extends Expr
   private[engine] final case class Call(name: String, args: Vector[Expr]) extends Expr
+  /** HEL-1403: prefix unary minus (strict grammar only -- the legacy parser is frozen). */
+  private[engine] final case class Neg(e: Expr)               extends Expr
 
   /** Arity/known-name check for function calls — shared by the strict parser
    *  (which rejects unknown names/arity at parse time, per
@@ -60,15 +62,21 @@ private[engine] object ExpressionParser {
       }
 
     private def parseTerm(): Either[String, Expr] =
-      parseFactor().flatMap { first =>
+      parseUnary().flatMap { first =>
         var acc: Either[String, Expr] = Right(first)
         while (acc.isRight && (peek == Token.Star || peek == Token.Slash)) {
           val op = if (peek == Token.Star) '*' else '/'
           advance()
-          acc = acc.flatMap(l => parseFactor().map(r => BinOp(op, l, r)))
+          acc = acc.flatMap(l => parseUnary().map(r => BinOp(op, l, r)))
         }
         acc
       }
+
+    /** `unary -> '-' unary | factor`: binds tighter than `*`/`/`, applies to the single following
+     *  factor, and repeats (`--x` = `x`). Unary plus is deliberately not part of the grammar. */
+    private def parseUnary(): Either[String, Expr] =
+      if (peek == Token.Minus) { advance(); parseUnary().map(Neg(_)) }
+      else parseFactor()
 
     private def parseArgs(): Either[String, Vector[Expr]] =
       if (peek == Token.RParen) Right(Vector.empty)

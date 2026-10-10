@@ -44,6 +44,8 @@
     "check:node-root-encoding:ts:selftest": "node scripts/check-node-root-encoding.ts.selftest.mjs",
     "check:no-credential-leak": "node scripts/check-no-credential-in-agent-surface.mjs",
     "check:no-credential-leak:selftest": "node scripts/check-no-credential-in-agent-surface.selftest.mjs",
+    "check:eslint-ts-rules": "node scripts/check-eslint-ts-rules.mjs",
+    "check:eslint-ts-rules:selftest": "node scripts/check-eslint-ts-rules.selftest.mjs",
     "check:tokens": "node scripts/check-tokens.mjs",
     "check:tokens:selftest": "node scripts/check-tokens.selftest.mjs",
     "check:e2e-types": "tsc --noEmit -p e2e/tsconfig.json",

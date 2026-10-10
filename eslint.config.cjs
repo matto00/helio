@@ -54,6 +54,11 @@ module.exports = [
       },
     },
   },
+  // typescript-eslint's recommended set is an ARRAY of config entries (base,
+  // eslint-recommended, recommended), not an object with `.rules`. Scope every
+  // entry to TS so the rules never apply to .js/.cjs/.mjs files. Spreading
+  // `configs.recommended.rules` (undefined) silently enabled nothing (HEL-1448).
+  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["**/*.{ts,tsx}"] })),
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
@@ -73,7 +78,16 @@ module.exports = [
       "@typescript-eslint": tseslint.plugin,
     },
     rules: {
-      ...tseslint.configs.recommended.rules,
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
       // Disable base rule in favour of the TypeScript-aware version, which
       // correctly handles interface/type-level parameter names.
       "no-unused-vars": "off",
@@ -101,6 +115,14 @@ module.exports = [
       ...reactPlugin.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       "react/react-in-jsx-scope": "off",
+    },
+  },
+  {
+    // Jest mocks/setup legitimately use require(); production TS and Playwright
+    // specs keep the rule.
+    files: ["**/*.test.{ts,tsx}", "frontend/src/test/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
     },
   },
 ];

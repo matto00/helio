@@ -141,7 +141,6 @@ function assertAddSourceBtnRuleUnique(original: string): void {
 test.describe("HEL-520 demonstrated-RED regression harness", () => {
   test("Case A — an indicator suppressed with no replacement goes red, then clean on revert", async ({
     page,
-    request,
   }) => {
     test.setTimeout(60_000);
     const client = await page.context().newCDPSession(page);

@@ -508,16 +508,14 @@ const SOURCE_NAME = "HEL-866 Guard Source";
 // `/sources/:id` and the `*/review` routes remain deliberately excluded — named here rather than
 // left implicit, per design.md D6.2. Runtime ids are resolved inside the cell; titles and logged
 // view names use the static label.
-const ROUTE_KEYS = [
-  "/",
-  "/sources",
-  "/pipelines",
-  "pipeline-detail",
-  "/connectors",
-  "/chat",
-  "/settings",
-] as const;
-type RouteKey = (typeof ROUTE_KEYS)[number];
+type RouteKey =
+  | "/"
+  | "/sources"
+  | "/pipelines"
+  | "pipeline-detail"
+  | "/connectors"
+  | "/chat"
+  | "/settings";
 // Densest routes first (measured cell time on CI: /settings and pipeline-detail ~21 s, the rest 6-12 s).
 const ROUTE_KEYS_HEAVIEST_FIRST: RouteKey[] = [
   "/settings",

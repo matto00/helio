@@ -46,18 +46,6 @@ function findMediaBlock(source: string, preludeSubstring: string): string {
   }
 }
 
-/** Body of the first flat rule inside `block` whose selector contains
- *  `selectorSubstring`. Assumes flat rules (no nested at-rules). */
-function findRuleBody(block: string, selectorSubstring: string): string {
-  const selectorIndex = block.indexOf(selectorSubstring);
-  if (selectorIndex === -1) {
-    throw new Error(`Selector containing "${selectorSubstring}" not found in the media block`);
-  }
-  const openBrace = block.indexOf("{", selectorIndex);
-  const closeBrace = block.indexOf("}", openBrace);
-  return block.slice(openBrace + 1, closeBrace);
-}
-
 /** Body of the first rule in `source` whose selector contains
  *  `selectorSubstring`, brace-matching so nested rule blocks (e.g. a
  *  `@keyframes` block's `from`/`to` steps) are included. */

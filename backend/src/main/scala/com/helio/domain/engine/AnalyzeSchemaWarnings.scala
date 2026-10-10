@@ -2,7 +2,7 @@ package com.helio.domain.engine
 
 import com.helio.domain.engine.PipelineAnalyzeService.{AnalyzedStep, NodeStepInput}
 import com.helio.domain.steps.{
-  AggregateConfig, CastConfig, DateBucketConfig, DedupeConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinColumnNaming, JoinConfig,
+  AggregateConfig, CastConfig, ComputeConfig, DateBucketConfig, DedupeConfig, FillNullConfig, FilterConfig, GroupByConfig, JoinColumnNaming, JoinConfig,
   LookupConfig, RenameConfig, SelectConfig, SortConfig, StringOpsConfig, WindowConfig, WindowStep
 }
 
@@ -14,7 +14,10 @@ import scala.util.Try
  *  Three silent-wrong-result shapes HEL-1069 found that analyze reported nothing for:
  *  a step referencing a field absent from its projected input schema, a join whose key types
  *  differ between the two inputs, and a join/lookup column that collides with an input column
- *  (the right one is renamed `right_<name>`, HEL-1236/HEL-1250).
+ *  (the right one is renamed `right_<name>`, HEL-1236/HEL-1250). HEL-1403 adds a fourth, for
+ *  `compute`: a text/boolean field (e.g. an uncast CSV column) used as a numeric-function argument or
+ *  a `-`/`*`/`/`/unary-`-` operand nulls every non-null row at run time
+ *  (`numeric-op-on-text-field`, only from type-trusted input schemas).
  *
  *  Design constraints (see the change's design.md):
  *   - A SEPARATE pure pass over the projections `PipelineAnalyzeService.analyzeNodes` already
@@ -27,7 +30,8 @@ import scala.util.Try
  *     secondary, identity fallback after an error, `pivot`'s data-derived columns). A warning is
  *     emitted only from a projection known to be complete: see [[Flags]].
  *
- *  Ops that already report an unknown field as a blocking `validationError` (compute,
+ *  Ops that already report an unknown field as a blocking `validationError` (compute -- whose
+ *  only warning here is the numeric-use-of-text-field check, never an unknown-field one --,
  *  convertformat, analyzewithai, generatetext, splittext, extractheadings, chunkbytokencount,
  *  pivot, unpivot, assert) have no row in [[referencedFields]] and so are never double-reported. */
 object AnalyzeSchemaWarnings {
@@ -35,6 +39,7 @@ object AnalyzeSchemaWarnings {
   val FieldNotInInputSchema: String = "field-not-in-input-schema"
   val JoinKeyTypeMismatch: String   = "join-key-type-mismatch"
   val JoinColumnRenamed: String     = "join-column-renamed"
+  val NumericOpOnTextField: String  = "numeric-op-on-text-field"
 
   final case class Warning(stepId: String, code: String, message: String)
 
@@ -138,6 +143,9 @@ object AnalyzeSchemaWarnings {
 
         if (step.op == "join") joinWarnings(step, a, in, sec).foreach(w => out += a.position -> w)
         if (step.op == "lookup") lookupRenames(step, a, in, sec).foreach(w => out += a.position -> w)
+        // Gated on trusted input TYPES: after a compute/fillnull/aggregate/untrusted cast the
+        // projected type may not equal the run-time class, and a guess would be a false positive.
+        if (step.op == "compute" && in.types) computeNumericWarnings(step, a).foreach(w => out += a.position -> w)
       }
     }
     out.result().sortBy { case (pos, w) => (pos, w.stepId, w.code, w.message) }.map(_._2)
@@ -186,6 +194,19 @@ object AnalyzeSchemaWarnings {
         val keyOpt    = if (cfg.sourceKey == cfg.lookupKey) Some(cfg.lookupKey) else None
         val mapping   = JoinColumnNaming.resolveWithKey(a.inputSchema.map(_.name), requested, keyOpt)
         requested.flatMap(col => mapping.get(col).filter(_ != col).map(renamed => Warning(step.id, JoinColumnRenamed, renameMessage("lookup", col, renamed))))
+      }
+    }
+
+  private def computeNumericWarnings(step: NodeStepInput, a: AnalyzedStep): Vector[Warning] =
+    Try(ComputeConfig.decode(step.config)).toOption.fold(Vector.empty[Warning]) { cfg =>
+      val types = a.inputSchema.map(sf => sf.name -> sf.`type`).toMap
+      ExpressionEvaluator.numericContextTextFields(cfg.expression, types).map { case (field, contexts) =>
+        Warning(
+          step.id,
+          NumericOpOnTextField,
+          s"compute: field '$field' is ${types(field)} in this step's inferred input schema but is used with ${contexts.mkString(", ")}; " +
+            "every non-null row will compute null at run time -- add a cast step before this step to convert it to a number"
+        )
       }
     }
 

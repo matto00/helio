@@ -40,7 +40,9 @@ function staticBound(
   };
 }
 
-/** The builder inputs for an Output exactly as the sheet seeds its editor state from `config`
+/** NOTE: `useOutputKindState` calls this with a fixed kind and reads only kind-independent fields,
+ *  so this must not branch on `kind`.
+ *  The builder inputs for an Output exactly as the sheet seeds its editor state from `config`
  *  (and, for a table, from the capabilities-dependent column hook), i.e. the untouched state. */
 export function openingParams(
   kind: OutputKind,

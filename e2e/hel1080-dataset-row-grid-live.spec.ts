@@ -1,5 +1,4 @@
 import { expect, test, type APIRequestContext, type Page, type Request } from "@playwright/test";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1080 skeptic-final-3.md CR-G — the owner condition this round attached: real Playwright

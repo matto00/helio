@@ -1,5 +1,4 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1189 tasks.md 4.5 — live verification of the "Controls" section

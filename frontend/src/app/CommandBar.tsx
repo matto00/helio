@@ -42,7 +42,6 @@ export function CommandBar({
   onOpenMobileNavSheet,
   onOpenRefinement,
   onOpenQuickLauncher,
-  draftAppearance,
   setDraftAppearance,
 }: CommandBarProps) {
   const dispatch = useAppDispatch();

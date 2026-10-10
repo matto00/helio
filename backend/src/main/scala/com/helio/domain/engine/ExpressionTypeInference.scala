@@ -1,7 +1,7 @@
 package com.helio.domain.engine
 
 import ExpressionEvaluator.{NumericFunctions, unknownFieldMessage}
-import ExpressionParser.{BinOp, Call, Expr, FieldRef, NumLit, StrLit}
+import ExpressionParser.{BinOp, Call, Expr, FieldRef, Neg, NumLit, StrLit}
 
 // Static result-type inference over the parsed AST.
 private[engine] object ExpressionTypeInference {
@@ -21,6 +21,8 @@ private[engine] object ExpressionTypeInference {
           else if (op == '+') "float"
           else "float"
         }
+      // Same rule as binary `-`: always numeric, whatever the operand (an unknown field still fails).
+      case Neg(e) => inferTypeOf(e, fieldTypes).map(_ => "float")
       case Call(name, args) =>
         args
           .foldLeft[Either[String, Vector[String]]](Right(Vector.empty)) { (acc, a) =>

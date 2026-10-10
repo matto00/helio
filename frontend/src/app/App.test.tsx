@@ -776,7 +776,7 @@ describe("App", () => {
       },
     ]);
 
-    const { store } = renderApp({ initialPath: "/sources" });
+    renderApp({ initialPath: "/sources" });
 
     const titleButton = await screen.findByRole("button", { name: /Switch data sources/i });
     fireEvent.click(titleButton);

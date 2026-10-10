@@ -45,7 +45,12 @@
         },
         "code": {
           "type": "string",
-          "enum": ["field-not-in-input-schema", "join-key-type-mismatch", "join-column-renamed"]
+          "enum": [
+            "field-not-in-input-schema",
+            "join-key-type-mismatch",
+            "join-column-renamed",
+            "numeric-op-on-text-field"
+          ]
         },
         "message": {
           "type": "string",

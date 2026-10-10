@@ -1,6 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { evidencePath } from "./support/evidencePath";
-import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1095 design.md D8/D9 — live-browser proof of the compact counter's pending affordance
