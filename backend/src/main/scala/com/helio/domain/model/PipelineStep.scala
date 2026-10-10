@@ -19,20 +19,18 @@ import scala.util.Try
  *    - the JSON codec for its config (tolerant read + canonical write)
  *    - a [[PipelineStep.Companion]] entry registered with [[PipelineStep.Registry]]
  *
- *  Cycle 1 introduced the typed ADT (sealed-trait) and centralized handlers
- *  + codec. Cycle 3 collapses each kind's data + behavior + codec into one
- *  file so adding an 11th kind means dropping in one step module and adding
- *  one Registry line — no edits in three or four separate central files.
+ *  Cycle 1 introduced the typed ADT and centralized handlers + codec. Cycle 3
+ *  moved each kind's config, `evaluate` and config codec into one step file
+ *  plus one [[PipelineStep.Registry]] line. That is not the whole cost of a
+ *  new kind: many other sites still enumerate kinds by hand (see
+ *  [[PipelineStepKind.All]] for that drift surface).
  *
  *  The trait is intentionally NOT `sealed`: Scala 2 constrains sealed-trait
  *  subclasses to the same compilation unit, which would defeat the per-file
- *  refactor. Discipline is enforced via [[PipelineStep.Registry]] — only
- *  kinds registered there round-trip through the codec / protocol / engine.
- *  The four match sites in this codebase (`PipelineStepResponse.fromDomain`,
- *  `PipelineStepConfigCodec.extractConfig`, the protocol writer, the
- *  exhaustiveness test in `PipelineStepSpec`) all enumerate the same 12
- *  subtypes; adding a 13th step kind without updating those is caught by
- *  the kind-set parity test (`PipelineStepKind.All` shouldBe registry.keys).
+ *  refactor. So the compiler checks no `match` over step subtypes for
+ *  exhaustiveness: a kind missing from a hand-written match is caught, if at
+ *  all, by a registry-driven test or at runtime (see [[PipelineStepKind.All]]
+ *  for which tests exist).
  *
  *  Wire shape (unchanged): discriminated union on `type` with a typed `config`
  *  payload. DB shape (unchanged): `pipeline_steps.op` is the kind discriminator
@@ -142,9 +140,10 @@ final case class PipelineExecutionContext(
 object PipelineStep {
 
   /** Per-kind registry entry. Each step file exports one of these via its
-   *  companion object; the [[Registry]] below assembles them. Adding a new
-   *  step kind means defining a new step file with a `Companion` and adding
-   *  one line to `Registry` — no edits in the codec, protocol, or engine. */
+   *  companion object; the [[Registry]] below assembles them. A new step kind
+   *  needs a step file with a `Companion` and one line in `Registry`, AND the
+   *  hand-enumerated codec, protocol, engine, persistence, migration and
+   *  frontend sites described on [[PipelineStepKind.All]]. */
   trait Companion {
     def kind: String
 
@@ -242,8 +241,12 @@ object PipelineStep {
     def requiredConfigProblems(raw: String): Vector[String] = Vector.empty
   }
 
-  /** Registry of every step kind. Single source of truth — `PipelineStepKind`,
-   *  the codec facade, and the protocol union all derive from this Map. */
+  /** Registry of every step kind (kind string → [[Companion]]). The source of
+   *  truth for [[PipelineStepKind.All]], [[PipelineStepKind.parseKind]] and
+   *  [[companionFor]] (which `PipelineStepConfigCodec.decode` / `encode` call).
+   *  It is not the only kind list: `PipelineStepConfigCodec.encodeConfig` and
+   *  the protocol unions (`PipelineStepProtocol`, `PipelineAnalyzeProtocol`)
+   *  match on each kind by hand — see [[PipelineStepKind.All]]. */
   val Registry: Map[String, Companion] = Map(
     RenameStep.Kind    -> RenameStep.companion,
     FilterStep.Kind    -> FilterStep.companion,
@@ -291,10 +294,10 @@ object PipelineStep {
     }
 }
 
-/** Source of truth for the pipeline step discriminator string. Constants here
- *  are exported by each step file (as `<Kind>Step.Kind`); [[All]] is derived
- *  from the registry so the allow-list cannot drift from the actual set of
- *  registered step kinds. */
+/** The pipeline step discriminator strings. Constants here are exported by
+ *  each step file (as `<Kind>Step.Kind`); [[All]] is derived from the
+ *  registry so this allow-list cannot drift from the registered kinds. It is
+ *  not the only list: the sites described on [[All]] enumerate kinds by hand. */
 object PipelineStepKind {
   val Rename: String    = RenameStep.Kind
   val Filter: String    = FilterStep.Kind
@@ -324,9 +327,43 @@ object PipelineStepKind {
   val AnalyzeWithAi: String = AnalyzeWithAiStep.Kind
   val GenerateText: String = GenerateTextStep.Kind
 
-  /** Registry-derived allow-list. After cycle 3 no consumer enumerates these
-   *  manually — adding a new kind only requires updating
-   *  [[PipelineStep.Registry]]. */
+  /** Registry-derived allow-list: the source of truth for [[parseKind]] and
+   *  for the `PipelineStepKind.All.contains` step-type checks in
+   *  `PipelineService` and `PipelineProposalService` (these replaced the old
+   *  hand-kept `AllowedOps` set). Adding a kind also requires hand-enumerating
+   *  further sites, e.g.:
+   *   - protocol / codec: `PipelineStepConfigCodec.encodeConfig`,
+   *     `PipelineStepProtocol`, `PipelineAnalyzeProtocol`, and
+   *     `PipelineService.toAnalyzeStepResponse`;
+   *   - engine (apply/infer parity: a kind's `evaluate` in its step file and
+   *     its schema inference must read the same config shape):
+   *     `StepSchemaInference` and the `*SchemaInference` objects it dispatches
+   *     to, `AnalyzeSchemaWarnings`, `StepConfigValidation`,
+   *     `PipelineCostEstimator`;
+   *   - persistence / services: `PipelineStepRepository`'s row mapping,
+   *     `PatchSetPreviewProjectionSteps`, `PipelineStepCatalogService`, and
+   *     the type aliases in the `com.helio.domain` package object;
+   *   - the `pipeline_steps_op_check` CHECK constraint, via a migration that
+   *     drops and re-adds it (latest: V107);
+   *   - frontend `features/pipelines`: `types/pipelineStep.ts`,
+   *     `state/stepNarrowing.ts`, `hooks/useStepCardState.ts`, the
+   *     `ui/StepOpEditor.tsx` dispatch that `StepCard` renders, and a
+   *     `ui/stepConfigs/<Op>Config.tsx` component;
+   *   - helio-mcp tool descriptions (`src/tools/write.ts`, `src/tools/read.ts`).
+   *  That list is a dated snapshot (2026-10-09): re-derive from the tree, e.g.
+   *  `git grep -l -i datebucket -- backend/src/main frontend/src helio-mcp/src ':!*.test.*'`
+   *  (it lists candidates, including callers such as shapes; it is not a
+   *  completeness check). Registry-driven tests catch some missed sites at
+   *  test time: `PipelineStepSpec` (pins this set to a literal list),
+   *  `PipelineStepRepositorySpec` (inserts and decodes a row of every kind,
+   *  so the CHECK constraint and row mapping), `PipelineAnalyzeServiceSpec`
+   *  (an `inferOutputSchema` branch per kind), `PipelineCostEstimatorSpec`,
+   *  `PipelineStepCatalogServiceSpec`, `PipelineStepSecondSourceGuardSpec`,
+   *  and the frontend `stepNarrowing.test.ts` (a `STEP_ICONS` entry per
+   *  authorable kind). Re-derive that list with
+   *  `git grep -l 'PipelineStep.Registry\|PipelineStepKind.All' -- backend/src/test frontend/src helio-mcp/src`.
+   *  A site none of them exercises (e.g. the helio-mcp tool descriptions)
+   *  is checked by nothing. */
   def All: Set[String] = PipelineStep.Registry.keySet
 
   def parseKind(s: String): Either[String, String] =

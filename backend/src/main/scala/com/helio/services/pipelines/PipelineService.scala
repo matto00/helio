@@ -34,8 +34,9 @@ import scala.util.{Failure, Success, Try}
 /** Business logic for `/api/pipelines` and `/api/pipeline-steps`.
  *
  *  Run lifecycle lives in [[PipelineRunService]] (split out in CS2c-3a). The
- *  allow-list of step kinds is sourced from [[PipelineStepKind.All]] —
- *  the sealed-trait subclasses are the single source of truth.
+ *  allow-list of step kinds is sourced from [[PipelineStepKind.All]], which
+ *  derives from [[PipelineStep.Registry]] (the step trait is not sealed). It
+ *  is not the only kind list — see [[PipelineStepKind.All]].
  *
  *  HEL-279: sharing-aware ACL threading.
  *  - Read paths (findSummaryById, listSteps, analyze) use findByIdShared —

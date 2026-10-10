@@ -16,6 +16,11 @@ import {
   validateExclusions,
   validateWireExpressibility,
 } from "./lib/agentFacingPanelTypes.mjs";
+import {
+  PANEL_KIND_ENUM_EXEMPTIONS,
+  findPanelKindEnums,
+  validatePanelKindEnumCoverage,
+} from "./lib/panelKindEnumCoverage.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 let failures = 0;
@@ -153,6 +158,75 @@ check(
     assert(!offending, `hardcoded kind comparison: ${offending?.[0]}`);
   },
 );
+
+// HEL-1412 / HEL-1149: the panel-kind enum coverage check must stay failable.
+check("findPanelKindEnums finds a nested panel-kind enum and ignores a one-kind enum", () => {
+  const schema = {
+    properties: {
+      panels: { items: { properties: { type: { enum: ["text", "markdown", "output"] } } } },
+      control: { enum: ["text", "dropdown"] },
+    },
+  };
+  const found = findPanelKindEnums(schema, canonical).map((p) => p.join("."));
+  assert(
+    JSON.stringify(found) === JSON.stringify(["properties.panels.items.properties.type.enum"]),
+    JSON.stringify(found),
+  );
+});
+
+check("an unchecked, unexempted panel-kind enum fails, naming file and path", () => {
+  const errors = validatePanelKindEnumCoverage({
+    detected: [{ file: "panels/new.schema.json", path: ["properties", "type", "enum"] }],
+    covered: [],
+    exemptions: {},
+  });
+  assert(
+    errors.length === 1 && errors[0].includes("panels/new.schema.json#properties.type.enum"),
+    errors.join("; "),
+  );
+});
+
+check("a checked enum and a reason-exempted enum both pass", () => {
+  const detected = [
+    { file: "a.schema.json", path: ["properties", "type", "enum"] },
+    { file: "b.schema.json", path: ["properties", "type", "enum"] },
+  ];
+  const errors = validatePanelKindEnumCoverage({
+    detected,
+    covered: [detected[0]],
+    exemptions: { "b.schema.json#properties.type.enum": "a stated reason for the exemption" },
+  });
+  assert(errors.length === 0, errors.join("; "));
+});
+
+check("a reasonless, a stale, and a checked-and-exempted exemption each fail", () => {
+  const detected = [{ file: "a.schema.json", path: ["properties", "type", "enum"] }];
+  const key = "a.schema.json#properties.type.enum";
+  const noReason = validatePanelKindEnumCoverage({
+    detected,
+    covered: [],
+    exemptions: { [key]: "  " },
+  });
+  assert(includesText(noReason, "no stated reason"), noReason.join("; "));
+  const stale = validatePanelKindEnumCoverage({
+    detected: [],
+    covered: [],
+    exemptions: { "gone.schema.json#properties.type.enum": "was here once" },
+  });
+  assert(includesText(stale, "stale"), stale.join("; "));
+  const both = validatePanelKindEnumCoverage({
+    detected,
+    covered: detected,
+    exemptions: { [key]: "duplicate" },
+  });
+  assert(includesText(both, "both a checked surface and exempted"), both.join("; "));
+});
+
+check("the real exemption table gives every entry a reason", () => {
+  for (const [key, reason] of Object.entries(PANEL_KIND_ENUM_EXEMPTIONS)) {
+    assert(typeof reason === "string" && reason.trim().length > 0, `${key} has no reason`);
+  }
+});
 
 check("the real script passes against the repository with form on the agent surfaces", () => {
   const run = spawnSync("node", [join(repoRoot, "scripts/check-schema-drift.mjs")], {

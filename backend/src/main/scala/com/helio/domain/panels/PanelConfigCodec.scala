@@ -6,12 +6,18 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 /** Dispatcher between the wire-side `(type, config: JsValue)` shape and the
- *  per-subtype typed [[Panel]] / `*Config` / `*Config.Patch` ADTs.
+ *  per-subtype typed [[Panel]] / `*Config` / `*Config.Patch` ADTs:
+ *  `encodeConfig` (responses), `decodeCreateConfig` (create paths, e.g.
+ *  panel create and dashboard snapshot import) and `applyConfigPatch`
+ *  (config-patch paths).
  *
- *  This is the single source of truth for the CS2c-3c wire-shape collapse —
- *  every read (response) and write (create / update / batch) routes through
- *  one of these methods so the seven-subtype enumeration is centralised in
- *  one file. */
+ *  Each of these matches on every panel kind by hand, and this file is not
+ *  the only place that does: `PanelServiceHelpers` and
+ *  `DashboardSnapshotRepository` match on every one of this object's
+ *  `*Create` results, and `PanelRowMapper` maps `panels.kind` to a subtype
+ *  itself. See
+ *  `PanelKind.All` (Panel.scala) for the wider drift surface and a re-derive
+ *  command. */
 object PanelConfigCodec {
 
   private val log = LoggerFactory.getLogger(getClass)
