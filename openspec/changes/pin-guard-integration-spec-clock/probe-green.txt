@@ -1,0 +1,11 @@
+# Temporary, uncommitted probe edit (HEL-1471): the 'limit+1' test used a 10s rateWindowSeconds,
+# slept to ~1.5s before a real epoch%10s boundary, then slept to 100ms after it before submission 3,
+# and dumped the owner's pipeline_run_rate_window rows. Filtered to load-bearing lines.
+[probe] boundaryMs=1791617260000 start=2026-10-10T07:27:38.500591201Z
+[probe] sub1 done 2026-10-10T07:27:38.699183962Z msToBoundary=1301
+[probe] sub2 done 2026-10-10T07:27:38.766317381Z msToBoundary=1234
+[probe] sub3 start 2026-10-10T07:27:40.100482504Z msToBoundary=-100
+[probe] rows=Vector((2025-12-31 16:30:00.0,2))
+[probe] retryAfterSeconds=10
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Tests: succeeded 1, failed 0, canceled 0, ignored 0, pending 0
