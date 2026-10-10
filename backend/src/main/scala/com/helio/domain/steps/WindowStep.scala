@@ -102,7 +102,8 @@ object WindowStep {
   /** HEL-1416: the single enum/offset rule. A non-empty `function` outside [[SupportedFunctions]], or a
    *  `lag`/`lead` with an explicit `offset` <= 0, is clearly invalid. An empty function is a draft (not a
    *  problem here; analyze and `apply` still refuse it); an absent offset defaults to 1; `offset` on any other
-   *  function is ignored by run, so it is not rejected. Shared by `validateRawConfig`, analyze and `apply`. */
+   *  function is ignored by run, so it is not rejected. Shared by `validateRawConfig`, analyze and `apply`
+   *  (which runs it after the missing-`field` check, HEL-1422). */
   def enumProblems(cfg: WindowConfig): Vector[String] =
     if (cfg.function.nonEmpty && !SupportedFunctions.contains(cfg.function))
       Vector(unsupportedFunctionMessage(cfg.function))
@@ -111,8 +112,11 @@ object WindowStep {
     else Vector.empty
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: WindowConfig): Seq[PipelineRowJson.Row] = {
-    enumProblems(cfg).headOption.foreach(msg => throw new StepConfigError(msg))
-    if (cfg.function.isEmpty) // unconfigured draft: the shared rule above only rejects non-empty values
+    // HEL-1422: error order is unsupported function, missing `field`, then a bad offset (the pre-HEL-1416 order,
+    // and the order analyze reports): a step with no `field` cannot run whatever its offset is.
+    if (cfg.function.nonEmpty && !SupportedFunctions.contains(cfg.function))
+      throw new StepConfigError(unsupportedFunctionMessage(cfg.function))
+    if (cfg.function.isEmpty) // unconfigured draft: the shared rule only rejects non-empty values
       throw new StepConfigError(unsupportedFunctionMessage(cfg.function))
 
     val fieldName =
@@ -121,6 +125,9 @@ object WindowStep {
           throw new StepConfigError(s"window function '${cfg.function}' requires 'field'")
         )
       else ""
+
+    // The function is supported here, so `enumProblems` can only report a non-positive lag/lead offset.
+    enumProblems(cfg).headOption.foreach(msg => throw new StepConfigError(msg))
 
     val offset =
       // Non-positive offsets were refused by `enumProblems` above.

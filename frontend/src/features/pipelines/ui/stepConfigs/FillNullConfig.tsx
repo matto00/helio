@@ -7,7 +7,7 @@
 // strategies never read `value`).
 
 import { InlineError } from "../../../../shared/chrome/InlineError";
-import type { ChangeEvent } from "react";
+import { useId, type ChangeEvent } from "react";
 
 import { Select, TextField } from "../../../../shared/ui/index";
 
@@ -32,6 +32,8 @@ interface FillNullConfigProps {
   onChange: (newConfig: FillNullConfigValue) => void;
   /** HEL-1416: the server's message for a rejected save of this step's config. */
   saveError?: string | null;
+  /** HEL-1422: the rejection was a 422, so the strategy control is marked invalid. */
+  saveErrorIsValidation?: boolean;
 }
 
 export function FillNullConfig({
@@ -39,7 +41,10 @@ export function FillNullConfig({
   analyzeColumns,
   onChange,
   saveError,
+  saveErrorIsValidation = false,
 }: FillNullConfigProps) {
+  const errorId = useId();
+  const strategyInvalid = Boolean(saveError) && saveErrorIsValidation;
   function handleColumnToggle(field: string, checked: boolean) {
     const columns = checked
       ? [...config.columns, field]
@@ -59,7 +64,7 @@ export function FillNullConfig({
   }
 
   return (
-    <div className="pipeline-detail-page__dedupe-config">
+    <div className="pipeline-detail-page__aggregate-config">
       <div className="pipeline-detail-page__compute-field">
         <span className="pipeline-detail-page__compute-label">Columns</span>
         <p className="pipeline-detail-page__aggregate-section-description">
@@ -100,6 +105,8 @@ export function FillNullConfig({
           value={config.strategy}
           options={STRATEGY_OPTIONS}
           onChange={handleStrategyChange}
+          ariaInvalid={strategyInvalid}
+          ariaDescribedBy={strategyInvalid ? errorId : undefined}
         />
       </div>
 
@@ -117,7 +124,7 @@ export function FillNullConfig({
           />
         </div>
       )}
-      <InlineError error={saveError ?? null} />
+      <InlineError error={saveError ?? null} id={errorId} />
     </div>
   );
 }

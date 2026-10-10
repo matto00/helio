@@ -2,20 +2,20 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/pipeline-analyze-proposal-response.schema.json",
   "title": "PipelineAnalyzeProposalResponse",
-  "description": "Dry analyze over a not-yet-created PipelineProposal (HEL-381): the projected source schema per root, per-step input/output schema, any per-step validation errors, and (HEL-914 task 6b.4a) every proposed Output's fieldMapping validity grounded at that Output's own target node (or root schema, for a root-bound Output) -- never the pipeline trunk. Nothing is persisted. Additive sibling of GET /api/pipelines/:id/analyze's PipelineAnalyzeResponse -- carries no id/outputDataTypeId, since nothing has been created yet (design.md D4). HEL-914: `sourceName`/`sourceSchema` (singular) REPLACED outright by `sourceSchemas`, one entry per proposed root, matching the persisted-pipeline twin's `RootSourceSchema` $def exactly so the two shapes cannot drift. The steps[] shape mirrors the discriminated-union wire format analyzeStepResponseFormat emits (a `type` discriminator plus an object `config`) -- the same fields as pipeline-analyze-response.schema.json's $defs.AnalyzeStep, which HEL-1266 corrected to that shape (design.md D6). It is kept as a local copy, $defs.AnalyzeProposalStep, rather than a cross-file $ref: the backend schema test harness compiles this file standalone and cannot resolve a cross-file $ref by $id offline (HEL-1281).",
+  "description": "Dry analyze over a not-yet-created PipelineProposal (HEL-381): the projected source schema per root, per-step input/output schema, any per-step validation errors, and (HEL-914 task 6b.4a) every proposed Output's fieldMapping validity grounded at that Output's own target node (or root schema, for a root-bound Output) -- never the pipeline trunk. Nothing is persisted. Additive sibling of GET /api/pipelines/:id/analyze's PipelineAnalyzeResponse -- carries no id/outputDataTypeId, since nothing has been created yet (design.md D4). HEL-914: `sourceName`/`sourceSchema` (singular) REPLACED outright by `sourceSchemas`, one entry per proposed root, reusing the persisted-pipeline twin's `RootSourceSchema` $def by cross-file $ref. The `sourceSchemas`, `steps` and `warnings` items are cross-file $refs into pipeline-analyze-response.schema.json ($defs.RootSourceSchema, $defs.AnalyzeStep, $defs.AnalyzeWarning, and through them $defs.SchemaField), resolved offline by the backend schema test harness's helio.local URI mapping (HEL-1419); no copy of those defs lives here, so the two shapes cannot drift. Only $defs.OutputAnalyze is proposal-specific.",
   "type": "object",
   "required": ["sourceSchemas", "steps", "outputs", "warnings"],
   "properties": {
     "sourceSchemas": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/RootSourceSchema"
+        "$ref": "https://helio.local/schemas/pipelines/pipeline-analyze-response.schema.json#/$defs/RootSourceSchema"
       }
     },
     "steps": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/AnalyzeProposalStep"
+        "$ref": "https://helio.local/schemas/pipelines/pipeline-analyze-response.schema.json#/$defs/AnalyzeStep"
       }
     },
     "outputs": {
@@ -28,118 +28,12 @@
       "description": "HEL-1235: schema-only, NON-BLOCKING pre-run findings, computed from the inferred schemas with no row reads. Always present (empty when none). Never sets a step's validationError, never affects costVerdict (canRun/autoRunnable/reasons), never blocks a write or an auto-run. Wording states the evidence base (the stored inferred schema can be stale). Distinct from propose_pipeline's `warnings: string[]` (which drives applyReady) and from run warnings.",
       "type": "array",
       "items": {
-        "$ref": "#/$defs/AnalyzeWarning"
+        "$ref": "https://helio.local/schemas/pipelines/pipeline-analyze-response.schema.json#/$defs/AnalyzeWarning"
       }
     }
   },
   "additionalProperties": false,
   "$defs": {
-    "AnalyzeWarning": {
-      "type": "object",
-      "required": ["stepId", "code", "message"],
-      "properties": {
-        "stepId": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The step the warning is about (the proposal's client step id for a proposal analyze)."
-        },
-        "code": {
-          "type": "string",
-          "enum": [
-            "field-not-in-input-schema",
-            "join-key-type-mismatch",
-            "join-column-renamed",
-            "numeric-op-on-text-field"
-          ]
-        },
-        "message": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "additionalProperties": false
-    },
-    "RootSourceSchema": {
-      "type": "object",
-      "required": ["rootId", "dataSourceName", "sourceSchema"],
-      "properties": {
-        "rootId": {
-          "type": "string",
-          "minLength": 1
-        },
-        "dataSourceName": {
-          "type": "string"
-        },
-        "sourceSchema": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/SchemaField"
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    "SchemaField": {
-      "type": "object",
-      "required": ["name", "type"],
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string",
-          "enum": [
-            "string",
-            "integer",
-            "float",
-            "boolean",
-            "timestamp",
-            "string-body",
-            "binary-ref"
-          ]
-        }
-      },
-      "additionalProperties": false
-    },
-    "AnalyzeProposalStep": {
-      "type": "object",
-      "description": "Matches the analyzeStepResponseFormat wire shape (type discriminator + object config) -- the same fields as pipeline-analyze-response.schema.json's $defs.AnalyzeStep (corrected by HEL-1266). A local copy rather than a cross-file $ref, which the backend schema test harness cannot resolve offline (HEL-1281); keep the two in step. `config` is a permissive object (additionalProperties: true) rather than a full per-kind oneOf union across all step kinds -- more precision than this ticket's scope needs (design.md D6).",
-      "required": ["id", "position", "type", "config", "inputSchema", "outputSchema"],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "position": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "type": {
-          "type": "string",
-          "minLength": 1
-        },
-        "config": {
-          "type": "object",
-          "additionalProperties": true
-        },
-        "inputSchema": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/SchemaField"
-          }
-        },
-        "outputSchema": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/SchemaField"
-          }
-        },
-        "validationError": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false
-    },
     "OutputAnalyze": {
       "type": "object",
       "description": "HEL-914 task 6b.4a: one entry per proposed Output, in request order. `validationError` is present only when that Output's fieldMapping is invalid at its own grounded node -- absent when valid or when the Output has no fieldMapping.",

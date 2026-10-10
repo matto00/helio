@@ -121,7 +121,7 @@ private[engine] object StepConfigValidation {
 
   private def validatePivot(config: String): Vector[String] = {
     val cfg = PivotConfig.decode(config)
-    // HEL-1416: one shared rule; the empty-agg draft is still reported, with the same message.
+    // HEL-1416: enum rule shared with write and run; the empty-agg draft is reported here.
     if (cfg.agg.isEmpty) Vector(PivotStep.unsupportedAggMessage(cfg.agg))
     else PivotStep.aggProblem(cfg).toVector
   }
