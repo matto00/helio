@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory
 import slick.jdbc.PostgresProfile.api._
 import spray.json.JsObject
 
-import java.sql.Timestamp
 import java.time.{Duration, Instant}
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -44,7 +43,7 @@ final case class OutputHistoryPoint(
 
 /** Age-dependent bucket widths for thinning (owner ruling D4): within `recentWindow` keep at most
  *  one point per `recentBucket`, within `midWindow` one per `midBucket`, older one per `oldBucket`.
- *  These widths apply only to points older than an Output's newest 101 (HEL-1285; see `thinAndPurge`).
+ *  These widths apply only to points older than an Output's newest 101 (HEL-1285; see `thinPass`).
  *  Env loading and scheduling belong to the retention leaf, not here. */
 final case class HistoryThinningPolicy(
     recentWindow: Duration = Duration.ofHours(24),
@@ -97,94 +96,106 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def earliest(outputId: String): Future[Option[Instant]] =
     ctx.withSystemContext(table.filter(_.outputId === outputId).map(_.capturedAt).min.result)
 
-  /** Thins history to the newest point per `(output, age class, bucket)` and purges points older
-   *  than the tier max age of the owner of the point's PIPELINE (`pipelines.owner_id`, not
-   *  `outputs.owner_id`, which is the acting Editor grantee on a shared pipeline). A tier absent
-   *  from `maxAgeByTier` (including any tier unknown to this code) uses the strictest (shortest)
-   *  supplied cap, so a partial map fails toward bounded storage; an empty map applies no age purge.
+  /** One bounded history pass (HEL-1435): up to `limits.maxBatches` batches, each over whole Outputs (keyset
+   *  over `outputs.id`, starting after `startAfter`), in its OWN transaction that first takes the try-only
+   *  purge lock. A batch first deletes, for its Outputs, the points older than the tier max age of the owner
+   *  of the point's PIPELINE (`pipelines.owner_id`, not `outputs.owner_id`, which is the acting Editor grantee
+   *  on a shared pipeline; a tier absent from `maxAgeByTier` uses the strictest supplied cap; an empty map
+   *  applies no age purge), then thins the batch to the newest point per `(output, age class, bucket)`.
    *
    *  HEL-1285 baseline guarantee: thinning NEVER deletes an Output's newest `protectedNewest` points
    *  (default [[HistoryBaselineLimits.ProtectedNewestPoints]] = 101, ordered `captured_at DESC, id DESC`
-   *  exactly like `listRecent`), so an alert `previous`/`rolling_avg` baseline (at most 100 runs plus the
-   *  triggering run) and a `previous_run` compare always see the literal most recent runs. Bucketing
-   *  applies only to the older points, each bucket keeping its newest unprotected point. In practice at
-   *  least 102 points survive (the protected 101 plus the head of the bucket straddling the boundary).
-   *  The tier max-age purge runs first and is unconditional: a protected point older than the cap is
-   *  still deleted. Window compares are unchanged and may land up to one bucket width before
-   *  `latest - window`.
+   *  exactly like `listRecent`), so an alert `previous`/`rolling_avg` baseline and a `previous_run` compare
+   *  always see the literal most recent runs. Bucketing applies only to the older points, each bucket keeping
+   *  its newest unprotected point. The tier max-age purge is unconditional: a protected point older than the
+   *  cap is still deleted. Buckets are epoch-aligned and partitioned by age class, so a coarse bucket
+   *  straddling a window boundary may briefly keep two points until a later pass.
    *
-   *  One transaction; idempotent. Buckets are epoch-aligned and partitioned by age class, so a
-   *  coarse bucket straddling a window boundary may briefly keep two points until a later pass.
-   *  Returns `Purged(deleted)`, or `LockBusy` (nothing run) when another session holds the purge lock. */
+   *  Every window is per Output, so batching by whole Outputs leaves each Output exactly what one statement
+   *  over all Outputs would at the same `now`. Batches committed before a lock-held skip stay committed.
+   *  Returns [[HistoryPassOutcome]]; idempotent. */
+  def thinPass(
+      now: Instant,
+      policy: HistoryThinningPolicy,
+      maxAgeByTier: Map[UserTier, Duration],
+      limits: ThinBatchLimits,
+      startAfter: Option[String] = None,
+      protectedNewest: Int = HistoryBaselineLimits.ProtectedNewestPoints
+  ): Future[HistoryPassOutcome] = {
+    def loop(cursor: Option[String], ran: Int, deleted: Int): Future[HistoryPassOutcome] =
+      // maxBatches >= 1, so a cursor exists by the time the budget is spent (the "" is unreachable).
+      if (ran >= limits.maxBatches) Future.successful(HistoryPassOutcome.MoreWork(deleted, cursor.getOrElse("")))
+      else
+        thinBatch(now, policy, maxAgeByTier, limits, cursor, protectedNewest).flatMap {
+          case BatchResult.Busy => Future.successful(HistoryPassOutcome.LockHeld(deleted, cursor))
+          case BatchResult.Last(d) => Future.successful(HistoryPassOutcome.Completed(deleted + d))
+          case BatchResult.Next(d, lastId) => loop(Some(lastId), ran + 1, deleted + d)
+        }
+    loop(startAfter, 0, 0)
+  }
+
+  /** TEST-ONLY one-call form: drains a whole cycle with `limits` (every pass back to back); a lock-held skip anywhere
+   *  is `LockBusy`. Production never calls it: the scheduler runs [[thinPass]] one bounded pass per tick. */
   def thinAndPurge(
       now: Instant,
       policy: HistoryThinningPolicy,
       maxAgeByTier: Map[UserTier, Duration],
-      protectedNewest: Int = HistoryBaselineLimits.ProtectedNewestPoints
+      protectedNewest: Int = HistoryBaselineLimits.ProtectedNewestPoints,
+      limits: ThinBatchLimits = ThinBatchLimits.Defaults
   ): Future[RetentionPassOutcome] = {
-    val strictest = if (maxAgeByTier.isEmpty) None else Some(maxAgeByTier.values.min)
-    val named = maxAgeByTier.toSeq.map { case (tier, maxAge) =>
-      val tierName = UserTier.asString(tier)
-      val cutoff   = Timestamp.from(now.minus(maxAge))
-      sqlu"""DELETE FROM output_snapshot_history h
-             USING pipelines p, users u
-             WHERE h.pipeline_id = p.id AND p.owner_id = u.id AND u.tier = $tierName AND h.captured_at < $cutoff"""
-    }
-    // Any tier NOT named in the map (a tier added after this code, or a partial map) is purged at the
-    // strictest supplied cap, so an unknown tier fails closed without this code enumerating tiers.
-    val unnamed = strictest.toSeq.map { cap =>
-      val namedCsv = maxAgeByTier.keys.map(UserTier.asString).mkString(",")
-      val cutoff   = Timestamp.from(now.minus(cap))
-      sqlu"""DELETE FROM output_snapshot_history h
-             USING pipelines p, users u
-             WHERE h.pipeline_id = p.id AND p.owner_id = u.id
-               AND u.tier <> ALL (string_to_array($namedCsv, ',')) AND h.captured_at < $cutoff"""
-    }
-    val purgeByAge = DBIO.sequence(named ++ unnamed).map(_.sum)
+    def drain(cursor: Option[String], deleted: Int): Future[RetentionPassOutcome] =
+      thinPass(now, policy, maxAgeByTier, limits, cursor, protectedNewest).flatMap {
+        case HistoryPassOutcome.Completed(d)    => Future.successful(RetentionPassOutcome.Purged(deleted + d))
+        case HistoryPassOutcome.MoreWork(d, at) => drain(Some(at), deleted + d)
+        case HistoryPassOutcome.LockHeld(_, _)  => Future.successful(RetentionPassOutcome.LockBusy)
+      }
+    drain(None, 0)
+  }
 
-    val nowTs        = Timestamp.from(now)
-    val recentSecs   = policy.recentWindow.getSeconds
-    val midSecs      = policy.midWindow.getSeconds
-    val recentBucket = policy.recentBucket.getSeconds
-    val midBucket    = policy.midBucket.getSeconds
-    val oldBucket    = policy.oldBucket.getSeconds
-    val thin =
-      sqlu"""DELETE FROM output_snapshot_history WHERE id IN (
-               SELECT id FROM (
-                 SELECT id, row_number() OVER (
-                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
-                   ORDER BY captured_at DESC, id DESC) AS rn
-                 FROM (
-                   SELECT id, output_id, captured_at,
-                          extract(epoch FROM captured_at) AS epoch,
-                          CASE WHEN extract(epoch FROM ($nowTs::timestamptz - captured_at)) < $recentSecs THEN 0
-                               WHEN extract(epoch FROM ($nowTs::timestamptz - captured_at)) < $midSecs THEN 1
-                               ELSE 2 END AS age_class,
-                          CASE WHEN extract(epoch FROM ($nowTs::timestamptz - captured_at)) < $recentSecs THEN $recentBucket
-                               WHEN extract(epoch FROM ($nowTs::timestamptz - captured_at)) < $midSecs THEN $midBucket
-                               ELSE $oldBucket END AS bucket_secs
-                   FROM (
-                     SELECT id, output_id, captured_at,
-                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
-                     FROM output_snapshot_history
-                   ) recent
-                   WHERE recency > $protectedNewest
-                 ) classed
-               ) ranked WHERE rn > 1)"""
-
-    // Another instance already purging: skip rather than contend (two multi-row DELETEs can
-    // deadlock); the service retries a lock-held skip after a short window. The xact lock releases at commit/rollback.
+  /** One batch in one transaction. Another instance already purging (or a run's payload trim holding the lock
+   *  shared): skip rather than contend (two multi-row DELETEs can deadlock); the service retries a lock-held
+   *  skip after a short window. The xact lock releases at commit/rollback. */
+  private def thinBatch(
+      now: Instant,
+      policy: HistoryThinningPolicy,
+      maxAgeByTier: Map[UserTier, Duration],
+      limits: ThinBatchLimits,
+      after: Option[String],
+      protectedNewest: Int
+  ): Future[BatchResult] = {
+    val work: DBIO[BatchResult] =
+      HistoryThinBatching.candidates(after, limits.batchOutputs).flatMap { ids =>
+        if (ids.isEmpty) DBIO.successful(BatchResult.Last(0))
+        else
+          HistoryThinBatching.admit(ids, limits.batchRows).flatMap { case (batch, stoppedEarly) =>
+            for {
+              aged   <- HistoryThinBatching.ageDelete(now, maxAgeByTier, batch)
+              thinned <- HistoryThinBatching.thin(now, policy, protectedNewest, batch)
+            } yield {
+              val more = stoppedEarly || ids.size >= limits.batchOutputs
+              if (more) BatchResult.Next(aged + thinned, batch.last) else BatchResult.Last(aged + thinned)
+            }
+          }
+      }
     val guarded = sql"SELECT pg_try_advisory_xact_lock($PurgeAdvisoryLockKey)".as[Boolean].head.flatMap {
-      case true  => purgeByAge.flatMap(a => thin.map(t => RetentionPassOutcome.Purged(t + a)))
+      case true => work
       case false =>
         log.debug("Output history thin/purge skipped: another session holds the purge lock")
-        DBIO.successful(RetentionPassOutcome.LockBusy)
+        DBIO.successful(BatchResult.Busy)
     }
     ctx.withSystemContext(guarded.transactionally)
   }
 }
 
 object OutputHistoryRepository {
+  /** Result of one batch transaction (top-level in the companion so type tests have no outer reference). */
+  private sealed trait BatchResult
+  private object BatchResult {
+    case object Busy                                    extends BatchResult
+    final case class Last(deleted: Int)                 extends BatchResult
+    final case class Next(deleted: Int, lastId: String) extends BatchResult
+  }
+
   /** Namespace for the purge's `pg_try_advisory_xact_lock` (ASCII "HEL1272"); no other lock uses it. */
   private[persistence] val PurgeAdvisoryLockKey: Long = 0x48454C31323732L
 

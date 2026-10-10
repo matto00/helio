@@ -1,0 +1,3 @@
+psql:backend/scripts/perf/history-retention-batched-measure.sql:26: ERROR:  refusing: this script only runs in helio_hel1435_scratch, not postgres
+CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+exit=3

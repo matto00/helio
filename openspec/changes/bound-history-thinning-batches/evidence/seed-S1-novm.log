@@ -1,0 +1,68 @@
+DO
+MARKER_AFTER_GUARD
+SET
+SET
+SET
+DROP TABLE
+SELECT 1
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "dashboards"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "panels"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "user_sessions"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "resource_permissions"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "user_dashboard_zoom"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_steps"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_runs"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "api_tokens"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "binary_refs"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "image_uploads"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "alert_rules"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "alert_events"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_schedules"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "authoring_conversations"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "patch_set_applications"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "assistant_conversations"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "agent_preferences"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "agent_memory"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "assistant_daily_usage"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "user_mfa"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "mfa_backup_codes"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "mfa_login_challenges"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "invite_codes"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "connector_credentials"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "connectors"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "share_tokens"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "connector_completion_tokens"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "dataset_rows"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_run_rate_window"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_auto_run_debounce"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "product_events"
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_run_assertions"
+TRUNCATE TABLE
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:57: NOTICE:  index "perf_osh_captured_at" does not exist, skipping
+DROP INDEX
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:58: NOTICE:  index "perf_osh_pipeline_captured" does not exist, skipping
+DROP INDEX
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:59: NOTICE:  index "perf_nph_captured_at" does not exist, skipping
+DROP INDEX
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:60: NOTICE:  index "perf_nph_pipeline_captured" does not exist, skipping
+DROP INDEX
+SELECT 1000
+ALTER TABLE
+ALTER TABLE
+UPDATE 1000
+UPDATE 1000
+INSERT 0 167
+INSERT 0 334
+INSERT 0 1
+INSERT 0 334
+INSERT 0 1000
+SELECT 206
+ALTER TABLE
+ALTER TABLE
+UPDATE 206
+INSERT 0 206
+UPDATE 206
+CREATE VIEW
+INSERT 0 497516
+RESET
+VACUUM

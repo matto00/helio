@@ -1,0 +1,17 @@
+## teardown 2026-10-10T06:40:28-07:00
+-- databases in the container before removal:
+helio_hel1435_scratch
+postgres
+template0
+template1
+-- docker rm -f hel1435-pg
+hel1435-pg
+-- docker volume rm hel1435-pgdata hel1435-probe
+hel1435-pgdata
+hel1435-probe
+-- remaining hel1435 objects (expect none):
+0
+0
+-- other containers untouched:
+searxng
+/dev/nvme0n1p6  479G  369G   86G  82% /

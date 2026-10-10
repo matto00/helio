@@ -1,7 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.domain.model.UserTier
-import com.helio.infrastructure.persistence.pipelines.HistoryThinningPolicy
+import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, ThinBatchLimits}
 import org.slf4j.LoggerFactory
 
 import java.time.Duration
@@ -16,7 +16,9 @@ final case class OutputHistoryRetentionConfig(
     maxAgeBeta: Duration,
     maxAgeOwner: Duration,
     purgeInterval: Duration,
-    lockRetry: Duration = Duration.ofSeconds(120)
+    lockRetry: Duration = Duration.ofSeconds(120),
+    /** HEL-1435: sizes of the bounded thin (Outputs and rows per batch, batches per pass). */
+    thinLimits: ThinBatchLimits = ThinBatchLimits.Defaults
 ) {
 
   /** Cap for a known tier (a non-exhaustive match only warns in this build, so totality is NOT relied on:
@@ -37,6 +39,8 @@ object OutputHistoryRetentionConfig {
   def fromEnv(env: Map[String, String] = sys.env): OutputHistoryRetentionConfig = {
     def positive(name: String, default: Long): Long =
       env.get(name).flatMap(_.trim.toLongOption).filter(_ >= 1).getOrElse(default)
+
+    def positiveInt(name: String, default: Int): Int = math.min(positive(name, default), Int.MaxValue.toLong).toInt
 
     val d = HistoryThinningPolicy()
     val candidate = HistoryThinningPolicy(
@@ -66,7 +70,12 @@ object OutputHistoryRetentionConfig {
       lockRetry = {
         val retry = Duration.ofSeconds(positive("OUTPUT_HISTORY_LOCK_RETRY_SECONDS", 120))
         if (retry.compareTo(purgeInterval) > 0) purgeInterval else retry
-      }
+      },
+      thinLimits = ThinBatchLimits(
+        batchOutputs = positiveInt("OUTPUT_HISTORY_THIN_BATCH_OUTPUTS", ThinBatchLimits.DefaultBatchOutputs),
+        batchRows = positiveInt("OUTPUT_HISTORY_THIN_BATCH_ROWS", ThinBatchLimits.DefaultBatchRows),
+        maxBatches = positiveInt("OUTPUT_HISTORY_THIN_MAX_BATCHES_PER_PASS", ThinBatchLimits.DefaultMaxBatches)
+      )
     )
   }
 }

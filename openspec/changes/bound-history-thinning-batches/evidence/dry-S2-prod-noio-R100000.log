@@ -1,0 +1,26 @@
+@@DRY tag=S2-prod-noio-R100000 now=2026-10-10T05:00:00Z batchOutputs=500 batchRows=100000
+@@CHAIN tag=S2-prod-noio-R100000 batches=51 outputs=10000 chain_ms=81697.5
+@@BATCH tag=S2-prod-noio-R100000 batch=0 mode=explain rep=1 outputs=199 history_rows=99706 admit_ms=56.4 age_ms=32.2 thin_ms=530.1 lock_hold_ms=622.0 age_deleted=3 thin_deleted=2388 wal_bytes=1518240 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=0 mode=explain rep=2 outputs=199 history_rows=99706 admit_ms=43.6 age_ms=10.8 thin_ms=461.8 lock_hold_ms=516.7 age_deleted=3 thin_deleted=2388 wal_bytes=134304 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=0 mode=explain rep=3 outputs=199 history_rows=99706 admit_ms=40.8 age_ms=8.7 thin_ms=466.1 lock_hold_ms=516.2 age_deleted=3 thin_deleted=2388 wal_bytes=134280 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=0 mode=timed rep=1 outputs=199 history_rows=99706 admit_ms=86.2 age_ms=7.3 thin_ms=401.9 lock_hold_ms=495.9 age_deleted=3 thin_deleted=2388 wal_bytes=134304 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=0 mode=timed rep=2 outputs=199 history_rows=99706 admit_ms=26.9 age_ms=7.0 thin_ms=403.2 lock_hold_ms=437.5 age_deleted=3 thin_deleted=2388 wal_bytes=134280 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=0 mode=timed rep=3 outputs=199 history_rows=99706 admit_ms=20.8 age_ms=6.7 thin_ms=407.5 lock_hold_ms=435.4 age_deleted=3 thin_deleted=2388 wal_bytes=134280 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=16 mode=explain rep=1 outputs=203 history_rows=99581 admit_ms=30.2 age_ms=7.6 thin_ms=464.7 lock_hold_ms=502.9 age_deleted=10 thin_deleted=2436 wal_bytes=1524288 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=16 mode=explain rep=2 outputs=203 history_rows=99581 admit_ms=79.0 age_ms=6.4 thin_ms=415.6 lock_hold_ms=501.4 age_deleted=10 thin_deleted=2436 wal_bytes=137360 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=16 mode=explain rep=3 outputs=203 history_rows=99581 admit_ms=86.3 age_ms=5.1 thin_ms=397.3 lock_hold_ms=489.2 age_deleted=10 thin_deleted=2436 wal_bytes=137384 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=16 mode=timed rep=1 outputs=203 history_rows=99581 admit_ms=21.0 age_ms=4.6 thin_ms=378.6 lock_hold_ms=404.8 age_deleted=10 thin_deleted=2436 wal_bytes=137384 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=16 mode=timed rep=2 outputs=203 history_rows=99581 admit_ms=21.3 age_ms=4.9 thin_ms=392.3 lock_hold_ms=418.9 age_deleted=10 thin_deleted=2436 wal_bytes=137384 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=16 mode=timed rep=3 outputs=203 history_rows=99581 admit_ms=21.0 age_ms=4.6 thin_ms=391.2 lock_hold_ms=417.3 age_deleted=10 thin_deleted=2436 wal_bytes=137360 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=33 mode=explain rep=1 outputs=197 history_rows=99566 admit_ms=86.3 age_ms=8.7 thin_ms=418.2 lock_hold_ms=513.5 age_deleted=7 thin_deleted=2364 wal_bytes=1479912 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=33 mode=explain rep=2 outputs=197 history_rows=99566 admit_ms=26.6 age_ms=8.5 thin_ms=466.6 lock_hold_ms=502.1 age_deleted=7 thin_deleted=2364 wal_bytes=133160 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=33 mode=explain rep=3 outputs=197 history_rows=99566 admit_ms=80.5 age_ms=8.0 thin_ms=401.6 lock_hold_ms=490.4 age_deleted=7 thin_deleted=2364 wal_bytes=133184 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=33 mode=timed rep=1 outputs=197 history_rows=99566 admit_ms=18.9 age_ms=5.7 thin_ms=389.4 lock_hold_ms=414.4 age_deleted=7 thin_deleted=2364 wal_bytes=133160 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=33 mode=timed rep=2 outputs=197 history_rows=99566 admit_ms=19.5 age_ms=6.5 thin_ms=387.1 lock_hold_ms=413.5 age_deleted=7 thin_deleted=2364 wal_bytes=133160 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=33 mode=timed rep=3 outputs=197 history_rows=99566 admit_ms=71.9 age_ms=5.9 thin_ms=336.4 lock_hold_ms=414.6 age_deleted=7 thin_deleted=2364 wal_bytes=133160 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=50 mode=explain rep=1 outputs=1 history_rows=467 admit_ms=1.1 age_ms=1.0 thin_ms=3.3 lock_hold_ms=5.6 age_deleted=0 thin_deleted=12 wal_bytes=24704 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=50 mode=explain rep=2 outputs=1 history_rows=467 admit_ms=1.1 age_ms=0.9 thin_ms=2.5 lock_hold_ms=4.7 age_deleted=0 thin_deleted=12 wal_bytes=672 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=50 mode=explain rep=3 outputs=1 history_rows=467 admit_ms=1.2 age_ms=1.1 thin_ms=2.3 lock_hold_ms=4.8 age_deleted=0 thin_deleted=12 wal_bytes=696 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=50 mode=timed rep=1 outputs=1 history_rows=467 admit_ms=1.2 age_ms=1.1 thin_ms=2.7 lock_hold_ms=5.3 age_deleted=0 thin_deleted=12 wal_bytes=672 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=50 mode=timed rep=2 outputs=1 history_rows=467 admit_ms=1.1 age_ms=1.0 thin_ms=2.8 lock_hold_ms=5.2 age_deleted=0 thin_deleted=12 wal_bytes=672 admitted_same=true
+@@BATCH tag=S2-prod-noio-R100000 batch=50 mode=timed rep=3 outputs=1 history_rows=467 admit_ms=1.1 age_ms=1.2 thin_ms=2.8 lock_hold_ms=5.3 age_deleted=0 thin_deleted=12 wal_bytes=672 admitted_same=true

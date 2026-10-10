@@ -1,0 +1,430 @@
+2026-10-10 10:18:21.480 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:40.660 UTC [33]  LOG:  checkpoint complete: wrote 17 buffers (0.1%); 0 WAL file(s) added, 1 removed, 32 recycled; write=18.926 s, sync=0.160 s, total=19.180 s; sync files=4, longest=0.108 s, average=0.040 s; distance=537237 kB, estimate=617209 kB; lsn=B2/D0401B18, redo lsn=B2/B1411AF0
+2026-10-10 10:18:40.884 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:43.868 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.4", size 14093190
+2026-10-10 10:18:44.762 UTC [33]  LOG:  checkpoint complete: wrote 40 buffers (0.2%); 0 WAL file(s) added, 2 removed, 31 recycled; write=3.508 s, sync=0.266 s, total=3.878 s; sync files=3, longest=0.100 s, average=0.089 s; distance=540598 kB, estimate=609548 kB; lsn=B2/F23CD4B0, redo lsn=B2/D23FF550
+2026-10-10 10:18:44.767 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:44.980 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.69", size 2439696
+2026-10-10 10:18:44.994 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.7", size 14061195
+2026-10-10 10:18:45.808 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.123", size 2437386
+2026-10-10 10:18:45.866 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.1", size 14065650
+2026-10-10 10:18:46.366 UTC [33]  LOG:  checkpoint complete: wrote 384 buffers (2.3%); 0 WAL file(s) added, 3 removed, 30 recycled; write=1.209 s, sync=0.283 s, total=1.599 s; sync files=3, longest=0.183 s, average=0.095 s; distance=540711 kB, estimate=602664 kB; lsn=B3/14185310, redo lsn=B2/F34092D0
+2026-10-10 10:18:46.366 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:46.896 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.106", size 2428062
+2026-10-10 10:18:46.908 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.5", size 14042808
+2026-10-10 10:18:47.963 UTC [33]  LOG:  checkpoint complete: wrote 495 buffers (3.0%); 0 WAL file(s) added, 4 removed, 30 recycled; write=1.209 s, sync=0.283 s, total=1.597 s; sync files=3, longest=0.101 s, average=0.095 s; distance=559169 kB, estimate=598314 kB; lsn=B3/362E2CE0, redo lsn=B3/15619750
+2026-10-10 10:18:47.963 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:47.974 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.126", size 2444190
+2026-10-10 10:18:47.985 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.3", size 14057955
+2026-10-10 10:18:48.798 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.75", size 2434110
+2026-10-10 10:18:48.810 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.6", size 14036652
+2026-10-10 10:18:49.463 UTC [33]  LOG:  checkpoint complete: wrote 578 buffers (3.5%); 0 WAL file(s) added, 3 removed, 31 recycled; write=1.212 s, sync=0.189 s, total=1.500 s; sync files=3, longest=0.083 s, average=0.063 s; distance=565183 kB, estimate=595001 kB; lsn=B3/57EF24E0, redo lsn=B3/37E09540
+2026-10-10 10:18:49.463 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:49.869 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.66", size 2432640
+2026-10-10 10:18:49.881 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.2", size 14045481
+2026-10-10 10:18:50.698 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.100", size 2449314
+2026-10-10 10:18:50.762 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.8", size 10909323
+2026-10-10 10:18:50.995 UTC [33]  LOG:  checkpoint complete: wrote 497 buffers (3.0%); 0 WAL file(s) added, 3 removed, 31 recycled; write=1.209 s, sync=0.287 s, total=1.533 s; sync files=3, longest=0.100 s, average=0.096 s; distance=542860 kB, estimate=589787 kB; lsn=B3/79D2F6C0, redo lsn=B3/5902C8E8
+2026-10-10 10:18:50.995 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:51.775 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.68", size 2437890
+2026-10-10 10:18:51.781 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.12", size 8476326
+2026-10-10 10:18:52.667 UTC [33]  LOG:  checkpoint complete: wrote 2621 buffers (16.0%); 0 WAL file(s) added, 5 removed, 29 recycled; write=1.220 s, sync=0.343 s, total=1.672 s; sync files=3, longest=0.143 s, average=0.115 s; distance=562302 kB, estimate=587039 kB; lsn=B3/9D28BAE8, redo lsn=B3/7B54C120
+2026-10-10 10:18:52.667 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:52.843 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.87", size 2443686
+2026-10-10 10:18:52.859 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.10", size 8443359
+2026-10-10 10:18:53.659 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.115", size 2400804
+2026-10-10 10:18:53.665 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.14", size 8522901
+2026-10-10 10:18:54.243 UTC [33]  LOG:  checkpoint complete: wrote 643 buffers (3.9%); 0 WAL file(s) added, 5 removed, 31 recycled; write=1.211 s, sync=0.281 s, total=1.576 s; sync files=3, longest=0.101 s, average=0.094 s; distance=584914 kB, estimate=586826 kB; lsn=B3/BF4031C8, redo lsn=B3/9F080AE8
+2026-10-10 10:18:54.243 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:54.706 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.111", size 2450406
+2026-10-10 10:18:54.712 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.11", size 8480619
+2026-10-10 10:18:55.688 UTC [33]  LOG:  checkpoint complete: wrote 602 buffers (3.7%); 0 WAL file(s) added, 3 removed, 31 recycled; write=1.111 s, sync=0.304 s, total=1.446 s; sync files=3, longest=0.104 s, average=0.102 s; distance=560960 kB, estimate=584239 kB; lsn=B3/E1566078, redo lsn=B3/C1450B98
+2026-10-10 10:18:55.759 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:55.762 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.117", size 2427516
+2026-10-10 10:18:55.769 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.15", size 8543070
+2026-10-10 10:18:56.584 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.113", size 2447844
+2026-10-10 10:18:56.591 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.9", size 8511237
+2026-10-10 10:18:57.168 UTC [33]  LOG:  checkpoint complete: wrote 498 buffers (3.0%); 0 WAL file(s) added, 1 removed, 32 recycled; write=1.109 s, sync=0.191 s, total=1.480 s; sync files=3, longest=0.090 s, average=0.064 s; distance=546395 kB, estimate=580455 kB; lsn=B4/1CFA320, redo lsn=B3/E29E7AF8
+2026-10-10 10:18:57.183 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:57.600 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.124", size 2443224
+2026-10-10 10:18:57.607 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.13", size 8510508
+2026-10-10 10:18:58.563 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.96", size 2442636
+2026-10-10 10:18:58.569 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.16", size 7689816
+2026-10-10 10:18:58.662 UTC [33]  LOG:  checkpoint complete: wrote 600 buffers (3.7%); 0 WAL file(s) added, 2 removed, 31 recycled; write=1.110 s, sync=0.265 s, total=1.479 s; sync files=3, longest=0.164 s, average=0.089 s; distance=534698 kB, estimate=575879 kB; lsn=B4/23574798, redo lsn=B4/3412380
+2026-10-10 10:18:58.667 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:18:59.481 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.85", size 2444274
+2026-10-10 10:18:59.485 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.23", size 6077916
+2026-10-10 10:19:00.162 UTC [33]  LOG:  checkpoint complete: wrote 2189 buffers (13.4%); 0 WAL file(s) added, 2 removed, 31 recycled; write=1.120 s, sync=0.271 s, total=1.496 s; sync files=3, longest=0.101 s, average=0.091 s; distance=540624 kB, estimate=572354 kB; lsn=B4/44257250, redo lsn=B4/244064D0
+2026-10-10 10:19:00.162 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:00.482 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.119", size 2423526
+2026-10-10 10:19:00.487 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.21", size 6117687
+2026-10-10 10:19:01.302 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.77", size 2443434
+2026-10-10 10:19:01.307 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.25", size 6111045
+2026-10-10 10:19:01.663 UTC [33]  LOG:  checkpoint complete: wrote 435 buffers (2.7%); 0 WAL file(s) added, 3 removed, 30 recycled; write=1.108 s, sync=0.302 s, total=1.502 s; sync files=3, longest=0.114 s, average=0.101 s; distance=547153 kB, estimate=569834 kB; lsn=B4/664028E0, redo lsn=B4/45A5ABE8
+2026-10-10 10:19:01.663 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:02.396 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.98", size 2440956
+2026-10-10 10:19:02.401 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.19", size 6115095
+2026-10-10 10:19:03.369 UTC [33]  LOG:  checkpoint complete: wrote 2065 buffers (12.6%); 0 WAL file(s) added, 3 removed, 31 recycled; write=1.418 s, sync=0.177 s, total=1.706 s; sync files=3, longest=0.077 s, average=0.059 s; distance=562022 kB, estimate=569053 kB; lsn=B4/87403C18, redo lsn=B4/67F34540
+2026-10-10 10:19:03.369 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:03.623 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.108", size 2444106
+2026-10-10 10:19:03.627 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.28", size 6103998
+2026-10-10 10:19:04.629 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.101", size 2444274
+2026-10-10 10:19:04.633 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.17", size 6076620
+2026-10-10 10:19:05.063 UTC [33]  LOG:  checkpoint complete: wrote 477 buffers (2.9%); 0 WAL file(s) added, 3 removed, 30 recycled; write=1.305 s, sync=0.284 s, total=1.694 s; sync files=3, longest=0.184 s, average=0.095 s; distance=534948 kB, estimate=565642 kB; lsn=B4/A9401D18, redo lsn=B4/8899D718
+2026-10-10 10:19:05.063 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:05.807 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.95", size 2424828
+2026-10-10 10:19:05.811 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.26", size 6090147
+2026-10-10 10:19:07.064 UTC [33]  LOG:  checkpoint complete: wrote 379 buffers (2.3%); 0 WAL file(s) added, 3 removed, 31 recycled; write=1.709 s, sync=0.186 s, total=2.001 s; sync files=3, longest=0.086 s, average=0.062 s; distance=558802 kB, estimate=564958 kB; lsn=B4/CA1FFFA8, redo lsn=B4/AAB521B0
+2026-10-10 10:19:07.064 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:07.345 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.104", size 2439360
+2026-10-10 10:19:07.350 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.20", size 6122304
+2026-10-10 10:19:08.437 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.109", size 2446962
+2026-10-10 10:19:08.442 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.24", size 6089661
+2026-10-10 10:19:08.888 UTC [33]  LOG:  checkpoint complete: wrote 702 buffers (4.3%); 0 WAL file(s) added, 1 removed, 32 recycled; write=1.606 s, sync=0.188 s, total=1.824 s; sync files=3, longest=0.090 s, average=0.063 s; distance=534404 kB, estimate=561903 kB; lsn=B4/EAF22710, redo lsn=B4/CB533420
+2026-10-10 10:19:08.888 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:09.794 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.120", size 2439780
+2026-10-10 10:19:09.799 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.30", size 6115662
+2026-10-10 10:19:10.959 UTC [33]  LOG:  checkpoint complete: wrote 481 buffers (2.9%); 0 WAL file(s) added, 1 removed, 32 recycled; write=1.810 s, sync=0.161 s, total=2.072 s; sync files=3, longest=0.079 s, average=0.054 s; distance=539653 kB, estimate=559678 kB; lsn=B5/B505490, redo lsn=B4/EC434868
+2026-10-10 10:19:11.000 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:11.080 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.86", size 2443602
+2026-10-10 10:19:11.084 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.31", size 6085935
+2026-10-10 10:19:12.434 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.73", size 2430330
+2026-10-10 10:19:12.438 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.18", size 6087312
+2026-10-10 10:19:13.124 UTC [33]  LOG:  checkpoint complete: wrote 310 buffers (1.9%); 0 WAL file(s) added, 2 removed, 31 recycled; write=1.808 s, sync=0.191 s, total=2.125 s; sync files=3, longest=0.087 s, average=0.064 s; distance=540516 kB, estimate=557761 kB; lsn=B5/2D403A98, redo lsn=B5/D40D8C0
+2026-10-10 10:19:13.124 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:14.108 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.78", size 2433564
+2026-10-10 10:19:14.113 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.27", size 6154947
+2026-10-10 10:19:15.413 UTC [33]  LOG:  checkpoint complete: wrote 870 buffers (5.3%); 0 WAL file(s) added, 2 removed, 31 recycled; write=2.014 s, sync=0.159 s, total=2.290 s; sync files=3, longest=0.076 s, average=0.053 s; distance=551453 kB, estimate=557131 kB; lsn=B5/4E3FE338, redo lsn=B5/2EE95008
+2026-10-10 10:19:15.413 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:15.510 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.76", size 2456244
+2026-10-10 10:19:15.514 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.22", size 6081804
+2026-10-10 10:19:16.809 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.64", size 2432556
+2026-10-10 10:19:16.813 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.29", size 6132753
+2026-10-10 10:19:17.536 UTC [33]  LOG:  checkpoint complete: wrote 583 buffers (3.6%); 0 WAL file(s) added, 2 removed, 31 recycled; write=1.789 s, sync=0.256 s, total=2.123 s; sync files=3, longest=0.101 s, average=0.086 s; distance=534738 kB, estimate=554891 kB; lsn=B5/6F400368, redo lsn=B5/4F8C9BA0
+2026-10-10 10:19:17.536 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:18.322 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.121", size 2445450
+2026-10-10 10:19:18.325 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.32", size 4541832
+2026-10-10 10:19:19.995 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.122", size 2448180
+2026-10-10 10:19:19.997 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.50", size 4511214
+2026-10-10 10:19:20.131 UTC [33]  LOG:  checkpoint complete: wrote 698 buffers (4.3%); 0 WAL file(s) added, 3 removed, 30 recycled; write=2.233 s, sync=0.289 s, total=2.595 s; sync files=3, longest=0.127 s, average=0.097 s; distance=543706 kB, estimate=553773 kB; lsn=B5/91401B58, redo lsn=B5/70BC0670
+2026-10-10 10:19:20.131 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:21.393 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.97", size 2432514
+2026-10-10 10:19:21.395 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.61", size 4560867
+2026-10-10 10:19:22.501 UTC [33]  LOG:  checkpoint complete: wrote 2707 buffers (16.5%); 0 WAL file(s) added, 4 removed, 31 recycled; write=1.929 s, sync=0.298 s, total=2.371 s; sync files=3, longest=0.118 s, average=0.100 s; distance=563517 kB, estimate=563517 kB; lsn=B5/B3401740, redo lsn=B5/9320FD80
+2026-10-10 10:19:22.501 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:22.923 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.93", size 2458680
+2026-10-10 10:19:22.925 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.62", size 4516074
+2026-10-10 10:19:24.427 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.114", size 2432724
+2026-10-10 10:19:24.430 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.55", size 4526685
+2026-10-10 10:19:24.822 UTC [33]  LOG:  checkpoint complete: wrote 737 buffers (4.5%); 0 WAL file(s) added, 2 removed, 31 recycled; write=1.979 s, sync=0.231 s, total=2.321 s; sync files=3, longest=0.123 s, average=0.077 s; distance=550544 kB, estimate=562220 kB; lsn=B5/D4400E60, redo lsn=B5/B4BB3E00
+2026-10-10 10:19:24.822 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:25.854 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.107", size 2437596
+2026-10-10 10:19:25.857 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.38", size 4508460
+2026-10-10 10:19:27.049 UTC [33]  LOG:  checkpoint complete: wrote 1248 buffers (7.6%); 0 WAL file(s) added, 3 removed, 30 recycled; write=1.844 s, sync=0.208 s, total=2.227 s; sync files=3, longest=0.092 s, average=0.070 s; distance=539436 kB, estimate=559942 kB; lsn=B5/F62D42A8, redo lsn=B5/D5A7F150
+2026-10-10 10:19:27.049 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:27.299 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.65", size 2428734
+2026-10-10 10:19:27.301 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.47", size 4522068
+2026-10-10 10:19:28.681 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.125", size 2434614
+2026-10-10 10:19:28.684 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.57", size 4511700
+2026-10-10 10:19:29.103 UTC [33]  LOG:  checkpoint complete: wrote 767 buffers (4.7%); 0 WAL file(s) added, 1 removed, 33 recycled; write=1.813 s, sync=0.197 s, total=2.054 s; sync files=3, longest=0.098 s, average=0.066 s; distance=554957 kB, estimate=559443 kB; lsn=B6/15811CC0, redo lsn=B5/F7872930
+2026-10-10 10:19:29.194 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:30.207 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.110", size 2431170
+2026-10-10 10:19:30.211 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.49", size 4519719
+2026-10-10 10:19:31.511 UTC [33]  LOG:  checkpoint complete: wrote 278 buffers (1.7%); 0 WAL file(s) added, 3 removed, 30 recycled; write=1.908 s, sync=0.271 s, total=2.318 s; sync files=3, longest=0.127 s, average=0.091 s; distance=536544 kB, estimate=557153 kB; lsn=B6/39400D00, redo lsn=B6/1846ACA8
+2026-10-10 10:19:31.512 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:31.528 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.112", size 2438814
+2026-10-10 10:19:31.531 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.44", size 4485942
+2026-10-10 10:19:33.003 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.89", size 2417016
+2026-10-10 10:19:33.005 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.56", size 4552443
+2026-10-10 10:19:33.959 UTC [33]  LOG:  checkpoint complete: wrote 592 buffers (3.6%); 0 WAL file(s) added, 4 removed, 30 recycled; write=2.012 s, sync=0.343 s, total=2.448 s; sync files=3, longest=0.223 s, average=0.115 s; distance=566805 kB, estimate=566805 kB; lsn=B6/5B400648, redo lsn=B6/3ADF01D0
+2026-10-10 10:19:33.960 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:34.571 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.84", size 2452632
+2026-10-10 10:19:34.574 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.41", size 4565889
+2026-10-10 10:19:36.099 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.83", size 2462124
+2026-10-10 10:19:36.102 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.54", size 4529439
+2026-10-10 10:19:36.115 UTC [33]  LOG:  checkpoint complete: wrote 662 buffers (4.0%); 0 WAL file(s) added, 2 removed, 32 recycled; write=1.811 s, sync=0.241 s, total=2.156 s; sync files=3, longest=0.137 s, average=0.081 s; distance=548357 kB, estimate=564960 kB; lsn=B6/7B4A9320, redo lsn=B6/5C571608
+2026-10-10 10:19:36.128 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:37.613 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.71", size 2443476
+2026-10-10 10:19:37.615 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.58", size 4533732
+2026-10-10 10:19:38.435 UTC [33]  LOG:  checkpoint complete: wrote 2821 buffers (17.2%); 0 WAL file(s) added, 2 removed, 31 recycled; write=1.921 s, sync=0.309 s, total=2.307 s; sync files=3, longest=0.160 s, average=0.103 s; distance=539196 kB, estimate=562384 kB; lsn=B6/9D9D3F28, redo lsn=B6/7D4006E8
+2026-10-10 10:19:38.435 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:39.019 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.72", size 2442174
+2026-10-10 10:19:39.022 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.37", size 4532193
+2026-10-10 10:19:40.320 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.92", size 2442006
+2026-10-10 10:19:40.322 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.53", size 4543047
+2026-10-10 10:19:40.789 UTC [33]  LOG:  checkpoint complete: wrote 608 buffers (3.7%); 0 WAL file(s) added, 3 removed, 31 recycled; write=1.911 s, sync=0.387 s, total=2.354 s; sync files=3, longest=0.178 s, average=0.129 s; distance=555751 kB, estimate=561720 kB; lsn=B6/BF403CC8, redo lsn=B6/9F2BA2F8
+2026-10-10 10:19:40.789 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:41.927 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.74", size 2446584
+2026-10-10 10:19:41.930 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.46", size 4508379
+2026-10-10 10:19:43.865 UTC [33]  LOG:  checkpoint complete: wrote 1427 buffers (8.7%); 0 WAL file(s) added, 5 removed, 28 recycled; write=1.915 s, sync=1.055 s, total=3.077 s; sync files=3, longest=0.550 s, average=0.352 s; distance=550177 kB, estimate=560566 kB; lsn=B6/E34EB128, redo lsn=B6/C0C02790
+2026-10-10 10:19:43.865 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:43.970 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.94", size 2433858
+2026-10-10 10:19:43.972 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.63", size 4518261
+2026-10-10 10:19:45.325 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.79", size 2432094
+2026-10-10 10:19:45.328 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.36", size 4535190
+2026-10-10 10:19:46.272 UTC [33]  LOG:  checkpoint complete: wrote 682 buffers (4.2%); 0 WAL file(s) added, 5 removed, 31 recycled; write=2.113 s, sync=0.181 s, total=2.407 s; sync files=3, longest=0.081 s, average=0.061 s; distance=593356 kB, estimate=593356 kB; lsn=B7/490C0F0, redo lsn=B6/E4F759E8
+2026-10-10 10:19:46.272 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:46.976 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.103", size 2442636
+2026-10-10 10:19:46.979 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.34", size 4526685
+2026-10-10 10:19:48.577 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.82", size 2439696
+2026-10-10 10:19:48.579 UTC [33]  LOG:  checkpoint complete: wrote 644 buffers (3.9%); 0 WAL file(s) added, 3 removed, 31 recycled; write=1.913 s, sync=0.274 s, total=2.308 s; sync files=3, longest=0.112 s, average=0.092 s; distance=547671 kB, estimate=588788 kB; lsn=B7/26081228, redo lsn=B7/664B868
+2026-10-10 10:19:48.580 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.59", size 4516803
+2026-10-10 10:19:48.584 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:50.052 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.118", size 2433816
+2026-10-10 10:19:50.057 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.43", size 4532031
+2026-10-10 10:19:50.791 UTC [33]  LOG:  checkpoint complete: wrote 717 buffers (4.4%); 0 WAL file(s) added, 2 removed, 31 recycled; write=1.913 s, sync=0.261 s, total=2.208 s; sync files=3, longest=0.113 s, average=0.087 s; distance=538319 kB, estimate=583741 kB; lsn=B7/47401D70, redo lsn=B7/273FF790
+2026-10-10 10:19:50.845 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:51.561 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.70", size 2438436
+2026-10-10 10:19:51.564 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.60", size 4537053
+2026-10-10 10:19:52.970 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.102", size 2445450
+2026-10-10 10:19:52.973 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.52", size 4516965
+2026-10-10 10:19:53.262 UTC [33]  LOG:  checkpoint complete: wrote 690 buffers (4.2%); 0 WAL file(s) added, 3 removed, 30 recycled; write=2.011 s, sync=0.302 s, total=2.417 s; sync files=3, longest=0.148 s, average=0.101 s; distance=540676 kB, estimate=579434 kB; lsn=B7/694005C0, redo lsn=B7/484008A8
+2026-10-10 10:19:53.262 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:54.568 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.81", size 2437638
+2026-10-10 10:19:54.572 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.51", size 4574880
+2026-10-10 10:19:55.599 UTC [33]  LOG:  checkpoint complete: wrote 2311 buffers (14.1%); 0 WAL file(s) added, 3 removed, 31 recycled; write=2.021 s, sync=0.276 s, total=2.337 s; sync files=3, longest=0.107 s, average=0.092 s; distance=565732 kB, estimate=578064 kB; lsn=B7/8A401500, redo lsn=B7/6AC79C08
+2026-10-10 10:19:55.599 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:55.999 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.88", size 2463804
+2026-10-10 10:19:56.001 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.42", size 4476141
+2026-10-10 10:19:57.453 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.80", size 2412270
+2026-10-10 10:19:57.456 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.35", size 4524741
+2026-10-10 10:19:57.984 UTC [33]  LOG:  checkpoint complete: wrote 604 buffers (3.7%); 0 WAL file(s) added, 3 removed, 30 recycled; write=1.970 s, sync=0.289 s, total=2.386 s; sync files=3, longest=0.155 s, average=0.097 s; distance=543070 kB, estimate=574565 kB; lsn=B7/AC401CB0, redo lsn=B7/8BED1688
+2026-10-10 10:19:57.984 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:19:59.153 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.91", size 2442972
+2026-10-10 10:19:59.156 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.45", size 4494852
+2026-10-10 10:20:00.368 UTC [33]  LOG:  checkpoint complete: wrote 682 buffers (4.2%); 0 WAL file(s) added, 3 removed, 31 recycled; write=2.011 s, sync=0.266 s, total=2.384 s; sync files=3, longest=0.101 s, average=0.089 s; distance=551646 kB, estimate=572273 kB; lsn=B7/CD776D48, redo lsn=B7/AD988F98
+2026-10-10 10:20:00.372 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:20:00.578 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.99", size 2423778
+2026-10-10 10:20:00.581 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.39", size 4495986
+2026-10-10 10:20:02.064 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.105", size 2426004
+2026-10-10 10:20:02.066 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.48", size 4527576
+2026-10-10 10:20:02.779 UTC [33]  LOG:  checkpoint complete: wrote 807 buffers (4.9%); 0 WAL file(s) added, 3 removed, 31 recycled; write=2.013 s, sync=0.330 s, total=2.412 s; sync files=3, longest=0.226 s, average=0.110 s; distance=551383 kB, estimate=570184 kB; lsn=B7/EF400360, redo lsn=B7/CF3FEC38
+2026-10-10 10:20:02.779 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:20:03.748 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.90", size 2440578
+2026-10-10 10:20:03.750 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.40", size 4501737
+2026-10-10 10:20:05.280 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.116", size 2426844
+2026-10-10 10:20:05.283 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.33", size 4518261
+2026-10-10 10:20:05.500 UTC [33]  LOG:  checkpoint complete: wrote 986 buffers (6.0%); 0 WAL file(s) added, 5 removed, 28 recycled; write=2.015 s, sync=0.564 s, total=2.721 s; sync files=3, longest=0.311 s, average=0.188 s; distance=547138 kB, estimate=567879 kB; lsn=B8/13400250, redo lsn=B7/F0A4F6F0
+2026-10-10 10:20:05.500 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:20:06.783 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.67", size 2434194
+2026-10-10 10:20:06.797 UTC [70] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp70.0", size 156442624
+2026-10-10 10:20:29.838 UTC [33]  LOG:  checkpoint complete: wrote 2268 buffers (13.8%); 0 WAL file(s) added, 4 removed, 32 recycled; write=21.801 s, sync=2.513 s, total=24.338 s; sync files=6, longest=2.119 s, average=0.419 s; distance=594495 kB, estimate=594495 kB; lsn=B8/33401E00, redo lsn=B8/14EDF628
+2026-10-10 10:20:30.339 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:20:36.698 UTC [77] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp77.0", size 245760
+2026-10-10 10:20:45.763 UTC [83] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp83.1", size 3702784
+2026-10-10 10:20:45.765 UTC [83] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp83.0", size 3047424
+2026-10-10 10:20:53.582 UTC [87] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp87.1", size 3702784
+2026-10-10 10:20:53.584 UTC [87] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp87.0", size 3047424
+2026-10-10 10:21:05.099 UTC [91] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp91.1", size 3702784
+2026-10-10 10:21:05.101 UTC [91] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp91.0", size 3047424
+2026-10-10 10:21:08.525 UTC [33]  LOG:  checkpoint complete: wrote 469 buffers (2.9%); 0 WAL file(s) added, 0 removed, 33 recycled; write=35.246 s, sync=2.811 s, total=38.186 s; sync files=5, longest=2.209 s, average=0.563 s; distance=529541 kB, estimate=588000 kB; lsn=B8/531EF768, redo lsn=B8/35400DC0
+2026-10-10 10:21:16.891 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:21:17.288 UTC [96] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp96.1", size 1671168
+2026-10-10 10:21:17.290 UTC [96] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp96.0", size 2367488
+2026-10-10 10:21:25.462 UTC [101] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp101.1", size 3842048
+2026-10-10 10:21:25.464 UTC [101] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp101.0", size 3276800
+2026-10-10 10:21:34.101 UTC [105] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp105.1", size 3735552
+2026-10-10 10:21:34.103 UTC [105] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp105.0", size 3153920
+2026-10-10 10:21:40.772 UTC [109] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp109.0", size 229376
+2026-10-10 10:21:44.184 UTC [114] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp114.0", size 229376
+2026-10-10 10:21:48.462 UTC [33]  LOG:  checkpoint complete: wrote 308 buffers (1.9%); 0 WAL file(s) added, 0 removed, 33 recycled; write=27.293 s, sync=4.210 s, total=31.571 s; sync files=5, longest=2.369 s, average=0.842 s; distance=536724 kB, estimate=582872 kB; lsn=B8/73C0B190, redo lsn=B8/56025F40
+2026-10-10 10:21:49.503 UTC [118] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp118.0", size 229376
+2026-10-10 10:21:50.208 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:21:51.599 UTC [122] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp122.0", size 229376
+2026-10-10 10:21:58.296 UTC [126] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp126.0", size 229376
+2026-10-10 10:22:04.168 UTC [131] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp131.0", size 221184
+2026-10-10 10:22:11.291 UTC [135] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp135.0", size 221184
+2026-10-10 10:22:14.573 UTC [139] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp139.0", size 221184
+2026-10-10 10:22:27.469 UTC [144] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp144.0", size 229376
+2026-10-10 10:22:30.744 UTC [33]  LOG:  checkpoint complete: wrote 494 buffers (3.0%); 0 WAL file(s) added, 1 removed, 32 recycled; write=39.656 s, sync=0.804 s, total=40.537 s; sync files=6, longest=0.481 s, average=0.134 s; distance=544410 kB, estimate=579026 kB; lsn=B8/961E1FB8, redo lsn=B8/773CCB00
+2026-10-10 10:22:31.661 UTC [148] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp148.0", size 229376
+2026-10-10 10:22:31.989 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:22:42.294 UTC [152] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp152.0", size 229376
+2026-10-10 10:22:47.084 UTC [157] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp157.0", size 229376
+2026-10-10 10:23:02.295 UTC [161] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp161.0", size 229376
+2026-10-10 10:23:08.768 UTC [166] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp166.0", size 229376
+2026-10-10 10:23:12.127 UTC [33]  LOG:  checkpoint complete: wrote 65 buffers (0.4%); 0 WAL file(s) added, 0 removed, 33 recycled; write=37.898 s, sync=2.212 s, total=40.138 s; sync files=7, longest=1.597 s, average=0.316 s; distance=536800 kB, estimate=574804 kB; lsn=B8/B6B90A40, redo lsn=B8/98004DC8
+2026-10-10 10:23:16.633 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:23:22.745 UTC [170] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp170.0", size 221184
+2026-10-10 10:23:32.119 UTC [175] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp175.1", size 3457024
+2026-10-10 10:23:32.121 UTC [175] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp175.0", size 2711552
+2026-10-10 10:23:44.664 UTC [179] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp179.1", size 3702784
+2026-10-10 10:23:44.665 UTC [179] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp179.0", size 3047424
+2026-10-10 10:23:55.337 UTC [33]  LOG:  checkpoint complete: wrote 1572 buffers (9.6%); 0 WAL file(s) added, 0 removed, 33 recycled; write=38.492 s, sync=0.003 s, total=38.704 s; sync files=6, longest=0.002 s, average=0.001 s; distance=544772 kB, estimate=571800 kB; lsn=B8/D71CFBF0, redo lsn=B8/B9406170
+2026-10-10 10:23:56.844 UTC [184] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp184.1", size 1671168
+2026-10-10 10:23:56.845 UTC [184] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp184.0", size 2367488
+2026-10-10 10:24:09.406 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:24:15.311 UTC [189] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp189.1", size 3702784
+2026-10-10 10:24:15.312 UTC [189] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp189.0", size 3047424
+2026-10-10 10:24:28.914 UTC [194] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp194.1", size 3743744
+2026-10-10 10:24:28.916 UTC [194] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp194.0", size 3047424
+2026-10-10 10:24:41.562 UTC [198] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp198.1", size 3702784
+2026-10-10 10:24:41.564 UTC [198] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp198.0", size 3047424
+2026-10-10 10:24:49.984 UTC [203] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp203.1", size 1671168
+2026-10-10 10:24:49.985 UTC [203] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp203.0", size 2367488
+2026-10-10 10:25:00.491 UTC [207] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp207.1", size 3702784
+2026-10-10 10:25:00.493 UTC [207] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp207.0", size 3047424
+2026-10-10 10:25:07.838 UTC [33]  LOG:  checkpoint complete: wrote 375 buffers (2.3%); 0 WAL file(s) added, 0 removed, 33 recycled; write=58.154 s, sync=0.246 s, total=58.432 s; sync files=6, longest=0.198 s, average=0.041 s; distance=536562 kB, estimate=568277 kB; lsn=B8/F83BEEA0, redo lsn=B8/DA002CD8
+2026-10-10 10:25:08.807 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:25:13.889 UTC [212] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp212.1", size 3710976
+2026-10-10 10:25:13.891 UTC [212] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp212.0", size 3047424
+2026-10-10 10:25:25.603 UTC [216] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp216.1", size 1662976
+2026-10-10 10:25:25.908 UTC [216] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp216.0", size 2367488
+2026-10-10 10:25:39.220 UTC [221] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp221.1", size 3702784
+2026-10-10 10:25:39.221 UTC [221] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp221.0", size 3047424
+2026-10-10 10:25:51.853 UTC [226] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp226.1", size 7127040
+2026-10-10 10:25:51.854 UTC [226] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp226.0", size 3506176
+2026-10-10 10:26:05.830 UTC [33]  LOG:  checkpoint complete: wrote 545 buffers (3.3%); 0 WAL file(s) added, 0 removed, 33 recycled; write=52.749 s, sync=4.195 s, total=57.023 s; sync files=9, longest=2.102 s, average=0.467 s; distance=540971 kB, estimate=565546 kB; lsn=B9/18C41488, redo lsn=B8/FB04D9C0
+2026-10-10 10:26:06.083 UTC [230] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp230.1", size 1794048
+2026-10-10 10:26:06.085 UTC [230] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp230.0", size 2588672
+2026-10-10 10:26:11.403 UTC [235] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp235.0", size 221184
+2026-10-10 10:26:13.181 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:26:19.166 UTC [239] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp239.0", size 221184
+2026-10-10 10:26:21.500 UTC [244] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp244.0", size 221184
+2026-10-10 10:26:31.725 UTC [248] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp248.0", size 229376
+2026-10-10 10:26:39.823 UTC [252] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp252.0", size 229376
+2026-10-10 10:26:42.283 UTC [257] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp257.0", size 229376
+2026-10-10 10:26:52.833 UTC [33]  LOG:  checkpoint complete: wrote 460 buffers (2.8%); 0 WAL file(s) added, 0 removed, 33 recycled; write=37.229 s, sync=2.391 s, total=39.652 s; sync files=6, longest=1.596 s, average=0.399 s; distance=542866 kB, estimate=563278 kB; lsn=B9/3A2EABF0, redo lsn=B9/1C272598
+2026-10-10 10:26:52.863 UTC [261] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp261.0", size 229376
+2026-10-10 10:26:55.593 UTC [265] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp265.0", size 229376
+2026-10-10 10:27:00.581 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:27:05.796 UTC [270] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp270.0", size 221184
+2026-10-10 10:27:11.483 UTC [274] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp274.0", size 229376
+2026-10-10 10:27:20.078 UTC [278] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp278.0", size 221184
+2026-10-10 10:27:27.214 UTC [283] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp283.0", size 229376
+2026-10-10 10:27:29.979 UTC [287] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp287.0", size 229376
+2026-10-10 10:27:37.534 UTC [33]  LOG:  checkpoint complete: wrote 979 buffers (6.0%); 0 WAL file(s) added, 0 removed, 33 recycled; write=34.998 s, sync=1.928 s, total=36.954 s; sync files=9, longest=0.910 s, average=0.215 s; distance=542264 kB, estimate=561177 kB; lsn=B9/5B84CFD8, redo lsn=B9/3D400860
+2026-10-10 10:27:37.668 UTC [291] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp291.0", size 229376
+2026-10-10 10:27:42.649 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:27:43.290 UTC [296] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp296.0", size 229376
+2026-10-10 10:27:50.999 UTC [300] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp300.0", size 221184
+2026-10-10 10:27:55.890 UTC [304] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp304.0", size 229376
+2026-10-10 10:28:00.803 UTC [309] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp309.0", size 229376
+2026-10-10 10:28:07.960 UTC [313] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp313.0", size 229376
+2026-10-10 10:28:15.600 UTC [317] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp317.0", size 221184
+2026-10-10 10:28:22.202 UTC [33]  LOG:  checkpoint complete: wrote 418 buffers (2.6%); 0 WAL file(s) added, 0 removed, 33 recycled; write=39.516 s, sync=0.017 s, total=39.553 s; sync files=6, longest=0.011 s, average=0.003 s; distance=539630 kB, estimate=559022 kB; lsn=B9/7BE88990, redo lsn=B9/5E2FC0B8
+2026-10-10 10:28:33.332 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:28:37.802 UTC [322] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp322.1", size 3465216
+2026-10-10 10:28:37.860 UTC [322] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp322.0", size 2637824
+2026-10-10 10:28:45.784 UTC [327] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp327.1", size 3694592
+2026-10-10 10:28:45.785 UTC [327] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp327.0", size 2965504
+2026-10-10 10:28:53.484 UTC [331] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp331.1", size 1671168
+2026-10-10 10:28:53.485 UTC [331] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp331.0", size 2301952
+2026-10-10 10:29:03.881 UTC [335] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp335.1", size 3702784
+2026-10-10 10:29:03.883 UTC [335] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp335.0", size 2965504
+2026-10-10 10:29:13.768 UTC [340] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp340.1", size 3702784
+2026-10-10 10:29:13.769 UTC [340] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp340.0", size 2965504
+2026-10-10 10:29:21.090 UTC [344] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp344.1", size 3710976
+2026-10-10 10:29:21.092 UTC [344] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp344.0", size 2965504
+2026-10-10 10:29:40.424 UTC [33]  LOG:  checkpoint complete: wrote 1 buffers (0.0%); 0 WAL file(s) added, 1 removed, 32 recycled; write=62.148 s, sync=4.842 s, total=67.093 s; sync files=15, longest=3.114 s, average=0.323 s; distance=537642 kB, estimate=556884 kB; lsn=B9/9E408720, redo lsn=B9/7F006C10
+2026-10-10 10:29:43.237 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:29:50.350 UTC [33]  LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 33 recycled; write=6.110 s, sync=0.974 s, total=7.113 s; sync files=9, longest=0.692 s, average=0.109 s; distance=540651 kB, estimate=555261 kB; lsn=B9/B0BD1D88, redo lsn=B9/A0001B30
+2026-10-10 10:29:51.038 UTC [350] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp350.0", size 245760
+2026-10-10 10:30:08.132 UTC [353] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp353.1", size 3702784
+2026-10-10 10:30:08.133 UTC [353] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp353.0", size 3047424
+2026-10-10 10:30:24.835 UTC [355] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp355.1", size 3702784
+2026-10-10 10:30:24.836 UTC [355] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp355.0", size 3047424
+2026-10-10 10:30:39.401 UTC [357] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp357.1", size 3702784
+2026-10-10 10:30:39.403 UTC [357] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp357.0", size 3047424
+2026-10-10 10:30:43.983 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:30:56.548 UTC [33]  LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 33 recycled; write=6.618 s, sync=5.912 s, total=12.566 s; sync files=10, longest=5.852 s, average=0.592 s; distance=540674 kB, estimate=553802 kB; lsn=B9/D4FB6028, redo lsn=B9/C1002478
+2026-10-10 10:30:56.683 UTC [359] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp359.1", size 1671168
+2026-10-10 10:30:56.684 UTC [359] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp359.0", size 2367488
+2026-10-10 10:31:01.976 UTC [361] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp361.1", size 3842048
+2026-10-10 10:31:01.977 UTC [361] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp361.0", size 3276800
+2026-10-10 10:31:14.178 UTC [362] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp362.1", size 3735552
+2026-10-10 10:31:14.179 UTC [362] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp362.0", size 3153920
+2026-10-10 10:31:16.939 UTC [364] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp364.0", size 229376
+2026-10-10 10:31:17.981 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:31:23.398 UTC [365] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp365.0", size 229376
+2026-10-10 10:31:27.534 UTC [367] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp367.0", size 229376
+2026-10-10 10:31:29.997 UTC [368] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp368.0", size 229376
+2026-10-10 10:31:35.984 UTC [369] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp369.0", size 229376
+2026-10-10 10:31:39.189 UTC [371] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp371.0", size 221184
+2026-10-10 10:31:45.242 UTC [33]  LOG:  checkpoint complete: wrote 840 buffers (5.1%); 0 WAL file(s) added, 1 removed, 32 recycled; write=25.513 s, sync=1.705 s, total=27.264 s; sync files=10, longest=1.450 s, average=0.171 s; distance=544203 kB, estimate=552842 kB; lsn=BA/11D7760, redo lsn=B9/E2375140
+2026-10-10 10:31:46.339 UTC [372] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp372.0", size 221184
+2026-10-10 10:31:48.973 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:31:54.553 UTC [373] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp373.0", size 221184
+2026-10-10 10:32:00.759 UTC [375] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp375.0", size 229376
+2026-10-10 10:32:02.700 UTC [376] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp376.0", size 229376
+2026-10-10 10:32:09.570 UTC [377] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp377.0", size 229376
+2026-10-10 10:32:14.671 UTC [379] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp379.0", size 229376
+2026-10-10 10:32:20.971 UTC [380] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp380.0", size 229376
+2026-10-10 10:32:24.487 UTC [33]  LOG:  checkpoint complete: wrote 1313 buffers (8.0%); 0 WAL file(s) added, 0 removed, 33 recycled; write=35.414 s, sync=0.072 s, total=35.515 s; sync files=12, longest=0.062 s, average=0.006 s; distance=541259 kB, estimate=551684 kB; lsn=BA/218965F8, redo lsn=BA/3407EA0
+2026-10-10 10:32:25.589 UTC [385] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp385.0", size 229376
+2026-10-10 10:32:28.623 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:32:41.798 UTC [386] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp386.0", size 221184
+2026-10-10 10:32:51.958 UTC [33]  LOG:  checkpoint complete: wrote 678 buffers (4.1%); 0 WAL file(s) added, 0 removed, 33 recycled; write=22.353 s, sync=0.952 s, total=23.335 s; sync files=13, longest=0.821 s, average=0.074 s; distance=536767 kB, estimate=550192 kB; lsn=BA/4250AE18, redo lsn=BA/24037C50
+2026-10-10 10:32:52.613 UTC [388] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp388.1", size 3457024
+2026-10-10 10:32:52.614 UTC [388] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp388.0", size 2711552
+2026-10-10 10:33:00.758 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:33:07.617 UTC [389] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp389.1", size 3702784
+2026-10-10 10:33:07.618 UTC [389] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp389.0", size 3047424
+2026-10-10 10:33:30.510 UTC [390] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp390.1", size 1671168
+2026-10-10 10:33:30.511 UTC [390] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp390.0", size 2367488
+2026-10-10 10:33:48.141 UTC [33]  LOG:  checkpoint complete: wrote 15 buffers (0.1%); 0 WAL file(s) added, 0 removed, 33 recycled; write=43.500 s, sync=3.855 s, total=47.383 s; sync files=11, longest=2.337 s, average=0.351 s; distance=540566 kB, estimate=549230 kB; lsn=BA/636B6120, redo lsn=BA/4501D840
+2026-10-10 10:33:48.248 UTC [391] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp391.1", size 3702784
+2026-10-10 10:33:48.251 UTC [391] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp391.0", size 3047424
+2026-10-10 10:33:53.106 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:33:58.267 UTC [392] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp392.1", size 3743744
+2026-10-10 10:33:58.268 UTC [392] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp392.0", size 3047424
+2026-10-10 10:34:07.994 UTC [393] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp393.1", size 3702784
+2026-10-10 10:34:07.996 UTC [393] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp393.0", size 3047424
+2026-10-10 10:34:20.597 UTC [394] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp394.1", size 1671168
+2026-10-10 10:34:20.598 UTC [394] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp394.0", size 2367488
+2026-10-10 10:34:28.077 UTC [395] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp395.1", size 3702784
+2026-10-10 10:34:28.079 UTC [395] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp395.0", size 3047424
+2026-10-10 10:34:33.948 UTC [33]  LOG:  checkpoint complete: wrote 372 buffers (2.3%); 0 WAL file(s) added, 0 removed, 33 recycled; write=40.240 s, sync=0.508 s, total=40.843 s; sync files=12, longest=0.410 s, average=0.043 s; distance=541022 kB, estimate=548409 kB; lsn=BA/84AB74C8, redo lsn=BA/66075358
+2026-10-10 10:34:34.779 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:34:35.694 UTC [396] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp396.1", size 3710976
+2026-10-10 10:34:35.695 UTC [396] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp396.0", size 3047424
+2026-10-10 10:34:48.667 UTC [397] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp397.1", size 1662976
+2026-10-10 10:34:48.668 UTC [397] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp397.0", size 2367488
+2026-10-10 10:35:03.829 UTC [398] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp398.1", size 3702784
+2026-10-10 10:35:03.830 UTC [398] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp398.0", size 3047424
+2026-10-10 10:35:16.039 UTC [33]  LOG:  checkpoint complete: wrote 461 buffers (2.8%); 0 WAL file(s) added, 0 removed, 33 recycled; write=37.397 s, sync=3.831 s, total=41.260 s; sync files=12, longest=2.415 s, average=0.320 s; distance=540868 kB, estimate=547655 kB; lsn=BA/A5695E10, redo lsn=BA/870A66F0
+2026-10-10 10:35:16.480 UTC [399] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp399.1", size 7127040
+2026-10-10 10:35:16.482 UTC [399] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp399.0", size 3506176
+2026-10-10 10:35:17.565 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:35:21.078 UTC [400] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp400.1", size 1794048
+2026-10-10 10:35:21.081 UTC [400] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp400.0", size 2588672
+2026-10-10 10:35:26.667 UTC [401] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp401.0", size 221184
+2026-10-10 10:35:33.803 UTC [402] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp402.0", size 221184
+2026-10-10 10:35:36.082 UTC [403] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp403.0", size 221184
+2026-10-10 10:35:39.270 UTC [404] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp404.0", size 229376
+2026-10-10 10:35:45.831 UTC [33]  LOG:  checkpoint complete: wrote 560 buffers (3.4%); 0 WAL file(s) added, 0 removed, 33 recycled; write=27.097 s, sync=1.142 s, total=28.270 s; sync files=12, longest=0.878 s, average=0.096 s; distance=541685 kB, estimate=547058 kB; lsn=BA/C6784898, redo lsn=BA/A81A3D60
+2026-10-10 10:35:46.759 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:35:48.837 UTC [405] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp405.0", size 229376
+2026-10-10 10:35:52.721 UTC [409] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp409.0", size 229376
+2026-10-10 10:35:57.672 UTC [410] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp410.0", size 229376
+2026-10-10 10:36:02.004 UTC [411] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp411.0", size 229376
+2026-10-10 10:36:06.847 UTC [412] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp412.0", size 221184
+2026-10-10 10:36:09.867 UTC [413] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp413.0", size 229376
+2026-10-10 10:36:13.741 UTC [33]  LOG:  checkpoint complete: wrote 491 buffers (3.0%); 0 WAL file(s) added, 0 removed, 33 recycled; write=25.232 s, sync=1.721 s, total=26.982 s; sync files=14, longest=1.485 s, average=0.123 s; distance=539441 kB, estimate=546296 kB; lsn=BA/E78D3640, redo lsn=BA/C9070550
+2026-10-10 10:36:16.664 UTC [414] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp414.0", size 221184
+2026-10-10 10:36:18.125 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:36:20.130 UTC [415] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp415.0", size 229376
+2026-10-10 10:36:25.881 UTC [416] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp416.0", size 229376
+2026-10-10 10:36:28.090 UTC [417] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp417.0", size 229376
+2026-10-10 10:36:31.779 UTC [418] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp418.0", size 229376
+2026-10-10 10:36:39.098 UTC [419] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp419.0", size 221184
+2026-10-10 10:36:43.339 UTC [33]  LOG:  checkpoint complete: wrote 1129 buffers (6.9%); 0 WAL file(s) added, 0 removed, 33 recycled; write=23.275 s, sync=1.909 s, total=25.214 s; sync files=13, longest=1.379 s, average=0.147 s; distance=544359 kB, estimate=546102 kB; lsn=BB/8998490, redo lsn=BA/EA40A508
+2026-10-10 10:36:44.150 UTC [420] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp420.0", size 229376
+2026-10-10 10:36:45.306 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:36:48.494 UTC [421] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp421.0", size 229376
+2026-10-10 10:36:51.801 UTC [422] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp422.0", size 229376
+2026-10-10 10:36:57.867 UTC [423] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp423.0", size 221184
+2026-10-10 10:37:06.307 UTC [424] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp424.1", size 3465216
+2026-10-10 10:37:06.359 UTC [424] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp424.0", size 2637824
+2026-10-10 10:37:14.950 UTC [33]  LOG:  checkpoint complete: wrote 737 buffers (4.5%); 0 WAL file(s) added, 0 removed, 33 recycled; write=27.300 s, sync=2.261 s, total=29.646 s; sync files=13, longest=1.437 s, average=0.174 s; distance=537841 kB, estimate=545276 kB; lsn=BB/296164C8, redo lsn=BB/B146BF8
+2026-10-10 10:37:15.662 UTC [425] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp425.1", size 3694592
+2026-10-10 10:37:15.663 UTC [425] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp425.0", size 2965504
+2026-10-10 10:37:23.031 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 10:37:26.605 UTC [426] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp426.1", size 1671168
+2026-10-10 10:37:26.606 UTC [426] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp426.0", size 2301952
+2026-10-10 10:37:33.764 UTC [427] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp427.1", size 3702784
+2026-10-10 10:37:33.766 UTC [427] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp427.0", size 2965504
+2026-10-10 10:37:42.108 UTC [432] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp432.1", size 3702784
+2026-10-10 10:37:42.110 UTC [432] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp432.0", size 2965504
+2026-10-10 10:37:49.999 UTC [436] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp436.1", size 3710976
+2026-10-10 10:37:49.999 UTC [436] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp436.0", size 2965504

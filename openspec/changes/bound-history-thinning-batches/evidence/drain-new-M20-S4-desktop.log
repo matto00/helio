@@ -1,0 +1,6 @@
+@@DRAIN tag=S4-desktop-newM now=2026-10-10T08:00:00Z limits=ThinBatchLimits(500,100000,20)
+@@PASS tag=S4-desktop-newM pass=1 outcome=more deleted=1781531 ms=47409.2 wal_bytes=2165722016 start_epoch_ms=1791627152898 end_epoch_ms=1791627200308
+@@PASS tag=S4-desktop-newM pass=2 outcome=more deleted=1726218 ms=41052.0 wal_bytes=2297982176 start_epoch_ms=1791627200319 end_epoch_ms=1791627241371
+@@PASS tag=S4-desktop-newM pass=3 outcome=more deleted=1799575 ms=43682.1 wal_bytes=1997499864 start_epoch_ms=1791627241381 end_epoch_ms=1791627285063
+@@PASS tag=S4-desktop-newM pass=4 outcome=completed deleted=84885 ms=1916.9 wal_bytes=32710448 start_epoch_ms=1791627285072 end_epoch_ms=1791627286989
+@@DRAINED tag=S4-desktop-newM passes=4 total_deleted=5392209 wall_ms=134102.4

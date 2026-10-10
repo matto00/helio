@@ -1,0 +1,1 @@
+ABORTED by the operator at 2026-10-10T06:15:26-07:00 after about 30 minutes: the old S3 history transaction (single statement, 2.1M rows, 1.6M deleted) on the prod-io-strict-direct profile (300 IOPS, 4.8 MB/s, no OS page cache) had not finished. Its WAL alone (6.7 GB measured on this data) is 23 minutes at 4.8 MB/s. Treat as a lower bound of 30 minutes.

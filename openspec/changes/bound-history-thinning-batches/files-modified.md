@@ -1,0 +1,20 @@
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/HistoryThinBatching.scala` — new: `ThinBatchLimits`, `HistoryPassOutcome`, and the per-batch SQL (keyset candidates, row-budget admission, age DELETE restricted to the batch, rank-once thin via row_number + lag)
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputHistoryRepository.scala` — `thinPass` (bounded pass, one try-locked transaction per batch, cursor in/out); `thinAndPurge` kept as a drain-to-completion wrapper for tests
+- `backend/src/main/scala/com/helio/services/pipelines/OutputHistoryRetentionConfig.scala` — three thin-batch env vars via the existing positive() fallback
+- `backend/src/main/scala/com/helio/services/pipelines/OutputHistoryRetentionService.scala` — in-process cursor, D4 next-due precedence (failure > lock-held > budget exhausted > complete), payload purge every pass
+- `backend/src/test/scala/com/helio/testsupport/OldSingleStatementThin.scala` — verbatim pre-HEL-1435 SQL as the equivalence oracle
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/OutputHistoryBatchedThinSpec.scala` — new: randomized equivalence guard, budget/row-limit/continuation/lock behaviour
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/HistoryThinMeasure.scala` — hand-run measurement driver (migrate, dry-new, drain-new, drain-old); not a spec
+- `backend/src/test/scala/com/helio/services/pipelines/OutputHistoryRetentionServiceSpec.scala` — stubs moved to `thinPass`; precedence and continuation cases
+- `backend/src/test/scala/com/helio/services/pipelines/OutputHistoryRetentionConfigSpec.scala` — thin batch env var defaults/fallbacks
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineSchedulerServiceMaintenanceHooksSpec.scala` — failing-repo stub moved to `thinPass`
+- `backend/src/test/scala/com/helio/infrastructure/persistence/RetentionLockGuardSpec.scala` — REVERSE test gains the 55P03 NOWAIT precondition (D10)
+- `backend/scripts/perf/hel1435-container.sh` — recreate the local resource-limited postgres:16 measurement container (profiles)
+- `backend/scripts/perf/history-retention-batched-measure.sql` — seed (incl. deep-backlog S4), report, old-tick measure, V120/insert-path timing, name-guarded
+- `backend/scripts/perf/hel1435-d9-single-output.sql` — single-Output outage backlog for the D9 residual
+- `CLAUDE.md` — env table rows for the three thin-batch variables
+- `openspec/changes/bound-history-thinning-batches/` — proposal, design, tasks, spec delta, `measurements.md`, `evaluation-1.md`, `evidence/` (force-added: raw logs of every run, repo .gitignore ignores *.log), skeptic design reports
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodePayloadHistoryRepository.scala` — doc comments now point at `thinPass`, not the test-only `thinAndPurge`
+- (cycle 2) `HistoryThinBatching.scala`/`OutputHistoryRepository.scala`/`OutputHistoryRetentionService.scala` — default max batches per pass 20, `BatchResult` moved to the companion (no outer-reference warnings), `thinned` typo, `nextDue` scaladoc restored, `thinAndPurge` marked test-only
+- (cycle 2) `OutputHistoryBatchedThinSpec.scala` — `VerifiedEmbeddedPostgres.start`; new mid-pass lock test (red-first against `LockHeld(0, startAfter)`)
+- (cycle 3) `measurements.md`, `CLAUDE.md` — M=20 pass-stall figures recomputed from the per-transaction drains (worst aligned / worst any, ratio to old tick); `evidence/pass-window-analysis.{py,txt}` added, `evaluation-2.md` tracked

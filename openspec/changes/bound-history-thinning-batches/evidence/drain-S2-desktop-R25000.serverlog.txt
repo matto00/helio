@@ -1,0 +1,17 @@
+2026-10-10 11:13:30.398 UTC [33]  LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 4 removed, 30 recycled; write=0.667 s, sync=0.115 s, total=0.820 s; sync files=6, longest=0.077 s, average=0.020 s; distance=558901 kB, estimate=657739 kB; lsn=D9/16400E90, redo lsn=D8/F5DB6838
+2026-10-10 11:13:30.398 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 11:13:44.884 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.7", size 1218483
+2026-10-10 11:13:44.924 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.13", size 26231562
+2026-10-10 11:13:44.925 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.6", size 1217754
+2026-10-10 11:13:44.961 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.14", size 26162052
+2026-10-10 11:13:44.962 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.2", size 1193130
+2026-10-10 11:13:44.999 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.10", size 26167386
+2026-10-10 11:13:45.000 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.1", size 1211436
+2026-10-10 11:13:45.042 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.11", size 26152224
+2026-10-10 11:13:45.043 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.5", size 1218888
+2026-10-10 11:13:45.078 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.9", size 26150418
+2026-10-10 11:13:45.079 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.4", size 1215162
+2026-10-10 11:13:45.115 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.12", size 26182086
+2026-10-10 11:13:45.115 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.3", size 1229742
+2026-10-10 11:13:45.151 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.8", size 26219046
+2026-10-10 11:13:45.170 UTC [100] PostgreSQL JDBC Driver LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp100.0", size 209903616

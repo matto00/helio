@@ -1,0 +1,7 @@
+scenario      profile        batches  avg/pass  worst aligned  worst any  max txn  old tick worst/old
+S2            desktop            202      3.1s           3.8s       3.8s     0.3s     10.9s      0.35
+S2            prod-io-base       202      4.6s           5.6s       5.6s     0.7s     29.1s      0.19
+S3            desktop             86      3.2s           3.5s       3.5s     0.3s     16.4s      0.21
+S3            prod-io-base        86      4.9s           5.1s       5.2s     0.4s     32.7s      0.16
+S4            desktop            300      8.4s          18.4s      18.4s     3.1s     81.5s      0.23
+S4            prod-io-base       300     38.7s          91.6s      96.7s     8.0s    109.6s      0.88

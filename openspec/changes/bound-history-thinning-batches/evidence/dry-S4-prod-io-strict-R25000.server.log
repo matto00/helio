@@ -1,0 +1,359 @@
+2026-10-10 09:56:40.021 UTC [166] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp166.194", size 2434194
+2026-10-10 09:56:40.021 UTC [166] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 08:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 08:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 08:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 08:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 09:56:40.021 UTC [166] psql STATEMENT:  SELECT pg_temp.perf_time(1, 1)
+2026-10-10 09:56:40.037 UTC [166] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp166.127", size 156442624
+2026-10-10 09:56:40.037 UTC [166] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 08:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 08:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 08:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 08:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 09:56:40.037 UTC [166] psql STATEMENT:  SELECT pg_temp.perf_time(1, 1)
+2026-10-10 09:57:21.674 UTC [1199] hel1435-S4-prod-io-strict-R25000-b0-explain-r1 LOG:  duration: 12.066 ms  plan:
+	Query Text: SELECT count(*) FROM (SELECT 1 FROM output_snapshot_history WHERE output_id = $1 LIMIT $2) x
+	Query Parameters: $1 = 'o0', $2 = '25001'
+	Aggregate  (cost=904.60..904.61 rows=1 width=8) (actual time=12.059..12.060 rows=1 loops=1)
+	  Buffers: shared hit=15683
+	  ->  Limit  (cost=0.43..707.87 rows=15739 width=4) (actual time=0.024..11.554 rows=15852 loops=1)
+	        Buffers: shared hit=15683
+	        ->  Index Only Scan using idx_output_snapshot_history_output_captured on output_snapshot_history  (cost=0.43..707.87 rows=15739 width=4) (actual time=0.024..10.886 rows=15852 loops=1)
+	              Index Cond: (output_id = 'o0'::text)
+	              Heap Fetches: 15563
+	              Buffers: shared hit=15683
+2026-10-10 09:57:21.684 UTC [1199] hel1435-S4-prod-io-strict-R25000-b0-explain-r1 LOG:  duration: 3.603 ms  plan:
+	Query Text: SELECT count(*) FROM (SELECT 1 FROM output_snapshot_history WHERE output_id = $1 LIMIT $2) x
+	Query Parameters: $1 = 'o1', $2 = '9149'
+	Aggregate  (cost=526.02..526.03 rows=1 width=8) (actual time=3.601..3.602 rows=1 loops=1)
+	  Buffers: shared hit=8869 read=62
+	  ->  Limit  (cost=0.43..411.66 rows=9149 width=4) (actual time=0.024..3.362 rows=9149 loops=1)
+	        Buffers: shared hit=8869 read=62
+	        ->  Index Only Scan using idx_output_snapshot_history_output_captured on output_snapshot_history  (cost=0.43..707.87 rows=15739 width=4) (actual time=0.024..3.014 rows=9149 loops=1)
+	              Index Cond: (output_id = 'o1'::text)
+	              Heap Fetches: 8860
+	              Buffers: shared hit=8869 read=62
+2026-10-10 09:57:21.761 UTC [1199] hel1435-S4-prod-io-strict-R25000-b0-explain-r1 LOG:  duration: 75.763 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history h
+	             USING pipelines p, users u
+	             WHERE h.output_id = ANY($1) AND h.captured_at < $2
+	               AND h.pipeline_id = p.id AND p.owner_id = u.id
+	               AND h.captured_at < COALESCE(($3::timestamptz[])[array_position($4::text[], u.tier)], $5)
+	Query Parameters: $1 = '{o0}', $2 = '2026-09-10 01:00:00-07', $3 = '{"2026-09-10 01:00:00-07","2026-07-12 01:00:00-07","2025-10-10 01:00:00-07"}', $4 = '{free,beta,owner}', $5 = '2026-09-10 01:00:00-07'
+	Delete on output_snapshot_history h  (cost=323.16..29317.62 rows=0 width=0) (actual time=75.758..75.762 rows=0 loops=1)
+	  Buffers: shared hit=14475 read=2 dirtied=7211
+	  WAL: records=7211 fpi=7211 bytes=57190441
+	  ->  Hash Join  (cost=323.16..29317.62 rows=2776 width=18) (actual time=1.704..10.061 rows=7211 loops=1)
+	        Hash Cond: (p.owner_id = u.id)
+	        Join Filter: (h.captured_at < COALESCE(('{"2026-09-10 01:00:00-07","2026-07-12 01:00:00-07","2025-10-10 01:00:00-07"}'::timestamp with time zone[])[array_position('{free,beta,owner}'::text[], u.tier)], '2026-09-10 01:00:00-07'::timestamp with time zone))
+	        Buffers: shared hit=7264 read=2
+	        ->  Hash Join  (cost=321.03..29292.74 rows=8327 width=36) (actual time=1.673..8.468 rows=7211 loops=1)
+	              Hash Cond: (h.pipeline_id = p.id)
+	              Buffers: shared hit=7264 read=1
+	              ->  Bitmap Heap Scan on output_snapshot_history h  (cost=317.78..29266.71 rows=8327 width=17) (actual time=1.634..7.314 rows=7211 loops=1)
+	                    Recheck Cond: ((output_id = ANY ('{o0}'::text[])) AND (captured_at < '2026-09-10 01:00:00-07'::timestamp with time zone))
+	                    Heap Blocks: exact=7211
+	                    Buffers: shared hit=7264
+	                    ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..315.70 rows=8327 width=0) (actual time=1.148..1.148 rows=7211 loops=1)
+	                          Index Cond: ((output_id = ANY ('{o0}'::text[])) AND (captured_at < '2026-09-10 01:00:00-07'::timestamp with time zone))
+	                          Buffers: shared hit=53
+	              ->  Hash  (cost=2.00..2.00 rows=100 width=25) (actual time=0.023..0.025 rows=100 loops=1)
+	                    Buckets: 1024  Batches: 1  Memory Usage: 14kB
+	                    Buffers: shared read=1
+	                    ->  Seq Scan on pipelines p  (cost=0.00..2.00 rows=100 width=25) (actual time=0.004..0.010 rows=100 loops=1)
+	                          Buffers: shared read=1
+	        ->  Hash  (cost=1.50..1.50 rows=50 width=27) (actual time=0.018..0.019 rows=50 loops=1)
+	              Buckets: 1024  Batches: 1  Memory Usage: 11kB
+	              Buffers: shared read=1
+	              ->  Seq Scan on users u  (cost=0.00..1.50 rows=50 width=27) (actual time=0.006..0.010 rows=50 loops=1)
+	                    Buffers: shared read=1
+2026-10-10 09:57:28.623 UTC [1199] hel1435-S4-prod-io-strict-R25000-b0-explain-r1 LOG:  duration: 6859.034 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o0}', $2 = '2026-10-10 01:00:00-07', $3 = '86400', $4 = '2026-10-10 01:00:00-07', $5 = '604800', $6 = '2026-10-10 01:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-10 01:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o0}', $14 = '102'
+	Delete on output_snapshot_history  (cost=54897.10..54905.13 rows=0 width=0) (actual time=6859.029..6859.032 rows=0 loops=1)
+	  Buffers: shared hit=44244 read=12648 dirtied=8184 written=2710
+	  WAL: records=8184 fpi=7652 bytes=60716740
+	  ->  Nested Loop  (cost=54897.10..54905.13 rows=1 width=46) (actual time=25.083..126.794 rows=8184 loops=1)
+	        Buffers: shared hit=36060 read=12648 written=2710
+	        ->  HashAggregate  (cost=54896.66..54896.67 rows=1 width=56) (actual time=25.051..76.778 rows=8184 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 1705kB
+	              Buffers: shared hit=15683 read=289
+	              ->  Subquery Scan on ranked  (cost=52929.29..54896.66 rows=1 width=56) (actual time=12.466..23.516 rows=8184 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 457
+	                    Buffers: shared hit=15683 read=289
+	                    ->  WindowAgg  (cost=52929.29..54621.23 rows=15739 width=108) (actual time=12.196..22.149 rows=8641 loops=1)
+	                          Buffers: shared hit=15683 read=289
+	                          ->  Sort  (cost=52929.29..52968.63 rows=15739 width=28) (actual time=12.154..12.428 rows=8641 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 857kB
+	                                Buffers: shared hit=15683 read=289
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=554.41..51832.12 rows=15739 width=28) (actual time=5.570..9.693 rows=8641 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o0}'::text[]))
+	                                      Heap Blocks: exact=15852
+	                                      Buffers: shared hit=15674 read=289
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..550.48 rows=15739 width=0) (actual time=1.843..1.844 rows=15852 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o0}'::text[]))
+	                                            Buffers: shared hit=111
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.43..8.45 rows=1 width=22) (actual time=0.006..0.006 rows=1 loops=8184)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o0}'::text[]))
+	              Buffers: shared hit=20377 read=12359 written=2710
+2026-10-10 09:57:29.300 UTC [1204] hel1435-S4-prod-io-strict-R25000-b149-explain-r1 LOG:  duration: 134.867 ms  plan:
+	Query Text: SELECT count(*) FROM (SELECT 1 FROM output_snapshot_history WHERE output_id = $1 LIMIT $2) x
+	Query Parameters: $1 = 'o232', $2 = '25001'
+	Aggregate  (cost=1438.76..1438.77 rows=1 width=8) (actual time=134.859..134.860 rows=1 loops=1)
+	  Buffers: shared read=24703 written=3711
+	  ->  Limit  (cost=0.43..1126.24 rows=25001 width=4) (actual time=0.031..133.484 rows=25001 loops=1)
+	        Buffers: shared read=24703 written=3711
+	        ->  Index Only Scan using idx_output_snapshot_history_output_captured on output_snapshot_history  (cost=0.43..1387.47 rows=30802 width=4) (actual time=0.030..132.042 rows=25001 loops=1)
+	              Index Cond: (output_id = 'o232'::text)
+	              Heap Fetches: 24519
+	              Buffers: shared read=24703 written=3711
+2026-10-10 09:57:29.405 UTC [1204] hel1435-S4-prod-io-strict-R25000-b149-explain-r1 LOG:  duration: 52.701 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history h
+	             USING pipelines p, users u
+	             WHERE h.output_id = ANY($1) AND h.captured_at < $2
+	               AND h.pipeline_id = p.id AND p.owner_id = u.id
+	               AND h.captured_at < COALESCE(($3::timestamptz[])[array_position($4::text[], u.tier)], $5)
+	Query Parameters: $1 = '{o232}', $2 = '2026-09-10 01:00:00-07', $3 = '{"2026-09-10 01:00:00-07","2026-07-12 01:00:00-07","2025-10-10 01:00:00-07"}', $4 = '{free,beta,owner}', $5 = '2026-09-10 01:00:00-07'
+	Delete on output_snapshot_history h  (cost=620.84..53614.22 rows=0 width=0) (actual time=52.696..52.699 rows=0 loops=1)
+	  Buffers: shared hit=15269 read=7936 dirtied=2891
+	  WAL: records=2891 fpi=2891 bytes=22928521
+	  ->  Hash Join  (cost=620.84..53614.22 rows=5432 width=18) (actual time=3.836..36.435 rows=2891 loops=1)
+	        Hash Cond: (p.owner_id = u.id)
+	        Join Filter: (h.captured_at < COALESCE(('{"2026-09-10 01:00:00-07","2026-07-12 01:00:00-07","2025-10-10 01:00:00-07"}'::timestamp with time zone[])[array_position('{free,beta,owner}'::text[], u.tier)], '2026-09-10 01:00:00-07'::timestamp with time zone))
+	        Rows Removed by Join Filter: 17280
+	        Buffers: shared hit=12378 read=7936
+	        ->  Hash Join  (cost=618.72..53567.56 rows=16296 width=36) (actual time=3.805..33.047 rows=20171 loops=1)
+	              Hash Cond: (h.pipeline_id = p.id)
+	              Buffers: shared hit=12378 read=7935
+	              ->  Bitmap Heap Scan on output_snapshot_history h  (cost=615.47..53519.72 rows=16296 width=17) (actual time=3.766..30.495 rows=20171 loops=1)
+	                    Recheck Cond: ((output_id = ANY ('{o232}'::text[])) AND (captured_at < '2026-09-10 01:00:00-07'::timestamp with time zone))
+	                    Heap Blocks: exact=20171
+	                    Buffers: shared hit=12378 read=7934
+	                    ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..611.39 rows=16296 width=0) (actual time=2.288..2.289 rows=20171 loops=1)
+	                          Index Cond: ((output_id = ANY ('{o232}'::text[])) AND (captured_at < '2026-09-10 01:00:00-07'::timestamp with time zone))
+	                          Buffers: shared hit=113 read=28
+	              ->  Hash  (cost=2.00..2.00 rows=100 width=25) (actual time=0.023..0.024 rows=100 loops=1)
+	                    Buckets: 1024  Batches: 1  Memory Usage: 14kB
+	                    Buffers: shared read=1
+	                    ->  Seq Scan on pipelines p  (cost=0.00..2.00 rows=100 width=25) (actual time=0.004..0.011 rows=100 loops=1)
+	                          Buffers: shared read=1
+	        ->  Hash  (cost=1.50..1.50 rows=50 width=27) (actual time=0.017..0.018 rows=50 loops=1)
+	              Buckets: 1024  Batches: 1  Memory Usage: 11kB
+	              Buffers: shared read=1
+	              ->  Seq Scan on users u  (cost=0.00..1.50 rows=50 width=27) (actual time=0.006..0.009 rows=50 loops=1)
+	                    Buffers: shared read=1
+2026-10-10 09:58:00.298 UTC [1204] hel1435-S4-prod-io-strict-R25000-b149-explain-r1 LOG:  duration: 30890.859 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o232}', $2 = '2026-10-10 01:00:00-07', $3 = '86400', $4 = '2026-10-10 01:00:00-07', $5 = '604800', $6 = '2026-10-10 01:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-10 01:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o232}', $14 = '102'
+	Delete on output_snapshot_history  (cost=97729.39..97737.41 rows=0 width=0) (actual time=30890.855..30890.858 rows=0 loops=1)
+	  Buffers: shared hit=101036 read=55005 dirtied=25404 written=12008
+	  WAL: records=25404 fpi=24807 bytes=196776555
+	  ->  Nested Loop  (cost=97729.39..97737.41 rows=1 width=46) (actual time=4176.155..4331.799 rows=25404 loops=1)
+	        Buffers: shared hit=75632 read=55005 written=12008
+	        ->  HashAggregate  (cost=97728.95..97728.96 rows=1 width=56) (actual time=4176.128..4181.478 rows=25404 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 4393kB
+	              Buffers: shared hit=16068 read=12953 written=2792
+	              ->  Subquery Scan on ranked  (cost=93878.70..97728.95 rows=1 width=56) (actual time=4113.652..4171.573 rows=25404 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 517
+	                    Buffers: shared hit=16068 read=12953 written=2792
+	                    ->  WindowAgg  (cost=93878.70..97189.92 rows=30802 width=108) (actual time=4113.380..4167.367 rows=25921 loops=1)
+	                          Buffers: shared hit=16068 read=12953 written=2792
+	                          ->  Sort  (cost=93878.70..93955.71 rows=30802 width=28) (actual time=4113.331..4114.129 rows=25921 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 2186kB
+	                                Buffers: shared hit=16068 read=12953 written=2792
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=1087.15..91582.30 rows=30802 width=28) (actual time=48.936..4105.615 rows=25921 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o232}'::text[]))
+	                                      Heap Blocks: exact=28812
+	                                      Buffers: shared hit=16059 read=12953 written=2792
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..1079.45 rows=30802 width=0) (actual time=45.244..45.244 rows=28812 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o232}'::text[]))
+	                                            Buffers: shared hit=86 read=114
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.43..8.45 rows=1 width=22) (actual time=0.006..0.006 rows=1 loops=25404)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o232}'::text[]))
+	              Buffers: shared hit=59564 read=42052 written=9216
+2026-10-10 09:58:01.693 UTC [1209] hel1435-S4-prod-io-strict-R25000-b299-explain-r1 LOG:  duration: 136.622 ms  plan:
+	Query Text: SELECT count(*) FROM (SELECT 1 FROM output_snapshot_history WHERE output_id = $1 LIMIT $2) x
+	Query Parameters: $1 = 'o99', $2 = '25001'
+	Aggregate  (cost=1438.39..1438.40 rows=1 width=8) (actual time=136.615..136.616 rows=1 loops=1)
+	  Buffers: shared read=24671 written=4524
+	  ->  Limit  (cost=0.43..1125.88 rows=25001 width=4) (actual time=0.032..135.264 rows=25001 loops=1)
+	        Buffers: shared read=24671 written=4524
+	        ->  Index Only Scan using idx_output_snapshot_history_output_captured on output_snapshot_history  (cost=0.43..1328.86 rows=29510 width=4) (actual time=0.032..133.833 rows=25001 loops=1)
+	              Index Cond: (output_id = 'o99'::text)
+	              Heap Fetches: 24487
+	              Buffers: shared read=24671 written=4524
+2026-10-10 09:58:01.795 UTC [1209] hel1435-S4-prod-io-strict-R25000-b299-explain-r1 LOG:  duration: 101.053 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history h
+	             USING pipelines p, users u
+	             WHERE h.output_id = ANY($1) AND h.captured_at < $2
+	               AND h.pipeline_id = p.id AND p.owner_id = u.id
+	               AND h.captured_at < COALESCE(($3::timestamptz[])[array_position($4::text[], u.tier)], $5)
+	Query Parameters: $1 = '{o99}', $2 = '2026-09-10 01:00:00-07', $3 = '{"2026-09-10 01:00:00-07","2026-07-12 01:00:00-07","2025-10-10 01:00:00-07"}', $4 = '{free,beta,owner}', $5 = '2026-09-10 01:00:00-07'
+	Delete on output_snapshot_history h  (cost=597.84..51638.96 rows=0 width=0) (actual time=101.048..101.052 rows=0 loops=1)
+	  Buffers: shared hit=15239 read=7966 dirtied=2891
+	  WAL: records=2891 fpi=2658 bytes=21093180
+	  ->  Hash Join  (cost=597.84..51638.96 rows=5204 width=18) (actual time=3.944..89.065 rows=2891 loops=1)
+	        Hash Cond: (p.owner_id = u.id)
+	        Join Filter: (h.captured_at < COALESCE(('{"2026-09-10 01:00:00-07","2026-07-12 01:00:00-07","2025-10-10 01:00:00-07"}'::timestamp with time zone[])[array_position('{free,beta,owner}'::text[], u.tier)], '2026-09-10 01:00:00-07'::timestamp with time zone))
+	        Rows Removed by Join Filter: 17280
+	        Buffers: shared hit=12348 read=7966
+	        ->  Hash Join  (cost=595.72..51594.18 rows=15613 width=36) (actual time=3.922..85.512 rows=20171 loops=1)
+	              Hash Cond: (h.pipeline_id = p.id)
+	              Buffers: shared hit=12348 read=7965
+	              ->  Bitmap Heap Scan on output_snapshot_history h  (cost=592.47..51548.21 rows=15613 width=17) (actual time=3.890..82.819 rows=20171 loops=1)
+	                    Recheck Cond: ((output_id = ANY ('{o99}'::text[])) AND (captured_at < '2026-09-10 01:00:00-07'::timestamp with time zone))
+	                    Heap Blocks: exact=20171
+	                    Buffers: shared hit=12348 read=7964
+	                    ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..588.56 rows=15613 width=0) (actual time=2.410..2.410 rows=20171 loops=1)
+	                          Index Cond: ((output_id = ANY ('{o99}'::text[])) AND (captured_at < '2026-09-10 01:00:00-07'::timestamp with time zone))
+	                          Buffers: shared hit=111 read=30
+	              ->  Hash  (cost=2.00..2.00 rows=100 width=25) (actual time=0.019..0.020 rows=100 loops=1)
+	                    Buckets: 1024  Batches: 1  Memory Usage: 14kB
+	                    Buffers: shared read=1
+	                    ->  Seq Scan on pipelines p  (cost=0.00..2.00 rows=100 width=25) (actual time=0.003..0.009 rows=100 loops=1)
+	                          Buffers: shared read=1
+	        ->  Hash  (cost=1.50..1.50 rows=50 width=27) (actual time=0.014..0.014 rows=50 loops=1)
+	              Buckets: 1024  Batches: 1  Memory Usage: 11kB
+	              Buffers: shared read=1
+	              ->  Seq Scan on users u  (cost=0.00..1.50 rows=50 width=27) (actual time=0.004..0.007 rows=50 loops=1)
+	                    Buffers: shared read=1
+2026-10-10 09:58:13.193 UTC [33]  LOG:  checkpoint complete: wrote 1206 buffers (7.4%); 0 WAL file(s) added, 1 removed, 32 recycled; write=94.934 s, sync=3.446 s, total=103.383 s; sync files=14, longest=3.237 s, average=0.247 s; distance=539561 kB, estimate=541565 kB; lsn=A5/4D4025D8, redo lsn=A5/2E400240
+2026-10-10 09:58:16.586 UTC [33]  LOG:  checkpoint starting: wal
+2026-10-10 09:58:26.849 UTC [1209] hel1435-S4-prod-io-strict-R25000-b299-explain-r1 LOG:  duration: 25052.621 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o99}', $2 = '2026-10-10 01:00:00-07', $3 = '86400', $4 = '2026-10-10 01:00:00-07', $5 = '604800', $6 = '2026-10-10 01:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-10 01:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o99}', $14 = '102'
+	Delete on output_snapshot_history  (cost=94321.40..94329.43 rows=0 width=0) (actual time=25052.617..25052.620 rows=0 loops=1)
+	  Buffers: shared hit=101087 read=54954 dirtied=25404 written=9781
+	  WAL: records=25404 fpi=24600 bytes=195146016
+	  ->  Nested Loop  (cost=94321.40..94329.43 rows=1 width=46) (actual time=204.780..407.051 rows=25404 loops=1)
+	        Buffers: shared hit=75683 read=54954 written=9781
+	        ->  HashAggregate  (cost=94320.97..94320.98 rows=1 width=56) (actual time=204.750..209.856 rows=25404 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 5161kB
+	              Buffers: shared hit=16067 read=12954 written=2791
+	              ->  Subquery Scan on ranked  (cost=90632.22..94320.97 rows=1 width=56) (actual time=164.878..199.616 rows=25404 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 517
+	                    Buffers: shared hit=16067 read=12954 written=2791
+	                    ->  WindowAgg  (cost=90632.22..93804.54 rows=29510 width=108) (actual time=164.604..195.247 rows=25921 loops=1)
+	                          Buffers: shared hit=16067 read=12954 written=2791
+	                          ->  Sort  (cost=90632.22..90705.99 rows=29510 width=28) (actual time=164.554..165.594 rows=25921 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 2186kB
+	                                Buffers: shared hit=16067 read=12954 written=2791
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=1041.13..88441.26 rows=29510 width=28) (actual time=7.097..116.306 rows=25921 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o99}'::text[]))
+	                                      Heap Blocks: exact=28812
+	                                      Buffers: shared hit=16058 read=12954 written=2791
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..1033.76 rows=29510 width=0) (actual time=3.403..3.403 rows=28812 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o99}'::text[]))
+	                                            Buffers: shared hit=86 read=114
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.43..8.45 rows=1 width=22) (actual time=0.008..0.008 rows=1 loops=25404)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o99}'::text[]))
+	              Buffers: shared hit=59616 read=42000 written=6990

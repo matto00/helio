@@ -1,0 +1,3 @@
+@@DRAIN tag=S2-desktop-newM now=2026-10-10T05:00:00Z limits=ThinBatchLimits(500,100000,60)
+@@PASS tag=S2-desktop-newM pass=1 outcome=completed deleted=120418 ms=27254.1 wal_bytes=60851792 start_epoch_ms=1791616610000 end_epoch_ms=1791616637255
+@@DRAINED tag=S2-desktop-newM passes=1 total_deleted=120418 wall_ms=27264.8

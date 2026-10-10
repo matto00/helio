@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.domain.model.UserTier
 import com.helio.infrastructure.persistence.RetentionLockKey
-import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, NodePayloadHistoryRepository, RetentionPassOutcome}
+import com.helio.infrastructure.persistence.pipelines.{HistoryPassOutcome, HistoryThinningPolicy, NodePayloadHistoryRepository, RetentionPassOutcome, ThinBatchLimits}
 import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.OutputHistoryRepository
@@ -18,7 +18,9 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.{Duration, Instant}
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 /** HEL-1272: tick-level retention behaviour against embedded Postgres. Expected survivors are
@@ -169,15 +171,18 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
   }
 
   /** Stub repositories that COUNT invocations: "ran" is a count increment, "not run" an unchanged count,
-   *  never `purgeIfDue`'s return (None means both "not due" and "ran and failed"). */
-  private class Stubs(history: () => RetentionPassOutcome, payload: () => RetentionPassOutcome) {
+   *  never `purgeIfDue`'s return (None means both "not due" and "ran and failed"). `history` sees the cursor
+   *  the service resumed from, recorded in `startAfters`. */
+  private class Stubs(history: Option[String] => HistoryPassOutcome, payload: () => RetentionPassOutcome) {
     val historyCalls = new AtomicInteger(0)
     val payloadCalls = new AtomicInteger(0)
+    val startAfters  = new ConcurrentLinkedQueue[Option[String]]()
     private val c = new DbContext(db, db)
     val historyRepo: OutputHistoryRepository = new OutputHistoryRepository(c) {
-      override def thinAndPurge(n: Instant, p: HistoryThinningPolicy, caps: Map[UserTier, Duration], protectedNewest: Int): Future[RetentionPassOutcome] = {
+      override def thinPass(n: Instant, p: HistoryThinningPolicy, caps: Map[UserTier, Duration], limits: ThinBatchLimits, startAfter: Option[String], protectedNewest: Int): Future[HistoryPassOutcome] = {
         historyCalls.incrementAndGet()
-        Future(history())
+        startAfters.add(startAfter)
+        Future(history(startAfter))
       }
     }
     val payloadRepo: NodePayloadHistoryRepository = new NodePayloadHistoryRepository(c) {
@@ -189,35 +194,91 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
     def service: OutputHistoryRetentionService =
       new OutputHistoryRetentionService(historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), payloadRepo, PayloadHistoryConfig.Defaults, protectedNewest = 0)
     def counts: (Int, Int) = (historyCalls.get, payloadCalls.get)
+    def cursors: List[Option[String]] = startAfters.asScala.toList
   }
 
+  private val boomH: Option[String] => HistoryPassOutcome = _ => throw new IllegalStateException("boom")
+  private val doneH: Option[String] => HistoryPassOutcome = _ => HistoryPassOutcome.Completed(0)
+  private val moreH: Option[String] => HistoryPassOutcome = _ => HistoryPassOutcome.MoreWork(0, "o-7")
+  private val heldH: Option[String] => HistoryPassOutcome = c => HistoryPassOutcome.LockHeld(0, c.orElse(Some("o-3")))
   private val boom: () => RetentionPassOutcome = () => throw new IllegalStateException("boom")
   private val purged: () => RetentionPassOutcome = () => RetentionPassOutcome.Purged(0)
   private val busy: () => RetentionPassOutcome   = () => RetentionPassOutcome.LockBusy
   private val retryAt    = now.plus(Duration.ofSeconds(120))
   private val intervalAt = now.plus(Duration.ofMinutes(60))
+  private val nextTick   = now.plus(Duration.ofSeconds(30))
 
   "OutputHistoryRetentionService failure cadence (HEL-1343)" should {
 
     "keep a failed history pass on the full interval, not the lock-retry window" in {
-      val st = new Stubs(boom, purged); val svc = st.service
+      val st = new Stubs(boomH, purged); val svc = st.service
       awaitDb(svc.purgeIfDue(now)); st.counts shouldBe ((1, 1))
       awaitDb(svc.purgeIfDue(retryAt)); st.counts shouldBe ((1, 1))
       awaitDb(svc.purgeIfDue(intervalAt)); st.counts shouldBe ((2, 2))
     }
 
     "let a failure win over a lock-held payload part (full interval)" in {
-      val st = new Stubs(boom, busy); val svc = st.service
+      val st = new Stubs(boomH, busy); val svc = st.service
       awaitDb(svc.purgeIfDue(now)); st.counts shouldBe ((1, 1))
       awaitDb(svc.purgeIfDue(retryAt)); st.counts shouldBe ((1, 1))
       awaitDb(svc.purgeIfDue(intervalAt)); st.counts shouldBe ((2, 2))
     }
 
     "retry a payload-only lock-held skip after the short window" in {
-      val st = new Stubs(purged, busy); val svc = st.service
+      val st = new Stubs(doneH, busy); val svc = st.service
       awaitDb(svc.purgeIfDue(now)); st.counts shouldBe ((1, 1))
       awaitDb(svc.purgeIfDue(retryAt.minusSeconds(1))); st.counts shouldBe ((1, 1))
       awaitDb(svc.purgeIfDue(retryAt)); st.counts shouldBe ((2, 2))
+    }
+  }
+
+  "OutputHistoryRetentionService thin continuation (HEL-1435 next-due precedence)" should {
+
+    "continue on the next tick after a budget-exhausted pass, resuming at its cursor, then wait the interval once complete" in {
+      var passes = 0
+      val st = new Stubs(c => { passes += 1; if (passes < 3) HistoryPassOutcome.MoreWork(1, s"o-$passes") else HistoryPassOutcome.Completed(1) }, purged)
+      val svc = st.service
+      awaitDb(svc.purgeIfDue(now)) shouldBe Some(1); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(nextTick)) shouldBe Some(1); st.counts shouldBe ((2, 2))
+      awaitDb(svc.purgeIfDue(nextTick.plusSeconds(30))) shouldBe Some(1); st.counts shouldBe ((3, 3))
+      st.cursors shouldBe List(None, Some("o-1"), Some("o-2"))
+      awaitDb(svc.purgeIfDue(nextTick.plusSeconds(60))) shouldBe None; st.counts shouldBe ((3, 3))
+      awaitDb(svc.purgeIfDue(nextTick.plusSeconds(30).plus(Duration.ofMinutes(60)))) shouldBe Some(1)
+      st.cursors.last shouldBe None // a completed cycle resets the cursor
+    }
+
+    "wait the full interval when the budget is exhausted and the payload purge fails, then resume at the cursor" in {
+      val st = new Stubs(moreH, boom); val svc = st.service
+      awaitDb(svc.purgeIfDue(now)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(nextTick)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(retryAt)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(intervalAt)); st.counts shouldBe ((2, 2))
+      st.cursors shouldBe List(None, Some("o-7"))
+    }
+
+    "use the lock-retry window when the budget is exhausted and the payload purge is lock-held" in {
+      val st = new Stubs(moreH, busy); val svc = st.service
+      awaitDb(svc.purgeIfDue(now)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(nextTick)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(retryAt)); st.counts shouldBe ((2, 2))
+    }
+
+    "retry a lock-held history batch after the retry window, resuming where it stopped, and still run the payload purge" in {
+      val st = new Stubs(heldH, purged); val svc = st.service
+      awaitDb(svc.purgeIfDue(now)) shouldBe None; st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(nextTick)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(retryAt)); st.counts shouldBe ((2, 2))
+      st.cursors shouldBe List(None, Some("o-3"))
+    }
+
+    "keep the cursor across a failed pass" in {
+      var passes = 0
+      val st = new Stubs(c => { passes += 1; passes match { case 1 => HistoryPassOutcome.MoreWork(0, "o-5"); case 2 => throw new IllegalStateException("boom"); case _ => HistoryPassOutcome.Completed(0) } }, purged)
+      val svc = st.service
+      awaitDb(svc.purgeIfDue(now))
+      awaitDb(svc.purgeIfDue(nextTick))              // fails: full interval
+      awaitDb(svc.purgeIfDue(nextTick.plus(Duration.ofMinutes(60))))
+      st.cursors shouldBe List(None, Some("o-5"), Some("o-5"))
     }
   }
 }

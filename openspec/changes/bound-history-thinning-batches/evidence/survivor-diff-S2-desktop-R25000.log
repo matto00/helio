@@ -1,0 +1,18 @@
+NOTICE:  table "ids_old" does not exist, skipping
+NOTICE:  table "ids_new1" does not exist, skipping
+--- survivor diff S2-desktop-R25000 (old = verbatim single-statement oracle; new1 = batches of 1 per pass; newM = budget 60 per pass)
+ side |  count  
+------+---------
+ old  | 4866230
+ new1 | 4866230
+ newM | 4866230
+(3 rows)
+
+        d        | count 
+-----------------+-------
+ old EXCEPT newM |     0
+ newM EXCEPT old |     0
+ old EXCEPT new1 |     0
+ new1 EXCEPT old |     0
+(4 rows)
+

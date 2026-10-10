@@ -1,0 +1,24 @@
+@@DRAIN tag=S3-desktop-new1 now=2026-10-10T07:00:00Z limits=ThinBatchLimits(500,100000,1)
+@@PASS tag=S3-desktop-new1 pass=1 outcome=more deleted=74966 ms=1695.6 wal_bytes=67759784 start_epoch_ms=1791619605989 end_epoch_ms=1791619607685
+@@PASS tag=S3-desktop-new1 pass=2 outcome=more deleted=76560 ms=1113.0 wal_bytes=38547288 start_epoch_ms=1791619607706 end_epoch_ms=1791619608819
+@@PASS tag=S3-desktop-new1 pass=3 outcome=more deleted=76560 ms=1068.4 wal_bytes=37095104 start_epoch_ms=1791619608836 end_epoch_ms=1791619609904
+@@PASS tag=S3-desktop-new1 pass=4 outcome=more deleted=74968 ms=1026.7 wal_bytes=36477176 start_epoch_ms=1791619609922 end_epoch_ms=1791619610948
+@@PASS tag=S3-desktop-new1 pass=5 outcome=more deleted=76563 ms=1123.8 wal_bytes=37595072 start_epoch_ms=1791619610967 end_epoch_ms=1791619612091
+@@PASS tag=S3-desktop-new1 pass=6 outcome=more deleted=74965 ms=1056.2 wal_bytes=37432120 start_epoch_ms=1791619612110 end_epoch_ms=1791619613166
+@@PASS tag=S3-desktop-new1 pass=7 outcome=more deleted=74965 ms=1133.0 wal_bytes=37968824 start_epoch_ms=1791619613182 end_epoch_ms=1791619614315
+@@PASS tag=S3-desktop-new1 pass=8 outcome=more deleted=76561 ms=1169.0 wal_bytes=37066904 start_epoch_ms=1791619614333 end_epoch_ms=1791619615502
+@@PASS tag=S3-desktop-new1 pass=9 outcome=more deleted=73370 ms=1074.2 wal_bytes=36899768 start_epoch_ms=1791619615517 end_epoch_ms=1791619616591
+@@PASS tag=S3-desktop-new1 pass=10 outcome=more deleted=76560 ms=1123.5 wal_bytes=36893224 start_epoch_ms=1791619616606 end_epoch_ms=1791619617730
+@@PASS tag=S3-desktop-new1 pass=11 outcome=more deleted=76564 ms=1043.9 wal_bytes=38079944 start_epoch_ms=1791619617745 end_epoch_ms=1791619618789
+@@PASS tag=S3-desktop-new1 pass=12 outcome=more deleted=74966 ms=1073.1 wal_bytes=49249360 start_epoch_ms=1791619618806 end_epoch_ms=1791619619879
+@@PASS tag=S3-desktop-new1 pass=13 outcome=more deleted=76560 ms=1037.4 wal_bytes=49579864 start_epoch_ms=1791619619895 end_epoch_ms=1791619620932
+@@PASS tag=S3-desktop-new1 pass=14 outcome=more deleted=76564 ms=1040.2 wal_bytes=39753464 start_epoch_ms=1791619620950 end_epoch_ms=1791619621990
+@@PASS tag=S3-desktop-new1 pass=15 outcome=more deleted=74967 ms=1071.4 wal_bytes=44992824 start_epoch_ms=1791619622005 end_epoch_ms=1791619623077
+@@PASS tag=S3-desktop-new1 pass=16 outcome=more deleted=76563 ms=1043.7 wal_bytes=37999784 start_epoch_ms=1791619623092 end_epoch_ms=1791619624136
+@@PASS tag=S3-desktop-new1 pass=17 outcome=more deleted=76565 ms=1044.3 wal_bytes=38255712 start_epoch_ms=1791619624153 end_epoch_ms=1791619625198
+@@PASS tag=S3-desktop-new1 pass=18 outcome=more deleted=74967 ms=991.9 wal_bytes=36478664 start_epoch_ms=1791619625215 end_epoch_ms=1791619626207
+@@PASS tag=S3-desktop-new1 pass=19 outcome=more deleted=76560 ms=989.4 wal_bytes=37142800 start_epoch_ms=1791619626223 end_epoch_ms=1791619627213
+@@PASS tag=S3-desktop-new1 pass=20 outcome=more deleted=74968 ms=1015.9 wal_bytes=34510736 start_epoch_ms=1791619627229 end_epoch_ms=1791619628245
+@@PASS tag=S3-desktop-new1 pass=21 outcome=more deleted=74969 ms=959.2 wal_bytes=30400144 start_epoch_ms=1791619628261 end_epoch_ms=1791619629220
+@@PASS tag=S3-desktop-new1 pass=22 outcome=completed deleted=4785 ms=80.1 wal_bytes=311136 start_epoch_ms=1791619629235 end_epoch_ms=1791619629315
+@@DRAINED tag=S3-desktop-new1 passes=22 total_deleted=1595036 wall_ms=23344.8

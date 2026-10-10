@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, NodePayloadHistoryRepository, OutputHistoryRepository, RetentionPassOutcome}
+import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, NodePayloadHistoryRepository, OutputHistoryRepository, HistoryPassOutcome, ThinBatchLimits}
 import ch.qos.logback.classic.{Level, Logger => LogbackLogger}
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
@@ -44,7 +44,7 @@ class PipelineSchedulerServiceMaintenanceHooksSpec extends AnyWordSpec with Matc
       }
 
     class FailingHistoryRepo(sync: Boolean) extends OutputHistoryRepository(historyCtx) {
-      override def thinAndPurge(now: Instant, policy: HistoryThinningPolicy, caps: Map[UserTier, Duration], protectedNewest: Int): Future[RetentionPassOutcome] =
+      override def thinPass(now: Instant, policy: HistoryThinningPolicy, caps: Map[UserTier, Duration], limits: ThinBatchLimits, startAfter: Option[String], protectedNewest: Int): Future[HistoryPassOutcome] =
         if (sync) throw new IllegalStateException("boom-sync") else Future.failed(new IllegalStateException("boom-future"))
     }
 

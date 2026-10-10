@@ -1,0 +1,1011 @@
+2026-10-10 05:44:22.058 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.79", size 1228527
+2026-10-10 05:44:22.058 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.058 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.143 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.88", size 26191830
+2026-10-10 05:44:22.143 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.143 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.144 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.81", size 1193049
+2026-10-10 05:44:22.144 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.144 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.181 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.86", size 26115012
+2026-10-10 05:44:22.181 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.181 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.182 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.82", size 1229094
+2026-10-10 05:44:22.182 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.182 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.272 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.87", size 26122908
+2026-10-10 05:44:22.272 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.272 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.272 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.76", size 1215486
+2026-10-10 05:44:22.272 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.272 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.363 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.83", size 26212032
+2026-10-10 05:44:22.363 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.363 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.363 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.80", size 1206414
+2026-10-10 05:44:22.363 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.363 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.458 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.84", size 26201322
+2026-10-10 05:44:22.458 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.458 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.460 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.77", size 1227717
+2026-10-10 05:44:22.460 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.460 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.553 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.85", size 26121144
+2026-10-10 05:44:22.553 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.553 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.554 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.78", size 1202769
+2026-10-10 05:44:22.554 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.554 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.593 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.89", size 26235258
+2026-10-10 05:44:22.593 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.593 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:44:22.643 UTC [54] psql LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp54.75", size 209903616
+2026-10-10 05:44:22.643 UTC [54] psql CONTEXT:  SQL statement "DELETE FROM output_snapshot_history WHERE id IN (
+	               SELECT id FROM (
+	                 SELECT id, row_number() OVER (
+	                   PARTITION BY output_id, age_class, floor(epoch / bucket_secs)
+	                   ORDER BY captured_at DESC, id DESC) AS rn
+	                 FROM (
+	                   SELECT id, output_id, captured_at,
+	                          extract(epoch FROM captured_at) AS epoch,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 0
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 1
+	                               ELSE 2 END AS age_class,
+	                          CASE WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 86400::bigint THEN 300::bigint
+	                               WHEN extract(epoch FROM ('2026-10-10 05:00:00+00'::timestamptz - captured_at)) < 604800::bigint THEN 3600::bigint
+	                               ELSE 86400::bigint END AS bucket_secs
+	                   FROM (
+	                     SELECT id, output_id, captured_at,
+	                            row_number() OVER (PARTITION BY output_id ORDER BY captured_at DESC, id DESC) AS recency
+	                     FROM output_snapshot_history
+	                   ) recent
+	                   WHERE recency > 101
+	                 ) classed
+	               ) ranked WHERE rn > 1)"
+	PL/pgSQL function pg_temp_3.perf_time(integer,integer) line 7 at EXECUTE
+2026-10-10 05:44:22.643 UTC [54] psql STATEMENT:  SELECT pg_temp.perf_time(3, 1)
+2026-10-10 05:45:39.682 UTC [10468] hel1435-S2-prod-io-base-R25000-b0-explain-r1 LOG:  duration: 87.458 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}', $14 = '102'
+	Delete on output_snapshot_history  (cost=83475.81..83483.84 rows=0 width=0) (actual time=87.454..87.457 rows=0 loops=1)
+	  Buffers: shared hit=2885 read=3559 dirtied=60 written=893
+	  WAL: records=624 bytes=33696
+	  ->  Nested Loop  (cost=83475.81..83483.84 rows=1 width=46) (actual time=83.540..87.277 rows=624 loops=1)
+	        Buffers: shared hit=2261 read=3559 written=893
+	        ->  HashAggregate  (cost=83475.25..83475.26 rows=1 width=56) (actual time=83.492..83.594 rows=624 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 193kB
+	              Buffers: shared hit=491 read=2833 written=735
+	              ->  Subquery Scan on ranked  (cost=80233.37..83475.25 rows=1 width=56) (actual time=57.712..83.364 rows=624 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 23960
+	                    Buffers: shared hit=491 read=2833 written=735
+	                    ->  WindowAgg  (cost=80233.37..83021.38 rows=25935 width=109) (actual time=57.429..81.688 rows=24584 loops=1)
+	                          Buffers: shared hit=491 read=2833 written=735
+	                          ->  Sort  (cost=80233.37..80298.21 rows=25935 width=29) (actual time=57.376..58.315 rows=24584 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 2113kB
+	                                Buffers: shared hit=491 read=2833 written=735
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=1055.71..78332.00 rows=25935 width=29) (actual time=1.784..19.423 rows=24584 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}'::text[]))
+	                                      Heap Blocks: exact=3033
+	                                      Buffers: shared hit=482 read=2833 written=735
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..1049.10 rows=25935 width=0) (actual time=1.541..1.541 rows=24585 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}'::text[]))
+	                                            Buffers: shared hit=282
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.56..8.59 rows=1 width=22) (actual time=0.006..0.006 rows=1 loops=624)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}'::text[]))
+	              Buffers: shared hit=1770 read=726 written=158
+2026-10-10 05:45:39.855 UTC [10470] hel1435-S2-prod-io-base-R25000-b0-explain-r2 LOG:  duration: 94.483 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}', $14 = '102'
+	Delete on output_snapshot_history  (cost=83475.81..83483.84 rows=0 width=0) (actual time=94.480..94.482 rows=0 loops=1)
+	  Buffers: shared hit=6444
+	  WAL: records=624 bytes=33696
+	  ->  Nested Loop  (cost=83475.81..83483.84 rows=1 width=46) (actual time=92.536..94.329 rows=624 loops=1)
+	        Buffers: shared hit=5820
+	        ->  HashAggregate  (cost=83475.25..83475.26 rows=1 width=56) (actual time=92.504..92.587 rows=624 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 193kB
+	              Buffers: shared hit=3324
+	              ->  Subquery Scan on ranked  (cost=80233.37..83475.25 rows=1 width=56) (actual time=20.311..92.377 rows=624 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 23960
+	                    Buffers: shared hit=3324
+	                    ->  WindowAgg  (cost=80233.37..83021.38 rows=25935 width=109) (actual time=20.025..90.801 rows=24584 loops=1)
+	                          Buffers: shared hit=3324
+	                          ->  Sort  (cost=80233.37..80298.21 rows=25935 width=29) (actual time=19.969..20.967 rows=24584 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 2113kB
+	                                Buffers: shared hit=3324
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=1055.71..78332.00 rows=25935 width=29) (actual time=1.202..8.243 rows=24584 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}'::text[]))
+	                                      Heap Blocks: exact=3033
+	                                      Buffers: shared hit=3315
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..1049.10 rows=25935 width=0) (actual time=1.027..1.027 rows=24585 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}'::text[]))
+	                                            Buffers: shared hit=282
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.56..8.59 rows=1 width=22) (actual time=0.003..0.003 rows=1 loops=624)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}'::text[]))
+	              Buffers: shared hit=2496
+2026-10-10 05:45:39.978 UTC [10472] hel1435-S2-prod-io-base-R25000-b0-explain-r3 LOG:  duration: 98.553 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}', $14 = '102'
+	Delete on output_snapshot_history  (cost=83475.81..83483.84 rows=0 width=0) (actual time=98.548..98.552 rows=0 loops=1)
+	  Buffers: shared hit=6444
+	  WAL: records=624 bytes=33696
+	  ->  Nested Loop  (cost=83475.81..83483.84 rows=1 width=46) (actual time=95.471..98.310 rows=624 loops=1)
+	        Buffers: shared hit=5820
+	        ->  HashAggregate  (cost=83475.25..83475.26 rows=1 width=56) (actual time=95.430..95.585 rows=624 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 193kB
+	              Buffers: shared hit=3324
+	              ->  Subquery Scan on ranked  (cost=80233.37..83475.25 rows=1 width=56) (actual time=69.014..95.288 rows=624 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 23960
+	                    Buffers: shared hit=3324
+	                    ->  WindowAgg  (cost=80233.37..83021.38 rows=25935 width=109) (actual time=68.679..93.635 rows=24584 loops=1)
+	                          Buffers: shared hit=3324
+	                          ->  Sort  (cost=80233.37..80298.21 rows=25935 width=29) (actual time=68.629..69.808 rows=24584 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 2113kB
+	                                Buffers: shared hit=3324
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=1055.71..78332.00 rows=25935 width=29) (actual time=1.797..8.520 rows=24584 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}'::text[]))
+	                                      Heap Blocks: exact=3033
+	                                      Buffers: shared hit=3315
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..1049.10 rows=25935 width=0) (actual time=1.597..1.597 rows=24585 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}'::text[]))
+	                                            Buffers: shared hit=282
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.56..8.59 rows=1 width=22) (actual time=0.004..0.004 rows=1 loops=624)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o0,o1,o10,o100,o1000,o1001,o1002,o1003,o1004,o1005,o1006,o1007,o1008,o1009,o101,o1010,o1011,o1012,o1013,o1014,o1015,o1016,o1017,o1018,o1019,o102,o1020,o1021,o1022,o1023,o1024,o1025,o1026,o1027,o1028,o1029,o103,o1030,o1031,o1032,o1033,o1034,o1035,o1036,o1037,o1038,o1039,o104,o1040,o1041,o1042,o1043}'::text[]))
+	              Buffers: shared hit=2496
+2026-10-10 05:45:40.555 UTC [10480] hel1435-S2-prod-io-base-R25000-b67-explain-r1 LOG:  duration: 101.749 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}', $14 = '102'
+	Delete on output_snapshot_history  (cost=84811.31..84819.34 rows=0 width=0) (actual time=101.745..101.747 rows=0 loops=1)
+	  Buffers: shared hit=3397 read=3250 dirtied=54 written=106
+	  WAL: records=636 bytes=34344
+	  ->  Nested Loop  (cost=84811.31..84819.34 rows=1 width=46) (actual time=97.630..101.511 rows=636 loops=1)
+	        Buffers: shared hit=2761 read=3250 written=106
+	        ->  HashAggregate  (cost=84810.74..84810.75 rows=1 width=56) (actual time=97.589..97.700 rows=636 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 193kB
+	              Buffers: shared hit=829 read=2638 written=104
+	              ->  Subquery Scan on ranked  (cost=81506.49..84810.74 rows=1 width=56) (actual time=26.068..97.456 rows=636 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 24115
+	                    Buffers: shared hit=829 read=2638 written=104
+	                    ->  WindowAgg  (cost=81506.49..84348.14 rows=26434 width=109) (actual time=25.795..95.853 rows=24751 loops=1)
+	                          Buffers: shared hit=829 read=2638 written=104
+	                          ->  Sort  (cost=81506.49..81572.57 rows=26434 width=29) (actual time=25.757..26.570 rows=24751 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 2122kB
+	                                Buffers: shared hit=829 read=2638 written=104
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=1076.02..79564.90 rows=26434 width=29) (actual time=1.144..14.753 rows=24751 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}'::text[]))
+	                                      Heap Blocks: exact=3180
+	                                      Buffers: shared hit=820 read=2638 written=104
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..1069.27 rows=26434 width=0) (actual time=0.956..0.956 rows=24754 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}'::text[]))
+	                                            Buffers: shared hit=278
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.56..8.59 rows=1 width=22) (actual time=0.006..0.006 rows=1 loops=636)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}'::text[]))
+	              Buffers: shared hit=1932 read=612 written=2
+2026-10-10 05:45:40.679 UTC [10482] hel1435-S2-prod-io-base-R25000-b67-explain-r2 LOG:  duration: 103.156 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}', $14 = '102'
+	Delete on output_snapshot_history  (cost=84811.31..84819.34 rows=0 width=0) (actual time=103.153..103.155 rows=0 loops=1)
+	  Buffers: shared hit=6647
+	  WAL: records=636 bytes=34344
+	  ->  Nested Loop  (cost=84811.31..84819.34 rows=1 width=46) (actual time=100.699..102.989 rows=636 loops=1)
+	        Buffers: shared hit=6011
+	        ->  HashAggregate  (cost=84810.74..84810.75 rows=1 width=56) (actual time=100.662..100.768 rows=636 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 193kB
+	              Buffers: shared hit=3467
+	              ->  Subquery Scan on ranked  (cost=81506.49..84810.74 rows=1 width=56) (actual time=71.781..100.493 rows=636 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 24115
+	                    Buffers: shared hit=3467
+	                    ->  WindowAgg  (cost=81506.49..84348.14 rows=26434 width=109) (actual time=71.490..98.783 rows=24751 loops=1)
+	                          Buffers: shared hit=3467
+	                          ->  Sort  (cost=81506.49..81572.57 rows=26434 width=29) (actual time=71.436..72.874 rows=24751 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 2122kB
+	                                Buffers: shared hit=3467
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=1076.02..79564.90 rows=26434 width=29) (actual time=1.216..8.991 rows=24751 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}'::text[]))
+	                                      Heap Blocks: exact=3180
+	                                      Buffers: shared hit=3458
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..1069.27 rows=26434 width=0) (actual time=1.029..1.029 rows=24754 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}'::text[]))
+	                                            Buffers: shared hit=278
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.56..8.59 rows=1 width=22) (actual time=0.003..0.003 rows=1 loops=636)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}'::text[]))
+	              Buffers: shared hit=2544
+2026-10-10 05:45:40.857 UTC [10484] hel1435-S2-prod-io-base-R25000-b67-explain-r3 LOG:  duration: 99.351 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}', $14 = '102'
+	Delete on output_snapshot_history  (cost=84811.31..84819.34 rows=0 width=0) (actual time=99.348..99.350 rows=0 loops=1)
+	  Buffers: shared hit=6647
+	  WAL: records=636 bytes=34344
+	  ->  Nested Loop  (cost=84811.31..84819.34 rows=1 width=46) (actual time=96.931..99.182 rows=636 loops=1)
+	        Buffers: shared hit=6011
+	        ->  HashAggregate  (cost=84810.74..84810.75 rows=1 width=56) (actual time=96.895..96.991 rows=636 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 193kB
+	              Buffers: shared hit=3467
+	              ->  Subquery Scan on ranked  (cost=81506.49..84810.74 rows=1 width=56) (actual time=23.071..96.733 rows=636 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 24115
+	                    Buffers: shared hit=3467
+	                    ->  WindowAgg  (cost=81506.49..84348.14 rows=26434 width=109) (actual time=22.527..95.040 rows=24751 loops=1)
+	                          Buffers: shared hit=3467
+	                          ->  Sort  (cost=81506.49..81572.57 rows=26434 width=29) (actual time=22.469..23.810 rows=24751 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 2122kB
+	                                Buffers: shared hit=3467
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=1076.02..79564.90 rows=26434 width=29) (actual time=1.386..9.321 rows=24751 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}'::text[]))
+	                                      Heap Blocks: exact=3180
+	                                      Buffers: shared hit=3458
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..1069.27 rows=26434 width=0) (actual time=1.199..1.199 rows=24754 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}'::text[]))
+	                                            Buffers: shared hit=278
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.56..8.59 rows=1 width=22) (actual time=0.003..0.003 rows=1 loops=636)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o399,o3990,o3991,o3992,o3993,o3994,o3995,o3996,o3997,o3998,o3999,o4,o40,o400,o4000,o4001,o4002,o4003,o4004,o4005,o4006,o4007,o4008,o4009,o401,o4010,o4011,o4012,o4013,o4014,o4015,o4016,o4017,o4018,o4019,o402,o4020,o4021,o4022,o4023,o4024,o4025,o4026,o4027,o4028,o4029,o403,o4030,o4031,o4032,o4033,o4034,o4035}'::text[]))
+	              Buffers: shared hit=2544
+2026-10-10 05:45:41.392 UTC [10492] hel1435-S2-prod-io-base-R25000-b134-explain-r1 LOG:  duration: 104.898 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}', $14 = '102'
+	Delete on output_snapshot_history  (cost=83475.81..83483.84 rows=0 width=0) (actual time=104.893..104.897 rows=0 loops=1)
+	  Buffers: shared hit=3483 read=3199
+	  WAL: records=624 bytes=33696
+	  ->  Nested Loop  (cost=83475.81..83483.84 rows=1 width=46) (actual time=101.086..104.713 rows=624 loops=1)
+	        Buffers: shared hit=2859 read=3199
+	        ->  HashAggregate  (cost=83475.25..83475.26 rows=1 width=56) (actual time=101.043..101.157 rows=624 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 193kB
+	              Buffers: shared hit=950 read=2612
+	              ->  Subquery Scan on ranked  (cost=80233.37..83475.25 rows=1 width=56) (actual time=75.128..100.911 rows=624 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 23960
+	                    Buffers: shared hit=950 read=2612
+	                    ->  WindowAgg  (cost=80233.37..83021.38 rows=25935 width=109) (actual time=74.847..99.225 rows=24584 loops=1)
+	                          Buffers: shared hit=950 read=2612
+	                          ->  Sort  (cost=80233.37..80298.21 rows=25935 width=29) (actual time=74.796..75.788 rows=24584 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 2113kB
+	                                Buffers: shared hit=950 read=2612
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=1055.71..78332.00 rows=25935 width=29) (actual time=1.239..63.663 rows=24584 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}'::text[]))
+	                                      Heap Blocks: exact=3267
+	                                      Buffers: shared hit=941 read=2612
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..1049.10 rows=25935 width=0) (actual time=1.048..1.048 rows=24586 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}'::text[]))
+	                                            Buffers: shared hit=286
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.56..8.59 rows=1 width=22) (actual time=0.006..0.006 rows=1 loops=624)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}'::text[]))
+	              Buffers: shared hit=1909 read=587
+2026-10-10 05:45:41.570 UTC [10494] hel1435-S2-prod-io-base-R25000-b134-explain-r2 LOG:  duration: 103.751 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}', $14 = '102'
+	Delete on output_snapshot_history  (cost=83475.81..83483.84 rows=0 width=0) (actual time=103.747..103.750 rows=0 loops=1)
+	  Buffers: shared hit=6682
+	  WAL: records=624 bytes=33696
+	  ->  Nested Loop  (cost=83475.81..83483.84 rows=1 width=46) (actual time=101.350..103.591 rows=624 loops=1)
+	        Buffers: shared hit=6058
+	        ->  HashAggregate  (cost=83475.25..83475.26 rows=1 width=56) (actual time=101.309..101.387 rows=624 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 193kB
+	              Buffers: shared hit=3562
+	              ->  Subquery Scan on ranked  (cost=80233.37..83475.25 rows=1 width=56) (actual time=21.796..101.157 rows=624 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 23960
+	                    Buffers: shared hit=3562
+	                    ->  WindowAgg  (cost=80233.37..83021.38 rows=25935 width=109) (actual time=21.292..99.417 rows=24584 loops=1)
+	                          Buffers: shared hit=3562
+	                          ->  Sort  (cost=80233.37..80298.21 rows=25935 width=29) (actual time=21.232..22.536 rows=24584 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 2113kB
+	                                Buffers: shared hit=3562
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=1055.71..78332.00 rows=25935 width=29) (actual time=1.788..10.159 rows=24584 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}'::text[]))
+	                                      Heap Blocks: exact=3267
+	                                      Buffers: shared hit=3553
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..1049.10 rows=25935 width=0) (actual time=1.536..1.536 rows=24586 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}'::text[]))
+	                                            Buffers: shared hit=286
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.56..8.59 rows=1 width=22) (actual time=0.003..0.003 rows=1 loops=624)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}'::text[]))
+	              Buffers: shared hit=2496
+2026-10-10 05:45:41.689 UTC [10496] hel1435-S2-prod-io-base-R25000-b134-explain-r3 LOG:  duration: 98.072 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}', $14 = '102'
+	Delete on output_snapshot_history  (cost=83475.81..83483.84 rows=0 width=0) (actual time=98.069..98.071 rows=0 loops=1)
+	  Buffers: shared hit=6682
+	  WAL: records=624 bytes=33696
+	  ->  Nested Loop  (cost=83475.81..83483.84 rows=1 width=46) (actual time=95.790..97.912 rows=624 loops=1)
+	        Buffers: shared hit=6058
+	        ->  HashAggregate  (cost=83475.25..83475.26 rows=1 width=56) (actual time=95.759..95.810 rows=624 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 193kB
+	              Buffers: shared hit=3562
+	              ->  Subquery Scan on ranked  (cost=80233.37..83475.25 rows=1 width=56) (actual time=71.052..95.647 rows=624 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 23960
+	                    Buffers: shared hit=3562
+	                    ->  WindowAgg  (cost=80233.37..83021.38 rows=25935 width=109) (actual time=70.774..94.020 rows=24584 loops=1)
+	                          Buffers: shared hit=3562
+	                          ->  Sort  (cost=80233.37..80298.21 rows=25935 width=29) (actual time=70.735..71.386 rows=24584 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 2113kB
+	                                Buffers: shared hit=3562
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=1055.71..78332.00 rows=25935 width=29) (actual time=1.194..8.959 rows=24584 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}'::text[]))
+	                                      Heap Blocks: exact=3267
+	                                      Buffers: shared hit=3553
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..1049.10 rows=25935 width=0) (actual time=1.004..1.004 rows=24586 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}'::text[]))
+	                                            Buffers: shared hit=286
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.56..8.59 rows=1 width=22) (actual time=0.003..0.003 rows=1 loops=624)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o699,o6990,o6991,o6992,o6993,o6994,o6995,o6996,o6997,o6998,o6999,o7,o70,o700,o7000,o7001,o7002,o7003,o7004,o7005,o7006,o7007,o7008,o7009,o701,o7010,o7011,o7012,o7013,o7014,o7015,o7016,o7017,o7018,o7019,o702,o7020,o7021,o7022,o7023,o7024,o7025,o7026,o7027,o7028,o7029,o703,o7030,o7031,o7032,o7033,o7034}'::text[]))
+	              Buffers: shared hit=2496
+2026-10-10 05:45:42.173 UTC [10504] hel1435-S2-prod-io-base-R25000-b201-explain-r1 LOG:  duration: 22.409 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}', $14 = '102'
+	Delete on output_snapshot_history  (cost=39400.30..39408.34 rows=0 width=0) (actual time=22.405..22.408 rows=0 loops=1)
+	  Buffers: shared hit=2140 read=827 dirtied=1
+	  WAL: records=264 bytes=14256
+	  ->  Nested Loop  (cost=39400.30..39408.34 rows=1 width=46) (actual time=20.723..22.307 rows=264 loops=1)
+	        Buffers: shared hit=1876 read=827
+	        ->  HashAggregate  (cost=39399.82..39399.83 rows=1 width=56) (actual time=20.674..20.715 rows=264 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 117kB
+	              Buffers: shared hit=1060 read=587
+	              ->  Subquery Scan on ranked  (cost=38028.31..39399.81 rows=1 width=56) (actual time=10.301..20.629 rows=264 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 10010
+	                    Buffers: shared hit=1060 read=587
+	                    ->  WindowAgg  (cost=38028.31..39207.80 rows=10972 width=109) (actual time=10.030..19.964 rows=10274 loops=1)
+	                          Buffers: shared hit=1060 read=587
+	                          ->  Sort  (cost=38028.31..38055.74 rows=10972 width=29) (actual time=9.992..10.304 rows=10274 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 946kB
+	                                Buffers: shared hit=1060 read=587
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=446.65..37292.01 rows=10972 width=29) (actual time=0.475..6.031 rows=10274 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}'::text[]))
+	                                      Heap Blocks: exact=1514
+	                                      Buffers: shared hit=1051 read=587
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..443.85 rows=10972 width=0) (actual time=0.385..0.385 rows=10276 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}'::text[]))
+	                                            Buffers: shared hit=124
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.49..8.51 rows=1 width=22) (actual time=0.006..0.006 rows=1 loops=264)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}'::text[]))
+	              Buffers: shared hit=816 read=240
+2026-10-10 05:45:42.259 UTC [10506] hel1435-S2-prod-io-base-R25000-b201-explain-r2 LOG:  duration: 71.422 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}', $14 = '102'
+	Delete on output_snapshot_history  (cost=39400.30..39408.34 rows=0 width=0) (actual time=71.419..71.422 rows=0 loops=1)
+	  Buffers: shared hit=2967
+	  WAL: records=264 bytes=14256
+	  ->  Nested Loop  (cost=39400.30..39408.34 rows=1 width=46) (actual time=70.256..71.350 rows=264 loops=1)
+	        Buffers: shared hit=2703
+	        ->  HashAggregate  (cost=39399.82..39399.83 rows=1 width=56) (actual time=70.217..70.248 rows=264 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 117kB
+	              Buffers: shared hit=1647
+	              ->  Subquery Scan on ranked  (cost=38028.31..39399.81 rows=1 width=56) (actual time=60.052..70.172 rows=264 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 10010
+	                    Buffers: shared hit=1647
+	                    ->  WindowAgg  (cost=38028.31..39207.80 rows=10972 width=109) (actual time=59.776..69.510 rows=10274 loops=1)
+	                          Buffers: shared hit=1647
+	                          ->  Sort  (cost=38028.31..38055.74 rows=10972 width=29) (actual time=59.731..60.015 rows=10274 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 946kB
+	                                Buffers: shared hit=1647
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=446.65..37292.01 rows=10972 width=29) (actual time=0.468..55.656 rows=10274 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}'::text[]))
+	                                      Heap Blocks: exact=1514
+	                                      Buffers: shared hit=1638
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..443.85 rows=10972 width=0) (actual time=0.380..0.380 rows=10276 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}'::text[]))
+	                                            Buffers: shared hit=124
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.49..8.51 rows=1 width=22) (actual time=0.004..0.004 rows=1 loops=264)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}'::text[]))
+	              Buffers: shared hit=1056
+2026-10-10 05:45:42.348 UTC [10508] hel1435-S2-prod-io-base-R25000-b201-explain-r3 LOG:  duration: 74.259 ms  plan:
+	Query Text: DELETE FROM output_snapshot_history WHERE output_id = ANY($1) AND id IN (
+	             SELECT id FROM (
+	               SELECT id, age_class, bucket,
+	                      row_number() OVER w AS recency,
+	                      lag(age_class) OVER w AS prev_class,
+	                      lag(bucket) OVER w AS prev_bucket
+	               FROM (
+	                 SELECT id, output_id, captured_at,
+	                        CASE WHEN extract(epoch FROM ($2::timestamptz - captured_at)) < $3 THEN 0
+	                             WHEN extract(epoch FROM ($4::timestamptz - captured_at)) < $5 THEN 1
+	                             ELSE 2 END AS age_class,
+	                        floor(extract(epoch FROM captured_at) /
+	                          CASE WHEN extract(epoch FROM ($6::timestamptz - captured_at)) < $7 THEN $8
+	                               WHEN extract(epoch FROM ($9::timestamptz - captured_at)) < $10 THEN $11
+	                               ELSE $12 END) AS bucket
+	                 FROM output_snapshot_history
+	                 WHERE output_id = ANY($13)
+	               ) classed
+	               WINDOW w AS (PARTITION BY output_id ORDER BY captured_at DESC, id DESC)
+	             ) ranked
+	             WHERE recency > $14 AND prev_class = age_class AND prev_bucket = bucket)
+	Query Parameters: $1 = '{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}', $2 = '2026-10-09 22:00:00-07', $3 = '86400', $4 = '2026-10-09 22:00:00-07', $5 = '604800', $6 = '2026-10-09 22:00:00-07', $7 = '86400', $8 = '300', $9 = '2026-10-09 22:00:00-07', $10 = '604800', $11 = '3600', $12 = '86400', $13 = '{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}', $14 = '102'
+	Delete on output_snapshot_history  (cost=39400.30..39408.34 rows=0 width=0) (actual time=74.256..74.258 rows=0 loops=1)
+	  Buffers: shared hit=2967
+	  WAL: records=264 bytes=14256
+	  ->  Nested Loop  (cost=39400.30..39408.34 rows=1 width=46) (actual time=73.097..74.188 rows=264 loops=1)
+	        Buffers: shared hit=2703
+	        ->  HashAggregate  (cost=39399.82..39399.83 rows=1 width=56) (actual time=73.050..73.088 rows=264 loops=1)
+	              Group Key: ranked.id
+	              Batches: 1  Memory Usage: 117kB
+	              Buffers: shared hit=1647
+	              ->  Subquery Scan on ranked  (cost=38028.31..39399.81 rows=1 width=56) (actual time=9.407..72.998 rows=264 loops=1)
+	                    Filter: ((ranked.recency > 102) AND (ranked.prev_class = ranked.age_class) AND (ranked.prev_bucket = ranked.bucket))
+	                    Rows Removed by Filter: 10010
+	                    Buffers: shared hit=1647
+	                    ->  WindowAgg  (cost=38028.31..39207.80 rows=10972 width=109) (actual time=9.137..72.312 rows=10274 loops=1)
+	                          Buffers: shared hit=1647
+	                          ->  Sort  (cost=38028.31..38055.74 rows=10972 width=29) (actual time=9.093..9.481 rows=10274 loops=1)
+	                                Sort Key: output_snapshot_history_1.output_id, output_snapshot_history_1.captured_at DESC, output_snapshot_history_1.id DESC
+	                                Sort Method: quicksort  Memory: 946kB
+	                                Buffers: shared hit=1647
+	                                ->  Bitmap Heap Scan on output_snapshot_history output_snapshot_history_1  (cost=446.65..37292.01 rows=10972 width=29) (actual time=0.478..4.949 rows=10274 loops=1)
+	                                      Recheck Cond: (output_id = ANY ('{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}'::text[]))
+	                                      Heap Blocks: exact=1514
+	                                      Buffers: shared hit=1638
+	                                      ->  Bitmap Index Scan on idx_output_snapshot_history_output_captured  (cost=0.00..443.85 rows=10972 width=0) (actual time=0.385..0.385 rows=10276 loops=1)
+	                                            Index Cond: (output_id = ANY ('{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}'::text[]))
+	                                            Buffers: shared hit=124
+	        ->  Index Scan using output_snapshot_history_pkey on output_snapshot_history  (cost=0.49..8.51 rows=1 width=22) (actual time=0.004..0.004 rows=1 loops=264)
+	              Index Cond: (id = ranked.id)
+	              Filter: (output_id = ANY ('{o998,o9980,o9981,o9982,o9983,o9984,o9985,o9986,o9987,o9988,o9989,o999,o9990,o9991,o9992,o9993,o9994,o9995,o9996,o9997,o9998,o9999}'::text[]))
+	              Buffers: shared hit=1056

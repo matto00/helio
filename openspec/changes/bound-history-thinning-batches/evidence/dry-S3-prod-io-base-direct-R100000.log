@@ -1,0 +1,8 @@
+@@DRY tag=S3-prod-io-base-direct-R100000 now=2026-10-10T07:00:00Z batchOutputs=500 batchRows=100000
+@@CHAIN tag=S3-prod-io-base-direct-R100000 batches=22 outputs=1000 chain_ms=38829.4
+@@BATCH tag=S3-prod-io-base-direct-R100000 batch=0 mode=explain rep=1 outputs=47 history_rows=99248 admit_ms=293.0 age_ms=300.6 thin_ms=3809.3 lock_hold_ms=4412.8 age_deleted=1 thin_deleted=74965 wal_bytes=70668200 admitted_same=true
+@@BATCH tag=S3-prod-io-base-direct-R100000 batch=0 mode=timed rep=1 outputs=47 history_rows=99248 admit_ms=277.3 age_ms=11.2 thin_ms=1485.6 lock_hold_ms=1774.9 age_deleted=1 thin_deleted=74965 wal_bytes=4392200 admitted_same=true
+@@BATCH tag=S3-prod-io-base-direct-R100000 batch=10 mode=explain rep=1 outputs=48 history_rows=98752 admit_ms=278.7 age_ms=17.0 thin_ms=1996.1 lock_hold_ms=2344.4 age_deleted=4 thin_deleted=76560 wal_bytes=63597648 admitted_same=true
+@@BATCH tag=S3-prod-io-base-direct-R100000 batch=10 mode=timed rep=1 outputs=48 history_rows=98752 admit_ms=300.9 age_ms=8.1 thin_ms=1503.3 lock_hold_ms=1813.2 age_deleted=4 thin_deleted=76560 wal_bytes=4300184 admitted_same=true
+@@BATCH tag=S3-prod-io-base-direct-R100000 batch=21 mode=explain rep=1 outputs=3 history_rows=6153 admit_ms=18.3 age_ms=2.4 thin_ms=182.9 lock_hold_ms=204.3 age_deleted=0 thin_deleted=4785 wal_bytes=4093880 admitted_same=true
+@@BATCH tag=S3-prod-io-base-direct-R100000 batch=21 mode=timed rep=1 outputs=3 history_rows=6153 admit_ms=14.9 age_ms=2.5 thin_ms=176.8 lock_hold_ms=194.9 age_deleted=0 thin_deleted=4785 wal_bytes=268752 admitted_same=true

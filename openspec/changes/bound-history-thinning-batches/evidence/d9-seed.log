@@ -1,0 +1,12 @@
+DO
+SET
+DELETE 1401
+INSERT 0 547200
+VACUUM
+ output_id | points 
+-----------+--------
+ o0        |  14400
+ o1        | 100800
+ o2        | 432000
+(3 rows)
+

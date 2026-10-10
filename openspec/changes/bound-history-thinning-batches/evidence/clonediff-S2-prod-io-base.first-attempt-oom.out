@@ -1,0 +1,27 @@
+df before clones: /dev/nvme0n1p6  479G  370G   85G  82% /
+NOTICE:  database "hel1435_old" does not exist, skipping
+NOTICE:  database "hel1435_new1" does not exist, skipping
+NOTICE:  database "hel1435_newb" does not exist, skipping
+clones created
+rows before: 4986648
+survivors hel1435_old: 4866230
+survivors hel1435_new1: 4866230
+survivors hel1435_newb: 4866230
+--- survivor diff S2-prod-io-base (old = verbatim single-statement oracle; new1 = batches of 1 per pass; newM = budget 60 per pass)
+ side |  count  
+------+---------
+ old  | 4866230
+ new1 | 4866230
+ newM | 4866230
+(3 rows)
+
+server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+connection to server was lost
+psql: error: connection to server at "127.0.0.1", port 55435 failed: FATAL:  the database system is in recovery mode
+psql: error: connection to server at "127.0.0.1", port 55435 failed: FATAL:  the database system is in recovery mode
+psql: error: connection to server at "127.0.0.1", port 55435 failed: FATAL:  the database system is in recovery mode
+openspec/changes/bound-history-thinning-batches/evidence/drain-old-S2-prod-io-base.log:@@OLDDONE tag=S2-prod-io-base-old deleted=120418 ms=28661.2 wal_bytes=60344160 start_epoch_ms=1791616763934 end_epoch_ms=1791616792595
+openspec/changes/bound-history-thinning-batches/evidence/drain-new-M1-S2-prod-io-base.log:@@DRAINED tag=S2-prod-io-base-new1 passes=51 total_deleted=120418 wall_ms=58417.4
+openspec/changes/bound-history-thinning-batches/evidence/drain-new-M60-S2-prod-io-base.log:@@DRAINED tag=S2-prod-io-base-newM passes=1 total_deleted=120418 wall_ms=59128.6

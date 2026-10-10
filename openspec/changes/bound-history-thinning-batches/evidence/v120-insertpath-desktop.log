@@ -1,0 +1,44 @@
+## profile desktop 2026-10-10T04:18:14-07:00
+-- V120 build run 1
+Time: 764.223 ms
+Time: 5.175 ms
+                    index                    |  size  
+ idx_output_snapshot_history_output_captured | 239 MB
+ idx_node_payload_history_node_captured      | 248 kB
+ idx_output_snapshot_history_payload         | 256 kB
+ idx_output_snapshot_history_captured_at     | 33 MB
+ idx_node_payload_history_captured_at        | 40 kB
+-- V120 build run 2
+Time: 729.043 ms
+Time: 2.201 ms
+                    index                    |  size  
+ idx_output_snapshot_history_output_captured | 239 MB
+ idx_node_payload_history_node_captured      | 248 kB
+ idx_output_snapshot_history_payload         | 256 kB
+ idx_output_snapshot_history_captured_at     | 33 MB
+ idx_node_payload_history_captured_at        | 40 kB
+-- V120 build run 3
+Time: 740.106 ms
+Time: 2.051 ms
+                    index                    |  size  
+ idx_output_snapshot_history_output_captured | 239 MB
+ idx_node_payload_history_node_captured      | 248 kB
+ idx_output_snapshot_history_payload         | 256 kB
+ idx_output_snapshot_history_captured_at     | 33 MB
+ idx_node_payload_history_captured_at        | 40 kB
+-- insert path WITH V120 indexes (3 runs x per_output 1 and 12)
+ @@ indexes idx_output_snapshot_history_captured_at, idx_output_snapshot_history_output_captured, idx_output_snapshot_history_payload, output_snapshot_history_pkey
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=1 rows=10000 ms=233.82
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=1 rows=120000 ms=1821.67
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=2 rows=10000 ms=156.24
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=2 rows=120000 ms=1754.04
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=3 rows=10000 ms=161.42
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=3 rows=120000 ms=1901.88
+-- insert path WITHOUT V120 indexes
+ @@ indexes idx_output_snapshot_history_output_captured, idx_output_snapshot_history_payload, output_snapshot_history_pkey
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=1 rows=10000 ms=159.49
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=1 rows=120000 ms=1762.08
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=2 rows=10000 ms=149.79
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=2 rows=120000 ms=1714.38
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=3 rows=10000 ms=160.48
+psql:/home/matt/Development/helio/.claude/worktrees/task/bounded-history-thinning-batches/HEL-1435/backend/scripts/perf/history-retention-batched-measure.sql:369: NOTICE:  @@INS run=3 rows=120000 ms=1759.84

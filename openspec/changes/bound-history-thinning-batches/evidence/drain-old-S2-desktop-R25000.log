@@ -1,0 +1,2 @@
+@@OLD tag=S2-desktop-R25000-old now=2026-10-10T11:00:00Z
+@@OLDDONE tag=S2-desktop-R25000-old deleted=120418 ms=10948.9 wal_bytes=60343928 start_epoch_ms=1791630814229 end_epoch_ms=1791630825178

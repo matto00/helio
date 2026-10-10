@@ -1,0 +1,3 @@
+@@DRAIN tag=S2-prod-io-base-newM now=2026-10-10T05:00:00Z limits=ThinBatchLimits(500,100000,60)
+@@PASS tag=S2-prod-io-base-newM pass=1 outcome=completed deleted=120418 ms=59115.8 wal_bytes=60448736 start_epoch_ms=1791616858763 end_epoch_ms=1791616917878
+@@DRAINED tag=S2-prod-io-base-newM passes=1 total_deleted=120418 wall_ms=59128.6

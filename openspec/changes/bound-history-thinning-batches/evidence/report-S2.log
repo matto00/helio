@@ -1,0 +1,52 @@
+DO
+MARKER_AFTER_GUARD
+--- anchor / counts
+      tick_time_t       
+------------------------
+ 2026-10-10 13:00:00+00
+(1 row)
+
+ users | pipelines | outputs | history_rows | payload_rows 
+-------+-----------+---------+--------------+--------------
+  1667 |      3334 |   10000 |      4986648 |         2901
+(1 row)
+
+--- outputs / history rows / rows per output by tier
+ tier  | outputs | history_rows | rows_per_output | pct_outputs 
+-------+---------+--------------+-----------------+-------------
+ beta  |    2490 |      1312334 |           527.0 |        24.9
+ free  |    7012 |      3274901 |           467.0 |        70.1
+ owner |     498 |       399413 |           802.0 |         5.0
+(3 rows)
+
+--- summary size, payload size/rows distribution
+ avg_summary_bytes | min_b | max_b 
+-------------------+-------+-------
+             332.0 |   332 |   332
+(1 row)
+
+ tier  | payloads | mean_rows | mean_bytes | max_bytes 
+-------+----------+-----------+------------+-----------
+ beta  |     1679 |     107.3 |       9812 |     92251
+ free  |       47 |      67.7 |       6162 |     92251
+ owner |     1175 |     119.2 |      10902 |     92251
+(3 rows)
+
+--- relation sizes
+         relname         |  heap   | indexes_and_toast 
+-------------------------+---------+-------------------
+ node_payload_history    | 5480 kB | 14 MB
+ output_snapshot_history | 2164 MB | 468 MB
+(2 rows)
+
+                    index                    |  size  
+---------------------------------------------+--------
+ output_snapshot_history_pkey                | 196 MB
+ idx_output_snapshot_history_output_captured | 239 MB
+ node_payload_history_pkey                   | 176 kB
+ idx_node_payload_history_node_captured      | 248 kB
+ idx_output_snapshot_history_payload         | 240 kB
+ idx_output_snapshot_history_captured_at     | 32 MB
+ idx_node_payload_history_captured_at        | 56 kB
+(7 rows)
+

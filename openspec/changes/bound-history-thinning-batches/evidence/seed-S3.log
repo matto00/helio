@@ -1,0 +1,68 @@
+DO
+MARKER_AFTER_GUARD
+SET
+SET
+SET
+DROP TABLE
+SELECT 1
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "dashboards"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "panels"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "user_sessions"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "resource_permissions"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "user_dashboard_zoom"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_steps"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_runs"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "api_tokens"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "binary_refs"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "image_uploads"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "alert_rules"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "alert_events"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_schedules"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "authoring_conversations"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "patch_set_applications"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "assistant_conversations"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "agent_preferences"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "agent_memory"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "assistant_daily_usage"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "user_mfa"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "mfa_backup_codes"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "mfa_login_challenges"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "invite_codes"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "connector_credentials"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "connectors"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "share_tokens"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "connector_completion_tokens"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "dataset_rows"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_run_rate_window"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_auto_run_debounce"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "product_events"
+psql:backend/scripts/perf/history-retention-batched-measure.sql:56: NOTICE:  truncate cascades to table "pipeline_run_assertions"
+TRUNCATE TABLE
+psql:backend/scripts/perf/history-retention-batched-measure.sql:57: NOTICE:  index "perf_osh_captured_at" does not exist, skipping
+DROP INDEX
+psql:backend/scripts/perf/history-retention-batched-measure.sql:58: NOTICE:  index "perf_osh_pipeline_captured" does not exist, skipping
+DROP INDEX
+psql:backend/scripts/perf/history-retention-batched-measure.sql:59: NOTICE:  index "perf_nph_captured_at" does not exist, skipping
+DROP INDEX
+psql:backend/scripts/perf/history-retention-batched-measure.sql:60: NOTICE:  index "perf_nph_pipeline_captured" does not exist, skipping
+DROP INDEX
+SELECT 1000
+ALTER TABLE
+ALTER TABLE
+UPDATE 1000
+UPDATE 1000
+INSERT 0 167
+INSERT 0 334
+INSERT 0 1
+INSERT 0 334
+INSERT 0 1000
+SELECT 206
+ALTER TABLE
+ALTER TABLE
+UPDATE 206
+INSERT 0 206
+UPDATE 206
+CREATE VIEW
+INSERT 0 2081516
+RESET
+VACUUM
