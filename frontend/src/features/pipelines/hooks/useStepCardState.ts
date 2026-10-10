@@ -8,6 +8,7 @@
 // local state and PATCH in lockstep. StepCard.tsx becomes a presentational
 // shell over this hook.
 
+import { isAxiosError } from "axios";
 import { useEffect, useRef, useState } from "react";
 
 import { updatePipelineStep } from "../services/pipelineService";
@@ -111,6 +112,10 @@ export interface StepCardStateHandlers {
    *  swallow-on-reject behavior). Cleared at the start of the next `persist`
    *  attempt (success or failure). */
   saveError: string | null;
+  /** HEL-1422: true only while `saveError` holds a validation rejection (HTTP 422), i.e. the
+   *  server judged the value itself invalid. A network/5xx failure leaves it false. Additive:
+   *  `UpsertSourceConfig` keeps rendering `saveError` alone. */
+  saveErrorIsValidation: boolean;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;
@@ -204,6 +209,7 @@ export function useStepCardState(
   // design.md Decision 6 — scoped to `upsertsource` only (see the field's
   // own doc on `StepCardStateHandlers` above).
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveErrorIsValidation, setSaveErrorIsValidation] = useState(false);
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -286,7 +292,10 @@ export function useStepCardState(
       const token = ++requestTokenRef.current;
       // Cleared at the start of THIS attempt (success or failure) so a stale error from a
       // previous rejected PATCH never lingers past a subsequent try.
-      if (captureErrors) setSaveError(null);
+      if (captureErrors) {
+        setSaveError(null);
+        setSaveErrorIsValidation(false);
+      }
       void updatePipelineStep(step.id, newConfig)
         .then(() => {
           // Drop a stale response: a newer edit may have already dispatched
@@ -301,6 +310,7 @@ export function useStepCardState(
           // out-of-order/superseded rejection must never clobber a newer, still-in-flight or
           // already-succeeded request's result.
           if (captureErrors && requestTokenRef.current === token) {
+            setSaveErrorIsValidation(isAxiosError(err) && err.response?.status === 422);
             setSaveError(
               extractErrorMessage(
                 err,
@@ -561,6 +571,7 @@ export function useStepCardState(
     analyzeWithAiConfig,
     generateTextConfig,
     saveError,
+    saveErrorIsValidation,
     onFieldToggle,
     onRenameChange,
     onCastChange,

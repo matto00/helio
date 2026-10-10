@@ -51,6 +51,8 @@ interface InlineErrorProps {
    *  `IconButton` instead of a labeled button, for a surface too small for
    *  one (e.g. a grid panel card). */
   retryVariant?: "button" | "icon-only";
+  /** text-only. Rendered on the `<p>`, so a control can point `aria-describedby` at the error. */
+  id?: string;
 }
 
 export function InlineError({
@@ -61,6 +63,7 @@ export function InlineError({
   retrying = false,
   announced = true,
   retryVariant = "button",
+  id,
 }: InlineErrorProps) {
   if (!error) return null;
 
@@ -96,5 +99,9 @@ export function InlineError({
       </div>
     );
   }
-  return <p className="inline-error">{error}</p>;
+  return (
+    <p className="inline-error" id={id}>
+      {error}
+    </p>
+  );
 }

@@ -125,4 +125,11 @@ describe("InlineError", () => {
     render(<InlineError error="Load failed." variant="banner" />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
   });
+
+  it("renders an optional id on the text variant, and none when omitted", () => {
+    const { rerender } = render(<InlineError error="Bad." id="err-1" />);
+    expect(screen.getByText("Bad.")).toHaveAttribute("id", "err-1");
+    rerender(<InlineError error="Bad." />);
+    expect(screen.getByText("Bad.")).not.toHaveAttribute("id");
+  });
 });
