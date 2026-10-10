@@ -40,9 +40,9 @@
 
 ## 6. Lookup warning wording (D5) — separate commit
 
-- [ ] 6.1 Grep backend/frontend/helio-mcp/e2e for "source key"/"lookup key"/consumers of the lookup warning text.
-- [ ] 6.2 Add `AnalyzeSchemaWarningsSpec` assertions for all three lookup messages (type mismatch, missing reference match field, missing match field: new phrases present, old absent) and join missing-key message unchanged; run red on base wording.
-- [ ] 6.3 Update `AnalyzeSchemaWarnings.scala` messages per D5; spec green (`sbt "testOnly *AnalyzeSchemaWarningsSpec"` plus `testFull` before handoff); commit.
+- [x] 6.1 Grep backend/frontend/helio-mcp/e2e for "source key"/"lookup key"/consumers of the lookup warning text.
+- [x] 6.2 Add `AnalyzeSchemaWarningsSpec` assertions for all three lookup messages (type mismatch, missing reference match field, missing match field: new phrases present, old absent) and join missing-key message unchanged; run red on base wording.
+- [x] 6.3 Update `AnalyzeSchemaWarnings.scala` messages per D5; spec green (`sbt "testOnly *AnalyzeSchemaWarningsSpec"` plus `testFull` before handoff); commit.
 
 ## 7. Verification
 

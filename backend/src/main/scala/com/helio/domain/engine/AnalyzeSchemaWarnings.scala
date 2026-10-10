@@ -211,7 +211,7 @@ object AnalyzeSchemaWarnings {
         } ws += Warning(
           step.id,
           JoinKeyTypeMismatch,
-          s"lookup: source key '${cfg.sourceKey}' is ${l.`type`} on the input but lookup key '${cfg.lookupKey}' is ${r.`type`} on the secondary input; values of different types never match, so no row will find a match (types are from the inferred schemas)"
+          s"lookup: match field '${cfg.sourceKey}' is ${l.`type`} on the input but reference match field '${cfg.lookupKey}' is ${r.`type`} on the secondary input; values of different types never match, so no row will find a match (types are from the inferred schemas)"
         )
         ws.result()
       }
@@ -247,7 +247,12 @@ object AnalyzeSchemaWarnings {
   private def missingMessage(op: String, field: String, schema: Vector[SchemaField], where: String, secondary: Boolean = false): String = {
     val names     = schema.map(_.name)
     val listed    = names.take(MaxListedFields).mkString(", ") + (if (names.size > MaxListedFields) ", …" else "")
-    val what      = if (secondary && (op == "join" || op == "lookup")) s"key '$field'" else s"field '$field'"
+    // HEL-1465: a lookup names its fields by the card labels ("Match on field" / "Reference match field");
+    // a join keeps "key '...'" on the secondary side, every other op (and the input side) "field '...'".
+    val what      =
+      if (op == "lookup") (if (secondary) s"reference match field '$field'" else s"match field '$field'")
+      else if (secondary && op == "join") s"key '$field'"
+      else s"field '$field'"
     s"$op: $what not found in $where (available: $listed)"
   }
 
