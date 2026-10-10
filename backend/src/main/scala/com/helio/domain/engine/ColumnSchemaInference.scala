@@ -50,12 +50,15 @@ private[engine] object ColumnSchemaInference {
       val json       = config.parseJson.asJsObject
       val column     = json.fields("column").convertTo[String]
       val expression = json.fields("expression").convertTo[String]
-      val wireType   = json.fields("type").convertTo[String]
+      // HEL-1417: `type` is an optional hint (`ComputeConfig.type`); absent or null both count as
+      // no hint. A present non-string value still throws into the generic branch below.
+      val wireType   = json.fields.get("type").filter(_ != JsNull).map(_.convertTo[String])
+      val hintType   = wireType.map(canonicalizeLegacyType).getOrElse("string")
       val fieldNames = inputSchema.map(_.name).toSet
 
       ExpressionEvaluator.validate(expression, fieldNames) match {
         case Left(validationMsg) =>
-          (inputSchema :+ SchemaField(name = column, `type` = canonicalizeLegacyType(wireType)), Some(validationMsg))
+          (inputSchema :+ SchemaField(name = column, `type` = hintType), Some(validationMsg))
         case Right(_) =>
           val fieldTypes = inputSchema.map(f => f.name -> f.`type`).toMap
           // HEL-1423: unknown fields are already rejected by `validate`, so a Left here is the
@@ -63,7 +66,7 @@ private[engine] object ColumnSchemaInference {
           ExpressionEvaluator.inferType(expression, fieldTypes) match {
             case Right(t)  => (inputSchema :+ SchemaField(name = column, `type` = t), None)
             case Left(msg) =>
-              (inputSchema :+ SchemaField(name = column, `type` = canonicalizeLegacyType(wireType)), Some(msg))
+              (inputSchema :+ SchemaField(name = column, `type` = hintType), Some(msg))
           }
       }
     } catch {

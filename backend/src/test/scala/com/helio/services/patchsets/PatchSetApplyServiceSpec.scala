@@ -553,8 +553,11 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       def create(cfg: JsObject) = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None,
         Some(JsObject("type" -> JsString("aggregate"), "config" -> cfg)))
 
-      val bad = await(service.apply(PatchSet(None, Vector(create(aggConfig(item("percentile", None))))), userA)).getOrElse(fail("expected Right"))
-      bad.failure.getOrElse(fail("expected a reported failure")) should include("requires 'p'")
+      // HEL-1417: a rejected step-create config is now a resolve-time 422 `edit 0: <msg>`, not a 200 + failure.
+      await(service.apply(PatchSet(None, Vector(create(aggConfig(item("percentile", None))))), userA)) match {
+        case Left(ServiceError.UnprocessableEntity(msg)) => msg should (startWith("edit 0: ") and include("requires 'p'"))
+        case other                                         => fail(s"expected 422, got $other")
+      }
       await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id))) shouldBe empty
 
       val good = await(service.apply(PatchSet(None, Vector(create(aggConfig(item("percentile", Some(90)))))), userA)).getOrElse(fail("expected Right"))
@@ -581,8 +584,12 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
         ("pivot", JsObject("column" -> JsString("c"), "values" -> JsString("v"), "agg" -> JsString("median")), "Unsupported pivot aggregation function: 'median'")
       )
       for ((kind, cfg, msg) <- bad) {
-        val r = await(service.apply(PatchSet(None, Vector(create(kind, cfg))), userA)).getOrElse(fail("expected Right"))
-        withClue(kind) { r.failure.getOrElse(fail("expected a reported failure")) should include(msg) }
+        withClue(kind) {
+          await(service.apply(PatchSet(None, Vector(create(kind, cfg))), userA)) match {
+            case Left(ServiceError.UnprocessableEntity(m)) => m should (startWith("edit 0: ") and include(msg))
+            case other                                       => fail(s"expected 422, got $other")
+          }
+        }
       }
       await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id))) shouldBe empty
 
