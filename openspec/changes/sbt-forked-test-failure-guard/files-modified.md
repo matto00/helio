@@ -1,0 +1,10 @@
+- `backend/project/ScalaTestSummaryGuard.scala` — sbt-free parser of ScalaTest's own run summary (failed/aborted/unreadable verdict, guard log line and failure message)
+- `backend/project/ScalaTestFailureGuard.scala` — `TestResultLogger` wrapper: check ScalaTest summary before delegating, throw when it reports failed/aborted tests
+- `backend/build.sbt` — wraps `Test / testResultLogger` and `Test / testFull / testResultLogger`; compiles the parser into the test sources
+- `backend/src/test/scala/ScalaTestSummaryGuardSpec.scala` — unit spec for the parser, fixtures verbatim from real runs
+- `scripts/ci-sbt.sh` — after an exit-0 sbt run, fail when the (ANSI-stripped) log carries a ScalaTest failed/aborted summary or `*** RUN ABORTED ***`
+- `scripts/ci-sbt.selftest.mjs` — registers the new scenario (i) after the HEL-1425 split (merged origin/main)
+- `scripts/ci-sbt-selftest/log-scan.mjs` — scenario (i): scan cases (plain, ANSI-wrapped, RUN ABORTED, clean, sbt non-zero)
+- `MISTAKES.md` — entry for the exit-0-with-failures trap, the guard, and residual risks; measured 52/72 figure; guard-line +1 note
+- `openspec/changes/sbt-forked-test-failure-guard/repro-matrix.md` — evidence: before/after matrix per path, probe, mutation, concurrency
+- `openspec/changes/sbt-forked-test-failure-guard/tasks.md` — tasks ticked

@@ -60,6 +60,16 @@ if [ "$timed_out" = 0 ]; then
   wait "$pid"
   rc=$?
   wait "$tpid" 2> /dev/null
+  if [ "$rc" = 0 ]; then
+    # HEL-1468: sbt 2 can lose a forked test group's result events and exit 0 while ScalaTest printed a failed or
+    # aborted summary (or `*** RUN ABORTED ***`, which the build-side guard cannot see). CI log lines are ANSI-wrapped.
+    hit="$(sed 's/\x1b\[[0-9;?]*[A-Za-z]//g' "$LOG" \
+      | grep -E -m 1 '^\[info\] \*\*\* ([0-9]+ (TEST|TESTS|SUITE|SUITES) (FAILED|ABORTED) \*\*\*$|RUN ABORTED)')"
+    if [ -n "$hit" ]; then
+      echo "::error::ci-sbt: sbt exited 0 but its log carries a ScalaTest failure line (\"${hit#\[info\] }\"): treating the run as failed (HEL-1468)"
+      exit 1
+    fi
+  fi
   exit "$rc"
 fi
 

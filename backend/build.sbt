@@ -111,6 +111,15 @@ lazy val root = (project in file("."))
     // HEL-1450: compile the sbt-free DevEnv object into the test sources too, so DevEnvSpec exercises exactly
     // the code this build runs.
     Test / unmanagedSources += baseDirectory.value / "project" / "DevEnv.scala",
+    // HEL-1468: same for the sbt-free ScalaTest summary parser, so ScalaTestSummaryGuardSpec runs the build's code.
+    Test / unmanagedSources += baseDirectory.value / "project" / "ScalaTestSummaryGuard.scala",
+    // HEL-1468: sbt 2.0.9 can lose a forked test group's result events, so `testOnly`/`testFull`/`test` exit 0 and
+    // print "No tests to run" while ScalaTest printed `*** N TESTS FAILED ***`. ScalaTest's own run summary arrives
+    // over a separate channel; check it after every test task and fail when it reports failed/aborted tests.
+    // `testFull` has its own logger key (sbt sets it to SilentWhenNoTests), so both scopes are wrapped. The guard logs
+    // one `[hel1468-guard]` line whenever a ScalaTest summary was present.
+    Test / testResultLogger ~= ScalaTestFailureGuard.wrap,
+    Test / testFull / testResultLogger ~= ScalaTestFailureGuard.wrap,
     // HEL-1018: sbt 2 flipped the default of `Test / testForkedParallel` from false (sbt 1) to true, which
     // runs the suites *inside* each forked group concurrently -- ~3x faster wall-clock, but it re-creates the
     // exact HEL-924 failure (dozens of EmbeddedPostgres instances at once -> RouteTestTimeout / 50ms-expiry
