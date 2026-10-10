@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { fetchSources } from "../../sources/state/sourcesSlice";
 import type { DataSource } from "../../sources/types/dataSource";
 import { useRunToUpdate } from "./useRunToUpdate";
-import { usePipelineStepCreation } from "./usePipelineStepCreation";
+import { usePipelineAnalyzeDeferWatchdog } from "./usePipelineAnalyzeDeferWatchdog";
+import { usePipelineAnalyzeLookups } from "./usePipelineAnalyzeLookups";
+import { usePipelineRootAndToggleActions } from "./usePipelineRootAndToggleActions";
+import { usePipelineStepMutations } from "./usePipelineStepMutations";
+import { usePipelineStepStructure } from "./usePipelineStepStructure";
 import { useRunHistory } from "./useRunHistory";
 import type { PendingDraftMeta } from "./usePipelineStepCreation";
 import {
@@ -18,11 +21,7 @@ import {
   submitPipelineRun,
   updatePipeline,
 } from "../state/pipelinesSlice";
-import {
-  isTempStepId,
-  pipelineStepToStep,
-  resolveDraftFallbackSchema,
-} from "../state/stepNarrowing";
+import { pipelineStepToStep } from "../state/stepNarrowing";
 import { buildLaneGraph } from "../state/stepTree";
 // HEL-878 (task 2.4): dispatched alongside `clearRunState` at every reset call
 // site so the run-scoped Output preview cache never drifts out of sync with
@@ -38,37 +37,12 @@ import {
 } from "../state/outputsSlice";
 import type { Output } from "../types/output";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
-import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import { usePipelineRunEvents } from "./usePipelineRunEvents";
 import type { RunStatusEventData } from "./usePipelineRunEvents";
-import {
-  addPipelineRoot,
-  createPipelineStep,
-  deletePipelineStep,
-  duplicatePipelineStep,
-  removePipelineRoot,
-  reorderPipelineSteps,
-  updatePipelineStepEnabled,
-} from "../services/pipelineService";
-import { createOutput } from "../services/outputService";
 import { useToast } from "../../toasts/hooks/useToast";
-import type {
-  AggregateConfig,
-  PipelineRoot,
-  PipelineStepConfig,
-  AnalyzeWarning,
-  SchemaField,
-} from "../types/pipelineStep";
-import type { ExpandPipelineShapeResponse } from "../types/pipelineShape";
+import type { PipelineRoot } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 
-// F-146 — module-level (not per-render) so a step with no analyze data yet
-// gets the same empty-array reference on every call, not a fresh `[]` per
-// lookup; see `analyzeByStepId` below for why that reference stability
-// matters for `StepCard`'s `React.memo`.
-const EMPTY_ANALYZE_COLUMNS: string[] = [];
-const EMPTY_ANALYZE_SCHEMA: SchemaField[] = [];
-const EMPTY_ANALYZE_WARNINGS: AnalyzeWarning[] = [];
 // HEL-968 — stable empty-roots reference so `buildLaneGraph`'s `useMemo`
 // dependency doesn't churn on every render before `currentPipeline` loads.
 const EMPTY_ROOTS: PipelineRoot[] = [];
@@ -370,37 +344,15 @@ export function usePipelineDetailPage() {
   // render as an empty lane, which `steps` alone could never reveal.
   const roots = currentPipeline?.roots ?? EMPTY_ROOTS;
   const laneGraph = useMemo(() => buildLaneGraph(steps, roots), [steps, roots]);
-  // HEL-972 final-gate CR1 — cancels any scheduled watchdog (the deferral it
-  // was guarding against has been resolved, one way or another) and clears
-  // its bookkeeping. Called both when a dispatch actually fires (normally OR
-  // via the watchdog itself) and on unmount.
-  const clearDeferWatchdog = useCallback(() => {
-    if (deferWatchdogHandleRef.current !== null) {
-      window.clearTimeout(deferWatchdogHandleRef.current);
-      deferWatchdogHandleRef.current = null;
-    }
-    pendingSinceRef.current = null;
-  }, []);
-  // The watchdog's own callback: fires `MAX_ANALYZE_DEFER_MS` after a defer
-  // began, independent of whether `sseActive`/`analyzeStatus` ever change
-  // again (a genuinely stuck guard produces NO further dependency changes to
-  // re-run the debounce effect at all, so this cannot rely on that effect
-  // re-firing on its own). Forces the dispatch unconditionally -- the guard
-  // that was supposed to clear did not, so contention-avoidance loses to
-  // "never permanently stale" past this point.
-  const forceDeferredAnalyze = useCallback(() => {
-    if (!id || !pendingAnalyzeRef.current) return;
-    pendingAnalyzeRef.current = false;
-    lastAnalyzedFingerprintRef.current = stepsFingerprintRef.current;
-    clearDeferWatchdog();
-    void dispatch(analyzePipeline(id));
-  }, [id, dispatch, clearDeferWatchdog]);
-  // Unmount-only cleanup -- the debounce effect below clears its OWN 300ms
-  // `handle` on every dependency change, but the watchdog is deliberately
-  // NOT tied to that effect's lifecycle (it must keep counting down across
-  // `sseActive`/`analyzeStatus` changes that don't resolve the defer); it
-  // only needs clearing when the component itself goes away.
-  useEffect(() => clearDeferWatchdog, [clearDeferWatchdog]);
+  const { clearDeferWatchdog, forceDeferredAnalyze } = usePipelineAnalyzeDeferWatchdog({
+    id,
+    dispatch,
+    pendingAnalyzeRef,
+    lastAnalyzedFingerprintRef,
+    pendingSinceRef,
+    deferWatchdogHandleRef,
+    stepsFingerprintRef,
+  });
   useEffect(() => {
     if (!id || steps.length === 0) return;
     if (skipNextAnalyzeRef.current) {
@@ -490,152 +442,19 @@ export function usePipelineDetailPage() {
     };
   }, [dispatch, id]);
 
-  // ── Per-step analyze columns / schema ──
-  // Build helpers from step.id → inputSchema data so each StepCard can receive
-  // the correct columns/schema without re-running the analyze logic in the UI.
-  //
-  // F-146 — this used to be 4 separate `.find()` scans over
-  // `analyzeResult.steps` per lookup, called fresh for every StepCard on
-  // every render (any keystroke in any one step's config re-renders
-  // `PipelineDetailPage`, since `steps` state changes). Besides the
-  // repeated O(n) scans, every call minted a brand-new array (`.map()` for
-  // columns; even the pass-through `inputSchema`/`outputSchema` reads were
-  // wrapped in a fresh closure invocation each time) — so even an unrelated
-  // step's `StepCard` received new-identity `analyzeColumns`/`analyzeSchema`/
-  // `analyzeOutputSchema` props every render, which defeats `React.memo`'s
-  // shallow prop comparison (see `StepCard.tsx`) regardless of whether the
-  // underlying `analyzeResult` actually changed. Built once per
-  // `analyzeResult` change instead; lookups below are O(1) Map reads that
-  // return the *same* array reference across renders until analyze data
-  // itself changes.
-  const analyzeByStepId = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        columns: string[];
-        schema: SchemaField[];
-        outputSchema: SchemaField[];
-        validationError?: string;
-      }
-    >();
-    if (analyzeResult) {
-      for (const s of analyzeResult.steps) {
-        map.set(s.id, {
-          columns: s.inputSchema.map((f) => f.name),
-          schema: s.inputSchema,
-          outputSchema: s.outputSchema,
-          validationError: s.validationError,
-        });
-      }
-    }
-    return map;
-  }, [analyzeResult]);
-
-  // HEL-1109 / evaluation-1.md CR2 — a draft AI step's field-picker fallback.
-  // The actual resolution logic is the pure, independently-tested
-  // `resolveDraftFallbackSchema` (`stepNarrowing.ts`); this hook only wires
-  // in its own closures (the live `analyzeByStepId` map, the live `steps`
-  // array, and the root-source-schema lookup).
-  const sourceSchemaForRoot = useCallback(
-    (rootId: string | undefined): SchemaField[] => {
-      if (!analyzeResult) return EMPTY_ANALYZE_SCHEMA;
-      if (rootId) {
-        const match = analyzeResult.sourceSchemas.find((s) => s.rootId === rootId);
-        if (match) return match.sourceSchema;
-      }
-      return analyzeResult.sourceSchemas[0]?.sourceSchema ?? EMPTY_ANALYZE_SCHEMA;
-    },
-    [analyzeResult],
-  );
-
-  const getDraftFallbackSchema = useCallback(
-    (stepId: string): SchemaField[] =>
-      resolveDraftFallbackSchema(
-        stepId,
-        steps,
-        (id) => analyzeByStepId.get(id),
-        sourceSchemaForRoot,
-        pendingDraftMetaRef.current.get(stepId) ?? draftFallbackMetaRef.current.get(stepId),
-      ),
-    [steps, analyzeByStepId, sourceSchemaForRoot],
-  );
-
-  const hasDraftFallbackMeta = useCallback(
-    (stepId: string) =>
-      pendingDraftMetaRef.current.has(stepId) || draftFallbackMetaRef.current.has(stepId),
-    [],
-  );
-
-  // HEL-1340 — drop a sent draft's fallback meta once its CURRENT id has its own analyze entry
-  // (reads go to `analyzeByStepId` first, so the stale entry is harmless; this just bounds it) or
-  // the step is gone (removed, or its create failed and was removed).
-  useEffect(() => {
-    for (const key of Array.from(draftFallbackMetaRef.current.keys())) {
-      if (analyzeByStepId.has(key) || !steps.some((s) => s.id === key)) {
-        draftFallbackMetaRef.current.delete(key);
-      }
-    }
-  }, [analyzeByStepId, steps]);
-
-  const getAnalyzeColumns = useCallback(
-    (stepId: string): string[] => {
-      const entry = analyzeByStepId.get(stepId);
-      if (entry) return entry.columns;
-      if (hasDraftFallbackMeta(stepId)) {
-        return getDraftFallbackSchema(stepId).map((f) => f.name);
-      }
-      return EMPTY_ANALYZE_COLUMNS;
-    },
-    [analyzeByStepId, getDraftFallbackSchema, hasDraftFallbackMeta],
-  );
-
-  const getAnalyzeSchema = useCallback(
-    (stepId: string): SchemaField[] => {
-      const entry = analyzeByStepId.get(stepId);
-      if (entry) return entry.schema;
-      if (hasDraftFallbackMeta(stepId)) return getDraftFallbackSchema(stepId);
-      return EMPTY_ANALYZE_SCHEMA;
-    },
-    [analyzeByStepId, getDraftFallbackSchema, hasDraftFallbackMeta],
-  );
-
-  // HEL-404 — mirror of getAnalyzeSchema, reading outputSchema instead of
-  // inputSchema, so StepCard can render the step's output schema inline in
-  // its preview tray without any new backend call.
-  const getAnalyzeOutputSchema = useCallback(
-    (stepId: string): SchemaField[] =>
-      analyzeByStepId.get(stepId)?.outputSchema ?? EMPTY_ANALYZE_SCHEMA,
-    [analyzeByStepId],
-  );
-
-  // HEL-1340 — lets StepCard suppress the schema diff while a step is still on the fallback.
-  const hasOwnAnalyzeEntry = useCallback(
-    (stepId: string): boolean => analyzeByStepId.has(stepId),
-    [analyzeByStepId],
-  );
-
-  const getAnalyzeValidationError = useCallback(
-    (stepId: string): string | undefined => analyzeByStepId.get(stepId)?.validationError,
-    [analyzeByStepId],
-  );
-
-  // HEL-1414 — warnings grouped by step id, built once per analyze result so each step's array
-  // identity is stable across renders (StepCard is memoised) and a step without warnings gets the
-  // shared empty array.
-  const warningsByStepId = useMemo(() => {
-    const map = new Map<string, AnalyzeWarning[]>();
-    for (const w of analyzeResult?.warnings ?? []) {
-      const list = map.get(w.stepId);
-      if (list) list.push(w);
-      else map.set(w.stepId, [w]);
-    }
-    return map;
-  }, [analyzeResult]);
-
-  const getAnalyzeWarnings = useCallback(
-    (stepId: string): AnalyzeWarning[] => warningsByStepId.get(stepId) ?? EMPTY_ANALYZE_WARNINGS,
-    [warningsByStepId],
-  );
+  const {
+    getAnalyzeColumns,
+    getAnalyzeSchema,
+    getAnalyzeOutputSchema,
+    hasOwnAnalyzeEntry,
+    getAnalyzeValidationError,
+    getAnalyzeWarnings,
+  } = usePipelineAnalyzeLookups({
+    analyzeResult,
+    steps,
+    pendingDraftMetaRef,
+    draftFallbackMetaRef,
+  });
 
   const isDirty = outputNamePipelineId !== null && outputName !== (currentPipeline?.name ?? "");
 
@@ -757,33 +576,8 @@ export function usePipelineDetailPage() {
     [dispatch, id, pipelineSchedule],
   );
 
-  // evaluation-2.md CR9 — any create call that passes a `parentStepId` without
-  // `attachAsTail` (a trunk splice-insert) can reparent the anchor's OTHER
-  // existing children server-side (`spliceInsertAtInternal`); a tail-attach
-  // create can't reparent siblings itself, but a later trunk-append past that
-  // same anchor can. Patching only the one temp-to-persisted element (the old
-  // behavior) leaves every other step's `parentStepId`/`position` in local
-  // state stale, so `buildStepTree` — fed stale inputs — renders the wrong
-  // tree until a hard reload re-fetches. Refetching the FULL list here after
-  // every create keeps local state byte-for-byte what a reload would show
-  // (verified live, see execution-progress.md Cycle 3 for HEL-908).
-  const syncStepsFromServer = useCallback(async () => {
-    if (!id) return;
-    const { steps: freshSteps } = await dispatch(fetchPipelineSteps(id)).unwrap();
-    // HEL-1321 — carry a draft-created step's stable render key across the full-list replace
-    // (matched by real id); every other step is rebuilt exactly as before.
-    const renderKeys = new Map<string, string>();
-    for (const s of stepsRef.current) if (s.renderKey) renderKeys.set(s.id, s.renderKey);
-    setSteps(
-      freshSteps.map((ps) => {
-        const next = pipelineStepToStep(ps);
-        const renderKey = renderKeys.get(next.id);
-        return renderKey ? { ...next, renderKey } : next;
-      }),
-    );
-  }, [id, dispatch]);
-
   const {
+    syncStepsFromServer,
     draftCreateErrors,
     creatingStepIds,
     handleInsertStep,
@@ -792,469 +586,48 @@ export function usePipelineDetailPage() {
     clearDraftCreateError,
     createDraftIfComplete,
     markTempRemoved,
-  } = usePipelineStepCreation({
+    handleAddOutputViaAggregateTail,
+    handleInstantiateShape,
+  } = usePipelineStepStructure({
     id,
+    dispatch,
     roots,
     stepsRef,
     setSteps,
     setStepsInitialized,
-    syncStepsFromServer,
     pushToast,
     pendingDraftMetaRef,
     draftFallbackMetaRef,
   });
 
-  // HEL-908 task 5.6 — "Add as tail with aggregate": issues the two calls
-  // design.md decision 5 specifies (`POST /pipelines/:id/steps` with kind
-  // `aggregate`/`parentStepId`/`attachAsTail: true`, then
-  // `POST /pipelines/:id/outputs` with `nodeStepId` = the new step), and
-  // rolls the step back if the Output create fails (no orphaned aggregate
-  // tail left behind on a failed save). Mirrors `handleAddTailStep`'s local
-  // `steps` state update so the new node renders in the river immediately,
-  // and refreshes the Outputs list so the rail/gallery pick up the new
-  // Output without a full page reload.
-  const handleAddOutputViaAggregateTail = useCallback(
-    async (
-      parentStepId: string,
-      aggregateConfig: AggregateConfig,
-      outputPayload: { kind: string; name: string; config: Record<string, unknown> },
-    ): Promise<Output> => {
-      if (!id) throw new Error("Missing pipeline id");
-      const persistedStep = await createPipelineStep(
-        id,
-        "aggregate",
-        aggregateConfig,
-        undefined,
-        parentStepId,
-        true,
-      );
-      // CR9 — resync from the server rather than appending the new step at
-      // the end of the local array: appending doesn't place it after its
-      // actual anchor, and (symmetrically with `handleInsertStep`/
-      // `handleAddTailStep`) any subsequent trunk-append can reparent this
-      // tail's siblings, so local state must already be server-fresh.
-      await syncStepsFromServer();
-      try {
-        const output = await createOutput(id, {
-          nodeStepId: persistedStep.id,
-          kind: outputPayload.kind,
-          name: outputPayload.name,
-          config: outputPayload.config,
-        });
-        void dispatch(fetchOutputs({ pipelineId: id }));
-        // HEL-908 Cycle 13 -- same staleness gap as the sheet's create path:
-        // without this the new tail's rail chip shows no preview until its
-        // sheet is opened once.
-        void dispatch(previewOutput({ pipelineId: id, outputId: output.id }));
-        return output;
-      } catch (err: unknown) {
-        // Rollback (design.md decision 5): the step was created but the
-        // Output failed to save -- delete the orphaned aggregate tail
-        // rather than leaving it behind for the caller to notice later.
-        setSteps((prev) => prev.filter((s) => s.id !== persistedStep.id));
-        void deletePipelineStep(persistedStep.id).catch(() => {});
-        throw err;
-      }
+  const { handleStepConfigChange, handleRemoveStep, handleReorderSteps } = usePipelineStepMutations(
+    {
+      id,
+      roots,
+      stepsRef,
+      setSteps,
+      pushToast,
+      clearDraftCreateError,
+      createDraftIfComplete,
+      markTempRemoved,
+      syncStepsFromServer,
     },
-    [id, dispatch, syncStepsFromServer],
   );
 
-  // HEL-402 / HEL-908 task 6.3 — "Add Outputs from a shape": persists a
-  // shape's `expand` response against a chosen anchor node (design.md
-  // decision 11). The response has NO real step ids — `steps[].clientId` is
-  // a synthetic intra-response id and `steps[].parentStepId`, when present,
-  // references another entry's `clientId`, not a persisted step. So this
-  // walks the response in order, maintaining a `clientId -> real id` map:
-  // - The FIRST step (no `clientId`-parent inside this response, i.e. the
-  //   response's own root) is created with `parentStepId` = `anchorStepId`
-  //   (or omitted for the zero-step/new-pipeline case), with plain
-  //   trunk-continuation semantics (no `attachAsTail`). `PipelineRiverView`'s
-  //   two shape-picker triggers only ever pass an anchor that is either
-  //   `undefined` (the empty-pipeline state) or the pipeline's trunk-last
-  //   step — never a mid-trunk node — and (skeptic-final-2, round 1) the
-  //   button is now gated by `hasTail` so a trunk-last anchor that already
-  //   has a tail can never reach here in the first place. A PREVIOUS version
-  //   of this handler set `attachAsTail: true` whenever the anchor "had a
-  //   child" — which, for the only anchor this code path is ever fed
-  //   (trunk-last), can ONLY mean "already has a tail", so that branch
-  //   ALWAYS created a structurally-dead SECOND tail (reproduced live by the
-  //   skeptic: server `trunkOf` stayed `[A, B]` while the shape's chain
-  //   landed at `position >= 2` under B and was silently never executed).
-  //   The defensive `anchorHasTail` refusal below is belt-and-suspenders in
-  //   case the UI gate is ever bypassed or a future caller reintroduces a
-  //   mid-trunk anchor.
-  // - Every subsequent step resolves its `parentStepId` (a `clientId`
-  //   reference) through the map to a real id, then creates with plain
-  //   append semantics (no `attachAsTail`) — it's continuing a chain THIS
-  //   batch just created, not attaching to a pre-existing occupied node.
-  // - Any `outputs` entries (dormant on the shipped backend today — design.md
-  //   decision 14) are created last, each `nodeStepId` resolved the same way.
-  // On a mid-loop failure, stop (no further entries attempted), keep
-  // whatever already succeeded (no compensating delete — matches
-  // `handleRemoveStep`'s existing no-rollback semantics), and surface a
-  // visible toast naming how many of N entries were added (design.md
-  // Decision 6) — never a silent partial application.
-  const handleInstantiateShape = useCallback(
-    async (expansion: ExpandPipelineShapeResponse, anchorStepId?: string) => {
-      if (!id) return;
-      setStepsInitialized(true);
-      const { steps: stepExpansions, outputs: outputExpansions = [] } = expansion;
-      const totalEntries = stepExpansions.length + outputExpansions.length;
-      const clientIdToRealId = new Map<string, string>();
-      let createdCount = 0;
-
-      // HEL-912 (design.md Decision 1) — the skeptic-final-2 `anchorHasTail`
-      // refusal this used to have relied on the single-tail-per-node
-      // invariant, which is gone: a node with several children just roots
-      // several lanes now, so a shape's first step landing as another child
-      // of the anchor is a normal new lane, not a dead branch. Removed
-      // rather than adapted (design.md Risks/Trade-offs).
-      try {
-        for (let i = 0; i < stepExpansions.length; i++) {
-          const stepExpansion = stepExpansions[i];
-          const parentClientId = stepExpansion.parentStepId;
-          const realParentId =
-            parentClientId !== undefined ? clientIdToRealId.get(parentClientId) : anchorStepId;
-          // Always plain trunk-continuation semantics (no `attachAsTail`):
-          // the only anchor this handler is ever fed (trunk-last, or none
-          // for an empty pipeline) never already has a trunk-continuation
-          // child, so there is no reparenting exposure here -- see the
-          // `anchorHasTail` refusal above for the one hazard that DOES
-          // apply to this anchor (an existing tail).
-          const persisted = await createPipelineStep(
-            id,
-            stepExpansion.kind,
-            stepExpansion.config,
-            undefined,
-            realParentId,
-            false,
-            // HEL-968: only reached without a `realParentId` (an
-            // empty-pipeline anchor -- root 0's own top-level lane, same as
-            // `handleInsertStep`); required once the pipeline has >1 root.
-            roots[0]?.id,
-          );
-          clientIdToRealId.set(stepExpansion.clientId, persisted.id);
-          setSteps((prev) => [...prev, pipelineStepToStep(persisted)]);
-          createdCount += 1;
-        }
-        for (const outputExpansion of outputExpansions) {
-          const realNodeStepId = clientIdToRealId.get(outputExpansion.nodeStepId);
-          await createOutput(id, {
-            nodeStepId: realNodeStepId,
-            kind: outputExpansion.kind,
-            name: outputExpansion.name ?? outputExpansion.kind,
-            config: outputExpansion.config,
-          });
-          createdCount += 1;
-        }
-      } catch (err: unknown) {
-        const message = extractErrorMessage(err, "Failed to apply shape.");
-        pushToast({
-          variant: "error",
-          message: `Shape only partially applied: ${createdCount} of ${totalEntries} entries were added (${message}).`,
-        });
-        return;
-      }
-      // CR9 audit, corrected (skeptic-final-2, round 1, CR1) — unlike
-      // `handleInsertStep`/`handleAddTailStep`/`handleAddOutputViaAggregateTail`,
-      // this loop's own creates carry no reparenting exposure: the only entry
-      // that can target a PRE-EXISTING node (`anchorStepId`) is the first,
-      // it always uses plain trunk-continuation semantics (never
-      // `attachAsTail`), and the `anchorHasTail` refusal above guarantees
-      // that anchor never already has a trunk-continuation child to
-      // reparent. Every later entry's `realParentId` is a step this same
-      // batch just created seconds earlier, which cannot yet have any other
-      // children to reparent. No resync needed here.
-    },
-    [id, pushToast, roots],
-  );
-
-  // F-146 — `handleStepConfigChange` through `handleDuplicateStep` below are
-  // all `StepCard` props (some via `PipelineRiverView` pass-through, some —
-  // `handleReorderSteps` — indirectly, via `PipelineRiverView`'s own
-  // `onMoveUp`/`onMoveDown`). Wrapped in `useCallback` with a stable
-  // dependency set (reading `steps` through `stepsRef` above instead of
-  // closing over it directly) so their identity doesn't change on every
-  // `steps` update — the precondition for `React.memo`'s `StepCard` to
-  // actually skip re-rendering the steps a given edit didn't touch.
-  const handleStepConfigChange = useCallback(
-    (stepId: string, config: PipelineStepConfig) => {
-      setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, config } : s)));
-
-      clearDraftCreateError(stepId);
-      createDraftIfComplete(stepId, config);
-    },
-    [clearDraftCreateError, createDraftIfComplete],
-  );
-
-  // HEL-535 D5 — this used to swallow a rejected DELETE with a bare no-op
-  // comment: the step vanished from the view (optimistic removal below) with
-  // no toast, no inline error, no console signal, and — unlike every sibling
-  // step mutation in this file (reorder/enable/duplicate, all above) — it
-  // never restored local state on failure, so the app disagreed with the
-  // server about whether the step still existed. Now mirrors those siblings:
-  // snapshot before the optimistic change, restore + toast on rejection.
-  const handleRemoveStep = useCallback(
-    (stepId: string) => {
-      const previousSteps = stepsRef.current;
-      setSteps((prev) => prev.filter((s) => s.id !== stepId));
-      // HEL-1345 D5 — a removed temp's create may still be in flight; remember it so its response
-      // does not re-add the orphaned server step.
-      if (isTempStepId(stepId)) markTempRemoved(stepId);
-      // Persist the deletion for steps that exist server-side. Temp steps created
-      // by `makeStep` carry a local `step-N` id and have no backend row yet, so a
-      // DELETE would 404. Fire-and-forget mirrors the config-PATCH path in
-      // useStepCardState: local state already reflects user intent.
-      if (!isTempStepId(stepId)) {
-        void deletePipelineStep(stepId)
-          .then(() => {
-            // CR11 — `deleteInternal` on the backend mutates steps OTHER than
-            // the target: it reparents the deleted step's head child onto the
-            // deleted step's own parent, AND cascade-deletes every other
-            // child's entire descendant subtree (any tail). The bare local
-            // `filter` above only removes the one element the user clicked,
-            // leaving a cascade-deleted tail rendered as a live top-level
-            // trunk card (a phantom for a row that no longer exists server-
-            // side at all) until a hard reload. Resync from the server,
-            // mirroring the CR9/CR10 fix on the sibling insert/duplicate
-            // handlers above.
-            return syncStepsFromServer();
-          })
-          .catch((err: unknown) => {
-            setSteps(previousSteps);
-            // skeptic-final-1.md CR2 — the fallback must read as a REASON, not
-            // a restatement of the "Failed to delete step:" prefix below,
-            // or a bodyless failure (network error, offline, aborted request,
-            // non-JSON 5xx — anything extractErrorMessage can't pull a
-            // server-supplied reason out of) renders "Failed to delete step:
-            // Failed to delete step." — the doubled-sentence "Error" failure
-            // mode the ticket's own copy AC forbids.
-            const message = extractErrorMessage(err, "the request could not be completed.");
-            pushToast({ variant: "error", message: `Failed to delete step: ${message}` });
-          });
-      }
-    },
-    [pushToast, syncStepsFromServer, markTempRemoved],
-  );
-
-  // HEL-407 — drag/keyboard reorder handler (design.md Decision 7). `newOrder`
-  // is the full reordered `Step[]` computed by `PipelineRiverView` (drop or
-  // Move up/down). The page owns persistence, mirroring every other step
-  // mutation here (local `setSteps` + a plain service call, not a thunk):
-  // (a) snapshot the previous order, (b) reorder optimistically, (c) PUT the
-  // *persisted* step ids only, (d) reconcile the response into the optimistic
-  // order by id on success, (e) revert + toast on failure — never a silently
-  // lost reorder.
-  //
-  // HEL-908 design.md decision 15 — `PUT /steps/order`'s request-shape
-  // contract is TRUNK-ONLY — `reorderTrunkInternal` REJECTS a request
-  // containing a non-trunk id. `newOrder` here is still the full flat
-  // `Step[]` (every lane, whatever shape the caller computed it in).
-  //
-  // HEL-973: the endpoint's contract widened to the UNION of EVERY root's
-  // trunk (design.md Decision 4) — a root-0-only payload (HEL-968's stopgap)
-  // now 422s for every omitted root's ids on a multi-root pipeline. The
-  // payload is therefore built from EXACTLY ONE lane PER ROOT — for each
-  // root, the lane seeded by that root's own `position == 0` root-level step
-  // — never a filter over every root-level lane: `buildLaneGraph` seeds one
-  // lane per root-level step, and a root with a tail has several, the extras
-  // being TAIL roots whose ids this endpoint rejects (that reading would
-  // 422). A non-trunk lane's own attachment (`parentStepId` pointing at its
-  // parent step's id) needs no request at all: per the human's ruling ("the
-  // tail follows its trunk step"), the backend never touches non-trunk rows
-  // during a trunk reorder.
-  const handleReorderSteps = useCallback(
-    async (newOrder: Step[]) => {
-      if (!id) return;
-      const previousOrder = stepsRef.current;
-      // Temp (`step-N`) steps have no backend row yet — a still-in-flight POST
-      // from handleAddStep/handleInstantiateShape. Sending one would fail the
-      // server's set-equality check, so exclude them (mirrors handleRemoveStep's
-      // temp-id no-op convention above).
-      const reorderedGraph = buildLaneGraph(newOrder, roots);
-      // HEL-973 evaluation-1 CR2 -- computed BEFORE the optimistic `setSteps` below (and
-      // BEFORE the try/catch) so a root whose trunk lane came back empty never reaches the
-      // wire as a silently truncated request. `trunkLane?.steps ?? []` alone turned "this
-      // root's chain got orphaned" (CR1's defect) into a WRONG request instead of an OBVIOUS
-      // one — compare each root's post-reorder trunk lane against whether it demonstrably had
-      // steps beforehand, and refuse (toast, no optimistic mutation applied) rather than send
-      // a partial payload that would silently omit that root's ids.
-      //
-      // DEFENSE-IN-DEPTH, with no live path to it (HEL-1007 measured this once reorder was wired for
-      // EVERY root's trunk lane). Every UI caller -- Move up/down and drag, in any root's lane -- goes
-      // through `reorderLane`, which carries `rootId` with a lane's head, so a UI move can never empty
-      // a trunk (`stepTree.test.ts` asserts this over every (from, to) pair of a two-root graph). The
-      // only imaginable skew is `stepsRef` (assigned in render) vs the lane owner's graph ref (assigned
-      // in a passive effect), and React flushes passive effects before the next discrete event, so no
-      // click can observe them out of step. Directly unit-tested as a defensive branch with a
-      // hand-built `newOrder` (`PipelineDetailPage.reorderGuard.test.tsx`) -- that pins the refusal
-      // behaviour, it does NOT show the state is reachable: there is still no live path to it.
-      const previousGraph = buildLaneGraph(previousOrder, roots);
-      const persistedIds: string[] = [];
-      for (const r of roots) {
-        const trunkLane = reorderedGraph.lanes.find(
-          (l) => l.parentStepId === undefined && l.rootId === r.id,
-        );
-        const hadStepsBefore = previousGraph.lanes.some(
-          (l) => l.parentStepId === undefined && l.rootId === r.id && l.steps.length > 0,
-        );
-        if ((trunkLane?.steps.length ?? 0) === 0 && hadStepsBefore) {
-          // Name the root by its bound source, never its raw UUID -- a user-facing string
-          // rendering a bare id is a defect on its own terms, independent of whether this
-          // branch is currently reachable (see the coverage note above).
-          pushToast({
-            variant: "error",
-            message: `Failed to reorder steps: the "${r.dataSourceName}" root lost its trunk lane during the reorder.`,
-          });
-          return;
-        }
-        persistedIds.push(
-          ...(trunkLane?.steps ?? []).filter((s) => !isTempStepId(s.id)).map((s) => s.id),
-        );
-      }
-      setSteps(newOrder);
-      try {
-        const response = await reorderPipelineSteps(id, persistedIds);
-        // Reconcile by mapping over the *optimistic* newOrder, replacing each
-        // persisted entry with its corresponding response entry by id. Never
-        // `setSteps(response.map(...))` wholesale — the response contains only
-        // persisted steps, so a wholesale replace would drop any temp step
-        // still mid-flight.
-        setSteps(
-          newOrder.map((s) => {
-            if (isTempStepId(s.id)) return s;
-            const persisted = response.find((r) => r.id === s.id);
-            return persisted ? { ...pipelineStepToStep(persisted), renderKey: s.renderKey } : s;
-          }),
-        );
-      } catch (err: unknown) {
-        setSteps(previousOrder);
-        const message = extractErrorMessage(err, "Failed to reorder steps.");
-        pushToast({ variant: "error", message: `Failed to reorder steps: ${message}` });
-      }
-    },
-    [id, pushToast, roots],
-  );
-
-  // HEL-968 task 8 — "+ root": `sourceId` is either an existing source the
-  // caller picked, or one just created via the nested `AddSourceModal`
-  // (mirrors `CreatePipelineModal`'s composition, design.md D4). Refetches
-  // the pipeline afterward so `currentPipeline.roots` (and this hook's own
-  // `roots`/`laneGraph`) reflect the new root without a page reload -- the
-  // new root has no steps yet, so no `syncStepsFromServer()` is needed.
-  const handleAddRoot = useCallback(
-    async (sourceId: string) => {
-      if (!id) return;
-      // D4 — refuse in the handler too, not just via the disabled confirm
-      // control (HEL-620 was exactly a picker defaulting to an unset id and
-      // issuing a request that 404'd on the ACL check).
-      if (!sourceId) return;
-      try {
-        await addPipelineRoot(id, { sourceId });
-        void dispatch(fetchPipelineById(id));
-      } catch (err: unknown) {
-        const message = extractErrorMessage(err, "the request could not be completed.");
-        pushToast({ variant: "error", message: `Failed to add source: ${message}` });
-      }
-    },
-    [id, dispatch, pushToast],
-  );
-
-  // HEL-968 task 9 — root removal (R7). No client-side pre-check duplicates
-  // the backend's two refusals (last root; a surviving lane referencing a
-  // node this root's removal would delete) -- the server's named refusal is
-  // rendered verbatim (design.md D5's "the client renders the server's
-  // refusal; it does not re-derive it"). On success, resyncs both the
-  // pipeline (its `roots[]` shrank) and the step list (the root's steps and
-  // their Outputs are gone), then surfaces the exact counts the response
-  // reported.
-  const handleRemoveRoot = useCallback(
-    async (rootId: string) => {
-      if (!id) return;
-      try {
-        const result = await removePipelineRoot(id, rootId);
-        await Promise.all([dispatch(fetchPipelineById(id)), syncStepsFromServer()]);
-        pushToast({
-          variant: "success",
-          message: `Source removed: ${result.removedStepCount} step${
-            result.removedStepCount === 1 ? "" : "s"
-          }, ${result.removedOutputCount} Output${
-            result.removedOutputCount === 1 ? "" : "s"
-          } removed.`,
-        });
-      } catch (err: unknown) {
-        // R7 phase 1's two named refusals ("last root" / "surviving lane
-        // referencing a deleted node") arrive as the server's own message
-        // via `extractErrorMessage` -- rendered as-is, not remapped to a
-        // second, drifting client-side copy. Only the CLIENT'S OWN "Failed
-        // to remove source:" prefix is copy (HEL-1022: a root is a "source"
-        // in user-facing text) -- the server's message after the colon is
-        // never touched.
-        const message = extractErrorMessage(err, "the request could not be completed.");
-        pushToast({ variant: "error", message: `Failed to remove source: ${message}` });
-      }
-    },
-    [id, dispatch, pushToast, syncStepsFromServer],
-  );
-
-  // HEL-412 — optimistic flip → PATCH `{enabled}` → reconcile from the
-  // response; revert + toast on failure (the reorder handler's precedent
-  // above: a silently-lost disable is worse than a snap-back).
-  const handleToggleStepEnabled = useCallback(
-    async (stepId: string, enabled: boolean) => {
-      const previousSteps = stepsRef.current;
-      setSteps((prev) => prev.map((s) => (s.id === stepId ? { ...s, enabled } : s)));
-      try {
-        const persisted = await updatePipelineStepEnabled(stepId, enabled);
-        setSteps((prev) =>
-          prev.map((s) =>
-            s.id === stepId ? { ...pipelineStepToStep(persisted), renderKey: s.renderKey } : s,
-          ),
-        );
-      } catch (err: unknown) {
-        setSteps(previousSteps);
-        const message = extractErrorMessage(err, "Failed to update step.");
-        pushToast({
-          variant: "error",
-          message: `Failed to ${enabled ? "enable" : "disable"} step: ${message}`,
-        });
-      }
-    },
-    [pushToast],
-  );
-
-  // HEL-412 — call the duplicate endpoint, then splice the clone in directly
-  // after the original (server already renumbered positions; local order is
-  // what renders). Non-optimistic by design (design.md Decision 7) — there's
-  // no user-entered config to preserve ahead of the response, so a temp-step
-  // placeholder buys nothing for a single fast POST.
-  // HEL-706 — synchronous ref-based re-entry guard (design.md Decision 1):
-  // a genuine double-click on "Duplicate step" must produce exactly one
-  // clone, not two.
-  const { guardedRun: guardedStepDuplicateRun, pendingKeys: duplicatingStepIds } =
-    useInFlightGuard<string>();
-
-  const handleDuplicateStep = useCallback(
-    (stepId: string) => {
-      guardedStepDuplicateRun(stepId, async () => {
-        try {
-          await duplicatePipelineStep(stepId);
-          // CR10 — `duplicatePipelineStep` hits the same server-side
-          // `spliceInsertAtInternal` reparenting primitive as `handleInsertStep`:
-          // splicing just the clone into local state (the old behavior) leaves
-          // every other step's `parentStepId`/`position` stale, so a tailed
-          // trunk step's clone renders as a tail branch and the real tail gets
-          // promoted to a top-level trunk card until a hard reload. Resync from
-          // the server, mirroring the other three CR9 fixes above.
-          await syncStepsFromServer();
-        } catch (err: unknown) {
-          const message = extractErrorMessage(err, "Failed to duplicate step.");
-          pushToast({ variant: "error", message: `Failed to duplicate step: ${message}` });
-        }
-      });
-    },
-    [guardedStepDuplicateRun, pushToast, syncStepsFromServer],
-  );
+  const {
+    handleAddRoot,
+    handleRemoveRoot,
+    handleToggleStepEnabled,
+    handleDuplicateStep,
+    duplicatingStepIds,
+  } = usePipelineRootAndToggleActions({
+    id,
+    dispatch,
+    stepsRef,
+    setSteps,
+    pushToast,
+    syncStepsFromServer,
+  });
 
   // HEL-908 Cycle 13 -- `submitPipelineRun`'s own HTTP response already
   // carries the finished run's result (it's a synchronous POST, not a
