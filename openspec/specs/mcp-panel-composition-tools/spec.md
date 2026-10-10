@@ -1,10 +1,9 @@
 # mcp-panel-composition-tools Specification
 
 ## Purpose
-Give the MCP agent surface v1.5 panel parity — letting an agent create every current panel type
-(including collection), bind text/markdown/collection panels with backend-verified field mappings,
-set chart type and per-type chart/table config, and upload images — so agents can build dashboards
-with the full panel capability set the backend already supports.
+Give the MCP agent surface v1.5 panel parity — letting an agent create every current panel type, author literal
+text/markdown panel content, set chart type and per-type chart/table config, and upload images — so agents can
+build dashboards with the full panel capability set the backend already supports.
 
 ## Requirements
 

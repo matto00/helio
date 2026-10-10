@@ -1,7 +1,7 @@
 # markdown-panel-content-source Specification
 
 ## Purpose
-Defines the Markdown panel's Source/Static content modes (field-or-literal editor, bound-over-literal render resolution) and the `helio://uploads/image/<id>` reference scheme that resolves uploaded images through the uploads route at render time.
+Defines the `helio://uploads/image/<id>` reference scheme that resolves uploaded images in rendered Markdown through the uploads route, how rendered images are constrained to the panel, and where the scheme is documented.
 
 ## Requirements
 

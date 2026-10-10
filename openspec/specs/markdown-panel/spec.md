@@ -1,7 +1,8 @@
 # markdown-panel Specification
 
 ## Purpose
-TBD - created by archiving change markdown-panel-type. Update Purpose after archive.
+Defines how a literal markdown panel stores and updates its CommonMark `config.content` and renders it as read-only
+HTML in the dashboard grid; markdown content is never resolved from a data field.
 
 ## Requirements
 
