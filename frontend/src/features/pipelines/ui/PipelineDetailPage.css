@@ -1910,7 +1910,8 @@
    join/union/lookup secondary read) was capped. No shared warning/banner primitive exists in
    shared/ui/ (Toast is transient, StatusChip is a pill) — a page-local region per design.md D7,
    using the same --app-warning tokens the diff-chip "renamed" state above already establishes. */
-.pipeline-detail-page__truncation-banner {
+.pipeline-detail-page__truncation-banner,
+.pipeline-detail-page__step-card-warnings {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
@@ -1922,6 +1923,43 @@
   border: 1px solid color-mix(in srgb, var(--app-warning) 35%, transparent);
   font-size: var(--text-sm);
   line-height: 1.5;
+}
+
+/* HEL-1414: the StepCard warnings region shares the banner recipe above; inset it to sit inside the
+   card (the banner's own margin is vertical-only) and stack heading + list. */
+.pipeline-detail-page__step-card-warnings {
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) var(--space-4);
+}
+
+.pipeline-detail-page__step-card-warnings-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.pipeline-detail-page__step-card-warnings-note {
+  font-weight: var(--weight-regular);
+}
+
+.pipeline-detail-page__step-card-warnings-list {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+/* HEL-1414 — header indicator for a step with analyze warnings: warning intent, never the error
+ * accent; shows a count only when there is more than one. */
+.pipeline-detail-page__step-card-warning-chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--app-warning);
 }
 
 .pipeline-detail-page__truncation-banner-icon {

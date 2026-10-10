@@ -384,6 +384,92 @@ class AnalyzeSchemaWarningsSpec extends AnyWordSpec with Matchers {
     }
   }
 
+  // ---------------------------------------------------------------- HEL-1414 lookup key + source-secondary warnings
+
+  private def laneLookup(cfgKeys: (String, String), cols: String, leftCols: Vector[SchemaField], rightCols: Vector[SchemaField], leftPrefix: Vector[NodeStepInput] = Vector.empty) = {
+    val laneL = node("laneL", None, 0, "rename", """{"renames":{}}""", root = Some("L"))
+    val laneR = node("laneR", None, 1, "rename", """{"renames":{}}""", root = Some("R"))
+    val chain = laneL +: leftPrefix
+    val lk = node("lk", Some(chain.last.id), 10, "lookup",
+      s"""{"secondaryInput":{"kind":"lane","stepId":"laneR"},"sourceKey":"${cfgKeys._1}","lookupKey":"${cfgKeys._2}","columns":[$cols]}""")
+    (chain :+ laneR :+ lk, Map("L" -> leftCols, "R" -> rightCols))
+  }
+
+  private def sourceLookup(cfgKeys: (String, String), cols: String, leftCols: Vector[SchemaField], ds: Option[Vector[SchemaField]]) = {
+    val lk = node("lk", None, 0, "lookup",
+      s"""{"secondaryInput":{"kind":"source","dataSourceId":"ds"},"sourceKey":"${cfgKeys._1}","lookupKey":"${cfgKeys._2}","columns":[$cols]}""")
+    (Vector(lk), Map("L" -> leftCols), ds.fold(Map.empty[String, Vector[SchemaField]])(d => Map("ds" -> d)))
+  }
+
+  "lookup key type mismatch (HEL-1414)" should {
+
+    "warn for a lane secondary whose lookupKey family differs from the sourceKey" in {
+      val (steps, roots) = laneLookup(("customer_id", "id"), "\"name\"", Vector(f("customer_id", "string")), Vector(f("id", "integer"), f("name")))
+      val ws = warnings(steps, roots)
+      codes(ws) shouldBe Vector("lk" -> TypeMismatch)
+      ws.head.message should startWith("lookup:")
+      Seq("customer_id", "id", "string", "integer").foreach(t => ws.head.message should include(t))
+    }
+
+    "warn for a source secondary whose lookupKey family differs from the sourceKey" in {
+      val (steps, roots, sec) = sourceLookup(("customer_id", "id"), "\"name\"", Vector(f("customer_id", "string")), Some(Vector(f("id", "integer"), f("name"))))
+      val projections = PipelineAnalyzeService.analyzeNodes(steps, roots, sec)
+      val ws = AnalyzeSchemaWarnings.compute(steps, projections, sec)
+      codes(ws) shouldBe Vector("lk" -> TypeMismatch)
+      ws.head.message should startWith("lookup:")
+    }
+
+    "warn when the lookupKey is absent from a lane secondary" in {
+      val (steps, roots) = laneLookup(("id", "cust_id"), "\"name\"", Vector(f("id")), Vector(f("id"), f("name")))
+      val ws = warnings(steps, roots)
+      codes(ws) shouldBe Vector("lk" -> Missing)
+      ws.head.message should startWith("lookup:")
+      ws.head.message should include("key 'cust_id'")
+    }
+
+    "warn when the lookupKey is absent from a source secondary" in {
+      val (steps, roots, sec) = sourceLookup(("id", "cust_id"), "\"name\"", Vector(f("id")), Some(Vector(f("id"), f("name"))))
+      val ws = AnalyzeSchemaWarnings.compute(steps, PipelineAnalyzeService.analyzeNodes(steps, roots, sec), sec)
+      codes(ws) shouldBe Vector("lk" -> Missing)
+      ws.head.message should include("cust_id")
+    }
+
+    "GUARD: not warn when key families match (integer vs float)" in {
+      val (steps, roots) = laneLookup(("id", "id"), "\"name\"", Vector(f("id", "integer")), Vector(f("id", "float"), f("name")))
+      warnings(steps, roots) shouldBe empty
+    }
+
+    "GUARD: not warn when the input types are untrusted (after a compute)" in {
+      val compute = node("c", Some("laneL"), 5, "compute", """{"column":"id","expression":"$a * 1","type":"float"}""")
+      val (steps, roots) = laneLookup(("id", "id"), "\"name\"", Vector(f("a", "float")), Vector(f("id", "string"), f("name")), leftPrefix = Vector(compute))
+      warnings(steps, roots) shouldBe empty
+    }
+
+    "GUARD: not warn for an unresolved source secondary" in {
+      val (steps, roots, sec) = sourceLookup(("customer_id", "id"), "\"name\"", Vector(f("customer_id", "string")), None)
+      AnalyzeSchemaWarnings.compute(steps, PipelineAnalyzeService.analyzeNodes(steps, roots, sec), sec) shouldBe empty
+    }
+
+    "GUARD: keep a source-secondary lookup's output type-untrusted for a downstream join" in {
+      val lk = node("lk", Some("laneL"), 5, "lookup",
+        """{"secondaryInput":{"kind":"source","dataSourceId":"ds"},"sourceKey":"k","lookupKey":"k","columns":["val"]}""")
+      val (steps, roots) = laneJoin(Vector(f("k", "string")), Vector(f("val", "integer")), key = "val", leftPrefix = Vector(lk))
+      val sec = Map("ds" -> Vector(f("k", "string"), f("val", "integer")))
+      val ws = AnalyzeSchemaWarnings.compute(steps, PipelineAnalyzeService.analyzeNodes(steps, roots, sec), sec)
+      ws.filter(_.code == TypeMismatch) shouldBe empty
+    }
+  }
+
+  "lookup over a source secondary column rename (HEL-1414)" should {
+    "warn for a requested column colliding with an input column" in {
+      val (steps, roots, sec) = sourceLookup(("id", "id"), "\"name\"", Vector(f("id"), f("name")), Some(Vector(f("id"), f("name"))))
+      val projections = PipelineAnalyzeService.analyzeNodes(steps, roots, sec)
+      val ws = AnalyzeSchemaWarnings.compute(steps, projections, sec)
+      codes(ws) shouldBe Vector("lk" -> Renamed)
+      ws.head.message should include("right_name")
+    }
+  }
+
   "ordering" should {
     "be by step position, then id, then code" in {
       val (steps0, roots) = laneJoin(Vector(f("id", "string"), f("total")), Vector(f("id", "integer"), f("total")))

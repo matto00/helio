@@ -21,7 +21,12 @@ import { LaneColumn } from "./LaneColumn";
 import { RootColumn } from "./RootColumn";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import type { OpType, Step } from "../types/step";
-import type { PipelineRoot, PipelineStepConfig, SchemaField } from "../types/pipelineStep";
+import type {
+  AnalyzeWarning,
+  PipelineRoot,
+  PipelineStepConfig,
+  SchemaField,
+} from "../types/pipelineStep";
 import type { ExpandPipelineShapeResponse } from "../types/pipelineShape";
 import type { Output } from "../types/output";
 import type { LaneGraph } from "../state/stepTree";
@@ -84,6 +89,8 @@ interface PipelineRiverViewProps {
   /** HEL-1340 — true when the step has its own analyze entry (see StepCard `hasOwnAnalyze`). */
   hasOwnAnalyzeEntry?: (stepId: string) => boolean;
   getAnalyzeValidationError: (stepId: string) => string | undefined;
+  /** HEL-1414 — this step's schema-only, NON-BLOCKING analyze warnings (stable array per analyze result). */
+  getAnalyzeWarnings?: (stepId: string) => AnalyzeWarning[];
   onStepConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   runStepRowCounts: Record<string, number> | null | undefined;
   /** HEL-402 — performs the sequential per-step create loop for a shape's
@@ -148,6 +155,7 @@ export function PipelineRiverView({
   getAnalyzeOutputSchema,
   hasOwnAnalyzeEntry,
   getAnalyzeValidationError,
+  getAnalyzeWarnings,
   onStepConfigChange,
   runStepRowCounts,
   onInstantiateShape,
@@ -376,6 +384,7 @@ export function PipelineRiverView({
                         analyzeOutputSchema={getAnalyzeOutputSchema(step.id)}
                         hasOwnAnalyze={hasOwnAnalyzeEntry?.(step.id) ?? true}
                         validationError={getAnalyzeValidationError(step.id)}
+                        warnings={getAnalyzeWarnings?.(step.id)}
                         onConfigChange={onStepConfigChange}
                         rowCount={runStepRowCounts?.[step.id] ?? null}
                         onStepDragStart={handleStepDragStart}
@@ -439,6 +448,7 @@ export function PipelineRiverView({
                               getAnalyzeOutputSchema={getAnalyzeOutputSchema}
                               hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
                               getAnalyzeValidationError={getAnalyzeValidationError}
+                              getAnalyzeWarnings={getAnalyzeWarnings}
                               onConfigChange={onStepConfigChange}
                               runStepRowCounts={runStepRowCounts}
                               onToggleStepEnabled={onToggleStepEnabled}
@@ -517,6 +527,7 @@ export function PipelineRiverView({
               getAnalyzeOutputSchema={getAnalyzeOutputSchema}
               hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
               getAnalyzeValidationError={getAnalyzeValidationError}
+              getAnalyzeWarnings={getAnalyzeWarnings}
               onConfigChange={onStepConfigChange}
               runStepRowCounts={runStepRowCounts}
               onToggleStepEnabled={onToggleStepEnabled}

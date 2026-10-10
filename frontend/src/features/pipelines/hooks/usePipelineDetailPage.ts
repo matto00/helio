@@ -56,6 +56,7 @@ import type {
   AggregateConfig,
   PipelineRoot,
   PipelineStepConfig,
+  AnalyzeWarning,
   SchemaField,
 } from "../types/pipelineStep";
 import type { ExpandPipelineShapeResponse } from "../types/pipelineShape";
@@ -67,6 +68,7 @@ import type { Step } from "../types/step";
 // matters for `StepCard`'s `React.memo`.
 const EMPTY_ANALYZE_COLUMNS: string[] = [];
 const EMPTY_ANALYZE_SCHEMA: SchemaField[] = [];
+const EMPTY_ANALYZE_WARNINGS: AnalyzeWarning[] = [];
 // HEL-968 — stable empty-roots reference so `buildLaneGraph`'s `useMemo`
 // dependency doesn't churn on every render before `currentPipeline` loads.
 const EMPTY_ROOTS: PipelineRoot[] = [];
@@ -615,6 +617,24 @@ export function usePipelineDetailPage() {
   const getAnalyzeValidationError = useCallback(
     (stepId: string): string | undefined => analyzeByStepId.get(stepId)?.validationError,
     [analyzeByStepId],
+  );
+
+  // HEL-1414 — warnings grouped by step id, built once per analyze result so each step's array
+  // identity is stable across renders (StepCard is memoised) and a step without warnings gets the
+  // shared empty array.
+  const warningsByStepId = useMemo(() => {
+    const map = new Map<string, AnalyzeWarning[]>();
+    for (const w of analyzeResult?.warnings ?? []) {
+      const list = map.get(w.stepId);
+      if (list) list.push(w);
+      else map.set(w.stepId, [w]);
+    }
+    return map;
+  }, [analyzeResult]);
+
+  const getAnalyzeWarnings = useCallback(
+    (stepId: string): AnalyzeWarning[] => warningsByStepId.get(stepId) ?? EMPTY_ANALYZE_WARNINGS,
+    [warningsByStepId],
   );
 
   const isDirty = outputNamePipelineId !== null && outputName !== (currentPipeline?.name ?? "");
@@ -1384,6 +1404,7 @@ export function usePipelineDetailPage() {
     getAnalyzeOutputSchema,
     hasOwnAnalyzeEntry,
     getAnalyzeValidationError,
+    getAnalyzeWarnings,
     outputsByStepId,
     allOutputs,
     previewRowCountByOutputId,
