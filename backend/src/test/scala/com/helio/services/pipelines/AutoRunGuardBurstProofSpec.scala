@@ -134,17 +134,24 @@ class AutoRunGuardBurstProofSpec extends AnyWordSpec with Matchers with BeforeAn
   private def newTriggerService(debounceSeconds: Long): AutoRunTriggerService =
     new AutoRunTriggerService(pipelineRootRepo, pipelineRepo, pipelineStepRepo, dataSourceRepo, debounceRepo, debounceSeconds)
 
-  /** `withGuard = false` constructs the fixture WITHOUT `pipelineRunGuardRepo` (design.md Decision
+  /** `guardClock` is the SAME deterministic clock the scheduler is driven by (HEL-1439): the guard
+   *  buckets admissions into epoch-aligned `rateWindowSeconds` windows by `guardClock.now()`, so on
+   *  the default `SystemClock` a real wall-clock :x0/:x5 boundary crossed mid-burst split the six
+   *  fires across two real buckets and admitted up to 3 + 3 runs ("4 was not equal to 3").
+   *  Pinned to the fake timeline (all fires in `[t0, t0+5min)`), every admission lands in one bucket.
+   *
+   *  `withGuard = false` constructs the fixture WITHOUT `pipelineRunGuardRepo` (design.md Decision
    *  2) -- the standing nullable-optional convention every other collaborator in this class
    *  already uses, reproducing exactly the "guard off" state the AC must never reach in
    *  production. Never touches production wiring (`Main.scala` always passes a real repo). */
-  private def newRunService(guardConfig: PipelineRunGuardConfig, withGuard: Boolean): PipelineRunService =
+  private def newRunService(guardConfig: PipelineRunGuardConfig, withGuard: Boolean, guardClock: Clock): PipelineRunService =
     new PipelineRunService(
       pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo,
       new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
       pipelineRunGuardRepo = if (withGuard) guardRepo else null,
       guardConfig = guardConfig,
-      outputRepo = new OutputRepository(ctx)
+      outputRepo = new OutputRepository(ctx),
+      guardClock = guardClock
     )
 
   private def newScheduler(runService: PipelineRunService, clock: Clock): PipelineSchedulerService =
@@ -194,7 +201,7 @@ class AutoRunGuardBurstProofSpec extends AnyWordSpec with Matchers with BeforeAn
       val t0 = Instant.parse("2026-01-01T00:00:00Z")
       val clock = new FakeClock(t0)
       val triggerService = newTriggerService(debounceSeconds = 2L)
-      val runService = newRunService(guardConfig, withGuard = true)
+      val runService = newRunService(guardConfig, withGuard = true, guardClock = clock)
       val scheduler = newScheduler(runService, clock)
 
       driveIndependentBursts(dsId, user, Vector(triggerService), Vector(scheduler), clock, t0, attempts = 6, debounceSeconds = 2L)
@@ -221,8 +228,8 @@ class AutoRunGuardBurstProofSpec extends AnyWordSpec with Matchers with BeforeAn
       val clockB = new FakeClock(t0)
       val triggerServiceA = newTriggerService(debounceSeconds = 2L)
       val triggerServiceB = newTriggerService(debounceSeconds = 2L)
-      val runServiceA = newRunService(guardConfig, withGuard = true)
-      val runServiceB = newRunService(guardConfig, withGuard = true)
+      val runServiceA = newRunService(guardConfig, withGuard = true, guardClock = clockA)
+      val runServiceB = newRunService(guardConfig, withGuard = true, guardClock = clockB)
       val schedulerA = newScheduler(runServiceA, clockA)
       val schedulerB = newScheduler(runServiceB, clockB)
 
@@ -266,7 +273,7 @@ class AutoRunGuardBurstProofSpec extends AnyWordSpec with Matchers with BeforeAn
       val t0 = Instant.parse("2026-01-01T00:00:00Z")
       val clock = new FakeClock(t0)
       val triggerService = newTriggerService(debounceSeconds = 2L)
-      val runService = newRunService(guardConfig, withGuard = false)
+      val runService = newRunService(guardConfig, withGuard = false, guardClock = clock)
       val scheduler = newScheduler(runService, clock)
 
       driveIndependentBursts(dsId, user, Vector(triggerService), Vector(scheduler), clock, t0, attempts = 6, debounceSeconds = 2L)
