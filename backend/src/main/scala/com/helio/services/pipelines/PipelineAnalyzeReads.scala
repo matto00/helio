@@ -63,9 +63,10 @@ private[pipelines] final class PipelineAnalyzeReads(
           // change's own binding artifact -- 5.9 root-keyed the internal `analyzeNodes` grounding,
           // but nothing reshaped THIS route's response, and 7.2a/7.2b reshaped the two sibling
           // responses (`PipelineSummaryResponse`, `WorkspaceContextPipeline`) without touching
-          // analyze. Mirrors the capabilities route's own root resolution (`resolveNodeSchema`
-          // above) exactly: `listRootDataSourceIdsInternal` (position-ordered) + `rootIdsOf` (every
-          // parentless step's owning root), pipeline access already confirmed by `findByIdShared`.
+          // analyze. Mirrors the capabilities route's own root resolution
+          // (`PipelineNodeReads.projectedSchemaAtNode`) exactly: `listRootDataSourceIdsInternal`
+          // (position-ordered) + `rootIdsOf` (every parentless step's owning root), pipeline access
+          // already confirmed by `findByIdShared`.
           // HEL-1092: `rootDsOpts` also feeds `PipelineCostEstimator`'s per-root classification
           // (kind/hasSourceUrl) below -- a root `findByIdOwned` can't see (e.g. a shared viewer)
           // yields `None` here, which the estimator treats as `unclassified-source` (D7).

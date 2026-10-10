@@ -136,7 +136,7 @@ private[pipelines] final class PipelineNodeReads(
   /** `GET /api/pipelines/:id/capabilities?stepId=` (HEL-906 task 3.4) — evaluates
    *  `OutputBindingSpec` against the per-node projection `PipelineAnalyzeService.analyzeNodes`
    *  (task 3.3) computes for `stepId`, `None` meaning the pipeline's raw source. Sharing-aware
-   *  read (owner/editor/viewer of the pipeline), mirroring `analyze` above. An unresolvable
+   *  read (owner/editor/viewer of the pipeline), mirroring `PipelineAnalyzeReads.analyze`. An unresolvable
    *  `stepId` (absent from the pipeline's own step list, or present but unreached by the tree
    *  walk) is a 404 naming the id -- never a silent fallback to the source schema. */
   def capabilitiesAtNode(

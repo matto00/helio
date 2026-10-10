@@ -16,7 +16,7 @@ object PipelineAnalyzeService {
   private val log = LoggerFactory.getLogger(getClass)
 
   /** HEL-1266/HEL-1279: the single `CostReason.code` for an enabled step whose config is certain to
-   *  fail. Referenced by `PipelineService.toCostVerdictResponse` (analyze) and
+   *  fail. Referenced by `PipelineAnalyzeReads.toCostVerdictResponse` (analyze) and
    *  `AutoRunTriggerService` (dataset-write auto-run) so the two surfaces cannot drift. */
   val StepConfigInvalidCode: String = "step-config-invalid"
 

@@ -23,7 +23,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 /** HEL-1106 task 3.5 (design.md D7, mirrors `PipelineAnalyzeConvertFormatSpec`'s own precedent):
  *  `GET /pipelines/:id/analyze` must succeed (not 500) for a persisted pipeline containing an
  *  `analyzewithai` step -- proves `PipelineStepRepository.rowToDomain` decodes the persisted
- *  step and `PipelineService.toAnalyzeStepResponse` builds its response, entirely without an AI
+ *  step and `PipelineServiceSupport.toAnalyzeStepResponse` builds its response, entirely without an AI
  *  client (analyze never calls the model, design.md D7). */
 class PipelineAnalyzeAnalyzeWithAiSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 

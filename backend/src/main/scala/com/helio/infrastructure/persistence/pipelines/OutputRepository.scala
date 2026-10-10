@@ -72,7 +72,7 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *    1. `OutputService.create` -- `requireUnambiguousRootWhenNeither` refuses a multi-root
    *       pipeline with a named 400 BEFORE `resolveExplicitRootId` can return `None`, so this arm
    *       is reached only when the pipeline genuinely has exactly one root.
-   *    2. `PipelineService.buildOutputsAction` (`:617`) -- `resolveOutputRootIndex`'s `None`
+   *    2. `PipelineCreateTransaction.buildOutputsAction` -- `resolveOutputRootIndex`'s `None`
    *       branch (root-bound, no `rootClientId`) returns `Left(400)` when `roots.size > 1` and
    *       `Right(Some(0))` otherwise; a step-bound Output (`nodeStepClientId` defined) always
    *       carries a non-`None` `nodeStepId`, which takes the `(Some(_), _) => None` root arm

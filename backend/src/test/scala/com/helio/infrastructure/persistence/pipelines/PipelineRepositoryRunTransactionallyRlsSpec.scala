@@ -35,7 +35,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
  *  pipeline row, and every `insertInternalAction`'s `ownerId`/pipeline-owner lookup) -- there
  *  is no cross-user write in this specific composition, so the RLS check that would normally
  *  block a `*Internal` method's caller-supplied id never fires against a MISMATCHED id here.
- *  `PipelineRepository.runTransactionally` and `PipelineService.createTransactional` were
+ *  `PipelineRepository.runTransactionally` and `PipelineCreateTransaction.createTransactional` were
  *  switched to `withUserContext(user.id)` on the strength of this result -- see `design.md` D3. */
 class PipelineRepositoryRunTransactionallyRlsSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 

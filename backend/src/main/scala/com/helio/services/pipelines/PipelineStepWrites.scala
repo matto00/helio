@@ -85,7 +85,7 @@ private[pipelines] final class PipelineStepWrites(
                             // join/union/lookup config references must be caller-owned
                             // (HEL-278/HEL-384/HEL-386). An EMPTY second-source id is an
                             // incomplete draft, not a security violation — see the
-                            // identical guard + rationale in addStep above (HEL-620,
+                            // identical guard + rationale in `PipelineStepCreate.addStepReporting` (HEL-620,
                             // HEL-950: one shared extractor replacing three hand-copied
                             // per-op blocks).
                             val aclCheckF: Future[Either[ServiceError, Unit]] =

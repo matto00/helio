@@ -423,9 +423,9 @@ object ExistenceNotLeakedRoutesSpec {
     Row("POST patch-set apply: panel delete", HttpMethods.POST, "/api/patch-sets/apply", Panel, Set("PatchSetApplyResolvers.scala"),
       Json("""{"edits":[{"target":{"kind":"panel","id":"{id}"},"op":"delete"}]}"""), patchKinds = Set("panel:delete")),
     // pipeline steps (id is a STEP id; parent pipeline resolved through the visibility-filtered lookup)
-    Row("PATCH pipeline step", HttpMethods.PATCH, "/api/pipeline-steps/{id}", Step, Set("PipelineService.scala"), Json("""{"position":0}"""), ownerControl = false),
-    Row("DELETE pipeline step", HttpMethods.DELETE, "/api/pipeline-steps/{id}", Step, Set("PipelineService.scala"), ownerControl = false),
-    Row("POST pipeline step duplicate", HttpMethods.POST, "/api/pipeline-steps/{id}/duplicate", Step, Set("PipelineService.scala"), ownerControl = false),
+    Row("PATCH pipeline step", HttpMethods.PATCH, "/api/pipeline-steps/{id}", Step, Set("PipelineStepWrites.scala"), Json("""{"position":0}"""), ownerControl = false),
+    Row("DELETE pipeline step", HttpMethods.DELETE, "/api/pipeline-steps/{id}", Step, Set("PipelineStepWrites.scala"), ownerControl = false),
+    Row("POST pipeline step duplicate", HttpMethods.POST, "/api/pipeline-steps/{id}/duplicate", Step, Set("PipelineStepWrites.scala"), ownerControl = false),
     Row("POST patch-set apply: pipelineStep update", HttpMethods.POST, "/api/patch-sets/apply", Step, Set("PatchSetApplyResolvers.scala"),
       Json("""{"edits":[{"target":{"kind":"pipelineStep","id":"{id}"},"op":"update","patch":{"position":0}}]}"""), ownerControl = false, patchKinds = Set("pipelineStep:update")),
     Row("POST patch-set apply: pipelineStep delete", HttpMethods.POST, "/api/patch-sets/apply", Step, Set("PatchSetApplyResolvers.scala"),
@@ -452,7 +452,7 @@ object ExistenceNotLeakedRoutesSpec {
     Row("GET pipeline", HttpMethods.GET, "/api/pipelines/{id}", Pipeline, Set("PipelineService.scala")),
     Row("PATCH pipeline", HttpMethods.PATCH, "/api/pipelines/{id}", Pipeline, Set("PipelineService.scala"), Json("""{"name":"renamed"}""")),
     Row("DELETE pipeline", HttpMethods.DELETE, "/api/pipelines/{id}", Pipeline, Set("PipelineService.scala")),
-    Row("GET pipeline analyze", HttpMethods.GET, "/api/pipelines/{id}/analyze", Pipeline, Set("PipelineService.scala"), ownerControl = false),
+    Row("GET pipeline analyze", HttpMethods.GET, "/api/pipelines/{id}/analyze", Pipeline, Set("PipelineAnalyzeReads.scala"), ownerControl = false),
     Row("POST pipeline run", HttpMethods.POST, "/api/pipelines/{id}/run", Pipeline, Set("PipelineRunService.scala"), ownerControl = false),
     Row("GET pipeline run status", HttpMethods.GET, s"/api/pipelines/{id}/runs/$SeededRunId", Pipeline, Set("PipelineRunQueries.scala"), seedRun = true),
     Row("POST pipeline dry run", HttpMethods.POST, "/api/pipelines/{id}/run?dry=true", Pipeline, Set("PipelineRunService.scala"), ownerControl = false)

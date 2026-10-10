@@ -283,7 +283,7 @@ private[services] object PatchSetPreviewProjection {
 
 
   /** Mirrors `PipelineService.updateName`'s blank-name check
-   *  (`PipelineService.scala:154-155`, design.md D1/D1a) before the trivial
+   *  (`PipelineService.updateName`, design.md D1/D1a) before the trivial
    *  rename `.copy`. */
   private def pipelineRenameAfter(request: UpdatePipelineRequest, prior: PipelineSummary): Either[ServiceError, Option[JsValue]] =
     if (request.name.trim.isEmpty) Left(ServiceError.BadRequest("name must not be empty"))

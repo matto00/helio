@@ -46,8 +46,6 @@ private[pipelines] final class PipelineServiceSupport(
       PipelineStepResponse.fromDomain(step, rootIdOpt.map(rid => step.id.value -> rid.value).toMap)
     }
 
-  private def stepAddress(idx: Int): String   = PipelineService.stepAddress(idx)
-
   private[pipelines] def outputAddress(idx: Int): String = PipelineService.outputAddress(idx)
 
   /** HEL-892: mirrors `OutputService.validateFieldMapping` exactly (that class's ACL/RLS-facing

@@ -1827,7 +1827,7 @@ class PipelineStepRoutesSpec
     // evaluation-1.md's non-blocking correction: run against `main`, this
     // 200s the PATCH and stores the unparseable expression — a genuine
     // behavioural red, not a mutation-only one. The update surface
-    // (`PipelineService:670`) reaches the same `validateRawConfig` override
+    // (the config branch of `PipelineStepWrites.updateStep`) reaches the same `validateRawConfig` override
     // as create — a valid compute step cannot be edited into an unparseable
     // one.
     "PATCH /pipeline-steps/:id returns 422 when updating a compute step to an unparseable expression, leaving it unchanged" in {

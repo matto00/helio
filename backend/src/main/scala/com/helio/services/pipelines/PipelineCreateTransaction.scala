@@ -26,7 +26,7 @@ private[pipelines] final class PipelineCreateTransaction(
 
   import support.{audit, validateOutputFieldMapping, resolveSecondarySourceSchemas, upsertOwnershipCheckF, toSummaryResponse}
 
-  /** The single-call transactional path (`create` above delegates here only when `steps`/
+  /** The single-call transactional path (`PipelineCreateWrites.create` delegates here only when `steps`/
    *  `outputs` are non-empty). `dataSources` is EVERY root's already-ACL-checked
    *  `(DataSourceId, DataSource)` pair, in request order (`create` resolves and authorizes every
    *  root via `resolveRootDataSources` before this is ever called) -- HEL-907 fix, see

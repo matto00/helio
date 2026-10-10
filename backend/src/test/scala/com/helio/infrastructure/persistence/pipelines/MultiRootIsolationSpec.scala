@@ -127,7 +127,7 @@ class MultiRootIsolationSpec extends AnyWordSpec with Matchers with BeforeAndAft
     // FIRST root today ... deferred"), locking in a defect a green run then certified as
     // correct -- exactly why the ticket's own sweep never flagged it. That framing is now false:
     // `OutputService.requireUnambiguousRootWhenNeither` (added this cycle) refuses this exact
-    // ambiguity with a named 400 at the SERVICE layer, mirroring `PipelineService.persistNewStep`'s
+    // ambiguity with a named 400 at the SERVICE layer, mirroring `PipelineStepCreate.persistNewStep`'s
     // sibling guard on steps (see `OutputRoutesSpec`'s "multi-root ambiguity" tests for that
     // behavior, mutation-proven). This test calls `OutputRepository.insertInternal` DIRECTLY --
     // one layer BELOW the new guard -- so its own `explicitRootId = None` auto-resolve-to-first-

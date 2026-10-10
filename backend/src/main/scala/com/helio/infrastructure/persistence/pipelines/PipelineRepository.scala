@@ -393,7 +393,7 @@ class PipelineRepository(
   /** HEL-913 task 7.3a: multi-root DBIO variant of the pipeline-row-insert half of `create`
     * above -- `dataSources` is one already-ACL-checked `(DataSourceId, DataSource)` pair per
     * root, in request order (`position` = index), mirroring `create`'s own contract but composed
-    * into the caller's larger transaction (`PipelineService.createTransactional`) instead of
+    * into the caller's larger transaction (`PipelineCreateTransaction.createTransactional`) instead of
     * running standalone. Returns the summary AND `rootIds`, the real persisted `PipelineRootId`
     * per root in the SAME order as `dataSources` -- the caller needs these to resolve `roots[]`'s
     * `clientId` (R13) to a real id BEFORE building step/Output insert actions, so a parentless
@@ -424,7 +424,7 @@ class PipelineRepository(
     }
     // HEL-1101 task 3.2 (design.md Decision 4): same "checkExistingGraphAction" shape as `create`
     // above and for the same reason -- `createAction`'s own `req.steps` are inserted separately,
-    // afterward, by `buildStepsAction` (see `PipelineService.createTransactional`), and cannot
+    // afterward, by `buildStepsAction` (see `PipelineCreateTransaction.createTransactional`), and cannot
     // carry an `upsertsource` step (unregistered, `PipelineStepKind.All` rejects it before this
     // ever runs), so there is no same-request write edge this action itself introduces -- only
     // the standing visible graph is checked, prepended to the SAME composed DBIO chain

@@ -562,7 +562,7 @@ object RestApiConfigPayload {
    *  A bare `url` (no `connectorId`) is intentionally NOT resolved here — this method has no
    *  repository/user access to synthesize the implicit Connector design.md Decision 1
    *  describes; callers needing that dual-support (`SourceService.createRest`,
-   *  `PipelineService.resolveInlineSourceSchema`) branch on `p.url` themselves before ever
+   *  `PipelineProposalAnalyze.resolveInlineSourceSchema`) branch on `p.url` themselves before ever
    *  reaching this method's `connectorId`-only success path. */
   def toDomain(p: RestApiConfigPayload): Either[String, RestApiConfig] =
     if (p.auth.isDefined)
