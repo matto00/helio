@@ -153,3 +153,48 @@
   gap: var(--space-4);
   flex-shrink: 0;
 }
+
+/* HEL-1432 — narrow-viewport fit. Measured in the running app at a 375px viewport: the options
+   block was wider than the Configuration card, overflowing its right edge in both themes, and a very
+   long column name made it far wider still. Cause: this block is a grid item (`min-width: auto`), so
+   its width floored at the rows' min-content — the Cell density label and select side by side, and a
+   column row of checkbox/name + the fixed-width format wrapper (HEL-469) + the move group (HEL-813)
+   on one line — and a long, nowrap column name counted at its full text width. Fix: let the grid
+   items shrink to the card (`min-width: 0`), stack the density row, and wrap each column row so the
+   name takes the first line (it ellipsizes, never 0px) and the format select + move group sit
+   beneath it. This is phone-shaped LAYOUT, so it is gated on viewport WIDTH only (DESIGN.md §3/§4):
+   a coarse-pointer device wider than 768px (an iPad Pro) keeps the desktop layout. */
+@media (max-width: 768px) {
+  .table-display-fields__row {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .table-display-fields__column-list-container {
+    min-width: 0;
+  }
+
+  /* The list is a one-column grid whose auto track floors at the longest row's min-content (a
+     long column name); a zero-minimum track lets every row shrink to the card. */
+  .table-display-fields__column-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .table-display-fields__column-row {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+    min-width: 0;
+  }
+
+  .table-display-fields__column-visibility {
+    flex: 1 1 100%;
+  }
+
+  /* Wrapped under the name, the move group keeps the 44px tap floor as its own line height so the
+     `::after` expanders never reach the format select above it (HEL-813). */
+  .table-display-fields__column-move {
+    margin-left: auto;
+    align-items: center;
+    min-height: 44px;
+  }
+}

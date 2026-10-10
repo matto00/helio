@@ -34,6 +34,9 @@ interface SelectProps {
   /** Marks the trigger required for assistive tech (task 2.3, mirrors
    *  `ariaInvalid`/`ariaDescribedBy` above). */
   ariaRequired?: boolean;
+  /** Id applied to the trigger button only (so a `<label htmlFor>` associates with the
+   *  combobox). Omitted -> no `id` attribute is rendered. */
+  id?: string;
 }
 
 /** App-styled custom dropdown that replaces native <select>. Renders a button
@@ -51,6 +54,7 @@ export function Select({
   ariaInvalid,
   ariaDescribedBy,
   ariaRequired,
+  id,
 }: SelectProps) {
   const { triggerRef, panelRef, isOpen, panelPos, handleOpen, close } =
     usePortalPopover<HTMLButtonElement>();
@@ -158,6 +162,7 @@ export function Select({
     <div className="ui-select">
       <button
         ref={triggerRef}
+        id={id}
         type="button"
         role="combobox"
         className={triggerClasses}
