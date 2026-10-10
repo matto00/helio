@@ -5,6 +5,7 @@ import com.helio.testkit.TempDirectorySupport
 import com.helio.testsupport.DatasetRowsTestSupport
 import com.helio.services.ServiceError
 import com.helio.domain.model._
+import com.helio.domain.util.Clock
 import com.helio.domain.engine.{NodeKey, PipelineExecutionBackend, PipelineExecutionOutcome, SourceReadStats}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
@@ -21,6 +22,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
 
 import java.nio.file.Paths
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.concurrent.duration.DurationInt
@@ -112,12 +114,23 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
     PipelineId(pid)
   }
 
+  /** HEL-1471: pins the rate-window clock (`PipelineRunService.guardClock`, the HEL-1374/1439
+   *  pattern) to a fixed mid-window instant -- 30 minutes into an hour -- so every submission in a
+   *  test lands in ONE epoch-aligned bucket regardless of the real wall clock. A literal is safe
+   *  here only because this spec never runs `cleanupOldWindows` (which uses real `Instant.now()`).
+   *  Fresh owners per test (`freshOwner()`) mean rate rows never collide across tests. */
+  private val PinnedInstant: Instant = Instant.parse("2026-01-01T00:30:00Z")
+  private object PinnedGuardClock extends Clock {
+    override def now(): Instant = PinnedInstant
+  }
+
   private def newService(guardConfig: PipelineRunGuardConfig): PipelineRunService =
     new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo,
       new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
       pipelineRunGuardRepo = guardRepo,
       guardConfig = guardConfig,
+      guardClock = PinnedGuardClock,
       outputRepo = new OutputRepository(ctx)
     )
 
@@ -165,6 +178,7 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
       new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
       pipelineRunGuardRepo = guardRepo,
       guardConfig = guardConfig,
+      guardClock = PinnedGuardClock,
       executionBackend = new GatedExecutionBackend(gate, onAdmitted),
       outputRepo = new OutputRepository(ctx)
     )
@@ -194,23 +208,14 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
   /** HEL-1195 (root cause -- see `repro-findings.md`): every test below issues 2-3 sequential,
    *  `await`-blocking `service.submit` calls and expects a LATER one to be rejected by the rate
    *  limiter. `PipelineRunGuardRepository.incrementRateIfUnderLimit`'s window bucketing
-   *  (`bucketStart`) is an ABSOLUTE, wall-clock-anchored fixed window -- a new bucket starts at
-   *  every exact multiple of `rateWindowSeconds` since the epoch, regardless of when the caller's
-   *  own burst began (existing, intentional, already-covered behavior --
-   *  `PipelineRunGuardRepositorySpec`'s "buckets by window" test). With `rateWindowSeconds = 60`
-   *  (the original value here), if real wall-clock time happens to cross one of those
-   *  once-a-minute boundaries between two of a test's own sequential submissions -- CI/full-suite
-   *  contention widens the exposure window slightly, but even an idle run has a nonzero chance --
-   *  the later submission lands in a fresh bucket and is incorrectly admitted instead of rejected.
-   *  `PipelineRunExecutor.executeRun` calls `incrementRateIfUnderLimit` with no explicit `now`, so
-   *  there is no clock-injection seam at this (integration, not repository-level) test's disposal
-   *  to pin time deterministically. Widening to 3600s here (test-only; no production change, and
-   *  no assertion below depends on the specific window value) cuts the boundary-crossing exposure
-   *  by ~60x -- a test would need to run for over an hour, instead of over a minute, to have the
-   *  same absolute per-run collision probability. */
+   *  (`bucketStart`) is an ABSOLUTE, epoch-aligned fixed window, so with the real clock a real
+   *  window boundary falling between two of a test's submissions put the later one in a fresh
+   *  bucket and wrongly admitted it. HEL-1471 removes that exposure entirely: `newService` and
+   *  `newGatedService` pass `guardClock = PinnedGuardClock` (a fixed mid-window instant), so all
+   *  submissions share one bucket whatever the wall clock does. */
   "PipelineRunService pipeline-run guard: rate limit (HEL-505 tasks.md 8.2)" should {
 
-    "rejects the (limit+1)th submission within a window with TooManyRequests + a positive retryAfterSeconds" in {
+    "rejects the (limit+1)th submission within a window with TooManyRequests + the exact retryAfterSeconds of the pinned window" in {
       val user = freshOwner()
       val pid  = seedPipelineFor(user.id)
       val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 2, rateWindowSeconds = 3600, maxConcurrent = 100, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
@@ -220,7 +225,9 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
 
       val rejected = await(service.submit(pid, isDry = false, user))
       val err = tooManyRequests(rejected)
-      err.retryAfterSeconds should be > 0L
+      // Exact value (windowStart + w - now = 1800 for a pinned instant 30 min into a 3600s window):
+      // also a permanent wiring guard -- it fails on SystemClock ~3599/3600 of the time.
+      err.retryAfterSeconds shouldBe 1800L
     }
 
     "a different owner's rate-limit budget is unaffected by another owner's submissions" in {

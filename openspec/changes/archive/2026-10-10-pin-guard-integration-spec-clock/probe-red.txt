@@ -1,0 +1,13 @@
+# Temporary, uncommitted probe edit (HEL-1471): the 'limit+1' test used a 10s rateWindowSeconds,
+# slept to ~1.5s before a real epoch%10s boundary, then slept to 100ms after it before submission 3,
+# and dumped the owner's pipeline_run_rate_window rows. Filtered to load-bearing lines.
+[probe] boundaryMs=1791617220000 start=2026-10-10T07:26:58.500912721Z
+[probe] sub1 done 2026-10-10T07:26:58.699522873Z msToBoundary=1301
+[probe] sub2 done 2026-10-10T07:26:58.785683049Z msToBoundary=1215
+[probe] sub3 start 2026-10-10T07:27:00.100862969Z msToBoundary=-100
+[probe] rows=Vector((2026-10-10 00:26:50.0,2), (2026-10-10 00:27:00.0,1))
+[info] - should rejects the (limit+1)th submission within a window with TooManyRequests + a positive retryAfterSeconds *** FAILED ***
+[info]   expected Left(TooManyRequests), got Right(RunResultResponse(Vector({"name":"alice"}),1,Map(),1,Some(8f5d9a69-dc92-47e6-9ae6-7368a311b959),false,None,false,None,None,Vector())) (PipelineRunGuardIntegrationSpec.scala:191)
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

@@ -1,0 +1,7 @@
+bad-pattern hits:
+0
+iters with 'Tests: succeeded 10, failed 0':
+20
+iters with hel1468-guard failed=0 aborted=0:
+20
+Note: loop-logs/*.log are gitignored and not retained. All 20 sbt exit codes were also 0, but were not used as the judge.
