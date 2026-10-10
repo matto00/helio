@@ -14,6 +14,11 @@ import {
   validateExclusions,
   validateWireExpressibility,
 } from "./lib/agentFacingPanelTypes.mjs";
+import {
+  PANEL_KIND_ENUM_EXEMPTIONS,
+  findPanelKindEnums,
+  validatePanelKindEnumCoverage,
+} from "./lib/panelKindEnumCoverage.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const schemasDir = join(repoRoot, "schemas");
@@ -264,48 +269,49 @@ const bindingFieldByKind = {
   ...Object.fromEntries(canonicalSourceBoundKinds.map((k) => [k, "dataSourceId"])),
 };
 
+// HEL-1412: each schemas/ surface records schemaFile + enumPath so the panel-kind enum coverage
+// check below knows which schema enums are parity-checked here.
+function schemaEnumSurface(schemaFile, enumPath, canonical) {
+  return {
+    label: `schemas/${schemaFile} ${enumPath.join(".")}`,
+    canonical,
+    schemaFile,
+    enumPath,
+    actual: getEnumAt(
+      JSON.parse(readFileSync(join(schemasDir, schemaFile), "utf8")),
+      enumPath,
+      schemaFile,
+    ),
+  };
+}
+
 const panelTypeSurfaces = [
-  {
-    label: "schemas/panels/create-panel-request.schema.json properties.type.enum",
-    canonical: canonicalPanelTypes,
-    actual: getEnumAt(
-      JSON.parse(readFileSync(join(schemasDir, "panels/create-panel-request.schema.json"), "utf8")),
-      ["properties", "type", "enum"],
-      "panels/create-panel-request.schema.json",
-    ),
-  },
-  {
-    label: "schemas/panels/panel.schema.json properties.type.enum",
-    canonical: canonicalPanelTypes,
-    actual: getEnumAt(
-      JSON.parse(readFileSync(join(schemasDir, "panels/panel.schema.json"), "utf8")),
-      ["properties", "type", "enum"],
-      "panels/panel.schema.json",
-    ),
-  },
-  {
-    label: "schemas/panels/update-panels-batch-request.schema.json panels.items.type.enum",
-    canonical: canonicalPanelTypes,
-    actual: getEnumAt(
-      JSON.parse(
-        readFileSync(join(schemasDir, "panels/update-panels-batch-request.schema.json"), "utf8"),
-      ),
-      ["properties", "panels", "items", "properties", "type", "enum"],
-      "panels/update-panels-batch-request.schema.json",
-    ),
-  },
-  {
-    label:
-      "schemas/dashboards/dashboard-proposal.schema.json $defs.ProposalPanel.properties.type.enum",
-    canonical: agentFacingPanelTypes,
-    actual: getEnumAt(
-      JSON.parse(
-        readFileSync(join(schemasDir, "dashboards/dashboard-proposal.schema.json"), "utf8"),
-      ),
-      ["$defs", "ProposalPanel", "properties", "type", "enum"],
-      "dashboards/dashboard-proposal.schema.json",
-    ),
-  },
+  schemaEnumSurface(
+    "panels/create-panel-request.schema.json",
+    ["properties", "type", "enum"],
+    canonicalPanelTypes,
+  ),
+  schemaEnumSurface(
+    "panels/panel.schema.json",
+    ["properties", "type", "enum"],
+    canonicalPanelTypes,
+  ),
+  schemaEnumSurface(
+    "panels/update-panels-batch-request.schema.json",
+    ["properties", "panels", "items", "properties", "type", "enum"],
+    canonicalPanelTypes,
+  ),
+  // HEL-1412 / HEL-1149: this enum sat outside every checked surface; HEL-1083 found it by hand.
+  schemaEnumSurface(
+    "panels/create-panels-batch-request.schema.json",
+    ["properties", "panels", "items", "properties", "type", "enum"],
+    canonicalPanelTypes,
+  ),
+  schemaEnumSurface(
+    "dashboards/dashboard-proposal.schema.json",
+    ["$defs", "ProposalPanel", "properties", "type", "enum"],
+    agentFacingPanelTypes,
+  ),
 ];
 
 const helioMcpProposalSrc = readFileSync(helioMcpProposalTs, "utf8");
@@ -405,6 +411,28 @@ for (const { label, canonical, actual } of [...panelTypeSurfaces, ...dataPanelTy
   if (mismatch) errors.push(mismatch);
   else panelTypeChecked += 1;
 }
+
+// --- Panel-kind enum coverage (HEL-1412 / HEL-1149) ---
+// The parity loop above only sees the enums listed in panelTypeSurfaces. Find every enum under
+// schemas/ that holds panel kinds and require each to be a checked surface or an explicit,
+// reasoned exemption (scripts/lib/panelKindEnumCoverage.mjs), so the list cannot silently miss one.
+const detectedPanelKindEnums = allDiscoveredFiles
+  .filter((file) => file.endsWith(".json"))
+  .flatMap((file) =>
+    findPanelKindEnums(
+      JSON.parse(readFileSync(join(schemasDir, file), "utf8")),
+      canonicalPanelTypes,
+    ).map((path) => ({ file, path })),
+  );
+errors.push(
+  ...validatePanelKindEnumCoverage({
+    detected: detectedPanelKindEnums,
+    covered: panelTypeSurfaces
+      .filter((s) => s.schemaFile)
+      .map((s) => ({ file: s.schemaFile, path: s.enumPath })),
+    exemptions: PANEL_KIND_ENUM_EXEMPTIONS,
+  }),
+);
 
 // --- AssistantProposalToolSchemas <-> tool-schema JSON Schema parity (HEL-928) ---
 // AssistantProposalToolSchemas.scala hand-rolls `JsObject` trees for each `propose_*`
@@ -739,6 +767,9 @@ console.log(
 );
 console.log(
   `panel-type enums in sync with backend canonical sets (${panelTypeChecked} surfaces checked)`,
+);
+console.log(
+  `panel-kind enum coverage: ${detectedPanelKindEnums.length} schema enums detected, each checked or exempted`,
 );
 console.log(
   `AssistantProposalToolSchemas.scala in sync with schemas/ (${assistantToolSurfacesChecked} surfaces checked)`,
