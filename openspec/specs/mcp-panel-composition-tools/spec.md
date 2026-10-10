@@ -18,7 +18,7 @@ image panel's `config.imageUrl`).
 #### Scenario: Agent uploads an image and references it in markdown
 - **WHEN** an agent calls `upload_image` with image content and a filename
 - **THEN** the tool returns the `id`, served `url`, and `helio://uploads/image/<id>` ref, and that
-  ref renders the image when placed in a bound/authored markdown panel
+  ref renders the image when placed in a markdown panel's literal `config.content`
 
 #### Scenario: Oversized image is rejected verbatim
 - **WHEN** the uploaded image exceeds the backend's configured maximum size
@@ -57,8 +57,8 @@ Each proposal panel SHALL accept an optional generic `config` object that is car
 `apply_proposal` to `POST /api/dashboards/apply-proposal` and merged into the config the backend
 derives from the flat fields, then decoded by the SAME panel-create path (`PanelConfigCodec`). This
 SHALL make every v1.5 config surface expressible via a proposal — collection `baseType`/`layout`,
-chart `chartOptions` (per chart type), table `density`/`columnOrder`, and text/markdown content
-binding. On key conflict the explicit `config` SHALL win over a derived flat field, EXCEPT that a
+chart `chartOptions` (per chart type), table `density`/`columnOrder`, and text/markdown literal
+`content`. On key conflict the explicit `config` SHALL win over a derived flat field, EXCEPT that a
 data panel's server-resolved `outputId` binding SHALL remain authoritative so the V41 pipeline-only
 binding guarantee cannot be bypassed via `config`.
 

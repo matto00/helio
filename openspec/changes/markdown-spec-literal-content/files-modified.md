@@ -1,7 +1,0 @@
-- `frontend/src/utils/crossFilterRows.ts` — deleted the `markdown` case from `fieldMappingForKind` (falls to `default: {}`), dropped the unused `readMarkdownConfig` import, added the HEL-1405 JSDoc note (tasks 2.2, E4)
-- `frontend/src/utils/crossFilterRows.test.ts` — T1 red-first and T2 guard markdown tests; removed the markdown assertion from the collection/timeline test (tasks 3.1, 3.2)
-- `frontend/src/features/panels/ui/PanelContent.test.tsx` — T3 guard: a placed markdown Output renders literal `config.content` (task 3.3)
-- `openspec/specs/markdown-panel/spec.md` — Purpose line replaced (E1); `TBD` removed (task 1.1)
-- `openspec/specs/markdown-panel-content-source/spec.md` — Purpose line replaced (E2) (task 1.2)
-- `openspec/specs/mcp-panel-composition-tools/spec.md` — Purpose body replaced (E3) (task 1.3)
-- `openspec/changes/markdown-spec-literal-content/` — tasks.md ticks, evidence.md (red, after, mutations, ledger, gates), files-modified.md
